@@ -2754,88 +2754,32 @@ include '../../includes/header.php';
         statusEl.textContent = '● ' + (statusMap[booking.status] || booking.status);
         statusEl.style.cssText = 'font-size:0.78rem;font-weight:700;padding:4px 12px;border-radius:20px;background:' + (statusColorMap[booking.status] || '#f1f5f9;color:#475569');
 
-        // Source badge
-        console.log('🔍 SOURCE DEBUG: booking object:', {
-            booking_source: booking.booking_source,
-            ota_source_detail: booking.ota_source_detail,
-            type: typeof booking.booking_source
-        });
-
-        let bkSrc = (booking.booking_source || '').trim().toLowerCase();
-        console.log(`🔍 bkSrc after trim/toLowerCase: "${bkSrc}"`);
-
-        // If OTA, use ota_source_detail for display (agoda, booking, traveloka, etc)
-        if (bkSrc === 'ota' && booking.ota_source_detail) {
-            bkSrc = booking.ota_source_detail.toLowerCase();
-            console.log(`🔍 Using OTA detail: ${bkSrc}`);
-        }
-
-        if (!bkSrc && booking.payments && booking.payments.length > 0) {
-            console.log('🔍 bkSrc empty, checking payments...');
-            for (let i = 0; i < booking.payments.length; i++) {
-                const pm = (booking.payments[i].payment_method || '').toLowerCase();
-                if (pm.startsWith('ota_')) {
-                    bkSrc = pm.replace('ota_', '');
-                    console.log(`🔍 Found in payments: ${bkSrc}`);
-                    break;
-                } else if (pm === 'ota') {
-                    bkSrc = 'ota';
-                    console.log(`🔍 Found OTA in payments`);
-                    break;
-                }
-            }
-        }
-
-        // Comprehensive source name mapping (hardcoded + dynamic from SOURCE_NAMES)
-        const sourceDefaultMap = {
+        // Source badge - SIMPLIFIED & FIXED
+        let bkSrc = (booking.booking_source || 'walk_in').trim().toLowerCase();
+        
+        // Hardcoded source name mapping
+        const sourceNameMap = {
             'walk_in': 'Walk-In',
-            'phone': 'Phone',
-            'online': 'Online',
+            'phone': 'Phone Booking',
+            'online': 'Direct Online',
             'direct': 'Direct',
-            'ota': 'OTA',
-            'agoda': 'OTA Agoda',
-            'booking': 'OTA Booking.com',
-            'tiket': 'OTA Tiket.com',
-            'traveloka': 'OTA Traveloka',
-            'airbnb': 'OTA Airbnb',
-            'expedia': 'OTA Expedia',
-            'pegipegi': 'OTA Pegipegi'
+            'agoda': '🏨 OTA Agoda',
+            'booking': '📱 OTA Booking.com',
+            'tiket': '✈️ OTA Tiket.com',
+            'traveloka': '🎫 OTA Traveloka',
+            'airbnb': '🏠 OTA Airbnb',
+            'expedia': '🗺️ OTA Expedia',
+            'pegipegi': '🧳 OTA Pegipegi',
+            'ota': '🌐 OTA Lainnya'
         };
-
-        let displaySource = 'Walk-In';
-        console.log(`🔍 Initial displaySource: "${displaySource}", bkSrc: "${bkSrc}"`);
-
-        if (bkSrc) {
-            console.log(`🔍 Has bkSrc, checking SOURCE_NAMES:`, typeof SOURCE_NAMES, SOURCE_NAMES);
-            // Try SOURCE_NAMES first (from booking_sources table with icons)
-            if (typeof SOURCE_NAMES !== 'undefined' && SOURCE_NAMES[bkSrc]) {
-                displaySource = SOURCE_NAMES[bkSrc];
-                console.log(`✅ Source from SOURCE_NAMES: ${bkSrc} → ${displaySource}`);
-            }
-            // Fallback to hardcoded map
-            else if (sourceDefaultMap[bkSrc]) {
-                displaySource = sourceDefaultMap[bkSrc];
-                console.log(`✅ Source from defaultMap: ${bkSrc} → ${displaySource}`);
-            }
-            // Last resort: format the string
-            else {
-                displaySource = bkSrc.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-                console.log(`✅ Source formatted: ${bkSrc} → ${displaySource}`);
-            }
-            console.log(`📌 Final displaySource: "${displaySource}" (from bkSrc: "${bkSrc}")`);
-        } else {
-            console.log(`⚠️ bkSrc is empty or falsy, using default: "${displaySource}"`);
-        }
-
+        
+        // Determine display source
+        let displaySource = sourceNameMap[bkSrc] || bkSrc.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        
         // Update element
         const sourceEl = document.getElementById('sp-source');
-        console.log(`🔍 Setting sp-source element to: "${displaySource}"`);
         if (sourceEl) {
             sourceEl.textContent = displaySource;
-            sourceEl.innerHTML = displaySource; // Force update
-            console.log(`✅ sp-source updated, new text: "${sourceEl.textContent}"`);
-        } else {
-            console.warn(`❌ sp-source element not found!`);
         }
 
         // Timeline
