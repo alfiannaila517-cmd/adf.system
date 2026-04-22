@@ -89,16 +89,20 @@ try {
     $booking['guest_email'] = $booking['guest_email'] ?? '-';
     $booking['guest_id_number'] = $booking['guest_id_number'] ?? '-';
 
-    // Ensure booking_source is never empty and use ota_source_detail if available
-    if (empty($booking['booking_source']) || $booking['booking_source'] === 'ota') {
-        if (!empty($booking['ota_source_detail'])) {
-            $booking['booking_source'] = $booking['ota_source_detail'];
-        } else {
-            $booking['booking_source'] = 'walk_in';
-        }
-        error_log("⚠️ booking_source was empty or 'ota', adjusted based on ota_source_detail. New source: " . $booking['booking_source']);
+    // Determine the correct booking source
+    // Priority: ota_source_detail > booking_source > default to walk_in
+    if (!empty($booking['ota_source_detail'])) {
+        // If OTA source detail exists (e.g., 'Traveloka', 'Booking.com'), use it
+        $booking['booking_source'] = $booking['ota_source_detail'];
+    } elseif (!empty($booking['booking_source'])) {
+        // If booking_source exists, use it as-is (e.g., 'ota', 'direct', 'phone')
+        // But if it's just 'ota' without detail, we'll keep it as 'ota' to indicate it came from OTA
+        $booking['booking_source'] = $booking['booking_source'];
+    } else {
+        // No source info at all, default to walk_in
+        $booking['booking_source'] = 'walk_in';
     }
-    error_log("✅ Final booking_source in response: '" . $booking['booking_source'] . "'");
+    error_log("✅ Final booking_source in response: '" . $booking['booking_source'] . "' (ota_source_detail: '" . ($booking['ota_source_detail'] ?? 'NULL') . "')");
 
     // Fetch payment history
     $payments = [];
