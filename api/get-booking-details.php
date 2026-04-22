@@ -89,10 +89,14 @@ try {
     $booking['guest_email'] = $booking['guest_email'] ?? '-';
     $booking['guest_id_number'] = $booking['guest_id_number'] ?? '-';
 
-    // Ensure booking_source is never empty
-    if (empty($booking['booking_source'])) {
-        $booking['booking_source'] = 'walk_in';
-        error_log("⚠️ booking_source was empty, set to default: walk_in");
+    // Ensure booking_source is never empty and use ota_source_detail if available
+    if (empty($booking['booking_source']) || $booking['booking_source'] === 'ota') {
+        if (!empty($booking['ota_source_detail'])) {
+            $booking['booking_source'] = $booking['ota_source_detail'];
+        } else {
+            $booking['booking_source'] = 'walk_in';
+        }
+        error_log("⚠️ booking_source was empty or 'ota', adjusted based on ota_source_detail. New source: " . $booking['booking_source']);
     }
     error_log("✅ Final booking_source in response: '" . $booking['booking_source'] . "'");
 
