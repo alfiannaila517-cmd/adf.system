@@ -349,16 +349,19 @@ try {
                 }
 
                 // Fetch rooms with corrected type ordering
-                $stmtR = $pdo->query("
-                    SELECT r.id, r.room_number, r.floor_number, r.status,
-                           rt.type_name, rt.base_price
-                    FROM rooms r
-                    LEFT JOIN room_types rt ON r.room_type_id = rt.id
-                    WHERE r.status != 'maintenance'
-                    ORDER BY FIELD(rt.type_name, 'Queen Chambers','Queen','Twin Chambers','Twin',
-                                   'King Quarters','King','Deluxe Queen','Deluxe King'),
-                             rt.type_name ASC, r.floor_number ASC, r.room_number ASC
-                ");
+                  $stmtR = $pdo->query("
+                      SELECT r.id, r.room_number, r.floor_number, r.status,
+                          rt.type_name, rt.base_price,
+                          CASE WHEN b.id IS NOT NULL THEN 1 ELSE 0 END as has_checkin,
+                          g.guest_name
+                      FROM rooms r
+                      LEFT JOIN room_types rt ON r.room_type_id = rt.id
+                      LEFT JOIN bookings b ON b.room_id = r.id AND b.status = 'checked_in'
+                      LEFT JOIN guests g ON b.guest_id = g.id
+                      ORDER BY FIELD(rt.type_name, 'Queen Chambers','Queen','Twin Chambers','Twin',
+                            'King Quarters','King','Deluxe Queen','Deluxe King'),
+                         rt.type_name ASC, r.floor_number ASC, r.room_number ASC
+                  ");
                 $calRooms = $stmtR->fetchAll(PDO::FETCH_ASSOC);
 
                 // Group by type
