@@ -1263,11 +1263,12 @@ include '../../includes/header.php';
     }
 
     .ps-table td {
-        padding: 0.5rem 0.35rem;
+        padding: 0.6rem 0.4rem;
         border-bottom: 1px solid var(--border-light);
         vertical-align: middle;
         text-align: center;
-        font-size: 0.95rem;
+        font-size: 0.88rem;
+        font-weight: 500;
     }
 
     .ps-table td.col-employee {
@@ -1307,11 +1308,11 @@ include '../../includes/header.php';
     /* Input Styling */
     .ps-input {
         width: 100%;
-        padding: 0.4rem 0.35rem;
+        padding: 0.45rem 0.3rem;
         border: 1px solid transparent;
         border-radius: 4px;
         background: transparent;
-        font-size: 0.95rem;
+        font-size: 0.88rem;
         font-weight: 500;
         text-align: right;
         transition: all 0.2s;
@@ -1338,8 +1339,9 @@ include '../../includes/header.php';
         background: rgba(245, 158, 11, 0.15);
         border-color: rgba(245, 158, 11, 0.3);
         text-align: center;
-        font-weight: 700;
-        font-size: 1.05rem;
+        font-weight: 600;
+        font-size: 0.88rem;
+        padding: 0.45rem 0.3rem;
     }
 
     .ps-input.negative {
@@ -1458,11 +1460,11 @@ include '../../includes/header.php';
 
     /* Info Tooltip */
     .ps-info {
-        font-size: 0.55rem;
+        font-size: 0.65rem;
         color: var(--text-tertiary);
-        margin-top: 0.1rem;
+        margin-top: 0.15rem;
         font-weight: 400;
-        line-height: 1;
+        line-height: 1.1;
     }
 
     /* Modal */
@@ -2227,11 +2229,11 @@ include '../../includes/header.php';
                             <th class="col-employee">Employee</th>
                             <th style="width: 100px;">Base<div class="ps-info">Full</div>
                             </th>
-                            <th style="width: 110px; background: rgba(245,158,11,0.1);">Hours<div class="ps-info">200</div>
+                            <th style="width: 110px; background: rgba(245,158,11,0.1); padding: 0.6rem 0.4rem; font-size: 0.82rem;">Hours<div class="ps-info" style="font-size: 0.7rem; margin-top: 2px;">200</div>
                             </th>
-                            <th style="width: 130px;">Actual<div class="ps-info">Calc</div>
+                            <th style="width: 130px; padding: 0.6rem 0.4rem; font-size: 0.82rem;">Actual<div class="ps-info" style="font-size: 0.7rem; margin-top: 2px;">Calc</div>
                             </th>
-                            <th style="width: 55px; background: rgba(59,130,246,0.1);">OT</th>
+                            <th style="width: 65px; background: rgba(59,130,246,0.1); padding: 0.6rem 0.4rem; font-size: 0.82rem;">OT</th>
                             <th style="width: 85px;">OT Rp</th>
                             <th style="width: 80px;">Service</th>
                             <th style="width: 80px;">Allowc</th>
