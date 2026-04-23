@@ -772,21 +772,21 @@ if ($trialStatus) {
 <!-- PREMIUM TRADING CHART - PALING ATAS -->
 <div id="tradingChartCard" style="margin-bottom: 1.5rem; overflow: hidden; border-radius: 20px; background: var(--chart-card-bg); border: 1px solid var(--chart-card-border); box-shadow: var(--chart-card-shadow);">
     <!-- Header Row -->
-    <div style="padding: 1.25rem 1.5rem 0;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.15rem;">
-            <div style="display: flex; align-items: center; gap: 0.6rem;">
-                <div style="width: 3px; height: 22px; border-radius: 4px; background: var(--primary-color);"></div>
-                <div>
-                    <div style="font-size: 0.58rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; line-height: 1;"><?php echo strtoupper(BUSINESS_NAME); ?></div>
-                    <div style="font-size: 0.92rem; font-weight: 700; color: var(--text-primary); margin-top: 0.1rem;">Financial Flow Overview</div>
-                    <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 0.2rem;">Income, expense, and net profit in one clean view</div>
+    <div class="chart-head-wrap">
+        <div class="chart-head-row">
+            <div class="chart-title-wrap">
+                <div class="chart-title-accent"></div>
+                <div class="chart-title-block">
+                    <div class="chart-kicker"><?php echo strtoupper(BUSINESS_NAME); ?></div>
+                    <div class="chart-main-title">Dashboard Finansial Digital</div>
+                    <div class="chart-sub-title">Arus pemasukan, pengeluaran, dan profit harian dalam satu tampilan</div>
                 </div>
                 <div id="liveIndicator" class="chart-live-pill">
                     <span class="chart-live-dot"></span>
                     <span class="chart-live-text">LIVE</span>
                 </div>
             </div>
-            <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <div class="chart-controls-wrap">
                 <div id="dailyFilter" style="display: none; align-items: center;">
                     <input type="date" id="chartDateFilter" value="<?php echo date('Y-m-d'); ?>" class="chart-filter-input" onchange="updateChartDate(this.value)">
                 </div>
@@ -810,7 +810,7 @@ if ($trialStatus) {
         </div>
 
         <!-- Summary Numbers Row -->
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; margin-bottom: 1.15rem;">
+        <div class="chart-summary-grid">
             <?php
             $totalIncome = array_sum(array_column($dailyData, 'income'));
             $displayIncome = $isCQC ? ($totalIncome - ($cqcPettyCashTransfers ?? 0) - ($cqcExpenseFromBank ?? 0)) : $totalIncome;
@@ -850,15 +850,15 @@ if ($trialStatus) {
 
     <!-- Chart Canvas Area -->
     <div class="chart-canvas-wrap">
-        <div style="position: relative; height: 280px; padding: 0.4rem 0.75rem 0.2rem;">
+        <div class="chart-canvas-inner">
             <canvas id="tradingChart"></canvas>
         </div>
     </div>
 
     <!-- Footer Bar -->
     <div class="chart-footer-bar">
-        <span id="periodDisplay" style="font-size: 0.65rem; color: var(--text-muted); font-weight: 500;">1 - <?php echo date('t', strtotime($firstDay)); ?> <?php echo date('M Y', strtotime($firstDay)); ?></span>
-        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: flex-end;">
+        <span id="periodDisplay" class="chart-period-display">1 - <?php echo date('t', strtotime($firstDay)); ?> <?php echo date('M Y', strtotime($firstDay)); ?></span>
+        <div class="chart-legend-wrap">
             <div class="chart-legend-item"><span class="chart-legend-dot" style="background: #10b981;"></span>Pemasukan</div>
             <div class="chart-legend-item"><span class="chart-legend-dot" style="background: #f97316;"></span>Pengeluaran</div>
             <div class="chart-legend-item"><span class="chart-legend-dot" style="background: rgb(<?php echo $cPrimaryRgb; ?>);"></span>Net Harian</div>
@@ -895,35 +895,36 @@ if ($trialStatus) {
         }
     }
 
-    /* === CHART CARD - Modern Digital === */
+    /* === CHART CARD - Digital Elegant === */
     :root {
-        --chart-card-bg: linear-gradient(145deg, rgba(30, 41, 59, 0.97), rgba(15, 23, 42, 0.98));
-        --chart-card-border: rgba(148, 163, 184, 0.08);
-        --chart-card-shadow: 0 4px 24px rgba(0, 0, 0, 0.15), 0 1px 3px rgba(0, 0, 0, 0.08);
-        --chart-wrap-bg: rgba(148, 163, 184, 0.04);
-        --chart-wrap-border: rgba(148, 163, 184, 0.06);
-        --chart-tick-color: rgba(148, 163, 184, 0.45);
-        --chart-grid-color: rgba(148, 163, 184, 0.07);
-        --chart-metric-bg: rgba(148, 163, 184, 0.05);
-        --chart-metric-border: rgba(148, 163, 184, 0.08);
+        --chart-card-bg: linear-gradient(135deg, #ffffff 0%, #f7fbff 58%, #f2f8ff 100%);
+        --chart-card-border: rgba(30, 41, 59, 0.08);
+        --chart-card-shadow: 0 8px 28px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.05);
+        --chart-wrap-bg: radial-gradient(circle at 12% 0%, rgba(56, 189, 248, 0.08), transparent 42%), #f8fbff;
+        --chart-wrap-border: rgba(30, 41, 59, 0.10);
+        --chart-tick-color: rgba(71, 85, 105, 0.68);
+        --chart-grid-color: rgba(148, 163, 184, 0.26);
+        --chart-metric-bg: linear-gradient(145deg, rgba(255, 255, 255, 0.95), rgba(241, 245, 249, 0.82));
+        --chart-metric-border: rgba(148, 163, 184, 0.26);
     }
 
-    body[data-theme="light"] {
-        --chart-card-bg: linear-gradient(145deg, #ffffff, #f8fafc);
-        --chart-card-border: rgba(148, 163, 184, 0.12);
-        --chart-card-shadow: 0 4px 24px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
-        --chart-wrap-bg: rgba(100, 116, 139, 0.04);
-        --chart-wrap-border: rgba(148, 163, 184, 0.10);
-        --chart-tick-color: rgba(100, 116, 139, 0.5);
-        --chart-grid-color: rgba(148, 163, 184, 0.10);
-        --chart-metric-bg: rgba(148, 163, 184, 0.06);
-        --chart-metric-border: rgba(148, 163, 184, 0.10);
+    body[data-theme="dark"] {
+        --chart-card-bg: linear-gradient(135deg, #0f172a 0%, #111827 58%, #0b1220 100%);
+        --chart-card-border: rgba(148, 163, 184, 0.2);
+        --chart-card-shadow: 0 8px 30px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.25);
+        --chart-wrap-bg: radial-gradient(circle at 12% 0%, rgba(56, 189, 248, 0.16), transparent 45%), rgba(15, 23, 42, 0.95);
+        --chart-wrap-border: rgba(148, 163, 184, 0.2);
+        --chart-tick-color: rgba(203, 213, 225, 0.72);
+        --chart-grid-color: rgba(148, 163, 184, 0.20);
+        --chart-metric-bg: linear-gradient(145deg, rgba(30, 41, 59, 0.78), rgba(15, 23, 42, 0.78));
+        --chart-metric-border: rgba(148, 163, 184, 0.25);
     }
 
     #tradingChartCard {
         background: var(--chart-card-bg);
         transition: box-shadow 0.3s, transform 0.3s;
         position: relative;
+        backdrop-filter: blur(6px);
     }
 
     #tradingChartCard:hover {
@@ -935,19 +936,83 @@ if ($trialStatus) {
         content: '';
         position: absolute;
         inset: 0;
-        background: linear-gradient(180deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0));
+        background:
+            radial-gradient(circle at 100% 0%, rgba(56, 189, 248, 0.14), transparent 36%),
+            radial-gradient(circle at 0% 100%, rgba(16, 185, 129, 0.08), transparent 38%);
         pointer-events: none;
+    }
+
+    .chart-head-wrap {
+        padding: 1.1rem 1.25rem 0;
+        position: relative;
+        z-index: 2;
+    }
+
+    .chart-head-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .chart-title-wrap {
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+    }
+
+    .chart-title-accent {
+        width: 4px;
+        height: 34px;
+        border-radius: 999px;
+        background: linear-gradient(180deg, #0ea5e9 0%, #14b8a6 100%);
+        box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.1);
+    }
+
+    .chart-kicker {
+        font-size: 0.56rem;
+        color: var(--text-muted);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        line-height: 1;
+    }
+
+    .chart-main-title {
+        font-size: 0.98rem;
+        font-weight: 800;
+        color: var(--text-primary);
+        margin-top: 0.16rem;
+        line-height: 1.15;
+    }
+
+    .chart-sub-title {
+        font-size: 0.67rem;
+        color: var(--text-muted);
+        margin-top: 0.24rem;
+        line-height: 1.3;
+        max-width: 420px;
+    }
+
+    .chart-controls-wrap {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        flex-wrap: wrap;
+        justify-content: flex-end;
     }
 
     /* Live indicator */
     .chart-live-pill {
         display: inline-flex;
         align-items: center;
-        gap: 0.25rem;
-        padding: 0.15rem 0.5rem;
-        border-radius: 20px;
-        background: rgba(16, 185, 129, 0.08);
-        border: 1px solid rgba(16, 185, 129, 0.12);
+        gap: 0.3rem;
+        padding: 0.18rem 0.55rem;
+        border-radius: 999px;
+        background: rgba(16, 185, 129, 0.1);
+        border: 1px solid rgba(16, 185, 129, 0.18);
     }
 
     .chart-live-dot {
@@ -960,59 +1025,60 @@ if ($trialStatus) {
     }
 
     .chart-live-text {
-        font-size: 0.55rem;
+        font-size: 0.57rem;
         font-weight: 700;
         color: #10b981;
-        letter-spacing: 0.08em;
+        letter-spacing: 0.1em;
     }
 
     /* Filter inputs */
     .chart-filter-input {
         max-width: 125px;
-        height: 28px;
-        font-size: 0.65rem;
-        font-weight: 600;
+        height: 30px;
+        font-size: 0.66rem;
+        font-weight: 700;
         border: 1px solid var(--chart-metric-border);
-        border-radius: 8px;
+        border-radius: 9px;
         background: var(--chart-wrap-bg);
         color: var(--text-primary);
-        padding: 0 0.5rem;
+        padding: 0 0.55rem;
         outline: none;
-        transition: border-color 0.2s;
+        transition: border-color 0.2s, box-shadow 0.2s;
     }
 
     .chart-filter-input:focus {
         border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.14);
     }
 
     /* View toggle pill bar */
     .chart-view-toggle {
         display: flex;
         align-items: center;
-        gap: 1px;
+        gap: 2px;
         background: var(--chart-wrap-bg);
-        padding: 2px;
-        border-radius: 8px;
+        padding: 3px;
+        border-radius: 10px;
         border: 1px solid var(--chart-metric-border);
     }
 
     .btn-view-toggle {
-        padding: 0.25rem 0.5rem;
+        padding: 0.3rem 0.56rem;
         border: none;
         background: transparent;
         color: var(--text-muted);
-        border-radius: 6px;
-        font-size: 0.62rem;
-        font-weight: 600;
+        border-radius: 7px;
+        font-size: 0.63rem;
+        font-weight: 700;
         cursor: pointer;
         transition: all 0.2s;
         white-space: nowrap;
     }
 
     .btn-view-toggle.active {
-        background: var(--primary-color);
+        background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
         color: #fff;
-        box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
+        box-shadow: 0 6px 14px rgba(37, 99, 235, 0.25);
     }
 
     .btn-view-toggle:not(.active):hover {
@@ -1021,18 +1087,38 @@ if ($trialStatus) {
     }
 
     /* Metric cards */
+    .chart-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.62rem;
+        margin-bottom: 0.95rem;
+    }
+
     .chart-metric-card {
-        padding: 0.7rem 0.85rem;
+        padding: 0.72rem 0.88rem;
         border-radius: 12px;
         background: var(--chart-metric-bg);
         border: 1px solid var(--chart-metric-border);
         transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .chart-metric-card::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 2px;
+        background: linear-gradient(90deg, rgba(14, 165, 233, 0.9), rgba(20, 184, 166, 0.4));
+        opacity: 0.75;
     }
 
     .chart-metric-card:hover {
         transform: translateY(-1px);
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
-        border-color: rgba(148, 163, 184, 0.15);
+        box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+        border-color: rgba(14, 165, 233, 0.28);
     }
 
     .chart-metric-top {
@@ -1050,16 +1136,16 @@ if ($trialStatus) {
     }
 
     .chart-metric-name {
-        font-size: 0.62rem;
+        font-size: 0.6rem;
         color: var(--text-muted);
-        font-weight: 600;
+        font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: 0.04em;
+        letter-spacing: 0.08em;
         flex: 1;
     }
 
     .chart-metric-amount {
-        font-size: 1.15rem;
+        font-size: 1.16rem;
         font-weight: 800;
         color: var(--text-primary);
         line-height: 1.25;
@@ -1091,19 +1177,54 @@ if ($trialStatus) {
     /* Canvas area - transparent gray */
     .chart-canvas-wrap {
         background: var(--chart-wrap-bg);
-        margin: 0 0.75rem;
+        margin: 0 0.7rem;
         border-radius: 12px;
         border: 1px solid var(--chart-wrap-border);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .chart-canvas-wrap::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background-image: linear-gradient(to right, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+        background-size: 42px 100%;
+        opacity: 0.24;
+        pointer-events: none;
+    }
+
+    .chart-canvas-inner {
+        position: relative;
+        height: 300px;
+        padding: 0.5rem 0.82rem 0.3rem;
+        z-index: 1;
     }
 
     /* Footer bar */
     .chart-footer-bar {
-        padding: 0.75rem 1.25rem 0.95rem;
+        padding: 0.75rem 1.1rem 0.95rem;
         display: flex;
         justify-content: space-between;
         align-items: center;
         border-top: 1px solid var(--chart-wrap-border);
         background: rgba(148, 163, 184, 0.02);
+        gap: 0.6rem;
+        flex-wrap: wrap;
+    }
+
+    .chart-period-display {
+        font-size: 0.65rem;
+        color: var(--text-muted);
+        font-weight: 700;
+        letter-spacing: 0.02em;
+    }
+
+    .chart-legend-wrap {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        justify-content: flex-end;
     }
 
     .chart-legend-item {
@@ -1112,10 +1233,11 @@ if ($trialStatus) {
         gap: 0.4rem;
         font-size: 0.65rem;
         color: var(--text-muted);
-        font-weight: 600;
-        padding: 0.3rem 0.55rem;
+        font-weight: 700;
+        padding: 0.32rem 0.58rem;
         border-radius: 999px;
-        background: rgba(148, 163, 184, 0.06);
+        background: rgba(148, 163, 184, 0.1);
+        border: 1px solid rgba(148, 163, 184, 0.18);
     }
 
     .chart-legend-dot {
@@ -1125,9 +1247,32 @@ if ($trialStatus) {
         flex-shrink: 0;
     }
 
-    .chart-canvas-wrap {
-        padding: 0.2rem 0 0;
-        background: linear-gradient(180deg, rgba(148, 163, 184, 0.02), rgba(148, 163, 184, 0));
+    @media (max-width: 860px) {
+        .chart-head-wrap {
+            padding: 1rem 1rem 0;
+        }
+
+        .chart-main-title {
+            font-size: 0.9rem;
+        }
+
+        .chart-sub-title {
+            display: none;
+        }
+
+        .chart-summary-grid {
+            grid-template-columns: 1fr;
+            gap: 0.5rem;
+        }
+
+        .chart-canvas-inner {
+            height: 250px;
+            padding: 0.45rem 0.5rem 0.2rem;
+        }
+
+        .chart-filter-input {
+            max-width: 110px;
+        }
     }
 
     /* Card hover effects for operational section */
