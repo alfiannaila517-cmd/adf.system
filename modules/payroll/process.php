@@ -1118,7 +1118,7 @@ include '../../includes/header.php';
         padding: 0.5rem 1rem;
         border: none;
         border-radius: 8px;
-        font-weight: 600;
+        font-weight: 700;
         font-size: 0.85rem;
         cursor: pointer;
         display: inline-flex;
@@ -1126,37 +1126,44 @@ include '../../includes/header.php';
         gap: 0.4rem;
         transition: all 0.2s;
         text-decoration: none;
+        color: #ffffff !important;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
     }
 
     .ps-btn-warning {
         background: linear-gradient(135deg, #f59e0b, #d97706);
-        color: #fff;
+        color: #ffffff !important;
     }
 
     .ps-btn-success {
         background: linear-gradient(135deg, #22c55e, #16a34a);
-        color: #fff;
+        color: #ffffff !important;
     }
 
     .ps-btn-primary {
         background: var(--ps-gradient-1);
-        color: #fff;
+        color: #ffffff !important;
     }
 
     .ps-btn-secondary {
         background: linear-gradient(135deg, #6366f1, #7c3aed);
-        color: #fff;
+        color: #ffffff !important;
     }
 
     .ps-btn-outline {
         background: transparent;
         border: 1px solid var(--border-color);
-        color: #fff;
+        color: #ffffff !important;
     }
 
     .ps-btn-outline:hover {
         border-color: var(--primary-color);
-        color: var(--primary-color);
+        color: var(--primary-color) !important;
+    }
+
+    .ps-btn svg {
+        stroke: #ffffff !important;
+        fill: none !important;
     }
 
     /* Table Card */
