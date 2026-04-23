@@ -395,6 +395,12 @@ if (isset($_SESSION['user_id'])) {
                             </a>
                             <ul class="submenu">
                                 <li class="submenu-item">
+                                    <a href="<?php echo BASE_URL; ?>/modules/payroll/index.php" class="submenu-link <?php echo activeMenu('index.php'); ?>">
+                                        <i data-feather="layout" class="submenu-icon"></i>
+                                        <span>Dashboard</span>
+                                    </a>
+                                </li>
+                                <li class="submenu-item">
                                     <a href="<?php echo BASE_URL; ?>/modules/payroll/employees.php" class="submenu-link <?php echo activeMenu('employees.php'); ?>">
                                         <i data-feather="users" class="submenu-icon"></i>
                                         <span>Employee Data</span>
