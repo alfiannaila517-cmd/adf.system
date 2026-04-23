@@ -1130,7 +1130,7 @@ include '../../includes/header.php';
 
     .ps-btn-warning {
         background: linear-gradient(135deg, #f59e0b, #d97706);
-        color: #1a1a2e;
+        color: #fff;
     }
 
     .ps-btn-success {
@@ -1151,7 +1151,7 @@ include '../../includes/header.php';
     .ps-btn-outline {
         background: transparent;
         border: 1px solid var(--border-color);
-        color: var(--text-secondary);
+        color: #fff;
     }
 
     .ps-btn-outline:hover {
