@@ -389,7 +389,7 @@ if (isset($_SESSION['user_id'])) {
                     <!-- Payroll Menu -->
                     <?php if ($auth->hasPermission('payroll') && isModuleEnabled('payroll')): ?>
                         <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/payroll/') !== false) ? 'open' : ''; ?>">
-                            <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo activeMenu('payroll'); ?>">
+                            <a href="<?php echo BASE_URL; ?>/modules/payroll/index.php" class="nav-link dropdown-toggle <?php echo activeMenu('payroll'); ?>">
                                 <i data-feather="dollar-sign" class="nav-icon"></i>
                                 <span>Payroll</span>
                             </a>
