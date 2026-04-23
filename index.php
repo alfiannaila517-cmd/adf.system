@@ -464,7 +464,7 @@ $topDivisions = $db->fetchAll(
     GROUP BY d.id, d.division_name, d.division_code
     ORDER BY net DESC
     LIMIT 5",
-    ['month' => $thisMonth]
+    ['month' => $selected_dashboard_month]
 );
 
 // ============================================
@@ -510,7 +510,7 @@ $divisionIncomeData = $db->fetchAll(
     GROUP BY d.id, d.division_name, d.division_code
     HAVING total > 0
     ORDER BY total DESC",
-    ['month' => $thisMonth]
+    ['month' => $selected_dashboard_month]
 );
 
 // ============================================
@@ -530,7 +530,7 @@ $expenseDivisionData = $db->fetchAll(
     GROUP BY d.id, d.division_name, d.division_code
     HAVING total > 0
     ORDER BY total DESC",
-    ['month' => $thisMonth]
+    ['month' => $selected_dashboard_month]
 );
 
 // ============================================
@@ -697,7 +697,7 @@ if ($isCQC) {
              WHERE transaction_type = 'income' 
              AND source_type = 'owner_fund'
              AND DATE_FORMAT(transaction_date, '%Y-%m') = ?",
-            [$thisMonth]
+            [$selected_dashboard_month]
         );
         $cqcPettyCashTransfers = (float)($pettyCashMonth['total'] ?? 0);
 
@@ -725,7 +725,7 @@ if ($isCQC) {
              WHERE transaction_type = 'expense' 
              AND cash_account_id = ?
              AND DATE_FORMAT(transaction_date, '%Y-%m') = ?",
-            [$pettyCashAccountId, $thisMonth]
+            [$pettyCashAccountId, $selected_dashboard_month]
         );
         $cqcExpenseFromPettyCash = (float)($expPetty['total'] ?? 0);
     }
@@ -737,7 +737,7 @@ if ($isCQC) {
              WHERE transaction_type = 'expense' 
              AND cash_account_id = ?
              AND DATE_FORMAT(transaction_date, '%Y-%m') = ?",
-            [$bankAccountId, $thisMonth]
+            [$bankAccountId, $selected_dashboard_month]
         );
         $cqcExpenseFromBank = (float)($expBank['total'] ?? 0);
     }
@@ -1938,7 +1938,7 @@ if ($trialStatus) {
                     Pemasukan per Divisi
                 </h3>
                 <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
-                    <input type="month" id="divisionIncomeMonth" value="<?php echo $thisMonth; ?>"
+                    <input type="month" id="divisionIncomeMonth" value="<?php echo $selected_dashboard_month; ?>"
                         class="form-control" style="font-size: 0.75rem; height: 32px; padding: 0.25rem 0.5rem; flex: 1;"
                         onchange="updateDivisionIncomeChart(this.value)">
                 </div>
@@ -1963,7 +1963,7 @@ if ($trialStatus) {
                     Pengeluaran per Divisi
                 </h3>
                 <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
-                    <input type="month" id="expenseCategoryMonth" value="<?php echo $thisMonth; ?>"
+                    <input type="month" id="expenseCategoryMonth" value="<?php echo $selected_dashboard_month; ?>"
                         class="form-control" style="font-size: 0.75rem; height: 32px; padding: 0.25rem 0.5rem; flex: 1;"
                         onchange="updateExpenseCategoryChart(this.value)">
                 </div>
