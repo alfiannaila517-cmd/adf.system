@@ -42,15 +42,26 @@ try {
     }
 }
 
-// Stats
+// Get selected month and year from GET parameters
+$selected_month = isset($_GET['month']) ? (int)$_GET['month'] : date('m');
+$selected_year = isset($_GET['year']) ? (int)$_GET['year'] : date('Y');
+
+// Month names
+$months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+// Get available periods for month selector
+$available_periods = $db->fetchAll("SELECT DISTINCT period_month, period_year FROM payroll_periods ORDER BY period_year DESC, period_month DESC");
+
+// Stats based on selected month
 $stats = [
     'employees' => $db->fetchOne("SELECT COUNT(*) as c FROM payroll_employees WHERE is_active = 1")['c'] ?? 0,
-    'last_period' => $db->fetchOne("SELECT * FROM payroll_periods ORDER BY id DESC LIMIT 1"),
-    'total_yearly' => $db->fetchOne("SELECT SUM(total_net) as t FROM payroll_periods WHERE period_year = YEAR(NOW())")['t'] ?? 0,
-    'pending_count' => $db->fetchOne("SELECT COUNT(*) as c FROM payroll_periods WHERE status IN ('draft', 'submitted')")['c'] ?? 0,
+    'last_period' => $db->fetchOne("SELECT * FROM payroll_periods WHERE period_month = ? AND period_year = ? ORDER BY id DESC LIMIT 1", [$selected_month, $selected_year]),
+    'total_monthly' => $db->fetchOne("SELECT SUM(total_net) as t FROM payroll_periods WHERE period_month = ? AND period_year = ?", [$selected_month, $selected_year])['t'] ?? 0,
+    'pending_count' => $db->fetchOne("SELECT COUNT(*) as c FROM payroll_periods WHERE period_month = ? AND period_year = ? AND status IN ('draft', 'submitted')", [$selected_month, $selected_year])['c'] ?? 0,
 ];
 
-$periods = $db->fetchAll("SELECT * FROM payroll_periods ORDER BY id DESC LIMIT 6");
+// Get periods for selected month
+$periods = $db->fetchAll("SELECT * FROM payroll_periods WHERE period_month = ? AND period_year = ? ORDER BY id DESC", [$selected_month, $selected_year]);
 
 include '../../includes/header.php';
 ?>
@@ -112,7 +123,7 @@ include '../../includes/header.php';
     z-index: 2;
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     flex-wrap: wrap;
     gap: 1rem;
 }
@@ -454,11 +465,58 @@ include '../../includes/header.php';
     margin: 0;
 }
 
+/* Month Selector */
+.pr-month-selector {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.pr-month-selector select {
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+    padding: 0.5rem 0.8rem;
+    font-size: 0.9rem;
+    color: #1a1a2e;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.pr-month-selector select:hover {
+    border-color: #667eea;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+}
+
+.pr-month-selector select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.pr-month-selector button {
+    background: var(--pr-gradient-1);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.pr-month-selector button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .payroll-hero { padding: 1.5rem; }
     .payroll-hero h1 { font-size: 1.35rem; }
     .pr-actions-grid { grid-template-columns: 1fr; }
+    .pr-month-selector { flex-wrap: wrap; }
 }
 
 /* Page Wrapper - Compact & Centered */
@@ -478,10 +536,34 @@ include '../../includes/header.php';
                 <h1>Payroll Dashboard</h1>
                 <p>Manage employee payroll easily and efficiently</p>
             </div>
-            <a href="process.php" class="btn-hero">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                Process New Payroll
-            </a>
+            <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                <div class="pr-month-selector">
+                    <form method="GET" style="display: flex; gap: 0.5rem; align-items: center;">
+                        <select name="month" id="monthSelect">
+                            <?php 
+                            for ($m = 1; $m <= 12; $m++) {
+                                $selected = ($m == $selected_month) ? 'selected' : '';
+                                echo "<option value=\"$m\" $selected>{$months[$m-1]}</option>";
+                            }
+                            ?>
+                        </select>
+                        <select name="year" id="yearSelect">
+                            <?php 
+                            $current_year = date('Y');
+                            for ($y = $current_year; $y >= $current_year - 5; $y--) {
+                                $selected = ($y == $selected_year) ? 'selected' : '';
+                                echo "<option value=\"$y\" $selected>$y</option>";
+                            }
+                            ?>
+                        </select>
+                        <button type="submit" onclick="document.getElementById('monthSelect').form.submit();">Filter</button>
+                    </form>
+                </div>
+                <a href="process.php" class="btn-hero">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    Process New Payroll
+                </a>
+            </div>
         </div>
     </div>
 
@@ -508,9 +590,9 @@ include '../../includes/header.php';
             <div class="pr-stat-icon">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
             </div>
-            <p class="pr-stat-label">Total This Year</p>
-            <h3 class="pr-stat-value">Rp <?php echo number_format($stats['total_yearly'], 0, ',', '.'); ?></h3>
-            <p class="pr-stat-sub"><?php echo date('Y'); ?></p>
+            <p class="pr-stat-label">Total This Month</p>
+            <h3 class="pr-stat-value">Rp <?php echo number_format($stats['total_monthly'], 0, ',', '.'); ?></h3>
+            <p class="pr-stat-sub"><?php echo $months[$selected_month-1] . ' ' . $selected_year; ?></p>
         </div>
         
         <div class="pr-stat-card blue">
