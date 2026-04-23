@@ -872,6 +872,17 @@ echo getPrintCSS();
             transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
             border: none !important;
             color: #fff !important;
+            text-decoration: none !important;
+        }
+
+        a.cashbook-action-btn,
+        a.cashbook-action-btn:link,
+        a.cashbook-action-btn:visited,
+        a.cashbook-action-btn:hover,
+        a.cashbook-action-btn:active,
+        a.cashbook-action-btn:focus {
+            color: #fff !important;
+            text-decoration: none !important;
         }
 
         .cashbook-action-btn:hover {
@@ -884,6 +895,13 @@ echo getPrintCSS();
         .cashbook-action-btn span {
             color: #fff !important;
             stroke: #fff !important;
+        }
+
+        .cashbook-action-btn svg,
+        .cashbook-action-btn svg * {
+            color: #fff !important;
+            stroke: #fff !important;
+            fill: none !important;
         }
 
         /* Cashbook action button color variants */
@@ -1920,11 +1938,11 @@ echo getPrintCSS();
                 </div>
             </div>
             <div class="table-actions" style="display: flex; gap: 0.5rem;">
-                <a href="logs.php" class="btn btn-secondary" style="display: flex; align-items: center; gap: 0.5rem;">
+                <a href="logs.php" class="btn btn-secondary btn-white-text cashbook-action-btn cashbook-btn-reset" style="display: flex; align-items: center; gap: 0.5rem;">
                     <i data-feather="activity" style="width: 16px; height: 16px;"></i>
                     <span>Audit Log</span>
                 </a>
-                <a href="add.php" class="btn btn-primary">
+                <a href="add.php" class="btn btn-primary btn-white-text cashbook-action-btn cashbook-btn-filter">
                     <i data-feather="plus" style="width: 16px; height: 16px;"></i> Tambah Transaksi
                 </a>
             </div>
