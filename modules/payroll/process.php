@@ -1000,6 +1000,11 @@ include '../../includes/header.php';
         gap: 1rem;
         position: relative;
         overflow: hidden;
+        color: #ffffff !important;
+    }
+
+    .ps-header > div {
+        color: #ffffff !important;
     }
 
     .ps-header::before {
@@ -1014,12 +1019,13 @@ include '../../includes/header.php';
     }
 
     .ps-header h1 {
-        color: #fff;
+        color: #ffffff !important;
         font-size: 1.3rem;
         font-weight: 700;
         margin: 0;
         position: relative;
-        z-index: 2;
+        z-index: 10;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
     }
 
     .ps-header p {
@@ -1028,6 +1034,9 @@ include '../../includes/header.php';
         font-size: 0.95rem !important;
         font-weight: 600 !important;
         text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+        position: relative !important;
+        z-index: 10 !important;
+        display: block !important;
     }
 
     .ps-filter {
