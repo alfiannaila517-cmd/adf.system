@@ -77,8 +77,8 @@ include '../../includes/header.php';
 .payroll-hero {
     background: var(--pr-gradient-1);
     border-radius: var(--pr-radius);
-    padding: 2rem;
-    margin-bottom: 1.5rem;
+    padding: 1.5rem;
+    margin-bottom: 1.2rem;
     position: relative;
     overflow: hidden;
     box-shadow: var(--pr-shadow-glow);
@@ -118,16 +118,17 @@ include '../../includes/header.php';
 
 .payroll-hero h1 {
     color: #fff;
-    font-size: 1.75rem;
+    font-size: 1.5rem;
     font-weight: 700;
-    margin: 0 0 0.25rem;
+    margin: 0 0 0.2rem;
     letter-spacing: -0.5px;
 }
 
 .payroll-hero p {
-    color: rgba(255,255,255,0.85);
-    margin: 0;
-    font-size: 0.95rem;
+    color: rgba(255,255,255,0.95) !important;
+    margin: 0 !important;
+    font-size: 0.9rem !important;
+    font-weight: 500 !important;
 }
 
 .payroll-hero .btn-hero {
@@ -153,15 +154,15 @@ include '../../includes/header.php';
 /* Stats Ring Cards */
 .pr-stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 1rem;
-    margin-bottom: 1.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.8rem;
+    margin-bottom: 1.2rem;
 }
 
 .pr-stat-card {
     background: var(--bg-primary);
     border-radius: var(--pr-radius);
-    padding: 1.5rem;
+    padding: 1.2rem;
     position: relative;
     overflow: hidden;
     border: 1px solid var(--border-color);
@@ -189,13 +190,13 @@ include '../../includes/header.php';
 .pr-stat-card.blue::before { background: var(--pr-gradient-4); }
 
 .pr-stat-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 14px;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 1rem;
+    margin-bottom: 0.8rem;
 }
 
 .pr-stat-card.purple .pr-stat-icon { background: linear-gradient(135deg, rgba(102,126,234,0.15), rgba(118,75,162,0.15)); color: #667eea; }
@@ -204,46 +205,46 @@ include '../../includes/header.php';
 .pr-stat-card.blue .pr-stat-icon { background: linear-gradient(135deg, rgba(79,172,254,0.15), rgba(0,242,254,0.15)); color: #4facfe; }
 
 .pr-stat-label {
-    font-size: 0.8rem;
+    font-size: 0.7rem;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.4px;
     color: var(--text-tertiary);
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.2rem;
     font-weight: 500;
 }
 
 .pr-stat-value {
-    font-size: 1.5rem;
+    font-size: 1.3rem;
     font-weight: 700;
     color: var(--text-primary);
     margin: 0;
-    line-height: 1.2;
+    line-height: 1.1;
 }
 
 .pr-stat-sub {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: var(--text-tertiary);
-    margin-top: 0.25rem;
+    margin-top: 0.15rem;
 }
 
 /* Quick Actions - Luxe Cards */
 .pr-actions-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 1rem;
-    margin-bottom: 1.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 0.8rem;
+    margin-bottom: 1.2rem;
 }
 
 .pr-action-card {
     background: var(--bg-primary);
     border-radius: var(--pr-radius);
-    padding: 1.75rem;
+    padding: 1.4rem;
     text-decoration: none !important;
     border: 1px solid var(--border-color);
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     align-items: flex-start;
-    gap: 1rem;
+    gap: 0.8rem;
     position: relative;
     overflow: hidden;
 }
@@ -269,9 +270,9 @@ include '../../includes/header.php';
 .pr-action-card:hover::after { opacity: 1; }
 
 .pr-action-icon {
-    width: 56px;
-    height: 56px;
-    border-radius: 16px;
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -283,17 +284,17 @@ include '../../includes/header.php';
 .pr-action-card.reports .pr-action-icon { background: var(--pr-gradient-3); color: #fff; }
 
 .pr-action-content h3 {
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: 600;
     color: var(--text-primary);
-    margin: 0 0 0.35rem;
+    margin: 0 0 0.3rem;
 }
 
 .pr-action-content p {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     color: var(--text-tertiary);
     margin: 0;
-    line-height: 1.5;
+    line-height: 1.4;
 }
 
 .pr-action-arrow {
@@ -320,7 +321,7 @@ include '../../includes/header.php';
 }
 
 .pr-history-header {
-    padding: 1.25rem 1.5rem;
+    padding: 1rem 1.2rem;
     border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
@@ -328,7 +329,7 @@ include '../../includes/header.php';
 }
 
 .pr-history-header h3 {
-    font-size: 1rem;
+    font-size: 0.95rem;
     font-weight: 600;
     margin: 0;
     color: var(--text-primary);
@@ -340,20 +341,20 @@ include '../../includes/header.php';
 }
 
 .pr-history-table th {
-    padding: 0.875rem 1rem;
+    padding: 0.7rem 0.8rem;
     text-align: left;
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.75px;
+    letter-spacing: 0.6px;
     color: var(--text-tertiary);
     background: var(--bg-secondary);
 }
 
 .pr-history-table td {
-    padding: 1rem;
+    padding: 0.8rem;
     border-bottom: 1px solid var(--border-light);
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     vertical-align: middle;
 }
 
@@ -366,15 +367,16 @@ include '../../includes/header.php';
 .pr-period-badge {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.4rem;
     font-weight: 500;
     color: var(--text-primary);
+    font-size: 0.9rem;
 }
 
 .pr-period-icon {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
     background: var(--pr-gradient-1);
     display: flex;
     align-items: center;
@@ -383,12 +385,12 @@ include '../../includes/header.php';
 }
 
 .pr-status {
-    padding: 0.35rem 0.75rem;
+    padding: 0.3rem 0.65rem;
     border-radius: 50px;
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.4px;
 }
 
 .pr-status.draft { background: rgba(108,117,125,0.1); color: #6c757d; }
@@ -406,9 +408,9 @@ include '../../includes/header.php';
 }
 
 .pr-btn-detail {
-    padding: 0.5rem 1rem;
-    border-radius: 8px;
-    font-size: 0.8rem;
+    padding: 0.4rem 0.85rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
     font-weight: 500;
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
