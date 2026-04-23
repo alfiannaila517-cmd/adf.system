@@ -1023,9 +1023,10 @@ include '../../includes/header.php';
     }
 
     .ps-header p {
-        color: rgba(255, 255, 255, 0.8);
+        color: #ffffff;
         margin: 0.15rem 0 0;
         font-size: 0.85rem;
+        font-weight: 500;
     }
 
     .ps-filter {
