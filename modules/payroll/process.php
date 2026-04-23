@@ -989,7 +989,7 @@ include '../../includes/header.php';
 
     /* Header Hero */
     .ps-header {
-        background: var(--ps-gradient-1);
+        background: #ffffff;
         border-radius: var(--ps-radius);
         padding: 1.25rem 1.5rem;
         margin-bottom: 1.25rem;
@@ -1000,11 +1000,13 @@ include '../../includes/header.php';
         gap: 1rem;
         position: relative;
         overflow: hidden;
-        color: #ffffff !important;
+        color: #1a1a2e !important;
+        border: 2px solid #e5e7eb;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     }
 
     .ps-header > div {
-        color: #ffffff !important;
+        color: #1a1a2e !important;
     }
 
     .ps-header::before {
@@ -1019,21 +1021,21 @@ include '../../includes/header.php';
     }
 
     .ps-header h1 {
-        color: #ffffff !important;
+        color: #1a1a2e !important;
         font-size: 1.3rem;
         font-weight: 700;
         margin: 0;
         position: relative;
         z-index: 10;
-        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        text-shadow: none;
     }
 
     .ps-header p {
-        color: #ffffff !important;
+        color: #4b5563 !important;
         margin: 0.15rem 0 0 !important;
         font-size: 0.95rem !important;
         font-weight: 600 !important;
-        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+        text-shadow: none !important;
         position: relative !important;
         z-index: 10 !important;
         display: block !important;
