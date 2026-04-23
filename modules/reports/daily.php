@@ -598,11 +598,11 @@ function closePDFPreview() {
         </div>
     </div>
     
-    <!-- Saldo Petty Cash -->
+    <!-- Saldo Petty Cash Saat Ini -->
     <div class="card" style="padding: 0.85rem 1rem; border-left: 4px solid #f59e0b; margin: 0;">
-        <div style="font-size: 0.65rem; color: #d97706; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 0.3rem;">💵 Petty Cash</div>
+        <div style="font-size: 0.65rem; color: #d97706; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 0.3rem;">💵 Saldo Cash Saat Ini</div>
         <div style="font-size: 1.35rem; font-weight: 800; color: #d97706;">
-            <?php echo formatCurrency($saldoPettyCash); ?>
+            <?php echo formatCurrency($pettyCashBalance); ?>
         </div>
     </div>
     
