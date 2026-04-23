@@ -1626,7 +1626,7 @@ include '../../includes/header.php';
     }
 
     .att-modal-title {
-        font-size: 1rem;
+        font-size: 1.4rem;
         font-weight: 700;
         color: var(--text-primary);
         display: flex;
@@ -1668,18 +1668,18 @@ include '../../includes/header.php';
     }
 
     .att-summary-value {
-        font-size: 1.4rem;
+        font-size: 1.8rem;
         font-weight: 800;
         color: var(--text-primary);
         line-height: 1.2;
     }
 
     .att-summary-label {
-        font-size: 0.7rem;
+        font-size: 1rem;
         text-transform: uppercase;
         letter-spacing: 1px;
         color: var(--text-tertiary);
-        margin-top: 0.3rem;
+        margin-top: 0.35rem;
         font-weight: 600;
     }
 
@@ -1708,12 +1708,12 @@ include '../../includes/header.php';
     }
 
     .att-cal-header {
-        font-size: 0.65rem;
+        font-size: 0.9rem;
         font-weight: 600;
         color: var(--text-tertiary);
         text-transform: uppercase;
         text-align: center;
-        padding: 0.35rem;
+        padding: 0.45rem;
     }
 
     .att-cal-day {
@@ -1723,7 +1723,7 @@ include '../../includes/header.php';
         align-items: center;
         justify-content: center;
         border-radius: 8px;
-        font-size: 0.75rem;
+        font-size: 0.95rem;
         background: var(--bg-secondary);
         border: 1px solid var(--border-light);
         position: relative;
@@ -1770,9 +1770,9 @@ include '../../includes/header.php';
     }
 
     .att-cal-hours {
-        font-size: 0.55rem;
+        font-size: 0.85rem;
         color: var(--text-tertiary);
-        margin-top: 2px;
+        margin-top: 4px;
     }
 
     .att-cal-status {
@@ -1800,14 +1800,14 @@ include '../../includes/header.php';
     .att-table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 0.85rem;
+        font-size: 1.2rem;
         margin-top: 1rem;
     }
 
     .att-table th {
-        padding: 0.65rem 0.6rem;
+        padding: 0.85rem 0.8rem;
         text-align: left;
-        font-size: 0.75rem;
+        font-size: 1rem;
         text-transform: uppercase;
         font-weight: 700;
         letter-spacing: 0.5px;
@@ -1817,7 +1817,7 @@ include '../../includes/header.php';
     }
 
     .att-table td {
-        padding: 0.55rem 0.6rem;
+        padding: 0.85rem 0.8rem;
         border-bottom: 1px solid var(--border-light);
     }
 
@@ -1827,15 +1827,15 @@ include '../../includes/header.php';
 
     .att-time {
         font-family: 'SF Mono', Monaco, monospace;
-        font-size: 0.72rem;
+        font-size: 1rem;
     }
 
     .att-badge {
         display: inline-block;
-        padding: 0.15rem 0.4rem;
+        padding: 0.25rem 0.55rem;
         border-radius: 4px;
-        font-size: 0.6rem;
-        font-weight: 600;
+        font-size: 0.85rem;
+        font-weight: 700;
         text-transform: uppercase;
     }
 
@@ -1871,8 +1871,8 @@ include '../../includes/header.php';
     .att-progress-label {
         display: flex;
         justify-content: space-between;
-        font-size: 0.8rem;
-        font-weight: 500;
+        font-size: 1rem;
+        font-weight: 600;
         margin-bottom: 0.5rem;
         color: var(--text-primary);
     }
@@ -1901,12 +1901,12 @@ include '../../includes/header.php';
     }
 
     .att-view-btn {
-        padding: 0.5rem 1rem;
+        padding: 0.65rem 1.1rem;
         border: 1.5px solid var(--border-color);
         background: var(--bg-secondary);
         border-radius: 8px;
-        font-size: 0.8rem;
-        font-weight: 500;
+        font-size: 1rem;
+        font-weight: 600;
         cursor: pointer;
         transition: all 0.2s;
     }
@@ -1951,11 +1951,11 @@ include '../../includes/header.php';
     }
 
     .att-edit-time {
-        width: 68px;
-        padding: 0.2rem 0.25rem;
+        width: 78px;
+        padding: 0.3rem 0.35rem;
         border: 1px solid var(--border-color);
         border-radius: 5px;
-        font-size: 0.7rem;
+        font-size: 0.95rem;
         font-family: 'SF Mono', Monaco, monospace;
         background: var(--bg-secondary);
         color: var(--text-primary);
@@ -1974,11 +1974,11 @@ include '../../includes/header.php';
     }
 
     .att-edit-status {
-        width: 72px;
-        padding: 0.2rem 0.15rem;
+        width: 84px;
+        padding: 0.3rem 0.25rem;
         border: 1px solid var(--border-color);
         border-radius: 5px;
-        font-size: 0.65rem;
+        font-size: 0.95rem;
         background: var(--bg-secondary);
         color: var(--text-primary);
     }
