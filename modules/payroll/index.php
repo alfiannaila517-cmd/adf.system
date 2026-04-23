@@ -547,18 +547,7 @@ include '../../includes/header.php';
             </span>
         </a>
         
-        <a href="reports.php" class="pr-action-card reports">
-            <div class="pr-action-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
-            </div>
-            <div class="pr-action-content">
-                <h3>Payroll Reports</h3>
-                <p>Monthly and yearly payroll expense summary with print feature</p>
-            </div>
-            <span class="pr-action-arrow">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
-            </span>
-        </a>
+        <!-- Payroll Reports menu removed -->
 
         <a href="attendance.php" class="pr-action-card" style="border-left: 4px solid #f0b429;">
             <div class="pr-action-icon" style="background: linear-gradient(135deg, rgba(240,180,41,0.15), rgba(13,31,60,0.15)); color: #f0b429;">
@@ -578,7 +567,7 @@ include '../../includes/header.php';
     <div class="pr-history-card fade-in-up" style="animation-delay: 0.3s">
         <div class="pr-history-header">
             <h3>Payroll History</h3>
-            <a href="reports.php" class="pr-btn-detail">View All</a>
+            <!-- View All link removed -->
         </div>
         
         <?php if (empty($periods)): ?>
