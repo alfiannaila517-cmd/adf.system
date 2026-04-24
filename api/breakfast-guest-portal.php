@@ -45,6 +45,7 @@ function ensure_portal_links_table($pdo)
     $pdo->exec("CREATE TABLE IF NOT EXISTS breakfast_guest_links (
         id INT PRIMARY KEY AUTO_INCREMENT,
         token VARCHAR(80) NOT NULL,
+        short_code VARCHAR(16) NULL,
         booking_id INT NULL,
         guest_id INT NULL,
         guest_name VARCHAR(500) NOT NULL,
@@ -64,9 +65,55 @@ function ensure_portal_links_table($pdo)
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         UNIQUE KEY uk_token (token),
+        UNIQUE KEY uk_short_code (short_code),
         INDEX idx_guest_date (guest_name(191), breakfast_date),
         INDEX idx_status (link_status),
         INDEX idx_exp (expires_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    try {
+        $pdo->exec("ALTER TABLE breakfast_guest_links ADD COLUMN short_code VARCHAR(16) NULL AFTER token");
+    } catch (Exception $e) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE breakfast_guest_links ADD UNIQUE INDEX uk_short_code (short_code)");
+    } catch (Exception $e) {
+    }
+}
+
+function ensure_breakfast_quota_table($pdo)
+{
+    $pdo->exec("CREATE TABLE IF NOT EXISTS breakfast_guest_quota (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        booking_id INT NOT NULL,
+        guest_id INT NULL,
+        guest_name VARCHAR(255) NULL,
+        breakfast_date DATE NULL,
+        max_main INT NOT NULL DEFAULT 1,
+        max_child INT NOT NULL DEFAULT 0,
+        child_menu_ids TEXT,
+        extra_main_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        extra_child_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        created_by INT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uk_booking_id (booking_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+
+function ensure_booking_extras_table($pdo)
+{
+    $pdo->exec("CREATE TABLE IF NOT EXISTS booking_extras (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        booking_id INT NOT NULL,
+        item_name VARCHAR(255) NOT NULL,
+        quantity INT NOT NULL DEFAULT 1,
+        unit_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        total_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        notes TEXT,
+        created_by INT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_booking (booking_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 }
 
@@ -84,6 +131,23 @@ function get_setting($db, $key)
     return $row['setting_value'] ?? '';
 }
 
+function to_float($value, $default = 0)
+{
+    if ($value === null || $value === '') return (float)$default;
+    return (float)$value;
+}
+
+function create_short_code()
+{
+    $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    $len = 8;
+    $out = '';
+    for ($i = 0; $i < $len; $i++) {
+        $out .= $alphabet[random_int(0, strlen($alphabet) - 1)];
+    }
+    return $out;
+}
+
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 $body = parse_json_body();
 if (!$action && !empty($body['action'])) {
@@ -93,6 +157,8 @@ if (!$action && !empty($body['action'])) {
 try {
     ensure_breakfast_orders_table($pdo);
     ensure_portal_links_table($pdo);
+    ensure_breakfast_quota_table($pdo);
+    ensure_booking_extras_table($pdo);
 } catch (Exception $e) {
     echo json_encode(['success' => false, 'message' => 'Gagal inisialisasi tabel: ' . $e->getMessage()]);
     exit;
@@ -120,6 +186,26 @@ if ($action === 'create_link') {
     $maxMain = max(0, (int)($body['max_main'] ?? 1));
     $maxChild = max(0, (int)($body['max_child'] ?? 0));
     $expireHours = max(1, min(72, (int)($body['expire_hours'] ?? 24)));
+
+    $extraMainPrice = to_float($body['extra_main_price'] ?? '', to_float(get_setting($db, 'breakfast_extra_main_price'), 55000));
+    $extraChildPrice = to_float($body['extra_child_price'] ?? '', to_float(get_setting($db, 'breakfast_extra_child_price'), 30000));
+
+    if ($bookingId) {
+        $quota = $db->fetchOne("SELECT max_main, max_child, child_menu_ids, extra_main_price, extra_child_price
+            FROM breakfast_guest_quota WHERE booking_id = ? LIMIT 1", [$bookingId]);
+        if ($quota) {
+            $maxMain = max(0, (int)$quota['max_main']);
+            $maxChild = max(0, (int)$quota['max_child']);
+            if ($quota['child_menu_ids'] !== null && $quota['child_menu_ids'] !== '') {
+                $bodyChild = json_decode($quota['child_menu_ids'], true);
+                if (is_array($bodyChild)) {
+                    $body['child_menu_ids'] = $bodyChild;
+                }
+            }
+            $extraMainPrice = to_float($quota['extra_main_price'], $extraMainPrice);
+            $extraChildPrice = to_float($quota['extra_child_price'], $extraChildPrice);
+        }
+    }
 
     $childMenuIds = $body['child_menu_ids'] ?? [];
     if (!is_array($childMenuIds)) $childMenuIds = [];
@@ -149,32 +235,52 @@ if ($action === 'create_link') {
             WHERE breakfast_date = ? AND LOWER(TRIM(guest_name)) = LOWER(TRIM(?)) AND link_status = 'open'")
             ->execute([$breakfastDate, $guestName]);
 
-        $pdo->prepare("INSERT INTO breakfast_guest_links
-            (token, booking_id, guest_id, guest_name, guest_phone, room_number, breakfast_date,
-             max_main, max_child, child_menu_ids, expires_at, created_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-            ->execute([
-                $token,
-                $bookingId,
-                $guestId,
-                $guestName,
-                $guestPhone,
-                $roomJson,
-                $breakfastDate,
-                $maxMain,
-                $maxChild,
-                $childJson,
-                $expiresAt,
-                $userId
-            ]);
+        $shortCode = null;
+        $inserted = false;
+        for ($i = 0; $i < 5; $i++) {
+            $shortCode = create_short_code();
+            try {
+                $pdo->prepare("INSERT INTO breakfast_guest_links
+                    (token, short_code, booking_id, guest_id, guest_name, guest_phone, room_number, breakfast_date,
+                     max_main, max_child, child_menu_ids, expires_at, created_by)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+                    ->execute([
+                        $token,
+                        $shortCode,
+                        $bookingId,
+                        $guestId,
+                        $guestName,
+                        $guestPhone,
+                        $roomJson,
+                        $breakfastDate,
+                        $maxMain,
+                        $maxChild,
+                        $childJson,
+                        $expiresAt,
+                        $userId
+                    ]);
+                $inserted = true;
+                break;
+            } catch (Exception $innerEx) {
+                if ($i === 4) {
+                    throw $innerEx;
+                }
+            }
+        }
+        if (!$inserted) {
+            throw new Exception('Tidak dapat membuat short link');
+        }
 
         $linkUrl = rtrim(BASE_URL, '/') . '/modules/frontdesk/breakfast-guest.php?t=' . urlencode($token);
+        $shortLink = rtrim(BASE_URL, '/') . '/go-breakfast.php?k=' . urlencode($shortCode);
         echo json_encode([
             'success' => true,
             'message' => 'Link berhasil dibuat',
             'data' => [
                 'token' => $token,
+                'short_code' => $shortCode,
                 'link_url' => $linkUrl,
+                'short_link' => $shortLink,
                 'expires_at' => $expiresAt
             ]
         ]);
@@ -186,12 +292,17 @@ if ($action === 'create_link') {
 
 if ($action === 'get_link') {
     $token = trim((string)($_GET['token'] ?? $body['token'] ?? ''));
-    if ($token === '') {
+    $shortCode = trim((string)($_GET['k'] ?? $body['k'] ?? ''));
+    if ($token === '' && $shortCode === '') {
         echo json_encode(['success' => false, 'message' => 'Token wajib']);
         exit;
     }
 
-    $link = $db->fetchOne("SELECT * FROM breakfast_guest_links WHERE token = ? LIMIT 1", [$token]);
+    if ($token !== '') {
+        $link = $db->fetchOne("SELECT * FROM breakfast_guest_links WHERE token = ? LIMIT 1", [$token]);
+    } else {
+        $link = $db->fetchOne("SELECT * FROM breakfast_guest_links WHERE short_code = ? LIMIT 1", [$shortCode]);
+    }
     if (!$link) {
         echo json_encode(['success' => false, 'message' => 'Link tidak ditemukan']);
         exit;
@@ -236,6 +347,15 @@ if ($action === 'get_link') {
 
     $waInfo = get_setting($db, 'breakfast_wa_info_text');
     $waMediaPath = get_setting($db, 'breakfast_wa_media_path');
+    $extraMainPrice = to_float(get_setting($db, 'breakfast_extra_main_price'), 55000);
+    $extraChildPrice = to_float(get_setting($db, 'breakfast_extra_child_price'), 30000);
+    if (!empty($link['booking_id'])) {
+        $quota = $db->fetchOne("SELECT extra_main_price, extra_child_price FROM breakfast_guest_quota WHERE booking_id = ? LIMIT 1", [(int)$link['booking_id']]);
+        if ($quota) {
+            $extraMainPrice = to_float($quota['extra_main_price'], $extraMainPrice);
+            $extraChildPrice = to_float($quota['extra_child_price'], $extraChildPrice);
+        }
+    }
     $waMediaUrl = '';
     if ($waMediaPath) {
         $waMediaUrl = (strpos($waMediaPath, 'http') === 0)
@@ -247,11 +367,14 @@ if ($action === 'get_link') {
         'success' => true,
         'data' => [
             'token' => $token,
+            'short_code' => $link['short_code'] ?? null,
             'guest_name' => $link['guest_name'],
             'room_number' => $rooms,
             'breakfast_date' => $link['breakfast_date'],
             'max_main' => (int)$link['max_main'],
             'max_child' => (int)$link['max_child'],
+            'extra_main_price' => (float)$extraMainPrice,
+            'extra_child_price' => (float)$extraChildPrice,
             'main_menus' => $mainMenus,
             'child_menus' => $childMenus,
             'wa_info_text' => $waInfo,
@@ -301,12 +424,8 @@ if ($action === 'submit_link') {
         $maxMain = max(0, (int)$link['max_main']);
         $maxChild = max(0, (int)$link['max_child']);
 
-        if (count($selectedMain) > $maxMain) {
-            throw new Exception('Pilihan menu utama melebihi jatah (' . $maxMain . ')');
-        }
-        if (count($selectedChild) > $maxChild) {
-            throw new Exception('Pilihan menu anak melebihi jatah (' . $maxChild . ')');
-        }
+        $extraMainCount = max(0, count($selectedMain) - $maxMain);
+        $extraChildCount = max(0, count($selectedChild) - $maxChild);
 
         $allowedChild = json_decode($link['child_menu_ids'] ?? '[]', true);
         if (!is_array($allowedChild)) $allowedChild = [];
@@ -324,6 +443,16 @@ if ($action === 'submit_link') {
             }
         }
 
+        $extraMainPrice = to_float(get_setting($db, 'breakfast_extra_main_price'), 55000);
+        $extraChildPrice = to_float(get_setting($db, 'breakfast_extra_child_price'), 30000);
+        if (!empty($link['booking_id'])) {
+            $quota = $db->fetchOne("SELECT extra_main_price, extra_child_price FROM breakfast_guest_quota WHERE booking_id = ? LIMIT 1", [(int)$link['booking_id']]);
+            if ($quota) {
+                $extraMainPrice = to_float($quota['extra_main_price'], $extraMainPrice);
+                $extraChildPrice = to_float($quota['extra_child_price'], $extraChildPrice);
+            }
+        }
+
         $allSelected = array_values(array_unique(array_merge($selectedMain, $selectedChild)));
         if (count($allSelected) === 0) {
             throw new Exception('Pilih minimal 1 menu');
@@ -338,9 +467,11 @@ if ($action === 'submit_link') {
 
         $menuItems = [];
         $totalPrice = 0;
+        $extraChargeTotal = 0;
         foreach ($selectedMain as $id) {
             if (empty($menuMap[$id])) continue;
             $m = $menuMap[$id];
+            $isExtra = $maxMain >= 0 && count($menuItems) >= $maxMain;
             $item = [
                 'menu_id' => (int)$m['id'],
                 'menu_name' => $m['menu_name'],
@@ -349,12 +480,27 @@ if ($action === 'submit_link') {
                 'is_free' => (int)$m['is_free'],
                 'group' => 'main'
             ];
+            if ($isExtra) {
+                $item['is_extra'] = 1;
+                $item['extra_base_price'] = $extraMainPrice;
+            }
             $menuItems[] = $item;
-            if (!(int)$m['is_free']) $totalPrice += (float)$m['price'];
+            if ($isExtra) {
+                $charge = (float)$m['price'] > 0 ? (float)$m['price'] : (float)$extraMainPrice;
+                $totalPrice += $charge;
+                $extraChargeTotal += $charge;
+            } elseif (!(int)$m['is_free']) {
+                $totalPrice += (float)$m['price'];
+            }
         }
         foreach ($selectedChild as $id) {
             if (empty($menuMap[$id])) continue;
             $m = $menuMap[$id];
+            $existingChildCount = 0;
+            foreach ($menuItems as $mi) {
+                if (($mi['group'] ?? '') === 'child') $existingChildCount++;
+            }
+            $isExtra = $maxChild >= 0 && $existingChildCount >= $maxChild;
             $item = [
                 'menu_id' => (int)$m['id'],
                 'menu_name' => $m['menu_name'],
@@ -363,8 +509,18 @@ if ($action === 'submit_link') {
                 'is_free' => (int)$m['is_free'],
                 'group' => 'child'
             ];
+            if ($isExtra) {
+                $item['is_extra'] = 1;
+                $item['extra_base_price'] = $extraChildPrice;
+            }
             $menuItems[] = $item;
-            if (!(int)$m['is_free']) $totalPrice += (float)$m['price'];
+            if ($isExtra) {
+                $charge = (float)$m['price'] > 0 ? (float)$m['price'] : (float)$extraChildPrice;
+                $totalPrice += $charge;
+                $extraChargeTotal += $charge;
+            } elseif (!(int)$m['is_free']) {
+                $totalPrice += (float)$m['price'];
+            }
         }
 
         if (count($menuItems) === 0) {
@@ -380,6 +536,9 @@ if ($action === 'submit_link') {
         $breakfastTime = '07:00:00';
 
         $portalNote = '[Guest Portal]';
+        if ($extraMainCount > 0 || $extraChildCount > 0) {
+            $portalNote .= ' Extra: main=' . $extraMainCount . ', child=' . $extraChildCount;
+        }
         if ($specialRequests !== '') {
             $portalNote .= ' ' . $specialRequests;
         }
@@ -440,11 +599,30 @@ if ($action === 'submit_link') {
                 (int)$link['id']
             ]);
 
+        if (($extraMainCount > 0 || $extraChildCount > 0) && !empty($bookingId) && $extraChargeTotal > 0) {
+            $extraLabel = [];
+            if ($extraMainCount > 0) $extraLabel[] = 'main x' . $extraMainCount;
+            if ($extraChildCount > 0) $extraLabel[] = 'child x' . $extraChildCount;
+            $pdo->prepare("INSERT INTO booking_extras (booking_id, item_name, quantity, unit_price, total_price, notes, created_by)
+                VALUES (?, 'Breakfast Extra (Guest Portal)', 1, ?, ?, ?, NULL)")
+                ->execute([
+                    (int)$bookingId,
+                    (float)$extraChargeTotal,
+                    (float)$extraChargeTotal,
+                    'Auto extra from guest portal [' . implode(', ', $extraLabel) . '] token=' . ($link['short_code'] ?? $token)
+                ]);
+        }
+
         $pdo->commit();
         echo json_encode([
             'success' => true,
             'message' => 'Pilihan sarapan berhasil dikirim',
-            'data' => ['order_id' => $orderId]
+            'data' => [
+                'order_id' => $orderId,
+                'extra_main_count' => $extraMainCount,
+                'extra_child_count' => $extraChildCount,
+                'extra_total_price' => (float)$extraChargeTotal
+            ]
         ]);
     } catch (Exception $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();

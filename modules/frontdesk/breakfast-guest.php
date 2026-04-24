@@ -52,6 +52,7 @@ $token = trim((string)($_GET['t'] ?? ''));
         .menu-price { margin-top: 4px; font-size: 0.76rem; color: #059669; font-weight: 700; }
         .quota-line { margin-bottom: 10px; color: #334155; font-size: 0.86rem; }
         .counter { font-weight: 800; color: #0ea5e9; }
+        .warn { color: #b45309; font-weight: 700; }
         textarea {
             width: 100%;
             min-height: 80px;
@@ -109,13 +110,13 @@ $token = trim((string)($_GET['t'] ?? ''));
 
     <div class="card hidden" id="mainCard">
         <div class="section-title">Menu Main Course</div>
-        <div class="quota-line">Jatah: <span class="counter" id="mainQuotaText">0</span> menu, terpilih <span class="counter" id="mainSelected">0</span>.</div>
+        <div class="quota-line">Jatah: <span class="counter" id="mainQuotaText">0</span> menu, terpilih <span class="counter" id="mainSelected">0</span>. <span class="warn" id="mainExtraInfo"></span></div>
         <div class="menu-grid" id="mainGrid"></div>
     </div>
 
     <div class="card hidden" id="childCard">
         <div class="section-title">Menu Anak</div>
-        <div class="quota-line">Jatah: <span class="counter" id="childQuotaText">0</span> menu, terpilih <span class="counter" id="childSelected">0</span>.</div>
+        <div class="quota-line">Jatah: <span class="counter" id="childQuotaText">0</span> menu, terpilih <span class="counter" id="childSelected">0</span>. <span class="warn" id="childExtraInfo"></span></div>
         <div class="menu-grid" id="childGrid"></div>
     </div>
 
@@ -206,16 +207,20 @@ $token = trim((string)($_GET['t'] ?? ''));
             '</label>';
     }
 
-    function enforceQuota(group, max, target) {
+    function refreshQuotaInfo(group, max, target, infoTargetId, extraUnitPrice) {
         var checks = Array.from(document.querySelectorAll('.menu-check[data-group="' + group + '"]'));
         var selected = checks.filter(function (c) { return c.checked; });
         target.textContent = String(selected.length);
-        if (selected.length <= max) return;
-
-        var toUncheck = selected[selected.length - 1];
-        toUncheck.checked = false;
-        target.textContent = String(selected.length - 1);
-        alert('Maksimal pilihan untuk kelompok ini adalah ' + max + ' menu.');
+        var extraCount = Math.max(0, selected.length - max);
+        var infoEl = document.getElementById(infoTargetId);
+        if (!infoEl) return;
+        if (extraCount <= 0) {
+            infoEl.textContent = '';
+            return;
+        }
+        var est = Math.max(0, extraUnitPrice || 0) * extraCount;
+        var estText = est > 0 ? (' (estimasi +' + est.toLocaleString('id-ID') + ')') : '';
+        infoEl.textContent = 'Extra ' + extraCount + ' menu' + estText + ' dibayar di Front Desk.';
     }
 
     function attachQuotaHandlers() {
@@ -224,9 +229,9 @@ $token = trim((string)($_GET['t'] ?? ''));
             if (!el.classList.contains('menu-check')) return;
             var group = el.dataset.group;
             if (group === 'main') {
-                enforceQuota('main', parseInt(payload.max_main || 0, 10), document.getElementById('mainSelected'));
+                refreshQuotaInfo('main', parseInt(payload.max_main || 0, 10), document.getElementById('mainSelected'), 'mainExtraInfo', parseFloat(payload.extra_main_price || 0));
             } else {
-                enforceQuota('child', parseInt(payload.max_child || 0, 10), document.getElementById('childSelected'));
+                refreshQuotaInfo('child', parseInt(payload.max_child || 0, 10), document.getElementById('childSelected'), 'childExtraInfo', parseFloat(payload.extra_child_price || 0));
             }
         });
     }
@@ -257,6 +262,8 @@ $token = trim((string)($_GET['t'] ?? ''));
 
             mainGrid.innerHTML = (payload.main_menus || []).map(function (m) { return menuCard(m, 'main'); }).join('');
             childGrid.innerHTML = (payload.child_menus || []).map(function (m) { return menuCard(m, 'child'); }).join('');
+            refreshQuotaInfo('main', parseInt(payload.max_main || 0, 10), document.getElementById('mainSelected'), 'mainExtraInfo', parseFloat(payload.extra_main_price || 0));
+            refreshQuotaInfo('child', parseInt(payload.max_child || 0, 10), document.getElementById('childSelected'), 'childExtraInfo', parseFloat(payload.extra_child_price || 0));
         } catch (err) {
             setState('Gagal memuat link: ' + err.message, true);
         }
@@ -304,6 +311,9 @@ $token = trim((string)($_GET['t'] ?? ''));
             }
 
             msgEl.textContent = 'Terima kasih, pilihan menu Anda berhasil dikirim.';
+            if (json.data && json.data.extra_total_price && json.data.extra_total_price > 0) {
+                msgEl.textContent += ' Extra charge: Rp ' + Math.round(json.data.extra_total_price).toLocaleString('id-ID') + ' (dibayar di Front Desk).';
+            }
             msgEl.classList.add('ok');
             btn.textContent = 'Berhasil Dikirim';
         } catch (err) {

@@ -991,12 +991,13 @@ async function sendGuestSelectionLink(evt, btn) {
 
     try {
         var linkData = await createGuestPortalLinkFromCheckbox(cb);
+        var portalLink = linkData.short_link || linkData.link_url || '';
         var phone = normalizeWaPhone(cb.dataset.phone || '');
         if (!phone) {
-            prompt('Link portal berhasil dibuat. Salin link berikut untuk dikirim manual:', linkData.link_url || '');
+            prompt('Link portal berhasil dibuat. Salin link berikut untuk dikirim manual:', portalLink);
             return;
         }
-        var msg = buildPortalLinkWaMessage(cb.dataset.name || 'Tamu', cb.dataset.rooms || '-', linkData.link_url || '');
+        var msg = buildPortalLinkWaMessage(cb.dataset.name || 'Tamu', cb.dataset.rooms || '-', portalLink);
         window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(msg), '_blank');
     } catch (err) {
         alert('❌ ' + err.message);
@@ -1016,13 +1017,14 @@ async function sendSelectedGuestsPortalLinks() {
         var cb = selected[i];
         try {
             var linkData = await createGuestPortalLinkFromCheckbox(cb);
+            var portalLink = linkData.short_link || linkData.link_url || '';
             var phone = normalizeWaPhone(cb.dataset.phone || '');
             if (phone) {
-                var msg = buildPortalLinkWaMessage(cb.dataset.name || 'Tamu', cb.dataset.rooms || '-', linkData.link_url || '');
+                var msg = buildPortalLinkWaMessage(cb.dataset.name || 'Tamu', cb.dataset.rooms || '-', portalLink);
                 window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(msg), '_blank');
                 success++;
             } else {
-                manualLinks.push((cb.dataset.name || 'Tamu') + ': ' + (linkData.link_url || ''));
+                manualLinks.push((cb.dataset.name || 'Tamu') + ': ' + portalLink);
             }
         } catch (err) {
             manualLinks.push((cb.dataset.name || 'Tamu') + ': ERROR - ' + err.message);
