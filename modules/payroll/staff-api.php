@@ -434,25 +434,47 @@ if ($action === 'breakfast_orders') {
         }
 
         $menuNameSelect = $hasMenuNameColumn ? ', bo.menu_name' : ', NULL AS menu_name';
-        $orders = $db->fetchAll("
+        $rawOrders = $db->fetchAll("
             SELECT bo.id, bo.guest_name, bo.room_number, bo.total_pax, bo.breakfast_time,
                    bo.breakfast_date, bo.location, bo.menu_items, bo.special_requests,
                    bo.total_price, bo.order_status{$menuNameSelect}, bo.created_at
             FROM breakfast_orders bo
             WHERE bo.breakfast_date = ?
-            AND bo.id = (SELECT MAX(bo2.id) FROM breakfast_orders bo2 
-                WHERE bo2.guest_name = bo.guest_name
-                  AND bo2.breakfast_date = bo.breakfast_date
-                  AND bo2.room_number = bo.room_number)
             ORDER BY bo.breakfast_time ASC, bo.id ASC
         ", [$today]) ?: [];
 
-        // Decode JSON fields
-        foreach ($orders as &$o) {
+        // Decode + normalize room format, then keep only the newest row per guest/date/room key.
+        $dedupMap = [];
+        foreach ($rawOrders as $o) {
             $o['menu_items'] = json_decode($o['menu_items'] ?? '[]', true) ?: [];
+
             $rooms = json_decode($o['room_number'] ?? '[]', true);
-            $o['room_display'] = is_array($rooms) ? implode(', ', $rooms) : ($o['room_number'] ?? '-');
+            if (is_array($rooms)) {
+                $normalizedRooms = array_values(array_unique(array_map('trim', $rooms)));
+                sort($normalizedRooms, SORT_NATURAL);
+                $o['room_display'] = implode(', ', $normalizedRooms);
+            } else {
+                $o['room_display'] = trim((string)($o['room_number'] ?? ''));
+            }
+
+            $guestKey = strtolower(trim((string)($o['guest_name'] ?? '')));
+            $roomKey = strtolower(trim((string)$o['room_display']));
+            $dateKey = (string)($o['breakfast_date'] ?? '');
+            $dedupKey = $guestKey . '|' . $dateKey . '|' . $roomKey;
+
+            if (!isset($dedupMap[$dedupKey]) || (int)$o['id'] > (int)$dedupMap[$dedupKey]['id']) {
+                $dedupMap[$dedupKey] = $o;
+            }
         }
+        $orders = array_values($dedupMap);
+        usort($orders, function ($a, $b) {
+            $at = (string)($a['breakfast_time'] ?? '');
+            $bt = (string)($b['breakfast_time'] ?? '');
+            if ($at === $bt) {
+                return (int)$a['id'] <=> (int)$b['id'];
+            }
+            return strcmp($at, $bt);
+        });
 
         // Stats
         $totalOrders = count($orders);
