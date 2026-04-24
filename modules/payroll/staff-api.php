@@ -425,10 +425,19 @@ if ($action === 'breakfast_orders') {
     // Keep this aligned with frontdesk breakfast page and export-daily-report PDF.
     $today = date('Y-m-d');
     try {
+        $hasMenuNameColumn = false;
+        try {
+            $col = $db->fetchOne("SHOW COLUMNS FROM breakfast_orders LIKE 'menu_name'");
+            $hasMenuNameColumn = !empty($col);
+        } catch (Exception $e) {
+            $hasMenuNameColumn = false;
+        }
+
+        $menuNameSelect = $hasMenuNameColumn ? ', bo.menu_name' : ', NULL AS menu_name';
         $orders = $db->fetchAll("
             SELECT bo.id, bo.guest_name, bo.room_number, bo.total_pax, bo.breakfast_time,
                    bo.breakfast_date, bo.location, bo.menu_items, bo.special_requests,
-                   bo.total_price, bo.order_status, bo.menu_name, bo.created_at
+                   bo.total_price, bo.order_status{$menuNameSelect}, bo.created_at
             FROM breakfast_orders bo
             WHERE bo.breakfast_date = ?
             AND bo.id = (SELECT MAX(bo2.id) FROM breakfast_orders bo2 
