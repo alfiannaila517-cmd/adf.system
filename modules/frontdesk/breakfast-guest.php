@@ -15,22 +15,26 @@ $token = trim((string)($_GET['t'] ?? ''));
         body {
             margin: 0;
             font-family: 'Segoe UI', Tahoma, sans-serif;
-            background: linear-gradient(160deg, #fef3c7, #fde68a);
-            color: #1f2937;
+            background:
+                radial-gradient(circle at top left, rgba(125, 211, 252, 0.35), transparent 32%),
+                radial-gradient(circle at top right, rgba(147, 197, 253, 0.28), transparent 28%),
+                linear-gradient(160deg, #eff6ff, #dbeafe 55%, #e0f2fe);
+            color: #0f172a;
             min-height: 100vh;
             padding: 16px;
         }
         .wrap { max-width: 900px; margin: 0 auto; }
         .card {
-            background: #ffffff;
-            border: 1px solid #f3f4f6;
+            background: rgba(255, 255, 255, 0.72);
+            border: 1px solid rgba(96, 165, 250, 0.22);
             border-radius: 16px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            box-shadow: 0 10px 30px rgba(59, 130, 246, 0.12);
+            backdrop-filter: blur(14px);
             padding: 16px;
             margin-bottom: 16px;
         }
         .header-card {
-            background: linear-gradient(135deg, #f59e0b, #d97706);
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.96), rgba(96, 165, 250, 0.88));
             color: white;
             border: none;
         }
@@ -49,21 +53,22 @@ $token = trim((string)($_GET['t'] ?? ''));
         /* Moka-style menu cards */
         .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
         .menu-item {
-            border: 2px solid #e5e7eb;
+            border: 1px solid rgba(96, 165, 250, 0.18);
             border-radius: 14px;
-            background: #ffffff;
+            background: rgba(255, 255, 255, 0.82);
             overflow: hidden;
             transition: all 0.2s ease;
             cursor: pointer;
         }
-        .menu-item:hover { border-color: #f59e0b; transform: translateY(-2px); box-shadow: 0 6px 16px rgba(245, 158, 11, 0.15); }
-        .menu-item.selected { border-color: #10b981; background: linear-gradient(135deg, #ecfdf5, #d1fae5); }
+        .menu-item:hover { border-color: rgba(59, 130, 246, 0.55); transform: translateY(-2px); box-shadow: 0 10px 24px rgba(59, 130, 246, 0.12); }
+        .menu-item.selected { border-color: #38bdf8; background: linear-gradient(135deg, rgba(224, 242, 254, 0.92), rgba(191, 219, 254, 0.88)); }
+        .menu-item.locked { cursor: default; }
         .menu-item input { display: none; }
         
         .menu-img-wrap {
             width: 100%;
             height: 140px;
-            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            background: linear-gradient(135deg, rgba(191, 219, 254, 0.45), rgba(147, 197, 253, 0.35));
             display: flex;
             align-items: center;
             justify-content: center;
@@ -93,8 +98,8 @@ $token = trim((string)($_GET['t'] ?? ''));
         .menu-price.free { color: #10b981; }
         
         .quota-box {
-            background: linear-gradient(135deg, #fef3c7, #fde68a);
-            border: 2px solid #f59e0b;
+            background: linear-gradient(135deg, rgba(224, 242, 254, 0.9), rgba(191, 219, 254, 0.82));
+            border: 1px solid rgba(59, 130, 246, 0.22);
             border-radius: 12px;
             padding: 14px;
             margin-bottom: 16px;
@@ -104,21 +109,22 @@ $token = trim((string)($_GET['t'] ?? ''));
             flex-wrap: wrap;
             gap: 10px;
         }
-        .quota-label { font-size: 0.85rem; font-weight: 600; color: #92400e; }
-        .quota-count { font-size: 1.2rem; font-weight: 800; color: #d97706; }
-        .quota-extra { font-size: 0.75rem; color: #dc2626; font-weight: 600; }
+        .quota-label { font-size: 0.85rem; font-weight: 600; color: #1d4ed8; }
+        .quota-count { font-size: 1.2rem; font-weight: 800; color: #1d4ed8; }
+        .quota-extra { font-size: 0.75rem; color: #0f766e; font-weight: 600; }
         
         textarea {
             width: 100%;
             min-height: 80px;
-            border: 2px solid #e5e7eb;
+            border: 1px solid rgba(96, 165, 250, 0.25);
             border-radius: 12px;
             padding: 12px;
             font-family: inherit;
             font-size: 0.9rem;
+            background: rgba(255,255,255,0.75);
             transition: border-color 0.2s;
         }
-        textarea:focus { outline: none; border-color: #f59e0b; }
+        textarea:focus { outline: none; border-color: #38bdf8; }
         
         .actions { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
         .btn {
@@ -132,11 +138,11 @@ $token = trim((string)($_GET['t'] ?? ''));
             transition: all 0.2s;
         }
         .btn-primary { 
-            background: linear-gradient(135deg, #f59e0b, #d97706); 
+            background: linear-gradient(135deg, #38bdf8, #2563eb); 
             color: white;
-            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.22);
         }
-        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(245, 158, 11, 0.4); }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(37, 99, 235, 0.28); }
         .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
         
         .msg { margin-top: 12px; font-size: 0.9rem; font-weight: 600; padding: 10px; border-radius: 8px; }
@@ -145,18 +151,18 @@ $token = trim((string)($_GET['t'] ?? ''));
         .hidden { display: none; }
         
         .info-box {
-            border: 2px dashed #fcd34d;
+            border: 1px dashed rgba(96, 165, 250, 0.5);
             border-radius: 12px;
-            background: #fefbeb;
+            background: rgba(239, 246, 255, 0.8);
             padding: 14px;
             font-size: 0.9rem;
-            color: #92400e;
+            color: #1e3a8a;
             white-space: pre-wrap;
         }
         .media-link {
             display: inline-block;
             margin-top: 8px;
-            color: #0369a1;
+            color: #2563eb;
             font-weight: 700;
             text-decoration: none;
         }
@@ -275,6 +281,20 @@ $token = trim((string)($_GET['t'] ?? ''));
         if ((payload.wa_info_text || '').trim() || (payload.wa_media_url || '').trim()) {
             document.getElementById('infoCard').classList.remove('hidden');
         }
+
+        if (payload.is_locked) {
+            var submitTitle = document.querySelector('#submitCard .section-title');
+            if (submitTitle) submitTitle.innerHTML = '<span class="section-icon">🔒</span> Submitted Menu';
+            var notes = document.getElementById('notes');
+            notes.disabled = true;
+            notes.value = 'This breakfast selection has already been submitted. Please contact Front Office for changes.';
+            var btn = document.getElementById('btnSubmit');
+            btn.disabled = true;
+            btn.textContent = 'Submitted';
+            var msg = document.getElementById('submitMsg');
+            msg.textContent = 'This link is read-only. Menu changes can only be made by Front Office.';
+            msg.className = 'msg ok';
+        }
     }
 
     function esc(s) {
@@ -316,11 +336,13 @@ $token = trim((string)($_GET['t'] ?? ''));
     }
 
     function menuCard(item, group) {
+        var locked = !!payload.is_locked;
         var price = parseFloat(item.price || 0);
         var free = String(item.is_free) === '1' || item.is_free === 1 || item.is_free === true;
         var imgUrl = item.image_url || '';
         var desc = item.description || '';
         var hasImg = imgUrl && imgUrl.trim() !== '';
+        var checked = item.pre_selected ? 'checked' : '';
         
         var imgHtml = '';
         if (hasImg) {
@@ -328,9 +350,24 @@ $token = trim((string)($_GET['t'] ?? ''));
         } else {
             imgHtml = '<div class="menu-img-wrap"><span class="menu-img-placeholder">🍽️</span></div>';
         }
+
+        if (locked) {
+            return '<div class="menu-item locked' + (item.pre_selected ? ' selected' : '') + '">' +
+                '<input type="checkbox" class="menu-check" data-group="' + group + '" value="' + item.id + '" ' + checked + ' disabled>' +
+                imgHtml +
+                '<div class="menu-content">' +
+                '<div class="menu-name">' + esc(item.menu_name) + '</div>' +
+                '<div class="menu-desc">' + esc(desc) + '</div>' +
+                '<div class="menu-footer">' +
+                '<span class="menu-cat">' + esc(item.category || '-') + '</span>' +
+                '<span class="menu-price ' + (free ? 'free' : '') + '">' + (free ? 'FREE' : 'Rp ' + Math.round(price).toLocaleString('id-ID')) + '</span>' +
+                '</div>' +
+                '</div>' +
+                '</div>';
+        }
         
-        return '<label class="menu-item" onclick="this.querySelector(\'input\').checked = !this.querySelector(\'input\').checked; this.classList.toggle(\'selected\', this.querySelector(\'input\').checked);">' +
-            '<input type="checkbox" class="menu-check" data-group="' + group + '" value="' + item.id + '" ' + (item.pre_selected ? 'checked' : '') + '>' +
+        return '<label class="menu-item' + (item.pre_selected ? ' selected' : '') + '" onclick="var cb=this.querySelector(\'input\'); cb.checked = !cb.checked; this.classList.toggle(\'selected\', cb.checked);">' +
+            '<input type="checkbox" class="menu-check" data-group="' + group + '" value="' + item.id + '" ' + checked + '>' +
             imgHtml +
             '<div class="menu-content">' +
             '<div class="menu-name">' + esc(item.menu_name) + '</div>' +
@@ -394,7 +431,7 @@ $token = trim((string)($_GET['t'] ?? ''));
             }
 
             payload = json.data || {};
-            setState('Silakan pilih menu sesuai jatah.', false);
+            setState(payload.is_locked ? 'Menu sudah dikirim. Link ini hanya untuk melihat pilihan yang sudah tersimpan.' : 'Silakan pilih menu sesuai jatah.', false);
             renderMeta();
             openCards();
 

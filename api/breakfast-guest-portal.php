@@ -365,10 +365,8 @@ if ($action === 'get_link') {
         exit;
     }
 
-    if ($link['link_status'] !== 'open') {
-        echo json_encode(['success' => false, 'message' => 'Link sudah tidak aktif']);
-        exit;
-    }
+    $linkStatus = (string)($link['link_status'] ?? 'open');
+    $isLocked = in_array($linkStatus, ['submitted', 'closed', 'locked'], true) || !empty($link['submitted_at']);
 
     if (!empty($link['expires_at']) && strtotime($link['expires_at']) < time()) {
         $pdo->prepare("UPDATE breakfast_guest_links SET link_status = 'expired' WHERE id = ?")->execute([(int)$link['id']]);
@@ -391,12 +389,27 @@ if ($action === 'get_link') {
         if (isset($menuMap[$id])) $childMenus[] = $menuMap[$id];
     }
 
+    $selectedMainIds = json_decode($link['selected_menu_ids'] ?? '[]', true);
+    $selectedDrinkIds = json_decode($link['selected_drink_ids'] ?? '[]', true);
+    $selectedChildIds = json_decode($link['selected_child_ids'] ?? '[]', true);
+    if (!is_array($selectedMainIds)) $selectedMainIds = [];
+    if (!is_array($selectedDrinkIds)) $selectedDrinkIds = [];
+    if (!is_array($selectedChildIds)) $selectedChildIds = [];
+    $selectedMainIds = array_values(array_unique(array_map('intval', $selectedMainIds)));
+    $selectedDrinkIds = array_values(array_unique(array_map('intval', $selectedDrinkIds)));
+    $selectedChildIds = array_values(array_unique(array_map('intval', $selectedChildIds)));
+
     // Separate drinks from main courses
     $drinkCategories = ['drinks', 'beverages'];
     $drinkMenus = [];
     $mainMenus = [];
     foreach ($menus as $m) {
-        if (in_array((int)$m['id'], $childIds, true)) continue;
+        $menuId = (int)$m['id'];
+        $m['pre_selected'] = false;
+        if ($isLocked) {
+            $m['pre_selected'] = in_array($menuId, $selectedMainIds, true) || in_array($menuId, $selectedDrinkIds, true) || in_array($menuId, $selectedChildIds, true);
+        }
+        if (in_array($menuId, $childIds, true)) continue;
         if (in_array(strtolower($m['category'] ?? ''), $drinkCategories, true)) {
             $drinkMenus[] = $m;
         } else {
@@ -448,7 +461,12 @@ if ($action === 'get_link') {
             'child_menus' => $childMenus,
             'wa_info_text' => $waInfo,
             'wa_media_url' => $waMediaUrl,
-            'expires_at' => $link['expires_at']
+            'expires_at' => $link['expires_at'],
+            'submitted_at' => $link['submitted_at'] ?? null,
+            'is_locked' => $isLocked,
+            'selected_main_ids' => $selectedMainIds,
+            'selected_drink_ids' => $selectedDrinkIds,
+            'selected_child_ids' => $selectedChildIds
         ]
     ]);
     exit;
@@ -486,8 +504,8 @@ if ($action === 'submit_link') {
         if (!$link) {
             throw new Exception('Link tidak ditemukan');
         }
-        if ($link['link_status'] !== 'open') {
-            throw new Exception('Link sudah tidak aktif');
+        if (!empty($link['submitted_at']) || in_array((string)($link['link_status'] ?? 'open'), ['submitted', 'closed', 'locked'], true)) {
+            throw new Exception('Menu sudah dikirim. Untuk perubahan, silakan hubungi Front Office.');
         }
         if (!empty($link['expires_at']) && strtotime($link['expires_at']) < time()) {
             $pdo->prepare("UPDATE breakfast_guest_links SET link_status = 'expired' WHERE id = ?")->execute([(int)$link['id']]);
