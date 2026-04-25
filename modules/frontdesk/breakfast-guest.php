@@ -15,39 +15,160 @@ $token = trim((string)($_GET['t'] ?? ''));
         body {
             margin: 0;
             font-family: 'Segoe UI', Tahoma, sans-serif;
-            background: linear-gradient(160deg, #f8fafc, #eef2ff);
-            color: #0f172a;
+            background: linear-gradient(160deg, #fef3c7, #fde68a);
+            color: #1f2937;
             min-height: 100vh;
-            padding: 18px;
+            padding: 16px;
         }
-        .wrap { max-width: 860px; margin: 0 auto; }
+        .wrap { max-width: 900px; margin: 0 auto; }
         .card {
             background: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-radius: 14px;
-            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.07);
-            padding: 18px;
-            margin-bottom: 14px;
+            border: 1px solid #f3f4f6;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            padding: 16px;
+            margin-bottom: 16px;
         }
-        h1 { margin: 0 0 6px; font-size: 1.35rem; }
-        .muted { color: #64748b; font-size: 0.9rem; }
-        .meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-top: 12px; }
-        .meta-item { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px; }
-        .meta-lbl { font-size: 0.72rem; color: #64748b; text-transform: uppercase; font-weight: 700; letter-spacing: .3px; }
-        .meta-val { margin-top: 4px; font-weight: 700; }
-        .section-title { font-size: 1rem; font-weight: 800; margin: 2px 0 10px; }
-        .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+        .header-card {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+            border: none;
+        }
+        h1 { margin: 0 0 4px; font-size: 1.5rem; font-weight: 800; }
+        .muted { color: #9ca3af; font-size: 0.9rem; }
+        .muted-white { color: rgba(255,255,255,0.9); font-size: 0.85rem; }
+        .meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 12px; }
+        .meta-item { background: rgba(255,255,255,0.15); border-radius: 10px; padding: 10px; }
+        .meta-item-light { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; }
+        .meta-lbl { font-size: 0.65rem; color: rgba(255,255,255,0.8); text-transform: uppercase; font-weight: 700; letter-spacing: .5px; }
+        .meta-lbl-dark { font-size: 0.65rem; color: #6b7280; text-transform: uppercase; font-weight: 700; letter-spacing: .5px; }
+        .meta-val { margin-top: 4px; font-weight: 700; font-size: 0.95rem; }
+        .section-title { font-size: 1.1rem; font-weight: 800; margin: 0 0 12px; color: #1f2937; display: flex; align-items: center; gap: 8px; }
+        .section-icon { font-size: 1.3rem; }
+        
+        /* Moka-style menu cards */
+        .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
         .menu-item {
-            border: 1px solid #dbeafe;
-            border-radius: 10px;
-            background: #f8fbff;
-            padding: 10px;
-            display: flex;
-            align-items: flex-start;
-            gap: 8px;
+            border: 2px solid #e5e7eb;
+            border-radius: 14px;
+            background: #ffffff;
+            overflow: hidden;
+            transition: all 0.2s ease;
+            cursor: pointer;
         }
-        .menu-item input { margin-top: 3px; }
-        .menu-name { font-weight: 700; font-size: 0.92rem; }
+        .menu-item:hover { border-color: #f59e0b; transform: translateY(-2px); box-shadow: 0 6px 16px rgba(245, 158, 11, 0.15); }
+        .menu-item.selected { border-color: #10b981; background: linear-gradient(135deg, #ecfdf5, #d1fae5); }
+        .menu-item input { display: none; }
+        
+        .menu-img-wrap {
+            width: 100%;
+            height: 140px;
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .menu-img { width: 100%; height: 100%; object-fit: cover; }
+        .menu-img-placeholder { font-size: 3rem; }
+        
+        .menu-content { padding: 12px; }
+        .menu-name { font-weight: 700; font-size: 1rem; color: #1f2937; margin-bottom: 4px; }
+        .menu-desc { font-size: 0.8rem; color: #6b7280; line-height: 1.4; margin-bottom: 8px; min-height: 36px; }
+        .menu-footer { display: flex; justify-content: space-between; align-items: center; }
+        .menu-cat { 
+            font-size: 0.65rem; 
+            padding: 3px 8px; 
+            background: #fef3c7; 
+            color: #d97706; 
+            border-radius: 20px; 
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .menu-price { 
+            font-weight: 800; 
+            font-size: 1rem; 
+            color: #059669; 
+        }
+        .menu-price.free { color: #10b981; }
+        
+        .quota-box {
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            border: 2px solid #f59e0b;
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .quota-label { font-size: 0.85rem; font-weight: 600; color: #92400e; }
+        .quota-count { font-size: 1.2rem; font-weight: 800; color: #d97706; }
+        .quota-extra { font-size: 0.75rem; color: #dc2626; font-weight: 600; }
+        
+        textarea {
+            width: 100%;
+            min-height: 80px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 12px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            transition: border-color 0.2s;
+        }
+        textarea:focus { outline: none; border-color: #f59e0b; }
+        
+        .actions { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+        .btn {
+            border: none;
+            border-radius: 12px;
+            padding: 14px 20px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            flex: 1;
+            transition: all 0.2s;
+        }
+        .btn-primary { 
+            background: linear-gradient(135deg, #f59e0b, #d97706); 
+            color: white;
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+        }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(245, 158, 11, 0.4); }
+        .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        
+        .msg { margin-top: 12px; font-size: 0.9rem; font-weight: 600; padding: 10px; border-radius: 8px; }
+        .ok { background: #d1fae5; color: #059669; }
+        .err { background: #fee2e2; color: #dc2626; }
+        .hidden { display: none; }
+        
+        .info-box {
+            border: 2px dashed #fcd34d;
+            border-radius: 12px;
+            background: #fefbeb;
+            padding: 14px;
+            font-size: 0.9rem;
+            color: #92400e;
+            white-space: pre-wrap;
+        }
+        .media-link {
+            display: inline-block;
+            margin-top: 8px;
+            color: #0369a1;
+            font-weight: 700;
+            text-decoration: none;
+        }
+        
+        .drink-section { margin-top: 20px; }
+        
+        @media (max-width: 600px) {
+            .menu-grid { grid-template-columns: 1fr; }
+            .quota-box { flex-direction: column; text-align: center; }
+        }
+    </style>
+</head>
         .menu-cat { font-size: 0.7rem; color: #475569; margin-top: 3px; text-transform: uppercase; }
         .menu-price { margin-top: 4px; font-size: 0.76rem; color: #059669; font-weight: 700; }
         .quota-line { margin-bottom: 10px; color: #334155; font-size: 0.86rem; }
@@ -97,37 +218,69 @@ $token = trim((string)($_GET['t'] ?? ''));
 <body>
 <div class="wrap">
     <div class="card" id="headerCard">
-        <h1>Pilih Menu Sarapan Anda</h1>
-        <div class="muted" id="stateText">Memuat data...</div>
-        <div class="meta hidden" id="metaBox"></div>
+        <div class="header-card">
+            <h1>🍳 Pilih Menu Sarapan Anda</h1>
+            <div class="muted-white" id="stateText">Memuat data...</div>
+            <div class="meta hidden" id="metaBox"></div>
+        </div>
     </div>
 
     <div class="card hidden" id="infoCard">
-        <div class="section-title">Informasi</div>
+        <div class="section-title"><span class="section-icon">ℹ️</span> Informasi</div>
         <div class="info-box" id="infoText"></div>
         <a class="media-link hidden" id="infoMedia" target="_blank">Lihat lampiran info</a>
     </div>
 
     <div class="card hidden" id="mainCard">
-        <div class="section-title">Menu Main Course</div>
-        <div class="quota-line">Jatah: <span class="counter" id="mainQuotaText">0</span> menu, terpilih <span class="counter" id="mainSelected">0</span>. <span class="warn" id="mainExtraInfo"></span></div>
+        <div class="section-title"><span class="section-icon">🍽️</span> Menu Utama</div>
+        <div class="quota-box">
+            <div>
+                <div class="quota-label">Jatah Main Course</div>
+                <div class="quota-count"><span id="mainQuotaText">0</span> menu</div>
+            </div>
+            <div>
+                <div class="quota-label">Terpilih</div>
+                <div class="quota-count" id="mainSelected">0</div>
+            </div>
+            <div id="mainExtraInfo" class="quota-extra"></div>
+        </div>
         <div class="menu-grid" id="mainGrid"></div>
     </div>
 
-    <div class="card hidden" id="drinksCard">
-        <div class="section-title">Minuman</div>
-        <div class="quota-line">Jatah: <span class="counter" id="drinksQuotaText">0</span> menu, terpilih <span class="counter" id="drinksSelected">0</span>. <span class="warn" id="drinksExtraInfo"></span></div>
-        <div class="menu-grid" id="drinksGrid"></div>
+    <div class="card hidden" id="drinkCard">
+        <div class="section-title"><span class="section-icon">🥤</span> Minuman</div>
+        <div class="quota-box">
+            <div>
+                <div class="quota-label">Jatah Minuman</div>
+                <div class="quota-count"><span id="drinkQuotaText">0</span> menu</div>
+            </div>
+            <div>
+                <div class="quota-label">Terpilih</div>
+                <div class="quota-count" id="drinkSelected">0</div>
+            </div>
+            <div id="drinkExtraInfo" class="quota-extra"></div>
+        </div>
+        <div class="menu-grid" id="drinkGrid"></div>
     </div>
 
     <div class="card hidden" id="childCard">
-        <div class="section-title">Menu Anak</div>
-        <div class="quota-line">Jatah: <span class="counter" id="childQuotaText">0</span> menu, terpilih <span class="counter" id="childSelected">0</span>. <span class="warn" id="childExtraInfo"></span></div>
+        <div class="section-title"><span class="section-icon">👶</span> Menu Anak</div>
+        <div class="quota-box">
+            <div>
+                <div class="quota-label">Jatah Menu Anak</div>
+                <div class="quota-count"><span id="childQuotaText">0</span> menu</div>
+            </div>
+            <div>
+                <div class="quota-label">Terpilih</div>
+                <div class="quota-count" id="childSelected">0</div>
+            </div>
+            <div id="childExtraInfo" class="quota-extra"></div>
+        </div>
         <div class="menu-grid" id="childGrid"></div>
     </div>
 
     <div class="card hidden" id="submitCard">
-        <div class="section-title">Catatan Tambahan</div>
+        <div class="section-title"><span class="section-icon">📝</span> Catatan Tambahan</div>
         <textarea id="notes" placeholder="Contoh: mohon tanpa pedas / alergi telur / dll"></textarea>
         <div class="actions">
             <button class="btn btn-primary" id="btnSubmit">Kirim Pilihan Sarapan</button>
@@ -143,22 +296,25 @@ $token = trim((string)($_GET['t'] ?? ''));
     var payload = null;
 
     var mainGrid = document.getElementById('mainGrid');
-    var drinksGrid = document.getElementById('drinksGrid');
     var childGrid = document.getElementById('childGrid');
+    var drinkGrid = document.getElementById('drinkGrid');
 
     function setState(text, isErr) {
         var el = document.getElementById('stateText');
         el.textContent = text;
-        el.className = isErr ? 'muted err' : 'muted';
+        el.className = isErr ? 'muted-white err' : 'muted-white';
     }
 
     function openCards() {
         document.getElementById('metaBox').classList.remove('hidden');
         document.getElementById('mainCard').classList.remove('hidden');
-        if ((payload.drinks_menus || []).length > 0 && (payload.max_drinks || 0) > 0) {
-            document.getElementById('drinksCard').classList.remove('hidden');
-        }
         document.getElementById('submitCard').classList.remove('hidden');
+        
+        // Show drink section if there are drink menus and quota > 0
+        if ((payload.drink_menus || []).length > 0 && (payload.max_drink || 0) > 0) {
+            document.getElementById('drinkCard').classList.remove('hidden');
+        }
+        
         if ((payload.child_menus || []).length > 0 && (payload.max_child || 0) > 0) {
             document.getElementById('childCard').classList.remove('hidden');
         }
@@ -188,11 +344,11 @@ $token = trim((string)($_GET['t'] ?? ''));
             ['Tanggal', formatDate(payload.breakfast_date)],
             ['Batas Link', payload.expires_at || '-']
         ].map(function (it) {
-            return '<div class="meta-item"><div class="meta-lbl">' + esc(it[0]) + '</div><div class="meta-val">' + esc(it[1]) + '</div></div>';
+            return '<div class="meta-item-light"><div class="meta-lbl-dark">' + esc(it[0]) + '</div><div class="meta-val">' + esc(it[1]) + '</div></div>';
         }).join('');
 
         document.getElementById('mainQuotaText').textContent = String(payload.max_main || 0);
-        document.getElementById('drinksQuotaText').textContent = String(payload.max_drinks || 0);
+        document.getElementById('drinkQuotaText').textContent = String(payload.max_drink || 0);
         document.getElementById('childQuotaText').textContent = String(payload.max_child || 0);
 
         var infoText = (payload.wa_info_text || '').trim();
@@ -208,12 +364,27 @@ $token = trim((string)($_GET['t'] ?? ''));
     function menuCard(item, group) {
         var price = parseFloat(item.price || 0);
         var free = String(item.is_free) === '1' || item.is_free === 1 || item.is_free === true;
-        return '<label class="menu-item">' +
-            '<input type="checkbox" class="menu-check" data-group="' + group + '" value="' + item.id + '">' +
-            '<div>' +
+        var imgUrl = item.image_url || '';
+        var desc = item.description || '';
+        var hasImg = imgUrl && imgUrl.trim() !== '';
+        
+        var imgHtml = '';
+        if (hasImg) {
+            imgHtml = '<div class="menu-img-wrap"><img class="menu-img" src="' + esc(imgUrl) + '" alt="' + esc(item.menu_name) + '" onerror="this.parentElement.innerHTML=\'<span class=\'menu-img-placeholder\'>🍽️</span>\'"></div>';
+        } else {
+            imgHtml = '<div class="menu-img-wrap"><span class="menu-img-placeholder">🍽️</span></div>';
+        }
+        
+        return '<label class="menu-item" onclick="this.querySelector(\'input\').checked = !this.querySelector(\'input\').checked; this.classList.toggle(\'selected\', this.querySelector(\'input\').checked);">' +
+            '<input type="checkbox" class="menu-check" data-group="' + group + '" value="' + item.id + '" ' + (item.pre_selected ? 'checked' : '') + '>' +
+            imgHtml +
+            '<div class="menu-content">' +
             '<div class="menu-name">' + esc(item.menu_name) + '</div>' +
-            '<div class="menu-cat">' + esc(item.category || '-') + '</div>' +
-            '<div class="menu-price">' + (free ? 'Free' : 'Rp ' + Math.round(price).toLocaleString('id-ID')) + '</div>' +
+            '<div class="menu-desc">' + esc(desc) + '</div>' +
+            '<div class="menu-footer">' +
+            '<span class="menu-cat">' + esc(item.category || '-') + '</span>' +
+            '<span class="menu-price ' + (free ? 'free' : '') + '">' + (free ? 'FREE' : 'Rp ' + Math.round(price).toLocaleString('id-ID')) + '</span>' +
+            '</div>' +
             '</div>' +
             '</label>';
     }
@@ -241,8 +412,8 @@ $token = trim((string)($_GET['t'] ?? ''));
             var group = el.dataset.group;
             if (group === 'main') {
                 refreshQuotaInfo('main', parseInt(payload.max_main || 0, 10), document.getElementById('mainSelected'), 'mainExtraInfo', parseFloat(payload.extra_main_price || 0));
-            } else if (group === 'drinks') {
-                refreshQuotaInfo('drinks', parseInt(payload.max_drinks || 0, 10), document.getElementById('drinksSelected'), 'drinksExtraInfo', parseFloat(payload.extra_main_price || 0));
+            } else if (group === 'drink') {
+                refreshQuotaInfo('drink', parseInt(payload.max_drink || 0, 10), document.getElementById('drinkSelected'), 'drinkExtraInfo', parseFloat(payload.extra_drink_price || 0));
             } else {
                 refreshQuotaInfo('child', parseInt(payload.max_child || 0, 10), document.getElementById('childSelected'), 'childExtraInfo', parseFloat(payload.extra_child_price || 0));
             }
@@ -274,10 +445,11 @@ $token = trim((string)($_GET['t'] ?? ''));
             openCards();
 
             mainGrid.innerHTML = (payload.main_menus || []).map(function (m) { return menuCard(m, 'main'); }).join('');
-            drinksGrid.innerHTML = (payload.drinks_menus || []).map(function (m) { return menuCard(m, 'drinks'); }).join('');
+            drinkGrid.innerHTML = (payload.drink_menus || []).map(function (m) { return menuCard(m, 'drink'); }).join('');
             childGrid.innerHTML = (payload.child_menus || []).map(function (m) { return menuCard(m, 'child'); }).join('');
+            
             refreshQuotaInfo('main', parseInt(payload.max_main || 0, 10), document.getElementById('mainSelected'), 'mainExtraInfo', parseFloat(payload.extra_main_price || 0));
-            refreshQuotaInfo('drinks', parseInt(payload.max_drinks || 0, 10), document.getElementById('drinksSelected'), 'drinksExtraInfo', parseFloat(payload.extra_main_price || 0));
+            refreshQuotaInfo('drink', parseInt(payload.max_drink || 0, 10), document.getElementById('drinkSelected'), 'drinkExtraInfo', parseFloat(payload.extra_drink_price || 0));
             refreshQuotaInfo('child', parseInt(payload.max_child || 0, 10), document.getElementById('childSelected'), 'childExtraInfo', parseFloat(payload.extra_child_price || 0));
         } catch (err) {
             setState('Gagal memuat link: ' + err.message, true);
@@ -290,9 +462,9 @@ $token = trim((string)($_GET['t'] ?? ''));
         msgEl.className = 'msg';
 
         var selectedMain = selectedIds('main');
-        var selectedDrinks = selectedIds('drinks');
+        var selectedDrink = selectedIds('drink');
         var selectedChild = selectedIds('child');
-        if (selectedMain.length + selectedDrinks.length + selectedChild.length === 0) {
+        if (selectedMain.length + selectedDrink.length + selectedChild.length === 0) {
             msgEl.textContent = 'Pilih minimal 1 menu.';
             msgEl.classList.add('err');
             return;
@@ -302,7 +474,7 @@ $token = trim((string)($_GET['t'] ?? ''));
             action: 'submit_link',
             token: token,
             selected_main: selectedMain,
-            selected_drinks: selectedDrinks,
+            selected_drink: selectedDrink,
             selected_child: selectedChild,
             special_requests: (document.getElementById('notes').value || '').trim(),
             location: 'restaurant'

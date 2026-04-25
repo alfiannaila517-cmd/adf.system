@@ -53,11 +53,12 @@ function ensure_portal_links_table($pdo)
         room_number TEXT,
         breakfast_date DATE NOT NULL,
         max_main INT NOT NULL DEFAULT 2,
-        max_drinks INT NOT NULL DEFAULT 2,
-        max_child INT NOT NULL DEFAULT 0,
+        max_drink INT NOT NULL DEFAULT 2,
+        max_child INT NOT NULL DEFAULT 2,
         child_menu_ids TEXT,
         link_status VARCHAR(20) NOT NULL DEFAULT 'open',
         selected_menu_ids TEXT,
+        selected_drink_ids TEXT,
         selected_child_ids TEXT,
         special_requests TEXT,
         expires_at DATETIME NULL,
@@ -81,7 +82,15 @@ function ensure_portal_links_table($pdo)
     } catch (Exception $e) {
     }
     try {
-        $pdo->exec("ALTER TABLE breakfast_guest_links ADD COLUMN max_drinks INT NOT NULL DEFAULT 2 AFTER max_main");
+        $pdo->exec("ALTER TABLE breakfast_guest_links ADD COLUMN max_drink INT NOT NULL DEFAULT 2 AFTER max_main");
+    } catch (Exception $e) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE breakfast_guest_links ADD COLUMN selected_drink_ids TEXT AFTER selected_menu_ids");
+    } catch (Exception $e) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE breakfast_guest_links ADD COLUMN guest_composition TEXT AFTER child_menu_ids");
     } catch (Exception $e) {
     }
 }
@@ -94,10 +103,12 @@ function ensure_breakfast_quota_table($pdo)
         guest_id INT NULL,
         guest_name VARCHAR(255) NULL,
         breakfast_date DATE NULL,
-        max_main INT NOT NULL DEFAULT 1,
-        max_child INT NOT NULL DEFAULT 0,
+        max_main INT NOT NULL DEFAULT 2,
+        max_drink INT NOT NULL DEFAULT 2,
+        max_child INT NOT NULL DEFAULT 2,
         child_menu_ids TEXT,
         extra_main_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        extra_drink_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
         extra_child_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
         created_by INT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -164,6 +175,10 @@ try {
     ensure_portal_links_table($pdo);
     ensure_breakfast_quota_table($pdo);
     ensure_booking_extras_table($pdo);
+    
+    // Add new columns if not exist
+    try { $pdo->exec("ALTER TABLE breakfast_guest_quota ADD COLUMN max_drink INT NOT NULL DEFAULT 2 AFTER max_main"); } catch (Exception $e) {}
+    try { $pdo->exec("ALTER TABLE breakfast_guest_quota ADD COLUMN extra_drink_price DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER extra_main_price"); } catch (Exception $e) {}
 } catch (Exception $e) {
     echo json_encode(['success' => false, 'message' => 'Gagal inisialisasi tabel: ' . $e->getMessage()]);
     exit;
@@ -188,12 +203,24 @@ if ($action === 'create_link') {
     $rooms = array_values(array_unique(array_filter(array_map('trim', $rooms))));
 
     $breakfastDate = !empty($body['breakfast_date']) ? $body['breakfast_date'] : hotel_date();
+    
+    // New quota structure based on guest composition
+    $adultCount = max(0, (int)($body['adult_count'] ?? 1));
+    $childYoung = max(0, (int)($body['child_young_count'] ?? 0)); // < 7 years old
+    $childOld = max(0, (int)($body['child_old_count'] ?? 0));     // >= 7 years old
+    
     $maxMain = max(0, (int)($body['max_main'] ?? 2));
-    $maxDrinks = max(0, (int)($body['max_drinks'] ?? 2));
-    $maxChild = max(0, (int)($body['max_child'] ?? 0));
+    $maxDrink = max(0, (int)($body['max_drink'] ?? 2));
+    $maxChild = max(0, (int)($body['max_child'] ?? 2)); // for young children
     $expireHours = max(1, min(72, (int)($body['expire_hours'] ?? 24)));
 
+    // Calculate total quotas based on guest composition
+    $totalMainQuota = ($adultCount * $maxMain) + ($childOld * $maxMain);
+    $totalDrinkQuota = ($adultCount * $maxDrink) + ($childOld * $maxDrink);
+    $totalChildQuota = $childYoung; // young children only get child menu quota
+
     $extraMainPrice = to_float($body['extra_main_price'] ?? '', to_float(get_setting($db, 'breakfast_extra_main_price'), 55000));
+    $extraDrinkPrice = to_float($body['extra_drink_price'] ?? '', to_float(get_setting($db, 'breakfast_extra_drink_price'), 25000));
     $extraChildPrice = to_float($body['extra_child_price'] ?? '', to_float(get_setting($db, 'breakfast_extra_child_price'), 30000));
 
     $childMenuIds = $body['child_menu_ids'] ?? [];
@@ -207,7 +234,7 @@ if ($action === 'create_link') {
         echo json_encode(['success' => false, 'message' => 'Nama tamu wajib diisi']);
         exit;
     }
-    if ($maxMain + $maxDrinks + $maxChild <= 0) {
+    if ($totalMainQuota + $totalDrinkQuota + $totalChildQuota <= 0) {
         echo json_encode(['success' => false, 'message' => 'Jatah menu minimal 1']);
         exit;
     }
@@ -218,6 +245,13 @@ if ($action === 'create_link') {
     $childJson = json_encode($childMenuIds);
     $expiresAt = date('Y-m-d H:i:s', strtotime('+' . $expireHours . ' hours'));
 
+    // Store guest composition for quota calculation
+    $guestCompositionJson = json_encode([
+        'adults' => $adultCount,
+        'children_young' => $childYoung,  // < 7 years
+        'children_old' => $childOld       // >= 7 years
+    ]);
+
     try {
         $pdo->prepare("UPDATE breakfast_guest_links
             SET link_status = 'expired'
@@ -226,17 +260,18 @@ if ($action === 'create_link') {
 
         if ($bookingId) {
             $pdo->prepare("INSERT INTO breakfast_guest_quota
-                (booking_id, guest_id, guest_name, breakfast_date, max_main, max_drinks, max_child, child_menu_ids, extra_main_price, extra_child_price, created_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (booking_id, guest_id, guest_name, breakfast_date, max_main, max_drink, max_child, child_menu_ids, extra_main_price, extra_drink_price, extra_child_price, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE
                     guest_id = VALUES(guest_id),
                     guest_name = VALUES(guest_name),
                     breakfast_date = VALUES(breakfast_date),
                     max_main = VALUES(max_main),
-                    max_drinks = VALUES(max_drinks),
+                    max_drink = VALUES(max_drink),
                     max_child = VALUES(max_child),
                     child_menu_ids = VALUES(child_menu_ids),
                     extra_main_price = VALUES(extra_main_price),
+                    extra_drink_price = VALUES(extra_drink_price),
                     extra_child_price = VALUES(extra_child_price),
                     updated_at = NOW()")
                 ->execute([
@@ -245,10 +280,11 @@ if ($action === 'create_link') {
                     $guestName,
                     $breakfastDate,
                     $maxMain,
-                    $maxDrinks,
+                    $maxDrink,
                     $maxChild,
                     $childJson,
                     $extraMainPrice,
+                    $extraDrinkPrice,
                     $extraChildPrice,
                     $userId
                 ]);
@@ -261,8 +297,8 @@ if ($action === 'create_link') {
             try {
                 $pdo->prepare("INSERT INTO breakfast_guest_links
                     (token, short_code, booking_id, guest_id, guest_name, guest_phone, room_number, breakfast_date,
-                     max_main, max_drinks, max_child, child_menu_ids, expires_at, created_by)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+                     max_main, max_drink, max_child, child_menu_ids, guest_composition, expires_at, created_by)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
                     ->execute([
                         $token,
                         $shortCode,
@@ -272,10 +308,11 @@ if ($action === 'create_link') {
                         $guestPhone,
                         $roomJson,
                         $breakfastDate,
-                        $maxMain,
-                        $maxDrinks,
-                        $maxChild,
+                        $totalMainQuota,
+                        $totalDrinkQuota,
+                        $totalChildQuota,
                         $childJson,
+                        $guestCompositionJson,
                         $expiresAt,
                         $userId
                     ]);
@@ -339,7 +376,7 @@ if ($action === 'get_link') {
         exit;
     }
 
-    $menus = $db->fetchAll("SELECT id, menu_name, category, is_free, price FROM breakfast_menus WHERE is_available = 1 ORDER BY category, menu_name") ?: [];
+    $menus = $db->fetchAll("SELECT id, menu_name, category, is_free, price, image_url, description FROM breakfast_menus WHERE is_available = 1 ORDER BY category, menu_name") ?: [];
     $menuMap = [];
     foreach ($menus as $m) {
         $menuMap[(int)$m['id']] = $m;
@@ -354,13 +391,14 @@ if ($action === 'get_link') {
         if (isset($menuMap[$id])) $childMenus[] = $menuMap[$id];
     }
 
+    // Separate drinks from main courses
+    $drinkCategories = ['drinks', 'beverages'];
+    $drinkMenus = [];
     $mainMenus = [];
-    $drinksMenus = [];
     foreach ($menus as $m) {
         if (in_array((int)$m['id'], $childIds, true)) continue;
-        $cat = strtolower(trim($m['category'] ?? ''));
-        if ($cat === 'minuman' || $cat === 'drinks' || $cat === 'beverage') {
-            $drinksMenus[] = $m;
+        if (in_array(strtolower($m['category'] ?? ''), $drinkCategories, true)) {
+            $drinkMenus[] = $m;
         } else {
             $mainMenus[] = $m;
         }
@@ -374,11 +412,13 @@ if ($action === 'get_link') {
     $waInfo = get_setting($db, 'breakfast_wa_info_text');
     $waMediaPath = get_setting($db, 'breakfast_wa_media_path');
     $extraMainPrice = to_float(get_setting($db, 'breakfast_extra_main_price'), 55000);
+    $extraDrinkPrice = to_float(get_setting($db, 'breakfast_extra_drink_price'), 25000);
     $extraChildPrice = to_float(get_setting($db, 'breakfast_extra_child_price'), 30000);
     if (!empty($link['booking_id'])) {
-        $quota = $db->fetchOne("SELECT extra_main_price, extra_child_price FROM breakfast_guest_quota WHERE booking_id = ? LIMIT 1", [(int)$link['booking_id']]);
+        $quota = $db->fetchOne("SELECT extra_main_price, extra_drink_price, extra_child_price FROM breakfast_guest_quota WHERE booking_id = ? LIMIT 1", [(int)$link['booking_id']]);
         if ($quota) {
             $extraMainPrice = to_float($quota['extra_main_price'], $extraMainPrice);
+            $extraDrinkPrice = to_float($quota['extra_drink_price'], $extraDrinkPrice);
             $extraChildPrice = to_float($quota['extra_child_price'], $extraChildPrice);
         }
     }
@@ -398,12 +438,13 @@ if ($action === 'get_link') {
             'room_number' => $rooms,
             'breakfast_date' => $link['breakfast_date'],
             'max_main' => (int)$link['max_main'],
-            'max_drinks' => (int)($link['max_drinks'] ?? 2),
+            'max_drink' => (int)($link['max_drink'] ?? 2),
             'max_child' => (int)$link['max_child'],
             'extra_main_price' => (float)$extraMainPrice,
+            'extra_drink_price' => (float)$extraDrinkPrice,
             'extra_child_price' => (float)$extraChildPrice,
             'main_menus' => $mainMenus,
-            'drinks_menus' => $drinksMenus,
+            'drink_menus' => $drinkMenus,
             'child_menus' => $childMenus,
             'wa_info_text' => $waInfo,
             'wa_media_url' => $waMediaUrl,
@@ -421,16 +462,16 @@ if ($action === 'submit_link') {
     }
 
     $selectedMain = $body['selected_main'] ?? [];
-    $selectedDrinks = $body['selected_drinks'] ?? [];
+    $selectedDrink = $body['selected_drink'] ?? [];
     $selectedChild = $body['selected_child'] ?? [];
     if (!is_array($selectedMain)) $selectedMain = [];
-    if (!is_array($selectedDrinks)) $selectedDrinks = [];
+    if (!is_array($selectedDrink)) $selectedDrink = [];
     if (!is_array($selectedChild)) $selectedChild = [];
     $selectedMain = array_values(array_unique(array_map('intval', $selectedMain)));
-    $selectedDrinks = array_values(array_unique(array_map('intval', $selectedDrinks)));
+    $selectedDrink = array_values(array_unique(array_map('intval', $selectedDrink)));
     $selectedChild = array_values(array_unique(array_map('intval', $selectedChild)));
     $selectedMain = array_values(array_filter($selectedMain, function ($v) { return $v > 0; }));
-    $selectedDrinks = array_values(array_filter($selectedDrinks, function ($v) { return $v > 0; }));
+    $selectedDrink = array_values(array_filter($selectedDrink, function ($v) { return $v > 0; }));
     $selectedChild = array_values(array_filter($selectedChild, function ($v) { return $v > 0; }));
 
     $specialRequests = trim((string)($body['special_requests'] ?? ''));
@@ -454,11 +495,11 @@ if ($action === 'submit_link') {
         }
 
         $maxMain = max(0, (int)$link['max_main']);
-        $maxDrinks = max(0, (int)($link['max_drinks'] ?? 2));
+        $maxDrink = max(0, (int)($link['max_drink'] ?? 2));
         $maxChild = max(0, (int)$link['max_child']);
 
         $extraMainCount = max(0, count($selectedMain) - $maxMain);
-        $extraDrinksCount = max(0, count($selectedDrinks) - $maxDrinks);
+        $extraDrinkCount = max(0, count($selectedDrink) - $maxDrink);
         $extraChildCount = max(0, count($selectedChild) - $maxChild);
 
         $allowedChild = json_decode($link['child_menu_ids'] ?? '[]', true);
@@ -478,22 +519,24 @@ if ($action === 'submit_link') {
         }
 
         $extraMainPrice = to_float(get_setting($db, 'breakfast_extra_main_price'), 55000);
+        $extraDrinkPrice = to_float(get_setting($db, 'breakfast_extra_drink_price'), 25000);
         $extraChildPrice = to_float(get_setting($db, 'breakfast_extra_child_price'), 30000);
         if (!empty($link['booking_id'])) {
-            $quota = $db->fetchOne("SELECT extra_main_price, extra_child_price FROM breakfast_guest_quota WHERE booking_id = ? LIMIT 1", [(int)$link['booking_id']]);
+            $quota = $db->fetchOne("SELECT extra_main_price, extra_drink_price, extra_child_price FROM breakfast_guest_quota WHERE booking_id = ? LIMIT 1", [(int)$link['booking_id']]);
             if ($quota) {
                 $extraMainPrice = to_float($quota['extra_main_price'], $extraMainPrice);
+                $extraDrinkPrice = to_float($quota['extra_drink_price'], $extraDrinkPrice);
                 $extraChildPrice = to_float($quota['extra_child_price'], $extraChildPrice);
             }
         }
 
-        $allSelected = array_values(array_unique(array_merge($selectedMain, $selectedDrinks, $selectedChild)));
+        $allSelected = array_values(array_unique(array_merge($selectedMain, $selectedDrink, $selectedChild)));
         if (count($allSelected) === 0) {
             throw new Exception('Pilih minimal 1 menu');
         }
 
         $placeholders = implode(',', array_fill(0, count($allSelected), '?'));
-        $menus = $db->fetchAll("SELECT id, menu_name, category, price, is_free FROM breakfast_menus WHERE is_available = 1 AND id IN ($placeholders)", $allSelected) ?: [];
+        $menus = $db->fetchAll("SELECT id, menu_name, price, is_free FROM breakfast_menus WHERE is_available = 1 AND id IN ($placeholders)", $allSelected) ?: [];
         $menuMap = [];
         foreach ($menus as $m) {
             $menuMap[(int)$m['id']] = $m;
@@ -527,40 +570,38 @@ if ($action === 'submit_link') {
                 $totalPrice += (float)$m['price'];
             }
         }
-        // Process drinks selection
-        $existingMainCount = 0;
-        foreach ($menuItems as $mi) {
-            if (($mi['group'] ?? '') === 'main') $existingMainCount++;
-        }
-        foreach ($selectedDrinks as $id) {
+        
+        // Process drinks
+        foreach ($selectedDrink as $id) {
             if (empty($menuMap[$id])) continue;
             $m = $menuMap[$id];
-            $existingDrinksCount = 0;
+            $existingDrinkCount = 0;
             foreach ($menuItems as $mi) {
-                if (($mi['group'] ?? '') === 'drinks') $existingDrinksCount++;
+                if (($mi['group'] ?? '') === 'drink') $existingDrinkCount++;
             }
-            $isExtra = $maxDrinks >= 0 && $existingDrinksCount >= $maxDrinks;
+            $isExtra = $maxDrink >= 0 && $existingDrinkCount >= $maxDrink;
             $item = [
                 'menu_id' => (int)$m['id'],
                 'menu_name' => $m['menu_name'],
                 'quantity' => 1,
                 'price' => (float)$m['price'],
                 'is_free' => (int)$m['is_free'],
-                'group' => 'drinks'
+                'group' => 'drink'
             ];
             if ($isExtra) {
                 $item['is_extra'] = 1;
-                $item['extra_base_price'] = $extraMainPrice; // Use main price for drinks extra
+                $item['extra_base_price'] = $extraDrinkPrice;
             }
             $menuItems[] = $item;
             if ($isExtra) {
-                $charge = (float)$m['price'] > 0 ? (float)$m['price'] : (float)$extraMainPrice;
+                $charge = (float)$m['price'] > 0 ? (float)$m['price'] : (float)$extraDrinkPrice;
                 $totalPrice += $charge;
                 $extraChargeTotal += $charge;
             } elseif (!(int)$m['is_free']) {
                 $totalPrice += (float)$m['price'];
             }
         }
+        
         foreach ($selectedChild as $id) {
             if (empty($menuMap[$id])) continue;
             $m = $menuMap[$id];
@@ -604,8 +645,8 @@ if ($action === 'submit_link') {
         $breakfastTime = '07:00:00';
 
         $portalNote = '[Guest Portal]';
-        if ($extraMainCount > 0 || $extraDrinksCount > 0 || $extraChildCount > 0) {
-            $portalNote .= ' Extra: main=' . $extraMainCount . ', drinks=' . $extraDrinksCount . ', child=' . $extraChildCount;
+        if ($extraMainCount > 0 || $extraChildCount > 0) {
+            $portalNote .= ' Extra: main=' . $extraMainCount . ', child=' . $extraChildCount;
         }
         if ($specialRequests !== '') {
             $portalNote .= ' ' . $specialRequests;
@@ -657,19 +698,21 @@ if ($action === 'submit_link') {
         }
 
         $pdo->prepare("UPDATE breakfast_guest_links
-            SET link_status = 'submitted', selected_menu_ids = ?, selected_child_ids = ?,
+            SET link_status = 'submitted', selected_menu_ids = ?, selected_drink_ids = ?, selected_child_ids = ?,
                 special_requests = ?, submitted_at = NOW()
             WHERE id = ?")
             ->execute([
                 json_encode($selectedMain),
+                json_encode($selectedDrink),
                 json_encode($selectedChild),
                 $specialRequests,
                 (int)$link['id']
             ]);
 
-        if (($extraMainCount > 0 || $extraChildCount > 0) && !empty($bookingId) && $extraChargeTotal > 0) {
+        if (($extraMainCount > 0 || $extraDrinkCount > 0 || $extraChildCount > 0) && !empty($bookingId) && $extraChargeTotal > 0) {
             $extraLabel = [];
             if ($extraMainCount > 0) $extraLabel[] = 'main x' . $extraMainCount;
+            if ($extraDrinkCount > 0) $extraLabel[] = 'drink x' . $extraDrinkCount;
             if ($extraChildCount > 0) $extraLabel[] = 'child x' . $extraChildCount;
             $pdo->prepare("INSERT INTO booking_extras (booking_id, item_name, quantity, unit_price, total_price, notes, created_by)
                 VALUES (?, 'Breakfast Extra (Guest Portal)', 1, ?, ?, ?, NULL)")

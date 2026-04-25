@@ -410,19 +410,37 @@ include '../../includes/header.php';
                                 <div class="bf-wa-panel-title" style="margin-bottom:.35rem">🔗 Link Pilih Menu Sendiri (Guest Portal)</div>
                                 <div class="bf-link-grid">
                                     <div class="bf-link-group">
-                                        <label>Kuota Main Course</label>
-                                        <input type="number" id="linkQuotaMain" min="0" max="10" value="2">
+                                        <label>Dewasa (≥7 thn)</label>
+                                        <input type="number" id="linkAdultCount" min="0" max="10" value="1" onchange="updateQuotaDisplay()">
+                                    </div>
+                                    <div class="bf-link-group">
+                                        <label>Anak < 7 thn</label>
+                                        <input type="number" id="linkChildYoung" min="0" max="10" value="0" onchange="updateQuotaDisplay()">
+                                    </div>
+                                    <div class="bf-link-group">
+                                        <label>Anak ≥ 7 thn</label>
+                                        <input type="number" id="linkChildOld" min="0" max="10" value="0" onchange="updateQuotaDisplay()">
+                                    </div>
+                                </div>
+                                <div style="font-size:.72rem;margin-top:.5rem;padding:.5rem;background:rgba(14,165,233,.1);border-radius:6px;color:#0284c7">
+                                    <strong>📊 Ringkasan Quota:</strong>
+                                    <span id="quotaSummary">Main Course: 2 | Minum: 2 | Menu Anak: 0</span>
+                                </div>
+                                <div class="bf-link-grid" style="margin-top:.5rem">
+                                    <div class="bf-link-group">
+                                        <label>Kuota Main/Dewasa</label>
+                                        <input type="number" id="linkQuotaMain" min="0" max="10" value="2" onchange="updateQuotaDisplay()">
                                     </div>
                                     <div class="bf-link-group">
                                         <label>Kuota Minum</label>
-                                        <input type="number" id="linkQuotaDrinks" min="0" max="10" value="2">
+                                        <input type="number" id="linkQuotaDrink" min="0" max="10" value="2" onchange="updateQuotaDisplay()">
                                     </div>
                                     <div class="bf-link-group">
                                         <label>Kadaluarsa (jam)</label>
                                         <input type="number" id="linkExpireHours" min="1" max="72" value="24">
                                     </div>
                                 </div>
-                                <div style="font-size:.66rem;color:var(--text-muted);margin-top:.45rem">Menu anak yang boleh dipilih (maks 2):</div>
+                                <div style="font-size:.66rem;color:var(--text-muted);margin-top:.45rem">Menu anak (usia <7 thn) - hanya pancake & waffle:</div>
                                 <div class="bf-child-menu-list" id="childMenuIdsWrap"></div>
                                 <div class="bf-wa-row" style="margin-top:.55rem">
                                     <button type="button" class="bf-link-send" onclick="sendSelectedGuestsPortalLinks()">🔗+📲 Buat Link & Kirim WA (terpilih)</button>
@@ -938,11 +956,18 @@ function getSelectedChildMenuIds() {
 }
 
 async function createGuestPortalLinkFromCheckbox(cb) {
+    var adultCount = parseInt((document.getElementById('linkAdultCount') || {value:'1'}).value, 10);
+    var childYoung = parseInt((document.getElementById('linkChildYoung') || {value:'0'}).value, 10);
+    var childOld = parseInt((document.getElementById('linkChildOld') || {value:'0'}).value, 10);
     var quotaMain = parseInt((document.getElementById('linkQuotaMain') || {value:'2'}).value, 10);
-    var quotaDrinks = parseInt((document.getElementById('linkQuotaDrinks') || {value:'2'}).value, 10);
+    var quotaDrink = parseInt((document.getElementById('linkQuotaDrink') || {value:'2'}).value, 10);
     var expireHours = parseInt((document.getElementById('linkExpireHours') || {value:'24'}).value, 10);
+    
+    if (!Number.isFinite(adultCount) || adultCount < 0) adultCount = 0;
+    if (!Number.isFinite(childYoung) || childYoung < 0) childYoung = 0;
+    if (!Number.isFinite(childOld) || childOld < 0) childOld = 0;
     if (!Number.isFinite(quotaMain) || quotaMain < 0) quotaMain = 0;
-    if (!Number.isFinite(quotaDrinks) || quotaDrinks < 0) quotaDrinks = 0;
+    if (!Number.isFinite(quotaDrink) || quotaDrink < 0) quotaDrink = 0;
     if (!Number.isFinite(expireHours) || expireHours < 1) expireHours = 24;
 
     var body = {
@@ -953,8 +978,13 @@ async function createGuestPortalLinkFromCheckbox(cb) {
         booking_id: parseInt(cb.dataset.booking, 10) || null,
         room_number: (cb.dataset.rooms || '').split(',').map(function(r){ return r.trim(); }).filter(Boolean),
         breakfast_date: <?php echo json_encode($today); ?>,
+        // New quota structure
+        adult_count: adultCount,
+        child_young_count: childYoung,  // < 7 years old
+        child_old_count: childOld,      // >= 7 years old
         max_main: quotaMain,
-        max_drinks: quotaDrinks,
+        max_drink: quotaDrink,
+        max_child: childYoung, // young children get child menu quota
         child_menu_ids: getSelectedChildMenuIds(),
         expire_hours: expireHours
     };
@@ -969,6 +999,22 @@ async function createGuestPortalLinkFromCheckbox(cb) {
         throw new Error(data.message || 'Gagal membuat link tamu');
     }
     return data.data || {};
+}
+
+function updateQuotaDisplay() {
+    var adultCount = parseInt((document.getElementById('linkAdultCount') || {value:'1'}).value, 10) || 0;
+    var childYoung = parseInt((document.getElementById('linkChildYoung') || {value:'0'}).value, 10) || 0;
+    var childOld = parseInt((document.getElementById('linkChildOld') || {value:'0'}).value, 10) || 0;
+    var quotaMain = parseInt((document.getElementById('linkQuotaMain') || {value:'2'}).value, 10) || 0;
+    var quotaDrink = parseInt((document.getElementById('linkQuotaDrink') || {value:'2'}).value, 10) || 0;
+    
+    var totalMain = (adultCount * quotaMain) + (childOld * quotaMain);
+    var totalDrink = (adultCount * quotaDrink) + (childOld * quotaDrink);
+    var totalChild = childYoung; // young children only get child menu
+    
+    var summary = 'Main Course: ' + totalMain + ' | Minum: ' + totalDrink + ' | Menu Anak: ' + totalChild;
+    var el = document.getElementById('quotaSummary');
+    if (el) el.textContent = summary;
 }
 
 function buildPortalLinkWaMessage(guestName, roomLabel, portalLink) {
