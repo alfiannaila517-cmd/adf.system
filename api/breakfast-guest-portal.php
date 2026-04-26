@@ -260,11 +260,11 @@ if ($action === 'create_link') {
     $maxChild = max(0, (int)($body['max_child'] ?? 2)); // for young children
     $expireHours = max(1, min(72, (int)($body['expire_hours'] ?? 24)));
 
-    // Calculate total quotas based on guest composition
+    // Apply exact setup quotas per guest (do not multiply by pax)
     $totalPax = max(1, (int)($body['total_pax'] ?? ($adultCount + $childYoung + $childOld)));
-    $totalMainQuota = ($adultCount * $maxMain) + ($childOld * $maxMain);
-    $totalDrinkQuota = ($adultCount * $maxDrink) + ($childOld * $maxDrink);
-    $totalChildQuota = $childYoung * $maxChild; // young children use configured kids/fruit quota
+    $totalMainQuota = $maxMain;
+    $totalDrinkQuota = $maxDrink;
+    $totalChildQuota = $maxChild;
 
     $extraMainPrice = to_float($body['extra_main_price'] ?? '', to_float(get_setting($db, 'breakfast_extra_main_price'), 55000));
     $extraDrinkPrice = to_float($body['extra_drink_price'] ?? '', to_float(get_setting($db, 'breakfast_extra_drink_price'), 25000));
@@ -281,7 +281,7 @@ if ($action === 'create_link') {
         echo json_encode(['success' => false, 'message' => 'Nama tamu wajib diisi']);
         exit;
     }
-    if ($totalMainQuota + $totalDrinkQuota + $totalChildQuota <= 0) {
+    if (($maxMain + $maxDrink + $maxChild) <= 0) {
         echo json_encode(['success' => false, 'message' => 'Jatah menu minimal 1']);
         exit;
     }
@@ -365,9 +365,9 @@ if ($action === 'create_link') {
                         $guestPhone,
                         $roomJson,
                         $breakfastDate,
-                        $totalMainQuota,
-                        $totalDrinkQuota,
-                        $totalChildQuota,
+                        $maxMain,
+                        $maxDrink,
+                        $maxChild,
                         $childJson,
                         $guestCompositionJson,
                         $expiresAt,
@@ -664,6 +664,16 @@ if ($action === 'submit_link') {
         $maxMain = max(0, (int)$link['max_main']);
         $maxDrink = max(0, (int)($link['max_drink'] ?? 2));
         $maxChild = max(0, (int)$link['max_child']);
+
+        if (count($selectedMain) > $maxMain) {
+            throw new Exception('Batas Main Course adalah ' . $maxMain . ' item');
+        }
+        if (count($selectedDrink) > $maxDrink) {
+            throw new Exception('Batas Minuman adalah ' . $maxDrink . ' item');
+        }
+        if (count($selectedChild) > $maxChild) {
+            throw new Exception('Batas Kids/Fruit adalah ' . $maxChild . ' item');
+        }
 
         $extraMainCount = max(0, count($selectedMain) - $maxMain);
         $extraDrinkCount = max(0, count($selectedDrink) - $maxDrink);
