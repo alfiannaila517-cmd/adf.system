@@ -30,6 +30,7 @@ function ensure_breakfast_orders_table($pdo)
         breakfast_time TIME,
         breakfast_date DATE,
         location VARCHAR(20) DEFAULT 'restaurant',
+        breakfast_location VARCHAR(120) NULL,
         menu_items TEXT,
         special_requests TEXT,
         total_price DECIMAL(10,2) DEFAULT 0.00,
@@ -64,6 +65,9 @@ function ensure_portal_links_table($pdo)
         selected_drink_notes TEXT,
         selected_child_ids TEXT,
         selected_child_notes TEXT,
+        breakfast_time TIME NULL,
+        breakfast_service VARCHAR(20) NULL,
+        breakfast_location VARCHAR(120) NULL,
         special_requests TEXT,
         expires_at DATETIME NULL,
         submitted_at DATETIME NULL,
@@ -107,6 +111,18 @@ function ensure_portal_links_table($pdo)
     }
     try {
         $pdo->exec("ALTER TABLE breakfast_guest_links ADD COLUMN guest_composition TEXT AFTER child_menu_ids");
+    } catch (Exception $e) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE breakfast_guest_links ADD COLUMN breakfast_time TIME NULL AFTER selected_child_notes");
+    } catch (Exception $e) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE breakfast_guest_links ADD COLUMN breakfast_service VARCHAR(20) NULL AFTER breakfast_time");
+    } catch (Exception $e) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE breakfast_guest_links ADD COLUMN breakfast_location VARCHAR(120) NULL AFTER breakfast_service");
     } catch (Exception $e) {
     }
 }
@@ -225,6 +241,7 @@ try {
     try { $pdo->exec("ALTER TABLE breakfast_guest_quota ADD COLUMN total_pax INT NOT NULL DEFAULT 1 AFTER child_old_count"); } catch (Exception $e) {}
     try { $pdo->exec("ALTER TABLE breakfast_guest_quota ADD COLUMN max_drink INT NOT NULL DEFAULT 2 AFTER max_main"); } catch (Exception $e) {}
     try { $pdo->exec("ALTER TABLE breakfast_guest_quota ADD COLUMN extra_drink_price DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER extra_main_price"); } catch (Exception $e) {}
+    try { $pdo->exec("ALTER TABLE breakfast_orders ADD COLUMN breakfast_location VARCHAR(120) NULL AFTER location"); } catch (Exception $e) {}
 } catch (Exception $e) {
     echo json_encode(['success' => false, 'message' => 'Gagal inisialisasi tabel: ' . $e->getMessage()]);
     exit;
@@ -554,6 +571,9 @@ if ($action === 'get_link') {
             'expires_at' => $link['expires_at'],
             'submitted_at' => $link['submitted_at'] ?? null,
             'is_locked' => $isLocked,
+            'breakfast_time' => $link['breakfast_time'] ?? null,
+            'breakfast_service' => $link['breakfast_service'] ?? null,
+            'breakfast_location' => $link['breakfast_location'] ?? null,
             'selected_main_ids' => $selectedMainIds,
             'selected_drink_ids' => $selectedDrinkIds,
             'selected_child_ids' => $selectedChildIds,
@@ -610,10 +630,27 @@ if ($action === 'submit_link') {
     $selectedChildNotes = $normalizeNotesMap($body['selected_child_notes'] ?? [], $selectedChild);
 
     $specialRequests = trim((string)($body['special_requests'] ?? ''));
-    $location = trim((string)($body['location'] ?? 'restaurant'));
-    if (!in_array($location, ['restaurant', 'room_service', 'take_away'], true)) {
-        $location = 'restaurant';
+    $serviceType = trim((string)($body['service_type'] ?? $body['location'] ?? ''));
+    if (!in_array($serviceType, ['restaurant', 'room_service', 'take_away'], true)) {
+        echo json_encode(['success' => false, 'message' => 'Pilih layanan breakfast: Restaurant / Room Service / Take Away']);
+        exit;
     }
+
+    $breakfastLocation = trim((string)($body['breakfast_location'] ?? ''));
+    if ($breakfastLocation === '') {
+        echo json_encode(['success' => false, 'message' => 'Lokasi breakfast wajib diisi']);
+        exit;
+    }
+    if (mb_strlen($breakfastLocation) > 120) {
+        $breakfastLocation = mb_substr($breakfastLocation, 0, 120);
+    }
+
+    $breakfastTimeRaw = trim((string)($body['breakfast_time'] ?? ''));
+    if (!preg_match('/^([01][0-9]|2[0-3]):([0-5][0-9])$/', $breakfastTimeRaw, $mt)) {
+        echo json_encode(['success' => false, 'message' => 'Waktu breakfast wajib diisi (format HH:MM)']);
+        exit;
+    }
+    $breakfastTime = sprintf('%02d:%02d:00', (int)$mt[1], (int)$mt[2]);
 
     $pdo->beginTransaction();
     try {
@@ -783,7 +820,7 @@ if ($action === 'submit_link') {
         $guestComposition = json_decode($link['guest_composition'] ?? '{}', true);
         if (!is_array($guestComposition)) $guestComposition = [];
         $totalPax = max(1, (int)($guestComposition['total_pax'] ?? (($guestComposition['adults'] ?? 1) + ($guestComposition['children_young'] ?? 0) + ($guestComposition['children_old'] ?? 0))));
-        $breakfastTime = '07:00:00';
+        $createdBy = isset($link['created_by']) ? (int)$link['created_by'] : 0;
 
         $portalNote = '[Guest Portal]';
         if ($extraMainCount > 0 || $extraChildCount > 0) {
@@ -801,7 +838,7 @@ if ($action === 'submit_link') {
         if ($existing) {
             $pdo->prepare("UPDATE breakfast_orders SET
                 booking_id = ?, guest_name = ?, room_number = ?, total_pax = ?, breakfast_time = ?,
-                breakfast_date = ?, location = ?, menu_items = ?, special_requests = ?, total_price = ?,
+                breakfast_date = ?, location = ?, breakfast_location = ?, menu_items = ?, special_requests = ?, total_price = ?,
                 order_status = 'submitted'
                 WHERE id = ?")
                 ->execute([
@@ -811,7 +848,8 @@ if ($action === 'submit_link') {
                     $totalPax,
                     $breakfastTime,
                     $breakfastDate,
-                    $location,
+                    $serviceType,
+                    $breakfastLocation,
                     $menuJson,
                     $portalNote,
                     $totalPrice,
@@ -821,8 +859,8 @@ if ($action === 'submit_link') {
         } else {
             $pdo->prepare("INSERT INTO breakfast_orders
                 (booking_id, guest_name, room_number, total_pax, breakfast_time, breakfast_date,
-                 location, menu_items, special_requests, total_price, order_status, created_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'submitted', NULL)")
+                 location, breakfast_location, menu_items, special_requests, total_price, order_status, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'submitted', ?)")
                 ->execute([
                     $bookingId,
                     $guestName,
@@ -830,17 +868,19 @@ if ($action === 'submit_link') {
                     $totalPax,
                     $breakfastTime,
                     $breakfastDate,
-                    $location,
+                    $serviceType,
+                    $breakfastLocation,
                     $menuJson,
                     $portalNote,
-                    $totalPrice
+                    $totalPrice,
+                    $createdBy
                 ]);
             $orderId = (int)$pdo->lastInsertId();
         }
 
         $pdo->prepare("UPDATE breakfast_guest_links
             SET link_status = 'submitted', selected_menu_ids = ?, selected_menu_notes = ?, selected_drink_ids = ?, selected_drink_notes = ?, selected_child_ids = ?, selected_child_notes = ?,
-                special_requests = ?, submitted_at = NOW()
+                breakfast_time = ?, breakfast_service = ?, breakfast_location = ?, special_requests = ?, submitted_at = NOW()
             WHERE id = ?")
             ->execute([
                 json_encode($selectedMain),
@@ -849,6 +889,9 @@ if ($action === 'submit_link') {
                 json_encode($selectedDrinkNotes),
                 json_encode($selectedChild),
                 json_encode($selectedChildNotes),
+                $breakfastTime,
+                $serviceType,
+                $breakfastLocation,
                 $specialRequests,
                 (int)$link['id']
             ]);

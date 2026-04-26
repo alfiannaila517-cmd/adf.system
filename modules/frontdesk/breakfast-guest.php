@@ -220,6 +220,35 @@ $token = trim((string)($_GET['t'] ?? ''));
         .err { background: #fee2e2; color: #dc2626; }
         .hidden { display: none; }
 
+        .field-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .field-group label {
+            display: block;
+            font-size: 0.74rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 5px;
+        }
+        .field-control {
+            width: 100%;
+            border: 1px solid rgba(96, 165, 250, 0.28);
+            border-radius: 10px;
+            padding: 10px 11px;
+            background: rgba(255,255,255,0.8);
+            color: #0f172a;
+            font-size: 0.86rem;
+        }
+        .field-control:focus {
+            outline: none;
+            border-color: #38bdf8;
+            box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.12);
+        }
+        .required-mark { color: #dc2626; margin-left: 4px; }
+
         .quota-popup {
             position: fixed;
             top: 14px;
@@ -311,6 +340,7 @@ $token = trim((string)($_GET['t'] ?? ''));
             .quota-box { flex-direction: column; text-align: center; }
             .header-logo { height: 40px; max-width: 130px; }
             .header-top { align-items: flex-start; }
+            .field-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -392,6 +422,25 @@ $token = trim((string)($_GET['t'] ?? ''));
 
     <div class="card hidden" id="submitCard">
         <div class="section-title"><span class="section-icon">📝</span> Additional Notes</div>
+        <div class="field-grid" id="breakfastFieldGrid">
+            <div class="field-group">
+                <label for="breakfastTime">Breakfast Time<span class="required-mark">*</span></label>
+                <input class="field-control" type="time" id="breakfastTime" required>
+            </div>
+            <div class="field-group">
+                <label for="serviceType">Service Type<span class="required-mark">*</span></label>
+                <select class="field-control" id="serviceType" required>
+                    <option value="">Select service</option>
+                    <option value="restaurant">Restaurant</option>
+                    <option value="room_service">Room Service</option>
+                    <option value="take_away">Take Away</option>
+                </select>
+            </div>
+            <div class="field-group">
+                <label for="breakfastLocation">Breakfast Location<span class="required-mark">*</span></label>
+                <input class="field-control" type="text" id="breakfastLocation" maxlength="120" placeholder="Example: Main Restaurant" required>
+            </div>
+        </div>
         <textarea id="notes" placeholder="Example: no spicy food / egg allergy / others"></textarea>
         <div class="actions">
             <button class="btn btn-primary" id="btnSubmit">Submit Breakfast Selection</button>
@@ -417,6 +466,9 @@ $token = trim((string)($_GET['t'] ?? ''));
     var childGrid = document.getElementById('childGrid');
     var drinkGrid = document.getElementById('drinkGrid');
     var waFoBtn = document.getElementById('btnWaFo');
+    var breakfastTimeEl = document.getElementById('breakfastTime');
+    var serviceTypeEl = document.getElementById('serviceType');
+    var breakfastLocationEl = document.getElementById('breakfastLocation');
 
     function normalizePhoneToWa(phone) {
         var num = String(phone || '').replace(/\D+/g, '');
@@ -481,12 +533,19 @@ $token = trim((string)($_GET['t'] ?? ''));
             var submitBtn = document.getElementById('btnSubmit');
             if (submitBtn) submitBtn.style.display = 'none';
 
+            if (breakfastTimeEl) breakfastTimeEl.disabled = true;
+            if (serviceTypeEl) serviceTypeEl.disabled = true;
+            if (breakfastLocationEl) breakfastLocationEl.disabled = true;
+
             if (waFoBtn) {
                 waFoBtn.href = buildWaFoLink();
                 waFoBtn.classList.remove('hidden');
             }
         } else if (waFoBtn) {
             waFoBtn.classList.add('hidden');
+            if (breakfastTimeEl) breakfastTimeEl.disabled = false;
+            if (serviceTypeEl) serviceTypeEl.disabled = false;
+            if (breakfastLocationEl) breakfastLocationEl.disabled = false;
         }
     }
 
@@ -549,6 +608,17 @@ $token = trim((string)($_GET['t'] ?? ''));
                 portalLogoEl.classList.remove('show');
                 portalLogoEl.removeAttribute('src');
             }
+        }
+
+        if (breakfastTimeEl) {
+            var timeVal = (payload.breakfast_time || '').toString().slice(0, 5);
+            breakfastTimeEl.value = timeVal || '07:00';
+        }
+        if (serviceTypeEl) {
+            serviceTypeEl.value = payload.breakfast_service || 'restaurant';
+        }
+        if (breakfastLocationEl) {
+            breakfastLocationEl.value = payload.breakfast_location || 'Main Restaurant';
         }
     }
 
@@ -632,12 +702,19 @@ $token = trim((string)($_GET['t'] ?? ''));
         }
     }
 
-    function updateNoteInputStates() {
-        Array.from(document.querySelectorAll('.menu-item')).forEach(function (card) {
-            var check = card.querySelector('.menu-check');
-            var input = card.querySelector('.menu-note-input');
-            if (!check || !input) return;
-            input.disabled = !check.checked;
+    function attachNoteAutoSelect() {
+        document.addEventListener('input', function (ev) {
+            var input = ev.target;
+            if (!input.classList || !input.classList.contains('menu-note-input')) return;
+            var menuItem = input.closest('.menu-item');
+            if (!menuItem) return;
+            var check = menuItem.querySelector('.menu-check');
+            if (!check || check.disabled) return;
+            if (String(input.value || '').trim() !== '' && !check.checked) {
+                check.checked = true;
+                menuItem.classList.add('selected');
+                check.dispatchEvent(new Event('change', { bubbles: true }));
+            }
         });
     }
 
@@ -684,7 +761,6 @@ $token = trim((string)($_GET['t'] ?? ''));
                 menuItem.classList.toggle('selected', !!el.checked);
             }
 
-            updateNoteInputStates();
             syncOverQuotaPopup();
 
             var group = el.dataset.group;
@@ -743,7 +819,6 @@ $token = trim((string)($_GET['t'] ?? ''));
             refreshQuotaInfo('main', parseInt(payload.max_main || 0, 10), document.getElementById('mainSelected'), 'mainExtraInfo', parseFloat(payload.extra_main_price || 0));
             refreshQuotaInfo('drink', parseInt(payload.max_drink || 0, 10), document.getElementById('drinkSelected'), 'drinkExtraInfo', parseFloat(payload.extra_drink_price || 0));
             refreshQuotaInfo('child', parseInt(payload.max_child || 0, 10), document.getElementById('childSelected'), 'childExtraInfo', parseFloat(payload.extra_child_price || 0));
-            updateNoteInputStates();
             syncOverQuotaPopup();
         } catch (err) {
             setState('Failed to load link: ' + err.message, true);
@@ -761,6 +836,26 @@ $token = trim((string)($_GET['t'] ?? ''));
         var selectedMain = mainPicked.ids;
         var selectedDrink = drinkPicked.ids;
         var selectedChild = childPicked.ids;
+        var breakfastTime = (breakfastTimeEl && breakfastTimeEl.value) ? String(breakfastTimeEl.value).trim() : '';
+        var serviceType = (serviceTypeEl && serviceTypeEl.value) ? String(serviceTypeEl.value).trim() : '';
+        var breakfastLocation = (breakfastLocationEl && breakfastLocationEl.value) ? String(breakfastLocationEl.value).trim() : '';
+
+        if (!breakfastTime) {
+            msgEl.textContent = 'Breakfast time is required.';
+            msgEl.classList.add('err');
+            return;
+        }
+        if (!serviceType) {
+            msgEl.textContent = 'Service type is required.';
+            msgEl.classList.add('err');
+            return;
+        }
+        if (!breakfastLocation) {
+            msgEl.textContent = 'Breakfast location is required.';
+            msgEl.classList.add('err');
+            return;
+        }
+
         if (selectedMain.length + selectedDrink.length + selectedChild.length === 0) {
             msgEl.textContent = 'Please select at least 1 item.';
             msgEl.classList.add('err');
@@ -776,8 +871,10 @@ $token = trim((string)($_GET['t'] ?? ''));
             selected_drink_notes: drinkPicked.notes,
             selected_child: selectedChild,
             selected_child_notes: childPicked.notes,
-            special_requests: (document.getElementById('notes').value || '').trim(),
-            location: 'restaurant'
+            breakfast_time: breakfastTime,
+            service_type: serviceType,
+            breakfast_location: breakfastLocation,
+            special_requests: (document.getElementById('notes').value || '').trim()
         };
 
         var btn = document.getElementById('btnSubmit');
@@ -815,6 +912,7 @@ $token = trim((string)($_GET['t'] ?? ''));
     }
 
     attachQuotaHandlers();
+    attachNoteAutoSelect();
     if (quotaPopupCloseEl) {
         quotaPopupCloseEl.addEventListener('click', function () {
             quotaPopupEl.classList.remove('show');
