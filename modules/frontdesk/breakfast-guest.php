@@ -532,6 +532,23 @@ $token = trim((string)($_GET['t'] ?? ''));
             font-weight: 700;
         }
         .cart-summary strong { color: #0f172a; }
+
+        .onspot-card {
+            border: 1px solid rgba(34, 197, 94, 0.25);
+            background: linear-gradient(135deg, rgba(240, 253, 244, 0.92), rgba(220, 252, 231, 0.9));
+        }
+        .onspot-note {
+            margin-top: 10px;
+            font-size: 0.84rem;
+            line-height: 1.5;
+            color: #166534;
+            font-weight: 600;
+        }
+        .onspot-actions {
+            margin-top: 12px;
+            display: flex;
+            justify-content: flex-start;
+        }
         
         .info-box {
             border: 1px dashed rgba(96, 165, 250, 0.5);
@@ -653,6 +670,14 @@ $token = trim((string)($_GET['t'] ?? ''));
         <a class="media-link hidden" id="infoMedia" target="_blank">Open attachment</a>
     </div>
 
+    <div class="card hidden onspot-card" id="onTheSpotCard">
+        <div class="section-title"><span class="section-icon">🍳</span> On The Spot Option</div>
+        <div class="onspot-note">You are welcome to order directly at the restaurant. Please allow extra time, as preparation may take a little longer during busy breakfast hours.</div>
+        <div class="onspot-actions">
+            <button class="btn btn-spot" id="btnOnTheSpot" type="button">ON THE SPOT</button>
+        </div>
+    </div>
+
     <div class="card hidden" id="mainCard">
         <div class="section-title"><span class="section-icon">🍽️</span> Main Course</div>
         <div class="quota-box">
@@ -734,7 +759,6 @@ $token = trim((string)($_GET['t'] ?? ''));
         <textarea id="notes" placeholder="Example: no spicy food / egg allergy / others"></textarea>
         <div class="actions">
             <button class="btn btn-primary" id="btnSubmit">Submit Breakfast Selection</button>
-            <button class="btn btn-spot" id="btnOnTheSpot" type="button">ON THE SPOT</button>
             <a class="btn btn-wa hidden" id="btnWaFo" target="_blank" rel="noopener noreferrer">WhatsApp Front Office</a>
         </div>
         <div class="msg" id="submitMsg"></div>
@@ -818,6 +842,7 @@ $token = trim((string)($_GET['t'] ?? ''));
         document.getElementById('drinkCard').classList.add('hidden');
         document.getElementById('childCard').classList.add('hidden');
         document.getElementById('submitCard').classList.add('hidden');
+        document.getElementById('onTheSpotCard').classList.add('hidden');
 
         var mainMenus = payload.view_main_menus || [];
         var drinkMenus = payload.view_drink_menus || [];
@@ -854,6 +879,7 @@ $token = trim((string)($_GET['t'] ?? ''));
             var submitBtn = document.getElementById('btnSubmit');
             if (submitBtn) submitBtn.style.display = 'none';
             if (onTheSpotBtn) onTheSpotBtn.style.display = 'none';
+            document.getElementById('onTheSpotCard').classList.add('hidden');
 
             if (breakfastTimeEl) breakfastTimeEl.disabled = true;
             if (serviceTypeEl) serviceTypeEl.disabled = true;
@@ -872,6 +898,7 @@ $token = trim((string)($_GET['t'] ?? ''));
             waFoBtn.classList.add('hidden');
             if (waFloatBtn) waFloatBtn.classList.remove('show');
             if (onTheSpotBtn) onTheSpotBtn.style.display = 'inline-flex';
+            document.getElementById('onTheSpotCard').classList.remove('hidden');
             if (breakfastTimeEl) breakfastTimeEl.disabled = false;
             if (serviceTypeEl) serviceTypeEl.disabled = false;
             if (breakfastLocationEl) breakfastLocationEl.disabled = false;
