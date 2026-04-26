@@ -31,6 +31,7 @@ function ensure_breakfast_orders_table($pdo)
         breakfast_date DATE,
         location VARCHAR(20) DEFAULT 'restaurant',
         breakfast_location VARCHAR(120) NULL,
+        on_the_spot TINYINT(1) NOT NULL DEFAULT 0,
         menu_items TEXT,
         special_requests TEXT,
         total_price DECIMAL(10,2) DEFAULT 0.00,
@@ -68,6 +69,7 @@ function ensure_portal_links_table($pdo)
         breakfast_time TIME NULL,
         breakfast_service VARCHAR(20) NULL,
         breakfast_location VARCHAR(120) NULL,
+        on_the_spot TINYINT(1) NOT NULL DEFAULT 0,
         special_requests TEXT,
         expires_at DATETIME NULL,
         submitted_at DATETIME NULL,
@@ -123,6 +125,10 @@ function ensure_portal_links_table($pdo)
     }
     try {
         $pdo->exec("ALTER TABLE breakfast_guest_links ADD COLUMN breakfast_location VARCHAR(120) NULL AFTER breakfast_service");
+    } catch (Exception $e) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE breakfast_guest_links ADD COLUMN on_the_spot TINYINT(1) NOT NULL DEFAULT 0 AFTER breakfast_location");
     } catch (Exception $e) {
     }
 }
@@ -242,6 +248,7 @@ try {
     try { $pdo->exec("ALTER TABLE breakfast_guest_quota ADD COLUMN max_drink INT NOT NULL DEFAULT 2 AFTER max_main"); } catch (Exception $e) {}
     try { $pdo->exec("ALTER TABLE breakfast_guest_quota ADD COLUMN extra_drink_price DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER extra_main_price"); } catch (Exception $e) {}
     try { $pdo->exec("ALTER TABLE breakfast_orders ADD COLUMN breakfast_location VARCHAR(120) NULL AFTER location"); } catch (Exception $e) {}
+    try { $pdo->exec("ALTER TABLE breakfast_orders ADD COLUMN on_the_spot TINYINT(1) NOT NULL DEFAULT 0 AFTER breakfast_location"); } catch (Exception $e) {}
 } catch (Exception $e) {
     echo json_encode(['success' => false, 'message' => 'Gagal inisialisasi tabel: ' . $e->getMessage()]);
     exit;
@@ -574,6 +581,7 @@ if ($action === 'get_link') {
             'breakfast_time' => $link['breakfast_time'] ?? null,
             'breakfast_service' => $link['breakfast_service'] ?? null,
             'breakfast_location' => $link['breakfast_location'] ?? null,
+            'on_the_spot' => (int)($link['on_the_spot'] ?? 0),
             'selected_main_ids' => $selectedMainIds,
             'selected_drink_ids' => $selectedDrinkIds,
             'selected_child_ids' => $selectedChildIds,
@@ -604,6 +612,7 @@ if ($action === 'submit_link') {
     $selectedMain = array_values(array_filter($selectedMain, function ($v) { return $v > 0; }));
     $selectedDrink = array_values(array_filter($selectedDrink, function ($v) { return $v > 0; }));
     $selectedChild = array_values(array_filter($selectedChild, function ($v) { return $v > 0; }));
+    $onTheSpot = !empty($body['on_the_spot']) ? 1 : 0;
 
     $normalizeNotesMap = function ($raw, $allowedIds) {
         if (!is_array($raw)) return [];
@@ -694,122 +703,133 @@ if ($action === 'submit_link') {
         $extraDrinkPrice = 75000.0;
         $extraChildPrice = 75000.0;
 
-        $allSelected = array_values(array_unique(array_merge($selectedMain, $selectedDrink, $selectedChild)));
-        if (count($allSelected) === 0) {
-            throw new Exception('Pilih minimal 1 menu');
-        }
-
-        $placeholders = implode(',', array_fill(0, count($allSelected), '?'));
-        $menus = $db->fetchAll("SELECT id, menu_name, price, is_free FROM breakfast_menus WHERE is_available = 1 AND id IN ($placeholders)", $allSelected) ?: [];
-        $menuMap = [];
-        foreach ($menus as $m) {
-            $menuMap[(int)$m['id']] = $m;
-        }
-
         $menuItems = [];
         $totalPrice = 0;
         $extraChargeTotal = 0;
-        foreach ($selectedMain as $id) {
-            if (empty($menuMap[$id])) continue;
-            $m = $menuMap[$id];
-            $itemNote = trim((string)($selectedMainNotes[(string)$id] ?? ''));
-            $isExtra = $maxMain >= 0 && count($menuItems) >= $maxMain;
-            $item = [
-                'menu_id' => (int)$m['id'],
-                'menu_name' => $m['menu_name'],
-                'quantity' => 1,
-                'price' => (float)$m['price'],
-                'is_free' => (int)$m['is_free'],
-                'group' => 'main'
-            ];
-            if ($itemNote !== '') {
-                $item['note'] = $itemNote;
-            }
-            if ($isExtra) {
-                $item['is_extra'] = 1;
-                $item['extra_base_price'] = $extraMainPrice;
-            }
-            $menuItems[] = $item;
-            if ($isExtra) {
-                $charge = (float)$extraMainPrice;
-                $totalPrice += $charge;
-                $extraChargeTotal += $charge;
-            } elseif (!(int)$m['is_free']) {
-                $totalPrice += (float)$m['price'];
-            }
-        }
-        
-        // Process drinks
-        foreach ($selectedDrink as $id) {
-            if (empty($menuMap[$id])) continue;
-            $m = $menuMap[$id];
-            $itemNote = trim((string)($selectedDrinkNotes[(string)$id] ?? ''));
-            $existingDrinkCount = 0;
-            foreach ($menuItems as $mi) {
-                if (($mi['group'] ?? '') === 'drink') $existingDrinkCount++;
-            }
-            $isExtra = $maxDrink >= 0 && $existingDrinkCount >= $maxDrink;
-            $item = [
-                'menu_id' => (int)$m['id'],
-                'menu_name' => $m['menu_name'],
-                'quantity' => 1,
-                'price' => (float)$m['price'],
-                'is_free' => (int)$m['is_free'],
-                'group' => 'drink'
-            ];
-            if ($itemNote !== '') {
-                $item['note'] = $itemNote;
-            }
-            if ($isExtra) {
-                $item['is_extra'] = 1;
-                $item['extra_base_price'] = $extraDrinkPrice;
-            }
-            $menuItems[] = $item;
-            if ($isExtra) {
-                $charge = (float)$extraDrinkPrice;
-                $totalPrice += $charge;
-                $extraChargeTotal += $charge;
-            } elseif (!(int)$m['is_free']) {
-                $totalPrice += (float)$m['price'];
-            }
-        }
-        
-        foreach ($selectedChild as $id) {
-            if (empty($menuMap[$id])) continue;
-            $m = $menuMap[$id];
-            $itemNote = trim((string)($selectedChildNotes[(string)$id] ?? ''));
-            $existingChildCount = 0;
-            foreach ($menuItems as $mi) {
-                if (($mi['group'] ?? '') === 'child') $existingChildCount++;
-            }
-            $isExtra = $maxChild >= 0 && $existingChildCount >= $maxChild;
-            $item = [
-                'menu_id' => (int)$m['id'],
-                'menu_name' => $m['menu_name'],
-                'quantity' => 1,
-                'price' => (float)$m['price'],
-                'is_free' => (int)$m['is_free'],
-                'group' => 'child'
-            ];
-            if ($itemNote !== '') {
-                $item['note'] = $itemNote;
-            }
-            if ($isExtra) {
-                $item['is_extra'] = 1;
-                $item['extra_base_price'] = $extraChildPrice;
-            }
-            $menuItems[] = $item;
-            if ($isExtra) {
-                $charge = (float)$extraChildPrice;
-                $totalPrice += $charge;
-                $extraChargeTotal += $charge;
-            } elseif (!(int)$m['is_free']) {
-                $totalPrice += (float)$m['price'];
-            }
+        $allSelected = array_values(array_unique(array_merge($selectedMain, $selectedDrink, $selectedChild)));
+        if (!$onTheSpot && count($allSelected) === 0) {
+            throw new Exception('Pilih minimal 1 menu');
         }
 
-        if (count($menuItems) === 0) {
-            throw new Exception('Menu tidak valid');
+        if ($onTheSpot) {
+            $menuItems[] = [
+                'menu_id' => 0,
+                'menu_name' => 'ON THE SPOT (Guest will choose at restaurant)',
+                'quantity' => 1,
+                'price' => 0,
+                'is_free' => 1,
+                'group' => 'on_the_spot',
+                'is_on_the_spot' => 1
+            ];
+        } else {
+            $placeholders = implode(',', array_fill(0, count($allSelected), '?'));
+            $menus = $db->fetchAll("SELECT id, menu_name, price, is_free FROM breakfast_menus WHERE is_available = 1 AND id IN ($placeholders)", $allSelected) ?: [];
+            $menuMap = [];
+            foreach ($menus as $m) {
+                $menuMap[(int)$m['id']] = $m;
+            }
+
+            foreach ($selectedMain as $id) {
+                if (empty($menuMap[$id])) continue;
+                $m = $menuMap[$id];
+                $itemNote = trim((string)($selectedMainNotes[(string)$id] ?? ''));
+                $isExtra = $maxMain >= 0 && count($menuItems) >= $maxMain;
+                $item = [
+                    'menu_id' => (int)$m['id'],
+                    'menu_name' => $m['menu_name'],
+                    'quantity' => 1,
+                    'price' => (float)$m['price'],
+                    'is_free' => (int)$m['is_free'],
+                    'group' => 'main'
+                ];
+                if ($itemNote !== '') {
+                    $item['note'] = $itemNote;
+                }
+                if ($isExtra) {
+                    $item['is_extra'] = 1;
+                    $item['extra_base_price'] = $extraMainPrice;
+                }
+                $menuItems[] = $item;
+                if ($isExtra) {
+                    $charge = (float)$extraMainPrice;
+                    $totalPrice += $charge;
+                    $extraChargeTotal += $charge;
+                } elseif (!(int)$m['is_free']) {
+                    $totalPrice += (float)$m['price'];
+                }
+            }
+
+            foreach ($selectedDrink as $id) {
+                if (empty($menuMap[$id])) continue;
+                $m = $menuMap[$id];
+                $itemNote = trim((string)($selectedDrinkNotes[(string)$id] ?? ''));
+                $existingDrinkCount = 0;
+                foreach ($menuItems as $mi) {
+                    if (($mi['group'] ?? '') === 'drink') $existingDrinkCount++;
+                }
+                $isExtra = $maxDrink >= 0 && $existingDrinkCount >= $maxDrink;
+                $item = [
+                    'menu_id' => (int)$m['id'],
+                    'menu_name' => $m['menu_name'],
+                    'quantity' => 1,
+                    'price' => (float)$m['price'],
+                    'is_free' => (int)$m['is_free'],
+                    'group' => 'drink'
+                ];
+                if ($itemNote !== '') {
+                    $item['note'] = $itemNote;
+                }
+                if ($isExtra) {
+                    $item['is_extra'] = 1;
+                    $item['extra_base_price'] = $extraDrinkPrice;
+                }
+                $menuItems[] = $item;
+                if ($isExtra) {
+                    $charge = (float)$extraDrinkPrice;
+                    $totalPrice += $charge;
+                    $extraChargeTotal += $charge;
+                } elseif (!(int)$m['is_free']) {
+                    $totalPrice += (float)$m['price'];
+                }
+            }
+
+            foreach ($selectedChild as $id) {
+                if (empty($menuMap[$id])) continue;
+                $m = $menuMap[$id];
+                $itemNote = trim((string)($selectedChildNotes[(string)$id] ?? ''));
+                $existingChildCount = 0;
+                foreach ($menuItems as $mi) {
+                    if (($mi['group'] ?? '') === 'child') $existingChildCount++;
+                }
+                $isExtra = $maxChild >= 0 && $existingChildCount >= $maxChild;
+                $item = [
+                    'menu_id' => (int)$m['id'],
+                    'menu_name' => $m['menu_name'],
+                    'quantity' => 1,
+                    'price' => (float)$m['price'],
+                    'is_free' => (int)$m['is_free'],
+                    'group' => 'child'
+                ];
+                if ($itemNote !== '') {
+                    $item['note'] = $itemNote;
+                }
+                if ($isExtra) {
+                    $item['is_extra'] = 1;
+                    $item['extra_base_price'] = $extraChildPrice;
+                }
+                $menuItems[] = $item;
+                if ($isExtra) {
+                    $charge = (float)$extraChildPrice;
+                    $totalPrice += $charge;
+                    $extraChargeTotal += $charge;
+                } elseif (!(int)$m['is_free']) {
+                    $totalPrice += (float)$m['price'];
+                }
+            }
+
+            if (count($menuItems) === 0) {
+                throw new Exception('Menu tidak valid');
+            }
         }
 
         $guestName = $link['guest_name'];
@@ -823,6 +843,9 @@ if ($action === 'submit_link') {
         $createdBy = isset($link['created_by']) ? (int)$link['created_by'] : 0;
 
         $portalNote = '[Guest Portal]';
+        if ($onTheSpot) {
+            $portalNote .= ' ON THE SPOT';
+        }
         if ($extraMainCount > 0 || $extraChildCount > 0) {
             $portalNote .= ' Extra: main=' . $extraMainCount . ', child=' . $extraChildCount;
         }
@@ -839,7 +862,7 @@ if ($action === 'submit_link') {
             $pdo->prepare("UPDATE breakfast_orders SET
                 booking_id = ?, guest_name = ?, room_number = ?, total_pax = ?, breakfast_time = ?,
                 breakfast_date = ?, location = ?, breakfast_location = ?, menu_items = ?, special_requests = ?, total_price = ?,
-                order_status = 'submitted'
+                on_the_spot = ?, order_status = 'submitted'
                 WHERE id = ?")
                 ->execute([
                     $bookingId,
@@ -853,14 +876,15 @@ if ($action === 'submit_link') {
                     $menuJson,
                     $portalNote,
                     $totalPrice,
+                    (int)$onTheSpot,
                     (int)$existing['id']
                 ]);
             $orderId = (int)$existing['id'];
         } else {
             $pdo->prepare("INSERT INTO breakfast_orders
                 (booking_id, guest_name, room_number, total_pax, breakfast_time, breakfast_date,
-                 location, breakfast_location, menu_items, special_requests, total_price, order_status, created_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'submitted', ?)")
+                 location, breakfast_location, on_the_spot, menu_items, special_requests, total_price, order_status, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'submitted', ?)")
                 ->execute([
                     $bookingId,
                     $guestName,
@@ -870,6 +894,7 @@ if ($action === 'submit_link') {
                     $breakfastDate,
                     $serviceType,
                     $breakfastLocation,
+                    (int)$onTheSpot,
                     $menuJson,
                     $portalNote,
                     $totalPrice,
@@ -880,7 +905,7 @@ if ($action === 'submit_link') {
 
         $pdo->prepare("UPDATE breakfast_guest_links
             SET link_status = 'submitted', selected_menu_ids = ?, selected_menu_notes = ?, selected_drink_ids = ?, selected_drink_notes = ?, selected_child_ids = ?, selected_child_notes = ?,
-                breakfast_time = ?, breakfast_service = ?, breakfast_location = ?, special_requests = ?, submitted_at = NOW()
+                breakfast_time = ?, breakfast_service = ?, breakfast_location = ?, on_the_spot = ?, special_requests = ?, submitted_at = NOW()
             WHERE id = ?")
             ->execute([
                 json_encode($selectedMain),
@@ -892,6 +917,7 @@ if ($action === 'submit_link') {
                 $breakfastTime,
                 $serviceType,
                 $breakfastLocation,
+                (int)$onTheSpot,
                 $specialRequests,
                 (int)$link['id']
             ]);

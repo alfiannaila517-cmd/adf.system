@@ -100,7 +100,7 @@ $token = trim((string)($_GET['t'] ?? ''));
         
         .menu-img-wrap {
             width: 100%;
-            height: 132px;
+            height: 176px;
             background: linear-gradient(135deg, rgba(191, 219, 254, 0.28), rgba(147, 197, 253, 0.2));
             display: flex;
             align-items: center;
@@ -211,6 +211,13 @@ $token = trim((string)($_GET['t'] ?? ''));
         }
         .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(37, 99, 235, 0.28); }
         .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .btn-spot {
+            background: linear-gradient(135deg, #0ea5e9, #0284c7);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.24);
+        }
+        .btn-spot:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(2, 132, 199, 0.28); }
+        .btn-spot:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
         .btn-wa {
             background: linear-gradient(135deg, #22c55e, #16a34a);
             color: #fff;
@@ -348,7 +355,7 @@ $token = trim((string)($_GET['t'] ?? ''));
             .header-logo { height: 40px; max-width: 130px; }
             .header-top { align-items: flex-start; }
             .field-grid { grid-template-columns: 1fr; }
-            .menu-img-wrap { height: 116px; }
+            .menu-img-wrap { height: 150px; }
         }
     </style>
 </head>
@@ -452,6 +459,7 @@ $token = trim((string)($_GET['t'] ?? ''));
         <textarea id="notes" placeholder="Example: no spicy food / egg allergy / others"></textarea>
         <div class="actions">
             <button class="btn btn-primary" id="btnSubmit">Submit Breakfast Selection</button>
+            <button class="btn btn-spot" id="btnOnTheSpot" type="button">ON The Spot</button>
             <a class="btn btn-wa hidden" id="btnWaFo" target="_blank" rel="noopener noreferrer">WhatsApp Front Office</a>
         </div>
         <div class="msg" id="submitMsg"></div>
@@ -474,6 +482,7 @@ $token = trim((string)($_GET['t'] ?? ''));
     var childGrid = document.getElementById('childGrid');
     var drinkGrid = document.getElementById('drinkGrid');
     var waFoBtn = document.getElementById('btnWaFo');
+    var onTheSpotBtn = document.getElementById('btnOnTheSpot');
     var breakfastTimeEl = document.getElementById('breakfastTime');
     var serviceTypeEl = document.getElementById('serviceType');
     var breakfastLocationEl = document.getElementById('breakfastLocation');
@@ -540,6 +549,7 @@ $token = trim((string)($_GET['t'] ?? ''));
 
             var submitBtn = document.getElementById('btnSubmit');
             if (submitBtn) submitBtn.style.display = 'none';
+            if (onTheSpotBtn) onTheSpotBtn.style.display = 'none';
 
             if (breakfastTimeEl) breakfastTimeEl.disabled = true;
             if (serviceTypeEl) serviceTypeEl.disabled = true;
@@ -551,6 +561,7 @@ $token = trim((string)($_GET['t'] ?? ''));
             }
         } else if (waFoBtn) {
             waFoBtn.classList.add('hidden');
+            if (onTheSpotBtn) onTheSpotBtn.style.display = 'inline-flex';
             if (breakfastTimeEl) breakfastTimeEl.disabled = false;
             if (serviceTypeEl) serviceTypeEl.disabled = false;
             if (breakfastLocationEl) breakfastLocationEl.disabled = false;
@@ -835,7 +846,14 @@ $token = trim((string)($_GET['t'] ?? ''));
             payload.view_drink_menus = filterSelectedMenus(payload.drink_menus || [], payload.selected_drink_ids || []);
             payload.view_child_menus = filterSelectedMenus(payload.child_menus || [], payload.selected_child_ids || []);
 
-            setState(payload.is_locked ? 'Selection already submitted. This link is read-only.' : 'Please choose items based on your allowance.', false);
+            setState(
+                payload.is_locked
+                    ? ((parseInt(payload.on_the_spot || 0, 10) === 1)
+                        ? 'ON The Spot selected. Please come to restaurant in the morning.'
+                        : 'Selection already submitted. This link is read-only.')
+                    : 'Please choose items based on your allowance.',
+                false
+            );
             renderMeta();
             openCards();
 
@@ -852,7 +870,7 @@ $token = trim((string)($_GET['t'] ?? ''));
         }
     }
 
-    async function submitChoice() {
+    async function submitChoice(onTheSpot) {
         var msgEl = document.getElementById('submitMsg');
         msgEl.textContent = '';
         msgEl.className = 'msg';
@@ -866,6 +884,15 @@ $token = trim((string)($_GET['t'] ?? ''));
         var breakfastTime = (breakfastTimeEl && breakfastTimeEl.value) ? String(breakfastTimeEl.value).trim() : '';
         var serviceType = (serviceTypeEl && serviceTypeEl.value) ? String(serviceTypeEl.value).trim() : '';
         var breakfastLocation = (breakfastLocationEl && breakfastLocationEl.value) ? String(breakfastLocationEl.value).trim() : '';
+
+        if (onTheSpot) {
+            if (!breakfastTime) breakfastTime = '07:00';
+            serviceType = 'restaurant';
+            if (!breakfastLocation) breakfastLocation = 'Main Restaurant';
+            if (breakfastTimeEl && !breakfastTimeEl.value) breakfastTimeEl.value = breakfastTime;
+            if (serviceTypeEl) serviceTypeEl.value = serviceType;
+            if (breakfastLocationEl && !breakfastLocationEl.value) breakfastLocationEl.value = breakfastLocation;
+        }
 
         if (!breakfastTime) {
             msgEl.textContent = 'Breakfast time is required.';
@@ -883,7 +910,7 @@ $token = trim((string)($_GET['t'] ?? ''));
             return;
         }
 
-        if (selectedMain.length + selectedDrink.length + selectedChild.length === 0) {
+        if (!onTheSpot && (selectedMain.length + selectedDrink.length + selectedChild.length === 0)) {
             msgEl.textContent = 'Please select at least 1 item.';
             msgEl.classList.add('err');
             return;
@@ -901,12 +928,25 @@ $token = trim((string)($_GET['t'] ?? ''));
             breakfast_time: breakfastTime,
             service_type: serviceType,
             breakfast_location: breakfastLocation,
+            on_the_spot: onTheSpot ? 1 : 0,
             special_requests: (document.getElementById('notes').value || '').trim()
         };
 
+        if (onTheSpot) {
+            body.selected_main = [];
+            body.selected_main_notes = {};
+            body.selected_drink = [];
+            body.selected_drink_notes = {};
+            body.selected_child = [];
+            body.selected_child_notes = {};
+            body.special_requests = ((body.special_requests ? body.special_requests + ' ' : '') + '[ON THE SPOT]').trim();
+        }
+
         var btn = document.getElementById('btnSubmit');
+        var spotBtn = document.getElementById('btnOnTheSpot');
         btn.disabled = true;
-        btn.textContent = 'Submitting...';
+        if (spotBtn) spotBtn.disabled = true;
+        btn.textContent = onTheSpot ? 'Submitting ON The Spot...' : 'Submitting...';
 
         try {
             var res = await fetch(API, {
@@ -919,11 +959,14 @@ $token = trim((string)($_GET['t'] ?? ''));
                 msgEl.textContent = json.message || 'Failed to submit selection.';
                 msgEl.classList.add('err');
                 btn.disabled = false;
+                if (spotBtn) spotBtn.disabled = false;
                 btn.textContent = 'Submit Breakfast Selection';
                 return;
             }
 
-            msgEl.textContent = 'Thank you. Your breakfast selection has been submitted.';
+            msgEl.textContent = onTheSpot
+                ? 'Thank you. ON The Spot selected. Please come to restaurant in the morning and choose menu directly.'
+                : 'Thank you. Your breakfast selection has been submitted.';
             if (json.data && json.data.extra_total_price && json.data.extra_total_price > 0) {
                 msgEl.textContent += ' Extra charge: Rp ' + Math.round(json.data.extra_total_price).toLocaleString('id-ID') + ' (pay at Front Desk).';
             }
@@ -934,6 +977,7 @@ $token = trim((string)($_GET['t'] ?? ''));
             msgEl.textContent = 'Connection error: ' + err.message;
             msgEl.classList.add('err');
             btn.disabled = false;
+            if (spotBtn) spotBtn.disabled = false;
             btn.textContent = 'Submit Breakfast Selection';
         }
     }
@@ -946,7 +990,8 @@ $token = trim((string)($_GET['t'] ?? ''));
         });
     }
     loadLink();
-    document.getElementById('btnSubmit').addEventListener('click', submitChoice);
+    document.getElementById('btnSubmit').addEventListener('click', function () { submitChoice(false); });
+    document.getElementById('btnOnTheSpot').addEventListener('click', function () { submitChoice(true); });
 })();
 </script>
 </body>
