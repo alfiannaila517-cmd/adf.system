@@ -256,6 +256,20 @@ $token = trim((string)($_GET['t'] ?? ''));
             color: #0f172a;
             font-size: 0.86rem;
         }
+        select.field-control {
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            padding-right: 34px;
+            background-image:
+                linear-gradient(45deg, transparent 50%, #1d4ed8 50%),
+                linear-gradient(135deg, #1d4ed8 50%, transparent 50%);
+            background-position:
+                calc(100% - 18px) calc(50% - 2px),
+                calc(100% - 12px) calc(50% - 2px);
+            background-size: 6px 6px, 6px 6px;
+            background-repeat: no-repeat;
+        }
         .field-control:focus {
             outline: none;
             border-color: #38bdf8;
@@ -440,7 +454,7 @@ $token = trim((string)($_GET['t'] ?? ''));
         <div class="field-grid" id="breakfastFieldGrid">
             <div class="field-group">
                 <label for="breakfastTime">Breakfast Time<span class="required-mark">*</span></label>
-                <input class="field-control" type="time" id="breakfastTime" required>
+                <select class="field-control" id="breakfastTime" required></select>
             </div>
             <div class="field-group">
                 <label for="serviceType">Service Type<span class="required-mark">*</span></label>
@@ -486,6 +500,26 @@ $token = trim((string)($_GET['t'] ?? ''));
     var breakfastTimeEl = document.getElementById('breakfastTime');
     var serviceTypeEl = document.getElementById('serviceType');
     var breakfastLocationEl = document.getElementById('breakfastLocation');
+
+    function pad2(n) {
+        return n < 10 ? ('0' + n) : String(n);
+    }
+
+    function buildTimeLabel(h, m) {
+        return pad2(h) + ':' + pad2(m);
+    }
+
+    function fillBreakfastTimeOptions() {
+        if (!breakfastTimeEl) return;
+        var out = ['<option value="">Select time</option>'];
+        for (var mins = (6 * 60) + 30; mins <= (10 * 60); mins += 30) {
+            var h = Math.floor(mins / 60);
+            var m = mins % 60;
+            var val = buildTimeLabel(h, m);
+            out.push('<option value="' + val + '">' + val + '</option>');
+        }
+        breakfastTimeEl.innerHTML = out.join('');
+    }
 
     function normalizePhoneToWa(phone) {
         var num = String(phone || '').replace(/\D+/g, '');
@@ -651,6 +685,9 @@ $token = trim((string)($_GET['t'] ?? ''));
         if (breakfastTimeEl) {
             var timeVal = (payload.breakfast_time || '').toString().slice(0, 5);
             breakfastTimeEl.value = timeVal || '07:00';
+            if (!breakfastTimeEl.value) {
+                breakfastTimeEl.value = '07:00';
+            }
         }
         if (serviceTypeEl) {
             serviceTypeEl.value = payload.breakfast_service || 'restaurant';
@@ -984,6 +1021,7 @@ $token = trim((string)($_GET['t'] ?? ''));
 
     attachQuotaHandlers();
     attachNoteAutoSelect();
+    fillBreakfastTimeOptions();
     if (quotaPopupCloseEl) {
         quotaPopupCloseEl.addEventListener('click', function () {
             quotaPopupEl.classList.remove('show');
