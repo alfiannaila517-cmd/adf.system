@@ -479,7 +479,7 @@ $token = trim((string)($_GET['t'] ?? ''));
             ' placeholder="Special request (e.g. spicy / medium / no onion)" onclick="event.stopPropagation()" onfocus="event.stopPropagation()">' +
             '</div>';
         
-        return '<label class="menu-item' + (item.pre_selected ? ' selected' : '') + '" onclick="var cb=this.querySelector(\'input\'); cb.checked = !cb.checked; this.classList.toggle(\'selected\', cb.checked);">' +
+        return '<label class="menu-item' + (item.pre_selected ? ' selected' : '') + '">' +
             '<input type="checkbox" class="menu-check" data-group="' + group + '" value="' + item.id + '" ' + checked + '>' +
             imgHtml +
             '<div class="menu-content">' +
@@ -498,29 +498,19 @@ $token = trim((string)($_GET['t'] ?? ''));
         var checks = Array.from(document.querySelectorAll('.menu-check[data-group="' + group + '"]'));
         var selected = checks.filter(function (c) { return c.checked; });
         target.textContent = String(selected.length);
+        var extraCount = Math.max(0, selected.length - max);
         var infoEl = document.getElementById(infoTargetId);
         if (!infoEl) return;
-        var remaining = Math.max(0, max - selected.length);
-        if (selected.length >= max) {
-            infoEl.textContent = 'Limit reached (' + max + ' items).';
-        } else {
-            infoEl.textContent = 'Remaining: ' + remaining + ' item(s).';
+        if (extraCount <= 0) {
+            infoEl.textContent = '';
+            return;
         }
+        var est = Math.max(0, extraUnitPrice || 0) * extraCount;
+        var estText = est > 0 ? (' (est. +' + est.toLocaleString('id-ID') + ')') : '';
+        infoEl.textContent = 'Extra ' + extraCount + ' item(s)' + estText + ' will be charged at Front Desk.';
         if (max <= 0) {
             infoEl.textContent = '';
         }
-    }
-
-    function getGroupLimit(group) {
-        if (group === 'main') return parseInt(payload.max_main || 0, 10);
-        if (group === 'drink') return parseInt(payload.max_drink || 0, 10);
-        return parseInt(payload.max_child || 0, 10);
-    }
-
-    function groupLabel(group) {
-        if (group === 'main') return 'Main Course';
-        if (group === 'drink') return 'Beverages';
-        return 'Kids / Fruit';
     }
 
     function attachQuotaHandlers() {
@@ -534,16 +524,6 @@ $token = trim((string)($_GET['t'] ?? ''));
             }
 
             var group = el.dataset.group;
-            var max = getGroupLimit(group);
-            var selectedCount = document.querySelectorAll('.menu-check[data-group="' + group + '"]:checked').length;
-            if (el.checked && selectedCount > max) {
-                el.checked = false;
-                if (menuItem) {
-                    menuItem.classList.remove('selected');
-                }
-                alert('Maximum ' + max + ' item(s) allowed for ' + groupLabel(group) + '.');
-            }
-
             if (group === 'main') {
                 refreshQuotaInfo('main', parseInt(payload.max_main || 0, 10), document.getElementById('mainSelected'), 'mainExtraInfo', parseFloat(payload.extra_main_price || 0));
             } else if (group === 'drink') {

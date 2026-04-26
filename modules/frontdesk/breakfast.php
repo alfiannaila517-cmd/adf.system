@@ -918,6 +918,7 @@ function addCustomExtra() {
 
 var linkContext = {
     createApi: <?php echo json_encode(BASE_URL . '/api/breakfast-guest-portal.php', JSON_UNESCAPED_UNICODE); ?>,
+    childMenuDefaults: <?php echo json_encode($defaultChildMenuIds, JSON_UNESCAPED_UNICODE); ?>,
     portalLinkTemplate: <?php echo json_encode($guestLinkMessageTemplate, JSON_UNESCAPED_UNICODE); ?>
 };
 
@@ -933,7 +934,9 @@ function getSelectedChildMenuIdsFromGuest(cb) {
     } catch (e) {
         ids = [];
     }
-    if (!Array.isArray(ids)) return [];
+    if (!Array.isArray(ids) || ids.length === 0) {
+        ids = Array.isArray(linkContext.childMenuDefaults) ? linkContext.childMenuDefaults : [];
+    }
     return ids.map(function(v) { return parseInt(v, 10); }).filter(function(v) { return Number.isFinite(v) && v > 0; });
 }
 

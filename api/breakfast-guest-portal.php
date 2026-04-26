@@ -277,6 +277,15 @@ if ($action === 'create_link') {
         return $v > 0;
     }));
 
+    if ($maxChild > 0 && count($childMenuIds) === 0) {
+        $fallbackKids = $db->fetchAll("SELECT id FROM breakfast_menus WHERE is_available = 1 AND LOWER(TRIM(menu_name)) IN ('pancake','waffle') ORDER BY menu_name") ?: [];
+        foreach ($fallbackKids as $fk) {
+            $id = (int)($fk['id'] ?? 0);
+            if ($id > 0) $childMenuIds[] = $id;
+        }
+        $childMenuIds = array_values(array_unique($childMenuIds));
+    }
+
     if ($guestName === '') {
         echo json_encode(['success' => false, 'message' => 'Nama tamu wajib diisi']);
         exit;
@@ -483,6 +492,15 @@ if ($action === 'get_link') {
     if (!is_array($childIds)) $childIds = [];
     $childIds = array_values(array_unique(array_map('intval', $childIds)));
 
+    if (count($childIds) === 0 && (int)($link['max_child'] ?? 0) > 0) {
+        $fallbackKids = $db->fetchAll("SELECT id FROM breakfast_menus WHERE is_available = 1 AND LOWER(TRIM(menu_name)) IN ('pancake','waffle') ORDER BY menu_name") ?: [];
+        foreach ($fallbackKids as $fk) {
+            $id = (int)($fk['id'] ?? 0);
+            if ($id > 0) $childIds[] = $id;
+        }
+        $childIds = array_values(array_unique($childIds));
+    }
+
     $childMenus = [];
     foreach ($childIds as $id) {
         if (isset($menuMap[$id])) $childMenus[] = $menuMap[$id];
@@ -664,16 +682,6 @@ if ($action === 'submit_link') {
         $maxMain = max(0, (int)$link['max_main']);
         $maxDrink = max(0, (int)($link['max_drink'] ?? 2));
         $maxChild = max(0, (int)$link['max_child']);
-
-        if (count($selectedMain) > $maxMain) {
-            throw new Exception('Batas Main Course adalah ' . $maxMain . ' item');
-        }
-        if (count($selectedDrink) > $maxDrink) {
-            throw new Exception('Batas Minuman adalah ' . $maxDrink . ' item');
-        }
-        if (count($selectedChild) > $maxChild) {
-            throw new Exception('Batas Kids/Fruit adalah ' . $maxChild . ' item');
-        }
 
         $extraMainCount = max(0, count($selectedMain) - $maxMain);
         $extraDrinkCount = max(0, count($selectedDrink) - $maxDrink);
