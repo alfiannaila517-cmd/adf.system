@@ -518,16 +518,6 @@ $token = trim((string)($_GET['t'] ?? ''));
         .cart-name { font-weight: 800; color: #0f172a; font-size: 0.92rem; }
         .cart-meta { margin-top: 3px; color: #1d4ed8; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .2px; }
         .cart-note { margin-top: 6px; font-size: 0.78rem; color: #475569; }
-        .cart-remove {
-            border: none;
-            background: rgba(239, 68, 68, 0.12);
-            color: #b91c1c;
-            border-radius: 10px;
-            padding: 8px 10px;
-            font-weight: 800;
-            cursor: pointer;
-            flex-shrink: 0;
-        }
         .cart-footer {
             margin-top: 12px;
             display: flex;
@@ -1141,7 +1131,6 @@ $token = trim((string)($_GET['t'] ?? ''));
                     '<div class="cart-meta">' + esc(item.group) + ' · ' + esc(item.category) + ' · ' + esc(priceText) + '</div>' +
                     noteHtml +
                 '</div>' +
-                '<button type="button" class="cart-remove" data-cart-id="' + item.id + '" data-cart-group="' + esc(item.group) + '">Remove</button>' +
             '</div>';
         }).join('');
     }
@@ -1242,21 +1231,6 @@ $token = trim((string)($_GET['t'] ?? ''));
         });
 
         document.addEventListener('click', function (ev) {
-            var removeBtn = ev.target.closest('.cart-remove');
-            if (removeBtn) {
-                ev.preventDefault();
-                var id = parseInt(removeBtn.dataset.cartId || '0', 10);
-                var group = String(removeBtn.dataset.cartGroup || '');
-                var cb = document.querySelector('.menu-check[data-group="' + group + '"][value="' + id + '"]');
-                if (cb) {
-                    cb.checked = false;
-                    var card = cb.closest('.menu-item');
-                    if (card) card.classList.remove('selected');
-                    refreshSelectionUI();
-                }
-                return;
-            }
-
             if (ev.target.id === 'btnContinueDetails') {
                 ev.preventDefault();
                 var submitCard = document.getElementById('submitCard');

@@ -67,7 +67,7 @@ foreach (array_merge($freeMenus, $paidMenus) as $mx) {
 $inHouseGuests = [];
 $guestQuotaMap = [];
 try {
-    $quotaRows = $pdo->query("SELECT booking_id, adult_count, child_young_count, child_old_count, total_pax, max_main, max_drink, max_child, child_menu_ids, breakfast_date FROM breakfast_guest_quota")->fetchAll(PDO::FETCH_ASSOC);
+    $quotaRows = $pdo->query("SELECT booking_id, adult_count, child_young_count, child_old_count, total_pax, max_main, max_drink, max_child, child_menu_ids, extra_main_price, extra_drink_price, extra_child_price, breakfast_date FROM breakfast_guest_quota")->fetchAll(PDO::FETCH_ASSOC);
     foreach ($quotaRows as $qr) {
         $guestQuotaMap[(int)$qr['booking_id']] = $qr;
     }
@@ -305,9 +305,9 @@ include '../../includes/header.php';
                                        data-max-main="<?php echo (int)($savedQuota['max_main'] ?? 2); ?>"
                                        data-max-drink="<?php echo (int)($savedQuota['max_drink'] ?? 2); ?>"
                                        data-max-child="<?php echo (int)($savedQuota['max_child'] ?? 2); ?>"
-                                       data-extra-main-price="75000"
-                                       data-extra-drink-price="75000"
-                                       data-extra-child-price="75000"
+                                       data-extra-main-price="<?php echo (int)($savedQuota['extra_main_price'] ?? 75000); ?>"
+                                       data-extra-drink-price="<?php echo (int)($savedQuota['extra_drink_price'] ?? 75000); ?>"
+                                       data-extra-child-price="<?php echo (int)($savedQuota['extra_child_price'] ?? 75000); ?>"
                                        data-child-menu-ids="<?php echo htmlspecialchars(json_encode($savedChildIds)); ?>">
                                 <div class="guest-info">
                                     <div class="guest-name"><?php echo htmlspecialchars($g['guest_name']); ?></div>
@@ -532,7 +532,10 @@ include '../../includes/header.php';
             <div class="bf-link-group"><label>Drink Quota</label><input type="number" id="setupDrink" min="0" max="10"></div>
             <div class="bf-link-group"><label>Fruit / Free Kids Quota</label><input type="number" id="setupFruit" min="0" max="10"></div>
         </div>
-        <div style="margin-top:.55rem;font-size:.72rem;color:var(--text-muted)">Extra Breakfast charge is fixed at Rp 75.000 per item when guest selects above quota.</div>
+        <div class="bf-link-grid" style="margin-top:.5rem">
+            <div class="bf-link-group"><label>Extra Drink Price (Rp/item)</label><input type="number" id="setupExtraDrink" min="0" step="1000"></div>
+        </div>
+        <div style="margin-top:.55rem;font-size:.72rem;color:var(--text-muted)">Extra Main dan Free Kids tetap fixed Rp 75.000/item. Extra Drink bisa diubah dari field di atas.</div>
         <div class="bf-wa-row" style="justify-content:flex-end;margin-top:.8rem">
             <button type="button" class="bf-btn-reset" onclick="closeGuestSetup()">Cancel</button>
             <button type="button" class="bf-link-send" onclick="saveGuestSetup()">Save Setup</button>
@@ -566,9 +569,9 @@ function applyGuestSettingsFromCheckbox(cb) {
     var maxMain = parseInt(cb.dataset.maxMain || '2', 10) || 2;
     var maxDrink = parseInt(cb.dataset.maxDrink || '2', 10) || 2;
     var maxChild = parseInt(cb.dataset.maxChild || '0', 10) || 0;
-    var extraMainPrice = parseFloat(cb.dataset.extraMainPrice || '55000') || 55000;
-    var extraDrinkPrice = parseFloat(cb.dataset.extraDrinkPrice || '25000') || 25000;
-    var extraChildPrice = parseFloat(cb.dataset.extraChildPrice || '30000') || 30000;
+    var extraMainPrice = parseFloat(cb.dataset.extraMainPrice || '75000') || 75000;
+    var extraDrinkPrice = parseFloat(cb.dataset.extraDrinkPrice || '75000') || 75000;
+    var extraChildPrice = parseFloat(cb.dataset.extraChildPrice || '75000') || 75000;
     var childMenuIds = [];
     try {
         childMenuIds = JSON.parse(cb.dataset.childMenuIds || '[]');
@@ -603,6 +606,7 @@ function openGuestSetup(evt, btn) {
     document.getElementById('setupFood').value = parseInt(cb.dataset.maxMain || '2', 10) || 2;
     document.getElementById('setupDrink').value = parseInt(cb.dataset.maxDrink || '2', 10) || 2;
     document.getElementById('setupFruit').value = parseInt(cb.dataset.maxChild || '0', 10) || 0;
+    document.getElementById('setupExtraDrink').value = parseInt(cb.dataset.extraDrinkPrice || '75000', 10) || 75000;
 
     document.getElementById('guestSetupModal').classList.add('show');
 }
@@ -628,7 +632,7 @@ function saveGuestSetup() {
     var drink = Math.max(0, parseInt(document.getElementById('setupDrink').value || '2', 10) || 2);
     var fruit = Math.max(0, parseInt(document.getElementById('setupFruit').value || '0', 10) || 0);
     var extraFood = 75000;
-    var extraDrink = 75000;
+    var extraDrink = Math.max(0, parseInt(document.getElementById('setupExtraDrink').value || '75000', 10) || 75000);
     var extraFruit = 75000;
 
     activeSetupCheckbox.dataset.adults = String(adults);
@@ -947,7 +951,7 @@ async function createGuestPortalLinkFromCheckbox(cb) {
     var quotaDrink = parseInt(cb.dataset.maxDrink || '2', 10);
     var quotaChild = parseInt(cb.dataset.maxChild || '0', 10);
     var extraMainPrice = 75000;
-    var extraDrinkPrice = 75000;
+    var extraDrinkPrice = parseFloat(cb.dataset.extraDrinkPrice || '75000');
     var extraChildPrice = 75000;
     var expireHours = 24;
     
