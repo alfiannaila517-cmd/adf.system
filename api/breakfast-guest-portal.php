@@ -924,19 +924,55 @@ if ($action === 'submit_link') {
                 (int)$link['id']
             ]);
 
-        if (($extraMainCount > 0 || $extraDrinkCount > 0 || $extraChildCount > 0) && !empty($bookingId) && $extraChargeTotal > 0) {
+        $targetBookingId = !empty($bookingId) ? (int)$bookingId : 0;
+        if ($targetBookingId <= 0) {
+            // Fallback: try to resolve booking from guest + breakfast date so extras still land in invoice.
+            $resolved = $db->fetchOne(
+                "SELECT b.id
+                 FROM bookings b
+                 LEFT JOIN guests g ON b.guest_id = g.id
+                 WHERE LOWER(TRIM(g.guest_name)) = LOWER(TRIM(?))
+                   AND DATE(?) BETWEEN DATE(b.check_in_date) AND DATE(b.check_out_date)
+                 ORDER BY b.id DESC
+                 LIMIT 1",
+                [$guestName, $breakfastDate]
+            );
+            if (!empty($resolved['id'])) {
+                $targetBookingId = (int)$resolved['id'];
+            }
+        }
+
+        if (($extraMainCount > 0 || $extraDrinkCount > 0 || $extraChildCount > 0) && $targetBookingId > 0 && $extraChargeTotal > 0) {
             $extraLabel = [];
             if ($extraMainCount > 0) $extraLabel[] = 'main x' . $extraMainCount;
             if ($extraDrinkCount > 0) $extraLabel[] = 'drink x' . $extraDrinkCount;
             if ($extraChildCount > 0) $extraLabel[] = 'child x' . $extraChildCount;
-            $pdo->prepare("INSERT INTO booking_extras (booking_id, item_name, quantity, unit_price, total_price, notes, created_by)
-                VALUES (?, 'Breakfast Extra (Guest Portal)', 1, ?, ?, ?, NULL)")
-                ->execute([
-                    (int)$bookingId,
-                    (float)$extraChargeTotal,
-                    (float)$extraChargeTotal,
-                    'Auto extra from guest portal [' . implode(', ', $extraLabel) . '] token=' . ($link['short_code'] ?? $token)
-                ]);
+            $extraNotes = 'Auto extra from guest portal [' . implode(', ', $extraLabel) . '] token=' . ($link['short_code'] ?? $token) . ' date=' . $breakfastDate;
+
+            // Prevent duplicate extra rows for the same link token: update if exists, else insert.
+            $existingExtra = $db->fetchOne(
+                "SELECT id FROM booking_extras WHERE booking_id = ? AND item_name = 'Breakfast Extra (Guest Portal)' AND notes LIKE ? LIMIT 1",
+                [$targetBookingId, '%token=' . ($link['short_code'] ?? $token) . '%']
+            );
+
+            if (!empty($existingExtra['id'])) {
+                $pdo->prepare("UPDATE booking_extras SET quantity = 1, unit_price = ?, total_price = ?, notes = ? WHERE id = ?")
+                    ->execute([
+                        (float)$extraChargeTotal,
+                        (float)$extraChargeTotal,
+                        $extraNotes,
+                        (int)$existingExtra['id']
+                    ]);
+            } else {
+                $pdo->prepare("INSERT INTO booking_extras (booking_id, item_name, quantity, unit_price, total_price, notes, created_by)
+                    VALUES (?, 'Breakfast Extra (Guest Portal)', 1, ?, ?, ?, NULL)")
+                    ->execute([
+                        $targetBookingId,
+                        (float)$extraChargeTotal,
+                        (float)$extraChargeTotal,
+                        $extraNotes
+                    ]);
+            }
         }
 
         $pdo->commit();
