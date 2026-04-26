@@ -467,15 +467,17 @@ $token = trim((string)($_GET['t'] ?? ''));
             min-width: 140px;
         }
         .quota-popup-close {
-            background: rgba(255,255,255,0.12);
+            background: linear-gradient(135deg, #ef4444, #dc2626);
             color: #fff;
-            border: 1px solid rgba(255,255,255,0.35);
+            border: 1px solid rgba(185, 28, 28, 0.65);
             border-radius: 12px;
             font-size: 0.86rem;
             font-weight: 800;
             padding: 12px 14px;
             cursor: pointer;
+            box-shadow: 0 8px 18px rgba(220, 38, 38, 0.22);
         }
+        .quota-popup-close:hover { transform: translateY(-1px); box-shadow: 0 10px 22px rgba(220, 38, 38, 0.28); }
         .quota-popup-ok {
             background: linear-gradient(135deg, #22c55e, #16a34a);
             color: #fff;
