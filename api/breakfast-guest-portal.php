@@ -59,8 +59,11 @@ function ensure_portal_links_table($pdo)
         child_menu_ids TEXT,
         link_status VARCHAR(20) NOT NULL DEFAULT 'open',
         selected_menu_ids TEXT,
+        selected_menu_notes TEXT,
         selected_drink_ids TEXT,
+        selected_drink_notes TEXT,
         selected_child_ids TEXT,
+        selected_child_notes TEXT,
         special_requests TEXT,
         expires_at DATETIME NULL,
         submitted_at DATETIME NULL,
@@ -88,6 +91,18 @@ function ensure_portal_links_table($pdo)
     }
     try {
         $pdo->exec("ALTER TABLE breakfast_guest_links ADD COLUMN selected_drink_ids TEXT AFTER selected_menu_ids");
+    } catch (Exception $e) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE breakfast_guest_links ADD COLUMN selected_menu_notes TEXT AFTER selected_menu_ids");
+    } catch (Exception $e) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE breakfast_guest_links ADD COLUMN selected_drink_notes TEXT AFTER selected_drink_ids");
+    } catch (Exception $e) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE breakfast_guest_links ADD COLUMN selected_child_notes TEXT AFTER selected_child_ids");
     } catch (Exception $e) {
     }
     try {
@@ -476,9 +491,15 @@ if ($action === 'get_link') {
     $selectedMainIds = json_decode($link['selected_menu_ids'] ?? '[]', true);
     $selectedDrinkIds = json_decode($link['selected_drink_ids'] ?? '[]', true);
     $selectedChildIds = json_decode($link['selected_child_ids'] ?? '[]', true);
+    $selectedMainNotes = json_decode($link['selected_menu_notes'] ?? '{}', true);
+    $selectedDrinkNotes = json_decode($link['selected_drink_notes'] ?? '{}', true);
+    $selectedChildNotes = json_decode($link['selected_child_notes'] ?? '{}', true);
     if (!is_array($selectedMainIds)) $selectedMainIds = [];
     if (!is_array($selectedDrinkIds)) $selectedDrinkIds = [];
     if (!is_array($selectedChildIds)) $selectedChildIds = [];
+    if (!is_array($selectedMainNotes)) $selectedMainNotes = [];
+    if (!is_array($selectedDrinkNotes)) $selectedDrinkNotes = [];
+    if (!is_array($selectedChildNotes)) $selectedChildNotes = [];
     $selectedMainIds = array_values(array_unique(array_map('intval', $selectedMainIds)));
     $selectedDrinkIds = array_values(array_unique(array_map('intval', $selectedDrinkIds)));
     $selectedChildIds = array_values(array_unique(array_map('intval', $selectedChildIds)));
@@ -558,7 +579,10 @@ if ($action === 'get_link') {
             'is_locked' => $isLocked,
             'selected_main_ids' => $selectedMainIds,
             'selected_drink_ids' => $selectedDrinkIds,
-            'selected_child_ids' => $selectedChildIds
+            'selected_child_ids' => $selectedChildIds,
+            'selected_main_notes' => $selectedMainNotes,
+            'selected_drink_notes' => $selectedDrinkNotes,
+            'selected_child_notes' => $selectedChildNotes
         ]
     ]);
     exit;
@@ -583,6 +607,30 @@ if ($action === 'submit_link') {
     $selectedMain = array_values(array_filter($selectedMain, function ($v) { return $v > 0; }));
     $selectedDrink = array_values(array_filter($selectedDrink, function ($v) { return $v > 0; }));
     $selectedChild = array_values(array_filter($selectedChild, function ($v) { return $v > 0; }));
+
+    $normalizeNotesMap = function ($raw, $allowedIds) {
+        if (!is_array($raw)) return [];
+        $allowed = [];
+        foreach ($allowedIds as $id) {
+            $allowed[(int)$id] = true;
+        }
+        $clean = [];
+        foreach ($raw as $k => $v) {
+            $id = (int)$k;
+            if ($id <= 0 || empty($allowed[$id])) continue;
+            $note = trim((string)$v);
+            if ($note === '') continue;
+            if (mb_strlen($note) > 160) {
+                $note = mb_substr($note, 0, 160);
+            }
+            $clean[(string)$id] = $note;
+        }
+        return $clean;
+    };
+
+    $selectedMainNotes = $normalizeNotesMap($body['selected_main_notes'] ?? [], $selectedMain);
+    $selectedDrinkNotes = $normalizeNotesMap($body['selected_drink_notes'] ?? [], $selectedDrink);
+    $selectedChildNotes = $normalizeNotesMap($body['selected_child_notes'] ?? [], $selectedChild);
 
     $specialRequests = trim((string)($body['special_requests'] ?? ''));
     $location = trim((string)($body['location'] ?? 'restaurant'));
@@ -658,6 +706,7 @@ if ($action === 'submit_link') {
         foreach ($selectedMain as $id) {
             if (empty($menuMap[$id])) continue;
             $m = $menuMap[$id];
+            $itemNote = trim((string)($selectedMainNotes[(string)$id] ?? ''));
             $isExtra = $maxMain >= 0 && count($menuItems) >= $maxMain;
             $item = [
                 'menu_id' => (int)$m['id'],
@@ -667,6 +716,9 @@ if ($action === 'submit_link') {
                 'is_free' => (int)$m['is_free'],
                 'group' => 'main'
             ];
+            if ($itemNote !== '') {
+                $item['note'] = $itemNote;
+            }
             if ($isExtra) {
                 $item['is_extra'] = 1;
                 $item['extra_base_price'] = $extraMainPrice;
@@ -685,6 +737,7 @@ if ($action === 'submit_link') {
         foreach ($selectedDrink as $id) {
             if (empty($menuMap[$id])) continue;
             $m = $menuMap[$id];
+            $itemNote = trim((string)($selectedDrinkNotes[(string)$id] ?? ''));
             $existingDrinkCount = 0;
             foreach ($menuItems as $mi) {
                 if (($mi['group'] ?? '') === 'drink') $existingDrinkCount++;
@@ -698,6 +751,9 @@ if ($action === 'submit_link') {
                 'is_free' => (int)$m['is_free'],
                 'group' => 'drink'
             ];
+            if ($itemNote !== '') {
+                $item['note'] = $itemNote;
+            }
             if ($isExtra) {
                 $item['is_extra'] = 1;
                 $item['extra_base_price'] = $extraDrinkPrice;
@@ -715,6 +771,7 @@ if ($action === 'submit_link') {
         foreach ($selectedChild as $id) {
             if (empty($menuMap[$id])) continue;
             $m = $menuMap[$id];
+            $itemNote = trim((string)($selectedChildNotes[(string)$id] ?? ''));
             $existingChildCount = 0;
             foreach ($menuItems as $mi) {
                 if (($mi['group'] ?? '') === 'child') $existingChildCount++;
@@ -728,6 +785,9 @@ if ($action === 'submit_link') {
                 'is_free' => (int)$m['is_free'],
                 'group' => 'child'
             ];
+            if ($itemNote !== '') {
+                $item['note'] = $itemNote;
+            }
             if ($isExtra) {
                 $item['is_extra'] = 1;
                 $item['extra_base_price'] = $extraChildPrice;
@@ -810,13 +870,16 @@ if ($action === 'submit_link') {
         }
 
         $pdo->prepare("UPDATE breakfast_guest_links
-            SET link_status = 'submitted', selected_menu_ids = ?, selected_drink_ids = ?, selected_child_ids = ?,
+            SET link_status = 'submitted', selected_menu_ids = ?, selected_menu_notes = ?, selected_drink_ids = ?, selected_drink_notes = ?, selected_child_ids = ?, selected_child_notes = ?,
                 special_requests = ?, submitted_at = NOW()
             WHERE id = ?")
             ->execute([
                 json_encode($selectedMain),
+                json_encode($selectedMainNotes),
                 json_encode($selectedDrink),
+                json_encode($selectedDrinkNotes),
                 json_encode($selectedChild),
+                json_encode($selectedChildNotes),
                 $specialRequests,
                 (int)$link['id']
             ]);

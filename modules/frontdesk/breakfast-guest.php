@@ -34,12 +34,18 @@ $token = trim((string)($_GET['t'] ?? ''));
             margin-bottom: 16px;
         }
         .header-card {
-            background: linear-gradient(135deg, rgba(59, 130, 246, 0.96), rgba(96, 165, 250, 0.88));
+            background:
+                radial-gradient(circle at top right, rgba(255, 255, 255, 0.35), transparent 42%),
+                linear-gradient(140deg, rgba(30, 64, 175, 0.96), rgba(37, 99, 235, 0.9) 55%, rgba(14, 165, 233, 0.86));
             color: white;
             border: none;
+            border-radius: 16px;
+            padding: 14px 16px 12px;
         }
         .header-card .muted-white { color: #eff6ff; }
-        h1 { margin: 0 0 4px; font-size: 1.22rem; font-weight: 700; letter-spacing: .2px; }
+        h1 { margin: 0; font-size: 1.06rem; font-weight: 700; letter-spacing: .45px; text-transform: uppercase; }
+        .header-subtitle { font-size: 0.78rem; color: #dbeafe; margin-top: 3px; letter-spacing: .25px; }
+        .header-divider { margin-top: 8px; height: 1px; background: linear-gradient(90deg, rgba(219, 234, 254, 0.15), rgba(219, 234, 254, 0.75), rgba(219, 234, 254, 0.15)); }
         .muted { color: #475569; font-size: 0.9rem; }
         .muted-white { color: #dbeafe; font-size: 0.92rem; }
         .meta { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
@@ -68,14 +74,15 @@ $token = trim((string)($_GET['t'] ?? ''));
         
         .menu-img-wrap {
             width: 100%;
-            height: 80px;
-            background: linear-gradient(135deg, rgba(191, 219, 254, 0.45), rgba(147, 197, 253, 0.35));
+            height: 72px;
+            background: linear-gradient(135deg, rgba(191, 219, 254, 0.28), rgba(147, 197, 253, 0.2));
             display: flex;
             align-items: center;
             justify-content: center;
             overflow: hidden;
+            padding: 4px;
         }
-        .menu-img { width: 100%; height: 100%; object-fit: cover; }
+        .menu-img { width: 100%; height: 100%; object-fit: contain; border-radius: 8px; }
         .menu-img-placeholder { font-size: 2.2rem; }
         
         .menu-content { padding: 10px 11px 11px; }
@@ -97,6 +104,20 @@ $token = trim((string)($_GET['t'] ?? ''));
             color: #059669; 
         }
         .menu-price.free { color: #10b981; }
+        .menu-note-wrap { display: none; margin-top: 8px; }
+        .menu-item.selected .menu-note-wrap { display: block; }
+        .menu-note-input {
+            width: 100%;
+            border: 1px solid rgba(148, 163, 184, 0.32);
+            border-radius: 8px;
+            background: rgba(255,255,255,0.92);
+            color: #0f172a;
+            font-size: 0.72rem;
+            padding: 7px 8px;
+            line-height: 1.35;
+        }
+        .menu-note-input:focus { outline: none; border-color: #38bdf8; box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.12); }
+        .menu-note-readonly { margin-top: 8px; font-size: 0.72rem; color: #475569; background: rgba(241, 245, 249, 0.8); border-radius: 8px; padding: 6px 8px; }
         
         .quota-box {
             background: linear-gradient(135deg, rgba(224, 242, 254, 0.9), rgba(191, 219, 254, 0.82));
@@ -215,6 +236,8 @@ $token = trim((string)($_GET['t'] ?? ''));
     <div class="card" id="headerCard">
         <div class="header-card">
             <h1>Breakfast Selection</h1>
+            <div class="header-subtitle">Curated Morning Dining Experience</div>
+            <div class="header-divider"></div>
             <div class="muted-white" id="stateText">Loading details...</div>
             <div class="meta hidden" id="metaBox"></div>
         </div>
@@ -379,6 +402,10 @@ $token = trim((string)($_GET['t'] ?? ''));
         var locked = !!payload.is_locked;
         var price = parseFloat(item.price || 0);
         var free = String(item.is_free) === '1' || item.is_free === 1 || item.is_free === true;
+        var noteMap = group === 'main'
+            ? (payload.selected_main_notes || {})
+            : (group === 'drink' ? (payload.selected_drink_notes || {}) : (payload.selected_child_notes || {}));
+        var noteVal = String(noteMap[String(item.id)] || noteMap[item.id] || '');
         var imgUrl = item.image_url || '';
         var desc = item.description || '';
         var hasImg = imgUrl && imgUrl.trim() !== '';
@@ -393,6 +420,9 @@ $token = trim((string)($_GET['t'] ?? ''));
         }
 
         if (locked) {
+            var noteHtmlLocked = noteVal
+                ? '<div class="menu-note-readonly">Request: ' + esc(noteVal) + '</div>'
+                : '';
             return '<div class="menu-item locked' + (item.pre_selected ? ' selected' : '') + '">' +
                 '<input type="checkbox" class="menu-check" data-group="' + group + '" value="' + item.id + '" ' + checked + ' disabled>' +
                 imgHtml +
@@ -403,9 +433,15 @@ $token = trim((string)($_GET['t'] ?? ''));
                 '<span class="menu-cat">' + esc(item.category || '-') + '</span>' +
                 '<span class="menu-price ' + (free ? 'free' : '') + '">' + (free ? 'FREE' : 'Rp ' + Math.round(price).toLocaleString('id-ID')) + '</span>' +
                 '</div>' +
+                noteHtmlLocked +
                 '</div>' +
                 '</div>';
         }
+
+        var noteHtmlEdit = '<div class="menu-note-wrap">' +
+            '<input class="menu-note-input" type="text" data-group="' + group + '" data-menu-id="' + item.id + '" value="' + esc(noteVal) + '"' +
+            ' placeholder="Special request (e.g. spicy / medium / no onion)" onclick="event.stopPropagation()" onfocus="event.stopPropagation()">' +
+            '</div>';
         
         return '<label class="menu-item' + (item.pre_selected ? ' selected' : '') + '" onclick="var cb=this.querySelector(\'input\'); cb.checked = !cb.checked; this.classList.toggle(\'selected\', cb.checked);">' +
             '<input type="checkbox" class="menu-check" data-group="' + group + '" value="' + item.id + '" ' + checked + '>' +
@@ -417,6 +453,7 @@ $token = trim((string)($_GET['t'] ?? ''));
             '<span class="menu-cat">' + esc(item.category || '-') + '</span>' +
             '<span class="menu-price ' + (free ? 'free' : '') + '">' + (free ? 'FREE' : 'Rp ' + Math.round(price).toLocaleString('id-ID')) + '</span>' +
             '</div>' +
+            noteHtmlEdit +
             '</div>' +
             '</label>';
     }
@@ -433,8 +470,8 @@ $token = trim((string)($_GET['t'] ?? ''));
             return;
         }
         var est = Math.max(0, extraUnitPrice || 0) * extraCount;
-        var estText = est > 0 ? (' (estimasi +' + est.toLocaleString('id-ID') + ')') : '';
-            infoEl.textContent = 'Extra ' + extraCount + ' item(s)' + estText + ' will be charged at Front Desk.';
+        var estText = est > 0 ? (' (est. +' + est.toLocaleString('id-ID') + ')') : '';
+        infoEl.textContent = 'Extra ' + extraCount + ' item(s)' + estText + ' will be charged at Front Desk.';
     }
 
     function attachQuotaHandlers() {
@@ -452,10 +489,20 @@ $token = trim((string)($_GET['t'] ?? ''));
         });
     }
 
-    function selectedIds(group) {
-        return Array.from(document.querySelectorAll('.menu-check[data-group="' + group + '"]:checked')).map(function (c) {
-            return parseInt(c.value, 10);
-        }).filter(function (v) { return Number.isFinite(v) && v > 0; });
+    function selectedWithNotes(group) {
+        var ids = [];
+        var notes = {};
+        Array.from(document.querySelectorAll('.menu-check[data-group="' + group + '"]:checked')).forEach(function (c) {
+            var id = parseInt(c.value, 10);
+            if (!Number.isFinite(id) || id <= 0) return;
+            ids.push(id);
+            var noteInput = document.querySelector('.menu-note-input[data-group="' + group + '"][data-menu-id="' + id + '"]');
+            var note = noteInput ? String(noteInput.value || '').trim() : '';
+            if (note) {
+                notes[String(id)] = note;
+            }
+        });
+        return { ids: ids, notes: notes };
     }
 
     async function loadLink() {
@@ -493,9 +540,12 @@ $token = trim((string)($_GET['t'] ?? ''));
         msgEl.textContent = '';
         msgEl.className = 'msg';
 
-        var selectedMain = selectedIds('main');
-        var selectedDrink = selectedIds('drink');
-        var selectedChild = selectedIds('child');
+        var mainPicked = selectedWithNotes('main');
+        var drinkPicked = selectedWithNotes('drink');
+        var childPicked = selectedWithNotes('child');
+        var selectedMain = mainPicked.ids;
+        var selectedDrink = drinkPicked.ids;
+        var selectedChild = childPicked.ids;
         if (selectedMain.length + selectedDrink.length + selectedChild.length === 0) {
             msgEl.textContent = 'Please select at least 1 item.';
             msgEl.classList.add('err');
@@ -506,8 +556,11 @@ $token = trim((string)($_GET['t'] ?? ''));
             action: 'submit_link',
             token: token,
             selected_main: selectedMain,
+            selected_main_notes: mainPicked.notes,
             selected_drink: selectedDrink,
+            selected_drink_notes: drinkPicked.notes,
             selected_child: selectedChild,
+            selected_child_notes: childPicked.notes,
             special_requests: (document.getElementById('notes').value || '').trim(),
             location: 'restaurant'
         };
