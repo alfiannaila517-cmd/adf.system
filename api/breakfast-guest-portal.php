@@ -620,8 +620,13 @@ if ($action === 'get_link') {
 
 if ($action === 'submit_link') {
     $token = trim((string)($body['token'] ?? ''));
+    $reqLang = strtolower(trim((string)($body['lang'] ?? 'en')));
+    if (!in_array($reqLang, ['en', 'id'], true)) $reqLang = 'en';
+    $msg = function ($idText, $enText) use ($reqLang) {
+        return $reqLang === 'id' ? $idText : $enText;
+    };
     if ($token === '') {
-        echo json_encode(['success' => false, 'message' => 'Token wajib']);
+        echo json_encode(['success' => false, 'message' => $msg('Token wajib', 'Token is required')]);
         exit;
     }
 
@@ -714,13 +719,26 @@ if ($action === 'submit_link') {
 
         foreach ($selectedChild as $id) {
             if (!in_array($id, $allowedChild, true)) {
-                throw new Exception('Ada menu anak yang tidak diizinkan');
+                throw new Exception($msg('Ada menu anak yang tidak diizinkan', 'Some kids menu items are not allowed'));
+            }
+        }
+
+        $alwaysMainNames = ['pancake', 'waffle'];
+        $allowedChildAlsoMain = [];
+        if (count($allowedChild) > 0) {
+            $childPlaceholders = implode(',', array_fill(0, count($allowedChild), '?'));
+            $childMenus = $db->fetchAll("SELECT id, menu_name FROM breakfast_menus WHERE id IN ($childPlaceholders)", $allowedChild) ?: [];
+            foreach ($childMenus as $cm) {
+                $nm = strtolower(trim((string)($cm['menu_name'] ?? '')));
+                if (in_array($nm, $alwaysMainNames, true)) {
+                    $allowedChildAlsoMain[(int)$cm['id']] = true;
+                }
             }
         }
 
         foreach ($selectedMain as $id) {
-            if (in_array($id, $allowedChild, true)) {
-                throw new Exception('Menu anak tidak boleh dipilih di menu utama');
+            if (in_array($id, $allowedChild, true) && empty($allowedChildAlsoMain[(int)$id])) {
+                throw new Exception($msg('Menu anak tidak boleh dipilih di menu utama', 'Kids menu cannot be selected in Main Course'));
             }
         }
 
@@ -754,7 +772,7 @@ if ($action === 'submit_link') {
         $extraChargeTotal = 0;
         $allSelected = array_values(array_unique(array_merge($selectedMain, $selectedDrink, $selectedChild)));
         if (!$onTheSpot && count($allSelected) === 0) {
-            throw new Exception('Pilih minimal 1 menu');
+            throw new Exception($msg('Pilih minimal 1 menu', 'Please select at least 1 menu item'));
         }
 
         if ($onTheSpot) {

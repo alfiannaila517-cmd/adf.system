@@ -1602,6 +1602,7 @@ $token = trim((string)($_GET['t'] ?? ''));
         var body = {
             action: 'submit_link',
             token: token,
+            lang: lang,
             selected_main: selectedMain,
             selected_main_notes: mainPicked.notes,
             selected_drink: selectedDrink,
