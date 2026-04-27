@@ -163,8 +163,8 @@ if (empty($serviceTypes)) {
     ];
 }
 
-$statusColors    = ['pending'=>'#f59e0b','confirmed'=>'#3b82f6','completed'=>'#10b981','cancelled'=>'#ef4444'];
-$payStatusColors = ['unpaid'=>'#ef4444','partial'=>'#f59e0b','paid'=>'#10b981'];
+$statusColors    = ['pending'=>'#b45309','confirmed'=>'#1d4ed8','completed'=>'#047857','cancelled'=>'#b91c1c'];
+$payStatusColors = ['unpaid'=>'#b91c1c','partial'=>'#b45309','paid'=>'#047857'];
 
 // ── Helper: find/create division by service type ──────────────────────────────
 function getDivisionForService(PDO $pdo, string $serviceType): int {
@@ -878,7 +878,23 @@ include '../../includes/header.php';
 .hs-table td { padding:0.65rem 0.85rem; border-bottom:1px solid #f1f5f9; vertical-align:middle; }
 .hs-table tr:last-child td { border-bottom:none; }
 .hs-table tr:hover td { background:#fafbff; }
-.hs-badge { display:inline-block; padding:0.2rem 0.55rem; border-radius:20px; font-size:0.7rem; font-weight:600; color:white; }
+.hs-badge {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-width:78px;
+    padding:0.28rem 0.72rem;
+    border-radius:999px;
+    font-size:0.66rem;
+    font-weight:700;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    color:#ffffff !important;
+    border:1px solid rgba(255,255,255,0.22);
+    box-shadow:0 2px 8px rgba(15,23,42,0.18);
+    line-height:1;
+    white-space:nowrap;
+}
 .hs-svc-pill { display:inline-block; padding:0.15rem 0.45rem; border-radius:12px; font-size:0.68rem; font-weight:600; background:#ede9fe; color:#5b21b6; margin:0.1rem 0.1rem 0 0; white-space:nowrap; }
 .hs-action-btn { padding:0.25rem 0.55rem; border:none; border-radius:5px; cursor:pointer; font-size:0.72rem; font-weight:600; transition:opacity 0.2s; }
 .hs-action-btn:hover { opacity:0.8; }
@@ -1031,7 +1047,7 @@ include '../../includes/header.php';
                 <td style="font-weight:700;white-space:nowrap">Rp <?php echo number_format($inv['total'],0,',','.'); ?></td>
                 <td style="color:#10b981;font-weight:600;white-space:nowrap">Rp <?php echo number_format($inv['paid_amount'],0,',','.'); ?></td>
                 <td><span class="hs-badge" style="background:<?php echo $payStatusColors[$inv['payment_status']]; ?>"><?php echo strtoupper($inv['payment_status']); ?></span></td>
-                <td><span class="hs-badge" style="background:<?php echo $statusColors[$inv['status']]; ?>"><?php echo ucfirst($inv['status']); ?></span></td>
+                <td><span class="hs-badge" style="background:<?php echo $statusColors[$inv['status']]; ?>"><?php echo strtoupper($inv['status']); ?></span></td>
                 <td style="font-size:0.72rem;color:var(--text-secondary);white-space:nowrap"><?php echo date('d M Y', strtotime($inv['created_at'])); ?></td>
                 <td>
                     <div style="display:flex;gap:0.3rem;flex-wrap:wrap;min-width:160px">
