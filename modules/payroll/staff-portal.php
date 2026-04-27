@@ -1686,6 +1686,24 @@ try {
             color: #059669;
         }
 
+        .bf-complete-btn {
+            margin-left: auto;
+            border: none;
+            border-radius: 8px;
+            padding: 5px 10px;
+            font-size: 10px;
+            font-weight: 700;
+            color: #fff;
+            background: linear-gradient(135deg, #16a34a, #15803d);
+            cursor: pointer;
+        }
+
+        .bf-complete-btn:disabled {
+            opacity: .55;
+            cursor: not-allowed;
+            background: #9ca3af;
+        }
+
         /* Absen button */
         .absen-link {
             display: block;
@@ -3306,6 +3324,7 @@ try {
                     const time = o.breakfast_time ? o.breakfast_time.substring(0, 5) : '--:--';
                     const pax = o.total_pax || 1;
                     const room = o.room_display || '-';
+                    const orderId = parseInt(o.id || 0, 10) || 0;
                     const loc = {
                         'restaurant': '🍽️ Restaurant',
                         'room_service': '🚪 Room Service',
@@ -3339,6 +3358,10 @@ try {
                     const price = parseFloat(o.total_price || 0);
                     const priceStr = price > 0 ? 'Rp ' + price.toLocaleString('id-ID') : 'Free';
                     const req = o.special_requests ? `<div style="font-size:9px;color:#a855f7;margin-top:4px;">💬 ${o.special_requests}</div>` : '';
+                    const canComplete = orderId > 0 && o.order_status !== 'completed';
+                    const completeBtn = canComplete
+                        ? `<button class="bf-complete-btn" onclick="markBreakfastCompleted(${orderId}, this)">✔ Complete</button>`
+                        : `<button class="bf-complete-btn" disabled>Completed</button>`;
 
                     html += `
             <div class="bf-order">
@@ -3354,6 +3377,7 @@ try {
                 <div class="bf-menus">${menuTags}</div>
                 <div class="bf-foot">
                     <span class="bf-price">${priceStr}</span>
+                    ${completeBtn}
                 </div>
                 ${req}
             </div>`;
@@ -3362,6 +3386,40 @@ try {
             } catch (e) {
                 console.error(e);
                 document.getElementById('bfOrderList').innerHTML = '<div style="color:var(--red);font-size:11px;padding:10px;">Gagal memuat data breakfast</div>';
+            }
+        }
+
+        async function markBreakfastCompleted(orderId, btn) {
+            if (!orderId) return;
+            if (!confirm('Tandai pesanan ini sebagai completed?')) return;
+
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = 'Updating...';
+            }
+
+            try {
+                const fd = new FormData();
+                fd.append('action', 'breakfast_mark_completed');
+                fd.append('order_id', String(orderId));
+
+                const res = await fetch(API, {
+                    method: 'POST',
+                    body: fd
+                });
+                const data = await res.json();
+
+                if (!data.success) {
+                    throw new Error(data.message || 'Gagal update status');
+                }
+
+                await loadBreakfast();
+            } catch (e) {
+                alert(e.message || 'Gagal update status breakfast');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = '✔ Complete';
+                }
             }
         }
 

@@ -426,6 +426,36 @@ if ($action === 'breakfast_today') {
     exit;
 }
 
+if ($action === 'breakfast_mark_completed') {
+    $orderId = (int)($_POST['order_id'] ?? $_POST['id'] ?? 0);
+    if ($orderId <= 0) {
+        echo json_encode(['success' => false, 'message' => 'ID order tidak valid']);
+        exit;
+    }
+
+    $today = getBreakfastHotelDate();
+    try {
+        $order = $db->fetchOne("SELECT id, order_status FROM breakfast_orders WHERE id = ? AND breakfast_date = ?", [$orderId, $today]);
+        if (!$order) {
+            echo json_encode(['success' => false, 'message' => 'Order tidak ditemukan untuk tanggal breakfast hari ini']);
+            exit;
+        }
+
+        if (($order['order_status'] ?? '') === 'completed') {
+            echo json_encode(['success' => true, 'message' => 'Order sudah completed']);
+            exit;
+        }
+
+        $stmt = $pdo->prepare("UPDATE breakfast_orders SET order_status = 'completed', updated_at = NOW() WHERE id = ?");
+        $stmt->execute([$orderId]);
+
+        echo json_encode(['success' => true, 'message' => 'Order berhasil di-complete']);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Gagal update status: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
 // ── ALL TODAY'S BREAKFAST ORDERS (Staff Monitor) ──
 if ($action === 'breakfast_orders') {
     // Keep this aligned with frontdesk breakfast page and export-daily-report PDF.
