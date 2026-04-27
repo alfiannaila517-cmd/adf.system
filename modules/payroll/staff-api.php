@@ -483,6 +483,7 @@ if ($action === 'breakfast_orders') {
         $dedupMap = [];
         foreach ($rawOrders as $o) {
             $o['menu_items'] = json_decode($o['menu_items'] ?? '[]', true) ?: [];
+            $o['total_pax'] = max(0, (int)($o['total_pax'] ?? 0));
 
             $rooms = json_decode($o['room_number'] ?? '[]', true);
             if (is_array($rooms)) {

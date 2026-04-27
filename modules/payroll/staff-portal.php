@@ -3425,7 +3425,8 @@ try {
                 let html = '';
                 orders.forEach((o, idx) => {
                     const time = o.breakfast_time ? o.breakfast_time.substring(0, 5) : '--:--';
-                    const pax = o.total_pax || 1;
+                    const paxRaw = parseInt(o.total_pax, 10);
+                    const pax = Number.isFinite(paxRaw) && paxRaw >= 0 ? paxRaw : 0;
                     const room = o.room_display || '-';
                     const orderId = parseInt(o.id || 0, 10) || 0;
                     const loc = {
