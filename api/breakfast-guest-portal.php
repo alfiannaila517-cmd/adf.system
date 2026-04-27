@@ -355,6 +355,53 @@ function auto_submit_on_the_spot_after_midnight($db, $pdo, $link)
     return true;
 }
 
+function detect_guest_preferred_language($db, $link)
+{
+    $nationality = '';
+
+    try {
+        if (!empty($link['booking_id'])) {
+            $row = $db->fetchOne(
+                "SELECT g.nationality
+                 FROM bookings b
+                 LEFT JOIN guests g ON b.guest_id = g.id
+                 WHERE b.id = ?
+                 LIMIT 1",
+                [(int)$link['booking_id']]
+            );
+            $nationality = trim((string)($row['nationality'] ?? ''));
+        }
+
+        if ($nationality === '' && !empty($link['guest_name'])) {
+            $rowByName = $db->fetchOne(
+                "SELECT nationality
+                 FROM guests
+                 WHERE LOWER(TRIM(guest_name)) = LOWER(TRIM(?))
+                 ORDER BY id DESC
+                 LIMIT 1",
+                [$link['guest_name']]
+            );
+            $nationality = trim((string)($rowByName['nationality'] ?? ''));
+        }
+    } catch (Exception $e) {
+        $nationality = '';
+    }
+
+    $n = strtolower($nationality);
+    $isLocal = false;
+    foreach (['indonesia', 'indonesian', 'wni', 'id'] as $kw) {
+        if ($n !== '' && strpos($n, $kw) !== false) {
+            $isLocal = true;
+            break;
+        }
+    }
+
+    return [
+        'preferred_lang' => $isLocal ? 'id' : 'en',
+        'nationality' => $nationality
+    ];
+}
+
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 $body = parse_json_body();
 if (!$action && !empty($body['action'])) {
@@ -748,7 +795,9 @@ if ($action === 'get_link') {
 
     $specialRequestsLink = (string)($link['special_requests'] ?? '');
     $isAutoOnSpotMidnight = strpos($specialRequestsLink, '[AUTO ON THE SPOT MIDNIGHT]') !== false;
-    $autoOnSpotMessage = "We are sorry, because you did not select your breakfast menu before midnight, tomorrow you can order directly at the restaurant. Please be patient. If not, you can contact Front Desk to order manually. Thank you.";
+    $autoOnSpotMessageEn = "We are sorry, because you did not select your breakfast menu before midnight, tomorrow you can order directly at the restaurant. Please be patient. If not, you can contact Front Desk to order manually. Thank you.";
+    $autoOnSpotMessageId = "Mohon maaf, karena Anda belum memilih menu sarapan sebelum tengah malam, besok Anda bisa langsung memesan di restoran. Mohon bersabar ya. Jika tidak, Anda bisa menghubungi Front Desk untuk memesan secara manual. Terima kasih.";
+    $langInfo = detect_guest_preferred_language($db, $link);
 
     echo json_encode([
         'success' => true,
@@ -779,7 +828,11 @@ if ($action === 'get_link') {
             'breakfast_location' => $link['breakfast_location'] ?? null,
             'on_the_spot' => (int)($link['on_the_spot'] ?? 0),
             'auto_on_the_spot_midnight' => $isAutoOnSpotMidnight,
-            'auto_on_the_spot_message' => $isAutoOnSpotMidnight ? $autoOnSpotMessage : '',
+            'auto_on_the_spot_message' => $isAutoOnSpotMidnight ? $autoOnSpotMessageEn : '',
+            'auto_on_the_spot_message_en' => $isAutoOnSpotMidnight ? $autoOnSpotMessageEn : '',
+            'auto_on_the_spot_message_id' => $isAutoOnSpotMidnight ? $autoOnSpotMessageId : '',
+            'preferred_lang' => $langInfo['preferred_lang'],
+            'guest_nationality' => $langInfo['nationality'],
             'selected_main_ids' => $selectedMainIds,
             'selected_drink_ids' => $selectedDrinkIds,
             'selected_child_ids' => $selectedChildIds,

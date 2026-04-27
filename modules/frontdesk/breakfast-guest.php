@@ -149,6 +149,8 @@ $token = trim((string)($_GET['t'] ?? ''));
         .header-wa-btn.hidden { display: none; }
         .muted { color: #475569; font-size: 0.9rem; }
         .muted-white { color: #ffffff; font-size: 0.92rem; font-weight: 500; text-shadow: 0 1px 2px rgba(15, 23, 42, 0.22); }
+        .muted-white-sub { color: #e0f2fe; font-size: 0.78rem; margin-top: 4px; opacity: 0.95; }
+        .muted-white-sub.hidden { display: none; }
         .meta { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
         .meta-item { background: rgba(255,255,255,0.15); border-radius: 10px; padding: 10px; }
         .meta-item-light { background: rgba(255,255,255,0.88); border: 1px solid rgba(96, 165, 250, 0.22); border-radius: 12px; padding: 10px 12px; }
@@ -746,6 +748,7 @@ $token = trim((string)($_GET['t'] ?? ''));
             </div>
             <div class="header-divider"></div>
             <div class="muted-white" id="stateText">Loading details...</div>
+            <div class="muted-white-sub hidden" id="stateSubText"></div>
             <a class="header-wa-btn hidden" id="headerWaBtn" target="_blank" rel="noopener noreferrer">WhatsApp Front Desk: 081222228590</a>
             <div class="meta hidden" id="metaBox"></div>
         </div>
@@ -884,6 +887,7 @@ $token = trim((string)($_GET['t'] ?? ''));
     var breakfastTimeEl = document.getElementById('breakfastTime');
     var serviceTypeEl = document.getElementById('serviceType');
     var breakfastLocationEl = document.getElementById('breakfastLocation');
+    var stateSubTextEl = document.getElementById('stateSubText');
     var lang = 'en';
     var i18n = {
         en: {
@@ -1172,7 +1176,7 @@ $token = trim((string)($_GET['t'] ?? ''));
         }
     }
 
-    function showAutoOnSpotNoticeOnly(message) {
+    function showAutoOnSpotNoticeOnly(message, secondaryMessage) {
         var hideIds = ['metaBox', 'infoCard', 'mainCard', 'drinkCard', 'childCard', 'cartCard', 'submitCard', 'onTheSpotCard'];
         hideIds.forEach(function (id) {
             var el = document.getElementById(id);
@@ -1189,6 +1193,16 @@ $token = trim((string)($_GET['t'] ?? ''));
         if (waFloatBtn) {
             waFloatBtn.href = waLink;
             waFloatBtn.classList.add('show');
+        }
+
+        if (stateSubTextEl) {
+            if (secondaryMessage && String(secondaryMessage).trim() !== '') {
+                stateSubTextEl.textContent = secondaryMessage;
+                stateSubTextEl.classList.remove('hidden');
+            } else {
+                stateSubTextEl.textContent = '';
+                stateSubTextEl.classList.add('hidden');
+            }
         }
     }
 
@@ -1768,13 +1782,29 @@ $token = trim((string)($_GET['t'] ?? ''));
             payload.view_drink_menus = filterSelectedMenus(payload.drink_menus || [], payload.selected_drink_ids || []);
             payload.view_child_menus = filterSelectedMenus(payload.child_menus || [], payload.selected_child_ids || []);
 
+            // Auto language from guest profile (local -> Indonesian, foreign -> English)
+            if (payload.preferred_lang === 'id' || payload.preferred_lang === 'en') {
+                lang = payload.preferred_lang;
+                if (langSelectEl) langSelectEl.value = lang;
+            }
+
             if (payload.auto_on_the_spot_midnight) {
-                showAutoOnSpotNoticeOnly(payload.auto_on_the_spot_message || 'We are sorry, because you did not select your breakfast menu before midnight, tomorrow you can order directly at the restaurant. Please be patient. If not, you can contact Front Desk to order manually. Thank you.');
+                var primaryMsg = (lang === 'id')
+                    ? (payload.auto_on_the_spot_message_id || 'Mohon maaf, karena Anda belum memilih menu sarapan sebelum tengah malam, besok Anda bisa langsung memesan di restoran. Mohon bersabar ya. Jika tidak, Anda bisa menghubungi Front Desk untuk memesan secara manual. Terima kasih.')
+                    : (payload.auto_on_the_spot_message_en || 'We are sorry, because you did not select your breakfast menu before midnight, tomorrow you can order directly at the restaurant. Please be patient. If not, you can contact Front Desk to order manually. Thank you.');
+                var secondaryMsg = (lang === 'id')
+                    ? (payload.auto_on_the_spot_message_en || '')
+                    : (payload.auto_on_the_spot_message_id || '');
+                showAutoOnSpotNoticeOnly(primaryMsg, secondaryMsg);
                 return;
             }
 
             if (headerWaBtn) {
                 headerWaBtn.classList.add('hidden');
+            }
+            if (stateSubTextEl) {
+                stateSubTextEl.textContent = '';
+                stateSubTextEl.classList.add('hidden');
             }
 
             setState(
