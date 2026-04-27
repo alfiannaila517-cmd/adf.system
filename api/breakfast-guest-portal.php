@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Breakfast Guest Self-Pick Portal API
  * - create_link: authenticated frontdesk action
@@ -416,18 +417,48 @@ try {
         ensure_booking_extras_table($pdo);
 
         // Ensure unique key on breakfast_orders
-        try { $pdo->exec("ALTER TABLE breakfast_orders ADD UNIQUE KEY uk_booking_date (booking_id, breakfast_date)"); } catch (Exception $e) {}
+        try {
+            $pdo->exec("ALTER TABLE breakfast_orders ADD UNIQUE KEY uk_booking_date (booking_id, breakfast_date)");
+        } catch (Exception $e) {
+        }
 
         // Add new columns if not exist
-        try { $pdo->exec("ALTER TABLE breakfast_guest_quota ADD COLUMN adult_count INT NOT NULL DEFAULT 1 AFTER breakfast_date"); } catch (Exception $e) {}
-        try { $pdo->exec("ALTER TABLE breakfast_guest_quota ADD COLUMN child_young_count INT NOT NULL DEFAULT 0 AFTER adult_count"); } catch (Exception $e) {}
-        try { $pdo->exec("ALTER TABLE breakfast_guest_quota ADD COLUMN child_old_count INT NOT NULL DEFAULT 0 AFTER child_young_count"); } catch (Exception $e) {}
-        try { $pdo->exec("ALTER TABLE breakfast_guest_quota ADD COLUMN total_pax INT NOT NULL DEFAULT 1 AFTER child_old_count"); } catch (Exception $e) {}
-        try { $pdo->exec("ALTER TABLE breakfast_guest_quota ADD COLUMN max_drink INT NOT NULL DEFAULT 2 AFTER max_main"); } catch (Exception $e) {}
-        try { $pdo->exec("ALTER TABLE breakfast_guest_quota ADD COLUMN extra_drink_price DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER extra_main_price"); } catch (Exception $e) {}
-        try { $pdo->exec("UPDATE breakfast_guest_quota SET extra_drink_price = 20000 WHERE extra_drink_price = 75000 OR extra_drink_price = 0"); } catch (Exception $e) {}
-        try { $pdo->exec("ALTER TABLE breakfast_orders ADD COLUMN breakfast_location VARCHAR(120) NULL AFTER location"); } catch (Exception $e) {}
-        try { $pdo->exec("ALTER TABLE breakfast_orders ADD COLUMN on_the_spot TINYINT(1) NOT NULL DEFAULT 0 AFTER breakfast_location"); } catch (Exception $e) {}
+        try {
+            $pdo->exec("ALTER TABLE breakfast_guest_quota ADD COLUMN adult_count INT NOT NULL DEFAULT 1 AFTER breakfast_date");
+        } catch (Exception $e) {
+        }
+        try {
+            $pdo->exec("ALTER TABLE breakfast_guest_quota ADD COLUMN child_young_count INT NOT NULL DEFAULT 0 AFTER adult_count");
+        } catch (Exception $e) {
+        }
+        try {
+            $pdo->exec("ALTER TABLE breakfast_guest_quota ADD COLUMN child_old_count INT NOT NULL DEFAULT 0 AFTER child_young_count");
+        } catch (Exception $e) {
+        }
+        try {
+            $pdo->exec("ALTER TABLE breakfast_guest_quota ADD COLUMN total_pax INT NOT NULL DEFAULT 1 AFTER child_old_count");
+        } catch (Exception $e) {
+        }
+        try {
+            $pdo->exec("ALTER TABLE breakfast_guest_quota ADD COLUMN max_drink INT NOT NULL DEFAULT 2 AFTER max_main");
+        } catch (Exception $e) {
+        }
+        try {
+            $pdo->exec("ALTER TABLE breakfast_guest_quota ADD COLUMN extra_drink_price DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER extra_main_price");
+        } catch (Exception $e) {
+        }
+        try {
+            $pdo->exec("UPDATE breakfast_guest_quota SET extra_drink_price = 20000 WHERE extra_drink_price = 75000 OR extra_drink_price = 0");
+        } catch (Exception $e) {
+        }
+        try {
+            $pdo->exec("ALTER TABLE breakfast_orders ADD COLUMN breakfast_location VARCHAR(120) NULL AFTER location");
+        } catch (Exception $e) {
+        }
+        try {
+            $pdo->exec("ALTER TABLE breakfast_orders ADD COLUMN on_the_spot TINYINT(1) NOT NULL DEFAULT 0 AFTER breakfast_location");
+        } catch (Exception $e) {
+        }
     } elseif ($action === 'submit_link') {
         // Submit may write new portal columns (notes/qty), ensure they exist.
         ensure_portal_links_table($pdo, true);
@@ -461,12 +492,12 @@ if ($action === 'create_link') {
     $rooms = array_values(array_unique(array_filter(array_map('trim', $rooms))));
 
     $breakfastDate = !empty($body['breakfast_date']) ? $body['breakfast_date'] : hotel_date();
-    
+
     // New quota structure based on guest composition
     $adultCount = max(0, (int)($body['adult_count'] ?? 1));
     $childYoung = max(0, (int)($body['child_young_count'] ?? 0)); // < 7 years old
     $childOld = 0; // kids >=7 are not configured separately in this flow
-    
+
     $maxMain = max(0, (int)($body['max_main'] ?? 2));
     $maxDrink = max(0, (int)($body['max_drink'] ?? 2));
     $maxChild = max(0, (int)($body['max_child'] ?? 2)); // for young children
@@ -871,9 +902,15 @@ if ($action === 'submit_link') {
     $selectedMain = array_values(array_unique(array_map('intval', $selectedMain)));
     $selectedDrink = array_values(array_unique(array_map('intval', $selectedDrink)));
     $selectedChild = array_values(array_unique(array_map('intval', $selectedChild)));
-    $selectedMain = array_values(array_filter($selectedMain, function ($v) { return $v > 0; }));
-    $selectedDrink = array_values(array_filter($selectedDrink, function ($v) { return $v > 0; }));
-    $selectedChild = array_values(array_filter($selectedChild, function ($v) { return $v > 0; }));
+    $selectedMain = array_values(array_filter($selectedMain, function ($v) {
+        return $v > 0;
+    }));
+    $selectedDrink = array_values(array_filter($selectedDrink, function ($v) {
+        return $v > 0;
+    }));
+    $selectedChild = array_values(array_filter($selectedChild, function ($v) {
+        return $v > 0;
+    }));
     $onTheSpot = !empty($body['on_the_spot']) ? 1 : 0;
 
     $normalizeNotesMap = function ($raw, $allowedIds) {

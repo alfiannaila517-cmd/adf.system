@@ -1,4 +1,5 @@
 <?php
+
 /**
  * BREAKFAST SAVE API
  * - Drop FK on created_by (users table is in system DB, not business DB)
@@ -44,7 +45,8 @@ try {
     foreach ($fks as $fk) {
         $pdo->exec("ALTER TABLE breakfast_orders DROP FOREIGN KEY `$fk`");
     }
-} catch (Exception $e) { /* ignore */ }
+} catch (Exception $e) { /* ignore */
+}
 
 // User from session (already validated by requireLogin)
 $validUserId = !empty($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
@@ -179,16 +181,23 @@ try {
              location, menu_items, special_requests, total_price, created_by) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([
-            $firstBookingId, $combinedName, $roomJson, $totalPax,
-            $breakfastTime, $breakfastDate, $location, $menuJson,
-            $specialRequests, $totalPrice, $validUserId
+            $firstBookingId,
+            $combinedName,
+            $roomJson,
+            $totalPax,
+            $breakfastTime,
+            $breakfastDate,
+            $location,
+            $menuJson,
+            $specialRequests,
+            $totalPrice,
+            $validUserId
         ]);
 
         $newId = $pdo->lastInsertId();
         $msg = "Order #{$newId} tersimpan untuk: " . $combinedName;
         if (count($skipped) > 0) $msg .= ' (dilewati: ' . implode(', ', $skipped) . ')';
         echo json_encode(['success' => true, 'message' => $msg, 'id' => $newId]);
-
     } elseif ($action === 'create_order') {
         // Single guest order
         $guestName = trim($input['guest_name'] ?? '');
@@ -217,14 +226,21 @@ try {
              location, menu_items, special_requests, total_price, created_by) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([
-            $bookingId, $guestName, $roomJson, $totalPax,
-            $breakfastTime, $breakfastDate, $location, $menuJson,
-            $specialRequests, $totalPrice, $validUserId
+            $bookingId,
+            $guestName,
+            $roomJson,
+            $totalPax,
+            $breakfastTime,
+            $breakfastDate,
+            $location,
+            $menuJson,
+            $specialRequests,
+            $totalPrice,
+            $validUserId
         ]);
 
         $newId = $pdo->lastInsertId();
         echo json_encode(['success' => true, 'message' => "Order #{$newId} untuk {$guestName} tersimpan!", 'id' => $newId]);
-
     } elseif ($action === 'update_order') {
         $editId = (int)($input['edit_id'] ?? 0);
         if ($editId <= 0) throw new Exception('ID order tidak valid');
@@ -240,13 +256,20 @@ try {
             breakfast_date=?, location=?, menu_items=?, special_requests=?, total_price=?
             WHERE id=?");
         $stmt->execute([
-            $bookingId, $guestName, $roomJson, $totalPax,
-            $breakfastTime, $breakfastDate, $location, $menuJson,
-            $specialRequests, $totalPrice, $editId
+            $bookingId,
+            $guestName,
+            $roomJson,
+            $totalPax,
+            $breakfastTime,
+            $breakfastDate,
+            $location,
+            $menuJson,
+            $specialRequests,
+            $totalPrice,
+            $editId
         ]);
 
         echo json_encode(['success' => true, 'message' => "Order #{$editId} berhasil diupdate!", 'id' => $editId]);
-
     } else {
         echo json_encode(['success' => false, 'message' => 'Action tidak valid']);
     }

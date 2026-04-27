@@ -493,14 +493,37 @@ try {
         }
 
         @keyframes bellShake {
-            0% { transform: rotate(0); }
-            15% { transform: rotate(14deg); }
-            30% { transform: rotate(-14deg); }
-            45% { transform: rotate(10deg); }
-            60% { transform: rotate(-8deg); }
-            75% { transform: rotate(4deg); }
-            85% { transform: rotate(-2deg); }
-            100% { transform: rotate(0); }
+            0% {
+                transform: rotate(0);
+            }
+
+            15% {
+                transform: rotate(14deg);
+            }
+
+            30% {
+                transform: rotate(-14deg);
+            }
+
+            45% {
+                transform: rotate(10deg);
+            }
+
+            60% {
+                transform: rotate(-8deg);
+            }
+
+            75% {
+                transform: rotate(4deg);
+            }
+
+            85% {
+                transform: rotate(-2deg);
+            }
+
+            100% {
+                transform: rotate(0);
+            }
         }
 
         /* Install banner — fixed bottom, visible everywhere */
@@ -1862,93 +1885,522 @@ try {
 
         /* ── Face Scan Overlay — Full-Screen Responsive (from absen.php) ── */
         .face-overlay {
-            display:none;position:fixed;inset:0;background:#000;z-index:1000;overflow:hidden;
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: #000;
+            z-index: 1000;
+            overflow: hidden;
         }
+
         .face-overlay.show {
-            display:block;animation:faceIn .3s ease;
+            display: block;
+            animation: faceIn .3s ease;
         }
-        @keyframes faceIn { from{opacity:0;} to{opacity:1;} }
 
-        .face-topbar{position:absolute;top:0;left:0;right:0;z-index:10;display:flex;align-items:center;gap:10px;padding:14px 16px;background:linear-gradient(to bottom,rgba(0,0,0,0.8) 0%,rgba(0,0,0,0.4) 60%,transparent 100%);}
-        .btn-face-back{background:rgba(255,255,255,0.12);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.15);color:#fff;padding:8px 16px;border-radius:24px;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;}
-        .btn-face-back:active{transform:scale(0.95);background:rgba(255,255,255,0.2);}
-        .face-emp-badge{background:rgba(0,200,150,0.12);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(0,200,150,0.25);border-radius:24px;padding:6px 14px;color:#00c896;font-size:12px;font-weight:700;letter-spacing:0.3px;}
+        @keyframes faceIn {
+            from {
+                opacity: 0;
+            }
 
-        #faceVideo{width:100%;height:100vh;object-fit:cover;transform:scaleX(-1);}
-        #faceCanvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5;display:none;}
+            to {
+                opacity: 1;
+            }
+        }
+
+        .face-topbar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 16px;
+            background: linear-gradient(to bottom, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.4) 60%, transparent 100%);
+        }
+
+        .btn-face-back {
+            background: rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 24px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-face-back:active {
+            transform: scale(0.95);
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .face-emp-badge {
+            background: rgba(0, 200, 150, 0.12);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 200, 150, 0.25);
+            border-radius: 24px;
+            padding: 6px 14px;
+            color: #00c896;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+        }
+
+        #faceVideo {
+            width: 100%;
+            height: 100vh;
+            object-fit: cover;
+            transform: scaleX(-1);
+        }
+
+        #faceCanvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 5;
+            display: none;
+        }
 
         /* Face Scan Overlay */
-        .face-scan-overlay{position:absolute;inset:0;z-index:6;pointer-events:none;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+        .face-scan-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 6;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
 
         /* Animated scanning ring */
-        .face-ring-container{position:relative;width:240px;height:240px;display:flex;align-items:center;justify-content:center;}
-        .face-ring-outer{position:absolute;inset:-12px;border-radius:50%;border:2px solid rgba(255,255,255,0.06);animation:faceRingPulse 3s ease-in-out infinite;}
-        .face-ring-main{position:absolute;inset:0;border-radius:50%;overflow:hidden;}
-        .face-ring-main svg{width:100%;height:100%;transform:rotate(-90deg);}
-        .face-ring-main svg circle{fill:none;stroke-width:3;stroke-linecap:round;transition:stroke-dashoffset 0.3s ease,stroke 0.3s ease;}
-        .face-ring-track{stroke:rgba(255,255,255,0.1);}
-        .face-ring-progress{stroke:url(#ringGrad);stroke-dasharray:754;stroke-dashoffset:754;filter:drop-shadow(0 0 6px rgba(0,200,150,0.4));}
-        .face-ring-inner{position:absolute;inset:12px;border-radius:50%;border:1.5px dashed rgba(255,255,255,0.12);animation:faceRingSpin 12s linear infinite;}
+        .face-ring-container {
+            position: relative;
+            width: 240px;
+            height: 240px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .face-ring-outer {
+            position: absolute;
+            inset: -12px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.06);
+            animation: faceRingPulse 3s ease-in-out infinite;
+        }
+
+        .face-ring-main {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            overflow: hidden;
+        }
+
+        .face-ring-main svg {
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+        }
+
+        .face-ring-main svg circle {
+            fill: none;
+            stroke-width: 3;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 0.3s ease, stroke 0.3s ease;
+        }
+
+        .face-ring-track {
+            stroke: rgba(255, 255, 255, 0.1);
+        }
+
+        .face-ring-progress {
+            stroke: url(#ringGrad);
+            stroke-dasharray: 754;
+            stroke-dashoffset: 754;
+            filter: drop-shadow(0 0 6px rgba(0, 200, 150, 0.4));
+        }
+
+        .face-ring-inner {
+            position: absolute;
+            inset: 12px;
+            border-radius: 50%;
+            border: 1.5px dashed rgba(255, 255, 255, 0.12);
+            animation: faceRingSpin 12s linear infinite;
+        }
 
         /* Scanning beam */
-        .face-scan-beam{position:absolute;width:200px;height:3px;background:linear-gradient(90deg,transparent,rgba(0,200,150,0.6),transparent);border-radius:2px;filter:blur(1px);animation:scanBeam 2s ease-in-out infinite;opacity:0;}
-        .face-scan-beam.active{opacity:1;}
+        .face-scan-beam {
+            position: absolute;
+            width: 200px;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, rgba(0, 200, 150, 0.6), transparent);
+            border-radius: 2px;
+            filter: blur(1px);
+            animation: scanBeam 2s ease-in-out infinite;
+            opacity: 0;
+        }
+
+        .face-scan-beam.active {
+            opacity: 1;
+        }
 
         /* Corner markers */
-        .face-corners{position:absolute;inset:0;pointer-events:none;}
-        .face-corner{position:absolute;width:28px;height:28px;border-color:rgba(255,255,255,0.4);border-style:solid;border-width:0;transition:border-color 0.3s;}
-        .face-corner.tl{top:0;left:0;border-top-width:3px;border-left-width:3px;border-top-left-radius:12px;}
-        .face-corner.tr{top:0;right:0;border-top-width:3px;border-right-width:3px;border-top-right-radius:12px;}
-        .face-corner.bl{bottom:0;left:0;border-bottom-width:3px;border-left-width:3px;border-bottom-left-radius:12px;}
-        .face-corner.br{bottom:0;right:0;border-bottom-width:3px;border-right-width:3px;border-bottom-right-radius:12px;}
-        .face-corner.detected{border-color:#00c896;}
-        .face-corner.matched{border-color:#00c896;filter:drop-shadow(0 0 4px rgba(0,200,150,0.5));}
+        .face-corners {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+        }
+
+        .face-corner {
+            position: absolute;
+            width: 28px;
+            height: 28px;
+            border-color: rgba(255, 255, 255, 0.4);
+            border-style: solid;
+            border-width: 0;
+            transition: border-color 0.3s;
+        }
+
+        .face-corner.tl {
+            top: 0;
+            left: 0;
+            border-top-width: 3px;
+            border-left-width: 3px;
+            border-top-left-radius: 12px;
+        }
+
+        .face-corner.tr {
+            top: 0;
+            right: 0;
+            border-top-width: 3px;
+            border-right-width: 3px;
+            border-top-right-radius: 12px;
+        }
+
+        .face-corner.bl {
+            bottom: 0;
+            left: 0;
+            border-bottom-width: 3px;
+            border-left-width: 3px;
+            border-bottom-left-radius: 12px;
+        }
+
+        .face-corner.br {
+            bottom: 0;
+            right: 0;
+            border-bottom-width: 3px;
+            border-right-width: 3px;
+            border-bottom-right-radius: 12px;
+        }
+
+        .face-corner.detected {
+            border-color: #00c896;
+        }
+
+        .face-corner.matched {
+            border-color: #00c896;
+            filter: drop-shadow(0 0 4px rgba(0, 200, 150, 0.5));
+        }
 
         /* Status HUD */
-        .face-hud{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 60%, transparent 100%);padding:0 20px 36px;text-align:center;z-index:8;}
-        .face-hud-status{font-size:16px;font-weight:700;color:#fff;margin-bottom:6px;min-height:24px;letter-spacing:0.2px;}
-        .face-hud-sub{font-size:12px;color:rgba(255,255,255,0.45);margin-bottom:16px;min-height:16px;}
+        .face-hud {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.7) 60%, transparent 100%);
+            padding: 0 20px 36px;
+            text-align: center;
+            z-index: 8;
+        }
+
+        .face-hud-status {
+            font-size: 16px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 6px;
+            min-height: 24px;
+            letter-spacing: 0.2px;
+        }
+
+        .face-hud-sub {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.45);
+            margin-bottom: 16px;
+            min-height: 16px;
+        }
 
         /* Confidence arc meter */
-        .confidence-arc-wrap{width:200px;height:28px;margin:0 auto 6px;position:relative;}
-        .confidence-arc-wrap svg{width:100%;height:100%;}
-        .conf-track{fill:none;stroke:rgba(255,255,255,0.08);stroke-width:5;stroke-linecap:round;}
-        .conf-fill{fill:none;stroke-width:5;stroke-linecap:round;transition:stroke-dashoffset 0.25s ease,stroke 0.25s ease;filter:drop-shadow(0 0 4px rgba(0,200,150,0.3));}
-        .confidence-label{color:rgba(255,255,255,0.6);font-size:12px;font-weight:700;text-align:center;margin-bottom:14px;min-height:16px;}
+        .confidence-arc-wrap {
+            width: 200px;
+            height: 28px;
+            margin: 0 auto 6px;
+            position: relative;
+        }
+
+        .confidence-arc-wrap svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .conf-track {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.08);
+            stroke-width: 5;
+            stroke-linecap: round;
+        }
+
+        .conf-fill {
+            fill: none;
+            stroke-width: 5;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 0.25s ease, stroke 0.25s ease;
+            filter: drop-shadow(0 0 4px rgba(0, 200, 150, 0.3));
+        }
+
+        .confidence-label {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 12px;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 14px;
+            min-height: 16px;
+        }
 
         /* Multi-frame indicator dots */
-        .frame-dots{display:flex;gap:6px;justify-content:center;margin-bottom:16px;}
-        .frame-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,0.15);transition:all 0.3s;}
-        .frame-dot.filled{background:#00c896;box-shadow:0 0 8px rgba(0,200,150,0.5);}
+        .frame-dots {
+            display: flex;
+            gap: 6px;
+            justify-content: center;
+            margin-bottom: 16px;
+        }
+
+        .frame-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.15);
+            transition: all 0.3s;
+        }
+
+        .frame-dot.filled {
+            background: #00c896;
+            box-shadow: 0 0 8px rgba(0, 200, 150, 0.5);
+        }
 
         /* Register mode card */
-        .face-register-card{background:rgba(255,255,255,0.06);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:16px 20px;margin:0 auto;max-width:300px;}
-        .face-register-card p{color:rgba(255,255,255,0.6);font-size:12px;line-height:1.5;margin-bottom:12px;}
-        .btn-register-face{width:100%;padding:14px;background:linear-gradient(135deg,#00c896,#00a67a);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;transition:all 0.15s;letter-spacing:0.3px;}
-        .btn-register-face:active{transform:scale(0.97);}
-        .btn-register-face:disabled{opacity:0.5;cursor:not-allowed;}
+        .face-register-card {
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 16px 20px;
+            margin: 0 auto;
+            max-width: 300px;
+        }
+
+        .face-register-card p {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 12px;
+            line-height: 1.5;
+            margin-bottom: 12px;
+        }
+
+        .btn-register-face {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #00c896, #00a67a);
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.15s;
+            letter-spacing: 0.3px;
+        }
+
+        .btn-register-face:active {
+            transform: scale(0.97);
+        }
+
+        .btn-register-face:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
 
         /* Re-register button */
-        .btn-face-reregister{pointer-events:auto;background:rgba(255,255,255,0.08);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.6);padding:8px 18px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.2s;display:none;margin:0 auto;}
-        .btn-face-reregister:active{transform:scale(0.95);background:rgba(255,255,255,0.15);}
+        .btn-face-reregister {
+            pointer-events: auto;
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: rgba(255, 255, 255, 0.6);
+            padding: 8px 18px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: none;
+            margin: 0 auto;
+        }
+
+        .btn-face-reregister:active {
+            transform: scale(0.95);
+            background: rgba(255, 255, 255, 0.15);
+        }
 
         /* Verified checkmark overlay */
-        .face-verified-overlay{position:absolute;inset:0;z-index:20;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;flex-direction:column;}
-        .face-verified-overlay.show{display:flex;animation:fadeInUp 0.4s ease;}
-        .verified-ring{width:100px;height:100px;border-radius:50%;background:rgba(0,200,150,0.15);border:3px solid #00c896;display:flex;align-items:center;justify-content:center;animation:verifiedPop 0.5s cubic-bezier(0.175,0.885,0.32,1.275);}
-        .verified-check{width:44px;height:44px;fill:none;stroke:#00c896;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;}
-        .verified-check path{stroke-dasharray:48;stroke-dashoffset:48;animation:drawCheck 0.5s 0.3s ease forwards;}
-        .verified-name{color:#fff;font-size:18px;font-weight:800;margin-top:16px;letter-spacing:0.3px;}
-        .verified-sub{color:rgba(255,255,255,0.5);font-size:13px;margin-top:4px;}
+        .face-verified-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 20;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
 
-        .face-gps-info{color:rgba(255,255,255,0.4);font-size:10px;text-align:center;min-height:14px;margin-top:8px;}
+        .face-verified-overlay.show {
+            display: flex;
+            animation: fadeInUp 0.4s ease;
+        }
 
-        @keyframes faceRingPulse{0%,100%{transform:scale(1);opacity:0.5;}50%{transform:scale(1.04);opacity:0.8;}}
-        @keyframes faceRingSpin{to{transform:rotate(360deg);}}
-        @keyframes scanBeam{0%{top:30px;opacity:0;}10%{opacity:1;}90%{opacity:1;}100%{top:calc(100% - 30px);opacity:0;}}
-        @keyframes fadeInUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
-        @keyframes verifiedPop{from{transform:scale(0.5);opacity:0;}to{transform:scale(1);opacity:1;}}
-        @keyframes drawCheck{to{stroke-dashoffset:0;}}
+        .verified-ring {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: rgba(0, 200, 150, 0.15);
+            border: 3px solid #00c896;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: verifiedPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .verified-check {
+            width: 44px;
+            height: 44px;
+            fill: none;
+            stroke: #00c896;
+            stroke-width: 3;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .verified-check path {
+            stroke-dasharray: 48;
+            stroke-dashoffset: 48;
+            animation: drawCheck 0.5s 0.3s ease forwards;
+        }
+
+        .verified-name {
+            color: #fff;
+            font-size: 18px;
+            font-weight: 800;
+            margin-top: 16px;
+            letter-spacing: 0.3px;
+        }
+
+        .verified-sub {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 13px;
+            margin-top: 4px;
+        }
+
+        .face-gps-info {
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 10px;
+            text-align: center;
+            min-height: 14px;
+            margin-top: 8px;
+        }
+
+        @keyframes faceRingPulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+                opacity: 0.5;
+            }
+
+            50% {
+                transform: scale(1.04);
+                opacity: 0.8;
+            }
+        }
+
+        @keyframes faceRingSpin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes scanBeam {
+            0% {
+                top: 30px;
+                opacity: 0;
+            }
+
+            10% {
+                opacity: 1;
+            }
+
+            90% {
+                opacity: 1;
+            }
+
+            100% {
+                top: calc(100% - 30px);
+                opacity: 0;
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes verifiedPop {
+            from {
+                transform: scale(0.5);
+                opacity: 0;
+            }
+
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        @keyframes drawCheck {
+            to {
+                stroke-dashoffset: 0;
+            }
+        }
 
         /* Loading */
         .loading {
@@ -2405,17 +2857,17 @@ try {
                     <svg viewBox="0 0 240 240">
                         <defs>
                             <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                                <stop offset="0%" stop-color="#00c896"/>
-                                <stop offset="50%" stop-color="#00e5a0"/>
-                                <stop offset="100%" stop-color="#00c896"/>
+                                <stop offset="0%" stop-color="#00c896" />
+                                <stop offset="50%" stop-color="#00e5a0" />
+                                <stop offset="100%" stop-color="#00c896" />
                             </linearGradient>
                             <linearGradient id="ringFail" x1="0%" y1="0%" x2="100%" y2="100%">
-                                <stop offset="0%" stop-color="#ef4444"/>
-                                <stop offset="100%" stop-color="#f97316"/>
+                                <stop offset="0%" stop-color="#ef4444" />
+                                <stop offset="100%" stop-color="#f97316" />
                             </linearGradient>
                         </defs>
-                        <circle class="face-ring-track" cx="120" cy="120" r="116"/>
-                        <circle class="face-ring-progress" id="ringProgress" cx="120" cy="120" r="116"/>
+                        <circle class="face-ring-track" cx="120" cy="120" r="116" />
+                        <circle class="face-ring-progress" id="ringProgress" cx="120" cy="120" r="116" />
                     </svg>
                 </div>
                 <div class="face-ring-inner"></div>
@@ -2438,8 +2890,8 @@ try {
             <div id="confidenceWrap" style="display:none;">
                 <div class="confidence-arc-wrap">
                     <svg viewBox="0 0 200 28">
-                        <path class="conf-track" d="M 10 24 Q 100 -4 190 24"/>
-                        <path class="conf-fill" id="confFill" d="M 10 24 Q 100 -4 190 24" stroke-dasharray="210" stroke-dashoffset="210" stroke="#00c896"/>
+                        <path class="conf-track" d="M 10 24 Q 100 -4 190 24" />
+                        <path class="conf-fill" id="confFill" d="M 10 24 Q 100 -4 190 24" stroke-dasharray="210" stroke-dashoffset="210" stroke="#00c896" />
                     </svg>
                 </div>
                 <div class="confidence-label" id="confLabel"></div>
@@ -2468,7 +2920,7 @@ try {
         <div class="face-verified-overlay" id="verifiedOverlay">
             <div class="verified-ring">
                 <svg class="verified-check" viewBox="0 0 44 44">
-                    <path d="M12 22 L19 29 L32 15"/>
+                    <path d="M12 22 L19 29 L32 15" />
                 </svg>
             </div>
             <div class="verified-name" id="verifiedName"></div>
@@ -2732,9 +3184,13 @@ try {
             try {
                 let url = FACE_MODEL_URL;
                 try {
-                    const t = await fetch(url + '/tiny_face_detector_model-weights_manifest.json', { method: 'HEAD' });
+                    const t = await fetch(url + '/tiny_face_detector_model-weights_manifest.json', {
+                        method: 'HEAD'
+                    });
                     if (!t.ok) throw new Error();
-                } catch (e) { url = FACE_MODEL_CDN; }
+                } catch (e) {
+                    url = FACE_MODEL_CDN;
+                }
                 await faceapi.nets.tinyFaceDetector.loadFromUri(url);
                 await faceapi.nets.faceLandmark68TinyNet.loadFromUri(url);
                 await faceapi.nets.faceRecognitionNet.loadFromUri(url);
@@ -2743,7 +3199,9 @@ try {
                 try {
                     const c = document.createElement('canvas');
                     c.width = c.height = 128;
-                    await faceapi.detectSingleFace(c, new faceapi.TinyFaceDetectorOptions({ inputSize: 128 }));
+                    await faceapi.detectSingleFace(c, new faceapi.TinyFaceDetectorOptions({
+                        inputSize: 128
+                    }));
                 } catch (e) {}
                 console.log('[FaceID] Models preloaded in background');
             } catch (e) {
@@ -3464,9 +3922,9 @@ try {
                     const priceStr = price > 0 ? 'Rp ' + price.toLocaleString('id-ID') : 'Free';
                     const req = o.special_requests ? `<div class="bf-special">💬 ${o.special_requests}</div>` : '';
                     const canComplete = orderId > 0 && o.order_status !== 'completed';
-                    const completeBtn = canComplete
-                        ? `<button class="bf-complete-btn" onclick="markBreakfastCompleted(${orderId}, this)">✔ Complete</button>`
-                        : `<button class="bf-complete-btn" disabled>Completed</button>`;
+                    const completeBtn = canComplete ?
+                        `<button class="bf-complete-btn" onclick="markBreakfastCompleted(${orderId}, this)">✔ Complete</button>` :
+                        `<button class="bf-complete-btn" disabled>Completed</button>`;
 
                     html += `
             <div class="bf-order status-${statusClass}">
@@ -3865,7 +4323,12 @@ try {
                         const status = d.status || '';
                         const icon = status === 'approved' ? '✅' : (status === 'rejected' ? '❌' : '🔔');
                         const color = status === 'approved' ? 'var(--green)' : (status === 'rejected' ? 'var(--red)' : 'var(--navy)');
-                        const time = n.created_at ? new Date(n.created_at).toLocaleDateString('id-ID', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
+                        const time = n.created_at ? new Date(n.created_at).toLocaleDateString('id-ID', {
+                            day: 'numeric',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        }) : '';
                         const unreadStyle = n.is_read == 0 ? 'background:#f0f7ff;' : '';
                         html += `<div class="np-item" style="${unreadStyle}">
                     <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
@@ -3878,14 +4341,30 @@ try {
                     });
                 } else {
                     // Legacy format from leave_requests table
-                    const typeLabel = {cuti:'🏖️ Cuti',sakit:'🩺 Sakit',izin:'📋 Izin',cuti_khusus:'⭐ Khusus'};
+                    const typeLabel = {
+                        cuti: '🏖️ Cuti',
+                        sakit: '🩺 Sakit',
+                        izin: '📋 Izin',
+                        cuti_khusus: '⭐ Khusus'
+                    };
                     notifs.forEach(n => {
                         const icon = n.status === 'approved' ? '✅' : '❌';
                         const label = n.status === 'approved' ? 'DISETUJUI' : 'DITOLAK';
                         const color = n.status === 'approved' ? 'var(--green)' : 'var(--red)';
-                        const s = new Date(n.start_date).toLocaleDateString('id-ID',{day:'numeric',month:'short'});
-                        const e = new Date(n.end_date).toLocaleDateString('id-ID',{day:'numeric',month:'short'});
-                        const time = n.approved_at ? new Date(n.approved_at).toLocaleDateString('id-ID',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
+                        const s = new Date(n.start_date).toLocaleDateString('id-ID', {
+                            day: 'numeric',
+                            month: 'short'
+                        });
+                        const e = new Date(n.end_date).toLocaleDateString('id-ID', {
+                            day: 'numeric',
+                            month: 'short'
+                        });
+                        const time = n.approved_at ? new Date(n.approved_at).toLocaleDateString('id-ID', {
+                            day: 'numeric',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        }) : '';
                         html += `<div class="np-item">
                     <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
                         <span style="font-size:14px;">${icon}</span>
@@ -3953,19 +4432,28 @@ try {
         let nativeFaceDetector = null;
 
         const MATCH_THRESHOLD = 0.45;
-        const WEAK_THRESHOLD  = 0.6;
+        const WEAK_THRESHOLD = 0.6;
         const REQUIRED_FRAMES = 3;
 
-        try { if ('FaceDetector' in window) nativeFaceDetector = new FaceDetector({ fastMode: true, maxDetectedFaces: 1 }); } catch (e) {}
+        try {
+            if ('FaceDetector' in window) nativeFaceDetector = new FaceDetector({
+                fastMode: true,
+                maxDetectedFaces: 1
+            });
+        } catch (e) {}
 
         async function loadFaceModels() {
             if (faceModelsLoaded) return true;
             setFaceStatus('Memuat AI model...', 'Neural network initialization');
             let url = FACE_MODEL_URL;
             try {
-                const t = await fetch(url + '/tiny_face_detector_model-weights_manifest.json', { method: 'HEAD' });
+                const t = await fetch(url + '/tiny_face_detector_model-weights_manifest.json', {
+                    method: 'HEAD'
+                });
                 if (!t.ok) throw new Error();
-            } catch (e) { url = FACE_MODEL_CDN; }
+            } catch (e) {
+                url = FACE_MODEL_CDN;
+            }
             try {
                 setFaceStatus('Loading detector...', '1/3 modules');
                 await faceapi.nets.tinyFaceDetector.loadFromUri(url);
@@ -3974,7 +4462,13 @@ try {
                 setFaceStatus('Loading recognizer...', '3/3 modules');
                 await faceapi.nets.faceRecognitionNet.loadFromUri(url);
                 faceModelsLoaded = true;
-                try { const wu = document.createElement('canvas'); wu.width = wu.height = 128; await faceapi.detectSingleFace(wu, new faceapi.TinyFaceDetectorOptions({ inputSize: 128 })); } catch (e) {}
+                try {
+                    const wu = document.createElement('canvas');
+                    wu.width = wu.height = 128;
+                    await faceapi.detectSingleFace(wu, new faceapi.TinyFaceDetectorOptions({
+                        inputSize: 128
+                    }));
+                } catch (e) {}
                 return true;
             } catch (e) {
                 setFaceStatus('Gagal memuat model', e.message);
@@ -3988,9 +4482,12 @@ try {
         }
 
         function setCorners(state) {
-            ['tl','tr','bl','br'].forEach(c => {
+            ['tl', 'tr', 'bl', 'br'].forEach(c => {
                 const el = document.getElementById('fc_' + c);
-                if (el) { el.classList.remove('detected','matched'); if (state) el.classList.add(state); }
+                if (el) {
+                    el.classList.remove('detected', 'matched');
+                    if (state) el.classList.add(state);
+                }
             });
         }
 
@@ -4050,11 +4547,30 @@ try {
             setFaceStatus('Mempersiapkan...', 'Memuat data, model AI & kamera');
 
             const [dataResult, modelResult, cameraResult] = await Promise.allSettled([
-                (async () => { const res = await fetch(API + '&action=face_data'); return res.json(); })(),
+                (async () => {
+                    const res = await fetch(API + '&action=face_data');
+                    return res.json();
+                })(),
                 loadFaceModels(),
                 (async () => {
-                    try { return await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 480 }, frameRate: { ideal: 30 } } }); }
-                    catch (e) { return null; }
+                    try {
+                        return await navigator.mediaDevices.getUserMedia({
+                            video: {
+                                facingMode: 'user',
+                                width: {
+                                    ideal: 480
+                                },
+                                height: {
+                                    ideal: 480
+                                },
+                                frameRate: {
+                                    ideal: 30
+                                }
+                            }
+                        });
+                    } catch (e) {
+                        return null;
+                    }
                 })()
             ]);
 
@@ -4062,7 +4578,10 @@ try {
             if (dataResult.status === 'fulfilled' && dataResult.value) {
                 const data = dataResult.value;
                 if (!data.success) {
-                    if (data.auth === false) { doLogout(); return; }
+                    if (data.auth === false) {
+                        doLogout();
+                        return;
+                    }
                     setFaceStatus('Error', data.message);
                     if (cameraResult.status === 'fulfilled' && cameraResult.value) cameraResult.value.getTracks().forEach(t => t.stop());
                     return;
@@ -4103,13 +4622,28 @@ try {
             try {
                 let stream = (cameraResult.status === 'fulfilled') ? cameraResult.value : null;
                 if (!stream) {
-                    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 480 }, frameRate: { ideal: 30 } } });
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            facingMode: 'user',
+                            width: {
+                                ideal: 480
+                            },
+                            height: {
+                                ideal: 480
+                            },
+                            frameRate: {
+                                ideal: 30
+                            }
+                        }
+                    });
                 }
                 faceStream = stream;
                 const video = document.getElementById('faceVideo');
                 video.srcObject = faceStream;
                 video.setAttribute('playsinline', '');
-                await new Promise(r => { video.onloadedmetadata = r; });
+                await new Promise(r => {
+                    video.onloadedmetadata = r;
+                });
                 await video.play().catch(() => {});
 
                 if (faceVerifyMode) {
@@ -4142,9 +4676,18 @@ try {
 
         function closeFaceScan() {
             faceScanActive = false;
-            if (faceRAF) { cancelAnimationFrame(faceRAF); faceRAF = null; }
-            if (faceStream) { faceStream.getTracks().forEach(t => t.stop()); faceStream = null; }
-            if (faceGpsWatcher) { navigator.geolocation.clearWatch(faceGpsWatcher); faceGpsWatcher = null; }
+            if (faceRAF) {
+                cancelAnimationFrame(faceRAF);
+                faceRAF = null;
+            }
+            if (faceStream) {
+                faceStream.getTracks().forEach(t => t.stop());
+                faceStream = null;
+            }
+            if (faceGpsWatcher) {
+                navigator.geolocation.clearWatch(faceGpsWatcher);
+                faceGpsWatcher = null;
+            }
             document.getElementById('scanBeam').classList.remove('active');
             document.getElementById('faceOverlay').classList.remove('show');
             document.getElementById('verifiedOverlay').classList.remove('show');
@@ -4251,7 +4794,10 @@ try {
             if (now - lastRecognitionTime < 80) return;
             lastRecognitionTime = now;
 
-            const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.3 });
+            const options = new faceapi.TinyFaceDetectorOptions({
+                inputSize: 160,
+                scoreThreshold: 0.3
+            });
             const detection = await faceapi.detectSingleFace(video, options)
                 .withFaceLandmarks(true)
                 .withFaceDescriptor();
@@ -4301,10 +4847,16 @@ try {
             btn.disabled = true;
             btn.textContent = 'Memproses...';
             faceScanActive = false;
-            if (faceRAF) { cancelAnimationFrame(faceRAF); faceRAF = null; }
+            if (faceRAF) {
+                cancelAnimationFrame(faceRAF);
+                faceRAF = null;
+            }
 
             const video = document.getElementById('faceVideo');
-            const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.3 });
+            const options = new faceapi.TinyFaceDetectorOptions({
+                inputSize: 160,
+                scoreThreshold: 0.3
+            });
             const detection = await faceapi.detectSingleFace(video, options).withFaceLandmarks(true).withFaceDescriptor();
             if (!detection) {
                 setFaceStatus('Gagal mendeteksi wajah', 'Coba lagi');
@@ -4320,7 +4872,10 @@ try {
             fd.append('action', 'face_register');
             fd.append('face_descriptor', JSON.stringify(descriptorArr));
             try {
-                const res = await fetch(API, { method: 'POST', body: fd });
+                const res = await fetch(API, {
+                    method: 'POST',
+                    body: fd
+                });
                 const data = await res.json();
                 if (data.success) {
                     faceStoredDescriptor = new Float32Array(descriptorArr);
@@ -4389,7 +4944,10 @@ try {
             fd.append('address', address);
 
             try {
-                const res = await fetch(API, { method: 'POST', body: fd });
+                const res = await fetch(API, {
+                    method: 'POST',
+                    body: fd
+                });
                 const data = await res.json();
                 if (data.success) {
                     setFaceStatus('Absen berhasil!', data.message);
@@ -4397,7 +4955,10 @@ try {
                 } else {
                     setFaceStatus('Gagal', data.message);
                 }
-                setTimeout(() => { closeFaceScan(); loadAbsen(); }, 2000);
+                setTimeout(() => {
+                    closeFaceScan();
+                    loadAbsen();
+                }, 2000);
             } catch (e) {
                 setFaceStatus('Jaringan error', e.message);
                 setTimeout(closeFaceScan, 2000);
@@ -4891,60 +5452,69 @@ try {
 
     <!-- Staff Push Notification -->
     <script>
-    (function() {
-        const VAPID_ENDPOINT = '<?php echo rtrim(BASE_URL, "/"); ?>/api/push-subscription.php';
-        const PUSH_API = VAPID_ENDPOINT;
+        (function() {
+            const VAPID_ENDPOINT = '<?php echo rtrim(BASE_URL, "/"); ?>/api/push-subscription.php';
+            const PUSH_API = VAPID_ENDPOINT;
 
-        async function initStaffPush() {
-            if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+            async function initStaffPush() {
+                if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
 
-            const empId = localStorage.getItem('staff_employee_id');
-            if (!empId) return;
+                const empId = localStorage.getItem('staff_employee_id');
+                if (!empId) return;
 
-            try {
-                const reg = await navigator.serviceWorker.ready;
+                try {
+                    const reg = await navigator.serviceWorker.ready;
 
-                // Fetch VAPID key
-                const resp = await fetch(PUSH_API + '?action=vapid-public-key');
-                const kd = await resp.json();
-                if (!kd.success || !kd.publicKey) return;
+                    // Fetch VAPID key
+                    const resp = await fetch(PUSH_API + '?action=vapid-public-key');
+                    const kd = await resp.json();
+                    if (!kd.success || !kd.publicKey) return;
 
-                const vapidKey = urlBase64ToUint8Array(kd.publicKey);
+                    const vapidKey = urlBase64ToUint8Array(kd.publicKey);
 
-                // Check permission
-                if (Notification.permission === 'granted') {
-                    await subscribePush(reg, vapidKey, empId);
-                } else if (Notification.permission === 'default') {
-                    // Show prompt after 5 seconds 
-                    setTimeout(() => showPushPrompt(reg, vapidKey, empId), 5000);
+                    // Check permission
+                    if (Notification.permission === 'granted') {
+                        await subscribePush(reg, vapidKey, empId);
+                    } else if (Notification.permission === 'default') {
+                        // Show prompt after 5 seconds 
+                        setTimeout(() => showPushPrompt(reg, vapidKey, empId), 5000);
+                    }
+                } catch (e) {
+                    console.warn('[StaffPush] Init error:', e);
                 }
-            } catch (e) {
-                console.warn('[StaffPush] Init error:', e);
             }
-        }
 
-        async function subscribePush(reg, vapidKey, empId) {
-            try {
-                let sub = await reg.pushManager.getSubscription();
-                if (!sub) {
-                    sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: vapidKey });
+            async function subscribePush(reg, vapidKey, empId) {
+                try {
+                    let sub = await reg.pushManager.getSubscription();
+                    if (!sub) {
+                        sub = await reg.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: vapidKey
+                        });
+                    }
+                    await fetch(PUSH_API, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            action: 'subscribe',
+                            subscription: sub.toJSON(),
+                            employee_id: parseInt(empId)
+                        })
+                    });
+                    console.log('[StaffPush] Subscribed OK');
+                } catch (e) {
+                    console.warn('[StaffPush] Subscribe failed:', e);
                 }
-                await fetch(PUSH_API, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'subscribe', subscription: sub.toJSON(), employee_id: parseInt(empId) })
-                });
-                console.log('[StaffPush] Subscribed OK');
-            } catch (e) {
-                console.warn('[StaffPush] Subscribe failed:', e);
             }
-        }
 
-        function showPushPrompt(reg, vapidKey, empId) {
-            if (localStorage.getItem('staff_push_prompted')) return;
-            const el = document.createElement('div');
-            el.id = 'staffPushPrompt';
-            el.innerHTML = `
+            function showPushPrompt(reg, vapidKey, empId) {
+                if (localStorage.getItem('staff_push_prompted')) return;
+                const el = document.createElement('div');
+                el.id = 'staffPushPrompt';
+                el.innerHTML = `
                 <div style="position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:10000;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;padding:14px 18px;border-radius:14px;box-shadow:0 8px 32px rgba(102,126,234,.45);max-width:320px;width:90%;font-size:0.85rem;animation:spSlideUp .4s ease;">
                     <div style="display:flex;align-items:flex-start;gap:10px;">
                         <span style="font-size:1.3rem;">🔔</span>
@@ -4959,51 +5529,61 @@ try {
                         <span onclick="window._spDismiss()" style="cursor:pointer;opacity:.7;font-size:1.1rem;">&times;</span>
                     </div>
                 </div>`;
-            document.body.appendChild(el);
+                document.body.appendChild(el);
 
-            window._spActivate = async function() {
-                const perm = await Notification.requestPermission();
-                if (perm === 'granted') {
-                    await subscribePush(reg, vapidKey, empId);
-                    el.querySelector('div > div').innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:4px;"><span style="font-size:1.3rem;">✅</span><span style="font-weight:600;">Notifikasi aktif!</span></div>';
-                    setTimeout(() => el.remove(), 2500);
-                } else {
-                    el.querySelector('div > div').innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:4px;"><span style="font-size:1.3rem;">⚠️</span><span style="font-size:0.8rem;">Izin ditolak. Aktifkan di Settings browser.</span></div>';
-                    setTimeout(() => el.remove(), 3000);
-                }
-                localStorage.setItem('staff_push_prompted', '1');
+                window._spActivate = async function() {
+                    const perm = await Notification.requestPermission();
+                    if (perm === 'granted') {
+                        await subscribePush(reg, vapidKey, empId);
+                        el.querySelector('div > div').innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:4px;"><span style="font-size:1.3rem;">✅</span><span style="font-weight:600;">Notifikasi aktif!</span></div>';
+                        setTimeout(() => el.remove(), 2500);
+                    } else {
+                        el.querySelector('div > div').innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:4px;"><span style="font-size:1.3rem;">⚠️</span><span style="font-size:0.8rem;">Izin ditolak. Aktifkan di Settings browser.</span></div>';
+                        setTimeout(() => el.remove(), 3000);
+                    }
+                    localStorage.setItem('staff_push_prompted', '1');
+                };
+                window._spDismiss = function() {
+                    el.remove();
+                    localStorage.setItem('staff_push_prompted', '1');
+                };
+            }
+
+            function urlBase64ToUint8Array(base64String) {
+                const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+                const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+                const raw = atob(base64);
+                const arr = new Uint8Array(raw.length);
+                for (let i = 0; i < raw.length; ++i) arr[i] = raw.charCodeAt(i);
+                return arr;
+            }
+
+            // Init push after app loads (wait for SW to be ready)
+            const origShowApp = window.showApp || function() {};
+            const _origShowApp = showApp;
+            window.showApp = function(name) {
+                _origShowApp(name);
+                setTimeout(initStaffPush, 2000);
             };
-            window._spDismiss = function() {
-                el.remove();
-                localStorage.setItem('staff_push_prompted', '1');
-            };
-        }
 
-        function urlBase64ToUint8Array(base64String) {
-            const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-            const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-            const raw = atob(base64);
-            const arr = new Uint8Array(raw.length);
-            for (let i = 0; i < raw.length; ++i) arr[i] = raw.charCodeAt(i);
-            return arr;
-        }
-
-        // Init push after app loads (wait for SW to be ready)
-        const origShowApp = window.showApp || function(){};
-        const _origShowApp = showApp;
-        window.showApp = function(name) {
-            _origShowApp(name);
-            setTimeout(initStaffPush, 2000);
-        };
-
-        // Also init on page load if already logged in
-        if (localStorage.getItem('staff_employee_id')) {
-            setTimeout(initStaffPush, 3000);
-        }
-    })();
+            // Also init on page load if already logged in
+            if (localStorage.getItem('staff_employee_id')) {
+                setTimeout(initStaffPush, 3000);
+            }
+        })();
     </script>
     <style>
-        @keyframes spSlideUp { from { opacity:0; transform:translateX(-50%) translateY(20px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
+        @keyframes spSlideUp {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
     </style>
 
 </body>
