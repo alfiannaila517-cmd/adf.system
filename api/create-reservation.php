@@ -58,6 +58,10 @@ try {
     $guestName = trim($_POST['guest_name']);
     $guestPhone = trim($_POST['guest_phone'] ?? '');
     $guestEmail = trim($_POST['guest_email'] ?? '');
+    $guestNationality = trim($_POST['guest_nationality'] ?? ($_POST['nationality'] ?? 'Indonesia'));
+    if ($guestNationality === '') {
+        $guestNationality = 'Indonesia';
+    }
     $guestIdNumber = trim($_POST['guest_id_number'] ?? '');
     $groupId = trim($_POST['group_id'] ?? '');
 
@@ -151,9 +155,9 @@ try {
     // This prevents name changes when same phone/email is used
     $idCardNumber = !empty($guestIdNumber) ? $guestIdNumber : 'TEMP-' . date('YmdHis') . '-' . rand(1000, 9999);
     $db->query("
-        INSERT INTO guests (guest_name, phone, email, id_card_number, created_at)
-        VALUES (?, ?, ?, ?, NOW())
-    ", [$guestName, $guestPhone, $guestEmail, $idCardNumber]);
+        INSERT INTO guests (guest_name, phone, email, id_card_number, nationality, created_at)
+        VALUES (?, ?, ?, ?, ?, NOW())
+    ", [$guestName, $guestPhone, $guestEmail, $idCardNumber, $guestNationality]);
     $guestId = $db->getConnection()->lastInsertId();
 
     // Generate booking code

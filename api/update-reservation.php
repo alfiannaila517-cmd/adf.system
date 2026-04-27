@@ -85,6 +85,10 @@ try {
             $guestUpdates[] = 'email = ?';
             $guestParams[] = trim($_POST['guest_email']);
         }
+        if (isset($_POST['guest_nationality']) || isset($_POST['nationality'])) {
+            $guestUpdates[] = 'nationality = ?';
+            $guestParams[] = trim($_POST['guest_nationality'] ?? $_POST['nationality']);
+        }
         if (isset($_POST['guest_id_number'])) {
             $guestUpdates[] = 'id_card_number = ?';
             $guestParams[] = trim($_POST['guest_id_number']);

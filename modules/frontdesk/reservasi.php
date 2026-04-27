@@ -901,8 +901,13 @@ include '../../includes/header.php';
                                 $cRemaining = $cFinal - $cPaid;
                                 $cPayStatus = 'unpaid';
                                 $cPayLabel = 'Belum Bayar';
-                                if ($cPaid >= $cFinal) { $cPayStatus = 'paid'; $cPayLabel = 'Lunas'; }
-                                elseif ($cPaid > 0) { $cPayStatus = 'partial'; $cPayLabel = 'DP'; }
+                                if ($cPaid >= $cFinal) {
+                                    $cPayStatus = 'paid';
+                                    $cPayLabel = 'Lunas';
+                                } elseif ($cPaid > 0) {
+                                    $cPayStatus = 'partial';
+                                    $cPayLabel = 'DP';
+                                }
                                 ?>
                                 <span class="badge badge-payment-<?php echo str_replace('_', '-', $cPayStatus); ?>">
                                     <?php echo $cPayLabel; ?>
@@ -986,6 +991,17 @@ include '../../includes/header.php';
                     <div class="input-compact">
                         <label>Phone</label>
                         <input type="text" id="guestPhone" name="guest_phone" placeholder="Phone/WA">
+                    </div>
+                </div>
+
+                <div class="form-row-2col">
+                    <div class="input-compact">
+                        <label>Asal Negara</label>
+                        <input type="text" id="guestNationality" name="guest_nationality" value="Indonesia" placeholder="Contoh: Indonesia, Australia, Germany">
+                    </div>
+                    <div class="input-compact">
+                        <label>Email</label>
+                        <input type="email" id="guestEmail" name="guest_email" placeholder="guest@email.com">
                     </div>
                 </div>
 
@@ -1564,6 +1580,10 @@ include '../../includes/header.php';
 
         document.getElementById('checkInDate').value = today.toISOString().split('T')[0];
         document.getElementById('checkOutDate').value = tomorrow.toISOString().split('T')[0];
+        const nationalityInput = document.getElementById('guestNationality');
+        if (nationalityInput && !nationalityInput.value.trim()) {
+            nationalityInput.value = 'Indonesia';
+        }
 
         // Load available rooms for default dates
         loadAvailableRooms();
@@ -1951,6 +1971,8 @@ include '../../includes/header.php';
         // Get form data
         const guestName = document.getElementById('guestName').value;
         const guestPhone = document.getElementById('guestPhone').value || '';
+        const guestEmail = document.getElementById('guestEmail').value || '';
+        const guestNationality = document.getElementById('guestNationality').value || 'Indonesia';
         const checkIn = document.getElementById('checkInDate').value;
         const checkOut = document.getElementById('checkOutDate').value;
         const bookingSource = document.getElementById('bookingSource').value;
@@ -2036,6 +2058,8 @@ include '../../includes/header.php';
             if (groupId) formData.append('group_id', groupId);
             formData.append('guest_name', guestName);
             formData.append('guest_phone', guestPhone);
+            formData.append('guest_email', guestEmail);
+            formData.append('guest_nationality', guestNationality);
             formData.append('room_id', roomId);
             formData.append('check_in_date', checkIn);
             formData.append('check_out_date', checkOut);
