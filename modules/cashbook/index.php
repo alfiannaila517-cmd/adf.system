@@ -605,8 +605,16 @@ $balance = $totalIncome - $totalExpense;
 $cashAvailable = 0;
 $startKas = 0;
 try {
-    $thisMonth = date('Y-m');
-    $firstDayOfMonth = date('Y-m-01');
+    if ($activePeriodType === 'month' && !empty($filterMonth)) {
+        $periodStart = $filterMonth . '-01';
+        $periodEnd = (new DateTime($periodStart))->modify('last day of this month')->format('Y-m-d');
+    } elseif ($activePeriodType === 'date' && !empty($filterDate)) {
+        $periodStart = $filterDate;
+        $periodEnd = $filterDate;
+    } else {
+        $periodStart = null;
+        $periodEnd = null;
+    }
 
     // Get cash_accounts from master DB
     $masterDbCash = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
@@ -634,26 +642,37 @@ try {
     if ($hasCashAccCol && !empty($allAccIds)) {
         $ph = implode(',', array_fill(0, count($allAccIds), '?'));
 
-        // Start Kas = balance from all transactions BEFORE this month
-        $rStart = $db->fetchOne(
-            "SELECT COALESCE(SUM(CASE WHEN transaction_type='income' THEN amount ELSE 0 END),0) -
-                    COALESCE(SUM(CASE WHEN transaction_type='expense' THEN amount ELSE 0 END),0) as bal
-             FROM cash_book WHERE cash_account_id IN ($ph) AND transaction_date < ?",
-            array_merge($allAccIds, [$firstDayOfMonth])
-        );
-        $startKas = (float)($rStart['bal'] ?? 0);
+        if ($periodStart !== null && $periodEnd !== null) {
+            // Start Kas = balance before selected period
+            $rStart = $db->fetchOne(
+                "SELECT COALESCE(SUM(CASE WHEN transaction_type='income' THEN amount ELSE 0 END),0) -
+                        COALESCE(SUM(CASE WHEN transaction_type='expense' THEN amount ELSE 0 END),0) as bal
+                 FROM cash_book WHERE cash_account_id IN ($ph) AND transaction_date < ?",
+                array_merge($allAccIds, [$periodStart])
+            );
+            $startKas = (float)($rStart['bal'] ?? 0);
 
-        // This month's balance from operational accounts
-        $rMonth = $db->fetchOne(
-            "SELECT COALESCE(SUM(CASE WHEN transaction_type='income' THEN amount ELSE 0 END),0) -
-                    COALESCE(SUM(CASE WHEN transaction_type='expense' THEN amount ELSE 0 END),0) as bal
-             FROM cash_book WHERE cash_account_id IN ($ph) AND DATE_FORMAT(transaction_date, '%Y-%m') = ?",
-            array_merge($allAccIds, [$thisMonth])
-        );
-        $monthBal = (float)($rMonth['bal'] ?? 0);
+            // Balance inside the selected period
+            $rPeriod = $db->fetchOne(
+                "SELECT COALESCE(SUM(CASE WHEN transaction_type='income' THEN amount ELSE 0 END),0) -
+                        COALESCE(SUM(CASE WHEN transaction_type='expense' THEN amount ELSE 0 END),0) as bal
+                 FROM cash_book WHERE cash_account_id IN ($ph) AND transaction_date BETWEEN ? AND ?",
+                array_merge($allAccIds, [$periodStart, $periodEnd])
+            );
+            $periodBal = (float)($rPeriod['bal'] ?? 0);
 
-        // Perbaikan: saldo cash hanya dari akun operasional (petty cash & owner_capital)
-        $cashAvailable = $startKas + $monthBal;
+            // Saldo cash pada akhir periode terpilih
+            $cashAvailable = $startKas + $periodBal;
+        } else {
+            // No period filter: show all-time cash balance from operational accounts
+            $rAll = $db->fetchOne(
+                "SELECT COALESCE(SUM(CASE WHEN transaction_type='income' THEN amount ELSE 0 END),0) -
+                        COALESCE(SUM(CASE WHEN transaction_type='expense' THEN amount ELSE 0 END),0) as bal
+                 FROM cash_book WHERE cash_account_id IN ($ph)",
+                $allAccIds
+            );
+            $cashAvailable = (float)($rAll['bal'] ?? 0);
+        }
     } else {
         // Fallback: simple all-time balance
         $cashAvailRow = $db->fetchOne(
