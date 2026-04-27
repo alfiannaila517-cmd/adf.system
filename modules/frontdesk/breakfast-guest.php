@@ -1154,6 +1154,29 @@ $token = trim((string)($_GET['t'] ?? ''));
         }
     }
 
+    function showAutoOnSpotNoticeOnly(message) {
+        var hideIds = ['metaBox', 'mainCard', 'drinkCard', 'childCard', 'cartCard', 'submitCard', 'onTheSpotCard'];
+        hideIds.forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.classList.add('hidden');
+        });
+
+        var infoCard = document.getElementById('infoCard');
+        var infoText = document.getElementById('infoText');
+        var infoMedia = document.getElementById('infoMedia');
+        if (infoText) {
+            infoText.textContent = message;
+        }
+        if (infoMedia) {
+            infoMedia.classList.add('hidden');
+        }
+        if (infoCard) {
+            infoCard.classList.remove('hidden');
+        }
+
+        setState(message, false);
+    }
+
     function filterSelectedMenus(list, selectedIds) {
         if (!Array.isArray(list)) return [];
         if (!payload || !payload.is_locked) return list;
@@ -1729,6 +1752,11 @@ $token = trim((string)($_GET['t'] ?? ''));
             payload.view_main_menus = filterSelectedMenus(payload.main_menus || [], payload.selected_main_ids || []);
             payload.view_drink_menus = filterSelectedMenus(payload.drink_menus || [], payload.selected_drink_ids || []);
             payload.view_child_menus = filterSelectedMenus(payload.child_menus || [], payload.selected_child_ids || []);
+
+            if (payload.auto_on_the_spot_midnight) {
+                showAutoOnSpotNoticeOnly(payload.auto_on_the_spot_message || 'We are sorry, because you did not select your breakfast menu before midnight, tomorrow you can order directly at the restaurant. Please be patient. If not, you can contact Front Desk to order manually. Thank you.');
+                return;
+            }
 
             setState(
                 payload.is_locked
