@@ -1343,7 +1343,10 @@ if ($action === 'submit_link') {
                         (float)$extraChargeTotal,
                         $extraNotes
                     ]);
-            // ============================================================
+            }
+        }
+
+        // ============================================================
         // CREATE INVOICE IN CASH_BOOK FOR PAID MENU ITEMS
         // Division: RESTO (id=2), Category: Moka
         // ============================================================
