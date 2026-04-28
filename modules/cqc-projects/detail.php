@@ -551,7 +551,7 @@ include '../../includes/header.php';
                         <table class="cqc-expenses-table">
                             <thead>
                                 <tr>
-                                    <th>Kategori</th>
+                                    <th>Detail Transaksi</th>
                                     <th>Tanggal</th>
                                     <th style="text-align: right;">Jumlah</th>
                                 </tr>
@@ -559,7 +559,10 @@ include '../../includes/header.php';
                             <tbody>
                                 <?php foreach ($expenses as $exp): ?>
                                     <tr>
-                                        <td><?php echo htmlspecialchars(($exp['category_icon'] ?? '') . ' ' . $exp['category_name']); ?></td>
+                                        <td>
+                                            <strong style="color: #0d1f3c;"><?php echo htmlspecialchars($exp['description']); ?></strong>
+                                            <div style="font-size: 0.8rem; color: #94a3b8; margin-top: 2px;"><?php echo htmlspecialchars(($exp['category_icon'] ?? '📦') . ' ' . $exp['category_name']); ?></div>
+                                        </td>
                                         <td style="color: #94a3b8; font-size: 10px;"><?php echo date('d M Y', strtotime($exp['expense_date'])); ?></td>
                                         <td style="text-align: right; font-weight: 600; color: #0d1f3c;">Rp <?php echo number_format($exp['amount'], 0); ?></td>
                                     </tr>
