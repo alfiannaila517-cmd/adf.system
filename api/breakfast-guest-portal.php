@@ -1343,6 +1343,65 @@ if ($action === 'submit_link') {
                         (float)$extraChargeTotal,
                         $extraNotes
                     ]);
+            // ============================================================
+        // CREATE INVOICE IN CASH_BOOK FOR PAID MENU ITEMS
+        // Division: RESTO (id=2), Category: Moka
+        // ============================================================
+        $paidMenuTotal = 0;
+        $paidMenuNames = [];
+        foreach ($menuItems as $mi) {
+            if (empty($mi['is_free']) && empty($mi['is_on_the_spot'])) {
+                $itemTotal = (float)$mi['price'] * (int)$mi['quantity'];
+                $paidMenuTotal += $itemTotal;
+                $paidMenuNames[] = $mi['menu_name'] . ' x' . $mi['quantity'];
+            }
+        }
+
+        if ($paidMenuTotal > 0 && $targetBookingId > 0) {
+            // Ensure booking_id column exists in cash_book
+            try {
+                $pdo->exec("ALTER TABLE cash_book ADD COLUMN booking_id INT NULL AFTER payment_method");
+            } catch (Exception $e) {
+                // Column may already exist
+            }
+
+            // Get or create category "Moka" for division RESTO (id=2)
+            $mokaCategory = $db->fetchOne("SELECT id FROM categories WHERE division_id = 2 AND LOWER(TRIM(category_name)) = 'moka' LIMIT 1");
+            if (empty($mokaCategory['id'])) {
+                // Create category Moka if not exists
+                $pdo->prepare("INSERT INTO categories (division_id, category_name, category_type, description) VALUES (2, 'Moka', 'income', 'Pembayaran breakfast via guest portal')")->execute();
+                $mokaCategoryId = (int)$pdo->lastInsertId();
+            } else {
+                $mokaCategoryId = (int)$mokaCategory['id'];
+            }
+
+            // Build description with menu details
+            $roomNumbers = is_array($roomJson) ? implode(', ', $roomJson) : trim($roomJson, '[]"');
+            $cashbookDesc = 'Breakfast: ' . implode(', ', $paidMenuNames) . ' - ' . $guestName . ' (Room: ' . $roomNumbers . ') - ' . $breakfastDate;
+
+            // Check if already exists for this booking+date to avoid duplicates
+            $existingCashbook = $db->fetchOne(
+                "SELECT id FROM cash_book WHERE booking_id = ? AND description LIKE ? AND transaction_date = ? LIMIT 1",
+                [$targetBookingId, '%' . $guestName . '%', $breakfastDate]
+            );
+
+            if (!empty($existingCashbook['id'])) {
+                // Update existing entry
+                $pdo->prepare("UPDATE cash_book SET amount = ?, description = ?, updated_at = NOW() WHERE id = ?")
+                    ->execute([(float)$paidMenuTotal, $cashbookDesc, (int)$existingCashbook['id']]);
+            } else {
+                // Insert new income entry
+                $pdo->prepare("INSERT INTO cash_book 
+                    (transaction_date, transaction_time, division_id, category_id, transaction_type, amount, description, payment_method, booking_id, created_by)
+                    VALUES (?, TIME(NOW()), 2, ?, 'income', ?, ?, 'cash', ?, ?)")
+                    ->execute([
+                        $breakfastDate,
+                        $mokaCategoryId,
+                        (float)$paidMenuTotal,
+                        $cashbookDesc,
+                        $targetBookingId,
+                        $createdBy
+                    ]);
             }
         }
 
@@ -1354,7 +1413,8 @@ if ($action === 'submit_link') {
                 'order_id' => $orderId,
                 'extra_main_count' => $extraMainCount,
                 'extra_child_count' => $extraChildCount,
-                'extra_total_price' => (float)$extraChargeTotal
+                'extra_total_price' => (float)$extraChargeTotal,
+                'paid_menu_total' => (float)$paidMenuTotal
             ]
         ]);
     } catch (Exception $e) {
