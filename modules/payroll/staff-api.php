@@ -292,14 +292,41 @@ if ($action === 'attendance_history') {
     $totalOT = 0;
     $present = 0;
     $late = 0;
+
+    // Get overtime submissions for this employee in the requested month.
+    // Only overtime with status 'pending' or 'approved' will allow OT counting.
+    $overtimeDates = [];
+    try {
+        $ots = $db->fetchAll("SELECT overtime_date FROM overtime_requests WHERE employee_id = ? AND DATE_FORMAT(overtime_date, '%Y-%m') = ? AND status IN ('pending','approved')", [$empId, $month]) ?: [];
+        foreach ($ots as $o) {
+            $overtimeDates[(string)($o['overtime_date'] ?? '')] = true;
+        }
+    } catch (Exception $e) {
+        // ignore DB errors and assume no overtime submissions
+        $overtimeDates = [];
+    }
+
     foreach ($rows as $r) {
         $wh = (float)($r['work_hours'] ?? 0);
-        $totalHours += $wh;
-        $totalRegular += min($wh, 8);
-        if ($wh > 8) {
+        $attDate = (string)($r['attendance_date'] ?? '');
+
+        // If employee did NOT submit overtime for that date, cap counted hours to 8
+        $hasSubmittedOT = !empty($overtimeDates[$attDate]);
+        if ($hasSubmittedOT) {
+            $countedHours = $wh;
+        } else {
+            $countedHours = min($wh, 8);
+        }
+
+        $totalHours += $countedHours;
+        $totalRegular += min($countedHours, 8);
+
+        // Only count overtime when there was a submission (pending/approved)
+        if ($hasSubmittedOT && $wh > 8) {
             $ot = $wh - 8;
             $totalOT += floor($ot / 0.75) * 0.75;
         }
+
         if ($r['status'] === 'present' || $r['status'] === 'late') $present++;
         if ($r['status'] === 'late') $late++;
     }
