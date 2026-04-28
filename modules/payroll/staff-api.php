@@ -331,6 +331,18 @@ if ($action === 'attendance_history') {
         if ($r['status'] === 'late') $late++;
     }
 
+    // Adjust rows for portal display: if no APPROVED overtime submitted for that date,
+    // cap displayed `work_hours` to 8 and show as integer to avoid fractional overflow of monthly target.
+    foreach ($rows as &$rr) {
+        $orig = (float)($rr['work_hours'] ?? 0);
+        $attDate = (string)($rr['attendance_date'] ?? '');
+        $hasApprovedOT = !empty($overtimeDates[$attDate]);
+        if (!$hasApprovedOT && $orig > 8) {
+            $rr['work_hours'] = 8; // show integer 8 when capped
+        }
+    }
+    unset($rr);
+
     echo json_encode(['success' => true, 'data' => $rows, 'summary' => [
         'total_hours' => round($totalHours, 1),
         'regular_hours' => round($totalRegular, 1),
