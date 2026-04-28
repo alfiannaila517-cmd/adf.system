@@ -282,6 +282,17 @@ if ($action === 'attendance_today') {
         $att['schedule_end'] = $att['schedule_end'] ?? null;
         $att['late_minutes'] = $att['late_minutes'] ?? 0;
         $att['early_leave_minutes'] = $att['early_leave_minutes'] ?? 0;
+        $att['overtime_hours'] = (float)($att['overtime_hours'] ?? 0);
+        if ($att['overtime_hours'] <= 0) {
+            try {
+                $ot = $db->fetchOne("SELECT 1 FROM overtime_requests WHERE employee_id = ? AND overtime_date = ? AND status = 'approved'", [$empId, $today]);
+                if ($ot) {
+                    $att['overtime_hours'] = 0.75;
+                }
+            } catch (Exception $e) {
+                // ignore and keep overtime_hours at 0
+            }
+        }
     }
     echo json_encode(['success' => true, 'data' => $att]);
     exit;
@@ -316,6 +327,7 @@ if ($action === 'attendance_history') {
         $wh = (float)($r['work_hours'] ?? 0);
         $otManual = (float)($r['overtime_hours'] ?? 0);
         $attDate = (string)($r['attendance_date'] ?? '');
+        $otComputed = 0;
 
         // Cap regular hours to 8/day; overtime is counted separately.
         $countedHours = min($wh, 8);
@@ -326,9 +338,14 @@ if ($action === 'attendance_history') {
         // Manual OT from admin edits takes precedence; otherwise count approved OT requests.
         if ($otManual > 0) {
             $totalOT += $otManual;
-        } elseif (!empty($overtimeDates[$attDate]) && $wh > 8) {
-            $ot = $wh - 8;
-            $totalOT += floor($ot / 0.75) * 0.75;
+            $otComputed = $otManual;
+        } elseif (!empty($overtimeDates[$attDate])) {
+            $totalOT += 0.75;
+            $otComputed = 0.75;
+        }
+
+        if ($otComputed > 0) {
+            $r['overtime_hours'] = $otComputed;
         }
 
         if ($r['status'] === 'present' || $r['status'] === 'late') $present++;
@@ -343,6 +360,9 @@ if ($action === 'attendance_history') {
         $hasApprovedOT = !empty($overtimeDates[$attDate]);
         if ($manualOT <= 0 && !$hasApprovedOT && $orig > 8) {
             $rr['work_hours'] = 8; // show integer 8 when capped
+            $rr['overtime_hours'] = 0;
+        } elseif ($manualOT <= 0 && $hasApprovedOT) {
+            $rr['overtime_hours'] = 0.75;
         }
     }
     unset($rr);

@@ -703,69 +703,69 @@
                                 sort($devicePinArr, SORT_NUMERIC);
 
                                 if (!empty($devicePinArr)) {
-                                        $totalDevice = count($devicePinArr);
+                                    $totalDevice = count($devicePinArr);
 
-                                        // Cross-reference with employees
-                                        $devicePinResults = [];
-                                        foreach ($devicePinArr as $dPin) {
-                                            $dPin = trim($dPin);
-                                            $matchedEmp = $db->fetchOne("SELECT id, employee_code, full_name, position FROM payroll_employees WHERE TRIM(finger_id) = ? AND is_active = 1", [$dPin]);
-                                            if (!$matchedEmp && is_numeric($dPin)) {
-                                                $matchedEmp = $db->fetchOne("SELECT id, employee_code, full_name, position FROM payroll_employees WHERE CAST(TRIM(finger_id) AS UNSIGNED) = CAST(? AS UNSIGNED) AND is_active = 1", [$dPin]);
-                                            }
-                                            $devicePinResults[] = [
-                                                'pin' => $dPin,
-                                                'matched' => $matchedEmp ? true : false,
-                                                'employee' => $matchedEmp
-                                            ];
+                                    // Cross-reference with employees
+                                    $devicePinResults = [];
+                                    foreach ($devicePinArr as $dPin) {
+                                        $dPin = trim($dPin);
+                                        $matchedEmp = $db->fetchOne("SELECT id, employee_code, full_name, position FROM payroll_employees WHERE TRIM(finger_id) = ? AND is_active = 1", [$dPin]);
+                                        if (!$matchedEmp && is_numeric($dPin)) {
+                                            $matchedEmp = $db->fetchOne("SELECT id, employee_code, full_name, position FROM payroll_employees WHERE CAST(TRIM(finger_id) AS UNSIGNED) = CAST(? AS UNSIGNED) AND is_active = 1", [$dPin]);
                                         }
-
-                                        // Find employees with finger_id NOT in device
-                                        $empWithFinger = $db->fetchAll("SELECT id, employee_code, full_name, position, finger_id FROM payroll_employees WHERE finger_id IS NOT NULL AND finger_id != '' AND is_active = 1");
-                                        $missingFromDevice = [];
-                                        foreach ($empWithFinger as $ewf) {
-                                            $found = false;
-                                            foreach ($devicePinArr as $dPin) {
-                                                if (trim($ewf['finger_id']) === trim($dPin) || (is_numeric($ewf['finger_id']) && is_numeric($dPin) && (int)$ewf['finger_id'] === (int)$dPin)) {
-                                                    $found = true;
-                                                    break;
-                                                }
-                                            }
-                                            if (!$found) {
-                                                $missingFromDevice[] = $ewf;
-                                            }
-                                        }
-
-                                        $_SESSION['fingerspot_device_pins'] = $devicePinResults;
-                                        $_SESSION['fingerspot_missing_from_device'] = $missingFromDevice;
-                                        $_SESSION['fingerspot_total_device'] = $totalDevice;
-                                        $_SESSION['fingerspot_pin_last_scan'] = $pinLastScan;
-                                        $_SESSION['fingerspot_pin_scan_count'] = $pinScanCount;
-                                        $_SESSION['fingerspot_scan_period'] = $scanFrom . ' s/d ' . $scanTo;
-
-                                        $matched = count(array_filter($devicePinResults, fn($r) => $r['matched']));
-                                        $unmatched = count($devicePinResults) - $matched;
-
-                                        $msg = "<div style='line-height:1.8'>"
-                                            . "<div style='font-size:14px;font-weight:800;margin-bottom:8px;'>✅ Deteksi PIN Berhasil</div>"
-                                            . "<div style='display:flex;flex-wrap:wrap;gap:16px;margin-bottom:6px;'>"
-                                            . "<span>📟 <strong>PIN aktif:</strong> {$totalDevice}</span>"
-                                            . "<span>📊 <strong>Total scan:</strong> " . count($allLogs) . "</span>"
-                                            . "<span>✅ <strong>Cocok:</strong> {$matched}</span>"
-                                            . ($unmatched > 0 ? "<span>⚠️ <strong>Tidak dikenal:</strong> {$unmatched}</span>" : "")
-                                            . (count($missingFromDevice) > 0 ? "<span>❌ <strong>Belum scan:</strong> " . count($missingFromDevice) . "</span>" : "")
-                                            . "</div>"
-                                            . "<div style='font-size:11px;color:#166534;'>Periode: {$scanFrom} s/d {$scanTo} · Lihat detail di bawah</div>"
-                                            . "</div>";
-                                        $msgType = 'success';
-                                    } else {
-                                        if (!empty($apiErrors)) {
-                                            $msg = "❌ API Error: " . htmlspecialchars(implode(", ", array_slice($apiErrors, 0, 3)));
-                                        } else {
-                                            $msg = "ℹ️ Tidak ada data scan dari mesin untuk periode <strong>{$scanFrom} s/d {$scanTo}</strong>.<br><span style='font-size:10px;color:#64748b;'>Coba perluas rentang tanggal atau pastikan mesin sudah melakukan scan.</span>";
-                                        }
-                                        $msgType = empty($apiErrors) ? 'info' : 'error';
+                                        $devicePinResults[] = [
+                                            'pin' => $dPin,
+                                            'matched' => $matchedEmp ? true : false,
+                                            'employee' => $matchedEmp
+                                        ];
                                     }
+
+                                    // Find employees with finger_id NOT in device
+                                    $empWithFinger = $db->fetchAll("SELECT id, employee_code, full_name, position, finger_id FROM payroll_employees WHERE finger_id IS NOT NULL AND finger_id != '' AND is_active = 1");
+                                    $missingFromDevice = [];
+                                    foreach ($empWithFinger as $ewf) {
+                                        $found = false;
+                                        foreach ($devicePinArr as $dPin) {
+                                            if (trim($ewf['finger_id']) === trim($dPin) || (is_numeric($ewf['finger_id']) && is_numeric($dPin) && (int)$ewf['finger_id'] === (int)$dPin)) {
+                                                $found = true;
+                                                break;
+                                            }
+                                        }
+                                        if (!$found) {
+                                            $missingFromDevice[] = $ewf;
+                                        }
+                                    }
+
+                                    $_SESSION['fingerspot_device_pins'] = $devicePinResults;
+                                    $_SESSION['fingerspot_missing_from_device'] = $missingFromDevice;
+                                    $_SESSION['fingerspot_total_device'] = $totalDevice;
+                                    $_SESSION['fingerspot_pin_last_scan'] = $pinLastScan;
+                                    $_SESSION['fingerspot_pin_scan_count'] = $pinScanCount;
+                                    $_SESSION['fingerspot_scan_period'] = $scanFrom . ' s/d ' . $scanTo;
+
+                                    $matched = count(array_filter($devicePinResults, fn($r) => $r['matched']));
+                                    $unmatched = count($devicePinResults) - $matched;
+
+                                    $msg = "<div style='line-height:1.8'>"
+                                        . "<div style='font-size:14px;font-weight:800;margin-bottom:8px;'>✅ Deteksi PIN Berhasil</div>"
+                                        . "<div style='display:flex;flex-wrap:wrap;gap:16px;margin-bottom:6px;'>"
+                                        . "<span>📟 <strong>PIN aktif:</strong> {$totalDevice}</span>"
+                                        . "<span>📊 <strong>Total scan:</strong> " . count($allLogs) . "</span>"
+                                        . "<span>✅ <strong>Cocok:</strong> {$matched}</span>"
+                                        . ($unmatched > 0 ? "<span>⚠️ <strong>Tidak dikenal:</strong> {$unmatched}</span>" : "")
+                                        . (count($missingFromDevice) > 0 ? "<span>❌ <strong>Belum scan:</strong> " . count($missingFromDevice) . "</span>" : "")
+                                        . "</div>"
+                                        . "<div style='font-size:11px;color:#166534;'>Periode: {$scanFrom} s/d {$scanTo} · Lihat detail di bawah</div>"
+                                        . "</div>";
+                                    $msgType = 'success';
+                                } else {
+                                    if (!empty($apiErrors)) {
+                                        $msg = "❌ API Error: " . htmlspecialchars(implode(", ", array_slice($apiErrors, 0, 3)));
+                                    } else {
+                                        $msg = "ℹ️ Tidak ada data scan dari mesin untuk periode <strong>{$scanFrom} s/d {$scanTo}</strong>.<br><span style='font-size:10px;color:#64748b;'>Coba perluas rentang tanggal atau pastikan mesin sudah melakukan scan.</span>";
+                                    }
+                                    $msgType = empty($apiErrors) ? 'info' : 'error';
+                                }
                             }
                             $_SESSION['last_payroll_tab'] = 'fingerprint';
                         }
@@ -1000,7 +1000,7 @@
                                     // Create notification for staff
                                     $leaveReq = $db->fetchOne("SELECT employee_id, leave_type, start_date, end_date FROM leave_requests WHERE id = ?", [$leaveId]);
                                     if ($leaveReq) {
-                                        $typeLabels = ['cuti'=>'Cuti','sakit'=>'Sakit','izin'=>'Izin','cuti_khusus'=>'Cuti Khusus'];
+                                        $typeLabels = ['cuti' => 'Cuti', 'sakit' => 'Sakit', 'izin' => 'Izin', 'cuti_khusus' => 'Cuti Khusus'];
                                         $tl = $typeLabels[$leaveReq['leave_type']] ?? $leaveReq['leave_type'];
                                         $statusLabel = $newStatus === 'approved' ? 'Disetujui' : 'Ditolak';
                                         $db->query("INSERT INTO notifications (user_id, type, title, message, data, created_at) VALUES (?, 'leave_response', ?, ?, ?, NOW())", [
@@ -1245,7 +1245,8 @@
                     try {
                         $approvedOTRows = $db->fetchAll("SELECT employee_id FROM overtime_requests WHERE overtime_date = ? AND status = 'approved'", [$viewDate]) ?: [];
                         foreach ($approvedOTRows as $otRow) $approvedOTEmployees[(int)$otRow['employee_id']] = true;
-                    } catch (Exception $e) {}
+                    } catch (Exception $e) {
+                    }
 
                     // Today stats
                     $todayStats = ['total' => count($employees), 'present' => 0, 'late' => 0, 'total_hours' => 0, 'regular_hours' => 0, 'overtime_hours' => 0, 'ot_count' => 0];
@@ -1253,14 +1254,16 @@
                         if ($a['check_in_time']) $todayStats['present']++;
                         if ($a['status'] === 'late') $todayStats['late']++;
                         $wh = (float)($a['work_hours'] ?? 0);
+                        $manualOT = (float)($a['overtime_hours'] ?? 0);
                         $todayStats['total_hours'] += $wh;
                         $todayStats['regular_hours'] += min($wh, 8);
-                        // Only count overtime if employee has approved overtime request
-                        if ($wh > 8 && isset($approvedOTEmployees[(int)$a['employee_id']])) {
-                            $ot = $wh - 8;
-                            $otU = floor($ot / 0.75);
-                            $todayStats['overtime_hours'] += $otU * 0.75;
-                            if ($otU > 0) $todayStats['ot_count']++;
+                        // Manual OT from admin edit takes precedence; otherwise approved request grants 45 minutes.
+                        if ($manualOT > 0) {
+                            $todayStats['overtime_hours'] += $manualOT;
+                            $todayStats['ot_count']++;
+                        } elseif (isset($approvedOTEmployees[(int)$a['employee_id']])) {
+                            $todayStats['overtime_hours'] += 0.75;
+                            $todayStats['ot_count']++;
                         }
                     }
 
@@ -1926,9 +1929,9 @@
                                             $s4 = $a && !empty($a['scan_4']) ? substr($a['scan_4'], 0, 5) : null;
                                             $wh = (float)($a['work_hours'] ?? 0);
                                             $manualOT = (float)($a['overtime_hours'] ?? 0);
-                                            // Only calculate overtime if employee has approved overtime request
+                                            // Manual OT takes precedence; otherwise approved request shows fixed 45 minutes.
                                             $hasApprovedOT = isset($approvedOTEmployees[(int)$emp['id']]);
-                                            $otCounted = $manualOT > 0 ? $manualOT : (($hasApprovedOT && $wh > 8) ? floor(($wh - 8) / 0.75) * 0.75 : 0);
+                                            $otCounted = $manualOT > 0 ? $manualOT : ($hasApprovedOT ? 0.75 : 0);
                                         ?>
                                             <tr>
                                                 <td>
@@ -2281,7 +2284,7 @@
                                                                         <span style="color:#991b1b; font-size:10px;">⚠️ Tidak cocok</span>
                                                                     <?php endif; ?>
                                                                 </td>
-                                                                <td style="text-align:center;"><?php echo $ui['finger'] !== '0' ? '<span style="color:#059669;">✅ '.$ui['finger'].'</span>' : '<span style="color:#94a3b8;">—</span>'; ?></td>
+                                                                <td style="text-align:center;"><?php echo $ui['finger'] !== '0' ? '<span style="color:#059669;">✅ ' . $ui['finger'] . '</span>' : '<span style="color:#94a3b8;">—</span>'; ?></td>
                                                                 <td style="text-align:center;"><?php echo $ui['face'] !== '0' ? '<span style="color:#059669;">✅</span>' : '<span style="color:#94a3b8;">—</span>'; ?></td>
                                                                 <td style="text-align:center;"><?php echo !empty($ui['rfid']) ? '<span style="color:#059669;">✅</span>' : '<span style="color:#94a3b8;">—</span>'; ?></td>
                                                                 <td style="font-size:9px; color:var(--muted);"><?php echo date('d/m H:i', strtotime($ui['updated_at'])); ?></td>
@@ -3337,7 +3340,9 @@
                                     <div class="fg"><label class="fl">Scan 3 (Masuk)</label><input type="time" name="scan_3" id="editScan3" class="fi"></div>
                                     <div class="fg"><label class="fl">Scan 4 (Pulang)</label><input type="time" name="scan_4" id="editScan4" class="fi"></div>
                                 </div>
-                                    <div class="fg"><label class="fl">Jam Lembur</label><input type="number" name="overtime_hours" id="editOvertimeHours" class="fi" min="0" step="0.25" placeholder="0.00"><div style="font-size:10px;color:var(--muted);margin-top:2px;">Isi jika jam lembur ingin diubah manual.</div></div>
+                                <div class="fg"><label class="fl">Jam Lembur</label><input type="number" name="overtime_hours" id="editOvertimeHours" class="fi" min="0" step="0.25" placeholder="0.00">
+                                    <div style="font-size:10px;color:var(--muted);margin-top:2px;">Isi jika jam lembur ingin diubah manual.</div>
+                                </div>
                                 <div class="fg"><label class="fl">Status</label>
                                     <select name="status" id="editStatus" class="fi">
                                         <option value="present">Hadir</option>

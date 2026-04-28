@@ -257,14 +257,12 @@ function getAttendanceHours($db, $empId, $month, $year)
         $daysWorked++;
         $totalHours += min($wh, 8);
 
-        // Manual OT takes precedence; otherwise only count overtime if there's an APPROVED overtime request for this date.
+        // Manual OT takes precedence; otherwise each APPROVED overtime request grants 45 minutes.
         $attDate = $r['attendance_date'] ?? '';
         if ($manualOT > 0) {
             $totalOvertimeHours += $manualOT;
-        } elseif ($wh > 8 && isset($approvedOTDates[$attDate])) {
-            $otRaw = $wh - 8;
-            $otUnits = floor($otRaw / 0.75); // per 45-min block
-            $totalOvertimeHours += $otUnits * 0.75;
+        } elseif (isset($approvedOTDates[$attDate])) {
+            $totalOvertimeHours += 0.75;
         }
     }
     return [
@@ -295,7 +293,7 @@ function syncSlipsWithAttendance($db, $periodId, $month, $year)
         $cur = $stmt->fetch(\PDO::FETCH_ASSOC);
         if (!$cur) continue; // skip if slip disappeared
 
-        $otH = (float)($cur['overtime_hours'] ?? 0);
+        $otH = (float)($att['overtime_hours'] ?? 0);
         $otRate = $hourlyRate;
         $otAmount = round($otH * $otRate, 2);
         $incentive = (float)($cur['incentive'] ?? 0);
@@ -567,7 +565,7 @@ $slips = [];
 $autoSyncError = '';
 if ($period) {
     // Auto-sync: pull latest attendance/fingerprint data on every page load
-    if ($period['status'] === 'draft' || $period['status'] === 'submitted') {
+    if ($period['status'] === 'draft' || $period['status'] === 'submitted' || $period['status'] === 'approved') {
         try {
             // Step 1: Recalculate ALL work_hours from scan timestamps (fix any stale data)
             recalcAttendanceHours($db, $month, $year);
@@ -1008,7 +1006,7 @@ include '../../includes/header.php';
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     }
 
-    .ps-header > div {
+    .ps-header>div {
         color: #1a1a2e !important;
     }
 
