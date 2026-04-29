@@ -577,7 +577,7 @@ body {
     align-items: center;
     gap: 0.6rem;
     padding: 0.65rem 0.75rem;
-    color: var(--text-secondary);
+    color: #ffffff;
     text-decoration: none;
     border-radius: var(--radius-lg);
     transition: var(--transition);
@@ -662,7 +662,7 @@ body {
     align-items: center;
     gap: 0.6rem;
     padding: 0.5rem 0.75rem 0.5rem 2.5rem;
-    color: var(--text-secondary);
+    color: #ffffff;
     text-decoration: none;
     border-radius: var(--radius-md);
     transition: var(--transition);
