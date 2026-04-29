@@ -42,43 +42,117 @@ try {
     // Table might already exist
 }
 
+$customerColumns = [];
+try {
+    $columnRows = $db->fetchAll("SHOW COLUMNS FROM customers");
+    $customerColumns = array_map(function ($row) {
+        return $row['Field'];
+    }, $columnRows);
+} catch (Exception $e) {
+    $customerColumns = [];
+}
+
+$nameColumn = in_array('customer_name', $customerColumns, true) ? 'customer_name' : (in_array('name', $customerColumns, true) ? 'name' : 'customer_name');
+$typeColumn = in_array('customer_type', $customerColumns, true) ? 'customer_type' : null;
+$statusColumn = in_array('is_active', $customerColumns, true) ? 'is_active' : (in_array('status', $customerColumns, true) ? 'status' : 'is_active');
+
 // Handle form submission (Add/Edit)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? 'add';
-    
-    $data = [
-        'customer_name' => trim($_POST['customer_name'] ?? ''),
-        'customer_type' => $_POST['customer_type'] ?? 'individual',
-        'company_name' => trim($_POST['company_name'] ?? ''),
-        'contact_person' => trim($_POST['contact_person'] ?? ''),
-        'email' => trim($_POST['email'] ?? ''),
-        'phone' => trim($_POST['phone'] ?? ''),
-        'address' => trim($_POST['address'] ?? ''),
-        'city' => trim($_POST['city'] ?? ''),
-        'province' => trim($_POST['province'] ?? ''),
-        'postal_code' => trim($_POST['postal_code'] ?? ''),
-        'npwp' => trim($_POST['npwp'] ?? ''),
-        'notes' => trim($_POST['notes'] ?? ''),
-        'is_active' => isset($_POST['is_active']) ? 1 : 0
-    ];
+
+    $rawCustomerName = trim($_POST['customer_name'] ?? '');
+    $rawCustomerType = $_POST['customer_type'] ?? 'individual';
+    $rawIsActive = isset($_POST['is_active']) ? 1 : 0;
+
+    $data = [];
+    if (in_array('customer_name', $customerColumns, true)) {
+        $data['customer_name'] = $rawCustomerName;
+    } elseif (in_array('name', $customerColumns, true)) {
+        $data['name'] = $rawCustomerName;
+    }
+
+    if (in_array('customer_type', $customerColumns, true)) {
+        $data['customer_type'] = $rawCustomerType;
+    }
+    if (in_array('company_name', $customerColumns, true)) {
+        $data['company_name'] = trim($_POST['company_name'] ?? '');
+    }
+    if (in_array('contact_person', $customerColumns, true)) {
+        $data['contact_person'] = trim($_POST['contact_person'] ?? '');
+    }
+    if (in_array('email', $customerColumns, true)) {
+        $data['email'] = trim($_POST['email'] ?? '');
+    }
+    if (in_array('phone', $customerColumns, true)) {
+        $data['phone'] = trim($_POST['phone'] ?? '');
+    }
+    if (in_array('address', $customerColumns, true)) {
+        $data['address'] = trim($_POST['address'] ?? '');
+    }
+    if (in_array('city', $customerColumns, true)) {
+        $data['city'] = trim($_POST['city'] ?? '');
+    }
+    if (in_array('province', $customerColumns, true)) {
+        $data['province'] = trim($_POST['province'] ?? '');
+    }
+    if (in_array('postal_code', $customerColumns, true)) {
+        $data['postal_code'] = trim($_POST['postal_code'] ?? '');
+    }
+    if (in_array('npwp', $customerColumns, true)) {
+        $data['npwp'] = trim($_POST['npwp'] ?? '');
+    }
+    if (in_array('notes', $customerColumns, true)) {
+        $data['notes'] = trim($_POST['notes'] ?? '');
+    }
+    if (in_array('is_active', $customerColumns, true)) {
+        $data['is_active'] = $rawIsActive;
+    } elseif (in_array('status', $customerColumns, true)) {
+        $data['status'] = $rawIsActive ? 'active' : 'inactive';
+    }
     
     try {
         if ($action === 'edit' && isset($_POST['id'])) {
             $id = (int)$_POST['id'];
-            $db->update('customers', $data, 'id = :where_id', ['where_id' => $id]);
-            $_SESSION['success'] = 'Customer berhasil diupdate';
+            if ($id <= 0) {
+                throw new Exception('ID customer tidak valid');
+            }
+            if (empty($data)) {
+                throw new Exception('Tidak ada kolom yang bisa diupdate pada tabel customers');
+            }
+
+            $updatedRows = $db->update('customers', $data, 'id = :where_id', ['where_id' => $id]);
+            if ($updatedRows === false) {
+                throw new Exception('Query update customer gagal dijalankan');
+            }
+
+            if ($updatedRows > 0) {
+                $_SESSION['success'] = 'Customer berhasil diupdate';
+            } else {
+                $_SESSION['success'] = 'Tidak ada perubahan data customer';
+            }
         } else {
             // Generate customer code
-            $lastCode = $db->fetchOne("SELECT customer_code FROM customers ORDER BY id DESC LIMIT 1");
-            if ($lastCode) {
-                $num = (int)substr($lastCode['customer_code'], 5) + 1;
-            } else {
-                $num = 1;
+            if (in_array('customer_code', $customerColumns, true)) {
+                $lastCode = $db->fetchOne("SELECT customer_code FROM customers ORDER BY id DESC LIMIT 1");
+                if ($lastCode && !empty($lastCode['customer_code'])) {
+                    $num = (int)substr($lastCode['customer_code'], 5) + 1;
+                } else {
+                    $num = 1;
+                }
+                $data['customer_code'] = 'CUST-' . str_pad($num, 4, '0', STR_PAD_LEFT);
             }
-            $data['customer_code'] = 'CUST-' . str_pad($num, 4, '0', STR_PAD_LEFT);
-            $data['created_by'] = $currentUser['id'];
+            if (in_array('created_by', $customerColumns, true)) {
+                $data['created_by'] = $currentUser['id'];
+            }
+
+            if (empty($data)) {
+                throw new Exception('Tidak ada kolom yang bisa disimpan pada tabel customers');
+            }
             
-            $db->insert('customers', $data);
+            $insertedId = $db->insert('customers', $data);
+            if (!$insertedId) {
+                throw new Exception('Insert customer gagal dijalankan');
+            }
             $_SESSION['success'] = 'Customer berhasil ditambahkan';
         }
     } catch (Exception $e) {
@@ -106,9 +180,20 @@ if (isset($_GET['delete'])) {
 if (isset($_GET['toggle'])) {
     $id = (int)$_GET['toggle'];
     try {
-        $current = $db->fetchOne("SELECT is_active FROM customers WHERE id = ?", [$id]);
-        $newStatus = $current['is_active'] ? 0 : 1;
-        $db->update('customers', ['is_active' => $newStatus], 'id = :where_id', ['where_id' => $id]);
+        if ($statusColumn === 'status') {
+            $current = $db->fetchOne("SELECT status FROM customers WHERE id = ?", [$id]);
+            $newStatus = ($current && ($current['status'] ?? '') === 'active') ? 'inactive' : 'active';
+            $result = $db->update('customers', ['status' => $newStatus], 'id = :where_id', ['where_id' => $id]);
+        } else {
+            $current = $db->fetchOne("SELECT is_active FROM customers WHERE id = ?", [$id]);
+            $newStatus = ($current && (int)($current['is_active'] ?? 0) === 1) ? 0 : 1;
+            $result = $db->update('customers', ['is_active' => $newStatus], 'id = :where_id', ['where_id' => $id]);
+        }
+
+        if ($result === false) {
+            throw new Exception('Gagal update status customer');
+        }
+
         $_SESSION['success'] = 'Status customer berhasil diubah';
     } catch (Exception $e) {
         $_SESSION['error'] = 'Gagal mengubah status: ' . $e->getMessage();
@@ -131,16 +216,39 @@ $type = $_GET['type'] ?? '';
 $params = [];
 $conditions = [];
 if ($search) {
-    $conditions[] = "(customer_name LIKE :search OR customer_code LIKE :search OR company_name LIKE :search OR phone LIKE :search)";
+    $searchableColumns = [];
+    foreach ([$nameColumn, 'customer_code', 'company_name', 'phone'] as $col) {
+        if ($col && in_array($col, $customerColumns, true)) {
+            $searchableColumns[] = $col;
+        }
+    }
+    if (!empty($searchableColumns)) {
+        $orParts = array_map(function ($col) {
+            return $col . ' LIKE :search';
+        }, $searchableColumns);
+        $conditions[] = '(' . implode(' OR ', $orParts) . ')';
+    }
     $params['search'] = '%' . $search . '%';
 }
-if ($type) {
-    $conditions[] = "customer_type = :type";
+if ($type && $typeColumn) {
+    $conditions[] = $typeColumn . " = :type";
     $params['type'] = $type;
 }
 $where = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
 
-$customers = $db->fetchAll("SELECT * FROM customers {$where} ORDER BY customer_name", $params);
+$customers = $db->fetchAll("SELECT * FROM customers {$where} ORDER BY {$nameColumn}", $params);
+foreach ($customers as &$cust) {
+    if (!isset($cust['customer_name']) && isset($cust['name'])) {
+        $cust['customer_name'] = $cust['name'];
+    }
+    if (!isset($cust['is_active']) && isset($cust['status'])) {
+        $cust['is_active'] = strtolower((string)$cust['status']) === 'active' ? 1 : 0;
+    }
+    if (!isset($cust['customer_type'])) {
+        $cust['customer_type'] = 'individual';
+    }
+}
+unset($cust);
 
 include '../../includes/header.php';
 ?>
