@@ -41,6 +41,7 @@ if (!$project) {
 }
 
 $projectId = $project['id'];
+$isPdfExport = isset($_GET['export']) && $_GET['export'] === 'pdf';
 
 // Get expenses grouped by category
 $stmt = $pdo->query("
@@ -54,6 +55,222 @@ $stmt = $pdo->query("
     ORDER BY ec.id
 ");
 $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+if ($isPdfExport) {
+    $stmt = $pdo->prepare(" 
+        SELECT pe.expense_date, pe.amount, pe.description,
+               COALESCE(ec.category_name, 'Lainnya') as category_name,
+               COALESCE(ec.category_icon, '📦') as category_icon
+        FROM cqc_project_expenses pe
+        LEFT JOIN cqc_expense_categories ec ON pe.category_id = ec.id
+        WHERE pe.project_id = ?
+        ORDER BY pe.expense_date DESC, pe.id DESC
+    ");
+    $stmt->execute([$projectId]);
+    $allProjectExpenses = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $totalProjectExpense = 0;
+    foreach ($allProjectExpenses as $expenseRow) {
+        $totalProjectExpense += (float)$expenseRow['amount'];
+    }
+
+    header('Content-Type: text/html; charset=UTF-8');
+    ?>
+    <!DOCTYPE html>
+    <html lang="id">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Export Proyek <?php echo htmlspecialchars($project['project_code']); ?></title>
+        <style>
+            @page {
+                size: A4;
+                margin: 14mm;
+            }
+
+            body {
+                font-family: 'Segoe UI', Arial, sans-serif;
+                color: #0f172a;
+                font-size: 11px;
+                line-height: 1.45;
+            }
+
+            .export-header {
+                border-bottom: 2px solid #f0b429;
+                padding-bottom: 8px;
+                margin-bottom: 10px;
+            }
+
+            .export-title {
+                margin: 0;
+                font-size: 18px;
+                color: #0d1f3c;
+            }
+
+            .export-meta {
+                margin-top: 4px;
+                color: #475569;
+                font-size: 10px;
+            }
+
+            .summary-grid {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 8px;
+                margin-bottom: 12px;
+            }
+
+            .summary-item {
+                border: 1px solid #e2e8f0;
+                border-radius: 4px;
+                padding: 6px 8px;
+                background: #f8fafc;
+            }
+
+            .summary-label {
+                color: #64748b;
+                font-size: 9px;
+                text-transform: uppercase;
+                margin-bottom: 2px;
+            }
+
+            .summary-value {
+                color: #0d1f3c;
+                font-weight: 700;
+                font-size: 12px;
+            }
+
+            table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+
+            th {
+                background: #f8fafc;
+                color: #334155;
+                text-align: left;
+                font-size: 9px;
+                text-transform: uppercase;
+                letter-spacing: 0.2px;
+                border-bottom: 1px solid #cbd5e1;
+                padding: 6px;
+            }
+
+            td {
+                border-bottom: 1px solid #e2e8f0;
+                padding: 6px;
+                vertical-align: top;
+            }
+
+            .amount {
+                text-align: right;
+                font-weight: 700;
+                white-space: nowrap;
+            }
+
+            .desc {
+                color: #0d1f3c;
+                font-weight: 600;
+            }
+
+            .cat {
+                color: #64748b;
+                font-size: 10px;
+            }
+
+            .empty {
+                text-align: center;
+                color: #64748b;
+                padding: 16px 0;
+            }
+
+            .actions {
+                margin-bottom: 10px;
+            }
+
+            .actions button {
+                background: #0d1f3c;
+                color: #fff;
+                border: none;
+                padding: 6px 12px;
+                border-radius: 4px;
+                font-size: 10px;
+                cursor: pointer;
+            }
+
+            @media print {
+                .actions {
+                    display: none;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="actions">
+            <button onclick="window.print()">Print / Save as PDF</button>
+        </div>
+
+        <div class="export-header">
+            <h1 class="export-title">Laporan Transaksi Proyek</h1>
+            <div class="export-meta">
+                <?php echo htmlspecialchars($project['project_name']); ?> (<?php echo htmlspecialchars($project['project_code']); ?>)
+                · Dicetak <?php echo date('d M Y H:i'); ?>
+            </div>
+        </div>
+
+        <div class="summary-grid">
+            <div class="summary-item">
+                <div class="summary-label">Total Transaksi</div>
+                <div class="summary-value"><?php echo number_format(count($allProjectExpenses)); ?></div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">Total Pengeluaran</div>
+                <div class="summary-value">Rp <?php echo number_format($totalProjectExpense, 0); ?></div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">Budget Proyek</div>
+                <div class="summary-value">Rp <?php echo number_format((float)$project['budget_idr'], 0); ?></div>
+            </div>
+        </div>
+
+        <?php if (!empty($allProjectExpenses)): ?>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 18%;">Tanggal</th>
+                        <th>Deskripsi</th>
+                        <th style="width: 22%;">Kategori</th>
+                        <th style="width: 20%; text-align: right;">Nominal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($allProjectExpenses as $exp): ?>
+                        <tr>
+                            <td><?php echo date('d M Y', strtotime($exp['expense_date'])); ?></td>
+                            <td>
+                                <div class="desc"><?php echo htmlspecialchars($exp['description'] ?: 'Tanpa keterangan'); ?></div>
+                            </td>
+                            <td class="cat"><?php echo htmlspecialchars(($exp['category_icon'] ?? '📦') . ' ' . $exp['category_name']); ?></td>
+                            <td class="amount">Rp <?php echo number_format((float)$exp['amount'], 0); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        <?php else: ?>
+            <div class="empty">Belum ada transaksi untuk proyek ini.</div>
+        <?php endif; ?>
+    </body>
+    <script>
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                window.print();
+            }, 200);
+        });
+    </script>
+    </html>
+    <?php
+    exit;
+}
 
 // Get latest expenses (LEFT JOIN to show expenses even without category)
 $stmt = $pdo->prepare("
@@ -574,6 +791,9 @@ include '../../includes/header.php';
         display: flex;
         flex-direction: column;
         gap: 6px;
+        max-height: 280px;
+        overflow-y: auto;
+        padding-right: 2px;
     }
 
     .cqc-category-detail-row {
@@ -616,6 +836,22 @@ include '../../includes/header.php';
         color: #94a3b8;
         text-align: center;
         padding: 6px 0;
+    }
+
+    .cqc-export-btn {
+        background: #0d1f3c;
+        color: #fff;
+        border: none;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 10px;
+        text-decoration: none;
+        font-weight: 600;
+    }
+
+    .cqc-export-btn:hover {
+        background: #16294d;
+        color: #fff;
     }
 
     .cqc-expenses-table {
@@ -892,6 +1128,7 @@ include '../../includes/header.php';
                 <h3 style="margin: 0;">💰 Budget & Pengeluaran</h3>
                 <div style="display: flex; gap: 6px;">
                     <a href="categories.php" style="background: #f1f5f9; color: #475569; padding: 4px 8px; border-radius: 4px; font-size: 10px; text-decoration: none; font-weight: 600;">⚙️ Kategori</a>
+                    <a href="detail.php?id=<?php echo (int)$project['id']; ?>&export=pdf" target="_blank" class="cqc-export-btn">📄 Export PDF</a>
                     <button onclick="openExpenseModal()" style="background: #10b981; color: white; border: none; padding: 4px 10px; border-radius: 4px; font-size: 10px; cursor: pointer; font-weight: 600;">+ Pengeluaran</button>
                 </div>
             </div>
@@ -947,9 +1184,9 @@ include '../../includes/header.php';
                             <span><?php echo $cat['expense_count']; ?> transaksi</span>
                         </div>
                         <?php $categoryRows = $expensesByCategory[$categoryId] ?? []; ?>
-                        <?php if (!empty($categoryRows)): ?>
+                                <?php if (!empty($categoryRows)): ?>
                             <div class="cqc-category-detail-list">
-                                <?php foreach (array_slice($categoryRows, 0, 5) as $row): ?>
+                                        <?php foreach ($categoryRows as $row): ?>
                                     <div class="cqc-category-detail-row">
                                         <div class="cqc-category-detail-main">
                                             <div class="cqc-category-detail-desc"><?php echo htmlspecialchars($row['description'] ?: 'Tanpa keterangan'); ?></div>
@@ -958,9 +1195,6 @@ include '../../includes/header.php';
                                         <div class="cqc-category-detail-amount">Rp <?php echo number_format($row['amount'], 0); ?></div>
                                     </div>
                                 <?php endforeach; ?>
-                                <?php if (count($categoryRows) > 5): ?>
-                                    <div class="cqc-category-detail-meta">Menampilkan 5 transaksi terbaru dari <?php echo count($categoryRows); ?> transaksi.</div>
-                                <?php endif; ?>
                             </div>
                         <?php else: ?>
                             <div class="cqc-category-detail-empty">Belum ada transaksi pada kategori ini.</div>
