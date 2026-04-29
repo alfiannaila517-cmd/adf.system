@@ -93,68 +93,69 @@ include '../../includes/header.php';
 ?>
 <style>
     .dashboard-page {
-        padding: 1.5rem;
+        padding: 1rem 1.15rem 1.25rem;
         max-width: 1400px;
         margin: 0 auto;
     }
 
     .dashboard-header {
-        margin-bottom: 2rem;
+        margin-bottom: 1rem;
     }
 
     .dashboard-header h1 {
-        margin: 0 0 0.3rem;
-        font-size: 1.8rem;
+        margin: 0 0 0.2rem;
+        font-size: 1.45rem;
         font-weight: 800;
         color: var(--text-primary);
     }
 
     .dashboard-header .subtitle {
-        font-size: 0.85rem;
+        font-size: 0.78rem;
         color: var(--text-secondary);
     }
 
     .stats-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1rem;
-        margin-bottom: 2rem;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.75rem;
+        margin-bottom: 1rem;
     }
 
     .stat-card {
         background: white;
-        border-radius: 12px;
-        padding: 1.25rem;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-        border-top: 4px solid var(--stat-color);
+        border-radius: 10px;
+        padding: 0.85rem 0.9rem 0.8rem;
+        box-shadow: 0 1px 6px rgba(0, 0, 0, 0.07);
+        border-top: 3px solid var(--stat-color);
     }
 
     .stat-card .label {
-        font-size: 0.82rem;
+        font-size: 0.72rem;
         color: var(--text-secondary);
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.03em;
-        margin-bottom: 0.5rem;
-    }
-
-    .stat-card .value {
-        font-size: 2rem;
-        font-weight: 900;
-        color: var(--stat-color);
         margin-bottom: 0.3rem;
     }
 
+    .stat-card .value {
+        font-size: 1.5rem;
+        font-weight: 900;
+        color: var(--stat-color);
+        line-height: 1;
+        margin-bottom: 0.25rem;
+    }
+
     .stat-card .detail {
-        font-size: 0.75rem;
+        font-size: 0.7rem;
         color: var(--text-secondary);
     }
 
     .stat-card .progress-bar {
-        height: 6px;
+        height: 5px;
         background: #e2e8f0;
         border-radius: 3px;
-        margin-top: 0.8rem;
+        margin-top: 0.6rem;
         overflow: hidden;
     }
 
@@ -165,10 +166,10 @@ include '../../includes/header.php';
     }
 
     .section-title {
-        font-size: 1.1rem;
+        font-size: 1rem;
         font-weight: 700;
         color: var(--text-primary);
-        margin: 2rem 0 1rem;
+        margin: 1rem 0 0.75rem;
         display: flex;
         align-items: center;
         gap: 0.5rem;
@@ -180,17 +181,17 @@ include '../../includes/header.php';
 
     .rented-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-        gap: 1rem;
-        margin-bottom: 2rem;
+        grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+        gap: 0.75rem;
+        margin-bottom: 1rem;
     }
 
     .rental-card {
         background: white;
-        border-radius: 12px;
-        padding: 1.25rem;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-        border-left: 5px solid var(--card-color);
+        border-radius: 10px;
+        padding: 0.95rem 1rem;
+        box-shadow: 0 1px 6px rgba(0, 0, 0, 0.07);
+        border-left: 4px solid var(--card-color);
     }
 
     .rental-card.overdue {
@@ -206,11 +207,11 @@ include '../../includes/header.php';
         display: flex;
         justify-content: space-between;
         align-items: start;
-        margin-bottom: 0.75rem;
+        margin-bottom: 0.55rem;
     }
 
     .rc-plate {
-        font-size: 1.1rem;
+        font-size: 0.98rem;
         font-weight: 800;
         color: #1e293b;
         font-family: 'Courier New', monospace;
@@ -218,9 +219,9 @@ include '../../includes/header.php';
 
     .rc-status {
         display: inline-block;
-        padding: 0.25rem 0.75rem;
+        padding: 0.2rem 0.6rem;
         border-radius: 20px;
-        font-size: 0.7rem;
+        font-size: 0.65rem;
         font-weight: 700;
         color: white;
     }
@@ -234,14 +235,14 @@ include '../../includes/header.php';
     }
 
     .rc-info {
-        font-size: 0.85rem;
-        margin-bottom: 0.6rem;
+        font-size: 0.8rem;
+        margin-bottom: 0.45rem;
     }
 
     .rc-info-row {
         display: flex;
         justify-content: space-between;
-        margin-bottom: 0.35rem;
+        margin-bottom: 0.25rem;
     }
 
     .rc-info-label {
@@ -255,11 +256,11 @@ include '../../includes/header.php';
     }
 
     .rc-timeline {
-        font-size: 0.8rem;
+        font-size: 0.75rem;
         background: #f8fafc;
         border-radius: 8px;
-        padding: 0.75rem;
-        margin: 0.75rem 0;
+        padding: 0.6rem 0.7rem;
+        margin: 0.55rem 0;
     }
 
     .rc-time {
@@ -274,13 +275,13 @@ include '../../includes/header.php';
     .rc-price {
         background: #f0f4ff;
         border-radius: 8px;
-        padding: 0.6rem 0.75rem;
-        margin: 0.75rem 0;
+        padding: 0.55rem 0.7rem;
+        margin: 0.55rem 0;
         border-left: 3px solid #6366f1;
     }
 
     .rc-price .amount {
-        font-size: 1.2rem;
+        font-size: 1rem;
         font-weight: 800;
         color: #6366f1;
     }
@@ -293,40 +294,82 @@ include '../../includes/header.php';
 
     .available-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-        gap: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+        gap: 0.65rem;
     }
 
     .motor-available {
         background: linear-gradient(135deg, #dcfce7, #d1fae5);
-        border-radius: 12px;
-        padding: 1rem;
-        border: 2px solid #10b981;
+        border-radius: 10px;
+        padding: 0.8rem 0.75rem;
+        border: 1px solid #10b981;
         text-align: center;
     }
 
     .motor-available .icon {
-        font-size: 2.5rem;
+        font-size: 2rem;
         margin-bottom: 0.5rem;
     }
 
     .motor-available .name {
-        font-weight: 700;
+        font-weight: 800;
         color: #047857;
         margin-bottom: 0.25rem;
+        font-size: 0.82rem;
     }
 
     .motor-available .plate {
-        font-size: 0.9rem;
+        font-size: 0.82rem;
         font-family: 'Courier New';
         font-weight: 700;
         color: #065f46;
     }
 
     .motor-available .rate {
-        font-size: 0.8rem;
+        font-size: 0.72rem;
         color: #047857;
         margin-top: 0.5rem;
+    }
+
+    .dashboard-content {
+        display: grid;
+        grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+        gap: 0.9rem;
+        align-items: start;
+        margin-bottom: 0.9rem;
+    }
+
+    .dashboard-panel {
+        background: rgba(255, 255, 255, 0.68);
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 14px;
+        padding: 0.9rem;
+        box-shadow: 0 1px 10px rgba(15, 23, 42, 0.04);
+        backdrop-filter: blur(6px);
+    }
+
+    .panel-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.7rem;
+    }
+
+    .panel-head h2 {
+        margin: 0;
+        font-size: 0.92rem;
+        font-weight: 800;
+        color: var(--text-primary);
+    }
+
+    .panel-head .hint {
+        font-size: 0.72rem;
+        color: var(--text-secondary);
+    }
+
+    .panel-stack {
+        display: grid;
+        gap: 0.8rem;
     }
 
     .recent-table {
@@ -416,6 +459,10 @@ include '../../includes/header.php';
     }
 
     @media(max-width: 768px) {
+        .dashboard-content {
+            grid-template-columns: 1fr;
+        }
+
         .stats-grid {
             grid-template-columns: repeat(2, 1fr);
         }
@@ -486,161 +533,163 @@ include '../../includes/header.php';
         </div>
     </div>
 
-    <!-- Currently Rented Motors -->
-    <?php if (!empty($rentedList)): ?>
-        <div class="section-title">
-            <span class="icon">🔴</span>
-            Rental Aktif Sekarang
-        </div>
-        <div class="rented-grid">
-            <?php foreach ($rentedList as $r):
-                $now = new DateTime();
-                $endDt = new DateTime($r['end_datetime']);
-                $diff = $now->diff($endDt);
-                $isOverdue = $r['status'] === 'overdue';
-            ?>
-                <div class="rental-card <?php echo $r['status']; ?>">
-                    <div class="rc-header">
-                        <div class="rc-plate"><?php echo htmlspecialchars($r['plate_number']); ?></div>
-                        <span class="rc-status <?php echo $r['status']; ?>">
-                            <?php echo $isOverdue ? '⚠ OVERDUE' : '✓ AKTIF'; ?>
-                        </span>
-                    </div>
+    <div class="dashboard-content">
+        <div class="dashboard-panel">
+            <div class="panel-head">
+                <h2>Rental Aktif Sekarang</h2>
+                <div class="hint"><?php echo count($rentedList); ?> unit aktif</div>
+            </div>
 
-                    <div class="rc-info">
-                        <div style="font-size:0.9rem;font-weight:600;color:var(--text-primary);margin-bottom:0.5rem">
-                            <?php echo htmlspecialchars($r['motor_name']); ?>
-                        </div>
-                        <div style="font-size:0.8rem;color:var(--text-secondary)">
-                            <?php if ($r['color']): ?>Warna: <?php echo htmlspecialchars($r['color']); ?><br /><?php endif; ?>
-                        </div>
-                    </div>
-
-                    <div style="border-top:1px solid rgba(0,0,0,0.1);padding-top:0.75rem;margin-top:0.75rem">
-                        <div class="rc-info-row">
-                            <span class="rc-info-label">👤 Tamu</span>
-                            <span class="rc-info-value"><?php echo htmlspecialchars(substr($r['guest_name'], 0, 20)); ?></span>
-                        </div>
-                        <?php if ($r['room_number']): ?>
-                            <div class="rc-info-row">
-                                <span class="rc-info-label">🚪 Kamar</span>
-                                <span class="rc-info-value">#<?php echo htmlspecialchars($r['room_number']); ?></span>
+            <?php if (!empty($rentedList)): ?>
+                <div class="rented-grid" style="margin-bottom:0;">
+                    <?php foreach ($rentedList as $r):
+                        $now = new DateTime();
+                        $endDt = new DateTime($r['end_datetime']);
+                        $diff = $now->diff($endDt);
+                        $isOverdue = $r['status'] === 'overdue';
+                    ?>
+                        <div class="rental-card <?php echo $r['status']; ?>">
+                            <div class="rc-header">
+                                <div class="rc-plate"><?php echo htmlspecialchars($r['plate_number']); ?></div>
+                                <span class="rc-status <?php echo $r['status']; ?>">
+                                    <?php echo $isOverdue ? '⚠ OVERDUE' : '✓ AKTIF'; ?>
+                                </span>
                             </div>
-                        <?php endif; ?>
-                    </div>
 
-                    <div class="rc-timeline">
-                        <div class="rc-time">🚪 Mulai: <strong><?php echo date('d M H:i', strtotime($r['start_datetime'])); ?></strong></div>
-                        <div class="rc-time">🔑 Kembali: <strong><?php echo date('d M H:i', strtotime($r['end_datetime'])); ?></strong></div>
-                        <div style="margin-top:0.5rem;padding-top:0.5rem;border-top:1px solid rgba(0,0,0,0.1)">
-                            <div style="font-weight:700;color:<?php echo $isOverdue ? '#ef4444' : '#10b981'; ?>">
-                                <?php
-                                if ($isOverdue) {
-                                    echo '⏰ Terlambat: ' . $diff->days . 'h ' . $diff->h . 'j';
-                                } else {
-                                    echo '⏳ Sisa: ' . $diff->days . 'h ' . $diff->h . 'j ' . $diff->i . 'm';
-                                }
-                                ?>
+                            <div class="rc-info">
+                                <div style="font-size:0.84rem;font-weight:700;color:var(--text-primary);margin-bottom:0.35rem">
+                                    <?php echo htmlspecialchars($r['motor_name']); ?>
+                                </div>
+                                <div style="font-size:0.75rem;color:var(--text-secondary)">
+                                    <?php if ($r['color']): ?>Warna: <?php echo htmlspecialchars($r['color']); ?><br /><?php endif; ?>
+                                </div>
+                            </div>
+
+                            <div style="border-top:1px solid rgba(0,0,0,0.08);padding-top:0.55rem;margin-top:0.55rem">
+                                <div class="rc-info-row">
+                                    <span class="rc-info-label">👤 Tamu</span>
+                                    <span class="rc-info-value"><?php echo htmlspecialchars(substr($r['guest_name'], 0, 20)); ?></span>
+                                </div>
+                                <?php if ($r['room_number']): ?>
+                                <div class="rc-info-row">
+                                    <span class="rc-info-label">🚪 Kamar</span>
+                                    <span class="rc-info-value">#<?php echo htmlspecialchars($r['room_number']); ?></span>
+                                </div>
+                                <?php endif; ?>
+                            </div>
+
+                            <div class="rc-timeline">
+                                <div class="rc-time">🚪 Mulai: <strong><?php echo date('d M H:i', strtotime($r['start_datetime'])); ?></strong></div>
+                                <div class="rc-time">🔑 Kembali: <strong><?php echo date('d M H:i', strtotime($r['end_datetime'])); ?></strong></div>
+                                <div style="margin-top:0.4rem;padding-top:0.4rem;border-top:1px solid rgba(0,0,0,0.08)">
+                                    <div style="font-weight:700;color:<?php echo $isOverdue ? '#ef4444' : '#10b981'; ?>">
+                                        <?php
+                                        if ($isOverdue) {
+                                            echo '⏰ Terlambat: ' . $diff->days . 'h ' . $diff->h . 'j';
+                                        } else {
+                                            echo '⏳ Sisa: ' . $diff->days . 'h ' . $diff->h . 'j ' . $diff->i . 'm';
+                                        }
+                                        ?>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="rc-price">
+                                <div class="amount">
+                                    <?php
+                                    if ((float)$r['total_price'] == 0) {
+                                        $startDt = new DateTime($r['start_datetime']);
+                                        $endDt = new DateTime($r['end_datetime']);
+                                        $estDays = max(1, (int)ceil($startDt->diff($endDt)->days));
+                                        $estPrice = max(100000, round($estDays * (float)$r['daily_rate'], 2));
+                                        echo '~Rp ' . number_format($estPrice, 0, ',', '.');
+                                    } else {
+                                        echo 'Rp ' . number_format($r['total_price'], 0, ',', '.');
+                                    }
+                                    ?>
+                                </div>
+                                <div class="note">
+                                    <?php if ((float)$r['total_price'] == 0): ?>
+                                        estimasi (hitung saat kembali)
+                                    <?php else: ?>
+                                        final
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+
+                            <div style="margin-top:0.6rem">
+                                <a href="rental-motor.php?view=manage" class="action-link" style="display:block;text-align:center;padding:0.35rem">
+                                    → Kelola
+                                </a>
                             </div>
                         </div>
-                    </div>
-
-                    <div class="rc-price">
-                        <div class="amount">
-                            <?php
-                            if ((float)$r['total_price'] == 0) {
-                                $startDt = new DateTime($r['start_datetime']);
-                                $endDt = new DateTime($r['end_datetime']);
-                                $estDays = max(1, (int)ceil($startDt->diff($endDt)->days));
-                                $estPrice = max(100000, round($estDays * (float)$r['daily_rate'], 2));
-                                echo '~Rp ' . number_format($estPrice, 0, ',', '.');
-                            } else {
-                                echo 'Rp ' . number_format($r['total_price'], 0, ',', '.');
-                            }
-                            ?>
-                        </div>
-                        <div class="note">
-                            <?php if ((float)$r['total_price'] == 0): ?>
-                                estimasi (hitung saat kembali)
-                            <?php else: ?>
-                                final
-                            <?php endif; ?>
-                        </div>
-                    </div>
-
-                    <div style="margin-top:1rem">
-                        <a href="rental-motor.php?view=manage" class="action-link" style="display:block;text-align:center;padding:0.5rem">
-                            → Kelola
-                        </a>
-                    </div>
+                    <?php endforeach; ?>
                 </div>
-            <?php endforeach; ?>
-        </div>
-    <?php else: ?>
-        <div style="background:white;border-radius:12px;padding:2rem;text-align:center;margin:1.5rem 0">
-            <div style="font-size:2rem;margin-bottom:0.5rem">😊</div>
-            <div style="color:var(--text-secondary)">Tidak ada rental aktif saat ini</div>
-        </div>
-    <?php endif; ?>
-
-    <!-- Available Motors -->
-    <?php if (!empty($availableList)): ?>
-        <div class="section-title">
-            <span class="icon">✨</span>
-            Motor Siap Disewa (<?php echo count($availableList); ?>)
-        </div>
-        <div class="available-grid">
-            <?php foreach ($availableList as $m): ?>
-                <div class="motor-available">
-                    <div class="icon">🏍️</div>
-                    <div class="name"><?php echo htmlspecialchars($m['motor_name']); ?></div>
-                    <div class="plate"><?php echo htmlspecialchars($m['plate_number']); ?></div>
-                    <div class="rate">Rp <?php echo number_format($m['daily_rate'], 0, ',', '.'); ?>/hari</div>
+            <?php else: ?>
+                <div class="empty-state" style="padding:1.25rem 0 0.5rem">
+                    <div class="icon">😊</div>
+                    <div class="text">Tidak ada rental aktif saat ini</div>
                 </div>
-            <?php endforeach; ?>
+            <?php endif; ?>
         </div>
-    <?php endif; ?>
 
-    <!-- Recent Returns -->
-    <?php if (!empty($recentReturns)): ?>
-        <div class="section-title">
-            <span class="icon">📋</span>
-            10 Transaksi Terakhir
+        <div class="panel-stack">
+            <div class="dashboard-panel">
+                <div class="panel-head">
+                    <h2>Motor Siap Disewa</h2>
+                    <div class="hint"><?php echo count($availableList); ?> unit ready</div>
+                </div>
+
+                <?php if (!empty($availableList)): ?>
+                    <div class="available-grid">
+                        <?php foreach ($availableList as $m): ?>
+                            <div class="motor-available">
+                                <div class="icon">🏍️</div>
+                                <div class="name"><?php echo htmlspecialchars($m['motor_name']); ?></div>
+                                <div class="plate"><?php echo htmlspecialchars($m['plate_number']); ?></div>
+                                <div class="rate">Rp <?php echo number_format($m['daily_rate'], 0, ',', '.'); ?>/hari</div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php else: ?>
+                    <div class="empty-state" style="padding:1rem 0 0.25rem">
+                        <div class="icon">🅿️</div>
+                        <div class="text">Semua unit sedang digunakan atau maintenance</div>
+                    </div>
+                <?php endif; ?>
+            </div>
+
+            <?php if (!empty($recentReturns)): ?>
+            <div class="dashboard-panel">
+                <div class="panel-head">
+                    <h2>Transaksi Terakhir</h2>
+                    <div class="hint">10 data terbaru</div>
+                </div>
+                <table class="recent-table" style="box-shadow:none;border-radius:10px;overflow:hidden">
+                    <thead>
+                        <tr>
+                            <th style="padding:0.7rem">Motor</th>
+                            <th style="padding:0.7rem">Total</th>
+                            <th style="padding:0.7rem">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($recentReturns as $ret): ?>
+                        <tr>
+                            <td style="padding:0.7rem">
+                                <strong><?php echo htmlspecialchars($ret['plate_number']); ?></strong>
+                                <div style="font-size:0.75rem;color:var(--text-secondary)"><?php echo htmlspecialchars($ret['motor_name']); ?></div>
+                            </td>
+                            <td style="padding:0.7rem;font-weight:600">Rp <?php echo number_format($ret['total_price'], 0, ',', '.'); ?></td>
+                            <td style="padding:0.7rem"><span class="badge badge-success">Kembali</span></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php endif; ?>
         </div>
-        <table class="recent-table">
-            <thead>
-                <tr>
-                    <th>Motor</th>
-                    <th>Tamu</th>
-                    <th>Mulai</th>
-                    <th>Kembali</th>
-                    <th>Hari</th>
-                    <th>Total</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($recentReturns as $ret):
-                    $start = new DateTime($ret['start_datetime']);
-                    $end = new DateTime($ret['actual_return'] ?? $ret['end_datetime']);
-                    $days = max(1, (int)ceil($start->diff($end)->days));
-                ?>
-                    <tr>
-                        <td>
-                            <strong><?php echo htmlspecialchars($ret['plate_number']); ?></strong>
-                            <div style="font-size:0.8rem;color:var(--text-secondary)"><?php echo htmlspecialchars($ret['motor_name']); ?></div>
-                        </td>
-                        <td><?php echo htmlspecialchars($ret['guest_name']); ?></td>
-                        <td style="font-size:0.85rem"><?php echo date('d M H:i', strtotime($ret['start_datetime'])); ?></td>
-                        <td style="font-size:0.85rem"><?php echo date('d M H:i', strtotime($ret['actual_return'] ?? $ret['end_datetime'])); ?></td>
-                        <td style="text-align:center;font-weight:600"><?php echo $days; ?></td>
-                        <td style="font-weight:600">Rp <?php echo number_format($ret['total_price'], 0, ',', '.'); ?></td>
-                        <td><span class="badge badge-success">✓ Kembali</span></td>
-                    </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-    <?php endif; ?>
+    </div>
 
 </div>
 
