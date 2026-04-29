@@ -303,7 +303,7 @@ include '../../includes/header.php';
             </div>
 
             <div style="margin-top:1rem">
-                <a href="rental-motor.php" class="action-link" style="display:block;text-align:center;padding:0.5rem">
+                <a href="rental-motor.php?view=manage" class="action-link" style="display:block;text-align:center;padding:0.5rem">
                     → Kelola
                 </a>
             </div>

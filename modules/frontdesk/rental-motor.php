@@ -22,6 +22,11 @@ $pdo         = $db->getConnection();
 $currentUser = $auth->getCurrentUser();
 $businessId  = $_SESSION['business_id'] ?? 1;
 
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' && (($_GET['view'] ?? '') !== 'manage')) {
+    header('Location: ' . BASE_URL . '/modules/frontdesk/rental-motor-dashboard.php');
+    exit;
+}
+
 // ── Auto-create tables ─────────────────────────────────────────────────────────
 $pdo->exec("CREATE TABLE IF NOT EXISTS rental_motors (
     id            INT AUTO_INCREMENT PRIMARY KEY,
@@ -728,7 +733,7 @@ include '../../includes/header.php';
             </select>
             <button type="submit" class="btn-rm btn-rm-primary" style="padding:0.4rem 0.9rem;font-size:0.8rem">Filter</button>
             <?php if ($filterRentalStatus || $filterSearch): ?>
-            <a href="rental-motor.php" class="btn-rm btn-rm-secondary" style="padding:0.4rem 0.9rem;font-size:0.8rem;text-decoration:none">Clear</a>
+            <a href="rental-motor.php?view=manage" class="btn-rm btn-rm-secondary" style="padding:0.4rem 0.9rem;font-size:0.8rem;text-decoration:none">Clear</a>
             <?php endif; ?>
         </form>
 
