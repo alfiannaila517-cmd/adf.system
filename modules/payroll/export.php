@@ -20,8 +20,20 @@ $db = Database::getInstance();
 $pageTitle = 'Export Data Payroll';
 
 // Get available periods for selection
-$months = [1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April', 5 => 'Mei', 6 => 'Juni', 
-           7 => 'Juli', 8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'];
+$months = [
+    1 => 'Januari',
+    2 => 'Februari',
+    3 => 'Maret',
+    4 => 'April',
+    5 => 'Mei',
+    6 => 'Juni',
+    7 => 'Juli',
+    8 => 'Agustus',
+    9 => 'September',
+    10 => 'Oktober',
+    11 => 'November',
+    12 => 'Desember'
+];
 
 $available_periods = $db->fetchAll("SELECT DISTINCT period_month, period_year FROM payroll_periods ORDER BY period_year DESC, period_month DESC LIMIT 12") ?: [];
 
@@ -36,307 +48,419 @@ include '../../includes/header.php';
 ?>
 
 <style>
-:root {
-    --exp-gradient-1: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    --exp-gradient-2: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-    --exp-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
-    --exp-radius: 16px;
-}
+    :root {
+        --exp-primary: #667eea;
+        --exp-primary-dark: #5568d3;
+        --exp-green: #10b981;
+        --exp-green-dark: #059669;
+        --exp-blue: #3b82f6;
+        --exp-blue-dark: #2563eb;
+        --exp-red: #ef4444;
+        --exp-red-dark: #dc2626;
+        --exp-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        --exp-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+        --exp-radius: 12px;
+        --exp-text-primary: #1e293b;
+        --exp-text-secondary: #475569;
+        --exp-text-tertiary: #64748b;
+        --exp-border: #e2e8f0;
+        --exp-bg-light: #f8fafc;
+        --exp-bg-white: #ffffff;
+    }
 
-.exp-container {
-    max-width: 1000px;
-    margin: 0 auto;
-    padding: 0;
-}
+    .exp-container {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 0 1rem;
+    }
 
-.exp-header {
-    background: var(--exp-gradient-1);
-    color: #fff;
-    padding: 2rem 2.5rem;
-    border-radius: var(--exp-radius);
-    margin-bottom: 1.5rem;
-    position: relative;
-    overflow: hidden;
-}
-
-.exp-header::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    right: -20%;
-    width: 400px;
-    height: 400px;
-    background: radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 70%);
-    border-radius: 50%;
-}
-
-.exp-header h1 {
-    font-size: 1.65rem;
-    font-weight: 800;
-    margin: 0;
-    position: relative;
-    z-index: 2;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-}
-
-.exp-header p {
-    color: rgba(255,255,255,0.85);
-    margin: 0.5rem 0 0;
-    font-size: 0.95rem;
-    position: relative;
-    z-index: 2;
-}
-
-/* Export Options */
-.exp-options {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 1.25rem;
-    margin-bottom: 1.5rem;
-}
-
-.exp-option-card {
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
-    border-radius: var(--exp-radius);
-    padding: 1.5rem;
-    transition: all 0.3s ease;
-    box-shadow: var(--exp-shadow);
-}
-
-.exp-option-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
-    border-color: #667eea;
-}
-
-.exp-option-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5rem;
-    margin-bottom: 1rem;
-    background: linear-gradient(135deg, rgba(102,126,234,0.15), rgba(118,75,162,0.15));
-}
-
-.exp-option-card h3 {
-    font-size: 1.05rem;
-    font-weight: 700;
-    margin-bottom: 0.5rem;
-    color: var(--text-primary);
-}
-
-.exp-option-card p {
-    font-size: 0.85rem;
-    color: var(--text-tertiary);
-    margin: 0 0 1rem;
-    line-height: 1.5;
-}
-
-.exp-option-btn {
-    display: inline-block;
-    padding: 0.75rem 1.25rem;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    font-weight: 600;
-    font-size: 0.9rem;
-    cursor: pointer;
-    text-decoration: none;
-    transition: all 0.3s;
-    width: 100%;
-    text-align: center;
-}
-
-.exp-option-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(102,126,234,0.4);
-}
-
-/* Export Form */
-.exp-form-section {
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
-    border-radius: var(--exp-radius);
-    padding: 1.5rem;
-    box-shadow: var(--exp-shadow);
-}
-
-.exp-form-title {
-    font-size: 1.15rem;
-    font-weight: 700;
-    margin-bottom: 1.5rem;
-    color: var(--text-primary);
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.exp-form-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-}
-
-.exp-form-group {
-    display: flex;
-    flex-direction: column;
-}
-
-.exp-form-group label {
-    font-size: 0.85rem;
-    font-weight: 600;
-    margin-bottom: 0.5rem;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-}
-
-.exp-form-group select,
-.exp-form-group input[type="month"],
-.exp-form-group input[type="text"] {
-    padding: 0.75rem;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    background: var(--bg-secondary);
-    color: var(--text-primary);
-    font-size: 0.9rem;
-    transition: all 0.2s;
-}
-
-.exp-form-group select:focus,
-.exp-form-group input:focus {
-    outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
-}
-
-.exp-checkboxes {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 0.75rem;
-    margin-bottom: 1.5rem;
-}
-
-.exp-checkbox {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.exp-checkbox input[type="checkbox"] {
-    width: 18px;
-    height: 18px;
-    cursor: pointer;
-}
-
-.exp-checkbox label {
-    cursor: pointer;
-    font-size: 0.9rem;
-    margin: 0;
-}
-
-.exp-buttons {
-    display: flex;
-    gap: 1rem;
-    flex-wrap: wrap;
-}
-
-.exp-btn {
-    padding: 0.85rem 1.75rem;
-    border: none;
-    border-radius: 8px;
-    font-weight: 600;
-    font-size: 0.95rem;
-    cursor: pointer;
-    transition: all 0.3s;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.exp-btn-excel {
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-    color: #fff;
-}
-
-.exp-btn-excel:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(16,185,129,0.4);
-}
-
-.exp-btn-pdf {
-    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-    color: #fff;
-}
-
-.exp-btn-pdf:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(239,68,68,0.4);
-}
-
-.exp-btn-csv {
-    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-    color: #fff;
-}
-
-.exp-btn-csv:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(59,130,246,0.4);
-}
-
-.exp-features {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 1rem;
-    margin-top: 2rem;
-    padding-top: 2rem;
-    border-top: 1px solid var(--border-color);
-}
-
-.exp-feature-item {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    font-size: 0.85rem;
-    color: var(--text-tertiary);
-}
-
-.exp-feature-icon {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    background: var(--bg-secondary);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1rem;
-}
-
-@media (max-width: 768px) {
     .exp-header {
-        padding: 1.5rem;
+        background: linear-gradient(135deg, var(--exp-primary) 0%, #764ba2 100%);
+        color: #fff;
+        padding: 2.5rem;
+        border-radius: var(--exp-radius);
+        margin-bottom: 2.5rem;
+        position: relative;
+        overflow: hidden;
+        box-shadow: var(--exp-shadow);
     }
-    
+
+    .exp-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -20%;
+        width: 400px;
+        height: 400px;
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.15) 0%, transparent 70%);
+        border-radius: 50%;
+    }
+
     .exp-header h1 {
-        font-size: 1.4rem;
+        font-size: 1.75rem;
+        font-weight: 800;
+        margin: 0 0 0.5rem 0;
+        position: relative;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        letter-spacing: -0.3px;
     }
-    
+
+    .exp-header p {
+        color: rgba(255, 255, 255, 0.9);
+        margin: 0;
+        font-size: 0.975rem;
+        position: relative;
+        z-index: 2;
+        font-weight: 500;
+    }
+
+    /* Quick Export Options */
     .exp-options {
-        grid-template-columns: 1fr;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2.5rem;
     }
-    
+
+    .exp-option-card {
+        background: var(--exp-bg-white);
+        border: 2px solid var(--exp-border);
+        border-radius: var(--exp-radius);
+        padding: 1.75rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: var(--exp-shadow-sm);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .exp-option-card:hover {
+        transform: translateY(-6px);
+        box-shadow: var(--exp-shadow);
+        border-color: var(--exp-primary);
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    }
+
+    .exp-option-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.75rem;
+        margin-bottom: 1rem;
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.15));
+    }
+
+    .exp-option-card h3 {
+        font-size: 1.125rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        color: var(--exp-text-primary);
+        letter-spacing: -0.2px;
+    }
+
+    .exp-option-card p {
+        font-size: 0.9rem;
+        color: var(--exp-text-secondary);
+        margin: 0 0 1.25rem 0;
+        line-height: 1.6;
+        flex-grow: 1;
+    }
+
+    .exp-option-btn {
+        display: inline-block;
+        padding: 0.85rem 1.5rem;
+        background: linear-gradient(135deg, var(--exp-primary) 0%, #764ba2 100%);
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 0.95rem;
+        cursor: pointer;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        width: 100%;
+        text-align: center;
+        letter-spacing: 0.3px;
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    }
+
+    .exp-option-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        background: linear-gradient(135deg, #5568d3 0%, #6a3e8f 100%);
+    }
+
+    .exp-option-btn:active {
+        transform: translateY(0);
+    }
+
+    /* Export Form Section */
+    .exp-form-section {
+        background: var(--exp-bg-white);
+        border: 2px solid var(--exp-border);
+        border-radius: var(--exp-radius);
+        padding: 2rem;
+        box-shadow: var(--exp-shadow-sm);
+    }
+
+    .exp-form-title {
+        font-size: 1.3rem;
+        font-weight: 800;
+        margin-bottom: 1.75rem;
+        color: var(--exp-text-primary);
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        letter-spacing: -0.2px;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid var(--exp-border);
+    }
+
     .exp-form-grid {
-        grid-template-columns: 1fr;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
     }
-}
+
+    .exp-form-group {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .exp-form-group label {
+        font-size: 0.8rem;
+        font-weight: 700;
+        margin-bottom: 0.65rem;
+        color: var(--exp-text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .exp-form-group select,
+    .exp-form-group input[type="month"],
+    .exp-form-group input[type="text"] {
+        padding: 0.85rem 1rem;
+        border: 1.5px solid var(--exp-border);
+        border-radius: 8px;
+        background: var(--exp-bg-light);
+        color: var(--exp-text-primary);
+        font-size: 0.95rem;
+        font-weight: 500;
+        transition: all 0.2s;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    .exp-form-group select {
+        cursor: pointer;
+        appearance: none;
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 0.7rem center;
+        background-size: 1.2em 1.2em;
+        padding-right: 2.5rem;
+    }
+
+    .exp-form-group select:hover,
+    .exp-form-group input:hover {
+        border-color: var(--exp-primary);
+    }
+
+    .exp-form-group select:focus,
+    .exp-form-group input:focus {
+        outline: none;
+        border-color: var(--exp-primary);
+        background-color: var(--exp-bg-white);
+        box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.12);
+    }
+
+    /* Data Selection Checkboxes */
+    .exp-data-section-title {
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: var(--exp-text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 1rem;
+        margin-top: 0;
+        padding-bottom: 0.75rem;
+        border-bottom: 2px solid var(--exp-border);
+    }
+
+    .exp-checkboxes {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+        padding: 1.25rem;
+        background: var(--exp-bg-light);
+        border-radius: 8px;
+        border: 1px solid var(--exp-border);
+    }
+
+    .exp-checkbox {
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+    }
+
+    .exp-checkbox input[type="checkbox"] {
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+        accent-color: var(--exp-primary);
+        flex-shrink: 0;
+    }
+
+    .exp-checkbox label {
+        cursor: pointer;
+        font-size: 0.95rem;
+        font-weight: 600;
+        margin: 0;
+        color: var(--exp-text-primary);
+        user-select: none;
+    }
+
+    .exp-checkbox input[type="checkbox"]:hover {
+        opacity: 0.8;
+    }
+
+    /* Export Buttons */
+    .exp-buttons {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        margin-bottom: 2rem;
+    }
+
+    .exp-btn {
+        padding: 0.95rem 2rem;
+        border: none;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.6rem;
+        letter-spacing: 0.3px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+        min-width: 160px;
+        justify-content: center;
+    }
+
+    .exp-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+    }
+
+    .exp-btn:active {
+        transform: translateY(-1px);
+    }
+
+    .exp-btn-excel {
+        background: linear-gradient(135deg, var(--exp-green) 0%, var(--exp-green-dark) 100%);
+        color: #fff;
+    }
+
+    .exp-btn-excel:hover {
+        background: linear-gradient(135deg, #0da972 0%, #047857 100%);
+    }
+
+    .exp-btn-pdf {
+        background: linear-gradient(135deg, var(--exp-red) 0%, var(--exp-red-dark) 100%);
+        color: #fff;
+    }
+
+    .exp-btn-pdf:hover {
+        background: linear-gradient(135deg, #ea2d2d 0%, #c41d1d 100%);
+    }
+
+    .exp-btn-csv {
+        background: linear-gradient(135deg, var(--exp-blue) 0%, var(--exp-blue-dark) 100%);
+        color: #fff;
+    }
+
+    .exp-btn-csv:hover {
+        background: linear-gradient(135deg, #3b7fef 0%, #2455d4 100%);
+    }
+
+    /* Features Section */
+    .exp-features {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1rem;
+        padding: 1.5rem;
+        background: linear-gradient(135deg, var(--exp-bg-light) 0%, #f1f5f9 100%);
+        border-radius: 8px;
+        border: 1px solid var(--exp-border);
+    }
+
+    .exp-feature-item {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+        font-size: 0.9rem;
+        color: var(--exp-text-secondary);
+        font-weight: 600;
+    }
+
+    .exp-feature-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        background: var(--exp-primary);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.9rem;
+        flex-shrink: 0;
+    }
+
+    @media (max-width: 768px) {
+        .exp-container {
+            padding: 0 0.75rem;
+        }
+
+        .exp-header {
+            padding: 1.75rem;
+            margin-bottom: 1.75rem;
+        }
+
+        .exp-header h1 {
+            font-size: 1.5rem;
+        }
+
+        .exp-options {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+            margin-bottom: 1.75rem;
+        }
+
+        .exp-form-section {
+            padding: 1.5rem;
+        }
+
+        .exp-buttons {
+            flex-direction: column;
+        }
+
+        .exp-btn {
+            width: 100%;
+        }
+
+        .exp-checkboxes {
+            grid-template-columns: 1fr;
+        }
+    }
 </style>
 
 <div class="main-content">
@@ -344,7 +468,7 @@ include '../../includes/header.php';
         <!-- Header -->
         <div class="exp-header">
             <h1>📊 Export Data Payroll</h1>
-            <p>Ekspor data karyawan dan gaji dalam berbagai format</p>
+            <p>Ekspor data karyawan dan gaji dalam berbagai format (Excel, CSV, PDF)</p>
         </div>
 
         <!-- Quick Export Options -->
@@ -352,11 +476,11 @@ include '../../includes/header.php';
             <!-- Employee Master Data -->
             <div class="exp-option-card">
                 <div class="exp-option-icon">👥</div>
-                <h3>Data Karyawan</h3>
-                <p>Ekspor data master semua karyawan aktif dengan informasi lengkap</p>
+                <h3>Data Master Karyawan</h3>
+                <p>Ekspor data lengkap semua karyawan aktif termasuk informasi kontak, gaji dasar, dan rekening bank</p>
                 <form method="POST" action="export-handler.php">
                     <input type="hidden" name="export_type" value="employees">
-                    <button type="submit" class="exp-option-btn">↓ Export</button>
+                    <button type="submit" class="exp-option-btn">📥 Unduh Data Karyawan</button>
                 </form>
             </div>
 
@@ -364,32 +488,32 @@ include '../../includes/header.php';
             <div class="exp-option-card">
                 <div class="exp-option-icon">💰</div>
                 <h3>Data Gaji Periode</h3>
-                <p>Ekspor data gaji untuk periode bulan yang dipilih</p>
-                <button type="button" class="exp-option-btn" onclick="openSalaryExport()">↓ Export</button>
+                <p>Ekspor data gaji lengkap untuk bulan tertentu, termasuk earning, deduction, dan gaji bersih</p>
+                <button type="button" class="exp-option-btn" onclick="openSalaryExport()">📥 Unduh Data Gaji</button>
             </div>
 
             <!-- Complete Export -->
             <div class="exp-option-card">
                 <div class="exp-option-icon">📦</div>
-                <h3>Data Lengkap</h3>
-                <p>Ekspor semua data (karyawan + gaji + absensi) dalam satu file</p>
-                <button type="button" class="exp-option-btn" onclick="openCompleteExport()">↓ Export</button>
+                <h3>Data Lengkap Periode</h3>
+                <p>Ekspor semua data karyawan + gaji + absensi untuk periode tertentu dalam satu file</p>
+                <button type="button" class="exp-option-btn" onclick="openCompleteExport()">📥 Unduh Data Lengkap</button>
             </div>
         </div>
 
         <!-- Advanced Export Form -->
         <div class="exp-form-section">
-            <div class="exp-form-title">⚙️ Pengaturan Export Custom</div>
+            <div class="exp-form-title">⚙️ Pengaturan Export Kustom</div>
 
             <form id="exportForm" method="POST" action="export-handler.php">
                 <!-- Period Selection -->
                 <div class="exp-form-grid">
                     <div class="exp-form-group">
-                        <label for="period">Pilih Periode</label>
+                        <label for="period">📅 Pilih Periode</label>
                         <select name="period" id="period" required>
                             <option value="">-- Pilih Bulan & Tahun --</option>
                             <?php foreach ($available_periods as $p): ?>
-                                <option value="<?php echo $p['period_month'] . '-' . $p['period_year']; ?>" 
+                                <option value="<?php echo $p['period_month'] . '-' . $p['period_year']; ?>"
                                     <?php echo ($p['period_month'] == $selected_month && $p['period_year'] == $selected_year) ? 'selected' : ''; ?>>
                                     <?php echo $months[$p['period_month']] . ' ' . $p['period_year']; ?>
                                 </option>
@@ -398,10 +522,10 @@ include '../../includes/header.php';
                     </div>
 
                     <div class="exp-form-group">
-                        <label for="department_filter">Filter Departemen (Optional)</label>
+                        <label for="department_filter">🏢 Filter Departemen (Opsional)</label>
                         <select name="department_filter" id="department_filter">
                             <option value="">-- Semua Departemen --</option>
-                            <?php 
+                            <?php
                             $depts = $db->fetchAll("SELECT DISTINCT department FROM payroll_employees WHERE is_active = 1 AND department IS NOT NULL ORDER BY department");
                             foreach ($depts as $d):
                             ?>
@@ -414,47 +538,48 @@ include '../../includes/header.php';
                 </div>
 
                 <!-- Data Selection -->
-                <div class="exp-form-group" style="margin-bottom: 1.5rem;">
-                    <label style="text-transform: uppercase; font-size: 0.75rem; font-weight: 600; margin-bottom: 0.75rem; display: block;">Pilih Data yang Akan Diekspor</label>
-                    <div class="exp-checkboxes">
-                        <div class="exp-checkbox">
-                            <input type="checkbox" name="include_employee_data" id="inc_emp" value="1" checked>
-                            <label for="inc_emp">Data Karyawan</label>
-                        </div>
-                        <div class="exp-checkbox">
-                            <input type="checkbox" name="include_attendance" id="inc_att" value="1" checked>
-                            <label for="inc_att">Absensi/Work Hours</label>
-                        </div>
-                        <div class="exp-checkbox">
-                            <input type="checkbox" name="include_salary_details" id="inc_sal" value="1" checked>
-                            <label for="inc_sal">Detail Gaji</label>
-                        </div>
-                        <div class="exp-checkbox">
-                            <input type="checkbox" name="include_deductions" id="inc_ded" value="1" checked>
-                            <label for="inc_ded">Potongan/Deduction</label>
-                        </div>
-                        <div class="exp-checkbox">
-                            <input type="checkbox" name="include_bank_info" id="inc_bank" value="1" checked>
-                            <label for="inc_bank">Info Bank</label>
-                        </div>
+                <label class="exp-data-section-title">📋 Pilih Data yang Akan Diekspor</label>
+                <div class="exp-checkboxes">
+                    <div class="exp-checkbox">
+                        <input type="checkbox" name="include_employee_data" id="inc_emp" value="1" checked>
+                        <label for="inc_emp">👤 Data Karyawan</label>
+                    </div>
+                    <div class="exp-checkbox">
+                        <input type="checkbox" name="include_attendance" id="inc_att" value="1" checked>
+                        <label for="inc_att">⏱️ Absensi/Work Hours</label>
+                    </div>
+                    <div class="exp-checkbox">
+                        <input type="checkbox" name="include_salary_details" id="inc_sal" value="1" checked>
+                        <label for="inc_sal">💵 Detail Gaji</label>
+                    </div>
+                    <div class="exp-checkbox">
+                        <input type="checkbox" name="include_deductions" id="inc_ded" value="1" checked>
+                        <label for="inc_ded">📊 Potongan/Deduction</label>
+                    </div>
+                    <div class="exp-checkbox">
+                        <input type="checkbox" name="include_bank_info" id="inc_bank" value="1" checked>
+                        <label for="inc_bank">🏦 Info Bank</label>
                     </div>
                 </div>
 
-                <!-- Export Buttons -->
+                <!-- Export Format Buttons -->
                 <input type="hidden" name="export_type" value="custom">
+                <div style="margin-bottom: 1.5rem;">
+                    <label class="exp-data-section-title" style="margin-bottom: 0.75rem;">📤 Pilih Format Export</label>
+                </div>
                 <div class="exp-buttons">
                     <button type="submit" name="format" value="excel" class="exp-btn exp-btn-excel">
-                        📊 Export ke Excel
+                        <span>📊</span> Export ke Excel
                     </button>
                     <button type="submit" name="format" value="csv" class="exp-btn exp-btn-csv">
-                        📄 Export ke CSV
+                        <span>📄</span> Export ke CSV
                     </button>
                     <button type="submit" name="format" value="pdf" class="exp-btn exp-btn-pdf">
-                        📕 Export ke PDF
+                        <span>📕</span> Export ke PDF
                     </button>
                 </div>
 
-                <!-- Features -->
+                <!-- Features Info -->
                 <div class="exp-features">
                     <div class="exp-feature-item">
                         <div class="exp-feature-icon">✓</div>
@@ -462,15 +587,15 @@ include '../../includes/header.php';
                     </div>
                     <div class="exp-feature-item">
                         <div class="exp-feature-icon">✓</div>
-                        <span>Format CSV</span>
+                        <span>Format CSV Terkompresi</span>
                     </div>
                     <div class="exp-feature-item">
                         <div class="exp-feature-icon">✓</div>
-                        <span>Format PDF</span>
+                        <span>Format PDF Siap Cetak</span>
                     </div>
                     <div class="exp-feature-item">
                         <div class="exp-feature-icon">✓</div>
-                        <span>Filter by Departemen</span>
+                        <span>Filter Departemen</span>
                     </div>
                 </div>
             </form>
@@ -479,78 +604,78 @@ include '../../includes/header.php';
 </div>
 
 <script>
-function openSalaryExport() {
-    const period = prompt('Masukkan periode (contoh: 2-2025 untuk Feb 2025)');
-    if (period) {
-        const [m, y] = period.split('-');
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = 'export-handler.php';
-        
-        const typeInput = document.createElement('input');
-        typeInput.type = 'hidden';
-        typeInput.name = 'export_type';
-        typeInput.value = 'salary';
-        
-        const formatInput = document.createElement('input');
-        formatInput.type = 'hidden';
-        formatInput.name = 'format';
-        formatInput.value = 'excel';
-        
-        const periodInput = document.createElement('input');
-        periodInput.type = 'hidden';
-        periodInput.name = 'period';
-        periodInput.value = m.padStart(2, '0') + '-' + y;
-        
-        form.appendChild(typeInput);
-        form.appendChild(formatInput);
-        form.appendChild(periodInput);
-        document.body.appendChild(form);
-        form.submit();
-    }
-}
+    function openSalaryExport() {
+        const period = prompt('Masukkan periode (contoh: 2-2025 untuk Feb 2025)');
+        if (period) {
+            const [m, y] = period.split('-');
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = 'export-handler.php';
 
-function openCompleteExport() {
-    const period = prompt('Masukkan periode (contoh: 2-2025 untuk Feb 2025)');
-    if (period) {
-        const [m, y] = period.split('-');
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = 'export-handler.php';
-        
-        const typeInput = document.createElement('input');
-        typeInput.type = 'hidden';
-        typeInput.name = 'export_type';
-        typeInput.value = 'complete';
-        
-        const formatInput = document.createElement('input');
-        formatInput.type = 'hidden';
-        formatInput.name = 'format';
-        formatInput.value = 'excel';
-        
-        const periodInput = document.createElement('input');
-        periodInput.type = 'hidden';
-        periodInput.name = 'period';
-        periodInput.value = m.padStart(2, '0') + '-' + y;
-        
-        form.appendChild(typeInput);
-        form.appendChild(formatInput);
-        form.appendChild(periodInput);
-        document.body.appendChild(form);
-        form.submit();
-    }
-}
+            const typeInput = document.createElement('input');
+            typeInput.type = 'hidden';
+            typeInput.name = 'export_type';
+            typeInput.value = 'salary';
 
-// Auto-select first available period if exists
-document.addEventListener('DOMContentLoaded', function() {
-    const periodSelect = document.getElementById('period');
-    if (periodSelect && periodSelect.options.length > 1) {
-        // First option is placeholder, select second if available
-        if (periodSelect.options.length > 1) {
-            periodSelect.selectedIndex = 1;
+            const formatInput = document.createElement('input');
+            formatInput.type = 'hidden';
+            formatInput.name = 'format';
+            formatInput.value = 'excel';
+
+            const periodInput = document.createElement('input');
+            periodInput.type = 'hidden';
+            periodInput.name = 'period';
+            periodInput.value = m.padStart(2, '0') + '-' + y;
+
+            form.appendChild(typeInput);
+            form.appendChild(formatInput);
+            form.appendChild(periodInput);
+            document.body.appendChild(form);
+            form.submit();
         }
     }
-});
+
+    function openCompleteExport() {
+        const period = prompt('Masukkan periode (contoh: 2-2025 untuk Feb 2025)');
+        if (period) {
+            const [m, y] = period.split('-');
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = 'export-handler.php';
+
+            const typeInput = document.createElement('input');
+            typeInput.type = 'hidden';
+            typeInput.name = 'export_type';
+            typeInput.value = 'complete';
+
+            const formatInput = document.createElement('input');
+            formatInput.type = 'hidden';
+            formatInput.name = 'format';
+            formatInput.value = 'excel';
+
+            const periodInput = document.createElement('input');
+            periodInput.type = 'hidden';
+            periodInput.name = 'period';
+            periodInput.value = m.padStart(2, '0') + '-' + y;
+
+            form.appendChild(typeInput);
+            form.appendChild(formatInput);
+            form.appendChild(periodInput);
+            document.body.appendChild(form);
+            form.submit();
+        }
+    }
+
+    // Auto-select first available period if exists
+    document.addEventListener('DOMContentLoaded', function() {
+        const periodSelect = document.getElementById('period');
+        if (periodSelect && periodSelect.options.length > 1) {
+            // First option is placeholder, select second if available
+            if (periodSelect.options.length > 1) {
+                periodSelect.selectedIndex = 1;
+            }
+        }
+    });
 </script>
 
 <?php include '../../includes/footer.php'; ?>
