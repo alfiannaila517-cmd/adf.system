@@ -1,22 +1,22 @@
 <?php
 // modules/payroll/export.php - EXPORT EMPLOYEE & SALARY DATA
 define('APP_ACCESS', true);
-require_once '../../config/config.php';
-require_once '../../config/database.php';
-require_once '../../includes/auth.php';
-require_once '../../includes/functions.php';
+require_once __DIR__ . '/../../config/config.php';
+require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../../includes/auth.php';
+require_once __DIR__ . '/../../includes/functions.php';
 
-$auth = new Auth();
+$auth = new \Auth();
 $auth->requireLogin();
 
 if (!isModuleEnabled('payroll')) {
-    include '../../includes/header.php';
+    include __DIR__ . '/../../includes/header.php';
     echo '<div class="main-content"><div class="alert alert-warning">Modul Gaji (Payroll) belum diaktifkan.</div></div>';
-    include '../../includes/footer.php';
+    include __DIR__ . '/../../includes/footer.php';
     exit;
 }
 
-$db = Database::getInstance();
+$db = \Database::getInstance();
 $pageTitle = 'Export Data Payroll';
 
 // Get available periods for selection
@@ -44,7 +44,7 @@ $employees = $db->fetchAll("SELECT id, employee_code, full_name, position, depar
 $selected_month = isset($_GET['month']) ? (int)$_GET['month'] : date('m');
 $selected_year = isset($_GET['year']) ? (int)$_GET['year'] : date('Y');
 
-include '../../includes/header.php';
+include __DIR__ . '/../../includes/header.php';
 ?>
 
 <style>
@@ -478,10 +478,7 @@ include '../../includes/header.php';
                 <div class="exp-option-icon">👥</div>
                 <h3>Data Master Karyawan</h3>
                 <p>Ekspor data lengkap semua karyawan aktif termasuk informasi kontak, gaji dasar, dan rekening bank</p>
-                <form method="POST" action="export-handler.php">
-                    <input type="hidden" name="export_type" value="employees">
-                    <button type="submit" class="exp-option-btn">📥 Unduh Data Karyawan</button>
-                </form>
+                <button type="button" class="exp-option-btn" onclick="submitQuickExport('employees')">📥 Unduh Data Karyawan</button>
             </div>
 
             <!-- Salary Data for Period -->
@@ -489,7 +486,7 @@ include '../../includes/header.php';
                 <div class="exp-option-icon">💰</div>
                 <h3>Data Gaji Periode</h3>
                 <p>Ekspor data gaji lengkap untuk bulan tertentu, termasuk earning, deduction, dan gaji bersih</p>
-                <button type="button" class="exp-option-btn" onclick="openSalaryExport()">📥 Unduh Data Gaji</button>
+                <button type="button" class="exp-option-btn" onclick="submitQuickExport('salary')">📥 Unduh Data Gaji</button>
             </div>
 
             <!-- Complete Export -->
@@ -497,7 +494,7 @@ include '../../includes/header.php';
                 <div class="exp-option-icon">📦</div>
                 <h3>Data Lengkap Periode</h3>
                 <p>Ekspor semua data karyawan + gaji + absensi untuk periode tertentu dalam satu file</p>
-                <button type="button" class="exp-option-btn" onclick="openCompleteExport()">📥 Unduh Data Lengkap</button>
+                <button type="button" class="exp-option-btn" onclick="submitQuickExport('complete')">📥 Unduh Data Lengkap</button>
             </div>
         </div>
 
@@ -545,16 +542,8 @@ include '../../includes/header.php';
                         <label for="inc_emp">👤 Data Karyawan</label>
                     </div>
                     <div class="exp-checkbox">
-                        <input type="checkbox" name="include_attendance" id="inc_att" value="1" checked>
-                        <label for="inc_att">⏱️ Absensi/Work Hours</label>
-                    </div>
-                    <div class="exp-checkbox">
                         <input type="checkbox" name="include_salary_details" id="inc_sal" value="1" checked>
                         <label for="inc_sal">💵 Detail Gaji</label>
-                    </div>
-                    <div class="exp-checkbox">
-                        <input type="checkbox" name="include_deductions" id="inc_ded" value="1" checked>
-                        <label for="inc_ded">📊 Potongan/Deduction</label>
                     </div>
                     <div class="exp-checkbox">
                         <input type="checkbox" name="include_bank_info" id="inc_bank" value="1" checked>
@@ -604,78 +593,46 @@ include '../../includes/header.php';
 </div>
 
 <script>
-    function openSalaryExport() {
-        const period = prompt('Masukkan periode (contoh: 2-2025 untuk Feb 2025)');
-        if (period) {
-            const [m, y] = period.split('-');
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = 'export-handler.php';
-
-            const typeInput = document.createElement('input');
-            typeInput.type = 'hidden';
-            typeInput.name = 'export_type';
-            typeInput.value = 'salary';
-
-            const formatInput = document.createElement('input');
-            formatInput.type = 'hidden';
-            formatInput.name = 'format';
-            formatInput.value = 'excel';
-
-            const periodInput = document.createElement('input');
-            periodInput.type = 'hidden';
-            periodInput.name = 'period';
-            periodInput.value = m.padStart(2, '0') + '-' + y;
-
-            form.appendChild(typeInput);
-            form.appendChild(formatInput);
-            form.appendChild(periodInput);
-            document.body.appendChild(form);
-            form.submit();
-        }
-    }
-
-    function openCompleteExport() {
-        const period = prompt('Masukkan periode (contoh: 2-2025 untuk Feb 2025)');
-        if (period) {
-            const [m, y] = period.split('-');
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = 'export-handler.php';
-
-            const typeInput = document.createElement('input');
-            typeInput.type = 'hidden';
-            typeInput.name = 'export_type';
-            typeInput.value = 'complete';
-
-            const formatInput = document.createElement('input');
-            formatInput.type = 'hidden';
-            formatInput.name = 'format';
-            formatInput.value = 'excel';
-
-            const periodInput = document.createElement('input');
-            periodInput.type = 'hidden';
-            periodInput.name = 'period';
-            periodInput.value = m.padStart(2, '0') + '-' + y;
-
-            form.appendChild(typeInput);
-            form.appendChild(formatInput);
-            form.appendChild(periodInput);
-            document.body.appendChild(form);
-            form.submit();
-        }
-    }
-
-    // Auto-select first available period if exists
-    document.addEventListener('DOMContentLoaded', function() {
+    function submitQuickExport(exportType) {
         const periodSelect = document.getElementById('period');
-        if (periodSelect && periodSelect.options.length > 1) {
-            // First option is placeholder, select second if available
-            if (periodSelect.options.length > 1) {
-                periodSelect.selectedIndex = 1;
+        const period = periodSelect ? periodSelect.value : '';
+
+        if ((exportType === 'salary' || exportType === 'complete') && !period) {
+            alert('Pilih periode terlebih dahulu sebelum export data gaji atau data lengkap.');
+            if (periodSelect) {
+                periodSelect.focus();
             }
+            return;
         }
-    });
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = 'export-handler.php';
+
+        const exportTypeInput = document.createElement('input');
+        exportTypeInput.type = 'hidden';
+        exportTypeInput.name = 'export_type';
+        exportTypeInput.value = exportType;
+
+        const formatInput = document.createElement('input');
+        formatInput.type = 'hidden';
+        formatInput.name = 'format';
+        formatInput.value = 'excel';
+
+        form.appendChild(exportTypeInput);
+        form.appendChild(formatInput);
+
+        if (period) {
+            const periodInput = document.createElement('input');
+            periodInput.type = 'hidden';
+            periodInput.name = 'period';
+            periodInput.value = period;
+            form.appendChild(periodInput);
+        }
+
+        document.body.appendChild(form);
+        form.submit();
+    }
 </script>
 
-<?php include '../../includes/footer.php'; ?>
+<?php include __DIR__ . '/../../includes/footer.php'; ?>

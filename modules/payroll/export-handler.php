@@ -1,19 +1,20 @@
 <?php
 // modules/payroll/export-handler.php - HANDLE EXPORTS
 define('APP_ACCESS', true);
-require_once '../../config/config.php';
-require_once '../../config/database.php';
-require_once '../../includes/auth.php';
-require_once '../../includes/functions.php';
+require_once __DIR__ . '/../../vendor/autoload.php';
+require_once __DIR__ . '/../../config/config.php';
+require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../../includes/auth.php';
+require_once __DIR__ . '/../../includes/functions.php';
 
-$auth = new Auth();
+$auth = new \Auth();
 $auth->requireLogin();
 
 if (!isModuleEnabled('payroll')) {
     die('Payroll module not enabled');
 }
 
-$db = Database::getInstance();
+$db = \Database::getInstance();
 $export_type = $_POST['export_type'] ?? 'custom';
 $format = $_POST['format'] ?? 'excel';
 $period = $_POST['period'] ?? '';
@@ -41,6 +42,29 @@ $months = [
     11 => 'November',
     12 => 'Desember'
 ];
+
+function renderPdfDownload($filename, $title, $bodyHtml)
+{
+    $html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'
+        . 'body{font-family:dejavusans,Arial,sans-serif;color:#111827;font-size:10pt;}'
+        . 'h1{font-size:18pt;margin:0 0 8px;color:#1f2937;}'
+        . 'p{margin:0 0 10px;}'
+        . 'table{width:100%;border-collapse:collapse;margin-top:12px;}'
+        . 'th,td{border:1px solid #cbd5e1;padding:6px 8px;vertical-align:top;}'
+        . 'th{background:#e2e8f0;text-align:left;}'
+        . '.text-right{text-align:right;}'
+        . '.text-center{text-align:center;}'
+        . '.muted{color:#64748b;}'
+        . '</style></head><body>'
+        . '<h1>' . htmlspecialchars($title) . '</h1>'
+        . $bodyHtml
+        . '</body></html>';
+
+    $pdf = new \Spipu\Html2Pdf\Html2Pdf('P', 'A4', 'en', true, 'UTF-8', [10, 10, 10, 10]);
+    $pdf->writeHTML($html);
+    $pdf->output($filename, 'D');
+    exit;
+}
 
 // ═══════════════════════════════════════════════════════════════
 // EXPORT EMPLOYEES
@@ -104,6 +128,8 @@ elseif ($export_type === 'complete') {
 
     if ($format === 'excel') {
         exportCompleteExcel($employees, $slips, $attendance, $period_data, $months, $month, $year);
+    } elseif ($format === 'pdf') {
+        exportCompletePDF($employees, $slips, $attendance, $period_data, $months, $month, $year);
     }
 }
 
@@ -146,6 +172,8 @@ elseif ($export_type === 'custom') {
         exportCustomExcel($employees, $slips, $period_data, $months, $_POST);
     } elseif ($format === 'csv') {
         exportCustomCSV($employees, $slips, $_POST);
+    } elseif ($format === 'pdf') {
+        exportCustomPDF($employees, $slips, $period_data, $months, $_POST);
     }
 }
 
@@ -225,32 +253,23 @@ function exportEmployeesCSV($employees)
 
 function exportEmployeesPDF($employees)
 {
-    header('Content-Type: application/pdf');
-    header('Content-Disposition: attachment; filename="Data_Karyawan_' . date('Y-m-d_His') . '.pdf"');
-
-    $html = '<h1>Data Karyawan</h1>';
-    $html .= '<p>Tanggal Export: ' . date('d-m-Y H:i') . '</p>';
-    $html .= '<table border="1" cellpadding="5" cellspacing="0" style="width:100%; font-size:10pt; border-collapse:collapse;">';
-    $html .= '<tr style="background:#f0f0f0;"><th>No</th><th>Kode</th><th>Nama</th><th>Jabatan</th><th>Dept</th><th>Gaji</th><th>Bank</th></tr>';
+    $body = '<p class="muted">Tanggal Export: ' . date('d-m-Y H:i') . '</p>';
+    $body .= '<table><tr><th>No</th><th>Kode</th><th>Nama</th><th>Jabatan</th><th>Dept</th><th>Gaji</th><th>Bank</th></tr>';
 
     foreach ($employees as $i => $emp) {
-        $html .= '<tr>';
-        $html .= '<td>' . ($i + 1) . '</td>';
-        $html .= '<td>' . htmlspecialchars($emp['employee_code'] ?? '') . '</td>';
-        $html .= '<td>' . htmlspecialchars($emp['full_name'] ?? '') . '</td>';
-        $html .= '<td>' . htmlspecialchars($emp['position'] ?? '') . '</td>';
-        $html .= '<td>' . htmlspecialchars($emp['department'] ?? '') . '</td>';
-        $html .= '<td style="text-align:right;">Rp ' . number_format($emp['base_salary'] ?? 0, 0, ',', '.') . '</td>';
-        $html .= '<td>' . htmlspecialchars($emp['bank_name'] ?? '') . '</td>';
-        $html .= '</tr>';
+        $body .= '<tr>';
+        $body .= '<td class="text-center">' . ($i + 1) . '</td>';
+        $body .= '<td>' . htmlspecialchars($emp['employee_code'] ?? '') . '</td>';
+        $body .= '<td>' . htmlspecialchars($emp['full_name'] ?? '') . '</td>';
+        $body .= '<td>' . htmlspecialchars($emp['position'] ?? '') . '</td>';
+        $body .= '<td>' . htmlspecialchars($emp['department'] ?? '') . '</td>';
+        $body .= '<td class="text-right">Rp ' . number_format($emp['base_salary'] ?? 0, 0, ',', '.') . '</td>';
+        $body .= '<td>' . htmlspecialchars($emp['bank_name'] ?? '') . '</td>';
+        $body .= '</tr>';
     }
 
-    $html .= '</table>';
-
-    // Simple PDF generation using TCPDF or similar
-    // For now, we'll use HTML2PDF approach
-    echo $html;
-    exit;
+    $body .= '</table>';
+    renderPdfDownload('Data_Karyawan_' . date('Y-m-d_His') . '.pdf', 'Data Karyawan', $body);
 }
 
 function exportSalaryExcel($slips, $period_data, $months)
@@ -323,32 +342,25 @@ function exportSalaryCSV($slips, $period_data, $months)
 
 function exportSalaryPDF($slips, $period_data, $months)
 {
-    header('Content-Type: application/pdf');
-    header('Content-Disposition: attachment; filename="Gaji_' . $months[$period_data['period_month']] . '_' . $period_data['period_year'] . '.pdf"');
-
-    $html = '<h1>Data Gaji - ' . $months[$period_data['period_month']] . ' ' . $period_data['period_year'] . '</h1>';
-    $html .= '<p>Total Gaji Bersih: Rp ' . number_format($period_data['total_net'], 0, ',', '.') . '</p>';
-    $html .= '<table border="1" cellpadding="3" cellspacing="0" style="width:100%; font-size:9pt; border-collapse:collapse;">';
-    $html .= '<tr style="background:#f0f0f0;"><th>Nama</th><th>Jabatan</th><th>Work Hours</th><th>Base</th><th>Bonus</th><th>Earning</th><th>Potongan</th><th>Bersih</th><th>Bank</th></tr>';
+    $body = '<p class="muted">Total Gaji Bersih: Rp ' . number_format($period_data['total_net'] ?? 0, 0, ',', '.') . '</p>';
+    $body .= '<table><tr><th>Nama</th><th>Jabatan</th><th>Work Hours</th><th>Base</th><th>Bonus</th><th>Earning</th><th>Potongan</th><th>Bersih</th><th>Bank</th></tr>';
 
     foreach ($slips as $slip) {
-        $html .= '<tr>';
-        $html .= '<td>' . htmlspecialchars($slip['employee_name'] ?? '') . '</td>';
-        $html .= '<td>' . htmlspecialchars($slip['position'] ?? '') . '</td>';
-        $html .= '<td style="text-align:center;">' . $slip['work_hours'] . '</td>';
-        $html .= '<td style="text-align:right;">Rp ' . number_format($slip['base_salary'] ?? 0, 0, ',', '.') . '</td>';
-        $html .= '<td style="text-align:right;">Rp ' . number_format($slip['bonus'] ?? 0, 0, ',', '.') . '</td>';
-        $html .= '<td style="text-align:right;">Rp ' . number_format($slip['total_earnings'] ?? 0, 0, ',', '.') . '</td>';
-        $html .= '<td style="text-align:right;">Rp ' . number_format($slip['total_deductions'] ?? 0, 0, ',', '.') . '</td>';
-        $html .= '<td style="text-align:right; font-weight:bold;">Rp ' . number_format($slip['net_salary'] ?? 0, 0, ',', '.') . '</td>';
-        $html .= '<td>' . htmlspecialchars($slip['bank_name'] ?? '') . '</td>';
-        $html .= '</tr>';
+        $body .= '<tr>';
+        $body .= '<td>' . htmlspecialchars($slip['employee_name'] ?? '') . '</td>';
+        $body .= '<td>' . htmlspecialchars($slip['position'] ?? '') . '</td>';
+        $body .= '<td class="text-center">' . number_format((float)($slip['work_hours'] ?? 0), 2, ',', '.') . '</td>';
+        $body .= '<td class="text-right">Rp ' . number_format($slip['base_salary'] ?? 0, 0, ',', '.') . '</td>';
+        $body .= '<td class="text-right">Rp ' . number_format($slip['bonus'] ?? 0, 0, ',', '.') . '</td>';
+        $body .= '<td class="text-right">Rp ' . number_format($slip['total_earnings'] ?? 0, 0, ',', '.') . '</td>';
+        $body .= '<td class="text-right">Rp ' . number_format($slip['total_deductions'] ?? 0, 0, ',', '.') . '</td>';
+        $body .= '<td class="text-right">Rp ' . number_format($slip['net_salary'] ?? 0, 0, ',', '.') . '</td>';
+        $body .= '<td>' . htmlspecialchars($slip['bank_name'] ?? '') . '</td>';
+        $body .= '</tr>';
     }
 
-    $html .= '</table>';
-
-    echo $html;
-    exit;
+    $body .= '</table>';
+    renderPdfDownload('Gaji_' . $months[$period_data['period_month']] . '_' . $period_data['period_year'] . '.pdf', 'Data Gaji - ' . $months[$period_data['period_month']] . ' ' . $period_data['period_year'], $body);
 }
 
 function exportCompleteExcel($employees, $slips, $attendance, $period_data, $months, $month, $year)
@@ -402,6 +414,60 @@ function exportCompleteExcel($employees, $slips, $attendance, $period_data, $mon
 
     fclose($output);
     exit;
+}
+
+function exportCompletePDF($employees, $slips, $attendance, $period_data, $months, $month, $year)
+{
+    $body = '<p class="muted">Periode: ' . $months[$month] . ' ' . $year . '</p>';
+    $body .= '<table><tr><th colspan="7">Data Karyawan</th></tr>';
+    $body .= '<tr><th>Kode</th><th>Nama</th><th>Jabatan</th><th>Departemen</th><th>Gaji Dasar</th><th>Bank</th><th>No. Rekening</th></tr>';
+    foreach ($employees as $emp) {
+        $body .= '<tr>'
+            . '<td>' . htmlspecialchars($emp['employee_code'] ?? '') . '</td>'
+            . '<td>' . htmlspecialchars($emp['full_name'] ?? '') . '</td>'
+            . '<td>' . htmlspecialchars($emp['position'] ?? '') . '</td>'
+            . '<td>' . htmlspecialchars($emp['department'] ?? '') . '</td>'
+            . '<td class="text-right">Rp ' . number_format($emp['base_salary'] ?? 0, 0, ',', '.') . '</td>'
+            . '<td>' . htmlspecialchars($emp['bank_name'] ?? '') . '</td>'
+            . '<td>' . htmlspecialchars($emp['bank_account'] ?? '') . '</td>'
+            . '</tr>';
+    }
+    $body .= '</table><div style="height:12px"></div>';
+
+    $body .= '<table><tr><th colspan="9">Data Gaji</th></tr>';
+    $body .= '<tr><th>Nama</th><th>Jabatan</th><th>Work Hours</th><th>Base</th><th>Insentif</th><th>Tunjangan</th><th>Bonus</th><th>Bersih</th><th>Bank</th></tr>';
+    foreach ($slips as $slip) {
+        $body .= '<tr>'
+            . '<td>' . htmlspecialchars($slip['employee_name'] ?? '') . '</td>'
+            . '<td>' . htmlspecialchars($slip['position'] ?? '') . '</td>'
+            . '<td class="text-center">' . number_format((float)($slip['work_hours'] ?? 0), 2, ',', '.') . '</td>'
+            . '<td class="text-right">Rp ' . number_format($slip['base_salary'] ?? 0, 0, ',', '.') . '</td>'
+            . '<td class="text-right">Rp ' . number_format($slip['incentive'] ?? 0, 0, ',', '.') . '</td>'
+            . '<td class="text-right">Rp ' . number_format($slip['allowance'] ?? 0, 0, ',', '.') . '</td>'
+            . '<td class="text-right">Rp ' . number_format($slip['bonus'] ?? 0, 0, ',', '.') . '</td>'
+            . '<td class="text-right">Rp ' . number_format($slip['net_salary'] ?? 0, 0, ',', '.') . '</td>'
+            . '<td>' . htmlspecialchars($slip['bank_name'] ?? '') . '</td>'
+            . '</tr>';
+    }
+    $body .= '</table>';
+
+    if (!empty($attendance)) {
+        $body .= '<div style="height:12px"></div>';
+        $body .= '<table><tr><th colspan="5">Ringkasan Absensi</th></tr>';
+        $body .= '<tr><th>Employee ID</th><th>Tanggal</th><th>Status</th><th>Work Hours</th><th>Catatan</th></tr>';
+        foreach ($attendance as $row) {
+            $body .= '<tr>'
+                . '<td>' . htmlspecialchars((string)($row['employee_id'] ?? '')) . '</td>'
+                . '<td>' . htmlspecialchars((string)($row['attendance_date'] ?? '')) . '</td>'
+                . '<td>' . htmlspecialchars((string)($row['status'] ?? '')) . '</td>'
+                . '<td class="text-center">' . number_format((float)($row['work_hours'] ?? 0), 2, ',', '.') . '</td>'
+                . '<td>' . htmlspecialchars((string)($row['notes'] ?? '')) . '</td>'
+                . '</tr>';
+        }
+        $body .= '</table>';
+    }
+
+    renderPdfDownload('Payroll_Lengkap_' . $months[$month] . '_' . $year . '.pdf', 'Payroll Lengkap - ' . $months[$month] . ' ' . $year, $body);
 }
 
 function exportCustomExcel($employees, $slips, $period_data, $months, $post)
@@ -480,7 +546,10 @@ function exportCustomCSV($employees, $slips, $post)
         $headers = array_merge($headers, ['Kode', 'Nama', 'Jabatan', 'Dept', 'Gaji Dasar']);
     }
     if (isset($post['include_salary_details']) && !empty($slips)) {
-        $headers = array_merge($headers, ['Work Hours', 'Insentif', 'Tunjangan', 'Bonus', 'Total Earning']);
+        $headers = array_merge($headers, ['Work Hours', 'Insentif', 'Tunjangan', 'Bonus', 'Total Earning', 'Potongan', 'Gaji Bersih']);
+    }
+    if (isset($post['include_bank_info'])) {
+        $headers = array_merge($headers, ['Bank', 'No. Rekening']);
     }
 
     fputcsv($output, $headers, ';');
@@ -507,13 +576,101 @@ function exportCustomCSV($employees, $slips, $post)
                 $row[] = $slip['allowance'] ?? 0;
                 $row[] = $slip['bonus'] ?? 0;
                 $row[] = $slip['total_earnings'] ?? 0;
+                $row[] = $slip['total_deductions'] ?? 0;
+                $row[] = $slip['net_salary'] ?? 0;
             } else {
-                $row = array_merge($row, ['', '', '', '', '']);
+                $row = array_merge($row, ['', '', '', '', '', '', '']);
             }
+        }
+        if (isset($post['include_bank_info'])) {
+            $row[] = $emp['bank_name'] ?? '';
+            $row[] = $emp['bank_account'] ?? '';
         }
         fputcsv($output, $row, ';');
     }
 
     fclose($output);
     exit;
+}
+
+function exportCustomPDF($employees, $slips, $period_data, $months, $post)
+{
+    $title = 'Payroll Custom';
+    if (!empty($period_data)) {
+        $title = 'Payroll Custom - ' . $months[$period_data['period_month']] . ' ' . $period_data['period_year'];
+    }
+
+    $body = '';
+    if (!empty($period_data)) {
+        $body .= '<p class="muted">Periode: ' . $months[$period_data['period_month']] . ' ' . $period_data['period_year'] . '</p>';
+    }
+
+    $headers = [];
+    if (isset($post['include_employee_data'])) {
+        $headers[] = 'Kode';
+        $headers[] = 'Nama';
+        $headers[] = 'Jabatan';
+        $headers[] = 'Dept';
+        $headers[] = 'Gaji Dasar';
+    }
+    if (isset($post['include_salary_details']) && !empty($slips)) {
+        $headers[] = 'Work Hours';
+        $headers[] = 'Insentif';
+        $headers[] = 'Tunjangan';
+        $headers[] = 'Bonus';
+        $headers[] = 'Total Earning';
+        $headers[] = 'Potongan';
+        $headers[] = 'Gaji Bersih';
+    }
+    if (isset($post['include_bank_info'])) {
+        $headers[] = 'Bank';
+        $headers[] = 'No. Rekening';
+    }
+
+    $body .= '<table><tr>';
+    foreach ($headers as $header) {
+        $body .= '<th>' . htmlspecialchars($header) . '</th>';
+    }
+    $body .= '</tr>';
+
+    $slipIndex = [];
+    foreach ($slips as $slip) {
+        $slipIndex[$slip['employee_id']] = $slip;
+    }
+
+    foreach ($employees as $emp) {
+        $body .= '<tr>';
+        if (isset($post['include_employee_data'])) {
+            $body .= '<td>' . htmlspecialchars($emp['employee_code'] ?? '') . '</td>';
+            $body .= '<td>' . htmlspecialchars($emp['full_name'] ?? '') . '</td>';
+            $body .= '<td>' . htmlspecialchars($emp['position'] ?? '') . '</td>';
+            $body .= '<td>' . htmlspecialchars($emp['department'] ?? '') . '</td>';
+            $body .= '<td class="text-right">Rp ' . number_format($emp['base_salary'] ?? 0, 0, ',', '.') . '</td>';
+        }
+
+        if (isset($post['include_salary_details'])) {
+            $slip = $slipIndex[$emp['id']] ?? null;
+            if ($slip) {
+                $body .= '<td class="text-center">' . number_format((float)($slip['work_hours'] ?? 0), 2, ',', '.') . '</td>';
+                $body .= '<td class="text-right">Rp ' . number_format($slip['incentive'] ?? 0, 0, ',', '.') . '</td>';
+                $body .= '<td class="text-right">Rp ' . number_format($slip['allowance'] ?? 0, 0, ',', '.') . '</td>';
+                $body .= '<td class="text-right">Rp ' . number_format($slip['bonus'] ?? 0, 0, ',', '.') . '</td>';
+                $body .= '<td class="text-right">Rp ' . number_format($slip['total_earnings'] ?? 0, 0, ',', '.') . '</td>';
+                $body .= '<td class="text-right">Rp ' . number_format($slip['total_deductions'] ?? 0, 0, ',', '.') . '</td>';
+                $body .= '<td class="text-right">Rp ' . number_format($slip['net_salary'] ?? 0, 0, ',', '.') . '</td>';
+            } else {
+                $body .= '<td colspan="7" class="text-center muted">Tidak ada data gaji untuk periode ini</td>';
+            }
+        }
+
+        if (isset($post['include_bank_info'])) {
+            $body .= '<td>' . htmlspecialchars($emp['bank_name'] ?? '') . '</td>';
+            $body .= '<td>' . htmlspecialchars($emp['bank_account'] ?? '') . '</td>';
+        }
+
+        $body .= '</tr>';
+    }
+
+    $body .= '</table>';
+    renderPdfDownload('Payroll_Custom_' . date('Y-m-d_His') . '.pdf', $title, $body);
 }
