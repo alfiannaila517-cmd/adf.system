@@ -14,6 +14,11 @@ if (!isModuleEnabled('payroll')) {
     die('Payroll module not enabled');
 }
 
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+    header('Location: ' . BASE_URL . '/modules/payroll/export.php');
+    exit;
+}
+
 $db = \Database::getInstance();
 $export_type = $_POST['export_type'] ?? 'custom';
 $format = $_POST['format'] ?? 'excel';
@@ -26,6 +31,16 @@ $year = date('Y');
 if ($period && preg_match('/^(\d{1,2})-(\d{4})$/', $period, $matches)) {
     $month = (int)$matches[1];
     $year = (int)$matches[2];
+}
+
+if (!in_array($export_type, ['employees', 'salary', 'complete', 'custom'], true)) {
+    http_response_code(400);
+    die('Tipe export tidak valid');
+}
+
+if (!in_array($format, ['excel', 'csv', 'pdf'], true)) {
+    http_response_code(400);
+    die('Format export tidak valid');
 }
 
 $months = [
