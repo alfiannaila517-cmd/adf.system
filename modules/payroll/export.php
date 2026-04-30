@@ -69,9 +69,10 @@ include __DIR__ . '/../../includes/header.php';
     }
 
     .exp-container {
-        max-width: 1100px;
-        margin: 0 auto;
-        padding: 0 1rem;
+        max-width: 100%;
+        width: 100%;
+        margin: 0;
+        padding: 0;
     }
 
     .exp-header {
@@ -223,7 +224,7 @@ include __DIR__ . '/../../includes/header.php';
 
     .exp-form-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
         gap: 1.5rem;
         margin-bottom: 2rem;
     }
@@ -427,7 +428,7 @@ include __DIR__ . '/../../includes/header.php';
 
     @media (max-width: 768px) {
         .exp-container {
-            padding: 0 0.75rem;
+            padding: 0;
         }
 
         .exp-header {
@@ -449,6 +450,10 @@ include __DIR__ . '/../../includes/header.php';
             padding: 1.5rem;
         }
 
+        .exp-form-grid {
+            grid-template-columns: 1fr;
+        }
+
         .exp-buttons {
             flex-direction: column;
         }
@@ -458,6 +463,10 @@ include __DIR__ . '/../../includes/header.php';
         }
 
         .exp-checkboxes {
+            grid-template-columns: 1fr;
+        }
+
+        .exp-features {
             grid-template-columns: 1fr;
         }
     }
