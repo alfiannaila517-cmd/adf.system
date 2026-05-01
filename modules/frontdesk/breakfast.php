@@ -77,7 +77,7 @@ foreach (array_merge($freeMenus, $paidMenus) as $mx) {
 }
 
 // Get in-house guests WHO HAVE NOT ORDERED TODAY
-// Group by guest_id: one guest may have multiple bookings/rooms
+// Keep each booking as its own row so same-name guests in different rooms stay separate
 $inHouseGuests = [];
 $guestQuotaMap = [];
 try {
@@ -87,23 +87,19 @@ try {
     }
 
     $stmt = $pdo->prepare("
-        SELECT g.id as guest_id, g.guest_name, COALESCE(g.phone,'') as guest_phone,
-               GROUP_CONCAT(DISTINCT COALESCE(r.room_number, b.room_number) ORDER BY COALESCE(r.room_number, b.room_number) SEPARATOR ',') as rooms,
-               GROUP_CONCAT(DISTINCT b.id ORDER BY b.id SEPARATOR ',') as booking_ids,
-               MAX(CASE WHEN bo.id IS NOT NULL THEN 1 ELSE 0 END) as has_order_today
+        SELECT b.id as booking_id, g.id as guest_id, g.guest_name, COALESCE(g.phone,'') as guest_phone,
+               COALESCE(r.room_number, b.room_number) as room_number,
+               EXISTS(
+                   SELECT 1
+                   FROM breakfast_orders bo
+                   WHERE bo.breakfast_date = ?
+                     AND bo.booking_id = b.id
+               ) as has_order_today
         FROM bookings b
         JOIN guests g ON b.guest_id = g.id
         LEFT JOIN rooms r ON b.room_id = r.id
-        LEFT JOIN breakfast_orders bo
-            ON bo.breakfast_date = ?
-           AND (
-                bo.booking_id = b.id
-                OR FIND_IN_SET(g.guest_name, REPLACE(bo.guest_name, ', ', ',')) > 0
-           )
         WHERE b.status = 'checked_in'
-        GROUP BY g.id, g.guest_name, g.phone
-        ORDER BY MAX(CASE WHEN bo.id IS NOT NULL THEN 1 ELSE 0 END) ASC,
-                 MIN(COALESCE(r.room_number, b.room_number)) ASC
+        ORDER BY has_order_today ASC, COALESCE(r.room_number, b.room_number) ASC, b.id ASC
     ");
     $stmt->execute([$today]);
 } catch (Exception $e) {
@@ -1023,18 +1019,19 @@ include '../../includes/header.php';
                                 <label class="bf-label">Pilih Tamu (centang 1 atau lebih) *</label>
                                 <div class="bf-guest-list" id="guestList">
                                     <?php foreach ($inHouseGuests as $g):
-                                        $roomList = $g['rooms'];
-                                        $bookingIdFirst = explode(',', $g['booking_ids'])[0];
-                                        $savedQuota = $guestQuotaMap[(int)$bookingIdFirst] ?? [];
+                                        $bookingId = (int)$g['booking_id'];
+                                        $roomList = $g['room_number'];
+                                        $savedQuota = $guestQuotaMap[$bookingId] ?? [];
                                         $savedChildIds = json_decode($savedQuota['child_menu_ids'] ?? '[]', true);
                                         if (!is_array($savedChildIds)) $savedChildIds = [];
                                         $savedChildIds = array_values(array_unique(array_map('intval', $savedChildIds)));
                                     ?>
                                         <label class="bf-guest-item <?php echo !empty($g['has_order_today']) ? 'is-ordered' : ''; ?>">
-                                            <input type="checkbox" name="guest_checks[]" value="<?php echo $g['guest_id']; ?>" <?php echo !empty($g['has_order_today']) ? 'disabled' : ''; ?>
+                                            <input type="checkbox" name="guest_checks[]" value="<?php echo $bookingId; ?>" <?php echo !empty($g['has_order_today']) ? 'disabled' : ''; ?>
+                                                data-guest-id="<?php echo $g['guest_id']; ?>"
                                                 data-name="<?php echo htmlspecialchars($g['guest_name']); ?>"
                                                 data-rooms="<?php echo htmlspecialchars($roomList); ?>"
-                                                data-booking="<?php echo $bookingIdFirst; ?>"
+                                                data-booking="<?php echo $bookingId; ?>"
                                                 data-phone="<?php echo htmlspecialchars($g['guest_phone'] ?? ''); ?>"
                                                 data-adults="<?php echo (int)($savedQuota['adult_count'] ?? 1); ?>"
                                                 data-child-young="<?php echo (int)($savedQuota['child_young_count'] ?? 0); ?>"
@@ -1528,14 +1525,13 @@ include '../../includes/header.php';
 
         var guests = [];
         checked.forEach(function(cb) {
-            var roomsStr = cb.dataset.rooms || '';
             guests.push({
-                guest_id: parseInt(cb.value) || null,
+                booking_id: parseInt(cb.value, 10) || null,
+                guest_id: parseInt(cb.dataset.guestId || '0', 10) || null,
                 guest_name: cb.dataset.name || '',
-                room_number: roomsStr ? roomsStr.split(',').map(function(r) {
+                room_number: (cb.dataset.rooms || '').split(',').map(function(r) {
                     return r.trim();
-                }) : [],
-                booking_id: parseInt(cb.dataset.booking) || null
+                }).filter(Boolean)
             });
         });
 
@@ -1807,7 +1803,7 @@ include '../../includes/header.php';
 
         var body = {
             action: 'create_link',
-            guest_id: parseInt(cb.value, 10) || null,
+            guest_id: parseInt(cb.dataset.guestId || '0', 10) || null,
             guest_name: cb.dataset.name || '',
             guest_phone: cb.dataset.phone || '',
             booking_id: parseInt(cb.dataset.booking, 10) || null,

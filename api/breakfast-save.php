@@ -141,21 +141,31 @@ try {
 
         foreach ($guests as $guest) {
             $gName = trim($guest['guest_name'] ?? '');
+            $bookingId = !empty($guest['booking_id']) ? (int)$guest['booking_id'] : null;
             if (empty($gName)) continue;
 
-            // Check if this guest already has an order today (exact or within combined name)
-            $existing = $db->fetchOne(
-                "SELECT id FROM breakfast_orders WHERE breakfast_date = ? AND FIND_IN_SET(?, REPLACE(guest_name, ', ', ',')) > 0",
-                [$breakfastDate, $gName]
-            );
+            // Check if this booking already has an order today.
+            $existing = null;
+            if ($bookingId) {
+                $existing = $db->fetchOne(
+                    "SELECT id FROM breakfast_orders WHERE breakfast_date = ? AND booking_id = ?",
+                    [$breakfastDate, $bookingId]
+                );
+            }
+            if (!$existing && empty($bookingId)) {
+                $existing = $db->fetchOne(
+                    "SELECT id FROM breakfast_orders WHERE breakfast_date = ? AND FIND_IN_SET(?, REPLACE(guest_name, ', ', ',')) > 0",
+                    [$breakfastDate, $gName]
+                );
+            }
             if ($existing) {
-                $skipped[] = $gName;
+                $skipped[] = $bookingId ? ($gName . ' #' . $bookingId) : $gName;
                 continue;
             }
 
             $guestNames[] = $gName;
-            if ($firstBookingId === null && !empty($guest['booking_id'])) {
-                $firstBookingId = (int)$guest['booking_id'];
+            if ($firstBookingId === null && $bookingId) {
+                $firstBookingId = $bookingId;
             }
             $gRooms = $guest['room_number'] ?? [];
             if (!is_array($gRooms)) $gRooms = [$gRooms];
@@ -208,11 +218,20 @@ try {
 
         if (empty($guestName)) throw new Exception('Nama tamu harus diisi');
 
-        // DUPLICATE PREVENTION: check exact name or within combined order
-        $existing = $db->fetchOne(
-            "SELECT id FROM breakfast_orders WHERE breakfast_date = ? AND FIND_IN_SET(?, REPLACE(guest_name, ', ', ',')) > 0",
-            [$breakfastDate, $guestName]
-        );
+        // DUPLICATE PREVENTION: prefer booking_id, fall back to guest name only when booking_id is missing
+        $existing = null;
+        if ($bookingId) {
+            $existing = $db->fetchOne(
+                "SELECT id FROM breakfast_orders WHERE breakfast_date = ? AND booking_id = ?",
+                [$breakfastDate, $bookingId]
+            );
+        }
+        if (!$existing && !$bookingId) {
+            $existing = $db->fetchOne(
+                "SELECT id FROM breakfast_orders WHERE breakfast_date = ? AND FIND_IN_SET(?, REPLACE(guest_name, ', ', ',')) > 0",
+                [$breakfastDate, $guestName]
+            );
+        }
         if ($existing) {
             echo json_encode([
                 'success' => false,
