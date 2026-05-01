@@ -93,14 +93,19 @@ try {
         FROM bookings b
         JOIN guests g ON b.guest_id = g.id
         LEFT JOIN rooms r ON b.room_id = r.id
-        LEFT JOIN breakfast_orders bo ON b.id = bo.booking_id AND bo.breakfast_date = ?
         WHERE b.status = 'checked_in'
-        AND bo.id IS NULL
+        AND NOT EXISTS (
+            SELECT 1 FROM breakfast_orders bo 
+            WHERE bo.breakfast_date = ?
+            AND (
+                (bo.booking_id IS NOT NULL AND bo.booking_id = b.id)
+                OR (bo.booking_id IS NULL AND bo.guest_name = g.guest_name AND bo.breakfast_date = ?)
+            )
+        )
         GROUP BY g.id, g.guest_name, g.phone
         ORDER BY MIN(COALESCE(r.room_number, b.room_number)) ASC
     ");
-    $stmt->execute([$today]);
-    $inHouseGuests = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $stmt->execute([$today, $today]);
 } catch (Exception $e) {
 }
 
