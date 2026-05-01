@@ -98,15 +98,15 @@ try {
             SELECT 1 FROM breakfast_orders bo 
             WHERE bo.breakfast_date = ? 
             AND (
-                (bo.booking_id IS NOT NULL AND bo.booking_id = b.id)
-                OR (
-                    bo.booking_id IS NULL
-                    AND FIND_IN_SET(g.guest_name, REPLACE(bo.guest_name, ', ', ',')) > 0
+                (
+                    JSON_VALID(bo.room_number)
+                    AND JSON_CONTAINS(bo.room_number, JSON_QUOTE(COALESCE(r.room_number, b.room_number)))
                 )
+                OR FIND_IN_SET(COALESCE(r.room_number, b.room_number), REPLACE(REPLACE(bo.room_number, '[', ''), ']', '')) > 0
             )
         )
         GROUP BY g.id, g.guest_name, g.phone
-        ORDER BY MIN(r.room_number) ASC
+        ORDER BY MIN(COALESCE(r.room_number, b.room_number)) ASC
     ");
     $stmt->execute([$today]);
     $inHouseGuests = $stmt->fetchAll(PDO::FETCH_ASSOC);
