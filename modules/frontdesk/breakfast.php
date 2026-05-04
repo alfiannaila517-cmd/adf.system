@@ -102,6 +102,7 @@ try {
         ORDER BY has_order_today ASC, COALESCE(r.room_number, b.room_number) ASC, b.id ASC
     ");
     $stmt->execute([$today]);
+    $inHouseGuests = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (Exception $e) {
 }
 
