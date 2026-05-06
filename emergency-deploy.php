@@ -22,7 +22,7 @@ header('Content-Type: application/json');
 header('Cache-Control: no-cache');
 
 $deployDir = dirname(__FILE__);
-$repo = 'ratn050-oss/adf_system';
+$repo = 'arifnarayana88-collab/adf.system';
 $branch = 'main';
 
 // Files to sync 

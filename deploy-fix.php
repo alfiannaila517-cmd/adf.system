@@ -11,7 +11,7 @@ echo "=== DIRECT DEPLOY - Bypass Git ===\n";
 echo "PHP: " . PHP_VERSION . "\n\n";
 
 $dir = '/home/adfb2574/public_html';
-$repo = 'ratn050-oss/adf_system';
+$repo = 'arifnarayana88-collab/adf.system';
 $branch = 'main';
 
 // All files that need to be updated
