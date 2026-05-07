@@ -95,20 +95,76 @@ try {
                COALESCE(g.guest_name, b.guest_name) as guest_name,
                COALESCE(g.phone, '') as guest_phone,
                COALESCE(r.room_number, b.room_number) as room_number,
-               EXISTS(
-                   SELECT 1
-                   FROM breakfast_orders bo
-                   WHERE DATE(bo.breakfast_date) = ?
-                     AND bo.room_number LIKE CONCAT('%', COALESCE(r.room_number, b.room_number), '%')
-               ) as has_order_today
+               0 as has_order_today
         FROM bookings b
         LEFT JOIN guests g ON b.guest_id = g.id
         LEFT JOIN rooms r ON b.room_id = r.id
         WHERE b.status = 'checked_in'
-        ORDER BY has_order_today ASC, COALESCE(r.room_number, b.room_number) ASC, b.id ASC
+        ORDER BY COALESCE(r.room_number, b.room_number) ASC, b.id ASC
     ");
-    $stmt->execute([$today]);
+    $stmt->execute();
     $inHouseGuests = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $orderedBookingIds = [];
+    $orderedRooms = [];
+    try {
+        $orderedStmt = $pdo->prepare("SELECT booking_id, room_number FROM breakfast_orders WHERE DATE(breakfast_date) = ?");
+        $orderedStmt->execute([$today]);
+        $orderedRows = $orderedStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($orderedRows as $orderedRow) {
+            $oid = (int)($orderedRow['booking_id'] ?? 0);
+            if ($oid > 0) {
+                $orderedBookingIds[$oid] = true;
+            }
+
+            $roomRaw = trim((string)($orderedRow['room_number'] ?? ''));
+            if ($roomRaw === '') {
+                continue;
+            }
+
+            $decodedRooms = json_decode($roomRaw, true);
+            if (is_array($decodedRooms)) {
+                foreach ($decodedRooms as $roomVal) {
+                    $normalized = trim((string)$roomVal);
+                    if ($normalized !== '') {
+                        $orderedRooms[$normalized] = true;
+                    }
+                }
+                continue;
+            }
+
+            $orderedRooms[$roomRaw] = true;
+        }
+    } catch (Exception $e) {
+        error_log('Breakfast ordered room query error: ' . $e->getMessage());
+    }
+
+    foreach ($inHouseGuests as &$guestRow) {
+        $guestBookingId = (int)($guestRow['booking_id'] ?? 0);
+        $guestRoom = trim((string)($guestRow['room_number'] ?? ''));
+        $guestRow['has_order_today'] = (
+            isset($orderedBookingIds[$guestBookingId]) ||
+            ($guestRoom !== '' && isset($orderedRooms[$guestRoom]))
+        ) ? 1 : 0;
+    }
+    unset($guestRow);
+
+    usort($inHouseGuests, static function ($a, $b) {
+        $aOrdered = (int)($a['has_order_today'] ?? 0);
+        $bOrdered = (int)($b['has_order_today'] ?? 0);
+        if ($aOrdered !== $bOrdered) {
+            return $aOrdered <=> $bOrdered;
+        }
+
+        $aRoom = (string)($a['room_number'] ?? '');
+        $bRoom = (string)($b['room_number'] ?? '');
+        if ($aRoom !== $bRoom) {
+            return strnatcasecmp($aRoom, $bRoom);
+        }
+
+        return ((int)($a['booking_id'] ?? 0)) <=> ((int)($b['booking_id'] ?? 0));
+    });
 } catch (Exception $e) {
     error_log('Breakfast guest query error: ' . $e->getMessage());
 }
