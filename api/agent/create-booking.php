@@ -57,13 +57,13 @@ try {
     $totalNights = $ciDate->diff($coDate)->days;
 
     // Cek kamar exist & ambil harga
-    $stmt = $pdo->prepare("SELECT r.id, r.room_number, rt.type_name, rt.base_price
+        $stmt = $pdo->prepare("SELECT r.id, r.room_number, r.status, rt.type_name, rt.base_price
          FROM rooms r LEFT JOIN room_types rt ON r.room_type_id = rt.id
-         WHERE r.id = ? AND r.status != 'maintenance'");
+            WHERE r.id = ? AND r.status = 'available'");
     $stmt->execute([$roomId]);
     $room = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$room) {
-        echo json_encode(['success' => false, 'error' => 'Kamar tidak ditemukan atau sedang maintenance']);
+        echo json_encode(['success' => false, 'error' => 'Kamar tidak ditemukan atau belum available']);
         exit;
     }
 

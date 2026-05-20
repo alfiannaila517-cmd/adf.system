@@ -119,7 +119,7 @@ try {
                 COALESCE(rt.description, '') as description
          FROM rooms r
          LEFT JOIN room_types rt ON r.room_type_id = rt.id
-         WHERE r.status != 'maintenance'
+         WHERE r.status = 'available'
          ORDER BY rt.base_price ASC, r.room_number ASC";
     $stmt2 = $pdo->prepare($sql);
     $stmt2->execute();

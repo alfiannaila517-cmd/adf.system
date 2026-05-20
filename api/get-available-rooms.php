@@ -43,7 +43,7 @@ try {
                rt.type_name, rt.base_price, rt.color_code
         FROM rooms r
         LEFT JOIN room_types rt ON r.room_type_id = rt.id
-        WHERE r.status != 'maintenance'
+        WHERE r.status = 'available'
         ORDER BY rt.type_name ASC, r.floor_number ASC, r.room_number ASC
     ", []);
     

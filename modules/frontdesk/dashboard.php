@@ -59,10 +59,10 @@ try {
                 WHERE id = ?
             ", [$overdue['id']]);
 
-            // Update room status to available
-            $db->query("
+            // Update room status to cleaning (HK must clean before next use)
+            $db->query(" 
                 UPDATE rooms 
-                SET status = 'available',
+                SET status = 'cleaning',
                     current_guest_id = NULL,
                     updated_at = NOW()
                 WHERE id = ? AND status = 'occupied'

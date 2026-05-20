@@ -124,8 +124,17 @@ try {
         $totalNights = $interval->days;
     }
 
+    // Check room availability and require the room to be ready for use
+    $roomInfo = $db->fetchOne("SELECT id, room_number, status FROM rooms WHERE id = ?", [$roomId]);
+    if (!$roomInfo) {
+        throw new Exception('Room not found');
+    }
+    if (($roomInfo['status'] ?? 'available') !== 'available') {
+        throw new Exception('Room belum available atau masih cleaning');
+    }
+
     // Check room availability
-    $conflicts = $db->fetchAll("
+    $conflicts = $db->fetchAll(" 
         SELECT id FROM bookings 
         WHERE room_id = ? 
         AND status != 'cancelled'
@@ -310,7 +319,6 @@ try {
                 error_log("CREATE-RESERVATION: DB_NAME=" . DB_NAME . ", ACTIVE_BUSINESS_ID=" . ACTIVE_BUSINESS_ID);
 
                 // Get room info for description
-                $roomInfo = $db->fetchOne("SELECT room_number FROM rooms WHERE id = ?", [$roomId]);
                 $roomNumber = $roomInfo['room_number'] ?? '';
 
                 // Use CashbookHelper for reliable sync

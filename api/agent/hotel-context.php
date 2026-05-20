@@ -29,9 +29,9 @@ try {
         FROM room_types ORDER BY base_price ASC");
     $roomTypes = $stmt2->fetchAll(PDO::FETCH_ASSOC);
 
-    // Jumlah kamar tersedia
-    $stmt3 = $pdo->query("SELECT COUNT(*) as total FROM rooms WHERE status != 'maintenance'");
-    $totalRooms = $stmt3->fetch(PDO::FETCH_ASSOC);
+    // Jumlah kamar yang siap dipakai
+    $stmt3 = $pdo->query("SELECT COUNT(*) as total FROM rooms WHERE status = 'available'");
+    $availableRooms = $stmt3->fetch(PDO::FETCH_ASSOC);
 
     // Buat ringkasan teks untuk AI
     $hotelName = $settings['web_site_name'] ?? 'Narayana Karimunjawa';
@@ -39,7 +39,7 @@ try {
     if (!empty($settings['web_address'])) $textParts[] = "Alamat: " . $settings['web_address'];
     if (!empty($settings['web_whatsapp'])) $textParts[] = "WhatsApp: " . $settings['web_whatsapp'];
     $textParts[] = "Check-in: " . ($settings['web_checkin_time'] ?? '14:00') . ", Check-out: " . ($settings['web_checkout_time'] ?? '12:00');
-    $textParts[] = "Total kamar: " . ($totalRooms['total'] ?? 0);
+    $textParts[] = "Room available saat ini: " . ($availableRooms['total'] ?? 0);
     $textParts[] = "Tipe kamar:";
     foreach ($roomTypes as $rt) {
         $textParts[] = "- {$rt['type_name']}: Rp " . number_format($rt['base_price'], 0, ',', '.') . "/malam (max {$rt['max_occupancy']} orang)";
@@ -102,7 +102,7 @@ try {
             'max_advance_days'=> $settings['web_max_advance_days'] ?? '365',
         ],
         'room_types' => $roomTypes,
-        'total_rooms' => (int)($totalRooms['total'] ?? 0),
+        'total_rooms' => (int)($availableRooms['total'] ?? 0),
         'services' => $services,
     ]);
 
