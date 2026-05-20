@@ -436,6 +436,133 @@ if ($action === 'occupancy') {
     exit;
 }
 
+// ══════════════════════════════════════
+// HOUSEKEEPING: Get rooms to clean
+// ══════════════════════════════════════
+if ($action === 'housekeeping_rooms') {
+    try {
+        $hotelDate = getHotelDate();
+        
+        // Get all rooms with current status and next guest info
+        $rooms = $db->fetchAll("
+            SELECT 
+                r.id,
+                r.room_number,
+                r.floor_number,
+                r.status,
+                COALESCE(rt.type_name, 'Standard') as room_type,
+                g.guest_name as current_guest,
+                b.check_out_date,
+                (SELECT g2.guest_name FROM bookings b2 
+                 LEFT JOIN guests g2 ON b2.guest_id = g2.id
+                 WHERE b2.room_id = r.id 
+                 AND DATE(b2.check_in_date) = ?
+                 AND b2.status IN ('confirmed','pending')
+                 LIMIT 1) as next_guest,
+                (SELECT DATE(b2.check_in_date) FROM bookings b2
+                 WHERE b2.room_id = r.id 
+                 AND DATE(b2.check_in_date) = ?
+                 AND b2.status IN ('confirmed','pending')
+                 LIMIT 1) as next_checkin_date,
+                CASE 
+                    WHEN b.status = 'checked_in' AND b.check_out_date <= NOW() THEN 'checkout_pending'
+                    WHEN b.status = 'checked_out' THEN 'dirty'
+                    WHEN r.status = 'cleaning' THEN 'cleaning'
+                    WHEN r.status = 'available' THEN 'available'
+                    ELSE 'other'
+                END as cleaning_status
+            FROM rooms r
+            LEFT JOIN room_types rt ON r.room_type_id = rt.id
+            LEFT JOIN bookings b ON b.room_id = r.id AND b.status = 'checked_in'
+            ORDER BY 
+                FIELD(cleaning_status, 'checkout_pending', 'dirty', 'cleaning', 'available'),
+                r.floor_number ASC,
+                r.room_number ASC
+        ", [$hotelDate, $hotelDate]) ?: [];
+        
+        // Count by status
+        $stats = [
+            'total' => count($rooms),
+            'checkout_pending' => 0,
+            'dirty' => 0,
+            'cleaning' => 0,
+            'available' => 0
+        ];
+        foreach ($rooms as $r) {
+            $stats[$r['cleaning_status']]++;
+        }
+        
+        echo json_encode(['success' => true, 'data' => ['rooms' => $rooms, 'stats' => $stats]]);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+    exit;
+}
+
+// ══════════════════════════════════════
+// HOUSEKEEPING: Update room status
+// ══════════════════════════════════════
+if ($action === 'update_room_status') {
+    try {
+        if (empty($_POST)) {
+            $jsonInput = json_decode(file_get_contents('php://input'), true);
+            if (json_last_error() === JSON_ERROR_NONE && !empty($jsonInput)) {
+                $_POST = $jsonInput;
+            }
+        }
+        
+        $roomId = (int)($_POST['room_id'] ?? 0);
+        $status = strtolower(trim($_POST['status'] ?? ''));
+        
+        if (!$roomId) {
+            throw new Exception('Room ID diperlukan');
+        }
+        
+        $allowedStatuses = ['available', 'cleaning', 'maintenance', 'blocked'];
+        if (!in_array($status, $allowedStatuses, true)) {
+            throw new Exception('Status tidak valid');
+        }
+        
+        // Get room info
+        $room = $db->fetchOne("SELECT id, room_number, status FROM rooms WHERE id = ?", [$roomId]);
+        if (!$room) {
+            throw new Exception('Kamar tidak ditemukan');
+        }
+        
+        // Update room status
+        $pdo->prepare("
+            UPDATE rooms
+            SET status = ?,
+                current_guest_id = CASE WHEN ? = 'available' THEN NULL ELSE current_guest_id END,
+                updated_at = NOW()
+            WHERE id = ?
+        ")->execute([$status, $status, $roomId]);
+        
+        // Log the update
+        try {
+            $pdo->prepare("
+                INSERT INTO room_status_logs (room_id, old_status, new_status, changed_by, changed_at)
+                VALUES (?, ?, ?, ?, NOW())
+            ")->execute([$roomId, $room['status'], $status, $_SESSION['staff_id']]);
+        } catch (Exception $e) {
+            // Silently ignore if table doesn't exist
+        }
+        
+        echo json_encode([
+            'success' => true,
+            'message' => 'Kamar ' . $room['room_number'] . ' diubah ke ' . $status,
+            'room' => [
+                'id' => (int)$room['id'],
+                'room_number' => $room['room_number'],
+                'status' => $status
+            ]
+        ]);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+    exit;
+}
+
 // ── BREAKFAST REQUEST ──
 if ($action === 'breakfast_menu') {
     try {

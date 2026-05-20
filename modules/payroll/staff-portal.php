@@ -2,7 +2,7 @@
 
 /**
  * Staff Portal - Login/Register + Dashboard
- * PWA single-page app for staff: Absen, Monitoring, Occupancy, Breakfast
+ * PWA single-page app for staff: Absen, Monitoring, Occupancy, Housekeeping, Breakfast
  */
 define('APP_ACCESS', true);
 require_once '../../config/config.php';
@@ -1846,6 +1846,226 @@ try {
             background: #9ca3af;
         }
 
+        /* Housekeeping */
+        .hk-stat-row {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        .hk-stat-card {
+            background: linear-gradient(135deg, #f8fafc, #fff);
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 14px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, .04);
+        }
+
+        .hk-stat-num {
+            font-size: 24px;
+            font-weight: 900;
+            color: var(--navy);
+            line-height: 1;
+        }
+
+        .hk-stat-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #64748b;
+            margin-top: 6px;
+            text-transform: uppercase;
+            letter-spacing: .3px;
+        }
+
+        .hk-stat-card.checkout-pending .hk-stat-num {
+            color: #f59e0b;
+        }
+
+        .hk-stat-card.dirty .hk-stat-num {
+            color: #ef4444;
+        }
+
+        .hk-stat-card.cleaning .hk-stat-num {
+            color: #3b82f6;
+        }
+
+        .hk-stat-card.available .hk-stat-num {
+            color: #10b981;
+        }
+
+        .hk-room-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .hk-room-card {
+            background: #fff;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 12px;
+            display: flex;
+            align-items: stretch;
+            gap: 12px;
+            transition: all .2s;
+            overflow: hidden;
+        }
+
+        .hk-room-card:hover {
+            border-color: #cbd5e1;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, .08);
+        }
+
+        .hk-room-card.checkout-pending {
+            border-left: 4px solid #f59e0b;
+            background: rgba(245, 158, 11, .02);
+        }
+
+        .hk-room-card.dirty {
+            border-left: 4px solid #ef4444;
+            background: rgba(239, 68, 68, .02);
+        }
+
+        .hk-room-card.cleaning {
+            border-left: 4px solid #3b82f6;
+            background: rgba(59, 130, 246, .02);
+        }
+
+        .hk-room-card.available {
+            border-left: 4px solid #10b981;
+            background: rgba(16, 185, 129, .02);
+        }
+
+        .hk-room-info {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .hk-room-num {
+            font-size: 16px;
+            font-weight: 900;
+            color: #0f172a;
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+
+        .hk-room-type {
+            font-size: 10px;
+            color: #64748b;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .hk-room-guest {
+            font-size: 11px;
+            color: #1e293b;
+            line-height: 1.3;
+        }
+
+        .hk-room-guest-label {
+            font-size: 9px;
+            color: #94a3b8;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .2px;
+        }
+
+        .hk-room-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            justify-content: center;
+        }
+
+        .hk-status-badge {
+            font-size: 10px;
+            font-weight: 800;
+            padding: 4px 10px;
+            border-radius: 999px;
+            text-transform: uppercase;
+            letter-spacing: .3px;
+            white-space: nowrap;
+            text-align: center;
+        }
+
+        .hk-status-checkout-pending {
+            background: rgba(245, 158, 11, .15);
+            color: #b45309;
+        }
+
+        .hk-status-dirty {
+            background: rgba(239, 68, 68, .15);
+            color: #991b1b;
+        }
+
+        .hk-status-cleaning {
+            background: rgba(59, 130, 246, .15);
+            color: #1e40af;
+        }
+
+        .hk-status-available {
+            background: rgba(16, 185, 129, .15);
+            color: #065f46;
+        }
+
+        .hk-action-btn {
+            border: none;
+            border-radius: 8px;
+            padding: 6px 12px;
+            font-size: 10px;
+            font-weight: 700;
+            cursor: pointer;
+            letter-spacing: .2px;
+            transition: all .15s;
+            white-space: nowrap;
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: #fff;
+        }
+
+        .hk-action-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, .25);
+        }
+
+        .hk-action-btn:active {
+            transform: scale(.95);
+        }
+
+        .hk-action-btn:disabled {
+            opacity: .5;
+            cursor: not-allowed;
+            background: #9ca3af;
+        }
+
+        .hk-empty {
+            text-align: center;
+            padding: 40px 20px;
+            border: 1px dashed #cbd5e1;
+            border-radius: 12px;
+            background: #f8fafc;
+        }
+
+        .hk-empty-emoji {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .hk-empty-text {
+            font-size: 14px;
+            font-weight: 700;
+            color: #64748b;
+            margin-bottom: 4px;
+        }
+
+        .hk-empty-sub {
+            font-size: 11px;
+            color: #94a3b8;
+        }
+
         /* Absen button */
         .absen-link {
             display: block;
@@ -2810,6 +3030,22 @@ try {
                     </div>
                 </div>
             </div>
+
+            <!-- ═══ PAGE: HOUSEKEEPING (Hotel only) ═══ -->
+            <div class="page" id="page-housekeeping">
+                <div id="hkStats">
+                    <div class="loading"><span class="spin"></span> Memuat...</div>
+                </div>
+                <div class="card">
+                    <div style="display:flex;align-items:center;justify-content:space-between;">
+                        <div class="card-title" style="margin:0;">🧹 Room Cleaning Status</div>
+                        <button onclick="loadHousekeeping()" style="background:none;border:none;font-size:14px;cursor:pointer;" title="Refresh">🔄</button>
+                    </div>
+                    <div id="hkRoomList" style="margin-top:10px;">
+                        <div class="loading"><span class="spin"></span></div>
+                    </div>
+                </div>
+            </div>
         <?php endif; ?>
 
         <?php if ($isCafe): ?>
@@ -2848,6 +3084,7 @@ try {
             <div class="nav-item active" data-page="home"><span class="nav-icon">🏠</span><span class="nav-label">Home</span></div>
             <?php if ($isHotel): ?>
                 <div class="nav-item" data-page="occupancy"><span class="nav-icon">🏨</span><span class="nav-label">Room Monitor</span></div>
+                <div class="nav-item" data-page="housekeeping"><span class="nav-icon">🧹</span><span class="nav-label">Cleaning</span></div>
                 <div class="nav-item" data-page="breakfast"><span class="nav-icon">☕</span><span class="nav-label">Breakfast</span></div>
             <?php elseif ($isCafe): ?>
                 <div class="nav-item" data-page="schedule"><span class="nav-icon">⏰</span><span class="nav-label">Jadwal</span></div>
@@ -3237,6 +3474,7 @@ try {
                 if (page === 'home') loadHome();
                 if (page === 'slipgaji') loadSlipGaji();
                 if (page === 'occupancy' && IS_HOTEL) loadOccupancy();
+                if (page === 'housekeeping' && IS_HOTEL) loadHousekeeping();
                 if (page === 'breakfast' && IS_HOTEL) loadBreakfast();
                 if (page === 'schedule' && IS_CAFE) loadSchedule();
             });
@@ -4100,6 +4338,133 @@ try {
                 }, 2000);
             }
             return false;
+        }
+
+        async function loadHousekeeping() {
+            try {
+                const res = await fetch(API + '&action=housekeeping_rooms');
+                const data = await res.json();
+                
+                if (!data.success) {
+                    document.getElementById('hkRoomList').innerHTML = `<div style="padding:20px;text-align:center;color:#dc2626;">❌ ${data.message || 'Gagal memuat'}</div>`;
+                    return;
+                }
+                
+                const rooms = data.data?.rooms || [];
+                const stats = data.data?.stats || {};
+                const esc = (value) => String(value ?? '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+                
+                // Stats bar
+                document.getElementById('hkStats').innerHTML = `
+                    <div class="hk-stat-row">
+                        <div class="hk-stat-card checkout-pending">
+                            <div class="hk-stat-num">${stats.checkout_pending || 0}</div>
+                            <div class="hk-stat-label">Checkout Pending</div>
+                        </div>
+                        <div class="hk-stat-card dirty">
+                            <div class="hk-stat-num">${stats.dirty || 0}</div>
+                            <div class="hk-stat-label">Dirty</div>
+                        </div>
+                        <div class="hk-stat-card cleaning">
+                            <div class="hk-stat-num">${stats.cleaning || 0}</div>
+                            <div class="hk-stat-label">Cleaning</div>
+                        </div>
+                        <div class="hk-stat-card available">
+                            <div class="hk-stat-num">${stats.available || 0}</div>
+                            <div class="hk-stat-label">Available</div>
+                        </div>
+                    </div>`;
+                
+                if (rooms.length === 0) {
+                    document.getElementById('hkRoomList').innerHTML = `
+                        <div class="hk-empty">
+                            <div class="hk-empty-emoji">✨</div>
+                            <div class="hk-empty-text">Semua kamar sudah bersih!</div>
+                            <div class="hk-empty-sub">Tidak ada kamar yang perlu dibersihkan</div>
+                        </div>`;
+                    return;
+                }
+                
+                let html = '<div class="hk-room-list">';
+                rooms.forEach(room => {
+                    const statusClass = room.cleaning_status.replace(/_/g, '-');
+                    const statusLabel = {
+                        'checkout_pending': '🔑 Checkout Pending',
+                        'dirty': '🗑️ Dirty',
+                        'cleaning': '🧹 Cleaning',
+                        'available': '✅ Available'
+                    }[room.cleaning_status] || room.cleaning_status;
+                    
+                    const nextGuestInfo = room.next_guest 
+                        ? `<div class="hk-room-guest"><span class="hk-room-guest-label">Next Guest:</span> ${esc(room.next_guest)}</div>` 
+                        : '';
+                    
+                    const currentGuestInfo = room.current_guest && room.cleaning_status === 'checkout_pending'
+                        ? `<div class="hk-room-guest"><span class="hk-room-guest-label">Checkout:</span> ${esc(room.current_guest)}</div>`
+                        : '';
+                    
+                    html += `
+                        <div class="hk-room-card ${statusClass}">
+                            <div class="hk-room-info">
+                                <div class="hk-room-num">${room.room_number}</div>
+                                <div class="hk-room-type">${room.room_type}</div>
+                                ${currentGuestInfo}
+                                ${nextGuestInfo}
+                            </div>
+                            <div class="hk-room-actions">
+                                <div class="hk-status-badge hk-status-${statusClass}">${statusLabel}</div>
+                                ${room.cleaning_status !== 'available' ? `<button class="hk-action-btn" onclick="markRoomCleaning(${room.id}, '${statusClass}')">🧹 Clean</button>` : '<button class="hk-action-btn" style="opacity:.5;cursor:default;" disabled>✅ Done</button>'}
+                            </div>
+                        </div>`;
+                });
+                html += '</div>';
+                
+                document.getElementById('hkRoomList').innerHTML = html;
+            } catch (err) {
+                console.error(err);
+                document.getElementById('hkRoomList').innerHTML = `<div style="padding:20px;text-align:center;color:#dc2626;">❌ Koneksi gagal: ${err.message}</div>`;
+            }
+        }
+
+        async function markRoomCleaning(roomId, currentStatus) {
+            const newStatus = currentStatus === 'dirty' || currentStatus === 'checkout-pending' ? 'cleaning' : 'available';
+            const btn = event.target;
+            btn.disabled = true;
+            btn.textContent = '⏳ Updating...';
+            
+            try {
+                const res = await fetch(API + '&action=update_room_status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ room_id: roomId, status: newStatus })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    btn.textContent = '✅ Updated';
+                    setTimeout(() => {
+                        loadHousekeeping();
+                    }, 1500);
+                } else {
+                    btn.textContent = '❌ Gagal';
+                    btn.disabled = false;
+                    setTimeout(() => {
+                        btn.textContent = newStatus === 'cleaning' ? '🧹 Clean' : '✅ Available';
+                    }, 2000);
+                }
+            } catch (err) {
+                console.error(err);
+                btn.textContent = '❌ Error';
+                btn.disabled = false;
+                setTimeout(() => {
+                    btn.textContent = newStatus === 'cleaning' ? '🧹 Clean' : '✅ Available';
+                }, 2000);
+            }
         }
 
         async function loadCuti() {
