@@ -1,4 +1,5 @@
 <?php
+
 /**
  * FRONT DESK MANAGEMENT SYSTEM v2028
  * Premium hotel management dashboard
@@ -69,6 +70,13 @@ try {
     ");
     $stats['available'] = $availResult['count'] ?? 0;
 
+    // Rooms needing housekeeping / cleaning
+    $cleaningResult = $db->fetchOne("
+            SELECT COUNT(*) as count FROM rooms 
+            WHERE status = 'cleaning'
+        ");
+    $stats['cleaning'] = $cleaningResult['count'] ?? 0;
+
     // Total rooms
     $totalResult = $db->fetchOne("
         SELECT COUNT(*) as count FROM rooms
@@ -116,7 +124,7 @@ try {
     ");
     $stats['occupied'] = $occupiedResult['count'] ?? 0;
 
-    $stats['occupancy_rate'] = $stats['total_rooms'] > 0 ? 
+    $stats['occupancy_rate'] = $stats['total_rooms'] > 0 ?
         round(($stats['occupied'] / $stats['total_rooms']) * 100, 1) : 0;
 
     // ============================================
@@ -124,24 +132,24 @@ try {
     // ============================================
     $thisMonth = date('Y-m');
     $thisYear = date('Y');
-    
+
     // Connect to master DB to get owner_capital account IDs
     $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
     $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    
+
     $businessId = getMasterBusinessId();
-    
+
     // Get owner_capital account IDs
     $stmt = $masterDb->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = 'owner_capital'");
     $stmt->execute([$businessId]);
     $ownerCapitalIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
-    
+
     // Build exclusion clause for owner capital
     $excludeOwnerCapital = '';
     if (!empty($ownerCapitalIds)) {
         $excludeOwnerCapital = " AND (cash_account_id IS NULL OR cash_account_id NOT IN (" . implode(',', $ownerCapitalIds) . "))";
     }
-    
+
     // Get today's income (excluding owner capital / modal owner)
     $todayIncomeResult = $db->fetchOne(
         "SELECT COALESCE(SUM(amount), 0) as total FROM cash_book 
@@ -149,7 +157,7 @@ try {
         [$today]
     );
     $stats['cash_income_today'] = $todayIncomeResult['total'] ?? 0;
-    
+
     // Get today's expenses
     $todayExpenseResult = $db->fetchOne(
         "SELECT COALESCE(SUM(amount), 0) as total FROM cash_book 
@@ -157,7 +165,7 @@ try {
         [$today]
     );
     $stats['cash_expense_today'] = $todayExpenseResult['total'] ?? 0;
-    
+
     // Get petty cash from owner TODAY ONLY (income to owner_capital account today)
     $stats['owner_transfer_today'] = 0;
     if (!empty($ownerCapitalIds)) {
@@ -170,7 +178,7 @@ try {
         );
         $stats['owner_transfer_today'] = $ownerTodayResult['total'] ?? 0;
     }
-    
+
     // Get TOTAL cash balance (all time: income - expense)
     $totalCashIncomeResult = $db->fetchOne(
         "SELECT COALESCE(SUM(amount), 0) as total FROM cash_book 
@@ -181,79 +189,79 @@ try {
          WHERE transaction_type = 'expense'"
     );
     $stats['cash_balance'] = ($totalCashIncomeResult['total'] ?? 0) - ($totalCashExpenseResult['total'] ?? 0);
-    
+
     // ============================================
     // REPORT DATA - Daily, Monthly, Yearly
     // ============================================
-    
+
     // DAILY REPORT - Today's bookings and revenue
     $dailyBookings = $db->fetchOne("
         SELECT COUNT(*) as total FROM bookings 
         WHERE DATE(created_at) = ? AND status IN ('confirmed', 'checked_in', 'checked_out')
     ", [$today]);
     $stats['daily_bookings'] = $dailyBookings['total'] ?? 0;
-    
+
     $dailyRevenue = $db->fetchOne("
         SELECT COALESCE(SUM(paid_amount), 0) as revenue 
         FROM bookings 
         WHERE DATE(created_at) = ? AND status IN ('confirmed', 'checked_in', 'checked_out')
     ", [$today]);
     $stats['daily_revenue'] = $dailyRevenue['revenue'] ?? 0;
-    
+
     $dailyCheckins = $db->fetchOne("
         SELECT COUNT(*) as total FROM bookings 
         WHERE DATE(check_in_date) = ? AND status IN ('confirmed', 'checked_in')
     ", [$today]);
     $stats['daily_checkins'] = $dailyCheckins['total'] ?? 0;
-    
+
     $dailyCheckouts = $db->fetchOne("
         SELECT COUNT(*) as total FROM bookings 
         WHERE DATE(check_out_date) = ? AND status = 'checked_in'
     ", [$today]);
     $stats['daily_checkouts'] = $dailyCheckouts['total'] ?? 0;
-    
+
     // MONTHLY REPORT - This month's bookings and revenue
     $monthlyBookings = $db->fetchOne("
         SELECT COUNT(*) as total FROM bookings 
         WHERE DATE_FORMAT(created_at, '%Y-%m') = ? AND status IN ('confirmed', 'checked_in', 'checked_out')
     ", [$thisMonth]);
     $stats['monthly_bookings'] = $monthlyBookings['total'] ?? 0;
-    
+
     $monthlyRevenue = $db->fetchOne("
         SELECT COALESCE(SUM(paid_amount), 0) as revenue 
         FROM bookings 
         WHERE DATE_FORMAT(created_at, '%Y-%m') = ? AND status IN ('confirmed', 'checked_in', 'checked_out')
     ", [$thisMonth]);
     $stats['monthly_revenue'] = $monthlyRevenue['revenue'] ?? 0;
-    
+
     $monthlyNights = $db->fetchOne("
         SELECT COALESCE(SUM(DATEDIFF(check_out_date, check_in_date)), 0) as nights 
         FROM bookings 
         WHERE DATE_FORMAT(created_at, '%Y-%m') = ? AND status IN ('confirmed', 'checked_in', 'checked_out')
     ", [$thisMonth]);
     $stats['monthly_nights'] = $monthlyNights['nights'] ?? 0;
-    
+
     // YEARLY REPORT - This year's bookings and revenue
     $yearlyBookings = $db->fetchOne("
         SELECT COUNT(*) as total FROM bookings 
         WHERE YEAR(created_at) = ? AND status IN ('confirmed', 'checked_in', 'checked_out')
     ", [$thisYear]);
     $stats['yearly_bookings'] = $yearlyBookings['total'] ?? 0;
-    
+
     $yearlyRevenue = $db->fetchOne("
         SELECT COALESCE(SUM(paid_amount), 0) as revenue 
         FROM bookings 
         WHERE YEAR(created_at) = ? AND status IN ('confirmed', 'checked_in', 'checked_out')
     ", [$thisYear]);
     $stats['yearly_revenue'] = $yearlyRevenue['revenue'] ?? 0;
-    
+
     $yearlyNights = $db->fetchOne("
         SELECT COALESCE(SUM(DATEDIFF(check_out_date, check_in_date)), 0) as nights 
         FROM bookings 
         WHERE YEAR(created_at) = ? AND status IN ('confirmed', 'checked_in', 'checked_out')
     ", [$thisYear]);
     $stats['yearly_nights'] = $yearlyNights['nights'] ?? 0;
-    
+
     // Recent bookings for daily list
     $recentBookings = $db->fetchAll("
         SELECT b.booking_code, g.guest_name, r.room_number, b.check_in_date, b.check_out_date, 
@@ -266,18 +274,33 @@ try {
         LIMIT 10
     ", [$today]);
     $stats['recent_bookings'] = $recentBookings;
-
 } catch (Exception $e) {
     error_log("Front Desk Stats Error: " . $e->getMessage());
     $stats = [
-        'checkins' => 0, 'checkouts' => 0, 'available' => 0, 
-        'total_rooms' => 0, 'revenue_today' => 0, 'inhouse_revenue' => 0, 'occupied' => 0,
-        'occupancy_rate' => 0, 'daily_bookings' => 0, 'daily_revenue' => 0,
-        'monthly_bookings' => 0, 'monthly_revenue' => 0, 'yearly_bookings' => 0,
-        'yearly_revenue' => 0, 'daily_checkins' => 0, 'daily_checkouts' => 0,
-        'monthly_nights' => 0, 'yearly_nights' => 0, 'recent_bookings' => [],
-        'cash_income_today' => 0, 'cash_expense_today' => 0, 
-        'owner_transfer_today' => 0, 'cash_balance' => 0
+        'checkins' => 0,
+        'checkouts' => 0,
+        'available' => 0,
+        'total_rooms' => 0,
+        'revenue_today' => 0,
+        'inhouse_revenue' => 0,
+        'occupied' => 0,
+        'occupancy_rate' => 0,
+        'daily_bookings' => 0,
+        'daily_revenue' => 0,
+        'monthly_bookings' => 0,
+        'monthly_revenue' => 0,
+        'yearly_bookings' => 0,
+        'yearly_revenue' => 0,
+        'daily_checkins' => 0,
+        'daily_checkouts' => 0,
+        'monthly_nights' => 0,
+        'yearly_nights' => 0,
+        'recent_bookings' => [],
+        'cash_income_today' => 0,
+        'cash_expense_today' => 0,
+        'owner_transfer_today' => 0,
+        'cash_balance' => 0,
+        'cleaning' => 0
     ];
 }
 
@@ -285,345 +308,352 @@ include '../../includes/header.php';
 ?>
 
 <style>
-/* ============================================
+    /* ============================================
    FRONT DESK DASHBOARD - LUXURIOUS STYLING
    ============================================ */
 
-.fd-container {
-    max-width: 1440px;
-    margin: 0 auto;
-    padding: 2rem 1rem;
-}
-
-/* Header Section */
-.fd-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 2.5rem;
-    gap: 2rem;
-}
-
-.fd-header-content h1 {
-    font-size: 2rem;
-    font-weight: 800;
-    color: var(--text-primary);
-    margin: 0;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-}
-
-.fd-header-content p {
-    color: var(--text-secondary);
-    font-size: 0.938rem;
-    margin: 0.5rem 0 0 0;
-}
-
-/* Stats Grid - Responsive */
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1.25rem;
-    margin-bottom: 2.5rem;
-}
-
-.stat-card {
-    background: var(--bg-secondary);
-    border: 2px solid var(--bg-tertiary);
-    border-radius: 16px;
-    padding: 1.5rem;
-    position: relative;
-    overflow: hidden;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    backdrop-filter: blur(10px);
-}
-
-.stat-card::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    right: -50%;
-    width: 200px;
-    height: 200px;
-    background: radial-gradient(circle, var(--primary-color), transparent);
-    opacity: 0.05;
-    border-radius: 50%;
-    pointer-events: none;
-}
-
-.stat-card:hover {
-    transform: translateY(-8px);
-    border-color: var(--primary-color);
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-}
-
-.stat-icon {
-    width: 56px;
-    height: 56px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.75rem;
-    margin-bottom: 0.75rem;
-}
-
-.stat-value {
-    font-size: 2rem;
-    font-weight: 800;
-    color: var(--text-primary);
-    font-family: 'Courier New', monospace;
-}
-
-.stat-label {
-    color: var(--text-secondary);
-    font-size: 0.813rem;
-    font-weight: 600;
-    margin-top: 0.5rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-/* Tab Navigation - Modern */
-.fd-tabs {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 2rem;
-    border-bottom: 2px solid var(--bg-tertiary);
-    flex-wrap: wrap;
-    padding-bottom: 0;
-}
-
-.tab-btn {
-    background: transparent;
-    border: none;
-    color: var(--text-secondary);
-    padding: 1rem 1.5rem;
-    font-size: 0.938rem;
-    font-weight: 600;
-    cursor: pointer;
-    position: relative;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    white-space: nowrap;
-}
-
-.tab-btn:hover {
-    color: var(--text-primary);
-}
-
-.tab-btn.active {
-    color: var(--primary-color);
-}
-
-.tab-btn.active::after {
-    content: '';
-    position: absolute;
-    bottom: -2px;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
-    border-radius: 3px 3px 0 0;
-}
-
-/* Tab Content */
-.tab-content {
-    display: none;
-    animation: fadeIn 0.3s ease;
-}
-
-.tab-content.active {
-    display: block;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-/* Card Styling */
-.fd-card {
-    background: var(--bg-secondary);
-    border: 2px solid var(--bg-tertiary);
-    border-radius: 16px;
-    padding: 2rem;
-    margin-bottom: 1.5rem;
-    backdrop-filter: blur(10px);
-    transition: all 0.3s ease;
-}
-
-.fd-card:hover {
-    border-color: var(--primary-color);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-}
-
-.fd-card-title {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin-bottom: 1.5rem;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-}
-
-/* Quick Action Grid */
-.quick-actions {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 1rem;
-}
-
-.quick-btn {
-    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-    border: none;
-    color: white;
-    padding: 1rem;
-    border-radius: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.5rem;
-    text-decoration: none;
-    font-size: 0.875rem;
-}
-
-.quick-btn:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 12px 24px rgba(99, 102, 241, 0.3);
-}
-
-/* Menu Grid */
-.menu-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 1.5rem;
-    padding: 1.5rem 0;
-}
-
-.menu-item {
-    background: linear-gradient(135deg, var(--bg-secondary), var(--bg-tertiary));
-    border: 2px solid var(--bg-tertiary);
-    border-radius: 16px;
-    padding: 1.5rem;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    position: relative;
-    overflow: hidden;
-}
-
-.menu-item::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
-}
-
-.menu-item:hover {
-    transform: translateY(-12px);
-    border-color: var(--primary-color);
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-}
-
-.menu-icon {
-    font-size: 2.5rem;
-    margin-bottom: 0.75rem;
-}
-
-.menu-title {
-    font-size: 1rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin-bottom: 0.5rem;
-}
-
-.menu-desc {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    line-height: 1.4;
-}
-
-/* Report Cards Responsive Container */
-.report-cards-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
     .fd-container {
-        padding: 1rem;
+        max-width: 1440px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
     }
 
+    /* Header Section */
     .fd-header {
-        flex-direction: column;
-        align-items: flex-start;
-        margin-bottom: 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2.5rem;
+        gap: 2rem;
     }
 
     .fd-header-content h1 {
-        font-size: 1.5rem;
+        font-size: 2rem;
+        font-weight: 800;
+        color: var(--text-primary);
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
     }
 
-    .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 1rem;
+    .fd-header-content p {
+        color: var(--text-secondary);
+        font-size: 0.938rem;
+        margin: 0.5rem 0 0 0;
     }
-    
-    .report-cards-grid,
-    #tab-laporan > div:first-child {
-        grid-template-columns: 1fr !important;
+
+    /* Stats Grid - Responsive */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.25rem;
+        margin-bottom: 2.5rem;
     }
 
     .stat-card {
-        padding: 1rem;
+        background: var(--bg-secondary);
+        border: 2px solid var(--bg-tertiary);
+        border-radius: 16px;
+        padding: 1.5rem;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        backdrop-filter: blur(10px);
+    }
+
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200px;
+        height: 200px;
+        background: radial-gradient(circle, var(--primary-color), transparent);
+        opacity: 0.05;
+        border-radius: 50%;
+        pointer-events: none;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-8px);
+        border-color: var(--primary-color);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    }
+
+    .stat-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.75rem;
+        margin-bottom: 0.75rem;
     }
 
     .stat-value {
-        font-size: 1.5rem;
+        font-size: 2rem;
+        font-weight: 800;
+        color: var(--text-primary);
+        font-family: 'Courier New', monospace;
     }
 
+    .stat-label {
+        color: var(--text-secondary);
+        font-size: 0.813rem;
+        font-weight: 600;
+        margin-top: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    /* Tab Navigation - Modern */
     .fd-tabs {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 2rem;
+        border-bottom: 2px solid var(--bg-tertiary);
+        flex-wrap: wrap;
+        padding-bottom: 0;
     }
 
     .tab-btn {
-        padding: 0.75rem 1rem;
-        font-size: 0.813rem;
+        background: transparent;
+        border: none;
+        color: var(--text-secondary);
+        padding: 1rem 1.5rem;
+        font-size: 0.938rem;
+        font-weight: 600;
+        cursor: pointer;
+        position: relative;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        white-space: nowrap;
     }
 
-    .menu-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-@media (max-width: 480px) {
-    .stats-grid {
-        grid-template-columns: 1fr;
+    .tab-btn:hover {
+        color: var(--text-primary);
     }
 
-    .menu-grid {
-        grid-template-columns: 1fr;
+    .tab-btn.active {
+        color: var(--primary-color);
     }
 
+    .tab-btn.active::after {
+        content: '';
+        position: absolute;
+        bottom: -2px;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+        border-radius: 3px 3px 0 0;
+    }
+
+    /* Tab Content */
+    .tab-content {
+        display: none;
+        animation: fadeIn 0.3s ease;
+    }
+
+    .tab-content.active {
+        display: block;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Card Styling */
+    .fd-card {
+        background: var(--bg-secondary);
+        border: 2px solid var(--bg-tertiary);
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 1.5rem;
+        backdrop-filter: blur(10px);
+        transition: all 0.3s ease;
+    }
+
+    .fd-card:hover {
+        border-color: var(--primary-color);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    }
+
+    .fd-card-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    /* Quick Action Grid */
     .quick-actions {
-        grid-template-columns: 1fr;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 1rem;
     }
-}
+
+    .quick-btn {
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        border: none;
+        color: white;
+        padding: 1rem;
+        border-radius: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+        text-decoration: none;
+        font-size: 0.875rem;
+    }
+
+    .quick-btn:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 24px rgba(99, 102, 241, 0.3);
+    }
+
+    /* Menu Grid */
+    .menu-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 1.5rem;
+        padding: 1.5rem 0;
+    }
+
+    .menu-item {
+        background: linear-gradient(135deg, var(--bg-secondary), var(--bg-tertiary));
+        border: 2px solid var(--bg-tertiary);
+        border-radius: 16px;
+        padding: 1.5rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .menu-item::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+    }
+
+    .menu-item:hover {
+        transform: translateY(-12px);
+        border-color: var(--primary-color);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    }
+
+    .menu-icon {
+        font-size: 2.5rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .menu-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+    }
+
+    .menu-desc {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        line-height: 1.4;
+    }
+
+    /* Report Cards Responsive Container */
+    .report-cards-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .fd-container {
+            padding: 1rem;
+        }
+
+        .fd-header {
+            flex-direction: column;
+            align-items: flex-start;
+            margin-bottom: 1.5rem;
+        }
+
+        .fd-header-content h1 {
+            font-size: 1.5rem;
+        }
+
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .report-cards-grid,
+        #tab-laporan>div:first-child {
+            grid-template-columns: 1fr !important;
+        }
+
+        .stat-card {
+            padding: 1rem;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+        }
+
+        .fd-tabs {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .tab-btn {
+            padding: 0.75rem 1rem;
+            font-size: 0.813rem;
+        }
+
+        .menu-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    @media (max-width: 480px) {
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .menu-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .quick-actions {
+            grid-template-columns: 1fr;
+        }
+    }
 </style>
 
 <div class="fd-container">
@@ -652,7 +682,13 @@ include '../../includes/header.php';
         <div class="stat-card">
             <div class="stat-icon" style="background: rgba(59, 130, 246, 0.15); color: #3b82f6;">🛎️</div>
             <div class="stat-value"><?php echo $stats['available']; ?>/<?php echo $stats['total_rooms']; ?></div>
-            <div class="stat-label">Kamar Tersedia</div>
+            <div class="stat-label">Kamar Bersih</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b;">🧹</div>
+            <div class="stat-value"><?php echo $stats['cleaning']; ?></div>
+            <div class="stat-label">Kamar Kotor</div>
         </div>
 
 
@@ -755,8 +791,7 @@ include '../../includes/header.php';
                     src="calendar.php?staff_view=1"
                     title="Booking Calendar"
                     loading="lazy"
-                    style="width: 100%; height: 78vh; min-height: 720px; border: 0; background: transparent;"
-                ></iframe>
+                    style="width: 100%; height: 78vh; min-height: 720px; border: 0; background: transparent;"></iframe>
             </div>
         </div>
     </div>
@@ -793,12 +828,12 @@ include '../../includes/header.php';
     <div id="tab-laporan" class="tab-content">
         <!-- Report Summary Cards -->
         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
-            
+
             <!-- Daily Cash Report Card - Premium Redesign -->
             <div style="background: linear-gradient(135deg, #1a1f35 0%, #252d48 100%); border-radius: 24px; padding: 0; color: white; box-shadow: 0 20px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1); position: relative; overflow: hidden; border: 1px solid rgba(255,255,255,0.08);">
                 <!-- Subtle gradient overlay -->
                 <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(180deg, rgba(255,255,255,0.03) 0%, transparent 50%); pointer-events: none;"></div>
-                
+
                 <!-- Content wrapper -->
                 <div style="position: relative; z-index: 1; padding: 1.5rem;">
                     <!-- Header -->
@@ -808,7 +843,7 @@ include '../../includes/header.php';
                             <div style="font-size: 0.85rem; opacity: 0.5;"><?php echo strftime('%d %B %Y', strtotime(date('Y-m-d'))); ?></div>
                         </div>
                     </div>
-                    
+
                     <!-- Main Saldo Card -->
                     <div style="background: linear-gradient(135deg, rgba(16,185,129,0.2) 0%, rgba(16,185,129,0.05) 100%); border-radius: 16px; padding: 1.25rem; margin-bottom: 1.25rem; border: 1px solid rgba(16,185,129,0.3);">
                         <div style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1px; opacity: 0.7; margin-bottom: 0.5rem; color: #a1f3e1;">SALDO KAS</div>
@@ -816,7 +851,7 @@ include '../../includes/header.php';
                             Rp <?php echo number_format($stats['cash_balance'], 0, ',', '.'); ?>
                         </div>
                     </div>
-                    
+
                     <!-- Metrics Grid -->
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; margin-bottom: 0.5rem;">
                         <!-- Today's Income -->
@@ -826,7 +861,7 @@ include '../../includes/header.php';
                                 Rp <?php echo number_format($stats['cash_income_today'], 0, ',', '.'); ?>
                             </div>
                         </div>
-                        
+
                         <!-- Today's Expense -->
                         <div style="background: rgba(239,68,68,0.12); border-radius: 12px; padding: 1rem; border-left: 3px solid #f87171;">
                             <div style="font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.8px; opacity: 0.65; margin-bottom: 0.4rem; color: #fca5a5;">📉 Pengeluaran</div>
@@ -835,19 +870,19 @@ include '../../includes/header.php';
                             </div>
                         </div>
                     </div>
-                    
+
                     <!-- Owner Transfer - Conditional Row -->
                     <?php if ($stats['owner_transfer_today'] > 0): ?>
-                    <div style="background: rgba(99,102,241,0.12); border-radius: 12px; padding: 1rem; border-left: 3px solid #818cf8;">
-                        <div style="font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.8px; opacity: 0.65; margin-bottom: 0.4rem; color: #c7d2fe;">👤 Transfer dari Owner</div>
-                        <div style="font-size: 1.3rem; font-weight: 800; color: #818cf8;">
-                            Rp <?php echo number_format($stats['owner_transfer_today'], 0, ',', '.'); ?>
+                        <div style="background: rgba(99,102,241,0.12); border-radius: 12px; padding: 1rem; border-left: 3px solid #818cf8;">
+                            <div style="font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.8px; opacity: 0.65; margin-bottom: 0.4rem; color: #c7d2fe;">👤 Transfer dari Owner</div>
+                            <div style="font-size: 1.3rem; font-weight: 800; color: #818cf8;">
+                                Rp <?php echo number_format($stats['owner_transfer_today'], 0, ',', '.'); ?>
+                            </div>
                         </div>
-                    </div>
                     <?php endif; ?>
                 </div>
             </div>
-            
+
             <!-- Monthly Report Card -->
             <div style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); border-radius: 16px; padding: 1.25rem; color: white;">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
@@ -873,7 +908,7 @@ include '../../includes/header.php';
                     </div>
                 </div>
             </div>
-            
+
             <!-- Yearly Report Card -->
             <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border-radius: 16px; padding: 1.25rem; color: white;">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
@@ -908,62 +943,62 @@ include '../../includes/header.php';
                 <span style="font-size: 0.8rem; color: var(--text-secondary);"><?php echo date('d M Y'); ?></span>
             </div>
             <?php if (!empty($stats['recent_bookings'])): ?>
-            <div style="overflow-x: auto;">
-                <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
-                    <thead>
-                        <tr style="background: var(--bg-tertiary); text-align: left;">
-                            <th style="padding: 0.75rem; font-weight: 600; color: var(--text-secondary);">Kode</th>
-                            <th style="padding: 0.75rem; font-weight: 600; color: var(--text-secondary);">Guest</th>
-                            <th style="padding: 0.75rem; font-weight: 600; color: var(--text-secondary);">Kamar</th>
-                            <th style="padding: 0.75rem; font-weight: 600; color: var(--text-secondary);">Check-in</th>
-                            <th style="padding: 0.75rem; font-weight: 600; color: var(--text-secondary);">Check-out</th>
-                            <th style="padding: 0.75rem; font-weight: 600; color: var(--text-secondary); text-align: right;">Total</th>
-                            <th style="padding: 0.75rem; font-weight: 600; color: var(--text-secondary); text-align: right;">Paid</th>
-                            <th style="padding: 0.75rem; font-weight: 600; color: var(--text-secondary);">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($stats['recent_bookings'] as $booking): ?>
-                        <tr style="border-bottom: 1px solid var(--glass-border);">
-                            <td style="padding: 0.75rem;">
-                                <code style="background: var(--bg-tertiary); padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.75rem;">
-                                    <?php echo htmlspecialchars($booking['booking_code']); ?>
-                                </code>
-                            </td>
-                            <td style="padding: 0.75rem; font-weight: 500;"><?php echo htmlspecialchars($booking['guest_name'] ?? '-'); ?></td>
-                            <td style="padding: 0.75rem;">
-                                <span style="background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; padding: 0.2rem 0.5rem; border-radius: 6px; font-size: 0.75rem; font-weight: 600;">
-                                    <?php echo htmlspecialchars($booking['room_number'] ?? '-'); ?>
-                                </span>
-                            </td>
-                            <td style="padding: 0.75rem; font-size: 0.8rem;"><?php echo date('d/m/Y', strtotime($booking['check_in_date'])); ?></td>
-                            <td style="padding: 0.75rem; font-size: 0.8rem;"><?php echo date('d/m/Y', strtotime($booking['check_out_date'])); ?></td>
-                            <td style="padding: 0.75rem; text-align: right; font-weight: 600;">Rp <?php echo number_format($booking['final_price'], 0, ',', '.'); ?></td>
-                            <td style="padding: 0.75rem; text-align: right; color: #10b981; font-weight: 600;">Rp <?php echo number_format($booking['paid_amount'], 0, ',', '.'); ?></td>
-                            <td style="padding: 0.75rem;">
-                                <?php
-                                $statusColors = [
-                                    'confirmed' => '#10b981',
-                                    'checked_in' => '#6366f1',
-                                    'checked_out' => '#64748b',
-                                    'cancelled' => '#ef4444'
-                                ];
-                                $statusColor = $statusColors[$booking['status']] ?? '#64748b';
-                                ?>
-                                <span style="background: <?php echo $statusColor; ?>20; color: <?php echo $statusColor; ?>; padding: 0.25rem 0.5rem; border-radius: 6px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase;">
-                                    <?php echo htmlspecialchars($booking['status']); ?>
-                                </span>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                        <thead>
+                            <tr style="background: var(--bg-tertiary); text-align: left;">
+                                <th style="padding: 0.75rem; font-weight: 600; color: var(--text-secondary);">Kode</th>
+                                <th style="padding: 0.75rem; font-weight: 600; color: var(--text-secondary);">Guest</th>
+                                <th style="padding: 0.75rem; font-weight: 600; color: var(--text-secondary);">Kamar</th>
+                                <th style="padding: 0.75rem; font-weight: 600; color: var(--text-secondary);">Check-in</th>
+                                <th style="padding: 0.75rem; font-weight: 600; color: var(--text-secondary);">Check-out</th>
+                                <th style="padding: 0.75rem; font-weight: 600; color: var(--text-secondary); text-align: right;">Total</th>
+                                <th style="padding: 0.75rem; font-weight: 600; color: var(--text-secondary); text-align: right;">Paid</th>
+                                <th style="padding: 0.75rem; font-weight: 600; color: var(--text-secondary);">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($stats['recent_bookings'] as $booking): ?>
+                                <tr style="border-bottom: 1px solid var(--glass-border);">
+                                    <td style="padding: 0.75rem;">
+                                        <code style="background: var(--bg-tertiary); padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.75rem;">
+                                            <?php echo htmlspecialchars($booking['booking_code']); ?>
+                                        </code>
+                                    </td>
+                                    <td style="padding: 0.75rem; font-weight: 500;"><?php echo htmlspecialchars($booking['guest_name'] ?? '-'); ?></td>
+                                    <td style="padding: 0.75rem;">
+                                        <span style="background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; padding: 0.2rem 0.5rem; border-radius: 6px; font-size: 0.75rem; font-weight: 600;">
+                                            <?php echo htmlspecialchars($booking['room_number'] ?? '-'); ?>
+                                        </span>
+                                    </td>
+                                    <td style="padding: 0.75rem; font-size: 0.8rem;"><?php echo date('d/m/Y', strtotime($booking['check_in_date'])); ?></td>
+                                    <td style="padding: 0.75rem; font-size: 0.8rem;"><?php echo date('d/m/Y', strtotime($booking['check_out_date'])); ?></td>
+                                    <td style="padding: 0.75rem; text-align: right; font-weight: 600;">Rp <?php echo number_format($booking['final_price'], 0, ',', '.'); ?></td>
+                                    <td style="padding: 0.75rem; text-align: right; color: #10b981; font-weight: 600;">Rp <?php echo number_format($booking['paid_amount'], 0, ',', '.'); ?></td>
+                                    <td style="padding: 0.75rem;">
+                                        <?php
+                                        $statusColors = [
+                                            'confirmed' => '#10b981',
+                                            'checked_in' => '#6366f1',
+                                            'checked_out' => '#64748b',
+                                            'cancelled' => '#ef4444'
+                                        ];
+                                        $statusColor = $statusColors[$booking['status']] ?? '#64748b';
+                                        ?>
+                                        <span style="background: <?php echo $statusColor; ?>20; color: <?php echo $statusColor; ?>; padding: 0.25rem 0.5rem; border-radius: 6px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase;">
+                                            <?php echo htmlspecialchars($booking['status']); ?>
+                                        </span>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
             <?php else: ?>
-            <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
-                <div style="font-size: 2rem; margin-bottom: 0.5rem;">📭</div>
-                <p>No reservations today</p>
-            </div>
+                <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                    <div style="font-size: 2rem; margin-bottom: 0.5rem;">📭</div>
+                    <p>No reservations today</p>
+                </div>
             <?php endif; ?>
         </div>
 
@@ -1029,26 +1064,26 @@ include '../../includes/header.php';
 </div>
 
 <script>
-// Tab switching functionality
-function switchTab(tabName, btnElement) {
-    // Hide all tabs
-    document.querySelectorAll('.tab-content').forEach(tab => {
-        tab.classList.remove('active');
-    });
+    // Tab switching functionality
+    function switchTab(tabName, btnElement) {
+        // Hide all tabs
+        document.querySelectorAll('.tab-content').forEach(tab => {
+            tab.classList.remove('active');
+        });
 
-    // Remove active from all buttons
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
+        // Remove active from all buttons
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
 
-    // Show selected tab
-    const tabId = 'tab-' + tabName;
-    const tabElement = document.getElementById(tabId);
-    if (tabElement) {
-        tabElement.classList.add('active');
-        btnElement.classList.add('active');
+        // Show selected tab
+        const tabId = 'tab-' + tabName;
+        const tabElement = document.getElementById(tabId);
+        if (tabElement) {
+            tabElement.classList.add('active');
+            btnElement.classList.add('active');
+        }
     }
-}
 </script>
 
 <?php include '../../includes/footer.php'; ?>
