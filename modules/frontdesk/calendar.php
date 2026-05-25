@@ -3382,9 +3382,14 @@ include '../../includes/header.php';
 
     function doCheckOut() {
         const modal = document.getElementById('bookingDetailsModal');
-        const bookingId = modal.dataset.bookingId;
-        const guestName = document.getElementById('detailGuestName').textContent;
-        const roomNumber = document.getElementById('detailRoomNumber').textContent;
+        const bookingId = modal?.dataset?.bookingId || (currentPaymentBooking ? currentPaymentBooking.id : '');
+        const guestName = document.getElementById('detailGuestName')?.textContent || (currentPaymentBooking?.guest_name || 'Guest');
+        const roomNumber = document.getElementById('detailRoomNumber')?.textContent || (currentPaymentBooking?.room_number || '-');
+
+        if (!bookingId) {
+            alert('Booking data not found');
+            return;
+        }
 
         if (confirm(`Check-out ${guestName} dari Room ${roomNumber} sekarang?`)) {
             // Show loading state
@@ -3647,7 +3652,9 @@ include '../../includes/header.php';
 
         // Check payment status before checkout
         if (booking.payment_status !== 'paid') {
-            const remaining = (parseFloat(booking.total_price) - parseFloat(booking.amount_paid)).toLocaleString('id-ID');
+            const total = parseFloat(booking.final_price || booking.total_price || 0);
+            const paid = parseFloat(booking.paid_amount || booking.amount_paid || 0);
+            const remaining = Math.max(0, total - paid).toLocaleString('id-ID');
             const proceed = confirm(`Pembayaran belum lunas (Sisa: Rp ${remaining}). Lanjut check-out?`);
             if (!proceed) {
                 openBookingPaymentModal();
