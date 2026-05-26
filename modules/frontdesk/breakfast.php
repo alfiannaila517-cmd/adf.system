@@ -77,7 +77,7 @@ foreach (array_merge($freeMenus, $paidMenus) as $mx) {
 }
 
 // Get in-house guests WHO HAVE NOT ORDERED TODAY
-// Keep each booking as its own row so same-name guests in different rooms stay separate
+// Group by guest_id: one guest may have multiple bookings/rooms
 $inHouseGuests = [];
 $guestQuotaMap = [];
 try {
@@ -85,112 +85,41 @@ try {
     foreach ($quotaRows as $qr) {
         $guestQuotaMap[(int)$qr['booking_id']] = $qr;
     }
-} catch (Exception $e) {
-}
 
-try {
     $stmt = $pdo->prepare("
-        SELECT b.id as booking_id,
-               COALESCE(g.id, 0) as guest_id,
-               COALESCE(g.guest_name, b.guest_name) as guest_name,
-               COALESCE(g.phone, '') as guest_phone,
-               COALESCE(r.room_number, b.room_number) as room_number,
-               0 as has_order_today
+        SELECT g.id as guest_id, g.guest_name, COALESCE(g.phone,'') as guest_phone,
+               GROUP_CONCAT(DISTINCT r.room_number ORDER BY r.room_number SEPARATOR ',') as rooms,
+               GROUP_CONCAT(DISTINCT b.id ORDER BY b.id SEPARATOR ',') as booking_ids
         FROM bookings b
-        LEFT JOIN guests g ON b.guest_id = g.id
-        LEFT JOIN rooms r ON b.room_id = r.id
-                WHERE b.check_in_date <= :stay_date
-                    AND b.check_out_date > :stay_date
-                    AND b.status NOT IN ('checked_out', 'cancelled')
-                    AND (
-                                b.status = 'checked_in'
-                                    OR b.actual_checkin_time IS NOT NULL
-                                    OR r.status = 'occupied'
-                                    OR r.current_guest_id IS NOT NULL
-                            )
-        ORDER BY COALESCE(r.room_number, b.room_number) ASC, b.id ASC
+        JOIN guests g ON b.guest_id = g.id
+        JOIN rooms r ON b.room_id = r.id
+        WHERE b.status = 'checked_in'
+        AND NOT EXISTS (
+            SELECT 1 FROM breakfast_orders bo 
+            WHERE bo.breakfast_date = ? 
+            AND FIND_IN_SET(g.guest_name, REPLACE(bo.guest_name, ', ', ',')) > 0
+        )
+        GROUP BY g.id, g.guest_name
+        ORDER BY MIN(r.room_number) ASC
     ");
-        $stmt->execute(['stay_date' => $today]);
+    $stmt->execute([$today]);
     $inHouseGuests = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    $orderedBookingIds = [];
-    $orderedRooms = [];
-    try {
-        $orderedStmt = $pdo->prepare("SELECT booking_id, room_number FROM breakfast_orders WHERE DATE(breakfast_date) = ?");
-        $orderedStmt->execute([$today]);
-        $orderedRows = $orderedStmt->fetchAll(PDO::FETCH_ASSOC);
-
-        foreach ($orderedRows as $orderedRow) {
-            $oid = (int)($orderedRow['booking_id'] ?? 0);
-            if ($oid > 0) {
-                $orderedBookingIds[$oid] = true;
-            }
-
-            $roomRaw = trim((string)($orderedRow['room_number'] ?? ''));
-            if ($roomRaw === '') {
-                continue;
-            }
-
-            $decodedRooms = json_decode($roomRaw, true);
-            if (is_array($decodedRooms)) {
-                foreach ($decodedRooms as $roomVal) {
-                    $normalized = trim((string)$roomVal);
-                    if ($normalized !== '') {
-                        $orderedRooms[$normalized] = true;
-                    }
-                }
-                continue;
-            }
-
-            $orderedRooms[$roomRaw] = true;
-        }
-    } catch (Exception $e) {
-        error_log('Breakfast ordered room query error: ' . $e->getMessage());
-    }
-
-    foreach ($inHouseGuests as &$guestRow) {
-        $guestBookingId = (int)($guestRow['booking_id'] ?? 0);
-        $guestRoom = trim((string)($guestRow['room_number'] ?? ''));
-        $guestRow['has_order_today'] = (
-            isset($orderedBookingIds[$guestBookingId]) ||
-            ($guestRoom !== '' && isset($orderedRooms[$guestRoom]))
-        ) ? 1 : 0;
-    }
-    unset($guestRow);
-
-    usort($inHouseGuests, static function ($a, $b) {
-        $aOrdered = (int)($a['has_order_today'] ?? 0);
-        $bOrdered = (int)($b['has_order_today'] ?? 0);
-        if ($aOrdered !== $bOrdered) {
-            return $aOrdered <=> $bOrdered;
-        }
-
-        $aRoom = (string)($a['room_number'] ?? '');
-        $bRoom = (string)($b['room_number'] ?? '');
-        if ($aRoom !== $bRoom) {
-            return strnatcasecmp($aRoom, $bRoom);
-        }
-
-        return ((int)($a['booking_id'] ?? 0)) <=> ((int)($b['booking_id'] ?? 0));
-    });
 } catch (Exception $e) {
-    error_log('Breakfast guest query error: ' . $e->getMessage());
 }
 
 // Today's orders for sidebar
 $todayOrders = [];
 try {
     $stmt = $pdo->prepare("SELECT bo.* FROM breakfast_orders bo
-        WHERE DATE(bo.breakfast_date) = ?
+        WHERE bo.breakfast_date = ?
         AND bo.id = (
             SELECT MAX(bo2.id) FROM breakfast_orders bo2
             WHERE bo2.guest_name = bo.guest_name
-              AND DATE(bo2.breakfast_date) = ?
+              AND bo2.breakfast_date = bo.breakfast_date
               AND bo2.room_number = bo.room_number
         )
         ORDER BY bo.breakfast_time ASC, bo.id ASC");
-    // bind today's date twice (outer and subquery)
-    $stmt->execute([$today, $today]);
+    $stmt->execute([$today]);
     $todayOrders = $stmt->fetchAll(PDO::FETCH_ASSOC);
     foreach ($todayOrders as &$o) {
         $o['menu_items'] = json_decode($o['menu_items'], true) ?: [];
@@ -626,15 +555,7 @@ include '../../includes/header.php';
         padding: .15rem .35rem;
         background: rgba(139, 92, 246, .15);
         color: #a78bfa;
-        border-radius: 3px;
-        display: inline-flex;
-        flex-direction: column;
-        gap: .1rem
-    }
-
-    .bf-order-tag-main {
-        font-weight: 600;
-        line-height: 1.1
+        border-radius: 3px
     }
 
     .bf-order-foot {
@@ -771,22 +692,6 @@ include '../../includes/header.php';
 
     .bf-guest-item:has(input:checked) {
         background: rgba(16, 185, 129, .1)
-    }
-
-    .bf-guest-item.is-ordered {
-        opacity: .72;
-        background: rgba(245, 158, 11, .07)
-    }
-
-    .bf-guest-item.is-ordered .guest-name::after {
-        content: ' • Sudah order';
-        color: #f59e0b;
-        font-size: .68rem;
-        font-weight: 700
-    }
-
-    .bf-guest-item.is-ordered input[type="checkbox"] {
-        cursor: not-allowed
     }
 
     .bf-guest-item input[type="checkbox"] {
@@ -988,8 +893,7 @@ include '../../includes/header.php';
         font-size: .62rem;
         color: #f59e0b;
         font-style: italic;
-        margin-left: .1rem;
-        line-height: 1.15
+        margin-left: .2rem
     }
 
     .bf-order-special {
@@ -1092,19 +996,18 @@ include '../../includes/header.php';
                                 <label class="bf-label">Pilih Tamu (centang 1 atau lebih) *</label>
                                 <div class="bf-guest-list" id="guestList">
                                     <?php foreach ($inHouseGuests as $g):
-                                        $bookingId = (int)$g['booking_id'];
-                                        $roomList = $g['room_number'];
-                                        $savedQuota = $guestQuotaMap[$bookingId] ?? [];
+                                        $roomList = $g['rooms'];
+                                        $bookingIdFirst = explode(',', $g['booking_ids'])[0];
+                                        $savedQuota = $guestQuotaMap[(int)$bookingIdFirst] ?? [];
                                         $savedChildIds = json_decode($savedQuota['child_menu_ids'] ?? '[]', true);
                                         if (!is_array($savedChildIds)) $savedChildIds = [];
                                         $savedChildIds = array_values(array_unique(array_map('intval', $savedChildIds)));
                                     ?>
-                                        <label class="bf-guest-item <?php echo !empty($g['has_order_today']) ? 'is-ordered' : ''; ?>">
-                                            <input type="checkbox" name="guest_checks[]" value="<?php echo $bookingId; ?>" <?php echo !empty($g['has_order_today']) ? 'disabled' : ''; ?>
-                                                data-guest-id="<?php echo $g['guest_id']; ?>"
+                                        <label class="bf-guest-item">
+                                            <input type="checkbox" name="guest_checks[]" value="<?php echo $g['guest_id']; ?>"
                                                 data-name="<?php echo htmlspecialchars($g['guest_name']); ?>"
                                                 data-rooms="<?php echo htmlspecialchars($roomList); ?>"
-                                                data-booking="<?php echo $bookingId; ?>"
+                                                data-booking="<?php echo $bookingIdFirst; ?>"
                                                 data-phone="<?php echo htmlspecialchars($g['guest_phone'] ?? ''); ?>"
                                                 data-adults="<?php echo (int)($savedQuota['adult_count'] ?? 1); ?>"
                                                 data-child-young="<?php echo (int)($savedQuota['child_young_count'] ?? 0); ?>"
@@ -1122,9 +1025,6 @@ include '../../includes/header.php';
                                                 <div class="guest-room">🛏️ Room <?php echo $roomList; ?></div>
                                             </div>
                                             <div class="bf-guest-tools">
-                                                <?php if (!empty($g['has_order_today'])): ?>
-                                                    <span class="bf-wa-phone" style="background:rgba(245,158,11,.15);color:#f59e0b;">Order hari ini</span>
-                                                <?php endif; ?>
                                                 <?php if (!empty($g['guest_phone'])): ?>
                                                     <span class="bf-wa-phone" title="<?php echo htmlspecialchars($g['guest_phone']); ?>"><?php echo htmlspecialchars($g['guest_phone']); ?></span>
                                                 <?php else: ?>
@@ -1296,15 +1196,11 @@ include '../../includes/header.php';
                         <div class="bf-order-room"><?php echo ($order['location'] ?? 'restaurant') === 'restaurant' ? '🍽️ Restaurant' : (($order['location'] ?? '') === 'take_away' ? '🥡 Take Away' : '🚪 Room Service'); ?></div>
                         <div class="bf-order-menus">
                             <?php foreach ($order['menu_items'] as $item): ?>
-                                <div class="bf-order-tag">
-                                    <div class="bf-order-tag-main">
-                                        <?php echo htmlspecialchars($item['menu_name'] ?? '?'); ?>
-                                        <?php if (($item['quantity'] ?? 1) > 1): ?>×<?php echo $item['quantity']; ?><?php endif; ?>
-                                    </div>
-                                    <?php if (!empty($item['note'])): ?>
-                                        <div class="bf-order-note">Catatan: <?php echo htmlspecialchars($item['note']); ?></div>
-                                    <?php endif; ?>
-                                </div>
+                                <span class="bf-order-tag">
+                                    <?php echo htmlspecialchars($item['menu_name'] ?? '?'); ?>
+                                    <?php if (($item['quantity'] ?? 1) > 1): ?>×<?php echo $item['quantity']; ?><?php endif; ?>
+                                    <?php if (!empty($item['note'])): ?><span class="bf-order-note">(<?php echo htmlspecialchars($item['note']); ?>)</span><?php endif; ?>
+                                </span>
                             <?php endforeach; ?>
                         </div>
                         <?php if (!empty($order['special_requests'])): ?>
@@ -1598,13 +1494,14 @@ include '../../includes/header.php';
 
         var guests = [];
         checked.forEach(function(cb) {
+            var roomsStr = cb.dataset.rooms || '';
             guests.push({
-                booking_id: parseInt(cb.value, 10) || null,
-                guest_id: parseInt(cb.dataset.guestId || '0', 10) || null,
+                guest_id: parseInt(cb.value) || null,
                 guest_name: cb.dataset.name || '',
-                room_number: (cb.dataset.rooms || '').split(',').map(function(r) {
+                room_number: roomsStr ? roomsStr.split(',').map(function(r) {
                     return r.trim();
-                }).filter(Boolean)
+                }) : [],
+                booking_id: parseInt(cb.dataset.booking) || null
             });
         });
 
@@ -1741,7 +1638,7 @@ include '../../includes/header.php';
             if (it.is_free) html += ' <span style="color:#10b981;font-size:10px;font-weight:400">(Free)</span>';
             html += '</td>';
             html += '<td style="padding:10px 12px;text-align:center">' + qty + '</td>';
-            html += '<td style="padding:10px 12px;color:#92400e;font-style:italic">' + (it.note ? ('Catatan: ' + escHtml(it.note)) : '-') + '</td>';
+            html += '<td style="padding:10px 12px;color:#92400e;font-style:italic">' + escHtml(it.note || '-') + '</td>';
             html += '<td style="padding:10px 12px;text-align:right">' + (lineTotal > 0 ? 'Rp ' + numberFmt(lineTotal) : '-') + '</td>';
             html += '</tr>';
         }
@@ -1876,7 +1773,7 @@ include '../../includes/header.php';
 
         var body = {
             action: 'create_link',
-            guest_id: parseInt(cb.dataset.guestId || '0', 10) || null,
+            guest_id: parseInt(cb.value, 10) || null,
             guest_name: cb.dataset.name || '',
             guest_phone: cb.dataset.phone || '',
             booking_id: parseInt(cb.dataset.booking, 10) || null,

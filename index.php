@@ -2819,35 +2819,73 @@ if ($trialStatus) {
             // LIVE UPDATE - Auto refresh every 30 seconds
             // ============================================
             function updateLiveChart() {
-                if (currentView === 'yearly') {
-                    const selectedYear = document.getElementById('chartYearFilter')?.value || new Date().getFullYear();
-                    updateChartYear(selectedYear, true);
-                    return;
-                }
+                const selectedMonth = document.getElementById('chartMonthFilter').value;
+                fetch(`api/live-chart-data.php?month=${selectedMonth}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Calculate daily net series
+                            const netSeries = buildNetSeries(data.income, data.expense);
 
-                if (currentView === 'daily') {
-                    const selectedDate = document.getElementById('chartDateFilter')?.value || new Date().toISOString().slice(0, 10);
-                    updateChartDate(selectedDate, true);
-                    return;
-                }
+                            // Update chart data
+                            tradingChart.data.labels = data.labels;
+                            tradingChart.data.datasets[0].data = data.income;
+                            tradingChart.data.datasets[1].data = data.expense;
+                            tradingChart.data.datasets[2].data = netSeries;
+                            tradingChart.update('none'); // Update without animation
 
-                if (currentView === 'alltime') {
-                    updateChartAllTime(true);
-                    return;
-                }
+                            // Update summary cards
+                            const totalIncome = data.income.reduce((a, b) => a + b, 0);
+                            const totalExpense = data.expense.reduce((a, b) => a + b, 0);
 
-                const selectedMonth = document.getElementById('chartMonthFilter')?.value || new Date().toISOString().slice(0, 7);
-                updateChartMonth(selectedMonth, true);
+                            // Income from API already excludes owner_fund (petty cash transfers)
+                            const isCQC = data.cqc !== null && data.cqc !== undefined;
+                            let netBalance = totalIncome - totalExpense;
+
+                            // CQC: displayIncome = invoice - petty cash transfers
+                            let displayIncome = totalIncome;
+                            if (isCQC) {
+                                const pettyCashTransfers = data.cqc.petty_cash_transfers || 0;
+                                const pettyCashBalance = data.cqc.petty_cash_balance || 0;
+                                const bankBalance = data.cqc.bank_balance || 0;
+                                const expenseFromPettyCash = data.cqc.expense_from_petty_cash || 0;
+                                const expenseFromBank = data.cqc.expense_from_bank || 0;
+                                displayIncome = totalIncome - pettyCashTransfers;
+                                // CQC: Saldo Bersih = Petty Cash + Bank (actual cash position)
+                                netBalance = pettyCashBalance + bankBalance;
+
+                                // Update chart summary containers
+                                const pettyCashEl = document.getElementById('totalPettyCash');
+                                if (pettyCashEl) pettyCashEl.textContent = formatRupiah(pettyCashBalance);
+
+                                const kasBesarEl = document.getElementById('totalKasBesar');
+                                if (kasBesarEl) kasBesarEl.textContent = formatRupiah(bankBalance);
+
+                                // Update widget containers
+                                const dashPettyEl = document.getElementById('dashboardPettyCashBalance');
+                                if (dashPettyEl) dashPettyEl.textContent = formatRupiah(pettyCashBalance);
+
+                                const dashBankEl = document.getElementById('dashboardBankBalance');
+                                if (dashBankEl) dashBankEl.textContent = formatRupiah(bankBalance);
+
+                                const expBankEl = document.getElementById('expenseFromBank');
+                                if (expBankEl) expBankEl.textContent = formatRupiah(expenseFromBank);
+                            }
+
+                            updateSummaryCards(displayIncome, totalExpense, netBalance);
+
+                            console.log('Chart updated at:', data.timestamp);
+                        }
+                    })
+                    .catch(error => console.error('Error updating chart:', error));
             }
 
             // Update chart when month filter changes
-            function updateChartMonth(month, silent = false) {
+            function updateChartMonth(month) {
                 fetch(`api/live-chart-data.php?month=${month}`)
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
-                            ensureBaseChartDatasets();
-
                             // Calculate daily net series
                             const netSeries = buildNetSeries(data.income, data.expense);
 
@@ -2897,10 +2935,6 @@ if ($trialStatus) {
                             }
 
                             updateSummaryCards(displayIncome, totalExpense, netBalance);
-
-                            if (!silent) {
-                                currentView = 'monthly';
-                            }
 
                             // Update period display
                             const monthObj = new Date(month + '-01');
@@ -2999,13 +3033,11 @@ if ($trialStatus) {
                 }
             }
 
-            function updateChartDate(date, silent = false) {
+            function updateChartDate(date) {
                 fetch(`api/daily-chart-data.php?date=${date}`)
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
-                            ensureBaseChartDatasets();
-
                             // Calculate daily net series
                             const netSeries = buildNetSeries(data.income, data.expense);
 
@@ -3032,21 +3064,15 @@ if ($trialStatus) {
                             });
                             document.getElementById('periodDisplay').textContent = dateStr + ' (24 jam)';
                         }
-
-                        if (!silent) {
-                            currentView = 'daily';
-                        }
                     })
                     .catch(error => console.error('Error updating chart:', error));
             }
 
-            function updateChartAllTime(silent = false) {
+            function updateChartAllTime() {
                 fetch(`api/alltime-chart-data.php`)
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
-                            ensureBaseChartDatasets();
-
                             // Calculate daily net series
                             const netSeries = buildNetSeries(data.income, data.expense);
 
@@ -3075,74 +3101,21 @@ if ($trialStatus) {
                         }
                     })
                     .catch(error => console.error('Error updating chart:', error));
-
-                if (!silent) {
-                    currentView = 'alltime';
-                }
             }
 
-            function ensureBaseChartDatasets() {
-                if (!tradingChart || !Array.isArray(tradingChart.data.datasets)) return;
-                tradingChart.data.datasets = tradingChart.data.datasets.slice(0, 3);
-                tradingChart.data.datasets[0].label = 'Pemasukan';
-                tradingChart.data.datasets[1].label = 'Pengeluaran';
-                tradingChart.data.datasets[2].label = 'Net';
-                tradingChart.data.datasets[2].type = 'line';
-                tradingChart.data.datasets[2].borderDash = [];
-            }
-
-            function updateChartYear(year, silent = false) {
+            function updateChartYear(year) {
                 fetch(`api/yearly-chart-data.php?year=${year}`)
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
-                            ensureBaseChartDatasets();
-
-                            // Calculate yearly net series
+                            // Calculate daily net series
                             const netSeries = buildNetSeries(data.income, data.expense);
 
                             // Update chart with animation
                             tradingChart.data.labels = data.labels;
                             tradingChart.data.datasets[0].data = data.income;
-                            tradingChart.data.datasets[0].label = `Pemasukan ${year}`;
                             tradingChart.data.datasets[1].data = data.expense;
-                            tradingChart.data.datasets[1].label = `Pengeluaran ${year}`;
                             tradingChart.data.datasets[2].data = netSeries;
-                            tradingChart.data.datasets[2].label = `Net ${year}`;
-
-                            // Add comparison lines for previous year (monthly compare)
-                            if (Array.isArray(data.compare_income) && Array.isArray(data.compare_expense)) {
-                                tradingChart.data.datasets.push({
-                                    type: 'line',
-                                    label: `Pemasukan ${data.compare_year}`,
-                                    data: data.compare_income,
-                                    borderColor: 'rgba(16, 185, 129, 0.6)',
-                                    backgroundColor: 'transparent',
-                                    borderWidth: 2,
-                                    borderDash: [6, 4],
-                                    fill: false,
-                                    tension: 0.25,
-                                    pointRadius: 2,
-                                    pointHoverRadius: 4,
-                                    order: 4
-                                });
-
-                                tradingChart.data.datasets.push({
-                                    type: 'line',
-                                    label: `Pengeluaran ${data.compare_year}`,
-                                    data: data.compare_expense,
-                                    borderColor: 'rgba(249, 115, 22, 0.65)',
-                                    backgroundColor: 'transparent',
-                                    borderWidth: 2,
-                                    borderDash: [6, 4],
-                                    fill: false,
-                                    tension: 0.25,
-                                    pointRadius: 2,
-                                    pointHoverRadius: 4,
-                                    order: 5
-                                });
-                            }
-
                             tradingChart.update();
 
                             // Update summary cards
@@ -3152,12 +3125,8 @@ if ($trialStatus) {
 
                             updateSummaryCards(totalIncome, totalExpense, netBalance);
 
-                            if (!silent) {
-                                currentView = 'yearly';
-                            }
-
                             // Update period display
-                            document.getElementById('periodDisplay').textContent = 'Jan - Des ' + year + ' (12 bulan, banding ' + data.compare_year + ')';
+                            document.getElementById('periodDisplay').textContent = 'Jan - Des ' + year + ' (12 bulan)';
                         }
                     })
                     .catch(error => console.error('Error updating chart:', error));

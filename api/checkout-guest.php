@@ -110,10 +110,10 @@ try {
         WHERE id = ?
     ", [$currentUser['id'], $bookingId]);
 
-    // Update room status to cleaning (HK must clean before next use)
-    $db->query(" 
+    // Update room status to available
+    $db->query("
         UPDATE rooms 
-        SET status = 'cleaning',
+        SET status = 'available',
             current_guest_id = NULL,
             updated_at = NOW()
         WHERE id = ?

@@ -298,19 +298,10 @@ function auto_submit_on_the_spot_after_midnight($db, $pdo, $link)
     ]];
     $menuJson = json_encode($menuItems);
 
-    $existing = null;
-    if (!empty($bookingId)) {
-        $existing = $db->fetchOne(
-            "SELECT id FROM breakfast_orders WHERE breakfast_date = ? AND booking_id = ? LIMIT 1",
-            [$breakfastDate, $bookingId]
-        );
-    }
-    if (!$existing) {
-        $existing = $db->fetchOne(
-            "SELECT id FROM breakfast_orders WHERE breakfast_date = ? AND FIND_IN_SET(?, REPLACE(guest_name, ', ', ',')) > 0 LIMIT 1",
-            [$breakfastDate, $guestName]
-        );
-    }
+    $existing = $db->fetchOne(
+        "SELECT id FROM breakfast_orders WHERE breakfast_date = ? AND FIND_IN_SET(?, REPLACE(guest_name, ', ', ',')) > 0 LIMIT 1",
+        [$breakfastDate, $guestName]
+    );
 
     if ($existing) {
         $pdo->prepare("UPDATE breakfast_orders SET
@@ -569,17 +560,10 @@ if ($action === 'create_link') {
     ]);
 
     try {
-        if (!empty($bookingId)) {
-            $pdo->prepare("UPDATE breakfast_guest_links
-                SET link_status = 'expired'
-                WHERE breakfast_date = ? AND booking_id = ? AND link_status = 'open'")
-                ->execute([$breakfastDate, $bookingId]);
-        } else {
-            $pdo->prepare("UPDATE breakfast_guest_links
-                SET link_status = 'expired'
-                WHERE breakfast_date = ? AND LOWER(TRIM(guest_name)) = LOWER(TRIM(?)) AND link_status = 'open'")
-                ->execute([$breakfastDate, $guestName]);
-        }
+        $pdo->prepare("UPDATE breakfast_guest_links
+            SET link_status = 'expired'
+            WHERE breakfast_date = ? AND LOWER(TRIM(guest_name)) = LOWER(TRIM(?)) AND link_status = 'open'")
+            ->execute([$breakfastDate, $guestName]);
 
         if ($bookingId) {
             $pdo->prepare("INSERT INTO breakfast_guest_quota
@@ -1239,19 +1223,10 @@ if ($action === 'submit_link') {
             $portalNote .= ' ' . $specialRequests;
         }
 
-        $existing = null;
-        if (!empty($bookingId)) {
-            $existing = $db->fetchOne(
-                "SELECT id FROM breakfast_orders WHERE breakfast_date = ? AND booking_id = ? LIMIT 1",
-                [$breakfastDate, $bookingId]
-            );
-        }
-        if (!$existing) {
-            $existing = $db->fetchOne(
-                "SELECT id FROM breakfast_orders WHERE breakfast_date = ? AND FIND_IN_SET(?, REPLACE(guest_name, ', ', ',')) > 0 LIMIT 1",
-                [$breakfastDate, $guestName]
-            );
-        }
+        $existing = $db->fetchOne(
+            "SELECT id FROM breakfast_orders WHERE breakfast_date = ? AND FIND_IN_SET(?, REPLACE(guest_name, ', ', ',')) > 0 LIMIT 1",
+            [$breakfastDate, $guestName]
+        );
 
         if ($existing) {
             $pdo->prepare("UPDATE breakfast_orders SET
@@ -1269,7 +1244,7 @@ if ($action === 'submit_link') {
                     $serviceType,
                     $breakfastLocation,
                     $menuJson,
-                    $specialRequests,
+                    $portalNote,
                     $totalPrice,
                     (int)$onTheSpot,
                     (int)$existing['id']
@@ -1291,7 +1266,7 @@ if ($action === 'submit_link') {
                     $breakfastLocation,
                     (int)$onTheSpot,
                     $menuJson,
-                    $specialRequests,
+                    $portalNote,
                     $totalPrice,
                     $createdBy
                 ]);
@@ -1343,8 +1318,13 @@ if ($action === 'submit_link') {
             if ($extraMainCount > 0) $extraLabel[] = 'main x' . $extraMainCount;
             if ($extraDrinkCount > 0) $extraLabel[] = 'drink x' . $extraDrinkCount;
             if ($extraChildCount > 0) $extraLabel[] = 'child x' . $extraChildCount;
-            $portalMeta = ($portalNote !== '') ? ' [' . $portalNote . ']' : '';
-            $extraNotes = 'Auto extra from guest portal [' . implode(', ', $extraLabel) . ']' . $portalMeta . ' token=' . ($link['short_code'] ?? $token) . ' date=' . $breakfastDate;
+            $extraNotes = 'Auto extra from guest portal [' . implode(', ', $extraLabel) . '] token=' . ($link['short_code'] ?? $token) . ' date=' . $breakfastDate;
+
+            // Prevent duplicate extra rows for the same link token: update if exists, else insert.
+            $existingExtra = $db->fetchOne(
+                "SELECT id FROM booking_extras WHERE booking_id = ? AND item_name = 'Extra Breakfast' AND notes LIKE ? LIMIT 1",
+                [$targetBookingId, '%token=' . ($link['short_code'] ?? $token) . '%']
+            );
 
             if (!empty($existingExtra['id'])) {
                 $pdo->prepare("UPDATE booking_extras SET quantity = 1, unit_price = ?, total_price = ?, notes = ? WHERE id = ?")

@@ -79,7 +79,7 @@ try {
 
     // Get booking details
     $booking = $db->fetchOne("
-        SELECT b.*, g.guest_name, g.phone as guest_phone, g.email as guest_email, r.room_number, r.status as room_status 
+        SELECT b.*, g.guest_name, g.phone as guest_phone, g.email as guest_email, r.room_number 
         FROM bookings b
         LEFT JOIN guests g ON b.guest_id = g.id
         LEFT JOIN rooms r ON b.room_id = r.id
@@ -104,15 +104,6 @@ try {
     // Check if booking is confirmed or pending
     if (!in_array($booking['status'], ['confirmed', 'pending'])) {
         throw new Exception('Booking status tidak valid untuk check-in');
-    }
-
-    if (empty($booking['room_number'])) {
-        throw new Exception('Room not found');
-    }
-
-    $roomStatus = strtolower(trim($booking['room_status'] ?? 'available'));
-    if ($roomStatus !== 'available') {
-        throw new Exception('Room belum available, silakan tunggu HK menyelesaikan cleaning');
     }
 
     // Calculate remaining payment

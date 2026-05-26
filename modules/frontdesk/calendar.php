@@ -842,26 +842,6 @@ include '../../includes/header.php';
         transition: all 0.2s ease;
     }
 
-    .grid-room-label.status-available {
-        border-left: 4px solid #10b981;
-    }
-
-    .grid-room-label.status-cleaning {
-        border-left: 4px solid #f59e0b;
-    }
-
-    .grid-room-label.status-occupied {
-        border-left: 4px solid #3b82f6;
-    }
-
-    .grid-room-label.status-maintenance {
-        border-left: 4px solid #ef4444;
-    }
-
-    .grid-room-label.status-blocked {
-        border-left: 4px solid #64748b;
-    }
-
     .grid-room-label:hover {
         background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
         border-right-color: #a5b4fc;
@@ -915,78 +895,6 @@ include '../../includes/header.php';
         font-weight: 900;
         line-height: 1;
         letter-spacing: 0.3px;
-    }
-
-    .room-status-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.25rem;
-        padding: 0.12rem 0.42rem;
-        border-radius: 999px;
-        font-size: 0.58rem;
-        font-weight: 800;
-        line-height: 1;
-        text-transform: uppercase;
-        letter-spacing: 0.4px;
-    }
-
-    .room-status-pill::before {
-        content: '';
-        width: 6px;
-        height: 6px;
-        border-radius: 999px;
-        background: currentColor;
-        opacity: 0.95;
-    }
-
-    .room-status-pill.status-available {
-        background: rgba(16, 185, 129, 0.14);
-        color: #059669;
-    }
-
-    .room-status-pill.status-cleaning {
-        background: rgba(245, 158, 11, 0.16);
-        color: #b45309;
-    }
-
-    .room-status-pill.status-occupied {
-        background: rgba(59, 130, 246, 0.14);
-        color: #2563eb;
-    }
-
-    .room-status-pill.status-maintenance {
-        background: rgba(239, 68, 68, 0.14);
-        color: #dc2626;
-    }
-
-    .room-status-pill.status-blocked {
-        background: rgba(100, 116, 139, 0.16);
-        color: #475569;
-    }
-
-    body[data-theme="dark"] .room-status-pill.status-available {
-        background: rgba(16, 185, 129, 0.18);
-        color: #6ee7b7;
-    }
-
-    body[data-theme="dark"] .room-status-pill.status-cleaning {
-        background: rgba(245, 158, 11, 0.2);
-        color: #fbbf24;
-    }
-
-    body[data-theme="dark"] .room-status-pill.status-occupied {
-        background: rgba(59, 130, 246, 0.2);
-        color: #93c5fd;
-    }
-
-    body[data-theme="dark"] .room-status-pill.status-maintenance {
-        background: rgba(239, 68, 68, 0.2);
-        color: #fca5a5;
-    }
-
-    body[data-theme="dark"] .room-status-pill.status-blocked {
-        background: rgba(100, 116, 139, 0.22);
-        color: #cbd5e1;
     }
 
     body[data-theme="dark"] .grid-room-number {
@@ -2515,17 +2423,9 @@ include '../../includes/header.php';
 
                     <!-- Individual Rooms of This Type -->
                     <?php foreach ($typeRooms as $room): ?>
-                        <?php
-                            $roomStatus = strtolower(trim($room['status'] ?? 'available'));
-                            $roomStatusClass = in_array($roomStatus, ['available', 'cleaning', 'occupied', 'maintenance', 'blocked'], true)
-                                ? $roomStatus
-                                : 'available';
-                            $roomStatusLabel = ucfirst($roomStatusClass);
-                        ?>
-                        <div class="grid-room-label status-<?php echo $roomStatusClass; ?>">
+                        <div class="grid-room-label">
                             <span class="grid-room-type-label"><?php echo htmlspecialchars($room['type_name']); ?></span>
                             <span class="grid-room-number"><?php echo htmlspecialchars($room['room_number']); ?></span>
-                            <span class="room-status-pill status-<?php echo $roomStatusClass; ?>"><?php echo htmlspecialchars($roomStatusLabel); ?></span>
                         </div>
 
                         <?php foreach ($dates as $date): ?>
@@ -2662,18 +2562,6 @@ include '../../includes/header.php';
         <div class="legend-item">
             <div class="legend-color" style="background: linear-gradient(135deg, #9ca3af, #d1d5db); opacity: 0.4;"></div>
             <span class="legend-label">📭 Past Booking (History)</span>
-        </div>
-        <div class="legend-item">
-            <div class="legend-color" style="background: linear-gradient(135deg, #10b981, #34d399);"></div>
-            <span class="legend-label">🟢 Room Available</span>
-        </div>
-        <div class="legend-item">
-            <div class="legend-color" style="background: linear-gradient(135deg, #f59e0b, #fbbf24);"></div>
-            <span class="legend-label">🧼 Room Cleaning</span>
-        </div>
-        <div class="legend-item">
-            <div class="legend-color" style="background: linear-gradient(135deg, #3b82f6, #60a5fa);"></div>
-            <span class="legend-label">🔵 Room Occupied</span>
         </div>
     </div>
 
@@ -2866,88 +2754,32 @@ include '../../includes/header.php';
         statusEl.textContent = '● ' + (statusMap[booking.status] || booking.status);
         statusEl.style.cssText = 'font-size:0.78rem;font-weight:700;padding:4px 12px;border-radius:20px;background:' + (statusColorMap[booking.status] || '#f1f5f9;color:#475569');
 
-        // Source badge
-        console.log('🔍 SOURCE DEBUG: booking object:', {
-            booking_source: booking.booking_source,
-            ota_source_detail: booking.ota_source_detail,
-            type: typeof booking.booking_source
-        });
-
-        let bkSrc = (booking.booking_source || '').trim().toLowerCase();
-        console.log(`🔍 bkSrc after trim/toLowerCase: "${bkSrc}"`);
-
-        // If OTA, use ota_source_detail for display (agoda, booking, traveloka, etc)
-        if (bkSrc === 'ota' && booking.ota_source_detail) {
-            bkSrc = booking.ota_source_detail.toLowerCase();
-            console.log(`🔍 Using OTA detail: ${bkSrc}`);
-        }
-
-        if (!bkSrc && booking.payments && booking.payments.length > 0) {
-            console.log('🔍 bkSrc empty, checking payments...');
-            for (let i = 0; i < booking.payments.length; i++) {
-                const pm = (booking.payments[i].payment_method || '').toLowerCase();
-                if (pm.startsWith('ota_')) {
-                    bkSrc = pm.replace('ota_', '');
-                    console.log(`🔍 Found in payments: ${bkSrc}`);
-                    break;
-                } else if (pm === 'ota') {
-                    bkSrc = 'ota';
-                    console.log(`🔍 Found OTA in payments`);
-                    break;
-                }
-            }
-        }
-
-        // Comprehensive source name mapping (hardcoded + dynamic from SOURCE_NAMES)
-        const sourceDefaultMap = {
+        // Source badge - SIMPLIFIED & FIXED
+        let bkSrc = (booking.booking_source || 'walk_in').trim().toLowerCase();
+        
+        // Hardcoded source name mapping
+        const sourceNameMap = {
             'walk_in': 'Walk-In',
-            'phone': 'Phone',
-            'online': 'Online',
+            'phone': 'Phone Booking',
+            'online': 'Direct Online',
             'direct': 'Direct',
-            'ota': 'OTA',
-            'agoda': 'OTA Agoda',
-            'booking': 'OTA Booking.com',
-            'tiket': 'OTA Tiket.com',
-            'traveloka': 'OTA Traveloka',
-            'airbnb': 'OTA Airbnb',
-            'expedia': 'OTA Expedia',
-            'pegipegi': 'OTA Pegipegi'
+            'agoda': '🏨 OTA Agoda',
+            'booking': '📱 OTA Booking.com',
+            'tiket': '✈️ OTA Tiket.com',
+            'traveloka': '🎫 OTA Traveloka',
+            'airbnb': '🏠 OTA Airbnb',
+            'expedia': '🗺️ OTA Expedia',
+            'pegipegi': '🧳 OTA Pegipegi',
+            'ota': '🌐 OTA Lainnya'
         };
-
-        let displaySource = 'Walk-In';
-        console.log(`🔍 Initial displaySource: "${displaySource}", bkSrc: "${bkSrc}"`);
-
-        if (bkSrc) {
-            console.log(`🔍 Has bkSrc, checking SOURCE_NAMES:`, typeof SOURCE_NAMES, SOURCE_NAMES);
-            // Try SOURCE_NAMES first (from booking_sources table with icons)
-            if (typeof SOURCE_NAMES !== 'undefined' && SOURCE_NAMES[bkSrc]) {
-                displaySource = SOURCE_NAMES[bkSrc];
-                console.log(`✅ Source from SOURCE_NAMES: ${bkSrc} → ${displaySource}`);
-            }
-            // Fallback to hardcoded map
-            else if (sourceDefaultMap[bkSrc]) {
-                displaySource = sourceDefaultMap[bkSrc];
-                console.log(`✅ Source from defaultMap: ${bkSrc} → ${displaySource}`);
-            }
-            // Last resort: format the string
-            else {
-                displaySource = bkSrc.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-                console.log(`✅ Source formatted: ${bkSrc} → ${displaySource}`);
-            }
-            console.log(`📌 Final displaySource: "${displaySource}" (from bkSrc: "${bkSrc}")`);
-        } else {
-            console.log(`⚠️ bkSrc is empty or falsy, using default: "${displaySource}"`);
-        }
-
+        
+        // Determine display source
+        let displaySource = sourceNameMap[bkSrc] || bkSrc.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        
         // Update element
         const sourceEl = document.getElementById('sp-source');
-        console.log(`🔍 Setting sp-source element to: "${displaySource}"`);
         if (sourceEl) {
             sourceEl.textContent = displaySource;
-            sourceEl.innerHTML = displaySource; // Force update
-            console.log(`✅ sp-source updated, new text: "${sourceEl.textContent}"`);
-        } else {
-            console.warn(`❌ sp-source element not found!`);
         }
 
         // Timeline
@@ -3045,22 +2877,6 @@ include '../../includes/header.php';
         document.getElementById('sp-room-number').textContent = 'Room ' + (booking.room_number || '-');
         document.getElementById('sp-room-price-val').textContent = fmtR(booking.room_price || booking.base_price || 0);
 
-        const roomStatusEl = document.getElementById('sp-room-status');
-        const roomStatus = (booking.room_status || '').toLowerCase();
-        const roomStatusMap = {
-            available: { label: 'Available', bg: '#dcfce7', color: '#166534' },
-            cleaning: { label: 'Cleaning', bg: '#fef3c7', color: '#92400e' },
-            occupied: { label: 'Occupied', bg: '#dbeafe', color: '#1d4ed8' },
-            maintenance: { label: 'Maintenance', bg: '#fee2e2', color: '#991b1b' },
-            blocked: { label: 'Blocked', bg: '#e2e8f0', color: '#334155' }
-        };
-        const roomStatusMeta = roomStatusMap[roomStatus] || { label: roomStatus ? roomStatus.toUpperCase() : 'Available', bg: '#dcfce7', color: '#166534' };
-        if (roomStatusEl) {
-            roomStatusEl.textContent = roomStatusMeta.label;
-            roomStatusEl.style.background = roomStatusMeta.bg;
-            roomStatusEl.style.color = roomStatusMeta.color;
-        }
-
         // Display group bookings / related rooms if multiple
         console.log('📦 Group bookings check:', {
             hasGroupBookings: !!booking.group_bookings,
@@ -3108,9 +2924,6 @@ include '../../includes/header.php';
             actions += '<button class="sp-action-btn" onclick="quickViewMoveRoom()">🔄 Move</button>';
             actions += '<button class="sp-action-btn warning" onclick="closeBookingQuickView(); openEditReservationModal(' + booking.id + ')">✏️ Edit</button>';
         } else if (booking.status === 'checked_out') {
-            if (roomStatus === 'cleaning') {
-                actions += '<button class="sp-action-btn primary" onclick="quickViewCleanRoom()">🧼 Mark Clean</button>';
-            }
             actions += '<button class="sp-action-btn warning" onclick="closeBookingQuickView(); openEditReservationModal(' + booking.id + ')">✏️ Edit</button>';
         }
         document.getElementById('sp-actions').innerHTML = actions;
@@ -3136,42 +2949,6 @@ include '../../includes/header.php';
     window.closeBookingQuickView = function closeBookingQuickView() {
         const modal = document.getElementById('bookingQuickView');
         modal.classList.remove('active');
-    }
-
-    window.quickViewCleanRoom = function quickViewCleanRoom() {
-        if (!currentPaymentBooking || !currentPaymentBooking.room_id) {
-            alert('Room data not found');
-            return;
-        }
-
-        const roomId = currentPaymentBooking.room_id;
-        const roomNumber = currentPaymentBooking.room_number || '-';
-
-        if (!confirm(`🧼 Tandai Room ${roomNumber} sebagai bersih dan available?`)) {
-            return;
-        }
-
-        fetch('<?php echo BASE_URL; ?>/api/update-room-status.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                },
-                credentials: 'include',
-                body: 'room_id=' + encodeURIComponent(roomId) + '&status=available'
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    alert('✅ Room sudah ditandai bersih');
-                    closeBookingQuickView();
-                    saveScrollAndReload();
-                } else {
-                    alert('❌ ' + data.message);
-                }
-            })
-            .catch(err => {
-                alert('❌ Error: ' + err.message);
-            });
     }
 
     window.showBookingDetailsModal = function showBookingDetailsModal(booking) {
@@ -3382,14 +3159,9 @@ include '../../includes/header.php';
 
     function doCheckOut() {
         const modal = document.getElementById('bookingDetailsModal');
-        const bookingId = modal?.dataset?.bookingId || (currentPaymentBooking ? currentPaymentBooking.id : '');
-        const guestName = document.getElementById('detailGuestName')?.textContent || (currentPaymentBooking?.guest_name || 'Guest');
-        const roomNumber = document.getElementById('detailRoomNumber')?.textContent || (currentPaymentBooking?.room_number || '-');
-
-        if (!bookingId) {
-            alert('Booking data not found');
-            return;
-        }
+        const bookingId = modal.dataset.bookingId;
+        const guestName = document.getElementById('detailGuestName').textContent;
+        const roomNumber = document.getElementById('detailRoomNumber').textContent;
 
         if (confirm(`Check-out ${guestName} dari Room ${roomNumber} sekarang?`)) {
             // Show loading state
@@ -3652,9 +3424,7 @@ include '../../includes/header.php';
 
         // Check payment status before checkout
         if (booking.payment_status !== 'paid') {
-            const total = parseFloat(booking.final_price || booking.total_price || 0);
-            const paid = parseFloat(booking.paid_amount || booking.amount_paid || 0);
-            const remaining = Math.max(0, total - paid).toLocaleString('id-ID');
+            const remaining = (parseFloat(booking.total_price) - parseFloat(booking.amount_paid)).toLocaleString('id-ID');
             const proceed = confirm(`Pembayaran belum lunas (Sisa: Rp ${remaining}). Lanjut check-out?`);
             if (!proceed) {
                 openBookingPaymentModal();
@@ -6145,9 +5915,6 @@ include '../../includes/header.php';
             <div class="sp-room-card">
                 <div class="sp-room-type" id="sp-room-type">-</div>
                 <div class="sp-room-number" id="sp-room-number">Room -</div>
-                    <div style="display:flex;justify-content:center;margin:0.6rem 0 0.2rem;">
-                        <span id="sp-room-status" style="display:inline-flex;align-items:center;padding:0.3rem 0.7rem;border-radius:999px;font-size:0.72rem;font-weight:700;letter-spacing:0.02em;">Available</span>
-                    </div>
                 <div class="sp-room-price">
                     <span>Price/night:</span>
                     <strong id="sp-room-price-val">-</strong>

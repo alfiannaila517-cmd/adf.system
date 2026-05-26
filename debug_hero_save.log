@@ -1,0 +1,50 @@
+save_hero triggered at 02:28:45
+POST data: {"action":"save_hero","web_hero_accent":"Welcome to Paradise","web_hero_title":"Experience Karimunjawa<br>Like Never Before","web_hero_subtitle":"An exclusive island retreat where tropical luxury meets the pristine beauty of the Java Sea","remove_background":"0"}
+Saving web_hero_accent = 'Welcome to Paradise'
+Rows affected: 0
+Saving web_hero_title = 'Experience Karimunjawa<br>Like Never Before'
+Rows affected: 0
+Saving web_hero_subtitle = 'An exclusive island retreat where tropical luxury meets the pristine beauty of the Java Sea'
+Rows affected: 0
+After save DB check: [{"setting_key":"web_hero_accent","setting_value":"Welcome to Paradise"},{"setting_key":"web_hero_title","setting_value":"Experience Karimunjawa<br>Like Never Before"},{"setting_key":"web_hero_subtitle","setting_value":"An exclusive island retreat where tropical luxury meets the pristine beauty of the Java Sea"},{"setting_key":"web_hero_background","setting_value":"uploads\/hero\/hero-bg-1772288802.png"},{"setting_key":"web_hero_rooms_eyebrow","setting_value":"Accommodations"},{"setting_key":"web_hero_rooms_title","setting_value":"Our Rooms"},{"setting_key":"web_hero_rooms_subtitle","setting_value":"Thoughtfully designed spaces where island comfort meets refined elegance."},{"setting_key":"web_hero_rooms_background","setting_value":"uploads\/hero\/hero-rooms-bg-1771843014.jpeg"},{"setting_key":"web_hero_dest_eyebrow","setting_value":"Explore Karimunjawa"},{"setting_key":"web_hero_dest_title","setting_value":"Discover the Island"},{"setting_key":"web_hero_dest_subtitle","setting_value":"Your guide to the most breathtaking destinations and hidden gems of Karimunjawa \u2014 from pristine beaches and vibrant coral reefs to lush mangrove forests and unforgettable sunset spots."},{"setting_key":"web_hero_dest_background","setting_value":"uploads\/hero\/hero-destinations-bg-1771843168.JPG"}]
+
+save_hero triggered at 02:42:14
+POST data: {"action":"save_hero","web_hero_accent":"Welcome to Paradise","web_hero_title":"Experience Karimunjawa<br>Like Never Before","web_hero_subtitle":"An exclusive island retreat where tropical luxury meets the pristine beauty of the Java Sea","remove_background":"1"}
+Saving web_hero_accent = 'Welcome to Paradise'
+Rows affected: 0
+Saving web_hero_title = 'Experience Karimunjawa<br>Like Never Before'
+Rows affected: 0
+Saving web_hero_subtitle = 'An exclusive island retreat where tropical luxury meets the pristine beauty of the Java Sea'
+Rows affected: 0
+After save DB check: [{"setting_key":"web_hero_accent","setting_value":"Welcome to Paradise"},{"setting_key":"web_hero_title","setting_value":"Experience Karimunjawa<br>Like Never Before"},{"setting_key":"web_hero_subtitle","setting_value":"An exclusive island retreat where tropical luxury meets the pristine beauty of the Java Sea"},{"setting_key":"web_hero_background","setting_value":"https:\/\/res.cloudinary.com\/dpdmut9ls\/image\/upload\/v1772739188\/adf_system\/website\/hero\/ombs61riq165vcwenxy1.png"},{"setting_key":"web_hero_rooms_eyebrow","setting_value":"Accommodations"},{"setting_key":"web_hero_rooms_title","setting_value":"Our Rooms"},{"setting_key":"web_hero_rooms_subtitle","setting_value":"Thoughtfully designed spaces where island comfort meets refined elegance."},{"setting_key":"web_hero_rooms_background","setting_value":"uploads\/hero\/hero-rooms-bg-1771843014.jpeg"},{"setting_key":"web_hero_dest_eyebrow","setting_value":"Explore Karimunjawa"},{"setting_key":"web_hero_dest_title","setting_value":"Discover the Island"},{"setting_key":"web_hero_dest_subtitle","setting_value":"Your guide to the most breathtaking destinations and hidden gems of Karimunjawa \u2014 from pristine beaches and vibrant coral reefs to lush mangrove forests and unforgettable sunset spots."},{"setting_key":"web_hero_dest_background","setting_value":"uploads\/hero\/hero-destinations-bg-1771843168.JPG"}]
+
+save_hero triggered at 02:42:30
+POST data: {"action":"save_hero","web_hero_accent":"Welcome to Paradise","web_hero_title":"Experience Karimunjawa<br>Like Never Before","web_hero_subtitle":"An exclusive island retreat where tropical luxury meets the pristine beauty of the Java Sea"}
+Saving web_hero_accent = 'Welcome to Paradise'
+Rows affected: 0
+Saving web_hero_title = 'Experience Karimunjawa<br>Like Never Before'
+Rows affected: 0
+Saving web_hero_subtitle = 'An exclusive island retreat where tropical luxury meets the pristine beauty of the Java Sea'
+Rows affected: 0
+After save DB check: [{"setting_key":"web_hero_accent","setting_value":"Welcome to Paradise"},{"setting_key":"web_hero_title","setting_value":"Experience Karimunjawa<br>Like Never Before"},{"setting_key":"web_hero_subtitle","setting_value":"An exclusive island retreat where tropical luxury meets the pristine beauty of the Java Sea"},{"setting_key":"web_hero_background","setting_value":""},{"setting_key":"web_hero_rooms_eyebrow","setting_value":"Accommodations"},{"setting_key":"web_hero_rooms_title","setting_value":"Our Rooms"},{"setting_key":"web_hero_rooms_subtitle","setting_value":"Thoughtfully designed spaces where island comfort meets refined elegance."},{"setting_key":"web_hero_rooms_background","setting_value":"uploads\/hero\/hero-rooms-bg-1771843014.jpeg"},{"setting_key":"web_hero_dest_eyebrow","setting_value":"Explore Karimunjawa"},{"setting_key":"web_hero_dest_title","setting_value":"Discover the Island"},{"setting_key":"web_hero_dest_subtitle","setting_value":"Your guide to the most breathtaking destinations and hidden gems of Karimunjawa \u2014 from pristine beaches and vibrant coral reefs to lush mangrove forests and unforgettable sunset spots."},{"setting_key":"web_hero_dest_background","setting_value":"uploads\/hero\/hero-destinations-bg-1771843168.JPG"}]
+
+save_hero triggered at 02:49:45
+POST data: {"action":"save_hero","web_hero_accent":"Welcome to Paradise","web_hero_title":"Experience Karimunjawa<br>Like Never Before","web_hero_subtitle":"An exclusive island retreat where tropical luxury meets the pristine beauty of the Java Sea","remove_background":"1"}
+Saving web_hero_accent = 'Welcome to Paradise'
+Rows affected: 0
+Saving web_hero_title = 'Experience Karimunjawa<br>Like Never Before'
+Rows affected: 0
+Saving web_hero_subtitle = 'An exclusive island retreat where tropical luxury meets the pristine beauty of the Java Sea'
+Rows affected: 0
+After save DB check: [{"setting_key":"web_hero_accent","setting_value":"Welcome to Paradise"},{"setting_key":"web_hero_title","setting_value":"Experience Karimunjawa<br>Like Never Before"},{"setting_key":"web_hero_subtitle","setting_value":"An exclusive island retreat where tropical luxury meets the pristine beauty of the Java Sea"},{"setting_key":"web_hero_background","setting_value":"https:\/\/res.cloudinary.com\/dpdmut9ls\/image\/upload\/v1772738938\/adf_system\/hero\/hero_background.png"},{"setting_key":"web_hero_rooms_eyebrow","setting_value":"Accommodations"},{"setting_key":"web_hero_rooms_title","setting_value":"Our Rooms"},{"setting_key":"web_hero_rooms_subtitle","setting_value":"Thoughtfully designed spaces where island comfort meets refined elegance."},{"setting_key":"web_hero_rooms_background","setting_value":"uploads\/hero\/hero-rooms-bg-1771843014.jpeg"},{"setting_key":"web_hero_dest_eyebrow","setting_value":"Explore Karimunjawa"},{"setting_key":"web_hero_dest_title","setting_value":"Discover the Island"},{"setting_key":"web_hero_dest_subtitle","setting_value":"Your guide to the most breathtaking destinations and hidden gems of Karimunjawa \u2014 from pristine beaches and vibrant coral reefs to lush mangrove forests and unforgettable sunset spots."},{"setting_key":"web_hero_dest_background","setting_value":"uploads\/hero\/hero-destinations-bg-1771843168.JPG"}]
+
+save_hero triggered at 02:50:11
+POST data: {"action":"save_hero","web_hero_accent":"Welcome to Paradise","web_hero_title":"Experience Karimunjawa<br>Like Never Before","web_hero_subtitle":"An exclusive island retreat where tropical luxury meets the pristine beauty of the Java Sea"}
+Saving web_hero_accent = 'Welcome to Paradise'
+Rows affected: 0
+Saving web_hero_title = 'Experience Karimunjawa<br>Like Never Before'
+Rows affected: 0
+Saving web_hero_subtitle = 'An exclusive island retreat where tropical luxury meets the pristine beauty of the Java Sea'
+Rows affected: 0
+After save DB check: [{"setting_key":"web_hero_accent","setting_value":"Welcome to Paradise"},{"setting_key":"web_hero_title","setting_value":"Experience Karimunjawa<br>Like Never Before"},{"setting_key":"web_hero_subtitle","setting_value":"An exclusive island retreat where tropical luxury meets the pristine beauty of the Java Sea"},{"setting_key":"web_hero_background","setting_value":""},{"setting_key":"web_hero_rooms_eyebrow","setting_value":"Accommodations"},{"setting_key":"web_hero_rooms_title","setting_value":"Our Rooms"},{"setting_key":"web_hero_rooms_subtitle","setting_value":"Thoughtfully designed spaces where island comfort meets refined elegance."},{"setting_key":"web_hero_rooms_background","setting_value":"uploads\/hero\/hero-rooms-bg-1771843014.jpeg"},{"setting_key":"web_hero_dest_eyebrow","setting_value":"Explore Karimunjawa"},{"setting_key":"web_hero_dest_title","setting_value":"Discover the Island"},{"setting_key":"web_hero_dest_subtitle","setting_value":"Your guide to the most breathtaking destinations and hidden gems of Karimunjawa \u2014 from pristine beaches and vibrant coral reefs to lush mangrove forests and unforgettable sunset spots."},{"setting_key":"web_hero_dest_background","setting_value":"uploads\/hero\/hero-destinations-bg-1771843168.JPG"}]
+

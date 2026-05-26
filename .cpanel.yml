@@ -6,8 +6,8 @@ deployment:
     # ==========================================
     - export DEPLOYPATH=/home/adfb2574/public_html
     - /bin/mkdir -p $DEPLOYPATH
-    - /bin/cp -R * $DEPLOYPATH
-    - /bin/cp -R .[^.]* $DEPLOYPATH
+    - /bin/cp -R $(pwd)/* $DEPLOYPATH/
+    - /bin/cp -R $(pwd)/.[^.]* $DEPLOYPATH/ 2>/dev/null || true
     # ==========================================
     # 2. DEPLOY WEBSITE → narayanakarimunjawa.com
     # ==========================================

@@ -2031,10 +2031,6 @@ $token = trim((string)($_GET['t'] ?? ''));
                             removeMenuQty(group, id);
                             var card = cb.closest('.menu-item');
                             if (card) card.classList.remove('selected');
-                            // Trigger change event to update UI properly
-                            var changeEvt = document.createEvent('Event');
-                            changeEvt.initEvent('change', true, true);
-                            cb.dispatchEvent(changeEvt);
                         } else {
                             setMenuQty(group, id, qty);
                         }
@@ -2265,14 +2261,6 @@ $token = trim((string)($_GET['t'] ?? ''));
                 var serviceType = (serviceTypeEl && serviceTypeEl.value) ? String(serviceTypeEl.value).trim() : '';
                 var breakfastLocation = (breakfastLocationEl && breakfastLocationEl.value) ? String(breakfastLocationEl.value).trim() : '';
 
-                // Debug: log collected notes
-                console.log('DEBUG - Menu notes collected:', {
-                    mainNotes: mainPicked.notes,
-                    drinkNotes: drinkPicked.notes,
-                    childNotes: childPicked.notes,
-                    specialRequests: (document.getElementById('notes') && document.getElementById('notes').value) || ''
-                });
-
                 if (onTheSpot) {
                     if (!breakfastTime) breakfastTime = '07:00';
                     serviceType = 'restaurant';
@@ -2413,9 +2401,7 @@ $token = trim((string)($_GET['t'] ?? ''));
             if (quotaPopupCloseEl) {
                 quotaPopupCloseEl.addEventListener('click', function() {
                     enforceQuotaLimits();
-                    // Don't close modal here - let showQuotaPopup() handle it
-                    // If there are still over-quota items, modal will reopen
-                    // If quotas are met, modal will be hidden automatically
+                    if (quotaPopupEl) quotaPopupEl.classList.remove('show');
                 });
             }
             loadLink();

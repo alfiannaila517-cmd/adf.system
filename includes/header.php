@@ -451,12 +451,6 @@ if (isset($_SESSION['user_id'])) {
                                         <span>Absensi GPS</span>
                                     </a>
                                 </li>
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/payroll/export.php" class="submenu-link <?php echo activeMenu('export.php'); ?>">
-                                        <i data-feather="download" class="submenu-icon"></i>
-                                        <span>📊 Export Data</span>
-                                    </a>
-                                </li>
 
                             </ul>
                         </li>

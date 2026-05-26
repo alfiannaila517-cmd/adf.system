@@ -56,7 +56,6 @@ try {
             g.email as guest_email,
             COALESCE(g.id_card_number, '') as guest_id_number,
             r.room_number,
-            r.status as room_status,
             rt.type_name as room_type,
             rt.base_price,
             b.paid_amount
@@ -162,7 +161,6 @@ try {
                         COALESCE(b.discount, 0) as discount,
                         b.final_price,
                         b.status,
-                        r.status as room_status,
                         r.room_number,
                         rt.type_name
                     FROM bookings b
@@ -188,7 +186,6 @@ try {
                         COALESCE(b.discount, 0) as discount,
                         b.final_price,
                         b.status,
-                        r.status as room_status,
                         r.room_number,
                         rt.type_name
                     FROM bookings b
