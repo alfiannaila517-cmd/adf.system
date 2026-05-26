@@ -104,7 +104,9 @@ try {
                     AND b.status NOT IN ('checked_out', 'cancelled')
                     AND (
                                 b.status = 'checked_in'
-                                OR (b.status IN ('confirmed', 'pending') AND b.actual_checkin_time IS NOT NULL)
+                                    OR b.actual_checkin_time IS NOT NULL
+                                    OR r.status = 'occupied'
+                                    OR r.current_guest_id IS NOT NULL
                             )
         ORDER BY COALESCE(r.room_number, b.room_number) ASC, b.id ASC
     ");
