@@ -63,7 +63,7 @@ body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--te
   font-size:36px;overflow:hidden;flex-shrink:0;
   box-shadow:0 4px 16px rgba(212,160,23,.35)
 }
-.pwf-logo-box img{width:100%;height:100%;object-fit:cover}
+.pwf-logo-box img{width:100%;height:100%;object-fit:contain;padding:6px}
 .pwf-brand-text .pwf-brand-name{font-size:15px;font-weight:800;color:var(--gold-light);line-height:1.3}
 .pwf-brand-text .pwf-brand-sub{font-size:11px;color:rgba(255,255,255,.45);margin-top:2px}
 
