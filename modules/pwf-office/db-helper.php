@@ -99,7 +99,16 @@ function ensurePwfOfficeTables(PDO $pdo): void
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
     // qty_done migration — add column if not exists
-    try { $pdo->exec("ALTER TABLE pwf_orders ADD COLUMN qty_done DECIMAL(10,2) NOT NULL DEFAULT 0"); } catch (\PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE pwf_orders ADD COLUMN qty_done DECIMAL(10,2) NOT NULL DEFAULT 0");
+    } catch (\PDOException $e) {
+    }
+
+    // partial_ship status migration — extend ENUM if not already
+    try {
+        $pdo->exec("ALTER TABLE pwf_orders MODIFY COLUMN status ENUM('draft','on_progress','qc','ready_ship','partial_ship','shipped','completed','cancelled') DEFAULT 'draft'");
+    } catch (\PDOException $e) {
+    }
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS pwf_containers (
         id INT AUTO_INCREMENT PRIMARY KEY,
