@@ -5,7 +5,7 @@ return [
     'business_type' => 'manufacture',
     'database' => 'adf_pwf',
     'logo' => '',
-    'enabled_modules' => ['cashbook', 'auth', 'settings', 'reports', 'divisions', 'procurement', 'sales', 'bills', 'payroll'],
+    'enabled_modules' => ['cashbook', 'auth', 'settings', 'reports', 'divisions', 'procurement', 'sales', 'bills', 'payroll', 'production'],
     'theme' => [
         'color_primary' => '#4f46e5',
         'color_secondary' => '#312e81',

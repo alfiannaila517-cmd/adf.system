@@ -246,6 +246,48 @@ if (isset($_SESSION['user_id'])) {
                         </li>
                     <?php endif; ?>
 
+                    <!-- Production Module (Manufacture/PWF) -->
+                    <?php if ($auth->hasPermission('production')): ?>
+                        <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/production/') !== false) ? 'open' : ''; ?>">
+                            <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo (strpos($_SERVER['REQUEST_URI'], '/production/') !== false) ? 'active' : ''; ?>">
+                                <i data-feather="tool" class="nav-icon"></i>
+                                <span>Produksi</span>
+                            </a>
+                            <ul class="submenu">
+                                <li class="submenu-item">
+                                    <a href="<?php echo BASE_URL; ?>/modules/production/dashboard.php" class="submenu-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/production/dashboard') !== false) ? 'active' : ''; ?>">
+                                        <i data-feather="bar-chart-2" class="submenu-icon"></i>
+                                        <span>Dashboard</span>
+                                    </a>
+                                </li>
+                                <li class="submenu-item">
+                                    <a href="<?php echo BASE_URL; ?>/modules/production/sales-orders.php" class="submenu-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/production/sales-orders') !== false) ? 'active' : ''; ?>">
+                                        <i data-feather="shopping-bag" class="submenu-icon"></i>
+                                        <span>Sales Order</span>
+                                    </a>
+                                </li>
+                                <li class="submenu-item">
+                                    <a href="<?php echo BASE_URL; ?>/modules/production/orders.php" class="submenu-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/production/orders') !== false) ? 'active' : ''; ?>">
+                                        <i data-feather="hammer" class="submenu-icon"></i>
+                                        <span>Order Produksi</span>
+                                    </a>
+                                </li>
+                                <li class="submenu-item">
+                                    <a href="<?php echo BASE_URL; ?>/modules/production/materials.php" class="submenu-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/production/materials') !== false) ? 'active' : ''; ?>">
+                                        <i data-feather="package" class="submenu-icon"></i>
+                                        <span>Stok Bahan Baku</span>
+                                    </a>
+                                </li>
+                                <li class="submenu-item">
+                                    <a href="<?php echo BASE_URL; ?>/modules/production/schedule.php" class="submenu-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/production/schedule') !== false) ? 'active' : ''; ?>">
+                                        <i data-feather="calendar" class="submenu-icon"></i>
+                                        <span>Workshop Schedule</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+                    <?php endif; ?>
+
                     <?php if ($auth->hasPermission('cashbook')): ?>
                         <li class="nav-item">
                             <a href="<?php echo BASE_URL; ?>/modules/cashbook/index.php" class="nav-link <?php echo activeMenu('cashbook'); ?>">

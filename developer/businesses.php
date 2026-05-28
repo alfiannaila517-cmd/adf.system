@@ -89,6 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $selectedMenus = $_POST['menus'] ?? [];
         
         $dbName = 'adf_' . strtolower(preg_replace('/[^a-z0-9]/i', '_', $businessCode));
+        $addonDomain = trim($_POST['addon_domain'] ?? '');
         
         if (empty($businessCode) || empty($businessName) || $ownerId === 0) {
             $error = 'Please fill all required fields';
@@ -121,10 +122,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     
                     // Insert business record with slug
                     $stmt = $pdo->prepare("
-                        INSERT INTO businesses (business_code, slug, business_name, business_type, database_name, owner_id, description, is_active)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, 0)
+                        INSERT INTO businesses (business_code, slug, business_name, business_type, database_name, owner_id, description, addon_domain, is_active)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
                     ");
-                    $stmt->execute([$businessCode, $slug, $businessName, $businessType, $actualDbName, $ownerId, $description]);
+                    $stmt->execute([$businessCode, $slug, $businessName, $businessType, $actualDbName, $ownerId, $description, $addonDomain ?: null]);
                     $businessId = $pdo->lastInsertId();
                     
                     // Create cash accounts in master
@@ -580,6 +581,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $businessType = $_POST['business_type'] ?? 'other';
         $ownerId = (int)($_POST['owner_id'] ?? 0);
         $description = trim($_POST['description'] ?? '');
+        $addonDomain = trim($_POST['addon_domain'] ?? '');
         $isActive = isset($_POST['is_active']) ? 1 : 0;
         $selectedMenus = $_POST['menus'] ?? [];
         
@@ -589,10 +591,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 $updateId = (int)$_POST['business_id'];
                 $stmt = $pdo->prepare("
-                    UPDATE businesses SET business_code = ?, business_name = ?, business_type = ?, owner_id = ?, description = ?, is_active = ?
+                    UPDATE businesses SET business_code = ?, business_name = ?, business_type = ?, owner_id = ?, description = ?, addon_domain = ?, is_active = ?
                     WHERE id = ?
                 ");
-                $stmt->execute([$businessCode, $businessName, $businessType, $ownerId, $description, $isActive, $updateId]);
+                $stmt->execute([$businessCode, $businessName, $businessType, $ownerId, $description, $addonDomain ?: null, $isActive, $updateId]);
                 
                 $pdo->prepare("DELETE FROM business_menu_config WHERE business_id = ?")->execute([$updateId]);
                 $menuStmt = $pdo->prepare("INSERT INTO business_menu_config (business_id, menu_id, is_enabled) VALUES (?, ?, 1)");
@@ -1024,6 +1026,28 @@ require_once __DIR__ . '/includes/header.php';
                             <label class="form-label">Description</label>
                             <textarea class="form-control" name="description" rows="2"><?php echo htmlspecialchars($editBusiness['description'] ?? ''); ?></textarea>
                         </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Addon Domain <small class="text-muted">(opsional)</small></label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-globe"></i></span>
+                                <input type="text" class="form-control" name="addon_domain"
+                                       placeholder="contoh: pwf.narayanakarimunjawa.com"
+                                       value="<?php echo htmlspecialchars($editBusiness['addon_domain'] ?? ''); ?>">
+                            </div>
+                            <small class="text-muted">Domain cPanel addon untuk bisnis ini. Isi setelah domain sudah ditambahkan di cPanel hosting.</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Addon Domain <small class="text-muted">(opsional)</small></label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-globe"></i></span>
+                                <input type="text" class="form-control" name="addon_domain"
+                                       placeholder="contoh: pwf.narayanakarimunjawa.com"
+                                       value="<?php echo htmlspecialchars($editBusiness['addon_domain'] ?? ''); ?>">
+                            </div>
+                            <small class="text-muted">Domain cPanel addon untuk bisnis ini. Isi setelah domain sudah ditambahkan di cPanel hosting.</small>
+                        </div>
                         
                         <?php if ($editBusiness): ?>
                         <div class="mb-3">
@@ -1117,6 +1141,11 @@ require_once __DIR__ . '/includes/header.php';
                         <td>
                             <strong><?php echo htmlspecialchars($biz['business_name']); ?></strong>
                             <br><small class="text-muted"><?php echo htmlspecialchars($biz['business_code']); ?></small>
+                            <?php if (!empty($biz['addon_domain'])): ?>
+                            <br><a href="https://<?php echo htmlspecialchars($biz['addon_domain']); ?>" target="_blank" class="text-decoration-none">
+                                <small class="text-primary"><i class="bi bi-globe me-1"></i><?php echo htmlspecialchars($biz['addon_domain']); ?></small>
+                            </a>
+                            <?php endif; ?>
                         </td>
                         <td>
                             <span class="badge bg-secondary"><?php echo ucfirst($biz['business_type']); ?></span>
