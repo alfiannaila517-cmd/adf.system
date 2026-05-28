@@ -16,46 +16,41 @@ $latest = $pdo->query("SELECT o.order_code, o.product_name, o.status, c.customer
 
 pwfOfficeHeader('Dashboard', 'dashboard');
 ?>
-<div class="row">
-    <div class="card stat">
-        <h3><?= $stats['customers'] ?></h3>
-        <p>Total Customer</p>
+<div class="stat-cards">
+    <div class="stat-card">
+        <div class="stat-icon" style="background:#EFF6FF"><i class="bi bi-people" style="color:#1D4ED8"></i></div>
+        <div><div class="stat-val"><?= $stats['customers'] ?></div><div class="stat-lbl">Total Customers</div></div>
     </div>
-    <div class="card stat">
-        <h3><?= $stats['orders'] ?></h3>
-        <p>Total Pesanan</p>
+    <div class="stat-card">
+        <div class="stat-icon" style="background:#FFF7ED"><i class="bi bi-clipboard2-check" style="color:#C2410C"></i></div>
+        <div><div class="stat-val"><?= $stats['orders'] ?></div><div class="stat-lbl">Total Orders</div></div>
     </div>
-    <div class="card stat">
-        <h3><?= $stats['in_progress'] ?></h3>
-        <p>Sedang Dikerjakan</p>
+    <div class="stat-card">
+        <div class="stat-icon" style="background:#F5F3FF"><i class="bi bi-hammer" style="color:#6D28D9"></i></div>
+        <div><div class="stat-val"><?= $stats['in_progress'] ?></div><div class="stat-lbl">In Progress</div></div>
     </div>
-    <div class="card stat">
-        <h3><?= $stats['ready_ship'] ?></h3>
-        <p>Siap Kirim</p>
+    <div class="stat-card">
+        <div class="stat-icon" style="background:#F0FDF4"><i class="bi bi-box-seam" style="color:#15803D"></i></div>
+        <div><div class="stat-val"><?= $stats['ready_ship'] ?></div><div class="stat-lbl">Ready to Ship</div></div>
     </div>
 </div>
-<div class="mt"></div>
-<div class="card">
-    <h3 style="margin-top:0;">Order Terbaru</h3>
-    <table>
-        <thead>
-            <tr>
-                <th>Kode</th>
-                <th>Customer</th>
-                <th>Produk</th>
-                <th>Status</th>
-            </tr>
-        </thead>
+<div class="pwf-card">
+    <div class="pwf-card-header">Recent Orders</div>
+    <div class="pwf-card-body" style="padding:0">
+    <table class="pwf-table">
+        <thead><tr><th>Order Code</th><th>Customer</th><th>Product</th><th>Status</th></tr></thead>
         <tbody>
             <?php foreach ($latest as $row): ?>
                 <tr>
-                    <td><?= htmlspecialchars($row['order_code']) ?></td>
-                    <td><?= htmlspecialchars($row['customer_name'] ?? '-') ?></td>
+                    <td><strong><?= htmlspecialchars($row['order_code']) ?></strong></td>
+                    <td><?= htmlspecialchars($row['customer_name'] ?? '—') ?></td>
                     <td><?= htmlspecialchars($row['product_name']) ?></td>
-                    <td><?= htmlspecialchars($row['status']) ?></td>
+                    <td><span class="status-badge status-<?= htmlspecialchars($row['status']) ?>"><?= htmlspecialchars(str_replace('_',' ',$row['status'])) ?></span></td>
                 </tr>
             <?php endforeach; ?>
+            <?php if(empty($latest)): ?><tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">No orders yet.</td></tr><?php endif; ?>
         </tbody>
     </table>
+    </div>
 </div>
 <?php pwfOfficeFooter();

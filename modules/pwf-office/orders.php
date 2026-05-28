@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $pdo->prepare('INSERT INTO pwf_orders (order_code, customer_id, order_date, due_date, product_name, specification, dimensions, quantity, image_path, assigned_craftsman_id, notes, created_by)
                                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)');
         $stmt->execute([$code, $customerId, $orderDate, $dueDate ?: null, $productName, $specification, $dimensions, $quantity, $imagePath, $assignedCraftsmanId, $notes, $_SESSION['user_id'] ?? null]);
-        $msg = 'Pesanan berhasil disimpan.';
+        $msg = 'Order saved successfully.';
     }
 }
 
@@ -46,61 +46,61 @@ $orders = $pdo->query("SELECT o.*, c.customer_name, t.craftsman_name
     LEFT JOIN pwf_craftsmen t ON t.id=o.assigned_craftsman_id
     ORDER BY o.id DESC LIMIT 30")->fetchAll();
 
-pwfOfficeHeader('Order Customer', 'orders');
+pwfOfficeHeader('Orders', 'orders');
 ?>
 <div class="grid2">
-    <div class="card">
-        <h3 style="margin-top:0;">Input Pesanan Customer</h3>
-        <?php if ($msg): ?><p style="color:green; margin:8px 0;"><?= htmlspecialchars($msg) ?></p><?php endif; ?>
+    <div class="pwf-card">
+        <div class="pwf-card-header">New Order</div>
+        <div class="pwf-card-body">
+        <?php if ($msg): ?><div class="alert alert-success"><?= htmlspecialchars($msg) ?></div><?php endif; ?>
         <form method="post" enctype="multipart/form-data">
-            <div class="mt"><label>Customer</label><select class="select" name="customer_id" required>
-                    <option value="">- Pilih Customer -</option>
+            <div class="pwf-form-group"><label>Customer</label>
+                <select class="select" name="customer_id" required>
+                    <option value="">— Select Customer —</option>
                     <?php foreach ($customers as $c): ?><option value="<?= $c['id'] ?>"><?= htmlspecialchars($c['customer_name']) ?></option><?php endforeach; ?>
-                </select></div>
-            <div class="grid2 mt">
-                <div><label>Tanggal Order</label><input class="input" type="date" name="order_date" value="<?= date('Y-m-d') ?>"></div>
-                <div><label>Deadline</label><input class="input" type="date" name="due_date"></div>
+                </select>
             </div>
-            <div class="mt"><input class="input" name="product_name" placeholder="Nama Produk" required></div>
-            <div class="mt"><textarea name="specification" placeholder="Detail pesanan / bahan / warna / finishing"></textarea></div>
-            <div class="grid2 mt">
-                <div><input class="input" name="dimensions" placeholder="Ukuran (P x L x T)"></div>
-                <div><input class="input" type="number" step="0.01" name="quantity" value="1"></div>
+            <div class="grid2">
+                <div class="pwf-form-group"><label>Order Date</label><input class="input" type="date" name="order_date" value="<?= date('Y-m-d') ?>"></div>
+                <div class="pwf-form-group"><label>Deadline</label><input class="input" type="date" name="due_date"></div>
             </div>
-            <div class="mt"><label>Foto / Blueprint</label><input class="input" type="file" name="order_image" accept=".jpg,.jpeg,.png,.webp"></div>
-            <div class="mt"><label>Pilih Tukang</label><select class="select" name="assigned_craftsman_id">
-                    <option value="">- Belum ditentukan -</option>
+            <div class="pwf-form-group"><label>Product Name</label><input class="input" name="product_name" placeholder="Product name" required></div>
+            <div class="pwf-form-group"><label>Specification</label><textarea name="specification" placeholder="Material, color, finishing details..."></textarea></div>
+            <div class="grid2">
+                <div class="pwf-form-group"><label>Dimensions (L×W×H)</label><input class="input" name="dimensions" placeholder="e.g. 120×60×75 cm"></div>
+                <div class="pwf-form-group"><label>Quantity</label><input class="input" type="number" step="0.01" name="quantity" value="1"></div>
+            </div>
+            <div class="pwf-form-group"><label>Photo / Blueprint</label><input class="input" type="file" name="order_image" accept=".jpg,.jpeg,.png,.webp"></div>
+            <div class="pwf-form-group"><label>Assign Craftsman</label>
+                <select class="select" name="assigned_craftsman_id">
+                    <option value="">— Not assigned yet —</option>
                     <?php foreach ($craftsmen as $t): ?><option value="<?= $t['id'] ?>"><?= htmlspecialchars($t['craftsman_name']) ?></option><?php endforeach; ?>
-                </select></div>
-            <div class="mt"><textarea name="notes" placeholder="Catatan tambahan"></textarea></div>
-            <div class="mt"><button class="btn" type="submit">Simpan Pesanan</button></div>
+                </select>
+            </div>
+            <div class="pwf-form-group"><label>Notes</label><textarea name="notes" placeholder="Additional notes"></textarea></div>
+            <button class="btn" type="submit"><i class="bi bi-plus-circle"></i> Save Order</button>
         </form>
+        </div>
     </div>
-    <div class="card">
-        <h3 style="margin-top:0;">Daftar Pesanan</h3>
-        <table>
-            <thead>
-                <tr>
-                    <th>Kode</th>
-                    <th>Customer</th>
-                    <th>Produk</th>
-                    <th>Tukang</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
+    <div class="pwf-card">
+        <div class="pwf-card-header">Order List</div>
+        <div style="padding:0">
+        <table class="pwf-table">
+            <thead><tr><th>Code</th><th>Customer</th><th>Product</th><th>Craftsman</th><th>Status</th></tr></thead>
             <tbody>
                 <?php foreach ($orders as $o): ?>
                     <tr>
-                        <td><?= htmlspecialchars($o['order_code']) ?></td>
-                        <td><?= htmlspecialchars($o['customer_name'] ?? '-') ?></td>
-                        <td><?= htmlspecialchars($o['product_name']) ?> <div class="small"><?= htmlspecialchars($o['dimensions'] ?? '-') ?></div>
-                        </td>
-                        <td><?= htmlspecialchars($o['craftsman_name'] ?? '-') ?></td>
-                        <td><?= htmlspecialchars($o['status']) ?></td>
+                        <td><code style="font-size:12px;color:var(--gold)"><?= htmlspecialchars($o['order_code']) ?></code></td>
+                        <td><?= htmlspecialchars($o['customer_name'] ?? '—') ?></td>
+                        <td><?= htmlspecialchars($o['product_name']) ?><div class="small"><?= htmlspecialchars($o['dimensions'] ?? '') ?></div></td>
+                        <td><?= htmlspecialchars($o['craftsman_name'] ?? '—') ?></td>
+                        <td><span class="status-badge status-<?= htmlspecialchars($o['status']) ?>"><?= htmlspecialchars(str_replace('_',' ',$o['status'])) ?></span></td>
                     </tr>
                 <?php endforeach; ?>
+                <?php if(empty($orders)): ?><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">No orders yet.</td></tr><?php endif; ?>
             </tbody>
         </table>
+        </div>
     </div>
 </div>
 <?php pwfOfficeFooter();
