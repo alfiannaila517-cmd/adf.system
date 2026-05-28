@@ -4,8 +4,8 @@ require_once __DIR__ . '/db-helper.php';
 
 $pdo = getPwfOfficePdo();
 
-// ── EXPORT CSV ────────────────────────────────────────────────────────────────
-if (isset($_GET['export']) && $_GET['export'] === 'csv') {
+// ── EXPORT PDF PRINT ────────────────────────────────────────────────────────
+if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
     $filterCid  = (int)($_GET['customer_id']  ?? 0);
     $filterTid  = (int)($_GET['craftsman_id'] ?? 0);
     $where = 'WHERE 1=1';
@@ -14,20 +14,61 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     $rows = $pdo->query("
         SELECT o.order_code, c.customer_name, o.order_date, o.due_date,
                o.product_name, o.specification, o.dimensions, o.quantity,
-               t.craftsman_name, o.status, o.notes, o.created_at
+               t.craftsman_name, o.status, o.notes
         FROM pwf_orders o
         LEFT JOIN pwf_customers c ON c.id=o.customer_id
         LEFT JOIN pwf_craftsmen t ON t.id=o.assigned_craftsman_id
         $where ORDER BY o.id DESC")->fetchAll();
-    $suffix = $filterCid ? '_cus'.$filterCid : ($filterTid ? '_tkg'.$filterTid : '_all');
-    header('Content-Type: text/csv; charset=utf-8');
-    header('Content-Disposition: attachment; filename="orders'.$suffix.'_'.date('Ymd_His').'.csv"');
-    $out = fopen('php://output', 'w');
-    fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF));
-    fputcsv($out, ['Order Code','Customer','Order Date','Due Date','Product','Specification','Dimensions','Qty','Craftsman','Status','Notes','Created At']);
-    foreach ($rows as $r) fputcsv($out, [$r['order_code'],$r['customer_name'],$r['order_date'],$r['due_date'],$r['product_name'],$r['specification'],$r['dimensions'],$r['quantity'],$r['craftsman_name'],$r['status'],$r['notes'],$r['created_at']]);
-    fclose($out);
+    $titleFilter = $filterCid ? ' - Customer #'.$filterCid : ($filterTid ? ' - Craftsman #'.$filterTid : '');
+    $statusLabels = ['draft'=>'Draft','on_progress'=>'On Progress','qc'=>'QC','ready_ship'=>'Ready to Ship','shipped'=>'Shipped','completed'=>'Completed','cancelled'=>'Cancelled'];
+    header('Content-Type: text/html; charset=utf-8');
+?>
+<!doctype html><html><head><meta charset="utf-8">
+<title>Orders Export<?= htmlspecialchars($titleFilter) ?></title>
+<style>
+body{font-family:Arial,sans-serif;font-size:12px;color:#111;margin:0;padding:20px}
+h2{font-size:16px;margin:0 0 4px}
+.sub{color:#666;font-size:11px;margin-bottom:16px}
+table{width:100%;border-collapse:collapse;font-size:11px}
+th{background:#1C1511;color:#fff;padding:7px 10px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.4px}
+td{padding:7px 10px;border-bottom:1px solid #E7E5E4;vertical-align:top}
+tr:nth-child(even) td{background:#FAFAF9}
+.badge{display:inline-block;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:600}
+.draft{background:#EFF6FF;color:#1D4ED8}.on_progress{background:#FFF7ED;color:#C2410C}
+.completed{background:#F0FDF4;color:#166534}.cancelled{background:#FEF2F2;color:#991B1B}
+.shipped,.ready_ship{background:#F0FDF4;color:#15803D}.qc{background:#F5F3FF;color:#6D28D9}
+@media print{body{padding:0}.no-print{display:none}}
+</style>
+</head><body>
+<div class="no-print" style="margin-bottom:16px">
+  <button onclick="window.print()" style="background:#B8860B;color:#fff;border:none;padding:8px 18px;border-radius:7px;font-size:12px;cursor:pointer">&#128438; Print / Save PDF</button>
+  <button onclick="window.close()" style="margin-left:8px;background:#F5F3F0;border:1px solid #E7E5E4;padding:8px 14px;border-radius:7px;font-size:12px;cursor:pointer">Close</button>
+</div>
+<h2>Order Report<?= htmlspecialchars($titleFilter) ?></h2>
+<div class="sub">Generated: <?= date('d F Y, H:i') ?> &nbsp;|&nbsp; Total: <?= count($rows) ?> orders</div>
+<table>
+<thead><tr><th>#</th><th>Code</th><th>Customer</th><th>Product</th><th>P&times;L&times;T</th><th>Qty</th><th>Craftsman</th><th>Order Date</th><th>Deadline</th><th>Status</th><th>Notes</th></tr></thead>
+<tbody>
+<?php foreach ($rows as $i => $r): ?>
+<tr>
+  <td><?= $i+1 ?></td>
+  <td><?= htmlspecialchars($r['order_code']) ?></td>
+  <td><?= htmlspecialchars($r['customer_name']) ?></td>
+  <td><?= htmlspecialchars($r['product_name']) ?><?php if($r['specification']): ?><br><span style="color:#999;font-size:10px"><?= htmlspecialchars(mb_substr($r['specification'],0,60)) ?></span><?php endif; ?></td>
+  <td><?= htmlspecialchars($r['dimensions'] ?? '—') ?></td>
+  <td><?= rtrim(rtrim(number_format((float)$r['quantity'],2),'0'),'.') ?></td>
+  <td><?= htmlspecialchars($r['craftsman_name'] ?? '—') ?></td>
+  <td><?= $r['order_date'] ? date('d M Y', strtotime($r['order_date'])) : '—' ?></td>
+  <td><?= $r['due_date'] ? date('d M Y', strtotime($r['due_date'])) : '—' ?></td>
+  <td><span class="badge <?= htmlspecialchars($r['status']) ?>"><?= htmlspecialchars($statusLabels[$r['status']] ?? $r['status']) ?></span></td>
+  <td><?= htmlspecialchars($r['notes'] ?? '') ?></td>
+</tr>
+<?php endforeach; ?>
+</tbody></table>
+</body></html>
+<?php
     exit;
+}
 }
 
 require_once __DIR__ . '/layout.php';
@@ -210,8 +251,8 @@ pwfOfficeHeader('Orders', 'orders');
       <?php if ($filterCustomerId): ?>
         <a href="customer-report.php?customer_id=<?= $filterCustomerId ?>" target="_blank" class="btn btn-export btn-sm"><i class="bi bi-printer"></i> Print</a>
       <?php endif; ?>
-      <a href="?export=csv&customer_id=<?= $filterCustomerId ?>&craftsman_id=<?= $filterCraftsmanId ?>"
-         class="btn btn-export btn-sm"><i class="bi bi-download"></i> Export</a>
+      <a href="?export=pdf&customer_id=<?= $filterCustomerId ?>&craftsman_id=<?= $filterCraftsmanId ?>" target="_blank"
+         class="btn btn-export btn-sm"><i class="bi bi-file-earmark-pdf"></i> Export PDF</a>
       <button class="btn btn-sm" onclick="openCreate()" style="gap:6px">
         <i class="bi bi-plus-lg"></i> New Order
       </button>
@@ -240,15 +281,18 @@ pwfOfficeHeader('Orders', 'orders');
         <div class="order-card-name"><?= htmlspecialchars($o['product_name']) ?></div>
         <div style="height:1px;background:var(--border);margin:5px 0"></div>
         <div class="order-card-meta"><i class="bi bi-person" style="color:var(--gold)"></i><span style="color:var(--muted);min-width:64px">Customer</span><b style="color:var(--text)"><?= htmlspecialchars($o['customer_name'] ?? '—') ?></b></div>
-        <div class="order-card-meta"><i class="bi bi-hash" style="color:var(--gold)"></i><span style="color:var(--muted);min-width:64px">Qty</span><b style="color:var(--text)"><?= htmlspecialchars((string)$o['quantity']) ?></b></div>
+        <div class="order-card-meta"><i class="bi bi-hash" style="color:var(--gold)"></i><span style="color:var(--muted);min-width:64px">Qty</span><b style="color:var(--text)"><?= rtrim(rtrim(number_format((float)$o['quantity'],2),'0'),'.') ?></b></div>
         <?php if ($o['craftsman_name']): ?>
         <div class="order-card-meta"><i class="bi bi-hammer" style="color:var(--gold)"></i><span style="color:var(--muted);min-width:64px">Craftsman</span><b style="color:var(--text)"><?= htmlspecialchars($o['craftsman_name']) ?></b></div>
         <?php endif; ?>
         <?php if ($o['dimensions']): ?>
-        <div class="order-card-meta"><i class="bi bi-rulers" style="color:var(--gold)"></i><span style="color:var(--muted);min-width:64px">Size</span><b style="color:var(--text)"><?= htmlspecialchars($o['dimensions']) ?></b></div>
+        <div class="order-card-meta"><i class="bi bi-rulers" style="color:var(--gold)"></i><span style="color:var(--muted);min-width:64px">P&times;L&times;T</span><b style="color:var(--text)"><?= htmlspecialchars($o['dimensions']) ?></b></div>
         <?php endif; ?>
         <?php if ($o['due_date']): ?>
         <div class="order-card-meta"><i class="bi bi-calendar-event" style="color:var(--gold)"></i><span style="color:var(--muted);min-width:64px">Deadline</span><b style="color:var(--text)"><?= date('d M Y', strtotime($o['due_date'])) ?></b></div>
+        <?php endif; ?>
+        <?php if (!empty($o['notes'])): ?>
+        <div style="margin-top:4px;font-size:11px;color:var(--muted);background:#FAFAF9;border-radius:6px;padding:5px 8px;border-left:2px solid var(--gold-border);line-height:1.45"><?= htmlspecialchars(mb_substr($o['notes'],0,80)) ?><?= mb_strlen($o['notes'])>80?'…':'' ?></div>
         <?php endif; ?>
       </div>
       <div class="order-card-footer">
