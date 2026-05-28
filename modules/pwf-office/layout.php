@@ -13,18 +13,20 @@ function pwfOfficeHeader(string $title, string $active = ''): void
     $fullName = htmlspecialchars($_SESSION['full_name'] ?? $_SESSION['username'] ?? 'User');
     $initials = strtoupper(substr($_SESSION['full_name'] ?? $_SESSION['username'] ?? 'U', 0, 2));
 
-    // Load logo from DB if available
-    $logoUrl = '';
+
+    // Load logo + theme from DB
+    $logoUrl = ''; $pwfTheme = 'light';
     try {
         $isProduction = (strpos($_SERVER['HTTP_HOST'] ?? 'localhost', 'localhost') === false);
         $pwfDb = $isProduction ? 'adfb2574_pwf' : 'adf_pwf';
         $pdo2 = new PDO("mysql:host=".DB_HOST.";dbname=".$pwfDb.";charset=utf8mb4", DB_USER, DB_PASS);
-        $row = $pdo2->query("SELECT setting_value FROM settings WHERE setting_key='pwf_login_logo' LIMIT 1")->fetch();
-        if ($row && $row['setting_value']) $logoUrl = htmlspecialchars($row['setting_value']);
+        $dbSettings = $pdo2->query("SELECT setting_key,setting_value FROM settings WHERE setting_key IN ('pwf_login_logo','pwf_ui_theme')")->fetchAll(PDO::FETCH_KEY_PAIR);
+        if (!empty($dbSettings['pwf_login_logo'])) $logoUrl = htmlspecialchars($dbSettings['pwf_login_logo']);
+        if (!empty($dbSettings['pwf_ui_theme']) && in_array($dbSettings['pwf_ui_theme'],['light','dark'])) $pwfTheme = $dbSettings['pwf_ui_theme'];
     } catch (Exception $e) {}
 ?>
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="<?= $pwfTheme ?>">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -36,29 +38,37 @@ function pwfOfficeHeader(string $title, string $active = ''): void
 <style>
 :root{
   --gold:#B8860B;--gold-light:#D4A017;--gold-bg:#FEF9EC;--gold-border:#EDD07A;
-  --sidebar-w:260px;--topbar-h:64px;
+  --sidebar-w:260px;
   --bg:#F8F6F3;--card:#FFFFFF;--text:#1C1917;--muted:#78716C;
   --border:#E7E5E4;--brand-dark:#1C1511;
   --success:#16A34A;--danger:#DC2626;
+  --nav-bg:#fff;--nav-hover:#F5F3F0;--sidebar-logo-bg:#fff;
+  --topbar-bg:#fff;--input-bg:#fff;
+}
+[data-theme="dark"]{
+  --bg:#111113;--card:#1C1C1F;--text:#ECECEC;--muted:#8A8A90;
+  --border:#2C2C30;--brand-dark:#111113;
+  --nav-bg:#161618;--nav-hover:#222226;--sidebar-logo-bg:#1C1C1F;
+  --topbar-bg:#161618;--input-bg:#222226;
+  --gold-bg:rgba(184,134,11,.18);--gold-border:rgba(212,160,23,.35);
 }
 *,*::before,*::after{box-sizing:border-box}
 body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-size:13px}
 
 /* ── SIDEBAR ─────────────────────────────────────────── */
-.pwf-sidebar{
+.pwf-sidebar{background:var(--nav-bg);border-right:1px solid var(--border);
   position:fixed;top:0;left:0;width:var(--sidebar-w);height:100vh;
-  background:#fff;border-right:1px solid var(--border);
   display:flex;flex-direction:column;z-index:100;
   box-shadow:2px 0 12px rgba(0,0,0,.06)
 }
 .pwf-sidebar-logo{
   padding:16px 16px 12px;
   display:flex;flex-direction:column;align-items:center;gap:7px;
-  background:#fff;border-bottom:1px solid var(--border);flex-shrink:0;text-align:center
+  background:var(--sidebar-logo-bg);border-bottom:1px solid var(--border);flex-shrink:0;text-align:center
 }
 .pwf-logo-box{
   width:160px;height:72px;border-radius:10px;
-  background:#fff;
+  background:var(--card);
   border:1px solid var(--border);
   display:flex;align-items:center;justify-content:center;
   font-size:30px;overflow:hidden;flex-shrink:0;
@@ -75,7 +85,7 @@ body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--te
   color:var(--muted);text-decoration:none;font-size:12.5px;font-weight:500;
   transition:background .15s,color .15s;border-left:3px solid transparent
 }
-.pwf-nav a:hover{background:#F5F3F0;color:var(--text)}
+.pwf-nav a:hover{background:var(--nav-hover);color:var(--text)}
 .pwf-nav a.active{
   background:var(--gold-bg);color:#92600A;border-left-color:var(--gold);
   font-weight:600
@@ -104,7 +114,7 @@ body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--te
 /* ── MAIN WRAPPER ────────────────────────────────────── */
 .pwf-main{margin-left:var(--sidebar-w);min-height:100vh;display:flex;flex-direction:column}
 .pwf-topbar{
-  height:56px;background:#fff;border-bottom:1px solid var(--border);
+  height:56px;background:var(--topbar-bg);border-bottom:1px solid var(--border);
   padding:0 24px;display:flex;align-items:center;justify-content:space-between;
   position:sticky;top:0;z-index:50
 }
@@ -149,7 +159,7 @@ body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--te
 .pwf-table{width:100%;border-collapse:collapse}
 .pwf-table thead th{
   padding:8px 12px;font-size:10.5px;font-weight:700;text-transform:uppercase;
-  letter-spacing:.5px;color:var(--muted);background:#FAFAF9;
+  letter-spacing:.5px;color:var(--muted);background:var(--nav-hover);
   border-bottom:1px solid var(--border);border-top:1px solid var(--border)
 }
 .pwf-table tbody td{
@@ -157,7 +167,7 @@ body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--te
   font-size:12.5px;color:var(--text)
 }
 .pwf-table tbody tr:last-child td{border-bottom:none}
-.pwf-table tbody tr:hover td{background:#FAFAF9}
+.pwf-table tbody tr:hover td{background:var(--nav-hover)}
 
 /* ── FORM ELEMENTS ───────────────────────────────────── */
 .pwf-form-group{margin-bottom:12px}
@@ -170,7 +180,7 @@ input[type=text],input[type=date],input[type=number],input[type=email],
 input[type=file],select,textarea{
   width:100%;padding:7px 11px;
   border:1px solid var(--border);border-radius:7px;
-  background:#fff;color:var(--text);font-size:13px;
+  background:var(--input-bg);color:var(--text);font-size:13px;
   font-family:'Inter',sans-serif;outline:none;
   transition:border-color .15s,box-shadow .15s
 }
@@ -194,7 +204,7 @@ textarea{resize:vertical;min-height:80px}
 .btn-danger{background:var(--danger)!important;color:#fff!important;border:none!important}
 .btn-success{background:var(--success)!important;color:#fff!important;border:none!important}
 .btn-outline-secondary{background:transparent;border:1px solid var(--border);color:var(--muted)}
-.btn-outline-secondary:hover{background:#F5F3F0;color:var(--text)}
+.btn-outline-secondary:hover{background:var(--nav-hover);color:var(--text)}
 .btn-sm{padding:5px 10px;font-size:11.5px}
 .btn-outline-light{background:transparent;border:1px solid rgba(255,255,255,.3);color:#fff;font-size:12px}
 .btn-outline-light:hover{background:rgba(255,255,255,.1)}
@@ -254,7 +264,7 @@ table thead th{font-size:11px;font-weight:700;text-transform:uppercase;letter-sp
 .text-center{text-align:center!important}
 .form-control{
   width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;
-  background:#fff;color:var(--text);font-size:14px;font-family:'Inter',sans-serif;outline:none
+  background:var(--input-bg);color:var(--text);font-size:14px;font-family:'Inter',sans-serif;outline:none
 }
 .form-control:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(184,134,11,.12)}
 

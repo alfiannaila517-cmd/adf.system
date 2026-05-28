@@ -6,269 +6,265 @@ require_once __DIR__ . '/layout.php';
 $pdo = getPwfOfficePdo();
 ensurePwfOfficeTables($pdo);
 
-$message = '';
-$messageType = '';
+$msg = ''; $msgType = 'success';
 
-// ─── SAVE SETTINGS ────────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['_action'] ?? '';
-    $uploadDir = defined('UPLOAD_PATH') ? UPLOAD_PATH . '/pwf-settings/' : __DIR__ . '/../../uploads/pwf-settings/';
+    $uploadDir = BASE_PATH . '/uploads/pwf-settings/';
     if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
 
-    if ($action === 'save_text') {
-        // Simpan setting teks (nama perusahaan, tagline, dll)
-        $textKeys = ['pwf_company_name', 'pwf_company_tagline', 'pwf_company_address', 'pwf_company_phone'];
-        foreach ($textKeys as $key) {
-            if (isset($_POST[$key])) {
-                $val = trim($_POST[$key]);
-                $stmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value) VALUES (?,?)
-                    ON DUPLICATE KEY UPDATE setting_value=?");
-                $stmt->execute([$key, $val, $val]);
-            }
+    if ($action === 'save_theme') {
+        $theme = in_array($_POST['ui_theme'] ?? '', ['light','dark']) ? $_POST['ui_theme'] : 'light';
+        $pdo->prepare("INSERT INTO settings (setting_key,setting_value) VALUES ('pwf_ui_theme',?) ON DUPLICATE KEY UPDATE setting_value=?")->execute([$theme,$theme]);
+        $msg = 'Theme updated. Page will reload.';
+        header('Location: settings.php?saved=theme'); exit;
+
+    } elseif ($action === 'change_password') {
+        $current = $_POST['current_password'] ?? '';
+        $newPwd  = $_POST['new_password'] ?? '';
+        $confirm = $_POST['confirm_password'] ?? '';
+        $userId  = $_SESSION['user_id'] ?? 0;
+        if (!$userId) { $msg = 'Session expired.'; $msgType = 'error'; }
+        elseif (strlen($newPwd) < 6) { $msg = 'Min 6 characters.'; $msgType = 'error'; }
+        elseif ($newPwd !== $confirm) { $msg = 'Passwords do not match.'; $msgType = 'error'; }
+        else {
+            try {
+                $mpdo = new PDO("mysql:host=".DB_HOST.";dbname=".DB_NAME.";charset=utf8mb4", DB_USER, DB_PASS, [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+                $row = $mpdo->prepare('SELECT password FROM users WHERE id=?');
+                $row->execute([$userId]); $row = $row->fetch();
+                if ($row && password_verify($current, $row['password'])) {
+                    $mpdo->prepare('UPDATE users SET password=? WHERE id=?')->execute([password_hash($newPwd, PASSWORD_DEFAULT), $userId]);
+                    $msg = 'Password changed successfully.';
+                } else { $msg = 'Current password is incorrect.'; $msgType = 'error'; }
+            } catch (Exception $e) { $msg = 'Error: '.htmlspecialchars($e->getMessage()); $msgType = 'error'; }
         }
-        $message = 'Informasi perusahaan berhasil disimpan.';
-        $messageType = 'success';
 
     } elseif ($action === 'upload_logo') {
         $file = $_FILES['logo_file'] ?? null;
         if ($file && $file['error'] === UPLOAD_ERR_OK) {
             $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-            if (!in_array($ext, ['jpg','jpeg','png','svg','webp'])) {
-                $message = 'Format file tidak didukung. Gunakan JPG, PNG, SVG, atau WebP.';
-                $messageType = 'error';
-            } elseif ($file['size'] > 2 * 1024 * 1024) {
-                $message = 'Ukuran file logo maksimal 2 MB.';
-                $messageType = 'error';
-            } else {
-                $filename = 'logo_' . time() . '.' . $ext;
-                $destPath = $uploadDir . $filename;
-                if (move_uploaded_file($file['tmp_name'], $destPath)) {
-                    $webPath = (defined('BASE_URL') ? BASE_URL : '') . '/uploads/pwf-settings/' . $filename;
-                    $stmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value) VALUES ('pwf_login_logo',?)
-                        ON DUPLICATE KEY UPDATE setting_value=?");
-                    $stmt->execute([$webPath, $webPath]);
-                    $message = 'Logo berhasil diupload.';
-                    $messageType = 'success';
-                } else {
-                    $message = 'Gagal menyimpan file logo.';
-                    $messageType = 'error';
-                }
+            if (!in_array($ext,['jpg','jpeg','png','svg','webp'])) { $msg='Invalid format.'; $msgType='error'; }
+            elseif ($file['size'] > 2*1024*1024) { $msg='Max 2 MB.'; $msgType='error'; }
+            else {
+                $fname = 'logo_'.time().'.'.$ext;
+                if (move_uploaded_file($file['tmp_name'], $uploadDir.$fname)) {
+                    $wp = BASE_URL.'/uploads/pwf-settings/'.$fname;
+                    $pdo->prepare("INSERT INTO settings (setting_key,setting_value) VALUES ('pwf_login_logo',?) ON DUPLICATE KEY UPDATE setting_value=?")->execute([$wp,$wp]);
+                    $msg = 'Logo uploaded.';
+                } else { $msg='Upload failed.'; $msgType='error'; }
             }
-        } else {
-            $message = 'Pilih file logo terlebih dahulu.';
-            $messageType = 'error';
-        }
+        } else { $msg='Select a file.'; $msgType='error'; }
 
     } elseif ($action === 'upload_wallpaper') {
         $file = $_FILES['wallpaper_file'] ?? null;
         if ($file && $file['error'] === UPLOAD_ERR_OK) {
             $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-            if (!in_array($ext, ['jpg','jpeg','png','webp'])) {
-                $message = 'Format wallpaper: JPG, PNG, atau WebP.';
-                $messageType = 'error';
-            } elseif ($file['size'] > 8 * 1024 * 1024) {
-                $message = 'Ukuran file wallpaper maksimal 8 MB.';
-                $messageType = 'error';
-            } else {
-                $filename = 'wallpaper_' . time() . '.' . $ext;
-                $destPath = $uploadDir . $filename;
-                if (move_uploaded_file($file['tmp_name'], $destPath)) {
-                    $webPath = (defined('BASE_URL') ? BASE_URL : '') . '/uploads/pwf-settings/' . $filename;
-                    $stmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value) VALUES ('pwf_login_wallpaper',?)
-                        ON DUPLICATE KEY UPDATE setting_value=?");
-                    $stmt->execute([$webPath, $webPath]);
-                    $message = 'Wallpaper login berhasil diupload.';
-                    $messageType = 'success';
-                } else {
-                    $message = 'Gagal menyimpan file wallpaper.';
-                    $messageType = 'error';
-                }
+            if (!in_array($ext,['jpg','jpeg','png','webp'])) { $msg='Format: JPG, PNG, WebP.'; $msgType='error'; }
+            elseif ($file['size'] > 8*1024*1024) { $msg='Max 8 MB.'; $msgType='error'; }
+            else {
+                $fname = 'wallpaper_'.time().'.'.$ext;
+                if (move_uploaded_file($file['tmp_name'], $uploadDir.$fname)) {
+                    $wp = BASE_URL.'/uploads/pwf-settings/'.$fname;
+                    $pdo->prepare("INSERT INTO settings (setting_key,setting_value) VALUES ('pwf_login_wallpaper',?) ON DUPLICATE KEY UPDATE setting_value=?")->execute([$wp,$wp]);
+                    $msg = 'Wallpaper uploaded.';
+                } else { $msg='Upload failed.'; $msgType='error'; }
             }
-        } else {
-            $message = 'Pilih file wallpaper terlebih dahulu.';
-            $messageType = 'error';
-        }
+        } else { $msg='Select a file.'; $msgType='error'; }
 
-    } elseif ($action === 'reset_wallpaper') {
-        $pdo->exec("DELETE FROM settings WHERE setting_key='pwf_login_wallpaper'");
-        $message = 'Wallpaper direset ke tampilan default.';
-        $messageType = 'success';
+    } elseif ($action === 'save_text') {
+        foreach (['pwf_company_name','pwf_company_tagline','pwf_company_address','pwf_company_phone'] as $k) {
+            if (isset($_POST[$k])) {
+                $v = trim($_POST[$k]);
+                $pdo->prepare("INSERT INTO settings (setting_key,setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=?")->execute([$k,$v,$v]);
+            }
+        }
+        $msg = 'Company info saved.';
 
     } elseif ($action === 'reset_logo') {
         $pdo->exec("DELETE FROM settings WHERE setting_key='pwf_login_logo'");
-        $message = 'Logo direset ke default.';
-        $messageType = 'success';
+        $msg = 'Logo reset.';
+    } elseif ($action === 'reset_wallpaper') {
+        $pdo->exec("DELETE FROM settings WHERE setting_key='pwf_login_wallpaper'");
+        $msg = 'Wallpaper reset.';
     }
 }
 
-// ─── LOAD CURRENT SETTINGS ────────────────────────────────────────────────────
-$settingKeys = ['pwf_login_logo','pwf_login_wallpaper','pwf_company_name','pwf_company_tagline','pwf_company_address','pwf_company_phone'];
-$settings = [];
-$rows = $pdo->query("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('" . implode("','", $settingKeys) . "')")->fetchAll(PDO::FETCH_KEY_PAIR);
-foreach ($settingKeys as $k) $settings[$k] = $rows[$k] ?? '';
+$skeys = ['pwf_login_logo','pwf_login_wallpaper','pwf_company_name','pwf_company_tagline','pwf_company_address','pwf_company_phone','pwf_ui_theme'];
+$srows = $pdo->query("SELECT setting_key,setting_value FROM settings WHERE setting_key IN ('".implode("','",$skeys)."')")->fetchAll(PDO::FETCH_KEY_PAIR);
+$s = []; foreach ($skeys as $k) $s[$k] = $srows[$k] ?? '';
+$currentTheme = $s['pwf_ui_theme'] ?: 'light';
+if (isset($_GET['saved'])) $msg = $msg ?: 'Saved.';
 
 pwfOfficeHeader('Settings', 'settings');
 ?>
 
-<div class="pwf-content-header">
-    <h1 class="pwf-page-title"><span>⚙️</span> Settings Sistem</h1>
-    <p class="pwf-page-sub">Konfigurasi tampilan dan informasi PWF Office</p>
-</div>
-
-<?php if ($message): ?>
-<div class="alert alert-<?= $messageType === 'success' ? 'success' : 'danger' ?> mb-4">
-    <?= htmlspecialchars($message) ?>
-</div>
+<?php if ($msg): ?>
+<div class="alert alert-<?= $msgType==='error'?'danger':'success' ?>" style="margin-bottom:16px"><?= htmlspecialchars($msg) ?></div>
 <?php endif; ?>
 
-<div class="row g-4">
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
 
-    <!-- LOGO PERUSAHAAN -->
-    <div class="col-lg-6">
-        <div class="pwf-card">
-            <div class="pwf-card-header">
-                <h5 class="mb-0">🖼️ Logo Perusahaan</h5>
+<!-- THEME -->
+<div class="pwf-card">
+  <div class="pwf-card-header"><i class="bi bi-palette me-2" style="color:var(--gold)"></i>UI Theme</div>
+  <div class="pwf-card-body">
+    <form method="post">
+      <input type="hidden" name="_action" value="save_theme">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+        <label style="cursor:pointer">
+          <input type="radio" name="ui_theme" value="light" <?= $currentTheme==='light'?'checked':'' ?> style="display:none" onchange="previewTheme('light')">
+          <div id="cardLight" style="border:2px solid <?= $currentTheme==='light'?'var(--gold)':'var(--border)' ?>;border-radius:10px;overflow:hidden;transition:border-color .2s">
+            <div style="background:#F8F6F3;padding:10px 12px 8px">
+              <div style="background:#fff;border-radius:5px;height:7px;width:70%;margin-bottom:4px"></div>
+              <div style="background:#fff;border-radius:5px;height:5px;width:45%"></div>
             </div>
-            <div class="pwf-card-body">
-                <p class="text-muted small mb-3">Logo ini akan ditampilkan di halaman login dan navbar. Format: JPG, PNG, SVG, WebP. Maks 2 MB.</p>
-
-                <?php if ($settings['pwf_login_logo']): ?>
-                <div class="mb-3 text-center">
-                    <div style="background:#1a1a2e;padding:20px;border-radius:12px;display:inline-block;">
-                        <img src="<?= htmlspecialchars($settings['pwf_login_logo']) ?>"
-                             alt="Logo saat ini" style="max-height:80px;max-width:180px;object-fit:contain;">
-                    </div>
-                    <div class="mt-2 text-muted small">Logo saat ini</div>
-                </div>
-                <?php else: ?>
-                <div class="mb-3 text-center">
-                    <div style="background:#1a1a2e;padding:20px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;width:100px;height:100px;font-size:40px;">🪵</div>
-                    <div class="mt-2 text-muted small">Menggunakan ikon default</div>
-                </div>
-                <?php endif; ?>
-
-                <form method="post" enctype="multipart/form-data">
-                    <input type="hidden" name="_action" value="upload_logo">
-                    <div class="mb-3">
-                        <label class="form-label">Upload Logo Baru</label>
-                        <input type="file" class="form-control" name="logo_file" accept=".jpg,.jpeg,.png,.svg,.webp" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary btn-sm">Upload Logo</button>
-                </form>
-
-                <?php if ($settings['pwf_login_logo']): ?>
-                <form method="post" class="mt-2" onsubmit="return confirm('Reset logo ke default?')">
-                    <input type="hidden" name="_action" value="reset_logo">
-                    <button type="submit" class="btn btn-outline-secondary btn-sm">Reset ke Default</button>
-                </form>
-                <?php endif; ?>
+            <div style="background:#fff;padding:6px 10px;display:flex;align-items:center;gap:6px;border-top:1px solid #E7E5E4">
+              <div style="width:7px;height:7px;border-radius:50%;background:#B8860B"></div>
+              <span style="font-size:11px;font-weight:600;color:#1C1917">Light</span>
             </div>
+          </div>
+        </label>
+        <label style="cursor:pointer">
+          <input type="radio" name="ui_theme" value="dark" <?= $currentTheme==='dark'?'checked':'' ?> style="display:none" onchange="previewTheme('dark')">
+          <div id="cardDark" style="border:2px solid <?= $currentTheme==='dark'?'var(--gold)':'var(--border)' ?>;border-radius:10px;overflow:hidden;transition:border-color .2s">
+            <div style="background:#111113;padding:10px 12px 8px">
+              <div style="background:#1C1C1F;border-radius:5px;height:7px;width:70%;margin-bottom:4px"></div>
+              <div style="background:#1C1C1F;border-radius:5px;height:5px;width:45%"></div>
+            </div>
+            <div style="background:#161618;padding:6px 10px;display:flex;align-items:center;gap:6px;border-top:1px solid #2C2C30">
+              <div style="width:7px;height:7px;border-radius:50%;background:#D4A017"></div>
+              <span style="font-size:11px;font-weight:600;color:#ECECEC">Dark</span>
+            </div>
+          </div>
+        </label>
+      </div>
+      <button class="btn" type="submit" style="width:100%"><i class="bi bi-check-circle"></i> Apply Theme</button>
+    </form>
+  </div>
+</div>
+
+<!-- CHANGE PASSWORD -->
+<div class="pwf-card">
+  <div class="pwf-card-header"><i class="bi bi-shield-lock me-2" style="color:var(--gold)"></i>Change Password</div>
+  <div class="pwf-card-body">
+    <form method="post" autocomplete="off">
+      <input type="hidden" name="_action" value="change_password">
+      <div class="pwf-form-group"><label>Current Password</label>
+        <input class="input" type="password" name="current_password" required autocomplete="current-password"></div>
+      <div class="pwf-form-group"><label>New Password</label>
+        <input class="input" type="password" name="new_password" id="pwdNew" required minlength="6" autocomplete="new-password"></div>
+      <div class="pwf-form-group"><label>Confirm New Password</label>
+        <input class="input" type="password" name="confirm_password" id="pwdConfirm" required minlength="6" autocomplete="new-password" oninput="checkPwd()">
+        <div id="pwdMsg" style="font-size:11px;margin-top:3px;min-height:16px"></div>
+      </div>
+      <button class="btn" type="submit" style="width:100%"><i class="bi bi-key"></i> Update Password</button>
+    </form>
+  </div>
+</div>
+
+<!-- LOGO -->
+<div class="pwf-card">
+  <div class="pwf-card-header"><i class="bi bi-image me-2" style="color:var(--gold)"></i>Company Logo</div>
+  <div class="pwf-card-body">
+    <div style="text-align:center;margin-bottom:14px">
+      <?php if ($s['pwf_login_logo']): ?>
+        <div style="background:var(--nav-hover);padding:14px;border-radius:10px;display:inline-block">
+          <img src="<?= htmlspecialchars($s['pwf_login_logo']) ?>" style="max-height:64px;max-width:148px;object-fit:contain">
         </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:5px">Current logo</div>
+      <?php else: ?>
+        <div style="background:var(--nav-hover);border-radius:10px;width:80px;height:80px;display:inline-flex;align-items:center;justify-content:center;font-size:32px">🪵</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:5px">Default icon</div>
+      <?php endif; ?>
     </div>
+    <form method="post" enctype="multipart/form-data">
+      <input type="hidden" name="_action" value="upload_logo">
+      <div class="pwf-form-group"><label>Upload New Logo</label>
+        <input class="input" type="file" name="logo_file" accept=".jpg,.jpeg,.png,.svg,.webp" required>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px">JPG, PNG, SVG, WebP — max 2 MB</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn" type="submit" style="flex:1"><i class="bi bi-upload"></i> Upload</button>
+        <?php if ($s['pwf_login_logo']): ?>
+          <button class="btn btn-outline-secondary" type="button"
+            onclick="if(confirm('Reset logo?')){document.getElementById('frmResetLogo').submit()}">
+            <i class="bi bi-arrow-counterclockwise"></i>
+          </button>
+        <?php endif; ?>
+      </div>
+    </form>
+    <?php if ($s['pwf_login_logo']): ?>
+    <form method="post" id="frmResetLogo" style="display:none"><input type="hidden" name="_action" value="reset_logo"></form>
+    <?php endif; ?>
+  </div>
+</div>
 
-    <!-- WALLPAPER LOGIN -->
-    <div class="col-lg-6">
-        <div class="pwf-card">
-            <div class="pwf-card-header">
-                <h5 class="mb-0">🌅 Wallpaper Halaman Login</h5>
-            </div>
-            <div class="pwf-card-body">
-                <p class="text-muted small mb-3">Background halaman login. Format: JPG, PNG, WebP. Maks 8 MB. Rekomendasi: 1920×1080px.</p>
-
-                <?php if ($settings['pwf_login_wallpaper']): ?>
-                <div class="mb-3">
-                    <img src="<?= htmlspecialchars($settings['pwf_login_wallpaper']) ?>"
-                         alt="Wallpaper saat ini"
-                         style="width:100%;height:120px;object-fit:cover;border-radius:10px;border:1px solid rgba(255,255,255,.1)">
-                    <div class="mt-1 text-muted small">Wallpaper saat ini</div>
-                </div>
-                <?php else: ?>
-                <div class="mb-3" style="background:radial-gradient(ellipse at 70% 20%,#1a3a2e 0%,#0a0e1a 55%);height:120px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.4);font-size:13px;">
-                    Menggunakan gradient default
-                </div>
-                <?php endif; ?>
-
-                <form method="post" enctype="multipart/form-data">
-                    <input type="hidden" name="_action" value="upload_wallpaper">
-                    <div class="mb-3">
-                        <label class="form-label">Upload Wallpaper Baru</label>
-                        <input type="file" class="form-control" name="wallpaper_file" accept=".jpg,.jpeg,.png,.webp" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary btn-sm">Upload Wallpaper</button>
-                </form>
-
-                <?php if ($settings['pwf_login_wallpaper']): ?>
-                <form method="post" class="mt-2" onsubmit="return confirm('Reset wallpaper ke gradient default?')">
-                    <input type="hidden" name="_action" value="reset_wallpaper">
-                    <button type="submit" class="btn btn-outline-secondary btn-sm">Reset ke Default</button>
-                </form>
-                <?php endif; ?>
-            </div>
-        </div>
+<!-- WALLPAPER -->
+<div class="pwf-card">
+  <div class="pwf-card-header"><i class="bi bi-card-image me-2" style="color:var(--gold)"></i>Login Wallpaper</div>
+  <div class="pwf-card-body">
+    <div style="margin-bottom:14px">
+      <?php if ($s['pwf_login_wallpaper']): ?>
+        <img src="<?= htmlspecialchars($s['pwf_login_wallpaper']) ?>" style="width:100%;height:90px;object-fit:cover;border-radius:8px;border:1px solid var(--border)">
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">Current wallpaper</div>
+      <?php else: ?>
+        <div style="background:radial-gradient(ellipse at 70% 20%,#1a3a2e,#0a0e1a);height:80px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;color:rgba(255,255,255,.4)">Default gradient</div>
+      <?php endif; ?>
     </div>
+    <form method="post" enctype="multipart/form-data">
+      <input type="hidden" name="_action" value="upload_wallpaper">
+      <div class="pwf-form-group"><label>Upload Wallpaper</label>
+        <input class="input" type="file" name="wallpaper_file" accept=".jpg,.jpeg,.png,.webp" required>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px">JPG, PNG, WebP — max 8 MB</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn" type="submit" style="flex:1"><i class="bi bi-upload"></i> Upload</button>
+        <?php if ($s['pwf_login_wallpaper']): ?>
+          <button class="btn btn-outline-secondary" type="button"
+            onclick="if(confirm('Reset wallpaper?')){document.getElementById('frmResetWp').submit()}">
+            <i class="bi bi-arrow-counterclockwise"></i>
+          </button>
+        <?php endif; ?>
+      </div>
+    </form>
+    <?php if ($s['pwf_login_wallpaper']): ?>
+    <form method="post" id="frmResetWp" style="display:none"><input type="hidden" name="_action" value="reset_wallpaper"></form>
+    <?php endif; ?>
+  </div>
+</div>
 
-    <!-- INFORMASI PERUSAHAAN -->
-    <div class="col-12">
-        <div class="pwf-card">
-            <div class="pwf-card-header">
-                <h5 class="mb-0">🏢 Informasi Perusahaan</h5>
-            </div>
-            <div class="pwf-card-body">
-                <form method="post">
-                    <input type="hidden" name="_action" value="save_text">
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Nama Perusahaan</label>
-                            <input type="text" class="form-control" name="pwf_company_name"
-                                   value="<?= htmlspecialchars($settings['pwf_company_name'] ?: 'Prapen Wood Furniture') ?>"
-                                   placeholder="Prapen Wood Furniture">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Tagline / Slogan</label>
-                            <input type="text" class="form-control" name="pwf_company_tagline"
-                                   value="<?= htmlspecialchars($settings['pwf_company_tagline'] ?: 'Crafting Excellence, Tracking Every Step') ?>"
-                                   placeholder="Crafting Excellence, ...">
-                        </div>
-                        <div class="col-md-8">
-                            <label class="form-label">Alamat Lengkap</label>
-                            <input type="text" class="form-control" name="pwf_company_address"
-                                   value="<?= htmlspecialchars($settings['pwf_company_address'] ?: 'Jl. Ngabul - Batealit No.KM. 5 Godang, Mindahan, Kec. Batealit, Kab. Jepara, Jawa Tengah 59400') ?>"
-                                   placeholder="Jl. ...">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">No. Telepon / WhatsApp</label>
-                            <input type="text" class="form-control" name="pwf_company_phone"
-                                   value="<?= htmlspecialchars($settings['pwf_company_phone']) ?>"
-                                   placeholder="+62 ...">
-                        </div>
-                        <div class="col-12">
-                            <button type="submit" class="btn btn-primary">Simpan Informasi</button>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- PREVIEW LOGIN PAGE -->
-    <div class="col-12">
-        <div class="pwf-card">
-            <div class="pwf-card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">👁️ Preview Halaman Login</h5>
-                <a href="<?= defined('BASE_URL') ? BASE_URL : '' ?>/pwf-login.php" target="_blank" class="btn btn-outline-light btn-sm">
-                    Buka Login Page
-                </a>
-            </div>
-            <div class="pwf-card-body">
-                <p class="text-muted small">Klik tombol di atas untuk melihat tampilan login page dengan setting yang sudah disimpan.</p>
-                <div class="d-flex gap-2 flex-wrap">
-                    <span class="badge bg-secondary">Logo: <?= $settings['pwf_login_logo'] ? '✅ Custom' : '🪵 Default' ?></span>
-                    <span class="badge bg-secondary">Wallpaper: <?= $settings['pwf_login_wallpaper'] ? '✅ Custom' : '🎨 Gradient Default' ?></span>
-                </div>
-            </div>
-        </div>
-    </div>
+<!-- COMPANY INFO -->
+<div class="pwf-card" style="grid-column:1/-1">
+  <div class="pwf-card-header"><i class="bi bi-building me-2" style="color:var(--gold)"></i>Company Information</div>
+  <div class="pwf-card-body">
+    <form method="post">
+      <input type="hidden" name="_action" value="save_text">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="pwf-form-group"><label>Company Name</label><input class="input" name="pwf_company_name" value="<?= htmlspecialchars($s['pwf_company_name'] ?: 'Prapen Wood Furniture') ?>"></div>
+        <div class="pwf-form-group"><label>Tagline / Slogan</label><input class="input" name="pwf_company_tagline" value="<?= htmlspecialchars($s['pwf_company_tagline']) ?>"></div>
+        <div class="pwf-form-group"><label>Phone / WhatsApp</label><input class="input" name="pwf_company_phone" value="<?= htmlspecialchars($s['pwf_company_phone']) ?>"></div>
+        <div class="pwf-form-group"><label>Address</label><input class="input" name="pwf_company_address" value="<?= htmlspecialchars($s['pwf_company_address']) ?>"></div>
+      </div>
+      <button class="btn" type="submit"><i class="bi bi-check-circle"></i> Save Info</button>
+    </form>
+  </div>
+</div>
 
 </div>
 
-<?php pwfOfficeFooter(); ?>
+<script>
+function checkPwd() {
+    const a = document.getElementById('pwdNew').value;
+    const b = document.getElementById('pwdConfirm').value;
+    const el = document.getElementById('pwdMsg');
+    if (!b) { el.textContent=''; return; }
+    if (a===b) { el.style.color='var(--success)'; el.textContent='✓ Match'; }
+    else { el.style.color='var(--danger)'; el.textContent='✗ Do not match'; }
+}
+function previewTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    document.getElementById('cardLight').style.borderColor = t==='light' ? 'var(--gold)' : 'var(--border)';
+    document.getElementById('cardDark').style.borderColor  = t==='dark'  ? 'var(--gold)' : 'var(--border)';
+}
+</script>
+<?php pwfOfficeFooter();

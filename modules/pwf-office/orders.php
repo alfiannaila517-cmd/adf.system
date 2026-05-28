@@ -69,7 +69,6 @@ tr:nth-child(even) td{background:#FAFAF9}
 <?php
     exit;
 }
-}
 
 require_once __DIR__ . '/layout.php';
 $msg = ''; $msgType = 'success';
