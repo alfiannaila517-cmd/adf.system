@@ -153,6 +153,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $msg = 'Order status changed to On Progress.';
         }
     }
+
+    elseif ($action === 'update_progress') {
+        $id      = (int)($_POST['order_id'] ?? 0);
+        $qtyDone = max(0, (float)($_POST['qty_done'] ?? 0));
+        if ($id > 0) {
+            $row = $pdo->prepare('SELECT quantity FROM pwf_orders WHERE id=?');
+            $row->execute([$id]);
+            $qty = max(0.0001, (float)($row->fetchColumn() ?: 1));
+            $pct = min(100, (int)round($qtyDone / $qty * 100));
+            $pdo->prepare('UPDATE pwf_orders SET qty_done=?, progress_percent=?, updated_at=NOW() WHERE id=?')
+                ->execute([$qtyDone, $pct, $id]);
+            $msg = 'Progress updated.';
+        }
+    }
 }
 
 // ── DATA ──────────────────────────────────────────────────────────────────────
@@ -293,6 +307,17 @@ pwfOfficeHeader('Orders', 'orders');
         <?php if (!empty($o['notes'])): ?>
         <div style="margin-top:4px;font-size:11px;color:var(--muted);background:#FAFAF9;border-radius:6px;padding:5px 8px;border-left:2px solid var(--gold-border);line-height:1.45"><?= htmlspecialchars(mb_substr($o['notes'],0,80)) ?><?= mb_strlen($o['notes'])>80?'…':'' ?></div>
         <?php endif; ?>
+        <?php if (!in_array($o['status'],['draft','cancelled'])): $pct=(int)$o['progress_percent']; ?>
+        <div style="margin-top:8px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+            <span style="font-size:10.5px;color:var(--muted)"><?= rtrim(rtrim(number_format((float)$o['qty_done'],2),'0'),'.') ?>&nbsp;/&nbsp;<?= rtrim(rtrim(number_format((float)$o['quantity'],2),'0'),'.') ?> pcs done</span>
+            <span style="font-size:11px;font-weight:700;color:var(--gold)"><?= $pct ?>%</span>
+          </div>
+          <div style="height:5px;background:var(--border);border-radius:20px;overflow:hidden">
+            <div style="width:<?= $pct ?>%;height:100%;background:<?= $pct>=100?'#15803D':'var(--gold)' ?>;border-radius:20px"></div>
+          </div>
+        </div>
+        <?php endif; ?>
       </div>
       <div class="order-card-footer">
         <span class="status-badge status-<?= htmlspecialchars($o['status']) ?>"><?= htmlspecialchars(str_replace('_',' ',$o['status'])) ?></span>
@@ -306,6 +331,13 @@ pwfOfficeHeader('Orders', 'orders');
               <i class="bi bi-play-circle"></i> Start
             </button>
           </form>
+          <?php endif; ?>
+          <?php if ($o['status'] === 'on_progress'): ?>
+          <button class="btn btn-sm" title="Update Progress"
+            onclick="openProgress(<?= htmlspecialchars(json_encode(['id'=>(int)$o['id'],'code'=>$o['order_code'],'name'=>$o['product_name'],'qty'=>(float)$o['quantity'],'qty_done'=>(float)$o['qty_done'],'pct'=>(int)$o['progress_percent']]), ENT_QUOTES) ?>)"
+            style="background:#F5F3FF;border:1px solid #DDD6FE;color:#6D28D9;padding:4px 9px;font-size:11px">
+            <i class="bi bi-bar-chart-line"></i>
+          </button>
           <?php endif; ?>
           <button class="btn btn-sm btn-outline-secondary" title="Edit"
             onclick="openEdit(<?= htmlspecialchars(json_encode($o), ENT_QUOTES) ?>)">
@@ -519,5 +551,67 @@ function closeEdit() {
 <?php if ($msg): ?>
 // Auto-open modal on success not needed — message already shown inline
 <?php endif; ?>
+function openProgress(o) {
+    document.getElementById('pmTitle').textContent    = o.name;
+    document.getElementById('pmCode').textContent     = o.code;
+    document.getElementById('pmOrderId').value        = o.id;
+    document.getElementById('pmQtyTotal').textContent = o.qty;
+    const inp = document.getElementById('pmQtyDone');
+    inp.max   = o.qty;
+    inp.value = o.qty_done || 0;
+    updatePbar();
+    new bootstrap.Modal(document.getElementById('progressModal')).show();
+}
+function updatePbar() {
+    const done  = parseFloat(document.getElementById('pmQtyDone').value) || 0;
+    const total = parseFloat(document.getElementById('pmQtyTotal').textContent) || 1;
+    const pct   = Math.min(100, Math.round(done / total * 100));
+    document.getElementById('pmPct').textContent = pct + '%';
+    document.getElementById('pmBar').style.width = pct + '%';
+}
 </script>
+
+<!-- ── PROGRESS MODAL ─────────────────────────────────────────────────────── -->
+<div class="modal fade" id="progressModal" tabindex="-1">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content" style="background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden">
+      <div class="modal-header" style="border-bottom:1px solid var(--border);padding:14px 18px;background:var(--card)">
+        <div>
+          <div id="pmTitle" style="font-size:13px;font-weight:700;color:var(--text)"></div>
+          <div id="pmCode"  style="font-size:11px;color:var(--muted)"></div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post">
+        <input type="hidden" name="_action" value="update_progress">
+        <input type="hidden" name="order_id" id="pmOrderId">
+        <div class="modal-body" style="padding:18px;background:var(--card)">
+          <div style="margin-bottom:16px">
+            <label style="font-size:10.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px">Qty Done / Total</label>
+            <div style="display:flex;align-items:center;gap:10px">
+              <input type="number" name="qty_done" id="pmQtyDone" min="0" step="0.5"
+                style="width:90px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--input-bg);color:var(--text);font-size:16px;font-weight:700;font-family:inherit;outline:none"
+                oninput="updatePbar()">
+              <span style="color:var(--muted);font-size:13px">/ <strong id="pmQtyTotal" style="color:var(--text)"></strong> pcs</span>
+            </div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+              <span style="font-size:11px;color:var(--muted)">Completion</span>
+              <span id="pmPct" style="font-size:14px;font-weight:700;color:var(--gold)">0%</span>
+            </div>
+            <div style="height:8px;background:var(--border);border-radius:20px;overflow:hidden">
+              <div id="pmBar" style="width:0%;height:100%;background:var(--gold);border-radius:20px;transition:width .3s"></div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer" style="border-top:1px solid var(--border);padding:12px 18px;background:var(--card);gap:8px">
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-sm" style="background:var(--gold);color:#fff;border:none;font-weight:600">Save Progress</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <?php pwfOfficeFooter();

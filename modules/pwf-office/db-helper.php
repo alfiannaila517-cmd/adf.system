@@ -97,6 +97,9 @@ function ensurePwfOfficeTables(PDO $pdo): void
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         INDEX idx_order (order_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    // qty_done migration — add column if not exists
+    try { $pdo->exec("ALTER TABLE pwf_orders ADD COLUMN qty_done DECIMAL(10,2) NOT NULL DEFAULT 0"); } catch (\PDOException $e) {}
 }
 
 function genPwfCode(PDO $pdo, string $prefix): string

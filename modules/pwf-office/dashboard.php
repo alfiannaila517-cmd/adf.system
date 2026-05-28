@@ -63,6 +63,20 @@ $monthly = $pdo->query("
     ORDER BY month_key ASC
 ")->fetchAll();
 
+// ── Production progress (on_progress orders) ────────────────────────────────
+$progressOrders = [];
+try {
+    $progressOrders = $pdo->query("
+        SELECT o.order_code, o.product_name, o.quantity, o.qty_done, o.progress_percent,
+               c.customer_name, t.craftsman_name, o.due_date
+        FROM pwf_orders o
+        LEFT JOIN pwf_customers c ON c.id=o.customer_id
+        LEFT JOIN pwf_craftsmen t ON t.id=o.assigned_craftsman_id
+        WHERE o.status='on_progress'
+        ORDER BY o.progress_percent DESC, o.id DESC
+    ")->fetchAll();
+} catch (\PDOException $e) {}
+
 pwfOfficeHeader('Dashboard', 'dashboard');
 ?>
 
@@ -85,6 +99,43 @@ pwfOfficeHeader('Dashboard', 'dashboard');
         <div><div class="stat-val"><?= $stats['finished'] ?></div><div class="stat-lbl">Finished / Shipped</div></div>
     </div>
 </div>
+
+<?php if (!empty($progressOrders)): ?>
+<!-- ── PRODUCTION PROGRESS ──────────────────────────────────────────────── -->
+<div class="pwf-card" style="margin-bottom:20px">
+  <div class="pwf-card-header">
+    <i class="bi bi-bar-chart-steps me-2" style="color:var(--gold)"></i>Production Progress
+    <span style="margin-left:auto;font-size:11px;color:var(--muted)"><?= count($progressOrders) ?> order<?= count($progressOrders)>1?'s':'' ?> in progress</span>
+  </div>
+  <div style="padding:10px 14px;display:flex;flex-direction:column;gap:8px">
+    <?php foreach ($progressOrders as $r):
+        $pct = (int)$r['progress_percent'];
+        $barColor = $pct >= 100 ? '#15803D' : ($pct >= 60 ? 'var(--gold)' : '#C2410C');
+    ?>
+    <div style="display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;padding:10px 12px;background:var(--nav-hover);border-radius:9px;border:1px solid var(--border)">
+      <div>
+        <div style="display:flex;align-items:baseline;gap:7px;margin-bottom:5px;flex-wrap:wrap">
+          <code style="font-size:11px;color:var(--gold)"><?= htmlspecialchars($r['order_code']) ?></code>
+          <span style="font-size:12.5px;font-weight:600;color:var(--text)"><?= htmlspecialchars($r['product_name']) ?></span>
+          <?php if ($r['customer_name']): ?><span style="font-size:11px;color:var(--muted)">· <?= htmlspecialchars($r['customer_name']) ?></span><?php endif; ?>
+          <?php if ($r['craftsman_name']): ?><span style="font-size:11px;color:var(--muted)">· <?= htmlspecialchars($r['craftsman_name']) ?></span><?php endif; ?>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;height:6px;background:var(--border);border-radius:20px;overflow:hidden">
+            <div style="width:<?= $pct ?>%;height:100%;background:<?= $barColor ?>;border-radius:20px"></div>
+          </div>
+          <span style="font-size:12px;font-weight:700;color:<?= $barColor ?>;min-width:34px"><?= $pct ?>%</span>
+        </div>
+      </div>
+      <div style="text-align:right;min-width:64px">
+        <div style="font-size:16px;font-weight:700;color:var(--text)"><?= rtrim(rtrim(number_format((float)$r['qty_done'],2),'0'),'.') ?></div>
+        <div style="font-size:11px;color:var(--muted)">/ <?= rtrim(rtrim(number_format((float)$r['quantity'],2),'0'),'.') ?> pcs</div>
+      </div>
+    </div>
+    <?php endforeach; ?>
+  </div>
+</div>
+<?php endif; ?>
 
 <!-- ── CHARTS ROW ────────────────────────────────────────────────────────── -->
 <div class="grid2" style="margin-bottom:20px">
