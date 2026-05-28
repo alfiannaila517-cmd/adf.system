@@ -31,8 +31,21 @@ try {
     }
     
     // Get businesses user has access to
+    // Check whether slug column exists (backward compatibility)
+    $hasSlugColumn = false;
+    try {
+        $hasSlugColumn = (bool)$masterPdo->query("SHOW COLUMNS FROM businesses LIKE 'slug'")->fetch(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        $hasSlugColumn = false;
+    }
+
+    // Get businesses user has access to
+    $selectFields = "b.id, b.business_code, b.business_name, b.business_type";
+    if ($hasSlugColumn) {
+        $selectFields .= ", b.slug";
+    }
     $bizStmt = $masterPdo->prepare("
-        SELECT DISTINCT b.id, b.business_code, b.business_name, b.business_type
+        SELECT DISTINCT {$selectFields}
         FROM businesses b
         JOIN user_menu_permissions p ON b.id = p.business_id
         WHERE p.user_id = ?
@@ -50,26 +63,28 @@ try {
     if (isPost()) {
         $selectedBizCode = sanitize(getPost('business_code'));
         
-        // Map business_code to business_id
-        $codeToIdMap = [
-            'BENSCAFE' => 'bens-cafe',
-            'NARAYANAHOTEL' => 'narayana-hotel'
-        ];
-        
-        $businessId = isset($codeToIdMap[$selectedBizCode]) ? $codeToIdMap[$selectedBizCode] : strtolower($selectedBizCode);
-        
-        // Verify user has access
+        // Verify user has access and resolve target business slug
         $hasAccess = false;
+        $targetBusinessSlug = '';
         foreach ($userBusinesses as $biz) {
             if ($biz['business_code'] === $selectedBizCode) {
                 $hasAccess = true;
+                if ($hasSlugColumn && !empty($biz['slug'])) {
+                    $targetBusinessSlug = preg_replace('/[^a-zA-Z0-9_-]/', '', $biz['slug']);
+                }
                 break;
             }
         }
+
+        if (empty($targetBusinessSlug)) {
+            $targetBusinessSlug = businessCodeToSlug($selectedBizCode);
+        }
         
         if ($hasAccess) {
-            setActiveBusinessId($businessId);
-            redirect(BASE_URL . '/index.php');
+            if (setActiveBusinessId($targetBusinessSlug)) {
+                redirect(BASE_URL . '/index.php');
+            }
+            $error = 'Bisnis tidak dapat dibuka. Konfigurasi bisnis belum tersedia.';
         } else {
             $error = 'Anda tidak punya akses ke bisnis tersebut!';
         }

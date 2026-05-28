@@ -261,28 +261,21 @@ class Auth {
                 return $this->hasPermissionFallback($module);
             }
             
-            // Map business_id to business_code
-            $idToCodeMap = [
-                'bens-cafe' => 'BENSCAFE',
-                'narayana-hotel' => 'NARAYANAHOTEL',
-                'demo' => 'DEMO',
-                'cqc' => 'CQC'
-            ];
-            $businessCode = $idToCodeMap[$activeBusinessId] ?? strtoupper(str_replace('-', '', $activeBusinessId));
-            
-            // Get business ID from master
-            $bizStmt = $masterPdo->prepare("SELECT id FROM businesses WHERE business_code = ? LIMIT 1");
-            $bizStmt->execute([$businessCode]);
-            $business = $bizStmt->fetch(PDO::FETCH_ASSOC);
-            
-            if (!$business) {
+            // Resolve numeric business ID dynamically for any business slug/code
+            $businessId = isset($_SESSION['business_id']) ? (int)$_SESSION['business_id'] : 0;
+            if ($businessId <= 0 && function_exists('getNumericBusinessId')) {
+                $businessId = (int)getNumericBusinessId($activeBusinessId);
+                if ($businessId > 0) {
+                    $_SESSION['business_id'] = $businessId;
+                }
+            }
+
+            if ($businessId <= 0) {
                 // Business not found, fallback
                 if ($userRole === 'developer') return true;
-                error_log("Warning: Business not found for code {$businessCode}");
+                error_log("Warning: Business not found for active_business_id {$activeBusinessId}");
                 return $this->hasPermissionFallback($module);
             }
-            
-            $businessId = $business['id'];
             
             // For developers: check if permissions have been configured for this business
             // If no entries exist at all, grant full access (backward compatible)
@@ -358,17 +351,16 @@ class Auth {
             $activeBusinessId = $_SESSION['active_business_id'] ?? null;
             if (!$activeBusinessId) return ($userRole === 'developer');
 
-            $idToCodeMap = [
-                'bens-cafe' => 'BENSCAFE',
-                'narayana-hotel' => 'NARAYANAHOTEL',
-                'demo' => 'DEMO',
-                'cqc' => 'CQC'
-            ];
-            $businessCode = $idToCodeMap[$activeBusinessId] ?? strtoupper(str_replace('-', '', $activeBusinessId));
-            $bizRow = $masterPdo->prepare("SELECT id FROM businesses WHERE business_code = ? LIMIT 1");
-            $bizRow->execute([$businessCode]);
-            $business = $bizRow->fetch(PDO::FETCH_ASSOC);
-            if (!$business) return ($userRole === 'developer');
+            $businessId = isset($_SESSION['business_id']) ? (int)$_SESSION['business_id'] : 0;
+            if ($businessId <= 0 && function_exists('getNumericBusinessId')) {
+                $businessId = (int)getNumericBusinessId($activeBusinessId);
+                if ($businessId > 0) {
+                    $_SESSION['business_id'] = $businessId;
+                }
+            }
+            if ($businessId <= 0) return ($userRole === 'developer');
+
+            $business = ['id' => $businessId];
 
             // For developers: if no permissions configured for this business, allow all
             if ($userRole === 'developer') {
