@@ -91,24 +91,26 @@ body{
 
 /* LOGO HEADER BAR */
 .card-head{
-  padding: 20px 28px 18px;
+  padding: 24px 28px 20px;
   background: rgba(255,255,255,.035);
   border-bottom: 1px solid rgba(255,255,255,.07);
   display:flex;
+  flex-direction:column;
   align-items:center;
-  gap:12px;
+  gap:10px;
+  text-align:center;
 }
 .logo-box{
-  width:44px;height:44px;border-radius:10px;
+  width:64px;height:64px;border-radius:14px;
   background:#fff;
   display:flex;align-items:center;justify-content:center;
   overflow:hidden;flex-shrink:0;
-  box-shadow:0 2px 12px rgba(0,0,0,.28)
+  box-shadow:0 4px 18px rgba(0,0,0,.36)
 }
-.logo-box img{width:100%;height:100%;object-fit:contain;padding:3px}
-.logo-icon{font-size:22px;line-height:1}
-.brand-name{font-size:14px;font-weight:700;color:var(--gold-lt);letter-spacing:.3px;text-transform:uppercase}
-.brand-sub{font-size:10px;color:rgba(255,255,255,.32);margin-top:1px}
+.logo-box img{width:100%;height:100%;object-fit:contain;padding:4px}
+.logo-icon{font-size:30px;line-height:1}
+.brand-name{font-size:15px;font-weight:700;color:var(--gold-lt);letter-spacing:.3px;text-transform:uppercase}
+.brand-sub{font-size:10.5px;color:rgba(255,255,255,.36);margin-top:1px}
 
 /* FORM BODY */
 .card-body{padding:24px 28px 26px}
@@ -138,12 +140,12 @@ body{
 .eye-btn{
   position:absolute;right:11px;top:50%;transform:translateY(-50%);
   background:none;border:none;cursor:pointer;
-  color:rgba(255,255,255,.28);padding:3px;
+  color:rgba(212,160,23,.7);padding:3px;
   display:flex;align-items:center;
   transition:color .2s
 }
-.eye-btn:hover{color:rgba(255,255,255,.6)}
-.eye-btn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.eye-btn:hover{color:var(--gold)}
+.eye-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
 /* submit button */
 .btn{
