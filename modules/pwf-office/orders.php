@@ -51,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['_action'] ?? 'create';
 
     if ($action === 'create') {
-        $customerId = (int)($_POST['customer_id'] ?? 0);
+        $customerId  = (int)($_POST['customer_id'] ?? 0);
         $productName = trim($_POST['product_name'] ?? '');
         if ($customerId > 0 && $productName !== '') {
             $imgPath = uploadOrderImage('order_image');
@@ -59,8 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->prepare('INSERT INTO pwf_orders
                 (order_code,customer_id,order_date,due_date,product_name,specification,dimensions,quantity,image_path,assigned_craftsman_id,notes,created_by)
                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
-                ->execute([$code,
-                    $customerId,
+                ->execute([$code, $customerId,
                     $_POST['order_date'] ?? date('Y-m-d'),
                     $_POST['due_date'] ?: null,
                     $productName,
@@ -79,14 +78,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     elseif ($action === 'update') {
         $id = (int)($_POST['order_id'] ?? 0);
         if ($id > 0) {
-            // Get existing image
             $existImg = $pdo->prepare('SELECT image_path FROM pwf_orders WHERE id=?');
             $existImg->execute([$id]);
             $existImg = $existImg->fetchColumn();
-
-            $newImg = uploadOrderImage('order_image');
-            $imgPath = $newImg ?: $existImg;
-
+            $imgPath = uploadOrderImage('order_image') ?: $existImg;
             $pdo->prepare('UPDATE pwf_orders SET
                 customer_id=?, order_date=?, due_date=?, product_name=?,
                 specification=?, dimensions=?, quantity=?, image_path=?,
@@ -124,7 +119,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $customers = $pdo->query('SELECT id, customer_name FROM pwf_customers ORDER BY customer_name')->fetchAll();
 $craftsmen = $pdo->query('SELECT id, craftsman_name FROM pwf_craftsmen WHERE is_active=1 ORDER BY craftsman_name')->fetchAll();
 
-// Filter by customer / craftsman
 $filterCustomerId  = (int)($_GET['customer_id']  ?? 0);
 $filterCraftsmanId = (int)($_GET['craftsman_id'] ?? 0);
 $whereParts = [];
@@ -142,111 +136,179 @@ $orders = $pdo->query("
 ")->fetchAll();
 
 $statusOptions = ['draft'=>'Draft','on_progress'=>'On Progress','qc'=>'QC','ready_ship'=>'Ready to Ship','shipped'=>'Shipped','completed'=>'Completed','cancelled'=>'Cancelled'];
+$baseUrl = rtrim(BASE_URL, '/');
 
 pwfOfficeHeader('Orders', 'orders');
 ?>
 
 <style>
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9000;display:none;align-items:center;justify-content:center}
+/* ── MODALS ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);backdrop-filter:blur(2px);z-index:9000;display:none;align-items:center;justify-content:center}
 .modal-overlay.open{display:flex}
-.modal-box{background:#fff;border-radius:16px;width:min(700px,96vw);max-height:90vh;overflow-y:auto;
-  box-shadow:0 24px 60px rgba(0,0,0,.3)}
-.modal-header{padding:18px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
-.modal-header h5{margin:0;font-size:16px;font-weight:700}
-.modal-body{padding:24px}
-.modal-close{background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);line-height:1}
-.filter-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 16px;background:#FAFAF9;border-bottom:1px solid var(--border)}
-.filter-bar select,.filter-bar input{flex:1;min-width:160px;max-width:260px}
+.modal-box{background:#fff;border-radius:16px;width:min(720px,96vw);max-height:92vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,.25)}
+.modal-header{padding:16px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#fff;z-index:1}
+.modal-header h5{margin:0;font-size:15px;font-weight:700}
+.modal-body{padding:22px}
+.modal-close{background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);line-height:1;padding:2px 6px;border-radius:6px}
+.modal-close:hover{background:#F5F3F0;color:var(--text)}
+/* ── FILTER BAR ── */
+.filter-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 16px;background:#FAFAF9;border-bottom:1px solid var(--border)}
+/* ── ORDER CARD GRID ── */
+.order-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;padding:16px}
+.order-card{background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:box-shadow .2s,transform .15s;display:flex;flex-direction:column}
+.order-card:hover{box-shadow:0 6px 24px rgba(0,0,0,.09);transform:translateY(-2px)}
+.order-card-img{width:100%;height:140px;object-fit:cover;background:#F5F3F0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px}
+.order-card-img img{width:100%;height:140px;object-fit:cover}
+.order-card-body{padding:12px 14px;flex:1;display:flex;flex-direction:column;gap:5px}
+.order-card-code{font-size:11px;color:var(--gold);font-weight:700;font-family:monospace}
+.order-card-name{font-size:13.5px;font-weight:700;color:var(--text);line-height:1.3}
+.order-card-meta{font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:5px}
+.order-card-footer{padding:10px 14px;border-top:1px solid var(--border);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+/* toggle view */
+.view-toggle{display:flex;gap:4px}
+.view-btn{background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 9px;border-radius:6px;cursor:pointer;font-size:13px;transition:all .15s}
+.view-btn.active{background:var(--gold-bg);border-color:var(--gold-border);color:#92600A}
+/* table view */
+#tableView{display:none}
+#tableView.visible{display:block}
+#cardView{display:block}
+#cardView.hidden{display:none}
 </style>
 
-<div class="grid2" style="align-items:start">
+<?php if ($msg): ?>
+<div class="alert alert-<?= $msgType === 'success' ? 'success' : 'warning' ?>" style="margin-bottom:16px">
+  <?= htmlspecialchars($msg) ?>
+</div>
+<?php endif; ?>
 
-  <!-- LEFT: NEW ORDER FORM -->
-  <div class="pwf-card">
-    <div class="pwf-card-header"><i class="bi bi-plus-circle me-2" style="color:var(--gold)"></i>New Order</div>
-    <div class="pwf-card-body">
-    <?php if ($msg): ?><div class="alert alert-<?= $msgType ?>"><?= htmlspecialchars($msg) ?></div><?php endif; ?>
-    <form method="post" enctype="multipart/form-data">
-      <input type="hidden" name="_action" value="create">
-      <div class="pwf-form-group"><label>Customer</label>
-        <select class="select" name="customer_id" required>
-          <option value="">— Select Customer —</option>
-          <?php foreach ($customers as $c): ?><option value="<?= $c['id'] ?>"><?= htmlspecialchars($c['customer_name']) ?></option><?php endforeach; ?>
-        </select>
-      </div>
-      <div class="grid2">
-        <div class="pwf-form-group"><label>Order Date</label><input class="input" type="date" name="order_date" value="<?= date('Y-m-d') ?>"></div>
-        <div class="pwf-form-group"><label>Deadline</label><input class="input" type="date" name="due_date"></div>
-      </div>
-      <div class="pwf-form-group"><label>Product Name</label><input class="input" name="product_name" placeholder="Product name" required></div>
-      <div class="pwf-form-group"><label>Specification</label><textarea name="specification" placeholder="Material, color, finishing details..."></textarea></div>
-      <div class="grid2">
-        <div class="pwf-form-group"><label>Dimensions (L×W×H)</label><input class="input" name="dimensions" placeholder="e.g. 120×60×75 cm"></div>
-        <div class="pwf-form-group"><label>Quantity</label><input class="input" type="number" step="0.01" name="quantity" value="1"></div>
-      </div>
-      <div class="pwf-form-group"><label>Photo / Blueprint</label><input class="input" type="file" name="order_image" accept=".jpg,.jpeg,.png,.webp"></div>
-      <div class="pwf-form-group"><label>Assign Craftsman</label>
-        <select class="select" name="assigned_craftsman_id">
-          <option value="">— Not assigned yet —</option>
-          <?php foreach ($craftsmen as $t): ?><option value="<?= $t['id'] ?>"><?= htmlspecialchars($t['craftsman_name']) ?></option><?php endforeach; ?>
-        </select>
-      </div>
-      <div class="pwf-form-group"><label>Notes</label><textarea name="notes" placeholder="Additional notes"></textarea></div>
-      <button class="btn" type="submit"><i class="bi bi-plus-circle"></i> Save Order</button>
+<!-- ── TOP BAR ──────────────────────────────────────────────────────────────── -->
+<div class="pwf-card" style="margin-bottom:16px">
+  <div class="filter-bar">
+    <form method="get" style="display:contents">
+      <select class="select" name="customer_id" onchange="this.form.submit()" style="width:180px;flex:0 0 auto">
+        <option value="">All Customers</option>
+        <?php foreach ($customers as $c): ?>
+          <option value="<?= $c['id'] ?>" <?= $filterCustomerId == $c['id'] ? 'selected' : '' ?>><?= htmlspecialchars($c['customer_name']) ?></option>
+        <?php endforeach; ?>
+      </select>
+      <select class="select" name="craftsman_id" onchange="this.form.submit()" style="width:180px;flex:0 0 auto">
+        <option value="">All Craftsmen</option>
+        <?php foreach ($craftsmen as $t): ?>
+          <option value="<?= $t['id'] ?>" <?= $filterCraftsmanId == $t['id'] ? 'selected' : '' ?>><?= htmlspecialchars($t['craftsman_name']) ?></option>
+        <?php endforeach; ?>
+      </select>
+      <?php if ($filterCustomerId || $filterCraftsmanId): ?>
+        <a href="orders.php" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x"></i> Clear</a>
+      <?php endif; ?>
     </form>
+
+    <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+      <div class="view-toggle">
+        <button class="view-btn active" id="btnCard" onclick="setView('card')" title="Card view"><i class="bi bi-grid-3x3-gap"></i></button>
+        <button class="view-btn" id="btnTable" onclick="setView('table')" title="Table view"><i class="bi bi-list-ul"></i></button>
+      </div>
+      <?php if ($filterCustomerId): ?>
+        <a href="customer-report.php?customer_id=<?= $filterCustomerId ?>" target="_blank" class="btn btn-export btn-sm"><i class="bi bi-printer"></i> Print</a>
+      <?php endif; ?>
+      <a href="?export=csv&customer_id=<?= $filterCustomerId ?>&craftsman_id=<?= $filterCraftsmanId ?>"
+         class="btn btn-export btn-sm"><i class="bi bi-download"></i> Export</a>
+      <button class="btn btn-sm" onclick="openCreate()" style="gap:6px">
+        <i class="bi bi-plus-lg"></i> New Order
+      </button>
     </div>
   </div>
+</div>
 
-  <!-- RIGHT: ORDER LIST -->
-  <div class="pwf-card">
-    <!-- Filter bar -->
-    <div class="filter-bar">
-      <form method="get" style="display:flex;gap:8px;flex-wrap:wrap;width:100%;align-items:center">
-        <select class="select" name="customer_id" onchange="this.form.submit()" style="flex:1;min-width:160px">
-          <option value="">All Customers</option>
-          <?php foreach ($customers as $c): ?>
-            <option value="<?= $c['id'] ?>" <?= $filterCustomerId == $c['id'] ? 'selected' : '' ?>><?= htmlspecialchars($c['customer_name']) ?></option>
-          <?php endforeach; ?>
-        </select>
-        <select class="select" name="craftsman_id" onchange="this.form.submit()" style="flex:1;min-width:160px">
-          <option value="">All Craftsmen</option>
-          <?php foreach ($craftsmen as $t): ?>
-            <option value="<?= $t['id'] ?>" <?= ($filterCraftsmanId??0) == $t['id'] ? 'selected' : '' ?>><?= htmlspecialchars($t['craftsman_name']) ?></option>
-          <?php endforeach; ?>
-        </select>
-        <div style="display:flex;gap:6px;margin-left:auto;align-items:center">
-          <?php if ($filterCustomerId): ?>
-            <a href="customer-report.php?customer_id=<?= $filterCustomerId ?>" target="_blank"
-               class="btn btn-export btn-sm"><i class="bi bi-printer"></i> Print</a>
-          <?php endif; ?>
-          <a href="?export=csv&customer_id=<?= $filterCustomerId ?>&craftsman_id=<?= $filterCraftsmanId??0 ?>"
-             class="btn btn-export btn-sm"><i class="bi bi-download"></i> Export CSV</a>
-          <?php if ($filterCustomerId || ($filterCraftsmanId??0)): ?>
-            <a href="orders.php" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x"></i></a>
-          <?php endif; ?>
-        </div>
-      </form>
+<!-- ── CARD VIEW ────────────────────────────────────────────────────────────── -->
+<div id="cardView">
+  <?php if (empty($orders)): ?>
+    <div style="text-align:center;padding:60px 20px;color:var(--muted)">
+      <i class="bi bi-clipboard2-x" style="font-size:40px;display:block;margin-bottom:12px;opacity:.4"></i>
+      No orders found.
     </div>
-    <div style="padding:0;overflow-x:auto">
+  <?php else: ?>
+  <div class="order-grid">
+    <?php foreach ($orders as $o): ?>
+    <div class="order-card">
+      <?php if ($o['image_path']): ?>
+        <div class="order-card-img"><img src="<?= $baseUrl ?>/<?= htmlspecialchars($o['image_path']) ?>" alt="blueprint" loading="lazy"></div>
+      <?php else: ?>
+        <div class="order-card-img"><i class="bi bi-image" style="font-size:32px;opacity:.3"></i></div>
+      <?php endif; ?>
+      <div class="order-card-body">
+        <div class="order-card-code"><?= htmlspecialchars($o['order_code']) ?></div>
+        <div class="order-card-name"><?= htmlspecialchars($o['product_name']) ?></div>
+        <div class="order-card-meta"><i class="bi bi-person"></i><?= htmlspecialchars($o['customer_name'] ?? '—') ?></div>
+        <?php if ($o['craftsman_name']): ?>
+        <div class="order-card-meta"><i class="bi bi-hammer"></i><?= htmlspecialchars($o['craftsman_name']) ?></div>
+        <?php endif; ?>
+        <?php if ($o['dimensions']): ?>
+        <div class="order-card-meta"><i class="bi bi-rulers"></i><?= htmlspecialchars($o['dimensions']) ?></div>
+        <?php endif; ?>
+        <?php if ($o['due_date']): ?>
+        <div class="order-card-meta"><i class="bi bi-calendar-event"></i>Due: <?= date('d M Y', strtotime($o['due_date'])) ?></div>
+        <?php endif; ?>
+      </div>
+      <div class="order-card-footer">
+        <span class="status-badge status-<?= htmlspecialchars($o['status']) ?>"><?= htmlspecialchars(str_replace('_',' ',$o['status'])) ?></span>
+        <div style="margin-left:auto;display:flex;gap:5px">
+          <?php if ($o['status'] === 'draft'): ?>
+          <form method="post" style="display:inline" onsubmit="return confirm('Start work on this order?')">
+            <input type="hidden" name="_action" value="start_work">
+            <input type="hidden" name="order_id" value="<?= (int)$o['id'] ?>">
+            <button class="btn btn-sm" type="submit" title="Start Work"
+              style="background:#FFF7ED;border:1px solid #FED7AA;color:#C2410C;padding:4px 9px;font-size:11px">
+              <i class="bi bi-play-circle"></i> Start
+            </button>
+          </form>
+          <?php endif; ?>
+          <button class="btn btn-sm btn-outline-secondary" title="Edit"
+            onclick="openEdit(<?= htmlspecialchars(json_encode($o), ENT_QUOTES) ?>)">
+            <i class="bi bi-pencil"></i>
+          </button>
+          <a href="spk.php?id=<?= (int)$o['id'] ?>" target="_blank"
+             class="btn btn-sm btn-outline-secondary" title="Print SPK">
+            <i class="bi bi-file-earmark-text"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+    <?php endforeach; ?>
+  </div>
+  <?php endif; ?>
+</div>
+
+<!-- ── TABLE VIEW ───────────────────────────────────────────────────────────── -->
+<div id="tableView">
+  <div class="pwf-card">
+    <div style="overflow-x:auto">
     <table class="pwf-table">
-      <thead><tr><th>Code</th><th>Customer</th><th>Product</th><th>Craftsman</th><th>Status</th><th style="width:130px">Actions</th></tr></thead>
+      <thead><tr><th style="width:60px">Image</th><th>Code</th><th>Customer</th><th>Product</th><th>Craftsman</th><th>Due</th><th>Status</th><th style="width:130px">Actions</th></tr></thead>
       <tbody>
         <?php foreach ($orders as $o): ?>
           <tr>
-            <td><code style="font-size:12px;color:var(--gold)"><?= htmlspecialchars($o['order_code']) ?></code></td>
+            <td>
+              <?php if ($o['image_path']): ?>
+                <img src="<?= $baseUrl ?>/<?= htmlspecialchars($o['image_path']) ?>" style="width:44px;height:44px;object-fit:cover;border-radius:7px;border:1px solid var(--border)">
+              <?php else: ?>
+                <div style="width:44px;height:44px;border-radius:7px;background:#F5F3F0;display:flex;align-items:center;justify-content:center"><i class="bi bi-image" style="color:var(--muted);font-size:16px"></i></div>
+              <?php endif; ?>
+            </td>
+            <td><code style="font-size:11px;color:var(--gold)"><?= htmlspecialchars($o['order_code']) ?></code></td>
             <td><?= htmlspecialchars($o['customer_name'] ?? '—') ?></td>
             <td><?= htmlspecialchars($o['product_name']) ?><div class="small"><?= htmlspecialchars($o['dimensions'] ?? '') ?></div></td>
             <td><?= htmlspecialchars($o['craftsman_name'] ?? '—') ?></td>
+            <td><?= $o['due_date'] ? date('d M Y', strtotime($o['due_date'])) : '—' ?></td>
             <td><span class="status-badge status-<?= htmlspecialchars($o['status']) ?>"><?= htmlspecialchars(str_replace('_',' ',$o['status'])) ?></span></td>
             <td>
               <div style="display:flex;gap:4px;align-items:center">
                 <?php if ($o['status'] === 'draft'): ?>
-                <form method="post" style="display:inline" onsubmit="return confirm('Start work on this order? Status will change to On Progress.')">
+                <form method="post" style="display:inline" onsubmit="return confirm('Start work?')">
                   <input type="hidden" name="_action" value="start_work">
                   <input type="hidden" name="order_id" value="<?= (int)$o['id'] ?>">
-                  <button class="btn btn-sm" type="submit" title="Start Work"
-                    style="background:#FFF7ED;border:1px solid #FED7AA;color:#C2410C;gap:4px;padding:4px 8px;font-size:11px">
-                    <i class="bi bi-play-circle"></i> Start
+                  <button class="btn btn-sm" type="submit"
+                    style="background:#FFF7ED;border:1px solid #FED7AA;color:#C2410C;padding:4px 8px;font-size:11px">
+                    <i class="bi bi-play-circle"></i>
                   </button>
                 </form>
                 <?php endif; ?>
@@ -262,9 +324,50 @@ pwfOfficeHeader('Orders', 'orders');
             </td>
           </tr>
         <?php endforeach; ?>
-        <?php if(empty($orders)): ?><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">No orders found.</td></tr><?php endif; ?>
+        <?php if(empty($orders)): ?><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">No orders found.</td></tr><?php endif; ?>
       </tbody>
     </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── NEW ORDER MODAL ───────────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="createModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h5><i class="bi bi-plus-circle me-2" style="color:var(--gold)"></i>New Order</h5>
+      <button class="modal-close" onclick="document.getElementById('createModal').classList.remove('open')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form method="post" enctype="multipart/form-data">
+        <input type="hidden" name="_action" value="create">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="pwf-form-group" style="grid-column:1/-1"><label>Customer</label>
+            <select class="select" name="customer_id" required>
+              <option value="">— Select Customer —</option>
+              <?php foreach ($customers as $c): ?><option value="<?= $c['id'] ?>"><?= htmlspecialchars($c['customer_name']) ?></option><?php endforeach; ?>
+            </select>
+          </div>
+          <div class="pwf-form-group"><label>Order Date</label><input class="input" type="date" name="order_date" value="<?= date('Y-m-d') ?>"></div>
+          <div class="pwf-form-group"><label>Deadline</label><input class="input" type="date" name="due_date"></div>
+          <div class="pwf-form-group" style="grid-column:1/-1"><label>Product Name</label><input class="input" name="product_name" placeholder="Product name" required></div>
+          <div class="pwf-form-group" style="grid-column:1/-1"><label>Specification</label><textarea name="specification" placeholder="Material, color, finishing details..."></textarea></div>
+          <div class="pwf-form-group"><label>Dimensions (L×W×H)</label><input class="input" name="dimensions" placeholder="e.g. 120×60×75 cm"></div>
+          <div class="pwf-form-group"><label>Quantity</label><input class="input" type="number" step="0.01" name="quantity" value="1"></div>
+          <div class="pwf-form-group" style="grid-column:1/-1"><label>Photo / Blueprint</label><input class="input" type="file" name="order_image" accept=".jpg,.jpeg,.png,.webp"></div>
+          <div class="pwf-form-group" style="grid-column:1/-1"><label>Assign Craftsman</label>
+            <select class="select" name="assigned_craftsman_id">
+              <option value="">— Not assigned yet —</option>
+              <?php foreach ($craftsmen as $t): ?><option value="<?= $t['id'] ?>"><?= htmlspecialchars($t['craftsman_name']) ?></option><?php endforeach; ?>
+            </select>
+          </div>
+          <div class="pwf-form-group" style="grid-column:1/-1"><label>Notes</label><textarea name="notes" placeholder="Additional notes"></textarea></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:4px">
+          <button class="btn" type="submit"><i class="bi bi-plus-circle"></i> Save Order</button>
+          <button type="button" class="btn btn-outline-secondary" onclick="document.getElementById('createModal').classList.remove('open')">Cancel</button>
+        </div>
+      </form>
     </div>
   </div>
 </div>
@@ -280,7 +383,7 @@ pwfOfficeHeader('Orders', 'orders');
       <form method="post" enctype="multipart/form-data" id="editForm">
         <input type="hidden" name="_action" value="update">
         <input type="hidden" name="order_id" id="ef_id">
-        <div class="grid2">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="pwf-form-group"><label>Customer</label>
             <select class="select" name="customer_id" id="ef_customer" required>
               <?php foreach ($customers as $c): ?><option value="<?= $c['id'] ?>"><?= htmlspecialchars($c['customer_name']) ?></option><?php endforeach; ?>
@@ -291,31 +394,27 @@ pwfOfficeHeader('Orders', 'orders');
               <?php foreach ($statusOptions as $val => $lbl): ?><option value="<?= $val ?>"><?= $lbl ?></option><?php endforeach; ?>
             </select>
           </div>
-        </div>
-        <div class="grid2">
           <div class="pwf-form-group"><label>Order Date</label><input class="input" type="date" name="order_date" id="ef_order_date"></div>
           <div class="pwf-form-group"><label>Deadline</label><input class="input" type="date" name="due_date" id="ef_due_date"></div>
-        </div>
-        <div class="pwf-form-group"><label>Product Name</label><input class="input" name="product_name" id="ef_product" required></div>
-        <div class="pwf-form-group"><label>Specification</label><textarea name="specification" id="ef_spec" placeholder="Material, color, finishing..."></textarea></div>
-        <div class="grid2">
+          <div class="pwf-form-group" style="grid-column:1/-1"><label>Product Name</label><input class="input" name="product_name" id="ef_product" required></div>
+          <div class="pwf-form-group" style="grid-column:1/-1"><label>Specification</label><textarea name="specification" id="ef_spec"></textarea></div>
           <div class="pwf-form-group"><label>Dimensions</label><input class="input" name="dimensions" id="ef_dim"></div>
           <div class="pwf-form-group"><label>Quantity</label><input class="input" type="number" step="0.01" name="quantity" id="ef_qty"></div>
+          <div class="pwf-form-group" style="grid-column:1/-1">
+            <label>Blueprint / Photo</label>
+            <div id="ef_img_preview" style="margin-bottom:8px"></div>
+            <input class="input" type="file" name="order_image" accept=".jpg,.jpeg,.png,.webp">
+            <div style="font-size:11px;color:var(--muted);margin-top:3px">Leave empty to keep current image</div>
+          </div>
+          <div class="pwf-form-group" style="grid-column:1/-1"><label>Assign Craftsman</label>
+            <select class="select" name="assigned_craftsman_id" id="ef_craftsman">
+              <option value="">— Not assigned —</option>
+              <?php foreach ($craftsmen as $t): ?><option value="<?= $t['id'] ?>"><?= htmlspecialchars($t['craftsman_name']) ?></option><?php endforeach; ?>
+            </select>
+          </div>
+          <div class="pwf-form-group" style="grid-column:1/-1"><label>Notes</label><textarea name="notes" id="ef_notes"></textarea></div>
         </div>
-        <div class="pwf-form-group">
-          <label>Blueprint / Photo</label>
-          <div id="ef_img_preview" style="margin-bottom:8px"></div>
-          <input class="input" type="file" name="order_image" accept=".jpg,.jpeg,.png,.webp">
-          <div class="small" style="margin-top:4px">Leave empty to keep current image</div>
-        </div>
-        <div class="pwf-form-group"><label>Assign Craftsman</label>
-          <select class="select" name="assigned_craftsman_id" id="ef_craftsman">
-            <option value="">— Not assigned —</option>
-            <?php foreach ($craftsmen as $t): ?><option value="<?= $t['id'] ?>"><?= htmlspecialchars($t['craftsman_name']) ?></option><?php endforeach; ?>
-          </select>
-        </div>
-        <div class="pwf-form-group"><label>Notes</label><textarea name="notes" id="ef_notes"></textarea></div>
-        <div style="display:flex;gap:8px">
+        <div style="display:flex;gap:8px;margin-top:4px">
           <button class="btn" type="submit"><i class="bi bi-check-circle"></i> Save Changes</button>
           <button type="button" class="btn btn-outline-secondary" onclick="closeEdit()">Cancel</button>
         </div>
@@ -325,6 +424,24 @@ pwfOfficeHeader('Orders', 'orders');
 </div>
 
 <script>
+// ── VIEW TOGGLE ───────────────────────────────────────────────────────────────
+function setView(v) {
+    const saved = v;
+    localStorage.setItem('pwf_order_view', saved);
+    document.getElementById('cardView').classList.toggle('hidden', v === 'table');
+    document.getElementById('tableView').classList.toggle('visible', v === 'table');
+    document.getElementById('btnCard').classList.toggle('active', v === 'card');
+    document.getElementById('btnTable').classList.toggle('active', v === 'table');
+}
+(function(){
+    const v = localStorage.getItem('pwf_order_view') || 'card';
+    if (v === 'table') setView('table');
+})();
+
+// ── MODALS ────────────────────────────────────────────────────────────────────
+function openCreate() {
+    document.getElementById('createModal').classList.add('open');
+}
 function openEdit(o) {
     document.getElementById('ef_id').value = o.id;
     document.getElementById('editModalCode').textContent = o.order_code;
@@ -339,20 +456,23 @@ function openEdit(o) {
     document.getElementById('ef_craftsman').value = o.assigned_craftsman_id || '';
     document.getElementById('ef_notes').value = o.notes || '';
     const prev = document.getElementById('ef_img_preview');
-    if (o.image_path) {
-        const base = '<?= rtrim(BASE_URL, '/') ?>';
-        prev.innerHTML = `<img src="${base}/${o.image_path}" style="max-height:120px;border-radius:8px;border:1px solid #E7E5E4">`;
-    } else {
-        prev.innerHTML = '<span style="font-size:12px;color:var(--muted)">No image yet</span>';
-    }
+    prev.innerHTML = o.image_path
+        ? `<img src="<?= $baseUrl ?>/${o.image_path}" style="max-height:130px;border-radius:8px;border:1px solid #E7E5E4">`
+        : '<span style="font-size:11.5px;color:var(--muted)">No image yet</span>';
     document.getElementById('editModal').classList.add('open');
 }
 function closeEdit() {
     document.getElementById('editModal').classList.remove('open');
 }
-document.getElementById('editModal').addEventListener('click', function(e){
-    if (e.target === this) closeEdit();
+// Close on backdrop click
+['createModal','editModal'].forEach(id => {
+    document.getElementById(id).addEventListener('click', function(e){
+        if (e.target === this) this.classList.remove('open');
+    });
 });
-</script>
 
+<?php if ($msg): ?>
+// Auto-open modal on success not needed — message already shown inline
+<?php endif; ?>
+</script>
 <?php pwfOfficeFooter();
