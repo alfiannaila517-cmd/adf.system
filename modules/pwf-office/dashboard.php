@@ -19,15 +19,56 @@ $statusLabels = array_keys($statusRows);
 $statusValues = array_values($statusRows);
 
 // ── Monthly orders ────────────────────────────────────────────────────────────
-$monthly = $pdo->query("
-    SELECT DATE_FORMAT(created_at,'%b %Y') AS month_label,
-           DATE_FORMAT(created_at,'%Y-%m') AS month_key,
-           COUNT(*) AS cnt
+// ── Monthly orders (last 6 months axis) ─────────────────────────────────────
+$monthlyAxis = $pdo->query("
+    SELECT DISTINCT DATE_FORMAT(created_at,'%b %Y') AS month_label,
+                    DATE_FORMAT(created_at,'%Y-%m') AS month_key
     FROM pwf_orders
     WHERE created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
-    GROUP BY month_key, month_label
     ORDER BY month_key ASC
+")->fetchAll(PDO::FETCH_KEY_PAIR); // month_label => month_key
+$monthLabels = array_keys($monthlyAxis);
+$monthKeys   = array_values($monthlyAxis);
+
+// ── Orders per customer per month ────────────────────────────────────────────
+$perCustMonthly = $pdo->query("
+    SELECT c.customer_name,
+           DATE_FORMAT(o.created_at,'%Y-%m') AS month_key,
+           COUNT(o.id) AS cnt
+    FROM pwf_orders o
+    JOIN pwf_customers c ON c.id=o.customer_id
+    WHERE o.created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+    GROUP BY c.customer_name, month_key
+    ORDER BY c.customer_name, month_key
 ")->fetchAll();
+
+// Build dataset per customer
+$custDatasets = [];
+foreach ($perCustMonthly as $row) {
+    $custDatasets[$row['customer_name']][$row['month_key']] = (int)$row['cnt'];
+}
+$chartPalette = ['#D4A017','#3b82f6','#22c55e','#f97316','#a855f7','#ec4899','#14b8a6','#f43f5e'];
+$custChartData = [];
+$pi = 0;
+foreach ($custDatasets as $custName => $byMonth) {
+    $data = [];
+    foreach ($monthKeys as $mk) {
+        $data[] = $byMonth[$mk] ?? 0;
+    }
+    $col = $chartPalette[$pi % count($chartPalette)];
+    $custChartData[] = [
+        'label'           => $custName,
+        'data'            => $data,
+        'borderColor'     => $col,
+        'backgroundColor' => $col.'26',
+        'tension'         => 0.4,
+        'fill'            => false,
+        'pointRadius'     => 4,
+        'pointHoverRadius'=> 6,
+        'borderWidth'     => 2,
+    ];
+    $pi++;
+}
 
 // ── Completed orders (100% done, not yet shipped in container) ────────────────
 $completedOrders = $pdo->query("
@@ -95,19 +136,33 @@ pwfOfficeHeader('Dashboard', 'dashboard');
 </div>
 
 <!-- ══ CHARTS ROW ═══════════════════════════════════════════════════════════ -->
-<div class="grid2" style="margin-bottom:20px">
+<div style="display:grid;grid-template-columns:220px 1fr;gap:16px;margin-bottom:20px;align-items:start">
+
+    <!-- Donut: Status Breakdown -->
     <div class="pwf-card">
-        <div class="pwf-card-header"><i class="bi bi-pie-chart me-2" style="color:var(--gold)"></i>Order Status Breakdown</div>
-        <div class="pwf-card-body" style="padding:20px">
-            <div style="position:relative;width:100%;height:240px"><canvas id="pieChart"></canvas></div>
+        <div class="pwf-card-header" style="padding:10px 14px;font-size:11.5px">
+            <i class="bi bi-pie-chart me-2" style="color:var(--gold)"></i>Status Breakdown
+        </div>
+        <div style="padding:14px 10px 10px">
+            <div style="position:relative;width:100%;height:180px">
+                <canvas id="pieChart"></canvas>
+            </div>
+            <div id="pieLegend" style="display:flex;flex-direction:column;gap:4px;margin-top:10px"></div>
         </div>
     </div>
+
+    <!-- Line: Orders per Customer per Month -->
     <div class="pwf-card">
-        <div class="pwf-card-header"><i class="bi bi-graph-up me-2" style="color:var(--gold)"></i>Monthly Orders (Last 6 Months)</div>
-        <div class="pwf-card-body" style="padding:20px">
-            <div style="position:relative;width:100%;height:240px"><canvas id="lineChart"></canvas></div>
+        <div class="pwf-card-header" style="padding:10px 14px;font-size:11.5px;display:flex;align-items:center;justify-content:space-between">
+            <span><i class="bi bi-graph-up me-2" style="color:var(--gold)"></i>Orders per Customer — Last 6 Months</span>
+        </div>
+        <div style="padding:14px 16px 12px">
+            <div style="position:relative;width:100%;height:180px">
+                <canvas id="lineChart"></canvas>
+            </div>
         </div>
     </div>
+
 </div>
 
 <!-- ══ COMPLETED (100%) ══════════════════════════════════════════════════════ -->
@@ -309,28 +364,102 @@ pwfOfficeHeader('Dashboard', 'dashboard');
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script>
 Chart.defaults.font.family = "'Inter', sans-serif";
-Chart.defaults.color = '#78716C';
 
+const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+const gridColor  = isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)';
+const tickColor  = isDark ? '#6b7280' : '#9ca3af';
+const tooltipBg  = isDark ? '#1C1C1F' : '#fff';
+const tooltipTxt = isDark ? '#ECECEC' : '#1C1C1F';
+
+// ── Donut ─────────────────────────────────────────────────────────────────────
 (function(){
     const labels = <?= json_encode(array_map(fn($s)=>ucwords(str_replace('_',' ',$s)), $statusLabels)) ?>;
     const values = <?= json_encode($statusValues) ?>;
-    const palette = ['#1D4ED8','#C2410C','#6D28D9','#15803D','#047857','#D4A017','#9ca3af'];
     if(!values.length||values.every(v=>v==0)) return;
+    const palette = ['#3b82f6','#f97316','#a855f7','#22c55e','#14b8a6','#D4A017','#6b7280'];
+    const total   = values.reduce((a,b)=>a+b,0);
+
     new Chart(document.getElementById('pieChart'),{
         type:'doughnut',
-        data:{labels,datasets:[{data:values,backgroundColor:palette.slice(0,values.length),borderWidth:2,borderColor:'#fff',hoverOffset:6}]},
-        options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{position:'bottom',labels:{padding:12,font:{size:11}}}}}
+        data:{labels,datasets:[{
+            data:values,
+            backgroundColor:palette.slice(0,values.length),
+            borderWidth:0,
+            hoverOffset:5,
+            borderRadius:4,
+            spacing:2
+        }]},
+        options:{
+            responsive:true,
+            maintainAspectRatio:false,
+            cutout:'72%',
+            plugins:{
+                legend:{display:false},
+                tooltip:{
+                    backgroundColor:tooltipBg,
+                    titleColor:tooltipTxt,
+                    bodyColor:tooltipTxt,
+                    borderColor:isDark?'rgba(255,255,255,.08)':'rgba(0,0,0,.08)',
+                    borderWidth:1,
+                    padding:10,
+                    callbacks:{label:ctx=>` ${ctx.label}: ${ctx.parsed} (${Math.round(ctx.parsed/total*100)}%)`}
+                }
+            }
+        }
+    });
+
+    // custom legend
+    const leg = document.getElementById('pieLegend');
+    labels.forEach((l,i)=>{
+        if(!values[i]) return;
+        const pct = Math.round(values[i]/total*100);
+        const row = document.createElement('div');
+        row.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:10.5px';
+        row.innerHTML=`<span style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:${palette[i]};flex-shrink:0"></span><span style="color:${tickColor}">${l}</span></span><span style="font-weight:700;color:${tooltipTxt}">${values[i]} <span style="font-weight:400;color:${tickColor}">(${pct}%)</span></span>`;
+        leg.appendChild(row);
     });
 })();
 
+// ── Line: per customer per month ─────────────────────────────────────────────
 (function(){
-    const labels = <?= json_encode(array_column($monthly,'month_label')) ?>;
-    const values = <?= json_encode(array_map('intval',array_column($monthly,'cnt'))) ?>;
-    if(!labels.length) return;
+    const labels   = <?= json_encode($monthLabels) ?>;
+    const datasets = <?= json_encode($custChartData) ?>;
+    if(!labels.length||!datasets.length) return;
+
     new Chart(document.getElementById('lineChart'),{
         type:'line',
-        data:{labels,datasets:[{label:'Orders',data:values,borderColor:'#D4A017',backgroundColor:'rgba(212,160,23,.12)',tension:.4,fill:true,pointBackgroundColor:'#D4A017',pointRadius:4}]},
-        options:{responsive:true,maintainAspectRatio:false,scales:{y:{beginAtZero:true,ticks:{stepSize:1}}},plugins:{legend:{display:false}}}
+        data:{labels,datasets},
+        options:{
+            responsive:true,
+            maintainAspectRatio:false,
+            interaction:{mode:'index',intersect:false},
+            scales:{
+                x:{
+                    grid:{color:gridColor,drawBorder:false},
+                    ticks:{color:tickColor,font:{size:10.5}}
+                },
+                y:{
+                    beginAtZero:true,
+                    ticks:{stepSize:1,color:tickColor,font:{size:10.5}},
+                    grid:{color:gridColor,drawBorder:false}
+                }
+            },
+            plugins:{
+                legend:{
+                    position:'bottom',
+                    labels:{padding:14,font:{size:10.5},color:tickColor,
+                            usePointStyle:true,pointStyleWidth:8}
+                },
+                tooltip:{
+                    backgroundColor:tooltipBg,
+                    titleColor:tooltipTxt,
+                    bodyColor:tooltipTxt,
+                    borderColor:isDark?'rgba(255,255,255,.08)':'rgba(0,0,0,.08)',
+                    borderWidth:1,
+                    padding:10
+                }
+            }
+        }
     });
 })();
 </script>
