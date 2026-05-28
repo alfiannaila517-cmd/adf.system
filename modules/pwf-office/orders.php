@@ -20,7 +20,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
         LEFT JOIN pwf_craftsmen t ON t.id=o.assigned_craftsman_id
         $where ORDER BY o.id DESC")->fetchAll();
     $titleFilter = $filterCid ? ' - Customer #'.$filterCid : ($filterTid ? ' - Craftsman #'.$filterTid : '');
-    $statusLabels = ['draft'=>'Draft','on_progress'=>'On Progress','qc'=>'QC','ready_ship'=>'Ready to Ship','shipped'=>'Shipped','completed'=>'Completed','cancelled'=>'Cancelled'];
+    $statusLabels = ['draft'=>'Draft','on_progress'=>'On Progress','qc'=>'QC','ready_ship'=>'Ready to Ship','partial_ship'=>'Partial Ship','shipped'=>'Shipped','completed'=>'Completed','cancelled'=>'Cancelled'];
     header('Content-Type: text/html; charset=utf-8');
 ?>
 <!doctype html><html><head><meta charset="utf-8">
@@ -189,7 +189,7 @@ $orders = $pdo->query("
     ORDER BY o.id DESC
 ")->fetchAll();
 
-$statusOptions = ['draft'=>'Draft','on_progress'=>'On Progress','qc'=>'QC','ready_ship'=>'Ready to Ship','shipped'=>'Shipped','completed'=>'Completed','cancelled'=>'Cancelled'];
+$statusOptions = ['draft'=>'Draft','on_progress'=>'On Progress','qc'=>'QC','ready_ship'=>'Ready to Ship','partial_ship'=>'Partial Ship','shipped'=>'Shipped','completed'=>'Completed','cancelled'=>'Cancelled'];
 $baseUrl = rtrim(BASE_URL, '/');
 
 pwfOfficeHeader('Orders', 'orders');
@@ -320,7 +320,17 @@ pwfOfficeHeader('Orders', 'orders');
         <?php endif; ?>
       </div>
       <div class="order-card-footer">
-        <span class="status-badge status-<?= htmlspecialchars($o['status']) ?>"><?= htmlspecialchars(str_replace('_',' ',$o['status'])) ?></span>
+        <div style="display:flex;flex-direction:column;gap:3px">
+          <span class="status-badge status-<?= htmlspecialchars($o['status']) ?>"><?= htmlspecialchars(str_replace('_',' ',$o['status'])) ?></span>
+          <?php if ($o['status'] === 'partial_ship'): ?>
+          <?php $sisaProd = max(0, (float)$o['quantity'] - (float)$o['qty_done']); ?>
+          <?php if ($sisaProd > 0): ?>
+          <span style="font-size:9.5px;color:#1D4ED8;font-weight:600;background:#EFF6FF;border-radius:6px;padding:2px 6px">
+            Sisa Produksi: <?= rtrim(rtrim(number_format($sisaProd,2),'0'),'.') ?> pcs
+          </span>
+          <?php endif; ?>
+          <?php endif; ?>
+        </div>
         <div style="margin-left:auto;display:flex;gap:5px">
           <?php if ($o['status'] === 'draft'): ?>
           <form method="post" style="display:inline" onsubmit="return confirm('Start work on this order?')">
@@ -376,7 +386,14 @@ pwfOfficeHeader('Orders', 'orders');
             <td><?= htmlspecialchars($o['product_name']) ?><div class="small"><?= htmlspecialchars($o['dimensions'] ?? '') ?></div></td>
             <td><?= htmlspecialchars($o['craftsman_name'] ?? '—') ?></td>
             <td><?= $o['due_date'] ? date('d M Y', strtotime($o['due_date'])) : '—' ?></td>
-            <td><span class="status-badge status-<?= htmlspecialchars($o['status']) ?>"><?= htmlspecialchars(str_replace('_',' ',$o['status'])) ?></span></td>
+            <td>
+              <span class="status-badge status-<?= htmlspecialchars($o['status']) ?>"><?= htmlspecialchars(str_replace('_',' ',$o['status'])) ?></span>
+              <?php if ($o['status']==='partial_ship' && ((float)$o['quantity']-(float)$o['qty_done'])>0): ?>
+              <div style="font-size:9.5px;color:#1D4ED8;font-weight:600;margin-top:3px">
+                Sisa: <?= rtrim(rtrim(number_format((float)$o['quantity']-(float)$o['qty_done'],2),'0'),'.') ?> pcs
+              </div>
+              <?php endif; ?>
+            </td>
             <td>
               <div style="display:flex;gap:4px;align-items:center">
                 <?php if ($o['status'] === 'draft'): ?>

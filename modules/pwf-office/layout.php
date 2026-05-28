@@ -227,6 +227,7 @@ textarea{resize:vertical;min-height:80px}
 .status-on_progress{background:#FFF7ED;color:#C2410C}
 .status-qc{background:#F5F3FF;color:#6D28D9}
 .status-ready_ship{background:#F0FDF4;color:#15803D}
+.status-partial_ship{background:#EFF6FF;color:#1D4ED8}
 .status-shipped{background:#ECFDF5;color:#047857}
 .status-completed{background:#F0FDF4;color:#166534}
 .status-cancelled{background:#FEF2F2;color:#991B1B}
