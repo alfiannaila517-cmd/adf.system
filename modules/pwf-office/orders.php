@@ -162,7 +162,7 @@ pwfOfficeHeader('Orders', 'orders');
 .order-card-body{padding:12px 14px;flex:1;display:flex;flex-direction:column;gap:5px}
 .order-card-code{font-size:11px;color:var(--gold);font-weight:700;font-family:monospace}
 .order-card-name{font-size:13.5px;font-weight:700;color:var(--text);line-height:1.3}
-.order-card-meta{font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:5px}
+.order-card-meta{font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:6px}
 .order-card-footer{padding:10px 14px;border-top:1px solid var(--border);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 /* toggle view */
 .view-toggle{display:flex;gap:4px}
@@ -238,15 +238,17 @@ pwfOfficeHeader('Orders', 'orders');
       <div class="order-card-body">
         <div class="order-card-code"><?= htmlspecialchars($o['order_code']) ?></div>
         <div class="order-card-name"><?= htmlspecialchars($o['product_name']) ?></div>
-        <div class="order-card-meta"><i class="bi bi-person"></i><?= htmlspecialchars($o['customer_name'] ?? '—') ?></div>
+        <div style="height:1px;background:var(--border);margin:5px 0"></div>
+        <div class="order-card-meta"><i class="bi bi-person" style="color:var(--gold)"></i><span style="color:var(--muted);min-width:64px">Customer</span><b style="color:var(--text)"><?= htmlspecialchars($o['customer_name'] ?? '—') ?></b></div>
+        <div class="order-card-meta"><i class="bi bi-hash" style="color:var(--gold)"></i><span style="color:var(--muted);min-width:64px">Qty</span><b style="color:var(--text)"><?= htmlspecialchars((string)$o['quantity']) ?></b></div>
         <?php if ($o['craftsman_name']): ?>
-        <div class="order-card-meta"><i class="bi bi-hammer"></i><?= htmlspecialchars($o['craftsman_name']) ?></div>
+        <div class="order-card-meta"><i class="bi bi-hammer" style="color:var(--gold)"></i><span style="color:var(--muted);min-width:64px">Craftsman</span><b style="color:var(--text)"><?= htmlspecialchars($o['craftsman_name']) ?></b></div>
         <?php endif; ?>
         <?php if ($o['dimensions']): ?>
-        <div class="order-card-meta"><i class="bi bi-rulers"></i><?= htmlspecialchars($o['dimensions']) ?></div>
+        <div class="order-card-meta"><i class="bi bi-rulers" style="color:var(--gold)"></i><span style="color:var(--muted);min-width:64px">Size</span><b style="color:var(--text)"><?= htmlspecialchars($o['dimensions']) ?></b></div>
         <?php endif; ?>
         <?php if ($o['due_date']): ?>
-        <div class="order-card-meta"><i class="bi bi-calendar-event"></i>Due: <?= date('d M Y', strtotime($o['due_date'])) ?></div>
+        <div class="order-card-meta"><i class="bi bi-calendar-event" style="color:var(--gold)"></i><span style="color:var(--muted);min-width:64px">Deadline</span><b style="color:var(--text)"><?= date('d M Y', strtotime($o['due_date'])) ?></b></div>
         <?php endif; ?>
       </div>
       <div class="order-card-footer">
