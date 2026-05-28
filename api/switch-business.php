@@ -37,6 +37,11 @@ if (!isset($_POST['business_id']) || empty($_POST['business_id'])) {
 
 $businessId = sanitize($_POST['business_id']);
 
+// Sync business configs first so newly added businesses are recognized
+if (function_exists('autoSyncBusinessConfigs')) {
+    autoSyncBusinessConfigs();
+}
+
 // Validate business exists first
 $businessFile = __DIR__ . '/../config/businesses/' . $businessId . '.php';
 if (!file_exists($businessFile)) {
