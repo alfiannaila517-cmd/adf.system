@@ -1032,7 +1032,7 @@ require_once __DIR__ . '/includes/header.php';
                             <div class="input-group">
                                 <span class="input-group-text"><i class="bi bi-globe"></i></span>
                                 <input type="text" class="form-control" name="addon_domain"
-                                       placeholder="contoh: pwfoffice.online"
+                                       placeholder="contoh: pwfoffice.com"
                                        value="<?php echo htmlspecialchars($editBusiness['addon_domain'] ?? ''); ?>">
                             </div>
                             <small class="text-muted">
