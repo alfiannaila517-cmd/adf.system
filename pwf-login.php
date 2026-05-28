@@ -22,7 +22,7 @@ if (!empty($_POST)) {
         header('Location: ' . BASE_URL . '/modules/pwf-office/dashboard.php');
         exit;
     }
-    $error = 'Login failed. Invalid username or password.';
+    $error = 'Invalid username or password.';
 }
 
 $wallpaperUrl = '';
@@ -49,177 +49,187 @@ try {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PWF Office – Sign In</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{--gold:#D4A017;--gold-lt:#F5C842}
-body{font-family:'Inter',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0a0e1a;position:relative;overflow:hidden}
-.wallpaper{position:fixed;inset:0;z-index:0}
-.wallpaper-bg{
+body{
+  font-family:'Inter',sans-serif;
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  padding-right:7vw;
+  background:#0a0e1a;
+  position:relative;
+  overflow:hidden
+}
+
+/* ── WALLPAPER ── */
+.bg{position:fixed;inset:0;z-index:0}
+.bg-img{
   position:absolute;inset:0;
   <?php if($wallpaperUrl): ?>
   background:url('<?= $wallpaperUrl ?>') center/cover no-repeat;
   <?php else: ?>
-  background:radial-gradient(ellipse at 70% 20%,#1a3a2e 0%,#0a0e1a 55%,#0f172a 100%);
+  background:radial-gradient(ellipse at 60% 30%,#1a3a2e 0%,#0a0e1a 55%,#0f172a 100%);
   <?php endif; ?>
 }
-.wallpaper-overlay{position:absolute;inset:0;background:rgba(8,12,25,<?= $wallpaperUrl ? '.72' : '.55' ?>);backdrop-filter:blur(<?= $wallpaperUrl ? '3px' : '0' ?>)}
-.grain{position:fixed;inset:0;z-index:1;opacity:.03;
-  background-image:repeating-linear-gradient(90deg,transparent,transparent 2px,rgba(212,160,23,.5) 2px,rgba(212,160,23,.5) 3px);
-  pointer-events:none}
+.bg-overlay{
+  position:absolute;inset:0;
+  background:rgba(6,9,20,<?= $wallpaperUrl ? '.45' : '.2' ?>);
+  <?php if($wallpaperUrl): ?>backdrop-filter:blur(0px);<?php endif; ?>
+}
 
+/* ── CARD ── */
 .card{
-  position:relative;z-index:2;width:min(840px,95vw);
-  display:grid;grid-template-columns:1.1fr 1fr;
-  background:rgba(10,14,26,.88);border-radius:18px;overflow:hidden;
-  border:1px solid rgba(212,160,23,.18);
-  box-shadow:0 28px 72px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.03)
+  position:relative;z-index:2;
+  width:340px;
+  background:rgba(8,11,22,.82);
+  backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);
+  border:1px solid rgba(255,255,255,.09);
+  border-radius:18px;
+  padding:32px 28px;
+  box-shadow:0 24px 64px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.03);
 }
 
-/* ── LEFT ── */
-.lp{
-  padding:36px 32px;
-  background:linear-gradient(160deg,rgba(22,50,38,.95) 0%,rgba(10,14,26,.98) 100%);
-  display:flex;flex-direction:column;gap:20px;
-  border-right:1px solid rgba(212,160,23,.1)
-}
-
-/* Logo box identical to sidebar */
+/* ── LOGO ROW ── */
+.logo-row{display:flex;align-items:center;gap:10px;margin-bottom:26px}
 .logo-box{
-  width:56px;height:56px;border-radius:11px;
+  width:42px;height:42px;border-radius:9px;
   background:#fff;
   display:flex;align-items:center;justify-content:center;
   overflow:hidden;flex-shrink:0;
-  box-shadow:0 3px 14px rgba(0,0,0,.35)
+  box-shadow:0 2px 10px rgba(0,0,0,.3)
 }
-.logo-box img{width:100%;height:100%;object-fit:contain;padding:4px}
-.logo-box .logo-icon{font-size:26px;line-height:1}
+.logo-box img{width:100%;height:100%;object-fit:contain;padding:3px}
+.logo-box .logo-icon{font-size:20px;line-height:1}
+.brand-name{font-size:13px;font-weight:700;color:var(--gold-lt);letter-spacing:.3px;text-transform:uppercase}
+.brand-sub{font-size:10px;color:rgba(255,255,255,.35);margin-top:1px}
 
-.brand-row{display:flex;align-items:center;gap:11px}
-.brand-name{font-size:14px;font-weight:800;color:var(--gold-lt);letter-spacing:.3px;text-transform:uppercase}
-.brand-sub{font-size:10.5px;color:rgba(255,255,255,.38);margin-top:2px}
+/* ── TITLE ── */
+.title{font-size:19px;font-weight:700;color:#fff;margin-bottom:3px}
+.subtitle{font-size:12px;color:rgba(255,255,255,.35);margin-bottom:22px}
 
-.tagline{font-size:21px;font-weight:700;color:#fff;line-height:1.4}
-.tagline em{font-style:normal;color:var(--gold-lt)}
-.desc{font-size:12px;color:rgba(255,255,255,.48);line-height:1.7}
-
-.mods{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-.mod{font-size:11px;color:rgba(255,255,255,.42);display:flex;align-items:center;gap:6px}
-.dot{width:5px;height:5px;border-radius:50%;background:var(--gold);flex-shrink:0}
-
-.addr{padding:11px 13px;background:rgba(255,255,255,.035);border-radius:9px;border-left:3px solid var(--gold)}
-.addr p{font-size:11px;color:rgba(255,255,255,.38);line-height:1.65}
-
-/* ── RIGHT ── */
-.rp{padding:36px 32px;background:rgba(5,8,18,.92);display:flex;flex-direction:column;justify-content:center}
-.ltitle{font-size:20px;font-weight:700;color:#fff;margin-bottom:4px}
-.lsub{font-size:12px;color:rgba(255,255,255,.35);margin-bottom:24px}
-
+/* ── FIELDS ── */
 .field{margin-bottom:14px}
-.field label{font-size:10.5px;color:rgba(255,255,255,.45);font-weight:600;
-  letter-spacing:.5px;text-transform:uppercase;display:block;margin-bottom:6px}
+.field label{
+  display:block;font-size:10px;font-weight:600;
+  color:rgba(255,255,255,.4);letter-spacing:.6px;
+  text-transform:uppercase;margin-bottom:5px
+}
+.input-wrap{position:relative}
 .field input{
   width:100%;padding:11px 14px;
-  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
-  border-radius:9px;color:#fff;font-size:13px;
-  outline:none;transition:border-color .2s,box-shadow .2s;font-family:inherit}
-.field input::placeholder{color:rgba(255,255,255,.22)}
-.field input:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(212,160,23,.12)}
+  background:rgba(255,255,255,.07);
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:9px;color:#fff;font-size:13.5px;
+  outline:none;font-family:inherit;
+  transition:border-color .2s,box-shadow .2s
+}
+.field input::placeholder{color:rgba(255,255,255,.2)}
+.field input:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(212,160,23,.1)}
+.eye-btn{
+  position:absolute;right:12px;top:50%;transform:translateY(-50%);
+  background:none;border:none;cursor:pointer;
+  color:rgba(255,255,255,.3);padding:4px;
+  display:flex;align-items:center;
+  transition:color .2s
+}
+.eye-btn:hover{color:rgba(255,255,255,.65)}
+.eye-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
+/* ── BUTTON ── */
 .btn{
-  width:100%;padding:12px;margin-top:4px;
-  background:linear-gradient(135deg,var(--gold),#8a6000);
-  border:none;border-radius:9px;color:#0a0e1a;
-  font-size:13px;font-weight:700;cursor:pointer;
-  letter-spacing:.5px;text-transform:uppercase;
-  transition:opacity .2s,transform .12s;font-family:inherit}
+  width:100%;padding:12px;margin-top:6px;
+  background:linear-gradient(135deg,var(--gold) 0%,#9a6d00 100%);
+  border:none;border-radius:9px;
+  color:#0a0e1a;font-size:13px;font-weight:700;
+  cursor:pointer;letter-spacing:.4px;text-transform:uppercase;
+  font-family:inherit;transition:opacity .2s,transform .1s;
+  box-shadow:0 4px 18px rgba(212,160,23,.28)
+}
 .btn:hover{opacity:.88;transform:translateY(-1px)}
 .btn:active{transform:translateY(0)}
 
-.err{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);
-  border-radius:9px;padding:10px 13px;color:#fca5a5;font-size:12px;margin-bottom:13px}
-.fnote{margin-top:20px;font-size:10.5px;color:rgba(255,255,255,.18);text-align:center}
+/* ── ERROR ── */
+.err{
+  background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);
+  border-radius:8px;padding:9px 12px;
+  color:#fca5a5;font-size:12px;margin-bottom:14px
+}
 
-@media(max-width:660px){
-  .card{grid-template-columns:1fr}
-  .lp,.rp{padding:28px 22px}
-  .mods{grid-template-columns:1fr}
-  .tagline{font-size:18px}
+/* ── FOOTER NOTE ── */
+.fnote{margin-top:18px;font-size:10px;color:rgba(255,255,255,.18);text-align:center}
+
+@media(max-width:500px){
+  body{justify-content:center;padding-right:0;padding:16px}
+  .card{width:100%;max-width:360px}
 }
 </style>
 </head>
 <body>
-<div class="wallpaper">
-  <div class="wallpaper-bg"></div>
-  <div class="wallpaper-overlay"></div>
+
+<div class="bg">
+  <div class="bg-img"></div>
+  <div class="bg-overlay"></div>
 </div>
-<div class="grain"></div>
+
 <div class="card">
-
-  <!-- LEFT -->
-  <div class="lp">
-    <div class="brand-row">
-      <div class="logo-box">
-        <?php if ($logoUrl): ?>
-          <img src="<?= $logoUrl ?>" alt="Logo">
-        <?php else: ?>
-          <span class="logo-icon">🪵</span>
-        <?php endif; ?>
-      </div>
-      <div>
-        <div class="brand-name">PWF Office</div>
-        <div class="brand-sub">Management System</div>
-      </div>
+  <!-- Logo + brand -->
+  <div class="logo-row">
+    <div class="logo-box">
+      <?php if ($logoUrl): ?>
+        <img src="<?= $logoUrl ?>" alt="Logo">
+      <?php else: ?>
+        <span class="logo-icon">🪵</span>
+      <?php endif; ?>
     </div>
-
     <div>
-      <div class="tagline">Crafting <em>Excellence</em>,<br>Tracking Every Step</div>
-    </div>
-
-    <div class="desc">
-      Internal management system for <?= $companyName ?> — order monitoring,
-      craftsman assignment, daily progress tracking, and international container export.
-    </div>
-
-    <div class="mods">
-      <div class="mod"><span class="dot"></span>Customer Data</div>
-      <div class="mod"><span class="dot"></span>Order &amp; Blueprint</div>
-      <div class="mod"><span class="dot"></span>Craftsman Data</div>
-      <div class="mod"><span class="dot"></span>Daily Progress</div>
-      <div class="mod"><span class="dot"></span>QC &amp; Finishing</div>
-      <div class="mod"><span class="dot"></span>Export Container</div>
-    </div>
-
-    <div class="addr">
-      <p>Jl. Ngabul - Batealit No.KM. 5 Godang, Mindahan<br>
-         Kec. Batealit, Kab. Jepara, Central Java 59400</p>
+      <div class="brand-name">PWF Office</div>
+      <div class="brand-sub">Management System</div>
     </div>
   </div>
 
-  <!-- RIGHT -->
-  <div class="rp">
-    <div class="ltitle">Welcome Back</div>
-    <div class="lsub">Sign in to PWF Office System</div>
+  <div class="title">Welcome Back</div>
+  <div class="subtitle">Sign in to continue</div>
 
-    <?php if ($error): ?>
-      <div class="err"><?= htmlspecialchars($error) ?></div>
-    <?php endif; ?>
+  <?php if ($error): ?>
+    <div class="err"><?= htmlspecialchars($error) ?></div>
+  <?php endif; ?>
 
-    <form method="post" autocomplete="off">
-      <div class="field">
-        <label>Username</label>
-        <input name="username" type="text" autocomplete="username" required placeholder="Enter your username">
+  <form method="post" autocomplete="off">
+    <div class="field">
+      <label>Username</label>
+      <input name="username" type="text" autocomplete="username" required placeholder="Enter username">
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <div class="input-wrap">
+        <input name="password" type="password" id="pwdInput" autocomplete="current-password" required placeholder="••••••••" style="padding-right:38px">
+        <button type="button" class="eye-btn" onclick="togglePwd()" id="eyeBtn" title="Show/hide password">
+          <!-- eye icon -->
+          <svg id="iconEye" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          <!-- eye-off icon (hidden) -->
+          <svg id="iconEyeOff" viewBox="0 0 24 24" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+        </button>
       </div>
-      <div class="field">
-        <label>Password</label>
-        <input name="password" type="password" autocomplete="current-password" required placeholder="••••••••">
-      </div>
-      <button class="btn" type="submit">Sign In &rarr;</button>
-    </form>
+    </div>
+    <button class="btn" type="submit">Sign In &rarr;</button>
+  </form>
 
-    <div class="fnote">© 2026 <?= $companyName ?> · PWF Office v1.0</div>
-  </div>
-
+  <div class="fnote">© 2026 <?= $companyName ?> · PWF Office v1.0</div>
 </div>
+
+<script>
+function togglePwd() {
+    const inp = document.getElementById('pwdInput');
+    const isHidden = inp.type === 'password';
+    inp.type = isHidden ? 'text' : 'password';
+    document.getElementById('iconEye').style.display    = isHidden ? 'none' : '';
+    document.getElementById('iconEyeOff').style.display = isHidden ? ''     : 'none';
+}
+</script>
 </body>
 </html>
