@@ -52,20 +52,28 @@ try {
     $masterPdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
     $masterPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
-    // Map business_id to business_code
-    $idToCodeMap = [
-        'bens-cafe' => 'BENSCAFE',
-        'narayana-hotel' => 'NARAYANAHOTEL'
-    ];
+    // Resolve target business numeric ID dynamically (supports new businesses/slugs)
+    $bizId = function_exists('getNumericBusinessId') ? (int)getNumericBusinessId($businessId) : 0;
+
+    // Fallback if helper resolution fails
+    if ($bizId <= 0) {
+        $slugCodeCandidates = [
+            strtoupper(str_replace('-', '_', $businessId)),
+            strtoupper(str_replace('-', '', $businessId))
+        ];
+
+        foreach ($slugCodeCandidates as $candidateCode) {
+            $bizStmt = $masterPdo->prepare("SELECT id FROM businesses WHERE business_code = ? LIMIT 1");
+            $bizStmt->execute([$candidateCode]);
+            $foundBizId = (int)$bizStmt->fetchColumn();
+            if ($foundBizId > 0) {
+                $bizId = $foundBizId;
+                break;
+            }
+        }
+    }
     
-    $businessCode = $idToCodeMap[$businessId] ?? strtoupper(str_replace('-', '', $businessId));
-    
-    // Get business ID from business code
-    $bizStmt = $masterPdo->prepare("SELECT id FROM businesses WHERE business_code = ?");
-    $bizStmt->execute([$businessCode]);
-    $bizId = $bizStmt->fetchColumn();
-    
-    if (!$bizId) {
+    if ($bizId <= 0) {
         echo json_encode([
             'success' => false,
             'message' => 'Business not found in system.'
