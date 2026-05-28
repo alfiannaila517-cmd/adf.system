@@ -9,5 +9,5 @@ require_once '../../includes/business_helper.php';
 $auth = new Auth();
 $auth->requireLogin();
 
-header('Location: dashboard.php');
+header('Location: orders.php');
 exit;
