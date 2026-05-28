@@ -13,62 +13,37 @@ $stats = [
     'ready_ship'   => (int)$pdo->query("SELECT COUNT(*) FROM pwf_orders WHERE status IN ('ready_ship','completed')")->fetchColumn(),
 ];
 
-// ── Order status breakdown (pie) ─────────────────────────────────────────────
-$statusRows   = $pdo->query("SELECT status, COUNT(*) AS cnt FROM pwf_orders GROUP BY status")->fetchAll(PDO::FETCH_KEY_PAIR);
-$statusLabels = array_keys($statusRows);
-$statusValues = array_values($statusRows);
+// ── Production completion: total qty done vs remaining ──────────────────────
+$prodTotals = $pdo->query("
+    SELECT COALESCE(SUM(qty_done),0) AS total_done,
+           COALESCE(SUM(quantity),0) AS total_qty
+    FROM pwf_orders WHERE status NOT IN ('cancelled')
+")->fetch();
+$totalDone = (float)$prodTotals['total_done'];
+$totalQty  = max(0.0001, (float)$prodTotals['total_qty']);
 
-// ── Monthly orders ────────────────────────────────────────────────────────────
-// ── Monthly orders (last 6 months axis) ─────────────────────────────────────
-$monthlyAxis = $pdo->query("
-    SELECT DISTINCT DATE_FORMAT(created_at,'%b %Y') AS month_label,
-                    DATE_FORMAT(created_at,'%Y-%m') AS month_key
-    FROM pwf_orders
-    WHERE created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
-    ORDER BY month_key ASC
-")->fetchAll(PDO::FETCH_KEY_PAIR); // month_label => month_key
-$monthLabels = array_keys($monthlyAxis);
-$monthKeys   = array_values($monthlyAxis);
-
-// ── Orders per customer per month ────────────────────────────────────────────
-$perCustMonthly = $pdo->query("
+// ── Per-customer production progress ────────────────────────────────────────
+$custProg = $pdo->query("
     SELECT c.customer_name,
-           DATE_FORMAT(o.created_at,'%Y-%m') AS month_key,
-           COUNT(o.id) AS cnt
-    FROM pwf_orders o
-    JOIN pwf_customers c ON c.id=o.customer_id
-    WHERE o.created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
-    GROUP BY c.customer_name, month_key
-    ORDER BY c.customer_name, month_key
+           COALESCE(SUM(o.quantity),0)  AS total_qty,
+           COALESCE(SUM(o.qty_done),0)  AS total_done,
+           SUM(CASE WHEN o.status='completed'   THEN 1 ELSE 0 END) AS cnt_completed,
+           SUM(CASE WHEN o.status='on_progress' THEN 1 ELSE 0 END) AS cnt_progress,
+           SUM(CASE WHEN o.status='shipped'     THEN 1 ELSE 0 END) AS cnt_shipped,
+           COUNT(o.id) AS total_orders
+    FROM pwf_customers c
+    JOIN pwf_orders o ON o.customer_id=c.id
+    WHERE o.status NOT IN ('cancelled')
+    GROUP BY c.id, c.customer_name
+    ORDER BY (SUM(o.qty_done)/NULLIF(SUM(o.quantity),0)) DESC
 ")->fetchAll();
 
-// Build dataset per customer
-$custDatasets = [];
-foreach ($perCustMonthly as $row) {
-    $custDatasets[$row['customer_name']][$row['month_key']] = (int)$row['cnt'];
-}
-$chartPalette = ['#D4A017','#3b82f6','#22c55e','#f97316','#a855f7','#ec4899','#14b8a6','#f43f5e'];
-$custChartData = [];
-$pi = 0;
-foreach ($custDatasets as $custName => $byMonth) {
-    $data = [];
-    foreach ($monthKeys as $mk) {
-        $data[] = $byMonth[$mk] ?? 0;
-    }
-    $col = $chartPalette[$pi % count($chartPalette)];
-    $custChartData[] = [
-        'label'           => $custName,
-        'data'            => $data,
-        'borderColor'     => $col,
-        'backgroundColor' => $col.'26',
-        'tension'         => 0.4,
-        'fill'            => false,
-        'pointRadius'     => 4,
-        'pointHoverRadius'=> 6,
-        'borderWidth'     => 2,
-    ];
-    $pi++;
-}
+// ── Per-customer order counts by status (for stacked bar) ───────────────────
+$palette = ['#D4A017','#3b82f6','#22c55e','#f97316','#a855f7','#ec4899','#14b8a6','#f43f5e'];
+$custNames      = array_column($custProg, 'customer_name');
+$barCompleted   = array_map(fn($r)=>(int)$r['cnt_completed'],   $custProg);
+$barInProgress  = array_map(fn($r)=>(int)$r['cnt_progress'],    $custProg);
+$barShipped     = array_map(fn($r)=>(int)$r['cnt_shipped'],     $custProg);
 
 // ── Completed orders (100% done, not yet shipped in container) ────────────────
 $completedOrders = $pdo->query("
@@ -136,29 +111,73 @@ pwfOfficeHeader('Dashboard', 'dashboard');
 </div>
 
 <!-- ══ CHARTS ROW ═══════════════════════════════════════════════════════════ -->
-<div style="display:grid;grid-template-columns:220px 1fr;gap:16px;margin-bottom:20px;align-items:start">
+<div class="grid2" style="margin-bottom:20px;align-items:start">
 
-    <!-- Donut: Status Breakdown -->
+    <!-- LEFT: Production Completion Donut + per-customer legend -->
     <div class="pwf-card">
         <div class="pwf-card-header" style="padding:10px 14px;font-size:11.5px">
-            <i class="bi bi-pie-chart me-2" style="color:var(--gold)"></i>Status Breakdown
+            <i class="bi bi-pie-chart me-2" style="color:var(--gold)"></i>Production Completion
         </div>
-        <div style="padding:14px 10px 10px">
-            <div style="position:relative;width:100%;height:180px">
-                <canvas id="pieChart"></canvas>
+        <div style="padding:14px 16px 16px">
+            <!-- Donut -->
+            <div style="display:flex;align-items:center;gap:18px;margin-bottom:14px">
+                <div style="position:relative;flex-shrink:0;width:110px;height:110px">
+                    <canvas id="pieChart"></canvas>
+                    <div id="donutCenter" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none">
+                        <div id="donutPct" style="font-size:20px;font-weight:800;color:var(--text);line-height:1"></div>
+                        <div style="font-size:9.5px;color:var(--muted);margin-top:2px">overall</div>
+                    </div>
+                </div>
+                <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+                    <div style="display:flex;justify-content:space-between;font-size:10.5px">
+                        <span style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block"></span><span style="color:var(--muted)">Done</span></span>
+                        <span id="lbl-done" style="font-weight:700;color:var(--text)"></span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;font-size:10.5px">
+                        <span style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:var(--border);display:inline-block"></span><span style="color:var(--muted)">Remaining</span></span>
+                        <span id="lbl-rem" style="font-weight:700;color:var(--text)"></span>
+                    </div>
+                </div>
             </div>
-            <div id="pieLegend" style="display:flex;flex-direction:column;gap:4px;margin-top:10px"></div>
+            <!-- Per-customer rows -->
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:8px">Per Customer</div>
+            <div style="display:flex;flex-direction:column;gap:7px">
+            <?php foreach ($custProg as $i => $cp):
+                $cpPct = $cp['total_qty'] > 0 ? min(100, round($cp['total_done']/$cp['total_qty']*100)) : 0;
+                $cpColor = $cpPct>=100?'#22c55e':($cpPct>=60?'#D4A017':'#f97316');
+                $col = $palette[$i % count($palette)];
+            ?>
+            <div>
+                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px">
+                    <div style="display:flex;align-items:center;gap:5px">
+                        <span style="width:7px;height:7px;border-radius:50%;background:<?= $col ?>;flex-shrink:0;display:inline-block"></span>
+                        <span style="font-size:11.5px;font-weight:600;color:var(--text)"><?= htmlspecialchars($cp['customer_name']) ?></span>
+                    </div>
+                    <span style="font-size:11px;font-weight:700;color:<?= $cpColor ?>"><?= $cpPct ?>%</span>
+                </div>
+                <div style="height:4px;background:var(--border);border-radius:20px;overflow:hidden">
+                    <div style="width:<?= $cpPct ?>%;height:100%;background:<?= $cpColor ?>;border-radius:20px"></div>
+                </div>
+                <div style="display:flex;gap:10px;margin-top:3px;font-size:9.5px;color:var(--muted)">
+                    <?php if ($cp['cnt_completed']>0): ?><span style="color:#22c55e">✓ <?= $cp['cnt_completed'] ?> completed</span><?php endif; ?>
+                    <?php if ($cp['cnt_progress']>0): ?><span style="color:#f97316">⟳ <?= $cp['cnt_progress'] ?> in progress</span><?php endif; ?>
+                    <?php if ($cp['cnt_shipped']>0): ?><span style="color:#3b82f6">↗ <?= $cp['cnt_shipped'] ?> shipped</span><?php endif; ?>
+                </div>
+            </div>
+            <?php endforeach; ?>
+            <?php if (empty($custProg)): ?><div style="text-align:center;color:var(--muted);font-size:12px;padding:12px 0">No data yet.</div><?php endif; ?>
+            </div>
         </div>
     </div>
 
-    <!-- Line: Orders per Customer per Month -->
+    <!-- RIGHT: Stacked bar — orders per customer -->
     <div class="pwf-card">
-        <div class="pwf-card-header" style="padding:10px 14px;font-size:11.5px;display:flex;align-items:center;justify-content:space-between">
-            <span><i class="bi bi-graph-up me-2" style="color:var(--gold)"></i>Orders per Customer — Last 6 Months</span>
+        <div class="pwf-card-header" style="padding:10px 14px;font-size:11.5px">
+            <i class="bi bi-bar-chart me-2" style="color:var(--gold)"></i>Orders per Customer
         </div>
         <div style="padding:14px 16px 12px">
-            <div style="position:relative;width:100%;height:180px">
-                <canvas id="lineChart"></canvas>
+            <div style="position:relative;width:100%;height:260px">
+                <canvas id="barChart"></canvas>
             </div>
         </div>
     </div>
@@ -365,99 +384,76 @@ pwfOfficeHeader('Dashboard', 'dashboard');
 <script>
 Chart.defaults.font.family = "'Inter', sans-serif";
 
-const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-const gridColor  = isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)';
+const isDark     = document.documentElement.getAttribute('data-theme') === 'dark';
+const gridColor  = isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.055)';
 const tickColor  = isDark ? '#6b7280' : '#9ca3af';
-const tooltipBg  = isDark ? '#1C1C1F' : '#fff';
-const tooltipTxt = isDark ? '#ECECEC' : '#1C1C1F';
+const tooltipBg  = isDark ? '#18181b' : '#fff';
+const tooltipTxt = isDark ? '#e4e4e7' : '#18181b';
+const tooltipBdr = isDark ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.08)';
+const tt = {backgroundColor:tooltipBg,titleColor:tooltipTxt,bodyColor:tooltipTxt,borderColor:tooltipBdr,borderWidth:1,padding:10,cornerRadius:8};
 
-// ── Donut ─────────────────────────────────────────────────────────────────────
+// ── Donut: qty done vs remaining ─────────────────────────────────────────────
 (function(){
-    const labels = <?= json_encode(array_map(fn($s)=>ucwords(str_replace('_',' ',$s)), $statusLabels)) ?>;
-    const values = <?= json_encode($statusValues) ?>;
-    if(!values.length||values.every(v=>v==0)) return;
-    const palette = ['#3b82f6','#f97316','#a855f7','#22c55e','#14b8a6','#D4A017','#6b7280'];
-    const total   = values.reduce((a,b)=>a+b,0);
-
+    const done = <?= round($totalDone, 2) ?>;
+    const rem  = <?= round(max(0, $totalQty - $totalDone), 2) ?>;
+    const pct  = <?= min(100, round($totalDone / $totalQty * 100)) ?>;
+    document.getElementById('donutPct').textContent = pct + '%';
+    document.getElementById('lbl-done').textContent = done + ' pcs';
+    document.getElementById('lbl-rem').textContent  = rem  + ' pcs';
+    if(done === 0 && rem === 0) return;
     new Chart(document.getElementById('pieChart'),{
         type:'doughnut',
-        data:{labels,datasets:[{
-            data:values,
-            backgroundColor:palette.slice(0,values.length),
-            borderWidth:0,
-            hoverOffset:5,
-            borderRadius:4,
-            spacing:2
-        }]},
+        data:{
+            labels:['Done','Remaining'],
+            datasets:[{
+                data:[done, rem],
+                backgroundColor:['#22c55e', isDark?'rgba(255,255,255,.08)':'rgba(0,0,0,.07)'],
+                borderWidth:0,
+                hoverOffset:4,
+                borderRadius:4,
+                spacing:2
+            }]
+        },
         options:{
             responsive:true,
             maintainAspectRatio:false,
-            cutout:'72%',
+            cutout:'76%',
             plugins:{
                 legend:{display:false},
-                tooltip:{
-                    backgroundColor:tooltipBg,
-                    titleColor:tooltipTxt,
-                    bodyColor:tooltipTxt,
-                    borderColor:isDark?'rgba(255,255,255,.08)':'rgba(0,0,0,.08)',
-                    borderWidth:1,
-                    padding:10,
-                    callbacks:{label:ctx=>` ${ctx.label}: ${ctx.parsed} (${Math.round(ctx.parsed/total*100)}%)`}
-                }
+                tooltip:{...tt, callbacks:{label:ctx=>` ${ctx.label}: ${ctx.parsed} pcs`}}
             }
         }
     });
-
-    // custom legend
-    const leg = document.getElementById('pieLegend');
-    labels.forEach((l,i)=>{
-        if(!values[i]) return;
-        const pct = Math.round(values[i]/total*100);
-        const row = document.createElement('div');
-        row.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:10.5px';
-        row.innerHTML=`<span style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:${palette[i]};flex-shrink:0"></span><span style="color:${tickColor}">${l}</span></span><span style="font-weight:700;color:${tooltipTxt}">${values[i]} <span style="font-weight:400;color:${tickColor}">(${pct}%)</span></span>`;
-        leg.appendChild(row);
-    });
 })();
 
-// ── Line: per customer per month ─────────────────────────────────────────────
+// ── Stacked bar: orders per customer ─────────────────────────────────────────
 (function(){
-    const labels   = <?= json_encode($monthLabels) ?>;
-    const datasets = <?= json_encode($custChartData) ?>;
-    if(!labels.length||!datasets.length) return;
-
-    new Chart(document.getElementById('lineChart'),{
-        type:'line',
-        data:{labels,datasets},
+    const labels    = <?= json_encode($custNames) ?>;
+    const completed = <?= json_encode($barCompleted) ?>;
+    const progress  = <?= json_encode($barInProgress) ?>;
+    const shipped   = <?= json_encode($barShipped) ?>;
+    if(!labels.length) return;
+    new Chart(document.getElementById('barChart'),{
+        type:'bar',
+        data:{
+            labels,
+            datasets:[
+                {label:'Completed',  data:completed, backgroundColor:'#22c55e', borderRadius:{topLeft:4,topRight:4}, borderSkipped:false},
+                {label:'In Progress',data:progress,  backgroundColor:'#f97316', borderRadius:{topLeft:4,topRight:4}, borderSkipped:false},
+                {label:'Shipped',    data:shipped,   backgroundColor:'#3b82f6', borderRadius:{topLeft:4,topRight:4}, borderSkipped:false},
+            ]
+        },
         options:{
             responsive:true,
             maintainAspectRatio:false,
             interaction:{mode:'index',intersect:false},
             scales:{
-                x:{
-                    grid:{color:gridColor,drawBorder:false},
-                    ticks:{color:tickColor,font:{size:10.5}}
-                },
-                y:{
-                    beginAtZero:true,
-                    ticks:{stepSize:1,color:tickColor,font:{size:10.5}},
-                    grid:{color:gridColor,drawBorder:false}
-                }
+                x:{stacked:true,grid:{display:false},ticks:{color:tickColor,font:{size:11},maxRotation:0}},
+                y:{stacked:true,beginAtZero:true,ticks:{stepSize:1,color:tickColor,font:{size:10.5}},grid:{color:gridColor,drawBorder:false}}
             },
             plugins:{
-                legend:{
-                    position:'bottom',
-                    labels:{padding:14,font:{size:10.5},color:tickColor,
-                            usePointStyle:true,pointStyleWidth:8}
-                },
-                tooltip:{
-                    backgroundColor:tooltipBg,
-                    titleColor:tooltipTxt,
-                    bodyColor:tooltipTxt,
-                    borderColor:isDark?'rgba(255,255,255,.08)':'rgba(0,0,0,.08)',
-                    borderWidth:1,
-                    padding:10
-                }
+                legend:{position:'bottom',labels:{padding:16,font:{size:10.5},color:tickColor,usePointStyle:true,pointStyleWidth:8}},
+                tooltip:tt
             }
         }
     });
