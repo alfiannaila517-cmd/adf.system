@@ -109,6 +109,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $msg = 'Order updated successfully.';
         }
     }
+
+    elseif ($action === 'start_work') {
+        $id = (int)($_POST['order_id'] ?? 0);
+        if ($id > 0) {
+            $pdo->prepare('UPDATE pwf_orders SET status=?, updated_at=NOW() WHERE id=? AND status=?')
+                ->execute(['on_progress', $id, 'draft']);
+            $msg = 'Order status changed to On Progress.';
+        }
+    }
 }
 
 // ── DATA ──────────────────────────────────────────────────────────────────────
@@ -220,7 +229,7 @@ pwfOfficeHeader('Orders', 'orders');
     </div>
     <div style="padding:0;overflow-x:auto">
     <table class="pwf-table">
-      <thead><tr><th>Code</th><th>Customer</th><th>Product</th><th>Craftsman</th><th>Status</th><th style="width:110px">Actions</th></tr></thead>
+      <thead><tr><th>Code</th><th>Customer</th><th>Product</th><th>Craftsman</th><th>Status</th><th style="width:130px">Actions</th></tr></thead>
       <tbody>
         <?php foreach ($orders as $o): ?>
           <tr>
@@ -230,7 +239,17 @@ pwfOfficeHeader('Orders', 'orders');
             <td><?= htmlspecialchars($o['craftsman_name'] ?? '—') ?></td>
             <td><span class="status-badge status-<?= htmlspecialchars($o['status']) ?>"><?= htmlspecialchars(str_replace('_',' ',$o['status'])) ?></span></td>
             <td>
-              <div style="display:flex;gap:4px">
+              <div style="display:flex;gap:4px;align-items:center">
+                <?php if ($o['status'] === 'draft'): ?>
+                <form method="post" style="display:inline" onsubmit="return confirm('Start work on this order? Status will change to On Progress.')">
+                  <input type="hidden" name="_action" value="start_work">
+                  <input type="hidden" name="order_id" value="<?= (int)$o['id'] ?>">
+                  <button class="btn btn-sm" type="submit" title="Start Work"
+                    style="background:#FFF7ED;border:1px solid #FED7AA;color:#C2410C;gap:4px;padding:4px 8px;font-size:11px">
+                    <i class="bi bi-play-circle"></i> Start
+                  </button>
+                </form>
+                <?php endif; ?>
                 <button class="btn btn-sm btn-outline-secondary" title="Edit"
                   onclick="openEdit(<?= htmlspecialchars(json_encode($o), ENT_QUOTES) ?>)">
                   <i class="bi bi-pencil"></i>
