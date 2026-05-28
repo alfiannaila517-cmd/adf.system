@@ -187,6 +187,52 @@ if (!defined('DATETIME_FORMAT')) define('DATETIME_FORMAT', 'd/m/Y H:i');
 if (!defined('TIME_FORMAT')) define('TIME_FORMAT', 'H:i');
 
 // ============================================
+// ADDON DOMAIN ROUTING
+// Auto-switch active business based on incoming domain
+// e.g. pwfoffice.online → pwf-furniture
+// adfsystem.online → no override (use session/default)
+// ============================================
+if (!defined('MASTER_DOMAIN')) define('MASTER_DOMAIN', 'adfsystem.online');
+
+if (php_sapi_name() !== 'cli') {
+    $incomingHost = strtolower(preg_replace('/^www\./', '', $_SERVER['HTTP_HOST'] ?? ''));
+    $masterDomain = strtolower(MASTER_DOMAIN);
+
+    // Only do domain routing if NOT on master domain and NOT on localhost
+    if ($incomingHost && $incomingHost !== $masterDomain
+        && strpos($incomingHost, 'localhost') === false
+        && strpos($incomingHost, '127.0.0.1') === false) {
+
+        // Lookup business with this addon_domain in master DB
+        try {
+            $__domainPdo = new PDO(
+                "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET,
+                DB_USER, DB_PASS,
+                [PDO::ATTR_ERRMODE => PDO::ERRMODE_SILENT, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
+            );
+            $__domainStmt = $__domainPdo->prepare(
+                "SELECT slug FROM businesses WHERE LOWER(REPLACE(addon_domain,'www.','')) = ? AND is_active = 1 LIMIT 1"
+            );
+            $__domainStmt->execute([$incomingHost]);
+            $__domainBiz = $__domainStmt->fetch();
+
+            if ($__domainBiz && !empty($__domainBiz['slug'])) {
+                // Force this business as active for this request
+                // Only override if not already set to this business (prevents loop)
+                if (($_SESSION['active_business_id'] ?? '') !== $__domainBiz['slug']) {
+                    $_SESSION['active_business_id'] = $__domainBiz['slug'];
+                    unset($_SESSION['business_id']); // will be re-resolved below
+                }
+            }
+            unset($__domainPdo, $__domainStmt, $__domainBiz);
+        } catch (Exception $__e) {
+            // Silently fail — don't break the app if addon_domain column missing
+        }
+    }
+    unset($incomingHost, $masterDomain);
+}
+
+// ============================================
 // MULTI-BUSINESS CONFIGURATION
 // ============================================
 require_once __DIR__ . '/../includes/business_helper.php';

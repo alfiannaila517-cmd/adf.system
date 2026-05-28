@@ -1032,21 +1032,13 @@ require_once __DIR__ . '/includes/header.php';
                             <div class="input-group">
                                 <span class="input-group-text"><i class="bi bi-globe"></i></span>
                                 <input type="text" class="form-control" name="addon_domain"
-                                       placeholder="contoh: pwf.narayanakarimunjawa.com"
+                                       placeholder="contoh: pwfoffice.online"
                                        value="<?php echo htmlspecialchars($editBusiness['addon_domain'] ?? ''); ?>">
                             </div>
-                            <small class="text-muted">Domain cPanel addon untuk bisnis ini. Isi setelah domain sudah ditambahkan di cPanel hosting.</small>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Addon Domain <small class="text-muted">(opsional)</small></label>
-                            <div class="input-group">
-                                <span class="input-group-text"><i class="bi bi-globe"></i></span>
-                                <input type="text" class="form-control" name="addon_domain"
-                                       placeholder="contoh: pwf.narayanakarimunjawa.com"
-                                       value="<?php echo htmlspecialchars($editBusiness['addon_domain'] ?? ''); ?>">
-                            </div>
-                            <small class="text-muted">Domain cPanel addon untuk bisnis ini. Isi setelah domain sudah ditambahkan di cPanel hosting.</small>
+                            <small class="text-muted">
+                                Domain khusus bisnis ini (addon domain cPanel). Kosongkan jika bisnis ini cukup diakses via <strong>adfsystem.online</strong>.
+                                Setelah diisi, pengguna yang membuka domain ini akan langsung diarahkan ke bisnis ini secara otomatis.
+                            </small>
                         </div>
                         
                         <?php if ($editBusiness): ?>
