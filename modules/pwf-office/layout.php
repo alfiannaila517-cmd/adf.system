@@ -52,21 +52,21 @@ body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--te
   box-shadow:2px 0 12px rgba(0,0,0,.06)
 }
 .pwf-sidebar-logo{
-  padding:18px 16px 14px;
-  display:flex;flex-direction:column;align-items:center;gap:8px;
+  padding:16px 16px 12px;
+  display:flex;flex-direction:column;align-items:center;gap:7px;
   background:#fff;border-bottom:1px solid var(--border);flex-shrink:0;text-align:center
 }
 .pwf-logo-box{
-  width:148px;height:56px;border-radius:10px;
+  width:160px;height:72px;border-radius:10px;
   background:#fff;
   border:1px solid var(--border);
   display:flex;align-items:center;justify-content:center;
-  font-size:28px;overflow:hidden;flex-shrink:0;
-  box-shadow:0 2px 8px rgba(0,0,0,.06)
+  font-size:30px;overflow:hidden;flex-shrink:0;
+  box-shadow:0 2px 10px rgba(0,0,0,.07)
 }
-.pwf-logo-box img{width:100%;height:100%;object-fit:contain;padding:6px}
-.pwf-brand-text .pwf-brand-name{font-size:13.5px;font-weight:800;color:var(--text);line-height:1.3;letter-spacing:-.1px}
-.pwf-brand-text .pwf-brand-sub{font-size:10.5px;color:var(--muted);margin-top:1px}
+.pwf-logo-box img{width:100%;height:100%;object-fit:contain;padding:8px}
+.pwf-brand-text .pwf-brand-name{font-size:11.5px;font-weight:700;color:var(--text);line-height:1.3;letter-spacing:.3px;text-transform:uppercase}
+.pwf-brand-text .pwf-brand-sub{font-size:10px;color:var(--muted);margin-top:1px;font-weight:400}
 
 .pwf-nav{flex:1;padding:10px 8px;overflow-y:auto}
 .pwf-nav a{
