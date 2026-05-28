@@ -57,7 +57,7 @@ body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--te
   background:var(--brand-dark);flex-shrink:0;text-align:center
 }
 .pwf-logo-box{
-  width:72px;height:72px;border-radius:16px;
+  width:160px;height:64px;border-radius:12px;
   background:linear-gradient(135deg,var(--gold-light),#8A6000);
   display:flex;align-items:center;justify-content:center;
   font-size:36px;overflow:hidden;flex-shrink:0;
