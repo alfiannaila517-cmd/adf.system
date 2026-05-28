@@ -1,9 +1,36 @@
 <?php
 require_once __DIR__ . '/_bootstrap.php';
 require_once __DIR__ . '/db-helper.php';
-require_once __DIR__ . '/layout.php';
 
 $pdo = getPwfOfficePdo();
+
+// ── EXPORT CSV ────────────────────────────────────────────────────────────────
+if (isset($_GET['export']) && $_GET['export'] === 'csv') {
+    $filterCid  = (int)($_GET['customer_id']  ?? 0);
+    $filterTid  = (int)($_GET['craftsman_id'] ?? 0);
+    $where = 'WHERE 1=1';
+    if ($filterCid) $where .= ' AND o.customer_id=' . $filterCid;
+    if ($filterTid) $where .= ' AND o.assigned_craftsman_id=' . $filterTid;
+    $rows = $pdo->query("
+        SELECT o.order_code, c.customer_name, o.order_date, o.due_date,
+               o.product_name, o.specification, o.dimensions, o.quantity,
+               t.craftsman_name, o.status, o.notes, o.created_at
+        FROM pwf_orders o
+        LEFT JOIN pwf_customers c ON c.id=o.customer_id
+        LEFT JOIN pwf_craftsmen t ON t.id=o.assigned_craftsman_id
+        $where ORDER BY o.id DESC")->fetchAll();
+    $suffix = $filterCid ? '_cus'.$filterCid : ($filterTid ? '_tkg'.$filterTid : '_all');
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="orders'.$suffix.'_'.date('Ymd_His').'.csv"');
+    $out = fopen('php://output', 'w');
+    fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF));
+    fputcsv($out, ['Order Code','Customer','Order Date','Due Date','Product','Specification','Dimensions','Qty','Craftsman','Status','Notes','Created At']);
+    foreach ($rows as $r) fputcsv($out, [$r['order_code'],$r['customer_name'],$r['order_date'],$r['due_date'],$r['product_name'],$r['specification'],$r['dimensions'],$r['quantity'],$r['craftsman_name'],$r['status'],$r['notes'],$r['created_at']]);
+    fclose($out);
+    exit;
+}
+
+require_once __DIR__ . '/layout.php';
 $msg = ''; $msgType = 'success';
 
 // ── Helper: upload image ──────────────────────────────────────────────────────
@@ -88,9 +115,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $customers = $pdo->query('SELECT id, customer_name FROM pwf_customers ORDER BY customer_name')->fetchAll();
 $craftsmen = $pdo->query('SELECT id, craftsman_name FROM pwf_craftsmen WHERE is_active=1 ORDER BY craftsman_name')->fetchAll();
 
-// Filter by customer
-$filterCustomerId = (int)($_GET['customer_id'] ?? 0);
-$whereClause = $filterCustomerId ? 'WHERE o.customer_id=' . $filterCustomerId : '';
+// Filter by customer / craftsman
+$filterCustomerId  = (int)($_GET['customer_id']  ?? 0);
+$filterCraftsmanId = (int)($_GET['craftsman_id'] ?? 0);
+$whereParts = [];
+if ($filterCustomerId)  $whereParts[] = 'o.customer_id='  . $filterCustomerId;
+if ($filterCraftsmanId) $whereParts[] = 'o.assigned_craftsman_id=' . $filterCraftsmanId;
+$whereClause = $whereParts ? 'WHERE ' . implode(' AND ', $whereParts) : '';
 
 $orders = $pdo->query("
     SELECT o.*, c.customer_name, t.craftsman_name
@@ -162,19 +193,29 @@ pwfOfficeHeader('Orders', 'orders');
     <!-- Filter bar -->
     <div class="filter-bar">
       <form method="get" style="display:flex;gap:8px;flex-wrap:wrap;width:100%;align-items:center">
-        <select class="select" name="customer_id" onchange="this.form.submit()" style="flex:1;min-width:180px">
+        <select class="select" name="customer_id" onchange="this.form.submit()" style="flex:1;min-width:160px">
           <option value="">All Customers</option>
           <?php foreach ($customers as $c): ?>
             <option value="<?= $c['id'] ?>" <?= $filterCustomerId == $c['id'] ? 'selected' : '' ?>><?= htmlspecialchars($c['customer_name']) ?></option>
           <?php endforeach; ?>
         </select>
-        <?php if ($filterCustomerId): ?>
-          <a href="customer-report.php?customer_id=<?= $filterCustomerId ?>" target="_blank"
-             class="btn btn-sm btn-outline-secondary" style="white-space:nowrap">
-            <i class="bi bi-printer"></i> Print Report
-          </a>
-          <a href="orders.php" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x"></i></a>
-        <?php endif; ?>
+        <select class="select" name="craftsman_id" onchange="this.form.submit()" style="flex:1;min-width:160px">
+          <option value="">All Craftsmen</option>
+          <?php foreach ($craftsmen as $t): ?>
+            <option value="<?= $t['id'] ?>" <?= ($filterCraftsmanId??0) == $t['id'] ? 'selected' : '' ?>><?= htmlspecialchars($t['craftsman_name']) ?></option>
+          <?php endforeach; ?>
+        </select>
+        <div style="display:flex;gap:6px;margin-left:auto;align-items:center">
+          <?php if ($filterCustomerId): ?>
+            <a href="customer-report.php?customer_id=<?= $filterCustomerId ?>" target="_blank"
+               class="btn btn-export btn-sm"><i class="bi bi-printer"></i> Print</a>
+          <?php endif; ?>
+          <a href="?export=csv&customer_id=<?= $filterCustomerId ?>&craftsman_id=<?= $filterCraftsmanId??0 ?>"
+             class="btn btn-export btn-sm"><i class="bi bi-download"></i> Export CSV</a>
+          <?php if ($filterCustomerId || ($filterCraftsmanId??0)): ?>
+            <a href="orders.php" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x"></i></a>
+          <?php endif; ?>
+        </div>
       </form>
     </div>
     <div style="padding:0;overflow-x:auto">

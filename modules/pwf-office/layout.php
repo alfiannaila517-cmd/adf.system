@@ -42,7 +42,7 @@ function pwfOfficeHeader(string $title, string $active = ''): void
   --success:#16A34A;--danger:#DC2626;
 }
 *,*::before,*::after{box-sizing:border-box}
-body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-size:13px}
 
 /* ── SIDEBAR ─────────────────────────────────────────── */
 .pwf-sidebar{
@@ -52,26 +52,27 @@ body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--te
   box-shadow:2px 0 12px rgba(0,0,0,.06)
 }
 .pwf-sidebar-logo{
-  padding:20px 20px 18px;
-  display:flex;flex-direction:column;align-items:center;gap:10px;
-  background:var(--brand-dark);flex-shrink:0;text-align:center
+  padding:18px 16px 14px;
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  background:#fff;border-bottom:1px solid var(--border);flex-shrink:0;text-align:center
 }
 .pwf-logo-box{
-  width:160px;height:64px;border-radius:12px;
-  background:linear-gradient(135deg,var(--gold-light),#8A6000);
+  width:148px;height:56px;border-radius:10px;
+  background:#fff;
+  border:1px solid var(--border);
   display:flex;align-items:center;justify-content:center;
-  font-size:36px;overflow:hidden;flex-shrink:0;
-  box-shadow:0 4px 16px rgba(212,160,23,.35)
+  font-size:28px;overflow:hidden;flex-shrink:0;
+  box-shadow:0 2px 8px rgba(0,0,0,.06)
 }
 .pwf-logo-box img{width:100%;height:100%;object-fit:contain;padding:6px}
-.pwf-brand-text .pwf-brand-name{font-size:15px;font-weight:800;color:var(--gold-light);line-height:1.3}
-.pwf-brand-text .pwf-brand-sub{font-size:11px;color:rgba(255,255,255,.45);margin-top:2px}
+.pwf-brand-text .pwf-brand-name{font-size:13.5px;font-weight:800;color:var(--text);line-height:1.3;letter-spacing:-.1px}
+.pwf-brand-text .pwf-brand-sub{font-size:10.5px;color:var(--muted);margin-top:1px}
 
-.pwf-nav{flex:1;padding:12px 10px;overflow-y:auto}
+.pwf-nav{flex:1;padding:10px 8px;overflow-y:auto}
 .pwf-nav a{
-  display:flex;align-items:center;gap:10px;
-  padding:10px 14px;border-radius:9px;margin-bottom:2px;
-  color:var(--muted);text-decoration:none;font-size:13.5px;font-weight:500;
+  display:flex;align-items:center;gap:9px;
+  padding:8px 12px;border-radius:8px;margin-bottom:1px;
+  color:var(--muted);text-decoration:none;font-size:12.5px;font-weight:500;
   transition:background .15s,color .15s;border-left:3px solid transparent
 }
 .pwf-nav a:hover{background:#F5F3F0;color:var(--text)}
@@ -79,41 +80,41 @@ body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--te
   background:var(--gold-bg);color:#92600A;border-left-color:var(--gold);
   font-weight:600
 }
-.pwf-nav a i{font-size:16px;flex-shrink:0}
+.pwf-nav a i{font-size:15px;flex-shrink:0}
 .pwf-nav .nav-section{
-  font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;
-  color:#C4B8B0;padding:14px 14px 4px;margin-top:4px
+  font-size:9.5px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;
+  color:#C4B8B0;padding:12px 12px 4px;margin-top:2px
 }
 
 .pwf-sidebar-footer{
-  padding:14px 16px;border-top:1px solid var(--border);
-  display:flex;align-items:center;gap:10px;flex-shrink:0
+  padding:12px 14px;border-top:1px solid var(--border);
+  display:flex;align-items:center;gap:9px;flex-shrink:0
 }
 .pwf-avatar{
-  width:34px;height:34px;border-radius:50%;
+  width:30px;height:30px;border-radius:50%;
   background:linear-gradient(135deg,var(--gold-light),#8A6000);
   display:flex;align-items:center;justify-content:center;
-  font-size:12px;font-weight:700;color:#fff;flex-shrink:0
+  font-size:11px;font-weight:700;color:#fff;flex-shrink:0
 }
-.pwf-user-name{font-size:12.5px;font-weight:600;color:var(--text);line-height:1.2}
-.pwf-user-role{font-size:11px;color:var(--muted)}
-.pwf-logout{margin-left:auto;color:var(--muted);font-size:16px;text-decoration:none;transition:color .15s}
+.pwf-user-name{font-size:12px;font-weight:600;color:var(--text);line-height:1.2}
+.pwf-user-role{font-size:10.5px;color:var(--muted)}
+.pwf-logout{margin-left:auto;color:var(--muted);font-size:15px;text-decoration:none;transition:color .15s}
 .pwf-logout:hover{color:var(--danger)}
 
 /* ── MAIN WRAPPER ────────────────────────────────────── */
 .pwf-main{margin-left:var(--sidebar-w);min-height:100vh;display:flex;flex-direction:column}
 .pwf-topbar{
-  height:var(--topbar-h);background:#fff;border-bottom:1px solid var(--border);
-  padding:0 28px;display:flex;align-items:center;justify-content:space-between;
+  height:56px;background:#fff;border-bottom:1px solid var(--border);
+  padding:0 24px;display:flex;align-items:center;justify-content:space-between;
   position:sticky;top:0;z-index:50
 }
-.pwf-topbar-title{font-size:17px;font-weight:700;color:var(--text)}
-.pwf-topbar-sub{font-size:12px;color:var(--muted);margin-top:1px}
+.pwf-topbar-title{font-size:15.5px;font-weight:700;color:var(--text)}
+.pwf-topbar-sub{font-size:11.5px;color:var(--muted);margin-top:1px}
 .pwf-topbar-right{display:flex;align-items:center;gap:8px}
 .pwf-date-badge{
-  font-size:12px;color:var(--muted);
+  font-size:11.5px;color:var(--muted);
   background:var(--bg);border:1px solid var(--border);
-  padding:5px 12px;border-radius:20px
+  padding:4px 11px;border-radius:20px
 }
 
 .pwf-content{padding:24px 28px;flex:1}
@@ -125,10 +126,10 @@ body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--te
   box-shadow:0 1px 4px rgba(0,0,0,.05)
 }
 .pwf-card-header,.card-header{
-  padding:16px 20px;border-bottom:1px solid var(--border);
-  font-weight:600;font-size:14.5px
+  padding:13px 18px;border-bottom:1px solid var(--border);
+  font-weight:600;font-size:13.5px;display:flex;align-items:center;justify-content:space-between
 }
-.pwf-card-body,.card-body{padding:20px}
+.pwf-card-body,.card-body{padding:18px}
 
 /* ── STAT CARDS ──────────────────────────────────────── */
 .stat-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
@@ -147,29 +148,29 @@ body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--te
 /* ── TABLE ───────────────────────────────────────────── */
 .pwf-table{width:100%;border-collapse:collapse}
 .pwf-table thead th{
-  padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;
+  padding:8px 12px;font-size:10.5px;font-weight:700;text-transform:uppercase;
   letter-spacing:.5px;color:var(--muted);background:#FAFAF9;
   border-bottom:1px solid var(--border);border-top:1px solid var(--border)
 }
 .pwf-table tbody td{
-  padding:11px 14px;border-bottom:1px solid var(--border);
-  font-size:13.5px;color:var(--text)
+  padding:9px 12px;border-bottom:1px solid var(--border);
+  font-size:12.5px;color:var(--text)
 }
 .pwf-table tbody tr:last-child td{border-bottom:none}
 .pwf-table tbody tr:hover td{background:#FAFAF9}
 
 /* ── FORM ELEMENTS ───────────────────────────────────── */
-.pwf-form-group{margin-bottom:14px}
+.pwf-form-group{margin-bottom:12px}
 .pwf-form-group label,.form-label{
-  display:block;margin-bottom:5px;font-size:12px;
+  display:block;margin-bottom:4px;font-size:11px;
   font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px
 }
 .input,.select,.pwf-input,.pwf-select,
 input[type=text],input[type=date],input[type=number],input[type=email],
 input[type=file],select,textarea{
-  width:100%;padding:9px 12px;
-  border:1px solid var(--border);border-radius:8px;
-  background:#fff;color:var(--text);font-size:14px;
+  width:100%;padding:7px 11px;
+  border:1px solid var(--border);border-radius:7px;
+  background:#fff;color:var(--text);font-size:13px;
   font-family:'Inter',sans-serif;outline:none;
   transition:border-color .15s,box-shadow .15s
 }
@@ -182,18 +183,23 @@ textarea{resize:vertical;min-height:80px}
 
 /* ── BUTTONS ─────────────────────────────────────────── */
 .btn,.pwf-btn{
-  padding:9px 18px;border-radius:8px;border:none;cursor:pointer;
-  font-size:13.5px;font-weight:600;font-family:'Inter',sans-serif;
-  transition:opacity .15s,transform .1s;display:inline-flex;align-items:center;gap:7px
+  padding:7px 16px;border-radius:7px;border:none;cursor:pointer;
+  font-size:12.5px;font-weight:600;font-family:'Inter',sans-serif;
+  transition:opacity .15s,transform .1s;display:inline-flex;align-items:center;gap:6px
 }
 .btn,.btn-primary{background:var(--gold);color:#fff}
 .btn:hover,.btn-primary:hover{opacity:.88;transform:translateY(-1px)}
-.btn.warn,.btn-danger{background:var(--danger);color:#fff}
+.btn.warn,.btn-danger,.btn-outline-danger{background:transparent;border:1px solid #FECACA;color:var(--danger)}
+.btn-outline-danger:hover{background:#FEF2F2}
+.btn-danger{background:var(--danger)!important;color:#fff!important;border:none!important}
+.btn-success{background:var(--success)!important;color:#fff!important;border:none!important}
 .btn-outline-secondary{background:transparent;border:1px solid var(--border);color:var(--muted)}
 .btn-outline-secondary:hover{background:#F5F3F0;color:var(--text)}
-.btn-sm{padding:6px 12px;font-size:12.5px}
-.btn-outline-light{background:transparent;border:1px solid rgba(255,255,255,.3);color:#fff;font-size:12.5px}
+.btn-sm{padding:5px 10px;font-size:11.5px}
+.btn-outline-light{background:transparent;border:1px solid rgba(255,255,255,.3);color:#fff;font-size:12px}
 .btn-outline-light:hover{background:rgba(255,255,255,.1)}
+.btn-export{background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 11px;font-size:11.5px;border-radius:6px;gap:5px}
+.btn-export:hover{background:#F0FDF4;border-color:#BBF7D0;color:var(--success)}
 
 /* ── BADGES & ALERTS ─────────────────────────────────── */
 .badge{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600}
@@ -281,7 +287,7 @@ table thead th{font-size:11px;font-weight:700;text-transform:uppercase;letter-sp
       <div class="pwf-brand-sub">Prapen Wood Furniture</div>
     </div>
   </div>
-  <div style="height:1px;background:rgba(255,255,255,.08);margin:0"></div>
+
 
   <nav class="pwf-nav">
     <div class="nav-section">Main Menu</div>

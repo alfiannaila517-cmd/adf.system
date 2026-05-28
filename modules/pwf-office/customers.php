@@ -1,9 +1,23 @@
 <?php
 require_once __DIR__ . '/_bootstrap.php';
 require_once __DIR__ . '/db-helper.php';
-require_once __DIR__ . '/layout.php';
 
 $pdo = getPwfOfficePdo();
+
+// ── EXPORT CSV ────────────────────────────────────────────────────────────────
+if (isset($_GET['export']) && $_GET['export'] === 'csv') {
+    $rows = $pdo->query('SELECT customer_code, customer_name, phone, address, notes, created_at FROM pwf_customers ORDER BY id DESC')->fetchAll();
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="customers_' . date('Ymd_His') . '.csv"');
+    $out = fopen('php://output', 'w');
+    fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF)); // UTF-8 BOM for Excel
+    fputcsv($out, ['Code', 'Name', 'Phone', 'Address', 'Notes', 'Created At']);
+    foreach ($rows as $r) fputcsv($out, [$r['customer_code'], $r['customer_name'], $r['phone'], $r['address'], $r['notes'], $r['created_at']]);
+    fclose($out);
+    exit;
+}
+
+require_once __DIR__ . '/layout.php';
 $msg = '';
 $msgType = 'success';
 
@@ -68,7 +82,10 @@ pwfOfficeHeader('Customers', 'customers');
         </div>
     </div>
     <div class="pwf-card">
-        <div class="pwf-card-header">Customer List <span class="badge bg-secondary ms-2" style="font-size:12px"><?= count($rows) ?></span></div>
+        <div class="pwf-card-header">
+          <span>Customer List <span class="badge bg-secondary ms-2"><?= count($rows) ?></span></span>
+          <a href="?export=csv" class="btn btn-export btn-sm"><i class="bi bi-download"></i> Export CSV</a>
+        </div>
         <div style="padding:0">
         <table class="pwf-table">
             <thead><tr><th>Code</th><th>Name</th><th>Phone</th><th style="width:80px">Action</th></tr></thead>
