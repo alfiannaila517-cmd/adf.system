@@ -316,7 +316,7 @@ table thead th{font-size:11px;font-weight:700;text-transform:uppercase;letter-sp
       <div class="pwf-user-name"><?= $fullName ?></div>
       <div class="pwf-user-role"><?= htmlspecialchars($_SESSION['role'] ?? 'Staff') ?></div>
     </div>
-    <a href="<?= BASE_URL ?>/logout.php" class="pwf-logout" title="Logout">
+    <a href="<?= BASE_URL ?>/modules/pwf-office/logout.php" class="pwf-logout" title="Logout">
       <i class="bi bi-box-arrow-right"></i>
     </a>
   </div>
