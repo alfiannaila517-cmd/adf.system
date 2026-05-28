@@ -52,19 +52,20 @@ body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--te
   box-shadow:2px 0 12px rgba(0,0,0,.06)
 }
 .pwf-sidebar-logo{
-  padding:0 20px;height:var(--topbar-h);
-  display:flex;align-items:center;gap:12px;
-  background:var(--brand-dark);flex-shrink:0
+  padding:20px 20px 18px;
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+  background:var(--brand-dark);flex-shrink:0;text-align:center
 }
 .pwf-logo-box{
-  width:36px;height:36px;border-radius:9px;
+  width:72px;height:72px;border-radius:16px;
   background:linear-gradient(135deg,var(--gold-light),#8A6000);
   display:flex;align-items:center;justify-content:center;
-  font-size:18px;overflow:hidden;flex-shrink:0
+  font-size:36px;overflow:hidden;flex-shrink:0;
+  box-shadow:0 4px 16px rgba(212,160,23,.35)
 }
 .pwf-logo-box img{width:100%;height:100%;object-fit:cover}
-.pwf-brand-text .pwf-brand-name{font-size:14px;font-weight:800;color:var(--gold-light);line-height:1.2}
-.pwf-brand-text .pwf-brand-sub{font-size:10px;color:rgba(255,255,255,.45);margin-top:1px}
+.pwf-brand-text .pwf-brand-name{font-size:15px;font-weight:800;color:var(--gold-light);line-height:1.3}
+.pwf-brand-text .pwf-brand-sub{font-size:11px;color:rgba(255,255,255,.45);margin-top:2px}
 
 .pwf-nav{flex:1;padding:12px 10px;overflow-y:auto}
 .pwf-nav a{
@@ -280,6 +281,7 @@ table thead th{font-size:11px;font-weight:700;text-transform:uppercase;letter-sp
       <div class="pwf-brand-sub">Prapen Wood Furniture</div>
     </div>
   </div>
+  <div style="height:1px;background:rgba(255,255,255,.08);margin:0"></div>
 
   <nav class="pwf-nav">
     <div class="nav-section">Main Menu</div>
