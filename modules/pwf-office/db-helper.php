@@ -100,6 +100,35 @@ function ensurePwfOfficeTables(PDO $pdo): void
 
     // qty_done migration — add column if not exists
     try { $pdo->exec("ALTER TABLE pwf_orders ADD COLUMN qty_done DECIMAL(10,2) NOT NULL DEFAULT 0"); } catch (\PDOException $e) {}
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS pwf_containers (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        container_code VARCHAR(30) UNIQUE,
+        container_no VARCHAR(50) NULL,
+        container_type ENUM('20ft','40ft','40hc','lcl') DEFAULT '20ft',
+        shipment_date DATE NOT NULL,
+        destination_country VARCHAR(100) NULL,
+        destination_port VARCHAR(100) NULL,
+        forwarder VARCHAR(150) NULL,
+        tracking_no VARCHAR(100) NULL,
+        bl_no VARCHAR(100) NULL,
+        status ENUM('draft','booked','onboard','arrived','closed') DEFAULT 'draft',
+        notes TEXT NULL,
+        created_by INT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS pwf_container_items (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        container_id INT NOT NULL,
+        order_id INT NOT NULL,
+        qty_shipped DECIMAL(10,2) DEFAULT 0,
+        notes TEXT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_container (container_id),
+        INDEX idx_order (order_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 }
 
 function genPwfCode(PDO $pdo, string $prefix): string
