@@ -92,16 +92,20 @@ pwfOfficeHeader('Dashboard', 'dashboard');
     <!-- Pie: Order Status Breakdown -->
     <div class="pwf-card">
         <div class="pwf-card-header"><i class="bi bi-pie-chart me-2" style="color:var(--gold)"></i>Order Status Breakdown</div>
-        <div class="pwf-card-body" style="display:flex;align-items:center;justify-content:center;padding:20px">
-            <canvas id="pieChart" width="260" height="260" style="max-width:260px"></canvas>
+        <div class="pwf-card-body" style="padding:20px">
+            <div style="position:relative;width:100%;height:260px">
+                <canvas id="pieChart"></canvas>
+            </div>
         </div>
     </div>
 
     <!-- Bar: Orders per Customer -->
     <div class="pwf-card">
         <div class="pwf-card-header"><i class="bi bi-bar-chart me-2" style="color:var(--gold)"></i>Orders per Customer</div>
-        <div class="pwf-card-body">
-            <canvas id="barChart" height="220"></canvas>
+        <div class="pwf-card-body" style="padding:20px">
+            <div style="position:relative;width:100%;height:260px">
+                <canvas id="barChart"></canvas>
+            </div>
         </div>
     </div>
 
@@ -206,6 +210,7 @@ Chart.defaults.color = '#78716C';
         },
         options:{
             responsive:true,
+            maintainAspectRatio:false,
             cutout:'60%',
             plugins:{
                 legend:{ position:'bottom', labels:{ padding:14, font:{size:12} } },
@@ -235,6 +240,7 @@ Chart.defaults.color = '#78716C';
         },
         options:{
             responsive:true,
+            maintainAspectRatio:false,
             plugins:{ legend:{display:false} },
             scales:{
                 y:{ beginAtZero:true, ticks:{stepSize:1}, grid:{color:'#F5F3F0'} },
