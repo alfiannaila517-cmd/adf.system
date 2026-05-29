@@ -237,7 +237,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->prepare('UPDATE pwf_orders SET status=?, updated_at=NOW() WHERE id=?')->execute([$revert, $oid]);
             }
             $pdo->prepare('DELETE FROM pwf_containers WHERE id=?')->execute([$cid]);
-            $msg = 'Container berhasil dihapus dan status order telah dikembalikan.';
+            $msg = 'Container deleted and order statuses have been reverted.';
             header('Location: shipping.php?msg=' . urlencode($msg));
             exit;
         }
@@ -496,7 +496,7 @@ pwfOfficeHeader('Shipping & Container', 'shipping');
                             style="display:inline-flex;align-items:center;gap:3px;padding:5px 10px;border-radius:7px;background:var(--nav-hover);border:1px solid var(--border);color:var(--text);font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap">
                             <i class="bi bi-plus-lg"></i> Add
                         </button>
-                        <!-- Drop ke Kapal -->
+                        <!-- Drop to Ship -->
                         <?php if ($isDroppable): ?>
                             <button type="button"
                                 onclick="openDrop(<?= (int)$ct['id'] ?>, '<?= htmlspecialchars(addslashes($ct['container_code'])) ?>', <?= (int)$ct['item_count'] ?>, '<?= fmtQty($ct['total_qty']) ?>')"
@@ -719,7 +719,7 @@ pwfOfficeHeader('Shipping & Container', 'shipping');
                     <i class="bi bi-exclamation-triangle me-1"></i>
                     This action will change the container status to <strong>On Board</strong> and record the dispatch time. Status cannot be reverted to Draft or Booked.
                 </div>
-                <div style="font-size:11px;color:var(--muted);text-align:center">Pastikan semua order sudah benar sebelum melanjutkan.</div>
+                <div style="font-size:11px;color:var(--muted);text-align:center">Please confirm all orders are correct before proceeding.</div>
             </div>
             <form method="post" id="dropForm">
                 <input type="hidden" name="_action" value="drop_container">
