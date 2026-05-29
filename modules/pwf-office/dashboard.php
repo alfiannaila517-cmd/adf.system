@@ -140,34 +140,34 @@ pwfOfficeHeader('Dashboard', 'dashboard');
 <div class="grid2" style="margin-bottom:20px;align-items:stretch">
 
     <!-- LEFT: Production Completion Donut + per-customer legend -->
-    <div class="pwf-card" style="display:flex;flex-direction:column;height:480px">
+    <div class="pwf-card" style="display:flex;flex-direction:column;height:460px">
         <div class="pwf-card-header" style="padding:10px 14px;font-size:11.5px;flex-shrink:0">
             <i class="bi bi-pie-chart me-2" style="color:var(--gold)"></i>Production Completion
         </div>
-        <div style="padding:14px 16px 16px;flex:1;overflow-y:auto;overflow-x:hidden">
+        <div style="padding:14px 16px 14px;flex:1;overflow-y:auto;overflow-x:hidden">
             <!-- Donut -->
-            <div style="display:flex;align-items:center;gap:18px;margin-bottom:14px">
-                <div style="position:relative;flex-shrink:0;width:110px;height:110px;isolation:isolate">
+            <div style="display:flex;align-items:center;gap:20px;margin-bottom:12px">
+                <div style="position:relative;flex-shrink:0;width:148px;height:148px;isolation:isolate">
                     <canvas id="pieChart" style="position:relative;z-index:1"></canvas>
                     <div id="donutCenter" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;z-index:0">
-                        <div id="donutPct" style="font-size:20px;font-weight:800;color:var(--text);line-height:1"></div>
-                        <div style="font-size:9.5px;color:var(--muted);margin-top:2px">overall</div>
+                        <div id="donutPct" style="font-size:30px;font-weight:800;color:var(--text);line-height:1"></div>
+                        <div style="font-size:10px;color:var(--muted);margin-top:3px">overall</div>
                     </div>
                 </div>
                 <div style="flex:1;display:flex;flex-direction:column;gap:5px">
-                    <div style="display:flex;justify-content:space-between;font-size:10.5px">
+                    <div style="display:flex;justify-content:space-between;font-size:11px">
                         <span style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:#3b82f6;display:inline-block"></span><span style="color:var(--muted)">Shipped</span></span>
                         <span id="lbl-shipped" style="font-weight:700;color:var(--text)"></span>
                     </div>
-                    <div style="display:flex;justify-content:space-between;font-size:10.5px">
+                    <div style="display:flex;justify-content:space-between;font-size:11px">
                         <span style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block"></span><span style="color:var(--muted)">Done / Ready</span></span>
                         <span id="lbl-done" style="font-weight:700;color:var(--text)"></span>
                     </div>
-                    <div style="display:flex;justify-content:space-between;font-size:10.5px">
+                    <div style="display:flex;justify-content:space-between;font-size:11px">
                         <span style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;display:inline-block"></span><span style="color:var(--muted)">Producing</span></span>
                         <span id="lbl-prod" style="font-weight:700;color:var(--text)"></span>
                     </div>
-                    <div style="display:flex;justify-content:space-between;font-size:10.5px">
+                    <div style="display:flex;justify-content:space-between;font-size:11px">
                         <span style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:var(--border);display:inline-block"></span><span style="color:var(--muted)">Remaining</span></span>
                         <span id="lbl-rem" style="font-weight:700;color:var(--text)"></span>
                     </div>
@@ -208,12 +208,12 @@ pwfOfficeHeader('Dashboard', 'dashboard');
     </div>
 
     <!-- RIGHT: Qty progress per customer (horizontal stacked bar) -->
-    <div class="pwf-card" style="display:flex;flex-direction:column;height:480px">
+    <div class="pwf-card" style="display:flex;flex-direction:column;height:460px">
         <div class="pwf-card-header" style="padding:10px 14px;font-size:11.5px;flex-shrink:0">
             <i class="bi bi-bar-chart-steps me-2" style="color:var(--gold)"></i>Production Qty by Customer
         </div>
-        <div style="padding:14px 16px 12px;flex:1;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column">
-            <div style="position:relative;width:100%;flex:1;min-height:200px">
+        <div style="padding:12px 14px 10px;flex:1;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column">
+            <div style="position:relative;width:100%;height:320px;max-height:320px">
                 <canvas id="barChart"></canvas>
             </div>
         </div>
@@ -464,7 +464,11 @@ pwfOfficeHeader('Dashboard', 'dashboard');
 
     // ── Donut: 4-segment production breakdown ────────────────────────────────────
     (function() {
-        const shipped = <?= round($dShipped,    2) ?>;
+                        stack: 'qty',
+                        barThickness: 22,
+                        maxBarThickness: 24,
+                        categoryPercentage: 0.72,
+                        barPercentage: 0.78
         const ready = <?= round($dReady,      2) ?>;
         const producing = <?= round($dProducing,  2) ?>;
         const remaining = <?= round($dRemaining,  2) ?>;
@@ -472,7 +476,11 @@ pwfOfficeHeader('Dashboard', 'dashboard');
         const totalQty = totalDone + remaining;
         const pct = totalQty > 0 ? Math.min(100, Math.round(totalDone / totalQty * 100)) : 0;
         document.getElementById('donutPct').textContent = pct + '%';
-        document.getElementById('lbl-shipped').textContent = shipped + ' pcs';
+                        stack: 'qty',
+                        barThickness: 22,
+                        maxBarThickness: 24,
+                        categoryPercentage: 0.72,
+                        barPercentage: 0.78
         document.getElementById('lbl-done').textContent = ready + ' pcs';
         document.getElementById('lbl-prod').textContent = producing + ' pcs';
         document.getElementById('lbl-rem').textContent = remaining + ' pcs';
@@ -480,7 +488,11 @@ pwfOfficeHeader('Dashboard', 'dashboard');
         new Chart(document.getElementById('pieChart'), {
             type: 'doughnut',
             data: {
-                labels: ['Shipped', 'Done / Ready', 'Producing', 'Remaining'],
+                        stack: 'qty',
+                        barThickness: 22,
+                        maxBarThickness: 24,
+                        categoryPercentage: 0.72,
+                        barPercentage: 0.78
                 datasets: [{
                     data: [shipped, ready, producing, remaining || 0.001],
                     backgroundColor: [
@@ -491,7 +503,11 @@ pwfOfficeHeader('Dashboard', 'dashboard');
                     ],
                     borderWidth: 0,
                     hoverOffset: 6,
-                    borderRadius: 3,
+                        stack: 'qty',
+                        barThickness: 22,
+                        maxBarThickness: 24,
+                        categoryPercentage: 0.72,
+                        barPercentage: 0.78
                     spacing: 2
                 }]
             },
