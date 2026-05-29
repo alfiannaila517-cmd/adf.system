@@ -5,6 +5,8 @@ require_once __DIR__ . '/layout.php';
 
 $pdo = getPwfOfficePdo();
 
+function fmtQty($v) { return rtrim(rtrim(number_format((float)$v, 2), '0'), '.'); }
+
 // ── Stat cards ───────────────────────────────────────────────────────────────
 $stats = [
     'customers'    => (int)$pdo->query('SELECT COUNT(*) FROM pwf_customers')->fetchColumn(),
@@ -175,7 +177,7 @@ pwfOfficeHeader('Dashboard', 'dashboard');
             <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:8px">Per Customer</div>
             <div style="display:flex;flex-direction:column;gap:7px">
                 <?php
-                $palette = ['#D4A017','#3b82f6','#22c55e','#f97316','#a855f7','#ec4899','#14b8a6','#f43f5e'];
+                $palette = ['#D4A017', '#3b82f6', '#22c55e', '#f97316', '#a855f7', '#ec4899', '#14b8a6', '#f43f5e'];
                 foreach ($custProg as $i => $cp):
                     $cpPct   = $cp['total_qty'] > 0 ? min(100, round($cp['total_done'] / $cp['total_qty'] * 100)) : 0;
                     $cpColor = $cpPct >= 100 ? '#22c55e' : ($cpPct >= 60 ? '#D4A017' : '#f97316');
@@ -449,18 +451,18 @@ pwfOfficeHeader('Dashboard', 'dashboard');
 
     // ── Donut: 4-segment production breakdown ────────────────────────────────────
     (function() {
-        const shipped   = <?= round($dShipped,    2) ?>;
-        const ready     = <?= round($dReady,      2) ?>;
+        const shipped = <?= round($dShipped,    2) ?>;
+        const ready = <?= round($dReady,      2) ?>;
         const producing = <?= round($dProducing,  2) ?>;
         const remaining = <?= round($dRemaining,  2) ?>;
         const totalDone = shipped + ready + producing;
-        const totalQty  = totalDone + remaining;
+        const totalQty = totalDone + remaining;
         const pct = totalQty > 0 ? Math.min(100, Math.round(totalDone / totalQty * 100)) : 0;
-        document.getElementById('donutPct').textContent    = pct + '%';
-        document.getElementById('lbl-shipped').textContent = shipped   + ' pcs';
-        document.getElementById('lbl-done').textContent    = ready     + ' pcs';
-        document.getElementById('lbl-prod').textContent    = producing + ' pcs';
-        document.getElementById('lbl-rem').textContent     = remaining + ' pcs';
+        document.getElementById('donutPct').textContent = pct + '%';
+        document.getElementById('lbl-shipped').textContent = shipped + ' pcs';
+        document.getElementById('lbl-done').textContent = ready + ' pcs';
+        document.getElementById('lbl-prod').textContent = producing + ' pcs';
+        document.getElementById('lbl-rem').textContent = remaining + ' pcs';
         if (totalQty === 0) return;
         new Chart(document.getElementById('pieChart'), {
             type: 'doughnut',
@@ -484,16 +486,21 @@ pwfOfficeHeader('Dashboard', 'dashboard');
                 responsive: true,
                 maintainAspectRatio: false,
                 cutout: '74%',
-                animation: { animateRotate: true, duration: 800 },
+                animation: {
+                    animateRotate: true,
+                    duration: 800
+                },
                 plugins: {
-                    legend: { display: false },
+                    legend: {
+                        display: false
+                    },
                     tooltip: {
                         ...tt,
                         callbacks: {
                             label: ctx => {
                                 const v = ctx.parsed;
-                                const tot = ctx.dataset.data.reduce((a,b)=>a+b,0);
-                                const p = tot > 0 ? Math.round(v/tot*100) : 0;
+                                const tot = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                                const p = tot > 0 ? Math.round(v / tot * 100) : 0;
                                 return ` ${ctx.label}: ${v} pcs (${p}%)`;
                             }
                         }
@@ -505,19 +512,18 @@ pwfOfficeHeader('Dashboard', 'dashboard');
 
     // ── Horizontal stacked bar: qty per customer ──────────────────────────────────
     (function() {
-        const labels    = <?= json_encode($custNames) ?>;
-        const shipped   = <?= json_encode($barShipped) ?>;
-        const ready     = <?= json_encode($barReady) ?>;
+        const labels = <?= json_encode($custNames) ?>;
+        const shipped = <?= json_encode($barShipped) ?>;
+        const ready = <?= json_encode($barReady) ?>;
         const producing = <?= json_encode($barProducing) ?>;
         const remaining = <?= json_encode($barRemaining) ?>;
-        const totals    = <?= json_encode($barTotal) ?>;
+        const totals = <?= json_encode($barTotal) ?>;
         if (!labels.length) return;
         new Chart(document.getElementById('barChart'), {
             type: 'bar',
             data: {
                 labels,
-                datasets: [
-                    {
+                datasets: [{
                         label: 'Shipped',
                         data: shipped,
                         backgroundColor: '#3b82f6',
@@ -545,7 +551,10 @@ pwfOfficeHeader('Dashboard', 'dashboard');
                         label: 'Remaining',
                         data: remaining,
                         backgroundColor: isDark ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.065)',
-                        borderRadius: { topRight: 4, bottomRight: 4 },
+                        borderRadius: {
+                            topRight: 4,
+                            bottomRight: 4
+                        },
                         borderSkipped: false,
                         stack: 'qty'
                     }
@@ -555,25 +564,40 @@ pwfOfficeHeader('Dashboard', 'dashboard');
                 indexAxis: 'y',
                 responsive: true,
                 maintainAspectRatio: false,
-                animation: { duration: 700 },
-                interaction: { mode: 'index', intersect: false },
+                animation: {
+                    duration: 700
+                },
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
                 scales: {
                     x: {
                         stacked: true,
                         beginAtZero: true,
-                        grid: { color: gridColor, drawBorder: false },
+                        grid: {
+                            color: gridColor,
+                            drawBorder: false
+                        },
                         ticks: {
                             color: tickColor,
-                            font: { size: 10 },
+                            font: {
+                                size: 10
+                            },
                             callback: v => v + ' pcs'
                         }
                     },
                     y: {
                         stacked: true,
-                        grid: { display: false },
+                        grid: {
+                            display: false
+                        },
                         ticks: {
                             color: tickColor,
-                            font: { size: 11, weight: '600' },
+                            font: {
+                                size: 11,
+                                weight: '600'
+                            },
                             maxRotation: 0
                         }
                     }
@@ -583,7 +607,9 @@ pwfOfficeHeader('Dashboard', 'dashboard');
                         position: 'bottom',
                         labels: {
                             padding: 14,
-                            font: { size: 10.5 },
+                            font: {
+                                size: 10.5
+                            },
                             color: tickColor,
                             usePointStyle: true,
                             pointStyleWidth: 8
@@ -595,8 +621,8 @@ pwfOfficeHeader('Dashboard', 'dashboard');
                             title: ctx => ctx[0].label,
                             label: ctx => {
                                 const tot = totals[ctx.dataIndex] || 1;
-                                const v   = ctx.parsed.x;
-                                const p   = Math.round(v / tot * 100);
+                                const v = ctx.parsed.x;
+                                const p = Math.round(v / tot * 100);
                                 return ` ${ctx.dataset.label}: ${v} pcs (${p}%)`;
                             },
                             footer: ctx => {
