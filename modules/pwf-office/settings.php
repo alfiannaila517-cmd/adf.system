@@ -86,6 +86,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'reset_wallpaper') {
         $pdo->exec("DELETE FROM settings WHERE setting_key='pwf_login_wallpaper'");
         $msg = 'Wallpaper reset.';
+
+    } elseif ($action === 'backup_data') {
+        // Export all PWF tables as SQL INSERT statements
+        $tables = ['pwf_orders','pwf_customers','pwf_craftsmen','pwf_containers','pwf_container_items','pwf_spk','settings'];
+        $sql = "-- PWF Office Backup\n-- Generated: ".date('Y-m-d H:i:s')."\n-- ----------------------------------------\nSET FOREIGN_KEY_CHECKS=0;\n\n";
+        foreach ($tables as $tbl) {
+            try {
+                $rows = $pdo->query("SELECT * FROM `$tbl`")->fetchAll(PDO::FETCH_ASSOC);
+                if (empty($rows)) { $sql .= "-- $tbl: (empty)\n\n"; continue; }
+                $sql .= "-- Table: $tbl (".count($rows)." rows)\n";
+                $sql .= "TRUNCATE TABLE `$tbl`;\n";
+                foreach ($rows as $row) {
+                    $cols = '`'.implode('`,`', array_keys($row)).'`';
+                    $vals = implode(',', array_map(fn($v) => $v===null ? 'NULL' : $pdo->quote((string)$v), array_values($row)));
+                    $sql .= "INSERT INTO `$tbl` ($cols) VALUES ($vals);\n";
+                }
+                $sql .= "\n";
+            } catch (Exception $e) {
+                $sql .= "-- $tbl: ERROR - ".$e->getMessage()."\n\n";
+            }
+        }
+        $sql .= "SET FOREIGN_KEY_CHECKS=1;\n";
+        $filename = 'pwf-backup-'.date('Ymd-His').'.sql';
+        header('Content-Type: application/octet-stream');
+        header('Content-Disposition: attachment; filename="'.$filename.'"');
+        header('Content-Length: '.strlen($sql));
+        echo $sql;
+        exit;
+
+    } elseif ($action === 'reset_orders') {
+        // Hard reset: wipe all transactional data, keep settings/customers/craftsmen
+        $pdo->exec("SET FOREIGN_KEY_CHECKS=0");
+        $pdo->exec("TRUNCATE TABLE pwf_container_items");
+        $pdo->exec("TRUNCATE TABLE pwf_containers");
+        $pdo->exec("TRUNCATE TABLE pwf_spk");
+        $pdo->exec("UPDATE pwf_orders SET status='on_progress', qty_done=0, updated_at=NOW() WHERE 1");
+        $pdo->exec("SET FOREIGN_KEY_CHECKS=1");
+        $msg = 'All containers, shipping records and SPK have been reset. Orders reverted to On Progress.';
+
+    } elseif ($action === 'reset_all') {
+        // Full reset: wipe everything except settings
+        $pdo->exec("SET FOREIGN_KEY_CHECKS=0");
+        foreach (['pwf_container_items','pwf_containers','pwf_spk','pwf_orders','pwf_customers','pwf_craftsmen'] as $t) {
+            $pdo->exec("TRUNCATE TABLE `$t`");
+        }
+        $pdo->exec("SET FOREIGN_KEY_CHECKS=1");
+        $msg = 'All data has been wiped. Settings and media are preserved.';
     }
 }
 
@@ -250,9 +297,63 @@ pwfOfficeHeader('Settings', 'settings');
   </div>
 </div>
 
+<!-- BACKUP & RESET -->
+<div class="pwf-card" style="grid-column:1/-1;margin-top:4px">
+  <div class="pwf-card-header" style="color:#be123c"><i class="bi bi-database-down me-2"></i>Backup &amp; Reset Data</div>
+  <div class="pwf-card-body">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+
+      <!-- Backup -->
+      <div style="border:1px solid var(--border);border-radius:10px;padding:16px">
+        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px"><i class="bi bi-cloud-download me-2" style="color:#3b82f6"></i>Download Backup</div>
+        <div style="font-size:11.5px;color:var(--muted);margin-bottom:14px">Export all data (orders, containers, customers, craftsmen) as an SQL file. Safe — does not modify any data.</div>
+        <form method="post">
+          <input type="hidden" name="_action" value="backup_data">
+          <button class="btn" type="submit" style="background:#3b82f6;color:#fff;border:none;width:100%">
+            <i class="bi bi-download me-1"></i> Download .sql Backup
+          </button>
+        </form>
+      </div>
+
+      <!-- Reset Orders only -->
+      <div style="border:1px solid #fca5a5;border-radius:10px;padding:16px;background:#fff5f5">
+        <div style="font-size:13px;font-weight:700;color:#be123c;margin-bottom:6px"><i class="bi bi-arrow-counterclockwise me-2"></i>Reset Shipping Data</div>
+        <div style="font-size:11.5px;color:var(--muted);margin-bottom:14px">Deletes all containers &amp; container items, wipes SPK, and reverts all order statuses to <strong>On Progress</strong>. Keeps customers, craftsmen, and orders.</div>
+        <button class="btn" type="button" style="background:#f97316;color:#fff;border:none;width:100%"
+          onclick="if(confirm('Reset all shipping/container data?\\nOrders will revert to On Progress.\\n\\nThis cannot be undone!')){document.getElementById('frmResetOrders').submit()}">
+          <i class="bi bi-arrow-counterclockwise me-1"></i> Reset Shipping &amp; Containers
+        </button>
+        <form id="frmResetOrders" method="post" style="display:none"><input type="hidden" name="_action" value="reset_orders"></form>
+      </div>
+
+      <!-- Full wipe -->
+      <div style="border:2px solid #be123c;border-radius:10px;padding:16px;background:#fff1f2">
+        <div style="font-size:13px;font-weight:700;color:#be123c;margin-bottom:6px"><i class="bi bi-trash3 me-2"></i>Full Data Wipe</div>
+        <div style="font-size:11.5px;color:var(--muted);margin-bottom:14px">Permanently deletes <strong>all</strong> orders, containers, customers, craftsmen, and SPK. Settings &amp; uploaded files are kept. <span style="color:#be123c;font-weight:600">Cannot be undone.</span></div>
+        <div style="margin-bottom:10px">
+          <label style="font-size:11px;color:var(--muted)">Type <strong>RESET</strong> to confirm:</label>
+          <input type="text" id="resetConfirmInput" class="input" placeholder="RESET" style="width:100%;margin-top:4px">
+        </div>
+        <button class="btn" type="button" style="background:#be123c;color:#fff;border:none;width:100%"
+          onclick="doFullReset()">
+          <i class="bi bi-trash3 me-1"></i> Wipe All Data
+        </button>
+        <form id="frmResetAll" method="post" style="display:none"><input type="hidden" name="_action" value="reset_all"></form>
+      </div>
+
+    </div>
+  </div>
+</div>
+
 </div>
 
 <script>
+function doFullReset() {
+  const v = (document.getElementById('resetConfirmInput')?.value || '').trim();
+  if (v !== 'RESET') { alert('Please type RESET to confirm.'); return; }
+  if (!confirm('FINAL WARNING: This will delete ALL data permanently.\n\nAre you absolutely sure?')) return;
+  document.getElementById('frmResetAll').submit();
+}
 function checkPwd() {
     const a = document.getElementById('pwdNew').value;
     const b = document.getElementById('pwdConfirm').value;

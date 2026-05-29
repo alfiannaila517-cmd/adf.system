@@ -169,20 +169,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $qty   = max(0, (float)($_POST['qty_shipped'] ?? 0));
         $notes = trim($_POST['item_notes'] ?? '');
         if ($cid > 0 && $oid > 0 && $qty > 0) {
-            $pdo->prepare('INSERT INTO pwf_container_items (container_id,order_id,qty_shipped,notes) VALUES (?,?,?,?)')
-                ->execute([$cid, $oid, $qty, $notes]);
-            $orderQty     = (float)$pdo->query("SELECT quantity FROM pwf_orders WHERE id=$oid")->fetchColumn();
-            $totalShipped = (float)$pdo->query("SELECT COALESCE(SUM(qty_shipped),0) FROM pwf_container_items WHERE order_id=$oid")->fetchColumn();
-            $ns = ($totalShipped >= $orderQty) ? 'shipped' : 'partial_ship';
-            $pdo->prepare("UPDATE pwf_orders SET status=?, updated_at=NOW() WHERE id=?")->execute([$ns, $oid]);
-            $msg = 'Item successfully added to container.';
+            // ── Duplicate guard: same order already in this container
+            $alreadyIn = (int)$pdo->prepare('SELECT COUNT(*) FROM pwf_container_items WHERE container_id=? AND order_id=?')
+                ->execute([$cid,$oid]) ? $pdo->query("SELECT COUNT(*) FROM pwf_container_items WHERE container_id=$cid AND order_id=$oid")->fetchColumn() : 0;
+            if ($alreadyIn > 0) {
+                $msg = 'This order is already in this container. Choose a different order.';
+                header("Location: shipping.php?err=" . urlencode($msg));
+                exit;
+            } else {
+                // ── Qty guard: cannot ship more than available (qty_done - already_shipped)
+                $orderRow     = $pdo->query("SELECT quantity, qty_done FROM pwf_orders WHERE id=$oid")->fetch();
+                $orderQty     = (float)($orderRow['quantity'] ?? 0);
+                $qtyDone      = (float)($orderRow['qty_done'] ?? 0);
+                $totalShipped = (float)$pdo->query("SELECT COALESCE(SUM(qty_shipped),0) FROM pwf_container_items WHERE order_id=$oid")->fetchColumn();
+                $maxAllowed   = max(0, $qtyDone - $totalShipped);
+                if ($qty > $maxAllowed) {
+                    $msg = "Cannot ship {$qty} pcs — only {$maxAllowed} pcs available (prod done: {$qtyDone}, already shipped: {$totalShipped}).";
+                    header("Location: shipping.php?err=" . urlencode($msg));
+                    exit;
+                } else {
+                    $pdo->prepare('INSERT INTO pwf_container_items (container_id,order_id,qty_shipped,notes) VALUES (?,?,?,?)')
+                        ->execute([$cid,$oid,$qty,$notes]);
+                    $newTotal = $totalShipped + $qty;
+                    $ns = ($newTotal >= $orderQty) ? 'shipped' : 'partial_ship';
+                    $pdo->prepare("UPDATE pwf_orders SET status=?, updated_at=NOW() WHERE id=?")->execute([$ns,$oid]);
+                    $msg = 'Item successfully added to container.';
+                    header("Location: shipping.php?msg=" . urlencode($msg));
+                    exit;
+                }
+            }
         }
     } elseif ($action === 'drop_container') {
         $cid = (int)($_POST['container_id'] ?? 0);
         if ($cid > 0) {
             $pdo->prepare('UPDATE pwf_containers SET status=?, dropped_at=NOW(), updated_at=NOW() WHERE id=?')
                 ->execute(['onboard', $cid]);
-            $msg = 'Container berhasil di-Drop ke kapal! Status: On Board.';
+            $msg = 'Container dropped to ship. Status: On Board.';
             header("Location: shipping.php?msg=" . urlencode($msg));
             exit;
         }
@@ -221,7 +243,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
-if (isset($_GET['msg'])) $msg = htmlspecialchars($_GET['msg']);
+if (isset($_GET['msg'])) { $msg = htmlspecialchars($_GET['msg']); }
+if (isset($_GET['err'])) { $msg = htmlspecialchars($_GET['err']); $msgType = 'error'; }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DATA
@@ -276,7 +299,8 @@ foreach ($allItems as $row) {
 }
 
 $allReadyForModal = $pdo->query("
-    SELECT sub.id, sub.order_code, sub.product_name, sub.customer_name,
+    SELECT sub.id, sub.order_code, sub.product_name, sub.customer_name, sub.qty_done,
+           sub.already_shipped,
            (sub.qty_done - sub.already_shipped) AS qty_remaining
     FROM (
         SELECT o.id, o.order_code, o.product_name, o.status, o.qty_done,
@@ -289,6 +313,14 @@ $allReadyForModal = $pdo->query("
     WHERE (sub.qty_done - sub.already_shipped) > 0
     ORDER BY sub.order_code ASC
 ")->fetchAll();
+// Build a lookup: order_id => [container_ids it appears in]
+$orderContainerMap = [];
+try {
+    $ocRows = $pdo->query("SELECT order_id, container_id FROM pwf_container_items")->fetchAll();
+    foreach ($ocRows as $ocr) {
+        $orderContainerMap[(int)$ocr['order_id']][] = (int)$ocr['container_id'];
+    }
+} catch (Exception $e) { $orderContainerMap = []; }
 
 // Stats
 $totalContainers  = count($containers);
@@ -302,7 +334,7 @@ pwfOfficeHeader('Shipping & Container', 'shipping');
 ?>
 
 <?php if ($msg): ?>
-    <div class="alert alert-success" style="margin-bottom:16px"><?= $msg ?></div>
+    <div class="alert alert-<?= $msgType === 'error' ? 'danger' : 'success' ?>" style="margin-bottom:16px"><?= $msg ?></div>
 <?php endif; ?>
 
 <!-- ══ STATS BAR ════════════════════════════════════════════════════════════ -->
@@ -468,7 +500,7 @@ pwfOfficeHeader('Shipping & Container', 'shipping');
                         <?php if ($isDroppable): ?>
                             <button type="button"
                                 onclick="openDrop(<?= (int)$ct['id'] ?>, '<?= htmlspecialchars(addslashes($ct['container_code'])) ?>', <?= (int)$ct['item_count'] ?>, '<?= fmtQty($ct['total_qty']) ?>')"
-                                title="Drop to Ship ke Kapal"
+                                title="Drop to Ship"
                                 style="display:inline-flex;align-items:center;gap:3px;padding:5px 10px;border-radius:7px;background:#FFF1F2;border:1px solid #FECDD3;color:#BE123C;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">
                                 <i class="bi bi-send-check"></i> Drop
                             </button>
@@ -630,23 +662,32 @@ pwfOfficeHeader('Shipping & Container', 'shipping');
                 <input type="hidden" name="container_id" id="aiContainerId">
                 <div class="modal-body" style="padding:18px;display:flex;flex-direction:column;gap:12px">
                     <div>
-                        <label class="form-lbl">Pilih Order</label>
-                        <select name="order_id" class="select" style="width:100%">
-                            <option value="">— Pilih Order —</option>
-                            <?php foreach ($allReadyForModal as $o): ?>
-                                <option value="<?= (int)$o['id'] ?>">
+                        <label class="form-lbl">Select Order</label>
+                        <select name="order_id" id="aiOrderSelect" class="select" style="width:100%" onchange="onAiOrderChange(this)" required>
+                            <option value="">— Select Order —</option>
+                            <?php foreach ($allReadyForModal as $o):
+                                $inContainers = $orderContainerMap[(int)$o['id']] ?? [];
+                            ?>
+                                <option value="<?= (int)$o['id'] ?>"
+                                    data-max="<?= fmtQty($o['qty_remaining']) ?>"
+                                    data-inconts="<?= htmlspecialchars(implode(',', $inContainers)) ?>">
                                     <?= htmlspecialchars($o['order_code'] . ' – ' . $o['product_name'] . ' (' . $o['customer_name'] . ')') ?>
-                                    · sisa <?= fmtQty($o['qty_remaining']) ?> pcs
+                                    · <?= fmtQty($o['qty_remaining']) ?> pcs available
                                 </option>
                             <?php endforeach; ?>
                         </select>
+                        <div id="aiDupWarn" style="display:none;margin-top:5px;padding:6px 10px;background:#FFF1F2;border:1px solid #FECDD3;border-radius:6px;font-size:11px;color:#BE123C">
+                            <i class="bi bi-exclamation-triangle me-1"></i>
+                            <span id="aiDupMsg"></span>
+                        </div>
                     </div>
                     <div>
-                        <label class="form-lbl">Qty Shipped</label>
-                        <input type="number" name="qty_shipped" min="0.5" step="0.5" class="input" placeholder="0" required style="width:100%">
+                        <label class="form-lbl">Qty to Ship</label>
+                        <input type="number" name="qty_shipped" id="aiQtyInput" min="0.5" step="0.5" class="input" placeholder="0" required style="width:100%">
+                        <div id="aiQtyHint" style="font-size:11px;color:var(--muted);margin-top:3px"></div>
                     </div>
                     <div>
-                        <label class="form-lbl">Keterangan (opsional)</label>
+                        <label class="form-lbl">Notes (optional)</label>
                         <input type="text" name="item_notes" class="input" placeholder="Item notes" style="width:100%">
                     </div>
                 </div>
@@ -665,7 +706,7 @@ pwfOfficeHeader('Shipping & Container', 'shipping');
         <div class="modal-content" style="background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden">
             <div class="modal-header" style="padding:14px 18px;border-bottom:1px solid var(--border);background:#FFF1F2">
                 <div style="font-weight:700;font-size:14px;color:#BE123C">
-                    <i class="bi bi-send-check me-2"></i>Drop to Ship ke Kapal
+                    <i class="bi bi-send-check me-2"></i>Drop to Ship
                 </div>
                 <button class="btn-close" data-bs-dismiss="modal"></button>
             </div>
@@ -676,7 +717,7 @@ pwfOfficeHeader('Shipping & Container', 'shipping');
                 </div>
                 <div style="background:#FFF1F2;border:1px solid #FECDD3;border-radius:8px;padding:12px 14px;font-size:12px;color:#BE123C;margin-bottom:6px">
                     <i class="bi bi-exclamation-triangle me-1"></i>
-                    Aksi ini akan mengubah status container menjadi <strong>On Board</strong> dan mencatat waktu pengiriman. Status tidak bisa dikembalikan ke Draft atau Booked.
+                    This action will change the container status to <strong>On Board</strong> and record the dispatch time. Status cannot be reverted to Draft or Booked.
                 </div>
                 <div style="font-size:11px;color:var(--muted);text-align:center">Pastikan semua order sudah benar sebelum melanjutkan.</div>
             </div>
@@ -686,7 +727,7 @@ pwfOfficeHeader('Shipping & Container', 'shipping');
                 <div class="modal-footer" style="border-top:1px solid var(--border);padding:12px 18px;gap:8px">
                     <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="submit" style="padding:8px 22px;background:#BE123C;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">
-                        <i class="bi bi-send-check me-1"></i>Ya, Drop ke Kapal!
+                        <i class="bi bi-send-check me-1"></i>Yes, Drop to Ship!
                     </button>
                 </div>
             </form>
@@ -706,7 +747,7 @@ pwfOfficeHeader('Shipping & Container', 'shipping');
                 <input type="hidden" name="_action" value="update_container_status">
                 <input type="hidden" name="container_id" id="usContainerId">
                 <div class="modal-body" style="padding:18px">
-                    <label class="form-lbl">Status Baru</label>
+                    <label class="form-lbl">New Status</label>
                     <select name="status" id="usStatus" class="select" style="width:100%">
                         <option value="draft">Draft</option>
                         <option value="booked">Booked</option>
@@ -741,12 +782,12 @@ pwfOfficeHeader('Shipping & Container', 'shipping');
                 </div>
                 <div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:12px 14px;font-size:12px;color:#DC2626;margin-bottom:6px">
                     <i class="bi bi-exclamation-triangle me-1"></i>
-                    Aksi ini akan <strong>menghapus container</strong> beserta semua item di dalamnya.<br>
+                    This action will <strong>permanently delete this container</strong> and all items inside it.<br>
                     Status order akan dikembalikan otomatis (partial_ship → sebelumnya).
                 </div>
                 <div id="delWarningOnboard" style="display:none;background:#FFF7ED;border:1px solid #FED7AA;border-radius:8px;padding:10px 14px;font-size:12px;color:#92400E;margin-top:8px">
                     <i class="bi bi-exclamation-circle me-1"></i>
-                    <strong>Peringatan:</strong> Container ini sudah di-Drop ke kapal (On Board). Menghapus bisa menyebabkan data tidak konsisten.
+                    <strong>Warning:</strong> This container has already been dropped to ship (On Board). Deleting it may cause data inconsistency.
                 </div>
             </div>
             <form method="post" id="deleteForm">
@@ -861,10 +902,48 @@ pwfOfficeHeader('Shipping & Container', 'shipping');
     }
 
     // ── Add item modal ────────────────────────────────────────────────────────────
+    let _aiCurrentCid = 0;
     function openAddItem(cid, code) {
+        _aiCurrentCid = cid;
         document.getElementById('aiContainerId').value = cid;
         document.getElementById('aiCode').textContent = code;
+        // Reset form state
+        document.getElementById('aiOrderSelect').value = '';
+        document.getElementById('aiQtyInput').value = '';
+        document.getElementById('aiQtyHint').textContent = '';
+        document.getElementById('aiDupWarn').style.display = 'none';
+        // Disable options already in this container
+        Array.from(document.getElementById('aiOrderSelect').options).forEach(opt => {
+            if (!opt.value) return;
+            const inConts = (opt.dataset.inconts || '').split(',').filter(Boolean).map(Number);
+            if (inConts.includes(cid)) {
+                opt.disabled = true;
+                opt.textContent = opt.textContent.replace(' · ', ' [already in container] · ');
+            } else {
+                opt.disabled = false;
+                opt.textContent = opt.textContent.replace(' [already in container] ', ' ');
+            }
+        });
         new bootstrap.Modal(document.getElementById('addItemModal')).show();
+    }
+    function onAiOrderChange(sel) {
+        const opt = sel.options[sel.selectedIndex];
+        const warn = document.getElementById('aiDupWarn');
+        const hint = document.getElementById('aiQtyHint');
+        const qtyIn = document.getElementById('aiQtyInput');
+        if (!opt.value) { warn.style.display='none'; hint.textContent=''; return; }
+        const maxQty = parseFloat(opt.dataset.max || 0);
+        const inConts = (opt.dataset.inconts || '').split(',').filter(Boolean).map(Number);
+        if (inConts.includes(_aiCurrentCid)) {
+            warn.style.display = 'block';
+            document.getElementById('aiDupMsg').textContent = 'This order is already added to this container.';
+            qtyIn.value = ''; qtyIn.disabled = true;
+        } else {
+            warn.style.display = 'none';
+            qtyIn.disabled = false;
+            qtyIn.max = maxQty;
+            hint.textContent = 'Max available: ' + maxQty + ' pcs';
+        }
     }
 
     // ── Print per customer modal ──────────────────────────────────────────────────
