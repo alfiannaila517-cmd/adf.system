@@ -9,9 +9,9 @@
 
         /* ── Header ── */
         .dn-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:20px; padding-bottom:16px; border-bottom:3px solid #111 }
-        .co-logo { height:90px; width:auto; max-width:130px; object-fit:contain; margin-right:16px }
-        .co-name { font-size:18px; font-weight:800; margin-bottom:3px; color:#111 }
-        .co-sub  { font-size:10.5px; color:#555; line-height:1.7; max-width:280px }
+        .co-logo { height:120px; width:auto; max-width:160px; object-fit:contain; margin-right:18px }
+        .co-name { font-size:20px; font-weight:800; margin-bottom:4px; color:#111 }
+        .co-sub  { font-size:11px; color:#555; line-height:1.7; max-width:300px }
         .doc-no  { font-size:11.5px; color:#555; margin-top:4px }
         .doc-no strong { color:#111 }
 
@@ -35,16 +35,21 @@
         tbody tr:nth-child(even) { background:#f9fafb }
         .no-col { width:28px; text-align:center }
 
-        /* ── Fulfillment cell ── */
-        .prog-track { height:5px; background:#e5e7eb; border-radius:3px; overflow:hidden; margin-bottom:3px }
-        .prog-fill  { height:5px; border-radius:3px }
-        .pct-label  { font-size:9px; color:#9ca3af; margin-bottom:4px }
-        .pill       { display:inline-flex; align-items:center; gap:3px; padding:2px 7px; border-radius:20px; font-size:9px; font-weight:600 }
-        .pill-po    { background:#e0f2fe; color:#0369a1 }
-        .pill-prod  { background:#dbeafe; color:#1d4ed8 }
+        /* ── Two-tone progress bar ── */
+        .prog-wrap { position:relative; height:7px; background:#e5e7eb; border-radius:4px; overflow:hidden; margin-bottom:5px }
+        .prog-prev { position:absolute; left:0; top:0; height:100%; background:#94a3b8; border-radius:4px 0 0 4px }
+        .prog-this { position:absolute; top:0; height:100%; background:#f59e0b }
+
+        /* ── Pills ── */
+        .pills     { display:flex; gap:5px; flex-wrap:wrap; margin-top:4px }
+        .pill      { display:inline-flex; align-items:center; padding:2px 7px; border-radius:20px; font-size:9px; font-weight:700; white-space:nowrap }
+        .pill-ship { background:#dbeafe; color:#1e40af }
+        .pill-here { background:#fef3c7; color:#b45309 }
+        .pill-bal  { background:#fff1f2; color:#be123c }
+        .pill-done { background:#dcfce7; color:#15803d }
 
         /* ── tfoot ── */
-        tfoot td { border-top:2px solid #1f2937; font-weight:700; padding:10px 10px; background:#f9fafb }
+        tfoot td { border-top:2px solid #1f2937; font-weight:700; padding:10px; background:#f9fafb }
 
         /* ── Signatures ── */
         .signatures { display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px; margin-top:32px }
@@ -81,7 +86,7 @@
         </div>
     </div>
     <div style="text-align:right">
-        <div style="font-size:28px;font-weight:900;letter-spacing:2.5px;color:#111">DELIVERY NOTE</div>
+        <div style="font-size:30px;font-weight:900;letter-spacing:3px;color:#111">DELIVERY NOTE</div>
         <?php if (isset($custNameOnly)): ?>
         <div style="font-size:11px;font-weight:700;color:#C2410C;margin-top:4px;letter-spacing:.3px">Customer: <?= htmlspecialchars($custNameOnly) ?></div>
         <?php endif; ?>
@@ -96,7 +101,7 @@
 <!-- ══ CUSTOMER BANNER (per-customer only) ═════════════════════════════════ -->
 <?php if (isset($custNameOnly)): ?>
 <div class="cust-banner">
-    <svg width="24" height="24" viewBox="0 0 20 20" fill="#B45309"><circle cx="10" cy="6" r="4"/><path d="M2 18c0-4.418 3.582-8 8-8s8 3.582 8 8H2z"/></svg>
+    <svg width="26" height="26" viewBox="0 0 20 20" fill="#B45309"><circle cx="10" cy="6" r="4"/><path d="M2 18c0-4.418 3.582-8 8-8s8 3.582 8 8H2z"/></svg>
     <div>
         <div style="font-size:15px;font-weight:800;color:#92400E"><?= htmlspecialchars($custNameOnly) ?></div>
         <div style="font-size:10.5px;color:#B45309;margin-top:2px">
@@ -142,8 +147,8 @@
             <th style="min-width:120px">Product Name</th>
             <th style="min-width:110px">Specification</th>
             <th style="min-width:72px">Dim. (cm)</th>
-            <th style="text-align:center;min-width:70px">This Shipment</th>
-            <th style="min-width:180px">Order Fulfillment</th>
+            <th style="text-align:center;min-width:76px">This Batch</th>
+            <th style="min-width:200px">Order Fulfillment</th>
             <?php if (!isset($custNameOnly)): ?><th style="min-width:80px">Customer</th><?php endif; ?>
             <th>Notes</th>
         </tr>
@@ -154,11 +159,19 @@
             $qty_done      = (float)($item['qty_done'] ?? 0);
             $qty_here      = (float)$item['qty_shipped'];
             $total_shipped = (float)($item['total_all_shipped'] ?? $qty_here);
+
+            // "before this batch" = total shipped MINUS this batch's contribution
+            $prev_shipped  = max(0, $total_shipped - $qty_here);
             $remaining     = max(0, $qty_po - $total_shipped);
-            $pct_ship      = $qty_po > 0 ? min(100, round($total_shipped / $qty_po * 100)) : 0;
-            $bar_color     = $pct_ship >= 100 ? '#16a34a' : ($pct_ship >= 60 ? '#3b82f6' : '#f59e0b');
-            $rem_color     = $remaining <= 0 ? '#15803d' : '#c2410c';
-            $rem_bg        = $remaining <= 0 ? '#dcfce7' : '#fff7ed';
+
+            // Percentages (capped at 100)
+            $pct_prev = $qty_po > 0 ? min(100, round($prev_shipped / $qty_po * 100)) : 0;
+            $pct_here = $qty_po > 0 ? min(100 - $pct_prev, round($qty_here / $qty_po * 100)) : 0;
+            $pct_total= $pct_prev + $pct_here;
+
+            $is_done      = $remaining <= 0;
+            $bal_color    = $is_done ? '#15803d' : '#be123c';
+            $bal_bg       = $is_done ? '#dcfce7'  : '#fff1f2';
         ?>
         <tr>
             <td class="no-col" style="font-size:10px;color:#9ca3af"><?= $i + 1 ?></td>
@@ -167,28 +180,42 @@
             <td style="font-size:10.5px;color:#6b7280"><?= nl2br(htmlspecialchars(mb_substr($item['specification'] ?? '', 0, 80))) ?></td>
             <td style="font-size:11px;color:#374151"><?= htmlspecialchars($item['dimensions'] ?: '—') ?></td>
 
-            <!-- ── This Shipment qty ── -->
+            <!-- ── This Batch qty ── -->
             <td style="text-align:center;padding:8px 6px;border-left:2px solid #e5e7eb">
-                <div style="font-size:20px;font-weight:900;color:#1f2937;line-height:1"><?= fmtQty($qty_here) ?></div>
-                <div style="font-size:8.5px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-top:1px">pcs</div>
+                <div style="font-size:22px;font-weight:900;color:#1f2937;line-height:1"><?= fmtQty($qty_here) ?></div>
+                <div style="font-size:8.5px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-top:2px">pcs</div>
             </td>
 
             <!-- ── Order Fulfillment ── -->
-            <td style="padding:7px 10px;border-left:1px solid #e5e7eb">
-                <!-- Progress bar: total shipped / total PO -->
-                <div class="prog-track">
-                    <div class="prog-fill" style="width:<?= $pct_ship ?>%;background:<?= $bar_color ?>"></div>
+            <td style="padding:8px 12px;border-left:1px solid #e5e7eb">
+
+                <!-- Two-tone bar: slate=prev, amber=this batch, gray bg=remaining -->
+                <div class="prog-wrap">
+                    <div class="prog-prev" style="width:<?= $pct_prev ?>%"></div>
+                    <div class="prog-this" style="left:<?= $pct_prev ?>%;width:<?= $pct_here ?>%"></div>
                 </div>
-                <div class="pct-label">
-                    <?= $pct_ship ?>% shipped &nbsp;·&nbsp;
-                    <?= fmtQty($total_shipped) ?> of <?= fmtQty($qty_po) ?> pcs total
+
+                <!-- Progress text -->
+                <div style="font-size:9px;color:#6b7280;margin-bottom:5px">
+                    <?php if ($prev_shipped > 0): ?>
+                    <span style="color:#64748b"><?= $pct_prev ?>%</span>
+                    <span style="color:#9ca3af"> → </span>
+                    <?php endif; ?>
+                    <strong style="color:<?= $pct_total >= 100 ? '#15803d' : '#1f2937' ?>"><?= $pct_total ?>%</strong>
+                    <span style="color:#9ca3af"> of PO &nbsp;·&nbsp; </span>
+                    <span style="color:#374151"><?= fmtQty($total_shipped) ?> / <?= fmtQty($qty_po) ?> pcs</span>
                 </div>
-                <!-- Stat pills -->
-                <div style="display:flex;gap:5px;flex-wrap:wrap">
-                    <span class="pill pill-po">PO&nbsp;<?= fmtQty($qty_po) ?></span>
-                    <span class="pill pill-prod">Prod&nbsp;<?= fmtQty($qty_done) ?></span>
-                    <span class="pill" style="background:<?= $rem_bg ?>;color:<?= $rem_color ?>">
-                        <?php if ($remaining <= 0): ?>✓ Complete<?php else: ?>Bal&nbsp;<?= fmtQty($remaining) ?><?php endif; ?>
+
+                <!-- Detail pills row -->
+                <div class="pills">
+                    <span class="pill pill-ship" title="Total shipped so far (all containers)">
+                        ✈ <?= fmtQty($total_shipped) ?> shipped
+                    </span>
+                    <span class="pill pill-here" title="Shipped in this batch">
+                        +<?= fmtQty($qty_here) ?> this batch
+                    </span>
+                    <span class="pill" style="background:<?= $bal_bg ?>;color:<?= $bal_color ?>" title="Balance remaining">
+                        <?php if ($is_done): ?>✓ Fully shipped<?php else: ?><?= fmtQty($remaining) ?> remaining<?php endif; ?>
                     </span>
                 </div>
             </td>
@@ -206,7 +233,7 @@
     <tfoot>
         <tr>
             <td colspan="5" style="text-align:right;font-size:11px;letter-spacing:.3px">TOTAL QTY SHIPPED (THIS CONTAINER):</td>
-            <td style="text-align:center;font-size:17px;font-weight:900;color:#1f2937"><?= fmtQty($totalQty) ?></td>
+            <td style="text-align:center;font-size:18px;font-weight:900;color:#1f2937"><?= fmtQty($totalQty) ?></td>
             <td colspan="<?= isset($custNameOnly) ? 2 : 3 ?>"></td>
         </tr>
     </tfoot>
