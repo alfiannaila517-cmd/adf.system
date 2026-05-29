@@ -5,7 +5,10 @@ require_once __DIR__ . '/layout.php';
 
 $pdo = getPwfOfficePdo();
 
-function fmtQty($v) { return rtrim(rtrim(number_format((float)$v, 2), '0'), '.'); }
+function fmtQty($v)
+{
+    return rtrim(rtrim(number_format((float)$v, 2), '0'), '.');
+}
 
 // ── Stat cards ───────────────────────────────────────────────────────────────
 $stats = [
@@ -431,238 +434,248 @@ pwfOfficeHeader('Dashboard', 'dashboard');
 <!-- ══ CHART.JS ══════════════════════════════════════════════════════════════ -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script>
-    Chart.defaults.font.family = "'Inter', sans-serif";
+    if (typeof Chart === 'undefined') {
+        document.getElementById('donutPct').textContent = '—';
+        document.getElementById('lbl-shipped').textContent = 'N/A';
+        document.getElementById('lbl-done').textContent = 'N/A';
+        document.getElementById('lbl-prod').textContent = 'N/A';
+        document.getElementById('lbl-rem').textContent = 'N/A';
+    } else {
+        Chart.defaults.font.family = "'Inter', sans-serif";
 
-    // Ensure Chart.js tooltips always render above everything
-    Chart.register({
-        id: 'tooltipZIndex',
-        afterDraw(chart) {
-            if (chart.tooltip?._active?.length) {
-                const ctx = chart.ctx;
-                ctx.save();
-                ctx.canvas.style.zIndex = '999';
-                ctx.restore();
-            }
-        }
-    });
-
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    const gridColor = isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.055)';
-    const tickColor = isDark ? '#6b7280' : '#9ca3af';
-    const tooltipBg = isDark ? '#18181b' : '#fff';
-    const tooltipTxt = isDark ? '#e4e4e7' : '#18181b';
-    const tooltipBdr = isDark ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.08)';
-    const tt = {
-        backgroundColor: tooltipBg,
-        titleColor: tooltipTxt,
-        bodyColor: tooltipTxt,
-        borderColor: tooltipBdr,
-        borderWidth: 1,
-        padding: 10,
-        cornerRadius: 8
-    };
-
-    // ── Donut: 4-segment production breakdown ────────────────────────────────────
-    (function() {
-                        stack: 'qty',
-                        barThickness: 22,
-                        maxBarThickness: 24,
-                        categoryPercentage: 0.72,
-                        barPercentage: 0.78
-        const ready = <?= round($dReady,      2) ?>;
-        const producing = <?= round($dProducing,  2) ?>;
-        const remaining = <?= round($dRemaining,  2) ?>;
-        const totalDone = shipped + ready + producing;
-        const totalQty = totalDone + remaining;
-        const pct = totalQty > 0 ? Math.min(100, Math.round(totalDone / totalQty * 100)) : 0;
-        document.getElementById('donutPct').textContent = pct + '%';
-                        stack: 'qty',
-                        barThickness: 22,
-                        maxBarThickness: 24,
-                        categoryPercentage: 0.72,
-                        barPercentage: 0.78
-        document.getElementById('lbl-done').textContent = ready + ' pcs';
-        document.getElementById('lbl-prod').textContent = producing + ' pcs';
-        document.getElementById('lbl-rem').textContent = remaining + ' pcs';
-        if (totalQty === 0) return;
-        new Chart(document.getElementById('pieChart'), {
-            type: 'doughnut',
-            data: {
-                        stack: 'qty',
-                        barThickness: 22,
-                        maxBarThickness: 24,
-                        categoryPercentage: 0.72,
-                        barPercentage: 0.78
-                datasets: [{
-                    data: [shipped, ready, producing, remaining || 0.001],
-                    backgroundColor: [
-                        '#3b82f6',
-                        '#22c55e',
-                        '#f59e0b',
-                        isDark ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.06)'
-                    ],
-                    borderWidth: 0,
-                    hoverOffset: 6,
-                        stack: 'qty',
-                        barThickness: 22,
-                        maxBarThickness: 24,
-                        categoryPercentage: 0.72,
-                        barPercentage: 0.78
-                    spacing: 2
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                cutout: '74%',
-                animation: {
-                    animateRotate: true,
-                    duration: 800
-                },
-                plugins: {
-                    legend: {
-                        display: false
-                    },
-                    tooltip: {
-                        ...tt,
-                        callbacks: {
-                            label: ctx => {
-                                const v = ctx.parsed;
-                                const tot = ctx.dataset.data.reduce((a, b) => a + b, 0);
-                                const p = tot > 0 ? Math.round(v / tot * 100) : 0;
-                                return ` ${ctx.label}: ${v} pcs (${p}%)`;
-                            }
-                        }
-                    }
+        // Ensure Chart.js tooltips always render above everything
+        Chart.register({
+            id: 'tooltipZIndex',
+            afterDraw(chart) {
+                if (chart.tooltip?._active?.length) {
+                    const ctx = chart.ctx;
+                    ctx.save();
+                    ctx.canvas.style.zIndex = '999';
+                    ctx.restore();
                 }
             }
         });
-    })();
 
-    // ── Horizontal stacked bar: qty per customer ──────────────────────────────────
-    (function() {
-        const labels = <?= json_encode($custNames) ?>;
-        const shipped = <?= json_encode($barShipped) ?>;
-        const ready = <?= json_encode($barReady) ?>;
-        const producing = <?= json_encode($barProducing) ?>;
-        const remaining = <?= json_encode($barRemaining) ?>;
-        const totals = <?= json_encode($barTotal) ?>;
-        if (!labels.length) return;
-        new Chart(document.getElementById('barChart'), {
-            type: 'bar',
-            data: {
-                labels,
-                datasets: [{
-                        label: 'Shipped',
-                        data: shipped,
-                        backgroundColor: '#3b82f6',
-                        borderRadius: 0,
-                        borderSkipped: false,
-                        stack: 'qty'
-                    },
-                    {
-                        label: 'Done / Ready',
-                        data: ready,
-                        backgroundColor: '#22c55e',
-                        borderRadius: 0,
-                        borderSkipped: false,
-                        stack: 'qty'
-                    },
-                    {
-                        label: 'Producing',
-                        data: producing,
-                        backgroundColor: '#f59e0b',
-                        borderRadius: 0,
-                        borderSkipped: false,
-                        stack: 'qty'
-                    },
-                    {
-                        label: 'Remaining',
-                        data: remaining,
-                        backgroundColor: isDark ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.065)',
-                        borderRadius: {
-                            topRight: 4,
-                            bottomRight: 4
-                        },
-                        borderSkipped: false,
-                        stack: 'qty'
-                    }
-                ]
-            },
-            options: {
-                indexAxis: 'y',
-                responsive: true,
-                maintainAspectRatio: false,
-                animation: {
-                    duration: 700
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const gridColor = isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.055)';
+        const tickColor = isDark ? '#6b7280' : '#9ca3af';
+        const tooltipBg = isDark ? '#18181b' : '#fff';
+        const tooltipTxt = isDark ? '#e4e4e7' : '#18181b';
+        const tooltipBdr = isDark ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.08)';
+        const tt = {
+            backgroundColor: tooltipBg,
+            titleColor: tooltipTxt,
+            bodyColor: tooltipTxt,
+            borderColor: tooltipBdr,
+            borderWidth: 1,
+            padding: 10,
+            cornerRadius: 8
+        };
+
+        // ── Donut: 4-segment production breakdown ────────────────────────────────
+        (function() {
+            const shipped = <?= round($dShipped, 2) ?>;
+            const ready = <?= round($dReady, 2) ?>;
+            const producing = <?= round($dProducing, 2) ?>;
+            const remaining = <?= round($dRemaining, 2) ?>;
+            const totalDone = shipped + ready + producing;
+            const totalQty = totalDone + remaining;
+            const pct = totalQty > 0 ? Math.min(100, Math.round(totalDone / totalQty * 100)) : 0;
+            document.getElementById('donutPct').textContent = pct + '%';
+            document.getElementById('lbl-shipped').textContent = shipped + ' pcs';
+            document.getElementById('lbl-done').textContent = ready + ' pcs';
+            document.getElementById('lbl-prod').textContent = producing + ' pcs';
+            document.getElementById('lbl-rem').textContent = remaining + ' pcs';
+            if (totalQty === 0) return;
+
+            new Chart(document.getElementById('pieChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Shipped', 'Done / Ready', 'Producing', 'Remaining'],
+                    datasets: [{
+                        data: [shipped, ready, producing, remaining || 0.001],
+                        backgroundColor: [
+                            '#3b82f6',
+                            '#22c55e',
+                            '#f59e0b',
+                            isDark ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.06)'
+                        ],
+                        borderWidth: 0,
+                        hoverOffset: 6,
+                        borderRadius: 3,
+                        spacing: 2
+                    }]
                 },
-                interaction: {
-                    mode: 'index',
-                    intersect: false
-                },
-                scales: {
-                    x: {
-                        stacked: true,
-                        beginAtZero: true,
-                        grid: {
-                            color: gridColor,
-                            drawBorder: false
-                        },
-                        ticks: {
-                            color: tickColor,
-                            font: {
-                                size: 10
-                            },
-                            callback: v => v + ' pcs'
-                        }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '74%',
+                    animation: {
+                        animateRotate: true,
+                        duration: 800
                     },
-                    y: {
-                        stacked: true,
-                        grid: {
+                    plugins: {
+                        legend: {
                             display: false
                         },
-                        ticks: {
-                            color: tickColor,
-                            font: {
-                                size: 11,
-                                weight: '600'
-                            },
-                            maxRotation: 0
-                        }
-                    }
-                },
-                plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: {
-                            padding: 14,
-                            font: {
-                                size: 10.5
-                            },
-                            color: tickColor,
-                            usePointStyle: true,
-                            pointStyleWidth: 8
-                        }
-                    },
-                    tooltip: {
-                        ...tt,
-                        callbacks: {
-                            title: ctx => ctx[0].label,
-                            label: ctx => {
-                                const tot = totals[ctx.dataIndex] || 1;
-                                const v = ctx.parsed.x;
-                                const p = Math.round(v / tot * 100);
-                                return ` ${ctx.dataset.label}: ${v} pcs (${p}%)`;
-                            },
-                            footer: ctx => {
-                                const tot = totals[ctx[0].dataIndex];
-                                return `Total PO: ${tot} pcs`;
+                        tooltip: {
+                            ...tt,
+                            callbacks: {
+                                label: ctx => {
+                                    const v = ctx.parsed;
+                                    const tot = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                                    const p = tot > 0 ? Math.round(v / tot * 100) : 0;
+                                    return ` ${ctx.label}: ${v} pcs (${p}%)`;
+                                }
                             }
                         }
                     }
                 }
-            }
-        });
-    })();
+            });
+        })();
+
+        // ── Horizontal stacked bar: qty per customer ─────────────────────────────
+        (function() {
+            const labels = <?= json_encode($custNames) ?>;
+            const shipped = <?= json_encode($barShipped) ?>;
+            const ready = <?= json_encode($barReady) ?>;
+            const producing = <?= json_encode($barProducing) ?>;
+            const remaining = <?= json_encode($barRemaining) ?>;
+            const totals = <?= json_encode($barTotal) ?>;
+            if (!labels.length) return;
+
+            new Chart(document.getElementById('barChart'), {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{
+                            label: 'Shipped',
+                            data: shipped,
+                            backgroundColor: '#3b82f6',
+                            borderRadius: 0,
+                            borderSkipped: false,
+                            stack: 'qty',
+                            barThickness: 22,
+                            maxBarThickness: 24,
+                            categoryPercentage: 0.72,
+                            barPercentage: 0.78
+                        },
+                        {
+                            label: 'Done / Ready',
+                            data: ready,
+                            backgroundColor: '#22c55e',
+                            borderRadius: 0,
+                            borderSkipped: false,
+                            stack: 'qty',
+                            barThickness: 22,
+                            maxBarThickness: 24,
+                            categoryPercentage: 0.72,
+                            barPercentage: 0.78
+                        },
+                        {
+                            label: 'Producing',
+                            data: producing,
+                            backgroundColor: '#f59e0b',
+                            borderRadius: 0,
+                            borderSkipped: false,
+                            stack: 'qty',
+                            barThickness: 22,
+                            maxBarThickness: 24,
+                            categoryPercentage: 0.72,
+                            barPercentage: 0.78
+                        },
+                        {
+                            label: 'Remaining',
+                            data: remaining,
+                            backgroundColor: isDark ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.065)',
+                            borderRadius: {
+                                topRight: 4,
+                                bottomRight: 4
+                            },
+                            borderSkipped: false,
+                            stack: 'qty',
+                            barThickness: 22,
+                            maxBarThickness: 24,
+                            categoryPercentage: 0.72,
+                            barPercentage: 0.78
+                        }
+                    ]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: {
+                        duration: 700
+                    },
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    scales: {
+                        x: {
+                            stacked: true,
+                            beginAtZero: true,
+                            grid: {
+                                color: gridColor,
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: tickColor,
+                                font: {
+                                    size: 10
+                                },
+                                callback: v => v + ' pcs'
+                            }
+                        },
+                        y: {
+                            stacked: true,
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                color: tickColor,
+                                font: {
+                                    size: 11,
+                                    weight: '600'
+                                },
+                                maxRotation: 0
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 14,
+                                font: {
+                                    size: 10.5
+                                },
+                                color: tickColor,
+                                usePointStyle: true,
+                                pointStyleWidth: 8
+                            }
+                        },
+                        tooltip: {
+                            ...tt,
+                            callbacks: {
+                                title: ctx => ctx[0].label,
+                                label: ctx => {
+                                    const tot = totals[ctx.dataIndex] || 1;
+                                    const v = ctx.parsed.x;
+                                    const p = Math.round(v / tot * 100);
+                                    return ` ${ctx.dataset.label}: ${v} pcs (${p}%)`;
+                                },
+                                footer: ctx => {
+                                    const tot = totals[ctx[0].dataIndex];
+                                    return `Total PO: ${tot} pcs`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        })();
+    }
 </script>
 <?php pwfOfficeFooter(); ?>
