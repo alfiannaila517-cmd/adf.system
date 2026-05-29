@@ -321,6 +321,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ->execute([$qtyDone, $pct, $newStatus, $id]);
             $msg = 'Progress updated.' . ($newStatus === 'completed' ? ' Order otomatis Completed!' : '');
         }
+    } elseif ($action === 'bulk_delete') {
+        $rawIds = $_POST['order_ids'] ?? [];
+        $ids = [];
+        foreach ((array)$rawIds as $rawId) {
+            $id = (int)$rawId;
+            if ($id > 0) $ids[$id] = $id;
+        }
+        $ids = array_values($ids);
+
+        if (!empty($ids)) {
+            $ph = implode(',', array_fill(0, count($ids), '?'));
+            try {
+                $pdo->beginTransaction();
+
+                try {
+                    $pdo->prepare("DELETE FROM pwf_container_items WHERE order_id IN ($ph)")->execute($ids);
+                } catch (Exception $e) {
+                    // Skip if shipping tables are not present.
+                }
+
+                try {
+                    $pdo->prepare("DELETE FROM pwf_order_progress WHERE order_id IN ($ph)")->execute($ids);
+                } catch (Exception $e) {
+                    // Skip if progress log table is not present.
+                }
+
+                $pdo->prepare("DELETE FROM pwf_orders WHERE id IN ($ph)")->execute($ids);
+                $pdo->commit();
+                $msg = count($ids) . ' order(s) deleted successfully.';
+            } catch (Exception $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                $msgType = 'warning';
+                $msg = 'Failed to delete selected orders: ' . $e->getMessage();
+            }
+        }
     }
 }
 
@@ -533,7 +568,30 @@ pwfOfficeHeader('Orders', 'orders');
         overflow: hidden;
         transition: box-shadow .2s, transform .15s;
         display: flex;
-        flex-direction: column
+        flex-direction: column;
+        position: relative;
+    }
+
+    .order-select-float {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 3;
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, .95);
+        border: 1px solid #E7E5E4;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, .12)
+    }
+
+    .order-select-checkbox {
+        width: 14px;
+        height: 14px;
+        cursor: pointer
     }
 
     .order-card:hover {
@@ -671,6 +729,9 @@ pwfOfficeHeader('Orders', 'orders');
                 <button class="view-btn active" id="btnCard" onclick="setView('card')" title="Card view"><i class="bi bi-grid-3x3-gap"></i></button>
                 <button class="view-btn" id="btnTable" onclick="setView('table')" title="Table view"><i class="bi bi-list-ul"></i></button>
             </div>
+            <button type="button" id="bulkDeleteBtn" class="btn btn-sm btn-outline-danger" onclick="submitBulkDelete()" style="display:none;gap:6px">
+                <i class="bi bi-trash"></i> Hapus Terpilih (<span id="selectedCount">0</span>)
+            </button>
             <?php if ($filterCustomerId): ?>
                 <a href="customer-report.php?customer_id=<?= $filterCustomerId ?>" target="_blank" class="btn btn-export btn-sm"><i class="bi bi-printer"></i> Print</a>
             <?php endif; ?>
@@ -694,6 +755,9 @@ pwfOfficeHeader('Orders', 'orders');
         <div class="order-grid">
             <?php foreach ($orders as $o): ?>
                 <div class="order-card">
+                    <label class="order-select-float" title="Pilih order" onclick="event.stopPropagation()">
+                        <input type="checkbox" class="order-select-checkbox" data-order-id="<?= (int)$o['id'] ?>" onchange="onOrderCheckboxChange(this)">
+                    </label>
                     <?php if ($o['image_path']): ?>
                         <div class="order-card-img"><img src="<?= $baseUrl ?>/<?= htmlspecialchars($o['image_path']) ?>" alt="blueprint" loading="lazy"></div>
                     <?php else: ?>
@@ -782,6 +846,9 @@ pwfOfficeHeader('Orders', 'orders');
             <table class="pwf-table">
                 <thead>
                     <tr>
+                        <th style="width:42px;text-align:center">
+                            <input type="checkbox" id="selectAllOrders" class="order-select-checkbox" title="Pilih semua" onchange="toggleSelectAll(this)">
+                        </th>
                         <th style="width:60px">Image</th>
                         <th>Code</th>
                         <th>Customer</th>
@@ -795,6 +862,9 @@ pwfOfficeHeader('Orders', 'orders');
                 <tbody>
                     <?php foreach ($orders as $o): ?>
                         <tr>
+                            <td style="text-align:center">
+                                <input type="checkbox" class="order-select-checkbox" data-order-id="<?= (int)$o['id'] ?>" onchange="onOrderCheckboxChange(this)">
+                            </td>
                             <td>
                                 <?php if ($o['image_path']): ?>
                                     <img src="<?= $baseUrl ?>/<?= htmlspecialchars($o['image_path']) ?>" style="width:44px;height:44px;object-fit:cover;border-radius:7px;border:1px solid var(--border)">
@@ -847,13 +917,18 @@ pwfOfficeHeader('Orders', 'orders');
                         </tr>
                     <?php endforeach; ?>
                     <?php if (empty($orders)): ?><tr>
-                            <td colspan="8" style="text-align:center;color:var(--muted);padding:24px">No orders found.</td>
+                            <td colspan="9" style="text-align:center;color:var(--muted);padding:24px">No orders found.</td>
                         </tr><?php endif; ?>
                 </tbody>
             </table>
         </div>
     </div>
 </div>
+
+<form method="post" id="bulkDeleteForm" style="display:none">
+    <input type="hidden" name="_action" value="bulk_delete">
+    <div id="bulkDeleteInputs"></div>
+</form>
 
 <!-- ── DETAIL MODAL ─────────────────────────────────────────────────────── -->
 <div class="modal-overlay" id="detailModal">
@@ -1010,6 +1085,8 @@ pwfOfficeHeader('Orders', 'orders');
 </div>
 
 <script>
+    const selectedOrderIds = new Set();
+
     // ── VIEW TOGGLE ───────────────────────────────────────────────────────────────
     function setView(v) {
         const saved = v;
@@ -1023,6 +1100,65 @@ pwfOfficeHeader('Orders', 'orders');
         const v = localStorage.getItem('pwf_order_view') || 'card';
         if (v === 'table') setView('table');
     })();
+
+    function onOrderCheckboxChange(el) {
+        const id = parseInt(el.dataset.orderId || '0', 10);
+        if (!id) return;
+
+        if (el.checked) selectedOrderIds.add(id);
+        else selectedOrderIds.delete(id);
+
+        document.querySelectorAll('.order-select-checkbox[data-order-id="' + id + '"]').forEach(cb => {
+            if (cb !== el) cb.checked = el.checked;
+        });
+        syncBulkDeleteUI();
+    }
+
+    function toggleSelectAll(master) {
+        document.querySelectorAll('.order-select-checkbox[data-order-id]').forEach(cb => {
+            cb.checked = master.checked;
+            const id = parseInt(cb.dataset.orderId || '0', 10);
+            if (!id) return;
+            if (master.checked) selectedOrderIds.add(id);
+            else selectedOrderIds.delete(id);
+        });
+        syncBulkDeleteUI();
+    }
+
+    function syncBulkDeleteUI() {
+        const count = selectedOrderIds.size;
+        const bulkBtn = document.getElementById('bulkDeleteBtn');
+        const countEl = document.getElementById('selectedCount');
+        if (countEl) countEl.textContent = String(count);
+        if (bulkBtn) bulkBtn.style.display = count > 0 ? 'inline-flex' : 'none';
+
+        const all = Array.from(document.querySelectorAll('.order-select-checkbox[data-order-id]'));
+        const master = document.getElementById('selectAllOrders');
+        if (master) {
+            const uniqueIds = new Set(all.map(cb => cb.dataset.orderId));
+            master.checked = uniqueIds.size > 0 && count === uniqueIds.size;
+        }
+    }
+
+    function submitBulkDelete() {
+        if (selectedOrderIds.size === 0) {
+            alert('Pilih minimal 1 order untuk dihapus.');
+            return;
+        }
+        if (!confirm('Hapus ' + selectedOrderIds.size + ' order terpilih? Tindakan ini tidak bisa dibatalkan.')) {
+            return;
+        }
+        const wrap = document.getElementById('bulkDeleteInputs');
+        wrap.innerHTML = '';
+        selectedOrderIds.forEach(id => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'order_ids[]';
+            input.value = String(id);
+            wrap.appendChild(input);
+        });
+        document.getElementById('bulkDeleteForm').submit();
+    }
 
     // ── DETAIL MODAL ──────────────────────────────────────────────────────────────
     const STATUS_LABELS = {
