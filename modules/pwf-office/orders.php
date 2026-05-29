@@ -802,9 +802,12 @@ pwfOfficeHeader('Orders', 'orders');
                                     <div style="width:44px;height:44px;border-radius:7px;background:#F5F3F0;display:flex;align-items:center;justify-content:center"><i class="bi bi-image" style="color:var(--muted);font-size:16px"></i></div>
                                 <?php endif; ?>
                             </td>
-                            <td><code style="font-size:11px;color:var(--gold)"><?= htmlspecialchars($o['order_code']) ?></code></td>
+                            <td onclick="openDetail(<?= (int)$o['id'] ?>)" style="cursor:pointer">
+                                <code style="font-size:11px;color:var(--gold)"><?= htmlspecialchars($o['order_code']) ?></code>
+                            </td>
                             <td><?= htmlspecialchars($o['customer_name'] ?? '—') ?></td>
-                            <td><?= htmlspecialchars($o['product_name']) ?><div class="small"><?= htmlspecialchars($o['dimensions'] ?? '') ?></div>
+                            <td onclick="openDetail(<?= (int)$o['id'] ?>)" style="cursor:pointer">
+                                <?= htmlspecialchars($o['product_name']) ?><div class="small"><?= htmlspecialchars($o['dimensions'] ?? '') ?></div>
                             </td>
                             <td><?= htmlspecialchars($o['craftsman_name'] ?? '—') ?></td>
                             <td><?= $o['due_date'] ? date('d M Y', strtotime($o['due_date'])) : '—' ?></td>
