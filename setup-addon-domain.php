@@ -43,21 +43,22 @@ try {
         echo "✓ Added column businesses.addon_domain\n";
     }
 
-    $stmt = $pdo->prepare("SELECT id, name, addon_domain FROM businesses WHERE slug = ? LIMIT 1");
+    $stmt = $pdo->prepare("SELECT * FROM businesses WHERE slug = ? LIMIT 1");
     $stmt->execute([$slug]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$row) {
         exit("✗ Business slug '$slug' not found in businesses table.\n");
     }
+    $bizLabel = $row['business_name'] ?? $row['name'] ?? $row['display_name'] ?? $slug;
 
     $upd = $pdo->prepare("UPDATE businesses SET addon_domain = ?, is_active = 1 WHERE id = ?");
     $upd->execute([$domain, $row['id']]);
 
-    echo "✓ Business: {$row['name']} (slug=$slug)\n";
+    echo "✓ Business: {$bizLabel} (slug=$slug)\n";
     echo "✓ addon_domain set to: $domain\n";
     echo "✓ is_active = 1\n\n";
 
-    $check = $pdo->prepare("SELECT slug, name, addon_domain, is_active FROM businesses WHERE slug=?");
+    $check = $pdo->prepare("SELECT slug, addon_domain, is_active FROM businesses WHERE slug=?");
     $check->execute([$slug]);
     print_r($check->fetch(PDO::FETCH_ASSOC));
 
