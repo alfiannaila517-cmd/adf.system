@@ -179,7 +179,10 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'detail') {
     ob_clean();
     header('Content-Type: application/json');
     $id = (int)($_GET['id'] ?? 0);
-    if (!$id) { echo json_encode(['error' => 'Invalid ID']); exit; }
+    if (!$id) {
+        echo json_encode(['error' => 'Invalid ID']);
+        exit;
+    }
     try {
         $orderStmt = $pdo->prepare("
             SELECT o.*, c.customer_name, t.craftsman_name
@@ -189,7 +192,10 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'detail') {
             WHERE o.id=?");
         $orderStmt->execute([$id]);
         $orderDetail = $orderStmt->fetch(PDO::FETCH_ASSOC);
-        if (!$orderDetail) { echo json_encode(['error' => 'Not found']); exit; }
+        if (!$orderDetail) {
+            echo json_encode(['error' => 'Not found']);
+            exit;
+        }
 
         $progressLogs = [];
         try {
@@ -201,7 +207,8 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'detail') {
                 ORDER BY p.id DESC LIMIT 20");
             $progStmt->execute([$id]);
             $progressLogs = $progStmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch (Exception $e) { /* table may not exist */ }
+        } catch (Exception $e) { /* table may not exist */
+        }
 
         $shippingLogs = [];
         try {
@@ -217,7 +224,8 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'detail') {
                 ORDER BY ci.id DESC");
             $shipStmt->execute([$id]);
             $shippingLogs = $shipStmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch (Exception $e) { /* table may not exist */ }
+        } catch (Exception $e) { /* table may not exist */
+        }
 
         echo json_encode(['order' => $orderDetail, 'progress' => $progressLogs, 'shipping' => $shippingLogs]);
     } catch (Exception $e) {
@@ -366,18 +374,21 @@ $craftsmen = $pdo->query('SELECT id, craftsman_name FROM pwf_craftsmen WHERE is_
 $filterCustomerId  = (int)($_GET['customer_id']  ?? 0);
 $filterCraftsmanId = (int)($_GET['craftsman_id'] ?? 0);
 $whereParts = [];
-if ($filterCustomerId)  $whereParts[] = 'o.customer_id='  . $filterCustomerId;
-if ($filterCraftsmanId) $whereParts[] = 'o.assigned_craftsman_id=' . $filterCraftsmanId;
+$whereArgs  = [];
+if ($filterCustomerId)  { $whereParts[] = 'o.customer_id=?';            $whereArgs[] = $filterCustomerId; }
+if ($filterCraftsmanId) { $whereParts[] = 'o.assigned_craftsman_id=?'; $whereArgs[] = $filterCraftsmanId; }
 $whereClause = $whereParts ? 'WHERE ' . implode(' AND ', $whereParts) : '';
 
-$orders = $pdo->query("
+$stmtOrders = $pdo->prepare("
     SELECT o.*, c.customer_name, t.craftsman_name
     FROM pwf_orders o
     LEFT JOIN pwf_customers c ON c.id=o.customer_id
     LEFT JOIN pwf_craftsmen t ON t.id=o.assigned_craftsman_id
     $whereClause
     ORDER BY o.id DESC
-")->fetchAll();
+");
+$stmtOrders->execute($whereArgs);
+$orders = $stmtOrders->fetchAll();
 
 $statusOptions = ['draft' => 'Draft', 'on_progress' => 'On Progress', 'qc' => 'QC', 'ready_ship' => 'Ready to Ship', 'partial_ship' => 'Partial Ship', 'shipped' => 'Shipped', 'completed' => 'Completed', 'cancelled' => 'Cancelled'];
 $baseUrl = rtrim(BASE_URL, '/');
@@ -1162,19 +1173,34 @@ pwfOfficeHeader('Orders', 'orders');
 
     // ── DETAIL MODAL ──────────────────────────────────────────────────────────────
     const STATUS_LABELS = {
-        draft: 'Draft', on_progress: 'On Progress', qc: 'QC',
-        ready_ship: 'Ready to Ship', partial_ship: 'Partial Ship',
-        shipped: 'Shipped', completed: 'Completed', cancelled: 'Cancelled'
+        draft: 'Draft',
+        on_progress: 'On Progress',
+        qc: 'QC',
+        ready_ship: 'Ready to Ship',
+        partial_ship: 'Partial Ship',
+        shipped: 'Shipped',
+        completed: 'Completed',
+        cancelled: 'Cancelled'
     };
     const STATUS_COLORS = {
-        draft: '#1D4ED8', on_progress: '#C2410C', qc: '#6D28D9',
-        ready_ship: '#15803D', partial_ship: '#1D4ED8', shipped: '#15803D',
-        completed: '#166534', cancelled: '#991B1B'
+        draft: '#1D4ED8',
+        on_progress: '#C2410C',
+        qc: '#6D28D9',
+        ready_ship: '#15803D',
+        partial_ship: '#1D4ED8',
+        shipped: '#15803D',
+        completed: '#166534',
+        cancelled: '#991B1B'
     };
     const STATUS_BG = {
-        draft: '#EFF6FF', on_progress: '#FFF7ED', qc: '#F5F3FF',
-        ready_ship: '#F0FDF4', partial_ship: '#EFF6FF', shipped: '#F0FDF4',
-        completed: '#F0FDF4', cancelled: '#FEF2F2'
+        draft: '#EFF6FF',
+        on_progress: '#FFF7ED',
+        qc: '#F5F3FF',
+        ready_ship: '#F0FDF4',
+        partial_ship: '#EFF6FF',
+        shipped: '#F0FDF4',
+        completed: '#F0FDF4',
+        cancelled: '#FEF2F2'
     };
 
     let _dmCurrentId = null;
@@ -1229,14 +1255,14 @@ pwfOfficeHeader('Orders', 'orders');
     function fmtDate(s) {
         if (!s) return '—';
         const d = new Date(s);
-        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         return d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
     }
 
     function fmtDatetime(s) {
         if (!s) return '—';
         const d = new Date(s);
-        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         const hh = String(d.getHours()).padStart(2, '0');
         const mm = String(d.getMinutes()).padStart(2, '0');
         return d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear() + ' ' + hh + ':' + mm;
@@ -1280,13 +1306,17 @@ pwfOfficeHeader('Orders', 'orders');
         if (o.specification) {
             specBlock.innerHTML = `<div class="dm-section-title">Spesifikasi</div>
                 <div style="font-size:12.5px;color:var(--text);background:#FAFAF9;border-radius:8px;padding:10px 14px;border:1px solid var(--border);white-space:pre-line;line-height:1.6">${escHtml(o.specification)}</div>`;
-        } else { specBlock.innerHTML = ''; }
+        } else {
+            specBlock.innerHTML = '';
+        }
 
         const notesBlock = document.getElementById('dm_notes_block');
         if (o.notes) {
             notesBlock.innerHTML = `<div class="dm-section-title">Catatan</div>
                 <div style="font-size:12.5px;color:var(--text);background:#FFFBEB;border-radius:8px;padding:10px 14px;border:1px solid #FDE68A;border-left:3px solid #D97706;white-space:pre-line;line-height:1.6">${escHtml(o.notes)}</div>`;
-        } else { notesBlock.innerHTML = ''; }
+        } else {
+            notesBlock.innerHTML = '';
+        }
 
         const actionBtns = document.getElementById('dm_action_btns');
         actionBtns.innerHTML = `
@@ -1395,7 +1425,7 @@ pwfOfficeHeader('Orders', 'orders');
 
     function escHtml(s) {
         if (!s) return '';
-        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
     document.getElementById('detailModal').addEventListener('click', function(e) {

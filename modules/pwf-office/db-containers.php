@@ -32,11 +32,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $notes     = trim($_POST['notes'] ?? '');
 
         $ym  = date('Ym');
-        $cnt = (int)$pdo->query("SELECT COUNT(*) FROM pwf_containers WHERE container_code LIKE 'CTN-$ym-%'")->fetchColumn() + 1;
-        $code = sprintf('CTN-%s-%03d', $ym, $cnt);
-
-        $pdo->prepare('INSERT INTO pwf_containers (container_code,container_no,container_type,shipment_date,destination_country,destination_port,forwarder,tracking_no,bl_no,status,notes,created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
-            ->execute([$code,$cno,$ctype,$shipDate,$country,$port,$forwarder,$tracking,$blno,$status,$notes,$_SESSION['user_id']??null]);
+        // Wrap counter + insert in a transaction so concurrent creates don't collide on container_code.
+        $pdo->beginTransaction();
+        try {
+            $stmtCnt = $pdo->prepare("SELECT COUNT(*) FROM pwf_containers WHERE container_code LIKE ?");
+            $stmtCnt->execute(['CTN-' . $ym . '-%']);
+            $cnt = (int)$stmtCnt->fetchColumn() + 1;
+            $code = sprintf('CTN-%s-%03d', $ym, $cnt);
+            $pdo->prepare('INSERT INTO pwf_containers (container_code,container_no,container_type,shipment_date,destination_country,destination_port,forwarder,tracking_no,bl_no,status,notes,created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
+                ->execute([$code,$cno,$ctype,$shipDate,$country,$port,$forwarder,$tracking,$blno,$status,$notes,$_SESSION['user_id']??null]);
+            $pdo->commit();
+        } catch (Exception $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            $msg = 'Failed to create container: ' . htmlspecialchars($e->getMessage());
+            header("Location: db-containers.php?msg=" . urlencode(strip_tags($msg)));
+            exit;
+        }
         $msg = "Container <strong>$code</strong> created successfully.";
         header("Location: db-containers.php?msg=" . urlencode(strip_tags($msg)));
         exit;
@@ -64,19 +75,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'delete_container') {
         $cid = (int)($_POST['container_id'] ?? 0);
         if ($cid > 0) {
-            $orderIds = $pdo->query("SELECT DISTINCT order_id FROM pwf_container_items WHERE container_id=$cid")->fetchAll(PDO::FETCH_COLUMN);
+            $stmtOids = $pdo->prepare("SELECT DISTINCT order_id FROM pwf_container_items WHERE container_id=?");
+            $stmtOids->execute([$cid]);
+            $orderIds = $stmtOids->fetchAll(PDO::FETCH_COLUMN);
             $pdo->prepare('DELETE FROM pwf_container_items WHERE container_id=?')->execute([$cid]);
+            $qOrderQty   = $pdo->prepare("SELECT quantity FROM pwf_orders WHERE id=?");
+            $qShipped    = $pdo->prepare("SELECT COALESCE(SUM(qty_shipped),0) FROM pwf_container_items WHERE order_id=?");
+            $qQtyDone    = $pdo->prepare("SELECT qty_done FROM pwf_orders WHERE id=?");
+            $uStatus     = $pdo->prepare('UPDATE pwf_orders SET status=?,updated_at=NOW() WHERE id=?');
             foreach ($orderIds as $oid) {
                 $oid = (int)$oid;
-                $orderQty     = (float)$pdo->query("SELECT quantity FROM pwf_orders WHERE id=$oid")->fetchColumn();
-                $totalShipped = (float)$pdo->query("SELECT COALESCE(SUM(qty_shipped),0) FROM pwf_container_items WHERE order_id=$oid")->fetchColumn();
+                $qOrderQty->execute([$oid]);
+                $orderQty     = (float)$qOrderQty->fetchColumn();
+                $qShipped->execute([$oid]);
+                $totalShipped = (float)$qShipped->fetchColumn();
                 if ($totalShipped <= 0) {
-                    $qtyDone = (float)$pdo->query("SELECT qty_done FROM pwf_orders WHERE id=$oid")->fetchColumn();
+                    $qQtyDone->execute([$oid]);
+                    $qtyDone = (float)$qQtyDone->fetchColumn();
                     $revert  = ($qtyDone >= $orderQty) ? 'ready_ship' : 'on_progress';
                 } else {
                     $revert = ($totalShipped >= $orderQty) ? 'shipped' : 'partial_ship';
                 }
-                $pdo->prepare('UPDATE pwf_orders SET status=?,updated_at=NOW() WHERE id=?')->execute([$revert,$oid]);
+                $uStatus->execute([$revert,$oid]);
             }
             $pdo->prepare('DELETE FROM pwf_containers WHERE id=?')->execute([$cid]);
             $msg = 'Container deleted. Order statuses reverted.';

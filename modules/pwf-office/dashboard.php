@@ -54,11 +54,19 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'container_detail') {
 
 // ── Stat cards ───────────────────────────────────────────────────────────────
 $stats = [
-    'customers'    => (int)$pdo->query('SELECT COUNT(*) FROM pwf_customers')->fetchColumn(),
-    'active_orders' => (int)$pdo->query("SELECT COUNT(*) FROM pwf_orders WHERE status NOT IN ('completed','cancelled','shipped')")->fetchColumn(),
-    'in_progress'  => (int)$pdo->query("SELECT COUNT(*) FROM pwf_orders WHERE status IN ('on_progress','partial_ship')")->fetchColumn(),
-    'ready_ship'   => (int)$pdo->query("SELECT COUNT(*) FROM pwf_orders WHERE status IN ('ready_ship','completed')")->fetchColumn(),
+    'customers'    => 0,
+    'active_orders' => 0,
+    'in_progress'  => 0,
+    'ready_ship'   => 0,
 ];
+try {
+    $stats['customers']     = (int)$pdo->query('SELECT COUNT(*) FROM pwf_customers')->fetchColumn();
+    $stats['active_orders'] = (int)$pdo->query("SELECT COUNT(*) FROM pwf_orders WHERE status NOT IN ('completed','cancelled','shipped')")->fetchColumn();
+    $stats['in_progress']   = (int)$pdo->query("SELECT COUNT(*) FROM pwf_orders WHERE status IN ('on_progress','partial_ship')")->fetchColumn();
+    $stats['ready_ship']    = (int)$pdo->query("SELECT COUNT(*) FROM pwf_orders WHERE status IN ('ready_ship','completed')")->fetchColumn();
+} catch (PDOException $e) {
+    error_log('PWF dashboard stat query failed: ' . $e->getMessage());
+}
 
 // ── Production breakdown: only active production (exclude shipped) ─────────
 $prodBreakdown = $pdo->query("

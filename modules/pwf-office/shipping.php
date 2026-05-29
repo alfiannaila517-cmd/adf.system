@@ -38,7 +38,7 @@ if (isset($_GET['print']) && (int)$_GET['print'] > 0) {
         exit;
     }
 
-    $items = $pdo->query("
+    $itemsStmt = $pdo->prepare("
         SELECT ci.qty_shipped, ci.notes AS item_notes,
                o.order_code, o.product_name, o.specification, o.dimensions, o.quantity, o.qty_done,
                COALESCE((SELECT SUM(qty_shipped) FROM pwf_container_items WHERE order_id=o.id),0) AS total_all_shipped,
@@ -46,9 +46,11 @@ if (isset($_GET['print']) && (int)$_GET['print'] > 0) {
         FROM pwf_container_items ci
         JOIN pwf_orders o ON o.id=ci.order_id
         LEFT JOIN pwf_customers c ON c.id=o.customer_id
-        WHERE ci.container_id=$cid
+        WHERE ci.container_id=?
         ORDER BY c.customer_name ASC, ci.id ASC
-    ")->fetchAll();
+    ");
+    $itemsStmt->execute([$cid]);
+    $items = $itemsStmt->fetchAll();
 
     $ci = getCoInfo($pdo);
     $companyName  = $ci['pwf_company_name']    ?? 'Prapen Wood Furniture';
@@ -86,7 +88,7 @@ if (isset($_GET['print_cust']) && (int)$_GET['print_cust'] > 0 && isset($_GET['c
         exit;
     }
 
-    $items = $pdo->query("
+    $itemsStmt = $pdo->prepare("
         SELECT ci.qty_shipped, ci.notes AS item_notes,
                o.order_code, o.product_name, o.specification, o.dimensions, o.quantity, o.qty_done,
                COALESCE((SELECT SUM(qty_shipped) FROM pwf_container_items WHERE order_id=o.id),0) AS total_all_shipped,
@@ -94,9 +96,11 @@ if (isset($_GET['print_cust']) && (int)$_GET['print_cust'] > 0 && isset($_GET['c
         FROM pwf_container_items ci
         JOIN pwf_orders o ON o.id=ci.order_id
         LEFT JOIN pwf_customers c ON c.id=o.customer_id
-        WHERE ci.container_id=$cid AND o.customer_id=$custId
+        WHERE ci.container_id=? AND o.customer_id=?
         ORDER BY ci.id ASC
-    ")->fetchAll();
+    ");
+    $itemsStmt->execute([$cid, $custId]);
+    $items = $itemsStmt->fetchAll();
 
     if (empty($items)) {
         echo 'No items for this customer in this container.';
@@ -138,26 +142,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $notes     = trim($_POST['notes'] ?? '');
 
         $ym  = date('Ym');
-        $cnt = (int)$pdo->query("SELECT COUNT(*) FROM pwf_containers WHERE container_code LIKE 'CTN-$ym-%'")->fetchColumn() + 1;
-        $code = sprintf('CTN-%s-%03d', $ym, $cnt);
+        $pdo->beginTransaction();
+        try {
+            $stmtCnt = $pdo->prepare("SELECT COUNT(*) FROM pwf_containers WHERE container_code LIKE ?");
+            $stmtCnt->execute(['CTN-' . $ym . '-%']);
+            $cnt = (int)$stmtCnt->fetchColumn() + 1;
+            $code = sprintf('CTN-%s-%03d', $ym, $cnt);
 
-        $pdo->prepare('INSERT INTO pwf_containers (container_code,container_no,container_type,shipment_date,destination_country,destination_port,forwarder,tracking_no,bl_no,status,notes,created_by)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
-            ->execute([$code, $cno, $ctype, $shipDate, $country, $port, $forwarder, $tracking, $blno, $status, $notes, $_SESSION['user_id'] ?? null]);
-        $containerId = (int)$pdo->lastInsertId();
+            $pdo->prepare('INSERT INTO pwf_containers (container_code,container_no,container_type,shipment_date,destination_country,destination_port,forwarder,tracking_no,bl_no,status,notes,created_by)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
+                ->execute([$code, $cno, $ctype, $shipDate, $country, $port, $forwarder, $tracking, $blno, $status, $notes, $_SESSION['user_id'] ?? null]);
+            $containerId = (int)$pdo->lastInsertId();
+            $pdo->commit();
+        } catch (Exception $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            header("Location: shipping.php?err=" . urlencode('Failed to create container: ' . $e->getMessage()));
+            exit;
+        }
 
         $orderIds = (array)($_POST['order_ids'] ?? []);
         $qtys     = (array)($_POST['qty_shipped'] ?? []);
+        $qOrderQty   = $pdo->prepare("SELECT quantity FROM pwf_orders WHERE id=?");
+        $qShipped    = $pdo->prepare("SELECT COALESCE(SUM(qty_shipped),0) FROM pwf_container_items WHERE order_id=?");
+        $insertItem  = $pdo->prepare('INSERT INTO pwf_container_items (container_id,order_id,qty_shipped) VALUES (?,?,?)');
+        $updStatus   = $pdo->prepare("UPDATE pwf_orders SET status=?, updated_at=NOW() WHERE id=?");
         foreach ($orderIds as $k => $oid) {
             $oid = (int)$oid;
             $qty = max(0, (float)($qtys[$k] ?? 0));
             if ($oid > 0 && $qty > 0) {
-                $pdo->prepare('INSERT INTO pwf_container_items (container_id,order_id,qty_shipped) VALUES (?,?,?)')
-                    ->execute([$containerId, $oid, $qty]);
-                $orderQty     = (float)$pdo->query("SELECT quantity FROM pwf_orders WHERE id=$oid")->fetchColumn();
-                $totalShipped = (float)$pdo->query("SELECT COALESCE(SUM(qty_shipped),0) FROM pwf_container_items WHERE order_id=$oid")->fetchColumn();
+                $insertItem->execute([$containerId, $oid, $qty]);
+                $qOrderQty->execute([$oid]);
+                $orderQty     = (float)$qOrderQty->fetchColumn();
+                $qShipped->execute([$oid]);
+                $totalShipped = (float)$qShipped->fetchColumn();
                 $ns = ($totalShipped >= $orderQty) ? 'shipped' : 'partial_ship';
-                $pdo->prepare("UPDATE pwf_orders SET status=?, updated_at=NOW() WHERE id=?")->execute([$ns, $oid]);
+                $updStatus->execute([$ns, $oid]);
             }
         }
         $msg = "Container $code successfully created!";
@@ -170,18 +189,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $notes = trim($_POST['item_notes'] ?? '');
         if ($cid > 0 && $oid > 0 && $qty > 0) {
             // ── Duplicate guard: same order already in this container
-            $alreadyIn = (int)$pdo->prepare('SELECT COUNT(*) FROM pwf_container_items WHERE container_id=? AND order_id=?')
-                ->execute([$cid,$oid]) ? $pdo->query("SELECT COUNT(*) FROM pwf_container_items WHERE container_id=$cid AND order_id=$oid")->fetchColumn() : 0;
+            $stmtDup = $pdo->prepare('SELECT COUNT(*) FROM pwf_container_items WHERE container_id=? AND order_id=?');
+            $stmtDup->execute([$cid, $oid]);
+            $alreadyIn = (int)$stmtDup->fetchColumn();
             if ($alreadyIn > 0) {
                 $msg = 'This order is already in this container. Choose a different order.';
                 header("Location: shipping.php?err=" . urlencode($msg));
                 exit;
             } else {
                 // ── Qty guard: cannot ship more than available (qty_done - already_shipped)
-                $orderRow     = $pdo->query("SELECT quantity, qty_done FROM pwf_orders WHERE id=$oid")->fetch();
+                $stmtOrd = $pdo->prepare("SELECT quantity, qty_done FROM pwf_orders WHERE id=?");
+                $stmtOrd->execute([$oid]);
+                $orderRow     = $stmtOrd->fetch();
+                if (!$orderRow) {
+                    $msg = 'Order not found.';
+                    header("Location: shipping.php?err=" . urlencode($msg));
+                    exit;
+                }
                 $orderQty     = (float)($orderRow['quantity'] ?? 0);
                 $qtyDone      = (float)($orderRow['qty_done'] ?? 0);
-                $totalShipped = (float)$pdo->query("SELECT COALESCE(SUM(qty_shipped),0) FROM pwf_container_items WHERE order_id=$oid")->fetchColumn();
+                $stmtSh = $pdo->prepare("SELECT COALESCE(SUM(qty_shipped),0) FROM pwf_container_items WHERE order_id=?");
+                $stmtSh->execute([$oid]);
+                $totalShipped = (float)$stmtSh->fetchColumn();
                 $maxAllowed   = max(0, $qtyDone - $totalShipped);
                 if ($qty > $maxAllowed) {
                     $msg = "Cannot ship {$qty} pcs — only {$maxAllowed} pcs available (prod done: {$qtyDone}, already shipped: {$totalShipped}).";
@@ -219,22 +248,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $cid = (int)($_POST['container_id'] ?? 0);
         if ($cid > 0) {
             // Revert order statuses for all items in this container
-            $orderIds = $pdo->query("SELECT DISTINCT order_id FROM pwf_container_items WHERE container_id=$cid")->fetchAll(PDO::FETCH_COLUMN);
+            $stmtOids = $pdo->prepare("SELECT DISTINCT order_id FROM pwf_container_items WHERE container_id=?");
+            $stmtOids->execute([$cid]);
+            $orderIds = $stmtOids->fetchAll(PDO::FETCH_COLUMN);
             // First delete the container items
             $pdo->prepare('DELETE FROM pwf_container_items WHERE container_id=?')->execute([$cid]);
             // Re-evaluate each order's status
+            $qOrderQty = $pdo->prepare("SELECT quantity FROM pwf_orders WHERE id=?");
+            $qShipped  = $pdo->prepare("SELECT COALESCE(SUM(qty_shipped),0) FROM pwf_container_items WHERE order_id=?");
+            $qDone     = $pdo->prepare("SELECT qty_done FROM pwf_orders WHERE id=?");
+            $uStatus   = $pdo->prepare('UPDATE pwf_orders SET status=?, updated_at=NOW() WHERE id=?');
             foreach ($orderIds as $oid) {
                 $oid = (int)$oid;
-                $orderQty     = (float)$pdo->query("SELECT quantity FROM pwf_orders WHERE id=$oid")->fetchColumn();
-                $totalShipped = (float)$pdo->query("SELECT COALESCE(SUM(qty_shipped),0) FROM pwf_container_items WHERE order_id=$oid")->fetchColumn();
+                $qOrderQty->execute([$oid]);
+                $orderQty     = (float)$qOrderQty->fetchColumn();
+                $qShipped->execute([$oid]);
+                $totalShipped = (float)$qShipped->fetchColumn();
                 if ($totalShipped <= 0) {
                     // No shipments remaining — revert to ready_ship if qty_done >= qty, else on_progress
-                    $qtyDone = (float)$pdo->query("SELECT qty_done FROM pwf_orders WHERE id=$oid")->fetchColumn();
+                    $qDone->execute([$oid]);
+                    $qtyDone = (float)$qDone->fetchColumn();
                     $revert = ($qtyDone >= $orderQty) ? 'ready_ship' : 'on_progress';
                 } else {
                     $revert = ($totalShipped >= $orderQty) ? 'shipped' : 'partial_ship';
                 }
-                $pdo->prepare('UPDATE pwf_orders SET status=?, updated_at=NOW() WHERE id=?')->execute([$revert, $oid]);
+                $uStatus->execute([$revert, $oid]);
             }
             $pdo->prepare('DELETE FROM pwf_containers WHERE id=?')->execute([$cid]);
             $msg = 'Container deleted and order statuses have been reverted.';
@@ -267,8 +305,11 @@ $readyOrders = $pdo->query("
 $readyCustIds = array_unique(array_column($readyOrders, 'customer_id'));
 $customers = [];
 if (!empty($readyCustIds)) {
-    $inStr = implode(',', array_map('intval', $readyCustIds));
-    $customers = $pdo->query("SELECT id,customer_name FROM pwf_customers WHERE id IN ($inStr) ORDER BY customer_name")->fetchAll();
+    $intIds = array_map('intval', $readyCustIds);
+    $ph = implode(',', array_fill(0, count($intIds), '?'));
+    $stmt = $pdo->prepare("SELECT id,customer_name FROM pwf_customers WHERE id IN ($ph) ORDER BY customer_name");
+    $stmt->execute($intIds);
+    $customers = $stmt->fetchAll();
 }
 
 $containers = $pdo->query("
