@@ -223,6 +223,22 @@ if (php_sapi_name() !== 'cli') {
                     $_SESSION['active_business_id'] = $__domainBiz['slug'];
                     unset($_SESSION['business_id']); // will be re-resolved below
                 }
+
+                // ── Auto-redirect root requests to the business landing page ──
+                // Map: business slug → landing file at project root
+                $__landingMap = [
+                    'pwf-furniture' => '/pwf-login.php',
+                    // add more: 'cqc-construction' => '/cqc.php', etc.
+                ];
+                $__landing = $__landingMap[$__domainBiz['slug']] ?? null;
+                $__reqUri  = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+                $__isRoot  = ($__reqUri === '/' || $__reqUri === '/index.php');
+                if ($__landing && $__isRoot) {
+                    $__proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+                    header('Location: ' . $__proto . '://' . $_SERVER['HTTP_HOST'] . $__landing);
+                    exit;
+                }
+                unset($__landingMap, $__landing, $__reqUri, $__isRoot);
             }
             unset($__domainPdo, $__domainStmt, $__domainBiz);
         } catch (Exception $__e) {
