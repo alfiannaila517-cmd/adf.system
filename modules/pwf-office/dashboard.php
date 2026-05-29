@@ -101,7 +101,7 @@ $barTotal     = array_map(fn($r) => round((float)$r['total_qty'], 2), $custProg)
 
 // ── Completed orders (100% done, not yet shipped in container) ────────────────
 $completedOrders = $pdo->query("
-    SELECT o.order_code, o.product_name, o.specification, o.quantity, o.qty_done,
+    SELECT o.id, o.order_code, o.product_name, o.specification, o.quantity, o.qty_done,
            COALESCE((SELECT SUM(ci.qty_shipped) FROM pwf_container_items ci WHERE ci.order_id=o.id),0) AS qty_shipped,
            c.customer_name, t.craftsman_name, o.due_date, o.status
     FROM pwf_orders o
@@ -113,7 +113,7 @@ $completedOrders = $pdo->query("
 
 // ── In-progress orders (still being produced) ────────────────────────────────
 $inProgressOrders = $pdo->query("
-    SELECT o.order_code, o.product_name, o.specification, o.quantity, o.qty_done,
+    SELECT o.id, o.order_code, o.product_name, o.specification, o.quantity, o.qty_done,
            o.progress_percent, o.status, o.due_date,
            COALESCE((SELECT SUM(ci.qty_shipped) FROM pwf_container_items ci WHERE ci.order_id=o.id),0) AS qty_shipped,
            c.customer_name, t.craftsman_name
@@ -140,6 +140,42 @@ $containerHistory = $pdo->query("
     ORDER BY ct.id DESC
     LIMIT 15
 ")->fetchAll();
+
+$completedOrderMap = [];
+foreach ($completedOrders as $r) {
+    $completedOrderMap[(int)$r['id']] = [
+        'id' => (int)$r['id'],
+        'order_code' => $r['order_code'],
+        'product_name' => $r['product_name'],
+        'specification' => $r['specification'],
+        'customer_name' => $r['customer_name'],
+        'craftsman_name' => $r['craftsman_name'],
+        'status' => $r['status'],
+        'quantity' => (float)$r['quantity'],
+        'qty_done' => (float)$r['qty_done'],
+        'qty_shipped' => (float)$r['qty_shipped'],
+        'due_date' => $r['due_date'],
+        'progress_percent' => 100,
+    ];
+}
+
+$progressOrderMap = [];
+foreach ($inProgressOrders as $r) {
+    $progressOrderMap[(int)$r['id']] = [
+        'id' => (int)$r['id'],
+        'order_code' => $r['order_code'],
+        'product_name' => $r['product_name'],
+        'specification' => $r['specification'],
+        'customer_name' => $r['customer_name'],
+        'craftsman_name' => $r['craftsman_name'],
+        'status' => $r['status'],
+        'quantity' => (float)$r['quantity'],
+        'qty_done' => (float)$r['qty_done'],
+        'qty_shipped' => (float)$r['qty_shipped'],
+        'due_date' => $r['due_date'],
+        'progress_percent' => (int)$r['progress_percent'],
+    ];
+}
 
 pwfOfficeHeader('Dashboard', 'dashboard');
 ?>
@@ -256,218 +292,166 @@ pwfOfficeHeader('Dashboard', 'dashboard');
 
 </div>
 
-<!-- ══ COMPLETED (100%) ══════════════════════════════════════════════════════ -->
-<div class="pwf-card" style="margin-bottom:20px;border-left:4px solid #15803D">
-    <div class="pwf-card-header" style="background:rgba(21,128,61,.05)">
-        <i class="bi bi-check2-all me-2" style="color:#15803D"></i>
-        <span style="font-weight:700;color:#15803D">Completed — Ready to Ship</span>
-        <span style="margin-left:auto;font-size:11px;background:#F0FDF4;color:#15803D;padding:3px 10px;border-radius:20px;font-weight:700">
-            <?= count($completedOrders) ?> order<?= count($completedOrders) != 1 ? 's' : '' ?>
-        </span>
+<!-- ══ INTERACTIVE BOARD (Orders-style Columns) ═════════════════════════════ -->
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;margin-bottom:20px">
+
+    <div class="pwf-card" style="display:flex;flex-direction:column;min-height:420px">
+        <div class="pwf-card-header" style="padding:10px 14px;background:rgba(21,128,61,.05)">
+            <i class="bi bi-check2-circle me-2" style="color:#15803D"></i>
+            <span style="font-weight:700;color:#15803D">Ready / Completed</span>
+            <span style="margin-left:auto;font-size:11px;background:#F0FDF4;color:#15803D;padding:3px 10px;border-radius:20px;font-weight:700">
+                <?= count($completedOrders) ?>
+            </span>
+        </div>
+        <div style="padding:10px;display:flex;flex-direction:column;gap:8px;max-height:390px;overflow:auto">
+            <?php if (empty($completedOrders)): ?>
+                <div style="text-align:center;color:var(--muted);padding:24px 10px;font-size:12px">Belum ada order ready/completed.</div>
+            <?php else: ?>
+                <?php foreach ($completedOrders as $r):
+                    $remainReady = max(0, (float)$r['qty_done'] - (float)$r['qty_shipped']);
+                ?>
+                    <button type="button"
+                        onclick="openDashboardOrder(<?= (int)$r['id'] ?>, 'completed')"
+                        style="text-align:left;background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px;cursor:pointer;display:block;width:100%">
+                        <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
+                            <div>
+                                <div style="font-size:11px;font-weight:700;color:var(--gold);font-family:monospace"><?= htmlspecialchars($r['order_code']) ?></div>
+                                <div style="font-size:13px;font-weight:700;color:var(--text)"><?= htmlspecialchars($r['product_name']) ?></div>
+                                <div style="font-size:11px;color:var(--muted);margin-top:2px"><i class="bi bi-person"></i> <?= htmlspecialchars($r['customer_name'] ?? '—') ?></div>
+                            </div>
+                            <span style="font-size:10px;font-weight:700;color:#15803D;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:20px;padding:2px 8px">Ready</span>
+                        </div>
+                        <div style="margin-top:8px;font-size:11px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap">
+                            <span><i class="bi bi-box-seam"></i> <?= fmtQty($r['quantity']) ?> pcs</span>
+                            <span><i class="bi bi-truck"></i> shipped: <?= fmtQty($r['qty_shipped']) ?></span>
+                            <span><i class="bi bi-hourglass-split"></i> remain: <?= fmtQty($remainReady) ?></span>
+                        </div>
+                    </button>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </div>
     </div>
-    <?php if (empty($completedOrders)): ?>
-        <div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">
-            <i class="bi bi-inbox" style="font-size:24px;display:block;margin-bottom:6px"></i>
-            No completed orders yet.
+
+    <div class="pwf-card" style="display:flex;flex-direction:column;min-height:420px">
+        <div class="pwf-card-header" style="padding:10px 14px;background:rgba(194,65,12,.05)">
+            <i class="bi bi-hammer me-2" style="color:#C2410C"></i>
+            <span style="font-weight:700;color:#C2410C">In Production</span>
+            <span style="margin-left:auto;font-size:11px;background:#FFF7ED;color:#C2410C;padding:3px 10px;border-radius:20px;font-weight:700">
+                <?= count($inProgressOrders) ?>
+            </span>
         </div>
-    <?php else: ?>
-        <div style="padding:0">
-            <table class="pwf-table">
-                <thead>
-                    <tr>
-                        <th>Order</th>
-                        <th>Customer</th>
-                        <th>Product</th>
-                        <th>Craftsman</th>
-                        <th style="text-align:center">PO Qty</th>
-                        <th style="text-align:center">Done</th>
-                        <th style="text-align:center">Shipped</th>
-                        <th style="text-align:center">Remaining</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($completedOrders as $r):
-                        $remaining = max(0, (float)$r['qty_done'] - (float)$r['qty_shipped']);
-                    ?>
-                        <tr>
-                            <td><code style="font-size:12px;color:var(--gold)"><?= htmlspecialchars($r['order_code']) ?></code></td>
-                            <td style="font-weight:600"><?= htmlspecialchars($r['customer_name'] ?? '—') ?></td>
-                            <td>
-                                <div style="font-weight:600"><?= htmlspecialchars($r['product_name']) ?></div>
-                                <?php if ($r['specification']): ?><div style="font-size:10.5px;color:var(--muted)"><?= htmlspecialchars(mb_substr($r['specification'], 0, 40)) ?></div><?php endif; ?>
-                            </td>
-                            <td style="font-size:12px"><?= htmlspecialchars($r['craftsman_name'] ?? '—') ?></td>
-                            <td style="text-align:center;font-weight:700"><?= rtrim(rtrim(number_format((float)$r['quantity'], 2), '0'), '.') ?></td>
-                            <td style="text-align:center;font-weight:700;color:#15803D"><?= rtrim(rtrim(number_format((float)$r['qty_done'], 2), '0'), '.') ?></td>
-                            <td style="text-align:center;color:var(--muted)"><?= (float)$r['qty_shipped'] > 0 ? rtrim(rtrim(number_format((float)$r['qty_shipped'], 2), '0'), '.') : '–' ?></td>
-                            <td style="text-align:center">
-                                <span style="font-weight:800;font-size:14px;color:<?= $remaining > 0 ? '#3b82f6' : '#9ca3af' ?>">
-                                    <?= $remaining > 0 ? rtrim(rtrim(number_format($remaining, 2), '0'), '.') : '–' ?>
-                                </span>
-                            </td>
-                            <td><span class="status-badge status-<?= $r['status'] ?>"><?= str_replace('_', ' ', ucfirst($r['status'])) ?></span></td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+        <div style="padding:10px;display:flex;flex-direction:column;gap:8px;max-height:390px;overflow:auto">
+            <?php if (empty($inProgressOrders)): ?>
+                <div style="text-align:center;color:var(--muted);padding:24px 10px;font-size:12px">Tidak ada proses aktif.</div>
+            <?php else: ?>
+                <?php foreach ($inProgressOrders as $r):
+                    $pct = (int)$r['progress_percent'];
+                    $remainProd = max(0, (float)$r['quantity'] - (float)$r['qty_done']);
+                    $barColor = $pct >= 100 ? '#15803D' : ($pct >= 60 ? '#D4A017' : '#C2410C');
+                ?>
+                    <button type="button"
+                        onclick="openDashboardOrder(<?= (int)$r['id'] ?>, 'progress')"
+                        style="text-align:left;background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px;cursor:pointer;display:block;width:100%">
+                        <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
+                            <div>
+                                <div style="font-size:11px;font-weight:700;color:var(--gold);font-family:monospace"><?= htmlspecialchars($r['order_code']) ?></div>
+                                <div style="font-size:13px;font-weight:700;color:var(--text)"><?= htmlspecialchars($r['product_name']) ?></div>
+                                <div style="font-size:11px;color:var(--muted);margin-top:2px"><i class="bi bi-person"></i> <?= htmlspecialchars($r['customer_name'] ?? '—') ?></div>
+                            </div>
+                            <span style="font-size:10px;font-weight:700;color:#C2410C;background:#FFF7ED;border:1px solid #FED7AA;border-radius:20px;padding:2px 8px"><?= $pct ?>%</span>
+                        </div>
+                        <div style="height:6px;background:var(--border);border-radius:20px;overflow:hidden;margin-top:8px">
+                            <div style="width:<?= $pct ?>%;height:100%;background:<?= $barColor ?>"></div>
+                        </div>
+                        <div style="margin-top:7px;font-size:11px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap">
+                            <span><i class="bi bi-box-seam"></i> <?= fmtQty($r['quantity']) ?> pcs</span>
+                            <span><i class="bi bi-check2-circle"></i> done: <?= fmtQty($r['qty_done']) ?></span>
+                            <span><i class="bi bi-hourglass-split"></i> remain: <?= fmtQty($remainProd) ?></span>
+                        </div>
+                    </button>
+                <?php endforeach; ?>
+            <?php endif; ?>
         </div>
-    <?php endif; ?>
+    </div>
+
+    <div class="pwf-card" style="display:flex;flex-direction:column;min-height:420px">
+        <div class="pwf-card-header" style="padding:10px 14px;background:rgba(59,130,246,.08)">
+            <i class="bi bi-archive me-2" style="color:#1D4ED8"></i>
+            <span style="font-weight:700;color:#1D4ED8">Arsip Container</span>
+            <span style="margin-left:auto;font-size:11px;background:#EFF6FF;color:#1D4ED8;padding:3px 10px;border-radius:20px;font-weight:700">
+                <?= count($containerHistory) ?>
+            </span>
+        </div>
+        <div style="padding:10px;display:flex;flex-direction:column;gap:8px;max-height:390px;overflow:auto">
+            <?php if (empty($containerHistory)): ?>
+                <div style="text-align:center;color:var(--muted);padding:24px 10px;font-size:12px">Belum ada data container.</div>
+            <?php else: ?>
+                <?php foreach ($containerHistory as $ct): ?>
+                    <div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px">
+                        <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
+                            <div>
+                                <div style="font-size:12px;font-weight:700;color:var(--gold);font-family:monospace"><?= htmlspecialchars($ct['container_code']) ?></div>
+                                <div style="font-size:11px;color:var(--muted);margin-top:2px"><i class="bi bi-calendar-event"></i> <?= date('d M Y', strtotime($ct['shipment_date'])) ?></div>
+                            </div>
+                            <span style="font-size:10px;font-weight:700;color:#1D4ED8;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:20px;padding:2px 8px"><?= strtoupper(htmlspecialchars($ct['container_type'])) ?></span>
+                        </div>
+                        <div style="margin-top:7px;font-size:11px;color:var(--muted);line-height:1.45">
+                            <div><i class="bi bi-geo-alt"></i> <?= htmlspecialchars($ct['destination_country'] ?: '—') ?><?= $ct['destination_port'] ? ' / '.htmlspecialchars($ct['destination_port']) : '' ?></div>
+                            <div><i class="bi bi-people"></i> <?= htmlspecialchars($ct['customers'] ?: '—') ?></div>
+                            <div><i class="bi bi-box-seam"></i> <?= (int)$ct['item_count'] ?> item · <?= fmtQty($ct['total_qty']) ?> pcs</div>
+                        </div>
+                        <div style="margin-top:8px;display:flex;gap:6px;justify-content:flex-end">
+                            <button type="button" onclick="openContainerArchive(<?= (int)$ct['id'] ?>)"
+                                style="font-size:11px;background:#EFF6FF;color:#1D4ED8;border:1px solid #BFDBFE;border-radius:6px;padding:4px 9px;font-weight:600;display:inline-flex;align-items:center;gap:4px;cursor:pointer">
+                                <i class="bi bi-eye"></i> Detail
+                            </button>
+                            <a href="shipping.php?print=<?= (int)$ct['id'] ?>" target="_blank"
+                                style="font-size:11px;color:var(--gold);text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border:1px solid var(--border);border-radius:6px">
+                                <i class="bi bi-printer"></i> Print
+                            </a>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </div>
+    </div>
+
 </div>
 
-<!-- ══ IN PROGRESS ═══════════════════════════════════════════════════════════ -->
-<div class="pwf-card" style="margin-bottom:20px;border-left:4px solid #C2410C">
-    <div class="pwf-card-header" style="background:rgba(194,65,12,.05)">
-        <i class="bi bi-hammer me-2" style="color:#C2410C"></i>
-        <span style="font-weight:700;color:#C2410C">In Production</span>
-        <span style="margin-left:auto;font-size:11px;background:#FFF7ED;color:#C2410C;padding:3px 10px;border-radius:20px;font-weight:700">
-            <?= count($inProgressOrders) ?> order<?= count($inProgressOrders) != 1 ? 's' : '' ?>
-        </span>
+<!-- ══ ORDER DETAIL MODAL ═══════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="dashboardOrderModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.42);z-index:9490;align-items:center;justify-content:center;padding:18px">
+    <div style="width:min(760px,96vw);max-height:90vh;overflow:auto;background:#fff;border-radius:14px;border:1px solid var(--border);box-shadow:0 24px 80px rgba(0,0,0,.25)">
+        <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:10px;position:sticky;top:0;background:#fff;z-index:1">
+            <div>
+                <div id="doTitle" style="font-size:15px;font-weight:800;color:var(--text)">Detail Pesanan</div>
+                <div id="doCode" style="font-size:11px;color:var(--muted);margin-top:2px;font-family:monospace"></div>
+            </div>
+            <button type="button" onclick="closeDashboardOrder()" style="border:1px solid var(--border);background:#fff;border-radius:7px;padding:4px 8px;font-size:16px;line-height:1;cursor:pointer">&times;</button>
+        </div>
+        <div style="padding:14px 18px">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px">
+                <div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:#FAFAF9"><div style="font-size:10px;color:var(--muted);text-transform:uppercase">Customer</div><div id="doCustomer" style="font-size:13px;font-weight:700;color:var(--text);margin-top:2px">—</div></div>
+                <div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:#FAFAF9"><div style="font-size:10px;color:var(--muted);text-transform:uppercase">Craftsman</div><div id="doCraftsman" style="font-size:13px;font-weight:700;color:var(--text);margin-top:2px">—</div></div>
+                <div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:#FAFAF9"><div style="font-size:10px;color:var(--muted);text-transform:uppercase">Deadline</div><div id="doDue" style="font-size:13px;font-weight:700;color:var(--text);margin-top:2px">—</div></div>
+                <div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:#FAFAF9"><div style="font-size:10px;color:var(--muted);text-transform:uppercase">Status</div><div id="doStatus" style="font-size:13px;font-weight:700;color:var(--text);margin-top:2px">—</div></div>
+            </div>
+            <div style="margin-top:12px;border:1px solid var(--border);border-radius:10px;padding:12px;background:#fff">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                    <span style="font-size:11px;color:var(--muted)">Progress Produksi</span>
+                    <span id="doPct" style="font-size:12px;font-weight:700;color:#C2410C">0%</span>
+                </div>
+                <div style="height:7px;background:var(--border);border-radius:20px;overflow:hidden">
+                    <div id="doBar" style="width:0%;height:100%;background:#C2410C"></div>
+                </div>
+                <div id="doQty" style="font-size:11px;color:var(--muted);margin-top:7px"></div>
+            </div>
+            <div style="margin-top:12px;border:1px solid var(--border);border-radius:10px;padding:10px;background:#FAFAF9">
+                <div style="font-size:10px;color:var(--muted);text-transform:uppercase;margin-bottom:4px">Produk</div>
+                <div id="doProduct" style="font-size:13px;font-weight:700;color:var(--text)">—</div>
+                <div id="doSpec" style="font-size:11px;color:var(--muted);margin-top:3px;white-space:pre-line"></div>
+            </div>
+        </div>
     </div>
-    <?php if (empty($inProgressOrders)): ?>
-        <div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">
-            <i class="bi bi-inbox" style="font-size:24px;display:block;margin-bottom:6px"></i>
-            No orders currently in production.
-        </div>
-    <?php else: ?>
-        <div style="padding:0">
-            <table class="pwf-table">
-                <thead>
-                    <tr>
-                        <th>Order</th>
-                        <th>Customer</th>
-                        <th>Product</th>
-                        <th>Craftsman</th>
-                        <th style="text-align:center">PO Qty</th>
-                        <th style="text-align:center">Done</th>
-                        <th style="text-align:center">Remaining</th>
-                        <th>Progress</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($inProgressOrders as $r):
-                        $pct      = (int)$r['progress_percent'];
-                        $remaining = max(0, (float)$r['quantity'] - (float)$r['qty_done']);
-                        $barColor = $pct >= 100 ? '#15803D' : ($pct >= 60 ? '#D4A017' : '#C2410C');
-                        $isOverdue = $r['due_date'] && strtotime($r['due_date']) < time() && !in_array($r['status'], ['completed', 'shipped']);
-                        $statusMap = ['draft' => ['Draft', 'status-draft'], 'on_progress' => ['In Progress', 'status-on_progress'], 'partial_ship' => ['Partial Ship', 'status-partial_ship'], 'qc' => ['QC', 'status-qc']];
-                        $sl = $statusMap[$r['status']] ?? [ucfirst($r['status']), ''];
-                    ?>
-                        <tr>
-                            <td>
-                                <code style="font-size:11.5px;color:var(--gold)"><?= htmlspecialchars($r['order_code']) ?></code>
-                                <?php if ($isOverdue): ?><div><span style="font-size:9.5px;background:#FEF2F2;color:#991B1B;border-radius:4px;padding:1px 5px;font-weight:600">Overdue</span></div><?php endif; ?>
-                            </td>
-                            <td style="font-weight:600"><?= htmlspecialchars($r['customer_name'] ?? '—') ?></td>
-                            <td>
-                                <div style="font-weight:600"><?= htmlspecialchars($r['product_name']) ?></div>
-                                <?php if ($r['specification']): ?><div style="font-size:10.5px;color:var(--muted)"><?= htmlspecialchars(mb_substr($r['specification'], 0, 40)) ?></div><?php endif; ?>
-                            </td>
-                            <td style="font-size:12px"><?= htmlspecialchars($r['craftsman_name'] ?? '—') ?></td>
-                            <td style="text-align:center;font-weight:700"><?= rtrim(rtrim(number_format((float)$r['quantity'], 2), '0'), '.') ?></td>
-                            <td style="text-align:center;font-weight:700;color:<?= $pct >= 100 ? '#15803D' : 'var(--text)' ?>">
-                                <?= rtrim(rtrim(number_format((float)$r['qty_done'], 2), '0'), '.') ?>
-                            </td>
-                            <td style="text-align:center;font-weight:700;color:<?= $remaining > 0 ? '#C2410C' : '#9ca3af' ?>">
-                                <?= $remaining > 0 ? rtrim(rtrim(number_format($remaining, 2), '0'), '.') : '–' ?>
-                            </td>
-                            <td style="min-width:120px">
-                                <div style="display:flex;align-items:center;gap:7px">
-                                    <div style="flex:1;height:7px;background:var(--border);border-radius:20px;overflow:hidden">
-                                        <div style="width:<?= $pct ?>%;height:100%;background:<?= $barColor ?>;border-radius:20px"></div>
-                                    </div>
-                                    <span style="font-size:11.5px;font-weight:700;color:<?= $barColor ?>;min-width:32px"><?= $pct ?>%</span>
-                                </div>
-                            </td>
-                            <td><span class="status-badge <?= $sl[1] ?>"><?= $sl[0] ?></span></td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    <?php endif; ?>
-</div>
-
-<!-- ══ CONTAINER SHIPPING HISTORY ═══════════════════════════════════════════ -->
-<div class="pwf-card" style="margin-bottom:20px">
-    <div class="pwf-card-header">
-        <i class="bi bi-archive me-2" style="color:var(--gold)"></i>
-        <span>Container Shipping History</span>
-        <span style="margin-left:auto;font-size:11px;color:var(--muted)"><?= count($containerHistory) ?> container<?= count($containerHistory) != 1 ? 's' : '' ?></span>
-    </div>
-    <?php if (empty($containerHistory)): ?>
-        <div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">
-            <i class="bi bi-inbox" style="font-size:24px;display:block;margin-bottom:6px"></i>
-            No containers created yet.
-        </div>
-    <?php else: ?>
-        <div style="padding:0">
-            <table class="pwf-table">
-                <thead>
-                    <tr>
-                        <th>Container Code</th>
-                        <th>Shipment Date</th>
-                        <th>Type</th>
-                        <th>Destination</th>
-                        <th>Forwarder</th>
-                        <th>Customers</th>
-                        <th style="text-align:center">Items</th>
-                        <th style="text-align:center">Total Qty</th>
-                        <th>Status</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($containerHistory as $ct):
-                        $ctBadge = match ($ct['ct_status']) {
-                            'draft'   => ['Draft',   '#6b7280', '#fff'],
-                            'booked'  => ['Booked',  '#3b82f6', '#fff'],
-                            'onboard' => ['On Board', '#8b5cf6', '#fff'],
-                            'arrived' => ['Arrived', '#15803D', '#fff'],
-                            'closed'  => ['Closed',  '#9ca3af', '#fff'],
-                            default   => [ucfirst($ct['ct_status']), '#6b7280', '#fff']
-                        };
-                    ?>
-                        <tr>
-                            <td>
-                                <code style="font-size:12px;font-weight:700;color:var(--gold)"><?= htmlspecialchars($ct['container_code']) ?></code>
-                                <?php if ($ct['container_no']): ?><div style="font-size:10.5px;color:var(--muted)"><?= htmlspecialchars($ct['container_no']) ?></div><?php endif; ?>
-                            </td>
-                            <td style="font-size:12px;font-weight:600"><?= date('d M Y', strtotime($ct['shipment_date'])) ?></td>
-                            <td style="font-weight:700;font-size:12px"><?= strtoupper(htmlspecialchars($ct['container_type'])) ?></td>
-                            <td style="font-size:12px">
-                                <?= htmlspecialchars($ct['destination_country'] ?: '—') ?>
-                                <?php if ($ct['destination_port']): ?><div style="font-size:10.5px;color:var(--muted)"><?= htmlspecialchars($ct['destination_port']) ?></div><?php endif; ?>
-                            </td>
-                            <td style="font-size:12px"><?= htmlspecialchars($ct['forwarder'] ?: '—') ?></td>
-                            <td style="font-size:12px;color:var(--muted)"><?= htmlspecialchars($ct['customers'] ?: '—') ?></td>
-                            <td style="text-align:center;font-weight:700"><?= (int)$ct['item_count'] ?></td>
-                            <td style="text-align:center;font-weight:700"><?= rtrim(rtrim(number_format((float)$ct['total_qty'], 2), '0'), '.') ?></td>
-                            <td>
-                                <span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;background:<?= $ctBadge[1] ?>;color:<?= $ctBadge[2] ?>">
-                                    <?= $ctBadge[0] ?>
-                                </span>
-                            </td>
-                            <td>
-                                <div style="display:flex;gap:6px;justify-content:flex-end">
-                                    <button type="button"
-                                        onclick="openContainerArchive(<?= (int)$ct['id'] ?>)"
-                                        style="font-size:11px;background:#EFF6FF;color:#1D4ED8;border:1px solid #BFDBFE;border-radius:6px;padding:4px 9px;font-weight:600;display:inline-flex;align-items:center;gap:4px;cursor:pointer">
-                                        <i class="bi bi-archive"></i> Arsip
-                                    </button>
-                                    <a href="shipping.php?print=<?= (int)$ct['id'] ?>" target="_blank"
-                                        style="font-size:11px;color:var(--gold);text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border:1px solid var(--border);border-radius:6px">
-                                        <i class="bi bi-printer"></i> Print
-                                    </a>
-                                </div>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    <?php endif; ?>
 </div>
 
 <!-- ══ CONTAINER ARCHIVE MODAL ══════════════════════════════════════════════ -->
@@ -511,6 +495,47 @@ pwfOfficeHeader('Dashboard', 'dashboard');
 <!-- ══ CHART.JS ══════════════════════════════════════════════════════════════ -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script>
+    const dashboardCompletedOrders = <?= json_encode($completedOrderMap, JSON_UNESCAPED_UNICODE) ?>;
+    const dashboardProgressOrders = <?= json_encode($progressOrderMap, JSON_UNESCAPED_UNICODE) ?>;
+
+    function fmtQtyDash(v) {
+        const n = parseFloat(v || 0);
+        return Number.isInteger(n) ? n.toFixed(0) : n.toFixed(2).replace(/\.00$/, '');
+    }
+
+    function openDashboardOrder(id, type) {
+        const src = type === 'completed' ? dashboardCompletedOrders : dashboardProgressOrders;
+        const o = src[String(id)] || src[id];
+        if (!o) return;
+
+        const pct = Math.max(0, Math.min(100, parseInt(o.progress_percent || 0, 10)));
+        const remain = Math.max(0, (parseFloat(o.quantity || 0) - parseFloat(o.qty_done || 0)));
+        const color = pct >= 100 ? '#15803D' : (pct >= 60 ? '#D4A017' : '#C2410C');
+        const statusText = String(o.status || 'draft').replace(/_/g, ' ');
+
+        document.getElementById('doTitle').textContent = o.product_name || 'Detail Pesanan';
+        document.getElementById('doCode').textContent = o.order_code || '';
+        document.getElementById('doCustomer').textContent = o.customer_name || '—';
+        document.getElementById('doCraftsman').textContent = o.craftsman_name || '—';
+        document.getElementById('doDue').textContent = fmtDateID(o.due_date);
+        document.getElementById('doStatus').textContent = statusText;
+        document.getElementById('doPct').textContent = pct + '%';
+        document.getElementById('doPct').style.color = color;
+        document.getElementById('doBar').style.width = pct + '%';
+        document.getElementById('doBar').style.background = color;
+        document.getElementById('doQty').textContent =
+            'Qty: ' + fmtQtyDash(o.qty_done) + ' / ' + fmtQtyDash(o.quantity) +
+            ' pcs · Sisa: ' + fmtQtyDash(remain) +
+            ' pcs · Shipped: ' + fmtQtyDash(o.qty_shipped || 0) + ' pcs';
+        document.getElementById('doProduct').textContent = o.product_name || '—';
+        document.getElementById('doSpec').textContent = o.specification || '';
+        document.getElementById('dashboardOrderModal').style.display = 'flex';
+    }
+
+    function closeDashboardOrder() {
+        document.getElementById('dashboardOrderModal').style.display = 'none';
+    }
+
     if (typeof Chart === 'undefined') {
         document.getElementById('donutPct').textContent = '—';
         document.getElementById('lbl-done').textContent = 'N/A';
@@ -805,6 +830,10 @@ pwfOfficeHeader('Dashboard', 'dashboard');
     function closeContainerArchive() {
         document.getElementById('containerArchiveModal').style.display = 'none';
     }
+
+    document.getElementById('dashboardOrderModal').addEventListener('click', function(e) {
+        if (e.target === this) closeDashboardOrder();
+    });
 
     document.getElementById('containerArchiveModal').addEventListener('click', function(e) {
         if (e.target === this) closeContainerArchive();
