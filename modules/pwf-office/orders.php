@@ -176,43 +176,53 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
 
 // ── AJAX: ORDER DETAIL ───────────────────────────────────────────────────────
 if (isset($_GET['ajax']) && $_GET['ajax'] === 'detail') {
+    ob_clean();
     header('Content-Type: application/json');
     $id = (int)($_GET['id'] ?? 0);
     if (!$id) { echo json_encode(['error' => 'Invalid ID']); exit; }
+    try {
+        $orderStmt = $pdo->prepare("
+            SELECT o.*, c.customer_name, t.craftsman_name
+            FROM pwf_orders o
+            LEFT JOIN pwf_customers c ON c.id=o.customer_id
+            LEFT JOIN pwf_craftsmen t ON t.id=o.assigned_craftsman_id
+            WHERE o.id=?");
+        $orderStmt->execute([$id]);
+        $orderDetail = $orderStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$orderDetail) { echo json_encode(['error' => 'Not found']); exit; }
 
-    $orderStmt = $pdo->prepare("
-        SELECT o.*, c.customer_name, t.craftsman_name
-        FROM pwf_orders o
-        LEFT JOIN pwf_customers c ON c.id=o.customer_id
-        LEFT JOIN pwf_craftsmen t ON t.id=o.assigned_craftsman_id
-        WHERE o.id=?");
-    $orderStmt->execute([$id]);
-    $orderDetail = $orderStmt->fetch(PDO::FETCH_ASSOC);
-    if (!$orderDetail) { echo json_encode(['error' => 'Not found']); exit; }
+        $progressLogs = [];
+        try {
+            $progStmt = $pdo->prepare("
+                SELECT p.progress_date, p.achievement_percent, p.work_note, t.craftsman_name
+                FROM pwf_order_progress p
+                LEFT JOIN pwf_craftsmen t ON t.id=p.craftsman_id
+                WHERE p.order_id=?
+                ORDER BY p.id DESC LIMIT 20");
+            $progStmt->execute([$id]);
+            $progressLogs = $progStmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Exception $e) { /* table may not exist */ }
 
-    $progStmt = $pdo->prepare("
-        SELECT p.progress_date, p.achievement_percent, p.work_note, t.craftsman_name
-        FROM pwf_order_progress p
-        LEFT JOIN pwf_craftsmen t ON t.id=p.craftsman_id
-        WHERE p.order_id=?
-        ORDER BY p.id DESC LIMIT 20");
-    $progStmt->execute([$id]);
-    $progressLogs = $progStmt->fetchAll(PDO::FETCH_ASSOC);
+        $shippingLogs = [];
+        try {
+            $shipStmt = $pdo->prepare("
+                SELECT ci.qty_shipped, ci.notes AS item_notes,
+                       co.container_code, co.container_no, co.container_type,
+                       co.shipment_date, co.destination_country, co.destination_port,
+                       co.forwarder, co.tracking_no, co.bl_no, co.status AS container_status,
+                       co.dropped_at
+                FROM pwf_container_items ci
+                JOIN pwf_containers co ON co.id=ci.container_id
+                WHERE ci.order_id=?
+                ORDER BY ci.id DESC");
+            $shipStmt->execute([$id]);
+            $shippingLogs = $shipStmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Exception $e) { /* table may not exist */ }
 
-    $shipStmt = $pdo->prepare("
-        SELECT ci.qty_shipped, ci.notes AS item_notes,
-               co.container_code, co.container_no, co.container_type,
-               co.shipment_date, co.destination_country, co.destination_port,
-               co.forwarder, co.tracking_no, co.bl_no, co.status AS container_status,
-               co.dropped_at
-        FROM pwf_container_items ci
-        JOIN pwf_containers co ON co.id=ci.container_id
-        WHERE ci.order_id=?
-        ORDER BY ci.id DESC");
-    $shipStmt->execute([$id]);
-    $shippingLogs = $shipStmt->fetchAll(PDO::FETCH_ASSOC);
-
-    echo json_encode(['order' => $orderDetail, 'progress' => $progressLogs, 'shipping' => $shippingLogs]);
+        echo json_encode(['order' => $orderDetail, 'progress' => $progressLogs, 'shipping' => $shippingLogs]);
+    } catch (Exception $e) {
+        echo json_encode(['error' => $e->getMessage()]);
+    }
     exit;
 }
 
@@ -1048,11 +1058,15 @@ pwfOfficeHeader('Orders', 'orders');
         fetch('orders.php?ajax=detail&id=' + orderId)
             .then(r => r.json())
             .then(data => {
+                if (data.error) {
+                    document.getElementById('dm_loading').innerHTML = '<div style="color:#991B1B;text-align:center;padding:40px"><i class="bi bi-exclamation-circle" style="font-size:28px;display:block;margin-bottom:8px"></i>' + data.error + '</div>';
+                    return;
+                }
                 _dmData = data;
                 renderDetail(data);
             })
-            .catch(() => {
-                document.getElementById('dm_loading').innerHTML = '<div style="color:#991B1B;text-align:center;padding:40px">Gagal memuat data.</div>';
+            .catch(err => {
+                document.getElementById('dm_loading').innerHTML = '<div style="color:#991B1B;text-align:center;padding:40px"><i class="bi bi-exclamation-circle" style="font-size:28px;display:block;margin-bottom:8px"></i>Gagal memuat data.</div>';
             });
     }
 
