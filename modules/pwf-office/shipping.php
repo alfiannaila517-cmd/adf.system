@@ -83,7 +83,7 @@ if (isset($_GET['print_cust']) && (int)$_GET['print_cust'] > 0 && isset($_GET['c
         ORDER BY ci.id ASC
     ")->fetchAll();
 
-    if (empty($items)) { echo 'Tidak ada item untuk customer ini di container ini.'; exit; }
+    if (empty($items)) { echo 'No items for this customer in this container.'; exit; }
 
     $ci = getCoInfo($pdo);
     $companyName  = $ci['pwf_company_name']    ?? 'Prapen Wood Furniture';
@@ -141,7 +141,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->prepare("UPDATE pwf_orders SET status=?, updated_at=NOW() WHERE id=?")->execute([$ns,$oid]);
             }
         }
-        $msg = "Container $code berhasil dibuat!";
+        $msg = "Container $code successfully created!";
         header("Location: shipping.php?msg=" . urlencode($msg));
         exit;
 
@@ -157,7 +157,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $totalShipped = (float)$pdo->query("SELECT COALESCE(SUM(qty_shipped),0) FROM pwf_container_items WHERE order_id=$oid")->fetchColumn();
             $ns = ($totalShipped >= $orderQty) ? 'shipped' : 'partial_ship';
             $pdo->prepare("UPDATE pwf_orders SET status=?, updated_at=NOW() WHERE id=?")->execute([$ns,$oid]);
-            $msg = 'Item berhasil ditambahkan ke container.';
+            $msg = 'Item successfully added to container.';
         }
 
     } elseif ($action === 'drop_container') {
@@ -175,7 +175,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $status = $_POST['status'] ?? 'booked';
         if ($cid > 0) {
             $pdo->prepare('UPDATE pwf_containers SET status=?, updated_at=NOW() WHERE id=?')->execute([$status,$cid]);
-            $msg = 'Status container diperbarui.';
+            $msg = 'Container status updated.';
         }
 
     } elseif ($action === 'delete_container') {
@@ -293,47 +293,43 @@ pwfOfficeHeader('Shipping & Container','shipping');
 <!-- ══ STATS BAR ════════════════════════════════════════════════════════════ -->
 <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
     <div class="pwf-card" style="padding:16px 18px">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px"><i class="bi bi-boxes me-1"></i>Total Container</div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px"><i class="bi bi-boxes me-1"></i>Total Containers</div>
         <div style="font-size:28px;font-weight:800;color:var(--text);line-height:1"><?= $totalContainers ?></div>
-        <div style="font-size:10.5px;color:var(--muted);margin-top:3px"><?= $totalPcs > 0 ? fmtQty($totalPcs).' pcs dikirim' : 'Belum ada' ?></div>
+        <div style="font-size:10.5px;color:var(--muted);margin-top:3px"><?= $totalPcs > 0 ? fmtQty($totalPcs).' pcs shipped' : 'None yet' ?></div>
     </div>
     <div class="pwf-card" style="padding:16px 18px;border-left:3px solid var(--gold)">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px"><i class="bi bi-bookmark-check me-1"></i>Aktif / Booked</div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px"><i class="bi bi-bookmark-check me-1"></i>Active / Booked</div>
         <div style="font-size:28px;font-weight:800;color:var(--gold);line-height:1"><?= $cntActive ?></div>
-        <div style="font-size:10.5px;color:var(--muted);margin-top:3px"><?= $totalOrders ?> order siap kirim</div>
+        <div style="font-size:10.5px;color:var(--muted);margin-top:3px"><?= $totalOrders ?> orders ready to ship</div>
     </div>
     <div class="pwf-card" style="padding:16px 18px;border-left:3px solid #8b5cf6">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px"><i class="bi bi-truck me-1"></i>Dikirim / On Board</div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px"><i class="bi bi-truck me-1"></i>On Board / In Transit</div>
         <div style="font-size:28px;font-weight:800;color:#8b5cf6;line-height:1"><?= $cntOnboard ?></div>
-        <div style="font-size:10.5px;color:var(--muted);margin-top:3px">dalam perjalanan</div>
+        <div style="font-size:10.5px;color:var(--muted);margin-top:3px">in transit</div>
     </div>
     <div class="pwf-card" style="padding:16px 18px;border-left:3px solid #22c55e">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px"><i class="bi bi-check2-all me-1"></i>Selesai / Closed</div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px"><i class="bi bi-check2-all me-1"></i>Completed / Closed</div>
         <div style="font-size:28px;font-weight:800;color:#22c55e;line-height:1"><?= $cntClosed ?></div>
-        <div style="font-size:10.5px;color:var(--muted);margin-top:3px">telah selesai</div>
+        <div style="font-size:10.5px;color:var(--muted);margin-top:3px">completed</div>
     </div>
 </div>
 
 <!-- ══ ACTION HEADER ════════════════════════════════════════════════════════ -->
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
     <div>
-        <div style="font-size:16px;font-weight:800;color:var(--text)"><i class="bi bi-archive me-2" style="color:var(--gold)"></i>History Container</div>
-        <div style="font-size:11.5px;color:var(--muted);margin-top:2px"><?= $totalContainers ?> container terdaftar</div>
+        <div style="font-size:16px;font-weight:800;color:var(--text)"><i class="bi bi-archive me-2" style="color:var(--gold)"></i>Container History</div>
+        <div style="font-size:11.5px;color:var(--muted);margin-top:2px"><?= $totalContainers ?> container(s) registered &nbsp;&middot;&nbsp; <a href="db-containers.php" style="color:var(--gold);font-weight:600;text-decoration:none"><i class="bi bi-database me-1"></i>Manage Containers</a></div>
     </div>
-    <button type="button" data-bs-toggle="modal" data-bs-target="#createContainerModal"
-        style="display:inline-flex;align-items:center;gap:8px;padding:10px 22px;background:var(--gold);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">
-        <i class="bi bi-plus-lg"></i> Buat Container Baru
-    </button>
 </div>
 
 <!-- ══ FILTER TABS ═══════════════════════════════════════════════════════════ -->
 <div style="display:flex;gap:0;margin-bottom:0;border-bottom:2px solid var(--border)">
     <?php
     $tabs = [
-        ['id'=>'all',     'label'=>'Semua',        'count'=>$totalContainers],
-        ['id'=>'active',  'label'=>'Aktif',         'count'=>$cntActive],
-        ['id'=>'onboard', 'label'=>'Dikirim',       'count'=>$cntOnboard],
-        ['id'=>'closed',  'label'=>'Selesai',       'count'=>$cntClosed],
+        ['id'=>'all',     'label'=>'All',       'count'=>$totalContainers],
+        ['id'=>'active',  'label'=>'Active',    'count'=>$cntActive],
+        ['id'=>'onboard', 'label'=>'In Transit','count'=>$cntOnboard],
+        ['id'=>'closed',  'label'=>'Closed',    'count'=>$cntClosed],
     ];
     foreach ($tabs as $tab):
     ?>
@@ -350,8 +346,8 @@ pwfOfficeHeader('Shipping & Container','shipping');
     <?php if (empty($containers)): ?>
     <div style="padding:48px;text-align:center;color:var(--muted)">
         <i class="bi bi-inbox" style="font-size:36px;display:block;margin-bottom:10px"></i>
-        <div style="font-size:14px;font-weight:600">Belum ada container</div>
-        <div style="font-size:12px;margin-top:4px">Klik "Buat Container Baru" untuk membuat container pengiriman pertama</div>
+        <div style="font-size:14px;font-weight:600">No containers found</div>
+        <div style="font-size:12px;margin-top:4px">Go to <a href="db-containers.php" style="color:var(--gold);font-weight:600">Database &rarr; Containers</a> to create a new container</div>
     </div>
     <?php else: ?>
     <?php foreach ($containers as $idx => $ct):
@@ -431,33 +427,33 @@ pwfOfficeHeader('Shipping & Container','shipping');
 
             <!-- Action buttons -->
             <div style="display:flex;gap:5px;flex-shrink:0" onclick="event.stopPropagation()">
-                <!-- Cetak SJ per container -->
+                <!-- Print DN per container -->
                 <a href="?print=<?= (int)$ct['id'] ?>" target="_blank"
-                    title="Cetak Surat Jalan"
+                    title="Print Delivery Note"
                     style="display:inline-flex;align-items:center;gap:3px;padding:5px 10px;border-radius:7px;background:#FFF7ED;border:1px solid #FED7AA;color:#C2410C;font-size:11px;font-weight:600;text-decoration:none;white-space:nowrap">
                     <i class="bi bi-printer"></i> SJ
                 </a>
-                <!-- Cetak per Customer (if >1 customer) -->
+                <!-- Print per Customer (if >1 customer) -->
                 <?php if (count($custGroups) > 0): ?>
                 <button type="button"
                     onclick="openPrintCust(<?= (int)$ct['id'] ?>, '<?= htmlspecialchars(addslashes($ct['container_code'])) ?>', <?= htmlspecialchars(json_encode(array_map(fn($gid,$g)=>['id'=>$gid,'name'=>$g['name']], array_keys($custGroups), $custGroups))) ?>)"
-                    title="Cetak Surat Jalan per Customer"
+                    title="Print Delivery Note per Customer"
                     style="display:inline-flex;align-items:center;gap:3px;padding:5px 10px;border-radius:7px;background:#EFF6FF;border:1px solid #BFDBFE;color:#1D4ED8;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap">
                     <i class="bi bi-person-lines-fill"></i> Per Cust
                 </button>
                 <?php endif; ?>
-                <!-- Tambah order -->
+                <!-- Add order -->
                 <button type="button"
                     onclick="openAddItem(<?= (int)$ct['id'] ?>, '<?= htmlspecialchars($ct['container_code']) ?>')"
-                    title="Tambah order ke container ini"
+                    title="Add order to this container"
                     style="display:inline-flex;align-items:center;gap:3px;padding:5px 10px;border-radius:7px;background:var(--nav-hover);border:1px solid var(--border);color:var(--text);font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap">
-                    <i class="bi bi-plus-lg"></i> Tambah
+                    <i class="bi bi-plus-lg"></i> Add
                 </button>
                 <!-- Drop ke Kapal -->
                 <?php if ($isDroppable): ?>
                 <button type="button"
                     onclick="openDrop(<?= (int)$ct['id'] ?>, '<?= htmlspecialchars(addslashes($ct['container_code'])) ?>', <?= (int)$ct['item_count'] ?>, '<?= fmtQty($ct['total_qty']) ?>')"
-                    title="Drop Container ke Kapal"
+                    title="Drop to Ship ke Kapal"
                     style="display:inline-flex;align-items:center;gap:3px;padding:5px 10px;border-radius:7px;background:#FFF1F2;border:1px solid #FECDD3;color:#BE123C;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">
                     <i class="bi bi-send-check"></i> Drop
                 </button>
@@ -469,12 +465,12 @@ pwfOfficeHeader('Shipping & Container','shipping');
                     <i class="bi bi-arrow-repeat"></i> Status
                 </button>
                 <?php endif; ?>
-                <!-- Hapus Container -->
+                <!-- Delete Container -->
                 <button type="button"
                     onclick="openDelete(<?= (int)$ct['id'] ?>, '<?= htmlspecialchars(addslashes($ct['container_code'])) ?>', <?= (int)$ct['item_count'] ?>)"
-                    title="Hapus Container"
+                    title="Delete Container"
                     style="display:inline-flex;align-items:center;gap:3px;padding:5px 10px;border-radius:7px;background:#FEF2F2;border:1px solid #FECACA;color:#DC2626;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap">
-                    <i class="bi bi-trash3"></i> Hapus
+                    <i class="bi bi-trash3"></i> Delete
                 </button>
             </div>
         </div><!-- /header bar -->
@@ -516,18 +512,18 @@ pwfOfficeHeader('Shipping & Container','shipping');
                     <div style="font-weight:600;color:var(--text);margin-top:2px"><?= htmlspecialchars($ct['forwarder'] ?: '—') ?></div>
                 </div>
                 <div>
-                    <span style="color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px">No. Bill of Lading</span>
+                    <span style="color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px">Bill of Lading No.</span>
                     <div style="font-weight:600;color:var(--text);margin-top:2px"><?= htmlspecialchars($ct['bl_no'] ?: '—') ?></div>
                 </div>
                 <div>
-                    <span style="color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px">No. Tracking</span>
+                    <span style="color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px">Tracking No.</span>
                     <div style="font-weight:600;color:var(--text);margin-top:2px"><?= htmlspecialchars($ct['tracking_no'] ?: '—') ?></div>
                 </div>
             </div>
 
             <!-- Items per Customer -->
             <?php if (empty($items)): ?>
-            <div style="padding:20px 24px;font-size:12px;color:var(--muted)">Belum ada item.</div>
+            <div style="padding:20px 24px;font-size:12px;color:var(--muted)">No items yet.</div>
             <?php else: ?>
             <div style="padding:12px 24px 16px">
                 <?php foreach ($custGroups as $cid2 => $cg):
@@ -545,14 +541,14 @@ pwfOfficeHeader('Shipping & Container','shipping');
                         </div>
                         <div style="display:flex;align-items:center;gap:10px;font-size:11px">
                             <span style="color:var(--muted)">Total PO: <strong style="color:var(--text)"><?= fmtQty($custTotalQty) ?> pcs</strong></span>
-                            <span style="color:#D4A017">Dikirim: <strong><?= fmtQty($custShipped) ?> pcs</strong></span>
+                            <span style="color:#D4A017">Shipped: <strong><?= fmtQty($custShipped) ?> pcs</strong></span>
                             <?php if ($custRemaining > 0): ?>
-                            <span style="color:#f97316">Sisa Prod: <strong><?= fmtQty($custRemaining) ?> pcs</strong></span>
+                            <span style="color:#f97316">Remaining: <strong><?= fmtQty($custRemaining) ?> pcs</strong></span>
                             <?php endif; ?>
-                            <!-- Cetak SJ per customer link -->
+                            <!-- Print DN per customer link -->
                             <a href="?print_cust=<?= (int)$ct['id'] ?>&cust_id=<?= (int)$cid2 ?>" target="_blank"
                                 style="display:inline-flex;align-items:center;gap:3px;padding:4px 9px;border-radius:6px;background:#FFF7ED;border:1px solid #FED7AA;color:#C2410C;font-size:10.5px;font-weight:600;text-decoration:none">
-                                <i class="bi bi-printer"></i> Cetak SJ
+                                <i class="bi bi-printer"></i> Print DN
                             </a>
                         </div>
                     </div>
@@ -577,7 +573,7 @@ pwfOfficeHeader('Shipping & Container','shipping');
                                 <div style="font-size:13px;font-weight:700;color:var(--text)"><?= fmtQty($ci2['quantity']) ?></div>
                             </div>
                             <div style="text-align:center">
-                                <div style="font-size:9.5px;color:var(--muted)">Dikirim</div>
+                                <div style="font-size:9.5px;color:var(--muted)">Shipped</div>
                                 <div style="font-size:13px;font-weight:800;color:var(--gold)"><?= fmtQty($ci2['qty_shipped']) ?></div>
                             </div>
                             <div style="text-align:center">
@@ -594,7 +590,7 @@ pwfOfficeHeader('Shipping & Container','shipping');
 
             <?php if ($ct['notes']): ?>
             <div style="margin:0 24px 14px;padding:10px 14px;background:#FFF7ED;border-radius:8px;border:1px solid #FED7AA;font-size:11.5px;color:#92400E">
-                <i class="bi bi-info-circle me-1"></i><strong>Catatan:</strong> <?= htmlspecialchars($ct['notes']) ?>
+                <i class="bi bi-info-circle me-1"></i><strong>Notes:</strong> <?= htmlspecialchars($ct['notes']) ?>
             </div>
             <?php endif; ?>
         </div><!-- /detail -->
@@ -603,216 +599,13 @@ pwfOfficeHeader('Shipping & Container','shipping');
     <?php endif; ?>
 </div><!-- /container list -->
 
-<!-- ══ MODAL: Create Container ══════════════════════════════════════════════ -->
-<div class="modal fade" id="createContainerModal" tabindex="-1">
-    <div class="modal-dialog modal-xl modal-dialog-scrollable" style="max-width:900px">
-        <div class="modal-content" style="background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden">
-            <div class="modal-header" style="padding:16px 22px;border-bottom:1px solid var(--border)">
-                <div style="font-size:15px;font-weight:800;color:var(--text)">
-                    <i class="bi bi-box-seam me-2" style="color:var(--gold)"></i>Buat Container Baru
-                </div>
-                <button class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <form method="post" id="containerForm">
-                <input type="hidden" name="_action" value="create_container">
-                <div class="modal-body" style="padding:20px 22px">
-
-                    <!-- Step 1 -->
-                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-                        <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--gold);color:#fff;font-size:11px;font-weight:800;flex-shrink:0">1</span>
-                        <span style="font-size:13px;font-weight:700;color:var(--text)"><i class="bi bi-box-seam me-1"></i>Detail Kontainer</span>
-                    </div>
-                    <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px;margin-bottom:12px">
-                        <div>
-                            <label class="form-lbl">No. Container (Fisik)</label>
-                            <input class="input" name="container_no" placeholder="Contoh: TEMU2134567" style="width:100%">
-                        </div>
-                        <div>
-                            <label class="form-lbl">Tanggal Kirim</label>
-                            <input class="input" type="date" name="shipment_date" value="<?= date('Y-m-d') ?>" style="width:100%">
-                        </div>
-                        <div>
-                            <label class="form-lbl">Tipe Container</label>
-                            <select class="select" name="container_type" style="width:100%">
-                                <option value="20ft">20ft</option>
-                                <option value="40ft">40ft</option>
-                                <option value="40hc" selected>40HC</option>
-                                <option value="lcl">LCL</option>
-                                <option value="fcl">FCL</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
-                        <div>
-                            <label class="form-lbl">Negara Tujuan</label>
-                            <input class="input" name="destination_country" placeholder="Contoh: Japan" style="width:100%">
-                        </div>
-                        <div>
-                            <label class="form-lbl">Port Tujuan</label>
-                            <input class="input" name="destination_port" placeholder="Contoh: Osaka" style="width:100%">
-                        </div>
-                        <div>
-                            <label class="form-lbl">Forwarder</label>
-                            <input class="input" name="forwarder" placeholder="Nama perusahaan forwarder" style="width:100%">
-                        </div>
-                    </div>
-                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
-                        <div>
-                            <label class="form-lbl">No. Bill of Lading</label>
-                            <input class="input" name="bl_no" placeholder="BL Number" style="width:100%">
-                        </div>
-                        <div>
-                            <label class="form-lbl">No. Tracking</label>
-                            <input class="input" name="tracking_no" placeholder="Tracking / booking no" style="width:100%">
-                        </div>
-                        <div>
-                            <label class="form-lbl">Status Awal</label>
-                            <select class="select" name="status" style="width:100%">
-                                <option value="draft">Draft</option>
-                                <option value="booked" selected>Booked</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div style="margin-bottom:20px">
-                        <label class="form-lbl">Catatan</label>
-                        <textarea class="input" name="notes" placeholder="Catatan tambahan (opsional)" style="width:100%;min-height:56px;resize:vertical"></textarea>
-                    </div>
-
-                    <hr style="border-color:var(--border);margin-bottom:16px">
-
-                    <!-- Step 2: Customer-first order selection -->
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-                        <div style="display:flex;align-items:center;gap:10px">
-                            <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--gold);color:#fff;font-size:11px;font-weight:800;flex-shrink:0">2</span>
-                            <span style="font-size:13px;font-weight:700;color:var(--text)"><i class="bi bi-clipboard-check me-1"></i>Pilih Order per Customer</span>
-                        </div>
-                        <span id="mSelectedCnt" style="font-size:11px;font-weight:600;color:var(--muted);background:var(--border);padding:3px 10px;border-radius:20px">0 order dipilih</span>
-                    </div>
-                    <div style="font-size:11.5px;color:var(--muted);margin-bottom:12px;padding:9px 12px;background:var(--nav-hover);border-radius:8px;border:1px solid var(--border)">
-                        <i class="bi bi-info-circle me-1" style="color:var(--gold)"></i>
-                        1 container bisa memuat order dari <strong>banyak customer</strong>. Pilih order dari masing-masing customer, lalu klik <strong>Buat Container</strong>.
-                    </div>
-
-                    <?php if (empty($readyOrders)): ?>
-                    <div style="padding:24px;text-align:center;color:var(--muted);font-size:13px;border:1px dashed var(--border);border-radius:10px">
-                        <i class="bi bi-inbox" style="font-size:28px;display:block;margin-bottom:8px"></i>
-                        Belum ada order yang siap kirim.<br>
-                        <span style="font-size:11px">Order <strong>Ready to Ship</strong>, <strong>In Progress</strong> (ada qty selesai), atau <strong>Partial Ship</strong> akan muncul di sini.</span>
-                    </div>
-                    <?php else:
-                        // Group readyOrders by customer
-                        $ordersByCust = [];
-                        foreach ($readyOrders as $o) {
-                            $cid2  = (int)$o['customer_id'];
-                            $cname = $o['customer_name'] ?? 'Unknown';
-                            if (!isset($ordersByCust[$cid2])) $ordersByCust[$cid2] = ['name'=>$cname,'orders'=>[]];
-                            $ordersByCust[$cid2]['orders'][] = $o;
-                        }
-                    ?>
-                    <!-- Customer-grouped accordion -->
-                    <div id="mOrderBody" style="display:flex;flex-direction:column;gap:8px">
-                        <?php foreach ($ordersByCust as $cid2 => $cg): ?>
-                        <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden">
-                            <!-- Customer header (click to expand) -->
-                            <div class="m-cust-header" data-custid="<?= (int)$cid2 ?>"
-                                onclick="toggleMCust(this)"
-                                style="display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;background:var(--nav-hover);transition:background .15s"
-                                onmouseenter="this.style.background='var(--border)'" onmouseleave="this.style.background='var(--nav-hover)'">
-                                <input type="checkbox" class="m-cust-check" style="cursor:pointer;width:15px;height:15px;flex-shrink:0"
-                                    onclick="event.stopPropagation();toggleCustOrders(this, <?= (int)$cid2 ?>)">
-                                <i class="bi bi-person-fill" style="color:var(--gold);font-size:14px;flex-shrink:0"></i>
-                                <span style="font-size:13px;font-weight:700;color:var(--text);flex:1"><?= htmlspecialchars($cg['name']) ?></span>
-                                <span style="font-size:10.5px;color:var(--muted)"><?= count($cg['orders']) ?> order ready</span>
-                                <span class="m-cust-sel-cnt" data-custid="<?= (int)$cid2 ?>"
-                                    style="font-size:10.5px;font-weight:700;color:var(--gold);display:none">0 dipilih</span>
-                                <i class="bi bi-chevron-down m-chev" style="font-size:10px;color:var(--muted);transition:transform .2s"></i>
-                            </div>
-                            <!-- Orders table (collapsed by default) -->
-                            <div class="m-cust-orders" style="display:none">
-                                <table style="width:100%;border-collapse:collapse">
-                                    <thead>
-                                        <tr style="background:var(--nav-hover);border-bottom:1px solid var(--border);border-top:1px solid var(--border)">
-                                            <th style="padding:8px 10px;font-size:9.5px;font-weight:700;color:var(--muted);text-transform:uppercase;width:30px">
-                                                <input type="checkbox" class="m-all-in-cust" data-custid="<?= (int)$cid2 ?>"
-                                                    onclick="toggleAllInCust(this,<?= (int)$cid2 ?>)" style="cursor:pointer;width:13px;height:13px">
-                                            </th>
-                                            <th style="padding:8px 10px;font-size:9.5px;font-weight:700;color:var(--muted);text-transform:uppercase">Kode Order</th>
-                                            <th style="padding:8px 10px;font-size:9.5px;font-weight:700;color:var(--muted);text-transform:uppercase">Produk</th>
-                                            <th style="padding:8px 10px;font-size:9.5px;font-weight:700;color:var(--muted);text-transform:uppercase;text-align:center">Total PO</th>
-                                            <th style="padding:8px 10px;font-size:9.5px;font-weight:700;color:var(--muted);text-transform:uppercase;text-align:center">Selesai</th>
-                                            <th style="padding:8px 10px;font-size:9.5px;font-weight:700;color:var(--muted);text-transform:uppercase;text-align:center">Bisa Kirim</th>
-                                            <th style="padding:8px 10px;font-size:9.5px;font-weight:700;color:var(--muted);text-transform:uppercase;text-align:center;min-width:86px">Qty Kirim</th>
-                                            <th style="padding:8px 10px;font-size:9.5px;font-weight:700;color:var(--muted);text-transform:uppercase">Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <?php foreach ($cg['orders'] as $o):
-                                            $pct = $o['quantity']>0 ? round($o['qty_done']/$o['quantity']*100) : 0;
-                                            $sl  = match($o['status']) {
-                                                'ready_ship'   => ['Ready Ship',   'status-ready_ship'],
-                                                'on_progress'  => ['In Progress',  'status-on_progress'],
-                                                'partial_ship' => ['Partial Ship', 'status-partial_ship'],
-                                                default        => [ucfirst($o['status']),'']
-                                            };
-                                        ?>
-                                        <tr class="m-order-row" data-cust="<?= (int)$o['customer_id'] ?>" data-oid="<?= (int)$o['id'] ?>"
-                                            style="border-bottom:1px solid var(--border)">
-                                            <td style="padding:8px 10px;text-align:center">
-                                                <input type="checkbox" class="m-row-check" style="cursor:pointer;width:13px;height:13px" onchange="onMRowCheck(this,<?= (int)$cid2 ?>)">
-                                            </td>
-                                            <td style="padding:8px 10px"><code style="font-size:11.5px;font-weight:700;color:var(--gold)"><?= htmlspecialchars($o['order_code']) ?></code></td>
-                                            <td style="padding:8px 10px">
-                                                <div style="font-size:12px;font-weight:600;color:var(--text)"><?= htmlspecialchars($o['product_name']) ?></div>
-                                                <?php if ($o['specification']): ?><div style="font-size:9.5px;color:var(--muted)"><?= htmlspecialchars(mb_substr($o['specification'],0,45)) ?></div><?php endif; ?>
-                                            </td>
-                                            <td style="padding:8px 10px;text-align:center;font-size:12.5px;font-weight:700;color:var(--text)"><?= fmtQty($o['quantity']) ?></td>
-                                            <td style="padding:8px 10px;text-align:center">
-                                                <div style="font-size:12.5px;font-weight:700;color:<?= $pct>=100?'#22c55e':'var(--gold)' ?>"><?= fmtQty($o['qty_done']) ?></div>
-                                                <div style="font-size:9px;color:var(--muted)"><?= $pct ?>%</div>
-                                            </td>
-                                            <td style="padding:8px 10px;text-align:center">
-                                                <span style="font-size:13px;font-weight:800;color:#3b82f6"><?= fmtQty($o['qty_remaining']) ?></span>
-                                            </td>
-                                            <td style="padding:8px 10px;text-align:center">
-                                                <input type="number" class="m-row-qty input" min="0.5" step="0.5"
-                                                    value="<?= (float)$o['qty_remaining'] ?>"
-                                                    max="<?= (float)$o['qty_remaining'] ?>"
-                                                    style="width:70px;text-align:center;font-weight:700;font-size:12px;padding:5px 6px;opacity:.4;pointer-events:none">
-                                            </td>
-                                            <td style="padding:8px 10px">
-                                                <span class="status-badge <?= $sl[1] ?>" style="font-size:9.5px"><?= $sl[0] ?></span>
-                                            </td>
-                                        </tr>
-                                        <?php endforeach; ?>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                        <?php endforeach; ?>
-                    </div>
-                    <?php endif; ?>
-                </div>
-                <div class="modal-footer" style="border-top:1px solid var(--border);padding:12px 22px;gap:8px">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
-                    <span id="mSubmitHint" style="font-size:11px;color:var(--muted);flex:1">Pilih minimal 1 order</span>
-                    <button type="submit" id="mSubmitBtn"
-                        style="padding:9px 24px;background:var(--gold);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;opacity:.5;pointer-events:none">
-                        <i class="bi bi-box-seam me-1"></i>Buat Container
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-</div>
-
-<!-- ══ MODAL: Add Item ══════════════════════════════════════════════════════ -->
+<!-- ══ MODAL: Add Item to Container ═══════════════════════════════════════════ -->
 <div class="modal fade" id="addItemModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered" style="max-width:440px">
         <div class="modal-content" style="background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden">
             <div class="modal-header" style="padding:14px 18px;border-bottom:1px solid var(--border)">
                 <div style="font-weight:700;font-size:14px;color:var(--text)">
-                    <i class="bi bi-plus-circle me-2" style="color:var(--gold)"></i>Tambah Order ke
+                    <i class="bi bi-plus-circle me-2" style="color:var(--gold)"></i>Add Order to
                     <span id="aiCode" style="color:var(--gold)"></span>
                 </div>
                 <button class="btn-close" data-bs-dismiss="modal"></button>
@@ -834,30 +627,30 @@ pwfOfficeHeader('Shipping & Container','shipping');
                         </select>
                     </div>
                     <div>
-                        <label class="form-lbl">Qty Dikirim</label>
+                        <label class="form-lbl">Qty Shipped</label>
                         <input type="number" name="qty_shipped" min="0.5" step="0.5" class="input" placeholder="0" required style="width:100%">
                     </div>
                     <div>
                         <label class="form-lbl">Keterangan (opsional)</label>
-                        <input type="text" name="item_notes" class="input" placeholder="Catatan item" style="width:100%">
+                        <input type="text" name="item_notes" class="input" placeholder="Item notes" style="width:100%">
                     </div>
                 </div>
                 <div class="modal-footer" style="border-top:1px solid var(--border);padding:12px 18px;gap:8px">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn btn-sm" style="background:var(--gold);color:#fff;font-weight:600;border:none">Tambah ke Container</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-sm" style="background:var(--gold);color:#fff;font-weight:600;border:none">Add to Container</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
-<!-- ══ MODAL: Drop Container ════════════════════════════════════════════════ -->
+<!-- ══ MODAL: Drop to Ship ════════════════════════════════════════════════ -->
 <div class="modal fade" id="dropModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered" style="max-width:420px">
         <div class="modal-content" style="background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden">
             <div class="modal-header" style="padding:14px 18px;border-bottom:1px solid var(--border);background:#FFF1F2">
                 <div style="font-weight:700;font-size:14px;color:#BE123C">
-                    <i class="bi bi-send-check me-2"></i>Drop Container ke Kapal
+                    <i class="bi bi-send-check me-2"></i>Drop to Ship ke Kapal
                 </div>
                 <button class="btn-close" data-bs-dismiss="modal"></button>
             </div>
@@ -876,7 +669,7 @@ pwfOfficeHeader('Shipping & Container','shipping');
                 <input type="hidden" name="_action" value="drop_container">
                 <input type="hidden" name="container_id" id="dropContainerId">
                 <div class="modal-footer" style="border-top:1px solid var(--border);padding:12px 18px;gap:8px">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="submit" style="padding:8px 22px;background:#BE123C;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">
                         <i class="bi bi-send-check me-1"></i>Ya, Drop ke Kapal!
                     </button>
@@ -908,21 +701,21 @@ pwfOfficeHeader('Shipping & Container','shipping');
                     </select>
                 </div>
                 <div class="modal-footer" style="border-top:1px solid var(--border);padding:12px 18px;gap:8px">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn btn-sm" style="background:var(--gold);color:#fff;font-weight:600;border:none">Simpan</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-sm" style="background:var(--gold);color:#fff;font-weight:600;border:none">Save</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
-<!-- ══ MODAL: Hapus Container ══════════════════════════════════════════════ -->
+<!-- ══ MODAL: Delete Container ══════════════════════════════════════════════ -->
 <div class="modal fade" id="deleteModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered" style="max-width:420px">
         <div class="modal-content" style="background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden">
             <div class="modal-header" style="padding:14px 18px;border-bottom:1px solid var(--border);background:#FEF2F2">
                 <div style="font-weight:700;font-size:14px;color:#DC2626">
-                    <i class="bi bi-trash3 me-2"></i>Hapus Container
+                    <i class="bi bi-trash3 me-2"></i>Delete Container
                 </div>
                 <button class="btn-close" data-bs-dismiss="modal"></button>
             </div>
@@ -945,9 +738,9 @@ pwfOfficeHeader('Shipping & Container','shipping');
                 <input type="hidden" name="_action" value="delete_container">
                 <input type="hidden" name="container_id" id="delContainerId">
                 <div class="modal-footer" style="border-top:1px solid var(--border);padding:12px 18px;gap:8px">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="submit" style="padding:8px 22px;background:#DC2626;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">
-                        <i class="bi bi-trash3 me-1"></i>Ya, Hapus Container
+                        <i class="bi bi-trash3 me-1"></i>Yes, Delete Container
                     </button>
                 </div>
             </form>
@@ -960,7 +753,7 @@ pwfOfficeHeader('Shipping & Container','shipping');
     <div class="modal-dialog modal-dialog-centered" style="max-width:380px">
         <div class="modal-content" style="background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden">
             <div class="modal-header" style="padding:13px 18px;border-bottom:1px solid var(--border)">
-                <div style="font-weight:700;font-size:14px;color:var(--text)"><i class="bi bi-person-lines-fill me-2" style="color:var(--gold)"></i>Cetak Surat Jalan per Customer</div>
+                <div style="font-weight:700;font-size:14px;color:var(--text)"><i class="bi bi-person-lines-fill me-2" style="color:var(--gold)"></i>Print Delivery Note per Customer</div>
                 <button class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body" style="padding:16px 18px">
@@ -1013,7 +806,7 @@ function toggleCtn(id) {
 function openDelete(cid, code, items) {
     document.getElementById('delContainerId').value = cid;
     document.getElementById('delCode').textContent  = code;
-    document.getElementById('delInfo').textContent  = items + ' item akan dihapus dari container ini';
+    document.getElementById('delInfo').textContent  = items + ' item(s) will be removed from this container';
     // Show warning if onboard (items param usage as proxy — we check via class)
     const row = document.querySelector('.ctn-row[data-group="onboard"] [onclick*="openDelete(' + cid + '"]');
     document.getElementById('delWarningOnboard').style.display = row ? 'block' : 'none';
@@ -1108,27 +901,13 @@ function updateMSubmitState() {
     if (cnt) cnt.textContent = checked + ' order dipilih';
     if (checked > 0) {
         btn.style.opacity = '1'; btn.style.pointerEvents = 'auto';
-        if (info) { info.textContent = checked + ' order dari berbagai customer siap dimasukkan'; info.style.color = 'var(--text)'; }
+        if (info) { info.textContent = checked + ' order(s) from various customers ready to add'; info.style.color = 'var(--text)'; }
     } else {
         btn.style.opacity = '.5'; btn.style.pointerEvents = 'none';
         if (info) { info.textContent = 'Pilih minimal 1 order'; info.style.color = 'var(--muted)'; }
     }
 }
 
-// On form submit: inject hidden inputs from checked rows
-document.getElementById('containerForm').addEventListener('submit', function(e) {
-    const checked = document.querySelectorAll('#mOrderBody .m-row-check:checked');
-    if (checked.length === 0) { e.preventDefault(); alert('Pilih minimal 1 order!'); return; }
-    checked.forEach(cb => {
-        const tr  = cb.closest('tr');
-        const oid = tr.dataset.oid;
-        const qty = tr.querySelector('.m-row-qty').value;
-        if (oid && qty > 0) {
-            const h1 = document.createElement('input'); h1.type='hidden'; h1.name='order_ids[]'; h1.value=oid; this.appendChild(h1);
-            const h2 = document.createElement('input'); h2.type='hidden'; h2.name='qty_shipped[]'; h2.value=qty; this.appendChild(h2);
-        }
-    });
-});
 </script>
 <?php pwfOfficeFooter(); ?>
 

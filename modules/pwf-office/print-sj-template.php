@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Surat Jalan – <?= htmlspecialchars($container['container_code']) ?><?= isset($custNameOnly) ? ' ('.$custNameOnly.')' : '' ?></title>
+    <title>Delivery Note – <?= htmlspecialchars($container['container_code']) ?><?= isset($custNameOnly) ? ' ('.$custNameOnly.')' : '' ?></title>
     <style>
         * { box-sizing:border-box; margin:0; padding:0 }
         body { font-family:Arial,sans-serif; font-size:12px; color:#111; background:#fff; padding:24px 30px }
@@ -57,12 +57,12 @@
             </div>
         </div>
         <div class="doc-title" style="text-align:right">
-            <h1>SURAT JALAN</h1>
+            <h1>DELIVERY NOTE</h1>
             <?php if (isset($custNameOnly)): ?>
             <div style="font-size:11px;font-weight:700;color:#C2410C;margin-top:2px">Customer: <?= htmlspecialchars($custNameOnly) ?></div>
             <?php endif; ?>
             <div class="doc-no">No: <?= htmlspecialchars($container['container_code']) ?></div>
-            <div class="doc-no">Tanggal: <?= date('d F Y', strtotime($container['shipment_date'])) ?></div>
+            <div class="doc-no">Date: <?= date('d F Y', strtotime($container['shipment_date'])) ?></div>
             <?php if (!empty($container['dropped_at'])): ?>
             <div class="doc-no" style="color:#7c3aed">On Board: <?= date('d M Y H:i', strtotime($container['dropped_at'])) ?></div>
             <?php endif; ?>
@@ -75,7 +75,7 @@
         <svg width="20" height="20" viewBox="0 0 20 20" fill="#C2410C"><circle cx="10" cy="6" r="4"/><path d="M2 18c0-4.418 3.582-8 8-8s8 3.582 8 8H2z"/></svg>
         <div>
             <div style="font-size:14px;font-weight:800;color:#92400E"><?= htmlspecialchars($custNameOnly) ?></div>
-            <div style="font-size:10.5px;color:#B45309">Surat Jalan khusus customer ini dalam container <?= htmlspecialchars($container['container_code']) ?></div>
+            <div style="font-size:10.5px;color:#B45309">Delivery Note for this customer in container <?= htmlspecialchars($container['container_code']) ?></div>
         </div>
     </div>
     <?php endif; ?>
@@ -83,17 +83,17 @@
     <!-- Container Info -->
     <div class="info-grid">
         <div class="info-box">
-            <h4>Informasi Pengiriman</h4>
-            <div class="info-row"><span class="info-label">No. Container</span><span class="info-val"><?= htmlspecialchars($container['container_no'] ?: '—') ?></span></div>
-            <div class="info-row"><span class="info-label">Tipe Container</span><span class="info-val"><?= strtoupper(htmlspecialchars($container['container_type'])) ?></span></div>
-            <div class="info-row"><span class="info-label">Tanggal Kirim</span><span class="info-val"><?= date('d M Y', strtotime($container['shipment_date'])) ?></span></div>
+            <h4>Shipping Information</h4>
+            <div class="info-row"><span class="info-label">Container No.</span><span class="info-val"><?= htmlspecialchars($container['container_no'] ?: '—') ?></span></div>
+            <div class="info-row"><span class="info-label">Container Type</span><span class="info-val"><?= strtoupper(htmlspecialchars($container['container_type'])) ?></span></div>
+            <div class="info-row"><span class="info-label">Shipment Date</span><span class="info-val"><?= date('d M Y', strtotime($container['shipment_date'])) ?></span></div>
             <div class="info-row"><span class="info-label">Forwarder</span><span class="info-val"><?= htmlspecialchars($container['forwarder'] ?: '—') ?></span></div>
-            <?php if ($container['bl_no']): ?><div class="info-row"><span class="info-label">No. BL</span><span class="info-val"><?= htmlspecialchars($container['bl_no']) ?></span></div><?php endif; ?>
+            <?php if ($container['bl_no']): ?><div class="info-row"><span class="info-label">BL No.</span><span class="info-val"><?= htmlspecialchars($container['bl_no']) ?></span></div><?php endif; ?>
             <?php if ($container['tracking_no']): ?><div class="info-row"><span class="info-label">Tracking</span><span class="info-val"><?= htmlspecialchars($container['tracking_no']) ?></span></div><?php endif; ?>
         </div>
         <div class="info-box">
-            <h4>Tujuan &amp; Status</h4>
-            <div class="info-row"><span class="info-label">Negara</span><span class="info-val"><?= htmlspecialchars($container['destination_country'] ?: '—') ?></span></div>
+            <h4>Destination &amp; Status</h4>
+            <div class="info-row"><span class="info-label">Country</span><span class="info-val"><?= htmlspecialchars($container['destination_country'] ?: '—') ?></span></div>
             <div class="info-row"><span class="info-label">Port</span><span class="info-val"><?= htmlspecialchars($container['destination_port'] ?: '—') ?></span></div>
             <div class="info-row"><span class="info-label">Status</span><span class="info-val"><?= strtoupper(htmlspecialchars($container['status'])) ?></span></div>
             <!-- Customer breakdown (container-wide print) -->
@@ -113,14 +113,14 @@
         <thead>
             <tr>
                 <th class="no-col">No</th>
-                <th>Kode Order</th>
-                <th>Nama Produk</th>
-                <th>Spesifikasi</th>
+                <th>Order Code</th>
+                <th>Product Name</th>
+                <th>Specification</th>
                 <th>Dimensi (cm)</th>
-                <th class="qty-col">Dikirim</th>
+                <th class="qty-col">Shipped</th>
                 <th class="qty-col">Total PO</th>
                 <?php if (!isset($custNameOnly)): ?><th>Customer</th><?php endif; ?>
-                <th>Ket.</th>
+                <th>Notes</th>
             </tr>
         </thead>
         <tbody>
@@ -137,11 +137,11 @@
                 <td style="font-size:10.5px;color:#666"><?= htmlspecialchars($item['item_notes'] ?? '') ?></td>
             </tr>
             <?php endforeach; ?>
-            <?php if (empty($items)): ?><tr><td colspan="9" style="text-align:center;padding:20px;color:#aaa">Belum ada item</td></tr><?php endif; ?>
+            <?php if (empty($items)): ?><tr><td colspan="9" style="text-align:center;padding:20px;color:#aaa">No items yet</td></tr><?php endif; ?>
         </tbody>
         <tfoot>
             <tr>
-                <td colspan="5" style="text-align:right">TOTAL QTY DIKIRIM:</td>
+                <td colspan="5" style="text-align:right">TOTAL QTY SHIPPED:</td>
                 <td class="qty-col" style="font-size:14px"><?= rtrim(rtrim(number_format($totalQty,2),'0'),'.') ?></td>
                 <td colspan="<?= isset($custNameOnly)?2:3 ?>"></td>
             </tr>
@@ -150,17 +150,17 @@
 
     <?php if ($container['notes']): ?>
     <div style="border:1px solid #e5e5e5;border-radius:4px;padding:10px 14px;margin-bottom:16px;font-size:11.5px">
-        <strong>Catatan:</strong> <?= htmlspecialchars($container['notes']) ?>
+        <strong>Notes:</strong> <?= htmlspecialchars($container['notes']) ?>
     </div>
     <?php endif; ?>
 
     <!-- Signatures -->
     <div class="signatures">
-        <div class="sig-box"><div class="sig-title">Dibuat Oleh</div><div class="sig-name"></div></div>
-        <div class="sig-box"><div class="sig-title">Mengetahui / Mandor</div><div class="sig-name"></div></div>
-        <div class="sig-box"><div class="sig-title">Penerima</div><div class="sig-name"></div></div>
+        <div class="sig-box"><div class="sig-title">Prepared By</div><div class="sig-name"></div></div>
+        <div class="sig-box"><div class="sig-title">Verified By / Supervisor</div><div class="sig-name"></div></div>
+        <div class="sig-box"><div class="sig-title">Recipient</div><div class="sig-name"></div></div>
     </div>
 
-    <div class="footer-note">Dokumen ini dicetak otomatis oleh PWF Office System · <?= date('d/m/Y H:i') ?></div>
+    <div class="footer-note">Auto-generated by PWF Office System · <?= date('d/m/Y H:i') ?></div>
 </body>
 </html>
