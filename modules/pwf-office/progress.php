@@ -64,11 +64,13 @@ $logs = $pdo->query("
 
 // Summary stats
 $totalActive   = count($activeOrders);
-$inProgress    = count(array_filter($activeOrders, fn($r) =>
+$inProgress    = count(array_filter(
+    $activeOrders,
+    fn($r) =>
     (float)($r['qty_done'] ?? 0) < (float)($r['quantity'] ?? 0)
-    && !in_array($r['status'], ['completed', 'cancelled', 'shipped'], true)
+        && !in_array($r['status'], ['completed', 'cancelled', 'shipped'], true)
 ));
-$readyToShip   = count(array_filter($activeOrders, fn($r) => in_array($r['status'], ['ready_ship','partial_ship'])));
+$readyToShip   = count(array_filter($activeOrders, fn($r) => in_array($r['status'], ['ready_ship', 'partial_ship'])));
 $totalQty      = array_sum(array_column($activeOrders, 'quantity'));
 $totalDone     = array_sum(array_column($activeOrders, 'qty_done'));
 $overallPct    = $totalQty > 0 ? min(100, round($totalDone / $totalQty * 100)) : 0;
