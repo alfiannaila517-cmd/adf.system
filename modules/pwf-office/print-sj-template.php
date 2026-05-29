@@ -9,7 +9,7 @@
 
         /* ── Header ── */
         .dn-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:20px; padding-bottom:16px; border-bottom:3px solid #111 }
-        .co-logo { height:120px; width:auto; max-width:160px; object-fit:contain; margin-right:18px }
+        .co-logo { height:136px; width:auto; max-width:188px; object-fit:contain; margin-right:18px }
         .co-name { font-size:20px; font-weight:800; margin-bottom:4px; color:#111 }
         .co-sub  { font-size:11px; color:#555; line-height:1.7; max-width:300px }
         .doc-no  { font-size:11.5px; color:#555; margin-top:4px }
