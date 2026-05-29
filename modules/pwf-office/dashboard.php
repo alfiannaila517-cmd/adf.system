@@ -10,6 +10,48 @@ function fmtQty($v)
     return rtrim(rtrim(number_format((float)$v, 2), '0'), '.');
 }
 
+// ── AJAX: container archive detail ──────────────────────────────────────────
+if (isset($_GET['ajax']) && $_GET['ajax'] === 'container_detail') {
+    ob_clean();
+    header('Content-Type: application/json');
+    $id = (int)($_GET['id'] ?? 0);
+    if ($id <= 0) {
+        echo json_encode(['error' => 'Invalid container ID']);
+        exit;
+    }
+
+    try {
+        $stmt = $pdo->prepare("SELECT * FROM pwf_containers WHERE id=? LIMIT 1");
+        $stmt->execute([$id]);
+        $container = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$container) {
+            echo json_encode(['error' => 'Container not found']);
+            exit;
+        }
+
+        $itemsStmt = $pdo->prepare("
+            SELECT ci.qty_shipped, ci.notes AS item_notes,
+                   o.order_code, o.product_name, o.specification, o.dimensions,
+                   c.customer_name
+            FROM pwf_container_items ci
+            JOIN pwf_orders o ON o.id=ci.order_id
+            LEFT JOIN pwf_customers c ON c.id=o.customer_id
+            WHERE ci.container_id=?
+            ORDER BY c.customer_name ASC, ci.id ASC
+        ");
+        $itemsStmt->execute([$id]);
+        $items = $itemsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'container' => $container,
+            'items' => $items,
+        ]);
+    } catch (Exception $e) {
+        echo json_encode(['error' => $e->getMessage()]);
+    }
+    exit;
+}
+
 // ── Stat cards ───────────────────────────────────────────────────────────────
 $stats = [
     'customers'    => (int)$pdo->query('SELECT COUNT(*) FROM pwf_customers')->fetchColumn(),
@@ -18,19 +60,17 @@ $stats = [
     'ready_ship'   => (int)$pdo->query("SELECT COUNT(*) FROM pwf_orders WHERE status IN ('ready_ship','completed')")->fetchColumn(),
 ];
 
-// ── Production breakdown: 4-segment donut ──────────────────────────────────
+// ── Production breakdown: only active production (exclude shipped) ─────────
 $prodBreakdown = $pdo->query("
     SELECT
-        COALESCE(SUM(CASE WHEN status='shipped'                           THEN qty_done ELSE 0 END),0) AS qty_shipped,
         COALESCE(SUM(CASE WHEN status IN ('completed','ready_ship')       THEN qty_done ELSE 0 END),0) AS qty_ready,
-        COALESCE(SUM(CASE WHEN status IN ('on_progress','qc','partial_ship') THEN qty_done ELSE 0 END),0) AS qty_producing,
-        COALESCE(SUM(quantity),0) AS total_qty,
-        COALESCE(SUM(qty_done),0) AS total_done
-    FROM pwf_orders WHERE status NOT IN ('cancelled')
+        COALESCE(SUM(CASE WHEN status IN ('on_progress','qc','partial_ship','draft') THEN qty_done ELSE 0 END),0) AS qty_producing,
+        COALESCE(SUM(CASE WHEN status NOT IN ('cancelled','shipped') THEN quantity ELSE 0 END),0) AS total_qty,
+        COALESCE(SUM(CASE WHEN status NOT IN ('cancelled','shipped') THEN qty_done ELSE 0 END),0) AS total_done
+    FROM pwf_orders
 ")->fetch();
 $totalDone      = (float)$prodBreakdown['total_done'];
 $totalQty       = max(0.0001, (float)$prodBreakdown['total_qty']);
-$dShipped       = (float)$prodBreakdown['qty_shipped'];
 $dReady         = (float)$prodBreakdown['qty_ready'];
 $dProducing     = (float)$prodBreakdown['qty_producing'];
 $dRemaining     = max(0, $totalQty - $totalDone);
@@ -40,23 +80,20 @@ $custProg = $pdo->query("
     SELECT c.customer_name,
            COALESCE(SUM(o.quantity),0)  AS total_qty,
            COALESCE(SUM(o.qty_done),0)  AS total_done,
-           COALESCE(SUM(CASE WHEN o.status='shipped'                                 THEN o.qty_done ELSE 0 END),0) AS qty_shipped,
            COALESCE(SUM(CASE WHEN o.status IN ('completed','ready_ship')             THEN o.qty_done ELSE 0 END),0) AS qty_ready,
-           COALESCE(SUM(CASE WHEN o.status IN ('on_progress','qc','partial_ship')    THEN o.qty_done ELSE 0 END),0) AS qty_producing,
+           COALESCE(SUM(CASE WHEN o.status IN ('on_progress','qc','partial_ship','draft') THEN o.qty_done ELSE 0 END),0) AS qty_producing,
            SUM(CASE WHEN o.status IN ('completed','ready_ship')                 THEN 1 ELSE 0 END) AS cnt_completed,
            SUM(CASE WHEN o.status IN ('on_progress','qc','partial_ship','draft') THEN 1 ELSE 0 END) AS cnt_progress,
-           SUM(CASE WHEN o.status='shipped'                                     THEN 1 ELSE 0 END) AS cnt_shipped,
            COUNT(o.id) AS total_orders
     FROM pwf_customers c
     JOIN pwf_orders o ON o.customer_id=c.id
-    WHERE o.status NOT IN ('cancelled')
+    WHERE o.status NOT IN ('cancelled','shipped')
     GROUP BY c.id, c.customer_name
     ORDER BY (SUM(o.qty_done)/NULLIF(SUM(o.quantity),0)) DESC
 ")->fetchAll();
 
 // ── Bar chart: qty-based stacked horizontal per customer ────────────────────
 $custNames    = array_column($custProg, 'customer_name');
-$barShipped   = array_map(fn($r) => round((float)$r['qty_shipped'],   2), $custProg);
 $barReady     = array_map(fn($r) => round((float)$r['qty_ready'],     2), $custProg);
 $barProducing = array_map(fn($r) => round((float)$r['qty_producing'], 2), $custProg);
 $barRemaining = array_map(fn($r) => round(max(0, (float)$r['total_qty'] - (float)$r['total_done']), 2), $custProg);
@@ -159,10 +196,6 @@ pwfOfficeHeader('Dashboard', 'dashboard');
                 </div>
                 <div style="flex:1;display:flex;flex-direction:column;gap:5px">
                     <div style="display:flex;justify-content:space-between;font-size:11px">
-                        <span style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:#3b82f6;display:inline-block"></span><span style="color:var(--muted)">Shipped</span></span>
-                        <span id="lbl-shipped" style="font-weight:700;color:var(--text)"></span>
-                    </div>
-                    <div style="display:flex;justify-content:space-between;font-size:11px">
                         <span style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block"></span><span style="color:var(--muted)">Done / Ready</span></span>
                         <span id="lbl-done" style="font-weight:700;color:var(--text)"></span>
                     </div>
@@ -198,7 +231,6 @@ pwfOfficeHeader('Dashboard', 'dashboard');
                             <div style="width:<?= $cpPct ?>%;height:100%;background:<?= $cpColor ?>;border-radius:20px;transition:width .6s ease"></div>
                         </div>
                         <div style="display:flex;gap:8px;margin-top:3px;font-size:9.5px;flex-wrap:wrap">
-                            <?php if ($cp['cnt_shipped']   > 0): ?><span style="color:#3b82f6">↗ <?= $cp['cnt_shipped'] ?> shipped</span><?php endif; ?>
                             <?php if ($cp['cnt_completed'] > 0): ?><span style="color:#22c55e">✓ <?= $cp['cnt_completed'] ?> done/ready</span><?php endif; ?>
                             <?php if ($cp['cnt_progress']  > 0): ?><span style="color:#f59e0b">⟳ <?= $cp['cnt_progress'] ?> producing</span><?php endif; ?>
                             <span style="color:var(--muted)"><?= fmtQty($cp['total_done']) ?> / <?= fmtQty($cp['total_qty']) ?> pcs</span>
@@ -418,10 +450,17 @@ pwfOfficeHeader('Dashboard', 'dashboard');
                                 </span>
                             </td>
                             <td>
-                                <a href="shipping.php?print=<?= (int)$ct['id'] ?>" target="_blank"
-                                    style="font-size:11px;color:var(--gold);text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border:1px solid var(--border);border-radius:6px">
-                                    <i class="bi bi-printer"></i> Print
-                                </a>
+                                <div style="display:flex;gap:6px;justify-content:flex-end">
+                                    <button type="button"
+                                        onclick="openContainerArchive(<?= (int)$ct['id'] ?>)"
+                                        style="font-size:11px;background:#EFF6FF;color:#1D4ED8;border:1px solid #BFDBFE;border-radius:6px;padding:4px 9px;font-weight:600;display:inline-flex;align-items:center;gap:4px;cursor:pointer">
+                                        <i class="bi bi-archive"></i> Arsip
+                                    </button>
+                                    <a href="shipping.php?print=<?= (int)$ct['id'] ?>" target="_blank"
+                                        style="font-size:11px;color:var(--gold);text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border:1px solid var(--border);border-radius:6px">
+                                        <i class="bi bi-printer"></i> Print
+                                    </a>
+                                </div>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -431,12 +470,49 @@ pwfOfficeHeader('Dashboard', 'dashboard');
     <?php endif; ?>
 </div>
 
+<!-- ══ CONTAINER ARCHIVE MODAL ══════════════════════════════════════════════ -->
+<div class="modal-overlay" id="containerArchiveModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.42);z-index:9500;align-items:center;justify-content:center;padding:18px">
+    <div style="width:min(980px,96vw);max-height:92vh;overflow:auto;background:#fff;border-radius:14px;border:1px solid var(--border);box-shadow:0 24px 80px rgba(0,0,0,.25)">
+        <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:10px;position:sticky;top:0;background:#fff;z-index:1">
+            <div>
+                <div id="caTitle" style="font-size:15px;font-weight:800;color:var(--text)">Arsip Container</div>
+                <div id="caMeta" style="font-size:11px;color:var(--muted);margin-top:2px"></div>
+            </div>
+            <button type="button" onclick="closeContainerArchive()" style="border:1px solid var(--border);background:#fff;border-radius:7px;padding:4px 8px;font-size:16px;line-height:1;cursor:pointer">&times;</button>
+        </div>
+        <div style="padding:14px 18px">
+            <div id="caLoading" style="text-align:center;padding:30px 0;color:var(--muted)">Memuat data arsip...</div>
+            <div id="caContent" style="display:none">
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:14px">
+                    <div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:#FAFAF9"><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Tanggal Kirim</div><div id="caDate" style="font-size:13px;font-weight:700;color:var(--text);margin-top:2px">—</div></div>
+                    <div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:#FAFAF9"><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Tujuan</div><div id="caDest" style="font-size:13px;font-weight:700;color:var(--text);margin-top:2px">—</div></div>
+                    <div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:#FAFAF9"><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Total Item</div><div id="caItems" style="font-size:13px;font-weight:700;color:var(--text);margin-top:2px">—</div></div>
+                    <div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:#FAFAF9"><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Total Qty</div><div id="caQty" style="font-size:13px;font-weight:700;color:var(--text);margin-top:2px">—</div></div>
+                </div>
+                <div style="border:1px solid var(--border);border-radius:10px;overflow:auto">
+                    <table class="pwf-table" style="margin:0">
+                        <thead>
+                            <tr>
+                                <th>Customer</th>
+                                <th>Order Code</th>
+                                <th>Product</th>
+                                <th style="text-align:center">Qty Shipped</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody id="caRows"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- ══ CHART.JS ══════════════════════════════════════════════════════════════ -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script>
     if (typeof Chart === 'undefined') {
         document.getElementById('donutPct').textContent = '—';
-        document.getElementById('lbl-shipped').textContent = 'N/A';
         document.getElementById('lbl-done').textContent = 'N/A';
         document.getElementById('lbl-prod').textContent = 'N/A';
         document.getElementById('lbl-rem').textContent = 'N/A';
@@ -474,15 +550,13 @@ pwfOfficeHeader('Dashboard', 'dashboard');
 
         // ── Donut: 4-segment production breakdown ────────────────────────────────
         (function() {
-            const shipped = <?= round($dShipped, 2) ?>;
             const ready = <?= round($dReady, 2) ?>;
             const producing = <?= round($dProducing, 2) ?>;
             const remaining = <?= round($dRemaining, 2) ?>;
-            const totalDone = shipped + ready + producing;
+            const totalDone = ready + producing;
             const totalQty = totalDone + remaining;
             const pct = totalQty > 0 ? Math.min(100, Math.round(totalDone / totalQty * 100)) : 0;
             document.getElementById('donutPct').textContent = pct + '%';
-            document.getElementById('lbl-shipped').textContent = shipped + ' pcs';
             document.getElementById('lbl-done').textContent = ready + ' pcs';
             document.getElementById('lbl-prod').textContent = producing + ' pcs';
             document.getElementById('lbl-rem').textContent = remaining + ' pcs';
@@ -491,11 +565,10 @@ pwfOfficeHeader('Dashboard', 'dashboard');
             new Chart(document.getElementById('pieChart'), {
                 type: 'doughnut',
                 data: {
-                    labels: ['Shipped', 'Done / Ready', 'Producing', 'Remaining'],
+                    labels: ['Done / Ready', 'Producing', 'Remaining'],
                     datasets: [{
-                        data: [shipped, ready, producing, remaining || 0.001],
+                        data: [ready, producing, remaining || 0.001],
                         backgroundColor: [
-                            '#3b82f6',
                             '#22c55e',
                             '#f59e0b',
                             isDark ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.06)'
@@ -537,7 +610,6 @@ pwfOfficeHeader('Dashboard', 'dashboard');
         // ── Horizontal stacked bar: qty per customer ─────────────────────────────
         (function() {
             const labels = <?= json_encode($custNames) ?>;
-            const shipped = <?= json_encode($barShipped) ?>;
             const ready = <?= json_encode($barReady) ?>;
             const producing = <?= json_encode($barProducing) ?>;
             const remaining = <?= json_encode($barRemaining) ?>;
@@ -549,18 +621,6 @@ pwfOfficeHeader('Dashboard', 'dashboard');
                 data: {
                     labels,
                     datasets: [{
-                            label: 'Shipped',
-                            data: shipped,
-                            backgroundColor: '#3b82f6',
-                            borderRadius: 0,
-                            borderSkipped: false,
-                            stack: 'qty',
-                            barThickness: 22,
-                            maxBarThickness: 24,
-                            categoryPercentage: 0.72,
-                            barPercentage: 0.78
-                        },
-                        {
                             label: 'Done / Ready',
                             data: ready,
                             backgroundColor: '#22c55e',
@@ -677,5 +737,77 @@ pwfOfficeHeader('Dashboard', 'dashboard');
             });
         })();
     }
+
+    function fmtDateID(s) {
+        if (!s) return '—';
+        const d = new Date(s);
+        const m = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        return d.getDate() + ' ' + m[d.getMonth()] + ' ' + d.getFullYear();
+    }
+
+    function escHtml(str) {
+        return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function openContainerArchive(containerId) {
+        const modal = document.getElementById('containerArchiveModal');
+        const loading = document.getElementById('caLoading');
+        const content = document.getElementById('caContent');
+        modal.style.display = 'flex';
+        loading.style.display = 'block';
+        content.style.display = 'none';
+
+        fetch('dashboard.php?ajax=container_detail&id=' + encodeURIComponent(containerId))
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) {
+                    loading.innerHTML = '<span style="color:#991B1B">' + escHtml(data.error) + '</span>';
+                    return;
+                }
+
+                const ct = data.container || {};
+                const items = data.items || [];
+                const totalQty = items.reduce((s, it) => s + (parseFloat(it.qty_shipped) || 0), 0);
+
+                document.getElementById('caTitle').textContent = 'Arsip ' + (ct.container_code || 'Container');
+                document.getElementById('caMeta').textContent = 'Container No: ' + (ct.container_no || '—') + ' · Status: ' + (ct.status || '—');
+                document.getElementById('caDate').textContent = fmtDateID(ct.shipment_date);
+                document.getElementById('caDest').textContent = (ct.destination_country || '—') + (ct.destination_port ? ' / ' + ct.destination_port : '');
+                document.getElementById('caItems').textContent = items.length + ' item';
+                document.getElementById('caQty').textContent = (Number.isInteger(totalQty) ? totalQty.toFixed(0) : totalQty.toFixed(2).replace(/\.00$/, '')) + ' pcs';
+
+                const rows = document.getElementById('caRows');
+                rows.innerHTML = '';
+                if (!items.length) {
+                    rows.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:16px">Belum ada item di container ini.</td></tr>';
+                } else {
+                    rows.innerHTML = items.map(it => {
+                        const qty = parseFloat(it.qty_shipped || 0);
+                        const qtyTxt = Number.isInteger(qty) ? qty.toFixed(0) : qty.toFixed(2).replace(/\.00$/, '');
+                        return '<tr>' +
+                            '<td style="font-weight:600">' + escHtml(it.customer_name || '—') + '</td>' +
+                            '<td><code style="font-size:11px;color:var(--gold)">' + escHtml(it.order_code || '—') + '</code></td>' +
+                            '<td>' + escHtml(it.product_name || '—') + '</td>' +
+                            '<td style="text-align:center;font-weight:700">' + qtyTxt + '</td>' +
+                            '<td style="font-size:11px;color:var(--muted)">' + escHtml(it.item_notes || '') + '</td>' +
+                            '</tr>';
+                    }).join('');
+                }
+
+                loading.style.display = 'none';
+                content.style.display = 'block';
+            })
+            .catch(() => {
+                loading.innerHTML = '<span style="color:#991B1B">Gagal memuat arsip container.</span>';
+            });
+    }
+
+    function closeContainerArchive() {
+        document.getElementById('containerArchiveModal').style.display = 'none';
+    }
+
+    document.getElementById('containerArchiveModal').addEventListener('click', function(e) {
+        if (e.target === this) closeContainerArchive();
+    });
 </script>
 <?php pwfOfficeFooter(); ?>
