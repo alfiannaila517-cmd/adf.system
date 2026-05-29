@@ -4,11 +4,28 @@ require_once __DIR__ . '/db-helper.php';
 
 $pdo = getPwfOfficePdo();
 
-// ── PRINT SURAT JALAN ──────────────────────────────────────────────────────────
+// DB migration: ensure dropped_at column exists
+try { $pdo->query("SELECT dropped_at FROM pwf_containers LIMIT 1"); }
+catch (PDOException $e) {
+    $pdo->exec("ALTER TABLE pwf_containers ADD COLUMN dropped_at DATETIME NULL DEFAULT NULL");
+}
+
+// ─── Shared: company info ──────────────────────────────────────────────────────
+function getCoInfo($pdo) {
+    try {
+        return $pdo->query("SELECT setting_key,setting_value FROM settings WHERE setting_key IN ('pwf_company_name','pwf_company_address','pwf_company_phone','pwf_login_logo')")->fetchAll(PDO::FETCH_KEY_PAIR);
+    } catch (Exception $e) { return []; }
+}
+function fmtQty($v) { return rtrim(rtrim(number_format((float)$v,2),'0'),'.'); }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PRINT: Surat Jalan per Container
+// ─────────────────────────────────────────────────────────────────────────────
 if (isset($_GET['print']) && (int)$_GET['print'] > 0) {
     $cid = (int)$_GET['print'];
-    $container = $pdo->prepare("SELECT * FROM pwf_containers WHERE id=?");
-    $container->execute([$cid]); $container = $container->fetch();
+    $stmt = $pdo->prepare("SELECT * FROM pwf_containers WHERE id=?");
+    $stmt->execute([$cid]);
+    $container = $stmt->fetch();
     if (!$container) { echo 'Container not found'; exit; }
 
     $items = $pdo->query("
@@ -19,192 +36,95 @@ if (isset($_GET['print']) && (int)$_GET['print'] > 0) {
         JOIN pwf_orders o ON o.id=ci.order_id
         LEFT JOIN pwf_customers c ON c.id=o.customer_id
         WHERE ci.container_id=$cid
+        ORDER BY c.customer_name ASC, ci.id ASC
+    ")->fetchAll();
+
+    $ci = getCoInfo($pdo);
+    $companyName  = $ci['pwf_company_name']    ?? 'Prapen Wood Furniture';
+    $companyAddr  = $ci['pwf_company_address']  ?? 'Jl. Ngabul - Batealit No.KM. 5, Jepara';
+    $companyPhone = $ci['pwf_company_phone']    ?? '';
+    $logoUrl      = $ci['pwf_login_logo']       ?? '';
+    $totalQty     = array_sum(array_column($items, 'qty_shipped'));
+    $custSummary  = [];
+    foreach ($items as $it) {
+        $cn = $it['customer_name'] ?? 'Unknown';
+        $custSummary[$cn] = ($custSummary[$cn] ?? 0) + (float)$it['qty_shipped'];
+    }
+    header('Content-Type: text/html; charset=utf-8');
+    include __DIR__ . '/print-sj-template.php';
+    exit;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PRINT: Surat Jalan per Customer
+// ─────────────────────────────────────────────────────────────────────────────
+if (isset($_GET['print_cust']) && (int)$_GET['print_cust'] > 0 && isset($_GET['cust_id'])) {
+    $cid    = (int)$_GET['print_cust'];
+    $custId = (int)$_GET['cust_id'];
+
+    $stmt = $pdo->prepare("SELECT * FROM pwf_containers WHERE id=?");
+    $stmt->execute([$cid]);
+    $container = $stmt->fetch();
+
+    $stmt2 = $pdo->prepare("SELECT customer_name FROM pwf_customers WHERE id=?");
+    $stmt2->execute([$custId]);
+    $custNameOnly = $stmt2->fetchColumn();
+
+    if (!$container || !$custNameOnly) { echo 'Not found'; exit; }
+
+    $items = $pdo->query("
+        SELECT ci.qty_shipped, ci.notes AS item_notes,
+               o.order_code, o.product_name, o.specification, o.dimensions, o.quantity,
+               c.customer_name
+        FROM pwf_container_items ci
+        JOIN pwf_orders o ON o.id=ci.order_id
+        LEFT JOIN pwf_customers c ON c.id=o.customer_id
+        WHERE ci.container_id=$cid AND o.customer_id=$custId
         ORDER BY ci.id ASC
     ")->fetchAll();
 
-    // Get company info
-    $compInfo = [];
-    try {
-        $rs = $pdo->query("SELECT setting_key,setting_value FROM settings WHERE setting_key IN ('pwf_company_name','pwf_company_address','pwf_company_phone','pwf_login_logo')")->fetchAll(PDO::FETCH_KEY_PAIR);
-        $compInfo = $rs;
-    } catch(Exception $e) {}
-    $companyName = $compInfo['pwf_company_name'] ?? 'Prapen Wood Furniture';
-    $companyAddr = $compInfo['pwf_company_address'] ?? 'Jl. Ngabul - Batealit No.KM. 5, Jepara';
-    $companyPhone= $compInfo['pwf_company_phone'] ?? '';
-    $logoUrl     = $compInfo['pwf_login_logo'] ?? '';
+    if (empty($items)) { echo 'Tidak ada item untuk customer ini di container ini.'; exit; }
 
-    $totalQty = array_sum(array_column($items, 'qty_shipped'));
+    $ci = getCoInfo($pdo);
+    $companyName  = $ci['pwf_company_name']    ?? 'Prapen Wood Furniture';
+    $companyAddr  = $ci['pwf_company_address']  ?? 'Jl. Ngabul - Batealit No.KM. 5, Jepara';
+    $companyPhone = $ci['pwf_company_phone']    ?? '';
+    $logoUrl      = $ci['pwf_login_logo']       ?? '';
+    $totalQty     = array_sum(array_column($items, 'qty_shipped'));
+    $custSummary  = null;
     header('Content-Type: text/html; charset=utf-8');
-?>
-<!doctype html><html><head><meta charset="utf-8">
-<title>Surat Jalan – <?= htmlspecialchars($container['container_code']) ?></title>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:Arial,sans-serif;font-size:12px;color:#111;background:#fff;padding:24px 30px}
-.header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #111}
-.co-logo{width:60px;height:60px;object-fit:contain;margin-right:12px}
-.co-name{font-size:16px;font-weight:700;margin-bottom:2px}
-.co-sub{font-size:10.5px;color:#555;line-height:1.5}
-.doc-title{text-align:right}
-.doc-title h1{font-size:22px;font-weight:900;letter-spacing:1px;color:#111}
-.doc-title .doc-no{font-size:12px;color:#555;margin-top:3px}
-.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:0;margin-bottom:20px;border:1px solid #ccc;border-radius:4px;overflow:hidden}
-.info-box{padding:10px 14px;border-right:1px solid #ccc}
-.info-box:last-child{border-right:none}
-.info-box h4{font-size:9.5px;text-transform:uppercase;letter-spacing:.5px;color:#888;margin-bottom:6px}
-.info-row{display:flex;gap:6px;margin-bottom:3px;font-size:11.5px}
-.info-label{min-width:100px;color:#666}
-.info-val{font-weight:600}
-table{width:100%;border-collapse:collapse;margin-bottom:20px}
-thead tr{background:#111;color:#fff}
-th{padding:8px 10px;text-align:left;font-size:11px;font-weight:600;letter-spacing:.3px}
-td{padding:8px 10px;border-bottom:1px solid #e5e5e5;font-size:11.5px;vertical-align:top}
-tbody tr:nth-child(even){background:#F9F9F9}
-.no-col{width:32px;text-align:center}
-.qty-col{width:60px;text-align:center;font-weight:700}
-tfoot td{border-top:2px solid #111;font-weight:700;padding:9px 10px}
-.signatures{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-top:30px}
-.sig-box{text-align:center;border:1px solid #ccc;border-radius:6px;padding:14px}
-.sig-box .sig-title{font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:#666;margin-bottom:40px}
-.sig-box .sig-name{border-top:1px solid #aaa;padding-top:6px;font-size:11px;color:#444;min-height:18px}
-.footer-note{font-size:10.5px;color:#888;text-align:center;border-top:1px solid #e5e5e5;padding-top:12px;margin-top:12px}
-@media print{
-  body{padding:10px 16px}
-  .print-btn{display:none!important}
-  @page{margin:12mm 14mm}
-}
-</style>
-</head>
-<body>
-<div style="text-align:right;margin-bottom:10px">
-  <button class="print-btn" onclick="window.print()" style="padding:8px 20px;background:#111;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-weight:600">
-    🖨️ Print / Save PDF
-  </button>
-</div>
-
-<!-- HEADER -->
-<div class="header">
-  <div style="display:flex;align-items:center">
-    <?php if ($logoUrl): ?><img src="<?= htmlspecialchars($logoUrl) ?>" class="co-logo"><?php endif; ?>
-    <div>
-      <div class="co-name"><?= htmlspecialchars($companyName) ?></div>
-      <div class="co-sub">
-        <?= htmlspecialchars($companyAddr) ?><br>
-        <?php if ($companyPhone): ?>Tel: <?= htmlspecialchars($companyPhone) ?><?php endif; ?>
-      </div>
-    </div>
-  </div>
-  <div class="doc-title">
-    <h1>SURAT JALAN</h1>
-    <div class="doc-no">No: <?= htmlspecialchars($container['container_code']) ?></div>
-    <div class="doc-no">Tanggal: <?= date('d F Y', strtotime($container['shipment_date'])) ?></div>
-  </div>
-</div>
-
-<!-- CONTAINER INFO -->
-<div class="info-grid">
-  <div class="info-box">
-    <h4>Informasi Pengiriman</h4>
-    <div class="info-row"><span class="info-label">No. Container</span><span class="info-val"><?= htmlspecialchars($container['container_no'] ?: '—') ?></span></div>
-    <div class="info-row"><span class="info-label">Tipe Container</span><span class="info-val"><?= strtoupper(htmlspecialchars($container['container_type'])) ?></span></div>
-    <div class="info-row"><span class="info-label">Tanggal Kirim</span><span class="info-val"><?= date('d M Y', strtotime($container['shipment_date'])) ?></span></div>
-    <div class="info-row"><span class="info-label">Forwarder</span><span class="info-val"><?= htmlspecialchars($container['forwarder'] ?: '—') ?></span></div>
-  </div>
-  <div class="info-box">
-    <h4>Tujuan</h4>
-    <div class="info-row"><span class="info-label">Negara</span><span class="info-val"><?= htmlspecialchars($container['destination_country'] ?: '—') ?></span></div>
-    <div class="info-row"><span class="info-label">Port</span><span class="info-val"><?= htmlspecialchars($container['destination_port'] ?: '—') ?></span></div>
-    <div class="info-row"><span class="info-label">No. BL / Tracking</span><span class="info-val"><?= htmlspecialchars($container['tracking_no'] ?: ($container['bl_no'] ?: '—')) ?></span></div>
-    <div class="info-row"><span class="info-label">Status</span><span class="info-val"><?= strtoupper(htmlspecialchars($container['status'])) ?></span></div>
-  </div>
-</div>
-
-<!-- ITEMS TABLE -->
-<table>
-  <thead>
-    <tr>
-      <th class="no-col">No</th>
-      <th>Kode Order</th>
-      <th>Nama Produk</th>
-      <th>Spesifikasi</th>
-      <th>Dimensi (cm)</th>
-      <th class="qty-col">Qty Kirim</th>
-      <th class="qty-col">Total PO</th>
-      <th>Customer</th>
-      <th>Keterangan</th>
-    </tr>
-  </thead>
-  <tbody>
-    <?php foreach ($items as $i => $item): ?>
-    <tr>
-      <td class="no-col"><?= $i + 1 ?></td>
-      <td><strong><?= htmlspecialchars($item['order_code']) ?></strong></td>
-      <td><?= htmlspecialchars($item['product_name']) ?></td>
-      <td style="font-size:10.5px;color:#555"><?= nl2br(htmlspecialchars(mb_substr($item['specification'] ?? '', 0, 80))) ?></td>
-      <td><?= htmlspecialchars($item['dimensions'] ?: '—') ?></td>
-      <td class="qty-col" style="color:#000;font-size:13px"><?= rtrim(rtrim(number_format((float)$item['qty_shipped'],2),'0'),'.') ?></td>
-      <td class="qty-col" style="color:#666"><?= rtrim(rtrim(number_format((float)$item['quantity'],2),'0'),'.') ?></td>
-      <td><?= htmlspecialchars($item['customer_name'] ?? '—') ?></td>
-      <td style="font-size:10.5px;color:#666"><?= htmlspecialchars($item['item_notes'] ?? '') ?></td>
-    </tr>
-    <?php endforeach; ?>
-    <?php if (empty($items)): ?><tr><td colspan="9" style="text-align:center;padding:20px;color:#aaa">Belum ada item</td></tr><?php endif; ?>
-  </tbody>
-  <tfoot>
-    <tr>
-      <td colspan="5" style="text-align:right">TOTAL QTY DIKIRIM:</td>
-      <td class="qty-col" style="font-size:14px"><?= rtrim(rtrim(number_format($totalQty,2),'0'),'.') ?></td>
-      <td colspan="3"></td>
-    </tr>
-  </tfoot>
-</table>
-
-<?php if ($container['notes']): ?>
-<div style="border:1px solid #e5e5e5;border-radius:4px;padding:10px 14px;margin-bottom:20px;font-size:11.5px">
-  <strong>Catatan:</strong> <?= htmlspecialchars($container['notes']) ?>
-</div>
-<?php endif; ?>
-
-<!-- SIGNATURES -->
-<div class="signatures">
-  <div class="sig-box"><div class="sig-title">Dibuat Oleh</div><div class="sig-name"></div></div>
-  <div class="sig-box"><div class="sig-title">Mengetahui / Mandor</div><div class="sig-name"></div></div>
-  <div class="sig-box"><div class="sig-title">Penerima</div><div class="sig-name"></div></div>
-</div>
-
-<div class="footer-note">Dokumen ini dicetak otomatis oleh PWF Office System · <?= date('d/m/Y H:i') ?></div>
-</body></html>
-<?php
+    include __DIR__ . '/print-sj-template.php';
     exit;
 }
 
 require_once __DIR__ . '/layout.php';
 $msg = ''; $msgType = 'success';
 
-// ── POST HANDLERS ──────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// POST HANDLERS
+// ─────────────────────────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['_action'] ?? '';
 
     if ($action === 'create_container') {
         $shipDate  = $_POST['shipment_date'] ?? date('Y-m-d');
-        $ctype     = $_POST['container_type'] ?? '20ft';
+        $ctype     = $_POST['container_type'] ?? '40hc';
         $country   = trim($_POST['destination_country'] ?? '');
         $port      = trim($_POST['destination_port'] ?? '');
         $forwarder = trim($_POST['forwarder'] ?? '');
         $tracking  = trim($_POST['tracking_no'] ?? '');
         $blno      = trim($_POST['bl_no'] ?? '');
         $cno       = trim($_POST['container_no'] ?? '');
-        $status    = $_POST['status'] ?? 'draft';
+        $status    = $_POST['status'] ?? 'booked';
         $notes     = trim($_POST['notes'] ?? '');
 
-        $ym   = date('Ym');
-        $cnt  = (int)$pdo->query("SELECT COUNT(*) FROM pwf_containers WHERE container_code LIKE 'CTN-$ym-%'")->fetchColumn() + 1;
+        $ym  = date('Ym');
+        $cnt = (int)$pdo->query("SELECT COUNT(*) FROM pwf_containers WHERE container_code LIKE 'CTN-$ym-%'")->fetchColumn() + 1;
         $code = sprintf('CTN-%s-%03d', $ym, $cnt);
 
         $pdo->prepare('INSERT INTO pwf_containers (container_code,container_no,container_type,shipment_date,destination_country,destination_port,forwarder,tracking_no,bl_no,status,notes,created_by)
             VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
             ->execute([$code,$cno,$ctype,$shipDate,$country,$port,$forwarder,$tracking,$blno,$status,$notes,$_SESSION['user_id']??null]);
-
         $containerId = (int)$pdo->lastInsertId();
 
         $orderIds = (array)($_POST['order_ids'] ?? []);
@@ -214,16 +134,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $qty = max(0, (float)($qtys[$k] ?? 0));
             if ($oid > 0 && $qty > 0) {
                 $pdo->prepare('INSERT INTO pwf_container_items (container_id,order_id,qty_shipped) VALUES (?,?,?)')
-                    ->execute([$containerId, $oid, $qty]);
-                // Partial or full ship logic
-                $orderQty    = (float)$pdo->query("SELECT quantity FROM pwf_orders WHERE id=$oid")->fetchColumn();
-                $totalShipped= (float)$pdo->query("SELECT COALESCE(SUM(qty_shipped),0) FROM pwf_container_items WHERE order_id=$oid")->fetchColumn();
-                $newStatus   = ($totalShipped >= $orderQty) ? 'shipped' : 'partial_ship';
-                $pdo->prepare("UPDATE pwf_orders SET status=?, updated_at=NOW() WHERE id=?")->execute([$newStatus, $oid]);
+                    ->execute([$containerId,$oid,$qty]);
+                $orderQty     = (float)$pdo->query("SELECT quantity FROM pwf_orders WHERE id=$oid")->fetchColumn();
+                $totalShipped = (float)$pdo->query("SELECT COALESCE(SUM(qty_shipped),0) FROM pwf_container_items WHERE order_id=$oid")->fetchColumn();
+                $ns = ($totalShipped >= $orderQty) ? 'shipped' : 'partial_ship';
+                $pdo->prepare("UPDATE pwf_orders SET status=?, updated_at=NOW() WHERE id=?")->execute([$ns,$oid]);
             }
         }
-        $msg = "Container $code berhasil dibuat.";
-        header("Location: shipping.php?msg=".urlencode($msg)); exit;
+        $msg = "Container $code berhasil dibuat!";
+        header("Location: shipping.php?msg=" . urlencode($msg));
+        exit;
 
     } elseif ($action === 'add_item') {
         $cid   = (int)($_POST['container_id'] ?? 0);
@@ -233,33 +153,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($cid > 0 && $oid > 0 && $qty > 0) {
             $pdo->prepare('INSERT INTO pwf_container_items (container_id,order_id,qty_shipped,notes) VALUES (?,?,?,?)')
                 ->execute([$cid,$oid,$qty,$notes]);
-            $orderQty    = (float)$pdo->query("SELECT quantity FROM pwf_orders WHERE id=$oid")->fetchColumn();
-            $totalShipped= (float)$pdo->query("SELECT COALESCE(SUM(qty_shipped),0) FROM pwf_container_items WHERE order_id=$oid")->fetchColumn();
-            $newStatus   = ($totalShipped >= $orderQty) ? 'shipped' : 'partial_ship';
-            $pdo->prepare("UPDATE pwf_orders SET status=?, updated_at=NOW() WHERE id=?")->execute([$newStatus, $oid]);
+            $orderQty     = (float)$pdo->query("SELECT quantity FROM pwf_orders WHERE id=$oid")->fetchColumn();
+            $totalShipped = (float)$pdo->query("SELECT COALESCE(SUM(qty_shipped),0) FROM pwf_container_items WHERE order_id=$oid")->fetchColumn();
+            $ns = ($totalShipped >= $orderQty) ? 'shipped' : 'partial_ship';
+            $pdo->prepare("UPDATE pwf_orders SET status=?, updated_at=NOW() WHERE id=?")->execute([$ns,$oid]);
             $msg = 'Item berhasil ditambahkan ke container.';
+        }
+
+    } elseif ($action === 'drop_container') {
+        $cid = (int)($_POST['container_id'] ?? 0);
+        if ($cid > 0) {
+            $pdo->prepare('UPDATE pwf_containers SET status=?, dropped_at=NOW(), updated_at=NOW() WHERE id=?')
+                ->execute(['onboard', $cid]);
+            $msg = 'Container berhasil di-Drop ke kapal! Status: On Board.';
+            header("Location: shipping.php?msg=" . urlencode($msg));
+            exit;
         }
 
     } elseif ($action === 'update_container_status') {
         $cid    = (int)($_POST['container_id'] ?? 0);
         $status = $_POST['status'] ?? 'booked';
         if ($cid > 0) {
-            $pdo->prepare('UPDATE pwf_containers SET status=?,updated_at=NOW() WHERE id=?')->execute([$status,$cid]);
+            $pdo->prepare('UPDATE pwf_containers SET status=?, updated_at=NOW() WHERE id=?')->execute([$status,$cid]);
             $msg = 'Status container diperbarui.';
         }
     }
 }
-
 if (isset($_GET['msg'])) $msg = htmlspecialchars($_GET['msg']);
 
-// ── DATA ──────────────────────────────────────────────────────────────────────
-// Orders yang bisa dikirim: ready_ship, on_progress (qty_done > 0), partial_ship
+// ─────────────────────────────────────────────────────────────────────────────
+// DATA
+// ─────────────────────────────────────────────────────────────────────────────
 $readyOrders = $pdo->query("
     SELECT sub.*, (sub.qty_done - sub.already_shipped) AS qty_remaining
     FROM (
         SELECT o.id, o.order_code, o.product_name, o.specification, o.dimensions,
                o.quantity, o.qty_done, o.status,
-               COALESCE((SELECT SUM(qty_shipped) FROM pwf_container_items WHERE order_id=o.id), 0) AS already_shipped,
+               COALESCE((SELECT SUM(qty_shipped) FROM pwf_container_items WHERE order_id=o.id),0) AS already_shipped,
                c.id AS customer_id, c.customer_name
         FROM pwf_orders o
         LEFT JOIN pwf_customers c ON c.id=o.customer_id
@@ -269,41 +199,40 @@ $readyOrders = $pdo->query("
     ORDER BY FIELD(sub.status,'ready_ship','partial_ship','on_progress'), sub.id DESC
 ")->fetchAll();
 
-// Customers that have ready orders (for filter)
-$readyCustIds = array_unique(array_column($readyOrders, 'customer_id'));
+$readyCustIds = array_unique(array_column($readyOrders,'customer_id'));
 $customers = [];
 if (!empty($readyCustIds)) {
     $inStr = implode(',', array_map('intval', $readyCustIds));
-    $customers = $pdo->query("SELECT id, customer_name FROM pwf_customers WHERE id IN ($inStr) ORDER BY customer_name")->fetchAll();
+    $customers = $pdo->query("SELECT id,customer_name FROM pwf_customers WHERE id IN ($inStr) ORDER BY customer_name")->fetchAll();
 }
 
-// Container history
 $containers = $pdo->query("
     SELECT ct.*,
-           COUNT(ci.id)          AS item_count,
-           SUM(ci.qty_shipped)   AS total_qty
+           COUNT(ci.id) AS item_count,
+           COALESCE(SUM(ci.qty_shipped),0) AS total_qty,
+           COUNT(DISTINCT o2.customer_id) AS cust_count
     FROM pwf_containers ct
     LEFT JOIN pwf_container_items ci ON ci.container_id=ct.id
+    LEFT JOIN pwf_orders o2 ON o2.id=ci.order_id
     GROUP BY ct.id
     ORDER BY ct.id DESC
 ")->fetchAll();
 
-// Items per container for history expansion
 $allItems = $pdo->query("
     SELECT ci.container_id, ci.id AS ci_id, ci.qty_shipped, ci.notes AS item_notes,
-           o.order_code, o.product_name, o.specification, o.quantity, o.qty_done,
+           o.id AS order_id, o.order_code, o.product_name, o.specification, o.dimensions,
+           o.quantity, o.qty_done, o.customer_id,
            c.customer_name
     FROM pwf_container_items ci
     JOIN pwf_orders o ON o.id=ci.order_id
     LEFT JOIN pwf_customers c ON c.id=o.customer_id
-    ORDER BY ci.container_id DESC, ci.id ASC
+    ORDER BY ci.container_id DESC, c.customer_name ASC, ci.id ASC
 ")->fetchAll();
 $itemsByContainer = [];
 foreach ($allItems as $row) {
     $itemsByContainer[(int)$row['container_id']][] = $row;
 }
 
-// All ready orders for add-item modal
 $allReadyForModal = $pdo->query("
     SELECT sub.id, sub.order_code, sub.product_name, sub.customer_name,
            (sub.qty_done - sub.already_shipped) AS qty_remaining
@@ -319,454 +248,760 @@ $allReadyForModal = $pdo->query("
     ORDER BY sub.order_code ASC
 ")->fetchAll();
 
-pwfOfficeHeader('Shipping & Container', 'shipping');
+// Stats
+$totalContainers  = count($containers);
+$cntActive   = count(array_filter($containers, fn($c)=>in_array($c['status'],['draft','booked'])));
+$cntOnboard  = count(array_filter($containers, fn($c)=>in_array($c['status'],['onboard','arrived'])));
+$cntClosed   = count(array_filter($containers, fn($c)=>$c['status']==='closed'));
+$totalPcs    = array_sum(array_column($containers,'total_qty'));
+$totalOrders = count($readyOrders);
+
+pwfOfficeHeader('Shipping & Container','shipping');
 ?>
 
 <?php if ($msg): ?>
 <div class="alert alert-success" style="margin-bottom:16px"><?= $msg ?></div>
 <?php endif; ?>
 
-<form method="post" id="containerForm">
-<input type="hidden" name="_action" value="create_container">
-
-<!-- ══ LANGKAH 1: DETAIL KONTAINER ══════════════════════════════════════════ -->
-<div class="pwf-card" style="margin-bottom:16px">
-  <div class="pwf-card-header" style="display:flex;align-items:center;gap:10px">
-    <span style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:var(--gold);color:#fff;font-size:12px;font-weight:800;flex-shrink:0">1</span>
-    <span><i class="bi bi-box-seam me-1"></i>Detail Kontainer</span>
-  </div>
-  <div class="pwf-card-body">
-    <!-- Row 1: Container No, Tanggal, Tipe -->
-    <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px;margin-bottom:14px">
-      <div>
-        <label style="font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px">No. Container (Fisik)</label>
-        <input class="input" name="container_no" placeholder="Contoh: TEMU2134567" style="width:100%">
-      </div>
-      <div>
-        <label style="font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px">Tanggal Kirim</label>
-        <input class="input" type="date" name="shipment_date" value="<?= date('Y-m-d') ?>" style="width:100%">
-      </div>
-      <div>
-        <label style="font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px">Tipe Container</label>
-        <select class="select" name="container_type" style="width:100%">
-          <option value="20ft">20ft</option>
-          <option value="40ft">40ft</option>
-          <option value="40hc" selected>40HC</option>
-          <option value="lcl">LCL</option>
-          <option value="fcl">FCL</option>
-        </select>
-      </div>
+<!-- ══ STATS BAR ════════════════════════════════════════════════════════════ -->
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+    <div class="pwf-card" style="padding:16px 18px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px"><i class="bi bi-boxes me-1"></i>Total Container</div>
+        <div style="font-size:28px;font-weight:800;color:var(--text);line-height:1"><?= $totalContainers ?></div>
+        <div style="font-size:10.5px;color:var(--muted);margin-top:3px"><?= $totalPcs > 0 ? fmtQty($totalPcs).' pcs dikirim' : 'Belum ada' ?></div>
     </div>
-    <!-- Row 2: Negara, Port, Forwarder -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">
-      <div>
-        <label style="font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px">Negara Tujuan</label>
-        <input class="input" name="destination_country" placeholder="Contoh: Japan" style="width:100%">
-      </div>
-      <div>
-        <label style="font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px">Port Tujuan</label>
-        <input class="input" name="destination_port" placeholder="Contoh: Osaka" style="width:100%">
-      </div>
-      <div>
-        <label style="font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px">Forwarder</label>
-        <input class="input" name="forwarder" placeholder="Nama perusahaan forwarder" style="width:100%">
-      </div>
+    <div class="pwf-card" style="padding:16px 18px;border-left:3px solid var(--gold)">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px"><i class="bi bi-bookmark-check me-1"></i>Aktif / Booked</div>
+        <div style="font-size:28px;font-weight:800;color:var(--gold);line-height:1"><?= $cntActive ?></div>
+        <div style="font-size:10.5px;color:var(--muted);margin-top:3px"><?= $totalOrders ?> order siap kirim</div>
     </div>
-    <!-- Row 3: BL No, Tracking, Status -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">
-      <div>
-        <label style="font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px">No. Bill of Lading</label>
-        <input class="input" name="bl_no" placeholder="BL Number" style="width:100%">
-      </div>
-      <div>
-        <label style="font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px">No. Tracking</label>
-        <input class="input" name="tracking_no" placeholder="Tracking / booking no" style="width:100%">
-      </div>
-      <div>
-        <label style="font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px">Status</label>
-        <select class="select" name="status" style="width:100%">
-          <option value="draft">Draft</option>
-          <option value="booked" selected>Booked</option>
-          <option value="onboard">On Board</option>
-          <option value="arrived">Arrived</option>
-          <option value="closed">Closed</option>
-        </select>
-      </div>
+    <div class="pwf-card" style="padding:16px 18px;border-left:3px solid #8b5cf6">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px"><i class="bi bi-truck me-1"></i>Dikirim / On Board</div>
+        <div style="font-size:28px;font-weight:800;color:#8b5cf6;line-height:1"><?= $cntOnboard ?></div>
+        <div style="font-size:10.5px;color:var(--muted);margin-top:3px">dalam perjalanan</div>
     </div>
-    <!-- Row 4: Catatan -->
-    <div>
-      <label style="font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px">Catatan</label>
-      <textarea class="input" name="notes" placeholder="Catatan tambahan (opsional)" style="width:100%;min-height:64px;resize:vertical"></textarea>
+    <div class="pwf-card" style="padding:16px 18px;border-left:3px solid #22c55e">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px"><i class="bi bi-check2-all me-1"></i>Selesai / Closed</div>
+        <div style="font-size:28px;font-weight:800;color:#22c55e;line-height:1"><?= $cntClosed ?></div>
+        <div style="font-size:10.5px;color:var(--muted);margin-top:3px">telah selesai</div>
     </div>
-  </div>
 </div>
 
-<!-- ══ LANGKAH 2: PILIH ORDER ════════════════════════════════════════════════ -->
-<div class="pwf-card" style="margin-bottom:16px">
-  <div class="pwf-card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
-    <div style="display:flex;align-items:center;gap:10px">
-      <span style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:var(--gold);color:#fff;font-size:12px;font-weight:800;flex-shrink:0">2</span>
-      <span><i class="bi bi-clipboard-check me-1"></i>Pilih Order yang Akan Dikirim</span>
+<!-- ══ ACTION HEADER ════════════════════════════════════════════════════════ -->
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+    <div>
+        <div style="font-size:16px;font-weight:800;color:var(--text)"><i class="bi bi-archive me-2" style="color:var(--gold)"></i>History Container</div>
+        <div style="font-size:11.5px;color:var(--muted);margin-top:2px"><?= $totalContainers ?> container terdaftar</div>
     </div>
-    <div style="display:flex;align-items:center;gap:8px">
-      <label style="font-size:11px;color:var(--muted);font-weight:600">Filter Customer:</label>
-      <select id="custFilter" class="select" style="font-size:12px;padding:5px 10px;min-width:160px" onchange="filterOrders()">
-        <option value="">— Semua Customer —</option>
-        <?php foreach ($customers as $cust): ?>
-          <option value="<?= (int)$cust['id'] ?>"><?= htmlspecialchars($cust['customer_name']) ?></option>
-        <?php endforeach; ?>
-      </select>
-      <span id="selectedCount" style="font-size:11px;color:var(--muted);white-space:nowrap">0 dipilih</span>
-    </div>
-  </div>
-  <div class="pwf-card-body" style="padding:0">
-    <?php if (empty($readyOrders)): ?>
-    <div style="padding:32px;text-align:center;color:var(--muted);font-size:13px">
-      <i class="bi bi-inbox" style="font-size:28px;display:block;margin-bottom:8px"></i>
-      Belum ada order yang siap kirim.<br>
-      <span style="font-size:11px">Order dengan status <strong>Ready to Ship</strong>, <strong>In Progress</strong> (sebagian selesai), atau <strong>Partial Ship</strong> akan muncul di sini.</span>
+    <button type="button" data-bs-toggle="modal" data-bs-target="#createContainerModal"
+        style="display:inline-flex;align-items:center;gap:8px;padding:10px 22px;background:var(--gold);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">
+        <i class="bi bi-plus-lg"></i> Buat Container Baru
+    </button>
+</div>
+
+<!-- ══ FILTER TABS ═══════════════════════════════════════════════════════════ -->
+<div style="display:flex;gap:0;margin-bottom:0;border-bottom:2px solid var(--border)">
+    <?php
+    $tabs = [
+        ['id'=>'all',     'label'=>'Semua',        'count'=>$totalContainers],
+        ['id'=>'active',  'label'=>'Aktif',         'count'=>$cntActive],
+        ['id'=>'onboard', 'label'=>'Dikirim',       'count'=>$cntOnboard],
+        ['id'=>'closed',  'label'=>'Selesai',       'count'=>$cntClosed],
+    ];
+    foreach ($tabs as $tab):
+    ?>
+    <button class="ctn-tab" data-filter="<?= $tab['id'] ?>"
+        style="padding:9px 18px;font-size:12px;font-weight:600;border:none;background:transparent;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s">
+        <?= $tab['label'] ?>
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:var(--border);font-size:10px;font-weight:700;margin-left:5px"><?= $tab['count'] ?></span>
+    </button>
+    <?php endforeach; ?>
+</div>
+
+<!-- ══ CONTAINER LIST ════════════════════════════════════════════════════════ -->
+<div class="pwf-card" style="border-top-left-radius:0;border-top-right-radius:0;border-top:none">
+    <?php if (empty($containers)): ?>
+    <div style="padding:48px;text-align:center;color:var(--muted)">
+        <i class="bi bi-inbox" style="font-size:36px;display:block;margin-bottom:10px"></i>
+        <div style="font-size:14px;font-weight:600">Belum ada container</div>
+        <div style="font-size:12px;margin-top:4px">Klik "Buat Container Baru" untuk membuat container pengiriman pertama</div>
     </div>
     <?php else: ?>
-    <div style="overflow-x:auto">
-      <table style="width:100%;border-collapse:collapse">
-        <thead>
-          <tr style="background:var(--nav-hover);border-bottom:2px solid var(--border)">
-            <th style="padding:10px 12px;font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;width:36px">
-              <input type="checkbox" id="checkAll" onclick="toggleAll(this)" style="cursor:pointer;width:15px;height:15px">
-            </th>
-            <th style="padding:10px 12px;font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Kode Order</th>
-            <th style="padding:10px 12px;font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Customer</th>
-            <th style="padding:10px 12px;font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Produk</th>
-            <th style="padding:10px 12px;font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;text-align:center">Total PO</th>
-            <th style="padding:10px 12px;font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;text-align:center">Selesai</th>
-            <th style="padding:10px 12px;font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;text-align:center">Sisa / Bisa Kirim</th>
-            <th style="padding:10px 12px;font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;text-align:center;min-width:100px">Qty Kirim</th>
-            <th style="padding:10px 12px;font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Status</th>
-          </tr>
-        </thead>
-        <tbody id="orderTableBody">
-          <?php foreach ($readyOrders as $o):
-            $pct = $o['quantity'] > 0 ? round($o['qty_done'] / $o['quantity'] * 100) : 0;
-            $statusLabel = match($o['status']) {
-              'ready_ship'   => ['label'=>'Ready Ship',   'cls'=>'status-ready_ship'],
-              'on_progress'  => ['label'=>'In Progress',  'cls'=>'status-on_progress'],
-              'partial_ship' => ['label'=>'Partial Ship', 'cls'=>'status-partial_ship'],
-              default        => ['label'=>ucfirst($o['status']), 'cls'=>'']
-            };
-          ?>
-          <tr class="order-row" data-cust="<?= (int)$o['customer_id'] ?>" data-oid="<?= (int)$o['id'] ?>"
-              style="border-bottom:1px solid var(--border);transition:background .15s">
-            <td style="padding:10px 12px;text-align:center">
-              <input type="checkbox" class="row-check" style="cursor:pointer;width:15px;height:15px" onchange="onRowCheck(this)">
-            </td>
-            <td style="padding:10px 12px">
-              <code style="font-size:12px;font-weight:700;color:var(--gold)"><?= htmlspecialchars($o['order_code']) ?></code>
-            </td>
-            <td style="padding:10px 12px;font-size:13px;font-weight:600;color:var(--text)"><?= htmlspecialchars($o['customer_name'] ?? '—') ?></td>
-            <td style="padding:10px 12px">
-              <div style="font-size:13px;font-weight:600;color:var(--text)"><?= htmlspecialchars($o['product_name']) ?></div>
-              <?php if ($o['specification']): ?>
-              <div style="font-size:10.5px;color:var(--muted);margin-top:1px"><?= htmlspecialchars(mb_substr($o['specification'],0,50)) ?></div>
-              <?php endif; ?>
-            </td>
-            <td style="padding:10px 12px;text-align:center;font-size:13px;font-weight:700;color:var(--text)"><?= rtrim(rtrim(number_format((float)$o['quantity'],2),'0'),'.') ?></td>
-            <td style="padding:10px 12px;text-align:center">
-              <div style="font-size:13px;font-weight:700;color:<?= $pct>=100?'#22c55e':'var(--gold)' ?>"><?= rtrim(rtrim(number_format((float)$o['qty_done'],2),'0'),'.') ?></div>
-              <div style="font-size:9.5px;color:var(--muted)"><?= $pct ?>%</div>
-            </td>
-            <td style="padding:10px 12px;text-align:center">
-              <span style="font-size:14px;font-weight:800;color:<?= (float)$o['qty_remaining']>0?'#3b82f6':'var(--muted)' ?>">
-                <?= rtrim(rtrim(number_format((float)$o['qty_remaining'],2),'0'),'.') ?>
-              </span>
-              <div style="font-size:9.5px;color:var(--muted);margin-top:2px">siap kirim</div>
-            </td>
-            <td style="padding:10px 12px;text-align:center">
-              <input type="number" class="row-qty input" min="0.5" step="0.5"
-                     value="<?= (float)$o['qty_remaining'] ?>"
-                     max="<?= (float)$o['qty_remaining'] ?>"
-                     placeholder="0"
-                     style="width:80px;text-align:center;font-weight:700;font-size:13px;padding:6px 8px;opacity:.4;pointer-events:none">
-            </td>
-            <td style="padding:10px 12px">
-              <span class="status-badge <?= $statusLabel['cls'] ?>" style="font-size:10px"><?= $statusLabel['label'] ?></span>
-            </td>
-          </tr>
-          <?php endforeach; ?>
-        </tbody>
-      </table>
-    </div>
-    <?php endif; ?>
-  </div>
-</div>
-
-<!-- ══ SUBMIT ════════════════════════════════════════════════════════════════ -->
-<div style="display:flex;gap:12px;align-items:center;margin-bottom:28px">
-  <button class="btn" type="submit" id="submitBtn"
-          style="padding:13px 32px;font-size:15px;font-weight:700;opacity:.5;pointer-events:none">
-    <i class="bi bi-box-seam me-2"></i>Buat Container &amp; Surat Jalan
-  </button>
-  <span id="submitHint" style="font-size:12px;color:var(--muted)">Pilih minimal 1 order untuk membuat container</span>
-</div>
-
-</form>
-
-<!-- ══ HISTORY CONTAINER ═════════════════════════════════════════════════════ -->
-<div class="pwf-card">
-  <div class="pwf-card-header" style="display:flex;align-items:center;justify-content:space-between">
-    <span><i class="bi bi-archive me-2" style="color:var(--gold)"></i>History Container</span>
-    <span style="font-size:12px;color:var(--muted)"><?= count($containers) ?> container</span>
-  </div>
-
-  <?php if (empty($containers)): ?>
-  <div style="padding:32px;text-align:center;color:var(--muted);font-size:13px">
-    <i class="bi bi-inbox" style="font-size:28px;display:block;margin-bottom:8px"></i>
-    Belum ada container yang dibuat.
-  </div>
-  <?php else: ?>
-  <div style="padding:0">
     <?php foreach ($containers as $idx => $ct):
-      $items = $itemsByContainer[(int)$ct['id']] ?? [];
-      $statusBadge = match($ct['status']) {
-        'draft'   => ['label'=>'Draft',   'bg'=>'#6b7280','tx'=>'#fff'],
-        'booked'  => ['label'=>'Booked',  'bg'=>'#3b82f6','tx'=>'#fff'],
-        'onboard' => ['label'=>'On Board','bg'=>'#8b5cf6','tx'=>'#fff'],
-        'arrived' => ['label'=>'Arrived', 'bg'=>'#22c55e','tx'=>'#fff'],
-        'closed'  => ['label'=>'Closed',  'bg'=>'#9ca3af','tx'=>'#fff'],
-        default   => ['label'=>ucfirst($ct['status']),'bg'=>'#6b7280','tx'=>'#fff']
-      };
-      // Group items by customer
-      $custGroups = [];
-      foreach ($items as $item) {
-        $cn = $item['customer_name'] ?? 'Unknown';
-        $custGroups[$cn][] = $item;
-      }
+        $items = $itemsByContainer[(int)$ct['id']] ?? [];
+        $custGroups = [];
+        foreach ($items as $item) {
+            $cid2  = $item['customer_id'];
+            $cname = $item['customer_name'] ?? 'Unknown';
+            if (!isset($custGroups[$cid2])) $custGroups[$cid2] = ['name'=>$cname,'items'=>[]];
+            $custGroups[$cid2]['items'][] = $item;
+        }
+        // Status info
+        $statusCfg = match($ct['status']) {
+            'draft'   => ['label'=>'Draft',    'bg'=>'#6b7280','tx'=>'#fff','group'=>'active'],
+            'booked'  => ['label'=>'Booked',   'bg'=>'#3b82f6','tx'=>'#fff','group'=>'active'],
+            'onboard' => ['label'=>'On Board', 'bg'=>'#8b5cf6','tx'=>'#fff','group'=>'onboard'],
+            'arrived' => ['label'=>'Arrived',  'bg'=>'#22c55e','tx'=>'#fff','group'=>'onboard'],
+            'closed'  => ['label'=>'Closed',   'bg'=>'#9ca3af','tx'=>'#fff','group'=>'closed'],
+            default   => ['label'=>ucfirst($ct['status']),'bg'=>'#6b7280','tx'=>'#fff','group'=>'other']
+        };
+        $isDroppable = in_array($ct['status'],['draft','booked']);
+        // Timeline steps
+        $statusOrder = ['draft','booked','onboard','arrived','closed'];
+        $curIdx = array_search($ct['status'], $statusOrder);
     ?>
-    <div class="ctn-row" style="border-bottom:1px solid var(--border)">
-      <!-- Container header bar -->
-      <div class="ctn-header" onclick="toggleCtnItems(<?= (int)$ct['id'] ?>)"
-           style="display:grid;grid-template-columns:auto 1fr auto auto auto auto auto;gap:10px;align-items:center;padding:13px 16px;cursor:pointer;transition:background .15s"
-           onmouseenter="this.style.background='var(--nav-hover)'" onmouseleave="this.style.background=''">
-        <i class="bi bi-chevron-right" id="chevron-<?= (int)$ct['id'] ?>"
-           style="font-size:11px;color:var(--muted);transition:transform .2s;flex-shrink:0"></i>
-        <div>
-          <code style="font-size:13px;font-weight:700;color:var(--gold)"><?= htmlspecialchars($ct['container_code']) ?></code>
-          <?php if ($ct['container_no']): ?>
-          <span style="font-size:11px;color:var(--muted);margin-left:8px"><?= htmlspecialchars($ct['container_no']) ?></span>
-          <?php endif; ?>
-        </div>
-        <div style="font-size:12px;font-weight:700;color:var(--text);white-space:nowrap">
-          <?= date('d M Y', strtotime($ct['shipment_date'])) ?>
-        </div>
-        <div style="font-size:12px;font-weight:700;color:var(--text);white-space:nowrap">
-          <?= strtoupper(htmlspecialchars($ct['container_type'])) ?> ·
-          <?= htmlspecialchars($ct['destination_country'] ?: '—') ?>
-          <?php if ($ct['destination_port']): ?>/<?= htmlspecialchars($ct['destination_port']) ?><?php endif; ?>
-        </div>
-        <div style="font-size:11.5px;color:var(--muted);white-space:nowrap">
-          <i class="bi bi-box2"></i>
-          <?= (int)$ct['item_count'] ?> item ·
-          <?= rtrim(rtrim(number_format((float)$ct['total_qty'],2),'0'),'.') ?> pcs
-        </div>
-        <span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;background:<?= $statusBadge['bg'] ?>;color:<?= $statusBadge['tx'] ?>;white-space:nowrap">
-          <?= $statusBadge['label'] ?>
-        </span>
-        <div style="display:flex;gap:6px" onclick="event.stopPropagation()">
-          <a href="?print=<?= (int)$ct['id'] ?>" target="_blank"
-             title="Print Surat Jalan"
-             style="display:inline-flex;align-items:center;gap:4px;padding:5px 11px;border-radius:7px;background:#FFF7ED;border:1px solid #FED7AA;color:#C2410C;font-size:11.5px;font-weight:600;text-decoration:none">
-            <i class="bi bi-printer"></i> Cetak
-          </a>
-          <button type="button"
-                  onclick="openAddItem(<?= (int)$ct['id'] ?>, '<?= htmlspecialchars($ct['container_code']) ?>')"
-                  title="Tambah order ke container ini"
-                  style="display:inline-flex;align-items:center;gap:4px;padding:5px 11px;border-radius:7px;background:var(--nav-hover);border:1px solid var(--border);color:var(--text);font-size:11.5px;font-weight:600;cursor:pointer">
-            <i class="bi bi-plus-lg"></i> Tambah
-          </button>
-        </div>
-      </div>
+    <div class="ctn-row" data-group="<?= $statusCfg['group'] ?>" style="border-bottom:1px solid var(--border)">
 
-      <!-- Container items (collapsed by default) -->
-      <div id="ctn-items-<?= (int)$ct['id'] ?>" style="display:none;background:var(--nav-hover);border-top:1px solid var(--border)">
-        <?php if (empty($items)): ?>
-        <div style="padding:16px 24px;font-size:12px;color:var(--muted)">Belum ada item dalam container ini.</div>
-        <?php else: ?>
-        <div style="padding:12px 24px 16px">
-          <!-- Group by customer -->
-          <?php foreach ($custGroups as $custName => $custItems): ?>
-          <div style="margin-bottom:14px">
-            <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;gap:8px">
-              <i class="bi bi-person-fill" style="color:var(--gold)"></i>
-              <?= htmlspecialchars($custName) ?>
-              <span style="font-size:10px;font-weight:600;color:var(--muted);background:var(--border);padding:1px 7px;border-radius:10px"><?= count($custItems) ?> order</span>
+        <!-- ── Container Header Bar ── -->
+        <div onclick="toggleCtn(<?= (int)$ct['id'] ?>)"
+            style="display:flex;align-items:center;gap:10px;padding:13px 16px;cursor:pointer;transition:background .15s"
+            onmouseenter="this.style.background='var(--nav-hover)'" onmouseleave="this.style.background=''">
+            <i class="bi bi-chevron-right" id="chev-<?= (int)$ct['id'] ?>"
+                style="font-size:11px;color:var(--muted);transition:transform .25s;flex-shrink:0"></i>
+
+            <!-- Code + physical no -->
+            <div style="min-width:160px">
+                <code style="font-size:13px;font-weight:800;color:var(--gold)"><?= htmlspecialchars($ct['container_code']) ?></code>
+                <?php if ($ct['container_no']): ?>
+                <div style="font-size:10.5px;color:var(--muted);margin-top:1px"><?= htmlspecialchars($ct['container_no']) ?></div>
+                <?php endif; ?>
             </div>
-            <div style="display:flex;flex-direction:column;gap:4px">
-              <?php foreach ($custItems as $ci):
-                $sisa = (float)$ci['quantity'] - (float)$ci['qty_done'];
-                $shipped = (float)$ci['qty_shipped'];
-              ?>
-              <div style="display:grid;grid-template-columns:140px 1fr 80px 80px 80px;gap:8px;align-items:center;padding:8px 12px;background:var(--card);border-radius:8px;border:1px solid var(--border)">
-                <code style="font-size:11.5px;font-weight:700;color:var(--gold)"><?= htmlspecialchars($ci['order_code']) ?></code>
+
+            <!-- Date + Type -->
+            <div style="min-width:110px">
+                <div style="font-size:12px;font-weight:700;color:var(--text)"><?= date('d M Y', strtotime($ct['shipment_date'])) ?></div>
+                <div style="font-size:10.5px;color:var(--muted)"><?= strtoupper(htmlspecialchars($ct['container_type'])) ?></div>
+            </div>
+
+            <!-- Destination -->
+            <div style="flex:1;min-width:120px">
+                <div style="font-size:12px;font-weight:600;color:var(--text)">
+                    <?= htmlspecialchars($ct['destination_country'] ?: '—') ?>
+                    <?php if ($ct['destination_port']): ?>
+                    <span style="color:var(--muted);font-weight:400"> / <?= htmlspecialchars($ct['destination_port']) ?></span>
+                    <?php endif; ?>
+                </div>
+                <?php if ($ct['forwarder']): ?>
+                <div style="font-size:10.5px;color:var(--muted)"><?= htmlspecialchars($ct['forwarder']) ?></div>
+                <?php endif; ?>
+            </div>
+
+            <!-- Items + pcs + customers -->
+            <div style="text-align:center;min-width:90px">
+                <div style="font-size:13px;font-weight:800;color:var(--text)"><?= fmtQty($ct['total_qty']) ?> pcs</div>
+                <div style="font-size:10px;color:var(--muted)"><?= (int)$ct['item_count'] ?> item · <?= (int)$ct['cust_count'] ?> cust</div>
+            </div>
+
+            <!-- Status badge -->
+            <span style="font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:20px;background:<?= $statusCfg['bg'] ?>;color:<?= $statusCfg['tx'] ?>;white-space:nowrap;flex-shrink:0">
+                <?= $statusCfg['label'] ?>
+            </span>
+            <?php if ($ct['dropped_at']): ?>
+            <div style="font-size:10px;color:#8b5cf6;white-space:nowrap;flex-shrink:0">
+                <i class="bi bi-send-check"></i> <?= date('d/m/y H:i', strtotime($ct['dropped_at'])) ?>
+            </div>
+            <?php endif; ?>
+
+            <!-- Action buttons -->
+            <div style="display:flex;gap:5px;flex-shrink:0" onclick="event.stopPropagation()">
+                <!-- Cetak SJ per container -->
+                <a href="?print=<?= (int)$ct['id'] ?>" target="_blank"
+                    title="Cetak Surat Jalan"
+                    style="display:inline-flex;align-items:center;gap:3px;padding:5px 10px;border-radius:7px;background:#FFF7ED;border:1px solid #FED7AA;color:#C2410C;font-size:11px;font-weight:600;text-decoration:none;white-space:nowrap">
+                    <i class="bi bi-printer"></i> SJ
+                </a>
+                <!-- Cetak per Customer (if >1 customer) -->
+                <?php if (count($custGroups) > 0): ?>
+                <button type="button"
+                    onclick="openPrintCust(<?= (int)$ct['id'] ?>, '<?= htmlspecialchars(addslashes($ct['container_code'])) ?>', <?= htmlspecialchars(json_encode(array_map(fn($gid,$g)=>['id'=>$gid,'name'=>$g['name']], array_keys($custGroups), $custGroups))) ?>)"
+                    title="Cetak Surat Jalan per Customer"
+                    style="display:inline-flex;align-items:center;gap:3px;padding:5px 10px;border-radius:7px;background:#EFF6FF;border:1px solid #BFDBFE;color:#1D4ED8;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap">
+                    <i class="bi bi-person-lines-fill"></i> Per Cust
+                </button>
+                <?php endif; ?>
+                <!-- Tambah order -->
+                <button type="button"
+                    onclick="openAddItem(<?= (int)$ct['id'] ?>, '<?= htmlspecialchars($ct['container_code']) ?>')"
+                    title="Tambah order ke container ini"
+                    style="display:inline-flex;align-items:center;gap:3px;padding:5px 10px;border-radius:7px;background:var(--nav-hover);border:1px solid var(--border);color:var(--text);font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap">
+                    <i class="bi bi-plus-lg"></i> Tambah
+                </button>
+                <!-- Drop ke Kapal -->
+                <?php if ($isDroppable): ?>
+                <button type="button"
+                    onclick="openDrop(<?= (int)$ct['id'] ?>, '<?= htmlspecialchars(addslashes($ct['container_code'])) ?>', <?= (int)$ct['item_count'] ?>, '<?= fmtQty($ct['total_qty']) ?>')"
+                    title="Drop Container ke Kapal"
+                    style="display:inline-flex;align-items:center;gap:3px;padding:5px 10px;border-radius:7px;background:#FFF1F2;border:1px solid #FECDD3;color:#BE123C;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">
+                    <i class="bi bi-send-check"></i> Drop
+                </button>
+                <?php else: ?>
+                <!-- Update Status -->
+                <button type="button"
+                    onclick="openUpdateStatus(<?= (int)$ct['id'] ?>, '<?= htmlspecialchars(addslashes($ct['container_code'])) ?>', '<?= $ct['status'] ?>')"
+                    style="display:inline-flex;align-items:center;gap:3px;padding:5px 10px;border-radius:7px;background:var(--nav-hover);border:1px solid var(--border);color:var(--muted);font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap">
+                    <i class="bi bi-arrow-repeat"></i> Status
+                </button>
+                <?php endif; ?>
+            </div>
+        </div><!-- /header bar -->
+
+        <!-- ── Container Expanded Detail ── -->
+        <div id="ctn-detail-<?= (int)$ct['id'] ?>" style="display:none;border-top:1px solid var(--border)">
+
+            <!-- Status Timeline -->
+            <div style="padding:12px 24px 10px;background:var(--nav-hover);border-bottom:1px solid var(--border)">
+                <div style="display:flex;align-items:center;gap:0;font-size:10.5px">
+                    <?php foreach ($statusOrder as $si => $stKey):
+                        $isDone    = is_numeric($curIdx) && $si < $curIdx;
+                        $isCurrent = is_numeric($curIdx) && $si == $curIdx;
+                        $stLabels  = ['draft'=>'Draft','booked'=>'Booked','onboard'=>'On Board','arrived'=>'Arrived','closed'=>'Closed'];
+                        $stIcons   = ['draft'=>'bi-pencil','booked'=>'bi-bookmark-check','onboard'=>'bi-truck','arrived'=>'bi-geo-alt-fill','closed'=>'bi-check2-circle'];
+                        $col = $isCurrent ? 'var(--gold)' : ($isDone ? '#22c55e' : 'var(--border)');
+                        $txtCol = $isCurrent ? 'var(--gold)' : ($isDone ? '#22c55e' : 'var(--muted)');
+                    ?>
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:3px;min-width:72px">
+                        <div style="width:28px;height:28px;border-radius:50%;background:<?= $col ?>;display:flex;align-items:center;justify-content:center;border:2px solid <?= $col ?>">
+                            <i class="bi <?= $stIcons[$stKey] ?>" style="color:<?= ($isCurrent||$isDone)?'#fff':'var(--muted)' ?>;font-size:12px"></i>
+                        </div>
+                        <span style="color:<?= $txtCol ?>;font-weight:<?= $isCurrent?'700':'500' ?>"><?= $stLabels[$stKey] ?></span>
+                        <?php if ($isCurrent && $stKey === 'onboard' && $ct['dropped_at']): ?>
+                        <span style="font-size:9px;color:#8b5cf6"><?= date('d/m H:i', strtotime($ct['dropped_at'])) ?></span>
+                        <?php endif; ?>
+                    </div>
+                    <?php if ($si < count($statusOrder)-1): ?>
+                    <div style="flex:1;height:2px;background:<?= ($isDone||($isCurrent&&$si<$curIdx))?'#22c55e':'var(--border)' ?>;margin-bottom:16px;min-width:16px"></div>
+                    <?php endif; ?>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+
+            <!-- Container meta info -->
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:12px 24px;border-bottom:1px solid var(--border);font-size:11.5px">
                 <div>
-                  <div style="font-size:12.5px;font-weight:600;color:var(--text)"><?= htmlspecialchars($ci['product_name']) ?></div>
-                  <?php if ($ci['specification']): ?><div style="font-size:10px;color:var(--muted)"><?= htmlspecialchars(mb_substr($ci['specification'],0,50)) ?></div><?php endif; ?>
+                    <span style="color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px">Forwarder</span>
+                    <div style="font-weight:600;color:var(--text);margin-top:2px"><?= htmlspecialchars($ct['forwarder'] ?: '—') ?></div>
                 </div>
-                <div style="text-align:center">
-                  <div style="font-size:10px;color:var(--muted)">Total PO</div>
-                  <div style="font-size:13px;font-weight:700;color:var(--text)"><?= rtrim(rtrim(number_format((float)$ci['quantity'],2),'0'),'.') ?></div>
+                <div>
+                    <span style="color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px">No. Bill of Lading</span>
+                    <div style="font-weight:600;color:var(--text);margin-top:2px"><?= htmlspecialchars($ct['bl_no'] ?: '—') ?></div>
                 </div>
-                <div style="text-align:center">
-                  <div style="font-size:10px;color:var(--muted)">Dikirim</div>
-                  <div style="font-size:13px;font-weight:800;color:var(--gold)"><?= rtrim(rtrim(number_format($shipped,2),'0'),'.') ?></div>
+                <div>
+                    <span style="color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px">No. Tracking</span>
+                    <div style="font-weight:600;color:var(--text);margin-top:2px"><?= htmlspecialchars($ct['tracking_no'] ?: '—') ?></div>
                 </div>
-                <div style="text-align:center">
-                  <div style="font-size:10px;color:var(--muted)">Sisa Prod.</div>
-                  <div style="font-size:13px;font-weight:700;color:<?= $sisa>0?'#f59e0b':'#22c55e' ?>"><?= rtrim(rtrim(number_format($sisa,2),'0'),'.') ?></div>
-                </div>
-              </div>
-              <?php endforeach; ?>
             </div>
-          </div>
-          <?php endforeach; ?>
-        </div>
-        <?php endif; ?>
-      </div>
+
+            <!-- Items per Customer -->
+            <?php if (empty($items)): ?>
+            <div style="padding:20px 24px;font-size:12px;color:var(--muted)">Belum ada item.</div>
+            <?php else: ?>
+            <div style="padding:12px 24px 16px">
+                <?php foreach ($custGroups as $cid2 => $cg):
+                    $custTotalQty  = array_sum(array_column($cg['items'],'quantity'));
+                    $custShipped   = array_sum(array_column($cg['items'],'qty_shipped'));
+                    $custRemaining = array_sum(array_map(fn($r)=>max(0,(float)$r['quantity']-(float)$r['qty_done']), $cg['items']));
+                ?>
+                <div style="margin-bottom:16px">
+                    <!-- Customer header -->
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <i class="bi bi-person-fill" style="color:var(--gold);font-size:13px"></i>
+                            <span style="font-size:12.5px;font-weight:700;color:var(--text)"><?= htmlspecialchars($cg['name']) ?></span>
+                            <span style="font-size:10px;background:var(--border);padding:2px 7px;border-radius:10px;color:var(--muted);font-weight:600"><?= count($cg['items']) ?> order</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:10px;font-size:11px">
+                            <span style="color:var(--muted)">Total PO: <strong style="color:var(--text)"><?= fmtQty($custTotalQty) ?> pcs</strong></span>
+                            <span style="color:#D4A017">Dikirim: <strong><?= fmtQty($custShipped) ?> pcs</strong></span>
+                            <?php if ($custRemaining > 0): ?>
+                            <span style="color:#f97316">Sisa Prod: <strong><?= fmtQty($custRemaining) ?> pcs</strong></span>
+                            <?php endif; ?>
+                            <!-- Cetak SJ per customer link -->
+                            <a href="?print_cust=<?= (int)$ct['id'] ?>&cust_id=<?= (int)$cid2 ?>" target="_blank"
+                                style="display:inline-flex;align-items:center;gap:3px;padding:4px 9px;border-radius:6px;background:#FFF7ED;border:1px solid #FED7AA;color:#C2410C;font-size:10.5px;font-weight:600;text-decoration:none">
+                                <i class="bi bi-printer"></i> Cetak SJ
+                            </a>
+                        </div>
+                    </div>
+                    <!-- Order rows -->
+                    <div style="display:flex;flex-direction:column;gap:4px">
+                        <?php foreach ($cg['items'] as $ci2):
+                            $sisa = max(0,(float)$ci2['quantity']-(float)$ci2['qty_done']);
+                        ?>
+                        <div style="display:grid;grid-template-columns:150px 1fr 70px 70px 70px;gap:8px;align-items:center;padding:9px 12px;background:var(--card);border-radius:8px;border:1px solid var(--border)">
+                            <code style="font-size:11.5px;font-weight:700;color:var(--gold)"><?= htmlspecialchars($ci2['order_code']) ?></code>
+                            <div>
+                                <div style="font-size:12.5px;font-weight:600;color:var(--text)"><?= htmlspecialchars($ci2['product_name']) ?></div>
+                                <?php if ($ci2['specification']): ?>
+                                <div style="font-size:10px;color:var(--muted)"><?= htmlspecialchars(mb_substr($ci2['specification'],0,55)) ?></div>
+                                <?php endif; ?>
+                                <?php if ($ci2['item_notes']): ?>
+                                <div style="font-size:10px;color:#f97316;margin-top:1px"><i class="bi bi-chat-left-text"></i> <?= htmlspecialchars($ci2['item_notes']) ?></div>
+                                <?php endif; ?>
+                            </div>
+                            <div style="text-align:center">
+                                <div style="font-size:9.5px;color:var(--muted)">Total PO</div>
+                                <div style="font-size:13px;font-weight:700;color:var(--text)"><?= fmtQty($ci2['quantity']) ?></div>
+                            </div>
+                            <div style="text-align:center">
+                                <div style="font-size:9.5px;color:var(--muted)">Dikirim</div>
+                                <div style="font-size:13px;font-weight:800;color:var(--gold)"><?= fmtQty($ci2['qty_shipped']) ?></div>
+                            </div>
+                            <div style="text-align:center">
+                                <div style="font-size:9.5px;color:var(--muted)">Sisa Prod</div>
+                                <div style="font-size:13px;font-weight:700;color:<?= $sisa>0?'#f59e0b':'#22c55e' ?>"><?= fmtQty($sisa) ?></div>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <?php endif; ?>
+
+            <?php if ($ct['notes']): ?>
+            <div style="margin:0 24px 14px;padding:10px 14px;background:#FFF7ED;border-radius:8px;border:1px solid #FED7AA;font-size:11.5px;color:#92400E">
+                <i class="bi bi-info-circle me-1"></i><strong>Catatan:</strong> <?= htmlspecialchars($ct['notes']) ?>
+            </div>
+            <?php endif; ?>
+        </div><!-- /detail -->
     </div>
     <?php endforeach; ?>
-  </div>
-  <?php endif; ?>
+    <?php endif; ?>
+</div><!-- /container list -->
+
+<!-- ══ MODAL: Create Container ══════════════════════════════════════════════ -->
+<div class="modal fade" id="createContainerModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable" style="max-width:900px">
+        <div class="modal-content" style="background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden">
+            <div class="modal-header" style="padding:16px 22px;border-bottom:1px solid var(--border)">
+                <div style="font-size:15px;font-weight:800;color:var(--text)">
+                    <i class="bi bi-box-seam me-2" style="color:var(--gold)"></i>Buat Container Baru
+                </div>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" id="containerForm">
+                <input type="hidden" name="_action" value="create_container">
+                <div class="modal-body" style="padding:20px 22px">
+
+                    <!-- Step 1 -->
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+                        <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--gold);color:#fff;font-size:11px;font-weight:800;flex-shrink:0">1</span>
+                        <span style="font-size:13px;font-weight:700;color:var(--text)"><i class="bi bi-box-seam me-1"></i>Detail Kontainer</span>
+                    </div>
+                    <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px;margin-bottom:12px">
+                        <div>
+                            <label class="form-lbl">No. Container (Fisik)</label>
+                            <input class="input" name="container_no" placeholder="Contoh: TEMU2134567" style="width:100%">
+                        </div>
+                        <div>
+                            <label class="form-lbl">Tanggal Kirim</label>
+                            <input class="input" type="date" name="shipment_date" value="<?= date('Y-m-d') ?>" style="width:100%">
+                        </div>
+                        <div>
+                            <label class="form-lbl">Tipe Container</label>
+                            <select class="select" name="container_type" style="width:100%">
+                                <option value="20ft">20ft</option>
+                                <option value="40ft">40ft</option>
+                                <option value="40hc" selected>40HC</option>
+                                <option value="lcl">LCL</option>
+                                <option value="fcl">FCL</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+                        <div>
+                            <label class="form-lbl">Negara Tujuan</label>
+                            <input class="input" name="destination_country" placeholder="Contoh: Japan" style="width:100%">
+                        </div>
+                        <div>
+                            <label class="form-lbl">Port Tujuan</label>
+                            <input class="input" name="destination_port" placeholder="Contoh: Osaka" style="width:100%">
+                        </div>
+                        <div>
+                            <label class="form-lbl">Forwarder</label>
+                            <input class="input" name="forwarder" placeholder="Nama perusahaan forwarder" style="width:100%">
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+                        <div>
+                            <label class="form-lbl">No. Bill of Lading</label>
+                            <input class="input" name="bl_no" placeholder="BL Number" style="width:100%">
+                        </div>
+                        <div>
+                            <label class="form-lbl">No. Tracking</label>
+                            <input class="input" name="tracking_no" placeholder="Tracking / booking no" style="width:100%">
+                        </div>
+                        <div>
+                            <label class="form-lbl">Status Awal</label>
+                            <select class="select" name="status" style="width:100%">
+                                <option value="draft">Draft</option>
+                                <option value="booked" selected>Booked</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="margin-bottom:20px">
+                        <label class="form-lbl">Catatan</label>
+                        <textarea class="input" name="notes" placeholder="Catatan tambahan (opsional)" style="width:100%;min-height:56px;resize:vertical"></textarea>
+                    </div>
+
+                    <hr style="border-color:var(--border);margin-bottom:16px">
+
+                    <!-- Step 2 -->
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+                        <div style="display:flex;align-items:center;gap:10px">
+                            <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--gold);color:#fff;font-size:11px;font-weight:800;flex-shrink:0">2</span>
+                            <span style="font-size:13px;font-weight:700;color:var(--text)"><i class="bi bi-clipboard-check me-1"></i>Pilih Order yang Akan Dikirim</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <label style="font-size:11px;color:var(--muted)">Filter:</label>
+                            <select id="custFilterM" class="select" style="font-size:12px;padding:5px 10px" onchange="filterOrdersModal()">
+                                <option value="">— Semua —</option>
+                                <?php foreach ($customers as $cust): ?>
+                                <option value="<?= (int)$cust['id'] ?>"><?= htmlspecialchars($cust['customer_name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <span id="mSelectedCnt" style="font-size:11px;color:var(--muted)">0 dipilih</span>
+                        </div>
+                    </div>
+
+                    <?php if (empty($readyOrders)): ?>
+                    <div style="padding:24px;text-align:center;color:var(--muted);font-size:13px;border:1px dashed var(--border);border-radius:10px">
+                        <i class="bi bi-inbox" style="font-size:28px;display:block;margin-bottom:8px"></i>
+                        Belum ada order yang siap kirim.<br>
+                        <span style="font-size:11px">Order <strong>Ready to Ship</strong>, <strong>In Progress</strong> (ada qty selesai), atau <strong>Partial Ship</strong> akan muncul di sini.</span>
+                    </div>
+                    <?php else: ?>
+                    <div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px">
+                        <table style="width:100%;border-collapse:collapse">
+                            <thead>
+                                <tr style="background:var(--nav-hover);border-bottom:2px solid var(--border)">
+                                    <th style="padding:9px 10px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;width:32px">
+                                        <input type="checkbox" id="checkAllM" onclick="toggleAllModal(this)" style="cursor:pointer;width:14px;height:14px">
+                                    </th>
+                                    <th style="padding:9px 10px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Kode Order</th>
+                                    <th style="padding:9px 10px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Customer</th>
+                                    <th style="padding:9px 10px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Produk</th>
+                                    <th style="padding:9px 10px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;text-align:center">Total PO</th>
+                                    <th style="padding:9px 10px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;text-align:center">Selesai</th>
+                                    <th style="padding:9px 10px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;text-align:center">Bisa Kirim</th>
+                                    <th style="padding:9px 10px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;text-align:center;min-width:90px">Qty Kirim</th>
+                                    <th style="padding:9px 10px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="mOrderBody">
+                                <?php foreach ($readyOrders as $o):
+                                    $pct = $o['quantity']>0 ? round($o['qty_done']/$o['quantity']*100) : 0;
+                                    $sl  = match($o['status']) {
+                                        'ready_ship'   => ['Ready Ship',   'status-ready_ship'],
+                                        'on_progress'  => ['In Progress',  'status-on_progress'],
+                                        'partial_ship' => ['Partial Ship', 'status-partial_ship'],
+                                        default        => [ucfirst($o['status']),'']
+                                    };
+                                ?>
+                                <tr class="m-order-row" data-cust="<?= (int)$o['customer_id'] ?>" data-oid="<?= (int)$o['id'] ?>"
+                                    style="border-bottom:1px solid var(--border)">
+                                    <td style="padding:8px 10px;text-align:center">
+                                        <input type="checkbox" class="m-row-check" style="cursor:pointer;width:14px;height:14px" onchange="onMRowCheck(this)">
+                                    </td>
+                                    <td style="padding:8px 10px"><code style="font-size:11.5px;font-weight:700;color:var(--gold)"><?= htmlspecialchars($o['order_code']) ?></code></td>
+                                    <td style="padding:8px 10px;font-size:12.5px;font-weight:600;color:var(--text)"><?= htmlspecialchars($o['customer_name']??'—') ?></td>
+                                    <td style="padding:8px 10px">
+                                        <div style="font-size:12.5px;font-weight:600;color:var(--text)"><?= htmlspecialchars($o['product_name']) ?></div>
+                                        <?php if ($o['specification']): ?><div style="font-size:10px;color:var(--muted)"><?= htmlspecialchars(mb_substr($o['specification'],0,45)) ?></div><?php endif; ?>
+                                    </td>
+                                    <td style="padding:8px 10px;text-align:center;font-size:13px;font-weight:700;color:var(--text)"><?= fmtQty($o['quantity']) ?></td>
+                                    <td style="padding:8px 10px;text-align:center">
+                                        <div style="font-size:13px;font-weight:700;color:<?= $pct>=100?'#22c55e':'var(--gold)' ?>"><?= fmtQty($o['qty_done']) ?></div>
+                                        <div style="font-size:9px;color:var(--muted)"><?= $pct ?>%</div>
+                                    </td>
+                                    <td style="padding:8px 10px;text-align:center">
+                                        <span style="font-size:13px;font-weight:800;color:#3b82f6"><?= fmtQty($o['qty_remaining']) ?></span>
+                                    </td>
+                                    <td style="padding:8px 10px;text-align:center">
+                                        <input type="number" class="m-row-qty input" min="0.5" step="0.5"
+                                            value="<?= (float)$o['qty_remaining'] ?>"
+                                            max="<?= (float)$o['qty_remaining'] ?>"
+                                            style="width:72px;text-align:center;font-weight:700;font-size:12px;padding:5px 6px;opacity:.4;pointer-events:none">
+                                    </td>
+                                    <td style="padding:8px 10px">
+                                        <span class="status-badge <?= $sl[1] ?>" style="font-size:9.5px"><?= $sl[0] ?></span>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    <?php endif; ?>
+                </div>
+                <div class="modal-footer" style="border-top:1px solid var(--border);padding:12px 22px;gap:8px">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                    <span id="mSubmitHint" style="font-size:11px;color:var(--muted);flex:1">Pilih minimal 1 order</span>
+                    <button type="submit" id="mSubmitBtn"
+                        style="padding:9px 24px;background:var(--gold);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;opacity:.5;pointer-events:none">
+                        <i class="bi bi-box-seam me-1"></i>Buat Container
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
-<!-- ══ ADD ITEM MODAL ════════════════════════════════════════════════════════ -->
+<!-- ══ MODAL: Add Item ══════════════════════════════════════════════════════ -->
 <div class="modal fade" id="addItemModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered" style="max-width:420px">
-    <div class="modal-content" style="background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden">
-      <div class="modal-header" style="padding:14px 18px;border-bottom:1px solid var(--border)">
-        <div style="font-weight:700;font-size:14px;color:var(--text)">
-          <i class="bi bi-plus-circle me-2" style="color:var(--gold)"></i>Tambah Order ke
-          <span id="aiContainerCode" style="color:var(--gold)"></span>
+    <div class="modal-dialog modal-dialog-centered" style="max-width:440px">
+        <div class="modal-content" style="background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden">
+            <div class="modal-header" style="padding:14px 18px;border-bottom:1px solid var(--border)">
+                <div style="font-weight:700;font-size:14px;color:var(--text)">
+                    <i class="bi bi-plus-circle me-2" style="color:var(--gold)"></i>Tambah Order ke
+                    <span id="aiCode" style="color:var(--gold)"></span>
+                </div>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post">
+                <input type="hidden" name="_action" value="add_item">
+                <input type="hidden" name="container_id" id="aiContainerId">
+                <div class="modal-body" style="padding:18px;display:flex;flex-direction:column;gap:12px">
+                    <div>
+                        <label class="form-lbl">Pilih Order</label>
+                        <select name="order_id" class="select" style="width:100%">
+                            <option value="">— Pilih Order —</option>
+                            <?php foreach ($allReadyForModal as $o): ?>
+                            <option value="<?= (int)$o['id'] ?>">
+                                <?= htmlspecialchars($o['order_code'].' – '.$o['product_name'].' ('.$o['customer_name'].')') ?>
+                                · sisa <?= fmtQty($o['qty_remaining']) ?> pcs
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-lbl">Qty Dikirim</label>
+                        <input type="number" name="qty_shipped" min="0.5" step="0.5" class="input" placeholder="0" required style="width:100%">
+                    </div>
+                    <div>
+                        <label class="form-lbl">Keterangan (opsional)</label>
+                        <input type="text" name="item_notes" class="input" placeholder="Catatan item" style="width:100%">
+                    </div>
+                </div>
+                <div class="modal-footer" style="border-top:1px solid var(--border);padding:12px 18px;gap:8px">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-sm" style="background:var(--gold);color:#fff;font-weight:600;border:none">Tambah ke Container</button>
+                </div>
+            </form>
         </div>
-        <button class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <form method="post">
-        <input type="hidden" name="_action" value="add_item">
-        <input type="hidden" name="container_id" id="aiContainerId">
-        <div class="modal-body" style="padding:18px;display:flex;flex-direction:column;gap:14px">
-          <div>
-            <label style="font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px">Pilih Order</label>
-            <select name="order_id" class="select" style="width:100%">
-              <option value="">— Pilih Order —</option>
-              <?php foreach ($allReadyForModal as $o): ?>
-                <option value="<?= (int)$o['id'] ?>">
-                  <?= htmlspecialchars($o['order_code'].' – '.$o['product_name'].' ('.$o['customer_name'].')') ?>
-                  · sisa <?= rtrim(rtrim(number_format((float)$o['qty_remaining'],2),'0'),'.') ?> pcs
-                </option>
-              <?php endforeach; ?>
-            </select>
-          </div>
-          <div>
-            <label style="font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px">Qty Dikirim</label>
-            <input type="number" name="qty_shipped" min="0.5" step="0.5" class="input" placeholder="0" required style="width:100%">
-          </div>
-          <div>
-            <label style="font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px">Keterangan (opsional)</label>
-            <input type="text" name="item_notes" class="input" placeholder="Catatan item" style="width:100%">
-          </div>
-        </div>
-        <div class="modal-footer" style="border-top:1px solid var(--border);padding:12px 18px;gap:8px">
-          <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
-          <button type="submit" class="btn btn-sm" style="background:var(--gold);color:#fff;font-weight:600;border:none">Tambah ke Container</button>
-        </div>
-      </form>
     </div>
-  </div>
 </div>
+
+<!-- ══ MODAL: Drop Container ════════════════════════════════════════════════ -->
+<div class="modal fade" id="dropModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:420px">
+        <div class="modal-content" style="background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden">
+            <div class="modal-header" style="padding:14px 18px;border-bottom:1px solid var(--border);background:#FFF1F2">
+                <div style="font-weight:700;font-size:14px;color:#BE123C">
+                    <i class="bi bi-send-check me-2"></i>Drop Container ke Kapal
+                </div>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding:20px 20px 10px">
+                <div style="text-align:center;margin-bottom:16px">
+                    <div style="font-size:22px;font-weight:900;color:var(--gold)" id="dropCode"></div>
+                    <div style="font-size:12px;color:var(--muted);margin-top:4px" id="dropInfo"></div>
+                </div>
+                <div style="background:#FFF1F2;border:1px solid #FECDD3;border-radius:8px;padding:12px 14px;font-size:12px;color:#BE123C;margin-bottom:6px">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    Aksi ini akan mengubah status container menjadi <strong>On Board</strong> dan mencatat waktu pengiriman. Status tidak bisa dikembalikan ke Draft atau Booked.
+                </div>
+                <div style="font-size:11px;color:var(--muted);text-align:center">Pastikan semua order sudah benar sebelum melanjutkan.</div>
+            </div>
+            <form method="post" id="dropForm">
+                <input type="hidden" name="_action" value="drop_container">
+                <input type="hidden" name="container_id" id="dropContainerId">
+                <div class="modal-footer" style="border-top:1px solid var(--border);padding:12px 18px;gap:8px">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" style="padding:8px 22px;background:#BE123C;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">
+                        <i class="bi bi-send-check me-1"></i>Ya, Drop ke Kapal!
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ══ MODAL: Update Status ═════════════════════════════════════════════════ -->
+<div class="modal fade" id="updateStatusModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:360px">
+        <div class="modal-content" style="background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden">
+            <div class="modal-header" style="padding:13px 18px;border-bottom:1px solid var(--border)">
+                <div style="font-weight:700;font-size:14px;color:var(--text)"><i class="bi bi-arrow-repeat me-2" style="color:var(--gold)"></i>Update Status <span id="usCode" style="color:var(--gold)"></span></div>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post">
+                <input type="hidden" name="_action" value="update_container_status">
+                <input type="hidden" name="container_id" id="usContainerId">
+                <div class="modal-body" style="padding:18px">
+                    <label class="form-lbl">Status Baru</label>
+                    <select name="status" id="usStatus" class="select" style="width:100%">
+                        <option value="draft">Draft</option>
+                        <option value="booked">Booked</option>
+                        <option value="onboard">On Board</option>
+                        <option value="arrived">Arrived</option>
+                        <option value="closed">Closed</option>
+                    </select>
+                </div>
+                <div class="modal-footer" style="border-top:1px solid var(--border);padding:12px 18px;gap:8px">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-sm" style="background:var(--gold);color:#fff;font-weight:600;border:none">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ══ MODAL: Print per Customer ════════════════════════════════════════════ -->
+<div class="modal fade" id="printCustModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:380px">
+        <div class="modal-content" style="background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden">
+            <div class="modal-header" style="padding:13px 18px;border-bottom:1px solid var(--border)">
+                <div style="font-weight:700;font-size:14px;color:var(--text)"><i class="bi bi-person-lines-fill me-2" style="color:var(--gold)"></i>Cetak Surat Jalan per Customer</div>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding:16px 18px">
+                <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Container: <strong id="pcCode" style="color:var(--gold)"></strong></div>
+                <div id="pcCustList" style="display:flex;flex-direction:column;gap:8px"></div>
+            </div>
+            <div class="modal-footer" style="border-top:1px solid var(--border);padding:10px 18px">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Tutup</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- inline label style -->
+<style>
+.form-lbl { display:block; font-size:10.5px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; margin-bottom:5px }
+.ctn-tab.active-tab { color:var(--gold)!important; border-bottom-color:var(--gold)!important }
+</style>
 
 <script>
-// ── Order selection logic ───────────────────────────────────────────────────
-function onRowCheck(cb) {
+// ── Tab filtering ─────────────────────────────────────────────────────────────
+(function(){
+    const tabs = document.querySelectorAll('.ctn-tab');
+    function applyFilter(filter) {
+        tabs.forEach(t => t.classList.toggle('active-tab', t.dataset.filter === filter));
+        document.querySelectorAll('.ctn-row').forEach(row => {
+            if (filter === 'all') { row.style.display = ''; return; }
+            const g = row.dataset.group;
+            row.style.display = (
+                (filter === 'active'  && g === 'active')  ||
+                (filter === 'onboard' && g === 'onboard') ||
+                (filter === 'closed'  && g === 'closed')
+            ) ? '' : 'none';
+        });
+    }
+    tabs.forEach(t => t.addEventListener('click', () => applyFilter(t.dataset.filter)));
+    applyFilter('all');
+})();
+
+// ── Container history expand/collapse ─────────────────────────────────────────
+function toggleCtn(id) {
+    const el  = document.getElementById('ctn-detail-' + id);
+    const chv = document.getElementById('chev-' + id);
+    const open = el.style.display !== 'none';
+    el.style.display = open ? 'none' : 'block';
+    chv.style.transform = open ? '' : 'rotate(90deg)';
+}
+
+// ── Drop modal ────────────────────────────────────────────────────────────────
+function openDrop(cid, code, items, pcs) {
+    document.getElementById('dropContainerId').value = cid;
+    document.getElementById('dropCode').textContent  = code;
+    document.getElementById('dropInfo').textContent  = items + ' item · ' + pcs + ' pcs';
+    new bootstrap.Modal(document.getElementById('dropModal')).show();
+}
+
+// ── Update status modal ───────────────────────────────────────────────────────
+function openUpdateStatus(cid, code, currentStatus) {
+    document.getElementById('usContainerId').value = cid;
+    document.getElementById('usCode').textContent  = code;
+    document.getElementById('usStatus').value      = currentStatus;
+    new bootstrap.Modal(document.getElementById('updateStatusModal')).show();
+}
+
+// ── Add item modal ────────────────────────────────────────────────────────────
+function openAddItem(cid, code) {
+    document.getElementById('aiContainerId').value = cid;
+    document.getElementById('aiCode').textContent  = code;
+    new bootstrap.Modal(document.getElementById('addItemModal')).show();
+}
+
+// ── Print per customer modal ──────────────────────────────────────────────────
+function openPrintCust(cid, code, customers) {
+    document.getElementById('pcCode').textContent = code;
+    const list = document.getElementById('pcCustList');
+    list.innerHTML = '';
+    customers.forEach(c => {
+        const btn = document.createElement('a');
+        btn.href   = '?print_cust=' + cid + '&cust_id=' + c.id;
+        btn.target = '_blank';
+        btn.style.cssText = 'display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--nav-hover);border:1px solid var(--border);border-radius:9px;text-decoration:none;color:var(--text);font-size:13px;font-weight:600;transition:background .15s';
+        btn.onmouseenter = () => btn.style.background = 'var(--border)';
+        btn.onmouseleave = () => btn.style.background = 'var(--nav-hover)';
+        btn.innerHTML = '<i class="bi bi-person-fill" style="color:var(--gold)"></i>' + c.name +
+            '<span style="margin-left:auto"><i class="bi bi-printer" style="color:#C2410C"></i></span>';
+        list.appendChild(btn);
+    });
+    new bootstrap.Modal(document.getElementById('printCustModal')).show();
+}
+
+// ── Modal: order row check ────────────────────────────────────────────────────
+function onMRowCheck(cb) {
     const tr  = cb.closest('tr');
-    const qty = tr.querySelector('.row-qty');
-    qty.style.opacity     = cb.checked ? '1'     : '.4';
+    const qty = tr.querySelector('.m-row-qty');
+    qty.style.opacity      = cb.checked ? '1' : '.4';
     qty.style.pointerEvents = cb.checked ? 'auto' : 'none';
     if (cb.checked) qty.focus();
-    updateSubmitState();
+    updateMSubmitState();
 }
-
-function toggleAll(masterCb) {
-    document.querySelectorAll('#orderTableBody .row-check:not([disabled])').forEach(cb => {
+function toggleAllModal(master) {
+    document.querySelectorAll('#mOrderBody .m-row-check').forEach(cb => {
         const tr = cb.closest('tr');
-        if (tr.style.display !== 'none') {
-            cb.checked = masterCb.checked;
-            onRowCheck(cb);
-        }
+        if (tr.style.display !== 'none') { cb.checked = master.checked; onMRowCheck(cb); }
     });
 }
-
-function filterOrders() {
-    const custId = document.getElementById('custFilter').value;
-    document.querySelectorAll('.order-row').forEach(tr => {
-        const show = !custId || tr.dataset.cust === custId;
-        tr.style.display = show ? '' : 'none';
+function filterOrdersModal() {
+    const cid = document.getElementById('custFilterM').value;
+    document.querySelectorAll('.m-order-row').forEach(tr => {
+        tr.style.display = (!cid || tr.dataset.cust === cid) ? '' : 'none';
     });
-    updateSubmitState();
+    updateMSubmitState();
 }
-
-function updateSubmitState() {
-    const checked = document.querySelectorAll('#orderTableBody .row-check:checked').length;
-    const btn  = document.getElementById('submitBtn');
-    const hint = document.getElementById('submitHint');
-    const cnt  = document.getElementById('selectedCount');
-    cnt.textContent = checked + ' dipilih';
+function updateMSubmitState() {
+    const checked = document.querySelectorAll('#mOrderBody .m-row-check:checked').length;
+    const btn  = document.getElementById('mSubmitBtn');
+    const hint = document.getElementById('mSelectedCnt');
+    const info = document.getElementById('mSubmitHint');
+    if (hint) hint.textContent = checked + ' dipilih';
     if (checked > 0) {
-        btn.style.opacity      = '1';
-        btn.style.pointerEvents= 'auto';
-        hint.textContent       = checked + ' order siap dimasukkan ke container';
-        hint.style.color       = 'var(--text)';
+        btn.style.opacity = '1'; btn.style.pointerEvents = 'auto';
+        if (info) { info.textContent = checked + ' order siap dimasukkan'; info.style.color = 'var(--text)'; }
     } else {
-        btn.style.opacity      = '.5';
-        btn.style.pointerEvents= 'none';
-        hint.textContent       = 'Pilih minimal 1 order untuk membuat container';
-        hint.style.color       = 'var(--muted)';
+        btn.style.opacity = '.5'; btn.style.pointerEvents = 'none';
+        if (info) { info.textContent = 'Pilih minimal 1 order'; info.style.color = 'var(--muted)'; }
     }
 }
 
-// On form submit, build hidden inputs from checked rows
+// On form submit: inject hidden inputs from checked rows
 document.getElementById('containerForm').addEventListener('submit', function(e) {
-    const checked = document.querySelectorAll('#orderTableBody .row-check:checked');
-    if (checked.length === 0) {
-        e.preventDefault();
-        alert('Pilih minimal 1 order sebelum membuat container.');
-        return;
-    }
+    const checked = document.querySelectorAll('#mOrderBody .m-row-check:checked');
+    if (checked.length === 0) { e.preventDefault(); alert('Pilih minimal 1 order!'); return; }
     checked.forEach(cb => {
         const tr  = cb.closest('tr');
         const oid = tr.dataset.oid;
-        const qty = tr.querySelector('.row-qty').value;
+        const qty = tr.querySelector('.m-row-qty').value;
         if (oid && qty > 0) {
-            const h1 = document.createElement('input');
-            h1.type = 'hidden'; h1.name = 'order_ids[]'; h1.value = oid;
-            const h2 = document.createElement('input');
-            h2.type = 'hidden'; h2.name = 'qty_shipped[]'; h2.value = qty;
-            this.appendChild(h1);
-            this.appendChild(h2);
+            const h1 = document.createElement('input'); h1.type='hidden'; h1.name='order_ids[]'; h1.value=oid; this.appendChild(h1);
+            const h2 = document.createElement('input'); h2.type='hidden'; h2.name='qty_shipped[]'; h2.value=qty; this.appendChild(h2);
         }
     });
 });
-
-// ── Container history expand/collapse ──────────────────────────────────────
-function toggleCtnItems(id) {
-    const el      = document.getElementById('ctn-items-'+id);
-    const chevron = document.getElementById('chevron-'+id);
-    const open    = el.style.display !== 'none';
-    el.style.display      = open ? 'none' : 'block';
-    chevron.style.transform = open ? '' : 'rotate(90deg)';
-}
-
-// ── Add item modal ──────────────────────────────────────────────────────────
-function openAddItem(cid, code) {
-    document.getElementById('aiContainerId').value = cid;
-    document.getElementById('aiContainerCode').textContent = code;
-    new bootstrap.Modal(document.getElementById('addItemModal')).show();
-}
 </script>
-<?php pwfOfficeFooter();
+<?php pwfOfficeFooter(); ?>
