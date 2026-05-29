@@ -137,19 +137,19 @@ pwfOfficeHeader('Dashboard', 'dashboard');
 </div>
 
 <!-- ══ CHARTS ROW ═══════════════════════════════════════════════════════════ -->
-<div class="grid2" style="margin-bottom:20px;align-items:start">
+<div class="grid2" style="margin-bottom:20px;align-items:stretch">
 
     <!-- LEFT: Production Completion Donut + per-customer legend -->
-    <div class="pwf-card">
-        <div class="pwf-card-header" style="padding:10px 14px;font-size:11.5px">
+    <div class="pwf-card" style="display:flex;flex-direction:column;height:480px">
+        <div class="pwf-card-header" style="padding:10px 14px;font-size:11.5px;flex-shrink:0">
             <i class="bi bi-pie-chart me-2" style="color:var(--gold)"></i>Production Completion
         </div>
-        <div style="padding:14px 16px 16px">
+        <div style="padding:14px 16px 16px;flex:1;overflow-y:auto;overflow-x:hidden">
             <!-- Donut -->
             <div style="display:flex;align-items:center;gap:18px;margin-bottom:14px">
-                <div style="position:relative;flex-shrink:0;width:110px;height:110px">
-                    <canvas id="pieChart"></canvas>
-                    <div id="donutCenter" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none">
+                <div style="position:relative;flex-shrink:0;width:110px;height:110px;isolation:isolate">
+                    <canvas id="pieChart" style="position:relative;z-index:1"></canvas>
+                    <div id="donutCenter" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;z-index:0">
                         <div id="donutPct" style="font-size:20px;font-weight:800;color:var(--text);line-height:1"></div>
                         <div style="font-size:9.5px;color:var(--muted);margin-top:2px">overall</div>
                     </div>
@@ -208,12 +208,12 @@ pwfOfficeHeader('Dashboard', 'dashboard');
     </div>
 
     <!-- RIGHT: Qty progress per customer (horizontal stacked bar) -->
-    <div class="pwf-card">
-        <div class="pwf-card-header" style="padding:10px 14px;font-size:11.5px">
+    <div class="pwf-card" style="display:flex;flex-direction:column;height:480px">
+        <div class="pwf-card-header" style="padding:10px 14px;font-size:11.5px;flex-shrink:0">
             <i class="bi bi-bar-chart-steps me-2" style="color:var(--gold)"></i>Production Qty by Customer
         </div>
-        <div style="padding:14px 16px 12px">
-            <div style="position:relative;width:100%;height:260px">
+        <div style="padding:14px 16px 12px;flex:1;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column">
+            <div style="position:relative;width:100%;flex:1;min-height:200px">
                 <canvas id="barChart"></canvas>
             </div>
         </div>
@@ -432,6 +432,19 @@ pwfOfficeHeader('Dashboard', 'dashboard');
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script>
     Chart.defaults.font.family = "'Inter', sans-serif";
+
+    // Ensure Chart.js tooltips always render above everything
+    Chart.register({
+        id: 'tooltipZIndex',
+        afterDraw(chart) {
+            if (chart.tooltip?._active?.length) {
+                const ctx = chart.ctx;
+                ctx.save();
+                ctx.canvas.style.zIndex = '999';
+                ctx.restore();
+            }
+        }
+    });
 
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     const gridColor = isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.055)';
