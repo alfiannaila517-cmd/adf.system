@@ -174,6 +174,48 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
     exit;
 }
 
+// ── AJAX: ORDER DETAIL ───────────────────────────────────────────────────────
+if (isset($_GET['ajax']) && $_GET['ajax'] === 'detail') {
+    header('Content-Type: application/json');
+    $id = (int)($_GET['id'] ?? 0);
+    if (!$id) { echo json_encode(['error' => 'Invalid ID']); exit; }
+
+    $orderStmt = $pdo->prepare("
+        SELECT o.*, c.customer_name, t.craftsman_name
+        FROM pwf_orders o
+        LEFT JOIN pwf_customers c ON c.id=o.customer_id
+        LEFT JOIN pwf_craftsmen t ON t.id=o.assigned_craftsman_id
+        WHERE o.id=?");
+    $orderStmt->execute([$id]);
+    $orderDetail = $orderStmt->fetch(PDO::FETCH_ASSOC);
+    if (!$orderDetail) { echo json_encode(['error' => 'Not found']); exit; }
+
+    $progStmt = $pdo->prepare("
+        SELECT p.progress_date, p.achievement_percent, p.work_note, t.craftsman_name
+        FROM pwf_order_progress p
+        LEFT JOIN pwf_craftsmen t ON t.id=p.craftsman_id
+        WHERE p.order_id=?
+        ORDER BY p.id DESC LIMIT 20");
+    $progStmt->execute([$id]);
+    $progressLogs = $progStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $shipStmt = $pdo->prepare("
+        SELECT ci.qty_shipped, ci.notes AS item_notes,
+               co.container_code, co.container_no, co.container_type,
+               co.shipment_date, co.destination_country, co.destination_port,
+               co.forwarder, co.tracking_no, co.bl_no, co.status AS container_status,
+               co.dropped_at
+        FROM pwf_container_items ci
+        JOIN pwf_containers co ON co.id=ci.container_id
+        WHERE ci.order_id=?
+        ORDER BY ci.id DESC");
+    $shipStmt->execute([$id]);
+    $shippingLogs = $shipStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    echo json_encode(['order' => $orderDetail, 'progress' => $progressLogs, 'shipping' => $shippingLogs]);
+    exit;
+}
+
 require_once __DIR__ . '/layout.php';
 $msg = '';
 $msgType = 'success';
@@ -299,6 +341,99 @@ pwfOfficeHeader('Orders', 'orders');
 ?>
 
 <style>
+    /* ── DETAIL MODAL TABS ── */
+    .dm-tab {
+        background: none;
+        border: none;
+        border-bottom: 3px solid transparent;
+        padding: 10px 16px;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--muted);
+        cursor: pointer;
+        transition: all .15s;
+        margin-bottom: -1px
+    }
+
+    .dm-tab:hover {
+        color: var(--text)
+    }
+
+    .dm-tab.active {
+        color: var(--gold);
+        border-bottom-color: var(--gold)
+    }
+
+    .dm-section-title {
+        font-size: 10.5px;
+        font-weight: 700;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: .5px;
+        margin: 16px 0 8px
+    }
+
+    .dm-row {
+        display: flex;
+        gap: 6px;
+        align-items: flex-start;
+        padding: 5px 0;
+        border-bottom: 1px solid var(--border);
+        font-size: 12.5px
+    }
+
+    .dm-row:last-child {
+        border-bottom: none
+    }
+
+    .dm-label {
+        color: var(--muted);
+        min-width: 110px;
+        flex-shrink: 0
+    }
+
+    .dm-val {
+        color: var(--text);
+        font-weight: 600;
+        word-break: break-word
+    }
+
+    .dm-timeline-item {
+        display: flex;
+        gap: 12px;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--border);
+        font-size: 12px
+    }
+
+    .dm-timeline-item:last-child {
+        border-bottom: none
+    }
+
+    .dm-timeline-dot {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--gold-bg);
+        border: 2px solid var(--gold-border);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: 700;
+        color: #92600A;
+        flex-shrink: 0;
+        margin-top: 1px
+    }
+
+    .dm-ship-card {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 12px 14px;
+        margin-bottom: 10px;
+        background: #FAFAF9
+    }
+
     /* ── MODALS ── */
     .modal-overlay {
         position: fixed;
@@ -554,7 +689,7 @@ pwfOfficeHeader('Orders', 'orders');
                     <?php else: ?>
                         <div class="order-card-img"><i class="bi bi-image" style="font-size:32px;opacity:.3"></i></div>
                     <?php endif; ?>
-                    <div class="order-card-body">
+                    <div class="order-card-body" style="cursor:pointer" onclick="openDetail(<?= (int)$o['id'] ?>)">
                         <div class="order-card-code"><?= htmlspecialchars($o['order_code']) ?></div>
                         <div class="order-card-name"><?= htmlspecialchars($o['product_name']) ?></div>
                         <div style="height:1px;background:var(--border);margin:5px 0"></div>
@@ -673,6 +808,9 @@ pwfOfficeHeader('Orders', 'orders');
                             </td>
                             <td>
                                 <div style="display:flex;gap:4px;align-items:center">
+                                    <button class="btn btn-sm btn-outline-secondary" title="Detail" onclick="openDetail(<?= (int)$o['id'] ?>)">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
                                     <?php if ($o['status'] === 'draft'): ?>
                                         <form method="post" style="display:inline" onsubmit="return confirm('Start work?')">
                                             <input type="hidden" name="_action" value="start_work">
@@ -700,6 +838,68 @@ pwfOfficeHeader('Orders', 'orders');
                         </tr><?php endif; ?>
                 </tbody>
             </table>
+        </div>
+    </div>
+</div>
+
+<!-- ── DETAIL MODAL ─────────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="detailModal">
+    <div class="modal-box" style="width:min(820px,96vw)">
+        <div class="modal-header">
+            <div>
+                <h5 id="dm_title" style="margin:0;font-size:15px;font-weight:700"></h5>
+                <div id="dm_code" style="font-size:11px;color:var(--muted);font-family:monospace;margin-top:2px"></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+                <span id="dm_status_badge"></span>
+                <button class="modal-close" onclick="closeDetail()">&times;</button>
+            </div>
+        </div>
+        <!-- Tabs -->
+        <div style="border-bottom:1px solid var(--border);padding:0 22px;display:flex;gap:0;background:#FAFAF9">
+            <button class="dm-tab active" id="dm_tab_info" onclick="showDmTab('info')">📋 Detail Pesanan</button>
+            <button class="dm-tab" id="dm_tab_progress" onclick="showDmTab('progress')">📈 Progress Produksi</button>
+            <button class="dm-tab" id="dm_tab_shipping" onclick="showDmTab('shipping')">🚢 Pengiriman</button>
+        </div>
+        <div class="modal-body" style="padding:20px 22px;min-height:280px">
+            <!-- Loading -->
+            <div id="dm_loading" style="text-align:center;padding:48px;color:var(--muted)">
+                <div style="font-size:22px;margin-bottom:8px">⏳</div>
+                <div style="font-size:13px">Memuat data...</div>
+            </div>
+
+            <!-- Info Tab -->
+            <div id="dm_info" style="display:none">
+                <div style="display:grid;grid-template-columns:200px 1fr;gap:18px;align-items:start">
+                    <div>
+                        <div id="dm_img" style="border-radius:10px;overflow:hidden;border:1px solid var(--border);background:#F5F3F0;height:170px;display:flex;align-items:center;justify-content:center;color:var(--muted)">
+                            <i class="bi bi-image" style="font-size:32px;opacity:.3"></i>
+                        </div>
+                        <div style="margin-top:10px" id="dm_spk_link"></div>
+                    </div>
+                    <div>
+                        <div class="dm-section-title" style="margin-top:0">Informasi Order</div>
+                        <div id="dm_info_rows"></div>
+                    </div>
+                </div>
+                <div style="margin-top:16px" id="dm_spec_block"></div>
+                <div style="margin-top:10px" id="dm_notes_block"></div>
+                <div style="margin-top:16px;display:flex;gap:8px" id="dm_action_btns"></div>
+            </div>
+
+            <!-- Progress Tab -->
+            <div id="dm_progress" style="display:none">
+                <div id="dm_progress_bar_section" style="margin-bottom:18px"></div>
+                <div class="dm-section-title" style="margin-top:0">Riwayat Progress</div>
+                <div id="dm_progress_log"></div>
+            </div>
+
+            <!-- Shipping Tab -->
+            <div id="dm_shipping" style="display:none">
+                <div id="dm_shipping_summary" style="margin-bottom:14px"></div>
+                <div class="dm-section-title" style="margin-top:0">Riwayat Pengiriman</div>
+                <div id="dm_shipping_list"></div>
+            </div>
         </div>
     </div>
 </div>
@@ -810,6 +1010,245 @@ pwfOfficeHeader('Orders', 'orders');
         const v = localStorage.getItem('pwf_order_view') || 'card';
         if (v === 'table') setView('table');
     })();
+
+    // ── DETAIL MODAL ──────────────────────────────────────────────────────────────
+    const STATUS_LABELS = {
+        draft: 'Draft', on_progress: 'On Progress', qc: 'QC',
+        ready_ship: 'Ready to Ship', partial_ship: 'Partial Ship',
+        shipped: 'Shipped', completed: 'Completed', cancelled: 'Cancelled'
+    };
+    const STATUS_COLORS = {
+        draft: '#1D4ED8', on_progress: '#C2410C', qc: '#6D28D9',
+        ready_ship: '#15803D', partial_ship: '#1D4ED8', shipped: '#15803D',
+        completed: '#166534', cancelled: '#991B1B'
+    };
+    const STATUS_BG = {
+        draft: '#EFF6FF', on_progress: '#FFF7ED', qc: '#F5F3FF',
+        ready_ship: '#F0FDF4', partial_ship: '#EFF6FF', shipped: '#F0FDF4',
+        completed: '#F0FDF4', cancelled: '#FEF2F2'
+    };
+
+    let _dmCurrentId = null;
+    let _dmCurrentTab = 'info';
+    let _dmData = null;
+
+    function openDetail(orderId) {
+        _dmCurrentId = orderId;
+        _dmCurrentTab = 'info';
+        _dmData = null;
+        document.getElementById('detailModal').classList.add('open');
+        document.getElementById('dm_loading').style.display = 'block';
+        ['dm_info', 'dm_progress', 'dm_shipping'].forEach(id => document.getElementById(id).style.display = 'none');
+        document.getElementById('dm_title').textContent = '';
+        document.getElementById('dm_code').textContent = '';
+        document.getElementById('dm_status_badge').innerHTML = '';
+        ['dm_tab_info', 'dm_tab_progress', 'dm_tab_shipping'].forEach(id => document.getElementById(id).classList.remove('active'));
+        document.getElementById('dm_tab_info').classList.add('active');
+
+        fetch('orders.php?ajax=detail&id=' + orderId)
+            .then(r => r.json())
+            .then(data => {
+                _dmData = data;
+                renderDetail(data);
+            })
+            .catch(() => {
+                document.getElementById('dm_loading').innerHTML = '<div style="color:#991B1B;text-align:center;padding:40px">Gagal memuat data.</div>';
+            });
+    }
+
+    function closeDetail() {
+        document.getElementById('detailModal').classList.remove('open');
+    }
+
+    function showDmTab(tab) {
+        _dmCurrentTab = tab;
+        ['info', 'progress', 'shipping'].forEach(t => {
+            document.getElementById('dm_' + t).style.display = t === tab ? 'block' : 'none';
+            document.getElementById('dm_tab_' + t).classList.toggle('active', t === tab);
+        });
+    }
+
+    function fmtQty(v) {
+        const n = parseFloat(v) || 0;
+        return n % 1 === 0 ? n.toFixed(0) : parseFloat(n.toFixed(2)).toString();
+    }
+
+    function fmtDate(s) {
+        if (!s) return '—';
+        const d = new Date(s);
+        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        return d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
+    }
+
+    function fmtDatetime(s) {
+        if (!s) return '—';
+        const d = new Date(s);
+        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mm = String(d.getMinutes()).padStart(2, '0');
+        return d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear() + ' ' + hh + ':' + mm;
+    }
+
+    function renderDetail(data) {
+        document.getElementById('dm_loading').style.display = 'none';
+        const o = data.order;
+        const st = o.status || 'draft';
+
+        // Header
+        document.getElementById('dm_title').textContent = o.product_name || '—';
+        document.getElementById('dm_code').textContent = o.order_code || '';
+        document.getElementById('dm_status_badge').innerHTML =
+            `<span style="background:${STATUS_BG[st]||'#eee'};color:${STATUS_COLORS[st]||'#333'};padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">${STATUS_LABELS[st] || st}</span>`;
+
+        // ── INFO TAB ──
+        const imgEl = document.getElementById('dm_img');
+        if (o.image_path) {
+            imgEl.innerHTML = `<img src="<?= $baseUrl ?>/${o.image_path}" style="width:100%;height:170px;object-fit:cover">`;
+        } else {
+            imgEl.innerHTML = '<i class="bi bi-image" style="font-size:32px;opacity:.3"></i>';
+        }
+
+        document.getElementById('dm_spk_link').innerHTML =
+            `<a href="spk.php?id=${o.id}" target="_blank" class="btn btn-sm btn-outline-secondary" style="width:100%;text-align:center"><i class="bi bi-file-earmark-text me-1"></i>Cetak SPK</a>`;
+
+        const rows = [
+            ['Customer', o.customer_name || '—'],
+            ['Tanggal Order', fmtDate(o.order_date)],
+            ['Deadline', fmtDate(o.due_date)],
+            ['Dimensi (P×L×T)', o.dimensions || '—'],
+            ['Quantity', fmtQty(o.quantity) + ' pcs'],
+            ['Craftsman', o.craftsman_name || '—'],
+        ];
+        document.getElementById('dm_info_rows').innerHTML = rows.map(([l, v]) =>
+            `<div class="dm-row"><span class="dm-label">${l}</span><span class="dm-val">${v}</span></div>`
+        ).join('');
+
+        const specBlock = document.getElementById('dm_spec_block');
+        if (o.specification) {
+            specBlock.innerHTML = `<div class="dm-section-title">Spesifikasi</div>
+                <div style="font-size:12.5px;color:var(--text);background:#FAFAF9;border-radius:8px;padding:10px 14px;border:1px solid var(--border);white-space:pre-line;line-height:1.6">${escHtml(o.specification)}</div>`;
+        } else { specBlock.innerHTML = ''; }
+
+        const notesBlock = document.getElementById('dm_notes_block');
+        if (o.notes) {
+            notesBlock.innerHTML = `<div class="dm-section-title">Catatan</div>
+                <div style="font-size:12.5px;color:var(--text);background:#FFFBEB;border-radius:8px;padding:10px 14px;border:1px solid #FDE68A;border-left:3px solid #D97706;white-space:pre-line;line-height:1.6">${escHtml(o.notes)}</div>`;
+        } else { notesBlock.innerHTML = ''; }
+
+        const actionBtns = document.getElementById('dm_action_btns');
+        actionBtns.innerHTML = `
+            <button class="btn btn-sm" onclick="closeDetail(); openEdit(${JSON.stringify(o).replace(/'/g, "\\'")})" style="font-size:12px">
+                <i class="bi bi-pencil me-1"></i>Edit Order
+            </button>`;
+        if (st === 'on_progress') {
+            actionBtns.innerHTML += `
+            <button class="btn btn-sm" onclick="closeDetail(); openProgress(${JSON.stringify({id:parseInt(o.id),code:o.order_code,name:o.product_name,qty:parseFloat(o.quantity),qty_done:parseFloat(o.qty_done||0),pct:parseInt(o.progress_percent||0)})})"
+                style="background:#F5F3FF;border:1px solid #DDD6FE;color:#6D28D9;font-size:12px">
+                <i class="bi bi-bar-chart-line me-1"></i>Update Progress
+            </button>`;
+        }
+
+        // ── PROGRESS TAB ──
+        const pct = parseInt(o.progress_percent) || 0;
+        const qtyDone = parseFloat(o.qty_done) || 0;
+        const qty = parseFloat(o.quantity) || 1;
+        document.getElementById('dm_progress_bar_section').innerHTML = `
+            <div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:16px 18px">
+                <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+                    <span style="font-size:13px;color:var(--muted)">
+                        <b style="color:var(--text);font-size:15px">${fmtQty(qtyDone)}</b> / ${fmtQty(qty)} pcs selesai
+                    </span>
+                    <span style="font-size:20px;font-weight:800;color:${pct>=100?'#15803D':'var(--gold)'}">${pct}%</span>
+                </div>
+                <div style="height:10px;background:var(--border);border-radius:20px;overflow:hidden">
+                    <div style="width:${pct}%;height:100%;background:${pct>=100?'#15803D':'var(--gold)'};border-radius:20px;transition:width .4s"></div>
+                </div>
+                <div style="margin-top:10px;display:flex;gap:16px;flex-wrap:wrap">
+                    <span style="font-size:11.5px;color:var(--muted)">Status: <b style="color:${STATUS_COLORS[st]||'#333'}">${STATUS_LABELS[st]||st}</b></span>
+                    ${qtyDone < qty && qty - qtyDone > 0 ? `<span style="font-size:11.5px;color:var(--muted)">Sisa produksi: <b style="color:#1D4ED8">${fmtQty(qty - qtyDone)} pcs</b></span>` : ''}
+                </div>
+            </div>`;
+
+        const progLog = document.getElementById('dm_progress_log');
+        if (!data.progress || data.progress.length === 0) {
+            progLog.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px">Belum ada riwayat progress.</div>';
+        } else {
+            progLog.innerHTML = data.progress.map((p, i) => `
+                <div class="dm-timeline-item">
+                    <div class="dm-timeline-dot">${p.achievement_percent}%</div>
+                    <div style="flex:1">
+                        <div style="font-size:12.5px;font-weight:600;color:var(--text)">${escHtml(p.work_note || '—')}</div>
+                        <div style="font-size:11px;color:var(--muted);margin-top:3px">
+                            ${p.craftsman_name ? `<span><i class="bi bi-hammer me-1"></i>${escHtml(p.craftsman_name)}</span> &nbsp;` : ''}
+                            <span><i class="bi bi-clock me-1"></i>${fmtDatetime(p.progress_date)}</span>
+                        </div>
+                    </div>
+                </div>`).join('');
+        }
+
+        // ── SHIPPING TAB ──
+        const totalShipped = (data.shipping || []).reduce((s, r) => s + parseFloat(r.qty_shipped || 0), 0);
+        const shipSummary = document.getElementById('dm_shipping_summary');
+        shipSummary.innerHTML = `
+            <div style="display:flex;gap:12px;flex-wrap:wrap">
+                <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;padding:10px 18px;flex:1;min-width:120px">
+                    <div style="font-size:10.5px;color:#166534;font-weight:600;text-transform:uppercase;letter-spacing:.4px">Total Dikirim</div>
+                    <div style="font-size:22px;font-weight:800;color:#15803D;margin-top:2px">${fmtQty(totalShipped)} <span style="font-size:13px;font-weight:400">pcs</span></div>
+                </div>
+                <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:10px 18px;flex:1;min-width:120px">
+                    <div style="font-size:10.5px;color:#1D4ED8;font-weight:600;text-transform:uppercase;letter-spacing:.4px">Total Pesanan</div>
+                    <div style="font-size:22px;font-weight:800;color:#1D4ED8;margin-top:2px">${fmtQty(qty)} <span style="font-size:13px;font-weight:400">pcs</span></div>
+                </div>
+                <div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:10px;padding:10px 18px;flex:1;min-width:120px">
+                    <div style="font-size:10.5px;color:#C2410C;font-weight:600;text-transform:uppercase;letter-spacing:.4px">Belum Dikirim</div>
+                    <div style="font-size:22px;font-weight:800;color:#C2410C;margin-top:2px">${fmtQty(Math.max(0, qty - totalShipped))} <span style="font-size:13px;font-weight:400">pcs</span></div>
+                </div>
+            </div>`;
+
+        const shipList = document.getElementById('dm_shipping_list');
+        if (!data.shipping || data.shipping.length === 0) {
+            shipList.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px">Belum ada data pengiriman.</div>';
+        } else {
+            shipList.innerHTML = data.shipping.map(s => {
+                const sst = s.container_status || '';
+                const sstBg = sst === 'delivered' ? '#F0FDF4' : sst === 'shipped' ? '#EFF6FF' : '#FAFAF9';
+                const sstColor = sst === 'delivered' ? '#166534' : sst === 'shipped' ? '#1D4ED8' : '#555';
+                return `
+                <div class="dm-ship-card">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;flex-wrap:wrap;gap:6px">
+                        <div>
+                            <span style="font-size:13px;font-weight:800;color:var(--gold);font-family:monospace">${escHtml(s.container_code || '—')}</span>
+                            ${s.container_no ? `<span style="font-size:11px;color:var(--muted);margin-left:8px">${escHtml(s.container_no)}</span>` : ''}
+                        </div>
+                        <span style="background:${sstBg};color:${sstColor};padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;text-transform:capitalize">${escHtml(sst.replace(/_/g,' '))}</span>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 16px;font-size:12px">
+                        <div><span style="color:var(--muted)">Qty Dikirim:</span> <b>${fmtQty(s.qty_shipped)} pcs</b></div>
+                        ${s.shipment_date ? `<div><span style="color:var(--muted)">Tgl Kirim:</span> <b>${fmtDate(s.shipment_date)}</b></div>` : '<div></div>'}
+                        ${s.destination_country ? `<div><span style="color:var(--muted)">Tujuan:</span> <b>${escHtml(s.destination_country)}${s.destination_port ? ' / ' + escHtml(s.destination_port) : ''}</b></div>` : '<div></div>'}
+                        ${s.forwarder ? `<div><span style="color:var(--muted)">Forwarder:</span> <b>${escHtml(s.forwarder)}</b></div>` : '<div></div>'}
+                        ${s.tracking_no ? `<div><span style="color:var(--muted)">Tracking:</span> <b>${escHtml(s.tracking_no)}</b></div>` : ''}
+                        ${s.bl_no ? `<div><span style="color:var(--muted)">BL No:</span> <b>${escHtml(s.bl_no)}</b></div>` : ''}
+                        ${s.dropped_at ? `<div><span style="color:var(--muted)">Tiba:</span> <b>${fmtDate(s.dropped_at)}</b></div>` : ''}
+                    </div>
+                    ${s.item_notes ? `<div style="margin-top:8px;font-size:11.5px;color:var(--muted);border-top:1px solid var(--border);padding-top:6px">${escHtml(s.item_notes)}</div>` : ''}
+                </div>`;
+            }).join('');
+        }
+
+        // Show info tab
+        showDmTab('info');
+    }
+
+    function escHtml(s) {
+        if (!s) return '';
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    document.getElementById('detailModal').addEventListener('click', function(e) {
+        if (e.target === this) closeDetail();
+    });
+
 
     // ── MODALS ────────────────────────────────────────────────────────────────────
     function openCreate() {
