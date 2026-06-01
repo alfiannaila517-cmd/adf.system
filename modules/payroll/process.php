@@ -668,7 +668,7 @@ if ($period) {
         $otAmount   = round($oh * $hourly, 2);
         $incentive  = (float)$s['incentive'];
         $allowance  = (float)$s['allowance'];
-        $uangMakan  = (float)($s['uang_makan'] ?? 0);
+        $uangMakan  = 0.0; // Uang makan dihilangkan dari perhitungan Net
         $bonus      = (float)$s['bonus'];
         $otherInc   = (float)$s['other_income'];
         $loan       = (float)($s['deduction_loan'] ?? 0);
@@ -703,7 +703,7 @@ if ($period) {
                     dbExec($db,
                         "UPDATE payroll_slips
                          SET base_salary=?, actual_base=?, overtime_rate=?, overtime_amount=?,
-                             total_earnings=?, total_deductions=?, net_salary=?
+                             total_earnings=?, total_deductions=?, net_salary=?, uang_makan=0
                          WHERE id=?",
                         [$masterBase, $actualBase, $hourly, $otAmount, $totalEarn, $totalDed, $netSal, $s['id']]
                     );
@@ -2355,7 +2355,7 @@ include '../../includes/header.php';
             </div>
         <?php else: ?>
             <div style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 10px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.8rem; color: #1e40af;">
-                <strong>💾 Auto-Save:</strong> Setiap perubahan otomatis tersimpan saat Anda keluar dari input. Target jam = 200. Lembur biasa = kelipatan 45 menit di atas 8 jam/hari (perlu approval). <strong style="color:#dc2626;">🔥 Auto-OT &gt;200j</strong> = jam regular yang melewati 200 jam/bulan otomatis jadi OT (exact, tanpa approval). Klik <strong>Sync Absensi</strong> untuk tarik data GPS terbaru.
+                <strong>💾 Auto-Save:</strong> Target 200 jam/bulan. <strong>Kolom OT</strong> = jam lembur disetujui, dibulatkan ke jam penuh (≥45 menit jadi 1 jam, ≥90 menit jadi 2 jam, dst). <strong style="color:#b91c1c;">Kolom Extra &gt;200j</strong> = tambahan otomatis dari hari yg melewati target bulanan (auto, exact). <strong>Net</strong> = Actual + OT Rp + Service + Allowance + Bonus − Deduction.
             </div>
         <?php endif; ?>
 
@@ -2374,10 +2374,10 @@ include '../../includes/header.php';
                             <th style="width: 130px; padding: 0.6rem 0.4rem; font-size: 0.82rem;">Actual<div class="ps-info" style="font-size: 0.7rem; margin-top: 2px;">Calc</div>
                             </th>
                             <th style="width: 65px; background: rgba(59,130,246,0.1); padding: 0.6rem 0.4rem; font-size: 0.82rem;">OT</th>
+                            <th style="width: 85px; background: rgba(220,38,38,0.08); padding: 0.6rem 0.4rem; font-size: 0.78rem; color:#b91c1c;" title="Tambahan jam dari hari melebihi target bulanan 200 jam (auto)">Extra<div class="ps-info" style="font-size:0.65rem;color:#b91c1c;margin-top:2px;">&gt;200j</div></th>
                             <th style="width: 85px;">OT Rp</th>
                             <th style="width: 80px;">Service</th>
                             <th style="width: 80px;">Allowc</th>
-                            <th style="width: 85px;">Uang Mkn</th>
                             <th style="width: 80px;">Bonus</th>
                             <th style="width: 85px; color: #ef4444;">Deduct</th>
                             <th style="width: 100px;">Net</th>
@@ -2458,16 +2458,18 @@ include '../../includes/header.php';
 
                                 <td>
                                     <input type="number" class="ps-input" style="background: rgba(59,130,246,0.1);"
-                                        value="<?php echo $slip['overtime_hours']; ?>" step="0.5" min="0"
+                                        value="<?php echo $slip['overtime_hours']; ?>" step="1" min="0"
                                         data-field="overtime_hours" data-id="<?php echo $slip['id']; ?>"
+                                        title="OT yang disetujui / dimasukkan manual (jam penuh, kelipatan 1 jam dgn threshold 45 menit)"
                                         oninput="calculateRow(<?php echo $slip['id']; ?>); saveRow(<?php echo $slip['id']; ?>)">
-                                    <?php $autoOT = $autoOTMap[(int)$slip['employee_id']] ?? 0;
-                                    if ($autoOT > 0): ?>
-                                        <div style="font-size:9px;color:#dc2626;font-weight:700;margin-top:2px;line-height:1.1;"
-                                            title="Jam kerja regular melewati 200 jam/bulan — otomatis dihitung sebagai OT tanpa perlu approval">
-                                            🔥 &gt;200j: +<?php echo number_format($autoOT, 2, ',', ''); ?>j
-                                        </div>
-                                    <?php endif; ?>
+                                </td>
+
+                                <td style="text-align:center;background:rgba(220,38,38,0.04);">
+                                    <?php $autoOT = $autoOTMap[(int)$slip['employee_id']] ?? 0; ?>
+                                    <span class="ps-cell-calc" style="color:<?php echo $autoOT > 0 ? '#b91c1c' : '#94a3b8'; ?>;font-weight:<?php echo $autoOT > 0 ? '700' : '500'; ?>;"
+                                        title="Tambahan dari hari yg melewati target bulanan 200 jam (auto)">
+                                        <?php echo $autoOT > 0 ? '+' . number_format($autoOT, 0, ',', '.') . 'j' : '—'; ?>
+                                    </span>
                                 </td>
 
                                 <td>
@@ -2491,13 +2493,8 @@ include '../../includes/header.php';
                                 </td>
 
                                 <td>
-                                    <input type="text" class="ps-input currency-input"
-                                        value="<?php echo number_format($slip['uang_makan'] ?? 0, 0, ',', '.'); ?>"
-                                        data-field="uang_makan" data-id="<?php echo $slip['id']; ?>"
-                                        oninput="calculateRow(<?php echo $slip['id']; ?>); saveRow(<?php echo $slip['id']; ?>)">
-                                </td>
-
-                                <td>
+                                    <!-- Uang Makan dihapus dari UI; hidden 0 agar JS save tetap kirim field -->
+                                    <input type="hidden" data-field="uang_makan" data-id="<?php echo $slip['id']; ?>" value="0">
                                     <input type="text" class="ps-input currency-input"
                                         value="<?php echo number_format($slip['bonus'] + $slip['other_income'], 0, ',', '.'); ?>"
                                         data-field="bonus" data-id="<?php echo $slip['id']; ?>"
@@ -2686,7 +2683,7 @@ include '../../includes/header.php';
         // Other incomes
         let incentive = getValByRow(id, 'incentive');
         let allowance = getValByRow(id, 'allowance');
-        let uangMakan = getValByRow(id, 'uang_makan');
+        // uang_makan dihilangkan dari Net
         let bonus = getValByRow(id, 'bonus'); // combined bonus+other
 
         // Deductions
@@ -2702,8 +2699,8 @@ include '../../includes/header.php';
         let dedInput = document.querySelector(`input[data-id="${id}"][data-field="total_deductions"]`);
         if (dedInput) dedInput.value = new Intl.NumberFormat('id-ID').format(totalDed);
 
-        // Calculate Net (include uang_makan)
-        let totalEarn = actualBase + otAmount + incentive + allowance + uangMakan + bonus;
+        // Calculate Net (uang_makan dihilangkan)
+        let totalEarn = actualBase + otAmount + incentive + allowance + bonus;
         let net = totalEarn - totalDed;
         document.getElementById(`net-${id}`).innerText = new Intl.NumberFormat('id-ID').format(net);
 
