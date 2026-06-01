@@ -780,7 +780,8 @@
                             $s4 = !empty($_POST['scan_4']) ? $_POST['scan_4'] . ':00' : null;
                             $notes = trim($_POST['notes'] ?? '');
                             $overtimeHours = trim($_POST['overtime_hours'] ?? '');
-                            $otHours = $overtimeHours === '' ? null : round((float)$overtimeHours, 2);
+                            // Rule: OT dibulatkan ke kelipatan 45 menit (di bawah 45 menit tidak terhitung).
+                            $otHours = $overtimeHours === '' ? null : roundOT45($overtimeHours);
                             $sh1 = null;
                             $sh2 = null;
                             if ($s1 && $s2) {
@@ -1258,12 +1259,19 @@
                         $todayStats['total_hours'] += $wh;
                         $todayStats['regular_hours'] += min($wh, 8);
                         // Manual OT from admin edit takes precedence; otherwise approved request uses actual time above 8 hours.
+                        // Rule: OT dibulatkan ke kelipatan 45 menit (di bawah 45 menit tidak terhitung).
                         if ($manualOT > 0) {
-                            $todayStats['overtime_hours'] += $manualOT;
-                            $todayStats['ot_count']++;
+                            $otAdd = roundOT45($manualOT);
+                            if ($otAdd > 0) {
+                                $todayStats['overtime_hours'] += $otAdd;
+                                $todayStats['ot_count']++;
+                            }
                         } elseif (isset($approvedOTEmployees[(int)$a['employee_id']])) {
-                            $todayStats['overtime_hours'] += max(0, round($wh - 8, 2));
-                            $todayStats['ot_count']++;
+                            $otAdd = roundOT45(max(0, $wh - 8));
+                            if ($otAdd > 0) {
+                                $todayStats['overtime_hours'] += $otAdd;
+                                $todayStats['ot_count']++;
+                            }
                         }
                     }
 

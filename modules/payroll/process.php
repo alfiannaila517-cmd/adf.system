@@ -258,11 +258,13 @@ function getAttendanceHours($db, $empId, $month, $year)
         $totalHours += min($wh, 8);
 
         // Manual OT takes precedence; otherwise each APPROVED overtime request uses actual overtime above 8 hours.
+        // Rule: OT dibulatkan ke kelipatan 45 menit (di bawah 45 menit tidak terhitung).
         $attDate = $r['attendance_date'] ?? '';
         if ($manualOT > 0) {
-            $totalOvertimeHours += $manualOT;
+            $totalOvertimeHours += roundOT45($manualOT);
         } elseif (isset($approvedOTDates[$attDate])) {
-            $totalOvertimeHours += max(0, round($wh - 8, 2));
+            $rawOT = max(0, $wh - 8);
+            $totalOvertimeHours += roundOT45($rawOT);
         }
     }
     return [

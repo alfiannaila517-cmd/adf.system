@@ -5,6 +5,31 @@
 
 defined('APP_ACCESS') or define('APP_ACCESS', true);
 
+/**
+ * Round overtime hours to multiples of 45 minutes (rounded DOWN).
+ * Business rule: lembur < 45 menit tidak terhitung; selebihnya
+ * dibulatkan ke bawah ke kelipatan 45 menit.
+ *
+ *   30 menit  -> 0
+ *   44 menit  -> 0
+ *   45 menit  -> 0.75 jam (45 menit)
+ *   60 menit  -> 0.75 jam (45 menit)
+ *   89 menit  -> 0.75 jam (45 menit)
+ *   90 menit  -> 1.50 jam (90 menit)
+ *   135 menit -> 2.25 jam (135 menit)
+ *
+ * @param float|int|string|null $hours Jumlah jam lembur mentah (boleh desimal)
+ * @return float Jam lembur setelah dibulatkan ke kelipatan 45 menit
+ */
+function roundOT45($hours) {
+    $h = (float)$hours;
+    if ($h <= 0) return 0.0;
+    $minutes = (int)floor($h * 60 + 0.5); // round to nearest minute first
+    if ($minutes < 45) return 0.0;
+    $rounded = intdiv($minutes, 45) * 45;
+    return round($rounded / 60, 4);
+}
+
 function sanitize($data) {
     if (is_array($data)) {
         foreach ($data as $key => $value) {

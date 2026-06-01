@@ -8,6 +8,7 @@
 define('APP_ACCESS', true);
 require_once '../../config/config.php';
 require_once '../../config/database.php';
+require_once '../../includes/functions.php';
 
 header('Content-Type: application/json');
 
@@ -336,11 +337,13 @@ if ($action === 'attendance_history') {
         $totalRegular += min($countedHours, 8);
 
         // Manual OT from admin edits takes precedence; otherwise count approved OT requests.
+        // Rule: OT dibulatkan ke kelipatan 45 menit (di bawah 45 menit tidak terhitung).
         if ($otManual > 0) {
-            $totalOT += $otManual;
-            $otComputed = $otManual;
+            $otComputed = roundOT45($otManual);
+            $totalOT += $otComputed;
         } elseif (!empty($overtimeDates[$attDate])) {
-            $otComputed = max(0, round($wh - 8, 2));
+            $rawOT = max(0, $wh - 8);
+            $otComputed = roundOT45($rawOT);
             $totalOT += $otComputed;
         }
 
@@ -362,7 +365,9 @@ if ($action === 'attendance_history') {
             $rr['work_hours'] = 8; // show integer 8 when capped
             $rr['overtime_hours'] = 0;
         } elseif ($manualOT <= 0 && $hasApprovedOT) {
-            $rr['overtime_hours'] = max(0, round($orig - 8, 2));
+            $rr['overtime_hours'] = roundOT45(max(0, $orig - 8));
+        } elseif ($manualOT > 0) {
+            $rr['overtime_hours'] = roundOT45($manualOT);
         }
     }
     unset($rr);
