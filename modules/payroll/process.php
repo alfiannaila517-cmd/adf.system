@@ -205,9 +205,9 @@ function recalcAttendanceHours($db, $month, $year)
 }
 
 // ── Helper: Get attendance hours from fingerprint/GPS data for a month ──
-// Overtime is ONLY counted if there's an approved overtime_request for that date,
-// PLUS automatic OT for any work hours exceeding the 200-hour monthly threshold
-// (typical on 31-day months — extra workdays auto-counted as overtime, exact, no rounding).
+// Overtime (OT)   = HANYA jika ada overtime_request approved (dibulatkan jam penuh).
+// Extra Hari      = jam dari hari kerja ke-27 dan seterusnya (>26 hari/bulan).
+//                    Hari extra dibayar dgn rate jam = base/200, bukan butuh approval.
 function getAttendanceHours($db, $empId, $month, $year)
 {
     $monthStr = sprintf('%04d-%02d', $year, $month);
@@ -234,12 +234,12 @@ function getAttendanceHours($db, $empId, $month, $year)
         // Table might not exist yet — treat as no approved OT
     }
 
-    $monthlyRegularCap = 200.0; // jam regular maksimal per bulan; selebihnya auto-OT (exact, tanpa rounding 45m)
+    $standardWorkDays = 26; // batas hari kerja standar/bulan; hari ke-27+ = Extra
     $totalHours = 0;
     $totalOvertimeHours = 0;
-    $totalAutoOver200 = 0;
+    $extraHours = 0;
+    $extraDays = 0;
     $daysWorked = 0;
-    $cumulativeRegular = 0.0;
     foreach ($rows as $r) {
         $wh = (float)$r['work_hours'];
         $manualOT = (float)($r['overtime_hours'] ?? 0);
@@ -269,25 +269,17 @@ function getAttendanceHours($db, $empId, $month, $year)
         $daysWorked++;
         $cappedDay = min($wh, 8); // jam regular maksimal per hari = 8
 
-        // Bagi cappedDay menjadi regular vs auto-OT berdasarkan akumulasi bulanan
-        $autoOTDay = 0.0;
-        if ($cumulativeRegular >= $monthlyRegularCap) {
-            $autoOTDay = $cappedDay;
-            $regularDay = 0.0;
-        } elseif ($cumulativeRegular + $cappedDay > $monthlyRegularCap) {
-            $regularDay = $monthlyRegularCap - $cumulativeRegular;
-            $autoOTDay = $cappedDay - $regularDay;
+        if ($daysWorked <= $standardWorkDays) {
+            // Hari 1..26 → masuk jam regular (gaji pokok)
+            $totalHours += $cappedDay;
         } else {
-            $regularDay = $cappedDay;
-        }
-        $cumulativeRegular += $regularDay;
-        $totalHours += $regularDay;
-        if ($autoOTDay > 0) {
-            $totalAutoOver200 += $autoOTDay; // exact, tanpa pembulatan 45 menit
+            // Hari 27+ → masuk Extra Hari (dibayar pakai rate OT, tanpa approval)
+            $extraHours += $cappedDay;
+            $extraDays++;
         }
 
-        // Manual OT takes precedence; otherwise each APPROVED overtime request uses actual overtime above 8 hours.
-        // Rule: OT dibulatkan ke kelipatan 45 menit (di bawah 45 menit tidak terhitung).
+        // OT (Overtime) HANYA dari overtime_request yg approved atau manual entry.
+        // Rule: OT dibulatkan ke jam penuh (threshold 45 menit).
         $attDate = $r['attendance_date'] ?? '';
         if ($manualOT > 0) {
             $totalOvertimeHours += roundOT45($manualOT);
@@ -297,14 +289,14 @@ function getAttendanceHours($db, $empId, $month, $year)
         }
     }
 
-    // Auto-OT (>200 jam) digabungkan ke total OT, exact (tanpa rounding 45 menit)
-    $totalOvertimeHours += $totalAutoOver200;
-
     return [
-        'work_hours' => round($totalHours, 2),
+        'work_hours'     => round($totalHours, 2),
         'overtime_hours' => round($totalOvertimeHours, 2),
-        'auto_overtime_over_200' => round($totalAutoOver200, 2),
-        'days_worked' => $daysWorked
+        'extra_hours'    => round($extraHours, 2),
+        'extra_days'     => $extraDays,
+        'days_worked'    => $daysWorked,
+        // back-compat
+        'auto_overtime_over_200' => 0.0,
     ];
 }
 
@@ -654,10 +646,25 @@ if ($period) {
         [$period['id']]
     );
 
+    // Pre-fetch Extra Hari (>26 hari) per karyawan dulu supaya bisa dipakai
+    // saat re-hitung Net.
+    $extraMap = [];
+    foreach ($slips as $s) {
+        try {
+            $att = getAttendanceHours($db, (int)$s['employee_id'], $month, $year);
+            $extraMap[(int)$s['employee_id']] = [
+                'hours' => (float)($att['extra_hours'] ?? 0),
+                'days'  => (int)($att['extra_days'] ?? 0),
+            ];
+        } catch (\Throwable $e) {
+            $extraMap[(int)$s['employee_id']] = ['hours' => 0, 'days' => 0];
+        }
+    }
+
     // Sinkronkan & RE-HITUNG semua angka turunan (actual_base, OT amount,
     // total_earnings, total_deductions, net_salary) dari komponen masing-masing
-    // supaya tampilan Net SELALU = actual_base + OT Rp + service + allowance
-    // + uang makan + bonus + other_income - (loan+absence+tax+bpjs+other).
+    // supaya tampilan Net SELALU = actual_base + OT Rp + Extra Rp + service + allowance
+    // + bonus + other_income - (loan+absence+tax+bpjs+other).
     // Untuk periode FROZEN tetap di-rekalkulasi UNTUK TAMPILAN tapi tidak menulis ke DB.
     foreach ($slips as $i => $s) {
         $masterBase = (float)$s['base_salary']; // sudah COALESCE master
@@ -666,6 +673,8 @@ if ($period) {
         $hourly = $masterBase > 0 ? $masterBase / 200 : 0;
         $actualBase = ($wh >= 200) ? $masterBase : round($wh * $hourly, 2);
         $otAmount   = round($oh * $hourly, 2);
+        $extraH     = (float)($extraMap[(int)$s['employee_id']]['hours'] ?? 0);
+        $extraAmount = round($extraH * $hourly, 2);
         $incentive  = (float)$s['incentive'];
         $allowance  = (float)$s['allowance'];
         $uangMakan  = 0.0; // Uang makan dihilangkan dari perhitungan Net
@@ -677,13 +686,15 @@ if ($period) {
         $bpjs       = (float)($s['deduction_bpjs'] ?? 0);
         $dedOther   = (float)($s['deduction_other'] ?? 0);
         $totalDed   = $loan + $absence + $tax + $bpjs + $dedOther;
-        $totalEarn  = $actualBase + $otAmount + $incentive + $allowance + $uangMakan + $bonus + $otherInc;
+        $totalEarn  = $actualBase + $otAmount + $extraAmount + $incentive + $allowance + $uangMakan + $bonus + $otherInc;
         $netSal     = $totalEarn - $totalDed;
 
         // Update display values
         $slips[$i]['actual_base']      = $actualBase;
         $slips[$i]['overtime_rate']    = $hourly;
         $slips[$i]['overtime_amount']  = $otAmount;
+        $slips[$i]['extra_hours']      = $extraH;
+        $slips[$i]['extra_amount']     = $extraAmount;
         $slips[$i]['total_earnings']   = $totalEarn;
         $slips[$i]['total_deductions'] = $totalDed;
         $slips[$i]['net_salary']       = $netSal;
@@ -695,31 +706,22 @@ if ($period) {
             $oldOtAmt    = (float)$s['overtime_amount'];
             $oldEarn     = (float)$s['total_earnings'];
             $oldDed      = (float)($s['total_deductions'] ?? 0);
-            $needUpdate  = (abs($oldNet-$netSal) > 0.5) || (abs($oldActual-$actualBase) > 0.5)
-                        || (abs($oldOtAmt-$otAmount) > 0.5) || (abs($oldEarn-$totalEarn) > 0.5)
-                        || (abs($oldDed-$totalDed) > 0.5);
+            $needUpdate  = (abs($oldNet - $netSal) > 0.5) || (abs($oldActual - $actualBase) > 0.5)
+                || (abs($oldOtAmt - $otAmount) > 0.5) || (abs($oldEarn - $totalEarn) > 0.5)
+                || (abs($oldDed - $totalDed) > 0.5);
             if ($needUpdate) {
                 try {
-                    dbExec($db,
+                    dbExec(
+                        $db,
                         "UPDATE payroll_slips
                          SET base_salary=?, actual_base=?, overtime_rate=?, overtime_amount=?,
                              total_earnings=?, total_deductions=?, net_salary=?, uang_makan=0
                          WHERE id=?",
                         [$masterBase, $actualBase, $hourly, $otAmount, $totalEarn, $totalDed, $netSal, $s['id']]
                     );
-                } catch (Exception $e) { /* abaikan */ }
+                } catch (Exception $e) { /* abaikan */
+                }
             }
-        }
-    }
-
-    // Hitung auto-OT (>200 jam) per karyawan untuk ditampilkan sebagai badge di tabel
-    $autoOTMap = [];
-    foreach ($slips as $s) {
-        try {
-            $att = getAttendanceHours($db, (int)$s['employee_id'], $month, $year);
-            $autoOTMap[(int)$s['employee_id']] = (float)($att['auto_overtime_over_200'] ?? 0);
-        } catch (\Throwable $e) {
-            $autoOTMap[(int)$s['employee_id']] = 0;
         }
     }
 
@@ -2355,7 +2357,7 @@ include '../../includes/header.php';
             </div>
         <?php else: ?>
             <div style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 10px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.8rem; color: #1e40af;">
-                <strong>💾 Auto-Save:</strong> Target 200 jam/bulan. <strong>Kolom OT</strong> = jam lembur disetujui, dibulatkan ke jam penuh (≥45 menit jadi 1 jam, ≥90 menit jadi 2 jam, dst). <strong style="color:#b91c1c;">Kolom Extra &gt;200j</strong> = tambahan otomatis dari hari yg melewati target bulanan (auto, exact). <strong>Net</strong> = Actual + OT Rp + Service + Allowance + Bonus − Deduction.
+                <strong>💾 Auto-Save:</strong> <strong>OT</strong> = lembur dgn approval (dibulatkan jam penuh, threshold 45 menit). <strong style="color:#b91c1c;">Extra (&gt;26hr)</strong> = hari kerja ke-27+ dlm sebulan (auto, dibayar pakai rate jam OT = base÷200). <strong>Net</strong> = Actual Base + OT Rp + Extra Rp + Service + Allowance + Bonus − Deduction.
             </div>
         <?php endif; ?>
 
@@ -2374,7 +2376,8 @@ include '../../includes/header.php';
                             <th style="width: 130px; padding: 0.6rem 0.4rem; font-size: 0.82rem;">Actual<div class="ps-info" style="font-size: 0.7rem; margin-top: 2px;">Calc</div>
                             </th>
                             <th style="width: 65px; background: rgba(59,130,246,0.1); padding: 0.6rem 0.4rem; font-size: 0.82rem;">OT</th>
-                            <th style="width: 85px; background: rgba(220,38,38,0.08); padding: 0.6rem 0.4rem; font-size: 0.78rem; color:#b91c1c;" title="Tambahan jam dari hari melebihi target bulanan 200 jam (auto)">Extra<div class="ps-info" style="font-size:0.65rem;color:#b91c1c;margin-top:2px;">&gt;200j</div></th>
+                            <th style="width: 110px; background: rgba(220,38,38,0.08); padding: 0.6rem 0.4rem; font-size: 0.78rem; color:#b91c1c;" title="Tambahan dari hari kerja melebihi 26 hari/bulan (auto, dibayar pakai rate jam-OT)">Extra<div class="ps-info" style="font-size:0.65rem;color:#b91c1c;margin-top:2px;">&gt;26hr</div>
+                            </th>
                             <th style="width: 85px;">OT Rp</th>
                             <th style="width: 80px;">Service</th>
                             <th style="width: 80px;">Allowc</th>
@@ -2465,11 +2468,23 @@ include '../../includes/header.php';
                                 </td>
 
                                 <td style="text-align:center;background:rgba(220,38,38,0.04);">
-                                    <?php $autoOT = $autoOTMap[(int)$slip['employee_id']] ?? 0; ?>
-                                    <span class="ps-cell-calc" style="color:<?php echo $autoOT > 0 ? '#b91c1c' : '#94a3b8'; ?>;font-weight:<?php echo $autoOT > 0 ? '700' : '500'; ?>;"
-                                        title="Tambahan dari hari yg melewati target bulanan 200 jam (auto)">
-                                        <?php echo $autoOT > 0 ? '+' . number_format($autoOT, 0, ',', '.') . 'j' : '—'; ?>
-                                    </span>
+                                    <?php
+                                        $extraInfo = $extraMap[(int)$slip['employee_id']] ?? ['hours'=>0,'days'=>0];
+                                        $extraH = (float)$extraInfo['hours'];
+                                        $extraD = (int)$extraInfo['days'];
+                                        $extraRp = (float)($slip['extra_amount'] ?? 0);
+                                    ?>
+                                    <?php if ($extraH > 0): ?>
+                                        <div style="color:#b91c1c;font-weight:700;font-size:0.78rem;line-height:1.1;"
+                                             title="<?php echo $extraD; ?> hari extra (>26hr), <?php echo $extraH; ?> jam">
+                                            +<?php echo number_format($extraH, 0, ',', '.'); ?>j
+                                        </div>
+                                        <div style="color:#b91c1c;font-weight:600;font-size:0.72rem;line-height:1.1;opacity:0.85;">
+                                            <?php echo number_format($extraRp, 0, ',', '.'); ?>
+                                        </div>
+                                    <?php else: ?>
+                                        <span class="ps-cell-calc" style="color:#94a3b8;">—</span>
+                                    <?php endif; ?>
                                 </td>
 
                                 <td>
