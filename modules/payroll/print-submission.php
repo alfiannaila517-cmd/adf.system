@@ -4,31 +4,80 @@ define('APP_ACCESS', true);
 require_once '../../config/config.php';
 require_once '../../config/database.php';
 require_once '../../includes/auth.php';
-
-$auth = new Auth();
-$auth->requireLogin();
+require_once '../../includes/functions.php';
 
 $db = Database::getInstance();
-$period_id = $_GET['period_id'] ?? 0;
+$period_id = (int)($_GET['period_id'] ?? 0);
+
+// Shareable public link: token = sha256(period_id + DB_NAME + DB_HOST).
+// Owner bisa buka link tanpa login asalkan token cocok.
+$shareSalt = (defined('DB_HOST') ? DB_HOST : '') . '|' . (defined('DB_NAME') ? DB_NAME : '') . '|payroll-submission-v1';
+$expectedToken = substr(hash('sha256', $period_id . '|' . $shareSalt), 0, 32);
+$providedToken = (string)($_GET['token'] ?? '');
+$isShareView = ($providedToken !== '' && hash_equals($expectedToken, $providedToken));
+
+if (!$isShareView) {
+    $auth = new Auth();
+    $auth->requireLogin();
+}
 
 $period = $db->fetchOne("SELECT * FROM payroll_periods WHERE id = ?", [$period_id]);
 if (!$period) die("Period not found");
 
-$slips = $db->fetchAll("SELECT ps.*, pe.bank_name, pe.bank_account 
+$slips = $db->fetchAll("SELECT ps.*, pe.bank_name, pe.bank_account,
+                               COALESCE(pe.base_salary, ps.base_salary, 0) AS base_salary
                         FROM payroll_slips ps 
                         LEFT JOIN payroll_employees pe ON ps.employee_id = pe.id 
                         WHERE ps.period_id = ? ORDER BY ps.employee_name ASC", [$period_id]);
 
+// Re-hitung tampilan agar SELALU konsisten dgn Process Salary
+// (actual_base, OT amount, extra_amount, total_earnings, deductions, net)
+foreach ($slips as $i => $s) {
+    $base   = (float)$s['base_salary'];
+    $wh     = (float)$s['work_hours'];
+    $oh     = (float)$s['overtime_hours'];
+    $exH    = (float)($s['extra_hours'] ?? 0);
+    $hourly = $base > 0 ? $base / 200 : 0;
+    $actualBase  = ($wh >= 200) ? $base : round($wh * $hourly, 2);
+    $otAmount    = round($oh * $hourly, 2);
+    $extraAmount = round($exH * $hourly, 2);
+    $loan    = (float)($s['deduction_loan'] ?? 0);
+    $absence = (float)($s['deduction_absence'] ?? 0);
+    $tax     = (float)($s['deduction_tax'] ?? 0);
+    $bpjs    = (float)($s['deduction_bpjs'] ?? 0);
+    $dedOth  = (float)($s['deduction_other'] ?? 0);
+    $totalDed = $loan + $absence + $tax + $bpjs + $dedOth;
+    $totalEarn = $actualBase + $otAmount + $extraAmount
+               + (float)($s['incentive'] ?? 0) + (float)($s['allowance'] ?? 0)
+               + (float)($s['bonus'] ?? 0) + (float)($s['other_income'] ?? 0);
+    $slips[$i]['hourly_rate']      = $hourly;
+    $slips[$i]['actual_base']      = $actualBase;
+    $slips[$i]['overtime_amount']  = $otAmount;
+    $slips[$i]['extra_amount']     = $extraAmount;
+    $slips[$i]['ot_total_rp']      = $otAmount + $extraAmount;
+    $slips[$i]['total_deductions'] = $totalDed;
+    $slips[$i]['total_earnings']   = $totalEarn;
+    $slips[$i]['net_salary']       = $totalEarn - $totalDed;
+}
+
 // Calculate totals
-$totalBase = array_sum(array_column($slips, 'base_salary'));
-$totalOvertime = array_sum(array_column($slips, 'overtime_amount'));
-$totalIncentive = array_sum(array_column($slips, 'incentive'));
-$totalAllowance = array_sum(array_column($slips, 'allowance'));
-$totalBonus = array_sum(array_column($slips, 'bonus'));
-$totalOther = array_sum(array_column($slips, 'other_income'));
-$totalGross = $period['total_gross'];
-$totalDeductions = $period['total_deductions'];
-$totalNet = $period['total_net'];
+$totalBase       = array_sum(array_column($slips, 'base_salary'));
+$totalActualBase = array_sum(array_column($slips, 'actual_base'));
+$totalOtRp       = array_sum(array_column($slips, 'ot_total_rp'));
+$totalOvertime   = array_sum(array_column($slips, 'overtime_amount'));
+$totalExtra      = array_sum(array_column($slips, 'extra_amount'));
+$totalIncentive  = array_sum(array_column($slips, 'incentive'));
+$totalAllowance  = array_sum(array_column($slips, 'allowance'));
+$totalBonus      = array_sum(array_column($slips, 'bonus'));
+$totalOther      = array_sum(array_column($slips, 'other_income'));
+$totalDeductions = array_sum(array_column($slips, 'total_deductions'));
+$totalNet        = array_sum(array_column($slips, 'net_salary'));
+$totalGross      = array_sum(array_column($slips, 'total_earnings'));
+
+// Build shareable URL
+$scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+$shareUrl = $scheme . '://' . $_SERVER['HTTP_HOST'] . strtok($_SERVER['REQUEST_URI'], '?')
+          . '?period_id=' . $period_id . '&token=' . $expectedToken;
 
 $companyName = BUSINESS_NAME;
 $monthNames = [
@@ -413,23 +462,34 @@ $periodLabel = $monthNames[$period['period_month']] . ' ' . $period['period_year
     
     <!-- Employee Detail Table -->
     <div class="table-section">
-        <div class="table-title">Employee Salary Details</div>
-        <table>
+        <div class="table-title" style="display:flex;justify-content:space-between;align-items:center;">
+            <span>Employee Salary Details (sama dengan Process Salary)</span>
+            <span style="font-size:7pt;color:#94a3b8;text-transform:none;font-weight:500;">Hourly rate = Base ÷ 200 · OT/Extra dibayar pakai rate jam yg sama</span>
+        </div>
+        <div style="overflow-x:auto;">
+        <table style="font-size:7.5pt;">
             <thead>
                 <tr>
-                    <th style="width: 30px;">#</th>
+                    <th style="width: 24px;">#</th>
                     <th>Employee</th>
-                    <th class="text-right">Base Salary</th>
-                    <th class="text-right">Overtime</th>
-                    <th class="text-right">Incentive</th>
-                    <th class="text-right">Allowance</th>
-                    <th class="text-right">Bonus/Other</th>
-                    <th class="text-right">Deductions</th>
-                    <th class="text-right">Net Salary</th>
+                    <th class="text-right">Base</th>
+                    <th class="text-center" title="Jam absensi">Hours</th>
+                    <th class="text-right" title="Base proporsional sesuai jam (full bila ≥200)">Actual</th>
+                    <th class="text-center" title="OT approved (jam penuh)">OT</th>
+                    <th class="text-center" style="color:#b91c1c;" title="Hari kerja ke-27+">Extra</th>
+                    <th class="text-right" title="(OT + Extra) × rate jam">OT Rp</th>
+                    <th class="text-right">Service</th>
+                    <th class="text-right">Allowc</th>
+                    <th class="text-right">Bonus</th>
+                    <th class="text-right" style="color:#ef4444;">Deduct</th>
+                    <th class="text-right">Net</th>
                 </tr>
             </thead>
             <tbody>
-                <?php $no = 1; foreach($slips as $slip): ?>
+                <?php $no = 1; foreach($slips as $slip):
+                    $bonusAll = (float)($slip['bonus'] ?? 0) + (float)($slip['other_income'] ?? 0);
+                    $exH = (float)($slip['extra_hours'] ?? 0);
+                ?>
                 <tr>
                     <td class="text-center"><?php echo $no++; ?></td>
                     <td>
@@ -437,10 +497,14 @@ $periodLabel = $monthNames[$period['period_month']] . ' ' . $period['period_year
                         <div class="emp-position"><?php echo htmlspecialchars($slip['position']); ?></div>
                     </td>
                     <td class="text-right"><span class="amount"><?php echo number_format($slip['base_salary'], 0, ',', '.'); ?></span></td>
-                    <td class="text-right"><span class="amount positive"><?php echo number_format($slip['overtime_amount'], 0, ',', '.'); ?></span></td>
+                    <td class="text-center"><span class="amount"><?php echo number_format((float)$slip['work_hours'], 1, ',', '.'); ?></span></td>
+                    <td class="text-right"><span class="amount"><?php echo number_format($slip['actual_base'], 0, ',', '.'); ?></span></td>
+                    <td class="text-center"><span class="amount"><?php echo (float)$slip['overtime_hours'] > 0 ? number_format((float)$slip['overtime_hours'], 0) . 'j' : '—'; ?></span></td>
+                    <td class="text-center"><span class="amount" style="color:<?php echo $exH > 0 ? '#b91c1c' : '#94a3b8'; ?>;font-weight:<?php echo $exH > 0 ? '700' : '400'; ?>;"><?php echo $exH > 0 ? '+' . number_format($exH, 0) . 'j' : '—'; ?></span></td>
+                    <td class="text-right"><span class="amount positive" title="OT Rp <?php echo number_format($slip['overtime_amount'], 0, ',', '.'); ?> + Extra Rp <?php echo number_format($slip['extra_amount'], 0, ',', '.'); ?>"><?php echo number_format($slip['ot_total_rp'], 0, ',', '.'); ?></span></td>
                     <td class="text-right"><span class="amount"><?php echo number_format($slip['incentive'], 0, ',', '.'); ?></span></td>
                     <td class="text-right"><span class="amount"><?php echo number_format($slip['allowance'], 0, ',', '.'); ?></span></td>
-                    <td class="text-right"><span class="amount"><?php echo number_format($slip['bonus'] + ($slip['other_income'] ?? 0), 0, ',', '.'); ?></span></td>
+                    <td class="text-right"><span class="amount"><?php echo number_format($bonusAll, 0, ',', '.'); ?></span></td>
                     <td class="text-right"><span class="amount negative"><?php echo number_format($slip['total_deductions'], 0, ',', '.'); ?></span></td>
                     <td class="text-right"><span class="amount net"><?php echo number_format($slip['net_salary'], 0, ',', '.'); ?></span></td>
                 </tr>
@@ -448,9 +512,10 @@ $periodLabel = $monthNames[$period['period_month']] . ' ' . $period['period_year
             </tbody>
             <tfoot>
                 <tr>
-                    <td colspan="2" class="text-right">TOTAL</td>
-                    <td class="text-right"><span class="amount"><?php echo number_format($totalBase, 0, ',', '.'); ?></span></td>
-                    <td class="text-right"><span class="amount"><?php echo number_format($totalOvertime, 0, ',', '.'); ?></span></td>
+                    <td colspan="4" class="text-right">TOTAL</td>
+                    <td class="text-right"><span class="amount"><?php echo number_format($totalActualBase, 0, ',', '.'); ?></span></td>
+                    <td colspan="2"></td>
+                    <td class="text-right"><span class="amount"><?php echo number_format($totalOtRp, 0, ',', '.'); ?></span></td>
                     <td class="text-right"><span class="amount"><?php echo number_format($totalIncentive, 0, ',', '.'); ?></span></td>
                     <td class="text-right"><span class="amount"><?php echo number_format($totalAllowance, 0, ',', '.'); ?></span></td>
                     <td class="text-right"><span class="amount"><?php echo number_format($totalBonus + $totalOther, 0, ',', '.'); ?></span></td>
@@ -459,6 +524,7 @@ $periodLabel = $monthNames[$period['period_month']] . ' ' . $period['period_year
                 </tr>
             </tfoot>
         </table>
+        </div>
     </div>
     
     <!-- Bank Transfer Details -->
@@ -528,12 +594,33 @@ $periodLabel = $monthNames[$period['period_month']] . ' ' . $period['period_year
     
 </div>
 
-<button class="print-btn" onclick="window.print()">
+<button class="print-btn" onclick="window.print()" style="right:20px;">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
     Print Document
 </button>
 
+<?php if (!$isShareView): ?>
+<button class="print-btn" id="shareBtn" onclick="copyShareLink()" style="right:200px;background:linear-gradient(135deg,#10b981 0%,#059669 100%);box-shadow:0 4px 16px rgba(16,185,129,0.4);">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+    Share Link Owner
+</button>
+<?php else: ?>
+<div style="position:fixed;top:10px;left:10px;background:#10b981;color:#fff;padding:6px 12px;border-radius:20px;font-size:11px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,0.15);">🔗 Public Share View (read-only)</div>
+<?php endif; ?>
+
 <script>
+const SHARE_URL = <?php echo json_encode($shareUrl); ?>;
+
+function copyShareLink() {
+    navigator.clipboard.writeText(SHARE_URL).then(() => {
+        const btn = document.getElementById('shareBtn');
+        const orig = btn.innerHTML;
+        btn.innerHTML = '✅ Link disalin!';
+        btn.style.background = '#22c55e';
+        setTimeout(() => { btn.innerHTML = orig; btn.style.background = 'linear-gradient(135deg,#10b981 0%,#059669 100%)'; }, 1800);
+    }).catch(() => { prompt('Salin link ini:', SHARE_URL); });
+}
+
 function copyToClipboard(elementId) {
     const element = document.getElementById(elementId);
     const text = element.textContent.trim();
