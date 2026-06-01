@@ -341,10 +341,13 @@ function syncSlipsWithAttendance($db, $periodId, $month, $year)
         $netSalary = $totalEarn - $totalDed;
 
         // Update via direct PDO to avoid silent error swallowing
+        // Sync overtime_hours too so the input field reflects the true total
+        // (manual + approved request + auto-OT >200j), keeping UI consistent
+        // with the overtime_amount that's actually paid.
         dbExec(
             $db,
-            "UPDATE payroll_slips SET work_hours=?, actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=? WHERE id=?",
-            [$workH, $actualBase, $otRate, $otAmount, $totalEarn, $totalDed, $netSalary, $slip['id']]
+            "UPDATE payroll_slips SET work_hours=?, overtime_hours=?, actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=? WHERE id=?",
+            [$workH, $otH, $actualBase, $otRate, $otAmount, $totalEarn, $totalDed, $netSalary, $slip['id']]
         );
     }
     // Update period totals
