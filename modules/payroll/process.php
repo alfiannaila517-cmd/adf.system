@@ -620,6 +620,17 @@ if ($period) {
         [$period['id']]
     );
 
+    // Hitung auto-OT (>200 jam) per karyawan untuk ditampilkan sebagai badge di tabel
+    $autoOTMap = [];
+    foreach ($slips as $s) {
+        try {
+            $att = getAttendanceHours($db, (int)$s['employee_id'], $month, $year);
+            $autoOTMap[(int)$s['employee_id']] = (float)($att['auto_overtime_over_200'] ?? 0);
+        } catch (\Throwable $e) {
+            $autoOTMap[(int)$s['employee_id']] = 0;
+        }
+    }
+
     // Ensure displayed period totals are in sync with payroll_slips sums
     try {
         $sums = $db->fetchOne("SELECT IFNULL(SUM(total_earnings),0) as gross, IFNULL(SUM(total_deductions),0) as ded, IFNULL(SUM(net_salary),0) as net, COUNT(id) as cnt FROM payroll_slips WHERE period_id = ?", [$period['id']]);
@@ -2247,7 +2258,7 @@ include '../../includes/header.php';
 
         <!-- Info Box -->
         <div style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 10px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.8rem; color: #1e40af;">
-            <strong>💾 Auto-Save:</strong> Setiap perubahan otomatis tersimpan saat Anda keluar dari input. Target jam = 200. Lembur = kelipatan 45 menit di atas 8 jam/hari. Klik <strong>Sync Absensi</strong> untuk tarik data GPS terbaru.
+            <strong>💾 Auto-Save:</strong> Setiap perubahan otomatis tersimpan saat Anda keluar dari input. Target jam = 200. Lembur biasa = kelipatan 45 menit di atas 8 jam/hari (perlu approval). <strong style="color:#dc2626;">🔥 Auto-OT &gt;200j</strong> = jam regular yang melewati 200 jam/bulan otomatis jadi OT (exact, tanpa approval). Klik <strong>Sync Absensi</strong> untuk tarik data GPS terbaru.
         </div>
 
         <!-- Payroll Table -->
@@ -2350,6 +2361,13 @@ include '../../includes/header.php';
                                         value="<?php echo $slip['overtime_hours']; ?>" step="0.5" min="0"
                                         data-field="overtime_hours" data-id="<?php echo $slip['id']; ?>"
                                         oninput="calculateRow(<?php echo $slip['id']; ?>); saveRow(<?php echo $slip['id']; ?>)">
+                                    <?php $autoOT = $autoOTMap[(int)$slip['employee_id']] ?? 0;
+                                    if ($autoOT > 0): ?>
+                                        <div style="font-size:9px;color:#dc2626;font-weight:700;margin-top:2px;line-height:1.1;"
+                                            title="Jam kerja regular melewati 200 jam/bulan — otomatis dihitung sebagai OT tanpa perlu approval">
+                                            🔥 &gt;200j: +<?php echo number_format($autoOT, 2, ',', ''); ?>j
+                                        </div>
+                                    <?php endif; ?>
                                 </td>
 
                                 <td>
