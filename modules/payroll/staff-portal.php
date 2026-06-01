@@ -73,6 +73,11 @@ try {
     }
 } catch (Exception $e) {
 }
+
+// ── Cegah browser/PWA cache HTML staff portal (selalu fetch latest) ──
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: 0');
 ?>
 <!DOCTYPE html>
 <html lang="id">

@@ -3,7 +3,7 @@
  * Push Notifications + Face-API Model Caching for instant Face ID
  */
 
-const CACHE_NAME = "adf-system-v4";
+const CACHE_NAME = "adf-system-v5";
 const FACE_CACHE = "face-models-v1";
 
 // URLs to cache for Face ID (models + library)
