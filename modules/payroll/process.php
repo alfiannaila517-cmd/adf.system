@@ -639,16 +639,59 @@ if ($period) {
         }
     }
 
-    // Fetch slips AFTER sync so we get updated work hours
+    // Fetch slips AFTER sync so we get updated work hours.
+    // base_salary SELALU diambil dari payroll_employees (single source of truth)
+    // sehingga edit di Employee Data langsung terlihat di Process Salary,
+    // tidak peduli hours_locked atau status frozen.
     $slips = $db->fetchAll(
         "
-        SELECT s.*, e.employee_code, e.department 
+        SELECT s.*, e.employee_code, e.department,
+               COALESCE(e.base_salary, s.base_salary, 0) AS base_salary
         FROM payroll_slips s 
         JOIN payroll_employees e ON s.employee_id = e.id 
         WHERE s.period_id = ?
         ORDER BY s.employee_name ASC",
         [$period['id']]
     );
+
+    // Sinkronkan base_salary, actual_base, overtime_rate, overtime_amount,
+    // total_earnings & net_salary ke DB bila base_salary slip berbeda dari master.
+    // Hanya untuk periode yg TIDAK frozen (bulan ini & masa depan) agar data
+    // bulan lalu tetap beku sesuai editan terakhir.
+    if (!$isFrozen) {
+        foreach ($slips as $i => $s) {
+            $masterBase = (float)$s['base_salary'];
+            $slipBaseRaw = (float)($db->fetchOne("SELECT base_salary FROM payroll_slips WHERE id = ?", [$s['id']])['base_salary'] ?? 0);
+            if (abs($masterBase - $slipBaseRaw) < 0.5) continue; // sudah sama
+            $wh = (float)$s['work_hours'];
+            $oh = (float)$s['overtime_hours'];
+            $hourly = $masterBase > 0 ? $masterBase / 200 : 0;
+            $actualBase = ($wh >= 200) ? $masterBase : round($wh * $hourly, 2);
+            $otAmount   = round($oh * $hourly, 2);
+            $incentive  = (float)$s['incentive'];
+            $allowance  = (float)$s['allowance'];
+            $uangMakan  = (float)($s['uang_makan'] ?? 0);
+            $bonus      = (float)$s['bonus'];
+            $otherInc   = (float)$s['other_income'];
+            $totalDed   = (float)$s['total_deductions'];
+            $totalEarn  = $actualBase + $otAmount + $incentive + $allowance + $uangMakan + $bonus + $otherInc;
+            $netSal     = $totalEarn - $totalDed;
+            try {
+                dbExec($db,
+                    "UPDATE payroll_slips
+                     SET base_salary=?, actual_base=?, overtime_rate=?, overtime_amount=?,
+                         total_earnings=?, net_salary=?
+                     WHERE id=?",
+                    [$masterBase, $actualBase, $hourly, $otAmount, $totalEarn, $netSal, $s['id']]
+                );
+                $slips[$i]['actual_base']    = $actualBase;
+                $slips[$i]['overtime_rate']  = $hourly;
+                $slips[$i]['overtime_amount']= $otAmount;
+                $slips[$i]['total_earnings'] = $totalEarn;
+                $slips[$i]['net_salary']     = $netSal;
+            } catch (Exception $e) { /* abaikan */ }
+        }
+    }
 
     // Hitung auto-OT (>200 jam) per karyawan untuk ditampilkan sebagai badge di tabel
     $autoOTMap = [];
