@@ -654,15 +654,14 @@ if ($period) {
         [$period['id']]
     );
 
-    // Sinkronkan base_salary, actual_base, overtime_rate, overtime_amount,
-    // total_earnings & net_salary ke DB bila base_salary slip berbeda dari master.
-    // Hanya untuk periode yg TIDAK frozen (bulan ini & masa depan) agar data
-    // bulan lalu tetap beku sesuai editan terakhir.
+    // Sinkronkan & RE-HITUNG semua angka turunan (actual_base, OT amount,
+    // total_earnings, total_deductions, net_salary) dari komponen masing-masing
+    // supaya tampilan Net SELALU = actual_base + OT Rp + service + allowance
+    // + uang makan + bonus + other_income - (loan+absence+tax+bpjs+other).
+    // Hanya untuk periode yg TIDAK frozen (bulan lalu tetap beku).
     if (!$isFrozen) {
         foreach ($slips as $i => $s) {
-            $masterBase = (float)$s['base_salary'];
-            $slipBaseRaw = (float)($db->fetchOne("SELECT base_salary FROM payroll_slips WHERE id = ?", [$s['id']])['base_salary'] ?? 0);
-            if (abs($masterBase - $slipBaseRaw) < 0.5) continue; // sudah sama
+            $masterBase = (float)$s['base_salary']; // sudah COALESCE master
             $wh = (float)$s['work_hours'];
             $oh = (float)$s['overtime_hours'];
             $hourly = $masterBase > 0 ? $masterBase / 200 : 0;
@@ -673,23 +672,40 @@ if ($period) {
             $uangMakan  = (float)($s['uang_makan'] ?? 0);
             $bonus      = (float)$s['bonus'];
             $otherInc   = (float)$s['other_income'];
-            $totalDed   = (float)$s['total_deductions'];
+            $loan       = (float)($s['deduction_loan'] ?? 0);
+            $absence    = (float)($s['deduction_absence'] ?? 0);
+            $tax        = (float)($s['deduction_tax'] ?? 0);
+            $bpjs       = (float)($s['deduction_bpjs'] ?? 0);
+            $dedOther   = (float)($s['deduction_other'] ?? 0);
+            $totalDed   = $loan + $absence + $tax + $bpjs + $dedOther;
             $totalEarn  = $actualBase + $otAmount + $incentive + $allowance + $uangMakan + $bonus + $otherInc;
             $netSal     = $totalEarn - $totalDed;
-            try {
-                dbExec($db,
-                    "UPDATE payroll_slips
-                     SET base_salary=?, actual_base=?, overtime_rate=?, overtime_amount=?,
-                         total_earnings=?, net_salary=?
-                     WHERE id=?",
-                    [$masterBase, $actualBase, $hourly, $otAmount, $totalEarn, $netSal, $s['id']]
-                );
-                $slips[$i]['actual_base']    = $actualBase;
-                $slips[$i]['overtime_rate']  = $hourly;
-                $slips[$i]['overtime_amount']= $otAmount;
-                $slips[$i]['total_earnings'] = $totalEarn;
-                $slips[$i]['net_salary']     = $netSal;
-            } catch (Exception $e) { /* abaikan */ }
+
+            $oldNet      = (float)$s['net_salary'];
+            $oldActual   = (float)$s['actual_base'];
+            $oldOtAmt    = (float)$s['overtime_amount'];
+            $oldEarn     = (float)$s['total_earnings'];
+            $oldDed      = (float)($s['total_deductions'] ?? 0);
+            $needUpdate  = (abs($oldNet-$netSal) > 0.5) || (abs($oldActual-$actualBase) > 0.5)
+                        || (abs($oldOtAmt-$otAmount) > 0.5) || (abs($oldEarn-$totalEarn) > 0.5)
+                        || (abs($oldDed-$totalDed) > 0.5);
+            if ($needUpdate) {
+                try {
+                    dbExec($db,
+                        "UPDATE payroll_slips
+                         SET base_salary=?, actual_base=?, overtime_rate=?, overtime_amount=?,
+                             total_earnings=?, total_deductions=?, net_salary=?
+                         WHERE id=?",
+                        [$masterBase, $actualBase, $hourly, $otAmount, $totalEarn, $totalDed, $netSal, $s['id']]
+                    );
+                } catch (Exception $e) { /* abaikan */ }
+            }
+            $slips[$i]['actual_base']      = $actualBase;
+            $slips[$i]['overtime_rate']    = $hourly;
+            $slips[$i]['overtime_amount']  = $otAmount;
+            $slips[$i]['total_earnings']   = $totalEarn;
+            $slips[$i]['total_deductions'] = $totalDed;
+            $slips[$i]['net_salary']       = $netSal;
         }
     }
 
