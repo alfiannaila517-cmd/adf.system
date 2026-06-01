@@ -658,29 +658,38 @@ if ($period) {
     // total_earnings, total_deductions, net_salary) dari komponen masing-masing
     // supaya tampilan Net SELALU = actual_base + OT Rp + service + allowance
     // + uang makan + bonus + other_income - (loan+absence+tax+bpjs+other).
-    // Hanya untuk periode yg TIDAK frozen (bulan lalu tetap beku).
-    if (!$isFrozen) {
-        foreach ($slips as $i => $s) {
-            $masterBase = (float)$s['base_salary']; // sudah COALESCE master
-            $wh = (float)$s['work_hours'];
-            $oh = (float)$s['overtime_hours'];
-            $hourly = $masterBase > 0 ? $masterBase / 200 : 0;
-            $actualBase = ($wh >= 200) ? $masterBase : round($wh * $hourly, 2);
-            $otAmount   = round($oh * $hourly, 2);
-            $incentive  = (float)$s['incentive'];
-            $allowance  = (float)$s['allowance'];
-            $uangMakan  = (float)($s['uang_makan'] ?? 0);
-            $bonus      = (float)$s['bonus'];
-            $otherInc   = (float)$s['other_income'];
-            $loan       = (float)($s['deduction_loan'] ?? 0);
-            $absence    = (float)($s['deduction_absence'] ?? 0);
-            $tax        = (float)($s['deduction_tax'] ?? 0);
-            $bpjs       = (float)($s['deduction_bpjs'] ?? 0);
-            $dedOther   = (float)($s['deduction_other'] ?? 0);
-            $totalDed   = $loan + $absence + $tax + $bpjs + $dedOther;
-            $totalEarn  = $actualBase + $otAmount + $incentive + $allowance + $uangMakan + $bonus + $otherInc;
-            $netSal     = $totalEarn - $totalDed;
+    // Untuk periode FROZEN tetap di-rekalkulasi UNTUK TAMPILAN tapi tidak menulis ke DB.
+    foreach ($slips as $i => $s) {
+        $masterBase = (float)$s['base_salary']; // sudah COALESCE master
+        $wh = (float)$s['work_hours'];
+        $oh = (float)$s['overtime_hours'];
+        $hourly = $masterBase > 0 ? $masterBase / 200 : 0;
+        $actualBase = ($wh >= 200) ? $masterBase : round($wh * $hourly, 2);
+        $otAmount   = round($oh * $hourly, 2);
+        $incentive  = (float)$s['incentive'];
+        $allowance  = (float)$s['allowance'];
+        $uangMakan  = (float)($s['uang_makan'] ?? 0);
+        $bonus      = (float)$s['bonus'];
+        $otherInc   = (float)$s['other_income'];
+        $loan       = (float)($s['deduction_loan'] ?? 0);
+        $absence    = (float)($s['deduction_absence'] ?? 0);
+        $tax        = (float)($s['deduction_tax'] ?? 0);
+        $bpjs       = (float)($s['deduction_bpjs'] ?? 0);
+        $dedOther   = (float)($s['deduction_other'] ?? 0);
+        $totalDed   = $loan + $absence + $tax + $bpjs + $dedOther;
+        $totalEarn  = $actualBase + $otAmount + $incentive + $allowance + $uangMakan + $bonus + $otherInc;
+        $netSal     = $totalEarn - $totalDed;
 
+        // Update display values
+        $slips[$i]['actual_base']      = $actualBase;
+        $slips[$i]['overtime_rate']    = $hourly;
+        $slips[$i]['overtime_amount']  = $otAmount;
+        $slips[$i]['total_earnings']   = $totalEarn;
+        $slips[$i]['total_deductions'] = $totalDed;
+        $slips[$i]['net_salary']       = $netSal;
+
+        // Tulis ke DB HANYA bila tidak frozen
+        if (!$isFrozen) {
             $oldNet      = (float)$s['net_salary'];
             $oldActual   = (float)$s['actual_base'];
             $oldOtAmt    = (float)$s['overtime_amount'];
@@ -700,12 +709,6 @@ if ($period) {
                     );
                 } catch (Exception $e) { /* abaikan */ }
             }
-            $slips[$i]['actual_base']      = $actualBase;
-            $slips[$i]['overtime_rate']    = $hourly;
-            $slips[$i]['overtime_amount']  = $otAmount;
-            $slips[$i]['total_earnings']   = $totalEarn;
-            $slips[$i]['total_deductions'] = $totalDed;
-            $slips[$i]['net_salary']       = $netSal;
         }
     }
 
