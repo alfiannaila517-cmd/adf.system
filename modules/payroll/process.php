@@ -199,7 +199,9 @@ function recalcAttendanceHours($db, $month, $year)
 }
 
 // ── Helper: Get attendance hours from fingerprint/GPS data for a month ──
-// Overtime is ONLY counted if there's an approved overtime_request for that date
+// Overtime is ONLY counted if there's an approved overtime_request for that date,
+// PLUS automatic OT for any work hours exceeding the 200-hour monthly threshold
+// (typical on 31-day months — extra workdays auto-counted as overtime, exact, no rounding).
 function getAttendanceHours($db, $empId, $month, $year)
 {
     $monthStr = sprintf('%04d-%02d', $year, $month);
@@ -207,7 +209,8 @@ function getAttendanceHours($db, $empId, $month, $year)
         "SELECT work_hours, overtime_hours, shift_1_hours, shift_2_hours, check_in_time, check_out_time, scan_3, scan_4, attendance_date
          FROM payroll_attendance 
          WHERE employee_id = ? AND DATE_FORMAT(attendance_date, '%Y-%m') = ?
-         AND (work_hours > 0 OR check_in_time IS NOT NULL)",
+         AND (work_hours > 0 OR check_in_time IS NOT NULL)
+         ORDER BY attendance_date ASC",
         [$empId, $monthStr]
     );
 
@@ -225,9 +228,12 @@ function getAttendanceHours($db, $empId, $month, $year)
         // Table might not exist yet — treat as no approved OT
     }
 
+    $monthlyRegularCap = 200.0; // jam regular maksimal per bulan; selebihnya auto-OT (exact, tanpa rounding 45m)
     $totalHours = 0;
     $totalOvertimeHours = 0;
+    $totalAutoOver200 = 0;
     $daysWorked = 0;
+    $cumulativeRegular = 0.0;
     foreach ($rows as $r) {
         $wh = (float)$r['work_hours'];
         $manualOT = (float)($r['overtime_hours'] ?? 0);
@@ -255,7 +261,24 @@ function getAttendanceHours($db, $empId, $month, $year)
             if ($wh <= 0) continue; // no usable scan data for this day
         }
         $daysWorked++;
-        $totalHours += min($wh, 8);
+        $cappedDay = min($wh, 8); // jam regular maksimal per hari = 8
+
+        // Bagi cappedDay menjadi regular vs auto-OT berdasarkan akumulasi bulanan
+        $autoOTDay = 0.0;
+        if ($cumulativeRegular >= $monthlyRegularCap) {
+            $autoOTDay = $cappedDay;
+            $regularDay = 0.0;
+        } elseif ($cumulativeRegular + $cappedDay > $monthlyRegularCap) {
+            $regularDay = $monthlyRegularCap - $cumulativeRegular;
+            $autoOTDay = $cappedDay - $regularDay;
+        } else {
+            $regularDay = $cappedDay;
+        }
+        $cumulativeRegular += $regularDay;
+        $totalHours += $regularDay;
+        if ($autoOTDay > 0) {
+            $totalAutoOver200 += $autoOTDay; // exact, tanpa pembulatan 45 menit
+        }
 
         // Manual OT takes precedence; otherwise each APPROVED overtime request uses actual overtime above 8 hours.
         // Rule: OT dibulatkan ke kelipatan 45 menit (di bawah 45 menit tidak terhitung).
@@ -267,9 +290,14 @@ function getAttendanceHours($db, $empId, $month, $year)
             $totalOvertimeHours += roundOT45($rawOT);
         }
     }
+
+    // Auto-OT (>200 jam) digabungkan ke total OT, exact (tanpa rounding 45 menit)
+    $totalOvertimeHours += $totalAutoOver200;
+
     return [
         'work_hours' => round($totalHours, 2),
         'overtime_hours' => round($totalOvertimeHours, 2),
+        'auto_overtime_over_200' => round($totalAutoOver200, 2),
         'days_worked' => $daysWorked
     ];
 }

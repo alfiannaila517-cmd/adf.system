@@ -302,14 +302,19 @@ if ($action === 'attendance_today') {
 // ── ATTENDANCE HISTORY (current month) ──
 if ($action === 'attendance_history') {
     $month = $_GET['month'] ?? date('Y-m');
-    $rows = $db->fetchAll("SELECT attendance_date, check_in_time, check_out_time, scan_3, scan_4, work_hours, overtime_hours, shift_1_hours, shift_2_hours, status, notes FROM payroll_attendance WHERE employee_id = ? AND DATE_FORMAT(attendance_date, '%Y-%m') = ? ORDER BY attendance_date DESC", [$empId, $month]);
+    // ORDER ASC dulu untuk hitung akumulasi 200 jam dengan benar
+    $rowsAsc = $db->fetchAll("SELECT attendance_date, check_in_time, check_out_time, scan_3, scan_4, work_hours, overtime_hours, shift_1_hours, shift_2_hours, status, notes FROM payroll_attendance WHERE employee_id = ? AND DATE_FORMAT(attendance_date, '%Y-%m') = ? ORDER BY attendance_date ASC", [$empId, $month]);
 
     // Summary
     $totalHours = 0;
     $totalRegular = 0;
     $totalOT = 0;
+    $totalAutoOver200 = 0;
     $present = 0;
     $late = 0;
+    $monthlyRegularCap = 200.0;
+    $cumulativeRegular = 0.0;
+    $autoOTByDate = []; // attendance_date => auto-OT hours (exact, untuk badge & display)
 
     // Get overtime submissions for this employee in the requested month.
     // Only overtime with status 'approved' will allow OT counting (pending requests do not grant OT).
@@ -324,50 +329,63 @@ if ($action === 'attendance_history') {
         $overtimeDates = [];
     }
 
-    foreach ($rows as $r) {
+    foreach ($rowsAsc as $r) {
         $wh = (float)($r['work_hours'] ?? 0);
         $otManual = (float)($r['overtime_hours'] ?? 0);
         $attDate = (string)($r['attendance_date'] ?? '');
-        $otComputed = 0;
+        $cappedDay = min($wh, 8);
 
-        // Cap regular hours to 8/day; overtime is counted separately.
-        $countedHours = min($wh, 8);
-
-        $totalHours += $countedHours;
-        $totalRegular += min($countedHours, 8);
-
-        // Manual OT from admin edits takes precedence; otherwise count approved OT requests.
-        // Rule: OT dibulatkan ke kelipatan 45 menit (di bawah 45 menit tidak terhitung).
-        if ($otManual > 0) {
-            $otComputed = roundOT45($otManual);
-            $totalOT += $otComputed;
-        } elseif (!empty($overtimeDates[$attDate])) {
-            $rawOT = max(0, $wh - 8);
-            $otComputed = roundOT45($rawOT);
-            $totalOT += $otComputed;
+        // Bagi cappedDay → regular vs auto-OT berdasarkan akumulasi 200 jam
+        $autoOTDay = 0.0;
+        if ($cumulativeRegular >= $monthlyRegularCap) {
+            $autoOTDay = $cappedDay;
+            $regularDay = 0.0;
+        } elseif ($cumulativeRegular + $cappedDay > $monthlyRegularCap) {
+            $regularDay = $monthlyRegularCap - $cumulativeRegular;
+            $autoOTDay = $cappedDay - $regularDay;
+        } else {
+            $regularDay = $cappedDay;
+        }
+        $cumulativeRegular += $regularDay;
+        $totalHours += $regularDay; // total_hours = regular saja (sesuai cap 200)
+        $totalRegular += $regularDay;
+        if ($autoOTDay > 0) {
+            $autoOTByDate[$attDate] = $autoOTDay;
+            $totalAutoOver200 += $autoOTDay;
+            $totalOT += $autoOTDay; // exact, tanpa rounding 45m
         }
 
-        if ($otComputed > 0) {
-            $r['overtime_hours'] = $otComputed;
+        // Manual OT atau approved request: tetap dihitung dengan rounding 45 menit
+        if ($otManual > 0) {
+            $totalOT += roundOT45($otManual);
+        } elseif (!empty($overtimeDates[$attDate])) {
+            $totalOT += roundOT45(max(0, $wh - 8));
         }
 
         if ($r['status'] === 'present' || $r['status'] === 'late') $present++;
         if ($r['status'] === 'late') $late++;
     }
 
-    // Adjust rows for portal display: cap displayed `work_hours` to 8 only when no overtime exists.
+    // Build display rows (DESC order seperti sebelumnya)
+    $rows = array_reverse($rowsAsc);
     foreach ($rows as &$rr) {
         $orig = (float)($rr['work_hours'] ?? 0);
         $attDate = (string)($rr['attendance_date'] ?? '');
         $manualOT = (float)($rr['overtime_hours'] ?? 0);
         $hasApprovedOT = !empty($overtimeDates[$attDate]);
-        if ($manualOT <= 0 && !$hasApprovedOT && $orig > 8) {
-            $rr['work_hours'] = 8; // show integer 8 when capped
+        $autoOT = $autoOTByDate[$attDate] ?? 0;
+        $rr['auto_overtime_over_200'] = round($autoOT, 2);
+        $rr['is_over_200'] = $autoOT > 0;
+
+        if ($manualOT > 0) {
+            $rr['overtime_hours'] = round(roundOT45($manualOT) + $autoOT, 2);
+        } elseif ($hasApprovedOT) {
+            $rr['overtime_hours'] = round(roundOT45(max(0, $orig - 8)) + $autoOT, 2);
+        } elseif ($autoOT > 0) {
+            $rr['overtime_hours'] = round($autoOT, 2);
+        } else {
             $rr['overtime_hours'] = 0;
-        } elseif ($manualOT <= 0 && $hasApprovedOT) {
-            $rr['overtime_hours'] = roundOT45(max(0, $orig - 8));
-        } elseif ($manualOT > 0) {
-            $rr['overtime_hours'] = roundOT45($manualOT);
+            if ($orig > 8) $rr['work_hours'] = 8; // tampilkan 8 jam saat tidak ada OT
         }
     }
     unset($rr);
@@ -376,6 +394,7 @@ if ($action === 'attendance_history') {
         'total_hours' => round($totalHours, 1),
         'regular_hours' => round($totalRegular, 1),
         'overtime_hours' => round($totalOT, 1),
+        'auto_overtime_over_200' => round($totalAutoOver200, 2),
         'days_present' => $present,
         'days_late' => $late,
         'target' => 200
