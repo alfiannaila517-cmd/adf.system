@@ -133,6 +133,8 @@ try {
         "ADD COLUMN IF NOT EXISTS total_deductions DECIMAL(15,2) DEFAULT 0.00",
         "ADD COLUMN IF NOT EXISTS net_salary DECIMAL(15,2) DEFAULT 0.00",
         "ADD COLUMN IF NOT EXISTS locked TINYINT(1) NOT NULL DEFAULT 0",
+        "ADD COLUMN IF NOT EXISTS extra_hours DECIMAL(10,2) NOT NULL DEFAULT 0.00",
+        "ADD COLUMN IF NOT EXISTS extra_locked TINYINT(1) NOT NULL DEFAULT 0",
     ];
     foreach ($cols as $c) {
         try {
@@ -429,6 +431,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_update'])) {
     }
     $work_hours = (float)$_POST['work_hours'];
     $overtime_hours = (float)$_POST['overtime_hours'];
+    $extra_hours = isset($_POST['extra_hours']) ? (float)$_POST['extra_hours'] : 0.0;
+    $extra_was_posted = isset($_POST['extra_hours']);
     $incentive = (float)$_POST['incentive'];
     $allowance = (float)$_POST['allowance'];
     $bonus = (float)$_POST['bonus'];
@@ -449,18 +453,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_update'])) {
         $actual_base = $work_hours * $hourly_rate;
     }
 
-    // Overtime still uses same rate
+    // Overtime still uses same rate; Extra Hari pakai rate yg sama
     $overtime_rate = $hourly_rate;
     $overtime_amount = $overtime_hours * $overtime_rate;
+    $extra_amount   = $extra_hours * $hourly_rate;
 
-    $total_earnings = $actual_base + $overtime_amount + $incentive + $allowance + $uang_makan + $bonus + $other;
+    $total_earnings = $actual_base + $overtime_amount + $extra_amount + $incentive + $allowance + $uang_makan + $bonus + $other;
     $total_deductions = $loan + $absence + $tax + $bpjs + $ded_other;
     $net_salary = $total_earnings - $total_deductions;
 
     try {
+        $extraLockedFlag = $extra_was_posted ? 1 : 0;
         $sql = "UPDATE payroll_slips SET 
                 base_salary = ?, work_hours = ?, actual_base = ?,
                 overtime_hours = ?, overtime_rate = ?, overtime_amount = ?,
+                extra_hours = ?, extra_locked = GREATEST(extra_locked, ?),
                 incentive = ?, allowance = ?, uang_makan = ?, bonus = ?, other_income = ?,
                 deduction_loan = ?, deduction_absence = ?, deduction_tax = ?, deduction_bpjs = ?, deduction_other = ?,
                 total_earnings = ?, total_deductions = ?, net_salary = ?,
@@ -474,6 +481,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_update'])) {
             $overtime_hours,
             $overtime_rate,
             $overtime_amount,
+            $extra_hours,
+            $extraLockedFlag,
             $incentive,
             $allowance,
             $uang_makan,
@@ -523,6 +532,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_unlock_hours']))
             [$att['work_hours'], $att['overtime_hours'], $slip_id]
         );
         echo json_encode(['status' => 'success', 'work_hours' => $att['work_hours'], 'overtime_hours' => $att['overtime_hours']]);
+    } catch (\Throwable $e) {
+        echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+    }
+    exit;
+}
+
+// Handle Unlock Extra Hours AJAX (reset Extra >26hr to auto from attendance)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_unlock_extra'])) {
+    header('Content-Type: application/json');
+    $slip_id = (int)$_POST['slip_id'];
+    try {
+        $slip = $db->fetchOne("SELECT employee_id FROM payroll_slips WHERE id = ?", [$slip_id]);
+        if (!$slip) throw new Exception('Slip not found');
+        $att = getAttendanceHours($db, $slip['employee_id'], $month, $year);
+        $autoExtra = (float)($att['extra_hours'] ?? 0);
+        dbExec(
+            $db,
+            "UPDATE payroll_slips SET extra_locked = 0, extra_hours = ? WHERE id = ?",
+            [$autoExtra, $slip_id]
+        );
+        echo json_encode(['status' => 'success', 'extra_hours' => $autoExtra]);
     } catch (\Throwable $e) {
         echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
     }
@@ -673,7 +703,9 @@ if ($period) {
         $hourly = $masterBase > 0 ? $masterBase / 200 : 0;
         $actualBase = ($wh >= 200) ? $masterBase : round($wh * $hourly, 2);
         $otAmount   = round($oh * $hourly, 2);
-        $extraH     = (float)($extraMap[(int)$s['employee_id']]['hours'] ?? 0);
+        $autoExtraH  = (float)($extraMap[(int)$s['employee_id']]['hours'] ?? 0);
+        $extraLocked = !empty($s['extra_locked']);
+        $extraH      = $extraLocked ? (float)($s['extra_hours'] ?? 0) : $autoExtraH;
         $extraAmount = round($extraH * $hourly, 2);
         $incentive  = (float)$s['incentive'];
         $allowance  = (float)$s['allowance'];
@@ -715,9 +747,10 @@ if ($period) {
                         $db,
                         "UPDATE payroll_slips
                          SET base_salary=?, actual_base=?, overtime_rate=?, overtime_amount=?,
+                             extra_hours=?,
                              total_earnings=?, total_deductions=?, net_salary=?, uang_makan=0
                          WHERE id=?",
-                        [$masterBase, $actualBase, $hourly, $otAmount, $totalEarn, $totalDed, $netSal, $s['id']]
+                        [$masterBase, $actualBase, $hourly, $otAmount, $extraH, $totalEarn, $totalDed, $netSal, $s['id']]
                     );
                 } catch (Exception $e) { /* abaikan */
                 }
@@ -2470,18 +2503,27 @@ include '../../includes/header.php';
                                 <td style="text-align:center;background:rgba(220,38,38,0.04);">
                                     <?php
                                     $extraInfo = $extraMap[(int)$slip['employee_id']] ?? ['hours' => 0, 'days' => 0];
-                                    $extraH = (float)$extraInfo['hours'];
-                                    $extraD = (int)$extraInfo['days'];
-                                    $extraRp = (float)($slip['extra_amount'] ?? 0);
+                                    $autoExtraJ = (float)$extraInfo['hours'];
+                                    $extraD     = (int)$extraInfo['days'];
+                                    $extraH     = (float)($slip['extra_hours'] ?? 0);
+                                    $extraLocked = !empty($slip['extra_locked']);
+                                    $extraRp    = (float)($slip['extra_amount'] ?? 0);
                                     ?>
-                                    <?php if ($extraH > 0): ?>
-                                        <span class="ps-cell-calc" style="color:#b91c1c;font-weight:700;"
-                                            title="<?php echo $extraD; ?> hari extra (>26hr), <?php echo $extraH; ?> jam (dibayar di kolom OT Rp dgn rate base÷200)">
-                                            +<?php echo number_format($extraH, 0, ',', '.'); ?>j
-                                        </span>
-                                    <?php else: ?>
-                                        <span class="ps-cell-calc" style="color:#94a3b8;">—</span>
-                                    <?php endif; ?>
+                                    <div style="display:flex;align-items:center;gap:2px;justify-content:center;">
+                                        <input type="number" class="ps-input"
+                                            value="<?php echo (float)$extraH; ?>" step="1" min="0"
+                                            data-field="extra_hours" data-id="<?php echo $slip['id']; ?>"
+                                            style="background:rgba(220,38,38,0.08);color:#b91c1c;font-weight:700;text-align:center;width:60px;"
+                                            title="Extra Hari (jam dari hari kerja ke-27+). Auto dari absensi: <?php echo $autoExtraJ; ?>j (<?php echo $extraD; ?> hari). Edit untuk override."
+                                            oninput="calculateRow(<?php echo $slip['id']; ?>); saveRow(<?php echo $slip['id']; ?>)">
+                                        <?php if ($extraLocked): ?>
+                                            <button type="button" onclick="unlockExtra(<?php echo $slip['id']; ?>, <?php echo $autoExtraJ; ?>)"
+                                                title="Reset ke auto dari absensi (<?php echo $autoExtraJ; ?>j)"
+                                                style="border:none;background:none;cursor:pointer;padding:0;color:#f59e0b;font-size:11px;line-height:1;">🔒</button>
+                                        <?php else: ?>
+                                            <span style="font-size:9px;color:var(--text-tertiary);opacity:0.6;" title="Auto dari absensi (<?php echo $autoExtraJ; ?>j)">🔄</span>
+                                        <?php endif; ?>
+                                    </div>
                                 </td>
 
                                 <td>
@@ -2669,7 +2711,7 @@ include '../../includes/header.php';
     function getValByRow(id, field) {
         let el = document.querySelector(`input[data-id="${id}"][data-field="${field}"]`);
         if (!el) return 0;
-        if (field === 'overtime_hours' || field === 'work_hours') return parseFloat(el.value) || 0;
+        if (field === 'overtime_hours' || field === 'work_hours' || field === 'extra_hours') return parseFloat(el.value) || 0;
         return parseFloat(el.value.replace(/\./g, '').replace(/,/g, '')) || 0;
     }
 
@@ -2694,9 +2736,10 @@ include '../../includes/header.php';
 
         // Overtime Amount = OT approved + Extra Hari (>26hr), keduanya pakai rate yg sama
         let otAmount = Math.round(otHours * hourlyRate);
-        let otCell = document.getElementById(`ot-amount-${id}`);
-        let extraAmount = parseFloat(otCell?.dataset?.extraAmount) || 0;
+        let extraHours = getValByRow(id, 'extra_hours');
+        let extraAmount = Math.round(extraHours * hourlyRate);
         let otTotal = otAmount + extraAmount;
+        let otCell = document.getElementById(`ot-amount-${id}`);
         if (otCell) otCell.innerText = new Intl.NumberFormat('id-ID').format(otTotal);
 
         // Other incomes
@@ -2782,6 +2825,7 @@ include '../../includes/header.php';
         data.append('base_salary', getValByRow(id, 'base_salary'));
         data.append('work_hours', getValByRow(id, 'work_hours'));
         data.append('overtime_hours', getValByRow(id, 'overtime_hours'));
+        data.append('extra_hours', getValByRow(id, 'extra_hours'));
         data.append('incentive', getValByRow(id, 'incentive'));
         data.append('allowance', getValByRow(id, 'allowance'));
         data.append('uang_makan', getValByRow(id, 'uang_makan'));
@@ -3028,6 +3072,32 @@ include '../../includes/header.php';
                         lockBtn.outerHTML = '<span style="font-size:9px;color:var(--text-tertiary);opacity:0.6;" title="Auto-sync dari absensi">🔄</span>';
                     }
                     calculateRow(id);
+                }
+            });
+    }
+
+    // ── Unlock Extra Hours (reset to attendance auto) ──
+    function unlockExtra(id, autoVal) {
+        if (!confirm('Reset jam Extra (>26hr) ke data absensi otomatis? Override manual akan hilang.')) return;
+        const data = new FormData();
+        data.append('ajax_unlock_extra', 1);
+        data.append('slip_id', id);
+        fetch('process.php?month=<?php echo $month; ?>&year=<?php echo $year; ?>', {
+                method: 'POST',
+                body: data
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.status === 'success') {
+                    const input = document.querySelector(`input[data-id="${id}"][data-field="extra_hours"]`);
+                    if (input) input.value = res.extra_hours;
+                    const lockBtn = input?.nextElementSibling;
+                    if (lockBtn && lockBtn.tagName === 'BUTTON') {
+                        lockBtn.outerHTML = '<span style="font-size:9px;color:var(--text-tertiary);opacity:0.6;" title="Auto dari absensi">🔄</span>';
+                    }
+                    calculateRow(id);
+                } else {
+                    alert('Gagal reset: ' + (res.message || 'unknown'));
                 }
             });
     }
