@@ -110,14 +110,35 @@ try {
         WHERE id = ?
     ", [$currentUser['id'], $bookingId]);
 
-    // Update room status to available
-    $db->query("
-        UPDATE rooms 
-        SET status = 'available',
-            current_guest_id = NULL,
-            updated_at = NOW()
-        WHERE id = ?
-    ", [$booking['room_id']]);
+    // Update room status to cleaning (kamar kotor / perlu dibersihkan setelah checkout)
+    // Pastikan ENUM 'cleaning' tersedia pada kolom rooms.status (idempotent)
+    try {
+        $col = $db->fetchOne("SHOW COLUMNS FROM rooms LIKE 'status'");
+        if ($col && isset($col['Type']) && stripos($col['Type'], "'cleaning'") === false) {
+            $db->query("ALTER TABLE rooms MODIFY status enum('available','occupied','cleaning','maintenance','blocked') DEFAULT 'available'");
+        }
+    } catch (\Throwable $eAlt) {
+        // ignore; fallback to 'available' below akan dipakai jika UPDATE gagal
+    }
+
+    try {
+        $db->query("
+            UPDATE rooms 
+            SET status = 'cleaning',
+                current_guest_id = NULL,
+                updated_at = NOW()
+            WHERE id = ?
+        ", [$booking['room_id']]);
+    } catch (\Throwable $eUpd) {
+        // Fallback bila ENUM tidak menerima 'cleaning' (misalnya hosting belum migrasi)
+        $db->query("
+            UPDATE rooms 
+            SET status = 'available',
+                current_guest_id = NULL,
+                updated_at = NOW()
+            WHERE id = ?
+        ", [$booking['room_id']]);
+    }
 
     // Log activity
     $db->query("

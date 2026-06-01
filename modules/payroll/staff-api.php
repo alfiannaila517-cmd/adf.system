@@ -416,7 +416,13 @@ if ($action === 'occupancy') {
         // Room list with type info + B2B detection
         $rooms = $db->fetchAll("SELECT r.id, r.room_number, r.floor_number,
             COALESCE(rt.type_name, 'Standard') as room_type,
-            CASE WHEN b.id IS NOT NULL THEN 'occupied' ELSE 'available' END as status,
+            CASE
+                WHEN b.id IS NOT NULL THEN 'occupied'
+                WHEN r.status = 'cleaning' THEN 'cleaning'
+                WHEN r.status = 'maintenance' THEN 'maintenance'
+                WHEN r.status = 'blocked' THEN 'blocked'
+                ELSE 'available'
+            END as status,
             g.guest_name, b.check_in_date, b.check_out_date,
             (SELECT g2.guest_name FROM bookings b2 LEFT JOIN guests g2 ON b2.guest_id = g2.id
              WHERE b2.room_id = r.id AND DATE(b2.check_in_date) = ? AND b2.status IN ('confirmed','pending')
@@ -456,6 +462,31 @@ if ($action === 'occupancy') {
         ]]);
     } catch (Exception $e) {
         echo json_encode(['success' => true, 'data' => ['total_rooms' => 0, 'occupied' => 0, 'available' => 0, 'occupancy_rate' => 0, 'rooms' => [], 'arrivals_today' => 0, 'departures_today' => 0, 'bookings' => []]]);
+    }
+    exit;
+}
+
+// ── MARK ROOM CLEAN (staff dapat menandai kamar yang dirty menjadi bersih) ──
+if ($action === 'mark_room_clean') {
+    $roomId = (int)($_POST['room_id'] ?? $_GET['room_id'] ?? 0);
+    if ($roomId <= 0) {
+        echo json_encode(['success' => false, 'message' => 'Room ID tidak valid']);
+        exit;
+    }
+    try {
+        $room = $db->fetchOne("SELECT id, room_number, status FROM rooms WHERE id = ?", [$roomId]);
+        if (!$room) {
+            echo json_encode(['success' => false, 'message' => 'Kamar tidak ditemukan']);
+            exit;
+        }
+        if ($room['status'] !== 'cleaning') {
+            echo json_encode(['success' => true, 'message' => 'Kamar tidak dalam status dirty', 'room_status' => $room['status']]);
+            exit;
+        }
+        $db->query("UPDATE rooms SET status = 'available', updated_at = NOW() WHERE id = ? AND status = 'cleaning'", [$roomId]);
+        echo json_encode(['success' => true, 'message' => 'Kamar ' . $room['room_number'] . ' sudah bersih', 'room_status' => 'available']);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
     }
     exit;
 }

@@ -218,10 +218,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     exit;
                 } else {
                     $pdo->prepare('INSERT INTO pwf_container_items (container_id,order_id,qty_shipped,notes) VALUES (?,?,?,?)')
-                        ->execute([$cid,$oid,$qty,$notes]);
+                        ->execute([$cid, $oid, $qty, $notes]);
                     $newTotal = $totalShipped + $qty;
                     $ns = ($newTotal >= $orderQty) ? 'shipped' : 'partial_ship';
-                    $pdo->prepare("UPDATE pwf_orders SET status=?, updated_at=NOW() WHERE id=?")->execute([$ns,$oid]);
+                    $pdo->prepare("UPDATE pwf_orders SET status=?, updated_at=NOW() WHERE id=?")->execute([$ns, $oid]);
                     $msg = 'Item successfully added to container.';
                     header("Location: shipping.php?msg=" . urlencode($msg));
                     exit;
@@ -281,8 +281,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
-if (isset($_GET['msg'])) { $msg = htmlspecialchars($_GET['msg']); }
-if (isset($_GET['err'])) { $msg = htmlspecialchars($_GET['err']); $msgType = 'error'; }
+if (isset($_GET['msg'])) {
+    $msg = htmlspecialchars($_GET['msg']);
+}
+if (isset($_GET['err'])) {
+    $msg = htmlspecialchars($_GET['err']);
+    $msgType = 'error';
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DATA
@@ -361,7 +366,9 @@ try {
     foreach ($ocRows as $ocr) {
         $orderContainerMap[(int)$ocr['order_id']][] = (int)$ocr['container_id'];
     }
-} catch (Exception $e) { $orderContainerMap = []; }
+} catch (Exception $e) {
+    $orderContainerMap = [];
+}
 
 // Stats
 $totalContainers  = count($containers);
@@ -944,6 +951,7 @@ pwfOfficeHeader('Shipping & Container', 'shipping');
 
     // ── Add item modal ────────────────────────────────────────────────────────────
     let _aiCurrentCid = 0;
+
     function openAddItem(cid, code) {
         _aiCurrentCid = cid;
         document.getElementById('aiContainerId').value = cid;
@@ -967,18 +975,24 @@ pwfOfficeHeader('Shipping & Container', 'shipping');
         });
         new bootstrap.Modal(document.getElementById('addItemModal')).show();
     }
+
     function onAiOrderChange(sel) {
         const opt = sel.options[sel.selectedIndex];
         const warn = document.getElementById('aiDupWarn');
         const hint = document.getElementById('aiQtyHint');
         const qtyIn = document.getElementById('aiQtyInput');
-        if (!opt.value) { warn.style.display='none'; hint.textContent=''; return; }
+        if (!opt.value) {
+            warn.style.display = 'none';
+            hint.textContent = '';
+            return;
+        }
         const maxQty = parseFloat(opt.dataset.max || 0);
         const inConts = (opt.dataset.inconts || '').split(',').filter(Boolean).map(Number);
         if (inConts.includes(_aiCurrentCid)) {
             warn.style.display = 'block';
             document.getElementById('aiDupMsg').textContent = 'This order is already added to this container.';
-            qtyIn.value = ''; qtyIn.disabled = true;
+            qtyIn.value = '';
+            qtyIn.disabled = true;
         } else {
             warn.style.display = 'none';
             qtyIn.disabled = false;

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * One-time setup: register or update addon_domain for a business slug.
  *
@@ -31,7 +32,8 @@ if ($slug === '' || $domain === '') {
 try {
     $pdo = new PDO(
         "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET,
-        DB_USER, DB_PASS,
+        DB_USER,
+        DB_PASS,
         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
     );
 

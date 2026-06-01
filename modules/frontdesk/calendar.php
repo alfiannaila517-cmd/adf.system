@@ -876,6 +876,49 @@ include '../../includes/header.php';
         border-right-color: #6366f1;
     }
 
+    /* DIRTY room (kamar habis check-out, perlu dibersihkan) */
+    .grid-room-label.dirty {
+        background: linear-gradient(135deg, #fef9c3 0%, #fde68a 100%) !important;
+        color: #854d0e !important;
+        border-right: 2px solid #f59e0b !important;
+        box-shadow: inset 0 0 0 2px rgba(245, 158, 11, 0.25);
+    }
+    .grid-room-label.dirty:hover {
+        background: linear-gradient(135deg, #fde68a 0%, #fcd34d 100%) !important;
+    }
+    .room-dirty-tag {
+        display: inline-block;
+        background: #d97706;
+        color: #fff;
+        font-size: 0.55rem;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        padding: 1px 6px;
+        border-radius: 6px;
+        margin-top: 2px;
+        line-height: 1.3;
+        text-transform: uppercase;
+    }
+    .room-clean-btn {
+        margin-top: 3px;
+        background: #16a34a;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: 2px 8px;
+        font-size: 0.6rem;
+        font-weight: 700;
+        cursor: pointer;
+        letter-spacing: 0.3px;
+        text-transform: uppercase;
+        box-shadow: 0 1px 2px rgba(22, 163, 74, 0.35);
+        transition: transform 0.12s, box-shadow 0.12s;
+    }
+    .room-clean-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 5px rgba(22, 163, 74, 0.5);
+    }
+
     .grid-room-type-label {
         font-size: 0.65rem;
         font-weight: 600;
@@ -2423,9 +2466,14 @@ include '../../includes/header.php';
 
                     <!-- Individual Rooms of This Type -->
                     <?php foreach ($typeRooms as $room): ?>
-                        <div class="grid-room-label">
+                        <?php $isDirty = (($room['status'] ?? '') === 'cleaning'); ?>
+                        <div class="grid-room-label<?php echo $isDirty ? ' dirty' : ''; ?>" data-room-id="<?php echo (int)$room['id']; ?>">
                             <span class="grid-room-type-label"><?php echo htmlspecialchars($room['type_name']); ?></span>
                             <span class="grid-room-number"><?php echo htmlspecialchars($room['room_number']); ?></span>
+                            <?php if ($isDirty): ?>
+                                <span class="room-dirty-tag" title="Kamar perlu dibersihkan">🧹 Dirty</span>
+                                <button type="button" class="room-clean-btn" onclick="event.stopPropagation(); markRoomClean(<?php echo (int)$room['id']; ?>, '<?php echo htmlspecialchars($room['room_number'], ENT_QUOTES); ?>');">✓ Clean</button>
+                            <?php endif; ?>
                         </div>
 
                         <?php foreach ($dates as $date): ?>
@@ -3646,6 +3694,24 @@ include '../../includes/header.php';
     // Click 2: set check-out date → open reservation form
     // ========================================
     let firstClick = null; // {date, roomId, element}
+
+    // Tandai kamar dirty → bersih (housekeeping)
+    window.markRoomClean = async function markRoomClean(roomId, roomNumber) {
+        if (!confirm(`Tandai Room ${roomNumber || roomId} sudah BERSIH?`)) return;
+        try {
+            const fd = new FormData();
+            fd.append('room_id', roomId);
+            const res = await fetch('<?php echo BASE_URL; ?>/api/mark-room-clean.php', { method: 'POST', body: fd, credentials: 'same-origin' });
+            const data = await res.json();
+            if (data && data.success) {
+                location.reload();
+            } else {
+                alert(data && data.message ? data.message : 'Gagal menandai bersih');
+            }
+        } catch (e) {
+            alert('Gagal menghubungi server');
+        }
+    };
 
     window.openCellReservation = function openCellReservation(element) {
         const date = element.getAttribute('data-date');

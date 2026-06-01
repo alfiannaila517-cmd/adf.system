@@ -1,4 +1,5 @@
 <?php
+
 /**
  * ADF SYSTEM - Multi-Business Management Platform
  * Configuration File
@@ -16,7 +17,7 @@ if (!defined('SESSION_LIFETIME')) define('SESSION_LIFETIME', 3600 * 8);
 // Initialize session BEFORE anything else
 if (session_status() === PHP_SESSION_NONE) {
     session_name(SESSION_NAME);
-    
+
     // Secure session cookie settings
     $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
     session_set_cookie_params([
@@ -26,7 +27,7 @@ if (session_status() === PHP_SESSION_NONE) {
         'httponly' => true,
         'samesite' => 'Lax'
     ]);
-    
+
     session_start();
 }
 
@@ -46,8 +47,8 @@ if (!defined('DEVELOPER_LOGO')) define('DEVELOPER_LOGO', 'assets/img/developer-l
 // DATABASE CONFIGURATION
 // ============================================
 // Local config (override for production in separate file if needed)
-$isProduction = (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') === false && 
-                strpos($_SERVER['HTTP_HOST'] ?? '', '127.0.0.1') === false);
+$isProduction = (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') === false &&
+    strpos($_SERVER['HTTP_HOST'] ?? '', '127.0.0.1') === false);
 
 if ($isProduction) {
     // Production (Hosting) - uses adf_system database prefixed
@@ -81,17 +82,19 @@ if (!defined('BASE_URL')) {
         // Detect if running at root or in subdirectory
         $scriptDir = dirname($_SERVER['SCRIPT_NAME'] ?? '');
         $basePath = '';
-        
+
         // If in localhost and script path contains adf_system, use it
-        if (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') !== false || 
-            strpos($_SERVER['HTTP_HOST'] ?? '', '127.0.0.1') !== false) {
+        if (
+            strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') !== false ||
+            strpos($_SERVER['HTTP_HOST'] ?? '', '127.0.0.1') !== false
+        ) {
             // Local development - use /adf_system
             $basePath = '/adf_system';
         } else {
             // Production - assume at root (or detect from script path)
             $basePath = '';
         }
-        
+
         define('BASE_URL', $protocol . '://' . $host . $basePath);
     } else {
         // For CLI, just use a placeholder
@@ -130,14 +133,15 @@ if (!defined('CURRENCY_DECIMAL')) define('CURRENCY_DECIMAL', 0);
  * @param string $localDbName - Local database name (e.g., 'adf_system', 'adf_narayana_hotel')
  * @return string - Correct database name for current environment
  */
-function getDbName($localDbName) {
-    $isProduction = (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') === false && 
-                    strpos($_SERVER['HTTP_HOST'] ?? '', '127.0.0.1') === false);
-    
+function getDbName($localDbName)
+{
+    $isProduction = (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') === false &&
+        strpos($_SERVER['HTTP_HOST'] ?? '', '127.0.0.1') === false);
+
     if (!$isProduction) {
         return $localDbName;
     }
-    
+
     // Production database mapping (known databases)
     $dbMapping = [
         'adf_system' => 'adfb2574_adf',
@@ -145,11 +149,11 @@ function getDbName($localDbName) {
         'adf_benscafe' => 'adfb2574_Adf_Bens',
         'adf_demo' => 'adfb2574_demo'
     ];
-    
+
     if (isset($dbMapping[$localDbName])) {
         return $dbMapping[$localDbName];
     }
-    
+
     // Auto-generate for new/unknown databases on hosting
     // Derive prefix from DB_USER (e.g., 'adfb2574_adfsystem' -> 'adfb2574_')
     $prefix = '';
@@ -159,7 +163,7 @@ function getDbName($localDbName) {
             $prefix = $parts[0] . '_';
         }
     }
-    
+
     if ($prefix && strpos($localDbName, $prefix) !== 0) {
         // Strip 'adf_' prefix and add hosting prefix: adf_cafe -> adfb2574_cafe
         if (strpos($localDbName, 'adf_') === 0) {
@@ -167,7 +171,7 @@ function getDbName($localDbName) {
         }
         return $prefix . $localDbName;
     }
-    
+
     return $localDbName;
 }
 
@@ -199,15 +203,18 @@ if (php_sapi_name() !== 'cli') {
     $masterDomain = strtolower(MASTER_DOMAIN);
 
     // Only do domain routing if NOT on master domain and NOT on localhost
-    if ($incomingHost && $incomingHost !== $masterDomain
+    if (
+        $incomingHost && $incomingHost !== $masterDomain
         && strpos($incomingHost, 'localhost') === false
-        && strpos($incomingHost, '127.0.0.1') === false) {
+        && strpos($incomingHost, '127.0.0.1') === false
+    ) {
 
         // Lookup business with this addon_domain in master DB
         try {
             $__domainPdo = new PDO(
                 "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET,
-                DB_USER, DB_PASS,
+                DB_USER,
+                DB_PASS,
                 [PDO::ATTR_ERRMODE => PDO::ERRMODE_SILENT, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
             );
             $__domainStmt = $__domainPdo->prepare(

@@ -375,8 +375,14 @@ $filterCustomerId  = (int)($_GET['customer_id']  ?? 0);
 $filterCraftsmanId = (int)($_GET['craftsman_id'] ?? 0);
 $whereParts = [];
 $whereArgs  = [];
-if ($filterCustomerId)  { $whereParts[] = 'o.customer_id=?';            $whereArgs[] = $filterCustomerId; }
-if ($filterCraftsmanId) { $whereParts[] = 'o.assigned_craftsman_id=?'; $whereArgs[] = $filterCraftsmanId; }
+if ($filterCustomerId) {
+    $whereParts[] = 'o.customer_id=?';
+    $whereArgs[] = $filterCustomerId;
+}
+if ($filterCraftsmanId) {
+    $whereParts[] = 'o.assigned_craftsman_id=?';
+    $whereArgs[] = $filterCraftsmanId;
+}
 $whereClause = $whereParts ? 'WHERE ' . implode(' AND ', $whereParts) : '';
 
 $stmtOrders = $pdo->prepare("

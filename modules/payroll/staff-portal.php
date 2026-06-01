@@ -1113,6 +1113,54 @@ try {
             line-height: 1.2;
         }
 
+        /* DIRTY (cleaning) — kamar baru selesai checkout, perlu dibersihkan */
+        .room-box.dirty {
+            background: linear-gradient(135deg, #fef9c3 0%, #fde68a 100%);
+            color: #854d0e;
+            border-color: #fbbf24;
+            position: relative;
+            box-shadow: 0 2px 8px rgba(251, 191, 36, 0.25);
+        }
+        .room-box.dirty::before {
+            content: 'DIRTY';
+            position: absolute;
+            top: -7px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #d97706;
+            color: #fff;
+            font-size: 8px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            padding: 2px 8px;
+            border-radius: 8px;
+            line-height: 1;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+        }
+        .room-box.dirty .btn-clean {
+            display: inline-block;
+            margin-top: 6px;
+            background: #16a34a;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 4px 10px;
+            font-size: 9px;
+            font-weight: 700;
+            cursor: pointer;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+            box-shadow: 0 1px 3px rgba(22, 163, 74, 0.35);
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .room-box.dirty .btn-clean:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(22, 163, 74, 0.45);
+        }
+        .room-box.dirty .btn-clean:active {
+            transform: translateY(0);
+        }
+
         .room-box .room-type {
             font-size: 8px;
             color: var(--muted);
@@ -3312,10 +3360,13 @@ try {
                 </div>`;
                     }
 
+                    // Jam Kerja: tampilkan 8 jam (standar harian) jika sudah hadir; OT hanya jika sudah di-approve
+                    const baseHourTxt = (wh > 0 || a.status === 'present' || a.status === 'late') ? '8 jam' : '';
+                    const otTxt = ot > 0 ? `<span style="color:var(--orange);font-weight:700;">· OT ${ot.toFixed(1)} jam</span>` : (baseHourTxt ? '<span style="color:var(--muted);">· tanpa OT</span>' : '');
                     document.getElementById('todayStatus').innerHTML = `
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
                     <span class="badge ${a.status==='present'?'b-hadir':a.status==='late'?'b-late':'b-absent'}">${statusMap[a.status]||a.status}</span>
-                    <span style="font-size:11px;color:var(--muted);">${wh > 0 ? wh.toFixed(1) + ' jam' : ''}${ot > 0 ? ' · OT ' + ot.toFixed(1) + ' jam' : ''}</span>
+                    <span style="font-size:11px;color:var(--muted);display:inline-flex;gap:6px;align-items:center;">${baseHourTxt}${otTxt}</span>
                 </div>
                 ${scanGrid}`;
                 } else {
@@ -3459,12 +3510,19 @@ try {
                     const otColor = isOver200 ? 'var(--red,#dc2626)' : 'var(--orange)';
                     const bc = r.status === 'present' ? 'b-hadir' : r.status === 'late' ? 'b-late' : 'b-absent';
 
+                    // Jam Kerja: tampilkan 8 jam (standar harian) jika hadir/terlambat; OT hanya bila sudah di-approve
+                    const hadir = (wh > 0) || r.status === 'present' || r.status === 'late';
+                    const whTxt = hadir ? '8j' : '—';
+                    const otBlock = ot > 0
+                        ? `<div style="font-size:10px;color:${otColor};font-weight:700;">${otLabel} +${ot.toFixed(1)}j</div>`
+                        : (hadir ? `<div style="font-size:9px;color:var(--muted);">tanpa OT</div>` : '');
+
                     if (IS_CAFE) {
-                        html += `<tr><td style="white-space:nowrap;">${day}</td><td style="font-weight:600;color:var(--green);">${s1}</td><td style="font-weight:600;color:var(--navy);">${s2}</td><td style="font-weight:700;">${wh>0?wh.toFixed(1)+'j':''}${ot>0?'<div style="font-size:10px;color:'+otColor+';font-weight:700;">'+otLabel+' +'+ot.toFixed(1)+'j</div>':'—'}</td><td><span class="badge ${bc}">${statusMap[r.status]||r.status}</span></td></tr>`;
+                        html += `<tr><td style="white-space:nowrap;">${day}</td><td style="font-weight:600;color:var(--green);">${s1}</td><td style="font-weight:600;color:var(--navy);">${s2}</td><td style="font-weight:700;">${whTxt}${otBlock}</td><td><span class="badge ${bc}">${statusMap[r.status]||r.status}</span></td></tr>`;
                     } else {
                         const s3 = r.scan_3 ? r.scan_3.substring(0, 5) : '—';
                         const s4 = r.scan_4 ? r.scan_4.substring(0, 5) : '—';
-                        html += `<tr><td style="white-space:nowrap;">${day}</td><td style="font-weight:600;color:var(--green);">${s1}</td><td>${s2}</td><td style="color:var(--green);">${s3}</td><td>${s4}</td><td style="font-weight:700;">${wh>0?wh.toFixed(1)+'j':''}${ot>0?'<div style="font-size:10px;color:'+otColor+';font-weight:700;">'+otLabel+' +'+ot.toFixed(1)+'j</div>':'—'}</td><td><span class="badge ${bc}">${statusMap[r.status]||r.status}</span></td></tr>`;
+                        html += `<tr><td style="white-space:nowrap;">${day}</td><td style="font-weight:600;color:var(--green);">${s1}</td><td>${s2}</td><td style="color:var(--green);">${s3}</td><td>${s4}</td><td style="font-weight:700;">${whTxt}${otBlock}</td><td><span class="badge ${bc}">${statusMap[r.status]||r.status}</span></td></tr>`;
                     }
                 });
                 html += '</tbody></table></div>';
@@ -3517,11 +3575,23 @@ try {
                     histEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--muted);font-size:11px;">Tidak ada pengajuan lembur di bulan ini.</div>';
                     return;
                 }
-                const statusCls = { pending:'ls-pending', approved:'ls-approved', rejected:'ls-rejected' };
-                const statusLabel = { pending:'⏳ Pending', approved:'✅ Disetujui', rejected:'❌ Ditolak' };
+                const statusCls = {
+                    pending: 'ls-pending',
+                    approved: 'ls-approved',
+                    rejected: 'ls-rejected'
+                };
+                const statusLabel = {
+                    pending: '⏳ Pending',
+                    approved: '✅ Disetujui',
+                    rejected: '❌ Ditolak'
+                };
                 let html = '';
                 rows.forEach(r => {
-                    const d = new Date(r.overtime_date).toLocaleDateString('id-ID', { weekday:'short', day:'numeric', month:'short' });
+                    const d = new Date(r.overtime_date).toLocaleDateString('id-ID', {
+                        weekday: 'short',
+                        day: 'numeric',
+                        month: 'short'
+                    });
                     html += `<div style="padding:8px 0;border-bottom:1px solid #f1f5f9;">
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
                             <span style="font-weight:700;font-size:11px;">⏰ ${d}</span>
@@ -3552,11 +3622,14 @@ try {
                     return;
                 }
                 // Cari option dgn label memuat tahun dan nama bulan ID
-                const monthNames = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+                const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
                 const want = monthNames[m - 1] + ' ' + y;
                 let matched = null;
                 for (const opt of sel.options) {
-                    if ((opt.text || '').toLowerCase().includes(want.toLowerCase())) { matched = opt.value; break; }
+                    if ((opt.text || '').toLowerCase().includes(want.toLowerCase())) {
+                        matched = opt.value;
+                        break;
+                    }
                 }
                 if (matched && sel.value !== matched) {
                     sel.value = matched;
@@ -3645,6 +3718,24 @@ try {
         // ═══ OCCUPANCY PAGE ═══
         let calStartDate = new Date().toISOString().split('T')[0];
 
+        // Tandai kamar dirty menjadi bersih (dari denah staff portal)
+        async function markRoomClean(roomId, roomNumber) {
+            if (!confirm(`Tandai Room ${roomNumber||roomId} sudah BERSIH?`)) return;
+            try {
+                const fd = new FormData();
+                fd.append('room_id', roomId);
+                const res = await fetch(API + '&action=mark_room_clean', { method: 'POST', body: fd });
+                const data = await res.json();
+                if (data && data.success) {
+                    if (typeof loadOccupancy === 'function') loadOccupancy();
+                } else {
+                    alert(data && data.message ? data.message : 'Gagal menandai bersih');
+                }
+            } catch (e) {
+                alert('Gagal menghubungi server');
+            }
+        }
+
         function calNav(days) {
             const d = new Date(calStartDate);
             d.setDate(d.getDate() + days);
@@ -3727,8 +3818,7 @@ try {
             document.getElementById('calPopupOverlay').style.display = 'block';
         }
 
-        async function loadOccupancy() {
-            try {
+        async function loadOccupancy() {            try {
                 const res = await fetch(API + '&action=occupancy&start=' + calStartDate);
                 const data = await res.json();
                 const d = data.data || {};
@@ -3817,13 +3907,15 @@ try {
                     let rh = '<div class="room-grid">';
                     rooms.forEach(r => {
                         const isOcc = r.status === 'occupied';
+                        const isDirty = r.status === 'cleaning';
                         const hasB2B = isOcc && r.next_guest;
-                        const boxClass = hasB2B ? 'b2b' : (isOcc ? 'occ' : 'avail');
+                        const boxClass = isDirty ? 'dirty' : (hasB2B ? 'b2b' : (isOcc ? 'occ' : 'avail'));
                         rh += `<div class="room-box ${boxClass}">
                     ${r.room_number}
                     <div class="room-type">${r.room_type||''}</div>
                     ${isOcc ? `<div class="room-guest">${r.guest_name||''}</div>` : ''}
                     ${hasB2B ? `<div class="room-next">→ ${r.next_guest}</div>` : ''}
+                    ${isDirty ? `<button class="btn-clean" onclick="markRoomClean(${r.id}, '${(r.room_number||'').replace(/'/g,'')}')">✓ Clean</button>` : ''}
                 </div>`;
                     });
                     rh += '</div>';

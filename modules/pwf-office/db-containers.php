@@ -6,14 +6,19 @@ require_once __DIR__ . '/layout.php';
 $pdo = getPwfOfficePdo();
 
 // Ensure dropped_at column exists
-try { $pdo->query("SELECT dropped_at FROM pwf_containers LIMIT 1"); }
-catch (PDOException $e) {
+try {
+    $pdo->query("SELECT dropped_at FROM pwf_containers LIMIT 1");
+} catch (PDOException $e) {
     $pdo->exec("ALTER TABLE pwf_containers ADD COLUMN dropped_at DATETIME NULL DEFAULT NULL");
 }
 
-function fmtQty($v) { return rtrim(rtrim(number_format((float)$v,2),'0'),'.'); }
+function fmtQty($v)
+{
+    return rtrim(rtrim(number_format((float)$v, 2), '0'), '.');
+}
 
-$msg = ''; $msgType = 'success';
+$msg = '';
+$msgType = 'success';
 
 // ─── POST HANDLERS ─────────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -40,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $cnt = (int)$stmtCnt->fetchColumn() + 1;
             $code = sprintf('CTN-%s-%03d', $ym, $cnt);
             $pdo->prepare('INSERT INTO pwf_containers (container_code,container_no,container_type,shipment_date,destination_country,destination_port,forwarder,tracking_no,bl_no,status,notes,created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
-                ->execute([$code,$cno,$ctype,$shipDate,$country,$port,$forwarder,$tracking,$blno,$status,$notes,$_SESSION['user_id']??null]);
+                ->execute([$code, $cno, $ctype, $shipDate, $country, $port, $forwarder, $tracking, $blno, $status, $notes, $_SESSION['user_id'] ?? null]);
             $pdo->commit();
         } catch (Exception $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
@@ -51,14 +56,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $msg = "Container <strong>$code</strong> created successfully.";
         header("Location: db-containers.php?msg=" . urlencode(strip_tags($msg)));
         exit;
-
     } elseif ($action === 'edit_container') {
         $cid      = (int)($_POST['container_id'] ?? 0);
         $shipDate = $_POST['shipment_date'] ?? date('Y-m-d');
         $ctype    = $_POST['container_type'] ?? '40hc';
         $country  = trim($_POST['destination_country'] ?? '');
         $port     = trim($_POST['destination_port'] ?? '');
-        $forwarder= trim($_POST['forwarder'] ?? '');
+        $forwarder = trim($_POST['forwarder'] ?? '');
         $tracking = trim($_POST['tracking_no'] ?? '');
         $blno     = trim($_POST['bl_no'] ?? '');
         $cno      = trim($_POST['container_no'] ?? '');
@@ -66,12 +70,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $notes    = trim($_POST['notes'] ?? '');
         if ($cid > 0) {
             $pdo->prepare('UPDATE pwf_containers SET container_no=?,container_type=?,shipment_date=?,destination_country=?,destination_port=?,forwarder=?,tracking_no=?,bl_no=?,status=?,notes=?,updated_at=NOW() WHERE id=?')
-                ->execute([$cno,$ctype,$shipDate,$country,$port,$forwarder,$tracking,$blno,$status,$notes,$cid]);
+                ->execute([$cno, $ctype, $shipDate, $country, $port, $forwarder, $tracking, $blno, $status, $notes, $cid]);
             $msg = 'Container updated.';
         }
         header("Location: db-containers.php?msg=" . urlencode($msg));
         exit;
-
     } elseif ($action === 'delete_container') {
         $cid = (int)($_POST['container_id'] ?? 0);
         if ($cid > 0) {
@@ -96,7 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } else {
                     $revert = ($totalShipped >= $orderQty) ? 'shipped' : 'partial_ship';
                 }
-                $uStatus->execute([$revert,$oid]);
+                $uStatus->execute([$revert, $oid]);
             }
             $pdo->prepare('DELETE FROM pwf_containers WHERE id=?')->execute([$cid]);
             $msg = 'Container deleted. Order statuses reverted.';
@@ -121,17 +124,17 @@ $containers = $pdo->query("
 ")->fetchAll();
 
 $totalContainers = count($containers);
-$cntDraft   = count(array_filter($containers, fn($c)=>$c['status']==='draft'));
-$cntBooked  = count(array_filter($containers, fn($c)=>$c['status']==='booked'));
-$cntOnboard = count(array_filter($containers, fn($c)=>in_array($c['status'],['onboard','arrived'])));
-$cntClosed  = count(array_filter($containers, fn($c)=>$c['status']==='closed'));
-$totalPcs   = (float)array_sum(array_column($containers,'total_qty'));
+$cntDraft   = count(array_filter($containers, fn($c) => $c['status'] === 'draft'));
+$cntBooked  = count(array_filter($containers, fn($c) => $c['status'] === 'booked'));
+$cntOnboard = count(array_filter($containers, fn($c) => in_array($c['status'], ['onboard', 'arrived'])));
+$cntClosed  = count(array_filter($containers, fn($c) => $c['status'] === 'closed'));
+$totalPcs   = (float)array_sum(array_column($containers, 'total_qty'));
 
 pwfOfficeHeader('Database – Containers', 'containers');
 ?>
 
 <?php if ($msg): ?>
-<div class="alert alert-success" style="margin-bottom:16px"><?= $msg ?></div>
+    <div class="alert alert-success" style="margin-bottom:16px"><?= $msg ?></div>
 <?php endif; ?>
 
 <!-- Page header -->
@@ -177,83 +180,90 @@ pwfOfficeHeader('Database – Containers', 'containers');
         <span style="font-size:11px;color:var(--muted)"><?= fmtQty($totalPcs) ?> pcs total shipped</span>
     </div>
     <?php if (empty($containers)): ?>
-    <div style="padding:48px;text-align:center;color:var(--muted)">
-        <i class="bi bi-inbox" style="font-size:36px;display:block;margin-bottom:10px"></i>
-        <div style="font-size:14px;font-weight:600">No containers yet</div>
-        <div style="font-size:12px;margin-top:4px">Click "New Container" to create the first one</div>
-    </div>
+        <div style="padding:48px;text-align:center;color:var(--muted)">
+            <i class="bi bi-inbox" style="font-size:36px;display:block;margin-bottom:10px"></i>
+            <div style="font-size:14px;font-weight:600">No containers yet</div>
+            <div style="font-size:12px;margin-top:4px">Click "New Container" to create the first one</div>
+        </div>
     <?php else: ?>
-    <div style="overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse">
-            <thead>
-                <tr style="background:var(--nav-hover);border-bottom:2px solid var(--border)">
-                    <th style="padding:10px 14px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Code</th>
-                    <th style="padding:10px 14px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Container No</th>
-                    <th style="padding:10px 14px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Type</th>
-                    <th style="padding:10px 14px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Shipment Date</th>
-                    <th style="padding:10px 14px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Destination</th>
-                    <th style="padding:10px 14px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Forwarder</th>
-                    <th style="padding:10px 14px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;text-align:center">Items</th>
-                    <th style="padding:10px 14px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;text-align:center">Pcs Shipped</th>
-                    <th style="padding:10px 14px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;text-align:center">Status</th>
-                    <th style="padding:10px 14px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;text-align:center">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-            <?php foreach ($containers as $ct):
-                $sc = match($ct['status']) {
-                    'draft'   => ['Draft',    '#6b7280','#fff'],
-                    'booked'  => ['Booked',   '#3b82f6','#fff'],
-                    'onboard' => ['On Board', '#8b5cf6','#fff'],
-                    'arrived' => ['Arrived',  '#22c55e','#fff'],
-                    'closed'  => ['Closed',   '#9ca3af','#fff'],
-                    default   => [ucfirst($ct['status']),'#6b7280','#fff']
-                };
-                $ctJson = htmlspecialchars(json_encode([
-                    'id'=>$ct['id'],'container_no'=>$ct['container_no'],'container_type'=>$ct['container_type'],
-                    'shipment_date'=>$ct['shipment_date'],'destination_country'=>$ct['destination_country'],
-                    'destination_port'=>$ct['destination_port'],'forwarder'=>$ct['forwarder'],
-                    'tracking_no'=>$ct['tracking_no'],'bl_no'=>$ct['bl_no'],'status'=>$ct['status'],
-                    'notes'=>$ct['notes']
-                ]));
-            ?>
-            <tr style="border-bottom:1px solid var(--border);transition:background .15s"
-                onmouseenter="this.style.background='var(--nav-hover)'" onmouseleave="this.style.background=''">
-                <td style="padding:10px 14px"><code style="font-size:12px;font-weight:700;color:var(--gold)"><?= htmlspecialchars($ct['container_code']) ?></code></td>
-                <td style="padding:10px 14px;font-size:12px;color:var(--muted)"><?= htmlspecialchars($ct['container_no'] ?: '—') ?></td>
-                <td style="padding:10px 14px;font-size:12px;font-weight:600;color:var(--text)"><?= strtoupper(htmlspecialchars($ct['container_type'])) ?></td>
-                <td style="padding:10px 14px;font-size:12px;color:var(--text)"><?= date('d M Y', strtotime($ct['shipment_date'])) ?></td>
-                <td style="padding:10px 14px">
-                    <div style="font-size:12px;font-weight:600;color:var(--text)"><?= htmlspecialchars($ct['destination_country'] ?: '—') ?></div>
-                    <?php if ($ct['destination_port']): ?><div style="font-size:10.5px;color:var(--muted)"><?= htmlspecialchars($ct['destination_port']) ?></div><?php endif; ?>
-                </td>
-                <td style="padding:10px 14px;font-size:12px;color:var(--text)"><?= htmlspecialchars($ct['forwarder'] ?: '—') ?></td>
-                <td style="padding:10px 14px;text-align:center;font-size:13px;font-weight:700;color:var(--text)"><?= (int)$ct['item_count'] ?><div style="font-size:9.5px;color:var(--muted)"><?= (int)$ct['cust_count'] ?> cust</div></td>
-                <td style="padding:10px 14px;text-align:center;font-size:13px;font-weight:800;color:var(--gold)"><?= fmtQty($ct['total_qty']) ?></td>
-                <td style="padding:10px 14px;text-align:center">
-                    <span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;background:<?= $sc[1] ?>;color:<?= $sc[2] ?>"><?= $sc[0] ?></span>
-                </td>
-                <td style="padding:10px 14px;text-align:center">
-                    <div style="display:flex;gap:5px;justify-content:center">
-                        <button type="button" onclick="openEdit(<?= $ctJson ?>)"
-                            style="padding:4px 10px;border-radius:6px;background:#EFF6FF;border:1px solid #BFDBFE;color:#1D4ED8;font-size:11px;font-weight:600;cursor:pointer">
-                            <i class="bi bi-pencil"></i> Edit
-                        </button>
-                        <a href="shipping.php?open_ctn=<?= (int)$ct['id'] ?>" target="_blank"
-                            style="display:inline-flex;align-items:center;gap:3px;padding:4px 10px;border-radius:6px;background:#FFF7ED;border:1px solid #FED7AA;color:#C2410C;font-size:11px;font-weight:600;text-decoration:none">
-                            <i class="bi bi-box-arrow-up-right"></i> View
-                        </a>
-                        <button type="button" onclick="openDelete(<?= (int)$ct['id'] ?>, '<?= htmlspecialchars(addslashes($ct['container_code'])) ?>', <?= (int)$ct['item_count'] ?>)"
-                            style="padding:4px 10px;border-radius:6px;background:#FEF2F2;border:1px solid #FECACA;color:#DC2626;font-size:11px;font-weight:600;cursor:pointer">
-                            <i class="bi bi-trash3"></i>
-                        </button>
-                    </div>
-                </td>
-            </tr>
-            <?php endforeach; ?>
-            </tbody>
-        </table>
-    </div>
+        <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse">
+                <thead>
+                    <tr style="background:var(--nav-hover);border-bottom:2px solid var(--border)">
+                        <th style="padding:10px 14px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Code</th>
+                        <th style="padding:10px 14px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Container No</th>
+                        <th style="padding:10px 14px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Type</th>
+                        <th style="padding:10px 14px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Shipment Date</th>
+                        <th style="padding:10px 14px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Destination</th>
+                        <th style="padding:10px 14px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Forwarder</th>
+                        <th style="padding:10px 14px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;text-align:center">Items</th>
+                        <th style="padding:10px 14px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;text-align:center">Pcs Shipped</th>
+                        <th style="padding:10px 14px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;text-align:center">Status</th>
+                        <th style="padding:10px 14px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;text-align:center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($containers as $ct):
+                        $sc = match ($ct['status']) {
+                            'draft'   => ['Draft',    '#6b7280', '#fff'],
+                            'booked'  => ['Booked',   '#3b82f6', '#fff'],
+                            'onboard' => ['On Board', '#8b5cf6', '#fff'],
+                            'arrived' => ['Arrived',  '#22c55e', '#fff'],
+                            'closed'  => ['Closed',   '#9ca3af', '#fff'],
+                            default   => [ucfirst($ct['status']), '#6b7280', '#fff']
+                        };
+                        $ctJson = htmlspecialchars(json_encode([
+                            'id' => $ct['id'],
+                            'container_no' => $ct['container_no'],
+                            'container_type' => $ct['container_type'],
+                            'shipment_date' => $ct['shipment_date'],
+                            'destination_country' => $ct['destination_country'],
+                            'destination_port' => $ct['destination_port'],
+                            'forwarder' => $ct['forwarder'],
+                            'tracking_no' => $ct['tracking_no'],
+                            'bl_no' => $ct['bl_no'],
+                            'status' => $ct['status'],
+                            'notes' => $ct['notes']
+                        ]));
+                    ?>
+                        <tr style="border-bottom:1px solid var(--border);transition:background .15s"
+                            onmouseenter="this.style.background='var(--nav-hover)'" onmouseleave="this.style.background=''">
+                            <td style="padding:10px 14px"><code style="font-size:12px;font-weight:700;color:var(--gold)"><?= htmlspecialchars($ct['container_code']) ?></code></td>
+                            <td style="padding:10px 14px;font-size:12px;color:var(--muted)"><?= htmlspecialchars($ct['container_no'] ?: '—') ?></td>
+                            <td style="padding:10px 14px;font-size:12px;font-weight:600;color:var(--text)"><?= strtoupper(htmlspecialchars($ct['container_type'])) ?></td>
+                            <td style="padding:10px 14px;font-size:12px;color:var(--text)"><?= date('d M Y', strtotime($ct['shipment_date'])) ?></td>
+                            <td style="padding:10px 14px">
+                                <div style="font-size:12px;font-weight:600;color:var(--text)"><?= htmlspecialchars($ct['destination_country'] ?: '—') ?></div>
+                                <?php if ($ct['destination_port']): ?><div style="font-size:10.5px;color:var(--muted)"><?= htmlspecialchars($ct['destination_port']) ?></div><?php endif; ?>
+                            </td>
+                            <td style="padding:10px 14px;font-size:12px;color:var(--text)"><?= htmlspecialchars($ct['forwarder'] ?: '—') ?></td>
+                            <td style="padding:10px 14px;text-align:center;font-size:13px;font-weight:700;color:var(--text)"><?= (int)$ct['item_count'] ?><div style="font-size:9.5px;color:var(--muted)"><?= (int)$ct['cust_count'] ?> cust</div>
+                            </td>
+                            <td style="padding:10px 14px;text-align:center;font-size:13px;font-weight:800;color:var(--gold)"><?= fmtQty($ct['total_qty']) ?></td>
+                            <td style="padding:10px 14px;text-align:center">
+                                <span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;background:<?= $sc[1] ?>;color:<?= $sc[2] ?>"><?= $sc[0] ?></span>
+                            </td>
+                            <td style="padding:10px 14px;text-align:center">
+                                <div style="display:flex;gap:5px;justify-content:center">
+                                    <button type="button" onclick="openEdit(<?= $ctJson ?>)"
+                                        style="padding:4px 10px;border-radius:6px;background:#EFF6FF;border:1px solid #BFDBFE;color:#1D4ED8;font-size:11px;font-weight:600;cursor:pointer">
+                                        <i class="bi bi-pencil"></i> Edit
+                                    </button>
+                                    <a href="shipping.php?open_ctn=<?= (int)$ct['id'] ?>" target="_blank"
+                                        style="display:inline-flex;align-items:center;gap:3px;padding:4px 10px;border-radius:6px;background:#FFF7ED;border:1px solid #FED7AA;color:#C2410C;font-size:11px;font-weight:600;text-decoration:none">
+                                        <i class="bi bi-box-arrow-up-right"></i> View
+                                    </a>
+                                    <button type="button" onclick="openDelete(<?= (int)$ct['id'] ?>, '<?= htmlspecialchars(addslashes($ct['container_code'])) ?>', <?= (int)$ct['item_count'] ?>)"
+                                        style="padding:4px 10px;border-radius:6px;background:#FEF2F2;border:1px solid #FECACA;color:#DC2626;font-size:11px;font-weight:600;cursor:pointer">
+                                        <i class="bi bi-trash3"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
     <?php endif; ?>
 </div>
 
@@ -330,28 +340,47 @@ pwfOfficeHeader('Database – Containers', 'containers');
 </div>
 
 <!-- inline styles -->
-<style>.form-lbl{display:block;font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px}</style>
+<style>
+    .form-lbl {
+        display: block;
+        font-size: 10.5px;
+        font-weight: 700;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: .4px;
+        margin-bottom: 5px
+    }
+</style>
 
 <script>
-// Edit modal
-function openEdit(ct) {
-    document.getElementById('editId').value   = ct.id;
-    document.getElementById('editCode').textContent = '';
-    // Build form fields
-    const statusOptions = ['draft','booked','onboard','arrived','closed'];
-    const statusLabels  = {draft:'Draft',booked:'Booked',onboard:'On Board',arrived:'Arrived',closed:'Closed'};
-    function fld(label, inputHtml) {
-        return `<div><label class="form-lbl">${label}</label>${inputHtml}</div>`;
-    }
-    function sel(name, val, opts) {
-        const o = opts.map(v=>`<option value="${v}" ${val===v?'selected':''}>${statusLabels[v]||v}</option>`).join('');
-        return `<select name="${name}" class="select" style="width:100%">${o}</select>`;
-    }
-    function inp(name, val, ph) {
-        return `<input name="${name}" class="input" value="${(val||'').replace(/"/g,'&quot;')}" placeholder="${ph||''}" style="width:100%">`;
-    }
-    const typeOpts = ['20ft','40ft','40hc','lcl','fcl'];
-    document.getElementById('editFormBody').innerHTML = `
+    // Edit modal
+    function openEdit(ct) {
+        document.getElementById('editId').value = ct.id;
+        document.getElementById('editCode').textContent = '';
+        // Build form fields
+        const statusOptions = ['draft', 'booked', 'onboard', 'arrived', 'closed'];
+        const statusLabels = {
+            draft: 'Draft',
+            booked: 'Booked',
+            onboard: 'On Board',
+            arrived: 'Arrived',
+            closed: 'Closed'
+        };
+
+        function fld(label, inputHtml) {
+            return `<div><label class="form-lbl">${label}</label>${inputHtml}</div>`;
+        }
+
+        function sel(name, val, opts) {
+            const o = opts.map(v => `<option value="${v}" ${val===v?'selected':''}>${statusLabels[v]||v}</option>`).join('');
+            return `<select name="${name}" class="select" style="width:100%">${o}</select>`;
+        }
+
+        function inp(name, val, ph) {
+            return `<input name="${name}" class="input" value="${(val||'').replace(/"/g,'&quot;')}" placeholder="${ph||''}" style="width:100%">`;
+        }
+        const typeOpts = ['20ft', '40ft', '40hc', 'lcl', 'fcl'];
+        document.getElementById('editFormBody').innerHTML = `
         <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px;margin-bottom:12px">
             ${fld('Container No (Physical)',inp('container_no',ct.container_no,'e.g. TEMU2134567'))}
             ${fld('Shipment Date',`<input name="shipment_date" type="date" class="input" value="${ct.shipment_date||''}" style="width:100%">`)}
@@ -369,17 +398,17 @@ function openEdit(ct) {
         </div>
         <div>${fld('Notes',`<textarea name="notes" class="input" style="width:100%;min-height:56px;resize:vertical">${(ct.notes||'').replace(/</g,'&lt;')}</textarea>`)}</div>
     `;
-    // update title
-    document.getElementById('editCode').textContent = ct.container_code || '';
-    new bootstrap.Modal(document.getElementById('editModal')).show();
-}
+        // update title
+        document.getElementById('editCode').textContent = ct.container_code || '';
+        new bootstrap.Modal(document.getElementById('editModal')).show();
+    }
 
-// Delete modal
-function openDelete(cid, code, items) {
-    document.getElementById('delId').value  = cid;
-    document.getElementById('delCode').textContent = code;
-    document.getElementById('delInfo').textContent = items + ' items will be removed from this container';
-    new bootstrap.Modal(document.getElementById('deleteModal')).show();
-}
+    // Delete modal
+    function openDelete(cid, code, items) {
+        document.getElementById('delId').value = cid;
+        document.getElementById('delCode').textContent = code;
+        document.getElementById('delInfo').textContent = items + ' items will be removed from this container';
+        new bootstrap.Modal(document.getElementById('deleteModal')).show();
+    }
 </script>
 <?php pwfOfficeFooter(); ?>

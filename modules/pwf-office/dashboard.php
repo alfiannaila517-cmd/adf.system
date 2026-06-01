@@ -404,7 +404,7 @@ pwfOfficeHeader('Dashboard', 'dashboard');
                             <span style="font-size:10px;font-weight:700;color:#1D4ED8;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:20px;padding:2px 8px"><?= strtoupper(htmlspecialchars($ct['container_type'])) ?></span>
                         </div>
                         <div style="margin-top:7px;font-size:11px;color:var(--muted);line-height:1.45">
-                            <div><i class="bi bi-geo-alt"></i> <?= htmlspecialchars($ct['destination_country'] ?: '—') ?><?= $ct['destination_port'] ? ' / '.htmlspecialchars($ct['destination_port']) : '' ?></div>
+                            <div><i class="bi bi-geo-alt"></i> <?= htmlspecialchars($ct['destination_country'] ?: '—') ?><?= $ct['destination_port'] ? ' / ' . htmlspecialchars($ct['destination_port']) : '' ?></div>
                             <div><i class="bi bi-people"></i> <?= htmlspecialchars($ct['customers'] ?: '—') ?></div>
                             <div><i class="bi bi-box-seam"></i> <?= (int)$ct['item_count'] ?> item · <?= fmtQty($ct['total_qty']) ?> pcs</div>
                         </div>
@@ -438,10 +438,22 @@ pwfOfficeHeader('Dashboard', 'dashboard');
         </div>
         <div style="padding:14px 18px">
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px">
-                <div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:#FAFAF9"><div style="font-size:10px;color:var(--muted);text-transform:uppercase">Customer</div><div id="doCustomer" style="font-size:13px;font-weight:700;color:var(--text);margin-top:2px">—</div></div>
-                <div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:#FAFAF9"><div style="font-size:10px;color:var(--muted);text-transform:uppercase">Craftsman</div><div id="doCraftsman" style="font-size:13px;font-weight:700;color:var(--text);margin-top:2px">—</div></div>
-                <div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:#FAFAF9"><div style="font-size:10px;color:var(--muted);text-transform:uppercase">Deadline</div><div id="doDue" style="font-size:13px;font-weight:700;color:var(--text);margin-top:2px">—</div></div>
-                <div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:#FAFAF9"><div style="font-size:10px;color:var(--muted);text-transform:uppercase">Status</div><div id="doStatus" style="font-size:13px;font-weight:700;color:var(--text);margin-top:2px">—</div></div>
+                <div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:#FAFAF9">
+                    <div style="font-size:10px;color:var(--muted);text-transform:uppercase">Customer</div>
+                    <div id="doCustomer" style="font-size:13px;font-weight:700;color:var(--text);margin-top:2px">—</div>
+                </div>
+                <div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:#FAFAF9">
+                    <div style="font-size:10px;color:var(--muted);text-transform:uppercase">Craftsman</div>
+                    <div id="doCraftsman" style="font-size:13px;font-weight:700;color:var(--text);margin-top:2px">—</div>
+                </div>
+                <div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:#FAFAF9">
+                    <div style="font-size:10px;color:var(--muted);text-transform:uppercase">Deadline</div>
+                    <div id="doDue" style="font-size:13px;font-weight:700;color:var(--text);margin-top:2px">—</div>
+                </div>
+                <div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:#FAFAF9">
+                    <div style="font-size:10px;color:var(--muted);text-transform:uppercase">Status</div>
+                    <div id="doStatus" style="font-size:13px;font-weight:700;color:var(--text);margin-top:2px">—</div>
+                </div>
             </div>
             <div style="margin-top:12px;border:1px solid var(--border);border-radius:10px;padding:12px;background:#fff">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
@@ -476,10 +488,22 @@ pwfOfficeHeader('Dashboard', 'dashboard');
             <div id="caLoading" style="text-align:center;padding:30px 0;color:var(--muted)">Memuat data arsip...</div>
             <div id="caContent" style="display:none">
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:14px">
-                    <div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:#FAFAF9"><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Tanggal Kirim</div><div id="caDate" style="font-size:13px;font-weight:700;color:var(--text);margin-top:2px">—</div></div>
-                    <div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:#FAFAF9"><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Tujuan</div><div id="caDest" style="font-size:13px;font-weight:700;color:var(--text);margin-top:2px">—</div></div>
-                    <div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:#FAFAF9"><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Total Item</div><div id="caItems" style="font-size:13px;font-weight:700;color:var(--text);margin-top:2px">—</div></div>
-                    <div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:#FAFAF9"><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Total Qty</div><div id="caQty" style="font-size:13px;font-weight:700;color:var(--text);margin-top:2px">—</div></div>
+                    <div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:#FAFAF9">
+                        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Tanggal Kirim</div>
+                        <div id="caDate" style="font-size:13px;font-weight:700;color:var(--text);margin-top:2px">—</div>
+                    </div>
+                    <div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:#FAFAF9">
+                        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Tujuan</div>
+                        <div id="caDest" style="font-size:13px;font-weight:700;color:var(--text);margin-top:2px">—</div>
+                    </div>
+                    <div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:#FAFAF9">
+                        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Total Item</div>
+                        <div id="caItems" style="font-size:13px;font-weight:700;color:var(--text);margin-top:2px">—</div>
+                    </div>
+                    <div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:#FAFAF9">
+                        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Total Qty</div>
+                        <div id="caQty" style="font-size:13px;font-weight:700;color:var(--text);margin-top:2px">—</div>
+                    </div>
                 </div>
                 <div style="border:1px solid var(--border);border-radius:10px;overflow:auto">
                     <table class="pwf-table" style="margin:0">

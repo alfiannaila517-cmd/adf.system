@@ -27,15 +27,20 @@ if (empty($_SESSION['pwf_csrf_token'])) {
     $_SESSION['pwf_csrf_token'] = bin2hex(random_bytes(32));
 }
 if (!function_exists('pwfCsrfToken')) {
-    function pwfCsrfToken(): string { return $_SESSION['pwf_csrf_token'] ?? ''; }
+    function pwfCsrfToken(): string
+    {
+        return $_SESSION['pwf_csrf_token'] ?? '';
+    }
 }
 if (!function_exists('pwfCsrfField')) {
-    function pwfCsrfField(): string {
+    function pwfCsrfField(): string
+    {
         return '<input type="hidden" name="_csrf" value="' . htmlspecialchars(pwfCsrfToken(), ENT_QUOTES) . '">';
     }
 }
 if (!function_exists('pwfCsrfVerify')) {
-    function pwfCsrfVerify(): void {
+    function pwfCsrfVerify(): void
+    {
         $sent = $_POST['_csrf'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
         $stored = $_SESSION['pwf_csrf_token'] ?? '';
         if (empty($stored) || empty($sent) || !hash_equals($stored, $sent)) {
