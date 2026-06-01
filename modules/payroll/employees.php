@@ -60,7 +60,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $department = trim($_POST['department']);
         $phone = trim($_POST['phone']);
         $join_date = $_POST['join_date'];
-        $base_salary = str_replace(['.', ','], '', $_POST['base_salary']);
+        // Bersihkan: ambil hanya digit, buang desimal & pemisah ribuan
+        $rawSalary = (string)($_POST['base_salary'] ?? '0');
+        if (strpos($rawSalary, ',') !== false) { $rawSalary = explode(',', $rawSalary)[0]; }
+        if (substr_count($rawSalary, '.') >= 1 && preg_match('/\.[0-9]{1,2}$/', $rawSalary)) {
+            // Format "5000000.00" -> ambil bagian sebelum titik terakhir bila itu desimal
+            $parts = explode('.', $rawSalary);
+            $last = end($parts);
+            if (strlen($last) <= 2) { array_pop($parts); $rawSalary = implode('', $parts); }
+        }
+        $base_salary = (int) preg_replace('/\D/', '', $rawSalary);
         $bank_name = $_POST['bank_name'];
         $bank_account = $_POST['bank_account'];
         $finger_id = trim($_POST['finger_id'] ?? '');
@@ -78,7 +87,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $sql = "UPDATE payroll_employees SET full_name=?, position=?, department=?, phone=?, join_date=?, base_salary=?, bank_name=?, bank_account=?, finger_id=? WHERE id=?";
                 $db->query($sql, [$full_name, $position, $department, $phone, $join_date, $base_salary, $bank_name, $bank_account, $finger_id ?: null, $id]);
-                setFlash('success', 'Data karyawan berhasil diperbarui');
+
+                // Sinkronkan base_salary ke semua slip payroll yg masih bisa diedit
+                // (hours_locked=0) di periode bulan berjalan & masa depan.
+                // Periode bulan lalu (frozen) tidak diubah.
+                try {
+                    $curMonth = (int) date('n');
+                    $curYear  = (int) date('Y');
+                    $db->query(
+                        "UPDATE payroll_slips s
+                         INNER JOIN payroll_periods p ON p.id = s.period_id
+                         SET s.base_salary = ?
+                         WHERE s.employee_id = ?
+                           AND s.hours_locked = 0
+                           AND (p.period_year > ? OR (p.period_year = ? AND p.period_month >= ?))",
+                        [$base_salary, $id, $curYear, $curYear, $curMonth]
+                    );
+                } catch (Exception $e) { /* kolom belum ada / table belum dibuat */ }
+
+                setFlash('success', 'Data karyawan berhasil diperbarui (gaji pokok tersinkron ke Process Salary)');
             }
         } catch (PDOException $e) {
             setFlash('error', 'Gagal menyimpan: ' . $e->getMessage());
@@ -1000,8 +1027,17 @@ function closeModal() {
 }
 
 function formatCurrency(input) {
-    let value = input.value.replace(/\D/g, '');
-    input.value = value === '' ? '' : new Intl.NumberFormat('id-ID').format(value);
+    // Hilangkan desimal di belakang koma/titik (mis. "5000000.00" -> "5000000")
+    let raw = String(input.value || '').trim();
+    if (raw.includes(',')) raw = raw.split(',')[0];
+    // Jika ada "." dan dua digit terakhir setelah titik -> anggap desimal, buang
+    if (/\.[0-9]{1,2}$/.test(raw)) {
+        const parts = raw.split('.');
+        const last = parts[parts.length - 1];
+        if (last.length <= 2) { parts.pop(); raw = parts.join(''); }
+    }
+    const digits = raw.replace(/\D/g, '');
+    input.value = digits === '' ? '' : new Intl.NumberFormat('id-ID').format(parseInt(digits, 10));
 }
 
 function editEmployee(data) {
@@ -1015,7 +1051,8 @@ function editEmployee(data) {
     document.getElementById('department').value = data.department;
     document.getElementById('joinDate').value = data.join_date;
     document.getElementById('phone').value = data.phone;
-    document.getElementById('baseSalary').value = data.base_salary;
+    // base_salary dari DB bisa berupa "5000000.00" — paksa jadi integer
+    document.getElementById('baseSalary').value = String(Math.floor(parseFloat(data.base_salary) || 0));
     formatCurrency(document.getElementById('baseSalary'));
     document.getElementById('bankName').value = data.bank_name;
     document.getElementById('bankAccount').value = data.bank_account;

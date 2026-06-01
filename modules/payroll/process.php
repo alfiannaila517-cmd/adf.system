@@ -420,7 +420,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_update'])) {
     header('Content-Type: application/json');
     $slip_id = (int)$_POST['slip_id'];
 
-    $base_salary = (float)$_POST['base_salary'];
+    // base_salary HANYA boleh diedit dari Employee Data — abaikan POST,
+    // ambil nilai master terkini dari payroll_employees (fallback ke slip lama).
+    $base_salary = 0.0;
+    try {
+        $slipMaster = $db->fetchOne(
+            "SELECT COALESCE(e.base_salary, s.base_salary, 0) AS bs
+             FROM payroll_slips s
+             LEFT JOIN payroll_employees e ON e.id = s.employee_id
+             WHERE s.id = ?",
+            [$slip_id]
+        );
+        $base_salary = (float)($slipMaster['bs'] ?? 0);
+    } catch (Exception $e) {
+        $base_salary = (float)($_POST['base_salary'] ?? 0);
+    }
     $work_hours = (float)$_POST['work_hours'];
     $overtime_hours = (float)$_POST['overtime_hours'];
     $incentive = (float)$_POST['incentive'];
@@ -2350,9 +2364,11 @@ include '../../includes/header.php';
 
                                 <td>
                                     <input type="text" class="ps-input currency-input"
-                                        value="<?php echo number_format($slip['base_salary'], 0, ',', '.'); ?>"
+                                        value="<?php echo number_format((float)$slip['base_salary'], 0, ',', '.'); ?>"
                                         data-field="base_salary" data-id="<?php echo $slip['id']; ?>"
-                                        oninput="calculateRow(<?php echo $slip['id']; ?>); saveRow(<?php echo $slip['id']; ?>)">
+                                        readonly
+                                        title="Gaji pokok hanya bisa diedit dari menu Employee Data"
+                                        style="background:#f1f5f9;cursor:not-allowed;">
                                 </td>
 
                                 <td>
