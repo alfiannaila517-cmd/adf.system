@@ -29,6 +29,95 @@ function roundOT45($hours)
     return (float) intdiv($minutes, 45); // 45→1, 89→1, 90→2, 134→2, 135→3
 }
 
+if (!function_exists('payrollAttendanceHours')) {
+    /**
+     * Hitung jam absensi bulanan utk payroll. Sama persis dgn aturan di
+     * modules/payroll/process.php::getAttendanceHours() — dikutip ke sini
+     * agar bisa dipakai dari halaman lain (mis. print-submission).
+     */
+    function payrollAttendanceHours($db, $empId, $month, $year)
+    {
+        $monthStr = sprintf('%04d-%02d', $year, $month);
+        $rows = $db->fetchAll(
+            "SELECT work_hours, overtime_hours, shift_1_hours, shift_2_hours, check_in_time, check_out_time, scan_3, scan_4, attendance_date
+             FROM payroll_attendance
+             WHERE employee_id = ? AND DATE_FORMAT(attendance_date, '%Y-%m') = ?
+             AND (work_hours > 0 OR check_in_time IS NOT NULL)
+             ORDER BY attendance_date ASC",
+            [$empId, $monthStr]
+        );
+
+        $approvedOTDates = [];
+        try {
+            $otRows = $db->fetchAll(
+                "SELECT overtime_date FROM overtime_requests WHERE employee_id = ? AND status = 'approved' AND DATE_FORMAT(overtime_date, '%Y-%m') = ?",
+                [$empId, $monthStr]
+            );
+            foreach ($otRows ?: [] as $otRow) {
+                $approvedOTDates[$otRow['overtime_date']] = true;
+            }
+        } catch (\Throwable $e) {
+        }
+
+        $standardWorkDays = 26;
+        $totalHours = 0;
+        $totalOvertimeHours = 0;
+        $extraHours = 0;
+        $extraDays = 0;
+        $daysWorked = 0;
+        foreach ($rows as $r) {
+            $wh = (float)$r['work_hours'];
+            $manualOT = (float)($r['overtime_hours'] ?? 0);
+            if ($wh <= 0) {
+                $shift1 = 0;
+                $shift2 = 0;
+                if (!empty($r['shift_1_hours']) && (float)$r['shift_1_hours'] > 0) {
+                    $shift1 = (float)$r['shift_1_hours'];
+                } elseif (!empty($r['check_in_time']) && !empty($r['check_out_time'])) {
+                    $t1 = strtotime($r['check_in_time']);
+                    $t2 = strtotime($r['check_out_time']);
+                    if ($t2 > $t1) $shift1 = round(($t2 - $t1) / 3600, 2);
+                }
+                if (!empty($r['shift_2_hours']) && (float)$r['shift_2_hours'] > 0) {
+                    $shift2 = (float)$r['shift_2_hours'];
+                } elseif (!empty($r['scan_3']) && !empty($r['scan_4'])) {
+                    $t3 = strtotime($r['scan_3']);
+                    $t4 = strtotime($r['scan_4']);
+                    if ($t4 > $t3) $shift2 = round(($t4 - $t3) / 3600, 2);
+                }
+                $wh = round($shift1 + $shift2, 2);
+                if ($wh <= 0) continue;
+            }
+            $daysWorked++;
+            $cappedDay = min($wh, 8);
+
+            if ($daysWorked <= $standardWorkDays) {
+                $totalHours += $cappedDay;
+            } else {
+                $extraHours += $cappedDay;
+                $extraDays++;
+            }
+
+            $attDate = $r['attendance_date'] ?? '';
+            if ($manualOT > 0) {
+                $totalOvertimeHours += roundOT45($manualOT);
+            } elseif (isset($approvedOTDates[$attDate])) {
+                $rawOT = max(0, $wh - 8);
+                $totalOvertimeHours += roundOT45($rawOT);
+            }
+        }
+
+        return [
+            'work_hours'     => round($totalHours, 2),
+            'overtime_hours' => round($totalOvertimeHours, 2),
+            'extra_hours'    => round($extraHours, 2),
+            'extra_days'     => $extraDays,
+            'days_worked'    => $daysWorked,
+            'auto_overtime_over_200' => 0.0,
+        ];
+    }
+}
+
 function sanitize($data)
 {
     if (is_array($data)) {

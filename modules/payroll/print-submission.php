@@ -36,7 +36,18 @@ foreach ($slips as $i => $s) {
     $base   = (float)$s['base_salary'];
     $wh     = (float)$s['work_hours'];
     $oh     = (float)$s['overtime_hours'];
+    $extraLocked = !empty($s['extra_locked']);
     $exH    = (float)($s['extra_hours'] ?? 0);
+    // Kalau Extra belum di-override manual & nilai stored masih 0,
+    // hitung otomatis dari absensi (hari kerja >26).
+    if (!$extraLocked) {
+        try {
+            $att = payrollAttendanceHours($db, (int)$s['employee_id'], (int)$period['period_month'], (int)$period['period_year']);
+            $exH = (float)($att['extra_hours'] ?? 0);
+        } catch (\Throwable $e) {
+            // fallback: keep stored value
+        }
+    }
     $hourly = $base > 0 ? $base / 200 : 0;
     $actualBase  = ($wh >= 200) ? $base : round($wh * $hourly, 2);
     $otAmount    = round($oh * $hourly, 2);
@@ -53,6 +64,7 @@ foreach ($slips as $i => $s) {
     $slips[$i]['hourly_rate']      = $hourly;
     $slips[$i]['actual_base']      = $actualBase;
     $slips[$i]['overtime_amount']  = $otAmount;
+    $slips[$i]['extra_hours']      = $exH;
     $slips[$i]['extra_amount']     = $extraAmount;
     $slips[$i]['ot_total_rp']      = $otAmount + $extraAmount;
     $slips[$i]['total_deductions'] = $totalDed;
