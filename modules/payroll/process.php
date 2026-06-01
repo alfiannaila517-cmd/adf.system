@@ -146,6 +146,12 @@ try {
 
 $month = $_GET['month'] ?? date('n');
 $year = $_GET['year'] ?? date('Y');
+
+// Periode SEBELUM bulan berjalan dibekukan: total gaji historis tidak boleh
+// berubah oleh sync ulang. Bulan ini & masa depan tetap auto-sync.
+$isCurrentOrFuture = ((int)$year > (int)date('Y'))
+    || ((int)$year === (int)date('Y') && (int)$month >= (int)date('n'));
+$isFrozen = !$isCurrentOrFuture;
 $months = [
     1 => 'January',
     2 => 'February',
@@ -356,6 +362,11 @@ function syncSlipsWithAttendance($db, $periodId, $month, $year)
 
 // ── Handle manual sync from attendance ──
 if (isset($_POST['sync_attendance']) && $period) {
+    if ($isFrozen) {
+        setFlash('error', '🔒 Periode bulan lalu dibekukan — Sync Absensi dinonaktifkan untuk menjaga total gaji historis.');
+        header("Location: process.php?month=$month&year=$year");
+        exit;
+    }
     try {
         syncSlipsWithAttendance($db, $period['id'], $month, $year);
         setFlash('success', '✅ Jam kerja berhasil di-sync dari data absensi');
@@ -597,8 +608,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_save_daily_atten
 $slips = [];
 $autoSyncError = '';
 if ($period) {
-    // Auto-sync: pull latest attendance/fingerprint data on every page load
-    if ($period['status'] === 'draft' || $period['status'] === 'submitted' || $period['status'] === 'approved') {
+    // Auto-sync HANYA untuk bulan berjalan / masa depan dan status masih bisa diedit.
+    // Periode bulan-bulan sebelumnya selalu dibekukan apapun statusnya
+    // (lihat $isFrozen yang didefinisikan di atas — setelah deklarasi $month/$year).
+    if (!$isFrozen && ($period['status'] === 'draft' || $period['status'] === 'submitted' || $period['status'] === 'approved')) {
         try {
             // Step 1: Recalculate ALL work_hours from scan timestamps (fix any stale data)
             recalcAttendanceHours($db, $month, $year);
@@ -2260,9 +2273,15 @@ include '../../includes/header.php';
         </div>
 
         <!-- Info Box -->
-        <div style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 10px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.8rem; color: #1e40af;">
-            <strong>💾 Auto-Save:</strong> Setiap perubahan otomatis tersimpan saat Anda keluar dari input. Target jam = 200. Lembur biasa = kelipatan 45 menit di atas 8 jam/hari (perlu approval). <strong style="color:#dc2626;">🔥 Auto-OT &gt;200j</strong> = jam regular yang melewati 200 jam/bulan otomatis jadi OT (exact, tanpa approval). Klik <strong>Sync Absensi</strong> untuk tarik data GPS terbaru.
-        </div>
+        <?php if ($isFrozen): ?>
+            <div style="background: rgba(220,38,38,0.08); border: 1px solid rgba(220,38,38,0.3); border-radius: 10px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.8rem; color: #991b1b;">
+                <strong>🔒 Periode Dibekukan (Bulan Lalu):</strong> Total gaji menampilkan nilai terakhir setelah editan terakhir. Sinkronisasi otomatis & tombol Sync Absensi dinonaktifkan supaya data historis tidak berubah. Anda masih bisa mengedit angka secara manual jika perlu koreksi.
+            </div>
+        <?php else: ?>
+            <div style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 10px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.8rem; color: #1e40af;">
+                <strong>💾 Auto-Save:</strong> Setiap perubahan otomatis tersimpan saat Anda keluar dari input. Target jam = 200. Lembur biasa = kelipatan 45 menit di atas 8 jam/hari (perlu approval). <strong style="color:#dc2626;">🔥 Auto-OT &gt;200j</strong> = jam regular yang melewati 200 jam/bulan otomatis jadi OT (exact, tanpa approval). Klik <strong>Sync Absensi</strong> untuk tarik data GPS terbaru.
+            </div>
+        <?php endif; ?>
 
         <!-- Payroll Table -->
         <div class="ps-card fade-in-up" style="animation-delay: 0.15s">
