@@ -1247,13 +1247,29 @@ if ($action === 'overtime_submit') {
 }
 
 if ($action === 'overtime_history') {
-    $rows = $db->fetchAll("SELECT * FROM overtime_requests WHERE employee_id = ? ORDER BY created_at DESC LIMIT 50", [$empId]) ?: [];
-    $stats = $db->fetchOne("SELECT 
-        COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending,
-        COUNT(CASE WHEN status = 'approved' THEN 1 END) as approved,
-        COUNT(CASE WHEN status = 'rejected' THEN 1 END) as rejected
-        FROM overtime_requests WHERE employee_id = ? AND YEAR(overtime_date) = YEAR(CURDATE())", [$empId]) ?: [];
-    echo json_encode(['success' => true, 'data' => $rows, 'stats' => $stats]);
+    $month = trim($_GET['month'] ?? ''); // format YYYY-MM, kosong = semua
+    if ($month !== '' && preg_match('/^\d{4}-\d{2}$/', $month)) {
+        $rows = $db->fetchAll(
+            "SELECT * FROM overtime_requests WHERE employee_id = ? AND DATE_FORMAT(overtime_date, '%Y-%m') = ? ORDER BY overtime_date DESC, created_at DESC LIMIT 100",
+            [$empId, $month]
+        ) ?: [];
+        $stats = $db->fetchOne(
+            "SELECT
+                COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending,
+                COUNT(CASE WHEN status = 'approved' THEN 1 END) as approved,
+                COUNT(CASE WHEN status = 'rejected' THEN 1 END) as rejected
+             FROM overtime_requests WHERE employee_id = ? AND DATE_FORMAT(overtime_date, '%Y-%m') = ?",
+            [$empId, $month]
+        ) ?: [];
+    } else {
+        $rows = $db->fetchAll("SELECT * FROM overtime_requests WHERE employee_id = ? ORDER BY created_at DESC LIMIT 50", [$empId]) ?: [];
+        $stats = $db->fetchOne("SELECT
+            COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending,
+            COUNT(CASE WHEN status = 'approved' THEN 1 END) as approved,
+            COUNT(CASE WHEN status = 'rejected' THEN 1 END) as rejected
+            FROM overtime_requests WHERE employee_id = ? AND YEAR(overtime_date) = YEAR(CURDATE())", [$empId]) ?: [];
+    }
+    echo json_encode(['success' => true, 'data' => $rows, 'stats' => $stats, 'filter_month' => $month]);
     exit;
 }
 

@@ -2671,14 +2671,27 @@ try {
 
             <!-- Monitoring Detail -->
             <div class="card">
-                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
-                    <div class="card-title" style="margin:0;">📅 Detail Absensi</div>
-                    <input type="month" id="monitorMonth" class="fi" style="width:140px;padding:5px 8px;font-size:11px;" value="<?php echo date('Y-m'); ?>" onchange="loadMonitoring()">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
+                    <div class="card-title" style="margin:0;">📅 Detail Absensi & Lembur</div>
+                    <input type="month" id="monitorMonth" class="fi" style="width:140px;padding:5px 8px;font-size:11px;" value="<?php echo date('Y-m'); ?>" onchange="onMonitorMonthChange()">
+                </div>
+                <div style="display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap;">
+                    <button type="button" onclick="shiftMonitorMonth(-1)" style="flex:1;min-width:90px;background:linear-gradient(135deg,#475569,#334155);color:#fff;border:none;padding:8px 10px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;">← Bulan Lalu</button>
+                    <button type="button" onclick="shiftMonitorMonth(0)" style="background:#e2e8f0;color:#0f172a;border:none;padding:8px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">Bulan Ini</button>
+                    <button type="button" onclick="shiftMonitorMonth(1)" style="flex:1;min-width:90px;background:linear-gradient(135deg,#475569,#334155);color:#fff;border:none;padding:8px 10px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;">Bulan Depan →</button>
                 </div>
                 <div id="monitorStats"></div>
                 <div id="monitorTable">
                     <div class="loading"><span class="spin"></span> Memuat...</div>
                 </div>
+                <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border);">
+                    <div style="font-size:11px; color:var(--muted); font-weight:600; margin-bottom:6px;">📋 Pengajuan Lembur Bulan Ini</div>
+                    <div id="monitorLemburStats" style="margin-bottom:8px;"></div>
+                    <div id="monitorLemburHistory">
+                        <div class="loading"><span class="spin"></span> Memuat...</div>
+                    </div>
+                </div>
+                <button type="button" onclick="openSlipForMonitorMonth()" style="margin-top:10px;width:100%;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border:none;padding:10px 12px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;">💰 Lihat Slip Gaji Bulan Ini</button>
             </div>
 
             <!-- Ajukan Cuti -->
@@ -3171,6 +3184,7 @@ try {
         function loadHome() {
             loadAbsen();
             loadMonitoring();
+            loadMonitorLembur();
             if (IS_CAFE) loadSchedule();
             // Preload face models in background so Face Scan opens instantly
             preloadFaceModels();
@@ -3458,6 +3472,101 @@ try {
             } catch (e) {
                 document.getElementById('monitorTable').innerHTML = '<div style="color:var(--red);font-size:11px;">Gagal memuat</div>';
             }
+        }
+
+        // ── Month navigator (mempengaruhi Detail Absensi + Lembur Bulan Ini + tombol Slip) ──
+        function shiftMonitorMonth(delta) {
+            const inp = document.getElementById('monitorMonth');
+            if (!inp) return;
+            let base;
+            if (delta === 0) {
+                base = new Date();
+            } else {
+                const cur = inp.value || new Date().toISOString().substring(0, 7);
+                const [y, m] = cur.split('-').map(Number);
+                base = new Date(y, (m - 1) + delta, 1);
+            }
+            const yy = base.getFullYear();
+            const mm = String(base.getMonth() + 1).padStart(2, '0');
+            inp.value = `${yy}-${mm}`;
+            onMonitorMonthChange();
+        }
+
+        function onMonitorMonthChange() {
+            loadMonitoring();
+            loadMonitorLembur();
+        }
+
+        async function loadMonitorLembur() {
+            const month = document.getElementById('monitorMonth').value || new Date().toISOString().substring(0, 7);
+            const statsEl = document.getElementById('monitorLemburStats');
+            const histEl = document.getElementById('monitorLemburHistory');
+            if (!statsEl || !histEl) return;
+            try {
+                const res = await fetch(API + '&action=overtime_history&month=' + month);
+                const data = await res.json();
+                const stats = data.stats || {};
+                const rows = data.data || [];
+                statsEl.innerHTML = `
+                <div class="stat-row">
+                    <div class="stat-card"><div class="sl">⏳ Pending</div><div class="sv" style="color:var(--orange);">${stats.pending||0}</div></div>
+                    <div class="stat-card"><div class="sl">✅ Disetujui</div><div class="sv" style="color:var(--green);">${stats.approved||0}</div></div>
+                    <div class="stat-card"><div class="sl">❌ Ditolak</div><div class="sv" style="color:var(--red);">${stats.rejected||0}</div></div>
+                </div>`;
+                if (rows.length === 0) {
+                    histEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--muted);font-size:11px;">Tidak ada pengajuan lembur di bulan ini.</div>';
+                    return;
+                }
+                const statusCls = { pending:'ls-pending', approved:'ls-approved', rejected:'ls-rejected' };
+                const statusLabel = { pending:'⏳ Pending', approved:'✅ Disetujui', rejected:'❌ Ditolak' };
+                let html = '';
+                rows.forEach(r => {
+                    const d = new Date(r.overtime_date).toLocaleDateString('id-ID', { weekday:'short', day:'numeric', month:'short' });
+                    html += `<div style="padding:8px 0;border-bottom:1px solid #f1f5f9;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+                            <span style="font-weight:700;font-size:11px;">⏰ ${d}</span>
+                            <span class="leave-status ${statusCls[r.status]||''}">${statusLabel[r.status]||r.status}</span>
+                        </div>
+                        <div style="font-size:10px;color:var(--text);">${r.reason||''}</div>
+                        ${r.admin_notes ? `<div style="font-size:10px;color:var(--blue);margin-top:2px;background:#eff6ff;padding:3px 6px;border-radius:4px;">💬 ${r.admin_notes}</div>` : ''}
+                    </div>`;
+                });
+                histEl.innerHTML = html;
+            } catch (e) {
+                histEl.innerHTML = '<div style="color:var(--red);font-size:11px;">Gagal memuat</div>';
+            }
+        }
+
+        // Tombol "Lihat Slip Gaji Bulan Ini" — pindah ke page Slip & auto-pilih period
+        function openSlipForMonitorMonth() {
+            const month = document.getElementById('monitorMonth').value || new Date().toISOString().substring(0, 7);
+            const [y, m] = month.split('-').map(Number);
+            // Aktifkan nav slipgaji
+            const navItem = document.querySelector('.nav-item[data-page="slipgaji"]');
+            if (navItem) navItem.click();
+            // Setelah loadSlipGaji selesai populate dropdown, coba pilih period yg cocok
+            const trySelect = (attempt = 0) => {
+                const sel = document.getElementById('slipPeriod');
+                if (!sel || sel.options.length === 0 || (sel.options.length === 1 && !sel.value)) {
+                    if (attempt < 20) return setTimeout(() => trySelect(attempt + 1), 150);
+                    return;
+                }
+                // Cari option dgn label memuat tahun dan nama bulan ID
+                const monthNames = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+                const want = monthNames[m - 1] + ' ' + y;
+                let matched = null;
+                for (const opt of sel.options) {
+                    if ((opt.text || '').toLowerCase().includes(want.toLowerCase())) { matched = opt.value; break; }
+                }
+                if (matched && sel.value !== matched) {
+                    sel.value = matched;
+                    if (typeof loadSlipGaji === 'function') loadSlipGaji();
+                } else if (!matched) {
+                    const content = document.getElementById('slipGajiContent');
+                    if (content) content.innerHTML = `<div style="text-align:center;padding:30px 16px;"><div style="font-size:42px;margin-bottom:10px;">📋</div><div style="font-size:12px;color:var(--muted);">Slip gaji untuk <b>${want}</b> belum tersedia.</div><div style="font-size:10px;color:var(--muted);margin-top:4px;">Slip baru muncul setelah payroll bulan tsb diproses & dibayar admin.</div></div>`;
+                }
+            };
+            trySelect();
         }
 
         // ═══ SCHEDULE PAGE (Cafe) ═══
