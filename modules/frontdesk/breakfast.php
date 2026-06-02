@@ -1234,19 +1234,14 @@ include '../../includes/header.php';
             <button type="button" class="bf-modal-close" onclick="closeGuestSetup()">✕</button>
         </div>
         <div class="bf-link-grid">
-            <div class="bf-link-group"><label>Adults (>=7)</label><input type="number" id="setupAdult" min="0" max="10" oninput="updateSetupPax()"></div>
-            <div class="bf-link-group"><label>Kids < 7</label><input type="number" id="setupKidYoung" min="0" max="10" oninput="updateSetupPax()"></div>
-            <div class="bf-link-group"><label>Total Pax</label><input type="number" id="setupTotalPax" min="0" max="20" readonly></div>
+            <div class="bf-link-group"><label>Jatah Pax (Dewasa)</label><input type="number" id="setupPax" min="0" max="20" oninput="updateSetupPax()"></div>
+            <div class="bf-link-group"><label>Jatah Kids (Anak)</label><input type="number" id="setupKids" min="0" max="20" oninput="updateSetupPax()"></div>
+            <div class="bf-link-group"><label>Total Pax</label><input type="number" id="setupTotalPax" min="0" max="40" readonly></div>
         </div>
-        <div class="bf-link-grid" style="margin-top:.5rem">
-            <div class="bf-link-group"><label>Food Quota</label><input type="number" id="setupFood" min="0" max="10"></div>
-            <div class="bf-link-group"><label>Drink Quota</label><input type="number" id="setupDrink" min="0" max="10"></div>
-            <div class="bf-link-group"><label>Fruit / Free Kids Quota</label><input type="number" id="setupFruit" min="0" max="10"></div>
+        <div style="margin-top:.6rem;font-size:.72rem;color:var(--text-muted);line-height:1.5">
+            <b>Jatah Pax</b> = jatah sarapan dewasa (makanan + minuman). <b>Jatah Kids</b> = jatah menu anak.<br>
+            Jika tamu memilih lebih dari jatah, sistem otomatis mendeteksi kelebihannya dan tercatat sebagai <b>Extra Breakfast</b> untuk ditagih saat check-out.
         </div>
-        <div class="bf-link-grid" style="margin-top:.5rem">
-            <div class="bf-link-group"><label>Extra Drink Price (Rp/item)</label><input type="number" id="setupExtraDrink" min="0" step="1000"></div>
-        </div>
-        <div style="margin-top:.55rem;font-size:.72rem;color:var(--text-muted)">Extra Main dan Free Kids tetap fixed Rp 75.000/item. Extra Drink bisa diubah dari field di atas.</div>
         <div class="bf-wa-row" style="justify-content:flex-end;margin-top:.8rem">
             <button type="button" class="bf-btn-reset" onclick="closeGuestSetup()">Cancel</button>
             <button type="button" class="bf-link-send" onclick="saveGuestSetup()">Save Setup</button>
@@ -1312,15 +1307,11 @@ include '../../includes/header.php';
         activeSetupCheckbox = cb;
 
         document.getElementById('guestSetupTitle').textContent = 'Setup: ' + (cb.dataset.name || 'Guest');
-        document.getElementById('setupAdult').value = parseInt(cb.dataset.adults || '1', 10) || 1;
-        document.getElementById('setupKidYoung').value = parseInt(cb.dataset.childYoung || '0', 10) || 0;
-        document.getElementById('setupTotalPax').value = (parseInt(cb.dataset.adults || '1', 10) || 1) + (parseInt(cb.dataset.childYoung || '0', 10) || 0);
-        document.getElementById('setupFood').value = parseInt(cb.dataset.maxMain || '2', 10) || 2;
-        document.getElementById('setupDrink').value = parseInt(cb.dataset.maxDrink || '2', 10) || 2;
-        document.getElementById('setupFruit').value = parseInt(cb.dataset.maxChild || '0', 10) || 0;
-        var setupDrinkPrice = parseInt(cb.dataset.extraDrinkPrice || '20000', 10) || 20000;
-        if (setupDrinkPrice === 75000) setupDrinkPrice = 20000;
-        document.getElementById('setupExtraDrink').value = setupDrinkPrice;
+        var curPax = parseInt(cb.dataset.maxMain || cb.dataset.adults || '2', 10) || 2;
+        var curKids = parseInt(cb.dataset.maxChild || cb.dataset.childYoung || '0', 10) || 0;
+        document.getElementById('setupPax').value = curPax;
+        document.getElementById('setupKids').value = curKids;
+        document.getElementById('setupTotalPax').value = curPax + curKids;
 
         document.getElementById('guestSetupModal').classList.add('show');
     }
@@ -1331,23 +1322,25 @@ include '../../includes/header.php';
     }
 
     function updateSetupPax() {
-        var adults = Math.max(0, parseInt(document.getElementById('setupAdult').value || '0', 10) || 0);
-        var kids = Math.max(0, parseInt(document.getElementById('setupKidYoung').value || '0', 10) || 0);
-        document.getElementById('setupTotalPax').value = adults + kids;
+        var pax = Math.max(0, parseInt(document.getElementById('setupPax').value || '0', 10) || 0);
+        var kids = Math.max(0, parseInt(document.getElementById('setupKids').value || '0', 10) || 0);
+        document.getElementById('setupTotalPax').value = pax + kids;
     }
 
     function saveGuestSetup() {
         if (!activeSetupCheckbox) return;
 
-        var adults = Math.max(0, parseInt(document.getElementById('setupAdult').value || '1', 10) || 1);
-        var kidYoung = Math.max(0, parseInt(document.getElementById('setupKidYoung').value || '0', 10) || 0);
+        var pax = Math.max(0, parseInt(document.getElementById('setupPax').value || '2', 10) || 2);
+        var kids = Math.max(0, parseInt(document.getElementById('setupKids').value || '0', 10) || 0);
+        // Jatah Pax dewasa => kuota makanan & minuman. Jatah Kids => kuota menu anak.
+        var adults = pax;
+        var kidYoung = kids;
         var kidOld = 0;
-        var food = Math.max(0, parseInt(document.getElementById('setupFood').value || '2', 10) || 2);
-        var drink = Math.max(0, parseInt(document.getElementById('setupDrink').value || '2', 10) || 2);
-        var fruit = Math.max(0, parseInt(document.getElementById('setupFruit').value || '0', 10) || 0);
+        var food = pax;
+        var drink = pax;
+        var fruit = kids;
         var extraFood = 75000;
-        var extraDrink = Math.max(0, parseInt(document.getElementById('setupExtraDrink').value || '20000', 10) || 20000);
-        if (extraDrink === 75000) extraDrink = 20000;
+        var extraDrink = 20000;
         var extraFruit = 75000;
 
         activeSetupCheckbox.dataset.adults = String(adults);
