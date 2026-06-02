@@ -1126,6 +1126,7 @@ header('Expires: 0');
             position: relative;
             box-shadow: 0 2px 8px rgba(251, 191, 36, 0.25);
         }
+
         .room-box.dirty::before {
             content: 'DIRTY';
             position: absolute;
@@ -1142,6 +1143,7 @@ header('Expires: 0');
             line-height: 1;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
         }
+
         .room-box.dirty .btn-clean {
             display: inline-block;
             margin-top: 6px;
@@ -1158,10 +1160,12 @@ header('Expires: 0');
             box-shadow: 0 1px 3px rgba(22, 163, 74, 0.35);
             transition: transform 0.15s, box-shadow 0.15s;
         }
+
         .room-box.dirty .btn-clean:hover {
             transform: translateY(-1px);
             box-shadow: 0 3px 8px rgba(22, 163, 74, 0.45);
         }
+
         .room-box.dirty .btn-clean:active {
             transform: translateY(0);
         }
@@ -3518,9 +3522,9 @@ header('Expires: 0');
                     // Jam Kerja: tampilkan 8 jam (standar harian) jika hadir/terlambat; OT hanya bila sudah di-approve
                     const hadir = (wh > 0) || r.status === 'present' || r.status === 'late';
                     const whTxt = hadir ? '8j' : '—';
-                    const otBlock = ot > 0
-                        ? `<div style="font-size:10px;color:${otColor};font-weight:700;">${otLabel} +${ot.toFixed(1)}j</div>`
-                        : (hadir ? `<div style="font-size:9px;color:var(--muted);">tanpa OT</div>` : '');
+                    const otBlock = ot > 0 ?
+                        `<div style="font-size:10px;color:${otColor};font-weight:700;">${otLabel} +${ot.toFixed(1)}j</div>` :
+                        (hadir ? `<div style="font-size:9px;color:var(--muted);">tanpa OT</div>` : '');
 
                     if (IS_CAFE) {
                         html += `<tr><td style="white-space:nowrap;">${day}</td><td style="font-weight:600;color:var(--green);">${s1}</td><td style="font-weight:600;color:var(--navy);">${s2}</td><td style="font-weight:700;">${whTxt}${otBlock}</td><td><span class="badge ${bc}">${statusMap[r.status]||r.status}</span></td></tr>`;
@@ -3729,7 +3733,10 @@ header('Expires: 0');
             try {
                 const fd = new FormData();
                 fd.append('room_id', roomId);
-                const res = await fetch(API + '&action=mark_room_clean', { method: 'POST', body: fd });
+                const res = await fetch(API + '&action=mark_room_clean', {
+                    method: 'POST',
+                    body: fd
+                });
                 const data = await res.json();
                 if (data && data.success) {
                     if (typeof loadOccupancy === 'function') loadOccupancy();
@@ -3823,7 +3830,8 @@ header('Expires: 0');
             document.getElementById('calPopupOverlay').style.display = 'block';
         }
 
-        async function loadOccupancy() {            try {
+        async function loadOccupancy() {
+            try {
                 const res = await fetch(API + '&action=occupancy&start=' + calStartDate);
                 const data = await res.json();
                 const d = data.data || {};

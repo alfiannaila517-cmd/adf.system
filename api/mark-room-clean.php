@@ -66,7 +66,8 @@ try {
                 'Tandai bersih Room ' . ($room['room_number'] ?? $roomId)
             ]
         );
-    } catch (\Throwable $eLog) { /* ignore */ }
+    } catch (\Throwable $eLog) { /* ignore */
+    }
 
     echo json_encode([
         'success' => true,

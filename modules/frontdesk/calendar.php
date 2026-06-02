@@ -883,9 +883,11 @@ include '../../includes/header.php';
         border-right: 2px solid #f59e0b !important;
         box-shadow: inset 0 0 0 2px rgba(245, 158, 11, 0.25);
     }
+
     .grid-room-label.dirty:hover {
         background: linear-gradient(135deg, #fde68a 0%, #fcd34d 100%) !important;
     }
+
     .room-dirty-tag {
         display: inline-block;
         background: #d97706;
@@ -899,6 +901,7 @@ include '../../includes/header.php';
         line-height: 1.3;
         text-transform: uppercase;
     }
+
     .room-clean-btn {
         margin-top: 3px;
         background: #16a34a;
@@ -914,6 +917,7 @@ include '../../includes/header.php';
         box-shadow: 0 1px 2px rgba(22, 163, 74, 0.35);
         transition: transform 0.12s, box-shadow 0.12s;
     }
+
     .room-clean-btn:hover {
         transform: translateY(-1px);
         box-shadow: 0 2px 5px rgba(22, 163, 74, 0.5);
@@ -2804,7 +2808,7 @@ include '../../includes/header.php';
 
         // Source badge - SIMPLIFIED & FIXED
         let bkSrc = (booking.booking_source || 'walk_in').trim().toLowerCase();
-        
+
         // Hardcoded source name mapping
         const sourceNameMap = {
             'walk_in': 'Walk-In',
@@ -2820,10 +2824,10 @@ include '../../includes/header.php';
             'pegipegi': '🧳 OTA Pegipegi',
             'ota': '🌐 OTA Lainnya'
         };
-        
+
         // Determine display source
         let displaySource = sourceNameMap[bkSrc] || bkSrc.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-        
+
         // Update element
         const sourceEl = document.getElementById('sp-source');
         if (sourceEl) {
@@ -3701,7 +3705,11 @@ include '../../includes/header.php';
         try {
             const fd = new FormData();
             fd.append('room_id', roomId);
-            const res = await fetch('<?php echo BASE_URL; ?>/api/mark-room-clean.php', { method: 'POST', body: fd, credentials: 'same-origin' });
+            const res = await fetch('<?php echo BASE_URL; ?>/api/mark-room-clean.php', {
+                method: 'POST',
+                body: fd,
+                credentials: 'same-origin'
+            });
             const data = await res.json();
             if (data && data.success) {
                 location.reload();
