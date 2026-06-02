@@ -97,7 +97,7 @@ try {
         AND NOT EXISTS (
             SELECT 1 FROM breakfast_orders bo 
             WHERE bo.breakfast_date = ? 
-            AND FIND_IN_SET(g.guest_name, REPLACE(bo.guest_name, ', ', ',')) > 0
+            AND bo.room_number LIKE CONCAT('%\"', r.room_number, '\"%')
         )
         GROUP BY g.id, g.guest_name
         ORDER BY MIN(r.room_number) ASC
@@ -106,6 +106,30 @@ try {
     $inHouseGuests = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (Exception $e) {
 }
+
+// Map Extra Breakfast (over-quota) per room number for today — used to flag orders
+$extraByRoom = [];
+try {
+    $exStmt = $pdo->prepare("
+        SELECT be.booking_id, r.room_number,
+               COALESCE(SUM(be.total_price), 0) as extra_total
+        FROM booking_extras be
+        LEFT JOIN bookings b ON be.booking_id = b.id
+        LEFT JOIN rooms r ON b.room_id = r.id
+        WHERE be.item_name = 'Extra Breakfast'
+          AND (be.notes LIKE ? OR DATE(be.created_at) = ?)
+        GROUP BY be.booking_id, r.room_number
+    ");
+    $exStmt->execute(['%date=' . $today . '%', $today]);
+    foreach ($exStmt->fetchAll(PDO::FETCH_ASSOC) as $ex) {
+        $rn = (string)($ex['room_number'] ?? '');
+        if ($rn !== '') {
+            $extraByRoom[$rn] = ($extraByRoom[$rn] ?? 0) + (float)$ex['extra_total'];
+        }
+    }
+} catch (Exception $e) {
+}
+
 
 // Today's orders for sidebar
 $todayOrders = [];
@@ -544,7 +568,24 @@ include '../../includes/header.php';
         margin-bottom: .35rem
     }
 
-    .bf-order-menus {
+    .bf-order-extra-badge {
+        font-size: .68rem;
+        font-weight: 700;
+        color: #b45309;
+        background: rgba(245, 158, 11, .14);
+        border: 1px solid rgba(245, 158, 11, .35);
+        border-radius: 6px;
+        padding: .25rem .45rem;
+        margin-bottom: .4rem;
+        line-height: 1.3
+    }
+
+    .bf-order-extra-badge span {
+        font-weight: 500;
+        opacity: .8
+    }
+
+
         display: flex;
         flex-wrap: wrap;
         gap: .25rem
@@ -1191,8 +1232,17 @@ include '../../includes/header.php';
                         <?php
                         $rooms = json_decode($order['room_number'], true);
                         $roomStr = is_array($rooms) ? implode(', ', $rooms) : ($order['room_number'] ?: '-');
+                        // Detect Extra Breakfast (over-quota) for this order's room(s)
+                        $orderRooms = is_array($rooms) ? $rooms : array_filter(array_map('trim', explode(',', (string)$order['room_number'])));
+                        $extraAmt = 0;
+                        foreach ($orderRooms as $rm) {
+                            if (isset($extraByRoom[(string)$rm])) $extraAmt += (float)$extraByRoom[(string)$rm];
+                        }
                         ?>
                         <div class="bf-order-room">🛏️ Room <?php echo htmlspecialchars($roomStr); ?></div>
+                        <?php if ($extraAmt > 0): ?>
+                            <div class="bf-order-extra-badge">⚠️ Extra Breakfast: Rp <?php echo number_format($extraAmt, 0, ',', '.'); ?> <span>(tagih saat check-out)</span></div>
+                        <?php endif; ?>
                         <div class="bf-order-room"><?php echo ($order['location'] ?? 'restaurant') === 'restaurant' ? '🍽️ Restaurant' : (($order['location'] ?? '') === 'take_away' ? '🥡 Take Away' : '🚪 Room Service'); ?></div>
                         <div class="bf-order-menus">
                             <?php foreach ($order['menu_items'] as $item): ?>

@@ -143,13 +143,32 @@ try {
             $gName = trim($guest['guest_name'] ?? '');
             if (empty($gName)) continue;
 
-            // Check if this guest already has an order today (exact or within combined name)
-            $existing = $db->fetchOne(
-                "SELECT id FROM breakfast_orders WHERE breakfast_date = ? AND FIND_IN_SET(?, REPLACE(guest_name, ', ', ',')) > 0",
-                [$breakfastDate, $gName]
-            );
-            if ($existing) {
-                $skipped[] = $gName;
+            $gRooms = $guest['room_number'] ?? [];
+            if (!is_array($gRooms)) $gRooms = [$gRooms];
+            $gRooms = array_values(array_filter(array_map('trim', $gRooms)));
+
+            // Duplicate check by ROOM NUMBER (reliable for group bookings with same guest name)
+            $already = false;
+            foreach ($gRooms as $rm) {
+                $ex = $db->fetchOne(
+                    "SELECT id FROM breakfast_orders WHERE breakfast_date = ? AND room_number LIKE ?",
+                    [$breakfastDate, '%"' . $rm . '"%']
+                );
+                if ($ex) {
+                    $already = true;
+                    break;
+                }
+            }
+            // Fallback to name check only when guest has no room assigned
+            if (!$already && count($gRooms) === 0) {
+                $ex = $db->fetchOne(
+                    "SELECT id FROM breakfast_orders WHERE breakfast_date = ? AND FIND_IN_SET(?, REPLACE(guest_name, ', ', ',')) > 0",
+                    [$breakfastDate, $gName]
+                );
+                if ($ex) $already = true;
+            }
+            if ($already) {
+                $skipped[] = $gName . (count($gRooms) ? ' (Room ' . implode(',', $gRooms) . ')' : '');
                 continue;
             }
 
@@ -157,10 +176,7 @@ try {
             if ($firstBookingId === null && !empty($guest['booking_id'])) {
                 $firstBookingId = (int)$guest['booking_id'];
             }
-            $gRooms = $guest['room_number'] ?? [];
-            if (!is_array($gRooms)) $gRooms = [$gRooms];
             foreach ($gRooms as $r) {
-                $r = trim($r);
                 if (!empty($r) && !in_array($r, $allRooms)) $allRooms[] = $r;
             }
         }
@@ -208,17 +224,35 @@ try {
 
         if (empty($guestName)) throw new Exception('Nama tamu harus diisi');
 
-        // DUPLICATE PREVENTION: check exact name or within combined order
-        $existing = $db->fetchOne(
-            "SELECT id FROM breakfast_orders WHERE breakfast_date = ? AND FIND_IN_SET(?, REPLACE(guest_name, ', ', ',')) > 0",
-            [$breakfastDate, $guestName]
-        );
-        if ($existing) {
-            echo json_encode([
-                'success' => false,
-                'message' => "{$guestName} sudah punya order hari ini (ID #{$existing['id']}). Edit atau hapus dulu."
-            ]);
-            exit;
+        // DUPLICATE PREVENTION by ROOM NUMBER (handles group bookings with identical names)
+        $cleanRooms = array_values(array_filter(array_map('trim', $roomNumbers)));
+        $existing = null;
+        foreach ($cleanRooms as $rm) {
+            $existing = $db->fetchOne(
+                "SELECT id FROM breakfast_orders WHERE breakfast_date = ? AND room_number LIKE ?",
+                [$breakfastDate, '%"' . $rm . '"%']
+            );
+            if ($existing) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => "Room {$rm} sudah punya order hari ini (ID #{$existing['id']}). Edit atau hapus dulu."
+                ]);
+                exit;
+            }
+        }
+        // Fallback to name check only when no room assigned
+        if (count($cleanRooms) === 0) {
+            $existing = $db->fetchOne(
+                "SELECT id FROM breakfast_orders WHERE breakfast_date = ? AND FIND_IN_SET(?, REPLACE(guest_name, ', ', ',')) > 0",
+                [$breakfastDate, $guestName]
+            );
+            if ($existing) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => "{$guestName} sudah punya order hari ini (ID #{$existing['id']}). Edit atau hapus dulu."
+                ]);
+                exit;
+            }
         }
 
         $stmt = $pdo->prepare("INSERT INTO breakfast_orders 

@@ -560,10 +560,19 @@ if ($action === 'create_link') {
     ]);
 
     try {
-        $pdo->prepare("UPDATE breakfast_guest_links
-            SET link_status = 'expired'
-            WHERE breakfast_date = ? AND LOWER(TRIM(guest_name)) = LOWER(TRIM(?)) AND link_status = 'open'")
-            ->execute([$breakfastDate, $guestName]);
+        // Expire previous open links scoped by booking (room) when available,
+        // so group bookings with identical guest names don't cancel each other's link.
+        if ($bookingId) {
+            $pdo->prepare("UPDATE breakfast_guest_links
+                SET link_status = 'expired'
+                WHERE breakfast_date = ? AND booking_id = ? AND link_status = 'open'")
+                ->execute([$breakfastDate, $bookingId]);
+        } else {
+            $pdo->prepare("UPDATE breakfast_guest_links
+                SET link_status = 'expired'
+                WHERE breakfast_date = ? AND LOWER(TRIM(guest_name)) = LOWER(TRIM(?)) AND link_status = 'open'")
+                ->execute([$breakfastDate, $guestName]);
+        }
 
         if ($bookingId) {
             $pdo->prepare("INSERT INTO breakfast_guest_quota
