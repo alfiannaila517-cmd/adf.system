@@ -78,6 +78,44 @@ function ensureTablesExist($pdo)
     }
 }
 
+// ── Helper: Probe a business DB connection BEFORE switching ──
+// Database::switchDatabase() calls die() on a failed connection, which would
+// abort the whole multi-business loop. We probe first and skip unreachable DBs
+// (e.g. a leftover test business whose DB no longer exists).
+function canConnectBusiness($cfg)
+{
+    $dbName = $cfg['database'] ?? '';
+    if ($dbName === '') {
+        return false;
+    }
+    // Replicate the hosting name mapping done inside Database::switchDatabase()
+    $isProduction = (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') === false &&
+        strpos($_SERVER['HTTP_HOST'] ?? '', '127.0.0.1') === false);
+    if ($isProduction && strpos($dbName, 'adfb2574_') !== 0 && strpos($dbName, 'adf_') === 0) {
+        $map = [
+            'adf_system' => 'adfb2574_adf',
+            'adf_narayana_hotel' => 'adfb2574_narayana_hotel',
+            'adf_benscafe' => 'adfb2574_Adf_Bens',
+            'adf_demo' => 'adfb2574_demo',
+            'adf_cqc' => 'adfb2574_cqc',
+        ];
+        $dbName = $map[$dbName] ?? ('adfb2574_' . substr($dbName, 4));
+    }
+    try {
+        $probe = new PDO(
+            'mysql:host=' . DB_HOST . ';dbname=' . $dbName . ';charset=' . DB_CHARSET,
+            DB_USER,
+            DB_PASS,
+            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_TIMEOUT => 5]
+        );
+        $probe = null;
+        return true;
+    } catch (PDOException $e) {
+        error_log('Fingerprint webhook: skip unreachable DB ' . $dbName . ': ' . $e->getMessage());
+        return false;
+    }
+}
+
 // ── Helper: Process a single scan for one business DB ──
 // Returns ['success' => bool, 'message' => string]
 function processAttlogForBusiness($pdo, $bizSlug, $cloudId, $type, $pin, $scanStr, $verify, $statusScan, $rawBody)
@@ -313,6 +351,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['diag'])) {
             $slug = basename($bf, '.php');
             try {
                 $cfg = require $bf;
+                if (!canConnectBusiness($cfg)) {
+                    $diag['businesses'][] = ['slug' => $slug, 'error' => 'DB unreachable, skipped'];
+                    continue;
+                }
                 $bdb = Database::switchDatabase($cfg['database']);
                 $bpdo = $bdb->getConnection();
                 ensureTablesExist($bpdo);
@@ -362,6 +404,9 @@ if (!$data || !isset($data['type']) || !isset($data['cloud_id'])) {
         foreach ($bizFiles as $bf) {
             try {
                 $cfg = require $bf;
+                if (!canConnectBusiness($cfg)) {
+                    continue;
+                }
                 $bdb = Database::switchDatabase($cfg['database']);
                 $logPdo = $bdb->getConnection();
                 ensureTablesExist($logPdo);
@@ -393,6 +438,9 @@ if (!$singleBizMode) {
         $slug = basename($bf, '.php');
         try {
             $cfg = require $bf;
+            if (!canConnectBusiness($cfg)) {
+                continue;
+            }
             $bdb = Database::switchDatabase($cfg['database']);
             $bpdo = $bdb->getConnection();
             ensureTablesExist($bpdo);
