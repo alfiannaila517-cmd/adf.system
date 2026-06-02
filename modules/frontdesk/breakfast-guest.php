@@ -1289,7 +1289,7 @@ $token = trim((string)($_GET['t'] ?? ''));
                     submitTitle: 'Additional Notes',
                     allowedMain: 'Allowed Main Course',
                     allowedDrink: 'Allowed Beverages',
-                    allowedChild: 'Allowed Kids / Fruit',
+                    allowedChild: 'Kids / Fruit (free)',
                     selected: 'Selected',
                     continueDetails: 'Fix Selection & Continue',
                     breakfastTime: 'Breakfast Time',
@@ -1319,7 +1319,10 @@ $token = trim((string)($_GET['t'] ?? ''));
                     expires: 'Expires',
                     cartGroupMain: 'Main',
                     cartGroupDrink: 'Drink',
-                    cartGroupChild: 'Kids / Fruit'
+                    cartGroupChild: 'Kids / Fruit',
+                    cartSummaryLine: '<strong>{count}</strong> menu, total pax <strong>{pax}</strong>.',
+                    freeLabel: 'FREE',
+                    noteLabel: 'Note'
                 },
                 id: {
                     loading: 'Memuat detail...',
@@ -1333,7 +1336,7 @@ $token = trim((string)($_GET['t'] ?? ''));
                     submitTitle: 'Catatan Tambahan',
                     allowedMain: 'Jatah Menu Utama',
                     allowedDrink: 'Jatah Minuman',
-                    allowedChild: 'Jatah Anak / Buah',
+                    allowedChild: 'Anak / Buah (gratis)',
                     selected: 'Dipilih',
                     continueDetails: 'Lanjut Isi Detail',
                     breakfastTime: 'Waktu Sarapan',
@@ -1363,7 +1366,10 @@ $token = trim((string)($_GET['t'] ?? ''));
                     expires: 'Kedaluwarsa',
                     cartGroupMain: 'Utama',
                     cartGroupDrink: 'Minuman',
-                    cartGroupChild: 'Anak / Buah'
+                    cartGroupChild: 'Anak / Buah',
+                    cartSummaryLine: '<strong>{count}</strong> menu, total pax <strong>{pax}</strong>.',
+                    freeLabel: 'GRATIS',
+                    noteLabel: 'Catatan'
                 }
             };
 
@@ -1726,7 +1732,7 @@ $token = trim((string)($_GET['t'] ?? ''));
                         '<div class="menu-desc">' + esc(desc) + '</div>' +
                         '<div class="menu-footer">' +
                         '<span class="menu-cat">' + esc(item.category || '-') + '</span>' +
-                        '<span class="menu-price ' + (free ? 'free' : '') + '">' + (free ? 'FREE' : 'Rp ' + Math.round(price).toLocaleString('id-ID')) + '</span>' +
+                        '<span class="menu-price ' + (free ? 'free' : '') + '">' + (free ? t('freeLabel') : 'Rp ' + Math.round(price).toLocaleString('id-ID')) + '</span>' +
                         '</div>' +
                         qtyHtmlLocked +
                         noteHtmlLocked +
@@ -1754,7 +1760,7 @@ $token = trim((string)($_GET['t'] ?? ''));
                     '<div class="menu-desc">' + esc(desc) + '</div>' +
                     '<div class="menu-footer">' +
                     '<span class="menu-cat">' + esc(item.category || '-') + '</span>' +
-                    '<span class="menu-price ' + (free ? 'free' : '') + '">' + (free ? 'FREE' : 'Rp ' + Math.round(price).toLocaleString('id-ID')) + '</span>' +
+                    '<span class="menu-price ' + (free ? 'free' : '') + '">' + (free ? t('freeLabel') : 'Rp ' + Math.round(price).toLocaleString('id-ID')) + '</span>' +
                     '</div>' +
                     qtyHtmlEdit +
                     noteHtmlEdit +
@@ -1785,6 +1791,14 @@ $token = trim((string)($_GET['t'] ?? ''));
                     return;
                 }
                 var est = Math.max(0, extraUnitPrice || 0) * extraCount;
+                // Free quota (e.g. kids/fruit) is never charged - show "included" note instead of extra charge.
+                if (!(extraUnitPrice > 0)) {
+                    infoEl.textContent = (max <= 0) ? '' :
+                        ((lang === 'id') ?
+                            ('Termasuk gratis - tidak ada biaya tambahan.') :
+                            ('Included free - no extra charge.'));
+                    return;
+                }
                 var estText = est > 0 ?
                     ((lang === 'id') ?
                         (' (estimasi +' + est.toLocaleString('id-ID') + ')') :
@@ -1915,10 +1929,10 @@ $token = trim((string)($_GET['t'] ?? ''));
                 items.forEach(function(it) {
                     totalPax += parseInt(it.qty || 1, 10) || 1;
                 });
-                cartSummaryText.innerHTML = '<strong>' + items.length + '</strong> menu, total pax <strong>' + totalPax + '</strong>.';
+                cartSummaryText.innerHTML = t('cartSummaryLine', { count: items.length, pax: totalPax });
                 cartList.innerHTML = items.map(function(item) {
-                    var priceText = item.free ? 'FREE' : 'Rp ' + Math.round(item.price).toLocaleString('id-ID');
-                    var noteHtml = item.note ? '<div class="cart-note">Note: ' + esc(item.note) + '</div>' : '';
+                    var priceText = item.free ? t('freeLabel') : 'Rp ' + Math.round(item.price).toLocaleString('id-ID');
+                    var noteHtml = item.note ? '<div class="cart-note">' + esc(t('noteLabel')) + ': ' + esc(item.note) + '</div>' : '';
                     var groupLabel = item.group === 'main' ?
                         t('cartGroupMain') :
                         (item.group === 'drink' ? t('cartGroupDrink') : t('cartGroupChild'));
@@ -1940,15 +1954,26 @@ $token = trim((string)($_GET['t'] ?? ''));
                 }).join('');
             }
 
+            function renderMenuGrids() {
+                if (!payload) return;
+                if (mainGrid) mainGrid.innerHTML = (payload.view_main_menus || []).map(function(m) {
+                    return menuCard(m, 'main');
+                }).join('');
+                if (drinkGrid) drinkGrid.innerHTML = (payload.view_drink_menus || []).map(function(m) {
+                    return menuCard(m, 'drink');
+                }).join('');
+                if (childGrid) childGrid.innerHTML = (payload.view_child_menus || []).map(function(m) {
+                    return menuCard(m, 'child');
+                }).join('');
+            }
+
             function countOverQuota() {
                 if (!payload || payload.is_locked) return {
                     total: 0,
                     details: []
-                };
-                var groups = [
+                };                var groups = [
                     ['main', parseInt(payload.max_main || 0, 10)],
-                    ['drink', parseInt(payload.max_drink || 0, 10)],
-                    ['child', parseInt(payload.max_child || 0, 10)]
+                    ['drink', parseInt(payload.max_drink || 0, 10)]
                 ];
                 var details = [];
                 var total = 0;
@@ -1983,16 +2008,13 @@ $token = trim((string)($_GET['t'] ?? ''));
 
                 var extraMain = Math.max(0, getSelectedQtyTotal('main') - parseInt(payload.max_main || 0, 10));
                 var extraDrink = Math.max(0, getSelectedQtyTotal('drink') - parseInt(payload.max_drink || 0, 10));
-                var extraChild = Math.max(0, getSelectedQtyTotal('child') - parseInt(payload.max_child || 0, 10));
                 var lines = [];
                 if (extraMain > 0) lines.push(lang === 'id' ? (extraMain + ' extra menu utama') : (extraMain + ' extra main'));
                 if (extraDrink > 0) lines.push(lang === 'id' ? (extraDrink + ' extra minuman') : (extraDrink + ' extra drink'));
-                if (extraChild > 0) lines.push(lang === 'id' ? (extraChild + ' extra anak/buah') : (extraChild + ' extra kids/fruit'));
 
                 var estTotal =
                     (extraMain * (parseFloat(payload.extra_main_price || 0) || 0)) +
-                    (extraDrink * (parseFloat(payload.extra_drink_price || 0) || 0)) +
-                    (extraChild * (parseFloat(payload.extra_child_price || 0) || 0));
+                    (extraDrink * (parseFloat(payload.extra_drink_price || 0) || 0));
                 if (quotaPopupTextEl) quotaPopupTextEl.textContent = (lang === 'id') ?
                     'Pilihan Anda melebihi jatah sarapan yang termasuk.' :
                     'You selected more than the included breakfast allowance.';
@@ -2008,8 +2030,7 @@ $token = trim((string)($_GET['t'] ?? ''));
             function enforceQuotaLimits() {
                 var groups = [
                     ['main', parseInt(payload.max_main || 0, 10)],
-                    ['drink', parseInt(payload.max_drink || 0, 10)],
-                    ['child', parseInt(payload.max_child || 0, 10)]
+                    ['drink', parseInt(payload.max_drink || 0, 10)]
                 ];
                 groups.forEach(function(pair) {
                     var group = pair[0];
@@ -2190,11 +2211,19 @@ $token = trim((string)($_GET['t'] ?? ''));
                     payload.view_drink_menus = filterSelectedMenus(payload.drink_menus || [], payload.selected_drink_ids || []);
                     payload.view_child_menus = filterSelectedMenus(payload.child_menus || [], payload.selected_child_ids || []);
 
-                    // Auto language from guest profile (local -> Indonesian, foreign -> English)
-                    if (payload.preferred_lang === 'id' || payload.preferred_lang === 'en') {
+                    // Auto language from guest profile (local -> Indonesian, foreign -> English).
+                    // A manual language pick (saved in localStorage) always wins over the auto default.
+                    var manualLang = null;
+                    try {
+                        var ls = localStorage.getItem('breakfastPortalLang');
+                        if (ls === 'id' || ls === 'en') manualLang = ls;
+                    } catch (e) {}
+                    if (manualLang) {
+                        lang = manualLang;
+                    } else if (payload.preferred_lang === 'id' || payload.preferred_lang === 'en') {
                         lang = payload.preferred_lang;
-                        if (langSelectEl) langSelectEl.value = lang;
                     }
+                    if (langSelectEl) langSelectEl.value = lang;
 
                     if (payload.auto_on_the_spot_midnight) {
                         var primaryMsg = (lang === 'id') ?
@@ -2226,15 +2255,7 @@ $token = trim((string)($_GET['t'] ?? ''));
                     renderMeta();
                     openCards();
 
-                    mainGrid.innerHTML = (payload.view_main_menus || []).map(function(m) {
-                        return menuCard(m, 'main');
-                    }).join('');
-                    drinkGrid.innerHTML = (payload.view_drink_menus || []).map(function(m) {
-                        return menuCard(m, 'drink');
-                    }).join('');
-                    childGrid.innerHTML = (payload.view_child_menus || []).map(function(m) {
-                        return menuCard(m, 'child');
-                    }).join('');
+                    renderMenuGrids();
 
                     refreshQuotaInfo('main', parseInt(payload.max_main || 0, 10), document.getElementById('mainSelected'), 'mainExtraInfo', parseFloat(payload.extra_main_price || 0));
                     refreshQuotaInfo('drink', parseInt(payload.max_drink || 0, 10), document.getElementById('drinkSelected'), 'drinkExtraInfo', parseFloat(payload.extra_drink_price || 0));
@@ -2391,6 +2412,7 @@ $token = trim((string)($_GET['t'] ?? ''));
                     } catch (e) {}
                     fillBreakfastTimeOptions();
                     applyLanguage();
+                    renderMenuGrids();
                     refreshSelectionUI();
                 });
             }
