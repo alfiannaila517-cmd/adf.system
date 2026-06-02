@@ -77,7 +77,31 @@ foreach ($bizFiles as $bf) {
         continue;
     }
     try {
-        $cfg  = require $bf;
+        $cfg = require $bf;
+        if (empty($cfg['database'])) {
+            continue;
+        }
+
+        // Resolve hosting DB name the same way Database::switchDatabase() does,
+        // then probe the connection FIRST. switchDatabase() calls die() on a
+        // failed connection, so we must skip unreachable (test/demo) DBs here.
+        $dbName = $cfg['database'];
+        if (strpos($dbName, 'adfb2574_') !== 0 && strpos($dbName, 'adf_') === 0) {
+            $dbName = 'adfb2574_' . substr($dbName, 4);
+        }
+        try {
+            $probe = new PDO(
+                'mysql:host=' . DB_HOST . ';dbname=' . $dbName . ';charset=' . DB_CHARSET,
+                DB_USER,
+                DB_PASS,
+                [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_TIMEOUT => 5]
+            );
+            $probe = null;
+        } catch (PDOException $pe) {
+            error_log("Cron-sync: skip {$slug} (DB unreachable): " . $pe->getMessage());
+            continue;
+        }
+
         $bdb  = Database::switchDatabase($cfg['database']);
         $bpdo = $bdb->getConnection();
 
