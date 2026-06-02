@@ -3510,11 +3510,11 @@ if ($healthScore >= 80) {
                                     $txAccId = isset($kas['cash_account_id']) ? (int)$kas['cash_account_id'] : 0;
                                     $isOperationalIn = $isMasuk && $txAccId > 0 && in_array($txAccId, $operationalIds);
                                     if ($isOperationalIn) {
-                                        $rowColor = '#34d399'; // green
+                                        $rowColor = '#0f9d6a'; // green (income operasional)
                                     } elseif (!$isMasuk) {
-                                        $rowColor = '#f87171'; // red
+                                        $rowColor = '#d83a5b'; // red (pengeluaran)
                                     } else {
-                                        $rowColor = '#e2e8f0'; // white
+                                        $rowColor = '#0d2440'; // navy pekat (income dari tamu)
                                     }
                                 ?>
                                     <tr>
