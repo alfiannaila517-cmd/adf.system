@@ -1391,7 +1391,7 @@ include '../../includes/header.php';
         var fruit = kids;
         var extraFood = 75000;
         var extraDrink = 20000;
-        var extraFruit = 75000;
+        var extraFruit = 0; // Kids / fruit portion is always free.
 
         activeSetupCheckbox.dataset.adults = String(adults);
         activeSetupCheckbox.dataset.childYoung = String(kidYoung);

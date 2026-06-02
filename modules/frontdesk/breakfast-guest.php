@@ -2359,6 +2359,9 @@ $token = trim((string)($_GET['t'] ?? ''));
                             Math.round(json.data.extra_total_price).toLocaleString('id-ID') +
                             (lang === 'id' ? ' (bayar di Front Desk).' : ' (pay at Front Desk).');
                     }
+                    if (json.service_note) {
+                        msgEl.textContent += ' ' + json.service_note;
+                    }
                     msgEl.classList.add('ok');
                     btn.textContent = (lang === 'id') ? 'Terkirim' : 'Submitted';
                     await loadLink();

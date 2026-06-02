@@ -824,6 +824,8 @@ if ($action === 'get_link') {
         if ((int)round($extraDrinkPrice) === 75000) $extraDrinkPrice = 20000.0;
         $extraChildPrice = max(0, to_float($quotaRow['extra_child_price'] ?? 75000, 75000));
     }
+    // Kids / child portion (fruit) is ALWAYS free - never charged.
+    $extraChildPrice = 0.0;
     $waMediaUrl = '';
     if ($waMediaPath) {
         $waMediaUrl = (strpos($waMediaPath, 'http') === 0)
@@ -976,13 +978,13 @@ if ($action === 'submit_link') {
     $specialRequests = trim((string)($body['special_requests'] ?? ''));
     $serviceType = trim((string)($body['service_type'] ?? $body['location'] ?? ''));
     if (!in_array($serviceType, ['restaurant', 'room_service', 'take_away'], true)) {
-        echo json_encode(['success' => false, 'message' => 'Pilih layanan breakfast: Restaurant / Room Service / Take Away']);
+        echo json_encode(['success' => false, 'message' => $msg('Pilih layanan breakfast: Restaurant / Room Service / Take Away', 'Please choose a breakfast service: Restaurant / Room Service / Take Away')]);
         exit;
     }
 
     $breakfastLocation = trim((string)($body['breakfast_location'] ?? ''));
     if ($breakfastLocation === '') {
-        echo json_encode(['success' => false, 'message' => 'Lokasi breakfast wajib diisi']);
+        echo json_encode(['success' => false, 'message' => $msg('Lokasi breakfast wajib diisi', 'Breakfast location is required')]);
         exit;
     }
     if (mb_strlen($breakfastLocation) > 120) {
@@ -991,7 +993,7 @@ if ($action === 'submit_link') {
 
     $breakfastTimeRaw = trim((string)($body['breakfast_time'] ?? ''));
     if (!preg_match('/^([01][0-9]|2[0-3]):([0-5][0-9])$/', $breakfastTimeRaw, $mt)) {
-        echo json_encode(['success' => false, 'message' => 'Waktu breakfast wajib diisi (format HH:MM)']);
+        echo json_encode(['success' => false, 'message' => $msg('Waktu breakfast wajib diisi (format HH:MM)', 'Breakfast time is required (format HH:MM)')]);
         exit;
     }
     $breakfastTime = sprintf('%02d:%02d:00', (int)$mt[1], (int)$mt[2]);
@@ -1074,6 +1076,8 @@ if ($action === 'submit_link') {
             if ((int)round($extraDrinkPrice) === 75000) $extraDrinkPrice = 20000.0;
             $extraChildPrice = max(0, to_float($quotaRow['extra_child_price'] ?? 75000, 75000));
         }
+        // Kids / child portion (fruit) is ALWAYS free - never charged.
+        $extraChildPrice = 0.0;
 
         $menuItems = [];
         $totalPrice = 0;
@@ -1326,7 +1330,7 @@ if ($action === 'submit_link') {
             $extraLabel = [];
             if ($extraMainCount > 0) $extraLabel[] = 'main x' . $extraMainCount;
             if ($extraDrinkCount > 0) $extraLabel[] = 'drink x' . $extraDrinkCount;
-            if ($extraChildCount > 0) $extraLabel[] = 'child x' . $extraChildCount;
+            // Kids/child portion is free - not added to the charge label.
             $extraNotes = 'Auto extra from guest portal [' . implode(', ', $extraLabel) . '] token=' . ($link['short_code'] ?? $token) . ' date=' . $breakfastDate;
 
             // Prevent duplicate extra rows for the same link token: update if exists, else insert.
@@ -1420,7 +1424,11 @@ if ($action === 'submit_link') {
         $pdo->commit();
         echo json_encode([
             'success' => true,
-            'message' => 'Pilihan sarapan berhasil dikirim',
+            'message' => $msg('Pilihan sarapan berhasil dikirim', 'Breakfast selection submitted successfully'),
+            'service_note' => $msg(
+                'Sarapan ini sudah termasuk buah & orange juice - silakan beri tahu waiters.',
+                'This breakfast already includes fruit & orange juice - please inform the waiters.'
+            ),
             'data' => [
                 'order_id' => $orderId,
                 'extra_main_count' => $extraMainCount,
