@@ -1474,6 +1474,22 @@ include '../../includes/header.php';
 
     // Form submit via AJAX
     var submitting = false;
+
+    // Build an over-quota notification message from the save API response.
+    function bfExtraMessage(res) {
+        var charge = parseFloat(res && res.extra_charge) || 0;
+        if (charge <= 0) return '';
+        var parts = [];
+        var em = parseInt(res.extra_main) || 0;
+        var ed = parseInt(res.extra_drink) || 0;
+        if (em > 0) parts.push(em + ' menu utama');
+        if (ed > 0) parts.push(ed + ' minuman');
+        var rp = 'Rp ' + charge.toLocaleString('id-ID');
+        return '⚠️ Melebihi jatah sarapan: ' + parts.join(' + ') +
+            '.\nTagihan Extra Breakfast ' + rp +
+            ' otomatis ditambahkan ke Hotel Service Invoice.';
+    }
+
     document.getElementById('bfForm').addEventListener('submit', function(e) {
         e.preventDefault();
         if (submitting) return;
@@ -1512,6 +1528,8 @@ include '../../includes/header.php';
                 })
                 .then(function(res) {
                     if (res.success) {
+                        var em = bfExtraMessage(res);
+                        if (em) alert(em);
                         window.location.href = 'breakfast.php?success=' + encodeURIComponent(res.message);
                     } else {
                         alert('❌ ' + (res.message || 'Gagal'));
@@ -1569,6 +1587,8 @@ include '../../includes/header.php';
             })
             .then(function(res) {
                 if (res.success) {
+                    var em = bfExtraMessage(res);
+                    if (em) alert(em);
                     window.location.href = 'breakfast.php?success=' + encodeURIComponent(res.message);
                 } else {
                     alert('❌ ' + (res.message || 'Gagal menyimpan'));

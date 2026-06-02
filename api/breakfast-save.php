@@ -51,6 +51,134 @@ try {
 // User from session (already validated by requireLogin)
 $validUserId = !empty($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
 
+/**
+ * Compute over-quota Extra Breakfast charge for a manual (front desk) order.
+ * Kids / fruit portion is ALWAYS free and never counted. Only main course and
+ * beverages above the guest's allowance are charged.
+ *
+ * @param array $bookingIds  one or more booking ids whose quotas are summed
+ * @param array $menuItems   selected items (each has menu_id, quantity, category)
+ * @return array{charge:float, extra_main:int, extra_drink:int, max_main:int, max_drink:int}
+ */
+function bf_compute_extra($db, array $bookingIds, array $menuItems)
+{
+    $result = ['charge' => 0.0, 'extra_main' => 0, 'extra_drink' => 0, 'max_main' => 0, 'max_drink' => 0];
+    $bookingIds = array_values(array_unique(array_filter(array_map('intval', $bookingIds), function ($v) {
+        return $v > 0;
+    })));
+    if (count($bookingIds) === 0) return $result;
+
+    $maxMain = 0;
+    $maxDrink = 0;
+    $extraMainPrice = 75000.0;
+    $extraDrinkPrice = 20000.0;
+    $childIds = [];
+    $foundQuota = false;
+
+    foreach ($bookingIds as $bid) {
+        $q = $db->fetchOne(
+            "SELECT max_main, max_drink, child_menu_ids, extra_main_price, extra_drink_price
+             FROM breakfast_guest_quota WHERE booking_id = ? LIMIT 1",
+            [$bid]
+        );
+        if (!$q) continue;
+        $foundQuota = true;
+        $maxMain += max(0, (int)$q['max_main']);
+        $maxDrink += max(0, (int)$q['max_drink']);
+        $emp = (float)($q['extra_main_price'] ?? 75000);
+        if ($emp > 0) $extraMainPrice = $emp;
+        $edp = (float)($q['extra_drink_price'] ?? 20000);
+        if ((int)round($edp) === 75000) $edp = 20000.0;
+        if ($edp > 0) $extraDrinkPrice = $edp;
+        $cids = json_decode($q['child_menu_ids'] ?? '[]', true);
+        if (is_array($cids)) {
+            foreach ($cids as $cid) $childIds[(int)$cid] = true;
+        }
+    }
+    if (!$foundQuota) return $result;
+
+    $sumMain = 0;
+    $sumDrink = 0;
+    foreach ($menuItems as $mi) {
+        $mid = (int)($mi['menu_id'] ?? 0);
+        $qty = max(1, (int)($mi['quantity'] ?? 1));
+        if ($mid > 0 && isset($childIds[$mid])) continue; // kids menu = free
+        $cat = strtolower(trim((string)($mi['category'] ?? '')));
+        if ($cat === 'drinks' || $cat === 'beverages') {
+            $sumDrink += $qty;
+        } else {
+            $sumMain += $qty;
+        }
+    }
+
+    $extraMain = max(0, $sumMain - $maxMain);
+    $extraDrink = max(0, $sumDrink - $maxDrink);
+    $charge = ($extraMain * $extraMainPrice) + ($extraDrink * $extraDrinkPrice);
+
+    $result['charge'] = (float)$charge;
+    $result['extra_main'] = $extraMain;
+    $result['extra_drink'] = $extraDrink;
+    $result['max_main'] = $maxMain;
+    $result['max_drink'] = $maxDrink;
+    return $result;
+}
+
+/**
+ * Insert or update an "Extra Breakfast" line in booking_extras for a front desk order.
+ * Dedups per order via the notes marker (order=<id>). Removes the row when charge is 0.
+ */
+function bf_save_extra($pdo, $db, $bookingId, $breakfastDate, array $extra, $orderId, $userId, array $rooms = [])
+{
+    $bookingId = (int)$bookingId;
+    if ($bookingId <= 0) return;
+
+    // Ensure table exists (front desk DBs may not have it yet).
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS booking_extras (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            booking_id INT NOT NULL,
+            item_name VARCHAR(150) NOT NULL,
+            quantity INT NOT NULL DEFAULT 1,
+            unit_price DECIMAL(12,2) NOT NULL DEFAULT 0,
+            total_price DECIMAL(12,2) NOT NULL DEFAULT 0,
+            notes TEXT NULL,
+            created_by INT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } catch (Exception $e) { /* ignore */
+    }
+
+    $marker = 'order=' . (int)$orderId;
+    $existing = $db->fetchOne(
+        "SELECT id FROM booking_extras WHERE booking_id = ? AND item_name = 'Extra Breakfast' AND notes LIKE ? LIMIT 1",
+        [$bookingId, '%front desk ' . $marker . '%']
+    );
+
+    $charge = (float)$extra['charge'];
+    if ($charge <= 0) {
+        // No (longer any) over-quota charge -> remove stale line if present.
+        if (!empty($existing['id'])) {
+            $pdo->prepare("DELETE FROM booking_extras WHERE id = ?")->execute([(int)$existing['id']]);
+        }
+        return;
+    }
+
+    $label = [];
+    if ($extra['extra_main'] > 0) $label[] = 'main x' . $extra['extra_main'];
+    if ($extra['extra_drink'] > 0) $label[] = 'drink x' . $extra['extra_drink'];
+    $roomTxt = count($rooms) ? ' room=' . implode(',', $rooms) : '';
+    $notes = 'Auto extra breakfast (front desk ' . $marker . ') [' . implode(', ', $label) . ']' . $roomTxt . ' date=' . $breakfastDate;
+
+    if (!empty($existing['id'])) {
+        $pdo->prepare("UPDATE booking_extras SET quantity = 1, unit_price = ?, total_price = ?, notes = ? WHERE id = ?")
+            ->execute([$charge, $charge, $notes, (int)$existing['id']]);
+    } else {
+        $pdo->prepare("INSERT INTO booking_extras (booking_id, item_name, quantity, unit_price, total_price, notes, created_by)
+            VALUES (?, 'Extra Breakfast', 1, ?, ?, ?, ?)")
+            ->execute([$bookingId, $charge, $charge, $notes, $userId]);
+    }
+}
+
 try {
     // Parse & validate menu items
     $menuItemIds = $input['menu_items'] ?? [];
@@ -71,14 +199,15 @@ try {
         $qty = max(1, (int)($menuQty[$menuId] ?? 1));
         $note = isset($menuNote[$menuId]) ? trim($menuNote[$menuId]) : '';
 
-        $menu = $db->fetchOne("SELECT menu_name, price, is_free FROM breakfast_menus WHERE id = ?", [$menuId]);
+        $menu = $db->fetchOne("SELECT menu_name, price, is_free, category FROM breakfast_menus WHERE id = ?", [$menuId]);
         if ($menu) {
             $item = [
                 'menu_id' => $menuId,
                 'menu_name' => $menu['menu_name'],
                 'quantity' => $qty,
                 'price' => $menu['price'],
-                'is_free' => $menu['is_free']
+                'is_free' => $menu['is_free'],
+                'category' => $menu['category'] ?? ''
             ];
             if ($note !== '') $item['note'] = $note;
             $menuItems[] = $item;
@@ -137,6 +266,7 @@ try {
         $guestNames = [];
         $allRooms = [];
         $firstBookingId = null;
+        $allBookingIds = [];
         $skipped = [];
 
         foreach ($guests as $guest) {
@@ -176,6 +306,9 @@ try {
             if ($firstBookingId === null && !empty($guest['booking_id'])) {
                 $firstBookingId = (int)$guest['booking_id'];
             }
+            if (!empty($guest['booking_id'])) {
+                $allBookingIds[] = (int)$guest['booking_id'];
+            }
             foreach ($gRooms as $r) {
                 if (!empty($r) && !in_array($r, $allRooms)) $allRooms[] = $r;
             }
@@ -213,7 +346,19 @@ try {
         $newId = $pdo->lastInsertId();
         $msg = "Order #{$newId} tersimpan untuk: " . $combinedName;
         if (count($skipped) > 0) $msg .= ' (dilewati: ' . implode(', ', $skipped) . ')';
-        echo json_encode(['success' => true, 'message' => $msg, 'id' => $newId]);
+
+        // Over-quota Extra Breakfast charge (kids free). Quota summed across all selected bookings.
+        $extra = bf_compute_extra($db, $allBookingIds, $menuItems);
+        bf_save_extra($pdo, $db, $firstBookingId, $breakfastDate, $extra, $newId, $validUserId, $allRooms);
+
+        echo json_encode([
+            'success' => true,
+            'message' => $msg,
+            'id' => $newId,
+            'extra_charge' => $extra['charge'],
+            'extra_main' => $extra['extra_main'],
+            'extra_drink' => $extra['extra_drink']
+        ]);
     } elseif ($action === 'create_order') {
         // Single guest order
         $guestName = trim($input['guest_name'] ?? '');
@@ -274,7 +419,16 @@ try {
         ]);
 
         $newId = $pdo->lastInsertId();
-        echo json_encode(['success' => true, 'message' => "Order #{$newId} untuk {$guestName} tersimpan!", 'id' => $newId]);
+        $extra = bf_compute_extra($db, [$bookingId], $menuItems);
+        bf_save_extra($pdo, $db, $bookingId, $breakfastDate, $extra, $newId, $validUserId, $cleanRooms);
+        echo json_encode([
+            'success' => true,
+            'message' => "Order #{$newId} untuk {$guestName} tersimpan!",
+            'id' => $newId,
+            'extra_charge' => $extra['charge'],
+            'extra_main' => $extra['extra_main'],
+            'extra_drink' => $extra['extra_drink']
+        ]);
     } elseif ($action === 'update_order') {
         $editId = (int)($input['edit_id'] ?? 0);
         if ($editId <= 0) throw new Exception('ID order tidak valid');
@@ -303,7 +457,18 @@ try {
             $editId
         ]);
 
-        echo json_encode(['success' => true, 'message' => "Order #{$editId} berhasil diupdate!", 'id' => $editId]);
+        $extra = bf_compute_extra($db, [$bookingId], $menuItems);
+        $cleanRoomsUpd = array_values(array_filter(array_map('trim', $roomNumbers)));
+        bf_save_extra($pdo, $db, $bookingId, $breakfastDate, $extra, $editId, $validUserId, $cleanRoomsUpd);
+
+        echo json_encode([
+            'success' => true,
+            'message' => "Order #{$editId} berhasil diupdate!",
+            'id' => $editId,
+            'extra_charge' => $extra['charge'],
+            'extra_main' => $extra['extra_main'],
+            'extra_drink' => $extra['extra_drink']
+        ]);
     } else {
         echo json_encode(['success' => false, 'message' => 'Action tidak valid']);
     }
