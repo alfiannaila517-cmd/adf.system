@@ -179,16 +179,20 @@ function processAttlogForBusiness($pdo, $bizSlug, $cloudId, $type, $pin, $scanSt
     $scan4 = $att['scan_4'] ?? null;
     $filledScans = array_filter([$scan1, $scan2, $scan3, $scan4], fn($s) => !empty($s));
 
-    // Double scan filter (< 5 min)
+    // Double scan filter (< 5 min) — compare against ALL existing scans, not just
+    // the last one. Fingerspot may resend an earlier scan; comparing only to the
+    // last scan let a repeat of an earlier time slip into scan_3/scan_4 as a
+    // duplicate of scan_1/scan_2.
     if (!empty($filledScans)) {
-        $lastScan = end($filledScans);
-        $lastScanSec = strtotime("2000-01-01 " . $lastScan);
         $newScanSec = strtotime("2000-01-01 " . $scanTimeOnly);
-        $diffMinutes = abs($newScanSec - $lastScanSec) / 60;
-        if ($diffMinutes < 5) {
-            $result = "[{$bizSlug}] Double scan ignored for {$employee['full_name']} (diff: " . round($diffMinutes) . "min)";
-            logWebhook($pdo, $cloudId, $type, $pin, $scanTime, $verify, $statusScan, $empId, 1, $result, $rawBody);
-            return ['success' => true, 'message' => $result];
+        foreach ($filledScans as $existingScan) {
+            $existingSec = strtotime("2000-01-01 " . $existingScan);
+            $diffMinutes = abs($newScanSec - $existingSec) / 60;
+            if ($diffMinutes < 5) {
+                $result = "[{$bizSlug}] Double scan ignored for {$employee['full_name']} (matches {$existingScan}, diff: " . round($diffMinutes) . "min)";
+                logWebhook($pdo, $cloudId, $type, $pin, $scanTime, $verify, $statusScan, $empId, 1, $result, $rawBody);
+                return ['success' => true, 'message' => $result];
+            }
         }
     }
 

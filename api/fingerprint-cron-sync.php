@@ -45,6 +45,7 @@ if ($isCli) {
 $token   = $params['token'] ?? '';
 $days    = max(1, min(30, (int)($params['days'] ?? 2)));
 $bizOnly = preg_replace('/[^a-z0-9\-_]/', '', strtolower(trim($params['b'] ?? '')));
+$reset   = !empty($params['reset']); // when set, wipe fingerprint rows in range before replay (clean rebuild)
 
 if (!$isCli) {
     header('Content-Type: application/json; charset=utf-8');
@@ -69,6 +70,7 @@ $webhookUrl = 'https://' . MASTER_DOMAIN . '/api/fingerprint-webhook.php';
 // so we fetch once per cloud_id and let the webhook fan it out.
 // ──────────────────────────────────────────────────────────────
 $devices = []; // cloud_id => token
+$resetCounts = []; // slug => deleted rows (only when reset=1)
 
 $bizFiles = glob(__DIR__ . '/../config/businesses/*.php') ?: [];
 foreach ($bizFiles as $bf) {
@@ -112,6 +114,21 @@ foreach ($bizFiles as $bf) {
         $enabled = (int)($fcfg['fingerspot_enabled'] ?? 0);
         $cloudId = trim($fcfg['fingerspot_cloud_id'] ?? '');
         $apiTok  = trim($fcfg['fingerspot_token'] ?? '');
+
+        // Optional clean rebuild: remove fingerprint-sourced attendance rows in
+        // the sync range so the (fixed) webhook dedup can rebuild them correctly.
+        if ($reset && $enabled && $cloudId) {
+            $del = $bpdo->prepare(
+                "DELETE FROM payroll_attendance
+                 WHERE attendance_date BETWEEN ? AND ?
+                   AND (check_in_device LIKE 'fingerprint:%'
+                        OR notes LIKE '%Fingerspot%'
+                        OR notes LIKE '%Split-shift%'
+                        OR notes LIKE 'Sync:%')"
+            );
+            $del->execute([$syncFrom, $syncTo]);
+            $resetCounts[$slug] = $del->rowCount();
+        }
 
         if ($enabled && $cloudId && $apiTok && !isset($devices[$cloudId])) {
             $devices[$cloudId] = $apiTok;
@@ -270,8 +287,10 @@ foreach ($devices as $cloudId => $apiToken) {
 }
 
 $summary['total_replayed'] = $grandReplayed;
-
-// ── Log the run for monitoring ──
+if ($reset) {
+    $summary['reset'] = true;
+    $summary['rows_deleted'] = $resetCounts;
+}
 $logLine = date('Y-m-d H:i:s') . " | range {$syncFrom}..{$syncTo} | devices " . count($devices) . " | replayed {$grandReplayed}\n";
 @file_put_contents(__DIR__ . '/../uploads/fingerprint-cron.log', $logLine, FILE_APPEND);
 
