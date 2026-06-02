@@ -314,7 +314,8 @@ function syncSlipsWithAttendance($db, $periodId, $month, $year)
         // ONLY update work_hours from attendance — keep all other fields (overtime, incentive, etc.) as-is
         $baseSalary = (float)$slip['base_salary'];
         $hourlyRate = $baseSalary / 200;
-        $actualBase = ($workH >= 200) ? $baseSalary : round($workH * $hourlyRate, 2);
+        // Gaji pokok PENUH (gaji bulanan tetap) — tidak diprorata jam kerja.
+        $actualBase = $baseSalary;
 
         // Read current addon values via direct PDO (preserve them, don't overwrite)
         $pdo = $db->getConnection();
@@ -389,7 +390,8 @@ if (!$period && isset($_POST['create_period'])) {
             $otH = $att['overtime_hours'];
             $baseSalary = (float)$emp['base_salary'];
             $hourlyRate = $baseSalary / 200;
-            $actualBase = ($workH >= 200) ? $baseSalary : round($workH * $hourlyRate, 2);
+            // Gaji pokok PENUH (gaji bulanan tetap) — tidak diprorata jam kerja.
+            $actualBase = $baseSalary;
             $otRate = $hourlyRate;
             $otAmount = round($otH * $otRate, 2);
             $totalEarn = $actualBase + $otAmount;
@@ -445,13 +447,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_update'])) {
     $bpjs = (float)$_POST['deduction_bpjs'];
     $ded_other = (float)$_POST['deduction_other'];
 
-    // NEW LOGIC: If work_hours >= 200, full base. If < 200, calculate hourly
+    // Gaji pokok PENUH (gaji bulanan tetap) — tidak diprorata jam kerja.
     $hourly_rate = $base_salary / 200;
-    if ($work_hours >= 200) {
-        $actual_base = $base_salary;
-    } else {
-        $actual_base = $work_hours * $hourly_rate;
-    }
+    $actual_base = $base_salary;
 
     // Overtime still uses same rate; Extra Hari pakai rate yg sama
     $overtime_rate = $hourly_rate;
@@ -2723,13 +2721,8 @@ include '../../includes/header.php';
         // Hourly rate = Base / 200
         let hourlyRate = base / 200;
 
-        // NEW LOGIC: If work >= 200, full base. If < 200, hourly calc
-        let actualBase;
-        if (workHours >= 200) {
-            actualBase = base;
-        } else {
-            actualBase = Math.round(workHours * hourlyRate);
-        }
+        // Gaji pokok PENUH (gaji bulanan tetap) — tidak diprorata jam kerja.
+        let actualBase = base;
 
         // Update Actual Base Display
         document.getElementById(`actual-base-${id}`).innerText = new Intl.NumberFormat('id-ID').format(actualBase);
