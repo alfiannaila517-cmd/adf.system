@@ -1036,28 +1036,48 @@ if ($healthScore >= 80) {
         }
 
         :root {
-            --bg: #f8fafc;
+            /* ── Midnight Navy + Gold · Light Luxe palette ── */
+            --bg: #eef0f5;
+            --bg-deep: #e7eaf1;
             --surface: #ffffff;
-            --text-primary: #334155;
-            --text-secondary: #64748b;
-            --text-muted: #94a3b8;
-            --border: #e2e8f0;
-            --accent: #6366f1;
-            --accent-light: #818cf8;
-            --success: #10b981;
+            --surface-2: #f6f8fc;
+            --text-primary: #0d2440;
+            /* deep navy — high contrast */
+            --text-secondary: #44597a;
+            --text-muted: #7e8ea4;
+            --border: #e3e7ef;
+            --border-strong: #d2d9e5;
+            --accent: #122f54;
+            /* royal navy */
+            --accent-light: #234e83;
+            --gold: #c69a3f;
+            --gold-light: #e3c372;
+            --gold-dark: #9c7526;
+            --success: #0f9d6a;
             --success-light: #34d399;
-            --danger: #f43f5e;
-            --danger-light: #fb7185;
-            --warning: #f59e0b;
+            --danger: #d83a5b;
+            --danger-light: #f0708c;
+            --warning: #d99a18;
+            --shadow-sm: 0 1px 3px rgba(13, 36, 64, 0.06);
+            --shadow: 0 8px 26px rgba(13, 36, 64, 0.09);
+            --shadow-lg: 0 18px 48px rgba(13, 36, 64, 0.14);
+            --shadow-navy: 0 6px 18px rgba(18, 47, 84, 0.30);
+            --shadow-gold: 0 6px 18px rgba(198, 154, 63, 0.34);
+            --radius: 16px;
         }
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--bg);
+            background:
+                radial-gradient(1200px 600px at 100% -10%, rgba(198, 154, 63, 0.10), transparent 60%),
+                radial-gradient(1000px 700px at -10% 110%, rgba(18, 47, 84, 0.06), transparent 55%),
+                linear-gradient(180deg, #f1f3f8 0%, #e8ebf2 100%);
+            background-attachment: fixed;
             color: var(--text-primary);
             line-height: 1.5;
             min-height: 100vh;
             padding-bottom: 80px;
+            -webkit-font-smoothing: antialiased;
         }
 
         .container {
@@ -1090,7 +1110,8 @@ if ($healthScore >= 80) {
             overflow: hidden;
             background: white;
             padding: 4px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(198, 154, 63, 0.55);
+            box-shadow: 0 2px 8px rgba(13, 36, 64, 0.12);
         }
 
         .brand-icon img {
@@ -1171,12 +1192,12 @@ if ($healthScore >= 80) {
             font-size: 12px;
             font-weight: 600;
             transition: all 0.3s;
-            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+            box-shadow: var(--shadow-navy);
             white-space: nowrap;
         }
 
         .btn-refresh:hover {
-            box-shadow: 0 4px 14px rgba(99, 102, 241, 0.5);
+            box-shadow: 0 8px 20px rgba(18, 47, 84, 0.45);
             transform: translateY(-1px);
         }
 
@@ -1366,8 +1387,8 @@ if ($healthScore >= 80) {
 
         .biz-pill.active {
             background: linear-gradient(135deg, var(--accent), var(--accent-light));
-            border-color: var(--accent);
-            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+            border-color: var(--gold);
+            box-shadow: var(--shadow-navy);
         }
 
         .biz-pill-icon {
@@ -1435,17 +1456,18 @@ if ($healthScore >= 80) {
             color: #dc2626;
         }
 
-        /* Hero Section - Premium 2028 White */
+        /* Hero Section - Royal Luxe (Navy + Gold) */
         .hero {
-            background: linear-gradient(160deg, #ffffff 0%, #f8fafc 35%, #f1f5f9 70%, #f8fafc 100%);
+            background: linear-gradient(160deg, #ffffff 0%, #fafbfe 35%, #f3f6fb 70%, #ffffff 100%);
             border-radius: 20px;
-            padding: 20px 18px 14px;
+            padding: 22px 18px 14px;
             margin-bottom: 16px;
-            color: #1e293b;
+            color: var(--text-primary);
             position: relative;
             overflow: hidden;
-            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.8);
-            border: 1px solid rgba(0, 0, 0, 0.06);
+            box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+            border: 1px solid var(--border);
+            border-top: 3px solid var(--gold);
         }
 
         .hero::before {
@@ -1455,7 +1477,7 @@ if ($healthScore >= 80) {
             right: -60px;
             width: 220px;
             height: 220px;
-            background: radial-gradient(circle, rgba(99, 102, 241, 0.06) 0%, transparent 70%);
+            background: radial-gradient(circle, rgba(198, 154, 63, 0.16) 0%, transparent 70%);
             border-radius: 50%;
         }
 
@@ -1466,7 +1488,7 @@ if ($healthScore >= 80) {
             left: -30px;
             width: 160px;
             height: 160px;
-            background: radial-gradient(circle, rgba(139, 92, 246, 0.04) 0%, transparent 70%);
+            background: radial-gradient(circle, rgba(18, 47, 84, 0.07) 0%, transparent 70%);
             border-radius: 50%;
         }
 
@@ -1479,12 +1501,12 @@ if ($healthScore >= 80) {
             font-size: 14px;
             font-weight: 700;
             letter-spacing: -0.2px;
-            color: #1e293b;
+            color: var(--text-primary);
         }
 
         .hero-subtitle {
             font-size: 10px;
-            color: #94a3b8;
+            color: var(--text-muted);
             font-weight: 400;
             letter-spacing: 0.3px;
         }
@@ -2503,7 +2525,7 @@ if ($healthScore >= 80) {
 
         .expense-month-input:focus {
             border-color: var(--accent);
-            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+            box-shadow: 0 0 0 2px rgba(18, 47, 84, 0.14);
         }
 
         .expense-division-body {
@@ -2640,7 +2662,7 @@ if ($healthScore >= 80) {
             width: 120px;
             height: 120px;
             border-radius: 50%;
-            background: radial-gradient(circle, rgba(99, 102, 241, 0.06) 0%, transparent 70%);
+            background: radial-gradient(circle, rgba(198, 154, 63, 0.12) 0%, transparent 70%);
         }
 
         .att-hero-top {
@@ -2655,14 +2677,14 @@ if ($healthScore >= 80) {
         .att-hero-title {
             font-size: 14px;
             font-weight: 800;
-            color: #1e293b;
+            color: var(--text-primary);
             letter-spacing: 0.3px;
         }
 
         .att-hero-badge {
-            background: rgba(99, 102, 241, 0.08);
-            border: 1px solid rgba(99, 102, 241, 0.15);
-            color: #6366f1;
+            background: rgba(18, 47, 84, 0.07);
+            border: 1px solid rgba(198, 154, 63, 0.45);
+            color: var(--accent);
             font-size: 8px;
             font-weight: 800;
             padding: 3px 10px;
@@ -2828,9 +2850,9 @@ if ($healthScore >= 80) {
 
         .att-list-count {
             font-size: 9px;
-            color: #818cf8;
+            color: var(--accent);
             font-weight: 700;
-            background: rgba(99, 102, 241, 0.08);
+            background: rgba(18, 47, 84, 0.07);
             padding: 3px 10px;
             border-radius: 20px;
         }
@@ -2849,7 +2871,7 @@ if ($healthScore >= 80) {
         }
 
         .att-emp-row:active {
-            background: rgba(99, 102, 241, 0.04);
+            background: rgba(18, 47, 84, 0.04);
         }
 
         .att-emp-avatar {
@@ -2922,8 +2944,8 @@ if ($healthScore >= 80) {
         }
 
         .att-scan-pill {
-            background: rgba(99, 102, 241, 0.06);
-            border: 1px solid rgba(99, 102, 241, 0.1);
+            background: rgba(18, 47, 84, 0.05);
+            border: 1px solid rgba(18, 47, 84, 0.1);
             border-radius: 6px;
             padding: 2px 6px;
             font-size: 9px;
@@ -2956,9 +2978,9 @@ if ($healthScore >= 80) {
 
         .att-emp-hours {
             font-size: 8px;
-            color: #818cf8;
+            color: var(--accent);
             font-weight: 800;
-            background: rgba(99, 102, 241, 0.06);
+            background: rgba(18, 47, 84, 0.06);
             padding: 1px 6px;
             border-radius: 4px;
             display: inline-block;
@@ -3551,7 +3573,7 @@ if ($healthScore >= 80) {
                         $budgetUsedPct = $totalBudget > 0 ? round(($totalSpent / $totalBudget) * 100) : 0;
                         ?>
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 10px; margin-bottom: 24px;">
-                            <div style="text-align: center; padding: 16px 10px; background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); border-radius: 16px; box-shadow: 0 4px 14px rgba(99, 102, 241, 0.25);">
+                            <div style="text-align: center; padding: 16px 10px; background: linear-gradient(135deg, #122f54 0%, #234e83 100%); border-radius: 16px; box-shadow: 0 4px 14px rgba(18, 47, 84, 0.30); border-top: 2px solid #c69a3f;">
                                 <div style="font-size: 28px; font-weight: 800; color: #fff; font-family: system-ui; line-height: 1;"><?php echo count($cqcProjects); ?></div>
                                 <div style="font-size: 10px; color: rgba(255,255,255,0.8); font-weight: 600; margin-top: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Total Proyek</div>
                             </div>
@@ -3776,7 +3798,7 @@ if ($healthScore >= 80) {
                                     <div style="font-size:8px;text-transform:uppercase;font-weight:600;letter-spacing:0.5px;opacity:0.7;margin-top:2px;">Monthly Avg</div>
                                 </div>
                                 <div style="text-align:center;padding:8px 4px;background:rgba(255,255,255,0.5);border-radius:8px;">
-                                    <div style="font-size:16px;font-weight:800;color:#6366f1"><?= rp($revPAR) ?></div>
+                                    <div style="font-size:16px;font-weight:800;color:#122f54"><?= rp($revPAR) ?></div>
                                     <div style="font-size:8px;text-transform:uppercase;font-weight:600;letter-spacing:0.5px;opacity:0.7;margin-top:2px;">RevPAR</div>
                                 </div>
                             </div>
