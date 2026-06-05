@@ -6,6 +6,7 @@ function pwfOfficeHeader(string $title, string $active = ''): void
         'orders'    => ['label' => 'Orders',            'icon' => 'bi-clipboard2-check', 'url' => 'orders.php'],
         'progress'  => ['label' => 'Progress Tracking','icon' => 'bi-bar-chart-line',   'url' => 'progress.php'],
         'shipping'  => ['label' => 'Shipping & Export', 'icon' => 'bi-box-seam',        'url' => 'shipping.php'],
+        'rekap-order' => ['label' => 'Rekap Order',    'icon' => 'bi-box2-heart',      'url' => 'rekap-order.php'],
         'database'  => [
             'label' => 'Database', 'icon' => 'bi-database',
             'children' => [
