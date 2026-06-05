@@ -5,7 +5,7 @@ require_once __DIR__ . '/layout.php';
 
 $pdo = getPwfOfficePdo();
 
-// Get all orders that have been assigned to a container (regardless of completion status)
+// Get all orders with their container assignments
 $stmt = $pdo->prepare("
     SELECT 
         o.id,
@@ -21,16 +21,17 @@ $stmt = $pdo->prepare("
         o.status,
         c.customer_name,
         t.craftsman_name,
-        CONCAT(cont.container_code, IF(cont.container_no IS NOT NULL, CONCAT(' (', cont.container_no, ')'), '')) AS container_info,
+        COALESCE(CONCAT(cont.container_code, ' (', cont.container_no, ')'), '—') AS container_info,
         cont.container_type,
         ci.qty_shipped,
         cont.destination_country
     FROM pwf_orders o
-    INNER JOIN pwf_container_items ci ON ci.order_id = o.id
-    INNER JOIN pwf_containers cont ON cont.id = ci.container_id
     LEFT JOIN pwf_customers c ON c.id = o.customer_id
     LEFT JOIN pwf_craftsmen t ON t.id = o.assigned_craftsman_id
-    ORDER BY cont.created_at DESC, o.order_date DESC
+    LEFT JOIN pwf_container_items ci ON ci.order_id = o.id
+    LEFT JOIN pwf_containers cont ON cont.id = ci.container_id
+    WHERE ci.container_id IS NOT NULL
+    ORDER BY o.order_date DESC, o.id DESC
 ");
 $stmt->execute();
 $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -244,7 +245,7 @@ pwfOfficeHeader('Rekap Order', 'rekap-order');
     <!-- Header -->
     <div class="recap-header">
         <h2>📦 Rekap Order (Order Summary)</h2>
-        <p>Daftar order yang sudah dipilihkan ke container (untuk packing & pengiriman)</p>
+        <p>Daftar order yang sudah dipilihkan container untuk pengiriman</p>
     </div>
 
     <!-- Controls -->
@@ -268,12 +269,12 @@ pwfOfficeHeader('Rekap Order', 'rekap-order');
             <div class="summary-value"><?= number_format(array_sum(array_column($orders, 'quantity')), 0) ?></div>
         </div>
         <div class="summary-card">
-            <div class="summary-label">Total Qty Shipped</div>
-            <div class="summary-value"><?= number_format(array_sum(array_column($orders, 'qty_shipped')), 0) ?></div>
+            <div class="summary-label">Containers</div>
+            <div class="summary-value"><?= count(array_unique(array_filter(array_column($orders, 'container_info')))) ?></div>
         </div>
         <div class="summary-card">
-            <div class="summary-label">Sisa Qty</div>
-            <div class="summary-value"><?= number_format(array_sum(array_column($orders, 'quantity')) - array_sum(array_column($orders, 'qty_shipped')), 0) ?></div>
+            <div class="summary-label">Destination Countries</div>
+            <div class="summary-value"><?= count(array_unique(array_filter(array_column($orders, 'destination_country')))) ?></div>
         </div>
     </div>
 
@@ -304,7 +305,7 @@ pwfOfficeHeader('Rekap Order', 'rekap-order');
                     <tr>
                         <td colspan="15" style="text-align: center; color: var(--muted); padding: 40px 20px">
                             <i class="bi bi-inbox" style="font-size: 32px; opacity: 0.3; display: block; margin-bottom: 8px"></i>
-                            Tidak ada order yang sudah dipilihkan ke container
+                            Belum ada order yang dipilihkan container
                         </td>
                     </tr>
                 <?php else: ?>
@@ -315,52 +316,58 @@ pwfOfficeHeader('Rekap Order', 'rekap-order');
                         $d = isset($dims[1]) ? trim($dims[1]) : '—';
                         $h = isset($dims[2]) ? trim($dims[2]) : '—';
                     ?>
-                    <tr>
-                        <td style="text-align: center; font-weight: 600; color: var(--muted)"><?= $idx + 1 ?></td>
-                        <td style="font-size: 10.5px; white-space: nowrap"><?= date('d-M-y', strtotime($o['order_date'])) ?></td>
-                        <td style="font-weight: 600; color: var(--gold); font-family: monospace; font-size: 10.5px"><?= htmlspecialchars($o['order_code']) ?></td>
-                        <td style="font-weight: 600"><?= htmlspecialchars($o['product_name']) ?></td>
-                        <td style="text-align: center">
-                            <?php if ($o['image_path']): ?>
-                                <img src="<?= BASE_URL ?>/../<?= htmlspecialchars($o['image_path']) ?>" alt="Product" class="recap-img">
-                            <?php else: ?>
-                                <div class="recap-img-empty">📷</div>
-                            <?php endif; ?>
-                        </td>
-                        <td style="font-size: 10px; color: var(--muted); word-break: break-word">
-                            <?= htmlspecialchars(mb_strimwidth($o['description'] ?? '', 0, 60, '...')) ?>
-                        </td>
-                        <td style="text-align: center" class="dimensions-text"><?= htmlspecialchars($w) ?></td>
-                        <td style="text-align: center" class="dimensions-text"><?= htmlspecialchars($d) ?></td>
-                        <td style="text-align: center" class="dimensions-text"><?= htmlspecialchars($h) ?></td>
-                        <td style="text-align: right; font-weight: 600"><?= number_format((float)$o['quantity'], 0) ?></td>
-                        <td style="font-size: 10px">
-                            <div><?= htmlspecialchars($o['wood_color'] ?? '—') ?></div>
-                            <div style="color: var(--muted); font-size: 9px"><?= htmlspecialchars($o['finish'] ?? '—') ?></div>
-                        </td>
-                        <td style="font-size: 10px">
-                            <?php if ($o['craftsman_name']): ?>
-                                <div style="font-weight: 600; color: var(--text)"><?= htmlspecialchars($o['craftsman_name']) ?></div>
-                            <?php endif; ?>
-                            <div style="color: var(--muted)"><?= htmlspecialchars(str_replace('_', ' ', $o['status'])) ?></div>
-                        </td>
-                        <td>
-                            <div class="recap-container">
-                                <i class="bi bi-box-seam" style="margin-right: 4px"></i><?= htmlspecialchars($o['container_info']) ?>
-                            </div>
-                            <?php if ($o['destination_country']): ?>
-                                <div style="font-size: 9px; margin-top: 4px; color: var(--muted)">
-                                    🌍 <?= htmlspecialchars($o['destination_country']) ?>
-                                </div>
-                            <?php endif; ?>
-                        </td>
-                        <td style="text-align: center">
-                            <span class="recap-status <?= htmlspecialchars($o['status']) ?>">
-                                <?= htmlspecialchars(str_replace('_', ' ', $o['status'])) ?>
-                            </span>
-                        </td>
-                        <td style="font-size: 10.5px"><?= htmlspecialchars($o['customer_name'] ?? '—') ?></td>
-                    </tr>
+                        <tr>
+                            <td style="text-align: center; font-weight: 600; color: var(--muted)"><?= $idx + 1 ?></td>
+                            <td style="font-size: 10.5px; white-space: nowrap"><?= date('d-M-y', strtotime($o['order_date'])) ?></td>
+                            <td style="font-weight: 600; color: var(--gold); font-family: monospace; font-size: 10.5px"><?= htmlspecialchars($o['order_code']) ?></td>
+                            <td style="font-weight: 600"><?= htmlspecialchars($o['product_name']) ?></td>
+                            <td style="text-align: center">
+                                <?php if ($o['image_path']): ?>
+                                    <img src="<?= BASE_URL ?>/../<?= htmlspecialchars($o['image_path']) ?>" alt="Product" class="recap-img">
+                                <?php else: ?>
+                                    <div class="recap-img-empty">📷</div>
+                                <?php endif; ?>
+                            </td>
+                            <td style="font-size: 10px; color: var(--muted); word-break: break-word">
+                                <?= htmlspecialchars(mb_strimwidth($o['description'] ?? '', 0, 60, '...')) ?>
+                            </td>
+                            <td style="text-align: center" class="dimensions-text"><?= htmlspecialchars($w) ?></td>
+                            <td style="text-align: center" class="dimensions-text"><?= htmlspecialchars($d) ?></td>
+                            <td style="text-align: center" class="dimensions-text"><?= htmlspecialchars($h) ?></td>
+                            <td style="text-align: right; font-weight: 600"><?= number_format((float)$o['quantity'], 0) ?></td>
+                            <td style="font-size: 10px">
+                                <div><?= htmlspecialchars($o['wood_color'] ?? '—') ?></div>
+                                <div style="color: var(--muted); font-size: 9px"><?= htmlspecialchars($o['finish'] ?? '—') ?></div>
+                            </td>
+                            <td style="font-size: 10px">
+                                <?php if ($o['craftsman_name']): ?>
+                                    <div style="font-weight: 600; color: var(--text)"><?= htmlspecialchars($o['craftsman_name']) ?></div>
+                                <?php endif; ?>
+                                <div style="color: var(--muted)"><?= htmlspecialchars(str_replace('_', ' ', $o['status'])) ?></div>
+                            </td>
+                            <td>
+                                <?php if ($o['container_info'] !== '—'): ?>
+                                    <div class="recap-container">
+                                        <i class="bi bi-box-seam" style="margin-right: 4px"></i><?= htmlspecialchars($o['container_info']) ?>
+                                    </div>
+                                    <?php if ($o['destination_country']): ?>
+                                        <div style="font-size: 9px; margin-top: 4px; color: var(--muted)">
+                                            🌍 <?= htmlspecialchars($o['destination_country']) ?>
+                                        </div>
+                                    <?php endif; ?>
+                                <?php else: ?>
+                                    <div class="recap-container empty">
+                                        Belum di-assign
+                                    </div>
+                                <?php endif; ?>
+                            </td>
+                            <td style="text-align: center">
+                                <span class="recap-status <?= htmlspecialchars($o['status']) ?>">
+                                    <?= htmlspecialchars(str_replace('_', ' ', $o['status'])) ?>
+                                </span>
+                            </td>
+                            <td style="font-size: 10.5px"><?= htmlspecialchars($o['customer_name'] ?? '—') ?></td>
+                        </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>
             </tbody>
