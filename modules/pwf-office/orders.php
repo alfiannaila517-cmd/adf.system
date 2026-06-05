@@ -804,6 +804,7 @@ pwfOfficeHeader('Orders', 'orders');
                         <div class="order-card-code"><?= htmlspecialchars($o['order_code']) ?></div>
                         <div class="order-card-name"><?= htmlspecialchars($o['product_name']) ?></div>
                         <div style="height:1px;background:var(--border);margin:5px 0"></div>
+                        <div class="order-card-meta"><i class="bi bi-calendar2" style="color:var(--gold)"></i><span style="color:var(--muted);min-width:64px">Order Date</span><b style="color:var(--text)"><?= $o['order_date'] ? date('d M Y', strtotime($o['order_date'])) : '—' ?></b></div>
                         <div class="order-card-meta"><i class="bi bi-person" style="color:var(--gold)"></i><span style="color:var(--muted);min-width:64px">Customer</span><b style="color:var(--text)"><?= htmlspecialchars($o['customer_name'] ?? '—') ?></b></div>
                         <div class="order-card-meta"><i class="bi bi-hash" style="color:var(--gold)"></i><span style="color:var(--muted);min-width:64px">Qty</span><b style="color:var(--text)"><?= rtrim(rtrim(number_format((float)$o['quantity'], 2), '0'), '.') ?></b></div>
                         <?php if ($o['craftsman_name']): ?>
@@ -888,6 +889,7 @@ pwfOfficeHeader('Orders', 'orders');
                         </th>
                         <th style="width:60px">Image</th>
                         <th>Code</th>
+                        <th style="width:85px">Order Date</th>
                         <th>Customer</th>
                         <th>Product</th>
                         <th>Craftsman</th>
@@ -913,6 +915,7 @@ pwfOfficeHeader('Orders', 'orders');
                             <td onclick="openDetail(<?= (int)$o['id'] ?>)" style="cursor:pointer">
                                 <code style="font-size:11px;color:var(--gold)"><?= htmlspecialchars($o['order_code']) ?></code>
                             </td>
+                            <td style="font-size:11px;color:var(--muted);white-space:nowrap"><?= $o['order_date'] ? date('d M Y', strtotime($o['order_date'])) : '—' ?></td>
                             <td><?= htmlspecialchars($o['customer_name'] ?? '—') ?></td>
                             <td onclick="openDetail(<?= (int)$o['id'] ?>)" style="cursor:pointer">
                                 <?= htmlspecialchars($o['product_name']) ?><div class="small"><?= htmlspecialchars($o['dimensions'] ?? '') ?></div>
