@@ -29,6 +29,7 @@ $orders = $orders->fetchAll(PDO::FETCH_ASSOC);
 // Summary
 $totalOrders  = count($orders);
 $totalQty     = array_sum(array_column($orders, 'quantity'));
+$totalPrice   = array_sum(array_column($orders, 'total_price'));
 $finished     = count(array_filter($orders, fn($r) => in_array($r['status'], ['completed','shipped'])));
 $inProgress   = count(array_filter($orders, fn($r) => $r['status'] === 'on_progress'));
 
@@ -129,7 +130,7 @@ body{font-family:'Arial',sans-serif;background:#fff;color:#111;font-size:12px;li
   <div class="summary-cards">
     <div class="sum-card"><div class="sum-val"><?= $totalOrders ?></div><div class="sum-lbl">Total Orders</div></div>
     <div class="sum-card"><div class="sum-val"><?= number_format($totalQty, 0) ?></div><div class="sum-lbl">Total Qty</div></div>
-    <div class="sum-card"><div class="sum-val" style="color:#15803D"><?= $finished ?></div><div class="sum-lbl">Finished</div></div>
+    <div class="sum-card"><div class="sum-val" style="font-size:18px"><?= $totalPrice > 0 ? 'Rp ' . number_format($totalPrice, 0, ',', '.') : '—' ?></div><div class="sum-lbl">Total Value</div></div>
     <div class="sum-card"><div class="sum-val" style="color:#C2410C"><?= $inProgress ?></div><div class="sum-lbl">In Progress</div></div>
   </div>
 
@@ -141,10 +142,11 @@ body{font-family:'Arial',sans-serif;background:#fff;color:#111;font-size:12px;li
         <th>Product</th>
         <th>Dimensions</th>
         <th>Qty</th>
+        <th>Prices</th>
+        <th>Total Prices</th>
         <th>Order Date</th>
         <th>Deadline</th>
         <th>Craftsman</th>
-        <th>Progress</th>
         <th>Status</th>
         <th>Blueprint</th>
       </tr>
@@ -163,16 +165,26 @@ body{font-family:'Arial',sans-serif;background:#fff;color:#111;font-size:12px;li
             <?php endif; ?>
           </td>
           <td><?= htmlspecialchars($ord['dimensions'] ?: '—') ?></td>
-          <td><strong><?= htmlspecialchars($ord['quantity']) ?></strong></td>
+          <td style="text-align:right"><strong><?= htmlspecialchars($ord['quantity']) ?></strong></td>
+          <td style="text-align:right;font-size:10px">
+            <?php if ((float)($ord['unit_price'] ?? 0) > 0): ?>
+              <?= number_format((float)$ord['unit_price'], 0, ',', '.') ?>
+            <?php else: ?>
+              —
+            <?php endif; ?>
+          </td>
+          <td style="text-align:right;font-weight:700;background:#fffdf5;color:#B8860B">
+            <?php if ((float)($ord['total_price'] ?? 0) > 0): ?>
+              <?= number_format((float)$ord['total_price'], 0, ',', '.') ?>
+            <?php else: ?>
+              —
+            <?php endif; ?>
+          </td>
           <td><?= htmlspecialchars($ord['order_date']) ?></td>
           <td><?= $ord['due_date'] ? htmlspecialchars($ord['due_date']) : '—' ?></td>
           <td>
             <?= htmlspecialchars($ord['craftsman_name'] ?? '—') ?>
             <?php if ($ord['craftsman_specialty']): ?><div style="font-size:10px;color:#999"><?= htmlspecialchars($ord['craftsman_specialty']) ?></div><?php endif; ?>
-          </td>
-          <td>
-            <?= $pct ?>%
-            <div class="bar-wrap"><div class="bar-fill" style="width:<?= $pct ?>%"></div></div>
           </td>
           <td>
             <span class="status-pill" style="background:<?= $color ?>"><?= htmlspecialchars($statusLabels[$ord['status']] ?? $ord['status']) ?></span>
@@ -187,7 +199,7 @@ body{font-family:'Arial',sans-serif;background:#fff;color:#111;font-size:12px;li
         </tr>
       <?php endforeach; ?>
       <?php if (empty($orders)): ?>
-        <tr><td colspan="10" style="text-align:center;padding:20px;color:#999">No orders found for this customer.</td></tr>
+        <tr><td colspan="11" style="text-align:center;padding:20px;color:#999">No orders found for this customer.</td></tr>
       <?php endif; ?>
     </tbody>
   </table>
