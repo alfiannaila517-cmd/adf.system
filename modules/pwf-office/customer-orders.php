@@ -253,26 +253,37 @@ pwfOfficeHeader('Customer Orders Summary', 'customers');
         <table class="order-table">
             <thead>
                 <tr>
-                    <th style="width: 40px">No</th>
-                    <th style="width: 70px">Date</th>
-                    <th style="width: 60px">Image</th>
-                    <th style="min-width: 150px">Product Name</th>
+                    <th style="width: 30px; text-align: center">No</th>
+                    <th style="width: 65px">Date</th>
+                    <th style="min-width: 140px">Order Name</th>
+                    <th style="width: 60px; text-align: center">Image</th>
                     <th style="width: 120px">Description</th>
-                    <th style="width: 80px">Dimensions</th>
-                    <th style="width: 80px">Wood Color</th>
+                    <th style="width: 40px; text-align: center">W</th>
+                    <th style="width: 40px; text-align: center">D</th>
+                    <th style="width: 40px; text-align: center">H</th>
+                    <th style="width: 50px; text-align: right">Qty</th>
+                    <th style="width: 90px; text-align: right">Prices</th>
+                    <th style="width: 110px; text-align: right">Total Prices</th>
+                    <th style="width: 70px">Wood</th>
                     <th style="width: 80px">Finish</th>
-                    <th style="width: 60px">Qty</th>
-                    <th style="width: 100px">Unit Price</th>
-                    <th style="width: 120px">Total Price</th>
                     <th style="width: 100px">Remark</th>
-                    <th style="width: 60px">Status</th>
                 </tr>
             </thead>
             <tbody>
-                <?php foreach ($orders as $idx => $o): ?>
+                <?php foreach ($orders as $idx => $o): 
+                    // Parse dimensions W×D×H
+                    $dims = explode('×', $o['dimensions'] ?? '');
+                    $w = isset($dims[0]) ? trim($dims[0]) : '—';
+                    $d = isset($dims[1]) ? trim($dims[1]) : '—';
+                    $h = isset($dims[2]) ? trim($dims[2]) : '—';
+                ?>
                 <tr>
                     <td style="text-align: center; font-weight: 600; color: var(--muted)"><?= $idx + 1 ?></td>
-                    <td style="font-size: 11px"><?= date('d-M-y', strtotime($o['order_date'])) ?></td>
+                    <td style="font-size: 11px; white-space: nowrap"><?= date('d-M-y', strtotime($o['order_date'])) ?></td>
+                    <td style="font-weight: 600; color: var(--text)">
+                        <?= htmlspecialchars($o['product_name']) ?><br>
+                        <span style="font-size: 9px; color: var(--muted)"><?= htmlspecialchars($o['order_code']) ?></span>
+                    </td>
                     <td style="text-align: center">
                         <?php if ($o['image_path']): ?>
                         <img src="<?= BASE_URL ?>/../<?= htmlspecialchars($o['image_path']) ?>" alt="Product" class="order-image">
@@ -280,48 +291,41 @@ pwfOfficeHeader('Customer Orders Summary', 'customers');
                         <div class="order-image-empty">📷</div>
                         <?php endif; ?>
                     </td>
-                    <td style="font-weight: 600; color: var(--text)">
-                        <?= htmlspecialchars($o['product_name']) ?><br>
-                        <span style="font-size: 10px; color: var(--muted)"><?= htmlspecialchars($o['order_code']) ?></span>
+                    <td style="font-size: 11px; color: var(--muted); word-break: break-word">
+                        <?= htmlspecialchars(mb_strimwidth($o['description'] ?? '', 0, 80, '...')) ?>
                     </td>
-                    <td style="font-size: 11px; color: var(--muted); max-width: 120px; word-break: break-word">
-                        <?= htmlspecialchars(mb_strimwidth($o['description'] ?? '', 0, 100, '...')) ?>
-                    </td>
-                    <td class="dimensions-cell"><?= htmlspecialchars($o['dimensions'] ?? '—') ?></td>
-                    <td style="font-size: 11px"><?= htmlspecialchars($o['wood_color'] ?? '—') ?></td>
-                    <td style="font-size: 11px"><?= htmlspecialchars($o['finish'] ?? '—') ?></td>
-                    <td style="text-align: right; font-weight: 600"><?= number_format((float)$o['quantity'], 0) ?></td>
-                    <td style="text-align: right; font-size: 11px">
+                    <td style="text-align: center; font-size: 10.5px; color: var(--muted)"><?= htmlspecialchars($w) ?></td>
+                    <td style="text-align: center; font-size: 10.5px; color: var(--muted)"><?= htmlspecialchars($d) ?></td>
+                    <td style="text-align: center; font-size: 10.5px; color: var(--muted)"><?= htmlspecialchars($h) ?></td>
+                    <td style="text-align: right; font-weight: 600; color: var(--text)"><?= number_format((float)$o['quantity'], 0) ?></td>
+                    <td style="text-align: right; font-size: 11px; color: var(--text)">
                         <?php if ((float)$o['unit_price'] > 0): ?>
-                        Rp <?= number_format((float)$o['unit_price'], 0, ',', '.') ?>
+                        <?= number_format((float)$o['unit_price'], 0, ',', '.') ?>
                         <?php else: ?>
                         —
                         <?php endif; ?>
                     </td>
-                    <td style="text-align: right; font-weight: 600; color: var(--gold)">
+                    <td style="text-align: right; font-weight: 700; color: var(--gold); background: rgba(212, 160, 23, 0.05)">
                         <?php if ((float)$o['total_price'] > 0): ?>
-                        Rp <?= number_format((float)$o['total_price'], 0, ',', '.') ?>
+                        <?= number_format((float)$o['total_price'], 0, ',', '.') ?>
                         <?php else: ?>
                         —
                         <?php endif; ?>
                     </td>
-                    <td style="font-size: 10.5px; color: var(--muted); max-width: 100px; word-break: break-word">
-                        <?= htmlspecialchars(mb_strimwidth($o['notes'] ?? '', 0, 80, '...')) ?>
-                    </td>
-                    <td>
-                        <span class="status-badge status-<?= htmlspecialchars($o['status']) ?>">
-                            <?= htmlspecialchars(str_replace('_', ' ', $o['status'])) ?>
-                        </span>
+                    <td style="font-size: 10.5px; color: var(--muted)"><?= htmlspecialchars($o['wood_color'] ?? '—') ?></td>
+                    <td style="font-size: 10.5px; color: var(--muted)"><?= htmlspecialchars($o['finish'] ?? '—') ?></td>
+                    <td style="font-size: 10px; color: var(--muted); word-break: break-word">
+                        <?= htmlspecialchars(mb_strimwidth($o['notes'] ?? '', 0, 60, '...')) ?>
                     </td>
                 </tr>
                 <?php endforeach; ?>
                 <!-- Total Row -->
                 <tr class="total-row">
-                    <td colspan="8" style="text-align: right">TOTAL</td>
-                    <td style="text-align: right"><?= number_format($totalQty, 0) ?></td>
+                    <td colspan="8" style="text-align: right; padding: 13px 12px; font-weight: 700">TOTAL</td>
+                    <td style="text-align: right; padding: 13px 12px; font-weight: 700"><?= number_format($totalQty, 0) ?></td>
                     <td></td>
-                    <td style="text-align: right">Rp <?= number_format($totalPrice, 0, ',', '.') ?></td>
-                    <td colspan="2"></td>
+                    <td style="text-align: right; padding: 13px 12px; font-weight: 700"><?= number_format($totalPrice, 0, ',', '.') ?></td>
+                    <td colspan="3"></td>
                 </tr>
             </tbody>
         </table>
