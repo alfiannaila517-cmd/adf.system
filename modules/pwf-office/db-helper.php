@@ -138,6 +138,23 @@ function ensurePwfOfficeTables(PDO $pdo): void
         INDEX idx_container (container_id),
         INDEX idx_order (order_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    // SPK (Surat Perintah Kerja - Production Order) table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS pwf_spk (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        spk_no VARCHAR(50) UNIQUE,
+        order_id INT NOT NULL,
+        craftsman_id INT NULL,
+        start_date DATE NULL,
+        end_date DATE NULL,
+        status ENUM('draft','assigned','in_progress','completed','cancelled') DEFAULT 'draft',
+        notes TEXT NULL,
+        created_by INT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_order (order_id),
+        INDEX idx_craftsman (craftsman_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 }
 
 function genPwfCode(PDO $pdo, string $prefix): string

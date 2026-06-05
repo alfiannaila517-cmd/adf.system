@@ -117,22 +117,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     } elseif ($action === 'reset_orders') {
         // Hard reset: wipe all transactional data, keep settings/customers/craftsmen
-        $pdo->exec("SET FOREIGN_KEY_CHECKS=0");
-        $pdo->exec("TRUNCATE TABLE pwf_container_items");
-        $pdo->exec("TRUNCATE TABLE pwf_containers");
-        $pdo->exec("TRUNCATE TABLE pwf_spk");
-        $pdo->exec("UPDATE pwf_orders SET status='on_progress', qty_done=0, updated_at=NOW() WHERE 1");
-        $pdo->exec("SET FOREIGN_KEY_CHECKS=1");
-        $msg = 'All containers, shipping records and SPK have been reset. Orders reverted to On Progress.';
+        try {
+            $pdo->exec("SET FOREIGN_KEY_CHECKS=0");
+            
+            // Safely truncate tables (check existence first)
+            foreach (['pwf_container_items','pwf_containers','pwf_spk'] as $t) {
+                try {
+                    $check = $pdo->query("SHOW TABLES LIKE '$t'");
+                    if ($check && $check->rowCount() > 0) {
+                        $pdo->exec("TRUNCATE TABLE `$t`");
+                    }
+                } catch (Exception $e) {
+                    // Table doesn't exist - skip silently
+                }
+            }
+            
+            // Reset orders to 'on_progress'
+            try {
+                $check = $pdo->query("SHOW TABLES LIKE 'pwf_orders'");
+                if ($check && $check->rowCount() > 0) {
+                    $pdo->exec("UPDATE pwf_orders SET status='on_progress', qty_done=0, updated_at=NOW() WHERE 1");
+                }
+            } catch (Exception $e) {}
+            
+            $pdo->exec("SET FOREIGN_KEY_CHECKS=1");
+            $msg = 'All containers, shipping records and SPK have been reset. Orders reverted to On Progress.';
+        } catch (Exception $e) {
+            $msg = 'Error during reset: ' . htmlspecialchars($e->getMessage());
+            $msgType = 'error';
+        }
 
     } elseif ($action === 'reset_all') {
         // Full reset: wipe everything except settings
-        $pdo->exec("SET FOREIGN_KEY_CHECKS=0");
-        foreach (['pwf_container_items','pwf_containers','pwf_spk','pwf_orders','pwf_customers','pwf_craftsmen'] as $t) {
-            $pdo->exec("TRUNCATE TABLE `$t`");
+        try {
+            $pdo->exec("SET FOREIGN_KEY_CHECKS=0");
+            
+            $tables = ['pwf_container_items','pwf_containers','pwf_spk','pwf_orders','pwf_customers','pwf_craftsmen'];
+            $truncated = [];
+            
+            foreach ($tables as $t) {
+                try {
+                    $check = $pdo->query("SHOW TABLES LIKE '$t'");
+                    if ($check && $check->rowCount() > 0) {
+                        $pdo->exec("TRUNCATE TABLE `$t`");
+                        $truncated[] = $t;
+                    }
+                } catch (Exception $e) {
+                    // Table doesn't exist or can't truncate - log but continue
+                    // File error in logs instead of aborting
+                    @error_log("PWF reset: Could not truncate $t - " . $e->getMessage());
+                }
+            }
+            
+            $pdo->exec("SET FOREIGN_KEY_CHECKS=1");
+            $msg = 'All data has been wiped. Settings and media are preserved.' . (count($truncated) < count($tables) ? ' (' . count($truncated) . ' tables cleared)' : '');
+        } catch (Exception $e) {
+            $msg = 'Error during full reset: ' . htmlspecialchars($e->getMessage());
+            $msgType = 'error';
         }
-        $pdo->exec("SET FOREIGN_KEY_CHECKS=1");
-        $msg = 'All data has been wiped. Settings and media are preserved.';
     }
 }
 
