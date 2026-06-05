@@ -265,7 +265,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $quantity = (float)($_POST['quantity'] ?? 1);
             $unitPrice = (float)($_POST['unit_price'] ?? 0);
             $totalPrice = $quantity * $unitPrice;
-            
+
             $pdo->prepare('INSERT INTO pwf_orders
                 (order_code,customer_id,order_date,due_date,product_name,specification,description,dimensions,quantity,unit_price,total_price,wood_color,finish,image_path,assigned_craftsman_id,notes,created_by)
                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
@@ -297,11 +297,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $existImg->execute([$id]);
             $existImg = $existImg->fetchColumn();
             $imgPath = uploadOrderImage('order_image') ?: $existImg;
-            
+
             $quantity = (float)($_POST['quantity'] ?? 1);
             $unitPrice = (float)($_POST['unit_price'] ?? 0);
             $totalPrice = $quantity * $unitPrice;
-            
+
             $pdo->prepare('UPDATE pwf_orders SET
                 customer_id=?, order_date=?, due_date=?, product_name=?,
                 specification=?, description=?, dimensions=?, quantity=?, unit_price=?, total_price=?,
@@ -896,6 +896,7 @@ pwfOfficeHeader('Orders', 'orders');
                         <th>Due</th>
                         <th>Qty / Price</th>
                         <th>Status</th>
+                        <th style="width:120px">Remarks</th>
                         <th style="width:130px">Actions</th>
                     </tr>
                 </thead>
@@ -925,7 +926,7 @@ pwfOfficeHeader('Orders', 'orders');
                             <td style="font-size:11px">
                                 <div style="font-weight:600;color:var(--text)"><?= rtrim(rtrim(number_format((float)$o['quantity'], 2), '0'), '.') ?> pcs</div>
                                 <?php if ((float)$o['total_price'] > 0): ?>
-                                <div style="font-size:10px;color:var(--gold);margin-top:2px">Rp <?= number_format((float)$o['total_price'], 0, ',', '.') ?></div>
+                                    <div style="font-size:10px;color:var(--gold);margin-top:2px">Rp <?= number_format((float)$o['total_price'], 0, ',', '.') ?></div>
                                 <?php endif; ?>
                             </td>
                             <td>
@@ -935,6 +936,9 @@ pwfOfficeHeader('Orders', 'orders');
                                         Sisa: <?= rtrim(rtrim(number_format((float)$o['quantity'] - (float)$o['qty_done'], 2), '0'), '.') ?> pcs
                                     </div>
                                 <?php endif; ?>
+                            </td>
+                            <td style="font-size:10px;color:var(--muted);word-break:break-word">
+                                <?= htmlspecialchars(mb_strimwidth($o['notes'] ?? '', 0, 60, '...')) ?>
                             </td>
                             <td>
                                 <div style="display:flex;gap:4px;align-items:center">
@@ -964,7 +968,7 @@ pwfOfficeHeader('Orders', 'orders');
                         </tr>
                     <?php endforeach; ?>
                     <?php if (empty($orders)): ?><tr>
-                            <td colspan="9" style="text-align:center;color:var(--muted);padding:24px">No orders found.</td>
+                            <td colspan="10" style="text-align:center;color:var(--muted);padding:24px">No orders found.</td>
                         </tr><?php endif; ?>
                 </tbody>
             </table>
@@ -1059,7 +1063,7 @@ pwfOfficeHeader('Orders', 'orders');
                     </div>
                     <div class="pwf-form-group"><label>Order Date</label><input class="input" type="date" name="order_date" value="<?= date('Y-m-d') ?>"></div>
                     <div class="pwf-form-group"><label>Deadline</label><input class="input" type="date" name="due_date"></div>
-                    
+
                     <!-- Section 2: Product Details -->
                     <div class="pwf-form-group" style="grid-column:1/-1"><label>Product Name</label><input class="input" name="product_name" placeholder="Product name" required></div>
                     <div class="pwf-form-group" style="grid-column:1/-1"><label>Description</label><textarea name="description" placeholder="Product description, specifications..." style="height:50px"></textarea></div>
@@ -1067,7 +1071,7 @@ pwfOfficeHeader('Orders', 'orders');
                     <div class="pwf-form-group"><label>Dimensions (P×L×T)</label><input class="input" name="dimensions" placeholder="e.g. 120×60×75 cm"></div>
                     <div class="pwf-form-group"><label>Wood Color</label><input class="input" name="wood_color" placeholder="e.g. Mahogany, Oak, etc"></div>
                     <div class="pwf-form-group"><label>Finish</label><input class="input" name="finish" placeholder="e.g. Lacquer, Varnish, etc"></div>
-                    
+
                     <!-- Section 3: Pricing (Visual Divider) -->
                     <div style="grid-column:1/-1;height:1px;background:linear-gradient(to right, transparent, var(--border) 20%, var(--border) 80%, transparent);margin:8px 0;opacity:.5"></div>
                     <div style="grid-column:1/-1">
@@ -1079,9 +1083,11 @@ pwfOfficeHeader('Orders', 'orders');
                         <label style="font-size:10px;color:var(--gold);text-transform:uppercase;font-weight:600;letter-spacing:.4px">Total Price (Rp)</label>
                         <div id="new_total_price" style="font-size:22px;font-weight:700;color:var(--gold);margin-top:8px;font-family:monospace">0</div>
                     </div>
-                    
+
                     <!-- Section 4: Image & Assignment -->
-                    <div class="pwf-form-group" style="grid-column:1/-1"><label>Photo / Blueprint</label><input class="input" type="file" name="order_image" accept=".jpg,.jpeg,.png,.webp"><div style="font-size:11px;color:var(--muted);margin-top:3px">Max 8MB (JPG, PNG, WEBP)</div></div>
+                    <div class="pwf-form-group" style="grid-column:1/-1"><label>Photo / Blueprint</label><input class="input" type="file" name="order_image" accept=".jpg,.jpeg,.png,.webp">
+                        <div style="font-size:11px;color:var(--muted);margin-top:3px">Max 8MB (JPG, PNG, WEBP)</div>
+                    </div>
                     <div class="pwf-form-group" style="grid-column:1/-1"><label>Assign Craftsman</label>
                         <select class="select" name="assigned_craftsman_id">
                             <option value="">— Not assigned yet —</option>
@@ -1531,14 +1537,22 @@ pwfOfficeHeader('Orders', 'orders');
         const qty = parseFloat(document.getElementById('ef_qty').value) || 0;
         const price = parseFloat(document.getElementById('ef_unit_price').value) || 0;
         const total = qty * price;
-        document.getElementById('ef_total_price').textContent = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(total);
+        document.getElementById('ef_total_price').textContent = new Intl.NumberFormat('id-ID', {
+            style: 'currency',
+            currency: 'IDR',
+            minimumFractionDigits: 0
+        }).format(total);
     }
 
     function createCalculateTotal() {
         const qty = parseFloat(document.getElementById('new_qty').value) || 0;
         const price = parseFloat(document.getElementById('new_unit_price').value) || 0;
         const total = qty * price;
-        document.getElementById('new_total_price').textContent = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(total);
+        document.getElementById('new_total_price').textContent = new Intl.NumberFormat('id-ID', {
+            style: 'currency',
+            currency: 'IDR',
+            minimumFractionDigits: 0
+        }).format(total);
     }
 
     function closeEdit() {
