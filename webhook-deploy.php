@@ -5,7 +5,20 @@
  * - GET with token: show current deploy status
  * - POST with token: trigger git pull (if exec available)
  * SECURITY: IP-restricted + token required
+ *
+ * Auto deploy has been disabled. Use manual git version control instead.
  */
+
+$autoDeployEnabled = false;
+header('Content-Type: application/json');
+header('Cache-Control: no-cache');
+if (!$autoDeployEnabled) {
+    echo json_encode([
+        'status' => 'disabled',
+        'message' => 'Auto deploy disabled. Use manual git pull from repository and manage deployments with git version control.',
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    exit;
+}
 
 // Block non-local access unless valid GitHub webhook
 $remoteIp = $_SERVER['REMOTE_ADDR'] ?? '';
