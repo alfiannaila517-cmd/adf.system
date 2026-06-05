@@ -5,7 +5,7 @@ require_once __DIR__ . '/layout.php';
 
 $pdo = getPwfOfficePdo();
 
-// Get all completed orders with their container assignments
+// Get all orders that have been assigned to a container (regardless of completion status)
 $stmt = $pdo->prepare("
     SELECT 
         o.id,
@@ -21,17 +21,16 @@ $stmt = $pdo->prepare("
         o.status,
         c.customer_name,
         t.craftsman_name,
-        COALESCE(CONCAT(cont.container_code, ' (', cont.container_no, ')'), '—') AS container_info,
+        CONCAT(cont.container_code, IF(cont.container_no IS NOT NULL, CONCAT(' (', cont.container_no, ')'), '')) AS container_info,
         cont.container_type,
         ci.qty_shipped,
         cont.destination_country
     FROM pwf_orders o
+    INNER JOIN pwf_container_items ci ON ci.order_id = o.id
+    INNER JOIN pwf_containers cont ON cont.id = ci.container_id
     LEFT JOIN pwf_customers c ON c.id = o.customer_id
     LEFT JOIN pwf_craftsmen t ON t.id = o.assigned_craftsman_id
-    LEFT JOIN pwf_container_items ci ON ci.order_id = o.id
-    LEFT JOIN pwf_containers cont ON cont.id = ci.container_id
-    WHERE o.status IN ('completed', 'shipped', 'ready_ship')
-    ORDER BY o.order_date DESC, o.id DESC
+    ORDER BY cont.created_at DESC, o.order_date DESC
 ");
 $stmt->execute();
 $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -245,7 +244,7 @@ pwfOfficeHeader('Rekap Order', 'rekap-order');
     <!-- Header -->
     <div class="recap-header">
         <h2>📦 Rekap Order (Order Summary)</h2>
-        <p>Daftar order yang sudah selesai produksi dan informasi container pengiriman</p>
+        <p>Daftar order yang sudah dipilihkan ke container (untuk packing & pengiriman)</p>
     </div>
 
     <!-- Controls -->
@@ -269,12 +268,12 @@ pwfOfficeHeader('Rekap Order', 'rekap-order');
             <div class="summary-value"><?= number_format(array_sum(array_column($orders, 'quantity')), 0) ?></div>
         </div>
         <div class="summary-card">
-            <div class="summary-label">Dalam Container</div>
-            <div class="summary-value"><?= count(array_filter($orders, fn($o) => $o['container_info'] !== '—')) ?></div>
+            <div class="summary-label">Total Qty Shipped</div>
+            <div class="summary-value"><?= number_format(array_sum(array_column($orders, 'qty_shipped')), 0) ?></div>
         </div>
         <div class="summary-card">
-            <div class="summary-label">Belum Container</div>
-            <div class="summary-value"><?= count(array_filter($orders, fn($o) => $o['container_info'] === '—')) ?></div>
+            <div class="summary-label">Sisa Qty</div>
+            <div class="summary-value"><?= number_format(array_sum(array_column($orders, 'quantity')) - array_sum(array_column($orders, 'qty_shipped')), 0) ?></div>
         </div>
     </div>
 
@@ -305,7 +304,7 @@ pwfOfficeHeader('Rekap Order', 'rekap-order');
                     <tr>
                         <td colspan="15" style="text-align: center; color: var(--muted); padding: 40px 20px">
                             <i class="bi bi-inbox" style="font-size: 32px; opacity: 0.3; display: block; margin-bottom: 8px"></i>
-                            Tidak ada order yang selesai produksi
+                            Tidak ada order yang sudah dipilihkan ke container
                         </td>
                     </tr>
                 <?php else: ?>
@@ -346,18 +345,12 @@ pwfOfficeHeader('Rekap Order', 'rekap-order');
                             <div style="color: var(--muted)"><?= htmlspecialchars(str_replace('_', ' ', $o['status'])) ?></div>
                         </td>
                         <td>
-                            <?php if ($o['container_info'] !== '—'): ?>
-                                <div class="recap-container">
-                                    <i class="bi bi-box-seam" style="margin-right: 4px"></i><?= htmlspecialchars($o['container_info']) ?>
-                                </div>
-                                <?php if ($o['destination_country']): ?>
-                                    <div style="font-size: 9px; margin-top: 4px; color: var(--muted)">
-                                        🌍 <?= htmlspecialchars($o['destination_country']) ?>
-                                    </div>
-                                <?php endif; ?>
-                            <?php else: ?>
-                                <div class="recap-container empty">
-                                    Belum di-assign
+                            <div class="recap-container">
+                                <i class="bi bi-box-seam" style="margin-right: 4px"></i><?= htmlspecialchars($o['container_info']) ?>
+                            </div>
+                            <?php if ($o['destination_country']): ?>
+                                <div style="font-size: 9px; margin-top: 4px; color: var(--muted)">
+                                    🌍 <?= htmlspecialchars($o['destination_country']) ?>
                                 </div>
                             <?php endif; ?>
                         </td>
