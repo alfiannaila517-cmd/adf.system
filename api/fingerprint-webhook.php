@@ -415,14 +415,16 @@ if (!$data || !isset($data['type']) || !isset($data['cloud_id'])) {
                 $logPdo = $bdb->getConnection();
                 ensureTablesExist($logPdo);
                 break;
-            } catch (Exception $e) {}
+            } catch (Exception $e) {
+            }
         }
     }
     if ($logPdo) {
         try {
             $logPdo->prepare("INSERT INTO fingerprint_log (cloud_id, type, raw_data, process_result) VALUES (?,?,?,?)")
                 ->execute(['unknown', 'invalid', substr($rawBody, 0, 2000), 'Invalid payload - type or cloud_id missing']);
-        } catch (Exception $e) {}
+        } catch (Exception $e) {
+        }
     }
     http_response_code(400);
     echo json_encode(['success' => false, 'message' => 'Invalid payload']);

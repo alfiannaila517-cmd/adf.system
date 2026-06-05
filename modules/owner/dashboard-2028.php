@@ -3035,7 +3035,6 @@ if ($healthScore >= 80) {
             padding: 1px 5px;
             border-radius: 10px;
         }
-
     </style>
 </head>
 

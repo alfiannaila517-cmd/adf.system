@@ -586,9 +586,9 @@ include '../../includes/header.php';
     }
 
 
-        display: flex;
-        flex-wrap: wrap;
-        gap: .25rem
+    display: flex;
+    flex-wrap: wrap;
+    gap: .25rem
     }
 
     .bf-order-tag {

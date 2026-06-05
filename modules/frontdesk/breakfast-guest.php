@@ -1929,7 +1929,10 @@ $token = trim((string)($_GET['t'] ?? ''));
                 items.forEach(function(it) {
                     totalPax += parseInt(it.qty || 1, 10) || 1;
                 });
-                cartSummaryText.innerHTML = t('cartSummaryLine', { count: items.length, pax: totalPax });
+                cartSummaryText.innerHTML = t('cartSummaryLine', {
+                    count: items.length,
+                    pax: totalPax
+                });
                 cartList.innerHTML = items.map(function(item) {
                     var priceText = item.free ? t('freeLabel') : 'Rp ' + Math.round(item.price).toLocaleString('id-ID');
                     var noteHtml = item.note ? '<div class="cart-note">' + esc(t('noteLabel')) + ': ' + esc(item.note) + '</div>' : '';
@@ -1971,7 +1974,8 @@ $token = trim((string)($_GET['t'] ?? ''));
                 if (!payload || payload.is_locked) return {
                     total: 0,
                     details: []
-                };                var groups = [
+                };
+                var groups = [
                     ['main', parseInt(payload.max_main || 0, 10)],
                     ['drink', parseInt(payload.max_drink || 0, 10)]
                 ];
