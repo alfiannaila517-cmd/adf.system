@@ -19,6 +19,7 @@ $stmt = $pdo->prepare("
         o.finish,
         o.image_path,
         o.status,
+        o.notes,
         c.customer_name,
         t.craftsman_name,
         COALESCE(CONCAT(cont.container_code, ' (', cont.container_no, ')'), '—') AS container_info,
@@ -298,12 +299,13 @@ pwfOfficeHeader('Rekap Order', 'rekap-order');
                     <th style="width: 140px">Container</th>
                     <th style="width: 60px">Status</th>
                     <th style="min-width: 100px">Customer</th>
+                    <th style="min-width: 120px">Remark</th>
                 </tr>
             </thead>
             <tbody>
                 <?php if (empty($orders)): ?>
                     <tr>
-                        <td colspan="15" style="text-align: center; color: var(--muted); padding: 40px 20px">
+                        <td colspan="16" style="text-align: center; color: var(--muted); padding: 40px 20px">
                             <i class="bi bi-inbox" style="font-size: 32px; opacity: 0.3; display: block; margin-bottom: 8px"></i>
                             Belum ada order yang dipilihkan container
                         </td>
@@ -367,6 +369,9 @@ pwfOfficeHeader('Rekap Order', 'rekap-order');
                                 </span>
                             </td>
                             <td style="font-size: 10.5px"><?= htmlspecialchars($o['customer_name'] ?? '—') ?></td>
+                            <td style="font-size: 10px; color: var(--muted); word-break: break-word">
+                                <?= htmlspecialchars(mb_strimwidth($o['notes'] ?? '', 0, 80, '...')) ?>
+                            </td>
                         </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>
