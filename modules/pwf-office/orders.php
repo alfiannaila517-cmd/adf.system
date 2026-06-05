@@ -262,9 +262,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($customerId > 0 && $productName !== '') {
             $imgPath = uploadOrderImage('order_image');
             $code = genPwfCode($pdo, 'ORD');
+            $quantity = (float)($_POST['quantity'] ?? 1);
+            $unitPrice = (float)($_POST['unit_price'] ?? 0);
+            $totalPrice = $quantity * $unitPrice;
+            
             $pdo->prepare('INSERT INTO pwf_orders
-                (order_code,customer_id,order_date,due_date,product_name,specification,dimensions,quantity,image_path,assigned_craftsman_id,notes,created_by)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
+                (order_code,customer_id,order_date,due_date,product_name,specification,description,dimensions,quantity,unit_price,total_price,wood_color,finish,image_path,assigned_craftsman_id,notes,created_by)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
                 ->execute([
                     $code,
                     $customerId,
@@ -272,8 +276,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_POST['due_date'] ?: null,
                     $productName,
                     trim($_POST['specification'] ?? ''),
+                    trim($_POST['description'] ?? ''),
                     trim($_POST['dimensions'] ?? ''),
-                    (float)($_POST['quantity'] ?? 1),
+                    $quantity,
+                    $unitPrice,
+                    $totalPrice,
+                    trim($_POST['wood_color'] ?? ''),
+                    trim($_POST['finish'] ?? ''),
                     $imgPath,
                     (int)($_POST['assigned_craftsman_id'] ?? 0) ?: null,
                     trim($_POST['notes'] ?? ''),
@@ -288,9 +297,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $existImg->execute([$id]);
             $existImg = $existImg->fetchColumn();
             $imgPath = uploadOrderImage('order_image') ?: $existImg;
+            
+            $quantity = (float)($_POST['quantity'] ?? 1);
+            $unitPrice = (float)($_POST['unit_price'] ?? 0);
+            $totalPrice = $quantity * $unitPrice;
+            
             $pdo->prepare('UPDATE pwf_orders SET
                 customer_id=?, order_date=?, due_date=?, product_name=?,
-                specification=?, dimensions=?, quantity=?, image_path=?,
+                specification=?, description=?, dimensions=?, quantity=?, unit_price=?, total_price=?,
+                wood_color=?, finish=?, image_path=?,
                 assigned_craftsman_id=?, status=?, notes=?, updated_at=NOW()
                 WHERE id=?')
                 ->execute([
@@ -299,8 +314,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_POST['due_date'] ?: null,
                     trim($_POST['product_name'] ?? ''),
                     trim($_POST['specification'] ?? ''),
+                    trim($_POST['description'] ?? ''),
                     trim($_POST['dimensions'] ?? ''),
-                    (float)($_POST['quantity'] ?? 1),
+                    $quantity,
+                    $unitPrice,
+                    $totalPrice,
+                    trim($_POST['wood_color'] ?? ''),
+                    trim($_POST['finish'] ?? ''),
                     $imgPath,
                     (int)($_POST['assigned_craftsman_id'] ?? 0) ?: null,
                     $_POST['status'] ?? 'draft',
@@ -872,6 +892,7 @@ pwfOfficeHeader('Orders', 'orders');
                         <th>Product</th>
                         <th>Craftsman</th>
                         <th>Due</th>
+                        <th>Qty / Price</th>
                         <th>Status</th>
                         <th style="width:130px">Actions</th>
                     </tr>
@@ -898,6 +919,12 @@ pwfOfficeHeader('Orders', 'orders');
                             </td>
                             <td><?= htmlspecialchars($o['craftsman_name'] ?? '—') ?></td>
                             <td><?= $o['due_date'] ? date('d M Y', strtotime($o['due_date'])) : '—' ?></td>
+                            <td style="font-size:11px">
+                                <div style="font-weight:600;color:var(--text)"><?= rtrim(rtrim(number_format((float)$o['quantity'], 2), '0'), '.') ?> pcs</div>
+                                <?php if ((float)$o['total_price'] > 0): ?>
+                                <div style="font-size:10px;color:var(--gold);margin-top:2px">Rp <?= number_format((float)$o['total_price'], 0, ',', '.') ?></div>
+                                <?php endif; ?>
+                            </td>
                             <td>
                                 <span class="status-badge status-<?= htmlspecialchars($o['status']) ?>"><?= htmlspecialchars(str_replace('_', ' ', $o['status'])) ?></span>
                                 <?php if ($o['status'] === 'partial_ship' && ((float)$o['quantity'] - (float)$o['qty_done']) > 0): ?>
@@ -1075,9 +1102,17 @@ pwfOfficeHeader('Orders', 'orders');
                     <div class="pwf-form-group"><label>Order Date</label><input class="input" type="date" name="order_date" id="ef_order_date"></div>
                     <div class="pwf-form-group"><label>Deadline</label><input class="input" type="date" name="due_date" id="ef_due_date"></div>
                     <div class="pwf-form-group" style="grid-column:1/-1"><label>Product Name</label><input class="input" name="product_name" id="ef_product" required></div>
-                    <div class="pwf-form-group" style="grid-column:1/-1"><label>Specification</label><textarea name="specification" id="ef_spec"></textarea></div>
-                    <div class="pwf-form-group"><label>Dimensions</label><input class="input" name="dimensions" id="ef_dim"></div>
-                    <div class="pwf-form-group"><label>Quantity</label><input class="input" type="number" step="0.01" name="quantity" id="ef_qty"></div>
+                    <div class="pwf-form-group" style="grid-column:1/-1"><label>Description</label><textarea name="description" id="ef_description" style="height:60px"></textarea></div>
+                    <div class="pwf-form-group" style="grid-column:1/-1"><label>Specification</label><textarea name="specification" id="ef_spec" style="height:60px"></textarea></div>
+                    <div class="pwf-form-group"><label>Dimensions (P×L×T)</label><input class="input" name="dimensions" id="ef_dim"></div>
+                    <div class="pwf-form-group"><label>Wood Color</label><input class="input" name="wood_color" id="ef_wood_color"></div>
+                    <div class="pwf-form-group"><label>Finish</label><input class="input" name="finish" id="ef_finish"></div>
+                    <div class="pwf-form-group"><label>Quantity (pcs)</label><input class="input" type="number" step="0.01" name="quantity" id="ef_qty" oninput="calculateTotal()"></div>
+                    <div class="pwf-form-group"><label>Unit Price (Rp)</label><input class="input" type="number" step="0.01" name="unit_price" id="ef_unit_price" oninput="calculateTotal()"></div>
+                    <div class="pwf-form-group" style="background:#F5F3F0;border-radius:8px;padding:12px 14px;border:1px solid var(--border)">
+                        <label style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:600">Total Price (Rp)</label>
+                        <div id="ef_total_price" style="font-size:18px;font-weight:700;color:var(--gold);margin-top:6px">0</div>
+                    </div>
                     <div class="pwf-form-group" style="grid-column:1/-1">
                         <label>Blueprint / Photo</label>
                         <div id="ef_img_preview" style="margin-bottom:8px"></div>
@@ -1090,7 +1125,7 @@ pwfOfficeHeader('Orders', 'orders');
                             <?php foreach ($craftsmen as $t): ?><option value="<?= $t['id'] ?>"><?= htmlspecialchars($t['craftsman_name']) ?></option><?php endforeach; ?>
                         </select>
                     </div>
-                    <div class="pwf-form-group" style="grid-column:1/-1"><label>Notes</label><textarea name="notes" id="ef_notes"></textarea></div>
+                    <div class="pwf-form-group" style="grid-column:1/-1"><label>Remark / Notes</label><textarea name="notes" id="ef_notes" style="height:60px"></textarea></div>
                 </div>
                 <div style="display:flex;gap:8px;margin-top:4px">
                     <button class="btn" type="submit"><i class="bi bi-check-circle"></i> Save Changes</button>
@@ -1453,15 +1488,27 @@ pwfOfficeHeader('Orders', 'orders');
         document.getElementById('ef_due_date').value = o.due_date || '';
         document.getElementById('ef_product').value = o.product_name;
         document.getElementById('ef_spec').value = o.specification || '';
+        document.getElementById('ef_description').value = o.description || '';
         document.getElementById('ef_dim').value = o.dimensions || '';
+        document.getElementById('ef_wood_color').value = o.wood_color || '';
+        document.getElementById('ef_finish').value = o.finish || '';
         document.getElementById('ef_qty').value = o.quantity;
+        document.getElementById('ef_unit_price').value = o.unit_price || 0;
         document.getElementById('ef_craftsman').value = o.assigned_craftsman_id || '';
         document.getElementById('ef_notes').value = o.notes || '';
         const prev = document.getElementById('ef_img_preview');
         prev.innerHTML = o.image_path ?
             `<img src="<?= $baseUrl ?>/${o.image_path}" style="max-height:130px;border-radius:8px;border:1px solid #E7E5E4">` :
             '<span style="font-size:11.5px;color:var(--muted)">No image yet</span>';
+        calculateTotal();
         document.getElementById('editModal').classList.add('open');
+    }
+
+    function calculateTotal() {
+        const qty = parseFloat(document.getElementById('ef_qty').value) || 0;
+        const price = parseFloat(document.getElementById('ef_unit_price').value) || 0;
+        const total = qty * price;
+        document.getElementById('ef_total_price').textContent = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(total);
     }
 
     function closeEdit() {

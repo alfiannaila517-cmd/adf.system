@@ -71,6 +71,23 @@ function ensurePwfOfficeTables(PDO $pdo): void
         INDEX idx_craftsman (assigned_craftsman_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+    // Alter pwf_orders - add pricing & detail columns
+    try {
+        $pdo->exec("ALTER TABLE pwf_orders ADD COLUMN unit_price DECIMAL(15,2) DEFAULT 0");
+    } catch (\PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE pwf_orders ADD COLUMN total_price DECIMAL(15,2) DEFAULT 0");
+    } catch (\PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE pwf_orders ADD COLUMN wood_color VARCHAR(100) NULL");
+    } catch (\PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE pwf_orders ADD COLUMN finish VARCHAR(100) NULL");
+    } catch (\PDOException $e) {}
+    try {
+        $pdo->exec("ALTER TABLE pwf_orders ADD COLUMN description TEXT NULL");
+    } catch (\PDOException $e) {}
+
     $pdo->exec("CREATE TABLE IF NOT EXISTS pwf_order_progress (
         id INT AUTO_INCREMENT PRIMARY KEY,
         order_id INT NOT NULL,
