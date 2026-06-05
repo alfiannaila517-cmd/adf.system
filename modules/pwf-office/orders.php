@@ -6,6 +6,7 @@ $pdo = getPwfOfficePdo();
 
 // ── EXPORT PDF PRINT ────────────────────────────────────────────────────────
 if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
+    $baseUrl = rtrim(BASE_URL, '/');
     $filterCid  = (int)($_GET['customer_id']  ?? 0);
     $filterTid  = (int)($_GET['craftsman_id'] ?? 0);
     $where = 'WHERE 1=1';
@@ -150,9 +151,10 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
                     <th style="width:40px">#</th>
                     <th style="width:70px">Image</th>
                     <th>Code</th>
+                    <th>Order Name</th>
                     <th style="width:90px">Order Date</th>
                     <th>Customer</th>
-                    <th>Product</th>
+                    <th>Specification</th>
                     <th>Craftsman</th>
                     <th style="width:90px">Due</th>
                     <th style="width:60px;text-align:right">Qty</th>
@@ -164,11 +166,12 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
                 <?php foreach ($rows as $i => $r): ?>
                     <tr>
                         <td><?= $i + 1 ?></td>
-                        <td><?php if ($r['image_path']): ?><img src="<?= htmlspecialchars($r['image_path']) ?>" style="max-width:60px;max-height:50px;border-radius:4px" alt="Order"><?php else: ?><span style="color:#ccc">—</span><?php endif; ?></td>
+                        <td><?php if ($r['image_path']): ?><img src="<?= htmlspecialchars($baseUrl . '/' . $r['image_path']) ?>" style="max-width:60px;max-height:50px;border-radius:4px" alt="Order"><?php else: ?><span style="color:#ccc">—</span><?php endif; ?></td>
                         <td><?= htmlspecialchars($r['order_code']) ?></td>
+                        <td><strong><?= htmlspecialchars($r['product_name']) ?></strong></td>
                         <td><?= $r['order_date'] ? date('d M Y', strtotime($r['order_date'])) : '—' ?></td>
                         <td><?= htmlspecialchars($r['customer_name']) ?></td>
-                        <td><?= htmlspecialchars($r['product_name']) ?><?php if ($r['specification']): ?><br><span style="color:#999;font-size:10px"><?= htmlspecialchars(mb_substr($r['specification'], 0, 50)) ?></span><?php endif; ?></td>
+                        <td><?php if ($r['specification']): ?><span style="color:#666;font-size:10px"><?= htmlspecialchars(mb_substr($r['specification'], 0, 50)) ?></span><?php else: ?><span style="color:#ccc">—</span><?php endif; ?></td>
                         <td><?= htmlspecialchars($r['craftsman_name'] ?? '—') ?></td>
                         <td><?= $r['due_date'] ? date('d M Y', strtotime($r['due_date'])) : '—' ?></td>
                         <td style="text-align:right"><?= rtrim(rtrim(number_format((float)$r['quantity'], 2), '0'), '.') ?></td>
