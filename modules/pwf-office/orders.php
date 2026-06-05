@@ -894,8 +894,8 @@ pwfOfficeHeader('Orders', 'orders');
                         <th>Product</th>
                         <th>Craftsman</th>
                         <th>Due</th>
-                        <th>Qty / Price</th>
-                        <th>Status</th>
+                        <th style="width:60px;text-align:right">Qty</th>
+                        <th style="width:90px;text-align:right">Price</th>
                         <th style="width:120px">Remarks</th>
                         <th style="width:130px">Actions</th>
                     </tr>
@@ -923,18 +923,12 @@ pwfOfficeHeader('Orders', 'orders');
                             </td>
                             <td><?= htmlspecialchars($o['craftsman_name'] ?? '—') ?></td>
                             <td><?= $o['due_date'] ? date('d M Y', strtotime($o['due_date'])) : '—' ?></td>
-                            <td style="font-size:11px">
-                                <div style="font-weight:600;color:var(--text)"><?= rtrim(rtrim(number_format((float)$o['quantity'], 2), '0'), '.') ?> pcs</div>
+                            <td style="font-size:11px;text-align:right;font-weight:600;color:var(--text)"><?= rtrim(rtrim(number_format((float)$o['quantity'], 2), '0'), '.') ?> pcs</td>
+                            <td style="font-size:11px;text-align:right;color:var(--gold);font-weight:600">
                                 <?php if ((float)$o['total_price'] > 0): ?>
-                                    <div style="font-size:10px;color:var(--gold);margin-top:2px">Rp <?= number_format((float)$o['total_price'], 0, ',', '.') ?></div>
-                                <?php endif; ?>
-                            </td>
-                            <td>
-                                <span class="status-badge status-<?= htmlspecialchars($o['status']) ?>"><?= htmlspecialchars(str_replace('_', ' ', $o['status'])) ?></span>
-                                <?php if ($o['status'] === 'partial_ship' && ((float)$o['quantity'] - (float)$o['qty_done']) > 0): ?>
-                                    <div style="font-size:9.5px;color:#1D4ED8;font-weight:600;margin-top:3px">
-                                        Sisa: <?= rtrim(rtrim(number_format((float)$o['quantity'] - (float)$o['qty_done'], 2), '0'), '.') ?> pcs
-                                    </div>
+                                    Rp <?= number_format((float)$o['total_price'], 0, ',', '.') ?>
+                                <?php else: ?>
+                                    —
                                 <?php endif; ?>
                             </td>
                             <td style="font-size:10px;color:var(--muted);word-break:break-word">
@@ -968,7 +962,7 @@ pwfOfficeHeader('Orders', 'orders');
                         </tr>
                     <?php endforeach; ?>
                     <?php if (empty($orders)): ?><tr>
-                            <td colspan="10" style="text-align:center;color:var(--muted);padding:24px">No orders found.</td>
+                            <td colspan="9" style="text-align:center;color:var(--muted);padding:24px">No orders found.</td>
                         </tr><?php endif; ?>
                 </tbody>
             </table>
