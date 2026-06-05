@@ -535,7 +535,7 @@ pwfOfficeHeader('Orders', 'orders');
     .modal-box {
         background: #fff;
         border-radius: 16px;
-        width: min(720px, 96vw);
+        width: min(950px, 96vw);
         max-height: 92vh;
         overflow-y: auto;
         box-shadow: 0 24px 80px rgba(0, 0, 0, .25)
@@ -1071,8 +1071,8 @@ pwfOfficeHeader('Orders', 'orders');
                     <div style="grid-column:1/-1">
                         <div style="font-size:11px;color:var(--gold);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:12px">💰 Pricing & Order Details</div>
                     </div>
-                    <div class="pwf-form-group"><label>Quantity (pcs)</label><input class="input" type="number" step="0.01" name="quantity" id="new_qty" value="1" oninput="createCalculateTotal()"></div>
-                    <div class="pwf-form-group"><label>Unit Price (Rp)</label><input class="input" type="number" step="0.01" name="unit_price" id="new_unit_price" value="0" oninput="createCalculateTotal()"></div>
+                    <div class="pwf-form-group"><label>Quantity (pcs)</label><input class="input" type="number" step="1" name="quantity" id="new_qty" value="1" oninput="createCalculateTotal()"></div>
+                    <div class="pwf-form-group"><label>Unit Price (Rp)</label><input class="input" type="number" step="1" name="unit_price" id="new_unit_price" value="0" oninput="createCalculateTotal()"></div>
                     <div class="pwf-form-group" style="background:linear-gradient(135deg, #FFF9F0 0%, #FFFBF3 100%);border-radius:10px;padding:14px;border:1.5px solid var(--gold-border);grid-column:1/-1">
                         <label style="font-size:10px;color:var(--gold);text-transform:uppercase;font-weight:600;letter-spacing:.4px">Total Price (Rp)</label>
                         <div id="new_total_price" style="font-size:22px;font-weight:700;color:var(--gold);margin-top:8px;font-family:monospace">0</div>
@@ -1129,8 +1129,8 @@ pwfOfficeHeader('Orders', 'orders');
                     <div class="pwf-form-group"><label>Dimensions (P×L×T)</label><input class="input" name="dimensions" id="ef_dim"></div>
                     <div class="pwf-form-group"><label>Wood Color</label><input class="input" name="wood_color" id="ef_wood_color"></div>
                     <div class="pwf-form-group"><label>Finish</label><input class="input" name="finish" id="ef_finish"></div>
-                    <div class="pwf-form-group"><label>Quantity (pcs)</label><input class="input" type="number" step="0.01" name="quantity" id="ef_qty" oninput="calculateTotal()"></div>
-                    <div class="pwf-form-group"><label>Unit Price (Rp)</label><input class="input" type="number" step="0.01" name="unit_price" id="ef_unit_price" oninput="calculateTotal()"></div>
+                    <div class="pwf-form-group"><label>Quantity (pcs)</label><input class="input" type="number" step="1" name="quantity" id="ef_qty" oninput="calculateTotal()"></div>
+                    <div class="pwf-form-group"><label>Unit Price (Rp)</label><input class="input" type="number" step="1" name="unit_price" id="ef_unit_price" oninput="calculateTotal()"></div>
                     <div class="pwf-form-group" style="background:#F5F3F0;border-radius:8px;padding:12px 14px;border:1px solid var(--border)">
                         <label style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:600">Total Price (Rp)</label>
                         <div id="ef_total_price" style="font-size:18px;font-weight:700;color:var(--gold);margin-top:6px">0</div>
@@ -1534,7 +1534,8 @@ pwfOfficeHeader('Orders', 'orders');
         document.getElementById('ef_total_price').textContent = new Intl.NumberFormat('id-ID', {
             style: 'currency',
             currency: 'IDR',
-            minimumFractionDigits: 0
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
         }).format(total);
     }
 
@@ -1545,7 +1546,8 @@ pwfOfficeHeader('Orders', 'orders');
         document.getElementById('new_total_price').textContent = new Intl.NumberFormat('id-ID', {
             style: 'currency',
             currency: 'IDR',
-            minimumFractionDigits: 0
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
         }).format(total);
     }
 
