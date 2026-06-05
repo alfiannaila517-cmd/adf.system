@@ -1061,52 +1061,55 @@ pwfOfficeHeader('Orders', 'orders');
         <div class="modal-body">
             <form method="post" enctype="multipart/form-data">
                 <input type="hidden" name="_action" value="create">
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-                    <!-- Section 1: Order Basics -->
-                    <div class="pwf-form-group" style="grid-column:1/-1"><label>Customer</label>
-                        <select class="select" name="customer_id" required>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px">
+                    <!-- Customer -->
+                    <div class="pwf-form-group" style="grid-column:1/-1"><label style="font-size:12px">Customer</label>
+                        <select class="select" name="customer_id" required style="font-size:13px">
                             <option value="">— Select Customer —</option>
                             <?php foreach ($customers as $c): ?><option value="<?= $c['id'] ?>"><?= htmlspecialchars($c['customer_name']) ?></option><?php endforeach; ?>
                         </select>
                     </div>
-                    <div class="pwf-form-group"><label>Order Date</label><input class="input" type="date" name="order_date" value="<?= date('Y-m-d') ?>"></div>
-                    <div class="pwf-form-group"><label>Deadline</label><input class="input" type="date" name="due_date"></div>
+                    
+                    <!-- Order Date + Deadline -->
+                    <div class="pwf-form-group"><label style="font-size:12px">Order Date</label><input class="input" type="date" name="order_date" value="<?= date('Y-m-d') ?>" style="font-size:13px"></div>
+                    <div class="pwf-form-group"><label style="font-size:12px">Deadline</label><input class="input" type="date" name="due_date" style="font-size:13px"></div>
 
-                    <!-- Section 2: Product Details -->
-                    <div class="pwf-form-group" style="grid-column:1/-1"><label>Product Name</label><input class="input" name="product_name" placeholder="Product name" required></div>
-                    <div class="pwf-form-group" style="grid-column:1/-1"><label>Description</label><textarea name="description" placeholder="Product description, specifications..." style="height:50px"></textarea></div>
-                    <div class="pwf-form-group" style="grid-column:1/-1"><label>Specification</label><textarea name="specification" placeholder="Material, color, finishing details..." style="height:50px"></textarea></div>
-                    <div class="pwf-form-group"><label>Dimensions (P×L×T)</label><input class="input" name="dimensions" placeholder="e.g. 120×60×75 cm"></div>
-                    <div class="pwf-form-group"><label>Wood Color</label><input class="input" name="wood_color" placeholder="e.g. Mahogany, Oak, etc"></div>
-                    <div class="pwf-form-group"><label>Finish</label><input class="input" name="finish" placeholder="e.g. Lacquer, Varnish, etc"></div>
+                    <!-- Product Name + Specification -->
+                    <div class="pwf-form-group"><label style="font-size:12px">Product Name</label><input class="input" name="product_name" placeholder="Product name" required style="font-size:13px"></div>
+                    <div class="pwf-form-group"><label style="font-size:12px">Specification</label><textarea name="specification" placeholder="Material, color, finishing..." style="height:36px;font-size:13px"></textarea></div>
+                    
+                    <!-- Dimensions, Color, Finish -->
+                    <div class="pwf-form-group"><label style="font-size:12px">Dimensions</label><input class="input" name="dimensions" placeholder="120×60×75" style="font-size:13px"></div>
+                    <div class="pwf-form-group"><label style="font-size:12px">Wood Color</label><input class="input" name="wood_color" placeholder="Mahogany" style="font-size:13px"></div>
+                    <div class="pwf-form-group"><label style="font-size:12px">Finish</label><input class="input" name="finish" placeholder="Lacquer" style="font-size:13px"></div>
+                    
+                    <!-- Description (hidden but still in form) -->
+                    <input type="hidden" name="description" value="">
 
-                    <!-- Section 3: Pricing (Visual Divider) -->
-                    <div style="grid-column:1/-1;height:1px;background:linear-gradient(to right, transparent, var(--border) 20%, var(--border) 80%, transparent);margin:8px 0;opacity:.5"></div>
-                    <div style="grid-column:1/-1">
-                        <div style="font-size:11px;color:var(--gold);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:12px">💰 Pricing & Order Details</div>
-                    </div>
-                    <div class="pwf-form-group"><label>Quantity (pcs)</label><input class="input" type="number" step="1" name="quantity" id="new_qty" value="1" oninput="createCalculateTotal()"></div>
-                    <div class="pwf-form-group"><label>Unit Price (Rp)</label><input class="input" type="number" step="1" name="unit_price" id="new_unit_price" value="0" oninput="createCalculateTotal()"></div>
-                    <div class="pwf-form-group" style="background:linear-gradient(135deg, #FFF9F0 0%, #FFFBF3 100%);border-radius:10px;padding:14px;border:1.5px solid var(--gold-border);grid-column:1/-1">
-                        <label style="font-size:10px;color:var(--gold);text-transform:uppercase;font-weight:600;letter-spacing:.4px">Total Price (Rp)</label>
-                        <div id="new_total_price" style="font-size:22px;font-weight:700;color:var(--gold);margin-top:8px;font-family:monospace">0</div>
+                    <!-- Pricing Section -->
+                    <div style="grid-column:1/-1;height:1px;background:linear-gradient(to right, transparent, var(--border) 20%, var(--border) 80%, transparent);margin:6px 0;opacity:.4"></div>
+                    <div class="pwf-form-group"><label style="font-size:12px">Quantity</label><input class="input" type="number" step="1" name="quantity" id="new_qty" value="1" oninput="createCalculateTotal()" style="font-size:13px"></div>
+                    <div class="pwf-form-group"><label style="font-size:12px">Unit Price (Rp)</label><input class="input" type="number" step="1" name="unit_price" id="new_unit_price" value="0" oninput="createCalculateTotal()" style="font-size:13px"></div>
+                    <div class="pwf-form-group" style="background:linear-gradient(135deg, #FFF9F0 0%, #FFFBF3 100%);border-radius:8px;padding:10px;border:1px solid var(--gold-border);grid-column:1/-1">
+                        <label style="font-size:11px;color:var(--gold);text-transform:uppercase;font-weight:600;letter-spacing:.3px">Total Price (Rp)</label>
+                        <div id="new_total_price" style="font-size:18px;font-weight:700;color:var(--gold);margin-top:4px;font-family:monospace">0</div>
                     </div>
 
-                    <!-- Section 4: Image & Assignment -->
-                    <div class="pwf-form-group" style="grid-column:1/-1"><label>Photo / Blueprint</label><input class="input" type="file" name="order_image" accept=".jpg,.jpeg,.png,.webp">
-                        <div style="font-size:11px;color:var(--muted);margin-top:3px">Max 8MB (JPG, PNG, WEBP)</div>
+                    <!-- Photo & Notes -->
+                    <div class="pwf-form-group" style="grid-column:1/-1"><label style="font-size:12px">Photo / Blueprint</label><input class="input" type="file" name="order_image" accept=".jpg,.jpeg,.png,.webp" style="font-size:13px">
+                        <div style="font-size:10px;color:var(--muted);margin-top:2px">Max 8MB</div>
                     </div>
-                    <div class="pwf-form-group" style="grid-column:1/-1"><label>Assign Craftsman</label>
-                        <select class="select" name="assigned_craftsman_id">
+                    <div class="pwf-form-group" style="grid-column:1/-1"><label style="font-size:12px">Assign Craftsman</label>
+                        <select class="select" name="assigned_craftsman_id" style="font-size:13px">
                             <option value="">— Not assigned yet —</option>
                             <?php foreach ($craftsmen as $t): ?><option value="<?= $t['id'] ?>"><?= htmlspecialchars($t['craftsman_name']) ?></option><?php endforeach; ?>
                         </select>
                     </div>
-                    <div class="pwf-form-group" style="grid-column:1/-1"><label>Notes / Remarks</label><textarea name="notes" placeholder="Additional notes or special requests..." style="height:50px"></textarea></div>
+                    <div class="pwf-form-group" style="grid-column:1/-1"><label style="font-size:12px">Notes / Remarks</label><textarea name="notes" placeholder="Special requests..." style="height:36px;font-size:13px"></textarea></div>
                 </div>
-                <div style="display:flex;gap:8px;margin-top:8px">
-                    <button class="btn" type="submit"><i class="bi bi-plus-circle"></i> Save Order</button>
-                    <button type="button" class="btn btn-outline-secondary" onclick="document.getElementById('createModal').classList.remove('open')">Cancel</button>
+                <div style="display:flex;gap:8px;margin-top:12px">
+                    <button class="btn" type="submit" style="font-size:13px"><i class="bi bi-plus-circle"></i> Save Order</button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="document.getElementById('createModal').classList.remove('open')" style="font-size:13px">Cancel</button>
                 </div>
             </form>
         </div>
@@ -1124,48 +1127,61 @@ pwfOfficeHeader('Orders', 'orders');
             <form method="post" enctype="multipart/form-data" id="editForm">
                 <input type="hidden" name="_action" value="update">
                 <input type="hidden" name="order_id" id="ef_id">
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-                    <div class="pwf-form-group"><label>Customer</label>
-                        <select class="select" name="customer_id" id="ef_customer" required>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px">
+                    <!-- Customer + Status -->
+                    <div class="pwf-form-group"><label style="font-size:12px">Customer</label>
+                        <select class="select" name="customer_id" id="ef_customer" required style="font-size:13px">
                             <?php foreach ($customers as $c): ?><option value="<?= $c['id'] ?>"><?= htmlspecialchars($c['customer_name']) ?></option><?php endforeach; ?>
                         </select>
                     </div>
-                    <div class="pwf-form-group"><label>Status</label>
-                        <select class="select" name="status" id="ef_status">
+                    <div class="pwf-form-group"><label style="font-size:12px">Status</label>
+                        <select class="select" name="status" id="ef_status" style="font-size:13px">
                             <?php foreach ($statusOptions as $val => $lbl): ?><option value="<?= $val ?>"><?= $lbl ?></option><?php endforeach; ?>
                         </select>
                     </div>
-                    <div class="pwf-form-group"><label>Order Date</label><input class="input" type="date" name="order_date" id="ef_order_date"></div>
-                    <div class="pwf-form-group"><label>Deadline</label><input class="input" type="date" name="due_date" id="ef_due_date"></div>
-                    <div class="pwf-form-group" style="grid-column:1/-1"><label>Product Name</label><input class="input" name="product_name" id="ef_product" required></div>
-                    <div class="pwf-form-group" style="grid-column:1/-1"><label>Description</label><textarea name="description" id="ef_description" style="height:60px"></textarea></div>
-                    <div class="pwf-form-group" style="grid-column:1/-1"><label>Specification</label><textarea name="specification" id="ef_spec" style="height:60px"></textarea></div>
-                    <div class="pwf-form-group"><label>Dimensions (P×L×T)</label><input class="input" name="dimensions" id="ef_dim"></div>
-                    <div class="pwf-form-group"><label>Wood Color</label><input class="input" name="wood_color" id="ef_wood_color"></div>
-                    <div class="pwf-form-group"><label>Finish</label><input class="input" name="finish" id="ef_finish"></div>
-                    <div class="pwf-form-group"><label>Quantity (pcs)</label><input class="input" type="number" step="1" name="quantity" id="ef_qty" oninput="calculateTotal()"></div>
-                    <div class="pwf-form-group"><label>Unit Price (Rp)</label><input class="input" type="number" step="1" name="unit_price" id="ef_unit_price" oninput="calculateTotal()"></div>
-                    <div class="pwf-form-group" style="background:#F5F3F0;border-radius:8px;padding:12px 14px;border:1px solid var(--border)">
+                    
+                    <!-- Order Date + Deadline -->
+                    <div class="pwf-form-group"><label style="font-size:12px">Order Date</label><input class="input" type="date" name="order_date" id="ef_order_date" style="font-size:13px"></div>
+                    <div class="pwf-form-group"><label style="font-size:12px">Deadline</label><input class="input" type="date" name="due_date" id="ef_due_date" style="font-size:13px"></div>
+                    
+                    <!-- Product + Specification -->
+                    <div class="pwf-form-group"><label style="font-size:12px">Product Name</label><input class="input" name="product_name" id="ef_product" required style="font-size:13px"></div>
+                    <div class="pwf-form-group"><label style="font-size:12px">Specification</label><textarea name="specification" id="ef_spec" style="height:36px;font-size:13px"></textarea></div>
+                    
+                    <!-- Dimensions + Color + Finish -->
+                    <div class="pwf-form-group"><label style="font-size:12px">Dimensions</label><input class="input" name="dimensions" id="ef_dim" style="font-size:13px"></div>
+                    <div class="pwf-form-group"><label style="font-size:12px">Wood Color</label><input class="input" name="wood_color" id="ef_wood_color" style="font-size:13px"></div>
+                    <div class="pwf-form-group"><label style="font-size:12px">Finish</label><input class="input" name="finish" id="ef_finish" style="font-size:13px"></div>
+                    
+                    <!-- Description (hidden) -->
+                    <input type="hidden" name="description" id="ef_description" value="">
+                    
+                    <!-- Pricing -->
+                    <div style="grid-column:1/-1;height:1px;background:linear-gradient(to right, transparent, var(--border) 20%, var(--border) 80%, transparent);margin:6px 0;opacity:.4"></div>
+                    <div class="pwf-form-group"><label style="font-size:12px">Quantity</label><input class="input" type="number" step="1" name="quantity" id="ef_qty" oninput="calculateTotal()" style="font-size:13px"></div>
+                    <div class="pwf-form-group"><label style="font-size:12px">Unit Price (Rp)</label><input class="input" type="number" step="1" name="unit_price" id="ef_unit_price" oninput="calculateTotal()" style="font-size:13px"></div>
+                    <div class="pwf-form-group" style="background:#F5F3F0;border-radius:8px;padding:10px;border:1px solid var(--border);grid-column:1/-1">
                         <label style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:600">Total Price (Rp)</label>
-                        <div id="ef_total_price" style="font-size:18px;font-weight:700;color:var(--gold);margin-top:6px">0</div>
+                        <div id="ef_total_price" style="font-size:18px;font-weight:700;color:var(--gold);margin-top:4px">0</div>
                     </div>
-                    <div class="pwf-form-group" style="grid-column:1/-1">
-                        <label>Blueprint / Photo</label>
-                        <div id="ef_img_preview" style="margin-bottom:8px"></div>
-                        <input class="input" type="file" name="order_image" accept=".jpg,.jpeg,.png,.webp">
-                        <div style="font-size:11px;color:var(--muted);margin-top:3px">Leave empty to keep current image</div>
+                    
+                    <!-- Photo + Craftsman + Notes -->
+                    <div class="pwf-form-group" style="grid-column:1/-1"><label style="font-size:12px">Photo / Blueprint</label>
+                        <div id="ef_img_preview" style="margin-bottom:6px"></div>
+                        <input class="input" type="file" name="order_image" accept=".jpg,.jpeg,.png,.webp" style="font-size:13px">
+                        <div style="font-size:10px;color:var(--muted);margin-top:2px">Leave empty to keep current</div>
                     </div>
-                    <div class="pwf-form-group" style="grid-column:1/-1"><label>Assign Craftsman</label>
-                        <select class="select" name="assigned_craftsman_id" id="ef_craftsman">
+                    <div class="pwf-form-group" style="grid-column:1/-1"><label style="font-size:12px">Assign Craftsman</label>
+                        <select class="select" name="assigned_craftsman_id" id="ef_craftsman" style="font-size:13px">
                             <option value="">— Not assigned —</option>
                             <?php foreach ($craftsmen as $t): ?><option value="<?= $t['id'] ?>"><?= htmlspecialchars($t['craftsman_name']) ?></option><?php endforeach; ?>
                         </select>
                     </div>
-                    <div class="pwf-form-group" style="grid-column:1/-1"><label>Remark / Notes</label><textarea name="notes" id="ef_notes" style="height:60px"></textarea></div>
+                    <div class="pwf-form-group" style="grid-column:1/-1"><label style="font-size:12px">Notes / Remarks</label><textarea name="notes" id="ef_notes" style="height:36px;font-size:13px"></textarea></div>
                 </div>
-                <div style="display:flex;gap:8px;margin-top:4px">
-                    <button class="btn" type="submit"><i class="bi bi-check-circle"></i> Save Changes</button>
-                    <button type="button" class="btn btn-outline-secondary" onclick="closeEdit()">Cancel</button>
+                <div style="display:flex;gap:8px;margin-top:12px">
+                    <button class="btn" type="submit" style="font-size:13px"><i class="bi bi-check-circle"></i> Save Changes</button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="closeEdit()" style="font-size:13px">Cancel</button>
                 </div>
             </form>
         </div>
