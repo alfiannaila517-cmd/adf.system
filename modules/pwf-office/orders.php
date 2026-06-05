@@ -14,6 +14,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
     $rows = $pdo->query("
         SELECT o.order_code, c.customer_name, o.order_date, o.due_date,
                o.product_name, o.specification, o.dimensions, o.quantity,
+               o.unit_price, o.image_path,
                t.craftsman_name, o.status, o.notes
         FROM pwf_orders o
         LEFT JOIN pwf_customers c ON c.id=o.customer_id
@@ -114,6 +115,11 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
                 color: #6D28D9
             }
 
+            table td img {
+                display: block;
+                border-radius: 4px
+            }
+
             @media print {
                 body {
                     padding: 0
@@ -121,6 +127,11 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
 
                 .no-print {
                     display: none
+                }
+
+                table {
+                    width: 100%;
+                    max-width: 1200px
                 }
             }
         </style>
@@ -136,33 +147,33 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
         <table>
             <thead>
                 <tr>
-                    <th>#</th>
+                    <th style="width:40px">#</th>
+                    <th style="width:70px">Image</th>
                     <th>Code</th>
+                    <th style="width:90px">Order Date</th>
                     <th>Customer</th>
                     <th>Product</th>
-                    <th>P&times;L&times;T</th>
-                    <th>Qty</th>
                     <th>Craftsman</th>
-                    <th>Order Date</th>
-                    <th>Deadline</th>
-                    <th>Status</th>
-                    <th>Notes</th>
+                    <th style="width:90px">Due</th>
+                    <th style="width:60px;text-align:right">Qty</th>
+                    <th style="width:90px;text-align:right;color:#B8860B">Price</th>
+                    <th style="width:120px">Remarks</th>
                 </tr>
             </thead>
             <tbody>
                 <?php foreach ($rows as $i => $r): ?>
                     <tr>
                         <td><?= $i + 1 ?></td>
+                        <td><?php if ($r['image_path']): ?><img src="<?= htmlspecialchars($r['image_path']) ?>" style="max-width:60px;max-height:50px;border-radius:4px" alt="Order"><?php else: ?><span style="color:#ccc">—</span><?php endif; ?></td>
                         <td><?= htmlspecialchars($r['order_code']) ?></td>
-                        <td><?= htmlspecialchars($r['customer_name']) ?></td>
-                        <td><?= htmlspecialchars($r['product_name']) ?><?php if ($r['specification']): ?><br><span style="color:#999;font-size:10px"><?= htmlspecialchars(mb_substr($r['specification'], 0, 60)) ?></span><?php endif; ?></td>
-                        <td><?= htmlspecialchars($r['dimensions'] ?? '—') ?></td>
-                        <td><?= rtrim(rtrim(number_format((float)$r['quantity'], 2), '0'), '.') ?></td>
-                        <td><?= htmlspecialchars($r['craftsman_name'] ?? '—') ?></td>
                         <td><?= $r['order_date'] ? date('d M Y', strtotime($r['order_date'])) : '—' ?></td>
+                        <td><?= htmlspecialchars($r['customer_name']) ?></td>
+                        <td><?= htmlspecialchars($r['product_name']) ?><?php if ($r['specification']): ?><br><span style="color:#999;font-size:10px"><?= htmlspecialchars(mb_substr($r['specification'], 0, 50)) ?></span><?php endif; ?></td>
+                        <td><?= htmlspecialchars($r['craftsman_name'] ?? '—') ?></td>
                         <td><?= $r['due_date'] ? date('d M Y', strtotime($r['due_date'])) : '—' ?></td>
-                        <td><span class="badge <?= htmlspecialchars($r['status']) ?>"><?= htmlspecialchars($statusLabels[$r['status']] ?? $r['status']) ?></span></td>
-                        <td><?= htmlspecialchars($r['notes'] ?? '') ?></td>
+                        <td style="text-align:right"><?= rtrim(rtrim(number_format((float)$r['quantity'], 2), '0'), '.') ?></td>
+                        <td style="text-align:right;color:#B8860B;font-weight:600"><?php $total = (float)$r['quantity'] * (float)($r['unit_price'] ?? 0); echo 'Rp ' . number_format((int)$total, 0, ',', '.'); ?></td>
+                        <td><?= htmlspecialchars(mb_substr($r['notes'] ?? '', 0, 60)) ?></td>
                     </tr>
                 <?php endforeach; ?>
             </tbody>
