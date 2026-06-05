@@ -1047,6 +1047,7 @@ pwfOfficeHeader('Orders', 'orders');
             <form method="post" enctype="multipart/form-data">
                 <input type="hidden" name="_action" value="create">
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                    <!-- Section 1: Order Basics -->
                     <div class="pwf-form-group" style="grid-column:1/-1"><label>Customer</label>
                         <select class="select" name="customer_id" required>
                             <option value="">— Select Customer —</option>
@@ -1055,20 +1056,38 @@ pwfOfficeHeader('Orders', 'orders');
                     </div>
                     <div class="pwf-form-group"><label>Order Date</label><input class="input" type="date" name="order_date" value="<?= date('Y-m-d') ?>"></div>
                     <div class="pwf-form-group"><label>Deadline</label><input class="input" type="date" name="due_date"></div>
+                    
+                    <!-- Section 2: Product Details -->
                     <div class="pwf-form-group" style="grid-column:1/-1"><label>Product Name</label><input class="input" name="product_name" placeholder="Product name" required></div>
-                    <div class="pwf-form-group" style="grid-column:1/-1"><label>Specification</label><textarea name="specification" placeholder="Material, color, finishing details..."></textarea></div>
-                    <div class="pwf-form-group"><label>Dimensions (L×W×H)</label><input class="input" name="dimensions" placeholder="e.g. 120×60×75 cm"></div>
-                    <div class="pwf-form-group"><label>Quantity</label><input class="input" type="number" step="0.01" name="quantity" value="1"></div>
-                    <div class="pwf-form-group" style="grid-column:1/-1"><label>Photo / Blueprint</label><input class="input" type="file" name="order_image" accept=".jpg,.jpeg,.png,.webp"></div>
+                    <div class="pwf-form-group" style="grid-column:1/-1"><label>Description</label><textarea name="description" placeholder="Product description, specifications..." style="height:50px"></textarea></div>
+                    <div class="pwf-form-group" style="grid-column:1/-1"><label>Specification</label><textarea name="specification" placeholder="Material, color, finishing details..." style="height:50px"></textarea></div>
+                    <div class="pwf-form-group"><label>Dimensions (P×L×T)</label><input class="input" name="dimensions" placeholder="e.g. 120×60×75 cm"></div>
+                    <div class="pwf-form-group"><label>Wood Color</label><input class="input" name="wood_color" placeholder="e.g. Mahogany, Oak, etc"></div>
+                    <div class="pwf-form-group"><label>Finish</label><input class="input" name="finish" placeholder="e.g. Lacquer, Varnish, etc"></div>
+                    
+                    <!-- Section 3: Pricing (Visual Divider) -->
+                    <div style="grid-column:1/-1;height:1px;background:linear-gradient(to right, transparent, var(--border) 20%, var(--border) 80%, transparent);margin:8px 0;opacity:.5"></div>
+                    <div style="grid-column:1/-1">
+                        <div style="font-size:11px;color:var(--gold);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:12px">💰 Pricing & Order Details</div>
+                    </div>
+                    <div class="pwf-form-group"><label>Quantity (pcs)</label><input class="input" type="number" step="0.01" name="quantity" id="new_qty" value="1" oninput="createCalculateTotal()"></div>
+                    <div class="pwf-form-group"><label>Unit Price (Rp)</label><input class="input" type="number" step="0.01" name="unit_price" id="new_unit_price" value="0" oninput="createCalculateTotal()"></div>
+                    <div class="pwf-form-group" style="background:linear-gradient(135deg, #FFF9F0 0%, #FFFBF3 100%);border-radius:10px;padding:14px;border:1.5px solid var(--gold-border);grid-column:1/-1">
+                        <label style="font-size:10px;color:var(--gold);text-transform:uppercase;font-weight:600;letter-spacing:.4px">Total Price (Rp)</label>
+                        <div id="new_total_price" style="font-size:22px;font-weight:700;color:var(--gold);margin-top:8px;font-family:monospace">0</div>
+                    </div>
+                    
+                    <!-- Section 4: Image & Assignment -->
+                    <div class="pwf-form-group" style="grid-column:1/-1"><label>Photo / Blueprint</label><input class="input" type="file" name="order_image" accept=".jpg,.jpeg,.png,.webp"><div style="font-size:11px;color:var(--muted);margin-top:3px">Max 8MB (JPG, PNG, WEBP)</div></div>
                     <div class="pwf-form-group" style="grid-column:1/-1"><label>Assign Craftsman</label>
                         <select class="select" name="assigned_craftsman_id">
                             <option value="">— Not assigned yet —</option>
                             <?php foreach ($craftsmen as $t): ?><option value="<?= $t['id'] ?>"><?= htmlspecialchars($t['craftsman_name']) ?></option><?php endforeach; ?>
                         </select>
                     </div>
-                    <div class="pwf-form-group" style="grid-column:1/-1"><label>Notes</label><textarea name="notes" placeholder="Additional notes"></textarea></div>
+                    <div class="pwf-form-group" style="grid-column:1/-1"><label>Notes / Remarks</label><textarea name="notes" placeholder="Additional notes or special requests..." style="height:50px"></textarea></div>
                 </div>
-                <div style="display:flex;gap:8px;margin-top:4px">
+                <div style="display:flex;gap:8px;margin-top:8px">
                     <button class="btn" type="submit"><i class="bi bi-plus-circle"></i> Save Order</button>
                     <button type="button" class="btn btn-outline-secondary" onclick="document.getElementById('createModal').classList.remove('open')">Cancel</button>
                 </div>
@@ -1476,6 +1495,7 @@ pwfOfficeHeader('Orders', 'orders');
 
     // ── MODALS ────────────────────────────────────────────────────────────────────
     function openCreate() {
+        createCalculateTotal();
         document.getElementById('createModal').classList.add('open');
     }
 
@@ -1509,6 +1529,13 @@ pwfOfficeHeader('Orders', 'orders');
         const price = parseFloat(document.getElementById('ef_unit_price').value) || 0;
         const total = qty * price;
         document.getElementById('ef_total_price').textContent = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(total);
+    }
+
+    function createCalculateTotal() {
+        const qty = parseFloat(document.getElementById('new_qty').value) || 0;
+        const price = parseFloat(document.getElementById('new_unit_price').value) || 0;
+        const total = qty * price;
+        document.getElementById('new_total_price').textContent = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(total);
     }
 
     function closeEdit() {
