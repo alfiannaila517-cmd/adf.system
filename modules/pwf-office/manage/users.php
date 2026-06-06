@@ -77,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $userId = $masterPdo->lastInsertId();
                     
                     // Assign user to PWF business
-                    $assign = $masterPdo->prepare('INSERT INTO user_business_assignment (user_id, business_id, created_at) VALUES (?,?,NOW())');
+                    $assign = $masterPdo->prepare('INSERT INTO user_business_assignment (user_id, business_id) VALUES (?,?)');
                     if ($assign->execute([$userId, $pwfBizId])) {
                         $msg = 'User berhasil dibuat dan di-assign ke PWF!';
                         $msgType = 'success';
