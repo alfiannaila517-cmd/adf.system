@@ -199,10 +199,19 @@ $printDate = date('d F Y');
       font-size: 11px
     }
 
+    .table-wrap {
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 12px;
+      box-shadow: 0 8px 18px rgba(17, 24, 39, 0.05);
+    }
+
     .rpt-table th {
-      background: #f5f5f5;
+      background: #1C1511;
+      color: #fff;
       padding: 6px 8px;
-      border: 1px solid #ddd;
+      border: 1px solid #2e2622;
       font-size: 10px;
       text-transform: uppercase;
       letter-spacing: .4px;
@@ -217,6 +226,15 @@ $printDate = date('d F Y');
 
     .rpt-table tr:nth-child(even) td {
       background: #fafafa
+    }
+
+    .note-cell {
+      max-width: 190px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: #4b5563;
+      font-size: 10px;
     }
 
     .bar-wrap {
@@ -346,6 +364,7 @@ $printDate = date('d F Y');
     </div>
 
     <!-- ORDERS TABLE -->
+    <div class="table-wrap">
     <table class="rpt-table">
       <thead>
         <tr>
@@ -354,6 +373,7 @@ $printDate = date('d F Y');
           <th>Dimensions</th>
           <th>Finish Color</th>
           <th>Description / Material</th>
+          <th>Order Note</th>
           <th>Qty</th>
           <th>Prices</th>
           <th>Total Prices</th>
@@ -364,9 +384,7 @@ $printDate = date('d F Y');
         </tr>
       </thead>
       <tbody>
-        <?php foreach ($orders as $ord):
-          $pct   = (int)$ord['progress_percent'];
-        ?>
+        <?php foreach ($orders as $ord): ?>
           <tr>
             <td><strong><?= htmlspecialchars($ord['order_code']) ?></strong></td>
             <td>
@@ -385,6 +403,13 @@ $printDate = date('d F Y');
             <td>
               <?php if ($ord['specification']): ?>
                 <strong><?= htmlspecialchars($ord['specification']) ?></strong>
+              <?php else: ?>
+                —
+              <?php endif; ?>
+            </td>
+            <td class="note-cell" title="<?= htmlspecialchars((string)($ord['notes'] ?? '')) ?>">
+              <?php if (!empty($ord['notes'])): ?>
+                <?= htmlspecialchars((string)$ord['notes']) ?>
               <?php else: ?>
                 —
               <?php endif; ?>
@@ -421,26 +446,12 @@ $printDate = date('d F Y');
         <?php endforeach; ?>
         <?php if (empty($orders)): ?>
           <tr>
-            <td colspan="12" style="text-align:center;padding:20px;color:#999">No orders found for this customer.</td>
+            <td colspan="13" style="text-align:center;padding:20px;color:#999">No orders found for this customer.</td>
           </tr>
         <?php endif; ?>
       </tbody>
     </table>
-
-    <!-- NOTES -->
-    <?php
-    $withNotes = array_filter($orders, fn($r) => !empty($r['notes']));
-    if (!empty($withNotes)): ?>
-      <div style="margin-bottom:16px">
-        <div style="font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#555;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #ddd">Order Notes</div>
-        <?php foreach ($withNotes as $ord): ?>
-          <div style="margin-bottom:8px;padding:8px 12px;background:#fffdf5;border-left:3px solid #B8860B;border-radius:4px;font-size:11px">
-            <strong><?= htmlspecialchars($ord['order_code']) ?> – <?= htmlspecialchars($ord['product_name']) ?>:</strong>
-            <?= nl2br(htmlspecialchars($ord['notes'])) ?>
-          </div>
-        <?php endforeach; ?>
-      </div>
-    <?php endif; ?>
+    </div>
 
     <div class="rpt-footer">
       <?= htmlspecialchars($companyName) ?> · PWF Office System · Printed: <?= $printDate ?>
