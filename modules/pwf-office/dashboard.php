@@ -871,11 +871,4 @@ pwfOfficeHeader('Dashboard', 'dashboard');
         if (e.target === this) closeContainerArchive();
     });
 </script>
-<!-- ══ FOOTER INFO ═══════════════════════════════════════════════════════════ -->
-<div style="margin-top:24px;padding:14px 18px;border-top:1px dashed #D9E5F5;text-align:center;font-size:11px;color:#94A3B8">
-    <span>Version: <strong style="color:#1E3A5F;font-weight:800">v1.0.0</strong></span>
-    <span style="margin:0 8px">·</span>
-    <span>powerby <strong style="color:#1E3A5F;font-weight:800">AdFsystem</strong></span>
-</div>
-
 <?php pwfOfficeFooter(); ?>

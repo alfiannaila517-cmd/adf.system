@@ -416,6 +416,20 @@ function pwfOfficeHeader(string $title, string $active = ''): void
                 color: var(--danger)
             }
 
+            .pwf-sidebar-version {
+                padding: 10px 14px;
+                border-top: 1px dashed var(--border);
+                text-align: center;
+                font-size: 10px;
+                color: var(--muted);
+                margin-top: auto
+            }
+
+            .pwf-sidebar-version strong {
+                color: #92600A;
+                font-weight: 700
+            }
+
             /* ── MAIN WRAPPER ────────────────────────────────────── */
             .pwf-main {
                 margin-left: var(--sidebar-w);
@@ -1101,6 +1115,11 @@ function pwfOfficeHeader(string $title, string $active = ''): void
                 <a href="<?= BASE_URL ?>/modules/pwf-office/logout.php" class="pwf-logout" title="Logout">
                     <i class="bi bi-box-arrow-right"></i>
                 </a>
+            </div>
+
+            <div class="pwf-sidebar-version">
+                <div>Version: <strong>v1.0.0</strong></div>
+                <div>powerby <strong>AdFsystem</strong></div>
             </div>
         </aside>
 
