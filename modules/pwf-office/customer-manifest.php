@@ -11,8 +11,8 @@ header('Cache-Control: public, max-age=300');
 
 $pdo = getPwfOfficePdo();
 $baseUrl = defined('BASE_URL') ? rtrim(BASE_URL, '/') : '';
-$customerCode = strtoupper(trim((string)($_GET['c'] ?? '')));
-$customerCode = preg_replace('/[^A-Z0-9\-]/', '', $customerCode);
+$queryText = trim((string)($_GET['q'] ?? $_GET['c'] ?? ''));
+$queryText = preg_replace('/[^a-zA-Z0-9\-\s]/', '', $queryText);
 
 $companyName = 'PWF Customer Portal';
 $iconUrl = $baseUrl . '/favicon.ico';
@@ -48,8 +48,8 @@ try {
 }
 
 $startUrl = $baseUrl . '/modules/pwf-office/customer-portal.php';
-if ($customerCode !== '') {
-    $startUrl .= '?c=' . urlencode($customerCode);
+if ($queryText !== '') {
+    $startUrl .= '?q=' . urlencode($queryText);
 }
 
 while (ob_get_level()) {
@@ -57,7 +57,7 @@ while (ob_get_level()) {
 }
 
 echo json_encode([
-    'id' => '/modules/pwf-office/customer-portal' . ($customerCode !== '' ? '?c=' . $customerCode : ''),
+    'id' => '/modules/pwf-office/customer-portal' . ($queryText !== '' ? '?q=' . rawurlencode($queryText) : ''),
     'name' => $companyName,
     'short_name' => 'Customer Portal',
     'description' => 'Monitoring order customer: progress jadi, qty kontainer, dan rekap bulanan',

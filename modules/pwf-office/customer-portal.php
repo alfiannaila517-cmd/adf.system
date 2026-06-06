@@ -14,10 +14,10 @@ header('Expires: 0');
 $pdo = getPwfOfficePdo();
 $baseUrl = defined('BASE_URL') ? rtrim(BASE_URL, '/') : '';
 
-$rawCustomerCode = trim((string)($_GET['c'] ?? ''));
-$customerCode = strtoupper($rawCustomerCode);
-$customerCode = preg_replace('/[^A-Z0-9\-]/', '', $customerCode);
-$customerCodeNormalized = preg_replace('/[^A-Z0-9]/', '', $customerCode);
+$rawQuery = trim((string)($_GET['c'] ?? $_GET['q'] ?? ''));
+$searchText = strtoupper($rawQuery);
+$searchCode = preg_replace('/[^A-Z0-9\-]/', '', $searchText);
+$searchNormalized = preg_replace('/[^A-Z0-9]/', '', $searchText);
 
 $companyName = 'Prapen Wood Furniture';
 $logoUrl = '';
@@ -63,21 +63,43 @@ $summary = [
 $monthlyRows = [];
 $recentOrders = [];
 $errorMessage = '';
+$resolvedSearchLabel = '';
 
-if ($customerCode !== '') {
-    // Match customer code in flexible format for mobile input (with/without dash/spaces)
+if ($rawQuery !== '') {
+    // Flexible search by customer code OR customer name
     $stmtCustomer = $pdo->prepare("SELECT id, customer_code, customer_name, phone, address
         FROM pwf_customers
-        WHERE customer_code = ?
-           OR UPPER(REPLACE(REPLACE(customer_code, '-', ''), ' ', '')) = ?
+        WHERE UPPER(customer_code) = ?
+           OR UPPER(REPLACE(REPLACE(REPLACE(customer_code, '-', ''), ' ', ''), '.', '')) = ?
+           OR UPPER(customer_name) = ?
+           OR UPPER(customer_name) LIKE ?
         LIMIT 1");
-    $stmtCustomer->execute([$customerCode, $customerCodeNormalized]);
+    $stmtCustomer->execute([
+        $searchCode,
+        $searchNormalized,
+        $searchText,
+        '%' . $searchText . '%'
+    ]);
     $customer = $stmtCustomer->fetch(PDO::FETCH_ASSOC);
 
     if (!$customer) {
-        $errorMessage = 'Kode customer tidak ditemukan. Cek lagi kode dari admin (contoh: CUS-202606-001).';
+        // Fallback scan to tolerate unusual separators in code entries
+        $allCustomers = $pdo->query("SELECT id, customer_code, customer_name, phone, address FROM pwf_customers ORDER BY id DESC LIMIT 3000")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($allCustomers as $row) {
+            $rowCodeNorm = preg_replace('/[^A-Z0-9]/', '', strtoupper((string)($row['customer_code'] ?? '')));
+            $rowNameNorm = preg_replace('/\s+/', ' ', strtoupper(trim((string)($row['customer_name'] ?? ''))));
+            if ($rowCodeNorm === $searchNormalized || strpos($rowNameNorm, $searchText) !== false) {
+                $customer = $row;
+                break;
+            }
+        }
+    }
+
+    if (!$customer) {
+        $errorMessage = 'Customer not found. Please check your customer code or customer name.';
     } else {
         $customerId = (int)$customer['id'];
+        $resolvedSearchLabel = $customer['customer_code'] . ' / ' . $customer['customer_name'];
 
         $stmtSummary = $pdo->prepare("
             SELECT
@@ -169,8 +191,8 @@ if ($summary['qty_ordered'] > 0) {
 }
 
 $manifestHref = 'customer-manifest.php';
-if ($customerCode !== '') {
-    $manifestHref .= '?c=' . urlencode($customerCode);
+if ($rawQuery !== '') {
+    $manifestHref .= '?q=' . urlencode($rawQuery);
 }
 ?>
 <!doctype html>
@@ -277,6 +299,11 @@ if ($customerCode !== '') {
             display: none;
         }
 
+        .install-btn::before {
+            content: '\2B07\FE0F';
+            margin-right: 6px;
+        }
+
         .panel {
             background: var(--card);
             border: 1px solid var(--line);
@@ -346,6 +373,11 @@ if ($customerCode !== '') {
             margin-top: 14px;
             display: grid;
             gap: 14px;
+            overflow-x: auto;
+        }
+
+        .desktop-fixed {
+            min-width: 980px;
         }
 
         .meta {
@@ -520,23 +552,21 @@ if ($customerCode !== '') {
             line-height: 1.55;
         }
 
-        @media (max-width: 900px) {
-            .hero { grid-template-columns: 1fr; }
-            .kpi { grid-template-columns: repeat(2, minmax(0,1fr)); }
-            .two-col { grid-template-columns: 1fr; }
-        }
-
         @media (max-width: 560px) {
             .wrap { width: min(1080px, 96vw); padding-top: 16px; }
             .panel { border-radius: 14px; padding: 12px; }
-            .search-grid { grid-template-columns: 1fr; }
-            .btn { width: 100%; }
+            .search-grid { grid-template-columns: 1fr auto; }
+            .btn { width: auto; }
             .logo { width: 62px; height: 62px; border-radius: 16px; }
             .kpi-card { padding: 10px; }
             .kpi-value { font-size: 22px; }
             .install-cols { grid-template-columns: 1fr; }
             table { font-size: 11px; }
             th, td { padding: 8px 6px; }
+        }
+
+        @media (max-width: 900px) {
+            .hero { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -553,19 +583,19 @@ if ($customerCode !== '') {
                 </div>
                 <div>
                     <h1>Customer Monitoring Portal</h1>
-                    <p><?= htmlspecialchars($companyName) ?> - Progress produksi, kontainer, dan rekap bulanan</p>
+                    <p><?= htmlspecialchars($companyName) ?> - Production progress, container shipment, and monthly recap</p>
                 </div>
             </div>
-            <button id="installBtn" class="install-btn" type="button">Install App</button>
+            <button id="installBtn" class="install-btn" type="button" aria-label="Install app">Install</button>
         </div>
 
         <div class="panel">
             <form method="get" class="search-grid">
                 <div>
-                    <label class="label">Kode Customer</label>
-                    <input class="input" type="text" name="c" value="<?= htmlspecialchars($customerCode) ?>" placeholder="Contoh: CUS-202606-001" required>
+                    <label class="label">Customer Code or Customer Name</label>
+                    <input class="input" type="text" name="q" value="<?= htmlspecialchars($rawQuery) ?>" placeholder="Example: CUS-202606-001 or Hunger Resto" required>
                 </div>
-                <button class="btn" type="submit">Lihat Monitoring</button>
+                <button class="btn" type="submit">View Monitoring</button>
             </form>
 
             <?php if ($errorMessage !== ''): ?>
@@ -574,80 +604,83 @@ if ($customerCode !== '') {
 
             <?php if ($customer): ?>
                 <div class="dashboard">
-                    <div>
+                    <div class="desktop-fixed">
                         <h2 style="margin:0;font-size:20px;color:#102A4A;"><?= htmlspecialchars($customer['customer_name']) ?></h2>
                         <div class="meta">
-                            <span class="chip">Kode: <?= htmlspecialchars($customer['customer_code']) ?></span>
+                            <span class="chip">Code: <?= htmlspecialchars($customer['customer_code']) ?></span>
+                            <?php if ($resolvedSearchLabel !== ''): ?>
+                                <span class="chip">Matched: <?= htmlspecialchars($resolvedSearchLabel) ?></span>
+                            <?php endif; ?>
                             <?php if (!empty($customer['phone'])): ?>
-                                <span class="chip">HP: <?= htmlspecialchars($customer['phone']) ?></span>
+                                <span class="chip">Phone: <?= htmlspecialchars($customer['phone']) ?></span>
                             <?php endif; ?>
                         </div>
                     </div>
 
-                    <div class="kpi">
+                    <div class="kpi desktop-fixed">
                         <div class="kpi-card">
-                            <div class="kpi-title">Total Order</div>
+                            <div class="kpi-title">Total Orders</div>
                             <div class="kpi-value"><?= (int)$summary['total_orders'] ?></div>
                         </div>
                         <div class="kpi-card">
-                            <div class="kpi-title">Qty Dipesan</div>
+                            <div class="kpi-title">Ordered Qty</div>
                             <div class="kpi-value"><?= htmlspecialchars(fmtQty((float)$summary['qty_ordered'])) ?><span class="kpi-unit">pcs</span></div>
                         </div>
                         <div class="kpi-card">
-                            <div class="kpi-title">Sudah Jadi</div>
+                            <div class="kpi-title">Completed Qty</div>
                             <div class="kpi-value" style="color:#0F766E;"><?= htmlspecialchars(fmtQty((float)$summary['qty_done'])) ?><span class="kpi-unit">pcs</span></div>
                         </div>
                         <div class="kpi-card">
-                            <div class="kpi-title">Di Kontainer</div>
+                            <div class="kpi-title">In Container</div>
                             <div class="kpi-value" style="color:#C2410C;"><?= htmlspecialchars(fmtQty((float)$summary['qty_shipped'])) ?><span class="kpi-unit">pcs</span></div>
                         </div>
                     </div>
 
-                    <div class="two-col">
+                    <div class="two-col desktop-fixed">
                         <div class="panel" style="padding:12px;">
-                            <h3 style="margin:0 0 10px;font-size:14px;color:#0F2948;">Progress Ringkas</h3>
+                            <h3 style="margin:0 0 10px;font-size:14px;color:#0F2948;">Progress Summary</h3>
                             <div class="progress-row">
                                 <div class="progress-head">
-                                    <span>Produksi selesai</span>
+                                    <span>Production completed</span>
                                     <span><?= (int)$completionPct ?>%</span>
                                 </div>
                                 <div class="bar"><div class="bar-fill bar-done" style="width: <?= (int)$completionPct ?>%;"></div></div>
                             </div>
                             <div class="progress-row" style="margin-bottom:0;">
                                 <div class="progress-head">
-                                    <span>Sudah masuk kontainer</span>
+                                    <span>Already in container</span>
                                     <span><?= (int)$shippingPct ?>%</span>
                                 </div>
                                 <div class="bar"><div class="bar-fill bar-ship" style="width: <?= (int)$shippingPct ?>%;"></div></div>
                             </div>
-                            <div style="margin-top:10px;font-size:11px;color:#64748B;">Jumlah kontainer terlibat: <strong><?= (int)$summary['container_count'] ?></strong></div>
+                            <div style="margin-top:10px;font-size:11px;color:#64748B;">Total related containers: <strong><?= (int)$summary['container_count'] ?></strong></div>
                         </div>
 
                         <div class="panel" style="padding:12px;">
-                            <h3 style="margin:0 0 10px;font-size:14px;color:#0F2948;">Status Saat Ini</h3>
+                            <h3 style="margin:0 0 10px;font-size:14px;color:#0F2948;">Current Status</h3>
                             <div style="display:grid;gap:8px;font-size:12px;">
-                                <div style="display:flex;justify-content:space-between;"><span style="color:#64748B;">Order aktif</span><strong><?= (int)$summary['total_orders'] ?></strong></div>
-                                <div style="display:flex;justify-content:space-between;"><span style="color:#64748B;">Qty belum jadi</span><strong><?= htmlspecialchars(fmtQty(max(0, (float)$summary['qty_ordered'] - (float)$summary['qty_done']))) ?> pcs</strong></div>
-                                <div style="display:flex;justify-content:space-between;"><span style="color:#64748B;">Qty siap kirim</span><strong><?= htmlspecialchars(fmtQty(max(0, (float)$summary['qty_done'] - (float)$summary['qty_shipped']))) ?> pcs</strong></div>
+                                <div style="display:flex;justify-content:space-between;"><span style="color:#64748B;">Active orders</span><strong><?= (int)$summary['total_orders'] ?></strong></div>
+                                <div style="display:flex;justify-content:space-between;"><span style="color:#64748B;">Qty not completed</span><strong><?= htmlspecialchars(fmtQty(max(0, (float)$summary['qty_ordered'] - (float)$summary['qty_done']))) ?> pcs</strong></div>
+                                <div style="display:flex;justify-content:space-between;"><span style="color:#64748B;">Qty ready to ship</span><strong><?= htmlspecialchars(fmtQty(max(0, (float)$summary['qty_done'] - (float)$summary['qty_shipped']))) ?> pcs</strong></div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="panel" style="padding:12px;overflow:auto;">
-                        <h3 style="margin:0 0 8px;font-size:14px;color:#0F2948;">Rekap Order Bulanan (12 bulan terakhir)</h3>
+                    <div class="panel desktop-fixed" style="padding:12px;overflow:auto;">
+                        <h3 style="margin:0 0 8px;font-size:14px;color:#0F2948;">Monthly Order Recap (Last 12 Months)</h3>
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Bulan</th>
-                                    <th>Order</th>
-                                    <th>Qty Dipesan</th>
-                                    <th>Sudah Jadi</th>
-                                    <th>Di Kontainer</th>
+                                    <th>Month</th>
+                                    <th>Orders</th>
+                                    <th>Ordered Qty</th>
+                                    <th>Completed Qty</th>
+                                    <th>In Container</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php if (empty($monthlyRows)): ?>
-                                    <tr><td colspan="5" style="text-align:center;color:#94A3B8;">Belum ada data bulanan.</td></tr>
+                                    <tr><td colspan="5" style="text-align:center;color:#94A3B8;">No monthly data yet.</td></tr>
                                 <?php else: ?>
                                     <?php foreach ($monthlyRows as $row): ?>
                                         <tr>
@@ -663,23 +696,23 @@ if ($customerCode !== '') {
                         </table>
                     </div>
 
-                    <div class="panel" style="padding:12px;overflow:auto;">
-                        <h3 style="margin:0 0 8px;font-size:14px;color:#0F2948;">Order Terbaru</h3>
+                    <div class="panel desktop-fixed" style="padding:12px;overflow:auto;">
+                        <h3 style="margin:0 0 8px;font-size:14px;color:#0F2948;">Recent Orders</h3>
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Kode Order</th>
-                                    <th>Tanggal</th>
-                                    <th>Produk</th>
+                                    <th>Order Code</th>
+                                    <th>Date</th>
+                                    <th>Product</th>
                                     <th>Qty</th>
-                                    <th>Jadi</th>
-                                    <th>Kontainer</th>
+                                    <th>Done</th>
+                                    <th>Container</th>
                                     <th>Status</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php if (empty($recentOrders)): ?>
-                                    <tr><td colspan="7" style="text-align:center;color:#94A3B8;">Belum ada order.</td></tr>
+                                    <tr><td colspan="7" style="text-align:center;color:#94A3B8;">No orders yet.</td></tr>
                                 <?php else: ?>
                                     <?php foreach ($recentOrders as $ord): ?>
                                         <tr>
@@ -705,30 +738,29 @@ if ($customerCode !== '') {
         </div>
 
         <div class="install-guide">
-            <h3>Cara Install ke Layar Beranda</h3>
+            <h3>Add to Home Screen</h3>
             <div class="install-cols">
                 <div class="install-card">
                     <div class="install-title">Android (Chrome)</div>
                     <ol class="install-list">
-                        <li>Buka portal customer ini di Chrome.</li>
-                        <li>Tap menu titik tiga di kanan atas.</li>
-                        <li>Pilih Install app atau Tambahkan ke layar utama.</li>
-                        <li>Tap Install, lalu icon akan muncul di beranda.</li>
+                        <li>Tap the Install button (top right) when it appears.</li>
+                        <li>If not shown, open Chrome menu and choose Install app.</li>
+                        <li>After install, the app icon will appear on your Home Screen.</li>
                     </ol>
                 </div>
                 <div class="install-card">
-                    <div class="install-title">iPhone/iPad (Safari)</div>
+                    <div class="install-title">iPhone / iPad (Safari)</div>
                     <ol class="install-list">
-                        <li>Buka portal customer ini di Safari.</li>
-                        <li>Tap tombol Share (ikon kotak panah ke atas).</li>
-                        <li>Pilih Add to Home Screen.</li>
-                        <li>Tap Add, lalu icon akan muncul di Home Screen.</li>
+                        <li>Open this portal in Safari.</li>
+                        <li>Tap the Share button.</li>
+                        <li>Select Add to Home Screen.</li>
+                        <li>Tap Add to place the icon on your Home Screen.</li>
                     </ol>
                 </div>
             </div>
         </div>
 
-        <div class="footer-note">Portal ini menampilkan data monitoring real-time dari sistem produksi dan shipping.</div>
+        <div class="footer-note">This portal displays real-time monitoring data from production and shipping.</div>
     </div>
 
     <script>
@@ -739,14 +771,21 @@ if ($customerCode !== '') {
 
             var deferredPrompt = null;
             var installBtn = document.getElementById('installBtn');
+            var ua = navigator.userAgent || '';
+            var isAndroid = /Android/i.test(ua);
 
             window.addEventListener('beforeinstallprompt', function (e) {
                 e.preventDefault();
                 deferredPrompt = e;
-                if (installBtn) {
+                if (installBtn && isAndroid) {
                     installBtn.style.display = 'inline-flex';
                 }
             });
+
+            // Android only: keep install button hidden on iOS.
+            if (!isAndroid && installBtn) {
+                installBtn.style.display = 'none';
+            }
 
             if (installBtn) {
                 installBtn.addEventListener('click', async function () {
@@ -761,7 +800,7 @@ if ($customerCode !== '') {
                 });
             }
 
-            // On mobile, auto-scroll to the error message so user sees "kode tidak ditemukan".
+            // On mobile, auto-scroll to the error message so it is visible immediately.
             var errorBox = document.querySelector('.error');
             if (errorBox && window.innerWidth <= 768) {
                 setTimeout(function () {
