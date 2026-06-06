@@ -746,37 +746,67 @@ if (isset($_GET['biz'])) {
             align-items: center;
             gap: 0.6rem;
             margin-bottom: 1rem;
-            padding: 10px 14px;
-            background: rgba(99, 102, 241, 0.1);
-            border: 1px solid rgba(99, 102, 241, 0.2);
-            border-radius: 10px;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(99, 102, 241, 0.05));
+            border: 1.5px solid rgba(99, 102, 241, 0.3);
+            border-radius: 12px;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.08);
         }
         
         .remember-me-wrapper:hover {
-            background: rgba(99, 102, 241, 0.15);
-            border-color: rgba(99, 102, 241, 0.35);
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(99, 102, 241, 0.08));
+            border-color: rgba(99, 102, 241, 0.5);
+            box-shadow: 0 6px 16px rgba(99, 102, 241, 0.15);
+            transform: translateY(-1px);
         }
         
         .remember-me-wrapper input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
+            width: 20px;
+            height: 20px;
             cursor: pointer;
             accent-color: #818cf8;
+            flex-shrink: 0;
         }
         
         .remember-me-wrapper label {
             color: #e2e8f0;
-            font-size: 0.82rem;
+            font-size: 0.85rem;
             cursor: pointer;
             margin-bottom: 0;
             user-select: none;
             font-weight: 500;
+            flex: 1;
         }
         
         .remember-me-wrapper input[type="checkbox"]:checked + label {
             color: #a5b4fc;
+            font-weight: 600;
+        }
+        
+        .remember-me-info {
+            background: rgba(16, 185, 129, 0.08);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            border-radius: 10px;
+            padding: 10px 12px;
+            margin-bottom: 1rem;
+            font-size: 0.75rem;
+            color: #86efac;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.6rem;
+            backdrop-filter: blur(4px);
+        }
+        
+        .remember-me-info-icon {
+            font-size: 0.95rem;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+        
+        .remember-me-info-text {
+            line-height: 1.4;
         }
         
         .demo-credentials {
@@ -926,9 +956,17 @@ if (isset($_GET['biz'])) {
                     </div>
                 </div>
                 
+                <!-- Remember Me & Save Password Section -->
+                <div class="remember-me-info">
+                    <div class="remember-me-info-icon">💾</div>
+                    <div class="remember-me-info-text">
+                        <strong>Simpan Kredensial:</strong> Centang di bawah untuk mengaktifkan auto-login & biarkan browser menyimpan password Anda dengan aman.
+                    </div>
+                </div>
+                
                 <div class="remember-me-wrapper" onclick="document.getElementById('rememberMe').click();">
                     <input type="checkbox" name="remember_me" id="rememberMe" onclick="event.stopPropagation();" <?= $isRemembered ? 'checked' : '' ?>>
-                    <label for="rememberMe"><?= $isRemembered ? '✅ Auto Login Aktif - Langsung Masuk!' : '🔒 Ingat Saya (Auto Login)' ?></label>
+                    <label for="rememberMe"><?= $isRemembered ? '✅ Auto Login Aktif - Langsung Masuk!' : '🔒 Ingat Saya (Auto Login & Simpan Password)' ?></label>
                 </div>
                 
                 <div class="login-buttons">
@@ -979,14 +1017,13 @@ if (isset($_GET['biz'])) {
         const rememberCheckbox = document.getElementById('rememberMe');
         const rememberWrapper = document.querySelector('.remember-me-wrapper');
         const rememberLabel = rememberWrapper.querySelector('label');
+        const rememberInfo = document.querySelector('.remember-me-info');
         
         // If auto-login token exists, show active state
         const hasToken = <?= isset($_COOKIE['adf_remember_token']) ? 'true' : 'false' ?>;
         if (hasToken) {
             rememberCheckbox.checked = true;
-            rememberWrapper.style.background = 'rgba(16, 185, 129, 0.15)';
-            rememberWrapper.style.borderColor = 'rgba(16, 185, 129, 0.35)';
-            rememberLabel.style.color = '#34d399';
+            updateRememberMeUI(true);
         }
         
         // Clean up old localStorage (one-time migration)
@@ -998,18 +1035,32 @@ if (isset($_GET['biz'])) {
         
         // Update label when checkbox changes
         rememberCheckbox.addEventListener('change', function() {
-            if (this.checked) {
-                rememberLabel.innerHTML = '🔒 Ingat Saya (Auto Login)';
-                rememberLabel.style.color = '#a5b4fc';
-                rememberWrapper.style.background = 'rgba(99, 102, 241, 0.15)';
-                rememberWrapper.style.borderColor = 'rgba(99, 102, 241, 0.35)';
-            } else {
-                rememberLabel.innerHTML = '🔒 Ingat Saya (Auto Login)';
-                rememberLabel.style.color = '#e2e8f0';
-                rememberWrapper.style.background = 'rgba(99, 102, 241, 0.1)';
-                rememberWrapper.style.borderColor = 'rgba(99, 102, 241, 0.2)';
-            }
+            updateRememberMeUI(this.checked);
         });
+        
+        function updateRememberMeUI(isChecked) {
+            if (isChecked) {
+                rememberLabel.innerHTML = '✅ <strong>Auto Login Aktif</strong> - Password & Username akan disimpan';
+                rememberLabel.style.color = '#34d399';
+                rememberWrapper.style.background = 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.05))';
+                rememberWrapper.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+                rememberWrapper.style.boxShadow = '0 6px 16px rgba(16, 185, 129, 0.15)';
+                
+                // Show info message
+                rememberInfo.style.display = 'flex';
+                rememberInfo.innerHTML = '<div class="remember-me-info-icon">✅</div><div class="remember-me-info-text"><strong>Fitur aktif!</strong> Anda akan auto-login di perangkat ini. Password disimpan oleh browser Anda secara aman.</div>';
+            } else {
+                rememberLabel.innerHTML = '🔒 Ingat Saya (Auto Login & Simpan Password)';
+                rememberLabel.style.color = '#e2e8f0';
+                rememberWrapper.style.background = 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(99, 102, 241, 0.05))';
+                rememberWrapper.style.borderColor = 'rgba(99, 102, 241, 0.3)';
+                rememberWrapper.style.boxShadow = '0 4px 12px rgba(99, 102, 241, 0.08)';
+                
+                // Show default info message
+                rememberInfo.style.display = 'flex';
+                rememberInfo.innerHTML = '<div class="remember-me-info-icon">💾</div><div class="remember-me-info-text"><strong>Simpan Kredensial:</strong> Centang untuk mengaktifkan auto-login & biarkan browser menyimpan password Anda dengan aman.</div>';
+            }
+        }
     });
     </script>
 </body>
