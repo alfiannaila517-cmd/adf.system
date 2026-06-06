@@ -16,85 +16,101 @@ if (!$isOwner) {
 }
 
 $masterPdo = new PDO('mysql:host=' . DB_HOST . ';dbname=' . DB_NAME, DB_USER, DB_PASS, [
-    PDO::ATTR_ERRMODE => PDO::ERRMODE_SILENT,
+    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
 ]);
 
 $msg = '';
 $msgType = 'success';
-
-// Get PWF business ID
-$pwfBiz = $masterPdo->query("SELECT id FROM businesses WHERE business_name LIKE '%PWF%' OR business_name LIKE '%Prapen%' LIMIT 1")->fetch();
-$pwfBizId = $pwfBiz['id'] ?? null;
-
-// Get all PWF users
-$stmt = $masterPdo->prepare("SELECT u.id, u.username, u.full_name, u.email FROM users u INNER JOIN user_business_assignment uba ON u.id = uba.user_id WHERE uba.business_id = ? ORDER BY u.username");
-$stmt->execute([$pwfBizId]);
-$pwfUsers = $stmt->fetchAll();
-
-// Get all PWF menus
-$stmt = $masterPdo->prepare("SELECT id, menu_name, menu_label FROM menu_items WHERE business_id = ? OR business_id IS NULL ORDER BY menu_order, menu_name");
-$stmt->execute([$pwfBizId]);
-$menus = $stmt->fetchAll();
-
-// Get selected user's permissions
-$selectedUserId = (int)($_GET['user'] ?? 0);
+$error = null;
+$pwfUsers = [];
+$menus = [];
+$selectedUserId = 0;
 $userPermissions = [];
 
-if ($selectedUserId > 0) {
-    $stmt = $masterPdo->prepare("
-        SELECT menu_id, can_view, can_create, can_edit, can_delete 
-        FROM user_menu_permissions 
-        WHERE user_id = ? AND business_id = ?
-    ");
-    $stmt->execute([$selectedUserId, $pwfBizId]);
-    foreach ($stmt->fetchAll() as $perm) {
-        $userPermissions[$perm['menu_id']] = $perm;
-    }
-}
+try {
+    // Get PWF business ID
+    $pwfBiz = $masterPdo->query("SELECT id FROM businesses WHERE business_name LIKE '%PWF%' OR business_name LIKE '%Prapen%' LIMIT 1")->fetch();
+    $pwfBizId = $pwfBiz['id'] ?? null;
+    
+    if (!$pwfBizId) {
+        $error = "❌ PWF business tidak ditemukan di database!";
+    } else {
+        // Get all PWF users
+        $stmt = $masterPdo->prepare("SELECT u.id, u.username, u.full_name, u.email FROM users u INNER JOIN user_business_assignment uba ON u.id = uba.user_id WHERE uba.business_id = ? ORDER BY u.username");
+        $stmt->execute([$pwfBizId]);
+        $pwfUsers = $stmt->fetchAll();
 
-// Handle permission save
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['user_id'])) {
-    $userId = (int)$_POST['user_id'];
-    
-    // Delete existing permissions
-    $masterPdo->prepare("DELETE FROM user_menu_permissions WHERE user_id = ? AND business_id = ?")->execute([$userId, $pwfBizId]);
-    
-    // Insert new permissions
-    $stmt = $masterPdo->prepare("
-        INSERT INTO user_menu_permissions (user_id, business_id, menu_id, can_view, can_create, can_edit, can_delete, granted_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    ");
-    
-    $insertCount = 0;
-    foreach ($menus as $menu) {
-        $canView = isset($_POST["menu_{$menu['id']}_view"]) ? 1 : 0;
-        $canCreate = isset($_POST["menu_{$menu['id']}_create"]) ? 1 : 0;
-        $canEdit = isset($_POST["menu_{$menu['id']}_edit"]) ? 1 : 0;
-        $canDelete = isset($_POST["menu_{$menu['id']}_delete"]) ? 1 : 0;
-        
-        // Only insert if user has at least view permission
-        if ($canView || $canCreate || $canEdit || $canDelete) {
-            if ($stmt->execute([$userId, $pwfBizId, $menu['id'], $canView, $canCreate, $canEdit, $canDelete, $_SESSION['user_id'] ?? null])) {
-                $insertCount++;
+        // Get all PWF menus
+        $stmt = $masterPdo->prepare("SELECT id, menu_name, menu_label, menu_order FROM menu_items WHERE business_id = ? ORDER BY menu_order, menu_name");
+        $stmt->execute([$pwfBizId]);
+        $menus = $stmt->fetchAll();
+
+        // Get selected user's permissions
+        $selectedUserId = (int)($_GET['user'] ?? 0);
+
+        if ($selectedUserId > 0) {
+            $stmt = $masterPdo->prepare("
+                SELECT menu_id, can_view, can_create, can_edit, can_delete 
+                FROM user_menu_permissions 
+                WHERE user_id = ? AND business_id = ?
+            ");
+            $stmt->execute([$selectedUserId, $pwfBizId]);
+            foreach ($stmt->fetchAll() as $perm) {
+                $userPermissions[$perm['menu_id']] = $perm;
+            }
+        }
+
+        // Handle permission save
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['user_id'])) {
+            $userId = (int)$_POST['user_id'];
+            
+            if ($userId <= 0) {
+                $error = "❌ User tidak valid!";
+            } else {
+                // Delete existing permissions
+                $masterPdo->prepare("DELETE FROM user_menu_permissions WHERE user_id = ? AND business_id = ?")->execute([$userId, $pwfBizId]);
+                
+                // Insert new permissions
+                $stmt = $masterPdo->prepare("
+                    INSERT INTO user_menu_permissions (user_id, business_id, menu_id, can_view, can_create, can_edit, can_delete, granted_by)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ");
+                
+                $insertCount = 0;
+                foreach ($menus as $menu) {
+                    $canView = isset($_POST["menu_{$menu['id']}_view"]) ? 1 : 0;
+                    $canCreate = isset($_POST["menu_{$menu['id']}_create"]) ? 1 : 0;
+                    $canEdit = isset($_POST["menu_{$menu['id']}_edit"]) ? 1 : 0;
+                    $canDelete = isset($_POST["menu_{$menu['id']}_delete"]) ? 1 : 0;
+                    
+                    // Only insert if user has at least view permission
+                    if ($canView || $canCreate || $canEdit || $canDelete) {
+                        if ($stmt->execute([$userId, $pwfBizId, $menu['id'], $canView, $canCreate, $canEdit, $canDelete, $_SESSION['user_id'] ?? null])) {
+                            $insertCount++;
+                        }
+                    }
+                }
+                
+                $msg = "✅ Akses menu berhasil disimpan untuk " . $insertCount . " menu!";
+                $msgType = 'success';
+                
+                // Reload selected user permissions
+                $userPermissions = [];
+                $stmt = $masterPdo->prepare("
+                    SELECT menu_id, can_view, can_create, can_edit, can_delete 
+                    FROM user_menu_permissions 
+                    WHERE user_id = ? AND business_id = ?
+                ");
+                $stmt->execute([$userId, $pwfBizId]);
+                foreach ($stmt->fetchAll() as $perm) {
+                    $userPermissions[$perm['menu_id']] = $perm;
+                }
             }
         }
     }
-    
-    $msg = "Akses menu berhasil disimpan untuk " . $insertCount . " menu!";
-    $msgType = 'success';
-    
-    // Reload selected user permissions
-    $userPermissions = [];
-    $stmt = $masterPdo->prepare("
-        SELECT menu_id, can_view, can_create, can_edit, can_delete 
-        FROM user_menu_permissions 
-        WHERE user_id = ? AND business_id = ?
-    ");
-    $stmt->execute([$userId, $pwfBizId]);
-    foreach ($stmt->fetchAll() as $perm) {
-        $userPermissions[$perm['menu_id']] = $perm;
-    }
+} catch (Exception $e) {
+    $error = "❌ Database Error: " . $e->getMessage();
 }
 
 require_once __DIR__ . '/../layout.php';
@@ -164,105 +180,115 @@ require_once __DIR__ . '/../layout.php';
             <p>Atur hak akses menu PWF untuk setiap user</p>
         </div>
         
-        <?php if ($msg): ?>
-            <div class="alert <?= $msgType ?>">
-                ✓ <?= htmlspecialchars($msg) ?>
+        <?php if ($error): ?>
+            <div class="alert" style="background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA;">
+                <?= htmlspecialchars($error) ?>
             </div>
         <?php endif; ?>
         
-        <div class="user-selector">
-            <label>📋 Pilih User untuk Manage Akses</label>
-            <select onchange="location.href='?user=' + this.value" id="userSelect">
-                <option value="">-- Pilih User --</option>
-                <?php foreach ($pwfUsers as $user): ?>
-                    <option value="<?= $user['id'] ?>" <?= $selectedUserId === (int)$user['id'] ? 'selected' : '' ?>>
-                        <?= htmlspecialchars($user['username']) ?> - <?= htmlspecialchars($user['full_name'] ?? '') ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
-        </div>
+        <?php if ($msg): ?>
+            <div class="alert <?= $msgType ?>">
+                <?= htmlspecialchars($msg) ?>
+            </div>
+        <?php endif; ?>
         
-        <?php if ($selectedUserId > 0 && !empty($menus)): ?>
-            <form method="post">
-                <input type="hidden" name="user_id" value="<?= $selectedUserId ?>">
-                
-                <table class="permissions-table">
-                    <thead>
-                        <tr>
-                            <th style="width: 40%;">Menu</th>
-                            <th style="width: 15%; text-align:center;">👁️ Lihat</th>
-                            <th style="width: 15%; text-align:center;">➕ Buat</th>
-                            <th style="width: 15%; text-align:center;">✏️ Edit</th>
-                            <th style="width: 15%; text-align:center;">🗑️ Hapus</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($menus as $menu): ?>
-                            <?php 
-                            $perm = $userPermissions[$menu['id']] ?? null;
-                            $canView = $perm['can_view'] ?? 0;
-                            $canCreate = $perm['can_create'] ?? 0;
-                            $canEdit = $perm['can_edit'] ?? 0;
-                            $canDelete = $perm['can_delete'] ?? 0;
-                            ?>
-                            <tr>
-                                <td class="menu-name"><?= htmlspecialchars($menu['menu_label'] ?? $menu['menu_name']) ?></td>
-                                <td style="text-align:center;">
-                                    <div class="checkbox-wrapper">
-                                        <input type="checkbox" 
-                                               id="menu_<?= $menu['id'] ?>_view" 
-                                               name="menu_<?= $menu['id'] ?>_view" 
-                                               value="1" 
-                                               <?= $canView ? 'checked' : '' ?>>
-                                    </div>
-                                </td>
-                                <td style="text-align:center;">
-                                    <div class="checkbox-wrapper">
-                                        <input type="checkbox" 
-                                               id="menu_<?= $menu['id'] ?>_create" 
-                                               name="menu_<?= $menu['id'] ?>_create" 
-                                               value="1" 
-                                               <?= $canCreate ? 'checked' : '' ?>>
-                                    </div>
-                                </td>
-                                <td style="text-align:center;">
-                                    <div class="checkbox-wrapper">
-                                        <input type="checkbox" 
-                                               id="menu_<?= $menu['id'] ?>_edit" 
-                                               name="menu_<?= $menu['id'] ?>_edit" 
-                                               value="1" 
-                                               <?= $canEdit ? 'checked' : '' ?>>
-                                    </div>
-                                </td>
-                                <td style="text-align:center;">
-                                    <div class="checkbox-wrapper">
-                                        <input type="checkbox" 
-                                               id="menu_<?= $menu['id'] ?>_delete" 
-                                               name="menu_<?= $menu['id'] ?>_delete" 
-                                               value="1" 
-                                               <?= $canDelete ? 'checked' : '' ?>>
-                                    </div>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-                
-                <div class="form-actions">
-                    <button type="submit" class="btn-save">💾 Simpan Akses</button>
-                    <button type="reset" class="btn-reset">↻ Reset</button>
+        <?php if (!$error): ?>
+            <div class="user-selector">
+                <label>👤 Pilih User untuk Manage Akses</label>
+                <select onchange="location.href='?user=' + this.value" id="userSelect">
+                    <option value="">-- Pilih User --</option>
+                    <?php foreach ($pwfUsers as $user): ?>
+                        <option value="<?= $user['id'] ?>" <?= $selectedUserId === (int)$user['id'] ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($user['username']) ?> - <?= htmlspecialchars($user['full_name'] ?? '') ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            
+            <?php if ($selectedUserId > 0): ?>
+                <?php if (!empty($menus)): ?>
+                    <form method="post">
+                        <input type="hidden" name="user_id" value="<?= $selectedUserId ?>">
+                        
+                        <table class="permissions-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 40%;">📋 Menu</th>
+                                    <th style="width: 15%; text-align:center;">👁️ Lihat</th>
+                                    <th style="width: 15%; text-align:center;">➕ Buat</th>
+                                    <th style="width: 15%; text-align:center;">✏️ Edit</th>
+                                    <th style="width: 15%; text-align:center;">🗑️ Hapus</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($menus as $menu): ?>
+                                    <?php 
+                                    $perm = $userPermissions[$menu['id']] ?? null;
+                                    $canView = $perm['can_view'] ?? 0;
+                                    $canCreate = $perm['can_create'] ?? 0;
+                                    $canEdit = $perm['can_edit'] ?? 0;
+                                    $canDelete = $perm['can_delete'] ?? 0;
+                                    ?>
+                                    <tr>
+                                        <td class="menu-name"><?= htmlspecialchars($menu['menu_label'] ?? $menu['menu_name']) ?></td>
+                                        <td style="text-align:center;">
+                                            <div class="checkbox-wrapper">
+                                                <input type="checkbox" 
+                                                       id="menu_<?= $menu['id'] ?>_view" 
+                                                       name="menu_<?= $menu['id'] ?>_view" 
+                                                       value="1" 
+                                                       <?= $canView ? 'checked' : '' ?>>
+                                            </div>
+                                        </td>
+                                        <td style="text-align:center;">
+                                            <div class="checkbox-wrapper">
+                                                <input type="checkbox" 
+                                                       id="menu_<?= $menu['id'] ?>_create" 
+                                                       name="menu_<?= $menu['id'] ?>_create" 
+                                                       value="1" 
+                                                       <?= $canCreate ? 'checked' : '' ?>>
+                                            </div>
+                                        </td>
+                                        <td style="text-align:center;">
+                                            <div class="checkbox-wrapper">
+                                                <input type="checkbox" 
+                                                       id="menu_<?= $menu['id'] ?>_edit" 
+                                                       name="menu_<?= $menu['id'] ?>_edit" 
+                                                       value="1" 
+                                                       <?= $canEdit ? 'checked' : '' ?>>
+                                            </div>
+                                        </td>
+                                        <td style="text-align:center;">
+                                            <div class="checkbox-wrapper">
+                                                <input type="checkbox" 
+                                                       id="menu_<?= $menu['id'] ?>_delete" 
+                                                       name="menu_<?= $menu['id'] ?>_delete" 
+                                                       value="1" 
+                                                       <?= $canDelete ? 'checked' : '' ?>>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                        
+                        <div class="form-actions">
+                            <button type="submit" class="btn-save">💾 Simpan Akses</button>
+                            <button type="reset" class="btn-reset">↻ Reset</button>
+                        </div>
+                    </form>
+                <?php else: ?>
+                    <div class="empty-state">
+                        <p style="margin-bottom: 16px;">📭 Tidak ada menu ditemukan</p>
+                        <p style="font-size: 12px; margin-bottom: 16px; color: #bbb;">Menu PWF belum dikonfigurasi. Silakan tambahkan menu terlebih dahulu.</p>
+                        <a href="menus.php" style="display: inline-block; padding: 10px 20px; background: #B8860B; color: white; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 14px;">➕ Ke Kelola Menu</a>
+                    </div>
+                <?php endif; ?>
+            <?php else: ?>
+                <div class="empty-state">
+                    <p>👤 Pilih user di atas untuk manage akses menu mereka</p>
                 </div>
-            </form>
-        <?php elseif ($selectedUserId > 0): ?>
-            <div class="empty-state">
-                <p style="margin-bottom: 16px;">📭 Tidak ada menu ditemukan</p>
-                <p style="font-size: 12px; margin-bottom: 16px; color: #bbb;">Menu PWF belum dikonfigurasi. Silakan tambahkan menu terlebih dahulu.</p>
-                <a href="menus.php" style="display: inline-block; padding: 10px 20px; background: #B8860B; color: white; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 14px;">➕ Ke Kelola Menu</a>
-            </div>
-        <?php else: ?>
-            <div class="empty-state">
-                <p>👤 Pilih user di atas untuk manage akses menu</p>
-            </div>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 </body>
