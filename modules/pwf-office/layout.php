@@ -1,7 +1,7 @@
 <?php
 function pwfOfficeHeader(string $title, string $active = ''): void
 {
-    $menu = [
+    $menuItems = [
         'dashboard' => ['label' => 'Dashboard',        'icon' => 'bi-speedometer2',     'url' => 'dashboard.php'],
         'orders'    => ['label' => 'Orders',            'icon' => 'bi-clipboard2-check', 'url' => 'orders.php'],
         'progress'  => ['label' => 'Progress Tracking', 'icon' => 'bi-bar-chart-line',   'url' => 'progress.php'],
@@ -19,6 +19,77 @@ function pwfOfficeHeader(string $title, string $active = ''): void
         'settings'  => ['label' => 'Settings',          'icon' => 'bi-gear',             'url' => 'settings.php'],
         'manage'    => ['label' => 'PWF Manage',        'icon' => 'bi-tools',            'url' => 'manage/index.php'],
     ];
+    
+    // Filter menu berdasarkan permission user
+    $menu = $menuItems;
+    $userId = $_SESSION['user_id'] ?? null;
+    
+    // Hanya filter jika ada user login
+    if ($userId) {
+        try {
+            $masterPdo = new PDO('mysql:host=' . DB_HOST . ';dbname=' . DB_NAME, DB_USER, DB_PASS, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_SILENT,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+            ]);
+            
+            // Get user's PWF business
+            $pwfBiz = $masterPdo->query("SELECT id FROM businesses WHERE business_name LIKE '%PWF%' OR business_name LIKE '%Prapen%' LIMIT 1")->fetch();
+            $pwfBizId = $pwfBiz['id'] ?? null;
+            
+            if ($pwfBizId) {
+                // Get user's menu permissions dengan menu_name
+                $stmt = $masterPdo->prepare("
+                    SELECT DISTINCT mi.menu_name 
+                    FROM user_menu_permissions ump
+                    INNER JOIN menu_items mi ON ump.menu_id = mi.id
+                    WHERE ump.user_id = ? AND ump.business_id = ? AND ump.can_view = 1
+                ");
+                $stmt->execute([$userId, $pwfBizId]);
+                $allowedMenuNames = [];
+                foreach ($stmt->fetchAll() as $row) {
+                    $allowedMenuNames[] = strtolower(trim($row['menu_name']));
+                }
+                
+                // Jika user punya permission entries, filter menu
+                if (!empty($allowedMenuNames)) {
+                    $filteredMenu = [];
+                    
+                    foreach ($menuItems as $key => $item) {
+                        $lowerKey = strtolower($key);
+                        
+                        if (!empty($item['children'])) {
+                            // Untuk dropdown menu, filter children
+                            $filteredChildren = [];
+                            foreach ($item['children'] as $ck => $child) {
+                                $lowerChildKey = strtolower($ck);
+                                
+                                // Check if child menu is allowed
+                                if (in_array($lowerChildKey, $allowedMenuNames)) {
+                                    $filteredChildren[$ck] = $child;
+                                }
+                            }
+                            
+                            // Only show dropdown jika ada children yang diizinkan
+                            if (!empty($filteredChildren)) {
+                                $item['children'] = $filteredChildren;
+                                $filteredMenu[$key] = $item;
+                            }
+                        } else {
+                            // Untuk regular menu, check if allowed
+                            if (in_array($lowerKey, $allowedMenuNames)) {
+                                $filteredMenu[$key] = $item;
+                            }
+                        }
+                    }
+                    
+                    $menu = $filteredMenu;
+                }
+            }
+        } catch (Exception $e) {
+            // Jika ada error, tampilkan menu default
+            $menu = $menuItems;
+        }
+    }
     // determine if any database child is active
     $dbChildren = ['customers', 'craftsmen', 'containers'];
     $dbActive   = in_array($active, $dbChildren);

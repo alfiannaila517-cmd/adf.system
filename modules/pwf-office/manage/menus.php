@@ -362,6 +362,11 @@ if (strpos($_SERVER['REQUEST_METHOD'], 'POST') === 0) {
         <h1>Kelola Menu PWF</h1>
         <p class="subtitle">Atur menu yang tersedia untuk pengaturan akses user</p>
         
+        <div class="alert alert-info" style="background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; padding: 12px 16px; border-radius: 8px; margin-bottom: 24px; font-size: 13px;">
+            <strong>ℹ️ Cara Kerja:</strong> Menu yang dibuat di sini akan muncul di list permission setting.<br>
+            User hanya akan melihat menu-menu di sidebar PWF jika Anda set permission "Lihat" untuk mereka di halaman <strong>Manajemen Akses</strong>.
+        </div>
+        
         <?php if (!empty($msg)): ?>
             <div class="alert alert-<?php echo $msgType; ?>" role="alert">
                 <?php echo $msg; ?>
@@ -418,6 +423,10 @@ if (strpos($_SERVER['REQUEST_METHOD'], 'POST') === 0) {
                 <div class="form-group">
                     <label class="form-label">Nama Menu (untuk internal)</label>
                     <input type="text" name="menu_name" class="form-control" placeholder="mis: dashboard, orders" required>
+                    <small style="display: block; margin-top: 6px; color: #999;">
+                        💡 Gunakan salah satu: <strong>dashboard, orders, progress, shipping, rekap-order, customers, craftsmen, containers, settings, manage</strong><br>
+                        Menu name harus sesuai agar permission system berfungsi!
+                    </small>
                 </div>
                 
                 <div class="form-group">
