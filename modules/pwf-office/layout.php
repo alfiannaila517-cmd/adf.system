@@ -37,46 +37,46 @@ function pwfOfficeHeader(string $title, string $active = ''): void
             $pwfBizId = $pwfBiz['id'] ?? null;
             
             if ($pwfBizId) {
-                // Get user's menu permissions dengan menu_name
+                // Get user's allowed menu codes (format: pwf_<key>)
                 $stmt = $masterPdo->prepare("
-                    SELECT DISTINCT mi.menu_name 
+                    SELECT DISTINCT mi.menu_code 
                     FROM user_menu_permissions ump
                     INNER JOIN menu_items mi ON ump.menu_id = mi.id
                     WHERE ump.user_id = ? AND ump.business_id = ? AND ump.can_view = 1
                 ");
                 $stmt->execute([$userId, $pwfBizId]);
-                $allowedMenuNames = [];
+                $allowedCodes = [];
                 foreach ($stmt->fetchAll() as $row) {
-                    $allowedMenuNames[] = strtolower(trim($row['menu_name']));
+                    // Strip pwf_ prefix to get sidebar key
+                    $allowedCodes[] = preg_replace('/^pwf_/', '', strtolower($row['menu_code']));
                 }
                 
-                // Jika user punya permission entries, filter menu
-                if (!empty($allowedMenuNames)) {
+                // Map rekap code to sidebar key
+                $codeMap = ['rekap' => 'rekap-order'];
+                $mapped = [];
+                foreach ($allowedCodes as $code) {
+                    $mapped[] = $codeMap[$code] ?? $code;
+                }
+                $allowedCodes = $mapped;
+                
+                // Filter menu jika ada permission entries
+                if (!empty($allowedCodes)) {
                     $filteredMenu = [];
                     
                     foreach ($menuItems as $key => $item) {
-                        $lowerKey = strtolower($key);
-                        
                         if (!empty($item['children'])) {
-                            // Untuk dropdown menu, filter children
                             $filteredChildren = [];
                             foreach ($item['children'] as $ck => $child) {
-                                $lowerChildKey = strtolower($ck);
-                                
-                                // Check if child menu is allowed
-                                if (in_array($lowerChildKey, $allowedMenuNames)) {
+                                if (in_array(strtolower($ck), $allowedCodes)) {
                                     $filteredChildren[$ck] = $child;
                                 }
                             }
-                            
-                            // Only show dropdown jika ada children yang diizinkan
                             if (!empty($filteredChildren)) {
                                 $item['children'] = $filteredChildren;
                                 $filteredMenu[$key] = $item;
                             }
                         } else {
-                            // Untuk regular menu, check if allowed
-                            if (in_array($lowerKey, $allowedMenuNames)) {
+                            if (in_array(strtolower($key), $allowedCodes)) {
                                 $filteredMenu[$key] = $item;
                             }
                         }
