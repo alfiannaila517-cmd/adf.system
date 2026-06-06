@@ -406,6 +406,11 @@ if (!empty($_manifestParams)) {
             box-shadow: 0 4px 20px rgba(8, 22, 43, .07);
         }
 
+        .customer-sidebar-panel {
+            display: flex;
+            flex-direction: column;
+        }
+
         .search-grid {
             display: grid;
             grid-template-columns: 1fr auto;
@@ -489,6 +494,24 @@ if (!empty($_manifestParams)) {
             overflow: auto;
             display: grid;
             gap: 8px;
+        }
+
+        .sidebar-meta {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px dashed #D7E3F1;
+            font-size: var(--fs-xs);
+            color: var(--muted);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .sidebar-meta strong {
+            color: #1E3A5F;
+            font-weight: 800;
         }
 
         .customer-item {
@@ -769,6 +792,10 @@ if (!empty($_manifestParams)) {
                 display: none;
             }
 
+            .sidebar-meta {
+                margin-top: 8px;
+            }
+
             .customer-select-mobile {
                 display: block;
                 margin-bottom: 8px;
@@ -861,7 +888,7 @@ if (!empty($_manifestParams)) {
         </div>
 
         <div class="portal-grid">
-            <div class="panel">
+            <div class="panel customer-sidebar-panel">
                 <div style="font-size:13px;font-weight:800;color:#0F2948;margin-bottom:8px;">Customers</div>
                 <div class="customer-select-mobile">
                     <label class="label">Pilih Customer</label>
@@ -924,6 +951,10 @@ if (!empty($_manifestParams)) {
                             </a>
                         <?php endforeach; ?>
                     <?php endif; ?>
+                </div>
+                <div class="sidebar-meta">
+                    <span>Version: <strong>v1.0.0</strong></span>
+                    <span>powerby <strong>AdFsystem</strong></span>
                 </div>
             </div>
 
