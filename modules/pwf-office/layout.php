@@ -11,6 +11,7 @@ function pwfOfficeHeader(string $title, string $active = ''): void
             'label' => 'Database',
             'icon' => 'bi-database',
             'children' => [
+                'buyers'     => ['label' => 'Buyers',      'icon' => 'bi-person-badge', 'url' => 'buyers.php'],
                 'customers'  => ['label' => 'Customers',   'icon' => 'bi-people',       'url' => 'customers.php'],
                 'craftsmen'  => ['label' => 'Craftsmen',   'icon' => 'bi-hammer',       'url' => 'craftsmen.php'],
                 'containers' => ['label' => 'Containers',  'icon' => 'bi-box-seam',     'url' => 'db-containers.php'],
@@ -19,11 +20,11 @@ function pwfOfficeHeader(string $title, string $active = ''): void
         'settings'  => ['label' => 'Settings',          'icon' => 'bi-gear',             'url' => 'settings.php'],
         'manage'    => ['label' => 'PWF Manage',        'icon' => 'bi-tools',            'url' => 'manage/index.php'],
     ];
-    
+
     // Filter menu berdasarkan permission user
     $menu = $menuItems;
     $userId = $_SESSION['user_id'] ?? null;
-    
+
     // Hanya filter jika ada user login
     if ($userId) {
         try {
@@ -31,11 +32,11 @@ function pwfOfficeHeader(string $title, string $active = ''): void
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_SILENT,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
             ]);
-            
+
             // Get user's PWF business
             $pwfBiz = $masterPdo->query("SELECT id FROM businesses WHERE business_name LIKE '%PWF%' OR business_name LIKE '%Prapen%' LIMIT 1")->fetch();
             $pwfBizId = $pwfBiz['id'] ?? null;
-            
+
             if ($pwfBizId) {
                 // Get user's allowed menu codes (format: pwf_<key>)
                 $stmt = $masterPdo->prepare("
@@ -50,7 +51,7 @@ function pwfOfficeHeader(string $title, string $active = ''): void
                     // Strip pwf_ prefix to get sidebar key
                     $allowedCodes[] = preg_replace('/^pwf_/', '', strtolower($row['menu_code']));
                 }
-                
+
                 // Map rekap code to sidebar key
                 $codeMap = ['rekap' => 'rekap-order'];
                 $mapped = [];
@@ -58,11 +59,11 @@ function pwfOfficeHeader(string $title, string $active = ''): void
                     $mapped[] = $codeMap[$code] ?? $code;
                 }
                 $allowedCodes = $mapped;
-                
+
                 // Filter menu jika ada permission entries
                 if (!empty($allowedCodes)) {
                     $filteredMenu = [];
-                    
+
                     foreach ($menuItems as $key => $item) {
                         if (!empty($item['children'])) {
                             $filteredChildren = [];
@@ -81,7 +82,7 @@ function pwfOfficeHeader(string $title, string $active = ''): void
                             }
                         }
                     }
-                    
+
                     $menu = $filteredMenu;
                 }
             }
@@ -91,7 +92,7 @@ function pwfOfficeHeader(string $title, string $active = ''): void
         }
     }
     // determine if any database child is active
-    $dbChildren = ['customers', 'craftsmen', 'containers'];
+    $dbChildren = ['buyers', 'customers', 'craftsmen', 'containers'];
     $dbActive   = in_array($active, $dbChildren);
     $fullName = htmlspecialchars($_SESSION['full_name'] ?? $_SESSION['username'] ?? 'User');
     $initials = strtoupper(substr($_SESSION['full_name'] ?? $_SESSION['username'] ?? 'U', 0, 2));
@@ -133,10 +134,10 @@ function pwfOfficeHeader(string $title, string $active = ''): void
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title><?= htmlspecialchars($title) ?> · PWF Office</title>
         <?php if (!empty($faviconUrl)): ?>
-        <link rel="icon" type="<?= htmlspecialchars($faviconType) ?>" href="<?= htmlspecialchars(rtrim(BASE_URL, '/') . '/' . $faviconUrl) ?>">
-        <link rel="shortcut icon" type="<?= htmlspecialchars($faviconType) ?>" href="<?= htmlspecialchars(rtrim(BASE_URL, '/') . '/' . $faviconUrl) ?>">
+            <link rel="icon" type="<?= htmlspecialchars($faviconType) ?>" href="<?= htmlspecialchars(rtrim(BASE_URL, '/') . '/' . $faviconUrl) ?>">
+            <link rel="shortcut icon" type="<?= htmlspecialchars($faviconType) ?>" href="<?= htmlspecialchars(rtrim(BASE_URL, '/') . '/' . $faviconUrl) ?>">
         <?php else: ?>
-        <link rel="icon" href="<?= htmlspecialchars(rtrim(BASE_URL, '/')) ?>/favicon.ico">
+            <link rel="icon" href="<?= htmlspecialchars(rtrim(BASE_URL, '/')) ?>/favicon.ico">
         <?php endif; ?>
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">

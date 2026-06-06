@@ -19,6 +19,9 @@ try {
         DB_PASS,
         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
     );
+    if (function_exists('ensurePwfOfficeTables')) {
+        ensurePwfOfficeTables($pdo);
+    }
 } catch (PDOException $e) {
     $_altDb = $_isProduction ? 'adfb2574_pwf' : 'adf_system_pwf';
     $pdo = new PDO(
@@ -31,6 +34,9 @@ try {
 $baseUrl = defined('BASE_URL') ? rtrim(BASE_URL, '/') : '';
 $queryText = trim((string)($_GET['q'] ?? $_GET['c'] ?? ''));
 $queryText = preg_replace('/[^a-zA-Z0-9\-\s]/', '', $queryText);
+$buyerKey = trim((string)($_GET['buyer_key'] ?? ''));
+$buyerKey = preg_replace('/[^a-zA-Z0-9]/', '', $buyerKey);
+$buyerName = '';
 
 $companyName = 'PWF Buyer Portal';
 $iconUrl = $baseUrl . '/favicon.ico';
@@ -65,9 +71,29 @@ try {
 } catch (Exception $e) {
 }
 
+if ($buyerKey !== '') {
+    try {
+        $stmtBuyer = $pdo->prepare("SELECT buyer_name FROM pwf_buyers WHERE access_key = ? AND is_active = 1 LIMIT 1");
+        $stmtBuyer->execute([$buyerKey]);
+        $buyerRow = $stmtBuyer->fetch(PDO::FETCH_ASSOC);
+        if ($buyerRow) {
+            $buyerName = (string)$buyerRow['buyer_name'];
+            $companyName = $companyName . ' - ' . $buyerName;
+        }
+    } catch (Exception $e) {
+    }
+}
+
 $startUrl = $baseUrl . '/modules/pwf-office/customer-portal.php';
+$queryParams = [];
 if ($queryText !== '') {
-    $startUrl .= '?q=' . urlencode($queryText);
+    $queryParams['q'] = $queryText;
+}
+if ($buyerKey !== '') {
+    $queryParams['buyer_key'] = $buyerKey;
+}
+if (!empty($queryParams)) {
+    $startUrl .= '?' . http_build_query($queryParams);
 }
 
 while (ob_get_level()) {
@@ -75,7 +101,7 @@ while (ob_get_level()) {
 }
 
 echo json_encode([
-    'id' => '/modules/pwf-office/customer-portal' . ($queryText !== '' ? '?q=' . rawurlencode($queryText) : ''),
+    'id' => '/modules/pwf-office/customer-portal' . (!empty($queryParams) ? '?' . http_build_query($queryParams) : ''),
     'name' => $companyName,
     'short_name' => 'Buyer Portal',
     'description' => 'Buyer monitoring portal: multi-customer orders, progress, containers, and monthly recap',

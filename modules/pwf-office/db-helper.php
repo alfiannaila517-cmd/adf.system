@@ -36,6 +36,32 @@ function ensurePwfOfficeTables(PDO $pdo): void
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+    $pdo->exec("CREATE TABLE IF NOT EXISTS pwf_buyers (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        buyer_code VARCHAR(30) UNIQUE,
+        buyer_name VARCHAR(150) NOT NULL,
+        contact_person VARCHAR(150) NULL,
+        email VARCHAR(150) NULL,
+        phone VARCHAR(50) NULL,
+        notes TEXT NULL,
+        access_key VARCHAR(80) UNIQUE,
+        is_active TINYINT(1) DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_buyer_name (buyer_name),
+        INDEX idx_access_key (access_key)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS pwf_buyer_customers (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        buyer_id INT NOT NULL,
+        customer_id INT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_buyer_customer (buyer_id, customer_id),
+        INDEX idx_buyer (buyer_id),
+        INDEX idx_customer (customer_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
     $pdo->exec("CREATE TABLE IF NOT EXISTS pwf_craftsmen (
         id INT AUTO_INCREMENT PRIMARY KEY,
         craftsman_code VARCHAR(30) UNIQUE,
@@ -74,19 +100,24 @@ function ensurePwfOfficeTables(PDO $pdo): void
     // Alter pwf_orders - add pricing & detail columns
     try {
         $pdo->exec("ALTER TABLE pwf_orders ADD COLUMN unit_price DECIMAL(15,2) DEFAULT 0");
-    } catch (\PDOException $e) {}
+    } catch (\PDOException $e) {
+    }
     try {
         $pdo->exec("ALTER TABLE pwf_orders ADD COLUMN total_price DECIMAL(15,2) DEFAULT 0");
-    } catch (\PDOException $e) {}
+    } catch (\PDOException $e) {
+    }
     try {
         $pdo->exec("ALTER TABLE pwf_orders ADD COLUMN wood_color VARCHAR(100) NULL");
-    } catch (\PDOException $e) {}
+    } catch (\PDOException $e) {
+    }
     try {
         $pdo->exec("ALTER TABLE pwf_orders ADD COLUMN finish VARCHAR(100) NULL");
-    } catch (\PDOException $e) {}
+    } catch (\PDOException $e) {
+    }
     try {
         $pdo->exec("ALTER TABLE pwf_orders ADD COLUMN description TEXT NULL");
-    } catch (\PDOException $e) {}
+    } catch (\PDOException $e) {
+    }
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS pwf_order_progress (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -183,6 +214,9 @@ function genPwfCode(PDO $pdo, string $prefix): string
     if ($prefix === 'CUS') {
         $table = 'pwf_customers';
         $column = 'customer_code';
+    } elseif ($prefix === 'BUY') {
+        $table = 'pwf_buyers';
+        $column = 'buyer_code';
     } elseif ($prefix === 'TKG') {
         $table = 'pwf_craftsmen';
         $column = 'craftsman_code';

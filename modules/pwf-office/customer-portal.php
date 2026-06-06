@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Buyer Portal - PWF Office
  * Buyer can monitor multiple customers and view each customer's orders.
@@ -36,7 +37,12 @@ try {
 $baseUrl = defined('BASE_URL') ? rtrim(BASE_URL, '/') : '';
 
 $buyerQuery = trim((string)($_GET['buyer'] ?? $_GET['q'] ?? ''));
+$buyerKey = trim((string)($_GET['buyer_key'] ?? ''));
+$buyerKey = preg_replace('/[^a-zA-Z0-9]/', '', $buyerKey);
 $selectedCustomerId = (int)($_GET['customer_id'] ?? 0);
+$buyerPortalName = '';
+$buyerPortalError = '';
+$isLockedBuyerPortal = false;
 
 $companyName = 'Prapen Wood Furniture';
 $logoUrl = '';
@@ -71,15 +77,40 @@ try {
 } catch (Exception $e) {
 }
 
-$customerSql = "SELECT id, customer_code, customer_name, phone
-                FROM pwf_customers";
+$customerSql = "SELECT c.id, c.customer_code, c.customer_name, c.phone
+                FROM pwf_customers c";
 $customerParams = [];
+$customerWhere = [];
+
+if ($buyerKey !== '') {
+    try {
+        $stmtBuyer = $pdo->prepare("SELECT id, buyer_name FROM pwf_buyers WHERE access_key = ? AND is_active = 1 LIMIT 1");
+        $stmtBuyer->execute([$buyerKey]);
+        $buyerRow = $stmtBuyer->fetch(PDO::FETCH_ASSOC);
+        if ($buyerRow) {
+            $isLockedBuyerPortal = true;
+            $buyerPortalName = (string)$buyerRow['buyer_name'];
+            $customerSql .= " INNER JOIN pwf_buyer_customers bc ON bc.customer_id = c.id";
+            $customerWhere[] = "bc.buyer_id = ?";
+            $customerParams[] = (int)$buyerRow['id'];
+        } else {
+            $buyerPortalError = 'Buyer link is invalid or inactive.';
+            $customerWhere[] = '1 = 0';
+        }
+    } catch (Exception $e) {
+        $buyerPortalError = 'Unable to validate buyer access.';
+        $customerWhere[] = '1 = 0';
+    }
+}
 
 if ($buyerQuery !== '') {
-    $customerSql .= " WHERE UPPER(customer_code) LIKE ?
-                     OR UPPER(customer_name) LIKE ?";
+    $customerWhere[] = "(UPPER(c.customer_code) LIKE ? OR UPPER(c.customer_name) LIKE ?)";
     $customerParams[] = '%' . strtoupper($buyerQuery) . '%';
     $customerParams[] = '%' . strtoupper($buyerQuery) . '%';
+}
+
+if (!empty($customerWhere)) {
+    $customerSql .= ' WHERE ' . implode(' AND ', $customerWhere);
 }
 
 $customerSql .= " ORDER BY customer_name ASC LIMIT 300";
@@ -235,12 +266,20 @@ if ($customerSummary['qty_ordered'] > 0) {
 }
 
 $manifestHref = 'customer-manifest.php';
+$_manifestParams = [];
 if ($buyerQuery !== '') {
-    $manifestHref .= '?q=' . urlencode($buyerQuery);
+    $_manifestParams['q'] = $buyerQuery;
+}
+if ($buyerKey !== '') {
+    $_manifestParams['buyer_key'] = $buyerKey;
+}
+if (!empty($_manifestParams)) {
+    $manifestHref .= '?' . http_build_query($_manifestParams);
 }
 ?>
 <!doctype html>
 <html lang="en">
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -265,79 +304,402 @@ if ($buyerQuery !== '') {
             --fs-md: 13px;
             --fs-lg: 16px;
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
         body {
             font-family: 'Plus Jakarta Sans', sans-serif;
             color: var(--text);
             background: linear-gradient(180deg, #0C1E37 0%, #0E223D 190px, #F0F4FA 190px, #F0F4FA 100%);
             min-height: 100vh;
         }
-        .wrap { width: min(1200px, 100%); margin: 0 auto; padding: 16px 14px 32px; }
-        .hero { color: #fff; display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
-        .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
-        .logo { width: 48px; height: 48px; min-width: 48px; border-radius: 12px; background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.25); display: grid; place-items: center; overflow: hidden; }
-        .logo img { width: 100%; height: 100%; object-fit: contain; padding: 6px; background: #fff; }
-        .hero h1 { font-size: var(--fs-lg); font-weight: 800; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .hero p { margin-top: 2px; font-size: var(--fs-xs); color: rgba(255,255,255,.72); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .install-btn { border: 1px solid rgba(255,255,255,.28); background: rgba(255,255,255,.14); color: #fff; border-radius: 10px; padding: 8px 12px; font-weight: 700; font-size: 12px; cursor: pointer; display: none; white-space: nowrap; }
 
-        .panel { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px; box-shadow: 0 4px 20px rgba(8,22,43,.07); }
-        .search-grid { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
-        .label { display: block; font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .5px; color: var(--muted); font-weight: 700; margin-bottom: 5px; }
-        .input { width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; font-family: inherit; font-size: var(--fs-md); font-weight: 600; color: var(--text); outline: none; }
-        .btn { border: 0; border-radius: 10px; background: linear-gradient(135deg, #1F4B7A, #2A6DA8); color: #fff; padding: 9px 14px; font-family: inherit; font-size: var(--fs-sm); font-weight: 700; cursor: pointer; white-space: nowrap; }
+        .wrap {
+            width: min(1200px, 100%);
+            margin: 0 auto;
+            padding: 16px 14px 32px;
+        }
 
-        .buyer-kpi { margin-top: 10px; display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 8px; }
-        .kpi-card { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
-        .kpi-title { font-size: var(--fs-xs); color: var(--muted); font-weight: 700; text-transform: uppercase; margin-bottom: 4px; }
-        .kpi-value { font-size: 20px; font-weight: 800; line-height: 1; color: var(--ink); }
+        .hero {
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
 
-        .portal-grid { margin-top: 10px; display: grid; grid-template-columns: 290px 1fr; gap: 10px; }
-        .customer-list { max-height: 74vh; overflow: auto; display: grid; gap: 8px; }
-        .customer-item { border: 1px solid #DDE7F3; border-radius: 10px; padding: 9px; background: #FBFDFF; text-decoration: none; color: inherit; display: block; }
-        .customer-item.active { background: #ECF4FF; border-color: #9FC3F4; }
-        .customer-code { font-size: var(--fs-xs); color: #2563EB; font-weight: 700; }
-        .customer-name { font-size: var(--fs-sm); color: #0F2948; font-weight: 800; margin-top: 2px; }
-        .customer-phone { font-size: var(--fs-xs); color: var(--muted); margin-top: 2px; }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+        }
 
-        .detail-grid { display: grid; gap: 10px; }
-        .customer-head { background: linear-gradient(180deg, #F8FBFF 0%, #EEF5FF 100%); border: 1px solid #D9E5F5; border-radius: 12px; padding: 10px; }
-        .customer-meta { margin-top: 5px; display: flex; flex-wrap: wrap; gap: 5px; }
-        .chip { font-size: var(--fs-xs); background: #EEF4FF; color: #1E40AF; border: 1px solid #C7D7FE; border-radius: 99px; padding: 4px 8px; font-weight: 700; }
+        .logo {
+            width: 48px;
+            height: 48px;
+            min-width: 48px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .15);
+            border: 1px solid rgba(255, 255, 255, .25);
+            display: grid;
+            place-items: center;
+            overflow: hidden;
+        }
 
-        .summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 8px; }
-        .two-col { display: grid; grid-template-columns: 1.2fr .8fr; gap: 10px; }
-        .progress-head { display: flex; justify-content: space-between; font-size: var(--fs-xs); font-weight: 700; color: var(--ink-soft); margin-bottom: 5px; }
-        .bar { width: 100%; height: 10px; background: #E8EFF8; border-radius: 999px; overflow: hidden; }
-        .bar-fill { height: 100%; border-radius: 999px; }
-        .bar-done { background: linear-gradient(90deg, #0F9D74, #34D399); }
-        .bar-ship { background: linear-gradient(90deg, #F97316, #FDBA74); }
+        .logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            padding: 6px;
+            background: #fff;
+        }
 
-        .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-        table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
-        th { text-align: left; font-size: var(--fs-xs); text-transform: uppercase; color: var(--muted); padding: 8px 7px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-        td { padding: 9px 7px; border-bottom: 1px solid #EEF3F9; vertical-align: middle; }
-        .status { display: inline-flex; align-items: center; border-radius: 99px; padding: 3px 7px; font-size: var(--fs-xs); font-weight: 700; text-transform: uppercase; letter-spacing: .3px; background: #F1F5F9; color: #334155; white-space: nowrap; }
-        .status.ready_ship, .status.completed { background:#ECFDF5; color:#047857; }
-        .status.on_progress, .status.partial_ship, .status.qc { background:#FFF7ED; color:#C2410C; }
-        .status.draft { background:#EFF6FF; color:#1D4ED8; }
-        .status.shipped { background:#EEF2FF; color:#4338CA; }
-        .container-ref { display:block; margin-top:3px; font-size:var(--fs-xs); color:#2563EB; }
+        .hero h1 {
+            font-size: var(--fs-lg);
+            font-weight: 800;
+            line-height: 1.2;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
 
-        .empty { padding: 18px; text-align: center; color: var(--muted); font-size: var(--fs-sm); }
+        .hero p {
+            margin-top: 2px;
+            font-size: var(--fs-xs);
+            color: rgba(255, 255, 255, .72);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .install-btn {
+            border: 1px solid rgba(255, 255, 255, .28);
+            background: rgba(255, 255, 255, .14);
+            color: #fff;
+            border-radius: 10px;
+            padding: 8px 12px;
+            font-weight: 700;
+            font-size: 12px;
+            cursor: pointer;
+            display: none;
+            white-space: nowrap;
+        }
+
+        .panel {
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 12px;
+            box-shadow: 0 4px 20px rgba(8, 22, 43, .07);
+        }
+
+        .search-grid {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 8px;
+            align-items: end;
+        }
+
+        .label {
+            display: block;
+            font-size: var(--fs-xs);
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            color: var(--muted);
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .input {
+            width: 100%;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 9px 11px;
+            font-family: inherit;
+            font-size: var(--fs-md);
+            font-weight: 600;
+            color: var(--text);
+            outline: none;
+        }
+
+        .btn {
+            border: 0;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #1F4B7A, #2A6DA8);
+            color: #fff;
+            padding: 9px 14px;
+            font-family: inherit;
+            font-size: var(--fs-sm);
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .buyer-kpi {
+            margin-top: 10px;
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 8px;
+        }
+
+        .kpi-card {
+            background: #fff;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 10px;
+        }
+
+        .kpi-title {
+            font-size: var(--fs-xs);
+            color: var(--muted);
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .kpi-value {
+            font-size: 20px;
+            font-weight: 800;
+            line-height: 1;
+            color: var(--ink);
+        }
+
+        .portal-grid {
+            margin-top: 10px;
+            display: grid;
+            grid-template-columns: 290px 1fr;
+            gap: 10px;
+        }
+
+        .customer-list {
+            max-height: 74vh;
+            overflow: auto;
+            display: grid;
+            gap: 8px;
+        }
+
+        .customer-item {
+            border: 1px solid #DDE7F3;
+            border-radius: 10px;
+            padding: 9px;
+            background: #FBFDFF;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+
+        .customer-item.active {
+            background: #ECF4FF;
+            border-color: #9FC3F4;
+        }
+
+        .customer-code {
+            font-size: var(--fs-xs);
+            color: #2563EB;
+            font-weight: 700;
+        }
+
+        .customer-name {
+            font-size: var(--fs-sm);
+            color: #0F2948;
+            font-weight: 800;
+            margin-top: 2px;
+        }
+
+        .customer-phone {
+            font-size: var(--fs-xs);
+            color: var(--muted);
+            margin-top: 2px;
+        }
+
+        .detail-grid {
+            display: grid;
+            gap: 10px;
+        }
+
+        .customer-head {
+            background: linear-gradient(180deg, #F8FBFF 0%, #EEF5FF 100%);
+            border: 1px solid #D9E5F5;
+            border-radius: 12px;
+            padding: 10px;
+        }
+
+        .customer-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
+        .chip {
+            font-size: var(--fs-xs);
+            background: #EEF4FF;
+            color: #1E40AF;
+            border: 1px solid #C7D7FE;
+            border-radius: 99px;
+            padding: 4px 8px;
+            font-weight: 700;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 8px;
+        }
+
+        .two-col {
+            display: grid;
+            grid-template-columns: 1.2fr .8fr;
+            gap: 10px;
+        }
+
+        .progress-head {
+            display: flex;
+            justify-content: space-between;
+            font-size: var(--fs-xs);
+            font-weight: 700;
+            color: var(--ink-soft);
+            margin-bottom: 5px;
+        }
+
+        .bar {
+            width: 100%;
+            height: 10px;
+            background: #E8EFF8;
+            border-radius: 999px;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            border-radius: 999px;
+        }
+
+        .bar-done {
+            background: linear-gradient(90deg, #0F9D74, #34D399);
+        }
+
+        .bar-ship {
+            background: linear-gradient(90deg, #F97316, #FDBA74);
+        }
+
+        .table-scroll {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: var(--fs-sm);
+        }
+
+        th {
+            text-align: left;
+            font-size: var(--fs-xs);
+            text-transform: uppercase;
+            color: var(--muted);
+            padding: 8px 7px;
+            border-bottom: 1px solid var(--line);
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 9px 7px;
+            border-bottom: 1px solid #EEF3F9;
+            vertical-align: middle;
+        }
+
+        .status {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 99px;
+            padding: 3px 7px;
+            font-size: var(--fs-xs);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .3px;
+            background: #F1F5F9;
+            color: #334155;
+            white-space: nowrap;
+        }
+
+        .status.ready_ship,
+        .status.completed {
+            background: #ECFDF5;
+            color: #047857;
+        }
+
+        .status.on_progress,
+        .status.partial_ship,
+        .status.qc {
+            background: #FFF7ED;
+            color: #C2410C;
+        }
+
+        .status.draft {
+            background: #EFF6FF;
+            color: #1D4ED8;
+        }
+
+        .status.shipped {
+            background: #EEF2FF;
+            color: #4338CA;
+        }
+
+        .container-ref {
+            display: block;
+            margin-top: 3px;
+            font-size: var(--fs-xs);
+            color: #2563EB;
+        }
+
+        .empty {
+            padding: 18px;
+            text-align: center;
+            color: var(--muted);
+            font-size: var(--fs-sm);
+        }
 
         @media (max-width: 980px) {
-            .portal-grid { grid-template-columns: 1fr; }
-            .customer-list { max-height: none; }
-            .buyer-kpi, .summary-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
-            .two-col { grid-template-columns: 1fr; }
+            .portal-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .customer-list {
+                max-height: none;
+            }
+
+            .buyer-kpi,
+            .summary-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .two-col {
+                grid-template-columns: 1fr;
+            }
         }
+
         @media (min-width: 1024px) {
-            .logo { width: 62px; height: 62px; border-radius: 16px; }
-            .hero h1 { font-size: 24px; }
+            .logo {
+                width: 62px;
+                height: 62px;
+                border-radius: 16px;
+            }
+
+            .hero h1 {
+                font-size: 24px;
+            }
         }
     </style>
 </head>
+
 <body>
     <div class="wrap">
         <div class="hero">
@@ -351,19 +713,33 @@ if ($buyerQuery !== '') {
                 </div>
                 <div>
                     <h1>Buyer Portal</h1>
-                    <p><?= htmlspecialchars($companyName) ?> - Multi-customer order monitoring</p>
+                    <p>
+                        <?= htmlspecialchars($companyName) ?> - Multi-customer order monitoring
+                        <?php if ($isLockedBuyerPortal && $buyerPortalName !== ''): ?>
+                            · Buyer: <?= htmlspecialchars($buyerPortalName) ?>
+                        <?php endif; ?>
+                    </p>
                 </div>
             </div>
             <button id="installBtn" class="install-btn" type="button">Install</button>
         </div>
 
+        <?php if ($buyerPortalError !== ''): ?>
+            <div class="panel" style="margin-bottom:10px;border-color:#FECACA;background:#FEF2F2;color:#991B1B;font-weight:700">
+                <?= htmlspecialchars($buyerPortalError) ?>
+            </div>
+        <?php endif; ?>
+
         <div class="panel">
             <form method="get" class="search-grid">
+                <?php if ($buyerKey !== ''): ?>
+                    <input type="hidden" name="buyer_key" value="<?= htmlspecialchars($buyerKey) ?>">
+                <?php endif; ?>
                 <div>
-                    <label class="label">Buyer Search (Customer Code or Name)</label>
-                    <input class="input" type="text" name="buyer" value="<?= htmlspecialchars($buyerQuery) ?>" placeholder="Example: CUS-202606-001 or Hunger Resto">
+                    <label class="label"><?= $isLockedBuyerPortal ? 'Search Assigned Customer' : 'Buyer Search (Customer Code or Name)' ?></label>
+                    <input class="input" type="text" name="buyer" value="<?= htmlspecialchars($buyerQuery) ?>" placeholder="<?= $isLockedBuyerPortal ? 'Search in assigned customer list' : 'Example: CUS-202606-001 or Hunger Resto' ?>">
                 </div>
-                <button class="btn" type="submit">Load Buyer View</button>
+                <button class="btn" type="submit"><?= $isLockedBuyerPortal ? 'Search' : 'Load Buyer View' ?></button>
             </form>
 
             <div class="buyer-kpi">
@@ -391,7 +767,7 @@ if ($buyerQuery !== '') {
                 <div style="font-size:13px;font-weight:800;color:#0F2948;margin-bottom:8px;">Customers</div>
                 <div class="customer-list">
                     <?php if (empty($customers)): ?>
-                        <div class="empty">No customers found for this buyer filter.</div>
+                        <div class="empty"><?= $isLockedBuyerPortal ? 'No assigned customers found for this buyer.' : 'No customers found for this buyer filter.' ?></div>
                     <?php else: ?>
                         <?php foreach ($customers as $cust):
                             $isActive = ((int)$cust['id'] === (int)$selectedCustomerId);
@@ -399,6 +775,9 @@ if ($buyerQuery !== '') {
                                 'buyer' => $buyerQuery,
                                 'customer_id' => (int)$cust['id']
                             ];
+                            if ($buyerKey !== '') {
+                                $qs['buyer_key'] = $buyerKey;
+                            }
                             $url = 'customer-portal.php?' . http_build_query(array_filter($qs, static fn($v) => $v !== '' && $v !== null));
                         ?>
                             <a class="customer-item<?= $isActive ? ' active' : '' ?>" href="<?= htmlspecialchars($url) ?>">
@@ -415,7 +794,9 @@ if ($buyerQuery !== '') {
 
             <div class="detail-grid">
                 <?php if (!$selectedCustomer): ?>
-                    <div class="panel"><div class="empty">Select a customer to view orders and recap.</div></div>
+                    <div class="panel">
+                        <div class="empty">Select a customer to view orders and recap.</div>
+                    </div>
                 <?php else: ?>
                     <div class="customer-head panel" style="box-shadow:none;">
                         <div style="font-size:18px;font-weight:800;color:#102A4A;"><?= htmlspecialchars((string)$selectedCustomer['customer_name']) ?></div>
@@ -428,10 +809,22 @@ if ($buyerQuery !== '') {
                     </div>
 
                     <div class="summary-grid">
-                        <div class="kpi-card"><div class="kpi-title">Total Orders</div><div class="kpi-value"><?= (int)$customerSummary['total_orders'] ?></div></div>
-                        <div class="kpi-card"><div class="kpi-title">Ordered Qty</div><div class="kpi-value"><?= htmlspecialchars(fmtQty((float)$customerSummary['qty_ordered'])) ?></div></div>
-                        <div class="kpi-card"><div class="kpi-title">Completed Qty</div><div class="kpi-value" style="color:#0F766E"><?= htmlspecialchars(fmtQty((float)$customerSummary['qty_done'])) ?></div></div>
-                        <div class="kpi-card"><div class="kpi-title">In Container</div><div class="kpi-value" style="color:#C2410C"><?= htmlspecialchars(fmtQty((float)$customerSummary['qty_shipped'])) ?></div></div>
+                        <div class="kpi-card">
+                            <div class="kpi-title">Total Orders</div>
+                            <div class="kpi-value"><?= (int)$customerSummary['total_orders'] ?></div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-title">Ordered Qty</div>
+                            <div class="kpi-value"><?= htmlspecialchars(fmtQty((float)$customerSummary['qty_ordered'])) ?></div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-title">Completed Qty</div>
+                            <div class="kpi-value" style="color:#0F766E"><?= htmlspecialchars(fmtQty((float)$customerSummary['qty_done'])) ?></div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-title">In Container</div>
+                            <div class="kpi-value" style="color:#C2410C"><?= htmlspecialchars(fmtQty((float)$customerSummary['qty_shipped'])) ?></div>
+                        </div>
                     </div>
 
                     <div class="two-col">
@@ -439,11 +832,15 @@ if ($buyerQuery !== '') {
                             <div style="font-size:13px;font-weight:800;color:#0F2948;margin-bottom:8px;">Progress Summary</div>
                             <div style="margin-bottom:10px;">
                                 <div class="progress-head"><span>Production completed</span><span><?= (int)$completionPct ?>%</span></div>
-                                <div class="bar"><div class="bar-fill bar-done" style="width: <?= (int)$completionPct ?>%;"></div></div>
+                                <div class="bar">
+                                    <div class="bar-fill bar-done" style="width: <?= (int)$completionPct ?>%;"></div>
+                                </div>
                             </div>
                             <div>
                                 <div class="progress-head"><span>Already in container</span><span><?= (int)$shippingPct ?>%</span></div>
-                                <div class="bar"><div class="bar-fill bar-ship" style="width: <?= (int)$shippingPct ?>%;"></div></div>
+                                <div class="bar">
+                                    <div class="bar-fill bar-ship" style="width: <?= (int)$shippingPct ?>%;"></div>
+                                </div>
                             </div>
                             <div style="margin-top:8px;font-size:11px;color:#64748B;">Related containers: <strong><?= (int)$customerSummary['container_count'] ?></strong></div>
                         </div>
@@ -462,20 +859,29 @@ if ($buyerQuery !== '') {
                         <div class="table-scroll">
                             <table>
                                 <thead>
-                                    <tr><th>Month</th><th>Orders</th><th>Ordered Qty</th><th>Completed Qty</th><th>In Container</th></tr>
+                                    <tr>
+                                        <th>Month</th>
+                                        <th>Orders</th>
+                                        <th>Ordered Qty</th>
+                                        <th>Completed Qty</th>
+                                        <th>In Container</th>
+                                    </tr>
                                 </thead>
                                 <tbody>
                                     <?php if (empty($monthlyRows)): ?>
-                                        <tr><td colspan="5" style="text-align:center;color:#94A3B8;">No monthly data yet.</td></tr>
-                                    <?php else: foreach ($monthlyRows as $row): ?>
                                         <tr>
-                                            <td><strong><?= htmlspecialchars((string)$row['period_label']) ?></strong></td>
-                                            <td><?= (int)$row['total_orders'] ?></td>
-                                            <td><?= htmlspecialchars(fmtQty((float)$row['qty_ordered'])) ?></td>
-                                            <td><?= htmlspecialchars(fmtQty((float)$row['qty_done'])) ?></td>
-                                            <td><?= htmlspecialchars(fmtQty((float)$row['qty_shipped'])) ?></td>
+                                            <td colspan="5" style="text-align:center;color:#94A3B8;">No monthly data yet.</td>
                                         </tr>
-                                    <?php endforeach; endif; ?>
+                                        <?php else: foreach ($monthlyRows as $row): ?>
+                                            <tr>
+                                                <td><strong><?= htmlspecialchars((string)$row['period_label']) ?></strong></td>
+                                                <td><?= (int)$row['total_orders'] ?></td>
+                                                <td><?= htmlspecialchars(fmtQty((float)$row['qty_ordered'])) ?></td>
+                                                <td><?= htmlspecialchars(fmtQty((float)$row['qty_done'])) ?></td>
+                                                <td><?= htmlspecialchars(fmtQty((float)$row['qty_shipped'])) ?></td>
+                                            </tr>
+                                    <?php endforeach;
+                                    endif; ?>
                                 </tbody>
                             </table>
                         </div>
@@ -486,36 +892,48 @@ if ($buyerQuery !== '') {
                         <div class="table-scroll">
                             <table>
                                 <thead>
-                                    <tr><th>Order Code</th><th>Date</th><th>Product</th><th>Finish Color</th><th>Qty</th><th>Done</th><th>Container</th><th>Status</th></tr>
+                                    <tr>
+                                        <th>Order Code</th>
+                                        <th>Date</th>
+                                        <th>Product</th>
+                                        <th>Finish Color</th>
+                                        <th>Qty</th>
+                                        <th>Done</th>
+                                        <th>Container</th>
+                                        <th>Status</th>
+                                    </tr>
                                 </thead>
                                 <tbody>
                                     <?php if (empty($recentOrders)): ?>
-                                        <tr><td colspan="8" style="text-align:center;color:#94A3B8;">No orders yet.</td></tr>
-                                    <?php else: foreach ($recentOrders as $ord): ?>
                                         <tr>
-                                            <td><strong><?= htmlspecialchars((string)$ord['order_code']) ?></strong></td>
-                                            <td><?= htmlspecialchars((string)$ord['order_date']) ?></td>
-                                            <td><?= htmlspecialchars((string)$ord['product_name']) ?></td>
-                                            <td>
-                                                <?php
-                                                $finishColor = trim((string)($ord['finish'] ?? ''));
-                                                if ($finishColor === '') {
-                                                    $finishColor = trim((string)($ord['wood_color'] ?? ''));
-                                                }
-                                                ?>
-                                                <?= $finishColor !== '' ? htmlspecialchars($finishColor) : '—' ?>
-                                            </td>
-                                            <td><?= htmlspecialchars(fmtQty((float)$ord['quantity'])) ?></td>
-                                            <td><?= htmlspecialchars(fmtQty((float)$ord['qty_done'])) ?></td>
-                                            <td>
-                                                <?= htmlspecialchars(fmtQty((float)$ord['qty_shipped'])) ?> pcs
-                                                <?php if (!empty($ord['container_refs']) && $ord['container_refs'] !== '-'): ?>
-                                                    <span class="container-ref">No: <?= htmlspecialchars((string)$ord['container_refs']) ?></span>
-                                                <?php endif; ?>
-                                            </td>
-                                            <td><span class="status <?= htmlspecialchars((string)$ord['status']) ?>"><?= htmlspecialchars(str_replace('_', ' ', (string)$ord['status'])) ?></span></td>
+                                            <td colspan="8" style="text-align:center;color:#94A3B8;">No orders yet.</td>
                                         </tr>
-                                    <?php endforeach; endif; ?>
+                                        <?php else: foreach ($recentOrders as $ord): ?>
+                                            <tr>
+                                                <td><strong><?= htmlspecialchars((string)$ord['order_code']) ?></strong></td>
+                                                <td><?= htmlspecialchars((string)$ord['order_date']) ?></td>
+                                                <td><?= htmlspecialchars((string)$ord['product_name']) ?></td>
+                                                <td>
+                                                    <?php
+                                                    $finishColor = trim((string)($ord['finish'] ?? ''));
+                                                    if ($finishColor === '') {
+                                                        $finishColor = trim((string)($ord['wood_color'] ?? ''));
+                                                    }
+                                                    ?>
+                                                    <?= $finishColor !== '' ? htmlspecialchars($finishColor) : '—' ?>
+                                                </td>
+                                                <td><?= htmlspecialchars(fmtQty((float)$ord['quantity'])) ?></td>
+                                                <td><?= htmlspecialchars(fmtQty((float)$ord['qty_done'])) ?></td>
+                                                <td>
+                                                    <?= htmlspecialchars(fmtQty((float)$ord['qty_shipped'])) ?> pcs
+                                                    <?php if (!empty($ord['container_refs']) && $ord['container_refs'] !== '-'): ?>
+                                                        <span class="container-ref">No: <?= htmlspecialchars((string)$ord['container_refs']) ?></span>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td><span class="status <?= htmlspecialchars((string)$ord['status']) ?>"><?= htmlspecialchars(str_replace('_', ' ', (string)$ord['status'])) ?></span></td>
+                                            </tr>
+                                    <?php endforeach;
+                                    endif; ?>
                                 </tbody>
                             </table>
                         </div>
@@ -526,9 +944,9 @@ if ($buyerQuery !== '') {
     </div>
 
     <script>
-        (function () {
+        (function() {
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('customer-sw.js').catch(function () {});
+                navigator.serviceWorker.register('customer-sw.js').catch(function() {});
             }
 
             var ua = navigator.userAgent || '';
@@ -536,20 +954,20 @@ if ($buyerQuery !== '') {
             var installBtn = document.getElementById('installBtn');
             var deferredPrompt = null;
 
-            window.addEventListener('beforeinstallprompt', function (e) {
+            window.addEventListener('beforeinstallprompt', function(e) {
                 e.preventDefault();
                 deferredPrompt = e;
                 if (isAndroid && installBtn) installBtn.style.display = 'inline-flex';
             });
 
             if (installBtn) {
-                installBtn.addEventListener('click', function () {
+                installBtn.addEventListener('click', function() {
                     if (!deferredPrompt) {
                         alert('To install: open Chrome menu (⋮) -> Install app');
                         return;
                     }
                     deferredPrompt.prompt();
-                    deferredPrompt.userChoice.finally(function () {
+                    deferredPrompt.userChoice.finally(function() {
                         deferredPrompt = null;
                         installBtn.style.display = 'none';
                     });
@@ -558,4 +976,5 @@ if ($buyerQuery !== '') {
         })();
     </script>
 </body>
+
 </html>
