@@ -2,7 +2,68 @@
 require_once __DIR__ . '/_bootstrap.php';
 require_once __DIR__ . '/db-helper.php';
 
-$pdo = getPwfOfficePdo();
+$pdo = null;
+$pageError = '';
+try {
+    $pdo = getPwfOfficePdo();
+} catch (Throwable $e) {
+    try {
+        $dbName = 'adf_pwf';
+        if (function_exists('getActiveBusinessConfig')) {
+            $cfg = getActiveBusinessConfig();
+            if (!empty($cfg['database'])) {
+                $dbName = $cfg['database'];
+            }
+        }
+        if (function_exists('getDbName')) {
+            $dbName = getDbName($dbName);
+        }
+
+        $pdo = new PDO(
+            'mysql:host=' . DB_HOST . ';dbname=' . $dbName . ';charset=utf8mb4',
+            DB_USER,
+            DB_PASS,
+            [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+            ]
+        );
+    } catch (Throwable $ex) {
+        $pageError = 'Database connection failed for Buyers module.';
+    }
+}
+
+if ($pdo instanceof PDO) {
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS pwf_buyers (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            buyer_code VARCHAR(30) UNIQUE,
+            buyer_name VARCHAR(150) NOT NULL,
+            contact_person VARCHAR(150) NULL,
+            email VARCHAR(150) NULL,
+            phone VARCHAR(50) NULL,
+            notes TEXT NULL,
+            access_key VARCHAR(80) UNIQUE,
+            is_active TINYINT(1) DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_buyer_name (buyer_name),
+            INDEX idx_access_key (access_key)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $pdo->exec("CREATE TABLE IF NOT EXISTS pwf_buyer_customers (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            buyer_id INT NOT NULL,
+            customer_id INT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uniq_buyer_customer (buyer_id, customer_id),
+            INDEX idx_buyer (buyer_id),
+            INDEX idx_customer (customer_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } catch (Throwable $e) {
+        $pageError = 'Buyer tables are not ready. Please check DB permissions.';
+    }
+}
 
 function genBuyerAccessKey(PDO $pdo): string
 {
@@ -23,7 +84,7 @@ function genBuyerAccessKey(PDO $pdo): string
 $msg = '';
 $msgType = 'success';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo instanceof PDO && $pageError === '') {
     $action = $_POST['_action'] ?? '';
 
     if ($action === 'create') {
@@ -116,15 +177,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$buyers = $pdo->query("SELECT b.*, COUNT(bc.customer_id) AS customer_count
-    FROM pwf_buyers b
-    LEFT JOIN pwf_buyer_customers bc ON bc.buyer_id = b.id
-    GROUP BY b.id
-    ORDER BY b.id DESC")->fetchAll();
+$buyers = [];
+$customers = [];
+$assignedRows = [];
+if ($pdo instanceof PDO && $pageError === '') {
+    try {
+        $buyers = $pdo->query("SELECT b.*, COUNT(bc.customer_id) AS customer_count
+            FROM pwf_buyers b
+            LEFT JOIN pwf_buyer_customers bc ON bc.buyer_id = b.id
+            GROUP BY b.id
+            ORDER BY b.id DESC")->fetchAll();
 
-$customers = $pdo->query('SELECT id, customer_code, customer_name FROM pwf_customers ORDER BY customer_name ASC')->fetchAll();
-
-$assignedRows = $pdo->query('SELECT buyer_id, customer_id FROM pwf_buyer_customers')->fetchAll();
+        $customers = $pdo->query('SELECT id, customer_code, customer_name FROM pwf_customers ORDER BY customer_name ASC')->fetchAll();
+        $assignedRows = $pdo->query('SELECT buyer_id, customer_id FROM pwf_buyer_customers')->fetchAll();
+    } catch (Throwable $e) {
+        $pageError = 'Failed to load buyer data. Please check table structure and permissions.';
+    }
+}
 $assignedMap = [];
 foreach ($assignedRows as $row) {
     $bid = (int)$row['buyer_id'];
@@ -237,6 +306,9 @@ pwfOfficeHeader('Buyers', 'buyers');
     <div class="pwf-card">
         <div class="pwf-card-header">Add Buyer</div>
         <div class="pwf-card-body">
+            <?php if ($pageError !== ''): ?>
+                <div class="alert alert-danger"><?= htmlspecialchars($pageError) ?></div>
+            <?php endif; ?>
             <?php if ($msg): ?>
                 <div class="alert alert-<?= $msgType === 'danger' ? 'danger' : 'success' ?>"><?= htmlspecialchars($msg) ?></div>
             <?php endif; ?>
