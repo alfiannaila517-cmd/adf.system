@@ -11,7 +11,25 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 header('Expires: 0');
 
-$pdo = getPwfOfficePdo();
+// Direct PWF DB connection — bypasses session-based config that defaults to wrong database
+$_isProduction = (strpos($_SERVER['HTTP_HOST'] ?? 'localhost', 'localhost') === false);
+$_pwfDb = $_isProduction ? 'adfb2574_pwf' : 'adf_pwf';
+try {
+    $pdo = new PDO(
+        'mysql:host=' . DB_HOST . ';dbname=' . $_pwfDb . ';charset=utf8mb4',
+        DB_USER, DB_PASS,
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
+    );
+    if (function_exists('ensurePwfOfficeTables')) ensurePwfOfficeTables($pdo);
+} catch (PDOException $e) {
+    // If primary DB name fails, attempt alternate naming convention
+    $_altDb = $_isProduction ? 'adfb2574_pwf' : 'adf_system_pwf';
+    $pdo = new PDO(
+        'mysql:host=' . DB_HOST . ';dbname=' . $_altDb . ';charset=utf8mb4',
+        DB_USER, DB_PASS,
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
+    );
+}
 $baseUrl = defined('BASE_URL') ? rtrim(BASE_URL, '/') : '';
 
 $rawQuery = trim((string)($_GET['c'] ?? $_GET['q'] ?? ''));
@@ -522,6 +540,9 @@ if ($rawQuery !== '') {
             margin: 0 0 10px;
             font-size: 14px;
             color: #0F2948;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         .install-cols {
@@ -550,6 +571,23 @@ if ($rawQuery !== '') {
             color: #334155;
             font-size: 12px;
             line-height: 1.55;
+        }
+
+        .android-install-btn {
+            display: none;
+            width: 100%;
+            margin-top: 10px;
+            padding: 12px;
+            background: linear-gradient(135deg, #1a7cf9, #1558c0);
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 800;
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
 
         @media (max-width: 560px) {
@@ -738,23 +776,26 @@ if ($rawQuery !== '') {
         </div>
 
         <div class="install-guide">
-            <h3>Add to Home Screen</h3>
+            <h3>&#128241; Add to Home Screen</h3>
             <div class="install-cols">
-                <div class="install-card">
-                    <div class="install-title">Android (Chrome)</div>
-                    <ol class="install-list">
-                        <li>Tap the Install button (top right) when it appears.</li>
-                        <li>If not shown, open Chrome menu and choose Install app.</li>
-                        <li>After install, the app icon will appear on your Home Screen.</li>
+                <div class="install-card" id="androidGuide">
+                    <div class="install-title">&#9654; Android (Chrome)</div>
+                    <button id="androidInstallBtn" class="android-install-btn" type="button">
+                        &#8659; Install Customer Portal
+                    </button>
+                    <ol class="install-list" style="margin-top:8px">
+                        <li>Tap <strong>Install</strong> button above if visible.</li>
+                        <li>Or open Chrome menu &rarr; <strong>Install app</strong>.</li>
+                        <li>The icon will appear on your Home Screen.</li>
                     </ol>
                 </div>
                 <div class="install-card">
-                    <div class="install-title">iPhone / iPad (Safari)</div>
+                    <div class="install-title">&#63743; iPhone / iPad (Safari)</div>
                     <ol class="install-list">
-                        <li>Open this portal in Safari.</li>
-                        <li>Tap the Share button.</li>
-                        <li>Select Add to Home Screen.</li>
-                        <li>Tap Add to place the icon on your Home Screen.</li>
+                        <li>Open this portal in <strong>Safari</strong>.</li>
+                        <li>Tap the <strong>Share</strong> button (&#11014; box icon).</li>
+                        <li>Select <strong>Add to Home Screen</strong>.</li>
+                        <li>Tap <strong>Add</strong> — icon appears on Home Screen.</li>
                     </ol>
                 </div>
             </div>
@@ -765,47 +806,71 @@ if ($rawQuery !== '') {
 
     <script>
         (function () {
+            // Register service worker
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('customer-sw.js').catch(function () {});
+                navigator.serviceWorker.register('customer-sw.js').catch(function (err) {
+                    console.warn('SW register failed:', err);
+                });
             }
 
-            var deferredPrompt = null;
-            var installBtn = document.getElementById('installBtn');
             var ua = navigator.userAgent || '';
             var isAndroid = /Android/i.test(ua);
+            var isIOS = /iPhone|iPad|iPod/i.test(ua);
+
+            // Header install button (hero area)
+            var headerInstallBtn = document.getElementById('installBtn');
+            // Guide install button (in the install card)
+            var guideInstallBtn = document.getElementById('androidInstallBtn');
+
+            var deferredPrompt = null;
+
+            function showAndroidInstallUI() {
+                if (guideInstallBtn) guideInstallBtn.style.display = 'inline-flex';
+                if (headerInstallBtn && isAndroid) headerInstallBtn.style.display = 'inline-flex';
+            }
+
+            function doInstall() {
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    deferredPrompt.userChoice.then(function () {
+                        deferredPrompt = null;
+                        if (guideInstallBtn) guideInstallBtn.style.display = 'none';
+                        if (headerInstallBtn) headerInstallBtn.style.display = 'none';
+                    }).catch(function () {});
+                } else {
+                    // Fallback: Chrome didn't fire event yet, guide user to menu
+                    alert('To install: open Chrome menu (⋮) → Install app');
+                }
+            }
 
             window.addEventListener('beforeinstallprompt', function (e) {
                 e.preventDefault();
                 deferredPrompt = e;
-                if (installBtn && isAndroid) {
-                    installBtn.style.display = 'inline-flex';
-                }
+                if (isAndroid) showAndroidInstallUI();
             });
 
-            // Android only: keep install button hidden on iOS.
-            if (!isAndroid && installBtn) {
-                installBtn.style.display = 'none';
+            window.addEventListener('appinstalled', function () {
+                deferredPrompt = null;
+                if (guideInstallBtn) guideInstallBtn.style.display = 'none';
+                if (headerInstallBtn) headerInstallBtn.style.display = 'none';
+            });
+
+            if (isAndroid) {
+                // On Android, always show install guide section even before event fires
+                showAndroidInstallUI();
+                if (guideInstallBtn) guideInstallBtn.addEventListener('click', doInstall);
+                if (headerInstallBtn) headerInstallBtn.addEventListener('click', doInstall);
             }
 
-            if (installBtn) {
-                installBtn.addEventListener('click', async function () {
-                    if (!deferredPrompt) return;
-                    deferredPrompt.prompt();
-                    try {
-                        await deferredPrompt.userChoice;
-                    } catch (err) {
-                    }
-                    deferredPrompt = null;
-                    installBtn.style.display = 'none';
-                });
-            }
+            // Hide header install btn on non-Android
+            if (!isAndroid && headerInstallBtn) headerInstallBtn.style.display = 'none';
 
-            // On mobile, auto-scroll to the error message so it is visible immediately.
+            // Scroll to error on mobile
             var errorBox = document.querySelector('.error');
-            if (errorBox && window.innerWidth <= 768) {
+            if (errorBox && window.innerWidth <= 900) {
                 setTimeout(function () {
                     errorBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }, 150);
+                }, 200);
             }
         })();
     </script>
