@@ -20,7 +20,7 @@ $msgType = 'success';
 
 // Get current settings
 $settings = [];
-$settingRows = $pdo->query("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('pwf_company_name','pwf_company_phone','pwf_company_address','pwf_login_logo','pwf_login_wallpaper','pwf_office_logo')")->fetchAll(PDO::FETCH_KEY_PAIR);
+$settingRows = $pdo->query("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('pwf_company_name','pwf_company_phone','pwf_company_address','pwf_login_logo','pwf_login_wallpaper','pwf_office_logo','pwf_favicon')")->fetchAll(PDO::FETCH_KEY_PAIR);
 foreach ($settingRows as $k => $v) {
     $settings[$k] = $v;
 }
@@ -87,6 +87,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $saveSetting('pwf_office_logo', 'uploads/logos/' . $filename);
                     $settings['pwf_office_logo'] = 'uploads/logos/' . $filename;
                     $msg = 'Logo berhasil diupload!';
+                    $msgType = 'success';
+                } else {
+                    $msg = 'Gagal mengupload file';
+                    $msgType = 'error';
+                }
+            }
+        }
+    }
+    elseif ($action === 'upload_favicon' && isset($_FILES['favicon'])) {
+        $file = $_FILES['favicon'];
+        if ($file['size'] > 0) {
+            $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+            if (!in_array($ext, ['ico', 'png', 'jpg', 'jpeg', 'webp', 'svg'])) {
+                $msg = 'Tipe file tidak didukung. Gunakan ICO, PNG, SVG, atau JPG';
+                $msgType = 'error';
+            } elseif ($file['size'] > 2 * 1024 * 1024) {
+                $msg = 'Ukuran file terlalu besar (max 2MB)';
+                $msgType = 'error';
+            } else {
+                $dir = BASE_PATH . '/uploads/icons/';
+                if (!is_dir($dir)) mkdir($dir, 0755, true);
+                $filename = 'pwf-favicon-' . time() . '.' . $ext;
+                if (move_uploaded_file($file['tmp_name'], $dir . $filename)) {
+                    $saveSetting = function($key, $value) use ($pdo) {
+                        $check = $pdo->prepare('SELECT id FROM settings WHERE setting_key=?');
+                        $check->execute([$key]);
+                        if ($check->fetch()) {
+                            $pdo->prepare('UPDATE settings SET setting_value=? WHERE setting_key=?')->execute([$value, $key]);
+                        } else {
+                            $pdo->prepare('INSERT INTO settings (setting_key, setting_value) VALUES (?,?)')->execute([$key, $value]);
+                        }
+                    };
+                    $saveSetting('pwf_favicon', 'uploads/icons/' . $filename);
+                    $settings['pwf_favicon'] = 'uploads/icons/' . $filename;
+                    $msg = 'Favicon berhasil diupload!';
                     $msgType = 'success';
                 } else {
                     $msg = 'Gagal mengupload file';
@@ -272,6 +307,32 @@ require_once __DIR__ . '/../layout.php';
                 <?php endif; ?>
                 
                 <button type="submit" class="btn-primary" style="margin-top: 16px;">Upload Wallpaper</button>
+            </form>
+        </div>
+
+        <!-- Favicon / Tab Icon -->
+        <div class="card" id="favicon">
+            <h2>⭐ Favicon (Ikon Tab Browser)</h2>
+            <form method="post" enctype="multipart/form-data">
+                <input type="hidden" name="_action" value="upload_favicon">
+                
+                <div class="form-group">
+                    <label>Upload Favicon</label>
+                    <input type="file" name="favicon" accept=".ico,.png,.jpg,.jpeg,.webp,.svg" required>
+                    <div style="font-size: 12px; color: #999; margin-top: 4px;">Format: ICO, PNG, SVG, JPG | Max: 2MB | Rekomendasi: ukuran 32×32 atau 64×64 px</div>
+                </div>
+                
+                <?php if (!empty($settings['pwf_favicon'])): ?>
+                    <div class="preview" style="display:flex;align-items:center;gap:12px;margin-top:12px;padding:12px;background:#f8f7f5;border-radius:8px;border:1px solid #e7e5e4">
+                        <img src="<?= htmlspecialchars(rtrim(BASE_URL, '/') . '/' . $settings['pwf_favicon']) ?>" alt="Favicon" style="width:32px;height:32px;object-fit:contain;">
+                        <div>
+                            <strong style="font-size: 12px;display:block;margin-bottom:2px;">Favicon Saat Ini:</strong>
+                            <span style="font-size:11px;color:#999"><?= htmlspecialchars(basename($settings['pwf_favicon'])) ?></span>
+                        </div>
+                    </div>
+                <?php endif; ?>
+                
+                <button type="submit" class="btn-primary" style="margin-top: 16px;">Upload Favicon</button>
             </form>
         </div>
     </div>

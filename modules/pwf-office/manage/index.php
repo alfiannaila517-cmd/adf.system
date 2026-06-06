@@ -6,6 +6,15 @@ define('APP_ACCESS', true);
 require_once __DIR__ . '/../_bootstrap.php';
 require_once __DIR__ . '/../db-helper.php';
 
+// Domain restriction - only allow www.pwfoffice.com
+$allowedHost = 'www.pwfoffice.com';
+$currentHost = strtolower($_SERVER['HTTP_HOST'] ?? '');
+if ($currentHost !== $allowedHost) {
+    http_response_code(403);
+    echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>403 Forbidden</title><style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0f172a;color:#94a3b8;flex-direction:column;gap:12px}h1{color:#fff;font-size:28px}code{background:#1e293b;padding:4px 10px;border-radius:6px;color:#f59e0b;font-size:14px}</style></head><body><h1>403 Forbidden</h1><p>Halaman ini hanya dapat diakses dari <code>www.pwfoffice.com</code></p></body></html>';
+    exit;
+}
+
 $isOwner = isset($_SESSION['role']) && in_array($_SESSION['role'], ['owner', 'developer']);
 if (!$isOwner) {
     http_response_code(403);
@@ -56,6 +65,7 @@ require_once __DIR__ . '/../layout.php';
         .ic-slate  { background: #F1F5F9; color: #475569; }
         .ic-cyan   { background: #ECFEFF; color: #0891B2; }
         .ic-green  { background: #F0FDF4; color: #16A34A; }
+        .ic-rose   { background: #FFF1F2; color: #E11D48; }
         @media (max-width: 600px) { .menu-grid { grid-template-columns: 1fr; } }
     </style>
     <div class="navbar">
@@ -118,6 +128,15 @@ require_once __DIR__ . '/../layout.php';
             <div class="menu-card-text">
                 <h3>Pengaturan Branding</h3>
                 <p>Logo, wallpaper, nama perusahaan</p>
+            </div>
+            <i class="bi bi-chevron-right menu-card-arrow"></i>
+        </a>
+
+        <a href="settings.php#favicon" class="menu-card">
+            <div class="menu-card-icon ic-rose"><i class="bi bi-star-fill"></i></div>
+            <div class="menu-card-text">
+                <h3>Setup Favicon</h3>
+                <p>Upload ikon tab browser (favicon)</p>
             </div>
             <i class="bi bi-chevron-right menu-card-arrow"></i>
         </a>
