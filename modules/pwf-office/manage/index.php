@@ -151,6 +151,12 @@ $containerCount = $pdo->query("SELECT COUNT(*) FROM pwf_containers")->fetchColum
                 <p>Atur role, permission, dan akses user ke menu-menu tertentu</p>
             </a>
 
+            <a href="menus.php" class="menu-card">
+                <i class="bi bi-list-ul"></i>
+                <h3>Kelola Menu</h3>
+                <p>Tambah, edit, atau hapus menu yang tersedia untuk pengaturan akses</p>
+            </a>
+
             <a href="audit.php" class="menu-card">
                 <i class="bi bi-clock-history"></i>
                 <h3>Audit Log</h3>

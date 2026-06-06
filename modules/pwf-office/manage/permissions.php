@@ -255,7 +255,9 @@ require_once __DIR__ . '/../layout.php';
             </form>
         <?php elseif ($selectedUserId > 0): ?>
             <div class="empty-state">
-                <p>📭 Tidak ada menu ditemukan</p>
+                <p style="margin-bottom: 16px;">📭 Tidak ada menu ditemukan</p>
+                <p style="font-size: 12px; margin-bottom: 16px; color: #bbb;">Menu PWF belum dikonfigurasi. Silakan tambahkan menu terlebih dahulu.</p>
+                <a href="menus.php" style="display: inline-block; padding: 10px 20px; background: #B8860B; color: white; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 14px;">➕ Ke Kelola Menu</a>
             </div>
         <?php else: ?>
             <div class="empty-state">
