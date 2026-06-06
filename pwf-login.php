@@ -8,15 +8,51 @@ require_once __DIR__ . '/includes/business_helper.php';
 $auth = new Auth();
 $error = '';
 
+// Setup cookie handling for remember me
+$cookiePath = parse_url(BASE_URL, PHP_URL_PATH) ?: '/';
+$isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+$rememberSecret = hash('sha256', DB_PASS . DB_NAME . '__adf_remember_salt__');
+
+function generateRememberToken($userId, $secret) {
+    $expiry = time() + (30 * 24 * 60 * 60); // 30 days
+    $payload = $userId . ':' . $expiry;
+    $hmac = hash_hmac('sha256', $payload, $secret);
+    return base64_encode($payload . ':' . $hmac);
+}
+
 if ($auth->isLoggedIn() && empty($_POST)) {
     @setActiveBusinessId('pwf-furniture');
     header('Location: ' . BASE_URL . '/modules/pwf-office/dashboard.php');
     exit;
 }
+
 if (!empty($_POST)) {
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
+    $rememberMe = isset($_POST['remember_me']) && $_POST['remember_me'] == '1';
+    
     if ($auth->login($username, $password)) {
+        // Handle remember me - save username cookie
+        if ($rememberMe) {
+            setcookie('adf_saved_user', base64_encode($username), time() + (30 * 24 * 60 * 60), $cookiePath, '', $isSecure, true);
+            
+            // Set auto-login HMAC token
+            try {
+                $masterPdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
+                $stmt = $masterPdo->prepare("SELECT id FROM users WHERE username = ?");
+                $stmt->execute([$username]);
+                $user = $stmt->fetch(PDO::FETCH_ASSOC);
+                if ($user) {
+                    $token = generateRememberToken($user['id'], $rememberSecret);
+                    setcookie('adf_remember_token', $token, time() + (30 * 24 * 60 * 60), $cookiePath, '', $isSecure, true);
+                }
+            } catch (Exception $e) {}
+        } else {
+            // Clear remember cookies if unchecked
+            setcookie('adf_saved_user', '', time() - 3600, $cookiePath, '', $isSecure, true);
+            setcookie('adf_remember_token', '', time() - 3600, $cookiePath, '', $isSecure, true);
+        }
+        
         @setActiveBusinessId('pwf-furniture');
         header('Location: ' . BASE_URL . '/modules/pwf-office/dashboard.php');
         exit;
@@ -160,6 +196,63 @@ body{
 .btn:hover{opacity:.88;transform:translateY(-1px)}
 .btn:active{transform:translateY(0)}
 
+/* save password button */
+.btn-save-pwd{
+  width:100%;padding:10px 12px;margin:12px 0 8px 0;
+  background:linear-gradient(135deg,rgba(34,197,94,.15),rgba(34,197,94,.08));
+  border:1.5px solid rgba(34,197,94,.4);
+  border-radius:8px;
+  color:#86efac;font-size:12px;font-weight:600;
+  cursor:pointer;letter-spacing:.3px;
+  font-family:inherit;transition:all .3s;
+  display:flex;align-items:center;justify-content:center;gap:6px
+}
+.btn-save-pwd:hover{
+  background:linear-gradient(135deg,rgba(34,197,94,.2),rgba(34,197,94,.12));
+  border-color:rgba(34,197,94,.6);
+  box-shadow:0 4px 12px rgba(34,197,94,.15);
+  transform:translateY(-1px)
+}
+.btn-save-pwd.active{
+  background:linear-gradient(135deg,rgba(34,197,94,.25),rgba(34,197,94,.15));
+  border-color:rgba(34,197,94,.7);
+  color:#34d399;
+  box-shadow:0 6px 16px rgba(34,197,94,.2)
+}
+
+.btn-clear-pwd{
+  width:100%;padding:10px 12px;
+  background:linear-gradient(135deg,rgba(239,68,68,.12),rgba(239,68,68,.05));
+  border:1.5px solid rgba(239,68,68,.3);
+  border-radius:8px;
+  color:#fca5a5;font-size:12px;font-weight:600;
+  cursor:pointer;letter-spacing:.3px;
+  font-family:inherit;transition:all .3s;
+  display:none;gap:6px;
+  margin-bottom:8px;
+  align-items:center;justify-content:center
+}
+.btn-clear-pwd:hover{
+  background:linear-gradient(135deg,rgba(239,68,68,.18),rgba(239,68,68,.08));
+  border-color:rgba(239,68,68,.5);
+  box-shadow:0 4px 12px rgba(239,68,68,.12);
+  transform:translateY(-1px)
+}
+
+.save-pwd-info{
+  background:rgba(34,197,94,.08);
+  border:1px solid rgba(34,197,94,.2);
+  border-radius:8px;padding:8px 11px;
+  margin-bottom:11px;font-size:10.5px;color:#86efac;
+  display:flex;align-items:flex-start;gap:6px;
+  line-height:1.4
+}
+
+@keyframes slideInDown {
+  from { opacity:0;transform:translateY(-20px) }
+  to { opacity:1;transform:translateY(0) }
+}
+
 /* error */
 .err{
   background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.22);
@@ -217,7 +310,7 @@ body{
     <form method="post" autocomplete="off">
       <div class="field">
         <label>Username</label>
-        <input name="username" type="text" autocomplete="username" required placeholder="Enter username">
+        <input name="username" type="text" id="usernameInput" autocomplete="username" required placeholder="Enter username">
       </div>
       <div class="field">
         <label>Password</label>
@@ -229,7 +322,22 @@ body{
           </button>
         </div>
       </div>
+
+      <div class="save-pwd-info">
+        <span>💾</span>
+        <span><strong>Simpan Password:</strong> Klik tombol di bawah untuk menyimpan & auto-login aman</span>
+      </div>
+
+      <button type="button" class="btn-clear-pwd" id="clearPwdBtn" onclick="clearSavedPassword()">
+        🗑️ Hapus Password Tersimpan
+      </button>
+
+      <button type="button" class="btn-save-pwd" id="savePwdBtn" onclick="enableSavePassword()">
+        💾 Simpan Password
+      </button>
+
       <button class="btn" type="submit">Sign In &rarr;</button>
+      <input type="hidden" name="remember_me" id="rememberMeInput" value="0">
     </form>
   </div>
 
@@ -246,6 +354,82 @@ function togglePwd() {
     document.getElementById('iconEye').style.display    = show ? 'none' : '';
     document.getElementById('iconEyeOff').style.display = show ? ''     : 'none';
 }
+
+function enableSavePassword() {
+    const usernameInput = document.getElementById('usernameInput');
+    const pwdInput = document.getElementById('pwdInput');
+    const savePwdBtn = document.getElementById('savePwdBtn');
+    const clearPwdBtn = document.getElementById('clearPwdBtn');
+    const rememberMeInput = document.getElementById('rememberMeInput');
+
+    if (!usernameInput.value || !pwdInput.value) {
+        alert('Silakan isi username dan password terlebih dahulu!');
+        return;
+    }
+
+    // Set remember_me flag
+    rememberMeInput.value = '1';
+
+    // Update button states
+    savePwdBtn.classList.add('active');
+    savePwdBtn.innerHTML = '✅ <strong>Password Akan Disimpan</strong>';
+    clearPwdBtn.style.display = 'flex';
+
+    // Show notification
+    showNotification('✅ Password akan disimpan setelah login berhasil!');
+}
+
+function clearSavedPassword() {
+    if (confirm('Hapus password tersimpan? Anda akan perlu login manual lagi.')) {
+        // Clear cookies
+        fetch('<?= BASE_URL ?>/api/clear-login-cookie.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        }).then(() => {
+            document.getElementById('usernameInput').value = '';
+            document.getElementById('pwdInput').value = '';
+            document.getElementById('rememberMeInput').value = '0';
+            
+            const savePwdBtn = document.getElementById('savePwdBtn');
+            const clearPwdBtn = document.getElementById('clearPwdBtn');
+            savePwdBtn.classList.remove('active');
+            savePwdBtn.innerHTML = '💾 Simpan Password';
+            clearPwdBtn.style.display = 'none';
+            
+            alert('✅ Password tersimpan berhasil dihapus!');
+            location.reload();
+        }).catch(() => {
+            alert('❌ Gagal menghapus password. Silakan coba lagi.');
+        });
+    }
+}
+
+function showNotification(msg) {
+    const notif = document.createElement('div');
+    notif.style.cssText = `
+        position:fixed;top:20px;right:20px;
+        background:linear-gradient(135deg,rgba(34,197,94,.9),rgba(16,185,129,.9));
+        border:1px solid rgba(34,197,94,.5);color:#34d399;
+        padding:12px 16px;border-radius:10px;font-size:12px;
+        font-weight:600;box-shadow:0 6px 20px rgba(34,197,94,.3);
+        z-index:9999;backdrop-filter:blur(8px);animation:slideInDown .3s
+    `;
+    notif.innerHTML = msg;
+    document.body.appendChild(notif);
+    setTimeout(() => notif.remove(), 4000);
+}
+
+// Check for saved credentials on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const hasSaved = document.cookie.includes('adf_saved_user');
+    if (hasSaved) {
+        const savePwdBtn = document.getElementById('savePwdBtn');
+        const clearPwdBtn = document.getElementById('clearPwdBtn');
+        savePwdBtn.classList.add('active');
+        savePwdBtn.innerHTML = '✅ <strong>Password Tersimpan</strong>';
+        clearPwdBtn.style.display = 'flex';
+    }
+});
 </script>
 </body>
 </html>
