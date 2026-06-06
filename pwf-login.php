@@ -283,7 +283,7 @@ body{
       <div class="err"><?= htmlspecialchars($error) ?></div>
     <?php endif; ?>
 
-    <form method="post" autocomplete="off">
+    <form method="post" id="loginForm" autocomplete="off">
       <div class="field">
         <label>Username</label>
         <input name="username" type="text" id="usernameInput" autocomplete="username" required placeholder="Enter username" value="<?= htmlspecialchars($savedUser) ?>">
@@ -321,6 +321,43 @@ function togglePwd() {
     document.getElementById('iconEye').style.display    = show ? 'none' : '';
     document.getElementById('iconEyeOff').style.display = show ? ''     : 'none';
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    const usernameInput = document.getElementById('usernameInput');
+    const pwdInput = document.getElementById('pwdInput');
+    const rememberCb = document.getElementById('rememberMe');
+    const form = document.getElementById('loginForm');
+
+    // Auto-fill password from localStorage if saved
+    const saved = localStorage.getItem('pwf_saved_cred');
+    if (saved) {
+        try {
+            const cred = JSON.parse(saved);
+            if (cred.u) usernameInput.value = cred.u;
+            if (cred.p) pwdInput.value = cred.p;
+            rememberCb.checked = true;
+        } catch(e) {}
+    }
+
+    // On form submit: save or clear credentials
+    form.addEventListener('submit', function() {
+        if (rememberCb.checked && usernameInput.value && pwdInput.value) {
+            localStorage.setItem('pwf_saved_cred', JSON.stringify({
+                u: usernameInput.value,
+                p: pwdInput.value
+            }));
+        } else if (!rememberCb.checked) {
+            localStorage.removeItem('pwf_saved_cred');
+        }
+    });
+
+    // Update label style when checkbox changes
+    rememberCb.addEventListener('change', function() {
+        if (!this.checked) {
+            localStorage.removeItem('pwf_saved_cred');
+        }
+    });
+});
 </script>
 </body>
 </html>
