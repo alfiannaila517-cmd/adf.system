@@ -13,8 +13,8 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
     if ($filterCid) $where .= ' AND o.customer_id=' . $filterCid;
     if ($filterTid) $where .= ' AND o.assigned_craftsman_id=' . $filterTid;
     $rows = $pdo->query("
-        SELECT o.order_code, c.customer_name, o.order_date, o.due_date,
-               o.product_name, o.specification, o.dimensions, o.quantity,
+         SELECT o.order_code, c.customer_name, o.order_date, o.due_date,
+             o.product_name, o.specification, o.dimensions, o.finish, o.wood_color, o.quantity,
                o.unit_price, o.image_path,
                t.craftsman_name, o.status, o.notes
         FROM pwf_orders o
@@ -32,23 +32,72 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
         <meta charset="utf-8">
         <title>Orders Export<?= htmlspecialchars($titleFilter) ?></title>
         <style>
+            :root {
+                --ink: #1f2937;
+                --muted: #6b7280;
+                --line: #e5e7eb;
+                --bg-soft: #fffdf7;
+                --accent: #b8860b;
+                --accent-dark: #7c5a08;
+            }
+
             body {
-                font-family: Arial, sans-serif;
+                font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
                 font-size: 12px;
-                color: #111;
+                color: var(--ink);
                 margin: 0;
-                padding: 20px
+                padding: 16px;
+                background: radial-gradient(circle at top right, #fff8e6 0%, #ffffff 40%);
+            }
+
+            .sheet {
+                max-width: 1360px;
+                margin: 0 auto;
+                background: #fff;
+                border: 1px solid #f3ead2;
+                border-radius: 12px;
+                box-shadow: 0 10px 25px rgba(17, 24, 39, .08);
+                padding: 16px;
             }
 
             h2 {
-                font-size: 16px;
-                margin: 0 0 4px
+                font-size: 18px;
+                margin: 0 0 4px;
+                letter-spacing: .2px;
             }
 
             .sub {
-                color: #666;
+                color: var(--muted);
                 font-size: 11px;
                 margin-bottom: 16px
+            }
+
+            .title-wrap {
+                display: flex;
+                align-items: flex-start;
+                justify-content: space-between;
+                gap: 10px;
+                margin-bottom: 12px;
+            }
+
+            .title-tag {
+                display: inline-flex;
+                align-items: center;
+                padding: 4px 10px;
+                font-size: 10px;
+                font-weight: 700;
+                color: var(--accent-dark);
+                border: 1px solid #f1ddb0;
+                background: var(--bg-soft);
+                border-radius: 999px;
+                text-transform: uppercase;
+                letter-spacing: .6px;
+            }
+
+            .table-wrap {
+                border: 1px solid var(--line);
+                border-radius: 10px;
+                overflow: hidden;
             }
 
             table {
@@ -58,7 +107,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
             }
 
             th {
-                background: #1C1511;
+                background: #1c1511;
                 color: #fff;
                 padding: 7px 10px;
                 text-align: left;
@@ -69,12 +118,12 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
 
             td {
                 padding: 7px 10px;
-                border-bottom: 1px solid #E7E5E4;
+                border-bottom: 1px solid var(--line);
                 vertical-align: top
             }
 
             tr:nth-child(even) td {
-                background: #FAFAF9
+                background: #fafaf9
             }
 
             .badge {
@@ -91,8 +140,8 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
             }
 
             .on_progress {
-                background: #FFF7ED;
-                color: #C2410C
+                background: #fff7ed;
+                color: #c2410c
             }
 
             .completed {
@@ -130,6 +179,14 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
                     display: none
                 }
 
+                .sheet {
+                    box-shadow: none;
+                    border: none;
+                    border-radius: 0;
+                    padding: 0;
+                    max-width: 100%;
+                }
+
                 table {
                     width: 100%;
                     max-width: 1200px
@@ -139,13 +196,20 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
     </head>
 
     <body>
-        <div class="no-print" style="margin-bottom:16px">
-            <button onclick="window.print()" style="background:#B8860B;color:#fff;border:none;padding:8px 18px;border-radius:7px;font-size:12px;cursor:pointer">&#128438; Print / Save PDF</button>
-            <button onclick="window.close()" style="margin-left:8px;background:#F5F3F0;border:1px solid #E7E5E4;padding:8px 14px;border-radius:7px;font-size:12px;cursor:pointer">Close</button>
-        </div>
-        <h2>Order Report<?= htmlspecialchars($titleFilter) ?></h2>
-        <div class="sub">Generated: <?= date('d F Y, H:i') ?> &nbsp;|&nbsp; Total: <?= count($rows) ?> orders</div>
-        <table>
+        <div class="sheet">
+            <div class="no-print" style="margin-bottom:12px">
+                <button onclick="window.print()" style="background:#B8860B;color:#fff;border:none;padding:8px 18px;border-radius:7px;font-size:12px;cursor:pointer">&#128438; Print / Save PDF</button>
+                <button onclick="window.close()" style="margin-left:8px;background:#F5F3F0;border:1px solid #E7E5E4;padding:8px 14px;border-radius:7px;font-size:12px;cursor:pointer">Close</button>
+            </div>
+            <div class="title-wrap">
+                <div>
+                    <h2>Order Report<?= htmlspecialchars($titleFilter) ?></h2>
+                    <div class="sub">Generated: <?= date('d F Y, H:i') ?> &nbsp;|&nbsp; Total: <?= count($rows) ?> orders</div>
+                </div>
+                <span class="title-tag">PWF Office</span>
+            </div>
+            <div class="table-wrap">
+                <table>
             <thead>
                 <tr>
                     <th style="width:40px">#</th>
@@ -155,6 +219,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
                     <th style="width:90px">Order Date</th>
                     <th>Customer</th>
                     <th>Specification</th>
+                    <th>Finish Color</th>
                     <th>Craftsman</th>
                     <th style="width:90px">Due</th>
                     <th style="width:60px;text-align:right">Qty</th>
@@ -172,15 +237,19 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
                         <td><?= $r['order_date'] ? date('d M Y', strtotime($r['order_date'])) : '—' ?></td>
                         <td><?= htmlspecialchars($r['customer_name']) ?></td>
                         <td><?php if ($r['specification']): ?><span style="color:#666;font-size:10px"><?= htmlspecialchars(mb_substr($r['specification'], 0, 50)) ?></span><?php else: ?><span style="color:#ccc">—</span><?php endif; ?></td>
+                        <td><?php $finishColor = trim((string)($r['finish'] ?? '')); if ($finishColor === '') { $finishColor = trim((string)($r['wood_color'] ?? '')); } echo $finishColor !== '' ? htmlspecialchars(mb_substr($finishColor, 0, 50)) : '<span style="color:#ccc">—</span>'; ?></td>
                         <td><?= htmlspecialchars($r['craftsman_name'] ?? '—') ?></td>
                         <td><?= $r['due_date'] ? date('d M Y', strtotime($r['due_date'])) : '—' ?></td>
                         <td style="text-align:right"><?= rtrim(rtrim(number_format((float)$r['quantity'], 2), '0'), '.') ?></td>
-                        <td style="text-align:right;color:#B8860B;font-weight:600"><?php $total = (float)$r['quantity'] * (float)($r['unit_price'] ?? 0); echo 'Rp ' . number_format((int)$total, 0, ',', '.'); ?></td>
+                        <td style="text-align:right;color:#B8860B;font-weight:600"><?php $total = (float)$r['quantity'] * (float)($r['unit_price'] ?? 0);
+                                                                                    echo 'Rp ' . number_format((int)$total, 0, ',', '.'); ?></td>
                         <td><?= htmlspecialchars(mb_substr($r['notes'] ?? '', 0, 60)) ?></td>
                     </tr>
                 <?php endforeach; ?>
             </tbody>
-        </table>
+                </table>
+            </div>
+        </div>
     </body>
 
     </html>
@@ -1069,7 +1138,7 @@ pwfOfficeHeader('Orders', 'orders');
                             <?php foreach ($customers as $c): ?><option value="<?= $c['id'] ?>"><?= htmlspecialchars($c['customer_name']) ?></option><?php endforeach; ?>
                         </select>
                     </div>
-                    
+
                     <!-- Order Date + Deadline -->
                     <div class="pwf-form-group"><label style="font-size:12px">Order Date</label><input class="input" type="date" name="order_date" value="<?= date('Y-m-d') ?>" style="font-size:13px"></div>
                     <div class="pwf-form-group"><label style="font-size:12px">Deadline</label><input class="input" type="date" name="due_date" style="font-size:13px"></div>
@@ -1077,12 +1146,12 @@ pwfOfficeHeader('Orders', 'orders');
                     <!-- Product Name + Specification -->
                     <div class="pwf-form-group"><label style="font-size:12px">Product Name</label><input class="input" name="product_name" placeholder="Product name" required style="font-size:13px"></div>
                     <div class="pwf-form-group"><label style="font-size:12px">Specification</label><textarea name="specification" placeholder="Material, color, finishing..." style="height:36px;font-size:13px"></textarea></div>
-                    
+
                     <!-- Dimensions, Color, Finish -->
                     <div class="pwf-form-group"><label style="font-size:12px">Dimensions</label><input class="input" name="dimensions" placeholder="120×60×75" style="font-size:13px"></div>
                     <div class="pwf-form-group"><label style="font-size:12px">Wood Color</label><input class="input" name="wood_color" placeholder="Mahogany" style="font-size:13px"></div>
                     <div class="pwf-form-group"><label style="font-size:12px">Finish</label><input class="input" name="finish" placeholder="Lacquer" style="font-size:13px"></div>
-                    
+
                     <!-- Description (hidden but still in form) -->
                     <input type="hidden" name="description" value="">
 
@@ -1139,23 +1208,23 @@ pwfOfficeHeader('Orders', 'orders');
                             <?php foreach ($statusOptions as $val => $lbl): ?><option value="<?= $val ?>"><?= $lbl ?></option><?php endforeach; ?>
                         </select>
                     </div>
-                    
+
                     <!-- Order Date + Deadline -->
                     <div class="pwf-form-group"><label style="font-size:12px">Order Date</label><input class="input" type="date" name="order_date" id="ef_order_date" style="font-size:13px"></div>
                     <div class="pwf-form-group"><label style="font-size:12px">Deadline</label><input class="input" type="date" name="due_date" id="ef_due_date" style="font-size:13px"></div>
-                    
+
                     <!-- Product + Specification -->
                     <div class="pwf-form-group"><label style="font-size:12px">Product Name</label><input class="input" name="product_name" id="ef_product" required style="font-size:13px"></div>
                     <div class="pwf-form-group"><label style="font-size:12px">Specification</label><textarea name="specification" id="ef_spec" style="height:36px;font-size:13px"></textarea></div>
-                    
+
                     <!-- Dimensions + Color + Finish -->
                     <div class="pwf-form-group"><label style="font-size:12px">Dimensions</label><input class="input" name="dimensions" id="ef_dim" style="font-size:13px"></div>
                     <div class="pwf-form-group"><label style="font-size:12px">Wood Color</label><input class="input" name="wood_color" id="ef_wood_color" style="font-size:13px"></div>
                     <div class="pwf-form-group"><label style="font-size:12px">Finish</label><input class="input" name="finish" id="ef_finish" style="font-size:13px"></div>
-                    
+
                     <!-- Description (hidden) -->
                     <input type="hidden" name="description" id="ef_description" value="">
-                    
+
                     <!-- Pricing -->
                     <div style="grid-column:1/-1;height:1px;background:linear-gradient(to right, transparent, var(--border) 20%, var(--border) 80%, transparent);margin:6px 0;opacity:.4"></div>
                     <div class="pwf-form-group"><label style="font-size:12px">Quantity</label><input class="input" type="number" step="1" name="quantity" id="ef_qty" oninput="calculateTotal()" style="font-size:13px"></div>
@@ -1164,7 +1233,7 @@ pwfOfficeHeader('Orders', 'orders');
                         <label style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:600">Total Price (Rp)</label>
                         <div id="ef_total_price" style="font-size:18px;font-weight:700;color:var(--gold);margin-top:4px">0</div>
                     </div>
-                    
+
                     <!-- Photo + Craftsman + Notes -->
                     <div class="pwf-form-group" style="grid-column:1/-1"><label style="font-size:12px">Photo / Blueprint</label>
                         <div id="ef_img_preview" style="margin-bottom:6px"></div>
