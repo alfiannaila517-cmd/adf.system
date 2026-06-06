@@ -304,10 +304,10 @@ pwfOfficeHeader('Dashboard', 'dashboard');
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;margin-bottom:20px">
 
     <div class="pwf-card" style="display:flex;flex-direction:column;min-height:420px">
-        <div class="pwf-card-header" style="padding:10px 14px;background:rgba(194,65,12,.05)">
-            <i class="bi bi-hammer me-2" style="color:#C2410C"></i>
-            <span style="font-weight:700;color:#C2410C">In Production</span>
-            <span style="margin-left:auto;font-size:11px;background:#FFF7ED;color:#C2410C;padding:3px 10px;border-radius:20px;font-weight:700">
+        <div class="pwf-card-header" style="padding:10px 14px;background:var(--status-orange-bg)">
+            <i class="bi bi-hammer me-2" style="color:#FB923C"></i>
+            <span style="font-weight:700;color:#FB923C">In Production</span>
+            <span class="badge-orange">
                 <?= count($inProgressOrders) ?>
             </span>
         </div>
@@ -322,14 +322,14 @@ pwfOfficeHeader('Dashboard', 'dashboard');
                 ?>
                     <button type="button"
                         onclick="openDashboardOrder(<?= (int)$r['id'] ?>, 'progress')"
-                        style="text-align:left;background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px;cursor:pointer;display:block;width:100%">
+                        style="text-align:left;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px;cursor:pointer;display:block;width:100%">
                         <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
                             <div>
                                 <div style="font-size:11px;font-weight:700;color:var(--gold);font-family:monospace"><?= htmlspecialchars($r['order_code']) ?></div>
                                 <div style="font-size:13px;font-weight:700;color:var(--text)"><?= htmlspecialchars($r['product_name']) ?></div>
                                 <div style="font-size:11px;color:var(--muted);margin-top:2px"><i class="bi bi-person"></i> <?= htmlspecialchars($r['customer_name'] ?? '—') ?></div>
                             </div>
-                            <span style="font-size:10px;font-weight:700;color:#C2410C;background:#FFF7ED;border:1px solid #FED7AA;border-radius:20px;padding:2px 8px"><?= $pct ?>%</span>
+                            <span class="badge-orange-sm"><?= $pct ?>%</span>
                         </div>
                         <div style="height:6px;background:var(--border);border-radius:20px;overflow:hidden;margin-top:8px">
                             <div style="width:<?= $pct ?>%;height:100%;background:<?= $barColor ?>"></div>
@@ -346,10 +346,10 @@ pwfOfficeHeader('Dashboard', 'dashboard');
     </div>
 
     <div class="pwf-card" style="display:flex;flex-direction:column;min-height:420px">
-        <div class="pwf-card-header" style="padding:10px 14px;background:rgba(21,128,61,.05)">
-            <i class="bi bi-check2-circle me-2" style="color:#15803D"></i>
-            <span style="font-weight:700;color:#15803D">Ready / Completed</span>
-            <span style="margin-left:auto;font-size:11px;background:#F0FDF4;color:#15803D;padding:3px 10px;border-radius:20px;font-weight:700">
+        <div class="pwf-card-header" style="padding:10px 14px;background:var(--status-green-bg)">
+            <i class="bi bi-check2-circle me-2" style="color:#4EEE90"></i>
+            <span style="font-weight:700;color:#4EEE90">Ready / Completed</span>
+            <span class="badge-green">
                 <?= count($completedOrders) ?>
             </span>
         </div>
@@ -362,14 +362,14 @@ pwfOfficeHeader('Dashboard', 'dashboard');
                 ?>
                     <button type="button"
                         onclick="openDashboardOrder(<?= (int)$r['id'] ?>, 'completed')"
-                        style="text-align:left;background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px;cursor:pointer;display:block;width:100%">
+                        style="text-align:left;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px;cursor:pointer;display:block;width:100%">
                         <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
                             <div>
                                 <div style="font-size:11px;font-weight:700;color:var(--gold);font-family:monospace"><?= htmlspecialchars($r['order_code']) ?></div>
                                 <div style="font-size:13px;font-weight:700;color:var(--text)"><?= htmlspecialchars($r['product_name']) ?></div>
                                 <div style="font-size:11px;color:var(--muted);margin-top:2px"><i class="bi bi-person"></i> <?= htmlspecialchars($r['customer_name'] ?? '—') ?></div>
                             </div>
-                            <span style="font-size:10px;font-weight:700;color:#15803D;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:20px;padding:2px 8px">Ready</span>
+                            <span class="badge-green-sm">Ready</span>
                         </div>
                         <div style="margin-top:8px;font-size:11px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap">
                             <span><i class="bi bi-box-seam"></i> <?= fmtQty($r['quantity']) ?> pcs</span>
@@ -383,10 +383,10 @@ pwfOfficeHeader('Dashboard', 'dashboard');
     </div>
 
     <div class="pwf-card" style="display:flex;flex-direction:column;min-height:420px">
-        <div class="pwf-card-header" style="padding:10px 14px;background:rgba(59,130,246,.08)">
-            <i class="bi bi-archive me-2" style="color:#1D4ED8"></i>
-            <span style="font-weight:700;color:#1D4ED8">Arsip Container</span>
-            <span style="margin-left:auto;font-size:11px;background:#EFF6FF;color:#1D4ED8;padding:3px 10px;border-radius:20px;font-weight:700">
+        <div class="pwf-card-header" style="padding:10px 14px;background:var(--status-blue-bg)">
+            <i class="bi bi-archive me-2" style="color:#60A5FA"></i>
+            <span style="font-weight:700;color:#60A5FA">Arsip Container</span>
+            <span class="badge-blue">
                 <?= count($containerHistory) ?>
             </span>
         </div>
@@ -395,13 +395,13 @@ pwfOfficeHeader('Dashboard', 'dashboard');
                 <div style="text-align:center;color:var(--muted);padding:24px 10px;font-size:12px">Belum ada data container.</div>
             <?php else: ?>
                 <?php foreach ($containerHistory as $ct): ?>
-                    <div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px">
+                    <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px">
                         <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
                             <div>
                                 <div style="font-size:12px;font-weight:700;color:var(--gold);font-family:monospace"><?= htmlspecialchars($ct['container_code']) ?></div>
                                 <div style="font-size:11px;color:var(--muted);margin-top:2px"><i class="bi bi-calendar-event"></i> <?= date('d M Y', strtotime($ct['shipment_date'])) ?></div>
                             </div>
-                            <span style="font-size:10px;font-weight:700;color:#1D4ED8;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:20px;padding:2px 8px"><?= strtoupper(htmlspecialchars($ct['container_type'])) ?></span>
+                            <span class="badge-blue-sm"><?= strtoupper(htmlspecialchars($ct['container_type'])) ?></span>
                         </div>
                         <div style="margin-top:7px;font-size:11px;color:var(--muted);line-height:1.45">
                             <div><i class="bi bi-geo-alt"></i> <?= htmlspecialchars($ct['destination_country'] ?: '—') ?><?= $ct['destination_port'] ? ' / ' . htmlspecialchars($ct['destination_port']) : '' ?></div>
@@ -410,7 +410,7 @@ pwfOfficeHeader('Dashboard', 'dashboard');
                         </div>
                         <div style="margin-top:8px;display:flex;gap:6px;justify-content:flex-end">
                             <button type="button" onclick="openContainerArchive(<?= (int)$ct['id'] ?>)"
-                                style="font-size:11px;background:#EFF6FF;color:#1D4ED8;border:1px solid #BFDBFE;border-radius:6px;padding:4px 9px;font-weight:600;display:inline-flex;align-items:center;gap:4px;cursor:pointer">
+                                style="font-size:11px;background:var(--status-blue-bg);color:var(--status-blue-text);border:1px solid var(--gold-border);border-radius:6px;padding:4px 9px;font-weight:600;display:inline-flex;align-items:center;gap:4px;cursor:pointer">
                                 <i class="bi bi-eye"></i> Detail
                             </button>
                             <a href="shipping.php?print=<?= (int)$ct['id'] ?>" target="_blank"
