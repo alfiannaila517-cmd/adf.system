@@ -87,32 +87,32 @@ pwfOfficeHeader('Achievement Tracking', 'progress');
 <!-- STAT CARDS -->
 <div class="stat-cards" style="margin-bottom:20px">
     <div class="stat-card">
-        <div class="stat-icon" style="background:#FFF7ED"><i class="bi bi-clipboard2-check" style="color:#C2410C"></i></div>
+        <div class="stat-icon" style="background:var(--status-orange-bg)"><i class="bi bi-clipboard2-check" style="color:#FB923C"></i></div>
         <div>
             <div class="stat-val"><?= $totalActive ?></div>
             <div class="stat-lbl">Active Orders</div>
         </div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon" style="background:#F5F3FF"><i class="bi bi-hammer" style="color:#6D28D9"></i></div>
+        <div class="stat-icon" style="background:var(--status-purple-bg)"><i class="bi bi-hammer" style="color:#D8B4FE"></i></div>
         <div>
             <div class="stat-val"><?= $inProgress ?></div>
             <div class="stat-lbl">In Production</div>
         </div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon" style="background:#F0FDF4"><i class="bi bi-box-seam" style="color:#15803D"></i></div>
+        <div class="stat-icon" style="background:var(--status-green-bg)"><i class="bi bi-box-seam" style="color:#4EEE90"></i></div>
         <div>
             <div class="stat-val"><?= $readyToShip ?></div>
             <div class="stat-lbl">Ready to Ship</div>
         </div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon" style="background:#FEF9C3"><i class="bi bi-bar-chart-line" style="color:#854D0E"></i></div>
+        <div class="stat-icon" style="background:rgba(184,134,11,.18)"><i class="bi bi-bar-chart-line" style="color:var(--gold)"></i></div>
         <div>
             <div class="stat-val"><?= $overallPct ?>%</div>
             <div class="stat-lbl">Overall Progress</div>
-            <div style="margin-top:4px;height:4px;background:#E7E5E4;border-radius:10px;width:100px">
+            <div style="margin-top:4px;height:4px;background:var(--border);border-radius:10px;width:100px">
                 <div style="width:<?= $overallPct ?>%;height:100%;background:var(--gold);border-radius:10px"></div>
             </div>
         </div>
