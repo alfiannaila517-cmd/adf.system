@@ -62,7 +62,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $hashed = password_hash($password, PASSWORD_BCRYPT);
                 $stmt = $masterPdo->prepare('INSERT INTO users (username, email, password, full_name, is_active, created_at, updated_at) VALUES (?,?,?,?,1,NOW(),NOW())');
-                if ($stmt->execute([$username, $email, $hashed, $fullName])) {
+                $insertResult = $stmt->execute([$username, $email, $hashed, $fullName]);
+                
+                if ($insertResult) {
                     // Get newly created user ID
                     $userId = $masterPdo->lastInsertId();
                     
@@ -75,11 +77,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     } else {
                         // Delete user jika assignment gagal (rollback)
                         $masterPdo->prepare('DELETE FROM users WHERE id=?')->execute([$userId]);
-                        $msg = 'Gagal assign user ke PWF business';
+                        $error = $assign->errorInfo();
+                        $msg = 'Gagal assign user ke PWF: ' . ($error[2] ?? 'Unknown error');
                         $msgType = 'error';
                     }
                 } else {
-                    $msg = 'Gagal membuat user';
+                    $error = $stmt->errorInfo();
+                    $msg = 'Gagal membuat user: ' . ($error[2] ?? 'Unknown error');
                     $msgType = 'error';
                 }
             }
