@@ -107,8 +107,8 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
             }
 
             th {
-                background: #1c1511;
-                color: #fff;
+                background: #2C2C30;
+                color: #ECECEC;
                 padding: 7px 10px;
                 text-align: left;
                 font-size: 10px;
@@ -116,14 +116,19 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
                 letter-spacing: .4px
             }
 
+            [data-theme="light"] th {
+                background: #1c1511;
+                color: #fff;
+            }
+
             td {
                 padding: 7px 10px;
-                border-bottom: 1px solid var(--line);
+                border-bottom: 1px solid var(--border);
                 vertical-align: top
             }
 
             tr:nth-child(even) td {
-                background: #fafaf9
+                background: var(--nav-hover)
             }
 
             .badge {
@@ -135,34 +140,34 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
             }
 
             .draft {
-                background: #EFF6FF;
-                color: #1D4ED8
+                background: var(--status-blue-bg);
+                color: var(--status-blue-text)
             }
 
             .on_progress {
-                background: #fff7ed;
-                color: #c2410c
+                background: var(--status-orange-bg);
+                color: var(--status-orange-text)
             }
 
             .completed {
-                background: #F0FDF4;
-                color: #166534
+                background: var(--status-green-bg);
+                color: var(--status-green-text)
             }
 
             .cancelled {
-                background: #FEF2F2;
-                color: #991B1B
+                background: var(--status-red-bg);
+                color: var(--status-red-text)
             }
 
             .shipped,
             .ready_ship {
-                background: #F0FDF4;
-                color: #15803D
+                background: var(--status-green-bg);
+                color: var(--status-green-text)
             }
 
             .qc {
-                background: #F5F3FF;
-                color: #6D28D9
+                background: var(--status-purple-bg);
+                color: var(--status-purple-text)
             }
 
             table td img {
@@ -198,8 +203,8 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
     <body>
         <div class="sheet">
             <div class="no-print" style="margin-bottom:12px">
-                <button onclick="window.print()" style="background:#B8860B;color:#fff;border:none;padding:8px 18px;border-radius:7px;font-size:12px;cursor:pointer">&#128438; Print / Save PDF</button>
-                <button onclick="window.close()" style="margin-left:8px;background:#F5F3F0;border:1px solid #E7E5E4;padding:8px 14px;border-radius:7px;font-size:12px;cursor:pointer">Close</button>
+                <button onclick="window.print()" style="background:var(--gold);color:#fff;border:none;padding:8px 18px;border-radius:7px;font-size:12px;cursor:pointer">&#128438; Print / Save PDF</button>
+                <button onclick="window.close()" style="margin-left:8px;background:var(--nav-hover);border:1px solid var(--border);padding:8px 14px;border-radius:7px;font-size:12px;cursor:pointer">Close</button>
             </div>
             <div class="title-wrap">
                 <div>
@@ -223,7 +228,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
                     <th>Craftsman</th>
                     <th style="width:90px">Due</th>
                     <th style="width:60px;text-align:right">Qty</th>
-                    <th style="width:90px;text-align:right;color:#B8860B">Price</th>
+                    <th style="width:90px;text-align:right;color:var(--gold)">Price</th>
                     <th style="width:120px">Remarks</th>
                 </tr>
             </thead>
@@ -231,17 +236,17 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
                 <?php foreach ($rows as $i => $r): ?>
                     <tr>
                         <td><?= $i + 1 ?></td>
-                        <td><?php if ($r['image_path']): ?><img src="<?= htmlspecialchars($baseUrl . '/' . $r['image_path']) ?>" style="max-width:60px;max-height:50px;border-radius:4px" alt="Order"><?php else: ?><span style="color:#ccc">—</span><?php endif; ?></td>
+                        <td><?php if ($r['image_path']): ?><img src="<?= htmlspecialchars($baseUrl . '/' . $r['image_path']) ?>" style="max-width:60px;max-height:50px;border-radius:4px" alt="Order"><?php else: ?><span style="color:var(--muted)">—</span><?php endif; ?></td>
                         <td><?= htmlspecialchars($r['order_code']) ?></td>
                         <td><strong><?= htmlspecialchars($r['product_name']) ?></strong></td>
                         <td><?= $r['order_date'] ? date('d M Y', strtotime($r['order_date'])) : '—' ?></td>
                         <td><?= htmlspecialchars($r['customer_name']) ?></td>
-                        <td><?php if ($r['specification']): ?><span style="color:#666;font-size:10px"><?= htmlspecialchars(mb_substr($r['specification'], 0, 50)) ?></span><?php else: ?><span style="color:#ccc">—</span><?php endif; ?></td>
-                        <td><?php $finishColor = trim((string)($r['finish'] ?? '')); if ($finishColor === '') { $finishColor = trim((string)($r['wood_color'] ?? '')); } echo $finishColor !== '' ? htmlspecialchars(mb_substr($finishColor, 0, 50)) : '<span style="color:#ccc">—</span>'; ?></td>
+                        <td><?php if ($r['specification']): ?><span style="color:var(--muted);font-size:10px"><?= htmlspecialchars(mb_substr($r['specification'], 0, 50)) ?></span><?php else: ?><span style="color:var(--muted)">—</span><?php endif; ?></td>
+                        <td><?php $finishColor = trim((string)($r['finish'] ?? '')); if ($finishColor === '') { $finishColor = trim((string)($r['wood_color'] ?? '')); } echo $finishColor !== '' ? htmlspecialchars(mb_substr($finishColor, 0, 50)) : '<span style="color:var(--muted)">—</span>'; ?></td>
                         <td><?= htmlspecialchars($r['craftsman_name'] ?? '—') ?></td>
                         <td><?= $r['due_date'] ? date('d M Y', strtotime($r['due_date'])) : '—' ?></td>
                         <td style="text-align:right"><?= rtrim(rtrim(number_format((float)$r['quantity'], 2), '0'), '.') ?></td>
-                        <td style="text-align:right;color:#B8860B;font-weight:600"><?php $total = (float)$r['quantity'] * (float)($r['unit_price'] ?? 0);
+                        <td style="text-align:right;color:var(--gold);font-weight:600"><?php $total = (float)$r['quantity'] * (float)($r['unit_price'] ?? 0);
                                                                                     echo 'Rp ' . number_format((int)$total, 0, ',', '.'); ?></td>
                         <td><?= htmlspecialchars(mb_substr($r['notes'] ?? '', 0, 60)) ?></td>
                     </tr>
@@ -596,7 +601,7 @@ pwfOfficeHeader('Orders', 'orders');
         border-radius: 10px;
         padding: 12px 14px;
         margin-bottom: 10px;
-        background: #FAFAF9
+        background: var(--nav-hover)
     }
 
     /* ── MODALS ── */
@@ -616,7 +621,7 @@ pwfOfficeHeader('Orders', 'orders');
     }
 
     .modal-box {
-        background: #fff;
+        background: var(--card);
         border-radius: 16px;
         width: min(950px, 96vw);
         max-height: 92vh;
@@ -632,8 +637,12 @@ pwfOfficeHeader('Orders', 'orders');
         align-items: center;
         position: sticky;
         top: 0;
-        background: #fff;
+        background: var(--card);
         z-index: 1
+    }
+
+    .modal-header h5 {
+        color: var(--text)
     }
 
     .modal-header h5 {
@@ -658,7 +667,7 @@ pwfOfficeHeader('Orders', 'orders');
     }
 
     .modal-close:hover {
-        background: #F5F3F0;
+        background: var(--nav-hover);
         color: var(--text)
     }
 
@@ -669,7 +678,7 @@ pwfOfficeHeader('Orders', 'orders');
         gap: 8px;
         flex-wrap: wrap;
         padding: 12px 16px;
-        background: #FAFAF9;
+        background: var(--nav-hover);
         border-bottom: 1px solid var(--border)
     }
 
@@ -682,7 +691,7 @@ pwfOfficeHeader('Orders', 'orders');
     }
 
     .order-card {
-        background: #fff;
+        background: var(--card);
         border: 1px solid var(--border);
         border-radius: 12px;
         overflow: hidden;
@@ -700,8 +709,8 @@ pwfOfficeHeader('Orders', 'orders');
         width: 22px;
         height: 22px;
         border-radius: 6px;
-        background: rgba(255, 255, 255, .95);
-        border: 1px solid #E7E5E4;
+        background: var(--card);
+        border: 1px solid var(--border);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -723,7 +732,7 @@ pwfOfficeHeader('Orders', 'orders');
         width: 100%;
         height: 140px;
         object-fit: cover;
-        background: #F5F3F0;
+        background: var(--nav-hover);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -796,7 +805,7 @@ pwfOfficeHeader('Orders', 'orders');
     .view-btn.active {
         background: var(--gold-bg);
         border-color: var(--gold-border);
-        color: #92600A
+        color: var(--gold)
     }
 
     /* table view */
@@ -1027,7 +1036,7 @@ pwfOfficeHeader('Orders', 'orders');
                                             <input type="hidden" name="_action" value="start_work">
                                             <input type="hidden" name="order_id" value="<?= (int)$o['id'] ?>">
                                             <button class="btn btn-sm" type="submit"
-                                                style="background:#FFF7ED;border:1px solid #FED7AA;color:#C2410C;padding:4px 8px;font-size:11px">
+                                                style="background:var(--status-orange-bg);border:1px solid var(--gold-border);color:var(--status-orange-text);padding:4px 8px;font-size:11px">
                                                 <i class="bi bi-play-circle"></i>
                                             </button>
                                         </form>
@@ -1072,7 +1081,7 @@ pwfOfficeHeader('Orders', 'orders');
             </div>
         </div>
         <!-- Tabs -->
-        <div style="border-bottom:1px solid var(--border);padding:0 22px;display:flex;gap:0;background:#FAFAF9">
+        <div style="border-bottom:1px solid var(--border);padding:0 22px;display:flex;gap:0;background:var(--nav-hover)">
             <button class="dm-tab active" id="dm_tab_info" onclick="showDmTab('info')">📋 Detail Pesanan</button>
             <button class="dm-tab" id="dm_tab_progress" onclick="showDmTab('progress')">📈 Progress Produksi</button>
             <button class="dm-tab" id="dm_tab_shipping" onclick="showDmTab('shipping')">🚢 Pengiriman</button>
@@ -1088,7 +1097,7 @@ pwfOfficeHeader('Orders', 'orders');
             <div id="dm_info" style="display:none">
                 <div style="display:grid;grid-template-columns:200px 1fr;gap:18px;align-items:start">
                     <div>
-                        <div id="dm_img" style="border-radius:10px;overflow:hidden;border:1px solid var(--border);background:#F5F3F0;height:170px;display:flex;align-items:center;justify-content:center;color:var(--muted)">
+                        <div id="dm_img" style="border-radius:10px;overflow:hidden;border:1px solid var(--border);background:var(--nav-hover);height:170px;display:flex;align-items:center;justify-content:center;color:var(--muted)">
                             <i class="bi bi-image" style="font-size:32px;opacity:.3"></i>
                         </div>
                         <div style="margin-top:10px" id="dm_spk_link"></div>
@@ -1159,8 +1168,8 @@ pwfOfficeHeader('Orders', 'orders');
                     <div style="grid-column:1/-1;height:1px;background:linear-gradient(to right, transparent, var(--border) 20%, var(--border) 80%, transparent);margin:6px 0;opacity:.4"></div>
                     <div class="pwf-form-group"><label style="font-size:12px">Quantity</label><input class="input" type="number" step="1" name="quantity" id="new_qty" value="1" oninput="createCalculateTotal()" style="font-size:13px"></div>
                     <div class="pwf-form-group"><label style="font-size:12px">Unit Price (Rp)</label><input class="input" type="number" step="1" name="unit_price" id="new_unit_price" value="0" oninput="createCalculateTotal()" style="font-size:13px"></div>
-                    <div class="pwf-form-group" style="background:linear-gradient(135deg, #FFF9F0 0%, #FFFBF3 100%);border-radius:8px;padding:10px;border:1px solid var(--gold-border);grid-column:1/-1">
-                        <label style="font-size:11px;color:var(--gold);text-transform:uppercase;font-weight:600;letter-spacing:.3px">Total Price (Rp)</label>
+                    <div class="pwf-form-group" style="background:var(--status-orange-bg);border-radius:8px;padding:10px;border:1px solid var(--gold-border);grid-column:1/-1">
+                        <label style="font-size:11px;color:var(--status-orange-text);text-transform:uppercase;font-weight:600;letter-spacing:.3px">Total Price (Rp)</label>
                         <div id="new_total_price" style="font-size:18px;font-weight:700;color:var(--gold);margin-top:4px;font-family:monospace">0</div>
                     </div>
 
