@@ -8,7 +8,7 @@ require_once __DIR__ . '/../_bootstrap.php';
 require_once __DIR__ . '/../db-helper.php';
 
 // Check access - only owner/developer can access
-$isOwner = isset($_SESSION['user_role']) && in_array($_SESSION['user_role'], ['owner', 'developer']);
+$isOwner = isset($_SESSION['role']) && in_array($_SESSION['role'], ['owner', 'developer']);
 if (!$isOwner) {
     http_response_code(403);
     echo '<h1>Access Denied</h1><p>Hanya Owner/Developer yang bisa akses PWF Management.</p>';

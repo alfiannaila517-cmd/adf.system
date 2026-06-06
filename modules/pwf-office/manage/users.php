@@ -7,7 +7,7 @@ require_once __DIR__ . '/../_bootstrap.php';
 require_once __DIR__ . '/../db-helper.php';
 
 // Check access
-$isOwner = isset($_SESSION['user_role']) && in_array($_SESSION['user_role'], ['owner', 'developer']);
+$isOwner = isset($_SESSION['role']) && in_array($_SESSION['role'], ['owner', 'developer']);
 if (!$isOwner) {
     http_response_code(403);
     echo 'Access Denied';
