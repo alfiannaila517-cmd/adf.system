@@ -26,14 +26,18 @@ $msgType = 'success';
 $pwfBiz = $masterPdo->query("SELECT id FROM businesses WHERE business_name LIKE '%PWF%' OR business_name LIKE '%Prapen%' LIMIT 1")->fetch();
 $pwfBizId = $pwfBiz['id'] ?? null;
 
+// Get all available roles
+$roles = $masterPdo->query("SELECT id, role_name, role_code FROM roles WHERE is_system_role = 1 ORDER BY id")->fetchAll();
+
 // Get default staff role_id for new users
 $staffRole = $masterPdo->query("SELECT id FROM roles WHERE role_code = 'staff' LIMIT 1")->fetch();
 $staffRoleId = $staffRole['id'] ?? 1; // Default to 1 if not found
 
-// Get users assigned to PWF business only
-$query = "SELECT u.id, u.username, u.email, u.full_name, u.is_active, u.created_at 
+// Get users assigned to PWF business only (include role info)
+$query = "SELECT u.id, u.username, u.email, u.full_name, u.is_active, u.role_id, u.created_at, r.role_name, r.role_code
           FROM users u 
-          INNER JOIN user_business_assignment uba ON u.id = uba.user_id 
+          INNER JOIN user_business_assignment uba ON u.id = uba.user_id
+          LEFT JOIN roles r ON u.role_id = r.id
           WHERE uba.business_id = ? 
           ORDER BY u.id DESC";
 $stmt = $masterPdo->prepare($query);
@@ -131,6 +135,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $msg = 'User berhasil dihapus!';
             $msgType = 'success';
             header('Refresh: 1');
+        }
+    }
+    elseif ($action === 'update_role') {
+        $userId = (int)($_POST['user_id'] ?? 0);
+        $roleId = (int)($_POST['role_id'] ?? 0);
+        
+        if ($userId > 0 && $roleId > 0) {
+            $stmt = $masterPdo->prepare('UPDATE users SET role_id=?, updated_at=NOW() WHERE id=?');
+            if ($stmt->execute([$roleId, $userId])) {
+                // Get new role name for message
+                $roleInfo = $masterPdo->prepare('SELECT role_name FROM roles WHERE id=?');
+                $roleInfo->execute([$roleId]);
+                $roleRow = $roleInfo->fetch();
+                $roleName = $roleRow['role_name'] ?? 'Unknown';
+                $msg = "Role user berhasil diubah menjadi: $roleName";
+                $msgType = 'success';
+                header('Refresh: 1');
+            }
         }
     }
 }
@@ -256,12 +278,20 @@ require_once __DIR__ . '/../layout.php';
                                 </span>
                             </div>
                             <div class="user-info-row">
+                                <span class="user-label">Role:</span>
+                                <span class="user-value"><?= htmlspecialchars($user['role_name'] ?? '—') ?></span>
+                            </div>
+                            <div class="user-info-row">
                                 <span class="user-label">Dibuat:</span>
                                 <span class="user-value"><?= date('d M Y', strtotime($user['created_at'])) ?></span>
                             </div>
                         </div>
                         
                         <div class="user-actions">
+                            <button type="button" class="user-action-btn" title="Edit role" onclick="openEditRoleModal(<?= $user['id'] ?>, '<?= htmlspecialchars($user['role_name'] ?? 'N/A') ?>', <?= $user['role_id'] ?? 0 ?>)">
+                                👤 Edit Role
+                            </button>
+                            
                             <form method="post" style="display: contents;">
                                 <input type="hidden" name="_action" value="toggle_active">
                                 <input type="hidden" name="user_id" value="<?= $user['id'] ?>">
@@ -333,5 +363,48 @@ require_once __DIR__ . '/../layout.php';
             </div>
         </div>
     </div>
-</body>
-</html>
+    
+    <!-- Modal Edit Role -->
+    <div class="modal" id="editRoleModal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h2>Edit Role User</h2>
+                <button class="modal-close" onclick="document.getElementById('editRoleModal').classList.remove('open')">×</button>
+            </div>
+            <div class="modal-body">
+                <form method="post">
+                    <input type="hidden" name="_action" value="update_role">
+                    <input type="hidden" name="user_id" id="editRoleUserId" value="">
+                    
+                    <div class="form-group">
+                        <label>User</label>
+                        <input type="text" id="editRoleUserName" readonly style="background: #F5F3F0; cursor: not-allowed;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Pilih Role Baru</label>
+                        <select name="role_id" id="editRoleSelect" required style="width: 100%; padding: 12px 14px; border: 1px solid #E7E5E4; border-radius: 8px; font-size: 14px; font-family: inherit; transition: all .2s;">
+                            <option value="">-- Pilih Role --</option>
+                            <?php foreach ($roles as $role): ?>
+                                <option value="<?= $role['id'] ?>"><?= htmlspecialchars($role['role_name']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    
+                    <div class="button-group">
+                        <button type="submit" class="btn-primary">Ubah Role</button>
+                        <button type="button" class="btn-secondary" onclick="document.getElementById('editRoleModal').classList.remove('open')">Batal</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function openEditRoleModal(userId, userName, currentRoleId) {
+            document.getElementById('editRoleUserId').value = userId;
+            document.getElementById('editRoleUserName').value = userName;
+            document.getElementById('editRoleSelect').value = currentRoleId;
+            document.getElementById('editRoleModal').classList.add('open');
+        }
+    </script>
