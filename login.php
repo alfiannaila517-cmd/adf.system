@@ -1,4 +1,5 @@
 <?php
+
 /**
  * ADF SYSTEM - Multi Business Management
  * Login Page
@@ -32,28 +33,28 @@ $faviconUrl = null;
 try {
     require_once __DIR__ . '/includes/CloudinaryHelper.php';
     $cl = CloudinaryHelper::getInstance();
-    
+
     $loginBgSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'login_background'");
     $customBg = $loginBgSetting['setting_value'] ?? null;
     $bgUrl = $customBg ? $cl->getDisplayUrl($customBg, 'uploads/backgrounds/') : null;
-    
+
     // Fallback: use Cloudinary hero background if no custom background set
     if (!$bgUrl) {
         $bgUrl = 'https://res.cloudinary.com/dpdmut9ls/image/upload/v1772739188/adf_system/website/hero/ombs61riq165vcwenxy1.png';
     }
-    
+
     $loginLogoSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'login_logo'");
     $loginLogo = $loginLogoSetting['setting_value'] ?? null;
     $loginLogoUrl = $loginLogo ? $cl->getDisplayUrl($loginLogo, 'uploads/logos/') : null;
-    
+
     $faviconSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'site_favicon'");
     $faviconFile = $faviconSetting['setting_value'] ?? null;
     $faviconUrl = $faviconFile ? $cl->getDisplayUrl($faviconFile, 'uploads/icons/') : null;
-    
+
     // Get demo credentials from settings
     $demoUsernameSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'demo_username'");
     $demoUsername = $demoUsernameSetting['setting_value'] ?? 'admin';
-    
+
     $demoPasswordSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'demo_password'");
     $demoPassword = $demoPasswordSetting['setting_value'] ?? 'admin';
 } catch (Exception $e) {
@@ -67,14 +68,16 @@ $cookiePath = parse_url(BASE_URL, PHP_URL_PATH) ?: '/';
 $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
 $rememberSecret = hash('sha256', DB_PASS . DB_NAME . '__adf_remember_salt__');
 
-function generateRememberToken($userId, $secret) {
+function generateRememberToken($userId, $secret)
+{
     $expiry = time() + (30 * 24 * 60 * 60); // 30 days
     $payload = $userId . ':' . $expiry;
     $hmac = hash_hmac('sha256', $payload, $secret);
     return base64_encode($payload . ':' . $hmac);
 }
 
-function validateRememberToken($token, $secret) {
+function validateRememberToken($token, $secret)
+{
     $decoded = base64_decode($token, true);
     if (!$decoded) return false;
     $parts = explode(':', $decoded);
@@ -109,7 +112,8 @@ if (!empty($_COOKIE['adf_remember_token']) && !$auth->isLoggedIn() && !isPost())
                     $roleStmt->execute([$tokenUser['role_id']]);
                     $roleData = $roleStmt->fetch(PDO::FETCH_ASSOC);
                     $roleCode = $roleData['role_code'] ?? 'staff';
-                } catch (Exception $e) {}
+                } catch (Exception $e) {
+                }
 
                 // Set session
                 if (session_status() === PHP_SESSION_NONE) session_start();
@@ -156,7 +160,8 @@ if (!empty($_COOKIE['adf_remember_token']) && !$auth->isLoggedIn() && !isPost())
                             $slug = strtolower(str_replace('_', '-', $firstBiz['business_code']));
                             setActiveBusinessId($slug);
                         }
-                    } catch (Exception $e) {}
+                    } catch (Exception $e) {
+                    }
                     redirect(BASE_URL . '/index.php');
                 }
             }
@@ -196,7 +201,7 @@ if (isPost()) {
     $password = getPost('password');
     $rememberMe = isset($_POST['remember_me']);
     $loginType = getPost('login_type') ?? 'normal'; // owner or normal
-    
+
     // Handle remember me - save username cookie (token set after successful login)
     if ($rememberMe && $username) {
         $cookieExpiry = time() + (30 * 24 * 60 * 60); // 30 days
@@ -208,13 +213,13 @@ if (isPost()) {
         setcookie('adf_remember', '', time() - 3600, $cookiePath, '', $isSecure, true);
         setcookie('adf_saved_cred', '', time() - 3600, $cookiePath, '', $isSecure, true);
     }
-    
+
     // Check if business specified via URL parameter
     $forcedBusiness = isset($_GET['biz']) ? sanitize($_GET['biz']) : null;
-    
+
     if ($auth->login($username, $password)) {
         $currentUser = $auth->getCurrentUser();
-        
+
         // Set remember-me auto-login token cookie
         if ($rememberMe) {
             $userId = $currentUser['id'] ?? $_SESSION['user_id'] ?? 0;
@@ -223,28 +228,28 @@ if (isPost()) {
                 setcookie('adf_remember_token', $token, time() + (30 * 24 * 60 * 60), $cookiePath, '', $isSecure, true);
             }
         }
-        
+
         // Auto-detect user's accessible businesses
         require_once 'includes/business_helper.php';
-        
+
         try {
             // Connect to master database (DB_NAME is correct for current environment)
             $masterDbName = DB_NAME;
             $masterPdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
             $masterPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-            
+
             // Get user ID and role from master
             $userStmt = $masterPdo->prepare("SELECT u.id, u.role_id, r.role_code FROM users u LEFT JOIN roles r ON u.role_id = r.id WHERE u.username = ?");
             $userStmt->execute([$username]);
             $masterUser = $userStmt->fetch(PDO::FETCH_ASSOC);
-            
+
             if (!$masterUser) {
                 $error = 'Pengguna tidak terdaftar di sistem! Hubungi pengembang untuk mengatur akses.';
                 $auth->logout();
             } else {
                 $masterId = $masterUser['id'];
                 $roleCode = $masterUser['role_code'];
-                
+
                 // Build dynamic business code <-> slug mappings from DB
                 // Auto-add slug column if missing
                 try {
@@ -252,16 +257,17 @@ if (isPost()) {
                     if (empty($colCheck)) {
                         $masterPdo->exec("ALTER TABLE businesses ADD COLUMN slug VARCHAR(100) AFTER business_code");
                     }
-                } catch (Exception $e) {}
-                
+                } catch (Exception $e) {
+                }
+
                 $allBizRows = $masterPdo->query("SELECT id, business_code, slug, database_name FROM businesses WHERE is_active = 1")->fetchAll(PDO::FETCH_ASSOC);
                 $codeToSlugMap = []; // BENSCAFE => bens-cafe
                 $slugToCodeMap = []; // bens-cafe => BENSCAFE
                 $bizIdToSlugMap = []; // 4 => eat-meet
-                
+
                 // Known overrides first
                 $knownSlugs = ['BENSCAFE' => 'bens-cafe', 'NARAYANAHOTEL' => 'narayana-hotel', 'DEMO' => 'demo'];
-                
+
                 foreach ($allBizRows as $br) {
                     // Determine slug: use DB slug column if set, then known overrides, then derive
                     if (!empty($br['slug'])) {
@@ -271,19 +277,20 @@ if (isPost()) {
                     } else {
                         $slug = strtolower(str_replace('_', '-', $br['business_code']));
                     }
-                    
+
                     // Auto-populate slug in DB if empty
                     if (empty($br['slug'])) {
                         try {
                             $masterPdo->prepare("UPDATE businesses SET slug = ? WHERE id = ?")->execute([$slug, $br['id']]);
-                        } catch (Exception $e) {}
+                        } catch (Exception $e) {
+                        }
                     }
-                    
+
                     $codeToSlugMap[$br['business_code']] = $slug;
                     $slugToCodeMap[$slug] = $br['business_code'];
                     $bizIdToSlugMap[$br['id']] = $slug;
                 }
-                
+
                 // Check if owner login requested
                 if ($loginType === 'owner') {
                     // Only owner, admin, developer can access owner dashboard
@@ -304,7 +311,7 @@ if (isPost()) {
                         $auth->logout();
                     }
                 }
-                
+
                 // Developer role has full access to all businesses
                 if ($roleCode === 'developer') {
                     if ($forcedBusiness) {
@@ -318,10 +325,10 @@ if (isPost()) {
                     setFlash('success', 'Login berhasil! Developer mode aktif.');
                     redirect(BASE_URL . '/index.php');
                 }
-                
+
                 // Get businesses user has access to (check both user_menu_permissions and user_business_assignment)
                 $userBusinesses = [];
-                
+
                 // Try user_business_assignment first (newer system)
                 try {
                     $bizStmt = $masterPdo->prepare("
@@ -333,8 +340,9 @@ if (isPost()) {
                     ");
                     $bizStmt->execute([$masterId]);
                     $userBusinesses = $bizStmt->fetchAll(PDO::FETCH_ASSOC);
-                } catch (Exception $e) {}
-                
+                } catch (Exception $e) {
+                }
+
                 // Fallback: try user_menu_permissions (legacy)
                 if (empty($userBusinesses)) {
                     try {
@@ -347,17 +355,19 @@ if (isPost()) {
                         ");
                         $bizStmt->execute([$masterId]);
                         $userBusinesses = $bizStmt->fetchAll(PDO::FETCH_ASSOC);
-                    } catch (Exception $e) {}
+                    } catch (Exception $e) {
+                    }
                 }
-                
+
                 // Final fallback: if user has no assignments, get all active businesses
                 if (empty($userBusinesses)) {
                     try {
                         $bizStmt = $masterPdo->query("SELECT id, business_code, business_name FROM businesses WHERE is_active = 1 ORDER BY business_name");
                         $userBusinesses = $bizStmt->fetchAll(PDO::FETCH_ASSOC);
-                    } catch (Exception $e) {}
+                    } catch (Exception $e) {
+                    }
                 }
-                
+
                 if (empty($userBusinesses)) {
                     $error = 'Anda tidak memiliki akses ke bisnis manapun! Hubungi pengembang.';
                     $auth->logout();
@@ -365,14 +375,14 @@ if (isPost()) {
                     // Direct link with business parameter - validate access
                     $forcedBizCode = isset($slugToCodeMap[$forcedBusiness]) ? $slugToCodeMap[$forcedBusiness] : strtoupper(str_replace('-', '_', $forcedBusiness));
                     $hasAccess = false;
-                    
+
                     foreach ($userBusinesses as $biz) {
                         if ($biz['business_code'] === $forcedBizCode) {
                             $hasAccess = true;
                             break;
                         }
                     }
-                    
+
                     if ($hasAccess) {
                         // Find the numeric business ID from the matched business
                         foreach ($userBusinesses as $biz) {
@@ -394,13 +404,13 @@ if (isPost()) {
                     $businessId = isset($codeToSlugMap[$bizCode]) ? $codeToSlugMap[$bizCode] : strtolower(str_replace('_', '-', $bizCode));
                     $_SESSION['business_id'] = (int)$userBusinesses[0]['id']; // Set numeric business_id
                     setActiveBusinessId($businessId);
-                    
+
                     if (count($userBusinesses) === 1) {
                         setFlash('success', 'Login berhasil! Selamat datang ke ' . $userBusinesses[0]['business_name']);
                     } else {
                         setFlash('success', 'Login berhasil! Anda bisa switch bisnis melalui dropdown di sidebar.');
                     }
-                    
+
                     redirect(BASE_URL . '/index.php');
                 }
             }
@@ -434,7 +444,7 @@ $displayInfo = [
 
 if (isset($_GET['biz'])) {
     $bizParam = strtolower(sanitize($_GET['biz']));
-    
+
     // Map business codes to display info
     $businessMap = [
         'narayana-hotel' => [
@@ -456,7 +466,7 @@ if (isset($_GET['biz'])) {
             'db_name' => 'adf_demo'
         ]
     ];
-    
+
     if (isset($businessMap[$bizParam])) {
         $displayInfo = $businessMap[$bizParam];
     } else {
@@ -473,12 +483,14 @@ if (isset($_GET['biz'])) {
                     'db_name' => $bizParam
                 ];
             }
-        } catch (Exception $e) {}
+        } catch (Exception $e) {
+        }
     }
 }
 ?>
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -486,26 +498,26 @@ if (isset($_GET['biz'])) {
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>Login - <?php echo APP_NAME; ?></title>
-    
+
     <!-- Favicon -->
     <?php if ($faviconUrl): ?>
-    <link rel="icon" type="image/x-icon" href="<?php echo $faviconUrl; ?>?v=<?php echo time(); ?>">
-    <link rel="shortcut icon" href="<?php echo $faviconUrl; ?>?v=<?php echo time(); ?>">
+        <link rel="icon" type="image/x-icon" href="<?php echo $faviconUrl; ?>?v=<?php echo time(); ?>">
+        <link rel="shortcut icon" href="<?php echo $faviconUrl; ?>?v=<?php echo time(); ?>">
     <?php endif; ?>
-    
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    
+
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/style.css">
-    
+
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         .login-container {
             min-height: 100vh;
             display: flex;
@@ -513,17 +525,15 @@ if (isset($_GET['biz'])) {
             justify-content: center;
             padding: 1rem;
             position: relative;
-            <?php if ($bgUrl): ?>
-            background-image: linear-gradient(135deg, rgba(30,41,59,0.85), rgba(15,23,42,0.9)), url('<?php echo $bgUrl; ?>?v=<?php echo time(); ?>');
+            <?php if ($bgUrl): ?>background-image: linear-gradient(135deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.9)), url('<?php echo $bgUrl; ?>?v=<?php echo time(); ?>');
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
             background-color: #0f172a;
-            <?php else: ?>
-            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            <?php else: ?>background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
             <?php endif; ?>
         }
-        
+
         /* Floating particles effect */
         .login-container::before {
             content: '';
@@ -532,20 +542,20 @@ if (isset($_GET['biz'])) {
             left: 0;
             right: 0;
             bottom: 0;
-            background: 
+            background:
                 radial-gradient(circle at 20% 30%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
                 radial-gradient(circle at 80% 70%, rgba(16, 185, 129, 0.06) 0%, transparent 50%);
             pointer-events: none;
         }
-        
+
         .login-box {
             background: rgba(30, 41, 59, 0.95);
             backdrop-filter: blur(10px);
             border-radius: 16px;
             padding: 1.5rem;
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4),
-                        0 0 0 1px rgba(255, 255, 255, 0.05),
-                        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+                0 0 0 1px rgba(255, 255, 255, 0.05),
+                inset 0 1px 0 rgba(255, 255, 255, 0.05);
             border: 1px solid rgba(71, 85, 105, 0.5);
             width: 100%;
             max-width: 320px;
@@ -553,22 +563,43 @@ if (isset($_GET['biz'])) {
             z-index: 1;
             animation: slideUp 0.4s ease-out;
         }
-        
+
         @keyframes slideUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
-        
+
         @keyframes slideInDown {
-            from { opacity: 0; transform: translateY(-20px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
-        
+
         @keyframes slideOutUp {
-            from { opacity: 1; transform: translateY(0); }
-            to { opacity: 0; transform: translateY(-20px); }
+            from {
+                opacity: 1;
+                transform: translateY(0);
+            }
+
+            to {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
         }
-        
+
         /* Glow effect on hover */
         .login-box::before {
             content: '';
@@ -580,54 +611,54 @@ if (isset($_GET['biz'])) {
             opacity: 0;
             transition: opacity 0.3s;
         }
-        
+
         .login-box:hover::before {
             opacity: 0.5;
         }
-        
+
         .login-header {
             text-align: center;
             margin-bottom: 1rem;
             position: relative;
         }
-        
+
         .business-logo-icon {
             font-size: 2.5rem;
             margin-bottom: 0.5rem;
             display: block;
-            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+            filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
         }
-        
+
         .business-logo-img {
             width: 56px;
             height: 56px;
             object-fit: contain;
             margin-bottom: 0.5rem;
             border-radius: 12px;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
-            border: 2px solid rgba(255,255,255,0.1);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+            border: 2px solid rgba(255, 255, 255, 0.1);
         }
-        
+
         .login-logo {
             font-size: 1.15rem;
             font-weight: 700;
             color: #ffffff;
             margin-bottom: 0.2rem;
             letter-spacing: -0.3px;
-            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
         }
-        
+
         .login-subtitle {
             color: #94a3b8;
             font-size: 0.72rem;
             font-weight: 500;
             margin-top: 0.15rem;
         }
-        
+
         .form-group {
             margin-bottom: 0.85rem;
         }
-        
+
         .form-label {
             display: block;
             color: #e2e8f0;
@@ -637,11 +668,11 @@ if (isset($_GET['biz'])) {
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
-        
+
         .password-wrapper {
             position: relative;
         }
-        
+
         .password-toggle {
             position: absolute;
             right: 10px;
@@ -653,11 +684,11 @@ if (isset($_GET['biz'])) {
             user-select: none;
             transition: color 0.2s;
         }
-        
+
         .password-toggle:hover {
             color: #cbd5e1;
         }
-        
+
         .form-control {
             width: 100%;
             padding: 0.6rem 0.75rem;
@@ -668,19 +699,19 @@ if (isset($_GET['biz'])) {
             font-size: 0.85rem;
             transition: all 0.25s ease;
         }
-        
+
         .form-control::placeholder {
             color: #64748b;
         }
-        
+
         .form-control:focus {
             outline: none;
             border-color: #6366f1;
             box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15),
-                        0 0 20px rgba(99, 102, 241, 0.1);
+                0 0 20px rgba(99, 102, 241, 0.1);
             background: rgba(15, 23, 42, 1);
         }
-        
+
         .alert-danger {
             background: rgba(239, 68, 68, 0.1);
             border: 1px solid rgba(239, 68, 68, 0.5);
@@ -692,7 +723,7 @@ if (isset($_GET['biz'])) {
             font-size: 0.75rem;
             backdrop-filter: blur(4px);
         }
-        
+
         .database-status {
             background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(15, 23, 42, 0.7));
             border: 1px solid rgba(51, 65, 85, 0.6);
@@ -704,7 +735,7 @@ if (isset($_GET['biz'])) {
             gap: 0.6rem;
             backdrop-filter: blur(4px);
         }
-        
+
         .status-indicator {
             width: 10px;
             height: 10px;
@@ -714,26 +745,28 @@ if (isset($_GET['biz'])) {
             animation: blink 1.2s ease-in-out infinite;
             flex-shrink: 0;
         }
-        
+
         @keyframes blink {
             0% {
                 background: #10b981;
                 box-shadow: 0 0 10px rgba(16, 185, 129, 1), inset 0 0 3px rgba(255, 255, 255, 0.3);
             }
+
             50% {
                 background: #059669;
                 box-shadow: 0 0 15px rgba(16, 185, 129, 0.8), inset 0 0 5px rgba(255, 255, 255, 0.2);
             }
+
             100% {
                 background: #10b981;
                 box-shadow: 0 0 10px rgba(16, 185, 129, 1), inset 0 0 3px rgba(255, 255, 255, 0.3);
             }
         }
-        
+
         .db-info {
             flex: 1;
         }
-        
+
         .db-label {
             font-size: 0.55rem;
             color: #64748b;
@@ -742,7 +775,7 @@ if (isset($_GET['biz'])) {
             margin-bottom: 0.15rem;
             font-weight: 600;
         }
-        
+
         .db-name {
             font-size: 0.78rem;
             color: #10b981;
@@ -750,7 +783,7 @@ if (isset($_GET['biz'])) {
             font-family: 'Courier New', monospace;
             text-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
         }
-        
+
         .remember-me-wrapper {
             display: flex;
             align-items: center;
@@ -764,14 +797,14 @@ if (isset($_GET['biz'])) {
             transition: all 0.3s ease;
             box-shadow: 0 4px 12px rgba(99, 102, 241, 0.08);
         }
-        
+
         .remember-me-wrapper:hover {
             background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(99, 102, 241, 0.08));
             border-color: rgba(99, 102, 241, 0.5);
             box-shadow: 0 6px 16px rgba(99, 102, 241, 0.15);
             transform: translateY(-1px);
         }
-        
+
         .remember-me-wrapper input[type="checkbox"] {
             width: 20px;
             height: 20px;
@@ -779,7 +812,7 @@ if (isset($_GET['biz'])) {
             accent-color: #818cf8;
             flex-shrink: 0;
         }
-        
+
         .remember-me-wrapper label {
             color: #e2e8f0;
             font-size: 0.85rem;
@@ -789,19 +822,19 @@ if (isset($_GET['biz'])) {
             font-weight: 500;
             flex: 1;
         }
-        
-        .remember-me-wrapper input[type="checkbox"]:checked + label {
+
+        .remember-me-wrapper input[type="checkbox"]:checked+label {
             color: #a5b4fc;
             font-weight: 600;
         }
-        
+
         .remember-me-button-group {
             display: flex;
             gap: 0.8rem;
             margin-bottom: 1rem;
             align-items: center;
         }
-        
+
         .btn-save-password {
             flex: 1;
             padding: 12px 16px;
@@ -819,21 +852,21 @@ if (isset($_GET['biz'])) {
             gap: 0.6rem;
             box-shadow: 0 4px 12px rgba(34, 197, 94, 0.08);
         }
-        
+
         .btn-save-password:hover {
             background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(34, 197, 94, 0.12));
             border-color: rgba(34, 197, 94, 0.6);
             box-shadow: 0 6px 16px rgba(34, 197, 94, 0.15);
             transform: translateY(-1px);
         }
-        
+
         .btn-save-password.active {
             background: linear-gradient(135deg, rgba(34, 197, 94, 0.25), rgba(34, 197, 94, 0.15));
             border-color: rgba(34, 197, 94, 0.7);
             color: #34d399;
             box-shadow: 0 8px 20px rgba(34, 197, 94, 0.2);
         }
-        
+
         .btn-clear-saved {
             padding: 12px 16px;
             background: linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(239, 68, 68, 0.05));
@@ -850,14 +883,14 @@ if (isset($_GET['biz'])) {
             gap: 0.4rem;
             min-width: 100px;
         }
-        
+
         .btn-clear-saved:hover {
             background: linear-gradient(135deg, rgba(239, 68, 68, 0.18), rgba(239, 68, 68, 0.08));
             border-color: rgba(239, 68, 68, 0.5);
             box-shadow: 0 6px 16px rgba(239, 68, 68, 0.12);
             transform: translateY(-1px);
         }
-        
+
         .demo-credentials {
             background: rgba(51, 65, 85, 0.6);
             border: 1px solid rgba(71, 85, 105, 0.4);
@@ -868,22 +901,22 @@ if (isset($_GET['biz'])) {
             color: #cbd5e1;
             backdrop-filter: blur(4px);
         }
-        
+
         .demo-credentials strong {
             color: #818cf8;
         }
-        
+
         .demo-credentials-clickable {
             cursor: pointer;
             transition: all 0.3s;
         }
-        
+
         .demo-credentials-clickable:hover {
             background: rgba(71, 85, 105, 0.6);
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(129, 140, 248, 0.2);
         }
-        
+
         .login-footer {
             text-align: center;
             margin-top: 1rem;
@@ -892,13 +925,13 @@ if (isset($_GET['biz'])) {
             color: #64748b;
             font-size: 0.7rem;
         }
-        
+
         .login-buttons {
             display: flex;
             gap: 0.5rem;
             margin-top: 1rem;
         }
-        
+
         .login-buttons button {
             flex: 1;
             padding: 0.65rem 0.75rem;
@@ -911,64 +944,66 @@ if (isset($_GET['biz'])) {
             position: relative;
             overflow: hidden;
         }
-        
+
         .login-buttons button::after {
             content: '';
             position: absolute;
             inset: 0;
-            background: linear-gradient(rgba(255,255,255,0.2), transparent);
+            background: linear-gradient(rgba(255, 255, 255, 0.2), transparent);
             opacity: 0;
             transition: opacity 0.3s;
         }
-        
+
         .login-buttons button:hover::after {
             opacity: 1;
         }
-        
+
         .btn-owner {
             background: linear-gradient(135deg, #8b5cf6, #6366f1);
             color: white;
             box-shadow: 0 4px 15px rgba(139, 92, 246, 0.2);
         }
-        
+
         .btn-owner:hover {
             background: linear-gradient(135deg, #7c3aed, #4f46e5);
             transform: translateY(-2px);
             box-shadow: 0 8px 25px rgba(139, 92, 246, 0.4);
         }
-        
+
         .btn-primary {
             background: linear-gradient(135deg, #10b981, #059669);
             color: white;
             box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2);
         }
-        
+
         .btn-primary:hover {
             background: linear-gradient(135deg, #059669, #047857);
             transform: translateY(-2px);
             box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
         }
-        
+
         /* Responsive */
         @media (max-width: 360px) {
             .login-box {
                 padding: 1.25rem;
                 max-width: 95%;
             }
+
             .login-buttons {
                 flex-direction: column;
             }
         }
     </style>
 </head>
+
 <body>
     <div class="login-container">
         <div class="login-box">
             <div class="login-header">
                 <?php if ($loginLogoUrl): ?>
-                <img src="<?php echo $loginLogoUrl; ?>?v=<?php echo time(); ?>" alt="Logo" class="business-logo-img">
+                    <img src="<?php echo $loginLogoUrl; ?>?v=<?php echo time(); ?>" alt="Logo" class="business-logo-img">
                 <?php else: ?>
-                <span class="business-logo-icon"><?php echo $displayInfo['icon']; ?></span>
+                    <span class="business-logo-icon"><?php echo $displayInfo['icon']; ?></span>
                 <?php endif; ?>
                 <h1 class="login-logo"><?php echo $displayInfo['name']; ?></h1>
                 <p class="login-subtitle"><?php echo $displayInfo['subtitle']; ?></p>
@@ -976,7 +1011,7 @@ if (isset($_GET['biz'])) {
                     <p class="login-subtitle">Hotel System</p>
                 <?php endif; ?>
             </div>
-            
+
             <div class="database-status">
                 <div class="status-indicator"></div>
                 <div class="db-info">
@@ -984,19 +1019,19 @@ if (isset($_GET['biz'])) {
                     <div class="db-name"><?php echo $displayInfo['db_name']; ?></div>
                 </div>
             </div>
-            
+
             <?php if (isset($error)): ?>
                 <div class="alert-danger">
                     <?php echo $error; ?>
                 </div>
             <?php endif; ?>
-            
+
             <form method="POST" action="" autocomplete="on">
                 <div class="form-group">
                     <label class="form-label">Username</label>
                     <input type="text" name="username" autocomplete="username" class="form-control" placeholder="Masukkan username" required autofocus value="<?= htmlspecialchars($savedUser) ?>">
                 </div>
-                
+
                 <div class="form-group">
                     <label class="form-label">Password</label>
                     <div class="password-wrapper">
@@ -1004,7 +1039,7 @@ if (isset($_GET['biz'])) {
                         <span class="password-toggle" onclick="togglePassword('loginPassword', this)">👁️</span>
                     </div>
                 </div>
-                
+
                 <!-- Save Password Section with Buttons -->
                 <div class="remember-me-info">
                     <div class="remember-me-info-icon">💾</div>
@@ -1012,7 +1047,7 @@ if (isset($_GET['biz'])) {
                         Klik <strong>"Simpan Password"</strong> untuk menyimpan kredensial & aktifkan auto-login aman
                     </div>
                 </div>
-                
+
                 <div class="remember-me-button-group">
                     <button type="button" class="btn-save-password" id="savePasswordBtn" onclick="enableSavePassword()">
                         💾 Simpan Password
@@ -1021,108 +1056,108 @@ if (isset($_GET['biz'])) {
                         🗑️ Hapus
                     </button>
                 </div>
-                
+
                 <div class="login-buttons">
                     <button type="submit" name="login_type" value="owner" class="btn-owner">📊 Login Owner</button>
                     <button type="submit" name="login_type" value="normal" class="btn-primary">🏢 Login System</button>
                 </div>
             </form>
-            
+
             <div class="demo-credentials demo-credentials-clickable" onclick="fillDemoCredentials()" title="Klik untuk isi otomatis">
                 <div style="text-align: center; margin-bottom: 0.5rem;"><strong>🎯 Demo Credentials (Click to Fill)</strong></div>
                 <div id="demoUsername">👤 Username: <strong><?php echo htmlspecialchars($demoUsername); ?></strong></div>
                 <div id="demoPassword">🔑 Password: <strong><?php echo htmlspecialchars($demoPassword); ?></strong></div>
             </div>
-            
+
             <div class="login-footer">
                 &copy; <?php echo APP_YEAR; ?> <?php echo APP_NAME; ?>
             </div>
         </div>
     </div>
-    
+
     <script>
-    // Toggle password visibility
-    function togglePassword(inputId, iconElement) {
-        const input = document.getElementById(inputId);
-        if (input.type === 'password') {
-            input.type = 'text';
-            iconElement.textContent = '👁️‍🗨️';
-        } else {
-            input.type = 'password';
-            iconElement.textContent = '👁️';
+        // Toggle password visibility
+        function togglePassword(inputId, iconElement) {
+            const input = document.getElementById(inputId);
+            if (input.type === 'password') {
+                input.type = 'text';
+                iconElement.textContent = '👁️‍🗨️';
+            } else {
+                input.type = 'password';
+                iconElement.textContent = '👁️';
+            }
         }
-    }
-    
-    // Enable Save Password - set remember_me checkbox
-    function enableSavePassword() {
-        const usernameInput = document.querySelector('input[name="username"]');
-        const passwordInput = document.querySelector('input[name="password"]');
-        const saveBtn = document.getElementById('savePasswordBtn');
-        const clearBtn = document.getElementById('clearSavedBtn');
-        
-        if (!usernameInput.value || !passwordInput.value) {
-            alert('Silakan isi username dan password terlebih dahulu!');
-            return;
+
+        // Enable Save Password - set remember_me checkbox
+        function enableSavePassword() {
+            const usernameInput = document.querySelector('input[name="username"]');
+            const passwordInput = document.querySelector('input[name="password"]');
+            const saveBtn = document.getElementById('savePasswordBtn');
+            const clearBtn = document.getElementById('clearSavedBtn');
+
+            if (!usernameInput.value || !passwordInput.value) {
+                alert('Silakan isi username dan password terlebih dahulu!');
+                return;
+            }
+
+            // Create hidden input for remember_me
+            let rememberInput = document.querySelector('input[name="remember_me"]');
+            if (!rememberInput) {
+                rememberInput = document.createElement('input');
+                rememberInput.type = 'hidden';
+                rememberInput.name = 'remember_me';
+                rememberInput.value = '1';
+                document.querySelector('form').appendChild(rememberInput);
+            } else {
+                rememberInput.value = '1';
+            }
+
+            // Update button UI to show active state
+            saveBtn.classList.add('active');
+            saveBtn.innerHTML = '✅ <strong>Password Akan Disimpan</strong>';
+            clearBtn.style.display = 'flex';
+
+            // Show success message
+            showPasswordSaveNotification();
         }
-        
-        // Create hidden input for remember_me
-        let rememberInput = document.querySelector('input[name="remember_me"]');
-        if (!rememberInput) {
-            rememberInput = document.createElement('input');
-            rememberInput.type = 'hidden';
-            rememberInput.name = 'remember_me';
-            rememberInput.value = '1';
-            document.querySelector('form').appendChild(rememberInput);
-        } else {
-            rememberInput.value = '1';
+
+        // Clear Saved Credentials
+        function clearSavedCredentials() {
+            if (confirm('Hapus semua kredensial tersimpan? Anda akan perlu login manual lagi.')) {
+                // Clear cookies via server-side (send AJAX request)
+                fetch('<?= BASE_URL ?>/api/clear-login-cookie.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                }).then(() => {
+                    // Clear form
+                    document.querySelector('input[name="username"]').value = '';
+                    document.querySelector('input[name="password"]').value = '';
+
+                    // Reset button states
+                    const saveBtn = document.getElementById('savePasswordBtn');
+                    const clearBtn = document.getElementById('clearSavedBtn');
+                    saveBtn.classList.remove('active');
+                    saveBtn.innerHTML = '💾 Simpan Password';
+                    clearBtn.style.display = 'none';
+
+                    // Remove hidden remember_me input
+                    const rememberInput = document.querySelector('input[name="remember_me"]');
+                    if (rememberInput) rememberInput.remove();
+
+                    alert('✅ Kredensial tersimpan berhasil dihapus!');
+                    location.reload();
+                }).catch(err => {
+                    alert('❌ Gagal menghapus kredensial. Silakan coba lagi.');
+                });
+            }
         }
-        
-        // Update button UI to show active state
-        saveBtn.classList.add('active');
-        saveBtn.innerHTML = '✅ <strong>Password Akan Disimpan</strong>';
-        clearBtn.style.display = 'flex';
-        
-        // Show success message
-        showPasswordSaveNotification();
-    }
-    
-    // Clear Saved Credentials
-    function clearSavedCredentials() {
-        if (confirm('Hapus semua kredensial tersimpan? Anda akan perlu login manual lagi.')) {
-            // Clear cookies via server-side (send AJAX request)
-            fetch('<?= BASE_URL ?>/api/clear-login-cookie.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            }).then(() => {
-                // Clear form
-                document.querySelector('input[name="username"]').value = '';
-                document.querySelector('input[name="password"]').value = '';
-                
-                // Reset button states
-                const saveBtn = document.getElementById('savePasswordBtn');
-                const clearBtn = document.getElementById('clearSavedBtn');
-                saveBtn.classList.remove('active');
-                saveBtn.innerHTML = '💾 Simpan Password';
-                clearBtn.style.display = 'none';
-                
-                // Remove hidden remember_me input
-                const rememberInput = document.querySelector('input[name="remember_me"]');
-                if (rememberInput) rememberInput.remove();
-                
-                alert('✅ Kredensial tersimpan berhasil dihapus!');
-                location.reload();
-            }).catch(err => {
-                alert('❌ Gagal menghapus kredensial. Silakan coba lagi.');
-            });
-        }
-    }
-    
-    // Show notification when password will be saved
-    function showPasswordSaveNotification() {
-        const notification = document.createElement('div');
-        notification.style.cssText = `
+
+        // Show notification when password will be saved
+        function showPasswordSaveNotification() {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
             position: fixed;
             top: 20px;
             right: 20px;
@@ -1138,48 +1173,49 @@ if (isset($_GET['biz'])) {
             backdrop-filter: blur(8px);
             animation: slideInDown 0.3s ease-out;
         `;
-        notification.innerHTML = '✅ Password akan disimpan setelah login berhasil. Browser akan menyimpan kredensial Anda dengan aman.';
-        document.body.appendChild(notification);
-        
-        setTimeout(() => {
-            notification.style.animation = 'slideOutUp 0.3s ease-out';
-            setTimeout(() => notification.remove(), 300);
-        }, 4000);
-    }
-    
-    // Fill demo credentials
-    function fillDemoCredentials() {
-        const demoUsername = document.getElementById('demoUsername').querySelector('strong').textContent.trim();
-        const demoPassword = document.getElementById('demoPassword').querySelector('strong').textContent.trim();
-        
-        document.querySelector('input[name="username"]').value = demoUsername;
-        document.querySelector('input[name="password"]').value = demoPassword;
-        
-        // Focus on submit button
-        document.querySelector('.btn-primary').focus();
-    }
-    
-    // Remember me - auto login via secure HMAC token
-    document.addEventListener('DOMContentLoaded', function() {
-        const saveBtn = document.getElementById('savePasswordBtn');
-        const clearBtn = document.getElementById('clearSavedBtn');
-        const usernameInput = document.querySelector('input[name="username"]');
-        
-        // If user saved, show clear button
-        const hasSavedUser = <?= !empty($savedUser) ? 'true' : 'false' ?>;
-        if (hasSavedUser) {
-            saveBtn.classList.add('active');
-            saveBtn.innerHTML = '✅ <strong>Password Tersimpan</strong>';
-            clearBtn.style.display = 'flex';
+            notification.innerHTML = '✅ Password akan disimpan setelah login berhasil. Browser akan menyimpan kredensial Anda dengan aman.';
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.style.animation = 'slideOutUp 0.3s ease-out';
+                setTimeout(() => notification.remove(), 300);
+            }, 4000);
         }
-        
-        // Clean up old localStorage (one-time migration)
-        try {
-            localStorage.removeItem('saved_username');
-            localStorage.removeItem('saved_password');
-            localStorage.removeItem('remember_me');
-        } catch(e) {}
-    });
+
+        // Fill demo credentials
+        function fillDemoCredentials() {
+            const demoUsername = document.getElementById('demoUsername').querySelector('strong').textContent.trim();
+            const demoPassword = document.getElementById('demoPassword').querySelector('strong').textContent.trim();
+
+            document.querySelector('input[name="username"]').value = demoUsername;
+            document.querySelector('input[name="password"]').value = demoPassword;
+
+            // Focus on submit button
+            document.querySelector('.btn-primary').focus();
+        }
+
+        // Remember me - auto login via secure HMAC token
+        document.addEventListener('DOMContentLoaded', function() {
+            const saveBtn = document.getElementById('savePasswordBtn');
+            const clearBtn = document.getElementById('clearSavedBtn');
+            const usernameInput = document.querySelector('input[name="username"]');
+
+            // If user saved, show clear button
+            const hasSavedUser = <?= !empty($savedUser) ? 'true' : 'false' ?>;
+            if (hasSavedUser) {
+                saveBtn.classList.add('active');
+                saveBtn.innerHTML = '✅ <strong>Password Tersimpan</strong>';
+                clearBtn.style.display = 'flex';
+            }
+
+            // Clean up old localStorage (one-time migration)
+            try {
+                localStorage.removeItem('saved_username');
+                localStorage.removeItem('saved_password');
+                localStorage.removeItem('remember_me');
+            } catch (e) {}
+        });
     </script>
 </body>
+
 </html>

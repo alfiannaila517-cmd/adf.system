@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Debug script untuk investigate user creation issue
  */
@@ -75,7 +76,7 @@ if ($stmt->execute([$testUser, $testEmail, $testPass, 'Test User'])) {
     echo "✓ INSERT successful!\n";
     echo "  User ID: {$userId}\n";
     echo "  Username: {$testUser}\n";
-    
+
     // Try to assign
     echo "\n=== 6. Testing ASSIGNMENT ===\n";
     if ($pwfBiz) {
@@ -85,7 +86,7 @@ if ($stmt->execute([$testUser, $testEmail, $testPass, 'Test User'])) {
         ');
         if ($assign->execute([$userId, $pwfBiz['id']])) {
             echo "✓ ASSIGNMENT successful!\n";
-            
+
             // Cleanup
             $masterPdo->prepare('DELETE FROM user_business_assignment WHERE user_id=?')->execute([$userId]);
             $masterPdo->prepare('DELETE FROM users WHERE id=?')->execute([$userId]);
@@ -94,7 +95,7 @@ if ($stmt->execute([$testUser, $testEmail, $testPass, 'Test User'])) {
             $error = $assign->errorInfo();
             echo "✗ ASSIGNMENT failed:\n";
             echo "  Error: {$error[2]}\n";
-            
+
             // Cleanup
             $masterPdo->prepare('DELETE FROM users WHERE id=?')->execute([$userId]);
         }
