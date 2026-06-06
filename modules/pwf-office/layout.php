@@ -1128,5 +1128,25 @@ function toggleNavGroup(btn, subId) {
     const open = btn.classList.toggle("open");
     sub.classList.toggle("open", open);
 }
+
+(function cleanupBuyerPortalServiceWorkerOnInternalPages() {
+                    if (!("serviceWorker" in navigator)) return;
+
+                    const path = (window.location.pathname || "").toLowerCase();
+    const isBuyerPortalPage =
+                        path.indexOf("/modules/pwf-office/customer-portal.php") !== -1 ||
+                        path.indexOf("/modules/pwf-office/customer-manifest.php") !== -1;
+
+    if (isBuyerPortalPage) return;
+
+    navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        registrations.forEach(function(reg) {
+                            const scriptUrl = ((reg.active && reg.active.scriptURL) || (reg.waiting && reg.waiting.scriptURL) || "").toLowerCase();
+                            if (scriptUrl.indexOf("/modules/pwf-office/customer-sw.js") !== -1) {
+                reg.unregister();
+            }
+        });
+    }).catch(function() {});
+})();
 </script></body></html>';
         }

@@ -2,7 +2,7 @@
  * Service Worker - Buyer Portal PWA
  */
 
-const CACHE_NAME = 'pwf-buyer-portal-v7'
+const CACHE_NAME = 'pwf-buyer-portal-v8'
 const APP_SHELL = [
   './customer-portal.php',
   './customer-portal.php?',
@@ -36,14 +36,14 @@ self.addEventListener('fetch', event => {
   const url = new URL(req.url)
 
   if (req.method !== 'GET') {
-    event.respondWith(fetch(req))
     return
   }
 
-  if (
+  const isBuyerPortalRoute =
     url.pathname.includes('customer-portal.php') ||
     url.pathname.includes('customer-manifest.php')
-  ) {
+
+  if (isBuyerPortalRoute) {
     event.respondWith(networkFirst(req))
     return
   }
@@ -56,7 +56,9 @@ self.addEventListener('fetch', event => {
     return
   }
 
-  event.respondWith(fetch(req).catch(() => caches.match(req)))
+  // Do not intercept admin/internal pages outside buyer portal routes.
+  // Let browser handle network request normally.
+  return
 })
 
 async function cacheFirst (request) {
@@ -86,6 +88,10 @@ async function networkFirst (request) {
   } catch (error) {
     const cached = await caches.match(request)
     if (cached) return cached
+
+    if (request.mode !== 'navigate') {
+      return new Response('Offline', { status: 503, statusText: 'Offline' })
+    }
 
     return new Response(
       "<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Offline</title></head><body style='font-family:sans-serif;padding:24px'><h3>Offline</h3><p>Koneksi internet terputus. Silakan coba lagi.</p></body></html>",
