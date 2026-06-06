@@ -1,6 +1,7 @@
 <?php
+
 /**
- * Customer Portal PWA manifest
+ * Buyer Portal PWA manifest
  */
 define('APP_ACCESS', true);
 require_once __DIR__ . '/../../config/config.php';
@@ -9,19 +10,36 @@ require_once __DIR__ . '/db-helper.php';
 header('Content-Type: application/manifest+json');
 header('Cache-Control: public, max-age=300');
 
-$pdo = getPwfOfficePdo();
+$_isProduction = (strpos($_SERVER['HTTP_HOST'] ?? 'localhost', 'localhost') === false);
+$_pwfDb = $_isProduction ? 'adfb2574_pwf' : 'adf_pwf';
+try {
+    $pdo = new PDO(
+        'mysql:host=' . DB_HOST . ';dbname=' . $_pwfDb . ';charset=utf8mb4',
+        DB_USER,
+        DB_PASS,
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
+    );
+} catch (PDOException $e) {
+    $_altDb = $_isProduction ? 'adfb2574_pwf' : 'adf_system_pwf';
+    $pdo = new PDO(
+        'mysql:host=' . DB_HOST . ';dbname=' . $_altDb . ';charset=utf8mb4',
+        DB_USER,
+        DB_PASS,
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
+    );
+}
 $baseUrl = defined('BASE_URL') ? rtrim(BASE_URL, '/') : '';
 $queryText = trim((string)($_GET['q'] ?? $_GET['c'] ?? ''));
 $queryText = preg_replace('/[^a-zA-Z0-9\-\s]/', '', $queryText);
 
-$companyName = 'PWF Customer Portal';
+$companyName = 'PWF Buyer Portal';
 $iconUrl = $baseUrl . '/favicon.ico';
 $iconType = 'image/png';
 
 try {
     $rows = $pdo->query("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('pwf_company_name','pwf_favicon','pwf_login_logo')")->fetchAll(PDO::FETCH_KEY_PAIR);
     if (!empty($rows['pwf_company_name'])) {
-        $companyName = $rows['pwf_company_name'] . ' Customer Portal';
+        $companyName = $rows['pwf_company_name'] . ' Buyer Portal';
     }
 
     $iconCandidate = '';
@@ -59,15 +77,15 @@ while (ob_get_level()) {
 echo json_encode([
     'id' => '/modules/pwf-office/customer-portal' . ($queryText !== '' ? '?q=' . rawurlencode($queryText) : ''),
     'name' => $companyName,
-    'short_name' => 'Customer Portal',
-    'description' => 'Monitoring order customer: progress jadi, qty kontainer, dan rekap bulanan',
+    'short_name' => 'Buyer Portal',
+    'description' => 'Buyer monitoring portal: multi-customer orders, progress, containers, and monthly recap',
     'start_url' => $startUrl,
     'scope' => $baseUrl . '/modules/pwf-office/',
     'display' => 'standalone',
     'orientation' => 'portrait',
     'theme_color' => '#0E223D',
     'background_color' => '#0E223D',
-    'lang' => 'id',
+    'lang' => 'en',
     'prefer_related_applications' => false,
     'icons' => [
         [

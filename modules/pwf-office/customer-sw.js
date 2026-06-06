@@ -1,8 +1,8 @@
 /**
- * Service Worker - Customer Portal PWA
+ * Service Worker - Buyer Portal PWA
  */
 
-const CACHE_NAME = 'pwf-customer-portal-v6'
+const CACHE_NAME = 'pwf-buyer-portal-v7'
 const APP_SHELL = [
   './customer-portal.php',
   './customer-portal.php?',
