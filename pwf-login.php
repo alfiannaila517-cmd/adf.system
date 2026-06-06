@@ -69,14 +69,29 @@ if (!empty($_POST)) {
 $wallpaperUrl = '';
 $logoUrl = '';
 $companyName = 'Prapen Wood Furniture';
+$faviconUrl = '';
+$faviconType = 'image/x-icon';
 try {
     $isProduction = (strpos($_SERVER['HTTP_HOST'] ?? 'localhost', 'localhost') === false);
     $pwfDb = $isProduction ? 'adfb2574_pwf' : 'adf_pwf';
     $pwfPdo = new PDO("mysql:host=".DB_HOST.";dbname=$pwfDb;charset=utf8mb4", DB_USER, DB_PASS, [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
-    $rows = $pwfPdo->query("SELECT setting_key,setting_value FROM settings WHERE setting_key IN ('pwf_login_wallpaper','pwf_login_logo','pwf_company_name')")->fetchAll(PDO::FETCH_KEY_PAIR);
+  $rows = $pwfPdo->query("SELECT setting_key,setting_value FROM settings WHERE setting_key IN ('pwf_login_wallpaper','pwf_login_logo','pwf_company_name','pwf_favicon')")->fetchAll(PDO::FETCH_KEY_PAIR);
     if (!empty($rows['pwf_login_wallpaper'])) $wallpaperUrl = htmlspecialchars($rows['pwf_login_wallpaper']);
     if (!empty($rows['pwf_login_logo']))      $logoUrl      = htmlspecialchars($rows['pwf_login_logo']);
     if (!empty($rows['pwf_company_name']))    $companyName  = htmlspecialchars($rows['pwf_company_name']);
+  if (!empty($rows['pwf_favicon'])) {
+    $faviconUrl = ltrim($rows['pwf_favicon'], '/');
+    $ext = strtolower(pathinfo(parse_url($faviconUrl, PHP_URL_PATH) ?? '', PATHINFO_EXTENSION));
+    $mimeMap = [
+      'ico' => 'image/x-icon',
+      'png' => 'image/png',
+      'jpg' => 'image/jpeg',
+      'jpeg' => 'image/jpeg',
+      'webp' => 'image/webp',
+      'svg' => 'image/svg+xml'
+    ];
+    $faviconType = $mimeMap[$ext] ?? 'image/x-icon';
+  }
 } catch (Exception $e) {}
 ?>
 <!doctype html>
@@ -85,6 +100,12 @@ try {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PWF Office – Sign In</title>
+<?php if (!empty($faviconUrl)): ?>
+<link rel="icon" type="<?= htmlspecialchars($faviconType) ?>" href="<?= htmlspecialchars(rtrim(BASE_URL, '/') . '/' . $faviconUrl) ?>">
+<link rel="shortcut icon" type="<?= htmlspecialchars($faviconType) ?>" href="<?= htmlspecialchars(rtrim(BASE_URL, '/') . '/' . $faviconUrl) ?>">
+<?php else: ?>
+<link rel="icon" href="<?= htmlspecialchars(rtrim(BASE_URL, '/')) ?>/favicon.ico">
+<?php endif; ?>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>

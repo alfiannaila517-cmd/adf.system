@@ -100,13 +100,28 @@ function pwfOfficeHeader(string $title, string $active = ''): void
     // Load logo + theme from DB
     $logoUrl = '';
     $pwfTheme = 'light';
+    $faviconUrl = '';
+    $faviconType = 'image/x-icon';
     try {
         $isProduction = (strpos($_SERVER['HTTP_HOST'] ?? 'localhost', 'localhost') === false);
         $pwfDb = $isProduction ? 'adfb2574_pwf' : 'adf_pwf';
         $pdo2 = new PDO("mysql:host=" . DB_HOST . ";dbname=" . $pwfDb . ";charset=utf8mb4", DB_USER, DB_PASS);
-        $dbSettings = $pdo2->query("SELECT setting_key,setting_value FROM settings WHERE setting_key IN ('pwf_login_logo','pwf_ui_theme')")->fetchAll(PDO::FETCH_KEY_PAIR);
+        $dbSettings = $pdo2->query("SELECT setting_key,setting_value FROM settings WHERE setting_key IN ('pwf_login_logo','pwf_ui_theme','pwf_favicon')")->fetchAll(PDO::FETCH_KEY_PAIR);
         if (!empty($dbSettings['pwf_login_logo'])) $logoUrl = htmlspecialchars($dbSettings['pwf_login_logo']);
         if (!empty($dbSettings['pwf_ui_theme']) && in_array($dbSettings['pwf_ui_theme'], ['light', 'dark'])) $pwfTheme = $dbSettings['pwf_ui_theme'];
+        if (!empty($dbSettings['pwf_favicon'])) {
+            $faviconUrl = ltrim($dbSettings['pwf_favicon'], '/');
+            $ext = strtolower(pathinfo(parse_url($faviconUrl, PHP_URL_PATH) ?? '', PATHINFO_EXTENSION));
+            $mimeMap = [
+                'ico' => 'image/x-icon',
+                'png' => 'image/png',
+                'jpg' => 'image/jpeg',
+                'jpeg' => 'image/jpeg',
+                'webp' => 'image/webp',
+                'svg' => 'image/svg+xml'
+            ];
+            $faviconType = $mimeMap[$ext] ?? 'image/x-icon';
+        }
     } catch (Exception $e) {
     }
 ?>
@@ -117,6 +132,12 @@ function pwfOfficeHeader(string $title, string $active = ''): void
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title><?= htmlspecialchars($title) ?> · PWF Office</title>
+        <?php if (!empty($faviconUrl)): ?>
+        <link rel="icon" type="<?= htmlspecialchars($faviconType) ?>" href="<?= htmlspecialchars(rtrim(BASE_URL, '/') . '/' . $faviconUrl) ?>">
+        <link rel="shortcut icon" type="<?= htmlspecialchars($faviconType) ?>" href="<?= htmlspecialchars(rtrim(BASE_URL, '/') . '/' . $faviconUrl) ?>">
+        <?php else: ?>
+        <link rel="icon" href="<?= htmlspecialchars(rtrim(BASE_URL, '/')) ?>/favicon.ico">
+        <?php endif; ?>
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
