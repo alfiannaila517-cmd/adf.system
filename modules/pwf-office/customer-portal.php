@@ -179,12 +179,20 @@ if ($rawQuery !== '') {
                 o.quantity,
                 o.qty_done,
                 o.status,
-                COALESCE(s.qty_shipped, 0) AS qty_shipped
+                COALESCE(s.qty_shipped, 0) AS qty_shipped,
+                COALESCE(s.container_refs, '-') AS container_refs
             FROM pwf_orders o
             LEFT JOIN (
-                SELECT order_id, SUM(qty_shipped) AS qty_shipped
-                FROM pwf_container_items
-                GROUP BY order_id
+                SELECT
+                    ci.order_id,
+                    SUM(ci.qty_shipped) AS qty_shipped,
+                    GROUP_CONCAT(
+                        DISTINCT TRIM(COALESCE(NULLIF(ct.container_no, ''), ct.container_code))
+                        ORDER BY ct.id DESC SEPARATOR ', '
+                    ) AS container_refs
+                FROM pwf_container_items ci
+                LEFT JOIN pwf_containers ct ON ct.id = ci.container_id
+                GROUP BY ci.order_id
             ) s ON s.order_id = o.id
             WHERE o.customer_id = ?
               AND o.status <> 'cancelled'
@@ -242,9 +250,17 @@ if ($rawQuery !== '') {
             --accent: #F97316;
             --text: #0F172A;
             --muted: #64748B;
+            --fs-xs: 11px;
+            --fs-sm: 12px;
+            --fs-md: 13px;
+            --fs-lg: 16px;
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
 
         body {
             font-family: 'Plus Jakarta Sans', sans-serif;
@@ -282,22 +298,23 @@ if ($rawQuery !== '') {
             height: 44px;
             min-width: 44px;
             border-radius: 12px;
-            background: rgba(255,255,255,.15);
-            border: 1px solid rgba(255,255,255,.25);
+            background: rgba(255, 255, 255, .15);
+            border: 1px solid rgba(255, 255, 255, .25);
             display: grid;
             place-items: center;
             overflow: hidden;
         }
 
         .logo img {
-            width: 100%; height: 100%;
+            width: 100%;
+            height: 100%;
             object-fit: contain;
             padding: 6px;
             background: #fff;
         }
 
         .hero h1 {
-            font-size: 17px;
+            font-size: var(--fs-lg);
             font-weight: 800;
             line-height: 1.2;
             white-space: nowrap;
@@ -307,8 +324,8 @@ if ($rawQuery !== '') {
 
         .hero p {
             margin-top: 2px;
-            font-size: 11px;
-            color: rgba(255,255,255,.72);
+            font-size: var(--fs-xs);
+            color: rgba(255, 255, 255, .72);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -316,8 +333,8 @@ if ($rawQuery !== '') {
 
         /* ── INSTALL BTN (hero) ── */
         .install-btn {
-            border: 1px solid rgba(255,255,255,.28);
-            background: rgba(255,255,255,.14);
+            border: 1px solid rgba(255, 255, 255, .28);
+            background: rgba(255, 255, 255, .14);
             color: #fff;
             border-radius: 10px;
             padding: 8px 12px;
@@ -335,7 +352,7 @@ if ($rawQuery !== '') {
             border: 1px solid var(--line);
             border-radius: 14px;
             padding: 12px;
-            box-shadow: 0 4px 20px rgba(8,22,43,.07);
+            box-shadow: 0 4px 20px rgba(8, 22, 43, .07);
         }
 
         /* ── SEARCH ───────────────── */
@@ -348,7 +365,7 @@ if ($rawQuery !== '') {
 
         .label {
             display: block;
-            font-size: 10px;
+            font-size: var(--fs-xs);
             text-transform: uppercase;
             letter-spacing: .5px;
             color: var(--muted);
@@ -362,13 +379,16 @@ if ($rawQuery !== '') {
             border-radius: 10px;
             padding: 9px 11px;
             font-family: inherit;
-            font-size: 13px;
+            font-size: var(--fs-md);
             font-weight: 600;
             color: var(--text);
             outline: none;
         }
 
-        .input:focus { border-color: #5C88C2; box-shadow: 0 0 0 3px rgba(92,136,194,.14); }
+        .input:focus {
+            border-color: #5C88C2;
+            box-shadow: 0 0 0 3px rgba(92, 136, 194, .14);
+        }
 
         .btn {
             border: 0;
@@ -377,7 +397,7 @@ if ($rawQuery !== '') {
             color: #fff;
             padding: 9px 14px;
             font-family: inherit;
-            font-size: 12px;
+            font-size: var(--fs-sm);
             font-weight: 700;
             cursor: pointer;
             white-space: nowrap;
@@ -390,8 +410,23 @@ if ($rawQuery !== '') {
             background: #FFF1F2;
             border: 1px solid #FFD5DD;
             color: #BE123C;
-            font-size: 12px;
+            font-size: var(--fs-sm);
             font-weight: 600;
+        }
+
+        .customer-head {
+            background: linear-gradient(180deg, #F8FBFF 0%, #EEF5FF 100%);
+            border: 1px solid #D9E5F5;
+            border-radius: 12px;
+            padding: 10px;
+        }
+
+        .customer-name {
+            margin: 0;
+            font-size: var(--fs-lg);
+            font-weight: 800;
+            color: #102A4A;
+            line-height: 1.25;
         }
 
         /* ── DASHBOARD ───────────────── */
@@ -402,7 +437,9 @@ if ($rawQuery !== '') {
         }
 
         /* remove forced wide on all screens */
-        .desktop-fixed { min-width: unset; }
+        .desktop-fixed {
+            min-width: unset;
+        }
 
         .meta {
             display: flex;
@@ -412,7 +449,7 @@ if ($rawQuery !== '') {
         }
 
         .chip {
-            font-size: 10px;
+            font-size: var(--fs-xs);
             background: #EEF4FF;
             color: #1E40AF;
             border: 1px solid #C7D7FE;
@@ -424,7 +461,7 @@ if ($rawQuery !== '') {
         /* ── KPI 4-col desktop, 2x2 mobile ── */
         .kpi {
             display: grid;
-            grid-template-columns: repeat(4, minmax(0,1fr));
+            grid-template-columns: repeat(4, minmax(0, 1fr));
             gap: 8px;
         }
 
@@ -436,7 +473,7 @@ if ($rawQuery !== '') {
         }
 
         .kpi-title {
-            font-size: 9.5px;
+            font-size: var(--fs-xs);
             color: var(--muted);
             font-weight: 700;
             text-transform: uppercase;
@@ -452,7 +489,7 @@ if ($rawQuery !== '') {
         }
 
         .kpi-unit {
-            font-size: 11px;
+            font-size: var(--fs-xs);
             color: var(--muted);
             margin-left: 3px;
             font-weight: 700;
@@ -466,12 +503,14 @@ if ($rawQuery !== '') {
         }
 
         /* ── PROGRESS ── */
-        .progress-row { margin-bottom: 10px; }
+        .progress-row {
+            margin-bottom: 10px;
+        }
 
         .progress-head {
             display: flex;
             justify-content: space-between;
-            font-size: 11px;
+            font-size: var(--fs-xs);
             font-weight: 700;
             color: var(--ink-soft);
             margin-bottom: 5px;
@@ -491,17 +530,29 @@ if ($rawQuery !== '') {
             transition: width .5s ease;
         }
 
-        .bar-done { background: linear-gradient(90deg, #0F9D74, #34D399); }
-        .bar-ship { background: linear-gradient(90deg, #F97316, #FDBA74); }
+        .bar-done {
+            background: linear-gradient(90deg, #0F9D74, #34D399);
+        }
+
+        .bar-ship {
+            background: linear-gradient(90deg, #F97316, #FDBA74);
+        }
 
         /* ── TABLES ── */
-        .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .table-scroll {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
 
-        table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: var(--fs-sm);
+        }
 
         th {
             text-align: left;
-            font-size: 9.5px;
+            font-size: var(--fs-xs);
             text-transform: uppercase;
             letter-spacing: .4px;
             color: var(--muted);
@@ -521,7 +572,7 @@ if ($rawQuery !== '') {
             align-items: center;
             border-radius: 99px;
             padding: 3px 7px;
-            font-size: 9.5px;
+            font-size: var(--fs-xs);
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: .3px;
@@ -530,10 +581,39 @@ if ($rawQuery !== '') {
             white-space: nowrap;
         }
 
-        .status.ready_ship, .status.completed  { background:#ECFDF5; color:#047857; }
-        .status.on_progress, .status.partial_ship, .status.qc { background:#FFF7ED; color:#C2410C; }
-        .status.draft   { background:#EFF6FF; color:#1D4ED8; }
-        .status.shipped { background:#EEF2FF; color:#4338CA; }
+        .container-ref {
+            display: block;
+            margin-top: 3px;
+            font-size: var(--fs-xs);
+            color: #2563EB;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 220px;
+        }
+
+        .status.ready_ship,
+        .status.completed {
+            background: #ECFDF5;
+            color: #047857;
+        }
+
+        .status.on_progress,
+        .status.partial_ship,
+        .status.qc {
+            background: #FFF7ED;
+            color: #C2410C;
+        }
+
+        .status.draft {
+            background: #EFF6FF;
+            color: #1D4ED8;
+        }
+
+        .status.shipped {
+            background: #EEF2FF;
+            color: #4338CA;
+        }
 
         /* ── FOOTER ── */
         .footer-note {
@@ -563,7 +643,7 @@ if ($rawQuery !== '') {
 
         .install-cols {
             display: grid;
-            grid-template-columns: repeat(2, minmax(0,1fr));
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 8px;
         }
 
@@ -605,25 +685,126 @@ if ($rawQuery !== '') {
             gap: 7px;
         }
 
+        .install-popup-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(5, 15, 30, .45);
+            backdrop-filter: blur(2px);
+            z-index: 9998;
+            display: none;
+        }
+
+        .install-popup {
+            position: fixed;
+            left: 50%;
+            bottom: 18px;
+            transform: translateX(-50%);
+            width: min(420px, calc(100vw - 24px));
+            background: #fff;
+            border: 1px solid #DDE7F3;
+            border-radius: 14px;
+            box-shadow: 0 16px 36px rgba(9, 30, 66, .24);
+            z-index: 9999;
+            padding: 12px;
+            display: none;
+        }
+
+        .install-popup h4 {
+            font-size: var(--fs-md);
+            font-weight: 800;
+            margin: 0 0 6px;
+            color: #0F2948;
+        }
+
+        .install-popup p {
+            font-size: var(--fs-sm);
+            color: #475569;
+            margin: 0 0 10px;
+            line-height: 1.45;
+        }
+
+        .install-popup-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .install-popup-actions button {
+            flex: 1;
+            border: 0;
+            border-radius: 10px;
+            padding: 9px 10px;
+            font-size: var(--fs-sm);
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .install-popup-actions .btn-install {
+            background: linear-gradient(135deg, #1a7cf9, #1558c0);
+            color: #fff;
+        }
+
+        .install-popup-actions .btn-later {
+            background: #EDF2F8;
+            color: #334155;
+        }
+
         /* ── RESPONSIVE ── */
         @media (max-width: 680px) {
-            .kpi          { grid-template-columns: repeat(2, minmax(0,1fr)); }
-            .two-col      { grid-template-columns: 1fr; }
-            .install-cols { grid-template-columns: 1fr; }
+            .kpi {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .two-col {
+                grid-template-columns: 1fr;
+            }
+
+            .install-cols {
+                grid-template-columns: 1fr;
+            }
+
+            .install-popup {
+                bottom: 12px;
+                border-radius: 12px;
+            }
         }
 
         @media (min-width: 681px) {
-            .logo  { width: 60px; height: 60px; }
-            .hero h1 { font-size: 22px; }
-            .hero p  { font-size: 12px; }
-            .kpi-value { font-size: 26px; }
-            .wrap  { padding: 20px 16px 40px; }
+            .logo {
+                width: 60px;
+                height: 60px;
+            }
+
+            .hero h1 {
+                font-size: 22px;
+            }
+
+            .hero p {
+                font-size: 12px;
+            }
+
+            .kpi-value {
+                font-size: 26px;
+            }
+
+            .wrap {
+                padding: 20px 16px 40px;
+            }
         }
 
         @media (min-width: 1024px) {
-            .logo  { width: 72px; height: 72px; border-radius: 18px; }
-            .hero h1 { font-size: 28px; }
-            .kpi-value { font-size: 30px; }
+            .logo {
+                width: 72px;
+                height: 72px;
+                border-radius: 18px;
+            }
+
+            .hero h1 {
+                font-size: 28px;
+            }
+
+            .kpi-value {
+                font-size: 30px;
+            }
         }
     </style>
 </head>
@@ -663,7 +844,8 @@ if ($rawQuery !== '') {
             <?php if ($customer): ?>
                 <div class="dashboard">
                     <div>
-                        <h2 style="margin:0;font-size:17px;font-weight:800;color:#102A4A;"><?= htmlspecialchars($customer['customer_name']) ?></h2>
+                        <div class="customer-head">
+                            <h2 class="customer-name"><?= htmlspecialchars($customer['customer_name']) ?></h2>
                         <div class="meta">
                             <span class="chip">Code: <?= htmlspecialchars($customer['customer_code']) ?></span>
                             <?php if ($resolvedSearchLabel !== ''): ?>
@@ -672,6 +854,7 @@ if ($rawQuery !== '') {
                             <?php if (!empty($customer['phone'])): ?>
                                 <span class="chip">Phone: <?= htmlspecialchars($customer['phone']) ?></span>
                             <?php endif; ?>
+                        </div>
                         </div>
                     </div>
 
@@ -731,75 +914,82 @@ if ($rawQuery !== '') {
                     <div class="panel" style="padding:10px;">
                         <h3 style="margin:0 0 8px;font-size:13px;color:#0F2948;">Monthly Order Recap</h3>
                         <div class="table-scroll">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Month</th>
-                                    <th>Orders</th>
-                                    <th>Ordered Qty</th>
-                                    <th>Completed Qty</th>
-                                    <th>In Container</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php if (empty($monthlyRows)): ?>
+                            <table>
+                                <thead>
                                     <tr>
-                                        <td colspan="5" style="text-align:center;color:#94A3B8;">No monthly data yet.</td>
+                                        <th>Month</th>
+                                        <th>Orders</th>
+                                        <th>Ordered Qty</th>
+                                        <th>Completed Qty</th>
+                                        <th>In Container</th>
                                     </tr>
-                                <?php else: ?>
-                                    <?php foreach ($monthlyRows as $row): ?>
+                                </thead>
+                                <tbody>
+                                    <?php if (empty($monthlyRows)): ?>
                                         <tr>
-                                            <td><strong><?= htmlspecialchars($row['period_label']) ?></strong></td>
-                                            <td><?= (int)$row['total_orders'] ?></td>
-                                            <td><?= htmlspecialchars(fmtQty((float)$row['qty_ordered'])) ?> pcs</td>
-                                            <td><?= htmlspecialchars(fmtQty((float)$row['qty_done'])) ?> pcs</td>
-                                            <td><?= htmlspecialchars(fmtQty((float)$row['qty_shipped'])) ?> pcs</td>
+                                            <td colspan="5" style="text-align:center;color:#94A3B8;">No monthly data yet.</td>
                                         </tr>
-                                    <?php endforeach; ?>
-                                <?php endif; ?>
-                            </tbody>
-                        </table></div>
+                                    <?php else: ?>
+                                        <?php foreach ($monthlyRows as $row): ?>
+                                            <tr>
+                                                <td><strong><?= htmlspecialchars($row['period_label']) ?></strong></td>
+                                                <td><?= (int)$row['total_orders'] ?></td>
+                                                <td><?= htmlspecialchars(fmtQty((float)$row['qty_ordered'])) ?> pcs</td>
+                                                <td><?= htmlspecialchars(fmtQty((float)$row['qty_done'])) ?> pcs</td>
+                                                <td><?= htmlspecialchars(fmtQty((float)$row['qty_shipped'])) ?> pcs</td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
 
                     <div class="panel" style="padding:10px;">
                         <h3 style="margin:0 0 8px;font-size:13px;color:#0F2948;">Recent Orders</h3>
                         <div class="table-scroll">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Order Code</th>
-                                    <th>Date</th>
-                                    <th>Product</th>
-                                    <th>Qty</th>
-                                    <th>Done</th>
-                                    <th>Container</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php if (empty($recentOrders)): ?>
+                            <table>
+                                <thead>
                                     <tr>
-                                        <td colspan="7" style="text-align:center;color:#94A3B8;">No orders yet.</td>
+                                        <th>Order Code</th>
+                                        <th>Date</th>
+                                        <th>Product</th>
+                                        <th>Qty</th>
+                                        <th>Done</th>
+                                        <th>Container</th>
+                                        <th>Status</th>
                                     </tr>
-                                <?php else: ?>
-                                    <?php foreach ($recentOrders as $ord): ?>
+                                </thead>
+                                <tbody>
+                                    <?php if (empty($recentOrders)): ?>
                                         <tr>
-                                            <td><strong><?= htmlspecialchars($ord['order_code']) ?></strong></td>
-                                            <td><?= htmlspecialchars((string)$ord['order_date']) ?></td>
-                                            <td><?= htmlspecialchars((string)$ord['product_name']) ?></td>
-                                            <td><?= htmlspecialchars(fmtQty((float)$ord['quantity'])) ?></td>
-                                            <td><?= htmlspecialchars(fmtQty((float)$ord['qty_done'])) ?></td>
-                                            <td><?= htmlspecialchars(fmtQty((float)$ord['qty_shipped'])) ?></td>
-                                            <td>
-                                                <span class="status <?= htmlspecialchars((string)$ord['status']) ?>">
-                                                    <?= htmlspecialchars(str_replace('_', ' ', (string)$ord['status'])) ?>
-                                                </span>
-                                            </td>
+                                            <td colspan="7" style="text-align:center;color:#94A3B8;">No orders yet.</td>
                                         </tr>
-                                    <?php endforeach; ?>
-                                <?php endif; ?>
-                            </tbody>
-                        </table></div>
+                                    <?php else: ?>
+                                        <?php foreach ($recentOrders as $ord): ?>
+                                            <tr>
+                                                <td><strong><?= htmlspecialchars($ord['order_code']) ?></strong></td>
+                                                <td><?= htmlspecialchars((string)$ord['order_date']) ?></td>
+                                                <td><?= htmlspecialchars((string)$ord['product_name']) ?></td>
+                                                <td><?= htmlspecialchars(fmtQty((float)$ord['quantity'])) ?></td>
+                                                <td><?= htmlspecialchars(fmtQty((float)$ord['qty_done'])) ?></td>
+                                                <td>
+                                                    <?= htmlspecialchars(fmtQty((float)$ord['qty_shipped'])) ?> pcs
+                                                    <?php if (!empty($ord['container_refs']) && $ord['container_refs'] !== '-'): ?>
+                                                        <span class="container-ref">No: <?= htmlspecialchars($ord['container_refs']) ?></span>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td>
+                                                    <span class="status <?= htmlspecialchars((string)$ord['status']) ?>">
+                                                        <?= htmlspecialchars(str_replace('_', ' ', (string)$ord['status'])) ?>
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             <?php endif; ?>
@@ -834,6 +1024,16 @@ if ($rawQuery !== '') {
         <div class="footer-note">This portal displays real-time monitoring data from production and shipping.</div>
     </div>
 
+    <div class="install-popup-backdrop" id="installPopupBackdrop"></div>
+    <div class="install-popup" id="installPopup">
+        <h4>Install Customer Portal</h4>
+        <p>Add this portal to your Home Screen for faster access and app-like view.</p>
+        <div class="install-popup-actions">
+            <button type="button" class="btn-later" id="installLaterBtn">Later</button>
+            <button type="button" class="btn-install" id="installNowBtn">Install</button>
+        </div>
+    </div>
+
     <script>
         (function() {
             // Register service worker
@@ -851,8 +1051,30 @@ if ($rawQuery !== '') {
             var headerInstallBtn = document.getElementById('installBtn');
             // Guide install button (in the install card)
             var guideInstallBtn = document.getElementById('androidInstallBtn');
+            var installPopup = document.getElementById('installPopup');
+            var installPopupBackdrop = document.getElementById('installPopupBackdrop');
+            var installNowBtn = document.getElementById('installNowBtn');
+            var installLaterBtn = document.getElementById('installLaterBtn');
 
             var deferredPrompt = null;
+
+            function isStandaloneMode() {
+                return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+            }
+
+            function showInstallPopup() {
+                if (!installPopup || !installPopupBackdrop) return;
+                if (!isAndroid || isStandaloneMode()) return;
+                if (sessionStorage.getItem('pwf_install_popup_dismissed') === '1') return;
+                installPopup.style.display = 'block';
+                installPopupBackdrop.style.display = 'block';
+            }
+
+            function hideInstallPopup(markDismissed) {
+                if (installPopup) installPopup.style.display = 'none';
+                if (installPopupBackdrop) installPopupBackdrop.style.display = 'none';
+                if (markDismissed) sessionStorage.setItem('pwf_install_popup_dismissed', '1');
+            }
 
             function showAndroidInstallUI() {
                 if (guideInstallBtn) guideInstallBtn.style.display = 'inline-flex';
@@ -866,6 +1088,7 @@ if ($rawQuery !== '') {
                         deferredPrompt = null;
                         if (guideInstallBtn) guideInstallBtn.style.display = 'none';
                         if (headerInstallBtn) headerInstallBtn.style.display = 'none';
+                        hideInstallPopup(true);
                     }).catch(function() {});
                 } else {
                     // Fallback: Chrome didn't fire event yet, guide user to menu
@@ -883,6 +1106,7 @@ if ($rawQuery !== '') {
                 deferredPrompt = null;
                 if (guideInstallBtn) guideInstallBtn.style.display = 'none';
                 if (headerInstallBtn) headerInstallBtn.style.display = 'none';
+                hideInstallPopup(true);
             });
 
             if (isAndroid) {
@@ -890,6 +1114,12 @@ if ($rawQuery !== '') {
                 showAndroidInstallUI();
                 if (guideInstallBtn) guideInstallBtn.addEventListener('click', doInstall);
                 if (headerInstallBtn) headerInstallBtn.addEventListener('click', doInstall);
+                if (installNowBtn) installNowBtn.addEventListener('click', doInstall);
+                if (installLaterBtn) installLaterBtn.addEventListener('click', function() { hideInstallPopup(true); });
+                if (installPopupBackdrop) installPopupBackdrop.addEventListener('click', function() { hideInstallPopup(true); });
+
+                // Show popup shortly after load so user notices install option.
+                setTimeout(showInstallPopup, 900);
             }
 
             // Hide header install btn on non-Android
