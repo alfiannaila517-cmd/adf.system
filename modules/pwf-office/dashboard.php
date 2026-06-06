@@ -304,43 +304,6 @@ pwfOfficeHeader('Dashboard', 'dashboard');
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;margin-bottom:20px">
 
     <div class="pwf-card" style="display:flex;flex-direction:column;min-height:420px">
-        <div class="pwf-card-header" style="padding:10px 14px;background:rgba(21,128,61,.05)">
-            <i class="bi bi-check2-circle me-2" style="color:#15803D"></i>
-            <span style="font-weight:700;color:#15803D">Ready / Completed</span>
-            <span style="margin-left:auto;font-size:11px;background:#F0FDF4;color:#15803D;padding:3px 10px;border-radius:20px;font-weight:700">
-                <?= count($completedOrders) ?>
-            </span>
-        </div>
-        <div style="padding:10px;display:flex;flex-direction:column;gap:8px;max-height:390px;overflow:auto">
-            <?php if (empty($completedOrders)): ?>
-                <div style="text-align:center;color:var(--muted);padding:24px 10px;font-size:12px">Belum ada order ready/completed.</div>
-            <?php else: ?>
-                <?php foreach ($completedOrders as $r):
-                    $remainReady = max(0, (float)$r['qty_done'] - (float)$r['qty_shipped']);
-                ?>
-                    <button type="button"
-                        onclick="openDashboardOrder(<?= (int)$r['id'] ?>, 'completed')"
-                        style="text-align:left;background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px;cursor:pointer;display:block;width:100%">
-                        <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
-                            <div>
-                                <div style="font-size:11px;font-weight:700;color:var(--gold);font-family:monospace"><?= htmlspecialchars($r['order_code']) ?></div>
-                                <div style="font-size:13px;font-weight:700;color:var(--text)"><?= htmlspecialchars($r['product_name']) ?></div>
-                                <div style="font-size:11px;color:var(--muted);margin-top:2px"><i class="bi bi-person"></i> <?= htmlspecialchars($r['customer_name'] ?? '—') ?></div>
-                            </div>
-                            <span style="font-size:10px;font-weight:700;color:#15803D;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:20px;padding:2px 8px">Ready</span>
-                        </div>
-                        <div style="margin-top:8px;font-size:11px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap">
-                            <span><i class="bi bi-box-seam"></i> <?= fmtQty($r['quantity']) ?> pcs</span>
-                            <span><i class="bi bi-truck"></i> shipped: <?= fmtQty($r['qty_shipped']) ?></span>
-                            <span><i class="bi bi-hourglass-split"></i> remain: <?= fmtQty($remainReady) ?></span>
-                        </div>
-                    </button>
-                <?php endforeach; ?>
-            <?php endif; ?>
-        </div>
-    </div>
-
-    <div class="pwf-card" style="display:flex;flex-direction:column;min-height:420px">
         <div class="pwf-card-header" style="padding:10px 14px;background:rgba(194,65,12,.05)">
             <i class="bi bi-hammer me-2" style="color:#C2410C"></i>
             <span style="font-weight:700;color:#C2410C">In Production</span>
@@ -375,6 +338,43 @@ pwfOfficeHeader('Dashboard', 'dashboard');
                             <span><i class="bi bi-box-seam"></i> <?= fmtQty($r['quantity']) ?> pcs</span>
                             <span><i class="bi bi-check2-circle"></i> done: <?= fmtQty($r['qty_done']) ?></span>
                             <span><i class="bi bi-hourglass-split"></i> remain: <?= fmtQty($remainProd) ?></span>
+                        </div>
+                    </button>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <div class="pwf-card" style="display:flex;flex-direction:column;min-height:420px">
+        <div class="pwf-card-header" style="padding:10px 14px;background:rgba(21,128,61,.05)">
+            <i class="bi bi-check2-circle me-2" style="color:#15803D"></i>
+            <span style="font-weight:700;color:#15803D">Ready / Completed</span>
+            <span style="margin-left:auto;font-size:11px;background:#F0FDF4;color:#15803D;padding:3px 10px;border-radius:20px;font-weight:700">
+                <?= count($completedOrders) ?>
+            </span>
+        </div>
+        <div style="padding:10px;display:flex;flex-direction:column;gap:8px;max-height:390px;overflow:auto">
+            <?php if (empty($completedOrders)): ?>
+                <div style="text-align:center;color:var(--muted);padding:24px 10px;font-size:12px">Belum ada order ready/completed.</div>
+            <?php else: ?>
+                <?php foreach ($completedOrders as $r):
+                    $remainReady = max(0, (float)$r['qty_done'] - (float)$r['qty_shipped']);
+                ?>
+                    <button type="button"
+                        onclick="openDashboardOrder(<?= (int)$r['id'] ?>, 'completed')"
+                        style="text-align:left;background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px;cursor:pointer;display:block;width:100%">
+                        <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
+                            <div>
+                                <div style="font-size:11px;font-weight:700;color:var(--gold);font-family:monospace"><?= htmlspecialchars($r['order_code']) ?></div>
+                                <div style="font-size:13px;font-weight:700;color:var(--text)"><?= htmlspecialchars($r['product_name']) ?></div>
+                                <div style="font-size:11px;color:var(--muted);margin-top:2px"><i class="bi bi-person"></i> <?= htmlspecialchars($r['customer_name'] ?? '—') ?></div>
+                            </div>
+                            <span style="font-size:10px;font-weight:700;color:#15803D;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:20px;padding:2px 8px">Ready</span>
+                        </div>
+                        <div style="margin-top:8px;font-size:11px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap">
+                            <span><i class="bi bi-box-seam"></i> <?= fmtQty($r['quantity']) ?> pcs</span>
+                            <span><i class="bi bi-truck"></i> shipped: <?= fmtQty($r['qty_shipped']) ?></span>
+                            <span><i class="bi bi-hourglass-split"></i> remain: <?= fmtQty($remainReady) ?></span>
                         </div>
                     </button>
                 <?php endforeach; ?>
@@ -871,4 +871,11 @@ pwfOfficeHeader('Dashboard', 'dashboard');
         if (e.target === this) closeContainerArchive();
     });
 </script>
+<!-- ══ FOOTER INFO ═══════════════════════════════════════════════════════════ -->
+<div style="margin-top:24px;padding:14px 18px;border-top:1px dashed #D9E5F5;text-align:center;font-size:11px;color:#94A3B8">
+    <span>Version: <strong style="color:#1E3A5F;font-weight:800">v1.0.0</strong></span>
+    <span style="margin:0 8px">·</span>
+    <span>powerby <strong style="color:#1E3A5F;font-weight:800">AdFsystem</strong></span>
+</div>
+
 <?php pwfOfficeFooter(); ?>
