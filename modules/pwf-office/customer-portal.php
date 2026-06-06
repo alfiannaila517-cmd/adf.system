@@ -341,10 +341,10 @@ if (!empty($_manifestParams)) {
         }
 
         .logo {
-            width: 48px;
-            height: 48px;
-            min-width: 48px;
-            border-radius: 12px;
+            width: 72px;
+            height: 72px;
+            min-width: 72px;
+            border-radius: 16px;
             background: rgba(255, 255, 255, .15);
             border: 1px solid rgba(255, 255, 255, .25);
             display: grid;
@@ -356,7 +356,7 @@ if (!empty($_manifestParams)) {
             width: 100%;
             height: 100%;
             object-fit: contain;
-            padding: 6px;
+            padding: 8px;
             background: #fff;
         }
 
