@@ -22,12 +22,19 @@ $masterPdo = new PDO('mysql:host=' . DB_HOST . ';dbname=' . DB_NAME, DB_USER, DB
 $msg = '';
 $msgType = 'success';
 
-// Get users
-$users = $masterPdo->query("
-    SELECT id, username, email, full_name, is_active, created_at 
-    FROM users 
-    ORDER BY id DESC
-")->fetchAll();
+// Get PWF business ID
+$pwfBiz = $masterPdo->query("SELECT id FROM businesses WHERE business_name LIKE '%PWF%' OR business_name LIKE '%Prapen%' LIMIT 1")->fetch();
+$pwfBizId = $pwfBiz['id'] ?? null;
+
+// Get users assigned to PWF business only
+$query = "SELECT u.id, u.username, u.email, u.full_name, u.is_active, u.created_at 
+          FROM users u 
+          INNER JOIN user_business_assignment uba ON u.id = uba.user_id 
+          WHERE uba.business_id = ? 
+          ORDER BY u.id DESC";
+$stmt = $masterPdo->prepare($query);
+$stmt->execute([$pwfBizId]);
+$users = $stmt->fetchAll();
 
 // Handle create/update
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -96,46 +103,49 @@ require_once __DIR__ . '/../layout.php';
     <title>Kelola User - PWF Management</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; background: #f5f3f0; color: #1c1511; padding: 20px; }
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #f5f3f0 0%, #faf9f7 100%); color: #1c1511; padding: 24px; }
         .container { max-width: 1200px; margin: 0 auto; }
-        .back-link { display: inline-block; margin-bottom: 20px; color: #B8860B; text-decoration: none; font-size: 14px; }
-        .header { margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; }
-        .header h1 { font-size: 24px; display: flex; align-items: center; gap: 12px; }
-        .header h1 i { color: #B8860B; }
-        .btn-new { padding: 10px 20px; background: #B8860B; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
-        .btn-new:hover { background: #9D6F0A; }
-        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); backdrop-filter: blur(2px); z-index: 9000; align-items: center; justify-content: center; }
+        .back-link { display: inline-block; margin-bottom: 24px; color: #B8860B; text-decoration: none; font-size: 13px; font-weight: 600; transition: all .2s; }
+        .back-link:hover { color: #9D6F0A; }
+        .header { margin-bottom: 32px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
+        .header h1 { font-size: 28px; font-weight: 800; display: flex; align-items: center; gap: 12px; margin: 0; }
+        .header h1 i { color: #B8860B; font-size: 32px; }
+        .btn-new { padding: 12px 22px; background: linear-gradient(135deg, #B8860B 0%, #D4A017 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px; transition: all .2s; box-shadow: 0 2px 6px rgba(184, 134, 11, .2); }
+        .btn-new:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(184, 134, 11, .3); }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); backdrop-filter: blur(2px); z-index: 9000; align-items: center; justify-content: center; }
         .modal.open { display: flex; }
-        .modal-box { background: white; border-radius: 12px; width: min(500px, 96vw); max-height: 90vh; overflow-y: auto; box-shadow: 0 24px 80px rgba(0,0,0,.25); }
-        .modal-header { padding: 16px 22px; border-bottom: 1px solid #E7E5E4; display: flex; justify-content: space-between; align-items: center; }
-        .modal-header h2 { font-size: 16px; }
-        .modal-close { background: none; border: none; font-size: 24px; cursor: pointer; color: #999; }
-        .modal-body { padding: 22px; }
-        .form-group { margin-bottom: 16px; }
-        label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: #666; text-transform: uppercase; letter-spacing: .4px; }
-        input[type="text"], input[type="email"], input[type="password"] { width: 100%; padding: 10px 12px; border: 1px solid #E7E5E4; border-radius: 6px; font-size: 13px; }
-        input:focus { outline: none; border-color: #B8860B; }
-        .button-group { display: flex; gap: 10px; margin-top: 20px; }
-        button { padding: 10px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; }
-        .btn-primary { background: #B8860B; color: white; }
-        .btn-primary:hover { background: #9D6F0A; }
+        .modal-box { background: white; border-radius: 14px; width: min(520px, 96vw); max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.2); border: 1px solid rgba(0,0,0,.05); }
+        .modal-header { padding: 22px 28px; border-bottom: 1px solid #E7E5E4; display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h2 { font-size: 18px; font-weight: 700; margin: 0; }
+        .modal-close { background: none; border: none; font-size: 28px; cursor: pointer; color: #999; transition: color .2s; line-height: 1; }
+        .modal-close:hover { color: #B8860B; }
+        .modal-body { padding: 28px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 8px; color: #666; text-transform: uppercase; letter-spacing: .5px; }
+        input[type="text"], input[type="email"], input[type="password"] { width: 100%; padding: 12px 14px; border: 1px solid #E7E5E4; border-radius: 8px; font-size: 14px; font-family: inherit; transition: all .2s; }
+        input:focus { outline: none; border-color: #B8860B; box-shadow: 0 0 0 3px rgba(184, 134, 11, .1); }
+        .button-group { display: flex; gap: 12px; margin-top: 28px; }
+        button { padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all .2s; }
+        .btn-primary { background: linear-gradient(135deg, #B8860B 0%, #D4A017 100%); color: white; box-shadow: 0 2px 6px rgba(184, 134, 11, .2); }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(184, 134, 11, .3); }
         .btn-secondary { background: #F5F3F0; color: #1c1511; border: 1px solid #E7E5E4; }
         .btn-secondary:hover { background: #EAE8E5; }
-        .alert { padding: 12px 16px; border-radius: 6px; margin-bottom: 20px; font-size: 13px; }
+        .alert { padding: 14px 16px; border-radius: 8px; margin-bottom: 24px; font-size: 13px; }
         .alert.success { background: #F0FDF4; color: #166534; border: 1px solid #DCFCE7; }
         .alert.error { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
-        table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.1); }
-        th { background: #F5F3F0; padding: 12px 16px; text-align: left; font-size: 12px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: .4px; }
-        td { padding: 12px 16px; border-bottom: 1px solid #E7E5E4; font-size: 13px; }
+        table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,.06); border: 1px solid #E7E5E4; }
+        th { background: linear-gradient(135deg, #F5F3F0 0%, #F9F7F4 100%); padding: 14px 16px; text-align: left; font-size: 11px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: .6px; }
+        td { padding: 14px 16px; border-bottom: 1px solid #E7E5E4; font-size: 13px; }
         tr:last-child td { border-bottom: none; }
-        .username { font-weight: 600; color: #1c1511; }
-        .status { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+        .username { font-weight: 700; color: #1c1511; }
+        .status { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
         .status.active { background: #F0FDF4; color: #166534; }
         .status.inactive { background: #FEF2F2; color: #991B1B; }
-        .action-btn { padding: 6px 12px; border: 1px solid #E7E5E4; background: white; border-radius: 4px; cursor: pointer; font-size: 11px; margin-right: 4px; }
-        .action-btn:hover { background: #F5F3F0; }
+        .action-btn { padding: 6px 12px; border: 1px solid #E7E5E4; background: white; border-radius: 6px; cursor: pointer; font-size: 11px; margin-right: 4px; font-weight: 600; transition: all .2s; }
+        .action-btn:hover { background: #F5F3F0; border-color: #B8860B; color: #B8860B; }
         .action-btn.danger { color: #991B1B; border-color: #FECACA; }
-        .empty-state { text-align: center; padding: 40px; color: #999; }
+        .action-btn.danger:hover { background: #FEF2F2; }
+        .empty-state { text-align: center; padding: 60px 20px; color: #999; }
     </style>
 </head>
 <body>

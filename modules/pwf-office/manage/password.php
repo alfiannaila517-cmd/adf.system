@@ -73,26 +73,26 @@ require_once __DIR__ . '/../layout.php';
     <title>Ganti Password - PWF Management</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; background: #f5f3f0; color: #1c1511; padding: 20px; }
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #f5f3f0 0%, #faf9f7 100%); color: #1c1511; padding: 24px; }
         .container { max-width: 600px; margin: 0 auto; }
-        .back-link { display: inline-block; margin-bottom: 20px; color: #B8860B; text-decoration: none; font-size: 14px; }
-        .back-link:hover { text-decoration: underline; }
-        .card { background: white; border-radius: 12px; padding: 30px; box-shadow: 0 2px 8px rgba(0,0,0,.1); }
-        .card h1 { font-size: 24px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; }
-        .card h1 i { color: #B8860B; font-size: 28px; }
-        .card p { color: #666; margin-bottom: 24px; font-size: 14px; }
-        .form-group { margin-bottom: 20px; }
-        label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: #666; text-transform: uppercase; letter-spacing: .4px; }
-        input[type="password"] { width: 100%; padding: 10px 12px; border: 1px solid #E7E5E4; border-radius: 6px; font-size: 14px; }
-        input[type="password"]:focus { outline: none; border-color: #B8860B; }
-        .form-hint { font-size: 12px; color: #999; margin-top: 4px; }
-        .alert { padding: 12px 16px; border-radius: 6px; margin-bottom: 20px; font-size: 13px; }
+        .back-link { display: inline-block; margin-bottom: 24px; color: #B8860B; text-decoration: none; font-size: 13px; font-weight: 600; transition: all .2s; }
+        .back-link:hover { color: #9D6F0A; }
+        .card { background: white; border-radius: 14px; padding: 32px; box-shadow: 0 4px 12px rgba(0,0,0,.06); border: 1px solid #E7E5E4; }
+        .card h1 { font-size: 26px; font-weight: 800; margin-bottom: 12px; display: flex; align-items: center; gap: 12px; color: #1c1511; }
+        .card h1 i { color: #B8860B; font-size: 32px; }
+        .card p { color: #78716C; margin-bottom: 28px; font-size: 14px; }
+        .form-group { margin-bottom: 22px; }
+        label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 8px; color: #666; text-transform: uppercase; letter-spacing: .5px; }
+        input[type="password"] { width: 100%; padding: 12px 14px; border: 1px solid #E7E5E4; border-radius: 8px; font-size: 14px; font-family: inherit; transition: all .2s; }
+        input[type="password"]:focus { outline: none; border-color: #B8860B; box-shadow: 0 0 0 3px rgba(184, 134, 11, .1); }
+        .form-hint { font-size: 12px; color: #999; margin-top: 6px; }
+        .alert { padding: 14px 16px; border-radius: 8px; margin-bottom: 24px; font-size: 13px; display: flex; gap: 12px; align-items: center; }
         .alert.success { background: #F0FDF4; color: #166534; border: 1px solid #DCFCE7; }
         .alert.error { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
-        .button-group { display: flex; gap: 10px; margin-top: 30px; }
-        button { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; }
-        .btn-primary { background: #B8860B; color: white; }
-        .btn-primary:hover { background: #9D6F0A; }
+        .button-group { display: flex; gap: 12px; margin-top: 32px; }
+        button { padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all .2s; }
+        .btn-primary { background: linear-gradient(135deg, #B8860B 0%, #D4A017 100%); color: white; box-shadow: 0 2px 6px rgba(184, 134, 11, .2); }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(184, 134, 11, .3); }
         .btn-secondary { background: #F5F3F0; color: #1c1511; border: 1px solid #E7E5E4; }
         .btn-secondary:hover { background: #EAE8E5; }
     </style>

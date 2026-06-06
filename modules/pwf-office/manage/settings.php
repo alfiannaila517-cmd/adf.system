@@ -141,32 +141,31 @@ require_once __DIR__ . '/../layout.php';
     <title>Pengaturan Branding - PWF Management</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; background: #f5f3f0; color: #1c1511; padding: 20px; }
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #f5f3f0 0%, #faf9f7 100%); color: #1c1511; padding: 24px; }
         .container { max-width: 900px; margin: 0 auto; }
-        .back-link { display: inline-block; margin-bottom: 20px; color: #B8860B; text-decoration: none; font-size: 14px; }
-        .header { margin-bottom: 30px; }
-        .header h1 { font-size: 24px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; }
-        .header h1 i { color: #B8860B; }
-        .card { background: white; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,.1); }
-        .card h2 { font-size: 16px; margin-bottom: 16px; color: #1c1511; border-bottom: 2px solid #F5F3F0; padding-bottom: 12px; }
-        .form-group { margin-bottom: 16px; }
-        label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: #666; }
-        input[type="text"], textarea { width: 100%; padding: 10px 12px; border: 1px solid #E7E5E4; border-radius: 6px; font-size: 14px; font-family: Arial, sans-serif; }
-        input[type="text"]:focus, textarea:focus { outline: none; border-color: #B8860B; }
-        textarea { resize: vertical; min-height: 60px; }
-        .preview { margin-top: 12px; max-width: 300px; }
-        .preview img { max-width: 100%; border-radius: 6px; border: 1px solid #E7E5E4; }
-        .file-input { position: relative; }
-        input[type="file"] { padding: 8px 0; }
-        .upload-btn { display: inline-block; padding: 10px 20px; background: #B8860B; color: white; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; }
-        .upload-btn:hover { background: #9D6F0A; }
-        .alert { padding: 12px 16px; border-radius: 6px; margin-bottom: 20px; font-size: 13px; }
+        .back-link { display: inline-block; margin-bottom: 24px; color: #B8860B; text-decoration: none; font-size: 13px; font-weight: 600; transition: all .2s; }
+        .back-link:hover { color: #9D6F0A; }
+        .header { margin-bottom: 32px; }
+        .header h1 { font-size: 28px; font-weight: 800; display: flex; align-items: center; gap: 12px; color: #1c1511; }
+        .header h1 i { color: #B8860B; font-size: 32px; }
+        .card { background: white; border-radius: 14px; padding: 28px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,.06); border: 1px solid #E7E5E4; }
+        .card h2 { font-size: 16px; font-weight: 700; margin-bottom: 20px; color: #1c1511; border-bottom: 2px solid #F5F3F0; padding-bottom: 14px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 8px; color: #666; text-transform: uppercase; letter-spacing: .5px; }
+        input[type="text"], textarea { width: 100%; padding: 12px 14px; border: 1px solid #E7E5E4; border-radius: 8px; font-size: 14px; font-family: inherit; transition: all .2s; }
+        input[type="text"]:focus, textarea:focus { outline: none; border-color: #B8860B; box-shadow: 0 0 0 3px rgba(184, 134, 11, .1); }
+        textarea { resize: vertical; min-height: 80px; }
+        .preview { margin-top: 16px; max-width: 320px; }
+        .preview strong { font-size: 12px; font-weight: 700; color: #666; display: block; margin-bottom: 8px; }
+        .preview img { max-width: 100%; border-radius: 8px; border: 1px solid #E7E5E4; box-shadow: 0 2px 6px rgba(0, 0, 0, .08); }
+        input[type="file"] { padding: 8px 0; font-size: 13px; }
+        .alert { padding: 14px 16px; border-radius: 8px; margin-bottom: 24px; font-size: 13px; }
         .alert.success { background: #F0FDF4; color: #166534; border: 1px solid #DCFCE7; }
         .alert.error { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
-        .button-group { display: flex; gap: 10px; margin-top: 20px; }
-        button { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; }
-        .btn-primary { background: #B8860B; color: white; }
-        .btn-primary:hover { background: #9D6F0A; }
+        .button-group { display: flex; gap: 12px; margin-top: 24px; }
+        button { padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all .2s; }
+        .btn-primary { background: linear-gradient(135deg, #B8860B 0%, #D4A017 100%); color: white; box-shadow: 0 2px 6px rgba(184, 134, 11, .2); }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(184, 134, 11, .3); }
         .btn-secondary { background: #F5F3F0; color: #1c1511; border: 1px solid #E7E5E4; }
         .btn-secondary:hover { background: #EAE8E5; }
     </style>

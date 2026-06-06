@@ -37,118 +37,28 @@ $containerCount = $pdo->query("SELECT COUNT(*) FROM pwf_containers")->fetchColum
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PWF Management Console</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
-            background: #f5f3f0;
-            color: #1c1511;
-            padding: 20px
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto
-        }
-        .header {
-            margin-bottom: 30px
-        }
-        .header h1 {
-            font-size: 28px;
-            margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-            gap: 12px
-        }
-        .header h1 i {
-            font-size: 32px;
-            color: #B8860B
-        }
-        .header p {
-            color: #666;
-            font-size: 14px
-        }
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 16px;
-            margin-bottom: 30px
-        }
-        .stat-card {
-            background: white;
-            padding: 20px;
-            border-radius: 12px;
-            border: 1px solid #E7E5E4;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, .05)
-        }
-        .stat-card i {
-            font-size: 24px;
-            color: #B8860B;
-            margin-bottom: 12px
-        }
-        .stat-card .number {
-            font-size: 32px;
-            font-weight: 700;
-            color: #1c1511;
-            margin-bottom: 4px
-        }
-        .stat-card .label {
-            font-size: 12px;
-            color: #999;
-            text-transform: uppercase;
-            letter-spacing: .5px
-        }
-        .menu-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 16px;
-            margin-bottom: 30px
-        }
-        .menu-card {
-            background: white;
-            border: 2px solid #E7E5E4;
-            border-radius: 12px;
-            padding: 24px;
-            transition: all .2s ease;
-            cursor: pointer;
-            text-decoration: none;
-            color: inherit
-        }
-        .menu-card:hover {
-            border-color: #B8860B;
-            box-shadow: 0 8px 16px rgba(184, 134, 11, .1);
-            transform: translateY(-2px)
-        }
-        .menu-card i {
-            font-size: 40px;
-            color: #B8860B;
-            margin-bottom: 16px;
-            display: block
-        }
-        .menu-card h3 {
-            font-size: 16px;
-            margin-bottom: 8px;
-            color: #1c1511
-        }
-        .menu-card p {
-            font-size: 13px;
-            color: #666;
-            line-height: 1.5
-        }
-        .alert {
-            background: #FFF7ED;
-            border: 1px solid #FED7AA;
-            border-radius: 8px;
-            padding: 16px;
-            margin-bottom: 20px;
-            color: #C2410C;
-            font-size: 13px
-        }
-        .alert i {
-            margin-right: 8px
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #f5f3f0 0%, #faf9f7 100%); color: #1c1511; padding: 24px; line-height: 1.6; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .header { margin-bottom: 40px; }
+        .header h1 { font-size: 32px; font-weight: 800; margin-bottom: 8px; display: flex; align-items: center; gap: 14px; background: linear-gradient(135deg, #B8860B 0%, #D4A017 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .header h1 i { font-size: 36px; color: #B8860B; }
+        .header p { color: #78716C; font-size: 14px; margin: 0; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 40px; }
+        .stat-card { background: white; padding: 24px; border-radius: 14px; border: 1px solid #E7E5E4; box-shadow: 0 4px 12px rgba(0, 0, 0, .06); transition: all .3s ease; }
+        .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(184, 134, 11, .12); border-color: #D4A017; }
+        .stat-card i { font-size: 28px; color: #B8860B; margin-bottom: 14px; display: block; opacity: .9; }
+        .stat-card .number { font-size: 36px; font-weight: 800; color: #1c1511; margin-bottom: 6px; }
+        .stat-card .label { font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: .6px; font-weight: 600; }
+        .menu-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 40px; }
+        .menu-card { background: white; border: 2px solid transparent; border-radius: 14px; padding: 28px; transition: all .3s cubic-bezier(.4, 0, .2, 1); cursor: pointer; text-decoration: none; color: inherit; box-shadow: 0 2px 8px rgba(0, 0, 0, .04); }
+        .menu-card:hover { transform: translateY(-4px); border-color: #B8860B; box-shadow: 0 12px 24px rgba(184, 134, 11, .15); background: #FFFBF5; }
+        .menu-card i { font-size: 44px; color: #B8860B; margin-bottom: 16px; display: block; opacity: .85; }
+        .menu-card h3 { font-size: 17px; font-weight: 700; margin-bottom: 10px; color: #1c1511; }
+        .menu-card p { font-size: 13px; color: #78716C; line-height: 1.6; }
+        .alert { background: linear-gradient(135deg, #FEF3E8 0%, #FFF7ED 100%); border: 1px solid #FED7AA; border-radius: 10px; padding: 16px 20px; margin-bottom: 24px; color: #B45309; font-size: 13px; display: flex; align-items: center; gap: 12px; }
+        .alert i { font-size: 18px; flex-shrink: 0; }
+        .alert strong { font-weight: 700; }
     </style>
 </head>
 <body>
