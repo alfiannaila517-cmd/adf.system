@@ -53,10 +53,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $msg = 'Password minimal 6 karakter';
             $msgType = 'error';
         } else {
-            $check = $masterPdo->prepare('SELECT id FROM users WHERE username=? OR email=?');
-            $check->execute([$username, $email]);
+            // Check hanya di PWF users
+            $check = $masterPdo->prepare('
+                SELECT u.id FROM users u 
+                INNER JOIN user_business_assignment uba ON u.id = uba.user_id 
+                WHERE uba.business_id = ? AND (u.username=? OR u.email=?)
+            ');
+            $check->execute([$pwfBizId, $username, $email]);
             if ($check->fetch()) {
-                $msg = 'Username atau email sudah terdaftar';
+                $msg = 'Username atau email sudah terdaftar di PWF';
                 $msgType = 'error';
             } else {
                 $hashed = password_hash($password, PASSWORD_BCRYPT);
@@ -90,6 +95,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($stmt->execute([$hashed, $userId])) {
             $msg = 'Password direset ke: Password123 (silakan minta user menggantinya)';
             $msgType = 'success';
+        }
+    }
+    elseif ($action === 'delete') {
+        $userId = (int)($_POST['user_id'] ?? 0);
+        // Delete from user_business_assignment first (foreign key)
+        $stmt = $masterPdo->prepare('DELETE FROM user_business_assignment WHERE user_id=?');
+        $stmt->execute([$userId]);
+        // Then delete from user_menu_permissions
+        $stmt = $masterPdo->prepare('DELETE FROM user_menu_permissions WHERE user_id=?');
+        $stmt->execute([$userId]);
+        // Finally delete user
+        $stmt = $masterPdo->prepare('DELETE FROM users WHERE id=?');
+        if ($stmt->execute([$userId])) {
+            $msg = 'User berhasil dihapus!';
+            $msgType = 'success';
+            header('Refresh: 1');
         }
     }
 }
@@ -139,18 +160,25 @@ require_once __DIR__ . '/../layout.php';
         .alert { padding: 14px 16px; border-radius: 8px; margin-bottom: 24px; font-size: 13px; }
         .alert.success { background: #F0FDF4; color: #166534; border: 1px solid #DCFCE7; }
         .alert.error { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
-        table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,.06); border: 1px solid #E7E5E4; }
-        th { background: linear-gradient(135deg, #F5F3F0 0%, #F9F7F4 100%); padding: 14px 16px; text-align: left; font-size: 11px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: .6px; }
-        td { padding: 14px 16px; border-bottom: 1px solid #E7E5E4; font-size: 13px; }
-        tr:last-child td { border-bottom: none; }
-        .username { font-weight: 700; color: #1c1511; }
-        .status { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
-        .status.active { background: #F0FDF4; color: #166534; }
-        .status.inactive { background: #FEF2F2; color: #991B1B; }
-        .action-btn { padding: 6px 12px; border: 1px solid #E7E5E4; background: white; border-radius: 6px; cursor: pointer; font-size: 11px; margin-right: 4px; font-weight: 600; transition: all .2s; }
-        .action-btn:hover { background: #F5F3F0; border-color: #B8860B; color: #B8860B; }
-        .action-btn.danger { color: #991B1B; border-color: #FECACA; }
-        .action-btn.danger:hover { background: #FEF2F2; }
+        .users-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; margin-top: 24px; }
+        .user-card { background: white; border: 1px solid #E7E5E4; border-radius: 12px; padding: 24px; transition: all .2s; box-shadow: 0 2px 8px rgba(0,0,0,.05); }
+        .user-card:hover { border-color: #B8860B; box-shadow: 0 4px 16px rgba(184, 134, 11, .1); transform: translateY(-2px); }
+        .user-card-header { margin-bottom: 16px; }
+        .user-username { font-size: 16px; font-weight: 800; color: #1c1511; margin: 0 0 4px 0; }
+        .user-email { font-size: 12px; color: #999; margin: 0; word-break: break-all; }
+        .user-info { margin: 16px 0; padding: 12px; background: #F5F3F0; border-radius: 8px; }
+        .user-info-row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; margin-bottom: 8px; }
+        .user-info-row:last-child { margin-bottom: 0; }
+        .user-label { color: #999; font-weight: 600; }
+        .user-value { color: #1c1511; font-weight: 600; }
+        .user-status { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+        .user-status.active { background: #F0FDF4; color: #166534; }
+        .user-status.inactive { background: #FEF2F2; color: #991B1B; }
+        .user-actions { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+        .user-action-btn { flex: 1; min-width: 80px; padding: 8px 12px; border: 1px solid #E7E5E4; background: white; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all .2s; text-align: center; }
+        .user-action-btn:hover { background: #F5F3F0; border-color: #B8860B; color: #B8860B; }
+        .user-action-btn.danger { color: #991B1B; border-color: #FECACA; }
+        .user-action-btn.danger:hover { background: #FEF2F2; border-color: #991B1B; }
         .empty-state { text-align: center; padding: 60px 20px; color: #999; }
     </style>
     <div class="navbar">
@@ -185,51 +213,63 @@ require_once __DIR__ . '/../layout.php';
         
         <?php if (empty($users)): ?>
             <div class="empty-state">
-                <p>Belum ada user terdaftar</p>
+                <p>📭 Belum ada user terdaftar</p>
             </div>
         <?php else: ?>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Username</th>
-                        <th>Email</th>
-                        <th>Nama Lengkap</th>
-                        <th>Status</th>
-                        <th>Dibuat</th>
-                        <th>Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($users as $user): ?>
-                        <tr>
-                            <td class="username"><?= htmlspecialchars($user['username']) ?></td>
-                            <td><?= htmlspecialchars($user['email']) ?></td>
-                            <td><?= htmlspecialchars($user['full_name'] ?? '—') ?></td>
-                            <td>
-                                <span class="status <?= $user['is_active'] ? 'active' : 'inactive' ?>">
-                                    <?= $user['is_active'] ? 'Aktif' : 'Nonaktif' ?>
+            <div class="users-grid">
+                <?php foreach ($users as $user): ?>
+                    <div class="user-card">
+                        <div class="user-card-header">
+                            <h3 class="user-username"><?= htmlspecialchars($user['username']) ?></h3>
+                            <p class="user-email"><?= htmlspecialchars($user['email']) ?></p>
+                        </div>
+                        
+                        <div class="user-info">
+                            <div class="user-info-row">
+                                <span class="user-label">Nama:</span>
+                                <span class="user-value"><?= htmlspecialchars($user['full_name'] ?? '—') ?></span>
+                            </div>
+                            <div class="user-info-row">
+                                <span class="user-label">Status:</span>
+                                <span class="user-status <?= $user['is_active'] ? 'active' : 'inactive' ?>">
+                                    <?= $user['is_active'] ? '✓ Aktif' : '✗ Nonaktif' ?>
                                 </span>
-                            </td>
-                            <td><?= date('d M Y', strtotime($user['created_at'])) ?></td>
-                            <td>
-                                <form method="post" style="display: inline;">
-                                    <input type="hidden" name="_action" value="toggle_active">
-                                    <input type="hidden" name="user_id" value="<?= $user['id'] ?>">
-                                    <input type="hidden" name="is_active" value="<?= $user['is_active'] ? 0 : 1 ?>">
-                                    <button type="submit" class="action-btn">
-                                        <?= $user['is_active'] ? 'Nonaktifkan' : 'Aktifkan' ?>
-                                    </button>
-                                </form>
-                                <form method="post" style="display: inline;" onsubmit="return confirm('Reset password user ini?');">
-                                    <input type="hidden" name="_action" value="reset_password">
-                                    <input type="hidden" name="user_id" value="<?= $user['id'] ?>">
-                                    <button type="submit" class="action-btn danger">Reset Pass</button>
-                                </form>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+                            </div>
+                            <div class="user-info-row">
+                                <span class="user-label">Dibuat:</span>
+                                <span class="user-value"><?= date('d M Y', strtotime($user['created_at'])) ?></span>
+                            </div>
+                        </div>
+                        
+                        <div class="user-actions">
+                            <form method="post" style="display: contents;">
+                                <input type="hidden" name="_action" value="toggle_active">
+                                <input type="hidden" name="user_id" value="<?= $user['id'] ?>">
+                                <input type="hidden" name="is_active" value="<?= $user['is_active'] ? 0 : 1 ?>">
+                                <button type="submit" class="user-action-btn" title="<?= $user['is_active'] ? 'Nonaktifkan user' : 'Aktifkan user' ?>">
+                                    <?= $user['is_active'] ? '🔒 Nonaktif' : '🔓 Aktif' ?>
+                                </button>
+                            </form>
+                            
+                            <form method="post" style="display: contents;" onsubmit="return confirm('Reset password user ini ke Password123?');">
+                                <input type="hidden" name="_action" value="reset_password">
+                                <input type="hidden" name="user_id" value="<?= $user['id'] ?>">
+                                <button type="submit" class="user-action-btn" title="Reset password ke Password123">
+                                    🔑 Reset Pass
+                                </button>
+                            </form>
+                            
+                            <form method="post" style="display: contents;" onsubmit="return confirm('Hapus user ini? Tidak bisa dibatalkan!');">
+                                <input type="hidden" name="_action" value="delete">
+                                <input type="hidden" name="user_id" value="<?= $user['id'] ?>">
+                                <button type="submit" class="user-action-btn danger" title="Hapus user">
+                                    🗑️ Hapus
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
         <?php endif; ?>
     </div>
     
