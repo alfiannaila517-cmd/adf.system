@@ -191,28 +191,28 @@ pwfOfficeHeader('Dashboard', 'dashboard');
 <!-- ══ STAT CARDS ═══════════════════════════════════════════════════════════ -->
 <div class="stat-cards" style="margin-bottom:20px">
     <div class="stat-card">
-        <div class="stat-icon" style="background:#EFF6FF"><i class="bi bi-people" style="color:#1D4ED8"></i></div>
+        <div class="stat-icon" style="background:var(--status-blue-bg)"><i class="bi bi-people" style="color:#60A5FA"></i></div>
         <div>
             <div class="stat-val"><?= $stats['customers'] ?></div>
             <div class="stat-lbl">Customers</div>
         </div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon" style="background:#FFF7ED"><i class="bi bi-clipboard2-check" style="color:#C2410C"></i></div>
+        <div class="stat-icon" style="background:var(--status-orange-bg)"><i class="bi bi-clipboard2-check" style="color:#FB923C"></i></div>
         <div>
             <div class="stat-val"><?= $stats['active_orders'] ?></div>
             <div class="stat-lbl">Active Orders</div>
         </div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon" style="background:#F5F3FF"><i class="bi bi-hammer" style="color:#6D28D9"></i></div>
+        <div class="stat-icon" style="background:var(--status-purple-bg)"><i class="bi bi-hammer" style="color:#D8B4FE"></i></div>
         <div>
             <div class="stat-val"><?= $stats['in_progress'] ?></div>
             <div class="stat-lbl">In Production</div>
         </div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon" style="background:#F0FDF4"><i class="bi bi-check2-circle" style="color:#15803D"></i></div>
+        <div class="stat-icon" style="background:var(--status-green-bg)"><i class="bi bi-check2-circle" style="color:#4EEE90"></i></div>
         <div>
             <div class="stat-val"><?= $stats['ready_ship'] ?></div>
             <div class="stat-lbl">Ready to Ship</div>

@@ -163,6 +163,20 @@ function pwfOfficeHeader(string $title, string $active = ''): void
                 --sidebar-logo-bg: #fff;
                 --topbar-bg: #fff;
                 --input-bg: #fff;
+                --status-blue-bg: #EFF6FF;
+                --status-blue-text: #1D4ED8;
+                --status-orange-bg: #FFF7ED;
+                --status-orange-text: #C2410C;
+                --status-purple-bg: #F5F3FF;
+                --status-purple-text: #6D28D9;
+                --status-green-bg: #F0FDF4;
+                --status-green-text: #15803D;
+                --status-red-bg: #FEF2F2;
+                --status-red-text: #991B1B;
+                --alert-success-bg: #F0FDF4;
+                --alert-success-border: #BBF7D0;
+                --alert-danger-bg: #FEF2F2;
+                --alert-danger-border: #FECACA;
             }
 
             [data-theme="dark"] {
@@ -179,6 +193,20 @@ function pwfOfficeHeader(string $title, string $active = ''): void
                 --input-bg: #222226;
                 --gold-bg: rgba(184, 134, 11, .18);
                 --gold-border: rgba(212, 160, 23, .35);
+                --status-blue-bg: rgba(29, 78, 216, .25);
+                --status-blue-text: #60A5FA;
+                --status-orange-bg: rgba(194, 65, 12, .25);
+                --status-orange-text: #FB923C;
+                --status-purple-bg: rgba(109, 40, 217, .25);
+                --status-purple-text: #D8B4FE;
+                --status-green-bg: rgba(21, 128, 61, .25);
+                --status-green-text: #4EEE90;
+                --status-red-bg: rgba(153, 27, 27, .25);
+                --status-red-text: #F87171;
+                --alert-success-bg: rgba(16, 185, 129, .15);
+                --alert-success-border: rgba(16, 185, 129, .35);
+                --alert-danger-bg: rgba(239, 68, 68, .15);
+                --alert-danger-border: rgba(239, 68, 68, .35);
             }
 
             *,
@@ -735,6 +763,12 @@ function pwfOfficeHeader(string $title, string $active = ''): void
                 color: var(--success)
             }
 
+            [data-theme="dark"] .btn-export:hover {
+                background: var(--status-green-bg);
+                border-color: rgba(16, 185, 129, .5);
+                color: var(--status-green-text)
+            }
+
             /* ── BADGES & ALERTS ─────────────────────────────────── */
             .badge {
                 padding: 4px 10px;
@@ -748,6 +782,11 @@ function pwfOfficeHeader(string $title, string $active = ''): void
                 color: var(--muted) !important
             }
 
+            [data-theme="dark"] .bg-secondary {
+                background: #2C2C30 !important;
+                color: var(--muted) !important
+            }
+
             .alert {
                 padding: 12px 16px;
                 border-radius: 10px;
@@ -758,13 +797,25 @@ function pwfOfficeHeader(string $title, string $active = ''): void
             .alert-success {
                 background: #F0FDF4;
                 border: 1px solid #BBF7D0;
-                color: var(--success)
+                color: #166534
+            }
+
+            [data-theme="dark"] .alert-success {
+                background: var(--alert-success-bg);
+                border: 1px solid var(--alert-success-border);
+                color: #4EEE90
             }
 
             .alert-danger {
                 background: #FEF2F2;
                 border: 1px solid #FECACA;
-                color: var(--danger)
+                color: #991B1B
+            }
+
+            [data-theme="dark"] .alert-danger {
+                background: var(--alert-danger-bg);
+                border: 1px solid var(--alert-danger-border);
+                color: #F87171
             }
 
             /* ── STATUS BADGE ────────────────────────────────────── */
@@ -778,14 +829,31 @@ function pwfOfficeHeader(string $title, string $active = ''): void
             }
 
             .status-new,
-            .status-pending {
+            .status-pending,
+            .status-partial_ship,
+            .status-booked {
                 background: #EFF6FF;
                 color: #1D4ED8
             }
 
-            .status-on_progress {
+            [data-theme="dark"] .status-new,
+            [data-theme="dark"] .status-pending,
+            [data-theme="dark"] .status-partial_ship,
+            [data-theme="dark"] .status-booked {
+                background: var(--status-blue-bg);
+                color: var(--status-blue-text)
+            }
+
+            .status-on_progress,
+            .status-onboard {
                 background: #FFF7ED;
                 color: #C2410C
+            }
+
+            [data-theme="dark"] .status-on_progress,
+            [data-theme="dark"] .status-onboard {
+                background: var(--status-orange-bg);
+                color: var(--status-orange-text)
             }
 
             .status-qc {
@@ -793,24 +861,25 @@ function pwfOfficeHeader(string $title, string $active = ''): void
                 color: #6D28D9
             }
 
-            .status-ready_ship {
-                background: #F0FDF4;
-                color: #15803D
+            [data-theme="dark"] .status-qc {
+                background: var(--status-purple-bg);
+                color: var(--status-purple-text)
             }
 
-            .status-partial_ship {
-                background: #EFF6FF;
-                color: #1D4ED8
-            }
-
-            .status-shipped {
-                background: #ECFDF5;
-                color: #047857
-            }
-
-            .status-completed {
+            .status-ready_ship,
+            .status-shipped,
+            .status-completed,
+            .status-arrived {
                 background: #F0FDF4;
                 color: #166534
+            }
+
+            [data-theme="dark"] .status-ready_ship,
+            [data-theme="dark"] .status-shipped,
+            [data-theme="dark"] .status-completed,
+            [data-theme="dark"] .status-arrived {
+                background: var(--status-green-bg);
+                color: var(--status-green-text)
             }
 
             .status-cancelled {
@@ -818,23 +887,18 @@ function pwfOfficeHeader(string $title, string $active = ''): void
                 color: #991B1B
             }
 
-            .status-booked {
-                background: #EFF6FF;
-                color: #1D4ED8
-            }
-
-            .status-onboard {
-                background: #FFF7ED;
-                color: #C2410C
-            }
-
-            .status-arrived {
-                background: #F0FDF4;
-                color: #15803D
+            [data-theme="dark"] .status-cancelled {
+                background: var(--status-red-bg);
+                color: var(--status-red-text)
             }
 
             .status-closed {
                 background: #F5F5F4;
+                color: #6B7280
+            }
+
+            [data-theme="dark"] .status-closed {
+                background: rgba(255, 255, 255, .08);
                 color: var(--muted)
             }
 
@@ -897,6 +961,10 @@ function pwfOfficeHeader(string $title, string $active = ''): void
                 letter-spacing: .5px;
                 color: var(--muted);
                 background: #FAFAF9
+            }
+
+            [data-theme="dark"] table thead th {
+                background: #222226
             }
 
             .text-muted {
