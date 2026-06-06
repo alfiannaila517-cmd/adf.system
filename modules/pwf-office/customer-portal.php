@@ -409,6 +409,7 @@ if (!empty($_manifestParams)) {
         .customer-sidebar-panel {
             display: flex;
             flex-direction: column;
+            min-height: 74vh;
         }
 
         .search-grid {
@@ -490,7 +491,9 @@ if (!empty($_manifestParams)) {
         }
 
         .customer-list {
-            max-height: 74vh;
+            flex: 1;
+            min-height: 0;
+            max-height: none;
             overflow: auto;
             display: grid;
             gap: 8px;
@@ -507,6 +510,9 @@ if (!empty($_manifestParams)) {
             align-items: center;
             gap: 6px;
             flex-wrap: wrap;
+            position: sticky;
+            bottom: 0;
+            background: #fff;
         }
 
         .sidebar-meta strong {
@@ -792,8 +798,13 @@ if (!empty($_manifestParams)) {
                 display: none;
             }
 
+            .customer-sidebar-panel {
+                min-height: auto;
+            }
+
             .sidebar-meta {
                 margin-top: 8px;
+                position: static;
             }
 
             .customer-select-mobile {
