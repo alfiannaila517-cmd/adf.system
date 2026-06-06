@@ -667,13 +667,36 @@ if (!empty($_manifestParams)) {
             font-size: var(--fs-sm);
         }
 
+        .customer-select-mobile {
+            display: none;
+        }
+
         @media (max-width: 980px) {
             .portal-grid {
                 grid-template-columns: 1fr;
             }
 
             .customer-list {
-                max-height: none;
+                display: none;
+            }
+
+            .customer-select-mobile {
+                display: block;
+                margin-bottom: 8px;
+            }
+
+            .customer-select-mobile select {
+                width: 100%;
+                border: 1px solid var(--line);
+                border-radius: 10px;
+                padding: 9px 11px;
+                font-family: inherit;
+                font-size: var(--fs-md);
+                font-weight: 600;
+                color: var(--text);
+                background: #fff;
+                outline: none;
+                appearance: auto;
             }
 
             .buyer-kpi,
@@ -765,6 +788,26 @@ if (!empty($_manifestParams)) {
         <div class="portal-grid">
             <div class="panel">
                 <div style="font-size:13px;font-weight:800;color:#0F2948;margin-bottom:8px;">Customers</div>
+                <div class="customer-select-mobile">
+                    <label class="label">Pilih Customer</label>
+                    <select onchange="location.href=this.value">
+                        <?php foreach ($customers as $cust):
+                            $isActive = ((int)$cust['id'] === (int)$selectedCustomerId);
+                            $qsMob = [
+                                'buyer' => $buyerQuery,
+                                'customer_id' => (int)$cust['id']
+                            ];
+                            if ($buyerKey !== '') {
+                                $qsMob['buyer_key'] = $buyerKey;
+                            }
+                            $urlMob = 'customer-portal.php?' . http_build_query(array_filter($qsMob, static fn($v) => $v !== '' && $v !== null));
+                        ?>
+                            <option value="<?= htmlspecialchars($urlMob) ?>" <?= $isActive ? 'selected' : '' ?>>
+                                <?= htmlspecialchars((string)$cust['customer_code']) ?> - <?= htmlspecialchars((string)$cust['customer_name']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
                 <div class="customer-list">
                     <?php if (empty($customers)): ?>
                         <div class="empty"><?= $isLockedBuyerPortal ? 'No assigned customers found for this buyer.' : 'No customers found for this buyer filter.' ?></div>
