@@ -88,7 +88,7 @@ pwfOfficeHeader('Customers', 'customers');
         </div>
         <div style="padding:0">
         <table class="pwf-table">
-            <thead><tr><th>Code</th><th>Name</th><th>Phone</th><th style="width:80px">Action</th></tr></thead>
+            <thead><tr><th>Code</th><th>Name</th><th>Phone</th><th style="width:180px">Action</th></tr></thead>
             <tbody>
                 <?php foreach ($rows as $r): ?>
                     <tr>
@@ -96,6 +96,13 @@ pwfOfficeHeader('Customers', 'customers');
                         <td><?= htmlspecialchars($r['customer_name']) ?></td>
                         <td><?= htmlspecialchars($r['phone']) ?></td>
                         <td>
+                            <?php $portalUrl = rtrim(BASE_URL, '/') . '/modules/pwf-office/customer-portal.php?c=' . urlencode($r['customer_code']); ?>
+                            <a href="<?= htmlspecialchars($portalUrl) ?>" target="_blank" class="btn btn-sm btn-outline-primary" title="Open Customer Portal">
+                                <i class="bi bi-box-arrow-up-right"></i>
+                            </a>
+                            <button type="button" class="btn btn-sm btn-outline-success" title="Copy Portal Link" onclick="copyPortalLink('<?= htmlspecialchars($portalUrl, ENT_QUOTES) ?>')">
+                                <i class="bi bi-link-45deg"></i>
+                            </button>
                             <button class="btn btn-sm btn-outline-secondary" title="Edit"
                                 onclick="openEdit(<?= htmlspecialchars(json_encode($r), ENT_QUOTES) ?>)">
                                 <i class="bi bi-pencil"></i>
@@ -158,6 +165,17 @@ function confirmDelete() {
     if (confirm('Delete this customer? This cannot be undone.')) {
         document.getElementById('deleteForm').submit();
     }
+}
+function copyPortalLink(url) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(function() {
+            alert('Link portal customer berhasil disalin.');
+        }).catch(function() {
+            prompt('Copy link portal customer:', url);
+        });
+        return;
+    }
+    prompt('Copy link portal customer:', url);
 }
 document.getElementById('editModal').addEventListener('click', function(e){
     if (e.target === this) closeEdit();
