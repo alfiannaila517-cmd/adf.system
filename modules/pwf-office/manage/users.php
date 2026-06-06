@@ -26,6 +26,10 @@ $msgType = 'success';
 $pwfBiz = $masterPdo->query("SELECT id FROM businesses WHERE business_name LIKE '%PWF%' OR business_name LIKE '%Prapen%' LIMIT 1")->fetch();
 $pwfBizId = $pwfBiz['id'] ?? null;
 
+// Get default staff role_id for new users
+$staffRole = $masterPdo->query("SELECT id FROM roles WHERE role_code = 'staff' LIMIT 1")->fetch();
+$staffRoleId = $staffRole['id'] ?? 1; // Default to 1 if not found
+
 // Get users assigned to PWF business only
 $query = "SELECT u.id, u.username, u.email, u.full_name, u.is_active, u.created_at 
           FROM users u 
@@ -61,8 +65,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $msgType = 'error';
             } else {
                 $hashed = password_hash($password, PASSWORD_BCRYPT);
-                $stmt = $masterPdo->prepare('INSERT INTO users (username, email, password, full_name, is_active, created_at, updated_at) VALUES (?,?,?,?,1,NOW(),NOW())');
-                $insertResult = $stmt->execute([$username, $email, $hashed, $fullName]);
+                // Insert with correct columns for master database: role_id and created_by are required
+                $stmt = $masterPdo->prepare('
+                    INSERT INTO users (username, email, password, full_name, role_id, is_active, created_by, created_at, updated_at) 
+                    VALUES (?,?,?,?,?,1,?,NOW(),NOW())
+                ');
+                $insertResult = $stmt->execute([$username, $email, $hashed, $fullName, $staffRoleId, $_SESSION['user_id'] ?? null]);
                 
                 if ($insertResult) {
                     // Get newly created user ID
