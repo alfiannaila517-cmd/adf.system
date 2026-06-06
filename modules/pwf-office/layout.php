@@ -902,6 +902,106 @@ function pwfOfficeHeader(string $title, string $active = ''): void
                 color: var(--muted)
             }
 
+            /* ── HELPER BADGE CLASSES ─────────────────────────────── */
+            .badge-orange {
+                background: #FFF7ED;
+                color: #C2410C;
+                padding: 3px 10px;
+                border-radius: 20px;
+                font-weight: 700;
+                font-size: 11px;
+            }
+
+            [data-theme="dark"] .badge-orange {
+                background: var(--status-orange-bg);
+                color: var(--status-orange-text);
+            }
+
+            .badge-green {
+                background: #F0FDF4;
+                color: #15803D;
+                padding: 3px 10px;
+                border-radius: 20px;
+                font-weight: 700;
+                font-size: 11px;
+            }
+
+            [data-theme="dark"] .badge-green {
+                background: var(--status-green-bg);
+                color: var(--status-green-text);
+            }
+
+            .badge-blue {
+                background: #EFF6FF;
+                color: #1D4ED8;
+                padding: 3px 10px;
+                border-radius: 20px;
+                font-weight: 700;
+                font-size: 11px;
+            }
+
+            [data-theme="dark"] .badge-blue {
+                background: var(--status-blue-bg);
+                color: var(--status-blue-text);
+            }
+
+            .badge-red {
+                background: #FEF2F2;
+                color: #DC2626;
+                padding: 3px 10px;
+                border-radius: 20px;
+                font-weight: 700;
+                font-size: 11px;
+            }
+
+            [data-theme="dark"] .badge-red {
+                background: var(--status-red-bg);
+                color: var(--status-red-text);
+            }
+
+            /* ── BADGE VARIANTS ──────────────────────────────────────── */
+            .badge-orange-sm {
+                background: #FFF7ED;
+                color: #C2410C;
+                padding: 2px 8px;
+                border-radius: 20px;
+                font-weight: 700;
+                font-size: 10px;
+            }
+
+            [data-theme="dark"] .badge-orange-sm {
+                background: var(--status-orange-bg);
+                color: var(--status-orange-text);
+            }
+
+            .badge-green-sm {
+                background: #F0FDF4;
+                color: #15803D;
+                padding: 2px 8px;
+                border-radius: 20px;
+                font-weight: 700;
+                font-size: 10px;
+            }
+
+            [data-theme="dark"] .badge-green-sm {
+                background: var(--status-green-bg);
+                color: var(--status-green-text);
+            }
+
+            .badge-blue-sm {
+                background: #EFF6FF;
+                color: #1D4ED8;
+                padding: 2px 8px;
+                border-radius: 20px;
+                font-weight: 700;
+                font-size: 10px;
+            }
+
+            [data-theme="dark"] .badge-blue-sm {
+                background: var(--status-blue-bg);
+                color: var(--status-blue-text);
+            }
+
             /* ── LEGACY COMPAT ───────────────────────────────────── */
             .row {
                 display: grid;

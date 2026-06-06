@@ -222,7 +222,7 @@ pwfOfficeHeader('Buyers', 'buyers');
 
     .portal-link {
         font-size: 11px;
-        color: #2563EB;
+        color: var(--status-blue-text);
         word-break: break-all;
     }
 
@@ -242,7 +242,7 @@ pwfOfficeHeader('Buyers', 'buyers');
     }
 
     .modal-box {
-        background: #fff;
+        background: var(--card);
         border-radius: 14px;
         width: min(780px, 96vw);
         max-height: 90vh;
@@ -279,7 +279,7 @@ pwfOfficeHeader('Buyers', 'buyers');
         border: 1px solid var(--border);
         border-radius: 10px;
         padding: 10px;
-        background: #fafafa;
+        background: var(--nav-hover);
     }
 
     .customer-pick-item {
@@ -287,9 +287,9 @@ pwfOfficeHeader('Buyers', 'buyers');
         gap: 8px;
         align-items: flex-start;
         padding: 6px 8px;
-        border: 1px solid #e5e7eb;
+        border: 1px solid var(--border);
         border-radius: 8px;
-        background: #fff;
+        background: var(--card);
     }
 
     @media (max-width: 980px) {

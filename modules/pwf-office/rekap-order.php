@@ -42,7 +42,7 @@ pwfOfficeHeader('Rekap Order', 'rekap-order');
 
 <style>
     .recap-page {
-        background: white;
+        background: var(--card);
         padding: 20px;
         max-width: 1400px;
         margin: 0 auto;
@@ -78,16 +78,21 @@ pwfOfficeHeader('Rekap Order', 'rekap-order');
         width: 100%;
         border-collapse: collapse;
         font-size: 11px;
-        background: white;
+        background: var(--card);
         margin-bottom: 20px;
     }
 
     .recap-table thead {
-        background: #1C1511;
-        color: white;
+        background: #2C2C30;
+        color: #ECECEC;
         position: sticky;
         top: 0;
         z-index: 10;
+    }
+
+    [data-theme="light"] .recap-table thead {
+        background: #1C1511;
+        color: white;
     }
 
     .recap-table th {
@@ -97,21 +102,21 @@ pwfOfficeHeader('Rekap Order', 'rekap-order');
         font-size: 10px;
         text-transform: uppercase;
         letter-spacing: 0.3px;
-        border-bottom: 1px solid #E7E5E4;
+        border-bottom: 1px solid var(--border);
     }
 
     .recap-table td {
         padding: 10px 8px;
-        border-bottom: 1px solid #E7E5E4;
+        border-bottom: 1px solid var(--border);
         vertical-align: top;
     }
 
     .recap-table tbody tr:nth-child(even) {
-        background: #FAFAF9;
+        background: var(--nav-hover);
     }
 
     .recap-table tbody tr:hover {
-        background: #F5F3F0;
+        background: var(--nav-hover);
     }
 
     .recap-img {
