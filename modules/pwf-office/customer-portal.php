@@ -14,8 +14,10 @@ header('Expires: 0');
 $pdo = getPwfOfficePdo();
 $baseUrl = defined('BASE_URL') ? rtrim(BASE_URL, '/') : '';
 
-$customerCode = strtoupper(trim((string)($_GET['c'] ?? '')));
+$rawCustomerCode = trim((string)($_GET['c'] ?? ''));
+$customerCode = strtoupper($rawCustomerCode);
 $customerCode = preg_replace('/[^A-Z0-9\-]/', '', $customerCode);
+$customerCodeNormalized = preg_replace('/[^A-Z0-9]/', '', $customerCode);
 
 $companyName = 'Prapen Wood Furniture';
 $logoUrl = '';
@@ -63,12 +65,17 @@ $recentOrders = [];
 $errorMessage = '';
 
 if ($customerCode !== '') {
-    $stmtCustomer = $pdo->prepare('SELECT id, customer_code, customer_name, phone, address FROM pwf_customers WHERE customer_code = ? LIMIT 1');
-    $stmtCustomer->execute([$customerCode]);
+    // Match customer code in flexible format for mobile input (with/without dash/spaces)
+    $stmtCustomer = $pdo->prepare("SELECT id, customer_code, customer_name, phone, address
+        FROM pwf_customers
+        WHERE customer_code = ?
+           OR UPPER(REPLACE(REPLACE(customer_code, '-', ''), ' ', '')) = ?
+        LIMIT 1");
+    $stmtCustomer->execute([$customerCode, $customerCodeNormalized]);
     $customer = $stmtCustomer->fetch(PDO::FETCH_ASSOC);
 
     if (!$customer) {
-        $errorMessage = 'Kode customer tidak ditemukan.';
+        $errorMessage = 'Kode customer tidak ditemukan. Cek lagi kode dari admin (contoh: CUS-202606-001).';
     } else {
         $customerId = (int)$customer['id'];
 
@@ -228,9 +235,9 @@ if ($customerCode !== '') {
         }
 
         .logo {
-            width: 46px;
-            height: 46px;
-            border-radius: 14px;
+            width: 72px;
+            height: 72px;
+            border-radius: 18px;
             background: rgba(255,255,255,.15);
             border: 1px solid rgba(255,255,255,.25);
             display: grid;
@@ -242,7 +249,7 @@ if ($customerCode !== '') {
             width: 100%;
             height: 100%;
             object-fit: contain;
-            padding: 6px;
+            padding: 8px;
             background: #fff;
         }
 
@@ -471,6 +478,48 @@ if ($customerCode !== '') {
             text-align: center;
         }
 
+        .install-guide {
+            margin-top: 14px;
+            background: #fff;
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 14px;
+        }
+
+        .install-guide h3 {
+            margin: 0 0 10px;
+            font-size: 14px;
+            color: #0F2948;
+        }
+
+        .install-cols {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .install-card {
+            border: 1px solid #E6EDF6;
+            background: #FAFCFF;
+            border-radius: 12px;
+            padding: 12px;
+        }
+
+        .install-title {
+            margin: 0 0 8px;
+            font-size: 13px;
+            font-weight: 800;
+            color: #1E3A5F;
+        }
+
+        .install-list {
+            margin: 0;
+            padding-left: 18px;
+            color: #334155;
+            font-size: 12px;
+            line-height: 1.55;
+        }
+
         @media (max-width: 900px) {
             .hero { grid-template-columns: 1fr; }
             .kpi { grid-template-columns: repeat(2, minmax(0,1fr)); }
@@ -482,8 +531,10 @@ if ($customerCode !== '') {
             .panel { border-radius: 14px; padding: 12px; }
             .search-grid { grid-template-columns: 1fr; }
             .btn { width: 100%; }
+            .logo { width: 62px; height: 62px; border-radius: 16px; }
             .kpi-card { padding: 10px; }
             .kpi-value { font-size: 22px; }
+            .install-cols { grid-template-columns: 1fr; }
             table { font-size: 11px; }
             th, td { padding: 8px 6px; }
         }
@@ -497,7 +548,7 @@ if ($customerCode !== '') {
                     <?php if ($logoUrl !== ''): ?>
                         <img src="<?= htmlspecialchars($logoUrl) ?>" alt="Logo">
                     <?php else: ?>
-                        <span style="font-size:20px;color:#fff;">P</span>
+                        <span style="font-size:30px;color:#fff;">P</span>
                     <?php endif; ?>
                 </div>
                 <div>
@@ -653,6 +704,30 @@ if ($customerCode !== '') {
             <?php endif; ?>
         </div>
 
+        <div class="install-guide">
+            <h3>Cara Install ke Layar Beranda</h3>
+            <div class="install-cols">
+                <div class="install-card">
+                    <div class="install-title">Android (Chrome)</div>
+                    <ol class="install-list">
+                        <li>Buka portal customer ini di Chrome.</li>
+                        <li>Tap menu titik tiga di kanan atas.</li>
+                        <li>Pilih Install app atau Tambahkan ke layar utama.</li>
+                        <li>Tap Install, lalu icon akan muncul di beranda.</li>
+                    </ol>
+                </div>
+                <div class="install-card">
+                    <div class="install-title">iPhone/iPad (Safari)</div>
+                    <ol class="install-list">
+                        <li>Buka portal customer ini di Safari.</li>
+                        <li>Tap tombol Share (ikon kotak panah ke atas).</li>
+                        <li>Pilih Add to Home Screen.</li>
+                        <li>Tap Add, lalu icon akan muncul di Home Screen.</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+
         <div class="footer-note">Portal ini menampilkan data monitoring real-time dari sistem produksi dan shipping.</div>
     </div>
 
@@ -684,6 +759,14 @@ if ($customerCode !== '') {
                     deferredPrompt = null;
                     installBtn.style.display = 'none';
                 });
+            }
+
+            // On mobile, auto-scroll to the error message so user sees "kode tidak ditemukan".
+            var errorBox = document.querySelector('.error');
+            if (errorBox && window.innerWidth <= 768) {
+                setTimeout(function () {
+                    errorBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 150);
             }
         })();
     </script>
