@@ -53,23 +53,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $msg = 'Password minimal 6 karakter';
             $msgType = 'error';
         } else {
-            // Check hanya di PWF users
-            $check = $masterPdo->prepare('
-                SELECT u.id FROM users u 
-                INNER JOIN user_business_assignment uba ON u.id = uba.user_id 
-                WHERE uba.business_id = ? AND (u.username=? OR u.email=?)
-            ');
-            $check->execute([$pwfBizId, $username, $email]);
+            // Check username/email globally (must be unique across entire system)
+            $check = $masterPdo->prepare('SELECT id FROM users WHERE username=? OR email=?');
+            $check->execute([$username, $email]);
             if ($check->fetch()) {
-                $msg = 'Username atau email sudah terdaftar di PWF';
+                $msg = 'Username atau email sudah terdaftar di sistem';
                 $msgType = 'error';
             } else {
                 $hashed = password_hash($password, PASSWORD_BCRYPT);
                 $stmt = $masterPdo->prepare('INSERT INTO users (username, email, password, full_name, is_active, created_at, updated_at) VALUES (?,?,?,?,1,NOW(),NOW())');
                 if ($stmt->execute([$username, $email, $hashed, $fullName])) {
-                    $msg = 'User berhasil dibuat!';
-                    $msgType = 'success';
-                    header('Refresh: 2');
+                    // Get newly created user ID
+                    $userId = $masterPdo->lastInsertId();
+                    
+                    // Assign user to PWF business
+                    $assign = $masterPdo->prepare('INSERT INTO user_business_assignment (user_id, business_id, created_at) VALUES (?,?,NOW())');
+                    if ($assign->execute([$userId, $pwfBizId])) {
+                        $msg = 'User berhasil dibuat dan di-assign ke PWF!';
+                        $msgType = 'success';
+                        header('Refresh: 2');
+                    } else {
+                        // Delete user jika assignment gagal (rollback)
+                        $masterPdo->prepare('DELETE FROM users WHERE id=?')->execute([$userId]);
+                        $msg = 'Gagal assign user ke PWF business';
+                        $msgType = 'error';
+                    }
                 } else {
                     $msg = 'Gagal membuat user';
                     $msgType = 'error';
