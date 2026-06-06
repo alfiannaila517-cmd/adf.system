@@ -311,6 +311,11 @@ if (!empty($_manifestParams)) {
             padding: 0;
         }
 
+        html, body {
+            overflow-x: hidden;
+            max-width: 100%;
+        }
+
         body {
             font-family: 'Plus Jakarta Sans', sans-serif;
             color: var(--text);
@@ -319,9 +324,11 @@ if (!empty($_manifestParams)) {
         }
 
         .wrap {
-            width: min(1200px, 100%);
+            width: 100%;
+            max-width: 1200px;
             margin: 0 auto;
             padding: 16px 14px 32px;
+            box-sizing: border-box;
         }
 
         .hero {
@@ -667,8 +674,90 @@ if (!empty($_manifestParams)) {
             font-size: var(--fs-sm);
         }
 
+        /* ---- Custom slide dropdown (mobile) ---- */
         .customer-select-mobile {
             display: none;
+        }
+
+        .cust-drop {
+            position: relative;
+        }
+
+        .cust-drop-btn {
+            width: 100%;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-family: inherit;
+            font-size: var(--fs-md);
+            font-weight: 700;
+            color: var(--text);
+            background: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            cursor: pointer;
+            text-align: left;
+        }
+
+        .cust-drop-btn .drop-label {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
+        }
+
+        .cust-drop-btn .drop-arrow {
+            flex-shrink: 0;
+            width: 16px;
+            height: 16px;
+            transition: transform 0.3s ease;
+            color: var(--muted);
+        }
+
+        .cust-drop-btn.open .drop-arrow {
+            transform: rotate(180deg);
+        }
+
+        .cust-drop-menu {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 0 solid var(--line);
+            border-radius: 0 0 10px 10px;
+            background: #fff;
+            box-shadow: 0 8px 20px rgba(8,22,43,.10);
+            margin-top: -2px;
+        }
+
+        .cust-drop-menu.open {
+            max-height: 60vh;
+            overflow-y: auto;
+            border-width: 0 1px 1px 1px;
+        }
+
+        .cust-drop-item {
+            display: block;
+            padding: 10px 12px;
+            font-size: var(--fs-sm);
+            font-weight: 600;
+            color: var(--text);
+            text-decoration: none;
+            border-bottom: 1px solid #F0F5FA;
+        }
+
+        .cust-drop-item:last-child {
+            border-bottom: 0;
+        }
+
+        .cust-drop-item.active {
+            background: #EBF3FF;
+            color: #1D4ED8;
+        }
+
+        .cust-drop-item:hover {
+            background: #F4F8FF;
         }
 
         @media (max-width: 980px) {
@@ -683,20 +772,6 @@ if (!empty($_manifestParams)) {
             .customer-select-mobile {
                 display: block;
                 margin-bottom: 8px;
-            }
-
-            .customer-select-mobile select {
-                width: 100%;
-                border: 1px solid var(--line);
-                border-radius: 10px;
-                padding: 9px 11px;
-                font-family: inherit;
-                font-size: var(--fs-md);
-                font-weight: 600;
-                color: var(--text);
-                background: #fff;
-                outline: none;
-                appearance: auto;
             }
 
             .buyer-kpi,
@@ -790,23 +865,40 @@ if (!empty($_manifestParams)) {
                 <div style="font-size:13px;font-weight:800;color:#0F2948;margin-bottom:8px;">Customers</div>
                 <div class="customer-select-mobile">
                     <label class="label">Pilih Customer</label>
-                    <select onchange="location.href=this.value">
-                        <?php foreach ($customers as $cust):
-                            $isActive = ((int)$cust['id'] === (int)$selectedCustomerId);
-                            $qsMob = [
-                                'buyer' => $buyerQuery,
-                                'customer_id' => (int)$cust['id']
-                            ];
-                            if ($buyerKey !== '') {
-                                $qsMob['buyer_key'] = $buyerKey;
-                            }
-                            $urlMob = 'customer-portal.php?' . http_build_query(array_filter($qsMob, static fn($v) => $v !== '' && $v !== null));
-                        ?>
-                            <option value="<?= htmlspecialchars($urlMob) ?>" <?= $isActive ? 'selected' : '' ?>>
-                                <?= htmlspecialchars((string)$cust['customer_code']) ?> - <?= htmlspecialchars((string)$cust['customer_name']) ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
+                    <div class="cust-drop" id="custDrop">
+                        <button class="cust-drop-btn" id="custDropBtn" type="button">
+                            <span class="drop-label" id="custDropLabel">
+                                <?php
+                                $activeLabel = '';
+                                foreach ($customers as $cust) {
+                                    if ((int)$cust['id'] === (int)$selectedCustomerId) {
+                                        $activeLabel = $cust['customer_code'] . ' - ' . $cust['customer_name'];
+                                        break;
+                                    }
+                                }
+                                echo htmlspecialchars($activeLabel ?: 'Pilih customer...');
+                                ?>
+                            </span>
+                            <svg class="drop-arrow" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+                        </button>
+                        <div class="cust-drop-menu" id="custDropMenu">
+                            <?php foreach ($customers as $cust):
+                                $isActive = ((int)$cust['id'] === (int)$selectedCustomerId);
+                                $qsMob = [
+                                    'buyer' => $buyerQuery,
+                                    'customer_id' => (int)$cust['id']
+                                ];
+                                if ($buyerKey !== '') {
+                                    $qsMob['buyer_key'] = $buyerKey;
+                                }
+                                $urlMob = 'customer-portal.php?' . http_build_query(array_filter($qsMob, static fn($v) => $v !== '' && $v !== null));
+                            ?>
+                                <a class="cust-drop-item<?= $isActive ? ' active' : '' ?>" href="<?= htmlspecialchars($urlMob) ?>">
+                                    <?= htmlspecialchars((string)$cust['customer_code']) ?> - <?= htmlspecialchars((string)$cust['customer_name']) ?>
+                                </a>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
                 </div>
                 <div class="customer-list">
                     <?php if (empty($customers)): ?>
@@ -990,6 +1082,25 @@ if (!empty($_manifestParams)) {
         (function() {
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.register('customer-sw.js').catch(function() {});
+            }
+
+            /* Custom slide dropdown */
+            var dropBtn = document.getElementById('custDropBtn');
+            var dropMenu = document.getElementById('custDropMenu');
+            if (dropBtn && dropMenu) {
+                dropBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var isOpen = dropMenu.classList.contains('open');
+                    dropMenu.classList.toggle('open', !isOpen);
+                    dropBtn.classList.toggle('open', !isOpen);
+                });
+                document.addEventListener('click', function() {
+                    dropMenu.classList.remove('open');
+                    dropBtn.classList.remove('open');
+                });
+                dropMenu.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                });
             }
 
             var ua = navigator.userAgent || '';
