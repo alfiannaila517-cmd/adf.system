@@ -7,6 +7,7 @@ require_once __DIR__ . '/includes/business_helper.php';
 
 $auth = new Auth();
 $error = '';
+$savedUser = '';
 
 // Setup cookie handling for remember me
 $cookiePath = parse_url(BASE_URL, PHP_URL_PATH) ?: '/';
@@ -18,6 +19,11 @@ function generateRememberToken($userId, $secret) {
     $payload = $userId . ':' . $expiry;
     $hmac = hash_hmac('sha256', $payload, $secret);
     return base64_encode($payload . ':' . $hmac);
+}
+
+// Check if user has saved credentials
+if (!empty($_COOKIE['adf_saved_user'])) {
+    $savedUser = base64_decode($_COOKIE['adf_saved_user']);
 }
 
 if ($auth->isLoggedIn() && empty($_POST)) {
@@ -115,7 +121,7 @@ body{
 /* CARD — wide rectangle */
 .card{
   position:relative;z-index:2;
-  width: min(420px, 90vw);
+  width: min(360px, 90vw);
   background:rgba(8,11,22,.86);
   backdrop-filter:blur(20px);
   -webkit-backdrop-filter:blur(20px);
@@ -127,45 +133,45 @@ body{
 
 /* LOGO HEADER BAR */
 .card-head{
-  padding: 24px 28px 20px;
+  padding: 18px 22px 15px;
   background: rgba(255,255,255,.035);
   border-bottom: 1px solid rgba(255,255,255,.07);
   display:flex;
   flex-direction:column;
   align-items:center;
-  gap:10px;
+  gap:8px;
   text-align:center;
 }
 .logo-box{
-  width:64px;height:64px;border-radius:14px;
+  width:56px;height:56px;border-radius:12px;
   background:#fff;
   display:flex;align-items:center;justify-content:center;
   overflow:hidden;flex-shrink:0;
   box-shadow:0 4px 18px rgba(0,0,0,.36)
 }
-.logo-box img{width:100%;height:100%;object-fit:contain;padding:4px}
-.logo-icon{font-size:30px;line-height:1}
-.brand-name{font-size:15px;font-weight:700;color:var(--gold-lt);letter-spacing:.3px;text-transform:uppercase}
-.brand-sub{font-size:10.5px;color:rgba(255,255,255,.36);margin-top:1px}
+.logo-box img{width:100%;height:100%;object-fit:contain;padding:3px}
+.logo-icon{font-size:26px;line-height:1}
+.brand-name{font-size:14px;font-weight:700;color:var(--gold-lt);letter-spacing:.3px;text-transform:uppercase}
+.brand-sub{font-size:9.5px;color:rgba(255,255,255,.36);margin-top:0px}
 
 /* FORM BODY */
-.card-body{padding:24px 28px 26px}
+.card-body{padding:18px 22px 20px}
 
-.title{font-size:17px;font-weight:700;color:#fff;margin-bottom:3px}
-.subtitle{font-size:11.5px;color:rgba(255,255,255,.32);margin-bottom:20px}
+.title{font-size:16px;font-weight:700;color:#fff;margin-bottom:2px}
+.subtitle{font-size:10.5px;color:rgba(255,255,255,.32);margin-bottom:16px}
 
-.field{margin-bottom:13px}
+.field{margin-bottom:11px}
 .field label{
-  display:block;font-size:10px;font-weight:600;
+  display:block;font-size:9.5px;font-weight:600;
   color:rgba(255,255,255,.38);letter-spacing:.6px;
-  text-transform:uppercase;margin-bottom:5px
+  text-transform:uppercase;margin-bottom:4px
 }
 .input-wrap{position:relative}
 .field input{
-  width:100%;padding:10px 14px;
+  width:100%;padding:9px 12px;
   background:rgba(255,255,255,.07);
   border:1px solid rgba(255,255,255,.1);
-  border-radius:8px;color:#fff;font-size:13.5px;
+  border-radius:7px;color:#fff;font-size:12.5px;
   outline:none;font-family:inherit;
   transition:border-color .2s,box-shadow .2s
 }
@@ -174,97 +180,67 @@ body{
 
 /* eye button */
 .eye-btn{
-  position:absolute;right:11px;top:50%;transform:translateY(-50%);
+  position:absolute;right:9px;top:50%;transform:translateY(-50%);
   background:none;border:none;cursor:pointer;
-  color:rgba(212,160,23,.7);padding:3px;
+  color:rgba(212,160,23,.7);padding:2px;
   display:flex;align-items:center;
   transition:color .2s
 }
 .eye-btn:hover{color:var(--gold)}
-.eye-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.eye-btn svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* save password checkbox */
+.save-pwd-wrapper {
+  display:flex;align-items:center;gap:7px;margin:10px 0 9px 0;
+  padding:8px 10px;
+  background:rgba(34,197,94,.08);
+  border:1px solid rgba(34,197,94,.2);
+  border-radius:7px;
+  cursor:pointer;
+  transition:all .2s;
+}
+.save-pwd-wrapper:hover {
+  background:rgba(34,197,94,.12);
+  border-color:rgba(34,197,94,.3)
+}
+.save-pwd-wrapper input[type="checkbox"] {
+  width:15px;height:15px;
+  cursor:pointer;
+  accent-color:#10b981;
+  flex-shrink:0;margin:0
+}
+.save-pwd-wrapper label {
+  color:#86efac;font-size:11px;
+  cursor:pointer;margin:0;
+  user-select:none;font-weight:500;
+  flex:1
+}
 
 /* submit button */
 .btn{
-  width:100%;padding:11px;margin-top:4px;
+  width:100%;padding:10px;margin-top:8px;
   background:linear-gradient(135deg,var(--gold) 0%,#9a6d00 100%);
-  border:none;border-radius:8px;
-  color:#0a0e1a;font-size:13px;font-weight:700;
-  cursor:pointer;letter-spacing:.4px;text-transform:uppercase;
+  border:none;border-radius:7px;
+  color:#0a0e1a;font-size:12px;font-weight:700;
+  cursor:pointer;letter-spacing:.3px;text-transform:uppercase;
   font-family:inherit;transition:opacity .2s,transform .1s;
   box-shadow:0 4px 16px rgba(212,160,23,.26)
 }
 .btn:hover{opacity:.88;transform:translateY(-1px)}
 .btn:active{transform:translateY(0)}
 
-/* save password button */
-.btn-save-pwd{
-  width:100%;padding:10px 12px;margin:12px 0 8px 0;
-  background:linear-gradient(135deg,rgba(34,197,94,.15),rgba(34,197,94,.08));
-  border:1.5px solid rgba(34,197,94,.4);
-  border-radius:8px;
-  color:#86efac;font-size:12px;font-weight:600;
-  cursor:pointer;letter-spacing:.3px;
-  font-family:inherit;transition:all .3s;
-  display:flex;align-items:center;justify-content:center;gap:6px
-}
-.btn-save-pwd:hover{
-  background:linear-gradient(135deg,rgba(34,197,94,.2),rgba(34,197,94,.12));
-  border-color:rgba(34,197,94,.6);
-  box-shadow:0 4px 12px rgba(34,197,94,.15);
-  transform:translateY(-1px)
-}
-.btn-save-pwd.active{
-  background:linear-gradient(135deg,rgba(34,197,94,.25),rgba(34,197,94,.15));
-  border-color:rgba(34,197,94,.7);
-  color:#34d399;
-  box-shadow:0 6px 16px rgba(34,197,94,.2)
-}
-
-.btn-clear-pwd{
-  width:100%;padding:10px 12px;
-  background:linear-gradient(135deg,rgba(239,68,68,.12),rgba(239,68,68,.05));
-  border:1.5px solid rgba(239,68,68,.3);
-  border-radius:8px;
-  color:#fca5a5;font-size:12px;font-weight:600;
-  cursor:pointer;letter-spacing:.3px;
-  font-family:inherit;transition:all .3s;
-  display:none;gap:6px;
-  margin-bottom:8px;
-  align-items:center;justify-content:center
-}
-.btn-clear-pwd:hover{
-  background:linear-gradient(135deg,rgba(239,68,68,.18),rgba(239,68,68,.08));
-  border-color:rgba(239,68,68,.5);
-  box-shadow:0 4px 12px rgba(239,68,68,.12);
-  transform:translateY(-1px)
-}
-
-.save-pwd-info{
-  background:rgba(34,197,94,.08);
-  border:1px solid rgba(34,197,94,.2);
-  border-radius:8px;padding:8px 11px;
-  margin-bottom:11px;font-size:10.5px;color:#86efac;
-  display:flex;align-items:flex-start;gap:6px;
-  line-height:1.4
-}
-
-@keyframes slideInDown {
-  from { opacity:0;transform:translateY(-20px) }
-  to { opacity:1;transform:translateY(0) }
-}
-
 /* error */
 .err{
   background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.22);
-  border-radius:7px;padding:9px 12px;
-  color:#fca5a5;font-size:12px;margin-bottom:13px
+  border-radius:7px;padding:8px 10px;
+  color:#fca5a5;font-size:11px;margin-bottom:11px
 }
 
 /* footer */
 .card-foot{
-  padding:11px 28px;
+  padding:8px 22px;
   border-top:1px solid rgba(255,255,255,.06);
-  font-size:10px;color:rgba(255,255,255,.18);
+  font-size:9px;color:rgba(255,255,255,.18);
   text-align:center;
   background:rgba(0,0,0,.15)
 }
@@ -310,12 +286,12 @@ body{
     <form method="post" autocomplete="off">
       <div class="field">
         <label>Username</label>
-        <input name="username" type="text" id="usernameInput" autocomplete="username" required placeholder="Enter username">
+        <input name="username" type="text" id="usernameInput" autocomplete="username" required placeholder="Enter username" value="<?= htmlspecialchars($savedUser) ?>">
       </div>
       <div class="field">
         <label>Password</label>
         <div class="input-wrap">
-          <input name="password" type="password" id="pwdInput" autocomplete="current-password" required placeholder="••••••••" style="padding-right:36px">
+          <input name="password" type="password" id="pwdInput" autocomplete="current-password" required placeholder="••••••••" style="padding-right:32px">
           <button type="button" class="eye-btn" onclick="togglePwd()" title="Show / hide">
             <svg id="iconEye" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             <svg id="iconEyeOff" viewBox="0 0 24 24" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -323,21 +299,12 @@ body{
         </div>
       </div>
 
-      <div class="save-pwd-info">
-        <span>💾</span>
-        <span><strong>Simpan Password:</strong> Klik tombol di bawah untuk menyimpan & auto-login aman</span>
+      <div class="save-pwd-wrapper" onclick="document.getElementById('rememberMe').click();">
+        <input type="checkbox" name="remember_me" id="rememberMe" value="1" <?= !empty($savedUser) ? 'checked' : '' ?> onclick="event.stopPropagation();">
+        <label for="rememberMe">💾 Simpan Password</label>
       </div>
 
-      <button type="button" class="btn-clear-pwd" id="clearPwdBtn" onclick="clearSavedPassword()">
-        🗑️ Hapus Password Tersimpan
-      </button>
-
-      <button type="button" class="btn-save-pwd" id="savePwdBtn" onclick="enableSavePassword()">
-        💾 Simpan Password
-      </button>
-
       <button class="btn" type="submit">Sign In &rarr;</button>
-      <input type="hidden" name="remember_me" id="rememberMeInput" value="0">
     </form>
   </div>
 
@@ -354,82 +321,6 @@ function togglePwd() {
     document.getElementById('iconEye').style.display    = show ? 'none' : '';
     document.getElementById('iconEyeOff').style.display = show ? ''     : 'none';
 }
-
-function enableSavePassword() {
-    const usernameInput = document.getElementById('usernameInput');
-    const pwdInput = document.getElementById('pwdInput');
-    const savePwdBtn = document.getElementById('savePwdBtn');
-    const clearPwdBtn = document.getElementById('clearPwdBtn');
-    const rememberMeInput = document.getElementById('rememberMeInput');
-
-    if (!usernameInput.value || !pwdInput.value) {
-        alert('Silakan isi username dan password terlebih dahulu!');
-        return;
-    }
-
-    // Set remember_me flag
-    rememberMeInput.value = '1';
-
-    // Update button states
-    savePwdBtn.classList.add('active');
-    savePwdBtn.innerHTML = '✅ <strong>Password Akan Disimpan</strong>';
-    clearPwdBtn.style.display = 'flex';
-
-    // Show notification
-    showNotification('✅ Password akan disimpan setelah login berhasil!');
-}
-
-function clearSavedPassword() {
-    if (confirm('Hapus password tersimpan? Anda akan perlu login manual lagi.')) {
-        // Clear cookies
-        fetch('<?= BASE_URL ?>/api/clear-login-cookie.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-        }).then(() => {
-            document.getElementById('usernameInput').value = '';
-            document.getElementById('pwdInput').value = '';
-            document.getElementById('rememberMeInput').value = '0';
-            
-            const savePwdBtn = document.getElementById('savePwdBtn');
-            const clearPwdBtn = document.getElementById('clearPwdBtn');
-            savePwdBtn.classList.remove('active');
-            savePwdBtn.innerHTML = '💾 Simpan Password';
-            clearPwdBtn.style.display = 'none';
-            
-            alert('✅ Password tersimpan berhasil dihapus!');
-            location.reload();
-        }).catch(() => {
-            alert('❌ Gagal menghapus password. Silakan coba lagi.');
-        });
-    }
-}
-
-function showNotification(msg) {
-    const notif = document.createElement('div');
-    notif.style.cssText = `
-        position:fixed;top:20px;right:20px;
-        background:linear-gradient(135deg,rgba(34,197,94,.9),rgba(16,185,129,.9));
-        border:1px solid rgba(34,197,94,.5);color:#34d399;
-        padding:12px 16px;border-radius:10px;font-size:12px;
-        font-weight:600;box-shadow:0 6px 20px rgba(34,197,94,.3);
-        z-index:9999;backdrop-filter:blur(8px);animation:slideInDown .3s
-    `;
-    notif.innerHTML = msg;
-    document.body.appendChild(notif);
-    setTimeout(() => notif.remove(), 4000);
-}
-
-// Check for saved credentials on page load
-document.addEventListener('DOMContentLoaded', function() {
-    const hasSaved = document.cookie.includes('adf_saved_user');
-    if (hasSaved) {
-        const savePwdBtn = document.getElementById('savePwdBtn');
-        const clearPwdBtn = document.getElementById('clearPwdBtn');
-        savePwdBtn.classList.add('active');
-        savePwdBtn.innerHTML = '✅ <strong>Password Tersimpan</strong>';
-        clearPwdBtn.style.display = 'flex';
-    }
-});
 </script>
 </body>
 </html>
