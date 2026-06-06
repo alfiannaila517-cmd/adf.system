@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Customer Portal - PWF Office
  * Public monitoring page for customer order progress, container shipped qty, and monthly recap.
@@ -17,7 +18,8 @@ $_pwfDb = $_isProduction ? 'adfb2574_pwf' : 'adf_pwf';
 try {
     $pdo = new PDO(
         'mysql:host=' . DB_HOST . ';dbname=' . $_pwfDb . ';charset=utf8mb4',
-        DB_USER, DB_PASS,
+        DB_USER,
+        DB_PASS,
         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
     );
     if (function_exists('ensurePwfOfficeTables')) ensurePwfOfficeTables($pdo);
@@ -26,7 +28,8 @@ try {
     $_altDb = $_isProduction ? 'adfb2574_pwf' : 'adf_system_pwf';
     $pdo = new PDO(
         'mysql:host=' . DB_HOST . ';dbname=' . $_altDb . ';charset=utf8mb4',
-        DB_USER, DB_PASS,
+        DB_USER,
+        DB_PASS,
         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
     );
 }
@@ -215,6 +218,7 @@ if ($rawQuery !== '') {
 ?>
 <!doctype html>
 <html lang="id">
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -240,44 +244,44 @@ if ($rawQuery !== '') {
             --muted: #64748B;
         }
 
-        * { box-sizing: border-box; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
-            margin: 0;
             font-family: 'Plus Jakarta Sans', sans-serif;
             color: var(--text);
-            background:
-                radial-gradient(1200px 500px at 80% -10%, #173B64 0%, transparent 60%),
-                radial-gradient(900px 400px at -20% 10%, #1D4B7A 0%, transparent 55%),
-                linear-gradient(180deg, #0C1E37 0%, #0E223D 260px, #F3F7FB 260px, #F3F7FB 100%);
+            background: linear-gradient(180deg, #0C1E37 0%, #0E223D 180px, #F0F4FA 180px, #F0F4FA 100%);
             min-height: 100vh;
         }
 
+        /* ── WRAP ───────────────── */
         .wrap {
-            width: min(1080px, 94vw);
+            width: min(1080px, 100%);
             margin: 0 auto;
-            padding: 24px 0 40px;
+            padding: 16px 14px 32px;
         }
 
+        /* ── HERO ───────────────── */
         .hero {
             color: #fff;
-            display: grid;
-            grid-template-columns: 1fr auto;
-            gap: 16px;
+            display: flex;
             align-items: center;
-            margin-bottom: 18px;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 12px;
         }
 
         .brand {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 10px;
+            min-width: 0;
         }
 
         .logo {
-            width: 72px;
-            height: 72px;
-            border-radius: 18px;
+            width: 44px;
+            height: 44px;
+            min-width: 44px;
+            border-radius: 12px;
             background: rgba(255,255,255,.15);
             border: 1px solid rgba(255,255,255,.25);
             display: grid;
@@ -286,219 +290,228 @@ if ($rawQuery !== '') {
         }
 
         .logo img {
-            width: 100%;
-            height: 100%;
+            width: 100%; height: 100%;
             object-fit: contain;
-            padding: 8px;
+            padding: 6px;
             background: #fff;
         }
 
         .hero h1 {
-            margin: 0;
-            font-size: clamp(20px, 3.2vw, 30px);
+            font-size: 17px;
             font-weight: 800;
-            letter-spacing: .2px;
+            line-height: 1.2;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .hero p {
-            margin: 4px 0 0;
-            font-size: 13px;
-            color: rgba(255,255,255,.78);
+            margin-top: 2px;
+            font-size: 11px;
+            color: rgba(255,255,255,.72);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
+        /* ── INSTALL BTN (hero) ── */
         .install-btn {
             border: 1px solid rgba(255,255,255,.28);
             background: rgba(255,255,255,.14);
             color: #fff;
-            border-radius: 12px;
-            padding: 10px 14px;
+            border-radius: 10px;
+            padding: 8px 12px;
             font-weight: 700;
+            font-size: 12px;
             cursor: pointer;
             display: none;
+            white-space: nowrap;
+            flex-shrink: 0;
         }
 
-        .install-btn::before {
-            content: '\2B07\FE0F';
-            margin-right: 6px;
-        }
-
+        /* ── PANEL ───────────────── */
         .panel {
             background: var(--card);
             border: 1px solid var(--line);
-            border-radius: 18px;
-            padding: 16px;
-            box-shadow: 0 12px 40px rgba(8, 22, 43, .08);
+            border-radius: 14px;
+            padding: 12px;
+            box-shadow: 0 4px 20px rgba(8,22,43,.07);
         }
 
+        /* ── SEARCH ───────────────── */
         .search-grid {
             display: grid;
             grid-template-columns: 1fr auto;
-            gap: 10px;
+            gap: 8px;
             align-items: end;
         }
 
         .label {
             display: block;
-            font-size: 11px;
+            font-size: 10px;
             text-transform: uppercase;
             letter-spacing: .5px;
             color: var(--muted);
             font-weight: 700;
-            margin-bottom: 6px;
+            margin-bottom: 5px;
         }
 
         .input {
             width: 100%;
             border: 1px solid var(--line);
-            border-radius: 12px;
-            padding: 11px 12px;
+            border-radius: 10px;
+            padding: 9px 11px;
             font-family: inherit;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 600;
             color: var(--text);
             outline: none;
         }
 
-        .input:focus {
-            border-color: #5C88C2;
-            box-shadow: 0 0 0 3px rgba(92,136,194,.16);
-        }
+        .input:focus { border-color: #5C88C2; box-shadow: 0 0 0 3px rgba(92,136,194,.14); }
 
         .btn {
             border: 0;
-            border-radius: 12px;
+            border-radius: 10px;
             background: linear-gradient(135deg, #1F4B7A, #2A6DA8);
             color: #fff;
-            padding: 11px 16px;
+            padding: 9px 14px;
             font-family: inherit;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 700;
             cursor: pointer;
+            white-space: nowrap;
         }
 
         .error {
-            margin-top: 12px;
-            padding: 10px 12px;
-            border-radius: 10px;
+            margin-top: 10px;
+            padding: 9px 11px;
+            border-radius: 9px;
             background: #FFF1F2;
             border: 1px solid #FFD5DD;
             color: #BE123C;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 600;
         }
 
+        /* ── DASHBOARD ───────────────── */
         .dashboard {
-            margin-top: 14px;
+            margin-top: 10px;
             display: grid;
-            gap: 14px;
-            overflow-x: auto;
+            gap: 10px;
         }
 
-        .desktop-fixed {
-            min-width: 980px;
-        }
+        /* remove forced wide on all screens */
+        .desktop-fixed { min-width: unset; }
 
         .meta {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 6px;
+            gap: 5px;
+            margin-top: 5px;
         }
 
         .chip {
-            font-size: 11px;
+            font-size: 10px;
             background: #EEF4FF;
             color: #1E40AF;
             border: 1px solid #C7D7FE;
             border-radius: 99px;
-            padding: 6px 10px;
+            padding: 4px 8px;
             font-weight: 700;
         }
 
+        /* ── KPI 4-col desktop, 2x2 mobile ── */
         .kpi {
             display: grid;
             grid-template-columns: repeat(4, minmax(0,1fr));
-            gap: 10px;
+            gap: 8px;
         }
 
         .kpi-card {
             background: #fff;
             border: 1px solid var(--line);
-            border-radius: 14px;
-            padding: 12px;
+            border-radius: 12px;
+            padding: 10px 10px 12px;
         }
 
         .kpi-title {
-            font-size: 11px;
+            font-size: 9.5px;
             color: var(--muted);
             font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: .4px;
-            margin-bottom: 6px;
+            letter-spacing: .35px;
+            margin-bottom: 5px;
         }
 
         .kpi-value {
-            font-size: 26px;
+            font-size: 22px;
             font-weight: 800;
             line-height: 1;
             color: var(--ink);
         }
 
         .kpi-unit {
-            font-size: 12px;
+            font-size: 11px;
             color: var(--muted);
-            margin-left: 4px;
+            margin-left: 3px;
             font-weight: 700;
         }
 
+        /* ── TWO COL ── */
         .two-col {
             display: grid;
             grid-template-columns: 1.2fr .8fr;
-            gap: 12px;
+            gap: 10px;
         }
 
-        .progress-row { margin-bottom: 12px; }
+        /* ── PROGRESS ── */
+        .progress-row { margin-bottom: 10px; }
+
         .progress-head {
             display: flex;
             justify-content: space-between;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 700;
             color: var(--ink-soft);
-            margin-bottom: 6px;
+            margin-bottom: 5px;
         }
+
         .bar {
             width: 100%;
-            height: 12px;
+            height: 10px;
             background: #E8EFF8;
             border-radius: 999px;
             overflow: hidden;
         }
+
         .bar-fill {
             height: 100%;
             border-radius: 999px;
             transition: width .5s ease;
         }
+
         .bar-done { background: linear-gradient(90deg, #0F9D74, #34D399); }
         .bar-ship { background: linear-gradient(90deg, #F97316, #FDBA74); }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 12px;
-        }
+        /* ── TABLES ── */
+        .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+        table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
 
         th {
             text-align: left;
-            font-size: 10px;
+            font-size: 9.5px;
             text-transform: uppercase;
-            letter-spacing: .45px;
+            letter-spacing: .4px;
             color: var(--muted);
-            padding: 10px 8px;
+            padding: 8px 7px;
             border-bottom: 1px solid var(--line);
+            white-space: nowrap;
         }
 
         td {
-            padding: 11px 8px;
+            padding: 9px 7px;
             border-bottom: 1px solid #EEF3F9;
             vertical-align: middle;
         }
@@ -507,107 +520,114 @@ if ($rawQuery !== '') {
             display: inline-flex;
             align-items: center;
             border-radius: 99px;
-            padding: 4px 8px;
-            font-size: 10px;
+            padding: 3px 7px;
+            font-size: 9.5px;
             font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: .4px;
+            letter-spacing: .3px;
             background: #F1F5F9;
             color: #334155;
+            white-space: nowrap;
         }
 
-        .status.ready_ship, .status.completed { background: #ECFDF5; color: #047857; }
-        .status.on_progress, .status.partial_ship, .status.qc { background: #FFF7ED; color: #C2410C; }
-        .status.draft { background: #EFF6FF; color: #1D4ED8; }
-        .status.shipped { background: #EEF2FF; color: #4338CA; }
+        .status.ready_ship, .status.completed  { background:#ECFDF5; color:#047857; }
+        .status.on_progress, .status.partial_ship, .status.qc { background:#FFF7ED; color:#C2410C; }
+        .status.draft   { background:#EFF6FF; color:#1D4ED8; }
+        .status.shipped { background:#EEF2FF; color:#4338CA; }
 
+        /* ── FOOTER ── */
         .footer-note {
-            margin-top: 14px;
+            margin-top: 12px;
             font-size: 11px;
             color: #64748B;
             text-align: center;
         }
 
+        /* ── INSTALL GUIDE ── */
         .install-guide {
-            margin-top: 14px;
+            margin-top: 10px;
             background: #fff;
             border: 1px solid var(--line);
             border-radius: 14px;
-            padding: 14px;
+            padding: 12px;
         }
 
         .install-guide h3 {
-            margin: 0 0 10px;
-            font-size: 14px;
+            margin: 0 0 9px;
+            font-size: 13px;
             color: #0F2948;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
         }
 
         .install-cols {
             display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 10px;
+            grid-template-columns: repeat(2, minmax(0,1fr));
+            gap: 8px;
         }
 
         .install-card {
             border: 1px solid #E6EDF6;
             background: #FAFCFF;
-            border-radius: 12px;
-            padding: 12px;
+            border-radius: 10px;
+            padding: 10px;
         }
 
         .install-title {
-            margin: 0 0 8px;
-            font-size: 13px;
+            margin: 0 0 6px;
+            font-size: 12px;
             font-weight: 800;
             color: #1E3A5F;
         }
 
         .install-list {
-            margin: 0;
-            padding-left: 18px;
+            padding-left: 16px;
             color: #334155;
-            font-size: 12px;
-            line-height: 1.55;
+            font-size: 11px;
+            line-height: 1.5;
         }
 
         .android-install-btn {
             display: none;
             width: 100%;
-            margin-top: 10px;
-            padding: 12px;
+            margin-top: 8px;
+            padding: 10px;
             background: linear-gradient(135deg, #1a7cf9, #1558c0);
             color: #fff;
             border: none;
-            border-radius: 12px;
-            font-size: 14px;
+            border-radius: 10px;
+            font-size: 13px;
             font-weight: 800;
             cursor: pointer;
             align-items: center;
             justify-content: center;
-            gap: 8px;
+            gap: 7px;
         }
 
-        @media (max-width: 560px) {
-            .wrap { width: min(1080px, 96vw); padding-top: 16px; }
-            .panel { border-radius: 14px; padding: 12px; }
-            .search-grid { grid-template-columns: 1fr auto; }
-            .btn { width: auto; }
-            .logo { width: 62px; height: 62px; border-radius: 16px; }
-            .kpi-card { padding: 10px; }
-            .kpi-value { font-size: 22px; }
+        /* ── RESPONSIVE ── */
+        @media (max-width: 680px) {
+            .kpi          { grid-template-columns: repeat(2, minmax(0,1fr)); }
+            .two-col      { grid-template-columns: 1fr; }
             .install-cols { grid-template-columns: 1fr; }
-            table { font-size: 11px; }
-            th, td { padding: 8px 6px; }
         }
 
-        @media (max-width: 900px) {
-            .hero { grid-template-columns: 1fr; }
+        @media (min-width: 681px) {
+            .logo  { width: 60px; height: 60px; }
+            .hero h1 { font-size: 22px; }
+            .hero p  { font-size: 12px; }
+            .kpi-value { font-size: 26px; }
+            .wrap  { padding: 20px 16px 40px; }
+        }
+
+        @media (min-width: 1024px) {
+            .logo  { width: 72px; height: 72px; border-radius: 18px; }
+            .hero h1 { font-size: 28px; }
+            .kpi-value { font-size: 30px; }
         }
     </style>
 </head>
+
 <body>
     <div class="wrap">
         <div class="hero">
@@ -642,8 +662,8 @@ if ($rawQuery !== '') {
 
             <?php if ($customer): ?>
                 <div class="dashboard">
-                    <div class="desktop-fixed">
-                        <h2 style="margin:0;font-size:20px;color:#102A4A;"><?= htmlspecialchars($customer['customer_name']) ?></h2>
+                    <div>
+                        <h2 style="margin:0;font-size:17px;font-weight:800;color:#102A4A;"><?= htmlspecialchars($customer['customer_name']) ?></h2>
                         <div class="meta">
                             <span class="chip">Code: <?= htmlspecialchars($customer['customer_code']) ?></span>
                             <?php if ($resolvedSearchLabel !== ''): ?>
@@ -655,7 +675,7 @@ if ($rawQuery !== '') {
                         </div>
                     </div>
 
-                    <div class="kpi desktop-fixed">
+                    <div class="kpi">
                         <div class="kpi-card">
                             <div class="kpi-title">Total Orders</div>
                             <div class="kpi-value"><?= (int)$summary['total_orders'] ?></div>
@@ -674,29 +694,33 @@ if ($rawQuery !== '') {
                         </div>
                     </div>
 
-                    <div class="two-col desktop-fixed">
-                        <div class="panel" style="padding:12px;">
-                            <h3 style="margin:0 0 10px;font-size:14px;color:#0F2948;">Progress Summary</h3>
+                    <div class="two-col">
+                        <div class="panel" style="padding:10px;">
+                            <h3 style="margin:0 0 8px;font-size:13px;color:#0F2948;">Progress Summary</h3>
                             <div class="progress-row">
                                 <div class="progress-head">
                                     <span>Production completed</span>
                                     <span><?= (int)$completionPct ?>%</span>
                                 </div>
-                                <div class="bar"><div class="bar-fill bar-done" style="width: <?= (int)$completionPct ?>%;"></div></div>
+                                <div class="bar">
+                                    <div class="bar-fill bar-done" style="width: <?= (int)$completionPct ?>%;"></div>
+                                </div>
                             </div>
                             <div class="progress-row" style="margin-bottom:0;">
                                 <div class="progress-head">
                                     <span>Already in container</span>
                                     <span><?= (int)$shippingPct ?>%</span>
                                 </div>
-                                <div class="bar"><div class="bar-fill bar-ship" style="width: <?= (int)$shippingPct ?>%;"></div></div>
+                                <div class="bar">
+                                    <div class="bar-fill bar-ship" style="width: <?= (int)$shippingPct ?>%;"></div>
+                                </div>
                             </div>
                             <div style="margin-top:10px;font-size:11px;color:#64748B;">Total related containers: <strong><?= (int)$summary['container_count'] ?></strong></div>
                         </div>
 
-                        <div class="panel" style="padding:12px;">
-                            <h3 style="margin:0 0 10px;font-size:14px;color:#0F2948;">Current Status</h3>
-                            <div style="display:grid;gap:8px;font-size:12px;">
+                        <div class="panel" style="padding:10px;">
+                            <h3 style="margin:0 0 8px;font-size:13px;color:#0F2948;">Current Status</h3>
+                            <div style="display:grid;gap:7px;font-size:11px;">
                                 <div style="display:flex;justify-content:space-between;"><span style="color:#64748B;">Active orders</span><strong><?= (int)$summary['total_orders'] ?></strong></div>
                                 <div style="display:flex;justify-content:space-between;"><span style="color:#64748B;">Qty not completed</span><strong><?= htmlspecialchars(fmtQty(max(0, (float)$summary['qty_ordered'] - (float)$summary['qty_done']))) ?> pcs</strong></div>
                                 <div style="display:flex;justify-content:space-between;"><span style="color:#64748B;">Qty ready to ship</span><strong><?= htmlspecialchars(fmtQty(max(0, (float)$summary['qty_done'] - (float)$summary['qty_shipped']))) ?> pcs</strong></div>
@@ -704,8 +728,9 @@ if ($rawQuery !== '') {
                         </div>
                     </div>
 
-                    <div class="panel desktop-fixed" style="padding:12px;overflow:auto;">
-                        <h3 style="margin:0 0 8px;font-size:14px;color:#0F2948;">Monthly Order Recap (Last 12 Months)</h3>
+                    <div class="panel" style="padding:10px;">
+                        <h3 style="margin:0 0 8px;font-size:13px;color:#0F2948;">Monthly Order Recap</h3>
+                        <div class="table-scroll">
                         <table>
                             <thead>
                                 <tr>
@@ -718,7 +743,9 @@ if ($rawQuery !== '') {
                             </thead>
                             <tbody>
                                 <?php if (empty($monthlyRows)): ?>
-                                    <tr><td colspan="5" style="text-align:center;color:#94A3B8;">No monthly data yet.</td></tr>
+                                    <tr>
+                                        <td colspan="5" style="text-align:center;color:#94A3B8;">No monthly data yet.</td>
+                                    </tr>
                                 <?php else: ?>
                                     <?php foreach ($monthlyRows as $row): ?>
                                         <tr>
@@ -731,11 +758,12 @@ if ($rawQuery !== '') {
                                     <?php endforeach; ?>
                                 <?php endif; ?>
                             </tbody>
-                        </table>
+                        </table></div>
                     </div>
 
-                    <div class="panel desktop-fixed" style="padding:12px;overflow:auto;">
-                        <h3 style="margin:0 0 8px;font-size:14px;color:#0F2948;">Recent Orders</h3>
+                    <div class="panel" style="padding:10px;">
+                        <h3 style="margin:0 0 8px;font-size:13px;color:#0F2948;">Recent Orders</h3>
+                        <div class="table-scroll">
                         <table>
                             <thead>
                                 <tr>
@@ -750,7 +778,9 @@ if ($rawQuery !== '') {
                             </thead>
                             <tbody>
                                 <?php if (empty($recentOrders)): ?>
-                                    <tr><td colspan="7" style="text-align:center;color:#94A3B8;">No orders yet.</td></tr>
+                                    <tr>
+                                        <td colspan="7" style="text-align:center;color:#94A3B8;">No orders yet.</td>
+                                    </tr>
                                 <?php else: ?>
                                     <?php foreach ($recentOrders as $ord): ?>
                                         <tr>
@@ -769,7 +799,7 @@ if ($rawQuery !== '') {
                                     <?php endforeach; ?>
                                 <?php endif; ?>
                             </tbody>
-                        </table>
+                        </table></div>
                     </div>
                 </div>
             <?php endif; ?>
@@ -805,10 +835,10 @@ if ($rawQuery !== '') {
     </div>
 
     <script>
-        (function () {
+        (function() {
             // Register service worker
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('customer-sw.js').catch(function (err) {
+                navigator.serviceWorker.register('customer-sw.js').catch(function(err) {
                     console.warn('SW register failed:', err);
                 });
             }
@@ -832,24 +862,24 @@ if ($rawQuery !== '') {
             function doInstall() {
                 if (deferredPrompt) {
                     deferredPrompt.prompt();
-                    deferredPrompt.userChoice.then(function () {
+                    deferredPrompt.userChoice.then(function() {
                         deferredPrompt = null;
                         if (guideInstallBtn) guideInstallBtn.style.display = 'none';
                         if (headerInstallBtn) headerInstallBtn.style.display = 'none';
-                    }).catch(function () {});
+                    }).catch(function() {});
                 } else {
                     // Fallback: Chrome didn't fire event yet, guide user to menu
                     alert('To install: open Chrome menu (⋮) → Install app');
                 }
             }
 
-            window.addEventListener('beforeinstallprompt', function (e) {
+            window.addEventListener('beforeinstallprompt', function(e) {
                 e.preventDefault();
                 deferredPrompt = e;
                 if (isAndroid) showAndroidInstallUI();
             });
 
-            window.addEventListener('appinstalled', function () {
+            window.addEventListener('appinstalled', function() {
                 deferredPrompt = null;
                 if (guideInstallBtn) guideInstallBtn.style.display = 'none';
                 if (headerInstallBtn) headerInstallBtn.style.display = 'none';
@@ -868,11 +898,15 @@ if ($rawQuery !== '') {
             // Scroll to error on mobile
             var errorBox = document.querySelector('.error');
             if (errorBox && window.innerWidth <= 900) {
-                setTimeout(function () {
-                    errorBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setTimeout(function() {
+                    errorBox.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center'
+                    });
                 }, 200);
             }
         })();
     </script>
 </body>
+
 </html>
