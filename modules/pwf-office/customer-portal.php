@@ -193,6 +193,8 @@ if ($selectedCustomer) {
             o.product_name,
             o.quantity,
             o.qty_done,
+            o.finish,
+            o.wood_color,
             o.status,
             COALESCE(s.qty_shipped, 0) AS qty_shipped,
             COALESCE(s.container_refs, '-') AS container_refs
@@ -484,16 +486,25 @@ if ($buyerQuery !== '') {
                         <div class="table-scroll">
                             <table>
                                 <thead>
-                                    <tr><th>Order Code</th><th>Date</th><th>Product</th><th>Qty</th><th>Done</th><th>Container</th><th>Status</th></tr>
+                                    <tr><th>Order Code</th><th>Date</th><th>Product</th><th>Finish Color</th><th>Qty</th><th>Done</th><th>Container</th><th>Status</th></tr>
                                 </thead>
                                 <tbody>
                                     <?php if (empty($recentOrders)): ?>
-                                        <tr><td colspan="7" style="text-align:center;color:#94A3B8;">No orders yet.</td></tr>
+                                        <tr><td colspan="8" style="text-align:center;color:#94A3B8;">No orders yet.</td></tr>
                                     <?php else: foreach ($recentOrders as $ord): ?>
                                         <tr>
                                             <td><strong><?= htmlspecialchars((string)$ord['order_code']) ?></strong></td>
                                             <td><?= htmlspecialchars((string)$ord['order_date']) ?></td>
                                             <td><?= htmlspecialchars((string)$ord['product_name']) ?></td>
+                                            <td>
+                                                <?php
+                                                $finishColor = trim((string)($ord['finish'] ?? ''));
+                                                if ($finishColor === '') {
+                                                    $finishColor = trim((string)($ord['wood_color'] ?? ''));
+                                                }
+                                                ?>
+                                                <?= $finishColor !== '' ? htmlspecialchars($finishColor) : '—' ?>
+                                            </td>
                                             <td><?= htmlspecialchars(fmtQty((float)$ord['quantity'])) ?></td>
                                             <td><?= htmlspecialchars(fmtQty((float)$ord['qty_done'])) ?></td>
                                             <td>

@@ -352,6 +352,7 @@ $printDate = date('d F Y');
           <th>Order Code</th>
           <th>Product</th>
           <th>Dimensions</th>
+          <th>Finish Color</th>
           <th>Description / Material</th>
           <th>Qty</th>
           <th>Prices</th>
@@ -372,6 +373,15 @@ $printDate = date('d F Y');
               <strong><?= htmlspecialchars($ord['product_name']) ?></strong>
             </td>
             <td><?= htmlspecialchars($ord['dimensions'] ?: '—') ?></td>
+            <td>
+              <?php
+              $finishColor = trim((string)($ord['finish'] ?? ''));
+              if ($finishColor === '') {
+                $finishColor = trim((string)($ord['wood_color'] ?? ''));
+              }
+              ?>
+              <?= $finishColor !== '' ? htmlspecialchars($finishColor) : '—' ?>
+            </td>
             <td>
               <?php if ($ord['specification']): ?>
                 <strong><?= htmlspecialchars($ord['specification']) ?></strong>
@@ -411,7 +421,7 @@ $printDate = date('d F Y');
         <?php endforeach; ?>
         <?php if (empty($orders)): ?>
           <tr>
-            <td colspan="11" style="text-align:center;padding:20px;color:#999">No orders found for this customer.</td>
+            <td colspan="12" style="text-align:center;padding:20px;color:#999">No orders found for this customer.</td>
           </tr>
         <?php endif; ?>
       </tbody>
