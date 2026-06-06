@@ -4,11 +4,12 @@ function pwfOfficeHeader(string $title, string $active = ''): void
     $menu = [
         'dashboard' => ['label' => 'Dashboard',        'icon' => 'bi-speedometer2',     'url' => 'dashboard.php'],
         'orders'    => ['label' => 'Orders',            'icon' => 'bi-clipboard2-check', 'url' => 'orders.php'],
-        'progress'  => ['label' => 'Progress Tracking','icon' => 'bi-bar-chart-line',   'url' => 'progress.php'],
+        'progress'  => ['label' => 'Progress Tracking', 'icon' => 'bi-bar-chart-line',   'url' => 'progress.php'],
         'shipping'  => ['label' => 'Shipping & Export', 'icon' => 'bi-box-seam',        'url' => 'shipping.php'],
         'rekap-order' => ['label' => 'Rekap Order',    'icon' => 'bi-box2-heart',      'url' => 'rekap-order.php'],
         'database'  => [
-            'label' => 'Database', 'icon' => 'bi-database',
+            'label' => 'Database',
+            'icon' => 'bi-database',
             'children' => [
                 'customers'  => ['label' => 'Customers',   'icon' => 'bi-people',       'url' => 'customers.php'],
                 'craftsmen'  => ['label' => 'Craftsmen',   'icon' => 'bi-hammer',       'url' => 'craftsmen.php'],
@@ -16,9 +17,10 @@ function pwfOfficeHeader(string $title, string $active = ''): void
             ]
         ],
         'settings'  => ['label' => 'Settings',          'icon' => 'bi-gear',             'url' => 'settings.php'],
+        'manage'    => ['label' => 'PWF Manage',        'icon' => 'bi-tools',            'url' => 'manage/index.php'],
     ];
     // determine if any database child is active
-    $dbChildren = ['customers','craftsmen','containers'];
+    $dbChildren = ['customers', 'craftsmen', 'containers'];
     $dbActive   = in_array($active, $dbChildren);
     $fullName = htmlspecialchars($_SESSION['full_name'] ?? $_SESSION['username'] ?? 'User');
     $initials = strtoupper(substr($_SESSION['full_name'] ?? $_SESSION['username'] ?? 'U', 0, 2));
@@ -229,31 +231,44 @@ function pwfOfficeHeader(string $title, string $active = ''): void
                 border-left: 3px solid transparent;
                 user-select: none
             }
-            .nav-group-btn:hover, .nav-group-btn.open {
+
+            .nav-group-btn:hover,
+            .nav-group-btn.open {
                 background: var(--nav-hover);
                 color: var(--text)
             }
+
             .nav-group-btn.db-active {
                 color: #92600A;
                 font-weight: 600
             }
+
             .nav-group-btn .ng-chevron {
                 margin-left: auto;
                 font-size: 11px;
                 transition: transform .2s
             }
-            .nav-group-btn.open .ng-chevron { transform: rotate(90deg) }
+
+            .nav-group-btn.open .ng-chevron {
+                transform: rotate(90deg)
+            }
+
             .nav-sub {
                 display: none;
                 padding-left: 14px;
                 margin-bottom: 2px
             }
-            .nav-sub.open { display: block }
+
+            .nav-sub.open {
+                display: block
+            }
+
             .nav-sub a {
                 font-size: 12px;
                 padding: 7px 10px;
                 border-left: 2px solid var(--border)
             }
+
             .nav-sub a.active {
                 border-left-color: var(--gold);
                 background: var(--gold-bg);
