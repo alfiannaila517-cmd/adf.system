@@ -668,6 +668,28 @@ function pwfOfficeHeader(string $title, string $active = ''): void
                 min-height: 80px
             }
 
+            /* ── INPUT PLACEHOLDER & SELECTION ── */
+            .input::placeholder,
+            input[type=text]::placeholder,
+            input[type=date]::placeholder,
+            input[type=number]::placeholder,
+            input[type=email]::placeholder,
+            textarea::placeholder {
+                color: var(--muted);
+                opacity: 0.8
+            }
+
+            /* Dark mode: improve select options visibility */
+            [data-theme="dark"] select option {
+                background: #222226;
+                color: #ECECEC;
+            }
+
+            select option {
+                background: #fff;
+                color: #1C1917;
+            }
+
             /* ── BUTTONS ─────────────────────────────────────────── */
             .btn,
             .pwf-btn {

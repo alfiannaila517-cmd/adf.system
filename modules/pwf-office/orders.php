@@ -652,7 +652,35 @@ pwfOfficeHeader('Orders', 'orders');
     }
 
     .modal-body {
-        padding: 22px
+        padding: 22px;
+        background: var(--card);
+        color: var(--text)
+    }
+
+    /* ── FORM ELEMENTS IN MODAL ── */
+    .modal-body .input,
+    .modal-body .select,
+    .modal-body input[type=text],
+    .modal-body input[type=date],
+    .modal-body input[type=number],
+    .modal-body input[type=email],
+    .modal-body input[type=file],
+    .modal-body select,
+    .modal-body textarea {
+        background: var(--input-bg);
+        color: var(--text);
+        border-color: var(--border)
+    }
+
+    .modal-body .input:focus,
+    .modal-body input[type=text]:focus,
+    .modal-body input[type=date]:focus,
+    .modal-body input[type=number]:focus,
+    .modal-body input[type=email]:focus,
+    .modal-body select:focus,
+    .modal-body textarea:focus {
+        border-color: var(--gold);
+        box-shadow: 0 0 0 3px rgba(184, 134, 11, .12)
     }
 
     .modal-close {
