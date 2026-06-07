@@ -342,6 +342,7 @@ function uploadOrderImage(string $field): ?string
 
 // ── POST HANDLERS ─────────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    pwfCsrfVerify();
     $action = $_POST['_action'] ?? 'create';
 
     if ($action === 'create') {
@@ -968,6 +969,7 @@ pwfOfficeHeader('Orders', 'orders');
                                 <form method="post" style="display:inline" onsubmit="return confirm('Start work on this order?')">
                                     <input type="hidden" name="_action" value="start_work">
                                     <input type="hidden" name="order_id" value="<?= (int)$o['id'] ?>">
+                                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars(pwfCsrfToken(), ENT_QUOTES) ?>">
                                     <button class="btn btn-sm" type="submit" title="Start Work"
                                         style="background:#FFF7ED;border:1px solid #FED7AA;color:#C2410C;padding:4px 9px;font-size:11px">
                                         <i class="bi bi-play-circle"></i> Start
@@ -1063,6 +1065,7 @@ pwfOfficeHeader('Orders', 'orders');
                                         <form method="post" style="display:inline" onsubmit="return confirm('Start work?')">
                                             <input type="hidden" name="_action" value="start_work">
                                             <input type="hidden" name="order_id" value="<?= (int)$o['id'] ?>">
+                                            <input type="hidden" name="_csrf" value="<?= htmlspecialchars(pwfCsrfToken(), ENT_QUOTES) ?>">
                                             <button class="btn btn-sm" type="submit"
                                                 style="background:var(--status-orange-bg);border:1px solid var(--gold-border);color:var(--status-orange-text);padding:4px 8px;font-size:11px">
                                                 <i class="bi bi-play-circle"></i>
@@ -1092,6 +1095,7 @@ pwfOfficeHeader('Orders', 'orders');
 
 <form method="post" id="bulkDeleteForm" style="display:none">
     <input type="hidden" name="_action" value="bulk_delete">
+    <?php pwfCsrfField(); ?>
     <div id="bulkDeleteInputs"></div>
 </form>
 
@@ -1167,6 +1171,7 @@ pwfOfficeHeader('Orders', 'orders');
         <div class="modal-body">
             <form method="post" enctype="multipart/form-data">
                 <input type="hidden" name="_action" value="create">
+                <?php pwfCsrfField(); ?>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px">
                     <!-- Customer -->
                     <div class="pwf-form-group" style="grid-column:1/-1"><label style="font-size:12px">Customer</label>
@@ -1233,6 +1238,7 @@ pwfOfficeHeader('Orders', 'orders');
             <form method="post" enctype="multipart/form-data" id="editForm">
                 <input type="hidden" name="_action" value="update">
                 <input type="hidden" name="order_id" id="ef_id">
+                <?php pwfCsrfField(); ?>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px">
                     <!-- Customer + Status -->
                     <div class="pwf-form-group"><label style="font-size:12px">Customer</label>
@@ -1736,6 +1742,7 @@ pwfOfficeHeader('Orders', 'orders');
             <form method="post">
                 <input type="hidden" name="_action" value="update_progress">
                 <input type="hidden" name="order_id" id="pmOrderId">
+                <input type="hidden" name="_csrf" value="<?= htmlspecialchars(pwfCsrfToken(), ENT_QUOTES) ?>">
                 <div class="modal-body" style="padding:18px;background:var(--card)">
                     <div style="margin-bottom:16px">
                         <label style="font-size:10.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px">Qty Done / Total</label>
