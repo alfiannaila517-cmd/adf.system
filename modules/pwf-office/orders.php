@@ -348,74 +348,89 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $customerId  = (int)($_POST['customer_id'] ?? 0);
         $productName = trim($_POST['product_name'] ?? '');
         if ($customerId > 0 && $productName !== '') {
-            $imgPath = uploadOrderImage('order_image');
-            $code = genPwfCode($pdo, 'ORD');
-            $quantity = (float)($_POST['quantity'] ?? 1);
-            $unitPrice = (float)($_POST['unit_price'] ?? 0);
-            $totalPrice = $quantity * $unitPrice;
+            try {
+                $imgPath = uploadOrderImage('order_image');
+                $code = genPwfCode($pdo, 'ORD');
+                $quantity = (float)($_POST['quantity'] ?? 1);
+                $unitPrice = (float)($_POST['unit_price'] ?? 0);
+                $totalPrice = $quantity * $unitPrice;
 
-            $pdo->prepare('INSERT INTO pwf_orders
-                (order_code,customer_id,order_date,due_date,product_name,specification,description,dimensions,quantity,unit_price,total_price,wood_color,finish,image_path,assigned_craftsman_id,notes,created_by)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
-                ->execute([
-                    $code,
-                    $customerId,
-                    $_POST['order_date'] ?? date('Y-m-d'),
-                    $_POST['due_date'] ?: null,
-                    $productName,
-                    trim($_POST['specification'] ?? ''),
-                    trim($_POST['description'] ?? ''),
-                    trim($_POST['dimensions'] ?? ''),
-                    $quantity,
-                    $unitPrice,
-                    $totalPrice,
-                    trim($_POST['wood_color'] ?? ''),
-                    trim($_POST['finish'] ?? ''),
-                    $imgPath,
-                    (int)($_POST['assigned_craftsman_id'] ?? 0) ?: null,
-                    trim($_POST['notes'] ?? ''),
-                    $_SESSION['user_id'] ?? null
-                ]);
-            $msg = 'Order saved successfully.';
+                $pdo->prepare('INSERT INTO pwf_orders
+                    (order_code,customer_id,order_date,due_date,product_name,specification,description,dimensions,quantity,unit_price,total_price,wood_color,finish,image_path,assigned_craftsman_id,notes,created_by)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+                    ->execute([
+                        $code,
+                        $customerId,
+                        ($_POST['order_date'] ?? '') ?: date('Y-m-d'),
+                        ($_POST['due_date'] ?? '') ?: null,
+                        $productName,
+                        trim($_POST['specification'] ?? ''),
+                        trim($_POST['description'] ?? ''),
+                        trim($_POST['dimensions'] ?? ''),
+                        $quantity,
+                        $unitPrice,
+                        $totalPrice,
+                        trim($_POST['wood_color'] ?? ''),
+                        trim($_POST['finish'] ?? ''),
+                        $imgPath,
+                        (int)($_POST['assigned_craftsman_id'] ?? 0) ?: null,
+                        trim($_POST['notes'] ?? ''),
+                        $_SESSION['user_id'] ?? null
+                    ]);
+                $msg = 'Order saved successfully.';
+            } catch (\Throwable $e) {
+                error_log('PWF orders create error: ' . $e->getMessage());
+                $msgType = 'warning';
+                $msg = 'Gagal menyimpan order: ' . $e->getMessage();
+            }
+        } else {
+            $msgType = 'warning';
+            $msg = 'Customer dan Product Name wajib diisi.';
         }
     } elseif ($action === 'update') {
         $id = (int)($_POST['order_id'] ?? 0);
         if ($id > 0) {
-            $existImg = $pdo->prepare('SELECT image_path FROM pwf_orders WHERE id=?');
-            $existImg->execute([$id]);
-            $existImg = $existImg->fetchColumn();
-            $imgPath = uploadOrderImage('order_image') ?: $existImg;
+            try {
+                $existImg = $pdo->prepare('SELECT image_path FROM pwf_orders WHERE id=?');
+                $existImg->execute([$id]);
+                $existImg = $existImg->fetchColumn();
+                $imgPath = uploadOrderImage('order_image') ?: $existImg;
 
-            $quantity = (float)($_POST['quantity'] ?? 1);
-            $unitPrice = (float)($_POST['unit_price'] ?? 0);
-            $totalPrice = $quantity * $unitPrice;
+                $quantity = (float)($_POST['quantity'] ?? 1);
+                $unitPrice = (float)($_POST['unit_price'] ?? 0);
+                $totalPrice = $quantity * $unitPrice;
 
-            $pdo->prepare('UPDATE pwf_orders SET
-                customer_id=?, order_date=?, due_date=?, product_name=?,
-                specification=?, description=?, dimensions=?, quantity=?, unit_price=?, total_price=?,
-                wood_color=?, finish=?, image_path=?,
-                assigned_craftsman_id=?, status=?, notes=?, updated_at=NOW()
-                WHERE id=?')
-                ->execute([
-                    (int)($_POST['customer_id'] ?? 0),
-                    $_POST['order_date'] ?? date('Y-m-d'),
-                    $_POST['due_date'] ?: null,
-                    trim($_POST['product_name'] ?? ''),
-                    trim($_POST['specification'] ?? ''),
-                    trim($_POST['description'] ?? ''),
-                    trim($_POST['dimensions'] ?? ''),
-                    $quantity,
-                    $unitPrice,
-                    $totalPrice,
-                    trim($_POST['wood_color'] ?? ''),
-                    trim($_POST['finish'] ?? ''),
-                    $imgPath,
-                    (int)($_POST['assigned_craftsman_id'] ?? 0) ?: null,
-                    $_POST['status'] ?? 'draft',
-                    trim($_POST['notes'] ?? ''),
-                    $id
-                ]);
-            $msg = 'Order updated successfully.';
+                $pdo->prepare('UPDATE pwf_orders SET
+                    customer_id=?, order_date=?, due_date=?, product_name=?,
+                    specification=?, description=?, dimensions=?, quantity=?, unit_price=?, total_price=?,
+                    wood_color=?, finish=?, image_path=?,
+                    assigned_craftsman_id=?, status=?, notes=?, updated_at=NOW()
+                    WHERE id=?')
+                    ->execute([
+                        (int)($_POST['customer_id'] ?? 0),
+                        ($_POST['order_date'] ?? '') ?: date('Y-m-d'),
+                        ($_POST['due_date'] ?? '') ?: null,
+                        trim($_POST['product_name'] ?? ''),
+                        trim($_POST['specification'] ?? ''),
+                        trim($_POST['description'] ?? ''),
+                        trim($_POST['dimensions'] ?? ''),
+                        $quantity,
+                        $unitPrice,
+                        $totalPrice,
+                        trim($_POST['wood_color'] ?? ''),
+                        trim($_POST['finish'] ?? ''),
+                        $imgPath,
+                        (int)($_POST['assigned_craftsman_id'] ?? 0) ?: null,
+                        $_POST['status'] ?? 'draft',
+                        trim($_POST['notes'] ?? ''),
+                        $id
+                    ]);
+                $msg = 'Order updated successfully.';
+            } catch (\Throwable $e) {
+                error_log('PWF orders update error: ' . $e->getMessage());
+                $msgType = 'warning';
+                $msg = 'Gagal memperbarui order: ' . $e->getMessage();
+            }
         }
     } elseif ($action === 'start_work') {
         $id = (int)($_POST['order_id'] ?? 0);
@@ -968,7 +983,6 @@ pwfOfficeHeader('Orders', 'orders');
                                 <form method="post" style="display:inline" onsubmit="return confirm('Start work on this order?')">
                                     <input type="hidden" name="_action" value="start_work">
                                     <input type="hidden" name="order_id" value="<?= (int)$o['id'] ?>">
-                                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars(pwfCsrfToken(), ENT_QUOTES) ?>">
                                     <button class="btn btn-sm" type="submit" title="Start Work"
                                         style="background:#FFF7ED;border:1px solid #FED7AA;color:#C2410C;padding:4px 9px;font-size:11px">
                                         <i class="bi bi-play-circle"></i> Start
@@ -1064,7 +1078,6 @@ pwfOfficeHeader('Orders', 'orders');
                                         <form method="post" style="display:inline" onsubmit="return confirm('Start work?')">
                                             <input type="hidden" name="_action" value="start_work">
                                             <input type="hidden" name="order_id" value="<?= (int)$o['id'] ?>">
-                                            <input type="hidden" name="_csrf" value="<?= htmlspecialchars(pwfCsrfToken(), ENT_QUOTES) ?>">
                                             <button class="btn btn-sm" type="submit"
                                                 style="background:var(--status-orange-bg);border:1px solid var(--gold-border);color:var(--status-orange-text);padding:4px 8px;font-size:11px">
                                                 <i class="bi bi-play-circle"></i>
@@ -1094,7 +1107,6 @@ pwfOfficeHeader('Orders', 'orders');
 
 <form method="post" id="bulkDeleteForm" style="display:none">
     <input type="hidden" name="_action" value="bulk_delete">
-    <?= pwfCsrfField() ?>
     <div id="bulkDeleteInputs"></div>
 </form>
 
@@ -1170,7 +1182,6 @@ pwfOfficeHeader('Orders', 'orders');
         <div class="modal-body">
             <form method="post" enctype="multipart/form-data">
                 <input type="hidden" name="_action" value="create">
-                <?= pwfCsrfField() ?>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px">
                     <!-- Customer -->
                     <div class="pwf-form-group" style="grid-column:1/-1"><label style="font-size:12px">Customer</label>
@@ -1237,7 +1248,6 @@ pwfOfficeHeader('Orders', 'orders');
             <form method="post" enctype="multipart/form-data" id="editForm">
                 <input type="hidden" name="_action" value="update">
                 <input type="hidden" name="order_id" id="ef_id">
-                <?= pwfCsrfField() ?>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px">
                     <!-- Customer + Status -->
                     <div class="pwf-form-group"><label style="font-size:12px">Customer</label>
@@ -1741,7 +1751,6 @@ pwfOfficeHeader('Orders', 'orders');
             <form method="post">
                 <input type="hidden" name="_action" value="update_progress">
                 <input type="hidden" name="order_id" id="pmOrderId">
-                <input type="hidden" name="_csrf" value="<?= htmlspecialchars(pwfCsrfToken(), ENT_QUOTES) ?>">
                 <div class="modal-body" style="padding:18px;background:var(--card)">
                     <div style="margin-bottom:16px">
                         <label style="font-size:10.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px">Qty Done / Total</label>
