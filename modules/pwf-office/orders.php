@@ -342,7 +342,6 @@ function uploadOrderImage(string $field): ?string
 
 // ── POST HANDLERS ─────────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    pwfCsrfVerify();
     $action = $_POST['_action'] ?? 'create';
 
     if ($action === 'create') {
@@ -1095,7 +1094,7 @@ pwfOfficeHeader('Orders', 'orders');
 
 <form method="post" id="bulkDeleteForm" style="display:none">
     <input type="hidden" name="_action" value="bulk_delete">
-    <?php pwfCsrfField(); ?>
+    <?= pwfCsrfField() ?>
     <div id="bulkDeleteInputs"></div>
 </form>
 
@@ -1171,7 +1170,7 @@ pwfOfficeHeader('Orders', 'orders');
         <div class="modal-body">
             <form method="post" enctype="multipart/form-data">
                 <input type="hidden" name="_action" value="create">
-                <?php pwfCsrfField(); ?>
+                <?= pwfCsrfField() ?>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px">
                     <!-- Customer -->
                     <div class="pwf-form-group" style="grid-column:1/-1"><label style="font-size:12px">Customer</label>
@@ -1238,7 +1237,7 @@ pwfOfficeHeader('Orders', 'orders');
             <form method="post" enctype="multipart/form-data" id="editForm">
                 <input type="hidden" name="_action" value="update">
                 <input type="hidden" name="order_id" id="ef_id">
-                <?php pwfCsrfField(); ?>
+                <?= pwfCsrfField() ?>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px">
                     <!-- Customer + Status -->
                     <div class="pwf-form-group"><label style="font-size:12px">Customer</label>
