@@ -223,7 +223,12 @@ function genPwfCode(PDO $pdo, string $prefix): string
     }
 
     $like = $prefix . '-' . $yearMonth . '-%';
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM {$table} WHERE {$column} LIKE ?");
+    // Use the highest existing sequence number (not COUNT) so deleted rows
+    // don't cause duplicate codes. SUBSTRING_INDEX grabs the numeric suffix.
+    $stmt = $pdo->prepare(
+        "SELECT MAX(CAST(SUBSTRING_INDEX({$column}, '-', -1) AS UNSIGNED))
+         FROM {$table} WHERE {$column} LIKE ?"
+    );
     $stmt->execute([$like]);
     $next = (int)$stmt->fetchColumn() + 1;
 

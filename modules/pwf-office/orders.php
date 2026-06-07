@@ -215,43 +215,47 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
             </div>
             <div class="table-wrap">
                 <table>
-            <thead>
-                <tr>
-                    <th style="width:40px">#</th>
-                    <th style="width:70px">Image</th>
-                    <th>Code</th>
-                    <th>Order Name</th>
-                    <th style="width:90px">Order Date</th>
-                    <th>Customer</th>
-                    <th>Specification</th>
-                    <th>Finish Color</th>
-                    <th>Craftsman</th>
-                    <th style="width:90px">Due</th>
-                    <th style="width:60px;text-align:right">Qty</th>
-                    <th style="width:90px;text-align:right;color:var(--gold)">Price</th>
-                    <th style="width:120px">Remarks</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($rows as $i => $r): ?>
-                    <tr>
-                        <td><?= $i + 1 ?></td>
-                        <td><?php if ($r['image_path']): ?><img src="<?= htmlspecialchars($baseUrl . '/' . $r['image_path']) ?>" style="max-width:60px;max-height:50px;border-radius:4px" alt="Order"><?php else: ?><span style="color:var(--muted)">—</span><?php endif; ?></td>
-                        <td><?= htmlspecialchars($r['order_code']) ?></td>
-                        <td><strong><?= htmlspecialchars($r['product_name']) ?></strong></td>
-                        <td><?= $r['order_date'] ? date('d M Y', strtotime($r['order_date'])) : '—' ?></td>
-                        <td><?= htmlspecialchars($r['customer_name']) ?></td>
-                        <td><?php if ($r['specification']): ?><span style="color:var(--muted);font-size:10px"><?= htmlspecialchars(mb_substr($r['specification'], 0, 50)) ?></span><?php else: ?><span style="color:var(--muted)">—</span><?php endif; ?></td>
-                        <td><?php $finishColor = trim((string)($r['finish'] ?? '')); if ($finishColor === '') { $finishColor = trim((string)($r['wood_color'] ?? '')); } echo $finishColor !== '' ? htmlspecialchars(mb_substr($finishColor, 0, 50)) : '<span style="color:var(--muted)">—</span>'; ?></td>
-                        <td><?= htmlspecialchars($r['craftsman_name'] ?? '—') ?></td>
-                        <td><?= $r['due_date'] ? date('d M Y', strtotime($r['due_date'])) : '—' ?></td>
-                        <td style="text-align:right"><?= rtrim(rtrim(number_format((float)$r['quantity'], 2), '0'), '.') ?></td>
-                        <td style="text-align:right;color:var(--gold);font-weight:600"><?php $total = (float)$r['quantity'] * (float)($r['unit_price'] ?? 0);
-                                                                                    echo 'Rp ' . number_format((int)$total, 0, ',', '.'); ?></td>
-                        <td><?= htmlspecialchars(mb_substr($r['notes'] ?? '', 0, 60)) ?></td>
-                    </tr>
-                <?php endforeach; ?>
-            </tbody>
+                    <thead>
+                        <tr>
+                            <th style="width:40px">#</th>
+                            <th style="width:70px">Image</th>
+                            <th>Code</th>
+                            <th>Order Name</th>
+                            <th style="width:90px">Order Date</th>
+                            <th>Customer</th>
+                            <th>Specification</th>
+                            <th>Finish Color</th>
+                            <th>Craftsman</th>
+                            <th style="width:90px">Due</th>
+                            <th style="width:60px;text-align:right">Qty</th>
+                            <th style="width:90px;text-align:right;color:var(--gold)">Price</th>
+                            <th style="width:120px">Remarks</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($rows as $i => $r): ?>
+                            <tr>
+                                <td><?= $i + 1 ?></td>
+                                <td><?php if ($r['image_path']): ?><img src="<?= htmlspecialchars($baseUrl . '/' . $r['image_path']) ?>" style="max-width:60px;max-height:50px;border-radius:4px" alt="Order"><?php else: ?><span style="color:var(--muted)">—</span><?php endif; ?></td>
+                                <td><?= htmlspecialchars($r['order_code']) ?></td>
+                                <td><strong><?= htmlspecialchars($r['product_name']) ?></strong></td>
+                                <td><?= $r['order_date'] ? date('d M Y', strtotime($r['order_date'])) : '—' ?></td>
+                                <td><?= htmlspecialchars($r['customer_name']) ?></td>
+                                <td><?php if ($r['specification']): ?><span style="color:var(--muted);font-size:10px"><?= htmlspecialchars(mb_substr($r['specification'], 0, 50)) ?></span><?php else: ?><span style="color:var(--muted)">—</span><?php endif; ?></td>
+                                <td><?php $finishColor = trim((string)($r['finish'] ?? ''));
+                                    if ($finishColor === '') {
+                                        $finishColor = trim((string)($r['wood_color'] ?? ''));
+                                    }
+                                    echo $finishColor !== '' ? htmlspecialchars(mb_substr($finishColor, 0, 50)) : '<span style="color:var(--muted)">—</span>'; ?></td>
+                                <td><?= htmlspecialchars($r['craftsman_name'] ?? '—') ?></td>
+                                <td><?= $r['due_date'] ? date('d M Y', strtotime($r['due_date'])) : '—' ?></td>
+                                <td style="text-align:right"><?= rtrim(rtrim(number_format((float)$r['quantity'], 2), '0'), '.') ?></td>
+                                <td style="text-align:right;color:var(--gold);font-weight:600"><?php $total = (float)$r['quantity'] * (float)($r['unit_price'] ?? 0);
+                                                                                                echo 'Rp ' . number_format((int)$total, 0, ',', '.'); ?></td>
+                                <td><?= htmlspecialchars(mb_substr($r['notes'] ?? '', 0, 60)) ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
                 </table>
             </div>
         </div>
@@ -350,33 +354,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($customerId > 0 && $productName !== '') {
             try {
                 $imgPath = uploadOrderImage('order_image');
-                $code = genPwfCode($pdo, 'ORD');
                 $quantity = (float)($_POST['quantity'] ?? 1);
                 $unitPrice = (float)($_POST['unit_price'] ?? 0);
                 $totalPrice = $quantity * $unitPrice;
 
-                $pdo->prepare('INSERT INTO pwf_orders
+                $insStmt = $pdo->prepare('INSERT INTO pwf_orders
                     (order_code,customer_id,order_date,due_date,product_name,specification,description,dimensions,quantity,unit_price,total_price,wood_color,finish,image_path,assigned_craftsman_id,notes,created_by)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
-                    ->execute([
-                        $code,
-                        $customerId,
-                        ($_POST['order_date'] ?? '') ?: date('Y-m-d'),
-                        ($_POST['due_date'] ?? '') ?: null,
-                        $productName,
-                        trim($_POST['specification'] ?? ''),
-                        trim($_POST['description'] ?? ''),
-                        trim($_POST['dimensions'] ?? ''),
-                        $quantity,
-                        $unitPrice,
-                        $totalPrice,
-                        trim($_POST['wood_color'] ?? ''),
-                        trim($_POST['finish'] ?? ''),
-                        $imgPath,
-                        (int)($_POST['assigned_craftsman_id'] ?? 0) ?: null,
-                        trim($_POST['notes'] ?? ''),
-                        $_SESSION['user_id'] ?? null
-                    ]);
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+
+                // Retry on duplicate order_code (race / deleted rows).
+                $attempts = 0;
+                while (true) {
+                    $code = genPwfCode($pdo, 'ORD');
+                    try {
+                        $insStmt->execute([
+                            $code,
+                            $customerId,
+                            ($_POST['order_date'] ?? '') ?: date('Y-m-d'),
+                            ($_POST['due_date'] ?? '') ?: null,
+                            $productName,
+                            trim($_POST['specification'] ?? ''),
+                            trim($_POST['description'] ?? ''),
+                            trim($_POST['dimensions'] ?? ''),
+                            $quantity,
+                            $unitPrice,
+                            $totalPrice,
+                            trim($_POST['wood_color'] ?? ''),
+                            trim($_POST['finish'] ?? ''),
+                            $imgPath,
+                            (int)($_POST['assigned_craftsman_id'] ?? 0) ?: null,
+                            trim($_POST['notes'] ?? ''),
+                            $_SESSION['user_id'] ?? null
+                        ]);
+                        break;
+                    } catch (\PDOException $dup) {
+                        // 23000 = duplicate key; retry up to 5 times.
+                        if ($dup->getCode() === '23000' && $attempts < 5) {
+                            $attempts++;
+                            continue;
+                        }
+                        throw $dup;
+                    }
+                }
                 $msg = 'Order saved successfully.';
             } catch (\Throwable $e) {
                 error_log('PWF orders create error: ' . $e->getMessage());
