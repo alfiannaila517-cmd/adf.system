@@ -226,6 +226,7 @@ if ($selectedCustomer) {
             o.qty_done,
             o.finish,
             o.wood_color,
+            o.image_path,
             o.status,
             COALESCE(s.qty_shipped, 0) AS qty_shipped,
             COALESCE(s.container_refs, '-') AS container_refs
@@ -311,7 +312,8 @@ if (!empty($_manifestParams)) {
             padding: 0;
         }
 
-        html, body {
+        html,
+        body {
             overflow-x: hidden;
             max-width: 100%;
         }
@@ -756,7 +758,7 @@ if (!empty($_manifestParams)) {
             border: 0 solid var(--line);
             border-radius: 0 0 10px 10px;
             background: #fff;
-            box-shadow: 0 8px 20px rgba(8,22,43,.10);
+            box-shadow: 0 8px 20px rgba(8, 22, 43, .10);
             margin-top: -2px;
         }
 
@@ -917,7 +919,9 @@ if (!empty($_manifestParams)) {
                                 echo htmlspecialchars($activeLabel ?: 'Pilih customer...');
                                 ?>
                             </span>
-                            <svg class="drop-arrow" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+                            <svg class="drop-arrow" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                            </svg>
                         </button>
                         <div class="cust-drop-menu" id="custDropMenu">
                             <?php foreach ($customers as $cust):
@@ -1070,6 +1074,7 @@ if (!empty($_manifestParams)) {
                             <table>
                                 <thead>
                                     <tr>
+                                        <th>Photo</th>
                                         <th>Order Code</th>
                                         <th>Date</th>
                                         <th>Product</th>
@@ -1083,10 +1088,19 @@ if (!empty($_manifestParams)) {
                                 <tbody>
                                     <?php if (empty($recentOrders)): ?>
                                         <tr>
-                                            <td colspan="8" style="text-align:center;color:#94A3B8;">No orders yet.</td>
+                                            <td colspan="9" style="text-align:center;color:#94A3B8;">No orders yet.</td>
                                         </tr>
                                         <?php else: foreach ($recentOrders as $ord): ?>
                                             <tr>
+                                                <td>
+                                                    <?php $ordImg = trim((string)($ord['image_path'] ?? '')); ?>
+                                                    <?php if ($ordImg !== ''): ?>
+                                                        <?php $ordImgSrc = preg_match('#^https?://#i', $ordImg) ? $ordImg : $baseUrl . '/' . ltrim($ordImg, '/'); ?>
+                                                        <img src="<?= htmlspecialchars($ordImgSrc) ?>" alt="<?= htmlspecialchars((string)$ord['product_name']) ?>" loading="lazy" style="width:48px;height:48px;object-fit:cover;border-radius:8px;border:1px solid #E2E8F0;display:block;">
+                                                    <?php else: ?>
+                                                        <span style="display:flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:8px;background:#F1F5F9;color:#94A3B8;">&#128247;</span>
+                                                    <?php endif; ?>
+                                                </td>
                                                 <td><strong><?= htmlspecialchars((string)$ord['order_code']) ?></strong></td>
                                                 <td><?= htmlspecialchars((string)$ord['order_date']) ?></td>
                                                 <td><?= htmlspecialchars((string)$ord['product_name']) ?></td>
