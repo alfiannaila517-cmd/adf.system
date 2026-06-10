@@ -243,6 +243,9 @@ function genPwfCode(PDO $pdo, string $prefix): string
     } elseif ($prefix === 'TKG') {
         $table = 'pwf_craftsmen';
         $column = 'craftsman_code';
+    } elseif ($prefix === 'STK') {
+        $table = 'pwf_warehouse_stock';
+        $column = 'stock_code';
     }
 
     $like = $prefix . '-' . $yearMonth . '-%';

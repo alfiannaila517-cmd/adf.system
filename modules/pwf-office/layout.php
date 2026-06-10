@@ -18,8 +18,14 @@ function pwfOfficeHeader(string $title, string $active = ''): void
                 'containers' => ['label' => 'Containers',  'icon' => 'bi-box-seam',     'url' => 'db-containers.php'],
             ]
         ],
-        'settings'  => ['label' => 'Settings',          'icon' => 'bi-gear',             'url' => 'settings.php'],
-        'manage'    => ['label' => 'PWF Manage',        'icon' => 'bi-tools',            'url' => 'manage/index.php'],
+        'settings'  => [
+            'label' => 'Settings',
+            'icon' => 'bi-gear',
+            'children' => [
+                'settings-main' => ['label' => 'General Settings', 'icon' => 'bi-sliders', 'url' => 'settings.php'],
+                'manage'        => ['label' => 'PWF Manage',       'icon' => 'bi-tools',   'url' => 'manage/index.php'],
+            ]
+        ],
     ];
 
     // Filter menu berdasarkan permission user
@@ -92,9 +98,11 @@ function pwfOfficeHeader(string $title, string $active = ''): void
             $menu = $menuItems;
         }
     }
-    // determine if any database child is active
-    $dbChildren = ['buyers', 'customers', 'craftsmen', 'containers'];
-    $dbActive   = in_array($active, $dbChildren);
+    // determine if any group child is active
+    $dbChildren       = ['buyers', 'customers', 'craftsmen', 'containers'];
+    $settingsChildren = ['settings-main', 'manage'];
+    $dbActive         = in_array($active, $dbChildren);
+    $settingsActive   = in_array($active, $settingsChildren) || $active === 'settings';
     $fullName = htmlspecialchars($_SESSION['full_name'] ?? $_SESSION['username'] ?? 'User');
     $initials = strtoupper(substr($_SESSION['full_name'] ?? $_SESSION['username'] ?? 'U', 0, 2));
 
@@ -292,7 +300,7 @@ function pwfOfficeHeader(string $title, string $active = ''): void
             .pwf-nav {
                 flex: 1;
                 padding: 10px 8px;
-                overflow-y: auto
+                overflow-y: hidden
             }
 
             .pwf-nav a {
@@ -1271,17 +1279,19 @@ function pwfOfficeHeader(string $title, string $active = ''): void
             <nav class="pwf-nav">
                 <div class="nav-section">Main Menu</div>
                 <?php foreach ($menu as $key => $m): ?>
-                    <?php if (!empty($m['children'])): ?>
-                        <!-- Database dropdown group -->
-                        <div class="nav-group-btn <?= $dbActive ? 'db-active open' : '' ?>" onclick="toggleNavGroup(this,'nav-sub-<?= $key ?>')">
+                    <?php if (!empty($m['children'])):
+                        $grpActive = ($key === 'database') ? $dbActive : (($key === 'settings') ? $settingsActive : false);
+                    ?>
+                        <!-- Dropdown group -->
+                        <div class="nav-group-btn <?= $grpActive ? 'db-active open' : '' ?>" onclick="toggleNavGroup(this,'nav-sub-<?= $key ?>')">
                             <i class="bi <?= $m['icon'] ?>" style="font-size:15px;flex-shrink:0"></i>
                             <?= htmlspecialchars($m['label']) ?>
                             <i class="bi bi-chevron-right ng-chevron"></i>
                         </div>
-                        <div class="nav-sub <?= $dbActive ? 'open' : '' ?>" id="nav-sub-<?= $key ?>">
+                        <div class="nav-sub <?= $grpActive ? 'open' : '' ?>" id="nav-sub-<?= $key ?>">
                             <?php foreach ($m['children'] as $ck => $cm): ?>
                                 <a href="<?= BASE_URL ?>/modules/pwf-office/<?= $cm['url'] ?>"
-                                    class="<?= $active === $ck ? 'active' : '' ?>">
+                                    class="<?= ($active === $ck || ($ck === 'settings-main' && $active === 'settings')) ? 'active' : '' ?>">
                                     <i class="bi <?= $cm['icon'] ?>"></i>
                                     <?= htmlspecialchars($cm['label']) ?>
                                 </a>

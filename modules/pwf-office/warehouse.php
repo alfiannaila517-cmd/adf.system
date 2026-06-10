@@ -213,9 +213,18 @@ pwfOfficeHeader('Warehouse / Stock', 'warehouse');
     }
 
     @media print {
-        .no-print { display: none; }
-        .filter-bar, .stat-grid { display: none; }
-        .stock-card { page-break-inside: avoid; }
+        .no-print {
+            display: none;
+        }
+
+        .filter-bar,
+        .stat-grid {
+            display: none;
+        }
+
+        .stock-card {
+            page-break-inside: avoid;
+        }
     }
 </style>
 
@@ -283,7 +292,8 @@ pwfOfficeHeader('Warehouse / Stock', 'warehouse');
                     <?php endif; ?>
                     <?php if (!empty($s['finish']) || !empty($s['wood_color'])): ?>
                         <div class="stock-meta">
-                            <?php $color = trim((string)($s['finish'] ?? '')); if ($color === '') $color = trim((string)($s['wood_color'] ?? '')); ?>
+                            <?php $color = trim((string)($s['finish'] ?? ''));
+                            if ($color === '') $color = trim((string)($s['wood_color'] ?? '')); ?>
                             🎨 <?= htmlspecialchars($color) ?>
                         </div>
                     <?php endif; ?>
