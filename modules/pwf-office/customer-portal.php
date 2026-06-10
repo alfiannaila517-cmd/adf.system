@@ -292,6 +292,7 @@ if (!empty($_manifestParams)) {
         <link rel="apple-touch-icon" href="<?= htmlspecialchars($faviconUrl) ?>">
     <?php endif; ?>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         :root {
             --ink: #0E223D;
@@ -835,6 +836,96 @@ if (!empty($_manifestParams)) {
                 font-size: 24px;
             }
         }
+
+        /* Print and Export Controls */
+        .print-export-toolbar {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+
+        .print-btn, .pdf-btn {
+            border: 1px solid #D8E2EF;
+            background: #F8FBFF;
+            color: #0F172A;
+            border-radius: 8px;
+            padding: 6px 12px;
+            font-family: inherit;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            text-decoration: none;
+        }
+
+        .print-btn:hover, .pdf-btn:hover {
+            background: #EEF4FF;
+            border-color: #9FC3F4;
+        }
+
+        .print-btn:active, .pdf-btn:active {
+            transform: scale(0.98);
+        }
+
+        /* Hide print controls when printing */
+        @media print {
+            .print-export-toolbar,
+            .install-btn,
+            .search-grid,
+            .customer-list,
+            .customer-sidebar-panel,
+            .portal-grid {
+                display: none !important;
+            }
+
+            body {
+                background: white;
+            }
+
+            .wrap {
+                padding: 0;
+                max-width: 100%;
+            }
+
+            .panel {
+                box-shadow: none;
+                page-break-inside: avoid;
+                border: none;
+            }
+
+            .detail-grid {
+                display: block;
+            }
+
+            .detail-grid > * {
+                page-break-inside: avoid;
+                margin-bottom: 20px;
+            }
+
+            table {
+                page-break-inside: avoid;
+            }
+
+            thead {
+                display: table-header-group;
+            }
+
+            tfoot {
+                display: table-footer-group;
+            }
+
+            tr {
+                page-break-inside: avoid;
+            }
+
+            .two-col {
+                grid-template-columns: 1fr 1fr !important;
+            }
+        }
     </style>
 </head>
 
@@ -897,6 +988,15 @@ if (!empty($_manifestParams)) {
                     <div class="kpi-title">Shipped Qty</div>
                     <div class="kpi-value"><?= htmlspecialchars(fmtQty((float)$dashboard['qty_shipped'])) ?></div>
                 </div>
+            </div>
+
+            <div class="print-export-toolbar">
+                <button class="print-btn" onclick="printDashboard()" title="Print dashboard data">
+                    🖨️ Print Dashboard
+                </button>
+                <button class="pdf-btn" onclick="exportDashboardPdf()" title="Export dashboard as PDF">
+                    📄 Export PDF
+                </button>
             </div>
         </div>
 
@@ -980,12 +1080,24 @@ if (!empty($_manifestParams)) {
                     </div>
                 <?php else: ?>
                     <div class="customer-head panel" style="box-shadow:none;">
-                        <div style="font-size:18px;font-weight:800;color:#102A4A;"><?= htmlspecialchars((string)$selectedCustomer['customer_name']) ?></div>
-                        <div class="customer-meta">
-                            <span class="chip">Code: <?= htmlspecialchars((string)$selectedCustomer['customer_code']) ?></span>
-                            <?php if (!empty($selectedCustomer['phone'])): ?>
-                                <span class="chip">Phone: <?= htmlspecialchars((string)$selectedCustomer['phone']) ?></span>
-                            <?php endif; ?>
+                        <div style="display:flex;justify-content:space-between;align-items:start;gap:10px;">
+                            <div>
+                                <div style="font-size:18px;font-weight:800;color:#102A4A;"><?= htmlspecialchars((string)$selectedCustomer['customer_name']) ?></div>
+                                <div class="customer-meta">
+                                    <span class="chip">Code: <?= htmlspecialchars((string)$selectedCustomer['customer_code']) ?></span>
+                                    <?php if (!empty($selectedCustomer['phone'])): ?>
+                                        <span class="chip">Phone: <?= htmlspecialchars((string)$selectedCustomer['phone']) ?></span>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                            <div class="print-export-toolbar" style="margin-bottom:0;">
+                                <button class="print-btn" onclick="printCustomerData('<?= htmlspecialchars((string)$selectedCustomer['customer_code']) ?>')" title="Print customer data">
+                                    🖨️ Print
+                                </button>
+                                <button class="pdf-btn" onclick="exportCustomerPdf('<?= htmlspecialchars((string)$selectedCustomer['customer_code']) ?>')" title="Export customer data as PDF">
+                                    📄 PDF
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -1166,6 +1278,196 @@ if (!empty($_manifestParams)) {
     </style>
 
     <script>
+
+        /**
+         * Print and PDF Export Functions
+         */
+        function printDashboard() {
+            const printContent = document.querySelector('.wrap');
+            if (!printContent) return;
+
+            const tempDiv = document.createElement('div');
+            tempDiv.style.display = 'none';
+            document.body.appendChild(tempDiv);
+
+            const cloneContent = printContent.cloneNode(true);
+            cloneContent.querySelectorAll('.print-export-toolbar, .install-btn, .search-grid, .customer-list, .portal-grid').forEach(el => {
+                el.remove();
+            });
+
+            tempDiv.innerHTML = cloneContent.innerHTML;
+            tempDiv.style.display = 'block';
+
+            const printWindow = window.open('', '', 'width=1200,height=800');
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="utf-8">
+                    <title>Buyer Portal Dashboard - Print</title>
+                    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+                    <style>
+                        * { box-sizing: border-box; margin: 0; padding: 0; }
+                        body { font-family: 'Plus Jakarta Sans', sans-serif; padding: 20px; background: white; }
+                        .hero { margin-bottom: 20px; }
+                        .hero h1 { font-size: 24px; margin-bottom: 5px; }
+                        .hero p { font-size: 12px; color: #666; }
+                        .panel { border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 15px; page-break-inside: avoid; }
+                        .buyer-kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 15px; }
+                        .kpi-card { border: 1px solid #ddd; border-radius: 8px; padding: 12px; text-align: center; }
+                        .kpi-title { font-size: 10px; text-transform: uppercase; color: #666; margin-bottom: 5px; font-weight: 700; }
+                        .kpi-value { font-size: 20px; font-weight: 800; color: #0E223D; }
+                        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+                        th { background: #f5f5f5; padding: 8px; text-align: left; font-size: 11px; font-weight: 700; border: 1px solid #ddd; }
+                        td { padding: 8px; border: 1px solid #ddd; font-size: 11px; }
+                        .print-timestamp { font-size: 10px; color: #999; margin-top: 15px; padding-top: 15px; border-top: 1px dashed #ddd; }
+                        @media print { body { padding: 0; } }
+                    </style>
+                </head>
+                <body>
+                    <div class="hero">
+                        <h1>📊 Buyer Portal Dashboard</h1>
+                        <p>Overall Buyer & Customer Orders Report</p>
+                    </div>
+                    ${tempDiv.innerHTML}
+                    <div class="print-timestamp">
+                        ✓ Printed on: ${new Date().toLocaleString()}<br>
+                        Report Generated by PWF Buyer Portal
+                    </div>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+            setTimeout(() => {
+                printWindow.focus();
+                printWindow.print();
+            }, 250);
+
+            document.body.removeChild(tempDiv);
+        }
+
+        function printCustomerData(customerCode) {
+            const detailGrid = document.querySelector('.detail-grid');
+            if (!detailGrid) return;
+
+            const tempDiv = document.createElement('div');
+            tempDiv.style.display = 'none';
+            document.body.appendChild(tempDiv);
+
+            const cloneContent = detailGrid.cloneNode(true);
+            cloneContent.querySelectorAll('.print-export-toolbar').forEach(el => {
+                el.remove();
+            });
+
+            tempDiv.innerHTML = cloneContent.innerHTML;
+            tempDiv.style.display = 'block';
+
+            const printWindow = window.open('', '', 'width=1200,height=800');
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="utf-8">
+                    <title>Customer Report - ${customerCode}</title>
+                    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+                    <style>
+                        * { box-sizing: border-box; margin: 0; padding: 0; }
+                        body { font-family: 'Plus Jakarta Sans', sans-serif; padding: 20px; background: white; }
+                        .customer-head { border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 15px; page-break-inside: avoid; background: #f9f9f9; }
+                        .customer-head > div:first-child { font-size: 18px; font-weight: 800; margin-bottom: 8px; color: #102A4A; }
+                        .customer-meta { display: flex; gap: 5px; flex-wrap: wrap; }
+                        .chip { font-size: 10px; background: #EEF4FF; color: #1E40AF; border: 1px solid #C7D7FE; border-radius: 20px; padding: 4px 8px; font-weight: 700; }
+                        .panel { border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 15px; page-break-inside: avoid; }
+                        .detail-grid > div { page-break-inside: avoid; }
+                        .kpi-card { border: 1px solid #ddd; border-radius: 8px; padding: 12px; text-align: center; display: inline-block; min-width: 80px; }
+                        .kpi-title { font-size: 9px; text-transform: uppercase; color: #666; margin-bottom: 4px; font-weight: 700; }
+                        .kpi-value { font-size: 16px; font-weight: 800; color: #0E223D; }
+                        .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 15px 0; }
+                        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+                        th { background: #f5f5f5; padding: 8px; text-align: left; font-size: 10px; font-weight: 700; border: 1px solid #ddd; }
+                        td { padding: 8px; border: 1px solid #ddd; font-size: 10px; }
+                        .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+                        .bar { width: 100%; height: 8px; background: #E8EFF8; border-radius: 4px; overflow: hidden; margin: 5px 0; }
+                        .bar-fill { height: 100%; border-radius: 4px; }
+                        .bar-done { background: linear-gradient(90deg, #0F9D74, #34D399); }
+                        .bar-ship { background: linear-gradient(90deg, #F97316, #FDBA74); }
+                        .progress-head { display: flex; justify-content: space-between; font-size: 10px; font-weight: 700; color: #333; margin-bottom: 3px; }
+                        .status { display: inline-block; padding: 3px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; text-transform: uppercase; background: #f0f0f0; color: #333; }
+                        .container-ref { display: block; margin-top: 3px; font-size: 9px; color: #2563EB; }
+                        .print-timestamp { font-size: 10px; color: #999; margin-top: 20px; padding-top: 15px; border-top: 1px dashed #ddd; }
+                        @media print { body { padding: 0; } }
+                    </style>
+                </head>
+                <body>
+                    <div class="customer-head">
+                        <div>📋 Customer Report - ${customerCode}</div>
+                    </div>
+                    ${tempDiv.innerHTML}
+                    <div class="print-timestamp">
+                        ✓ Printed on: ${new Date().toLocaleString()}<br>
+                        Report Generated by PWF Buyer Portal
+                    </div>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+            setTimeout(() => {
+                printWindow.focus();
+                printWindow.print();
+            }, 250);
+
+            document.body.removeChild(tempDiv);
+        }
+
+        function exportDashboardPdf() {
+            const element = document.querySelector('.wrap');
+            if (!element) return;
+
+            const clone = element.cloneNode(true);
+            clone.querySelectorAll('.print-export-toolbar, .install-btn, .search-grid, .customer-list, .portal-grid').forEach(el => {
+                el.remove();
+            });
+
+            const opt = {
+                margin: 10,
+                filename: `buyer-dashboard-${new Date().toISOString().split('T')[0]}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
+            };
+
+            html2pdf().set(opt).from(clone).save();
+        }
+
+        function exportCustomerPdf(customerCode) {
+            const element = document.querySelector('.detail-grid');
+            if (!element) return;
+
+            const clone = element.cloneNode(true);
+            clone.querySelectorAll('.print-export-toolbar').forEach(el => {
+                el.remove();
+            });
+
+            const header = document.createElement('div');
+            header.style.marginBottom = '20px';
+            header.style.paddingBottom = '15px';
+            header.style.borderBottom = '2px solid #0E223D';
+            header.innerHTML = `<h1 style="color:#0E223D;margin-bottom:5px;">Customer Report - ${customerCode}</h1><p style="color:#666;font-size:12px;">Generated on ${new Date().toLocaleString()}</p>`;
+
+            const container = document.createElement('div');
+            container.appendChild(header);
+            container.appendChild(clone);
+
+            const opt = {
+                margin: 10,
+                filename: `customer-report-${customerCode}-${new Date().toISOString().split('T')[0]}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
+            };
+
+            html2pdf().set(opt).from(container).save();
+        }
 
         (function() {
             if ('serviceWorker' in navigator) {
