@@ -10,6 +10,31 @@ if (isset($_GET['print_spk']) && $_GET['print_spk'] === '1') {
     $filterCid = (int)($_GET['customer_id'] ?? 0);
     $filterTid = (int)($_GET['craftsman_id'] ?? 0);
 
+    $companyName = 'Prapen Wood Furniture';
+    $companyAddress = 'Jl. Ngabul - Batealit No.KM. 5 Godang, Mindahan, Kec. Batealit, Kab. Jepara, Jawa Tengah 59400';
+    $companyPhone = '';
+    $companyLogo = '';
+    try {
+        $settingRows = $pdo->query("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('pwf_company_name','pwf_company_address','pwf_company_phone','pwf_login_logo')")->fetchAll(PDO::FETCH_KEY_PAIR);
+        if (!empty($settingRows['pwf_company_name'])) {
+            $companyName = (string)$settingRows['pwf_company_name'];
+        }
+        if (!empty($settingRows['pwf_company_address'])) {
+            $companyAddress = (string)$settingRows['pwf_company_address'];
+        }
+        if (!empty($settingRows['pwf_company_phone'])) {
+            $companyPhone = (string)$settingRows['pwf_company_phone'];
+        }
+        if (!empty($settingRows['pwf_login_logo'])) {
+            $companyLogo = (string)$settingRows['pwf_login_logo'];
+        }
+    } catch (Exception $e) {
+    }
+    $companyLogoUrl = '';
+    if ($companyLogo !== '') {
+        $companyLogoUrl = preg_match('#^https?://#i', $companyLogo) ? $companyLogo : ($baseUrl . '/' . ltrim($companyLogo, '/'));
+    }
+
     $whereParts = [];
     $whereArgs = [];
     if ($filterCid > 0) {
@@ -141,6 +166,38 @@ if (isset($_GET['print_spk']) && $_GET['print_spk'] === '1') {
                 justify-content: space-between;
                 gap: 12px;
                 align-items: flex-start;
+            }
+
+            .company-block {
+                display: flex;
+                gap: 10px;
+                align-items: flex-start;
+                margin-bottom: 10px;
+            }
+
+            .company-logo {
+                width: 56px;
+                height: 56px;
+                object-fit: contain;
+                border: 1px solid #e5e7eb;
+                border-radius: 10px;
+                background: #fff;
+                padding: 4px;
+            }
+
+            .company-name {
+                font-size: 16px;
+                font-weight: 800;
+                color: #0f172a;
+                line-height: 1.2;
+            }
+
+            .company-addr {
+                color: var(--muted);
+                font-size: 11px;
+                margin-top: 3px;
+                max-width: 460px;
+                line-height: 1.35;
             }
 
             .title {
@@ -306,6 +363,20 @@ if (isset($_GET['print_spk']) && $_GET['print_spk'] === '1') {
 
             <div class="head">
                 <div>
+                    <div class="company-block">
+                        <?php if ($companyLogoUrl !== ''): ?>
+                            <img class="company-logo" src="<?= htmlspecialchars($companyLogoUrl) ?>" alt="Company Logo">
+                        <?php endif; ?>
+                        <div>
+                            <div class="company-name"><?= htmlspecialchars($companyName) ?></div>
+                            <div class="company-addr">
+                                <?= htmlspecialchars($companyAddress) ?>
+                                <?php if ($companyPhone !== ''): ?>
+                                    <br>Tel: <?= htmlspecialchars($companyPhone) ?>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
                     <div class="title">SPK Pengrajin - Hasil Filter</div>
                     <div class="sub">Format detail per item dengan gambar, siap cetak untuk produksi</div>
                 </div>
