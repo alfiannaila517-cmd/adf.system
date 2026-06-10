@@ -120,11 +120,11 @@ if (isset($_GET['print_spk']) && $_GET['print_spk'] === '1') {
                 font-family: "Segoe UI", Tahoma, Arial, sans-serif;
                 color: var(--ink);
                 background: #eef2f7;
-                padding: 16px;
+                padding: 10px;
             }
 
             .sheet {
-                max-width: 980px;
+                max-width: 920px;
                 margin: 0 auto;
                 background: #fff;
                 border: 1px solid #e5e7eb;
@@ -134,7 +134,7 @@ if (isset($_GET['print_spk']) && $_GET['print_spk'] === '1') {
             }
 
             .toolbar {
-                padding: 12px 16px;
+                padding: 10px 12px;
                 border-bottom: 1px solid #e5e7eb;
                 background: #fff;
                 display: flex;
@@ -146,8 +146,8 @@ if (isset($_GET['print_spk']) && $_GET['print_spk'] === '1') {
                 background: #fff;
                 color: #111827;
                 border-radius: 8px;
-                padding: 8px 12px;
-                font-size: 12px;
+                padding: 7px 10px;
+                font-size: 11px;
                 cursor: pointer;
                 text-decoration: none;
             }
@@ -160,7 +160,7 @@ if (isset($_GET['print_spk']) && $_GET['print_spk'] === '1') {
             }
 
             .head {
-                padding: 16px;
+                padding: 12px;
                 border-bottom: 2px solid #111827;
             }
 
@@ -175,21 +175,21 @@ if (isset($_GET['print_spk']) && $_GET['print_spk'] === '1') {
                 display: flex;
                 gap: 10px;
                 align-items: flex-start;
-                margin-bottom: 10px;
+                margin-bottom: 8px;
             }
 
             .company-logo {
-                width: 84px;
-                height: 84px;
+                width: 70px;
+                height: 70px;
                 object-fit: contain;
                 border: 1px solid #e5e7eb;
                 border-radius: 10px;
                 background: #fff;
-                padding: 4px;
+                padding: 3px;
             }
 
             .company-name {
-                font-size: 16px;
+                font-size: 14px;
                 font-weight: 800;
                 color: #0f172a;
                 line-height: 1.2;
@@ -197,40 +197,40 @@ if (isset($_GET['print_spk']) && $_GET['print_spk'] === '1') {
 
             .company-addr {
                 color: var(--muted);
-                font-size: 11px;
+                font-size: 10px;
                 margin-top: 3px;
                 max-width: 460px;
                 line-height: 1.35;
             }
 
             .title {
-                font-size: 20px;
+                font-size: 16px;
                 font-weight: 800;
-                margin-bottom: 4px;
+                margin-bottom: 3px;
                 text-align: center;
             }
 
             .sub {
                 color: var(--muted);
-                font-size: 12px;
+                font-size: 10px;
                 text-align: center;
             }
 
             .meta {
                 text-align: right;
-                font-size: 12px;
+                font-size: 11px;
                 color: var(--muted);
             }
 
             .title-wrap {
-                margin-top: 10px;
+                margin-top: 6px;
             }
 
             .summary {
                 display: grid;
                 grid-template-columns: repeat(4, minmax(0, 1fr));
-                gap: 8px;
-                padding: 12px 16px;
+                gap: 6px;
+                padding: 10px 12px;
                 border-bottom: 1px solid #e5e7eb;
                 background: #fcfdff;
             }
@@ -239,31 +239,31 @@ if (isset($_GET['print_spk']) && $_GET['print_spk'] === '1') {
                 border: 1px solid #e5e7eb;
                 background: #fff;
                 border-radius: 10px;
-                padding: 8px 10px;
+                padding: 6px 8px;
             }
 
             .sum-label {
                 color: var(--muted);
-                font-size: 10px;
+                font-size: 9px;
                 text-transform: uppercase;
                 letter-spacing: .4px;
                 font-weight: 700;
             }
 
             .sum-value {
-                font-size: 18px;
+                font-size: 15px;
                 font-weight: 800;
                 margin-top: 2px;
             }
 
             .items {
-                padding: 14px;
+                padding: 10px;
             }
 
             .spk-item {
                 border: 1px solid var(--line);
-                border-radius: 12px;
-                margin-bottom: 12px;
+                border-radius: 10px;
+                margin-bottom: 8px;
                 overflow: hidden;
                 page-break-inside: avoid;
             }
@@ -272,7 +272,7 @@ if (isset($_GET['print_spk']) && $_GET['print_spk'] === '1') {
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                padding: 10px 12px;
+                padding: 7px 9px;
                 background: var(--gold-soft);
                 border-bottom: 1px solid #f3e8c2;
             }
@@ -281,28 +281,28 @@ if (isset($_GET['print_spk']) && $_GET['print_spk'] === '1') {
                 font-family: Consolas, "Courier New", monospace;
                 font-weight: 800;
                 color: #92400e;
-                font-size: 13px;
+                font-size: 12px;
             }
 
             .spk-status {
-                font-size: 11px;
+                font-size: 10px;
                 font-weight: 700;
-                padding: 3px 9px;
+                padding: 2px 8px;
                 border-radius: 999px;
                 border: 1px solid #d1d5db;
                 background: #fff;
             }
 
             .spk-body {
-                padding: 12px;
+                padding: 9px;
                 display: grid;
-                grid-template-columns: 150px 1fr;
-                gap: 12px;
+                grid-template-columns: 120px 1fr;
+                gap: 9px;
             }
 
             .thumb {
-                width: 150px;
-                height: 120px;
+                width: 120px;
+                height: 90px;
                 border: 1px solid #d1d5db;
                 border-radius: 10px;
                 background: #f8fafc;
@@ -310,49 +310,49 @@ if (isset($_GET['print_spk']) && $_GET['print_spk'] === '1') {
             }
 
             .thumb-empty {
-                width: 150px;
-                height: 120px;
+                width: 120px;
+                height: 90px;
                 border: 1px dashed #cbd5e1;
                 border-radius: 10px;
                 color: #94a3b8;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                font-size: 11px;
+                font-size: 10px;
             }
 
             .prod {
-                font-size: 16px;
+                font-size: 13px;
                 font-weight: 800;
-                margin-bottom: 8px;
+                margin-bottom: 5px;
             }
 
             .grid {
                 display: grid;
                 grid-template-columns: repeat(2, minmax(0, 1fr));
-                gap: 6px 14px;
-                font-size: 12px;
+                gap: 4px 10px;
+                font-size: 11px;
             }
 
             .label { color: var(--muted); }
             .val { font-weight: 700; }
 
             .notes {
-                margin-top: 10px;
-                padding: 8px 10px;
+                margin-top: 7px;
+                padding: 6px 8px;
                 border: 1px solid #e5e7eb;
                 border-radius: 8px;
                 background: #fcfcfc;
-                font-size: 11px;
-                line-height: 1.45;
+                font-size: 10px;
+                line-height: 1.4;
                 white-space: pre-wrap;
             }
 
             .footer {
                 text-align: center;
                 color: #94a3b8;
-                font-size: 11px;
-                padding: 10px 12px 16px;
+                font-size: 10px;
+                padding: 8px 10px 12px;
             }
 
             @media print {
@@ -480,7 +480,7 @@ if (isset($_GET['print_spk']) && $_GET['print_spk'] === '1') {
                 <?php endif; ?>
             </div>
 
-            <div class="footer">Generated by PWF Office - SPK Filter Print</div>
+            <div class="footer">Generated by PWF Office - SPK Filter Print • Powerby AdFsystem</div>
         </div>
     </body>
     </html>
