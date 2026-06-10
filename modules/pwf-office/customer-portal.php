@@ -1232,89 +1232,94 @@ if (!empty($_manifestParams)) {
                         
                         var html = '';
                         
-                        // Top section: Image + Basic Info
-                        html += '<div style="display:grid;grid-template-columns:180px 1fr;gap:20px;margin-bottom:24px;">';
-                        // Image section
-                        if (imageSrc) {
-                            html += '<div><img src="' + imageSrc.replace(/"/g, '&quot;') + '" alt="Order image" style="width:100%;height:180px;object-fit:cover;border-radius:10px;border:1px solid var(--border);"></div>';
-                        } else {
-                            html += '<div style="display:flex;align-items:center;justify-content:center;height:180px;background:var(--nav-hover);border-radius:10px;border:2px dashed var(--border);color:var(--muted);font-size:40px;">📷</div>';
-                        }
-                        
-                        // Order Header: Code, Status, Date
-                        html += '<div>';
-                        html += '<div style="margin-bottom:14px;"><div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:600;letter-spacing:0.5px;">Order Code</div><div style="font-size:16px;font-weight:700;color:var(--text);margin-top:3px;">' + escapeHtml(orderData.order_code) + '</div></div>';
-                        html += '<div style="margin-bottom:14px;"><div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:600;letter-spacing:0.5px;">Status</div><div style="margin-top:3px;"><span class="status ' + statusClass + '" style="display:inline-block;padding:5px 10px;border-radius:5px;font-size:11px;font-weight:600;">' + escapeHtml(orderData.status.replace(/_/g, ' ')) + '</span></div></div>';
-                        html += '<div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:600;letter-spacing:0.5px;">Order Date</div><div style="font-size:13px;color:var(--text);margin-top:3px;">' + escapeHtml(orderData.order_date) + '</div></div>';
-                        html += '</div>';
-                        
-                        html += '</div>';
-                        
-                        // Product Details Section
-                        html += '<div style="padding:16px;background:var(--nav-hover);border-radius:10px;margin-bottom:20px;">';
-                        html += '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:600;letter-spacing:0.5px;margin-bottom:8px;">📦 Product Details</div>';
-                        html += '<div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:12px;">' + escapeHtml(orderData.product_name) + '</div>';
-                        html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">';
-                        html += '<div><div style="font-size:10px;color:var(--muted);font-weight:600;">FINISH / COLOR</div><div style="font-size:12px;color:var(--text);margin-top:2px;">' + escapeHtml(finishColor) + '</div></div>';
-                        html += '<div><div style="font-size:10px;color:var(--muted);font-weight:600;">UNIT</div><div style="font-size:12px;color:var(--text);margin-top:2px;">pcs</div></div>';
-                        html += '</div>';
-                        html += '</div>';
-                        
-                        // Quantities Section with Progress
-                        html += '<div style="padding:16px;background:var(--nav-hover);border-radius:10px;margin-bottom:20px;">';
-                        html += '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:600;letter-spacing:0.5px;margin-bottom:12px;">📊 Quantity Status</div>';
-                        
+                        // Calculate quantities upfront
                         var qtyOrdered = parseFloat(orderData.quantity) || 0;
                         var qtyDone = parseFloat(orderData.qty_done) || 0;
                         var qtyShipped = parseFloat(orderData.qty_shipped) || 0;
                         var completionPct = qtyOrdered > 0 ? Math.round((qtyDone / qtyOrdered) * 100) : 0;
                         var shippingPct = qtyOrdered > 0 ? Math.round((qtyShipped / qtyOrdered) * 100) : 0;
                         
-                        // Ordered vs Completed Progress
-                        html += '<div style="margin-bottom:14px;">';
-                        html += '<div style="display:flex;justify-content:space-between;margin-bottom:6px;">';
-                        html += '<div style="font-size:11px;color:var(--muted);font-weight:600;">Completion Progress</div>';
-                        html += '<div style="font-size:12px;color:var(--text);font-weight:600;">' + completionPct + '%</div>';
-                        html += '</div>';
-                        html += '<div style="height:6px;background:rgba(0,0,0,0.1);border-radius:3px;overflow:hidden;">';
-                        html += '<div style="height:100%;background:linear-gradient(90deg, #3b82f6, #1e40af);width:' + completionPct + '%;transition:width 0.3s ease;"></div>';
-                        html += '</div>';
-                        html += '</div>';
+                        // Main layout: Image on left, all info on right
+                        html += '<div style="display:grid;grid-template-columns:140px 1fr;gap:18px;margin-bottom:20px;">';
                         
-                        // Shipping Progress
+                        // Left: Image
+                        if (imageSrc) {
+                            html += '<div><img src="' + imageSrc.replace(/"/g, '&quot;') + '" alt="Order image" style="width:100%;height:140px;object-fit:cover;border-radius:10px;border:1px solid var(--border);"></div>';
+                        } else {
+                            html += '<div style="display:flex;align-items:center;justify-content:center;height:140px;background:var(--nav-hover);border-radius:10px;border:2px dashed var(--border);color:var(--muted);font-size:36px;">📷</div>';
+                        }
+                        
+                        // Right: All info stacked
+                        html += '<div>';
+                        
+                        // Order Header: Code, Status, Date (compact)
                         html += '<div style="margin-bottom:12px;">';
-                        html += '<div style="display:flex;justify-content:space-between;margin-bottom:6px;">';
-                        html += '<div style="font-size:11px;color:var(--muted);font-weight:600;">Shipping Progress</div>';
-                        html += '<div style="font-size:12px;color:var(--text);font-weight:600;">' + shippingPct + '%</div>';
+                        html += '<div style="margin-bottom:8px;"><div style="font-size:9px;color:var(--muted);text-transform:uppercase;font-weight:600;letter-spacing:0.4px;">Order Code</div><div style="font-size:14px;font-weight:700;color:var(--text);margin-top:2px;">' + escapeHtml(orderData.order_code) + '</div></div>';
+                        html += '<div style="margin-bottom:8px;"><div style="font-size:9px;color:var(--muted);text-transform:uppercase;font-weight:600;letter-spacing:0.4px;">Status</div><div style="margin-top:2px;"><span class="status ' + statusClass + '" style="display:inline-block;padding:4px 8px;border-radius:4px;font-size:10px;font-weight:600;">' + escapeHtml(orderData.status.replace(/_/g, ' ')) + '</span></div></div>';
+                        html += '<div><div style="font-size:9px;color:var(--muted);text-transform:uppercase;font-weight:600;letter-spacing:0.4px;">Date</div><div style="font-size:11px;color:var(--text);margin-top:2px;">' + escapeHtml(orderData.order_date) + '</div></div>';
                         html += '</div>';
-                        html += '<div style="height:6px;background:rgba(0,0,0,0.1);border-radius:3px;overflow:hidden;">';
-                        html += '<div style="height:100%;background:linear-gradient(90deg, #10b981, #059669);width:' + shippingPct + '%;transition:width 0.3s ease;"></div>';
+                        
+                        // Product Details (compact)
+                        html += '<div style="padding:12px;background:var(--nav-hover);border-radius:8px;margin-bottom:12px;">';
+                        html += '<div style="font-size:9px;color:var(--muted);text-transform:uppercase;font-weight:600;letter-spacing:0.4px;margin-bottom:6px;">📦 Product</div>';
+                        html += '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px;">' + escapeHtml(orderData.product_name) + '</div>';
+                        html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:10px;">';
+                        html += '<div><div style="color:var(--muted);font-weight:600;">Finish</div><div style="color:var(--text);margin-top:1px;">' + escapeHtml(finishColor) + '</div></div>';
+                        html += '<div><div style="color:var(--muted);font-weight:600;">Unit</div><div style="color:var(--text);margin-top:1px;">pcs</div></div>';
                         html += '</div>';
                         html += '</div>';
                         
-                        // Details grid
-                        html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">';
-                        html += '<div style="padding:10px;background:rgba(59,130,246,0.15);border-radius:8px;text-align:center;">';
-                        html += '<div style="font-size:9px;color:var(--muted);text-transform:uppercase;font-weight:600;margin-bottom:4px;">Ordered</div>';
-                        html += '<div style="font-size:14px;font-weight:700;color:var(--text);">' + formatQty(qtyOrdered) + '</div>';
+                        // Quantity Status (compact)
+                        html += '<div style="padding:12px;background:var(--nav-hover);border-radius:8px;">';
+                        html += '<div style="font-size:9px;color:var(--muted);text-transform:uppercase;font-weight:600;letter-spacing:0.4px;margin-bottom:8px;">📊 Quantity</div>';
+                        
+                        // Progress bars (smaller)
+                        html += '<div style="margin-bottom:10px;">';
+                        html += '<div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:9px;">';
+                        html += '<div style="color:var(--muted);font-weight:600;">Complete</div>';
+                        html += '<div style="color:var(--text);font-weight:600;">' + completionPct + '%</div>';
+                        html += '</div>';
+                        html += '<div style="height:4px;background:rgba(0,0,0,0.1);border-radius:2px;overflow:hidden;">';
+                        html += '<div style="height:100%;background:linear-gradient(90deg, #3b82f6, #1e40af);width:' + completionPct + '%;"></div>';
+                        html += '</div>';
                         html += '</div>';
                         
-                        html += '<div style="padding:10px;background:rgba(59,130,246,0.15);border-radius:8px;text-align:center;">';
-                        html += '<div style="font-size:9px;color:var(--muted);text-transform:uppercase;font-weight:600;margin-bottom:4px;">Completed</div>';
-                        html += '<div style="font-size:14px;font-weight:700;color:var(--text);">' + formatQty(qtyDone) + '</div>';
+                        html += '<div style="margin-bottom:8px;">';
+                        html += '<div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:9px;">';
+                        html += '<div style="color:var(--muted);font-weight:600;">Shipped</div>';
+                        html += '<div style="color:var(--text);font-weight:600;">' + shippingPct + '%</div>';
+                        html += '</div>';
+                        html += '<div style="height:4px;background:rgba(0,0,0,0.1);border-radius:2px;overflow:hidden;">';
+                        html += '<div style="height:100%;background:linear-gradient(90deg, #10b981, #059669);width:' + shippingPct + '%;"></div>';
+                        html += '</div>';
                         html += '</div>';
                         
-                        html += '<div style="padding:10px;background:rgba(16,185,129,0.15);border-radius:8px;text-align:center;">';
-                        html += '<div style="font-size:9px;color:var(--muted);text-transform:uppercase;font-weight:600;margin-bottom:4px;">Shipped</div>';
-                        html += '<div style="font-size:14px;font-weight:700;color:var(--text);">' + formatQty(qtyShipped) + '</div>';
+                        // Qty cards (smaller)
+                        html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;font-size:9px;">';
+                        html += '<div style="padding:8px;background:rgba(59,130,246,0.15);border-radius:6px;text-align:center;">';
+                        html += '<div style="color:var(--muted);font-weight:600;margin-bottom:3px;">Order</div>';
+                        html += '<div style="font-size:12px;font-weight:700;color:var(--text);">' + formatQty(qtyOrdered) + '</div>';
+                        html += '</div>';
+                        
+                        html += '<div style="padding:8px;background:rgba(59,130,246,0.15);border-radius:6px;text-align:center;">';
+                        html += '<div style="color:var(--muted);font-weight:600;margin-bottom:3px;">Done</div>';
+                        html += '<div style="font-size:12px;font-weight:700;color:var(--text);">' + formatQty(qtyDone) + '</div>';
+                        html += '</div>';
+                        
+                        html += '<div style="padding:8px;background:rgba(16,185,129,0.15);border-radius:6px;text-align:center;">';
+                        html += '<div style="color:var(--muted);font-weight:600;margin-bottom:3px;">Ship</div>';
+                        html += '<div style="font-size:12px;font-weight:700;color:var(--text);">' + formatQty(qtyShipped) + '</div>';
+                        html += '</div>';
+                        html += '</div>';
+                        
                         html += '</div>';
                         html += '</div>';
                         html += '</div>';
                         
                         if (orderData.container_refs && orderData.container_refs !== '-') {
-                            html += '<div style="padding:14px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:10px;">';
-                            html += '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:600;letter-spacing:0.5px;margin-bottom:8px;">📦 Container References</div>';
-                            html += '<div style="font-size:12px;color:var(--text);font-family:monospace;line-height:1.6;">' + escapeHtml(orderData.container_refs) + '</div>';
+                            html += '<div style="padding:12px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:10px;">';
+                            html += '<div style="font-size:9px;color:var(--muted);text-transform:uppercase;font-weight:600;letter-spacing:0.4px;margin-bottom:6px;">📦 Containers</div>';
+                            html += '<div style="font-size:11px;color:var(--text);font-family:monospace;line-height:1.5;">' + escapeHtml(orderData.container_refs) + '</div>';
                             html += '</div>';
                         }
                         
