@@ -162,14 +162,13 @@ if (isset($_GET['print_spk']) && $_GET['print_spk'] === '1') {
             .head {
                 padding: 16px;
                 border-bottom: 2px solid #111827;
+            }
+
+            .head-top {
                 display: flex;
                 justify-content: space-between;
                 gap: 12px;
                 align-items: flex-start;
-            }
-
-            .head-main {
-                flex: 1;
             }
 
             .company-block {
@@ -180,8 +179,8 @@ if (isset($_GET['print_spk']) && $_GET['print_spk'] === '1') {
             }
 
             .company-logo {
-                width: 56px;
-                height: 56px;
+                width: 84px;
+                height: 84px;
                 object-fit: contain;
                 border: 1px solid #e5e7eb;
                 border-radius: 10px;
@@ -221,6 +220,10 @@ if (isset($_GET['print_spk']) && $_GET['print_spk'] === '1') {
                 text-align: right;
                 font-size: 12px;
                 color: var(--muted);
+            }
+
+            .title-wrap {
+                margin-top: 10px;
             }
 
             .summary {
@@ -368,27 +371,31 @@ if (isset($_GET['print_spk']) && $_GET['print_spk'] === '1') {
             </div>
 
             <div class="head">
-                <div class="head-main">
-                    <div class="company-block">
-                        <?php if ($companyLogoUrl !== ''): ?>
-                            <img class="company-logo" src="<?= htmlspecialchars($companyLogoUrl) ?>" alt="Company Logo">
-                        <?php endif; ?>
-                        <div>
-                            <div class="company-name"><?= htmlspecialchars($companyName) ?></div>
-                            <div class="company-addr">
-                                <?= htmlspecialchars($companyAddress) ?>
-                                <?php if ($companyPhone !== ''): ?>
-                                    <br>Tel: <?= htmlspecialchars($companyPhone) ?>
-                                <?php endif; ?>
+                <div class="head-top">
+                    <div>
+                        <div class="company-block">
+                            <?php if ($companyLogoUrl !== ''): ?>
+                                <img class="company-logo" src="<?= htmlspecialchars($companyLogoUrl) ?>" alt="Company Logo">
+                            <?php endif; ?>
+                            <div>
+                                <div class="company-name"><?= htmlspecialchars($companyName) ?></div>
+                                <div class="company-addr">
+                                    <?= htmlspecialchars($companyAddress) ?>
+                                    <?php if ($companyPhone !== ''): ?>
+                                        <br>Tel: <?= htmlspecialchars($companyPhone) ?>
+                                    <?php endif; ?>
+                                </div>
                             </div>
                         </div>
                     </div>
+                    <div class="meta">
+                        <div><strong><?= htmlspecialchars($filterText) ?></strong></div>
+                        <div>Generated: <?= date('d M Y H:i') ?></div>
+                    </div>
+                </div>
+                <div class="title-wrap">
                     <div class="title">SPK Pengrajin</div>
                     <div class="sub">Format detail per item dengan gambar, siap cetak untuk produksi</div>
-                </div>
-                <div class="meta">
-                    <div><strong><?= htmlspecialchars($filterText) ?></strong></div>
-                    <div>Generated: <?= date('d M Y H:i') ?></div>
                 </div>
             </div>
 
