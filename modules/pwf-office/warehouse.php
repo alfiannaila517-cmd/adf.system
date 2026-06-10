@@ -2,10 +2,20 @@
 require_once __DIR__ . '/_bootstrap.php';
 require_once __DIR__ . '/db-helper.php';
 
-$pdo = getPwfOfficePdo();
-
 $msg = '';
 $msgType = 'success';
+
+try {
+    $pdo = getPwfOfficePdo();
+} catch (\Throwable $e) {
+    $errMsg = htmlspecialchars($e->getMessage());
+    echo "<!DOCTYPE html><html><head><meta charset='utf-8'><title>Warehouse Error</title></head><body>";
+    echo "<div style='font-family:monospace;padding:20px;color:red;background:#fff'>";
+    echo "<h2>Warehouse DB Error</h2><pre>{$errMsg}</pre>";
+    echo "<p>Check DB credentials and that table <code>pwf_warehouse_stock</code> can be created.</p>";
+    echo "</div></body></html>";
+    exit;
+}
 
 // ── POST HANDLERS ──────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
