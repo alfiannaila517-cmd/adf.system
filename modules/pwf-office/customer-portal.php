@@ -1310,10 +1310,10 @@ if (!empty($_manifestParams)) {
     <script>
 
         /**
-         * Print Preview and Export Functions - Modern Version
+         * Print Preview and Export Functions - Simplified Version
          */
 
-        let currentPreviewType = 'dashboard'; // Track current preview type
+        let currentPreviewType = 'dashboard';
         let currentPreviewData = {};
 
         // Open Print Preview Modal
@@ -1325,7 +1325,6 @@ if (!empty($_manifestParams)) {
             const contentDiv = document.getElementById('printPreviewContent');
             const statusSpan = document.getElementById('previewStatus');
 
-            // Generate preview HTML based on type
             let previewHTML = '';
             if (type === 'dashboard') {
                 previewHTML = generateDashboardPreviewHTML(data);
@@ -1337,212 +1336,75 @@ if (!empty($_manifestParams)) {
 
             contentDiv.innerHTML = previewHTML;
             modal.style.display = 'flex';
-
-            // Scroll to top
-            setTimeout(() => {
-                contentDiv.scrollTop = 0;
-            }, 100);
+            setTimeout(() => { contentDiv.scrollTop = 0; }, 100);
         }
 
-        // Generate Dashboard Preview HTML
+        // Generate Dashboard Preview HTML - Simplified & Compact
         function generateDashboardPreviewHTML(data) {
             const now = new Date().toLocaleString('id-ID');
             let html = `
-                <div style="font-family: 'Plus Jakarta Sans', sans-serif; color: #0F172A;">
-                    <!-- Header -->
-                    <div style="margin-bottom: 30px; padding-bottom: 20px; border-bottom: 3px solid #0E223D;">
-                        <h1 style="margin: 0 0 8px 0; font-size: 28px; font-weight: 800; color: #0E223D;">📊 Buyer Portal Dashboard</h1>
-                        <p style="margin: 0; font-size: 13px; color: #64748B;">Overall Sales Report & Customer Orders</p>
-                        <p style="margin: 8px 0 0 0; font-size: 11px; color: #94A3B8;">Generated: ${now}</p>
-                    </div>
-
-                    <!-- Summary KPIs -->
-                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 30px;">
-                        <div style="padding: 16px; background: linear-gradient(135deg, #ECF4FF 0%, #DBE9FF 100%); border: 1px solid #9FC3F4; border-radius: 12px; text-align: center;">
-                            <div style="font-size: 11px; color: #1E40AF; font-weight: 700; text-transform: uppercase; margin-bottom: 6px;">Total Customers</div>
-                            <div style="font-size: 32px; font-weight: 800; color: #0E223D;">${data.customerCount}</div>
-                        </div>
-                        <div style="padding: 16px; background: linear-gradient(135deg, #FFF7ED 0%, #FDD8A7 100%); border: 1px solid #FDBA74; border-radius: 12px; text-align: center;">
-                            <div style="font-size: 11px; color: #C2410C; font-weight: 700; text-transform: uppercase; margin-bottom: 6px;">Total Orders</div>
-                            <div style="font-size: 32px; font-weight: 800; color: #0E223D;">${data.totalOrders}</div>
-                        </div>
-                        <div style="padding: 16px; background: linear-gradient(135deg, #ECFDF5 0%, #A7F3D0 100%); border: 1px solid #6EE7B7; border-radius: 12px; text-align: center;">
-                            <div style="font-size: 11px; color: #047857; font-weight: 700; text-transform: uppercase; margin-bottom: 6px;">Completed Qty</div>
-                            <div style="font-size: 32px; font-weight: 800; color: #0E223D;">${formatQty(data.qtyDone)}</div>
-                        </div>
-                        <div style="padding: 16px; background: linear-gradient(135deg, #EEF2FF 0%, #D9D4FF 100%); border: 1px solid #B4A0FF; border-radius: 12px; text-align: center;">
-                            <div style="font-size: 11px; color: #4338CA; font-weight: 700; text-transform: uppercase; margin-bottom: 6px;">In Container</div>
-                            <div style="font-size: 32px; font-weight: 800; color: #0E223D;">${formatQty(data.qtyShipped)}</div>
-                        </div>
-                    </div>
-
-                    <!-- Orders by Customer -->
-                    <div style="margin-top: 30px;">
-                        <h2 style="margin: 0 0 16px 0; font-size: 18px; font-weight: 800; color: #0E223D; padding-bottom: 12px; border-bottom: 2px solid #D8E2EF;">📦 Orders by Customer</h2>
-            `;
-
-            // Add customer orders details
-            if (data.customers && Array.isArray(data.customers)) {
-                data.customers.forEach((customer, idx) => {
-                    html += `
-                        <div style="margin-bottom: 28px; padding: 20px; background: #F8FBFF; border: 2px solid #D9E5F5; border-radius: 14px; page-break-inside: avoid;">
-                            <!-- Customer Header -->
-                            <div style="margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid #D8E2EF;">
-                                <h3 style="margin: 0 0 6px 0; font-size: 16px; font-weight: 800; color: #102A4A;">${escapeHtml(customer.name)}</h3>
-                                <div style="display: flex; gap: 8px; flex-wrap: wrap; font-size: 11px;">
-                                    <span style="padding: 4px 10px; background: #EEF4FF; color: #1D4ED8; border-radius: 20px; font-weight: 700;">Code: ${escapeHtml(customer.code)}</span>
-                                    <span style="padding: 4px 10px; background: #FFF3E0; color: #E65100; border-radius: 20px; font-weight: 700;">Orders: ${customer.orders.length}</span>
-                                    <span style="padding: 4px 10px; background: #E8F5E9; color: #2E7D32; border-radius: 20px; font-weight: 700;">Qty Ordered: ${formatQty(customer.totalQtyOrdered)}</span>
-                                </div>
-                            </div>
-
-                            <!-- Orders Table -->
-                            <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 8px;">
-                                <thead>
-                                    <tr style="background: #ECF4FF; border-bottom: 2px solid #9FC3F4;">
-                                        <th style="padding: 10px; text-align: left; font-weight: 700; color: #1E40AF;">Order Code</th>
-                                        <th style="padding: 10px; text-align: left; font-weight: 700; color: #1E40AF;">Product</th>
-                                        <th style="padding: 10px; text-align: center; font-weight: 700; color: #1E40AF;">Qty Order</th>
-                                        <th style="padding: 10px; text-align: center; font-weight: 700; color: #1E40AF;">Qty Done</th>
-                                        <th style="padding: 10px; text-align: center; font-weight: 700; color: #1E40AF;">In Container</th>
-                                        <th style="padding: 10px; text-align: left; font-weight: 700; color: #1E40AF;">Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                    `;
-
-                    customer.orders.forEach(order => {
-                        const statusColor = getStatusColor(order.status);
-                        html += `
-                            <tr style="border-bottom: 1px solid #D9E5F5;">
-                                <td style="padding: 10px; font-weight: 700; color: #0E223D;">${escapeHtml(order.code)}</td>
-                                <td style="padding: 10px; color: #0F172A;">${escapeHtml(order.product)}</td>
-                                <td style="padding: 10px; text-align: center; color: #0F172A;">${formatQty(order.qtyOrder)}</td>
-                                <td style="padding: 10px; text-align: center; color: #0F172A; font-weight: 600;">${formatQty(order.qtyDone)}</td>
-                                <td style="padding: 10px; text-align: center; color: #0F172A; font-weight: 600;">${formatQty(order.qtyShipped)}</td>
-                                <td style="padding: 10px;"><span style="display: inline-block; padding: 4px 10px; background: ${statusColor.bg}; color: ${statusColor.text}; border-radius: 6px; font-weight: 700; font-size: 10px; text-transform: uppercase;">${escapeHtml(order.status.replace(/_/g, ' '))}</span></td>
-                            </tr>
-                        `;
-                    });
-
-                    html += `
-                                </tbody>
-                            </table>
-                        </div>
-                    `;
-                });
-            }
-
-            html += `
-                    </div>
-
-                    <!-- Footer -->
-                    <div style="margin-top: 30px; padding-top: 20px; border-top: 2px dashed #D8E2EF; font-size: 11px; color: #94A3B8; text-align: center;">
-                        <p>✓ Generated by PWF Buyer Portal v1.0.0</p>
-                        <p style="margin: 4px 0 0 0;">Report prepared for management review and record keeping</p>
-                    </div>
-                </div>
-            `;
-
-            return html;
-        }
-
-        // Generate Customer Preview HTML
-        function generateCustomerPreviewHTML(data) {
-            const now = new Date().toLocaleString('id-ID');
-            let html = `
-                <div style="font-family: 'Plus Jakarta Sans', sans-serif; color: #0F172A;">
-                    <!-- Header -->
-                    <div style="margin-bottom: 24px; padding-bottom: 16px; border-bottom: 3px solid #0E223D;">
-                        <h1 style="margin: 0 0 6px 0; font-size: 26px; font-weight: 800; color: #0E223D;">📋 Customer Order Report</h1>
-                        <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 700; color: #102A4A;">${escapeHtml(data.customerName)}</p>
-                        <div style="display: flex; gap: 12px; flex-wrap: wrap; font-size: 11px; margin-bottom: 8px;">
-                            <span style="padding: 4px 10px; background: #EEF4FF; color: #1D4ED8; border-radius: 20px; font-weight: 700;">Code: ${escapeHtml(data.customerCode)}</span>
-                            ${data.customerPhone ? `<span style="padding: 4px 10px; background: #E8F5E9; color: #2E7D32; border-radius: 20px; font-weight: 700;">Phone: ${escapeHtml(data.customerPhone)}</span>` : ''}
-                        </div>
+                <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12px; color: #0F172A;">
+                    <div style="margin-bottom: 16px; padding-bottom: 10px; border-bottom: 2px solid #0E223D;">
+                        <h1 style="margin: 0 0 4px 0; font-size: 18px; font-weight: 800; color: #0E223D;">📊 Buyer Portal - All Orders Report</h1>
                         <p style="margin: 0; font-size: 11px; color: #94A3B8;">Generated: ${now}</p>
                     </div>
 
-                    <!-- Summary Stats -->
-                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 24px;">
-                        <div style="padding: 14px; background: linear-gradient(135deg, #ECF4FF 0%, #DBE9FF 100%); border: 1px solid #9FC3F4; border-radius: 10px; text-align: center;">
-                            <div style="font-size: 10px; color: #1E40AF; font-weight: 700; text-transform: uppercase; margin-bottom: 4px;">Total Orders</div>
-                            <div style="font-size: 24px; font-weight: 800; color: #0E223D;">${data.totalOrders}</div>
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px;">
+                        <div style="padding: 8px; background: #ECF4FF; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 10px; color: #1E40AF; font-weight: 700;">CUSTOMERS</div>
+                            <div style="font-size: 16px; font-weight: 800; color: #0E223D;">${data.customerCount}</div>
                         </div>
-                        <div style="padding: 14px; background: linear-gradient(135deg, #FFF7ED 0%, #FDD8A7 100%); border: 1px solid #FDBA74; border-radius: 10px; text-align: center;">
-                            <div style="font-size: 10px; color: #C2410C; font-weight: 700; text-transform: uppercase; margin-bottom: 4px;">Qty Ordered</div>
-                            <div style="font-size: 24px; font-weight: 800; color: #0E223D;">${formatQty(data.qtyOrdered)}</div>
+                        <div style="padding: 8px; background: #FFF7ED; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 10px; color: #C2410C; font-weight: 700;">ORDERS</div>
+                            <div style="font-size: 16px; font-weight: 800; color: #0E223D;">${data.totalOrders}</div>
                         </div>
-                        <div style="padding: 14px; background: linear-gradient(135deg, #ECFDF5 0%, #A7F3D0 100%); border: 1px solid #6EE7B7; border-radius: 10px; text-align: center;">
-                            <div style="font-size: 10px; color: #047857; font-weight: 700; text-transform: uppercase; margin-bottom: 4px;">Completed</div>
-                            <div style="font-size: 24px; font-weight: 800; color: #0E223D;">${formatQty(data.qtyDone)}</div>
+                        <div style="padding: 8px; background: #ECFDF5; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 10px; color: #047857; font-weight: 700;">DONE</div>
+                            <div style="font-size: 16px; font-weight: 800; color: #0E223D;">${formatQty(data.qtyDone)}</div>
                         </div>
-                        <div style="padding: 14px; background: linear-gradient(135deg, #EEF2FF 0%, #D9D4FF 100%); border: 1px solid #B4A0FF; border-radius: 10px; text-align: center;">
-                            <div style="font-size: 10px; color: #4338CA; font-weight: 700; text-transform: uppercase; margin-bottom: 4px;">In Container</div>
-                            <div style="font-size: 24px; font-weight: 800; color: #0E223D;">${formatQty(data.qtyShipped)}</div>
+                        <div style="padding: 8px; background: #EEF2FF; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 10px; color: #4338CA; font-weight: 700;">SHIPPED</div>
+                            <div style="font-size: 16px; font-weight: 800; color: #0E223D;">${formatQty(data.qtyShipped)}</div>
                         </div>
                     </div>
 
-                    <!-- All Orders Details -->
-                    <div>
-                        <h2 style="margin: 0 0 14px 0; font-size: 16px; font-weight: 800; color: #0E223D; padding-bottom: 10px; border-bottom: 2px solid #D8E2EF;">📦 Order Details</h2>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 8px;">
+                        <thead>
+                            <tr style="background: #ECF4FF; border-bottom: 1px solid #9FC3F4;">
+                                <th style="padding: 6px; text-align: left; font-weight: 700; color: #1E40AF;">CUSTOMER</th>
+                                <th style="padding: 6px; text-align: left; font-weight: 700; color: #1E40AF;">ORDER CODE</th>
+                                <th style="padding: 6px; text-align: left; font-weight: 700; color: #1E40AF;">PRODUCT</th>
+                                <th style="padding: 6px; text-align: center; font-weight: 700; color: #1E40AF;">ORD</th>
+                                <th style="padding: 6px; text-align: center; font-weight: 700; color: #1E40AF;">DONE</th>
+                                <th style="padding: 6px; text-align: center; font-weight: 700; color: #1E40AF;">SHIP</th>
+                                <th style="padding: 6px; text-align: left; font-weight: 700; color: #1E40AF;">STATUS</th>
+                            </tr>
+                        </thead>
+                        <tbody>
             `;
 
             if (data.orders && Array.isArray(data.orders) && data.orders.length > 0) {
-                data.orders.forEach((order, idx) => {
-                    const statusColor = getStatusColor(order.status);
+                data.orders.forEach(order => {
+                    const statusBg = getStatusBgColor(order.status);
                     html += `
-                        <div style="margin-bottom: 20px; padding: 16px; background: #F8FBFF; border-left: 4px solid #2563EB; border-radius: 8px; page-break-inside: avoid;">
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 12px;">
-                                <div>
-                                    <div style="font-size: 10px; color: #64748B; font-weight: 700; text-transform: uppercase; margin-bottom: 2px;">Order Code</div>
-                                    <div style="font-size: 14px; font-weight: 800; color: #0E223D;">${escapeHtml(order.code)}</div>
-                                </div>
-                                <div>
-                                    <div style="font-size: 10px; color: #64748B; font-weight: 700; text-transform: uppercase; margin-bottom: 2px;">Order Date</div>
-                                    <div style="font-size: 14px; font-weight: 800; color: #0E223D;">${order.date}</div>
-                                </div>
-                            </div>
-
-                            <div style="margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid #D9E5F5;">
-                                <div style="font-size: 10px; color: #64748B; font-weight: 700; text-transform: uppercase; margin-bottom: 4px;">Product</div>
-                                <div style="font-size: 13px; font-weight: 700; color: #102A4A;">${escapeHtml(order.product)}</div>
-                                <div style="font-size: 11px; color: #64748B; margin-top: 4px;">Finish: <strong>${escapeHtml(order.finishColor || '—')}</strong></div>
-                            </div>
-
-                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px;">
-                                <div style="padding: 10px; background: #EEF4FF; border-radius: 6px; text-align: center;">
-                                    <div style="font-size: 9px; color: #1E40AF; font-weight: 700; margin-bottom: 3px;">ORDER</div>
-                                    <div style="font-size: 16px; font-weight: 800; color: #0E223D;">${formatQty(order.qty)}</div>
-                                </div>
-                                <div style="padding: 10px; background: #ECFDF5; border-radius: 6px; text-align: center;">
-                                    <div style="font-size: 9px; color: #047857; font-weight: 700; margin-bottom: 3px;">DONE</div>
-                                    <div style="font-size: 16px; font-weight: 800; color: #0E223D;">${formatQty(order.qtyDone)}</div>
-                                </div>
-                                <div style="padding: 10px; background: #EEF2FF; border-radius: 6px; text-align: center;">
-                                    <div style="font-size: 9px; color: #4338CA; font-weight: 700; margin-bottom: 3px;">SHIP</div>
-                                    <div style="font-size: 16px; font-weight: 800; color: #0E223D;">${formatQty(order.qtyShipped)}</div>
-                                </div>
-                            </div>
-
-                            <div>
-                                <span style="display: inline-block; padding: 6px 12px; background: ${statusColor.bg}; color: ${statusColor.text}; border-radius: 6px; font-weight: 700; font-size: 10px; text-transform: uppercase;">● ${escapeHtml(order.status.replace(/_/g, ' '))}</span>
-                                ${order.containerRefs && order.containerRefs !== '-' ? `<div style="margin-top: 8px; font-size: 11px; color: #2563EB; font-weight: 600;">📦 Containers: ${escapeHtml(order.containerRefs)}</div>` : ''}
-                            </div>
-                        </div>
+                        <tr style="border-bottom: 1px solid #E5E7EB;">
+                            <td style="padding: 5px; color: #0E223D; font-weight: 600;">${escapeHtml(order.customerName)}</td>
+                            <td style="padding: 5px; color: #0E223D; font-weight: 700;">${escapeHtml(order.code)}</td>
+                            <td style="padding: 5px; color: #0F172A;">${escapeHtml(order.product)}</td>
+                            <td style="padding: 5px; text-align: center; color: #0F172A;">${formatQty(order.qtyOrder)}</td>
+                            <td style="padding: 5px; text-align: center; color: #047857; font-weight: 600;">${formatQty(order.qtyDone)}</td>
+                            <td style="padding: 5px; text-align: center; color: #4338CA; font-weight: 600;">${formatQty(order.qtyShipped)}</td>
+                            <td style="padding: 5px;"><span style="display: inline-block; padding: 2px 6px; background: ${statusBg}; border-radius: 4px; font-weight: 700; font-size: 10px;">${escapeHtml(order.status.replace(/_/g, ' '))}</span></td>
+                        </tr>
                     `;
                 });
-            } else {
-                html += '<div style="padding: 20px; text-align: center; color: #94A3B8; font-size: 13px;">No orders found for this customer.</div>';
             }
 
             html += `
-                    </div>
-
-                    <!-- Footer -->
-                    <div style="margin-top: 24px; padding-top: 16px; border-top: 2px dashed #D8E2EF; font-size: 10px; color: #94A3B8; text-align: center;">
-                        <p>✓ Generated by PWF Buyer Portal v1.0.0</p>
-                        <p style="margin: 3px 0 0 0;">Detailed order report for customer tracking and record management</p>
+                        </tbody>
+                    </table>
+                    <div style="margin-top: 12px; padding-top: 8px; border-top: 1px dashed #D8E2EF; font-size: 10px; color: #94A3B8; text-align: center;">
+                        ✓ Generated by PWF Buyer Portal
                     </div>
                 </div>
             `;
@@ -1550,32 +1412,106 @@ if (!empty($_manifestParams)) {
             return html;
         }
 
-        // Helper function to get status color
-        function getStatusColor(status) {
-            const colorMap = {
-                'draft': { bg: '#EFF6FF', text: '#1D4ED8' },
-                'on_progress': { bg: '#FFF7ED', text: '#C2410C' },
-                'qc': { bg: '#FFF7ED', text: '#C2410C' },
-                'ready_ship': { bg: '#ECFDF5', text: '#047857' },
-                'partial_ship': { bg: '#FFF7ED', text: '#C2410C' },
-                'shipped': { bg: '#EEF2FF', text: '#4338CA' },
-                'completed': { bg: '#ECFDF5', text: '#047857' },
-            };
-            return colorMap[status] || { bg: '#F1F5F9', text: '#334155' };
+        // Generate Customer Preview HTML - Simplified & Compact
+        function generateCustomerPreviewHTML(data) {
+            const now = new Date().toLocaleString('id-ID');
+            let html = `
+                <div style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12px; color: #0F172A;">
+                    <div style="margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #0E223D;">
+                        <h1 style="margin: 0 0 3px 0; font-size: 16px; font-weight: 800; color: #0E223D;">📋 ${escapeHtml(data.customerName)}</h1>
+                        <div style="font-size: 10px; color: #94A3B8;">Code: ${escapeHtml(data.customerCode)} | Generated: ${now}</div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px;">
+                        <div style="padding: 6px; background: #ECF4FF; border-radius: 6px; text-align: center;">
+                            <div style="font-size: 9px; color: #1E40AF; font-weight: 700;">ORDERS</div>
+                            <div style="font-size: 14px; font-weight: 800; color: #0E223D;">${data.totalOrders}</div>
+                        </div>
+                        <div style="padding: 6px; background: #FFF7ED; border-radius: 6px; text-align: center;">
+                            <div style="font-size: 9px; color: #C2410C; font-weight: 700;">ORD QTY</div>
+                            <div style="font-size: 14px; font-weight: 800; color: #0E223D;">${formatQty(data.qtyOrdered)}</div>
+                        </div>
+                        <div style="padding: 6px; background: #ECFDF5; border-radius: 6px; text-align: center;">
+                            <div style="font-size: 9px; color: #047857; font-weight: 700;">DONE</div>
+                            <div style="font-size: 14px; font-weight: 800; color: #0E223D;">${formatQty(data.qtyDone)}</div>
+                        </div>
+                        <div style="padding: 6px; background: #EEF2FF; border-radius: 6px; text-align: center;">
+                            <div style="font-size: 9px; color: #4338CA; font-weight: 700;">SHIP</div>
+                            <div style="font-size: 14px; font-weight: 800; color: #0E223D;">${formatQty(data.qtyShipped)}</div>
+                        </div>
+                    </div>
+
+                    <table style="width: 100%; border-collapse: collapse; font-size: 10px;">
+                        <thead>
+                            <tr style="background: #ECF4FF; border-bottom: 1px solid #9FC3F4;">
+                                <th style="padding: 5px; text-align: left; font-weight: 700; color: #1E40AF;">ORDER CODE</th>
+                                <th style="padding: 5px; text-align: left; font-weight: 700; color: #1E40AF;">DATE</th>
+                                <th style="padding: 5px; text-align: left; font-weight: 700; color: #1E40AF;">PRODUCT</th>
+                                <th style="padding: 5px; text-align: center; font-weight: 700; color: #1E40AF;">ORD</th>
+                                <th style="padding: 5px; text-align: center; font-weight: 700; color: #1E40AF;">DONE</th>
+                                <th style="padding: 5px; text-align: center; font-weight: 700; color: #1E40AF;">SHIP</th>
+                                <th style="padding: 5px; text-align: left; font-weight: 700; color: #1E40AF;">FINISH</th>
+                                <th style="padding: 5px; text-align: left; font-weight: 700; color: #1E40AF;">CONTAINER</th>
+                                <th style="padding: 5px; text-align: left; font-weight: 700; color: #1E40AF;">STATUS</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            if (data.orders && Array.isArray(data.orders) && data.orders.length > 0) {
+                data.orders.forEach(order => {
+                    const statusBg = getStatusBgColor(order.status);
+                    html += `
+                        <tr style="border-bottom: 1px solid #E5E7EB;">
+                            <td style="padding: 4px; font-weight: 700; color: #0E223D;">${escapeHtml(order.code)}</td>
+                            <td style="padding: 4px; color: #0F172A; font-size: 9px;">${order.date}</td>
+                            <td style="padding: 4px; color: #0F172A;">${escapeHtml(order.product)}</td>
+                            <td style="padding: 4px; text-align: center; color: #0F172A;">${formatQty(order.qty)}</td>
+                            <td style="padding: 4px; text-align: center; color: #047857; font-weight: 600;">${formatQty(order.qtyDone)}</td>
+                            <td style="padding: 4px; text-align: center; color: #4338CA; font-weight: 600;">${formatQty(order.qtyShipped)}</td>
+                            <td style="padding: 4px; font-size: 9px; color: #0F172A;">${escapeHtml(order.finishColor || '—')}</td>
+                            <td style="padding: 4px; font-size: 9px; color: #2563EB;">${escapeHtml(order.containerRefs && order.containerRefs !== '-' ? order.containerRefs : '—')}</td>
+                            <td style="padding: 4px;"><span style="display: inline-block; padding: 2px 6px; background: ${statusBg}; border-radius: 4px; font-weight: 700; font-size: 9px;">${escapeHtml(order.status.replace(/_/g, ' '))}</span></td>
+                        </tr>
+                    `;
+                });
+            } else {
+                html += '<tr><td colspan="9" style="padding: 8px; text-align: center; color: #94A3B8;">No orders found</td></tr>';
+            }
+
+            html += `
+                        </tbody>
+                    </table>
+                    <div style="margin-top: 8px; padding-top: 6px; border-top: 1px dashed #D8E2EF; font-size: 9px; color: #94A3B8; text-align: center;">
+                        ✓ Generated by PWF Buyer Portal
+                    </div>
+                </div>
+            `;
+
+            return html;
         }
 
-        // Helper functions
-        function escapeHtml(text) {
-            const map = {
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                '"': '&quot;',
-                "'": '&#039;'
+        // Helper: Get status background color
+        function getStatusBgColor(status) {
+            const colorMap = {
+                'draft': '#EFF6FF',
+                'on_progress': '#FFF7ED',
+                'qc': '#FFF7ED',
+                'ready_ship': '#ECFDF5',
+                'partial_ship': '#FFF7ED',
+                'shipped': '#EEF2FF',
+                'completed': '#ECFDF5',
             };
+            return colorMap[status] || '#F1F5F9';
+        }
+
+        // Helper: Escape HTML
+        function escapeHtml(text) {
+            const map = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'};
             return text.replace(/[&<>"']/g, m => map[m]);
         }
 
+        // Helper: Format Qty
         function formatQty(val) {
             val = parseFloat(val) || 0;
             let str = val.toFixed(2);
@@ -1598,8 +1534,8 @@ if (!empty($_manifestParams)) {
                     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
                     <style>
                         * { box-sizing: border-box; margin: 0; padding: 0; }
-                        body { font-family: 'Plus Jakarta Sans', sans-serif; padding: 20px; background: white; }
-                        @media print { body { padding: 0; } .no-print { display: none; } }
+                        body { font-family: 'Plus Jakarta Sans', sans-serif; padding: 15px; background: white; }
+                        @media print { body { padding: 0; } }
                     </style>
                 </head>
                 <body>
@@ -1608,10 +1544,7 @@ if (!empty($_manifestParams)) {
                 </html>
             `);
             printWindow.document.close();
-            setTimeout(() => {
-                printWindow.focus();
-                printWindow.print();
-            }, 250);
+            setTimeout(() => { printWindow.focus(); printWindow.print(); }, 250);
         }
 
         // Download PDF from preview
@@ -1627,7 +1560,7 @@ if (!empty($_manifestParams)) {
                 : `customer-report-${currentPreviewData.customerCode || 'report'}-${new Date().toISOString().split('T')[0]}.pdf`;
 
             const opt = {
-                margin: 10,
+                margin: 8,
                 filename: filename,
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { scale: 2 },
@@ -1639,56 +1572,57 @@ if (!empty($_manifestParams)) {
 
         // Dashboard Print
         function printDashboard() {
-            const modal = document.getElementById('printPreviewModal');
-            const statusSpan = document.getElementById('previewStatus');
+            const wrap = document.querySelector('.wrap');
+            if (!wrap) return;
 
-            // Fetch dashboard data (reuse existing KPI data)
-            const dashboardData = {
-                customerCount: document.querySelector('[style*="font-size: var(--fs-lg)"]')?.textContent || '0',
-                totalOrders: 0,
-                qtyDone: 0,
-                qtyShipped: 0,
-                customers: []
-            };
+            // Extract all customer names and orders
+            const orders = [];
+            const customerMap = {};
 
-            // Extract customer data from the page
+            // Get selected customers from visible table
             const customerItems = document.querySelectorAll('.customer-item');
             customerItems.forEach(item => {
                 const code = item.querySelector('.customer-code')?.textContent || '';
                 const name = item.querySelector('.customer-name')?.textContent || '';
                 if (code && name) {
-                    dashboardData.customers.push({
-                        code: code,
-                        name: name,
-                        orders: [],
-                        totalQtyOrdered: 0
-                    });
+                    customerMap[code] = name;
                 }
             });
 
-            // Extract orders from the visible table
+            // Get visible orders from current customer table
             const orderRows = document.querySelectorAll('.order-row-clickable');
-            if (orderRows.length > 0 && dashboardData.customers.length > 0) {
-                const currentCustomer = dashboardData.customers[dashboardData.customers.length - 1];
-                orderRows.forEach(row => {
-                    try {
-                        const orderData = JSON.parse(row.getAttribute('data-order'));
-                        currentCustomer.orders.push({
-                            code: orderData.order_code,
-                            product: orderData.product_name,
-                            qtyOrder: parseFloat(orderData.quantity) || 0,
-                            qtyDone: parseFloat(orderData.qty_done) || 0,
-                            qtyShipped: parseFloat(orderData.qty_shipped) || 0,
-                            status: orderData.status,
-                            finishColor: orderData.finish || orderData.wood_color || ''
-                        });
-                        currentCustomer.totalQtyOrdered += parseFloat(orderData.quantity) || 0;
-                        dashboardData.totalOrders++;
-                        dashboardData.qtyDone += parseFloat(orderData.qty_done) || 0;
-                        dashboardData.qtyShipped += parseFloat(orderData.qty_shipped) || 0;
-                    } catch(e) {}
-                });
-            }
+            let totalOrders = 0, totalQtyOrder = 0, totalQtyDone = 0, totalQtyShipped = 0;
+
+            orderRows.forEach(row => {
+                try {
+                    const orderData = JSON.parse(row.getAttribute('data-order'));
+                    const customerCode = ''; // Try to get from context or visible customer
+                    
+                    orders.push({
+                        code: orderData.order_code,
+                        customerName: document.querySelector('.customer-name')?.textContent || 'Unknown',
+                        product: orderData.product_name,
+                        qtyOrder: parseFloat(orderData.quantity) || 0,
+                        qtyDone: parseFloat(orderData.qty_done) || 0,
+                        qtyShipped: parseFloat(orderData.qty_shipped) || 0,
+                        status: orderData.status,
+                        finishColor: orderData.finish || orderData.wood_color || ''
+                    });
+
+                    totalOrders++;
+                    totalQtyOrder += parseFloat(orderData.quantity) || 0;
+                    totalQtyDone += parseFloat(orderData.qty_done) || 0;
+                    totalQtyShipped += parseFloat(orderData.qty_shipped) || 0;
+                } catch(e) {}
+            });
+
+            const dashboardData = {
+                customerCount: Object.keys(customerMap).length,
+                totalOrders: totalOrders,
+                qtyDone: totalQtyDone,
+                qtyShipped: totalQtyShipped,
+                orders: orders
+            };
 
             openPrintPreview('dashboard', dashboardData);
         }
