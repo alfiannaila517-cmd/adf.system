@@ -4,6 +4,9 @@ require_once __DIR__ . '/db-helper.php';
 
 $pdo = getPwfOfficePdo();
 
+$msg = '';
+$msgType = 'success';
+
 // ── POST HANDLERS ──────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['_action'] ?? 'create';
@@ -94,22 +97,30 @@ if ($filterSearch !== '') {
 
 $whereClause = $whereParts ? ('WHERE ' . implode(' AND ', $whereParts)) : '';
 
-$stmt = $pdo->prepare("SELECT * FROM pwf_warehouse_stock $whereClause ORDER BY created_at DESC");
-$stmt->execute($whereArgs);
-$stocks = $stmt->fetchAll();
+$stocks = [];
+$summary = ['total_items' => 0, 'unique_products' => 0, 'total_qty' => 0];
+try {
+    $stmt = $pdo->prepare("SELECT * FROM pwf_warehouse_stock $whereClause ORDER BY created_at DESC");
+    $stmt->execute($whereArgs);
+    $stocks = $stmt->fetchAll();
 
-// Summary stats
-$summaryStmt = $pdo->query("
-    SELECT 
-        COUNT(DISTINCT id) AS total_items,
-        COUNT(DISTINCT product_name) AS unique_products,
-        SUM(quantity) AS total_qty
-    FROM pwf_warehouse_stock
-");
-$summary = $summaryStmt->fetch();
+    $summaryRow = $pdo->query("
+        SELECT
+            COUNT(DISTINCT id) AS total_items,
+            COUNT(DISTINCT product_name) AS unique_products,
+            COALESCE(SUM(quantity), 0) AS total_qty
+        FROM pwf_warehouse_stock
+    ")->fetch();
+    if ($summaryRow) {
+        $summary = $summaryRow;
+    }
+} catch (\Throwable $e) {
+    if (empty($msg)) {
+        $msg = 'Database error: ' . $e->getMessage();
+        $msgType = 'warning';
+    }
+}
 
-$msg = '';
-$msgType = 'success';
 $baseUrl = rtrim(BASE_URL, '/');
 
 pwfOfficeHeader('Warehouse / Stock', 'warehouse');

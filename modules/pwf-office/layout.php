@@ -299,20 +299,23 @@ function pwfOfficeHeader(string $title, string $active = ''): void
 
             .pwf-nav {
                 flex: 1;
-                padding: 10px 8px;
-                overflow-y: hidden
+                padding: 8px 6px;
+                overflow-y: auto;
+                overflow-x: hidden;
+                scrollbar-width: thin;
+                scrollbar-color: var(--border) transparent
             }
 
             .pwf-nav a {
                 display: flex;
                 align-items: center;
                 gap: 9px;
-                padding: 8px 12px;
+                padding: 6px 10px;
                 border-radius: 8px;
                 margin-bottom: 1px;
                 color: var(--muted);
                 text-decoration: none;
-                font-size: 12.5px;
+                font-size: 12px;
                 font-weight: 500;
                 transition: background .15s, color .15s;
                 border-left: 3px solid transparent
@@ -336,12 +339,12 @@ function pwfOfficeHeader(string $title, string $active = ''): void
             }
 
             .pwf-nav .nav-section {
-                font-size: 9.5px;
+                font-size: 9px;
                 font-weight: 700;
                 letter-spacing: .8px;
                 text-transform: uppercase;
                 color: #C4B8B0;
-                padding: 12px 12px 4px;
+                padding: 8px 10px 3px;
                 margin-top: 2px
             }
 
@@ -350,12 +353,12 @@ function pwfOfficeHeader(string $title, string $active = ''): void
                 display: flex;
                 align-items: center;
                 gap: 9px;
-                padding: 8px 12px;
+                padding: 6px 10px;
                 border-radius: 8px;
                 margin-bottom: 1px;
                 color: var(--muted);
                 cursor: pointer;
-                font-size: 12.5px;
+                font-size: 12px;
                 font-weight: 500;
                 transition: background .15s, color .15s;
                 border-left: 3px solid transparent;
