@@ -251,6 +251,48 @@ if ($selectedCustomer) {
     $recentOrders = $stmtRecent->fetchAll(PDO::FETCH_ASSOC);
 }
 
+// Fetch all orders for all customers (for dashboard preview)
+$allOrdersData = [];
+if (!empty($customers)) {
+    $ids = array_map(static fn($r) => (int)$r['id'], $customers);
+    $ph = implode(',', array_fill(0, count($ids), '?'));
+    
+    $stmtAllOrders = $pdo->prepare("SELECT
+            o.id,
+            o.order_code,
+            o.order_date,
+            o.product_name,
+            o.quantity,
+            o.qty_done,
+            o.finish,
+            o.wood_color,
+            o.status,
+            COALESCE(s.qty_shipped, 0) AS qty_shipped,
+            COALESCE(s.container_refs, '-') AS container_refs,
+            c.customer_id,
+            c.customer_code,
+            c.customer_name
+        FROM pwf_orders o
+        LEFT JOIN (
+            SELECT
+                ci.order_id,
+                SUM(ci.qty_shipped) AS qty_shipped,
+                GROUP_CONCAT(
+                    DISTINCT TRIM(COALESCE(NULLIF(ct.container_no, ''), ct.container_code))
+                    ORDER BY ct.id DESC SEPARATOR ', '
+                ) AS container_refs
+            FROM pwf_container_items ci
+            LEFT JOIN pwf_containers ct ON ct.id = ci.container_id
+            GROUP BY ci.order_id
+        ) s ON s.order_id = o.id
+        INNER JOIN pwf_customers c ON c.id = o.customer_id
+        WHERE o.customer_id IN ($ph)
+          AND o.status <> 'cancelled'
+        ORDER BY c.customer_name ASC, o.order_date DESC, o.id DESC");
+    $stmtAllOrders->execute($ids);
+    $allOrdersData = $stmtAllOrders->fetchAll(PDO::FETCH_ASSOC);
+}
+
 function fmtQty(float $value): string
 {
     return rtrim(rtrim(number_format($value, 2), '0'), '.');
@@ -1313,6 +1355,9 @@ if (!empty($_manifestParams)) {
          * Print Preview and Export Functions - Simplified Version
          */
 
+        // All orders data from PHP backend (for dashboard preview)
+        const allOrdersData = <?= json_encode($allOrdersData) ?>;
+
         let currentPreviewType = 'dashboard';
         let currentPreviewData = {};
 
@@ -1572,53 +1617,32 @@ if (!empty($_manifestParams)) {
 
         // Dashboard Print
         function printDashboard() {
-            const wrap = document.querySelector('.wrap');
-            if (!wrap) return;
+            // Use data from PHP backend instead of DOM extraction
+            const orders = allOrdersData.map(order => ({
+                code: order.order_code,
+                customerName: order.customer_name,
+                product: order.product_name,
+                qtyOrder: parseFloat(order.quantity) || 0,
+                qtyDone: parseFloat(order.qty_done) || 0,
+                qtyShipped: parseFloat(order.qty_shipped) || 0,
+                status: order.status,
+                finishColor: order.finish || order.wood_color || ''
+            }));
 
-            // Extract all customer names and orders
-            const orders = [];
-            const customerMap = {};
+            // Get unique customers
+            const uniqueCustomers = new Set(allOrdersData.map(o => o.customer_code));
 
-            // Get selected customers from visible table
-            const customerItems = document.querySelectorAll('.customer-item');
-            customerItems.forEach(item => {
-                const code = item.querySelector('.customer-code')?.textContent || '';
-                const name = item.querySelector('.customer-name')?.textContent || '';
-                if (code && name) {
-                    customerMap[code] = name;
-                }
-            });
-
-            // Get visible orders from current customer table
-            const orderRows = document.querySelectorAll('.order-row-clickable');
-            let totalOrders = 0, totalQtyOrder = 0, totalQtyDone = 0, totalQtyShipped = 0;
-
-            orderRows.forEach(row => {
-                try {
-                    const orderData = JSON.parse(row.getAttribute('data-order'));
-                    const customerCode = ''; // Try to get from context or visible customer
-                    
-                    orders.push({
-                        code: orderData.order_code,
-                        customerName: document.querySelector('.customer-name')?.textContent || 'Unknown',
-                        product: orderData.product_name,
-                        qtyOrder: parseFloat(orderData.quantity) || 0,
-                        qtyDone: parseFloat(orderData.qty_done) || 0,
-                        qtyShipped: parseFloat(orderData.qty_shipped) || 0,
-                        status: orderData.status,
-                        finishColor: orderData.finish || orderData.wood_color || ''
-                    });
-
-                    totalOrders++;
-                    totalQtyOrder += parseFloat(orderData.quantity) || 0;
-                    totalQtyDone += parseFloat(orderData.qty_done) || 0;
-                    totalQtyShipped += parseFloat(orderData.qty_shipped) || 0;
-                } catch(e) {}
+            // Calculate totals
+            let totalQtyOrder = 0, totalQtyDone = 0, totalQtyShipped = 0;
+            allOrdersData.forEach(order => {
+                totalQtyOrder += parseFloat(order.quantity) || 0;
+                totalQtyDone += parseFloat(order.qty_done) || 0;
+                totalQtyShipped += parseFloat(order.qty_shipped) || 0;
             });
 
             const dashboardData = {
-                customerCount: Object.keys(customerMap).length,
-                totalOrders: totalOrders,
+                customerCount: uniqueCustomers.size,
+                totalOrders: allOrdersData.length,
                 qtyDone: totalQtyDone,
                 qtyShipped: totalQtyShipped,
                 orders: orders
