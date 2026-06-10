@@ -203,6 +203,29 @@ function ensurePwfOfficeTables(PDO $pdo): void
         INDEX idx_order (order_id),
         INDEX idx_craftsman (craftsman_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    // Warehouse Stock table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS pwf_warehouse_stock (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        stock_code VARCHAR(30) UNIQUE,
+        product_name VARCHAR(200) NOT NULL,
+        quantity DECIMAL(10,2) NOT NULL DEFAULT 0,
+        unit VARCHAR(20) DEFAULT 'pcs',
+        finish VARCHAR(100) NULL,
+        wood_color VARCHAR(100) NULL,
+        dimensions VARCHAR(120) NULL,
+        specification TEXT NULL,
+        image_path VARCHAR(255) NULL,
+        notes TEXT NULL,
+        order_id INT NULL,
+        source ENUM('manual','from_order_failed') DEFAULT 'manual',
+        created_by INT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_product_name (product_name),
+        INDEX idx_order (order_id),
+        INDEX idx_created_at (created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 }
 
 function genPwfCode(PDO $pdo, string $prefix): string
