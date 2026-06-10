@@ -4,6 +4,406 @@ require_once __DIR__ . '/db-helper.php';
 
 $pdo = getPwfOfficePdo();
 
+// ── PRINT SPK BY FILTER ─────────────────────────────────────────────────────
+if (isset($_GET['print_spk']) && $_GET['print_spk'] === '1') {
+    $baseUrl = rtrim(BASE_URL, '/');
+    $filterCid = (int)($_GET['customer_id'] ?? 0);
+    $filterTid = (int)($_GET['craftsman_id'] ?? 0);
+
+    $whereParts = [];
+    $whereArgs = [];
+    if ($filterCid > 0) {
+        $whereParts[] = 'o.customer_id = ?';
+        $whereArgs[] = $filterCid;
+    }
+    if ($filterTid > 0) {
+        $whereParts[] = 'o.assigned_craftsman_id = ?';
+        $whereArgs[] = $filterTid;
+    }
+    $whereClause = $whereParts ? ('WHERE ' . implode(' AND ', $whereParts)) : '';
+
+    $stmt = $pdo->prepare("SELECT
+            o.id,
+            o.order_code,
+            o.order_date,
+            o.due_date,
+            o.product_name,
+            o.specification,
+            o.dimensions,
+            o.quantity,
+            o.unit_price,
+            o.total_price,
+            o.finish,
+            o.wood_color,
+            o.image_path,
+            o.status,
+            o.notes,
+            o.progress_percent,
+            o.qty_done,
+            c.customer_name,
+            t.craftsman_name
+        FROM pwf_orders o
+        LEFT JOIN pwf_customers c ON c.id = o.customer_id
+        LEFT JOIN pwf_craftsmen t ON t.id = o.assigned_craftsman_id
+        $whereClause
+        ORDER BY o.id DESC");
+    $stmt->execute($whereArgs);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $statusLabels = [
+        'draft' => 'Draft',
+        'on_progress' => 'On Progress',
+        'qc' => 'Quality Check',
+        'ready_ship' => 'Ready to Ship',
+        'partial_ship' => 'Partial Ship',
+        'shipped' => 'Shipped',
+        'completed' => 'Completed',
+        'cancelled' => 'Cancelled',
+    ];
+
+    $filterText = 'Semua Customer • Semua Pengrajin';
+    if ($filterCid > 0 && $filterTid > 0) {
+        $filterText = 'Filter Customer + Pengrajin';
+    } elseif ($filterCid > 0) {
+        $filterText = 'Filter Customer';
+    } elseif ($filterTid > 0) {
+        $filterText = 'Filter Pengrajin';
+    }
+
+    header('Content-Type: text/html; charset=utf-8');
+    ?>
+    <!doctype html>
+    <html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Cetak SPK Pengrajin</title>
+        <style>
+            :root {
+                --ink: #111827;
+                --muted: #6b7280;
+                --line: #d1d5db;
+                --soft: #f8fafc;
+                --gold: #a16207;
+                --gold-soft: #fffbeb;
+            }
+
+            * { box-sizing: border-box; }
+
+            body {
+                margin: 0;
+                font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+                color: var(--ink);
+                background: #eef2f7;
+                padding: 16px;
+            }
+
+            .sheet {
+                max-width: 980px;
+                margin: 0 auto;
+                background: #fff;
+                border: 1px solid #e5e7eb;
+                border-radius: 14px;
+                overflow: hidden;
+                box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+            }
+
+            .toolbar {
+                padding: 12px 16px;
+                border-bottom: 1px solid #e5e7eb;
+                background: #fff;
+                display: flex;
+                gap: 8px;
+            }
+
+            .btn {
+                border: 1px solid #d1d5db;
+                background: #fff;
+                color: #111827;
+                border-radius: 8px;
+                padding: 8px 12px;
+                font-size: 12px;
+                cursor: pointer;
+                text-decoration: none;
+            }
+
+            .btn-primary {
+                background: #a16207;
+                border-color: #a16207;
+                color: #fff;
+                font-weight: 600;
+            }
+
+            .head {
+                padding: 16px;
+                border-bottom: 2px solid #111827;
+                display: flex;
+                justify-content: space-between;
+                gap: 12px;
+                align-items: flex-start;
+            }
+
+            .title {
+                font-size: 20px;
+                font-weight: 800;
+                margin-bottom: 4px;
+            }
+
+            .sub {
+                color: var(--muted);
+                font-size: 12px;
+            }
+
+            .meta {
+                text-align: right;
+                font-size: 12px;
+                color: var(--muted);
+            }
+
+            .summary {
+                display: grid;
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+                gap: 8px;
+                padding: 12px 16px;
+                border-bottom: 1px solid #e5e7eb;
+                background: #fcfdff;
+            }
+
+            .sum-card {
+                border: 1px solid #e5e7eb;
+                background: #fff;
+                border-radius: 10px;
+                padding: 8px 10px;
+            }
+
+            .sum-label {
+                color: var(--muted);
+                font-size: 10px;
+                text-transform: uppercase;
+                letter-spacing: .4px;
+                font-weight: 700;
+            }
+
+            .sum-value {
+                font-size: 18px;
+                font-weight: 800;
+                margin-top: 2px;
+            }
+
+            .items {
+                padding: 14px;
+            }
+
+            .spk-item {
+                border: 1px solid var(--line);
+                border-radius: 12px;
+                margin-bottom: 12px;
+                overflow: hidden;
+                page-break-inside: avoid;
+            }
+
+            .spk-item-head {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 10px 12px;
+                background: var(--gold-soft);
+                border-bottom: 1px solid #f3e8c2;
+            }
+
+            .spk-code {
+                font-family: Consolas, "Courier New", monospace;
+                font-weight: 800;
+                color: #92400e;
+                font-size: 13px;
+            }
+
+            .spk-status {
+                font-size: 11px;
+                font-weight: 700;
+                padding: 3px 9px;
+                border-radius: 999px;
+                border: 1px solid #d1d5db;
+                background: #fff;
+            }
+
+            .spk-body {
+                padding: 12px;
+                display: grid;
+                grid-template-columns: 150px 1fr;
+                gap: 12px;
+            }
+
+            .thumb {
+                width: 150px;
+                height: 120px;
+                border: 1px solid #d1d5db;
+                border-radius: 10px;
+                background: #f8fafc;
+                object-fit: cover;
+            }
+
+            .thumb-empty {
+                width: 150px;
+                height: 120px;
+                border: 1px dashed #cbd5e1;
+                border-radius: 10px;
+                color: #94a3b8;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 11px;
+            }
+
+            .prod {
+                font-size: 16px;
+                font-weight: 800;
+                margin-bottom: 8px;
+            }
+
+            .grid {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 6px 14px;
+                font-size: 12px;
+            }
+
+            .label { color: var(--muted); }
+            .val { font-weight: 700; }
+
+            .notes {
+                margin-top: 10px;
+                padding: 8px 10px;
+                border: 1px solid #e5e7eb;
+                border-radius: 8px;
+                background: #fcfcfc;
+                font-size: 11px;
+                line-height: 1.45;
+                white-space: pre-wrap;
+            }
+
+            .footer {
+                text-align: center;
+                color: #94a3b8;
+                font-size: 11px;
+                padding: 10px 12px 16px;
+            }
+
+            @media print {
+                body { background: #fff; padding: 0; }
+                .toolbar { display: none; }
+                .sheet { border: none; border-radius: 0; box-shadow: none; max-width: 100%; }
+                .spk-item { break-inside: avoid; }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="sheet">
+            <div class="toolbar">
+                <button class="btn btn-primary" onclick="window.print()">Print / Save PDF</button>
+                <button class="btn" onclick="window.close()">Close</button>
+            </div>
+
+            <div class="head">
+                <div>
+                    <div class="title">SPK Pengrajin - Hasil Filter</div>
+                    <div class="sub">Format detail per item dengan gambar, siap cetak untuk produksi</div>
+                </div>
+                <div class="meta">
+                    <div><strong><?= htmlspecialchars($filterText) ?></strong></div>
+                    <div>Generated: <?= date('d M Y H:i') ?></div>
+                </div>
+            </div>
+
+            <div class="summary">
+                <div class="sum-card">
+                    <div class="sum-label">Total SPK</div>
+                    <div class="sum-value"><?= count($rows) ?></div>
+                </div>
+                <div class="sum-card">
+                    <div class="sum-label">Total Qty</div>
+                    <div class="sum-value"><?= rtrim(rtrim(number_format((float)array_sum(array_map(static fn($r) => (float)($r['quantity'] ?? 0), $rows)), 2), '0'), '.') ?></div>
+                </div>
+                <div class="sum-card">
+                    <div class="sum-label">Qty Done</div>
+                    <div class="sum-value"><?= rtrim(rtrim(number_format((float)array_sum(array_map(static fn($r) => (float)($r['qty_done'] ?? 0), $rows)), 2), '0'), '.') ?></div>
+                </div>
+                <div class="sum-card">
+                    <div class="sum-label">Progress Avg</div>
+                    <div class="sum-value"><?= count($rows) > 0 ? (int)round(array_sum(array_map(static fn($r) => (float)($r['progress_percent'] ?? 0), $rows)) / count($rows)) : 0 ?>%</div>
+                </div>
+            </div>
+
+            <div class="items">
+                <?php if (empty($rows)): ?>
+                    <div style="text-align:center;padding:28px 12px;color:#64748b;font-size:13px;border:1px dashed #cbd5e1;border-radius:12px;">
+                        Tidak ada order sesuai filter.
+                    </div>
+                <?php else: ?>
+                    <?php foreach ($rows as $i => $r): ?>
+                        <?php
+                            $imgSrc = '';
+                            if (!empty($r['image_path'])) {
+                                $imgSrc = preg_match('#^https?://#i', (string)$r['image_path']) ? (string)$r['image_path'] : ($baseUrl . '/' . ltrim((string)$r['image_path'], '/'));
+                            }
+                            $finish = trim((string)($r['finish'] ?? ''));
+                            if ($finish === '') {
+                                $finish = trim((string)($r['wood_color'] ?? ''));
+                            }
+                            $totalPrice = (float)($r['total_price'] ?? 0);
+                            if ($totalPrice <= 0) {
+                                $totalPrice = ((float)($r['quantity'] ?? 0)) * ((float)($r['unit_price'] ?? 0));
+                            }
+                        ?>
+                        <div class="spk-item">
+                            <div class="spk-item-head">
+                                <div class="spk-code"><?= ($i + 1) ?>. <?= htmlspecialchars((string)$r['order_code']) ?></div>
+                                <div class="spk-status"><?= htmlspecialchars($statusLabels[$r['status']] ?? (string)$r['status']) ?></div>
+                            </div>
+                            <div class="spk-body">
+                                <div>
+                                    <?php if ($imgSrc !== ''): ?>
+                                        <img class="thumb" src="<?= htmlspecialchars($imgSrc) ?>" alt="<?= htmlspecialchars((string)$r['product_name']) ?>">
+                                    <?php else: ?>
+                                        <div class="thumb-empty">No Image</div>
+                                    <?php endif; ?>
+                                </div>
+                                <div>
+                                    <div class="prod"><?= htmlspecialchars((string)$r['product_name']) ?></div>
+                                    <div class="grid">
+                                        <div><span class="label">Customer:</span> <span class="val"><?= htmlspecialchars((string)($r['customer_name'] ?? '-')) ?></span></div>
+                                        <div><span class="label">Pengrajin:</span> <span class="val"><?= htmlspecialchars((string)($r['craftsman_name'] ?? '-')) ?></span></div>
+                                        <div><span class="label">Order Date:</span> <span class="val"><?= !empty($r['order_date']) ? date('d M Y', strtotime((string)$r['order_date'])) : '-' ?></span></div>
+                                        <div><span class="label">Deadline:</span> <span class="val"><?= !empty($r['due_date']) ? date('d M Y', strtotime((string)$r['due_date'])) : '-' ?></span></div>
+                                        <div><span class="label">Qty:</span> <span class="val"><?= rtrim(rtrim(number_format((float)($r['quantity'] ?? 0), 2), '0'), '.') ?> pcs</span></div>
+                                        <div><span class="label">Qty Done:</span> <span class="val"><?= rtrim(rtrim(number_format((float)($r['qty_done'] ?? 0), 2), '0'), '.') ?> pcs (<?= (int)($r['progress_percent'] ?? 0) ?>%)</span></div>
+                                        <div><span class="label">Dimensi:</span> <span class="val"><?= htmlspecialchars((string)($r['dimensions'] ?: '-')) ?></span></div>
+                                        <div><span class="label">Finish:</span> <span class="val"><?= htmlspecialchars($finish !== '' ? $finish : '-') ?></span></div>
+                                        <div><span class="label">Harga Total:</span> <span class="val">Rp <?= number_format((int)$totalPrice, 0, ',', '.') ?></span></div>
+                                        <div><span class="label">Status:</span> <span class="val"><?= htmlspecialchars($statusLabels[$r['status']] ?? (string)$r['status']) ?></span></div>
+                                    </div>
+
+                                    <?php if (!empty($r['specification'])): ?>
+                                        <div class="notes"><strong>Specification:</strong><br><?= nl2br(htmlspecialchars((string)$r['specification'])) ?></div>
+                                    <?php endif; ?>
+                                    <?php if (!empty($r['notes'])): ?>
+                                        <div class="notes"><strong>Notes:</strong><br><?= nl2br(htmlspecialchars((string)$r['notes'])) ?></div>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </div>
+
+            <div class="footer">Generated by PWF Office - SPK Filter Print</div>
+        </div>
+    </body>
+    </html>
+    <?php
+    exit;
+}
+
 // ── EXPORT PDF PRINT ────────────────────────────────────────────────────────
 if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
     $baseUrl = rtrim(BASE_URL, '/');
@@ -926,6 +1326,8 @@ pwfOfficeHeader('Orders', 'orders');
             <?php if ($filterCustomerId): ?>
                 <a href="customer-report.php?customer_id=<?= $filterCustomerId ?>" target="_blank" class="btn btn-export btn-sm"><i class="bi bi-printer"></i> Print</a>
             <?php endif; ?>
+            <a href="?print_spk=1&customer_id=<?= $filterCustomerId ?>&craftsman_id=<?= $filterCraftsmanId ?>" target="_blank"
+                class="btn btn-export btn-sm"><i class="bi bi-printer"></i> Cetak SPK</a>
             <a href="?export=pdf&customer_id=<?= $filterCustomerId ?>&craftsman_id=<?= $filterCraftsmanId ?>" target="_blank"
                 class="btn btn-export btn-sm"><i class="bi bi-file-earmark-pdf"></i> Export PDF</a>
             <button class="btn btn-sm" onclick="openCreate()" style="gap:6px">
