@@ -1149,7 +1149,7 @@ if (!empty($_manifestParams)) {
     </div>
 
     <!-- Order Detail Modal -->
-    <div id="orderDetailModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;">
+    <div id="orderDetailModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:10000;align-items:center;justify-content:center;padding:20px;">
         <div style="background:var(--card);border-radius:14px;max-width:700px;width:100%;max-height:85vh;padding:0;box-shadow:0 25px 50px rgba(0,0,0,0.3);overflow:hidden;display:flex;flex-direction:column;">
             <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 24px;border-bottom:1px solid var(--border);">
                 <h2 style="margin:0;font-size:18px;font-weight:700;color:var(--text);">Order Details</h2>
@@ -1158,6 +1158,12 @@ if (!empty($_manifestParams)) {
             <div id="orderDetailContent" style="padding:24px;flex:1;overflow-y:auto;"></div>
         </div>
     </div>
+    
+    <style>
+        #orderDetailModal[style*="display: flex"] {
+            display: flex !important;
+        }
+    </style>
 
     <script>
 
