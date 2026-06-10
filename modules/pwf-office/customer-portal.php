@@ -1149,15 +1149,13 @@ if (!empty($_manifestParams)) {
     </div>
 
     <!-- Order Detail Modal -->
-    <div id="orderDetailModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;overflow-y:auto;padding:20px;">
-        <div style="background:var(--card);border-radius:12px;max-width:600px;margin:40px auto;padding:0;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:20px;border-bottom:1px solid var(--border);">
+    <div id="orderDetailModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;">
+        <div style="background:var(--card);border-radius:14px;max-width:700px;width:100%;max-height:85vh;padding:0;box-shadow:0 25px 50px rgba(0,0,0,0.3);overflow:hidden;display:flex;flex-direction:column;">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 24px;border-bottom:1px solid var(--border);">
                 <h2 style="margin:0;font-size:18px;font-weight:700;color:var(--text);">Order Details</h2>
-                <button id="orderDetailClose" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--muted);padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center;">×</button>
+                <button id="orderDetailClose" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--muted);padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center;transition:color 0.2s;">×</button>
             </div>
-            <div style="padding:0;max-height:calc(100vh - 200px);overflow-y:auto;">
-                <div id="orderDetailContent" style="padding:20px;"></div>
-            </div>
+            <div id="orderDetailContent" style="padding:24px;flex:1;overflow-y:auto;"></div>
         </div>
     </div>
 
@@ -1225,36 +1223,62 @@ if (!empty($_manifestParams)) {
                         var finishColor = orderData.finish || orderData.wood_color || '—';
                         var imageSrc = orderData.image_path;
                         
-                        var html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">';
+                        var html = '';
+                        
+                        // Top section: Image + Basic Info
+                        html += '<div style="display:grid;grid-template-columns:220px 1fr;gap:24px;margin-bottom:24px;">';
                         
                         // Image section
                         if (imageSrc) {
-                            html += '<div style="grid-column:1;"><img src="' + imageSrc.replace(/"/g, '&quot;') + '" alt="Order image" style="width:100%;height:280px;object-fit:cover;border-radius:10px;border:1px solid var(--border);"></div>';
+                            html += '<div><img src="' + imageSrc.replace(/"/g, '&quot;') + '" alt="Order image" style="width:100%;height:220px;object-fit:cover;border-radius:12px;border:1px solid var(--border);"></div>';
                         } else {
-                            html += '<div style="grid-column:1;display:flex;align-items:center;justify-content:center;height:280px;background:var(--nav-hover);border-radius:10px;border:2px dashed var(--border);color:var(--muted);">No image</div>';
+                            html += '<div style="display:flex;align-items:center;justify-content:center;height:220px;background:var(--nav-hover);border-radius:12px;border:2px dashed var(--border);color:var(--muted);font-size:48px;">📷</div>';
                         }
                         
-                        // Details section
-                        html += '<div style="grid-column:1;">';
-                        html += '<div style="margin-bottom:16px;"><label style="font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:600;">Order Code</label><div style="font-size:16px;font-weight:700;color:var(--text);margin-top:4px;">' + escapeHtml(orderData.order_code) + '</div></div>';
-                        html += '<div style="margin-bottom:16px;"><label style="font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:600;">Date</label><div style="font-size:14px;color:var(--text);margin-top:4px;">' + escapeHtml(orderData.order_date) + '</div></div>';
-                        html += '<div style="margin-bottom:16px;"><label style="font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:600;">Status</label><div style="margin-top:4px;"><span class="status ' + statusClass + '">' + escapeHtml(orderData.status.replace(/_/g, ' ')) + '</span></div></div>';
+                        // Order Code + Status + Date
+                        html += '<div>';
+                        html += '<div style="margin-bottom:20px;"><div style="font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:600;letter-spacing:0.5px;">Order Code</div><div style="font-size:20px;font-weight:700;color:var(--text);margin-top:6px;">' + escapeHtml(orderData.order_code) + '</div></div>';
+                        html += '<div style="margin-bottom:20px;"><div style="font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:600;letter-spacing:0.5px;">Status</div><div style="margin-top:6px;"><span class="status ' + statusClass + '" style="display:inline-block;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:600;">' + escapeHtml(orderData.status.replace(/_/g, ' ')) + '</span></div></div>';
+                        html += '<div style="margin-bottom:0;"><div style="font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:600;letter-spacing:0.5px;">Date</div><div style="font-size:14px;color:var(--text);margin-top:6px;">' + escapeHtml(orderData.order_date) + '</div></div>';
                         html += '</div>';
                         
-                        // Right column details
-                        html += '<div style="grid-column:2;">';
-                        html += '<div style="margin-bottom:16px;"><label style="font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:600;">Product</label><div style="font-size:14px;color:var(--text);margin-top:4px;">' + escapeHtml(orderData.product_name) + '</div></div>';
-                        html += '<div style="margin-bottom:16px;"><label style="font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:600;">Finish/Color</label><div style="font-size:14px;color:var(--text);margin-top:4px;">' + escapeHtml(finishColor) + '</div></div>';
-                        html += '<div style="margin-bottom:16px;"><label style="font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:600;">Quantity</label><div style="font-size:14px;color:var(--text);margin-top:4px;">' + formatQty(orderData.quantity) + '</div></div>';
-                        html += '<div style="margin-bottom:16px;"><label style="font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:600;">Completed</label><div style="font-size:14px;color:var(--text);margin-top:4px;">' + formatQty(orderData.qty_done) + '</div></div>';
-                        html += '<div style="margin-bottom:16px;"><label style="font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:600;">Shipped</label><div style="font-size:14px;color:var(--text);margin-top:4px;">' + formatQty(orderData.qty_shipped) + ' pcs</div></div>';
+                        html += '</div>';
+                        
+                        // Product section
+                        html += '<div style="padding:18px;background:var(--nav-hover);border-radius:10px;margin-bottom:24px;">';
+                        html += '<div style="font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:600;letter-spacing:0.5px;margin-bottom:8px;">Product</div>';
+                        html += '<div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:12px;">' + escapeHtml(orderData.product_name) + '</div>';
+                        html += '<div style="font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:600;letter-spacing:0.5px;margin-bottom:6px;">Finish / Color</div>';
+                        html += '<div style="font-size:14px;color:var(--text);">' + escapeHtml(finishColor) + '</div>';
+                        html += '</div>';
+                        
+                        // Quantities grid
+                        html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:0;">';
+                        html += '<div style="padding:16px;background:var(--nav-hover);border-radius:10px;text-align:center;">';
+                        html += '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:600;letter-spacing:0.5px;margin-bottom:8px;">Ordered</div>';
+                        html += '<div style="font-size:18px;font-weight:700;color:var(--text);">' + formatQty(orderData.quantity) + '</div>';
+                        html += '</div>';
+                        
+                        html += '<div style="padding:16px;background:var(--nav-hover);border-radius:10px;text-align:center;">';
+                        html += '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:600;letter-spacing:0.5px;margin-bottom:8px;">Completed</div>';
+                        html += '<div style="font-size:18px;font-weight:700;color:var(--text);">' + formatQty(orderData.qty_done) + '</div>';
+                        html += '</div>';
+                        
+                        html += '<div style="padding:16px;background:var(--nav-hover);border-radius:10px;text-align:center;">';
+                        html += '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:600;letter-spacing:0.5px;margin-bottom:8px;">Shipped</div>';
+                        html += '<div style="font-size:18px;font-weight:700;color:var(--text);">' + formatQty(orderData.qty_shipped) + '</div>';
+                        html += '</div>';
+                        html += '</div>';
+                        
                         if (orderData.container_refs && orderData.container_refs !== '-') {
-                            html += '<div style="margin-bottom:16px;"><label style="font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:600;">Container</label><div style="font-size:13px;color:var(--text);margin-top:4px;padding:8px;background:var(--nav-hover);border-radius:6px;">No: ' + escapeHtml(orderData.container_refs) + '</div></div>';
+                            html += '<div style="margin-top:24px;padding:14px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:10px;">';
+                            html += '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:600;letter-spacing:0.5px;margin-bottom:6px;">Container References</div>';
+                            html += '<div style="font-size:13px;color:var(--text);font-family:monospace;">' + escapeHtml(orderData.container_refs) + '</div>';
+                            html += '</div>';
                         }
-                        html += '</div></div>';
                         
                         contentDiv.innerHTML = html;
-                        modal.style.display = 'block';
+                        modal.style.display = 'flex';
                     } catch(err) {
                         console.error('Error parsing order data:', err);
                     }
@@ -1269,6 +1293,14 @@ if (!empty($_manifestParams)) {
                 if (e.target === modal) {
                     modal.style.display = 'none';
                 }
+            });
+            
+            closeBtn.addEventListener('mouseover', function() {
+                this.style.color = 'var(--text)';
+            });
+            
+            closeBtn.addEventListener('mouseout', function() {
+                this.style.color = 'var(--muted)';
             });
             
             function escapeHtml(text) {
