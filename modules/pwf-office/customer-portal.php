@@ -994,8 +994,8 @@ if (!empty($_manifestParams)) {
                 <button class="print-btn" onclick="printDashboard()" title="Print dashboard data">
                     🖨️ Print Dashboard
                 </button>
-                <button class="pdf-btn" onclick="exportDashboardPdf()" title="Export dashboard as PDF">
-                    📄 Export PDF
+                <button class="pdf-btn" onclick="printDashboard()" title="Preview dashboard report">
+                    📄 Preview & Export
                 </button>
             </div>
         </div>
@@ -1091,11 +1091,11 @@ if (!empty($_manifestParams)) {
                                 </div>
                             </div>
                             <div class="print-export-toolbar" style="margin-bottom:0;">
-                                <button class="print-btn" onclick="printCustomerData('<?= htmlspecialchars((string)$selectedCustomer['customer_code']) ?>')" title="Print customer data">
-                                    🖨️ Print
+                                <button class="print-btn" onclick="printCustomerData('<?= htmlspecialchars((string)$selectedCustomer['customer_code']) ?>')" title="Preview customer data">
+                                    🖨️ Preview & Print
                                 </button>
-                                <button class="pdf-btn" onclick="exportCustomerPdf('<?= htmlspecialchars((string)$selectedCustomer['customer_code']) ?>')" title="Export customer data as PDF">
-                                    📄 PDF
+                                <button class="pdf-btn" onclick="printCustomerData('<?= htmlspecialchars((string)$selectedCustomer['customer_code']) ?>')" title="Export customer data as PDF">
+                                    📄 Export PDF
                                 </button>
                             </div>
                         </div>
@@ -1270,9 +1270,39 @@ if (!empty($_manifestParams)) {
             <div id="orderDetailContent" style="padding:24px;flex:1;overflow-y:auto;"></div>
         </div>
     </div>
+
+    <!-- Print Preview Modal -->
+    <div id="printPreviewModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:20000;align-items:center;justify-content:center;padding:12px;">
+        <div style="background:var(--card);border-radius:16px;max-width:900px;width:100%;max-height:95vh;padding:0;box-shadow:0 30px 60px rgba(0,0,0,0.4);overflow:hidden;display:flex;flex-direction:column;">
+            <!-- Header -->
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:20px 24px;border-bottom:2px solid #F0F4FA;background:linear-gradient(135deg, #F8FBFF 0%, #EEF5FF 100%);">
+                <div>
+                    <h2 style="margin:0;font-size:20px;font-weight:800;color:#0E223D;">📄 Print Preview</h2>
+                    <p style="margin:4px 0 0 0;font-size:12px;color:var(--muted);">Review your report before printing or exporting</p>
+                </div>
+                <div style="display:flex;gap:10px;align-items:center;">
+                    <span id="previewStatus" style="font-size:11px;color:var(--muted);font-weight:600;"></span>
+                    <button id="previewClose" style="background:none;border:none;font-size:28px;cursor:pointer;color:var(--muted);padding:0;width:36px;height:36px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;border-radius:8px;" onmouseover="this.style.background='#F0F4FA';this.style.color='#0E223D'" onmouseout="this.style.background='none';this.style.color='var(--muted)'">×</button>
+                </div>
+            </div>
+
+            <!-- Preview Content -->
+            <div id="printPreviewContent" style="flex:1;overflow-y:auto;padding:24px;background:white;"></div>
+
+            <!-- Actions Footer -->
+            <div style="display:flex;gap:12px;padding:20px 24px;border-top:2px solid #F0F4FA;background:#F8FBFF;justify-content:flex-end;flex-wrap:wrap;">
+                <button id="previewCancelBtn" style="border:1px solid var(--line);background:#fff;color:var(--text);border-radius:10px;padding:10px 18px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='#F9F9F9'" onmouseout="this.style.background='#fff'">Cancel</button>
+                <button id="previewPrintBtn" style="border:none;background:linear-gradient(135deg, #0F9D74, #34D399);color:white;border-radius:10px;padding:10px 18px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:6px;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'"><span>🖨️</span><span>Print</span></button>
+                <button id="previewDownloadBtn" style="border:none;background:linear-gradient(135deg, #2563EB, #1D4ED8);color:white;border-radius:10px;padding:10px 18px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:6px;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'"><span>📥</span><span>Download PDF</span></button>
+            </div>
+        </div>
+    </div>
     
     <style>
         #orderDetailModal[style*="display: flex"] {
+            display: flex !important;
+        }
+        #printPreviewModal[style*="display: flex"] {
             display: flex !important;
         }
     </style>
@@ -1280,23 +1310,283 @@ if (!empty($_manifestParams)) {
     <script>
 
         /**
-         * Print and PDF Export Functions
+         * Print Preview and Export Functions - Modern Version
          */
-        function printDashboard() {
-            const printContent = document.querySelector('.wrap');
-            if (!printContent) return;
 
-            const tempDiv = document.createElement('div');
-            tempDiv.style.display = 'none';
-            document.body.appendChild(tempDiv);
+        let currentPreviewType = 'dashboard'; // Track current preview type
+        let currentPreviewData = {};
 
-            const cloneContent = printContent.cloneNode(true);
-            cloneContent.querySelectorAll('.print-export-toolbar, .install-btn, .search-grid, .customer-list, .portal-grid').forEach(el => {
-                el.remove();
-            });
+        // Open Print Preview Modal
+        function openPrintPreview(type, data) {
+            currentPreviewType = type;
+            currentPreviewData = data;
 
-            tempDiv.innerHTML = cloneContent.innerHTML;
-            tempDiv.style.display = 'block';
+            const modal = document.getElementById('printPreviewModal');
+            const contentDiv = document.getElementById('printPreviewContent');
+            const statusSpan = document.getElementById('previewStatus');
+
+            // Generate preview HTML based on type
+            let previewHTML = '';
+            if (type === 'dashboard') {
+                previewHTML = generateDashboardPreviewHTML(data);
+                statusSpan.textContent = '📊 Dashboard Report';
+            } else if (type === 'customer') {
+                previewHTML = generateCustomerPreviewHTML(data);
+                statusSpan.textContent = `📋 ${data.customerCode || 'Customer'} Report`;
+            }
+
+            contentDiv.innerHTML = previewHTML;
+            modal.style.display = 'flex';
+
+            // Scroll to top
+            setTimeout(() => {
+                contentDiv.scrollTop = 0;
+            }, 100);
+        }
+
+        // Generate Dashboard Preview HTML
+        function generateDashboardPreviewHTML(data) {
+            const now = new Date().toLocaleString('id-ID');
+            let html = `
+                <div style="font-family: 'Plus Jakarta Sans', sans-serif; color: #0F172A;">
+                    <!-- Header -->
+                    <div style="margin-bottom: 30px; padding-bottom: 20px; border-bottom: 3px solid #0E223D;">
+                        <h1 style="margin: 0 0 8px 0; font-size: 28px; font-weight: 800; color: #0E223D;">📊 Buyer Portal Dashboard</h1>
+                        <p style="margin: 0; font-size: 13px; color: #64748B;">Overall Sales Report & Customer Orders</p>
+                        <p style="margin: 8px 0 0 0; font-size: 11px; color: #94A3B8;">Generated: ${now}</p>
+                    </div>
+
+                    <!-- Summary KPIs -->
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 30px;">
+                        <div style="padding: 16px; background: linear-gradient(135deg, #ECF4FF 0%, #DBE9FF 100%); border: 1px solid #9FC3F4; border-radius: 12px; text-align: center;">
+                            <div style="font-size: 11px; color: #1E40AF; font-weight: 700; text-transform: uppercase; margin-bottom: 6px;">Total Customers</div>
+                            <div style="font-size: 32px; font-weight: 800; color: #0E223D;">${data.customerCount}</div>
+                        </div>
+                        <div style="padding: 16px; background: linear-gradient(135deg, #FFF7ED 0%, #FDD8A7 100%); border: 1px solid #FDBA74; border-radius: 12px; text-align: center;">
+                            <div style="font-size: 11px; color: #C2410C; font-weight: 700; text-transform: uppercase; margin-bottom: 6px;">Total Orders</div>
+                            <div style="font-size: 32px; font-weight: 800; color: #0E223D;">${data.totalOrders}</div>
+                        </div>
+                        <div style="padding: 16px; background: linear-gradient(135deg, #ECFDF5 0%, #A7F3D0 100%); border: 1px solid #6EE7B7; border-radius: 12px; text-align: center;">
+                            <div style="font-size: 11px; color: #047857; font-weight: 700; text-transform: uppercase; margin-bottom: 6px;">Completed Qty</div>
+                            <div style="font-size: 32px; font-weight: 800; color: #0E223D;">${formatQty(data.qtyDone)}</div>
+                        </div>
+                        <div style="padding: 16px; background: linear-gradient(135deg, #EEF2FF 0%, #D9D4FF 100%); border: 1px solid #B4A0FF; border-radius: 12px; text-align: center;">
+                            <div style="font-size: 11px; color: #4338CA; font-weight: 700; text-transform: uppercase; margin-bottom: 6px;">In Container</div>
+                            <div style="font-size: 32px; font-weight: 800; color: #0E223D;">${formatQty(data.qtyShipped)}</div>
+                        </div>
+                    </div>
+
+                    <!-- Orders by Customer -->
+                    <div style="margin-top: 30px;">
+                        <h2 style="margin: 0 0 16px 0; font-size: 18px; font-weight: 800; color: #0E223D; padding-bottom: 12px; border-bottom: 2px solid #D8E2EF;">📦 Orders by Customer</h2>
+            `;
+
+            // Add customer orders details
+            if (data.customers && Array.isArray(data.customers)) {
+                data.customers.forEach((customer, idx) => {
+                    html += `
+                        <div style="margin-bottom: 28px; padding: 20px; background: #F8FBFF; border: 2px solid #D9E5F5; border-radius: 14px; page-break-inside: avoid;">
+                            <!-- Customer Header -->
+                            <div style="margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid #D8E2EF;">
+                                <h3 style="margin: 0 0 6px 0; font-size: 16px; font-weight: 800; color: #102A4A;">${escapeHtml(customer.name)}</h3>
+                                <div style="display: flex; gap: 8px; flex-wrap: wrap; font-size: 11px;">
+                                    <span style="padding: 4px 10px; background: #EEF4FF; color: #1D4ED8; border-radius: 20px; font-weight: 700;">Code: ${escapeHtml(customer.code)}</span>
+                                    <span style="padding: 4px 10px; background: #FFF3E0; color: #E65100; border-radius: 20px; font-weight: 700;">Orders: ${customer.orders.length}</span>
+                                    <span style="padding: 4px 10px; background: #E8F5E9; color: #2E7D32; border-radius: 20px; font-weight: 700;">Qty Ordered: ${formatQty(customer.totalQtyOrdered)}</span>
+                                </div>
+                            </div>
+
+                            <!-- Orders Table -->
+                            <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 8px;">
+                                <thead>
+                                    <tr style="background: #ECF4FF; border-bottom: 2px solid #9FC3F4;">
+                                        <th style="padding: 10px; text-align: left; font-weight: 700; color: #1E40AF;">Order Code</th>
+                                        <th style="padding: 10px; text-align: left; font-weight: 700; color: #1E40AF;">Product</th>
+                                        <th style="padding: 10px; text-align: center; font-weight: 700; color: #1E40AF;">Qty Order</th>
+                                        <th style="padding: 10px; text-align: center; font-weight: 700; color: #1E40AF;">Qty Done</th>
+                                        <th style="padding: 10px; text-align: center; font-weight: 700; color: #1E40AF;">In Container</th>
+                                        <th style="padding: 10px; text-align: left; font-weight: 700; color: #1E40AF;">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                    `;
+
+                    customer.orders.forEach(order => {
+                        const statusColor = getStatusColor(order.status);
+                        html += `
+                            <tr style="border-bottom: 1px solid #D9E5F5;">
+                                <td style="padding: 10px; font-weight: 700; color: #0E223D;">${escapeHtml(order.code)}</td>
+                                <td style="padding: 10px; color: #0F172A;">${escapeHtml(order.product)}</td>
+                                <td style="padding: 10px; text-align: center; color: #0F172A;">${formatQty(order.qtyOrder)}</td>
+                                <td style="padding: 10px; text-align: center; color: #0F172A; font-weight: 600;">${formatQty(order.qtyDone)}</td>
+                                <td style="padding: 10px; text-align: center; color: #0F172A; font-weight: 600;">${formatQty(order.qtyShipped)}</td>
+                                <td style="padding: 10px;"><span style="display: inline-block; padding: 4px 10px; background: ${statusColor.bg}; color: ${statusColor.text}; border-radius: 6px; font-weight: 700; font-size: 10px; text-transform: uppercase;">${escapeHtml(order.status.replace(/_/g, ' '))}</span></td>
+                            </tr>
+                        `;
+                    });
+
+                    html += `
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                });
+            }
+
+            html += `
+                    </div>
+
+                    <!-- Footer -->
+                    <div style="margin-top: 30px; padding-top: 20px; border-top: 2px dashed #D8E2EF; font-size: 11px; color: #94A3B8; text-align: center;">
+                        <p>✓ Generated by PWF Buyer Portal v1.0.0</p>
+                        <p style="margin: 4px 0 0 0;">Report prepared for management review and record keeping</p>
+                    </div>
+                </div>
+            `;
+
+            return html;
+        }
+
+        // Generate Customer Preview HTML
+        function generateCustomerPreviewHTML(data) {
+            const now = new Date().toLocaleString('id-ID');
+            let html = `
+                <div style="font-family: 'Plus Jakarta Sans', sans-serif; color: #0F172A;">
+                    <!-- Header -->
+                    <div style="margin-bottom: 24px; padding-bottom: 16px; border-bottom: 3px solid #0E223D;">
+                        <h1 style="margin: 0 0 6px 0; font-size: 26px; font-weight: 800; color: #0E223D;">📋 Customer Order Report</h1>
+                        <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 700; color: #102A4A;">${escapeHtml(data.customerName)}</p>
+                        <div style="display: flex; gap: 12px; flex-wrap: wrap; font-size: 11px; margin-bottom: 8px;">
+                            <span style="padding: 4px 10px; background: #EEF4FF; color: #1D4ED8; border-radius: 20px; font-weight: 700;">Code: ${escapeHtml(data.customerCode)}</span>
+                            ${data.customerPhone ? `<span style="padding: 4px 10px; background: #E8F5E9; color: #2E7D32; border-radius: 20px; font-weight: 700;">Phone: ${escapeHtml(data.customerPhone)}</span>` : ''}
+                        </div>
+                        <p style="margin: 0; font-size: 11px; color: #94A3B8;">Generated: ${now}</p>
+                    </div>
+
+                    <!-- Summary Stats -->
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 24px;">
+                        <div style="padding: 14px; background: linear-gradient(135deg, #ECF4FF 0%, #DBE9FF 100%); border: 1px solid #9FC3F4; border-radius: 10px; text-align: center;">
+                            <div style="font-size: 10px; color: #1E40AF; font-weight: 700; text-transform: uppercase; margin-bottom: 4px;">Total Orders</div>
+                            <div style="font-size: 24px; font-weight: 800; color: #0E223D;">${data.totalOrders}</div>
+                        </div>
+                        <div style="padding: 14px; background: linear-gradient(135deg, #FFF7ED 0%, #FDD8A7 100%); border: 1px solid #FDBA74; border-radius: 10px; text-align: center;">
+                            <div style="font-size: 10px; color: #C2410C; font-weight: 700; text-transform: uppercase; margin-bottom: 4px;">Qty Ordered</div>
+                            <div style="font-size: 24px; font-weight: 800; color: #0E223D;">${formatQty(data.qtyOrdered)}</div>
+                        </div>
+                        <div style="padding: 14px; background: linear-gradient(135deg, #ECFDF5 0%, #A7F3D0 100%); border: 1px solid #6EE7B7; border-radius: 10px; text-align: center;">
+                            <div style="font-size: 10px; color: #047857; font-weight: 700; text-transform: uppercase; margin-bottom: 4px;">Completed</div>
+                            <div style="font-size: 24px; font-weight: 800; color: #0E223D;">${formatQty(data.qtyDone)}</div>
+                        </div>
+                        <div style="padding: 14px; background: linear-gradient(135deg, #EEF2FF 0%, #D9D4FF 100%); border: 1px solid #B4A0FF; border-radius: 10px; text-align: center;">
+                            <div style="font-size: 10px; color: #4338CA; font-weight: 700; text-transform: uppercase; margin-bottom: 4px;">In Container</div>
+                            <div style="font-size: 24px; font-weight: 800; color: #0E223D;">${formatQty(data.qtyShipped)}</div>
+                        </div>
+                    </div>
+
+                    <!-- All Orders Details -->
+                    <div>
+                        <h2 style="margin: 0 0 14px 0; font-size: 16px; font-weight: 800; color: #0E223D; padding-bottom: 10px; border-bottom: 2px solid #D8E2EF;">📦 Order Details</h2>
+            `;
+
+            if (data.orders && Array.isArray(data.orders) && data.orders.length > 0) {
+                data.orders.forEach((order, idx) => {
+                    const statusColor = getStatusColor(order.status);
+                    html += `
+                        <div style="margin-bottom: 20px; padding: 16px; background: #F8FBFF; border-left: 4px solid #2563EB; border-radius: 8px; page-break-inside: avoid;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 12px;">
+                                <div>
+                                    <div style="font-size: 10px; color: #64748B; font-weight: 700; text-transform: uppercase; margin-bottom: 2px;">Order Code</div>
+                                    <div style="font-size: 14px; font-weight: 800; color: #0E223D;">${escapeHtml(order.code)}</div>
+                                </div>
+                                <div>
+                                    <div style="font-size: 10px; color: #64748B; font-weight: 700; text-transform: uppercase; margin-bottom: 2px;">Order Date</div>
+                                    <div style="font-size: 14px; font-weight: 800; color: #0E223D;">${order.date}</div>
+                                </div>
+                            </div>
+
+                            <div style="margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid #D9E5F5;">
+                                <div style="font-size: 10px; color: #64748B; font-weight: 700; text-transform: uppercase; margin-bottom: 4px;">Product</div>
+                                <div style="font-size: 13px; font-weight: 700; color: #102A4A;">${escapeHtml(order.product)}</div>
+                                <div style="font-size: 11px; color: #64748B; margin-top: 4px;">Finish: <strong>${escapeHtml(order.finishColor || '—')}</strong></div>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px;">
+                                <div style="padding: 10px; background: #EEF4FF; border-radius: 6px; text-align: center;">
+                                    <div style="font-size: 9px; color: #1E40AF; font-weight: 700; margin-bottom: 3px;">ORDER</div>
+                                    <div style="font-size: 16px; font-weight: 800; color: #0E223D;">${formatQty(order.qty)}</div>
+                                </div>
+                                <div style="padding: 10px; background: #ECFDF5; border-radius: 6px; text-align: center;">
+                                    <div style="font-size: 9px; color: #047857; font-weight: 700; margin-bottom: 3px;">DONE</div>
+                                    <div style="font-size: 16px; font-weight: 800; color: #0E223D;">${formatQty(order.qtyDone)}</div>
+                                </div>
+                                <div style="padding: 10px; background: #EEF2FF; border-radius: 6px; text-align: center;">
+                                    <div style="font-size: 9px; color: #4338CA; font-weight: 700; margin-bottom: 3px;">SHIP</div>
+                                    <div style="font-size: 16px; font-weight: 800; color: #0E223D;">${formatQty(order.qtyShipped)}</div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <span style="display: inline-block; padding: 6px 12px; background: ${statusColor.bg}; color: ${statusColor.text}; border-radius: 6px; font-weight: 700; font-size: 10px; text-transform: uppercase;">● ${escapeHtml(order.status.replace(/_/g, ' '))}</span>
+                                ${order.containerRefs && order.containerRefs !== '-' ? `<div style="margin-top: 8px; font-size: 11px; color: #2563EB; font-weight: 600;">📦 Containers: ${escapeHtml(order.containerRefs)}</div>` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+            } else {
+                html += '<div style="padding: 20px; text-align: center; color: #94A3B8; font-size: 13px;">No orders found for this customer.</div>';
+            }
+
+            html += `
+                    </div>
+
+                    <!-- Footer -->
+                    <div style="margin-top: 24px; padding-top: 16px; border-top: 2px dashed #D8E2EF; font-size: 10px; color: #94A3B8; text-align: center;">
+                        <p>✓ Generated by PWF Buyer Portal v1.0.0</p>
+                        <p style="margin: 3px 0 0 0;">Detailed order report for customer tracking and record management</p>
+                    </div>
+                </div>
+            `;
+
+            return html;
+        }
+
+        // Helper function to get status color
+        function getStatusColor(status) {
+            const colorMap = {
+                'draft': { bg: '#EFF6FF', text: '#1D4ED8' },
+                'on_progress': { bg: '#FFF7ED', text: '#C2410C' },
+                'qc': { bg: '#FFF7ED', text: '#C2410C' },
+                'ready_ship': { bg: '#ECFDF5', text: '#047857' },
+                'partial_ship': { bg: '#FFF7ED', text: '#C2410C' },
+                'shipped': { bg: '#EEF2FF', text: '#4338CA' },
+                'completed': { bg: '#ECFDF5', text: '#047857' },
+            };
+            return colorMap[status] || { bg: '#F1F5F9', text: '#334155' };
+        }
+
+        // Helper functions
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        function formatQty(val) {
+            val = parseFloat(val) || 0;
+            let str = val.toFixed(2);
+            str = str.replace(/\.?0+$/, '');
+            return str;
+        }
+
+        // Print from preview
+        function doPrintFromPreview() {
+            const previewContent = document.getElementById('printPreviewContent');
+            if (!previewContent) return;
 
             const printWindow = window.open('', '', 'width=1200,height=800');
             printWindow.document.write(`
@@ -1304,36 +1594,16 @@ if (!empty($_manifestParams)) {
                 <html>
                 <head>
                     <meta charset="utf-8">
-                    <title>Buyer Portal Dashboard - Print</title>
+                    <title>Print Report</title>
                     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
                     <style>
                         * { box-sizing: border-box; margin: 0; padding: 0; }
                         body { font-family: 'Plus Jakarta Sans', sans-serif; padding: 20px; background: white; }
-                        .hero { margin-bottom: 20px; }
-                        .hero h1 { font-size: 24px; margin-bottom: 5px; }
-                        .hero p { font-size: 12px; color: #666; }
-                        .panel { border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 15px; page-break-inside: avoid; }
-                        .buyer-kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 15px; }
-                        .kpi-card { border: 1px solid #ddd; border-radius: 8px; padding: 12px; text-align: center; }
-                        .kpi-title { font-size: 10px; text-transform: uppercase; color: #666; margin-bottom: 5px; font-weight: 700; }
-                        .kpi-value { font-size: 20px; font-weight: 800; color: #0E223D; }
-                        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
-                        th { background: #f5f5f5; padding: 8px; text-align: left; font-size: 11px; font-weight: 700; border: 1px solid #ddd; }
-                        td { padding: 8px; border: 1px solid #ddd; font-size: 11px; }
-                        .print-timestamp { font-size: 10px; color: #999; margin-top: 15px; padding-top: 15px; border-top: 1px dashed #ddd; }
-                        @media print { body { padding: 0; } }
+                        @media print { body { padding: 0; } .no-print { display: none; } }
                     </style>
                 </head>
                 <body>
-                    <div class="hero">
-                        <h1>📊 Buyer Portal Dashboard</h1>
-                        <p>Overall Buyer & Customer Orders Report</p>
-                    </div>
-                    ${tempDiv.innerHTML}
-                    <div class="print-timestamp">
-                        ✓ Printed on: ${new Date().toLocaleString()}<br>
-                        Report Generated by PWF Buyer Portal
-                    </div>
+                    ${previewContent.innerHTML}
                 </body>
                 </html>
             `);
@@ -1342,137 +1612,161 @@ if (!empty($_manifestParams)) {
                 printWindow.focus();
                 printWindow.print();
             }, 250);
-
-            document.body.removeChild(tempDiv);
         }
 
+        // Download PDF from preview
+        function doDownloadPdfFromPreview() {
+            const previewContent = document.getElementById('printPreviewContent');
+            if (!previewContent) return;
+
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = previewContent.innerHTML;
+
+            const filename = currentPreviewType === 'dashboard' 
+                ? `buyer-dashboard-${new Date().toISOString().split('T')[0]}.pdf`
+                : `customer-report-${currentPreviewData.customerCode || 'report'}-${new Date().toISOString().split('T')[0]}.pdf`;
+
+            const opt = {
+                margin: 10,
+                filename: filename,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
+            };
+
+            html2pdf().set(opt).from(tempDiv).save();
+        }
+
+        // Dashboard Print
+        function printDashboard() {
+            const modal = document.getElementById('printPreviewModal');
+            const statusSpan = document.getElementById('previewStatus');
+
+            // Fetch dashboard data (reuse existing KPI data)
+            const dashboardData = {
+                customerCount: document.querySelector('[style*="font-size: var(--fs-lg)"]')?.textContent || '0',
+                totalOrders: 0,
+                qtyDone: 0,
+                qtyShipped: 0,
+                customers: []
+            };
+
+            // Extract customer data from the page
+            const customerItems = document.querySelectorAll('.customer-item');
+            customerItems.forEach(item => {
+                const code = item.querySelector('.customer-code')?.textContent || '';
+                const name = item.querySelector('.customer-name')?.textContent || '';
+                if (code && name) {
+                    dashboardData.customers.push({
+                        code: code,
+                        name: name,
+                        orders: [],
+                        totalQtyOrdered: 0
+                    });
+                }
+            });
+
+            // Extract orders from the visible table
+            const orderRows = document.querySelectorAll('.order-row-clickable');
+            if (orderRows.length > 0 && dashboardData.customers.length > 0) {
+                const currentCustomer = dashboardData.customers[dashboardData.customers.length - 1];
+                orderRows.forEach(row => {
+                    try {
+                        const orderData = JSON.parse(row.getAttribute('data-order'));
+                        currentCustomer.orders.push({
+                            code: orderData.order_code,
+                            product: orderData.product_name,
+                            qtyOrder: parseFloat(orderData.quantity) || 0,
+                            qtyDone: parseFloat(orderData.qty_done) || 0,
+                            qtyShipped: parseFloat(orderData.qty_shipped) || 0,
+                            status: orderData.status,
+                            finishColor: orderData.finish || orderData.wood_color || ''
+                        });
+                        currentCustomer.totalQtyOrdered += parseFloat(orderData.quantity) || 0;
+                        dashboardData.totalOrders++;
+                        dashboardData.qtyDone += parseFloat(orderData.qty_done) || 0;
+                        dashboardData.qtyShipped += parseFloat(orderData.qty_shipped) || 0;
+                    } catch(e) {}
+                });
+            }
+
+            openPrintPreview('dashboard', dashboardData);
+        }
+
+        // Customer Print
         function printCustomerData(customerCode) {
             const detailGrid = document.querySelector('.detail-grid');
             if (!detailGrid) return;
 
-            const tempDiv = document.createElement('div');
-            tempDiv.style.display = 'none';
-            document.body.appendChild(tempDiv);
+            const customerHead = detailGrid.querySelector('.customer-head');
+            const customerName = customerHead?.querySelector('[style*="font-size:18px"]')?.textContent || 'Unknown';
+            const customerPhone = customerHead?.querySelector('.customer-phone')?.textContent?.replace('Phone: ', '') || '';
 
-            const cloneContent = detailGrid.cloneNode(true);
-            cloneContent.querySelectorAll('.print-export-toolbar').forEach(el => {
-                el.remove();
+            // Get KPI values
+            const kpiCards = detailGrid.querySelectorAll('.summary-grid .kpi-card');
+            let totalOrders = 0, qtyOrdered = 0, qtyDone = 0, qtyShipped = 0;
+
+            if (kpiCards.length >= 4) {
+                totalOrders = parseInt(kpiCards[0].querySelector('.kpi-value')?.textContent || '0');
+                qtyOrdered = parseFloat(kpiCards[1].querySelector('.kpi-value')?.textContent || '0');
+                qtyDone = parseFloat(kpiCards[2].querySelector('.kpi-value')?.textContent || '0');
+                qtyShipped = parseFloat(kpiCards[3].querySelector('.kpi-value')?.textContent || '0');
+            }
+
+            // Extract orders from table
+            const orders = [];
+            const orderRows = detailGrid.querySelectorAll('.order-row-clickable');
+            orderRows.forEach(row => {
+                try {
+                    const orderData = JSON.parse(row.getAttribute('data-order'));
+                    orders.push({
+                        code: orderData.order_code,
+                        date: orderData.order_date,
+                        product: orderData.product_name,
+                        finishColor: orderData.finish || orderData.wood_color || '',
+                        qty: parseFloat(orderData.quantity) || 0,
+                        qtyDone: parseFloat(orderData.qty_done) || 0,
+                        qtyShipped: parseFloat(orderData.qty_shipped) || 0,
+                        status: orderData.status,
+                        containerRefs: orderData.container_refs || '-'
+                    });
+                } catch(e) {}
             });
 
-            tempDiv.innerHTML = cloneContent.innerHTML;
-            tempDiv.style.display = 'block';
-
-            const printWindow = window.open('', '', 'width=1200,height=800');
-            printWindow.document.write(`
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <meta charset="utf-8">
-                    <title>Customer Report - ${customerCode}</title>
-                    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-                    <style>
-                        * { box-sizing: border-box; margin: 0; padding: 0; }
-                        body { font-family: 'Plus Jakarta Sans', sans-serif; padding: 20px; background: white; }
-                        .customer-head { border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 15px; page-break-inside: avoid; background: #f9f9f9; }
-                        .customer-head > div:first-child { font-size: 18px; font-weight: 800; margin-bottom: 8px; color: #102A4A; }
-                        .customer-meta { display: flex; gap: 5px; flex-wrap: wrap; }
-                        .chip { font-size: 10px; background: #EEF4FF; color: #1E40AF; border: 1px solid #C7D7FE; border-radius: 20px; padding: 4px 8px; font-weight: 700; }
-                        .panel { border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 15px; page-break-inside: avoid; }
-                        .detail-grid > div { page-break-inside: avoid; }
-                        .kpi-card { border: 1px solid #ddd; border-radius: 8px; padding: 12px; text-align: center; display: inline-block; min-width: 80px; }
-                        .kpi-title { font-size: 9px; text-transform: uppercase; color: #666; margin-bottom: 4px; font-weight: 700; }
-                        .kpi-value { font-size: 16px; font-weight: 800; color: #0E223D; }
-                        .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 15px 0; }
-                        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
-                        th { background: #f5f5f5; padding: 8px; text-align: left; font-size: 10px; font-weight: 700; border: 1px solid #ddd; }
-                        td { padding: 8px; border: 1px solid #ddd; font-size: 10px; }
-                        .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-                        .bar { width: 100%; height: 8px; background: #E8EFF8; border-radius: 4px; overflow: hidden; margin: 5px 0; }
-                        .bar-fill { height: 100%; border-radius: 4px; }
-                        .bar-done { background: linear-gradient(90deg, #0F9D74, #34D399); }
-                        .bar-ship { background: linear-gradient(90deg, #F97316, #FDBA74); }
-                        .progress-head { display: flex; justify-content: space-between; font-size: 10px; font-weight: 700; color: #333; margin-bottom: 3px; }
-                        .status { display: inline-block; padding: 3px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; text-transform: uppercase; background: #f0f0f0; color: #333; }
-                        .container-ref { display: block; margin-top: 3px; font-size: 9px; color: #2563EB; }
-                        .print-timestamp { font-size: 10px; color: #999; margin-top: 20px; padding-top: 15px; border-top: 1px dashed #ddd; }
-                        @media print { body { padding: 0; } }
-                    </style>
-                </head>
-                <body>
-                    <div class="customer-head">
-                        <div>📋 Customer Report - ${customerCode}</div>
-                    </div>
-                    ${tempDiv.innerHTML}
-                    <div class="print-timestamp">
-                        ✓ Printed on: ${new Date().toLocaleString()}<br>
-                        Report Generated by PWF Buyer Portal
-                    </div>
-                </body>
-                </html>
-            `);
-            printWindow.document.close();
-            setTimeout(() => {
-                printWindow.focus();
-                printWindow.print();
-            }, 250);
-
-            document.body.removeChild(tempDiv);
-        }
-
-        function exportDashboardPdf() {
-            const element = document.querySelector('.wrap');
-            if (!element) return;
-
-            const clone = element.cloneNode(true);
-            clone.querySelectorAll('.print-export-toolbar, .install-btn, .search-grid, .customer-list, .portal-grid').forEach(el => {
-                el.remove();
-            });
-
-            const opt = {
-                margin: 10,
-                filename: `buyer-dashboard-${new Date().toISOString().split('T')[0]}.pdf`,
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2 },
-                jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
+            const customerData = {
+                customerCode: customerCode,
+                customerName: customerName,
+                customerPhone: customerPhone,
+                totalOrders: totalOrders,
+                qtyOrdered: qtyOrdered,
+                qtyDone: qtyDone,
+                qtyShipped: qtyShipped,
+                orders: orders
             };
 
-            html2pdf().set(opt).from(clone).save();
-        }
-
-        function exportCustomerPdf(customerCode) {
-            const element = document.querySelector('.detail-grid');
-            if (!element) return;
-
-            const clone = element.cloneNode(true);
-            clone.querySelectorAll('.print-export-toolbar').forEach(el => {
-                el.remove();
-            });
-
-            const header = document.createElement('div');
-            header.style.marginBottom = '20px';
-            header.style.paddingBottom = '15px';
-            header.style.borderBottom = '2px solid #0E223D';
-            header.innerHTML = `<h1 style="color:#0E223D;margin-bottom:5px;">Customer Report - ${customerCode}</h1><p style="color:#666;font-size:12px;">Generated on ${new Date().toLocaleString()}</p>`;
-
-            const container = document.createElement('div');
-            container.appendChild(header);
-            container.appendChild(clone);
-
-            const opt = {
-                margin: 10,
-                filename: `customer-report-${customerCode}-${new Date().toISOString().split('T')[0]}.pdf`,
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2 },
-                jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
-            };
-
-            html2pdf().set(opt).from(container).save();
+            openPrintPreview('customer', customerData);
         }
 
         (function() {
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.register('customer-sw.js').catch(function() {});
             }
+
+            // Preview Modal Controls
+            const previewModal = document.getElementById('printPreviewModal');
+            const previewClose = document.getElementById('previewClose');
+            const previewCancelBtn = document.getElementById('previewCancelBtn');
+            const previewPrintBtn = document.getElementById('previewPrintBtn');
+            const previewDownloadBtn = document.getElementById('previewDownloadBtn');
+
+            if (previewClose) previewClose.addEventListener('click', () => previewModal.style.display = 'none');
+            if (previewCancelBtn) previewCancelBtn.addEventListener('click', () => previewModal.style.display = 'none');
+            if (previewPrintBtn) previewPrintBtn.addEventListener('click', doPrintFromPreview);
+            if (previewDownloadBtn) previewDownloadBtn.addEventListener('click', doDownloadPdfFromPreview);
+
+            previewModal.addEventListener('click', (e) => {
+                if (e.target === previewModal) previewModal.style.display = 'none';
+            });
 
             /* Custom slide dropdown */
             var dropBtn = document.getElementById('custDropBtn');
@@ -1650,24 +1944,6 @@ if (!empty($_manifestParams)) {
             closeBtn.addEventListener('mouseout', function() {
                 this.style.color = 'var(--muted)';
             });
-            
-            function escapeHtml(text) {
-                var map = {
-                    '&': '&amp;',
-                    '<': '&lt;',
-                    '>': '&gt;',
-                    '"': '&quot;',
-                    "'": '&#039;'
-                };
-                return text.replace(/[&<>"']/g, function(m) { return map[m]; });
-            }
-            
-            function formatQty(val) {
-                val = parseFloat(val) || 0;
-                var str = val.toFixed(2);
-                str = str.replace(/\.?0+$/, '');
-                return str;
-            }
         })();
 
     </script>
