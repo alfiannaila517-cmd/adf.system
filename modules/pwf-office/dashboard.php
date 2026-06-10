@@ -626,9 +626,9 @@ pwfOfficeHeader('Dashboard', 'dashboard');
                     datasets: [{
                         data: [ready, producing, remaining || 0.001],
                         backgroundColor: [
-                            '#22c55e',
-                            '#f59e0b',
-                            isDark ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.06)'
+                            '#10b981',
+                            '#f97316',
+                            '#8b5cf6'
                         ],
                         borderWidth: 0,
                         hoverOffset: 6,
@@ -680,7 +680,7 @@ pwfOfficeHeader('Dashboard', 'dashboard');
                     datasets: [{
                             label: 'Done / Ready',
                             data: ready,
-                            backgroundColor: '#22c55e',
+                            backgroundColor: '#10b981',
                             borderRadius: 0,
                             borderSkipped: false,
                             stack: 'qty',
@@ -692,7 +692,7 @@ pwfOfficeHeader('Dashboard', 'dashboard');
                         {
                             label: 'Producing',
                             data: producing,
-                            backgroundColor: '#f59e0b',
+                            backgroundColor: '#f97316',
                             borderRadius: 0,
                             borderSkipped: false,
                             stack: 'qty',
@@ -704,7 +704,7 @@ pwfOfficeHeader('Dashboard', 'dashboard');
                         {
                             label: 'Remaining',
                             data: remaining,
-                            backgroundColor: isDark ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.065)',
+                            backgroundColor: '#8b5cf6',
                             borderRadius: {
                                 topRight: 4,
                                 bottomRight: 4
