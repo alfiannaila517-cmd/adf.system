@@ -269,7 +269,7 @@ if (!empty($customers)) {
             o.status,
             COALESCE(s.qty_shipped, 0) AS qty_shipped,
             COALESCE(s.container_refs, '-') AS container_refs,
-            c.customer_id,
+            c.id AS customer_id,
             c.customer_code,
             c.customer_name
         FROM pwf_orders o
