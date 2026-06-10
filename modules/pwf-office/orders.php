@@ -168,6 +168,10 @@ if (isset($_GET['print_spk']) && $_GET['print_spk'] === '1') {
                 align-items: flex-start;
             }
 
+            .head-main {
+                flex: 1;
+            }
+
             .company-block {
                 display: flex;
                 gap: 10px;
@@ -204,11 +208,13 @@ if (isset($_GET['print_spk']) && $_GET['print_spk'] === '1') {
                 font-size: 20px;
                 font-weight: 800;
                 margin-bottom: 4px;
+                text-align: center;
             }
 
             .sub {
                 color: var(--muted);
                 font-size: 12px;
+                text-align: center;
             }
 
             .meta {
@@ -362,7 +368,7 @@ if (isset($_GET['print_spk']) && $_GET['print_spk'] === '1') {
             </div>
 
             <div class="head">
-                <div>
+                <div class="head-main">
                     <div class="company-block">
                         <?php if ($companyLogoUrl !== ''): ?>
                             <img class="company-logo" src="<?= htmlspecialchars($companyLogoUrl) ?>" alt="Company Logo">
@@ -377,7 +383,7 @@ if (isset($_GET['print_spk']) && $_GET['print_spk'] === '1') {
                             </div>
                         </div>
                     </div>
-                    <div class="title">SPK Pengrajin - Hasil Filter</div>
+                    <div class="title">SPK Pengrajin</div>
                     <div class="sub">Format detail per item dengan gambar, siap cetak untuk produksi</div>
                 </div>
                 <div class="meta">
