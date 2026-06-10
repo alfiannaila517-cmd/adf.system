@@ -20,9 +20,19 @@ if (session_status() === PHP_SESSION_NONE) {
 
     // Secure session cookie settings
     $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+    $cookieDomain = '';
+    $httpHost = $_SERVER['HTTP_HOST'] ?? '';
+    // Share session across www and non-www for production domains
+    if (strpos($httpHost, 'localhost') === false && strpos($httpHost, '127.0.0.1') === false) {
+        // Strip www prefix and leading dot to get base domain, then prefix with dot
+        $baseDomain = preg_replace('/^www\./', '', $httpHost);
+        $baseDomain = explode(':', $baseDomain)[0]; // remove port if any
+        $cookieDomain = '.' . $baseDomain; // e.g. .pwfoffice.com
+    }
     session_set_cookie_params([
         'lifetime' => SESSION_LIFETIME,
         'path' => '/',
+        'domain' => $cookieDomain,
         'secure' => $isSecure,
         'httponly' => true,
         'samesite' => 'Lax'

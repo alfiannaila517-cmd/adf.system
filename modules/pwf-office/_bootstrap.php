@@ -2,6 +2,17 @@
 if (!defined('APP_ACCESS')) define('APP_ACCESS', true);
 
 require_once __DIR__ . '/../../config/config.php';
+
+// Redirect www → non-www to ensure session consistency
+if (!empty($_SERVER['HTTP_HOST']) && strncmp($_SERVER['HTTP_HOST'], 'www.', 4) === 0) {
+    $nonWww = substr($_SERVER['HTTP_HOST'], 4);
+    $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $redirect = $protocol . '://' . $nonWww . ($_SERVER['REQUEST_URI'] ?? '/');
+    header('HTTP/1.1 301 Moved Permanently');
+    header('Location: ' . $redirect);
+    exit;
+}
+
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/functions.php';
 require_once __DIR__ . '/../../includes/business_helper.php';
