@@ -1242,11 +1242,11 @@ if (!empty($_manifestParams)) {
                         // Main layout: Image on left, all info on right
                         html += '<div style="display:grid;grid-template-columns:140px 1fr;gap:18px;margin-bottom:20px;">';
                         
-                        // Left: Image
+                        // Left: Image Frame
                         if (imageSrc) {
-                            html += '<div><img src="' + imageSrc.replace(/"/g, '&quot;') + '" alt="Order image" style="width:100%;height:140px;object-fit:cover;border-radius:10px;border:1px solid var(--border);"></div>';
+                            html += '<div style="width:140px;height:140px;padding:8px;background:var(--nav-hover);border-radius:8px;border:2px solid var(--border);box-sizing:border-box;"><img src="' + imageSrc.replace(/"/g, '&quot;') + '" alt="Order image" style="width:100%;height:100%;object-fit:cover;border-radius:4px;"></div>';
                         } else {
-                            html += '<div style="display:flex;align-items:center;justify-content:center;height:140px;background:var(--nav-hover);border-radius:10px;border:2px dashed var(--border);color:var(--muted);font-size:36px;">📷</div>';
+                            html += '<div style="width:140px;height:140px;display:flex;align-items:center;justify-content:center;background:var(--nav-hover);border-radius:8px;border:2px dashed var(--border);color:var(--muted);font-size:36px;box-sizing:border-box;">📷</div>';
                         }
                         
                         // Right: All info stacked
