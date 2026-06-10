@@ -1,27 +1,41 @@
 <?php
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
-echo '<pre>';
-echo 'PHP: ' . PHP_VERSION . "\n";
-echo 'File: ' . __FILE__ . "\n";
-echo 'Modified: ' . date('Y-m-d H:i:s', filemtime(__FILE__)) . "\n";
-echo 'Host: ' . ($_SERVER['HTTP_HOST'] ?? 'n/a') . "\n";
-echo 'Document root: ' . ($_SERVER['DOCUMENT_ROOT'] ?? 'n/a') . "\n";
-echo "\n--- Trying bootstrap ---\n";
+echo "<!-- step1: PHP running -->\n";
+
+// Simulate warehouse.php step by step
 try {
-    define('APP_ACCESS', true);
-    require_once __DIR__ . '/../../config/config.php';
-    echo "config.php OK\n";
-    echo 'DB_HOST=' . DB_HOST . "\n";
-    echo 'DB_NAME=' . DB_NAME . "\n";
-    require_once __DIR__ . '/db-helper.php';
-    echo "db-helper.php OK\n";
-    $pdo = getPwfOfficePdo();
-    echo "getPwfOfficePdo() OK\n";
-    $r = $pdo->query('SELECT COUNT(*) FROM pwf_warehouse_stock')->fetchColumn();
-    echo "pwf_warehouse_stock rows: $r\n";
+    require_once __DIR__ . '/_bootstrap.php';
+    echo "<!-- step2: _bootstrap.php OK -->\n";
 } catch (\Throwable $e) {
-    echo 'ERROR: ' . $e->getMessage() . "\n";
-    echo $e->getTraceAsString() . "\n";
+    echo "<pre>BOOTSTRAP ERROR: " . htmlspecialchars($e->getMessage()) . "\n" . htmlspecialchars($e->getTraceAsString()) . "</pre>";
+    exit;
 }
-echo '</pre>';
+
+echo "<!-- step3: after bootstrap -->\n";
+
+try {
+    require_once __DIR__ . '/db-helper.php';
+    echo "<!-- step4: db-helper OK -->\n";
+    $pdo = getPwfOfficePdo();
+    echo "<!-- step5: PDO OK -->\n";
+} catch (\Throwable $e) {
+    echo "<pre>DB ERROR: " . htmlspecialchars($e->getMessage()) . "</pre>";
+    exit;
+}
+
+echo "<!-- step6: calling pwfOfficeHeader -->\n";
+
+try {
+    require_once __DIR__ . '/layout.php';
+    echo "<!-- step7: layout.php loaded -->\n";
+    pwfOfficeHeader('WH Test', 'warehouse');
+    echo "<!-- step8: pwfOfficeHeader done -->\n";
+} catch (\Throwable $e) {
+    echo "<pre>LAYOUT ERROR: " . htmlspecialchars($e->getMessage()) . "\n" . htmlspecialchars($e->getTraceAsString()) . "</pre>";
+    exit;
+}
+
+echo "<div style='padding:20px;background:green;color:white'>ALL STEPS OK - warehouse.php should work</div>";
+
+pwfOfficeFooter();
