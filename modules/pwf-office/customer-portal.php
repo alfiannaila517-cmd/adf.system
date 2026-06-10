@@ -1090,12 +1090,26 @@ if (!empty($_manifestParams)) {
                                         <tr>
                                             <td colspan="9" style="text-align:center;color:#94A3B8;">No orders yet.</td>
                                         </tr>
-                                        <?php else: foreach ($recentOrders as $ord): ?>
-                                            <tr>
+                                        <?php else: foreach ($recentOrders as $ord): 
+                                            $ordImg = trim((string)($ord['image_path'] ?? ''));
+                                            $ordImgSrc = $ordImg ? (preg_match('#^https?://#i', $ordImg) ? $ordImg : $baseUrl . '/' . ltrim($ordImg, '/')) : '';
+                                            $ordData = json_encode([
+                                                'order_code' => $ord['order_code'],
+                                                'order_date' => $ord['order_date'],
+                                                'product_name' => $ord['product_name'],
+                                                'quantity' => $ord['quantity'],
+                                                'qty_done' => $ord['qty_done'],
+                                                'qty_shipped' => $ord['qty_shipped'],
+                                                'finish' => $ord['finish'],
+                                                'wood_color' => $ord['wood_color'],
+                                                'status' => $ord['status'],
+                                                'container_refs' => $ord['container_refs'],
+                                                'image_path' => $ordImgSrc
+                                            ]);
+                                        ?>
+                                            <tr class="order-row-clickable" data-order="<?= htmlspecialchars($ordData) ?>" style="cursor:pointer;transition:background-color 0.2s;" onmouseover="this.style.backgroundColor='var(--nav-hover)'" onmouseout="this.style.backgroundColor=''">
                                                 <td>
-                                                    <?php $ordImg = trim((string)($ord['image_path'] ?? '')); ?>
                                                     <?php if ($ordImg !== ''): ?>
-                                                        <?php $ordImgSrc = preg_match('#^https?://#i', $ordImg) ? $ordImg : $baseUrl . '/' . ltrim($ordImg, '/'); ?>
                                                         <img src="<?= htmlspecialchars($ordImgSrc) ?>" alt="<?= htmlspecialchars((string)$ord['product_name']) ?>" loading="lazy" style="width:48px;height:48px;object-fit:cover;border-radius:8px;border:1px solid #E2E8F0;display:block;">
                                                     <?php else: ?>
                                                         <span style="display:flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:8px;background:#F1F5F9;color:#94A3B8;">&#128247;</span>
@@ -1134,7 +1148,21 @@ if (!empty($_manifestParams)) {
         </div>
     </div>
 
+    <!-- Order Detail Modal -->
+    <div id="orderDetailModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;overflow-y:auto;padding:20px;">
+        <div style="background:var(--card);border-radius:12px;max-width:600px;margin:40px auto;padding:0;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:20px;border-bottom:1px solid var(--border);">
+                <h2 style="margin:0;font-size:18px;font-weight:700;color:var(--text);">Order Details</h2>
+                <button id="orderDetailClose" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--muted);padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center;">×</button>
+            </div>
+            <div style="padding:0;max-height:calc(100vh - 200px);overflow-y:auto;">
+                <div id="orderDetailContent" style="padding:20px;"></div>
+            </div>
+        </div>
+    </div>
+
     <script>
+
         (function() {
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.register('customer-sw.js').catch(function() {});
@@ -1183,7 +1211,85 @@ if (!empty($_manifestParams)) {
                     });
                 });
             }
+
+            /* Order Detail Modal */
+            var modal = document.getElementById('orderDetailModal');
+            var closeBtn = document.getElementById('orderDetailClose');
+            var contentDiv = document.getElementById('orderDetailContent');
+            
+            document.querySelectorAll('.order-row-clickable').forEach(function(row) {
+                row.addEventListener('click', function(e) {
+                    try {
+                        var orderData = JSON.parse(this.getAttribute('data-order'));
+                        var statusClass = orderData.status.toLowerCase();
+                        var finishColor = orderData.finish || orderData.wood_color || '—';
+                        var imageSrc = orderData.image_path;
+                        
+                        var html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">';
+                        
+                        // Image section
+                        if (imageSrc) {
+                            html += '<div style="grid-column:1;"><img src="' + imageSrc.replace(/"/g, '&quot;') + '" alt="Order image" style="width:100%;height:280px;object-fit:cover;border-radius:10px;border:1px solid var(--border);"></div>';
+                        } else {
+                            html += '<div style="grid-column:1;display:flex;align-items:center;justify-content:center;height:280px;background:var(--nav-hover);border-radius:10px;border:2px dashed var(--border);color:var(--muted);">No image</div>';
+                        }
+                        
+                        // Details section
+                        html += '<div style="grid-column:1;">';
+                        html += '<div style="margin-bottom:16px;"><label style="font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:600;">Order Code</label><div style="font-size:16px;font-weight:700;color:var(--text);margin-top:4px;">' + escapeHtml(orderData.order_code) + '</div></div>';
+                        html += '<div style="margin-bottom:16px;"><label style="font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:600;">Date</label><div style="font-size:14px;color:var(--text);margin-top:4px;">' + escapeHtml(orderData.order_date) + '</div></div>';
+                        html += '<div style="margin-bottom:16px;"><label style="font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:600;">Status</label><div style="margin-top:4px;"><span class="status ' + statusClass + '">' + escapeHtml(orderData.status.replace(/_/g, ' ')) + '</span></div></div>';
+                        html += '</div>';
+                        
+                        // Right column details
+                        html += '<div style="grid-column:2;">';
+                        html += '<div style="margin-bottom:16px;"><label style="font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:600;">Product</label><div style="font-size:14px;color:var(--text);margin-top:4px;">' + escapeHtml(orderData.product_name) + '</div></div>';
+                        html += '<div style="margin-bottom:16px;"><label style="font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:600;">Finish/Color</label><div style="font-size:14px;color:var(--text);margin-top:4px;">' + escapeHtml(finishColor) + '</div></div>';
+                        html += '<div style="margin-bottom:16px;"><label style="font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:600;">Quantity</label><div style="font-size:14px;color:var(--text);margin-top:4px;">' + formatQty(orderData.quantity) + '</div></div>';
+                        html += '<div style="margin-bottom:16px;"><label style="font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:600;">Completed</label><div style="font-size:14px;color:var(--text);margin-top:4px;">' + formatQty(orderData.qty_done) + '</div></div>';
+                        html += '<div style="margin-bottom:16px;"><label style="font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:600;">Shipped</label><div style="font-size:14px;color:var(--text);margin-top:4px;">' + formatQty(orderData.qty_shipped) + ' pcs</div></div>';
+                        if (orderData.container_refs && orderData.container_refs !== '-') {
+                            html += '<div style="margin-bottom:16px;"><label style="font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:600;">Container</label><div style="font-size:13px;color:var(--text);margin-top:4px;padding:8px;background:var(--nav-hover);border-radius:6px;">No: ' + escapeHtml(orderData.container_refs) + '</div></div>';
+                        }
+                        html += '</div></div>';
+                        
+                        contentDiv.innerHTML = html;
+                        modal.style.display = 'block';
+                    } catch(err) {
+                        console.error('Error parsing order data:', err);
+                    }
+                });
+            });
+            
+            closeBtn.addEventListener('click', function() {
+                modal.style.display = 'none';
+            });
+            
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+            
+            function escapeHtml(text) {
+                var map = {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#039;'
+                };
+                return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+            }
+            
+            function formatQty(val) {
+                val = parseFloat(val) || 0;
+                var str = val.toFixed(2);
+                str = str.replace(/\.?0+$/, '');
+                return str;
+            }
         })();
+
     </script>
 </body>
 
