@@ -256,7 +256,7 @@ $allOrdersData = [];
 if (!empty($customers)) {
     $ids = array_map(static fn($r) => (int)$r['id'], $customers);
     $ph = implode(',', array_fill(0, count($ids), '?'));
-    
+
     $stmtAllOrders = $pdo->prepare("SELECT
             o.id,
             o.order_code,
@@ -887,7 +887,8 @@ if (!empty($_manifestParams)) {
             margin-bottom: 8px;
         }
 
-        .print-btn, .pdf-btn {
+        .print-btn,
+        .pdf-btn {
             border: 1px solid #D8E2EF;
             background: #F8FBFF;
             color: #0F172A;
@@ -904,17 +905,20 @@ if (!empty($_manifestParams)) {
             text-decoration: none;
         }
 
-        .print-btn:hover, .pdf-btn:hover {
+        .print-btn:hover,
+        .pdf-btn:hover {
             background: #EEF4FF;
             border-color: #9FC3F4;
         }
 
-        .print-btn:active, .pdf-btn:active {
+        .print-btn:active,
+        .pdf-btn:active {
             transform: scale(0.98);
         }
 
         /* Hide print controls when printing */
         @media print {
+
             .print-export-toolbar,
             .install-btn,
             .search-grid,
@@ -943,7 +947,7 @@ if (!empty($_manifestParams)) {
                 display: block;
             }
 
-            .detail-grid > * {
+            .detail-grid>* {
                 page-break-inside: avoid;
                 margin-bottom: 20px;
             }
@@ -1244,7 +1248,7 @@ if (!empty($_manifestParams)) {
                                         <tr>
                                             <td colspan="9" style="text-align:center;color:#94A3B8;">No orders yet.</td>
                                         </tr>
-                                        <?php else: foreach ($recentOrders as $ord): 
+                                        <?php else: foreach ($recentOrders as $ord):
                                             $ordImg = trim((string)($ord['image_path'] ?? ''));
                                             $ordImgSrc = $ordImg ? (preg_match('#^https?://#i', $ordImg) ? $ordImg : $baseUrl . '/' . ltrim($ordImg, '/')) : '';
                                             $ordData = json_encode([
@@ -1339,18 +1343,18 @@ if (!empty($_manifestParams)) {
             </div>
         </div>
     </div>
-    
+
     <style>
         #orderDetailModal[style*="display: flex"] {
             display: flex !important;
         }
+
         #printPreviewModal[style*="display: flex"] {
             display: flex !important;
         }
     </style>
 
     <script>
-
         /**
          * Print Preview and Export Functions - Simplified Version
          */
@@ -1381,7 +1385,9 @@ if (!empty($_manifestParams)) {
 
             contentDiv.innerHTML = previewHTML;
             modal.style.display = 'flex';
-            setTimeout(() => { contentDiv.scrollTop = 0; }, 100);
+            setTimeout(() => {
+                contentDiv.scrollTop = 0;
+            }, 100);
         }
 
         // Generate Dashboard Preview HTML - Simplified & Compact
@@ -1552,7 +1558,13 @@ if (!empty($_manifestParams)) {
 
         // Helper: Escape HTML
         function escapeHtml(text) {
-            const map = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'};
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
             return text.replace(/[&<>"']/g, m => map[m]);
         }
 
@@ -1589,7 +1601,10 @@ if (!empty($_manifestParams)) {
                 </html>
             `);
             printWindow.document.close();
-            setTimeout(() => { printWindow.focus(); printWindow.print(); }, 250);
+            setTimeout(() => {
+                printWindow.focus();
+                printWindow.print();
+            }, 250);
         }
 
         // Download PDF from preview
@@ -1597,22 +1612,34 @@ if (!empty($_manifestParams)) {
             const previewContent = document.getElementById('printPreviewContent');
             if (!previewContent) return;
 
+            const btn = document.getElementById('previewDownloadBtn');
+            if (btn) { btn.disabled = true; btn.innerHTML = '<span>⏳</span><span>Generating…</span>'; }
+
+            // Clone into a DOM-attached container (html2canvas requires element to be in DOM)
             const tempDiv = document.createElement('div');
             tempDiv.innerHTML = previewContent.innerHTML;
+            tempDiv.style.cssText = 'position:absolute;left:-9999px;top:0;width:794px;background:#fff;font-family:Arial,sans-serif;font-size:11px;';
+            document.body.appendChild(tempDiv);
 
-            const filename = currentPreviewType === 'dashboard' 
-                ? `buyer-dashboard-${new Date().toISOString().split('T')[0]}.pdf`
-                : `customer-report-${currentPreviewData.customerCode || 'report'}-${new Date().toISOString().split('T')[0]}.pdf`;
+            const filename = currentPreviewType === 'dashboard' ?
+                `buyer-dashboard-${new Date().toISOString().split('T')[0]}.pdf` :
+                `customer-report-${currentPreviewData.customerCode || 'report'}-${new Date().toISOString().split('T')[0]}.pdf`;
 
             const opt = {
                 margin: 8,
                 filename: filename,
                 image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2 },
+                html2canvas: { scale: 2, useCORS: true, logging: false },
                 jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
             };
 
-            html2pdf().set(opt).from(tempDiv).save();
+            html2pdf().set(opt).from(tempDiv).save().then(() => {
+                document.body.removeChild(tempDiv);
+                if (btn) { btn.disabled = false; btn.innerHTML = '<span>📥</span><span>Download PDF</span>'; }
+            }).catch(() => {
+                document.body.removeChild(tempDiv);
+                if (btn) { btn.disabled = false; btn.innerHTML = '<span>📥</span><span>Download PDF</span>'; }
+            });
         }
 
         // Dashboard Print
@@ -1633,7 +1660,9 @@ if (!empty($_manifestParams)) {
             const uniqueCustomers = new Set(allOrdersData.map(o => o.customer_code));
 
             // Calculate totals
-            let totalQtyOrder = 0, totalQtyDone = 0, totalQtyShipped = 0;
+            let totalQtyOrder = 0,
+                totalQtyDone = 0,
+                totalQtyShipped = 0;
             allOrdersData.forEach(order => {
                 totalQtyOrder += parseFloat(order.quantity) || 0;
                 totalQtyDone += parseFloat(order.qty_done) || 0;
@@ -1662,7 +1691,10 @@ if (!empty($_manifestParams)) {
 
             // Get KPI values
             const kpiCards = detailGrid.querySelectorAll('.summary-grid .kpi-card');
-            let totalOrders = 0, qtyOrdered = 0, qtyDone = 0, qtyShipped = 0;
+            let totalOrders = 0,
+                qtyOrdered = 0,
+                qtyDone = 0,
+                qtyShipped = 0;
 
             if (kpiCards.length >= 4) {
                 totalOrders = parseInt(kpiCards[0].querySelector('.kpi-value')?.textContent || '0');
@@ -1688,7 +1720,7 @@ if (!empty($_manifestParams)) {
                         status: orderData.status,
                         containerRefs: orderData.container_refs || '-'
                     });
-                } catch(e) {}
+                } catch (e) {}
             });
 
             const customerData = {
@@ -1774,7 +1806,7 @@ if (!empty($_manifestParams)) {
             var modal = document.getElementById('orderDetailModal');
             var closeBtn = document.getElementById('orderDetailClose');
             var contentDiv = document.getElementById('orderDetailContent');
-            
+
             document.querySelectorAll('.order-row-clickable').forEach(function(row) {
                 row.addEventListener('click', function(e) {
                     e.stopPropagation();
@@ -1783,36 +1815,36 @@ if (!empty($_manifestParams)) {
                         var statusClass = orderData.status.toLowerCase();
                         var finishColor = orderData.finish || orderData.wood_color || '—';
                         var imageSrc = orderData.image_path;
-                        
+
                         var html = '';
-                        
+
                         // Calculate quantities upfront
                         var qtyOrdered = parseFloat(orderData.quantity) || 0;
                         var qtyDone = parseFloat(orderData.qty_done) || 0;
                         var qtyShipped = parseFloat(orderData.qty_shipped) || 0;
                         var completionPct = qtyOrdered > 0 ? Math.round((qtyDone / qtyOrdered) * 100) : 0;
                         var shippingPct = qtyOrdered > 0 ? Math.round((qtyShipped / qtyOrdered) * 100) : 0;
-                        
+
                         // Main layout: Image on left, all info on right
                         html += '<div style="display:grid;grid-template-columns:140px 1fr;gap:18px;margin-bottom:20px;">';
-                        
+
                         // Left: Image Frame
                         if (imageSrc) {
                             html += '<div style="width:140px;height:140px;padding:8px;background:var(--nav-hover);border-radius:8px;border:2px solid var(--border);box-sizing:border-box;"><img src="' + imageSrc.replace(/"/g, '&quot;') + '" alt="Order image" style="width:100%;height:100%;object-fit:cover;border-radius:4px;"></div>';
                         } else {
                             html += '<div style="width:140px;height:140px;display:flex;align-items:center;justify-content:center;background:var(--nav-hover);border-radius:8px;border:2px dashed var(--border);color:var(--muted);font-size:36px;box-sizing:border-box;">📷</div>';
                         }
-                        
+
                         // Right: All info stacked
                         html += '<div>';
-                        
+
                         // Order Header: Code, Status, Date (compact)
                         html += '<div style="margin-bottom:12px;">';
                         html += '<div style="margin-bottom:8px;"><div style="font-size:9px;color:var(--muted);text-transform:uppercase;font-weight:600;letter-spacing:0.4px;">Order Code</div><div style="font-size:14px;font-weight:700;color:var(--text);margin-top:2px;">' + escapeHtml(orderData.order_code) + '</div></div>';
                         html += '<div style="margin-bottom:8px;"><div style="font-size:9px;color:var(--muted);text-transform:uppercase;font-weight:600;letter-spacing:0.4px;">Status</div><div style="margin-top:2px;"><span class="status ' + statusClass + '" style="display:inline-block;padding:4px 8px;border-radius:4px;font-size:10px;font-weight:600;">' + escapeHtml(orderData.status.replace(/_/g, ' ')) + '</span></div></div>';
                         html += '<div><div style="font-size:9px;color:var(--muted);text-transform:uppercase;font-weight:600;letter-spacing:0.4px;">Date</div><div style="font-size:11px;color:var(--text);margin-top:2px;">' + escapeHtml(orderData.order_date) + '</div></div>';
                         html += '</div>';
-                        
+
                         // Product Details (compact)
                         html += '<div style="padding:12px;background:var(--nav-hover);border-radius:8px;margin-bottom:12px;">';
                         html += '<div style="font-size:9px;color:var(--muted);text-transform:uppercase;font-weight:600;letter-spacing:0.4px;margin-bottom:6px;">📦 Product</div>';
@@ -1822,11 +1854,11 @@ if (!empty($_manifestParams)) {
                         html += '<div><div style="color:var(--muted);font-weight:600;">Unit</div><div style="color:var(--text);margin-top:1px;">pcs</div></div>';
                         html += '</div>';
                         html += '</div>';
-                        
+
                         // Quantity Status (compact)
                         html += '<div style="padding:12px;background:var(--nav-hover);border-radius:8px;">';
                         html += '<div style="font-size:9px;color:var(--muted);text-transform:uppercase;font-weight:600;letter-spacing:0.4px;margin-bottom:8px;">📊 Quantity</div>';
-                        
+
                         // Progress bars (smaller)
                         html += '<div style="margin-bottom:10px;">';
                         html += '<div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:9px;">';
@@ -1837,7 +1869,7 @@ if (!empty($_manifestParams)) {
                         html += '<div style="height:100%;background:linear-gradient(90deg, #3b82f6, #1e40af);width:' + completionPct + '%;"></div>';
                         html += '</div>';
                         html += '</div>';
-                        
+
                         html += '<div style="margin-bottom:8px;">';
                         html += '<div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:9px;">';
                         html += '<div style="color:var(--muted);font-weight:600;">Shipped</div>';
@@ -1847,63 +1879,62 @@ if (!empty($_manifestParams)) {
                         html += '<div style="height:100%;background:linear-gradient(90deg, #10b981, #059669);width:' + shippingPct + '%;"></div>';
                         html += '</div>';
                         html += '</div>';
-                        
+
                         // Qty cards (smaller)
                         html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;font-size:9px;">';
                         html += '<div style="padding:8px;background:rgba(59,130,246,0.15);border-radius:6px;text-align:center;">';
                         html += '<div style="color:var(--muted);font-weight:600;margin-bottom:3px;">Order</div>';
                         html += '<div style="font-size:12px;font-weight:700;color:var(--text);">' + formatQty(qtyOrdered) + '</div>';
                         html += '</div>';
-                        
+
                         html += '<div style="padding:8px;background:rgba(59,130,246,0.15);border-radius:6px;text-align:center;">';
                         html += '<div style="color:var(--muted);font-weight:600;margin-bottom:3px;">Done</div>';
                         html += '<div style="font-size:12px;font-weight:700;color:var(--text);">' + formatQty(qtyDone) + '</div>';
                         html += '</div>';
-                        
+
                         html += '<div style="padding:8px;background:rgba(16,185,129,0.15);border-radius:6px;text-align:center;">';
                         html += '<div style="color:var(--muted);font-weight:600;margin-bottom:3px;">Ship</div>';
                         html += '<div style="font-size:12px;font-weight:700;color:var(--text);">' + formatQty(qtyShipped) + '</div>';
                         html += '</div>';
                         html += '</div>';
-                        
+
                         html += '</div>';
                         html += '</div>';
                         html += '</div>';
-                        
+
                         if (orderData.container_refs && orderData.container_refs !== '-') {
                             html += '<div style="padding:12px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:10px;">';
                             html += '<div style="font-size:9px;color:var(--muted);text-transform:uppercase;font-weight:600;letter-spacing:0.4px;margin-bottom:6px;">📦 Containers</div>';
                             html += '<div style="font-size:11px;color:var(--text);font-family:monospace;line-height:1.5;">' + escapeHtml(orderData.container_refs) + '</div>';
                             html += '</div>';
                         }
-                        
+
                         contentDiv.innerHTML = html;
                         modal.style.display = 'flex';
-                    } catch(err) {
+                    } catch (err) {
                         console.error('Error parsing order data:', err);
                     }
                 });
             });
-            
+
             closeBtn.addEventListener('click', function() {
                 modal.style.display = 'none';
             });
-            
+
             modal.addEventListener('click', function(e) {
                 if (e.target === modal) {
                     modal.style.display = 'none';
                 }
             });
-            
+
             closeBtn.addEventListener('mouseover', function() {
                 this.style.color = 'var(--text)';
             });
-            
+
             closeBtn.addEventListener('mouseout', function() {
                 this.style.color = 'var(--muted)';
             });
         })();
-
     </script>
 </body>
 
