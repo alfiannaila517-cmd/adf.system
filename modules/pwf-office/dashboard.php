@@ -221,16 +221,16 @@ pwfOfficeHeader('Dashboard', 'dashboard');
 </div>
 
 <!-- ══ CHARTS ROW ═══════════════════════════════════════════════════════════ -->
-<div class="grid2" style="margin-bottom:20px;align-items:stretch">
+<div class="grid2" style="margin-bottom:14px;align-items:stretch;gap:12px">
 
-    <!-- LEFT: Production Completion Donut + per-customer legend (STICKY) -->
-    <div class="pwf-card" style="display:flex;flex-direction:column;position:sticky;top:0;z-index:10;height:420px">
-        <div class="pwf-card-header" style="padding:10px 14px;font-size:11.5px;flex-shrink:0">
+    <!-- LEFT: Production Completion Donut + per-customer legend -->
+    <div class="pwf-card" style="display:flex;flex-direction:column;height:390px;border:1px solid var(--border);box-shadow:0 6px 20px rgba(15,23,42,.04)">
+        <div class="pwf-card-header" style="padding:9px 13px;font-size:11.5px;flex-shrink:0;background:linear-gradient(180deg,#fff, #fbfbfd);border-bottom:1px solid var(--border)">
             <i class="bi bi-pie-chart me-2" style="color:var(--gold)"></i>Production Completion
         </div>
-        <div style="padding:14px 16px 14px;">
+        <div style="padding:12px 14px 10px;display:flex;flex-direction:column;gap:8px;flex:1;overflow:hidden">
             <!-- Donut -->
-            <div style="display:flex;align-items:center;gap:20px;margin-bottom:12px">
+            <div style="display:flex;align-items:center;gap:16px;margin-bottom:2px;flex-shrink:0">
                 <div style="position:relative;flex-shrink:0;width:148px;height:148px;isolation:isolate">
                     <canvas id="pieChart" style="position:relative;z-index:1"></canvas>
                     <div id="donutCenter" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;z-index:0">
@@ -254,8 +254,8 @@ pwfOfficeHeader('Dashboard', 'dashboard');
                 </div>
             </div>
             <!-- Per-customer rows -->
-            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:8px">Per Customer</div>
-            <div style="display:flex;flex-direction:column;gap:7px;max-height:260px;overflow-y:auto;overflow-x:hidden;padding-right:2px">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)">Per Customer</div>
+            <div style="display:flex;flex-direction:column;gap:7px;max-height:170px;overflow-y:auto;overflow-x:hidden;padding-right:2px">
                 <?php
                 $palette = ['#D4A017', '#3b82f6', '#22c55e', '#f97316', '#a855f7', '#ec4899', '#14b8a6', '#f43f5e'];
                 foreach ($custProg as $i => $cp):
@@ -287,12 +287,12 @@ pwfOfficeHeader('Dashboard', 'dashboard');
     </div>
 
     <!-- RIGHT: Qty progress per customer (vertical stacked bar, scrollable) -->
-    <div class="pwf-card" style="display:flex;flex-direction:column;border:1.5px solid var(--border);">
-        <div class="pwf-card-header" style="padding:10px 14px;font-size:11.5px;flex-shrink:0;border-bottom:1.5px solid var(--border)">
+    <div class="pwf-card" style="display:flex;flex-direction:column;border:1px solid var(--border);height:390px;box-shadow:0 6px 20px rgba(15,23,42,.04)">
+        <div class="pwf-card-header" style="padding:9px 13px;font-size:11.5px;flex-shrink:0;background:linear-gradient(180deg,#fff, #fbfbfd);border-bottom:1px solid var(--border)">
             <i class="bi bi-bar-chart-steps me-2" style="color:var(--gold)"></i>Production Qty by Customer
         </div>
-        <div style="padding:16px 16px 12px;flex:1;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;">
-            <div id="barChartWrap" style="position:relative;height:340px;width:100%">
+        <div style="padding:10px 12px 8px;flex:1;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;">
+            <div id="barChartWrap" style="position:relative;height:305px;min-width:100%">
                 <canvas id="barChart" style="display:block"></canvas>
             </div>
         </div>
@@ -673,30 +673,35 @@ pwfOfficeHeader('Dashboard', 'dashboard');
             const totals = <?= json_encode($barTotal) ?>;
             if (!labels.length) return;
 
-            // Delay until layout is painted so clientWidth is correct
-            requestAnimationFrame(() => {
-                const wrap = document.getElementById('barChartWrap');
-                const colW = 56;
-                const containerW = wrap.parentElement.offsetWidth || 400;
-                const minW = Math.max(containerW - 32, labels.length * colW + 60);
-                wrap.style.width = minW + 'px';
+            const wrap = document.getElementById('barChartWrap');
+            const canvas = document.getElementById('barChart');
+            if (!wrap || !canvas) return;
 
-                new Chart(document.getElementById('barChart'), {
+            // Make each column readable and keep horizontal scroll on smaller screens.
+            const colW = 54;
+            const containerW = wrap.parentElement ? wrap.parentElement.offsetWidth : 420;
+            const minW = Math.max(containerW - 8, labels.length * colW + 70);
+            wrap.style.width = minW + 'px';
+
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+
+            new Chart(ctx, {
                     type: 'bar',
                     data: {
                         labels,
-                        datasets: [
-                            {
+                        datasets: [{
                                 label: 'Done / Ready',
                                 data: ready,
                                 backgroundColor: '#10b981',
                                 hoverBackgroundColor: '#059669',
                                 borderRadius: 0,
-                                borderSkipped: true,
+                                borderSkipped: false,
                                 stack: 'qty',
-                                barThickness: 28,
-                                categoryPercentage: 0.7,
-                                barPercentage: 0.85
+                                barThickness: 24,
+                                maxBarThickness: 26,
+                                categoryPercentage: 0.78,
+                                barPercentage: 0.9
                             },
                             {
                                 label: 'Producing',
@@ -704,23 +709,28 @@ pwfOfficeHeader('Dashboard', 'dashboard');
                                 backgroundColor: '#f97316',
                                 hoverBackgroundColor: '#ea580c',
                                 borderRadius: 0,
-                                borderSkipped: true,
+                                borderSkipped: false,
                                 stack: 'qty',
-                                barThickness: 28,
-                                categoryPercentage: 0.7,
-                                barPercentage: 0.85
+                                barThickness: 24,
+                                maxBarThickness: 26,
+                                categoryPercentage: 0.78,
+                                barPercentage: 0.9
                             },
                             {
                                 label: 'Remaining',
                                 data: remaining,
                                 backgroundColor: '#8b5cf6',
                                 hoverBackgroundColor: '#7c3aed',
-                                borderRadius: { topLeft: 6, topRight: 6 },
-                                borderSkipped: true,
+                                borderRadius: {
+                                    topLeft: 6,
+                                    topRight: 6
+                                },
+                                borderSkipped: false,
                                 stack: 'qty',
-                                barThickness: 28,
-                                categoryPercentage: 0.7,
-                                barPercentage: 0.85
+                                barThickness: 24,
+                                maxBarThickness: 26,
+                                categoryPercentage: 0.78,
+                                barPercentage: 0.9
                             }
                         ]
                     },
@@ -728,25 +738,45 @@ pwfOfficeHeader('Dashboard', 'dashboard');
                         indexAxis: 'x',
                         responsive: true,
                         maintainAspectRatio: false,
-                        animation: { duration: 900, easing: 'easeOutQuart' },
-                        interaction: { mode: 'index', intersect: false },
-                        layout: { padding: { top: 12, right: 8 } },
+                        animation: {
+                            duration: 700,
+                            easing: 'easeOutQuart'
+                        },
+                        interaction: {
+                            mode: 'index',
+                            intersect: false
+                        },
+                        layout: {
+                            padding: {
+                                top: 12,
+                                right: 8
+                            }
+                        },
                         scales: {
                             x: {
                                 stacked: true,
-                                border: { display: false },
-                                grid: { display: false },
+                                border: {
+                                    display: false
+                                },
+                                grid: {
+                                    display: false
+                                },
                                 ticks: {
                                     color: isDark ? '#d1d5db' : '#374151',
-                                    font: { size: 10, weight: '700' },
-                                    maxRotation: 30,
+                                    font: {
+                                        size: 10,
+                                        weight: '700'
+                                    },
+                                    maxRotation: 28,
                                     minRotation: 0
                                 }
                             },
                             y: {
                                 stacked: true,
                                 beginAtZero: true,
-                                border: { display: false },
+                                border: {
+                                    display: false
+                                },
                                 grid: {
                                     color: isDark ? 'rgba(255,255,255,.07)' : 'rgba(99,102,241,.1)',
                                     lineWidth: 1,
@@ -754,7 +784,9 @@ pwfOfficeHeader('Dashboard', 'dashboard');
                                 },
                                 ticks: {
                                     color: tickColor,
-                                    font: { size: 10 },
+                                    font: {
+                                        size: 10
+                                    },
                                     padding: 6,
                                     callback: v => v + ' pcs'
                                 }
@@ -765,7 +797,10 @@ pwfOfficeHeader('Dashboard', 'dashboard');
                                 position: 'bottom',
                                 labels: {
                                     padding: 18,
-                                    font: { size: 11, weight: '600' },
+                                    font: {
+                                        size: 11,
+                                        weight: '600'
+                                    },
                                     color: tickColor,
                                     usePointStyle: true,
                                     pointStyle: 'rectRounded',
@@ -793,7 +828,6 @@ pwfOfficeHeader('Dashboard', 'dashboard');
                         }
                     }
                 });
-            }); // end requestAnimationFrame
         })();
     }
 
