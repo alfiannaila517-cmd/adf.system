@@ -1338,8 +1338,7 @@ if (!empty($_manifestParams)) {
             <!-- Actions Footer -->
             <div style="display:flex;gap:12px;padding:20px 24px;border-top:2px solid #F0F4FA;background:#F8FBFF;justify-content:flex-end;flex-wrap:wrap;">
                 <button id="previewCancelBtn" style="border:1px solid var(--line);background:#fff;color:var(--text);border-radius:10px;padding:10px 18px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='#F9F9F9'" onmouseout="this.style.background='#fff'">Cancel</button>
-                <button id="previewPrintBtn" style="border:none;background:linear-gradient(135deg, #0F9D74, #34D399);color:white;border-radius:10px;padding:10px 18px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:6px;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'"><span>🖨️</span><span>Print</span></button>
-                <button id="previewDownloadBtn" style="border:none;background:linear-gradient(135deg, #2563EB, #1D4ED8);color:white;border-radius:10px;padding:10px 18px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:6px;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'"><span>📥</span><span>Download PDF</span></button>
+                <button id="previewPrintBtn" style="border:none;background:linear-gradient(135deg, #2563EB, #1D4ED8);color:white;border-radius:10px;padding:10px 18px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:6px;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'"><span>🖨️</span><span>Print / Export PDF</span></button>
             </div>
         </div>
     </div>
@@ -1747,12 +1746,10 @@ if (!empty($_manifestParams)) {
             const previewClose = document.getElementById('previewClose');
             const previewCancelBtn = document.getElementById('previewCancelBtn');
             const previewPrintBtn = document.getElementById('previewPrintBtn');
-            const previewDownloadBtn = document.getElementById('previewDownloadBtn');
 
             if (previewClose) previewClose.addEventListener('click', () => previewModal.style.display = 'none');
             if (previewCancelBtn) previewCancelBtn.addEventListener('click', () => previewModal.style.display = 'none');
             if (previewPrintBtn) previewPrintBtn.addEventListener('click', doPrintFromPreview);
-            if (previewDownloadBtn) previewDownloadBtn.addEventListener('click', doDownloadPdfFromPreview);
 
             previewModal.addEventListener('click', (e) => {
                 if (e.target === previewModal) previewModal.style.display = 'none';
