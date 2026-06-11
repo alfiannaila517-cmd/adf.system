@@ -221,14 +221,14 @@ pwfOfficeHeader('Dashboard', 'dashboard');
 </div>
 
 <!-- ══ CHARTS ROW ═══════════════════════════════════════════════════════════ -->
-<div class="grid2" style="margin-bottom:20px;align-items:stretch">
+<div class="grid2" style="margin-bottom:20px;align-items:start">
 
-    <!-- LEFT: Production Completion Donut + per-customer legend -->
-    <div class="pwf-card" style="display:flex;flex-direction:column;height:460px">
+    <!-- LEFT: Production Completion Donut + per-customer legend (STICKY) -->
+    <div class="pwf-card" style="display:flex;flex-direction:column;position:sticky;top:0;z-index:10">
         <div class="pwf-card-header" style="padding:10px 14px;font-size:11.5px;flex-shrink:0">
             <i class="bi bi-pie-chart me-2" style="color:var(--gold)"></i>Production Completion
         </div>
-        <div style="padding:14px 16px 14px;flex:1;overflow-y:auto;overflow-x:hidden">
+        <div style="padding:14px 16px 14px;">
             <!-- Donut -->
             <div style="display:flex;align-items:center;gap:20px;margin-bottom:12px">
                 <div style="position:relative;flex-shrink:0;width:148px;height:148px;isolation:isolate">
@@ -255,7 +255,7 @@ pwfOfficeHeader('Dashboard', 'dashboard');
             </div>
             <!-- Per-customer rows -->
             <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:8px">Per Customer</div>
-            <div style="display:flex;flex-direction:column;gap:7px">
+            <div style="display:flex;flex-direction:column;gap:7px;max-height:260px;overflow-y:auto;overflow-x:hidden;padding-right:2px">
                 <?php
                 $palette = ['#D4A017', '#3b82f6', '#22c55e', '#f97316', '#a855f7', '#ec4899', '#14b8a6', '#f43f5e'];
                 foreach ($custProg as $i => $cp):
@@ -287,12 +287,12 @@ pwfOfficeHeader('Dashboard', 'dashboard');
     </div>
 
     <!-- RIGHT: Qty progress per customer (horizontal stacked bar) -->
-    <div class="pwf-card" style="display:flex;flex-direction:column;height:460px">
-        <div class="pwf-card-header" style="padding:10px 14px;font-size:11.5px;flex-shrink:0">
+    <div class="pwf-card" style="display:flex;flex-direction:column;border:1.5px solid var(--border);">
+        <div class="pwf-card-header" style="padding:10px 14px;font-size:11.5px;flex-shrink:0;border-bottom:1.5px solid var(--border)">
             <i class="bi bi-bar-chart-steps me-2" style="color:var(--gold)"></i>Production Qty by Customer
         </div>
-        <div style="padding:12px 14px 10px;flex:1;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column">
-            <div style="position:relative;width:100%;height:320px;max-height:320px">
+        <div style="padding:16px 16px 12px;flex:1;display:flex;flex-direction:column">
+            <div style="position:relative;width:100%">
                 <canvas id="barChart"></canvas>
             </div>
         </div>
@@ -673,48 +673,56 @@ pwfOfficeHeader('Dashboard', 'dashboard');
             const totals = <?= json_encode($barTotal) ?>;
             if (!labels.length) return;
 
-            new Chart(document.getElementById('barChart'), {
+            // Dynamic height based on rows
+            const rowH = 38;
+            const chartEl = document.getElementById('barChart');
+            chartEl.parentElement.style.height = Math.max(260, labels.length * rowH + 60) + 'px';
+
+            // Gradient factory
+            const makeGrad = (ctx, color1, color2) => {
+                const g = ctx.createLinearGradient(0, 0, chartEl.width, 0);
+                g.addColorStop(0, color1);
+                g.addColorStop(1, color2);
+                return g;
+            };
+
+            const chartInst = new Chart(chartEl, {
                 type: 'bar',
                 data: {
                     labels,
-                    datasets: [{
+                    datasets: [
+                        {
                             label: 'Done / Ready',
                             data: ready,
-                            backgroundColor: '#10b981',
+                            backgroundColor: ctx => makeGrad(ctx.chart.ctx, '#10b981', '#34d399'),
                             borderRadius: 0,
                             borderSkipped: false,
                             stack: 'qty',
-                            barThickness: 22,
-                            maxBarThickness: 24,
-                            categoryPercentage: 0.72,
-                            barPercentage: 0.78
+                            barThickness: 24,
+                            categoryPercentage: 0.75,
+                            barPercentage: 0.8
                         },
                         {
                             label: 'Producing',
                             data: producing,
-                            backgroundColor: '#f97316',
+                            backgroundColor: ctx => makeGrad(ctx.chart.ctx, '#f97316', '#fbbf24'),
                             borderRadius: 0,
                             borderSkipped: false,
                             stack: 'qty',
-                            barThickness: 22,
-                            maxBarThickness: 24,
-                            categoryPercentage: 0.72,
-                            barPercentage: 0.78
+                            barThickness: 24,
+                            categoryPercentage: 0.75,
+                            barPercentage: 0.8
                         },
                         {
                             label: 'Remaining',
                             data: remaining,
-                            backgroundColor: '#8b5cf6',
-                            borderRadius: {
-                                topRight: 4,
-                                bottomRight: 4
-                            },
+                            backgroundColor: ctx => makeGrad(ctx.chart.ctx, '#8b5cf6', '#c4b5fd'),
+                            borderRadius: { topRight: 6, bottomRight: 6 },
                             borderSkipped: false,
                             stack: 'qty',
-                            barThickness: 22,
-                            maxBarThickness: 24,
-                            categoryPercentage: 0.72,
-                            barPercentage: 0.78
+                            barThickness: 24,
+                            categoryPercentage: 0.75,
+                            barPercentage: 0.8
                         }
                     ]
                 },
@@ -722,41 +730,38 @@ pwfOfficeHeader('Dashboard', 'dashboard');
                     indexAxis: 'y',
                     responsive: true,
                     maintainAspectRatio: false,
-                    animation: {
-                        duration: 700
-                    },
-                    interaction: {
-                        mode: 'index',
-                        intersect: false
-                    },
+                    animation: { duration: 900, easing: 'easeOutQuart' },
+                    interaction: { mode: 'index', intersect: false },
+                    layout: { padding: { right: 8 } },
                     scales: {
                         x: {
                             stacked: true,
                             beginAtZero: true,
+                            border: { display: false },
                             grid: {
-                                color: gridColor,
-                                drawBorder: false
+                                color: isDark ? 'rgba(255,255,255,.07)' : 'rgba(99,102,241,.1)',
+                                lineWidth: 1,
+                                drawTicks: false
                             },
                             ticks: {
                                 color: tickColor,
-                                font: {
-                                    size: 10
-                                },
+                                font: { size: 10 },
+                                padding: 6,
                                 callback: v => v + ' pcs'
                             }
                         },
                         y: {
                             stacked: true,
+                            border: { display: false },
                             grid: {
-                                display: false
+                                color: isDark ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.04)',
+                                lineWidth: 1
                             },
                             ticks: {
-                                color: tickColor,
-                                font: {
-                                    size: 11,
-                                    weight: '600'
-                                },
-                                maxRotation: 0
+                                color: isDark ? '#d1d5db' : '#374151',
+                                font: { size: 11, weight: '700' },
+                                maxRotation: 0,
+                                padding: 8
                             }
                         }
                     },
@@ -764,28 +769,29 @@ pwfOfficeHeader('Dashboard', 'dashboard');
                         legend: {
                             position: 'bottom',
                             labels: {
-                                padding: 14,
-                                font: {
-                                    size: 10.5
-                                },
+                                padding: 18,
+                                font: { size: 11, weight: '600' },
                                 color: tickColor,
                                 usePointStyle: true,
-                                pointStyleWidth: 8
+                                pointStyle: 'rectRounded',
+                                pointStyleWidth: 12
                             }
                         },
                         tooltip: {
                             ...tt,
+                            padding: 12,
+                            boxPadding: 4,
                             callbacks: {
-                                title: ctx => ctx[0].label,
+                                title: ctx => '📦 ' + ctx[0].label,
                                 label: ctx => {
                                     const tot = totals[ctx.dataIndex] || 1;
                                     const v = ctx.parsed.x;
                                     const p = Math.round(v / tot * 100);
-                                    return ` ${ctx.dataset.label}: ${v} pcs (${p}%)`;
+                                    return `  ${ctx.dataset.label}: ${v} pcs (${p}%)`;
                                 },
                                 footer: ctx => {
                                     const tot = totals[ctx[0].dataIndex];
-                                    return `Total PO: ${tot} pcs`;
+                                    return `  Total PO: ${tot} pcs`;
                                 }
                             }
                         }
