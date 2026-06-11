@@ -221,10 +221,10 @@ pwfOfficeHeader('Dashboard', 'dashboard');
 </div>
 
 <!-- ══ CHARTS ROW ═══════════════════════════════════════════════════════════ -->
-<div class="grid2" style="margin-bottom:20px;align-items:start">
+<div class="grid2" style="margin-bottom:20px;align-items:stretch">
 
     <!-- LEFT: Production Completion Donut + per-customer legend (STICKY) -->
-    <div class="pwf-card" style="display:flex;flex-direction:column;position:sticky;top:0;z-index:10">
+    <div class="pwf-card" style="display:flex;flex-direction:column;position:sticky;top:0;z-index:10;height:420px">
         <div class="pwf-card-header" style="padding:10px 14px;font-size:11.5px;flex-shrink:0">
             <i class="bi bi-pie-chart me-2" style="color:var(--gold)"></i>Production Completion
         </div>
@@ -291,9 +291,9 @@ pwfOfficeHeader('Dashboard', 'dashboard');
         <div class="pwf-card-header" style="padding:10px 14px;font-size:11.5px;flex-shrink:0;border-bottom:1.5px solid var(--border)">
             <i class="bi bi-bar-chart-steps me-2" style="color:var(--gold)"></i>Production Qty by Customer
         </div>
-        <div style="padding:16px 16px 12px;flex:1;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch">
-            <div id="barChartWrap" style="position:relative;height:320px;min-width:100%">
-                <canvas id="barChart"></canvas>
+        <div style="padding:16px 16px 12px;flex:1;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;">
+            <div id="barChartWrap" style="position:relative;height:340px;width:100%">
+                <canvas id="barChart" style="display:block"></canvas>
             </div>
         </div>
     </div>
@@ -673,131 +673,127 @@ pwfOfficeHeader('Dashboard', 'dashboard');
             const totals = <?= json_encode($barTotal) ?>;
             if (!labels.length) return;
 
-            // Set minimum width so bars never squash — enables horizontal scroll
-            const colW = 52;
-            const wrap = document.getElementById('barChartWrap');
-            const minW = Math.max(wrap.parentElement.clientWidth, labels.length * colW + 80);
-            wrap.style.width = minW + 'px';
+            // Delay until layout is painted so clientWidth is correct
+            requestAnimationFrame(() => {
+                const wrap = document.getElementById('barChartWrap');
+                const colW = 56;
+                const containerW = wrap.parentElement.offsetWidth || 400;
+                const minW = Math.max(containerW - 32, labels.length * colW + 60);
+                wrap.style.width = minW + 'px';
 
-            const chartEl = document.getElementById('barChart');
-
-            // Gradient factory (vertical: top-to-bottom)
-            const makeGrad = (ctx, color1, color2) => {
-                const g = ctx.createLinearGradient(0, 0, 0, ctx.chart.height);
-                g.addColorStop(0, color1);
-                g.addColorStop(1, color2);
-                return g;
-            };
-
-            new Chart(chartEl, {
-                type: 'bar',
-                data: {
-                    labels,
-                    datasets: [
-                        {
-                            label: 'Done / Ready',
-                            data: ready,
-                            backgroundColor: ctx => makeGrad(ctx.chart.ctx, '#10b981', '#34d399'),
-                            borderRadius: 0,
-                            borderSkipped: true,
-                            stack: 'qty',
-                            barThickness: 28,
-                            categoryPercentage: 0.7,
-                            barPercentage: 0.85
-                        },
-                        {
-                            label: 'Producing',
-                            data: producing,
-                            backgroundColor: ctx => makeGrad(ctx.chart.ctx, '#f97316', '#fbbf24'),
-                            borderRadius: 0,
-                            borderSkipped: true,
-                            stack: 'qty',
-                            barThickness: 28,
-                            categoryPercentage: 0.7,
-                            barPercentage: 0.85
-                        },
-                        {
-                            label: 'Remaining',
-                            data: remaining,
-                            backgroundColor: ctx => makeGrad(ctx.chart.ctx, '#8b5cf6', '#c4b5fd'),
-                            borderRadius: { topLeft: 6, topRight: 6 },
-                            borderSkipped: true,
-                            stack: 'qty',
-                            barThickness: 28,
-                            categoryPercentage: 0.7,
-                            barPercentage: 0.85
-                        }
-                    ]
-                },
-                options: {
-                    indexAxis: 'x',
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    animation: { duration: 900, easing: 'easeOutQuart' },
-                    interaction: { mode: 'index', intersect: false },
-                    layout: { padding: { top: 10 } },
-                    scales: {
-                        x: {
-                            stacked: true,
-                            border: { display: false },
-                            grid: { display: false },
-                            ticks: {
-                                color: isDark ? '#d1d5db' : '#374151',
-                                font: { size: 10, weight: '700' },
-                                maxRotation: 30,
-                                minRotation: 0
-                            }
-                        },
-                        y: {
-                            stacked: true,
-                            beginAtZero: true,
-                            border: { display: false },
-                            grid: {
-                                color: isDark ? 'rgba(255,255,255,.07)' : 'rgba(99,102,241,.1)',
-                                lineWidth: 1,
-                                drawTicks: false
+                new Chart(document.getElementById('barChart'), {
+                    type: 'bar',
+                    data: {
+                        labels,
+                        datasets: [
+                            {
+                                label: 'Done / Ready',
+                                data: ready,
+                                backgroundColor: '#10b981',
+                                hoverBackgroundColor: '#059669',
+                                borderRadius: 0,
+                                borderSkipped: true,
+                                stack: 'qty',
+                                barThickness: 28,
+                                categoryPercentage: 0.7,
+                                barPercentage: 0.85
                             },
-                            ticks: {
-                                color: tickColor,
-                                font: { size: 10 },
-                                padding: 6,
-                                callback: v => v + ' pcs'
+                            {
+                                label: 'Producing',
+                                data: producing,
+                                backgroundColor: '#f97316',
+                                hoverBackgroundColor: '#ea580c',
+                                borderRadius: 0,
+                                borderSkipped: true,
+                                stack: 'qty',
+                                barThickness: 28,
+                                categoryPercentage: 0.7,
+                                barPercentage: 0.85
+                            },
+                            {
+                                label: 'Remaining',
+                                data: remaining,
+                                backgroundColor: '#8b5cf6',
+                                hoverBackgroundColor: '#7c3aed',
+                                borderRadius: { topLeft: 6, topRight: 6 },
+                                borderSkipped: true,
+                                stack: 'qty',
+                                barThickness: 28,
+                                categoryPercentage: 0.7,
+                                barPercentage: 0.85
                             }
-                        }
+                        ]
                     },
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                padding: 18,
-                                font: { size: 11, weight: '600' },
-                                color: tickColor,
-                                usePointStyle: true,
-                                pointStyle: 'rectRounded',
-                                pointStyleWidth: 12
+                    options: {
+                        indexAxis: 'x',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: { duration: 900, easing: 'easeOutQuart' },
+                        interaction: { mode: 'index', intersect: false },
+                        layout: { padding: { top: 12, right: 8 } },
+                        scales: {
+                            x: {
+                                stacked: true,
+                                border: { display: false },
+                                grid: { display: false },
+                                ticks: {
+                                    color: isDark ? '#d1d5db' : '#374151',
+                                    font: { size: 10, weight: '700' },
+                                    maxRotation: 30,
+                                    minRotation: 0
+                                }
+                            },
+                            y: {
+                                stacked: true,
+                                beginAtZero: true,
+                                border: { display: false },
+                                grid: {
+                                    color: isDark ? 'rgba(255,255,255,.07)' : 'rgba(99,102,241,.1)',
+                                    lineWidth: 1,
+                                    drawTicks: false
+                                },
+                                ticks: {
+                                    color: tickColor,
+                                    font: { size: 10 },
+                                    padding: 6,
+                                    callback: v => v + ' pcs'
+                                }
                             }
                         },
-                        tooltip: {
-                            ...tt,
-                            padding: 12,
-                            boxPadding: 4,
-                            callbacks: {
-                                title: ctx => '📦 ' + ctx[0].label,
-                                label: ctx => {
-                                    const tot = totals[ctx.dataIndex] || 1;
-                                    const v = ctx.parsed.y;
-                                    const p = Math.round(v / tot * 100);
-                                    return `  ${ctx.dataset.label}: ${v} pcs (${p}%)`;
-                                },
-                                footer: ctx => {
-                                    const tot = totals[ctx[0].dataIndex];
-                                    return `  Total PO: ${tot} pcs`;
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    padding: 18,
+                                    font: { size: 11, weight: '600' },
+                                    color: tickColor,
+                                    usePointStyle: true,
+                                    pointStyle: 'rectRounded',
+                                    pointStyleWidth: 12
+                                }
+                            },
+                            tooltip: {
+                                ...tt,
+                                padding: 12,
+                                boxPadding: 4,
+                                callbacks: {
+                                    title: ctx => '📦 ' + ctx[0].label,
+                                    label: ctx => {
+                                        const tot = totals[ctx.dataIndex] || 1;
+                                        const v = ctx.parsed.y;
+                                        const p = Math.round(v / tot * 100);
+                                        return `  ${ctx.dataset.label}: ${v} pcs (${p}%)`;
+                                    },
+                                    footer: ctx => {
+                                        const tot = totals[ctx[0].dataIndex];
+                                        return `  Total PO: ${tot} pcs`;
+                                    }
                                 }
                             }
                         }
                     }
-                }
-            });
+                });
+            }); // end requestAnimationFrame
         })();
     }
 
