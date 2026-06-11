@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/_bootstrap.php';
 require_once __DIR__ . '/db-helper.php';
+require_once __DIR__ . '/layout.php';
 
 $msg = '';
 $msgType = 'success';
