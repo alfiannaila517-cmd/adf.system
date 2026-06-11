@@ -203,40 +203,6 @@ pwfOfficeHeader('Achievement Tracking', 'progress');
     </div>
 </div>
 
-<!-- RECENT LOGS -->
-<div class="pwf-card">
-    <div class="pwf-card-header"><i class="bi bi-clock-history me-2" style="color:var(--gold)"></i>Progress History (Last 20)</div>
-    <div style="overflow-x:auto">
-        <table class="pwf-table">
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Order</th>
-                    <th>Product</th>
-                    <th>Craftsman</th>
-                    <th>%</th>
-                    <th>Note</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($logs as $l): ?>
-                    <tr>
-                        <td style="font-size:12px"><?= date('d M Y', strtotime($l['progress_date'])) ?></td>
-                        <td><code style="font-size:11px;color:var(--gold)"><?= htmlspecialchars($l['order_code']) ?></code></td>
-                        <td style="font-size:12px"><?= htmlspecialchars($l['product_name']) ?></td>
-                        <td style="font-size:12px"><?= htmlspecialchars($l['craftsman_name'] ?? '—') ?></td>
-                        <td><strong style="color:var(--gold)"><?= (int)$l['achievement_percent'] ?>%</strong></td>
-                        <td style="font-size:11.5px;color:var(--muted)"><?= htmlspecialchars($l['work_note']) ?></td>
-                    </tr>
-                <?php endforeach; ?>
-                <?php if (empty($logs)): ?><tr>
-                        <td colspan="6" style="text-align:center;color:var(--muted);padding:24px">No logs yet.</td>
-                    </tr><?php endif; ?>
-            </tbody>
-        </table>
-    </div>
-</div>
-
 <!-- UPDATE MODAL -->
 <div class="modal fade" id="updateModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered" style="max-width:420px">
