@@ -286,13 +286,13 @@ pwfOfficeHeader('Dashboard', 'dashboard');
         </div>
     </div>
 
-    <!-- RIGHT: Qty progress per customer (horizontal stacked bar) -->
+    <!-- RIGHT: Qty progress per customer (vertical stacked bar, scrollable) -->
     <div class="pwf-card" style="display:flex;flex-direction:column;border:1.5px solid var(--border);">
         <div class="pwf-card-header" style="padding:10px 14px;font-size:11.5px;flex-shrink:0;border-bottom:1.5px solid var(--border)">
             <i class="bi bi-bar-chart-steps me-2" style="color:var(--gold)"></i>Production Qty by Customer
         </div>
-        <div style="padding:16px 16px 12px;flex:1;display:flex;flex-direction:column">
-            <div style="position:relative;width:100%">
+        <div style="padding:16px 16px 12px;flex:1;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch">
+            <div id="barChartWrap" style="position:relative;height:320px;min-width:100%">
                 <canvas id="barChart"></canvas>
             </div>
         </div>
@@ -664,7 +664,7 @@ pwfOfficeHeader('Dashboard', 'dashboard');
             });
         })();
 
-        // ── Horizontal stacked bar: qty per customer ─────────────────────────────
+        // ── Vertical stacked bar: qty per customer (portrait, scrollable) ────────
         (function() {
             const labels = <?= json_encode($custNames) ?>;
             const ready = <?= json_encode($barReady) ?>;
@@ -673,20 +673,23 @@ pwfOfficeHeader('Dashboard', 'dashboard');
             const totals = <?= json_encode($barTotal) ?>;
             if (!labels.length) return;
 
-            // Dynamic height based on rows
-            const rowH = 38;
-            const chartEl = document.getElementById('barChart');
-            chartEl.parentElement.style.height = Math.max(260, labels.length * rowH + 60) + 'px';
+            // Set minimum width so bars never squash — enables horizontal scroll
+            const colW = 52;
+            const wrap = document.getElementById('barChartWrap');
+            const minW = Math.max(wrap.parentElement.clientWidth, labels.length * colW + 80);
+            wrap.style.width = minW + 'px';
 
-            // Gradient factory
+            const chartEl = document.getElementById('barChart');
+
+            // Gradient factory (vertical: top-to-bottom)
             const makeGrad = (ctx, color1, color2) => {
-                const g = ctx.createLinearGradient(0, 0, chartEl.width, 0);
+                const g = ctx.createLinearGradient(0, 0, 0, ctx.chart.height);
                 g.addColorStop(0, color1);
                 g.addColorStop(1, color2);
                 return g;
             };
 
-            const chartInst = new Chart(chartEl, {
+            new Chart(chartEl, {
                 type: 'bar',
                 data: {
                     labels,
@@ -696,45 +699,56 @@ pwfOfficeHeader('Dashboard', 'dashboard');
                             data: ready,
                             backgroundColor: ctx => makeGrad(ctx.chart.ctx, '#10b981', '#34d399'),
                             borderRadius: 0,
-                            borderSkipped: false,
+                            borderSkipped: true,
                             stack: 'qty',
-                            barThickness: 24,
-                            categoryPercentage: 0.75,
-                            barPercentage: 0.8
+                            barThickness: 28,
+                            categoryPercentage: 0.7,
+                            barPercentage: 0.85
                         },
                         {
                             label: 'Producing',
                             data: producing,
                             backgroundColor: ctx => makeGrad(ctx.chart.ctx, '#f97316', '#fbbf24'),
                             borderRadius: 0,
-                            borderSkipped: false,
+                            borderSkipped: true,
                             stack: 'qty',
-                            barThickness: 24,
-                            categoryPercentage: 0.75,
-                            barPercentage: 0.8
+                            barThickness: 28,
+                            categoryPercentage: 0.7,
+                            barPercentage: 0.85
                         },
                         {
                             label: 'Remaining',
                             data: remaining,
                             backgroundColor: ctx => makeGrad(ctx.chart.ctx, '#8b5cf6', '#c4b5fd'),
-                            borderRadius: { topRight: 6, bottomRight: 6 },
-                            borderSkipped: false,
+                            borderRadius: { topLeft: 6, topRight: 6 },
+                            borderSkipped: true,
                             stack: 'qty',
-                            barThickness: 24,
-                            categoryPercentage: 0.75,
-                            barPercentage: 0.8
+                            barThickness: 28,
+                            categoryPercentage: 0.7,
+                            barPercentage: 0.85
                         }
                     ]
                 },
                 options: {
-                    indexAxis: 'y',
+                    indexAxis: 'x',
                     responsive: true,
                     maintainAspectRatio: false,
                     animation: { duration: 900, easing: 'easeOutQuart' },
                     interaction: { mode: 'index', intersect: false },
-                    layout: { padding: { right: 8 } },
+                    layout: { padding: { top: 10 } },
                     scales: {
                         x: {
+                            stacked: true,
+                            border: { display: false },
+                            grid: { display: false },
+                            ticks: {
+                                color: isDark ? '#d1d5db' : '#374151',
+                                font: { size: 10, weight: '700' },
+                                maxRotation: 30,
+                                minRotation: 0
+                            }
+                        },
+                        y: {
                             stacked: true,
                             beginAtZero: true,
                             border: { display: false },
@@ -748,20 +762,6 @@ pwfOfficeHeader('Dashboard', 'dashboard');
                                 font: { size: 10 },
                                 padding: 6,
                                 callback: v => v + ' pcs'
-                            }
-                        },
-                        y: {
-                            stacked: true,
-                            border: { display: false },
-                            grid: {
-                                color: isDark ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.04)',
-                                lineWidth: 1
-                            },
-                            ticks: {
-                                color: isDark ? '#d1d5db' : '#374151',
-                                font: { size: 11, weight: '700' },
-                                maxRotation: 0,
-                                padding: 8
                             }
                         }
                     },
@@ -785,7 +785,7 @@ pwfOfficeHeader('Dashboard', 'dashboard');
                                 title: ctx => '📦 ' + ctx[0].label,
                                 label: ctx => {
                                     const tot = totals[ctx.dataIndex] || 1;
-                                    const v = ctx.parsed.x;
+                                    const v = ctx.parsed.y;
                                     const p = Math.round(v / tot * 100);
                                     return `  ${ctx.dataset.label}: ${v} pcs (${p}%)`;
                                 },
