@@ -158,9 +158,9 @@ class Auth
     public function requireLogin()
     {
         if (!$this->isLoggedIn()) {
-            // If accessing from www.pwfoffice.com, redirect to PWF login
-            $currentHost = strtolower($_SERVER['HTTP_HOST'] ?? '');
-            if ($currentHost === 'www.pwfoffice.com') {
+            $currentHost = strtolower(preg_replace('/^www\./', '', $_SERVER['HTTP_HOST'] ?? ''));
+            // Redirect to PWF login for pwfoffice.com and any subdomain
+            if ($currentHost === 'pwfoffice.com' || str_ends_with($currentHost, '.pwfoffice.com')) {
                 header('Location: ' . BASE_URL . '/pwf-login.php');
             } else {
                 header('Location: ' . BASE_URL . '/login.php');
