@@ -291,8 +291,18 @@ pwfOfficeHeader('Dashboard', 'dashboard');
         <div class="pwf-card-header" style="padding:9px 13px;font-size:11.5px;flex-shrink:0;background:linear-gradient(180deg,#fff, #fbfbfd);border-bottom:1px solid var(--border)">
             <i class="bi bi-bar-chart-steps me-2" style="color:var(--gold)"></i>Production Qty by Customer
         </div>
-        <div style="padding:10px 12px 8px;flex:1;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;">
-            <div id="barChartWrap" style="position:relative;height:305px;min-width:100%">
+        <div style="padding:8px 12px 0;display:flex;flex-direction:column;gap:6px;flex-shrink:0">
+            <div style="font-size:11px;color:var(--muted);font-weight:600;text-align:left">
+                Total PR: <span id="barTotalFixed" style="color:var(--text);font-weight:800"><?= fmtQty(array_sum($barTotal)) ?> pcs</span>
+            </div>
+            <div style="display:flex;gap:14px;align-items:center;justify-content:flex-start;flex-wrap:wrap;font-size:10.5px;color:var(--muted)">
+                <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:3px;background:#10b981;display:inline-block"></span>Done / Ready</span>
+                <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:3px;background:#f97316;display:inline-block"></span>Producing</span>
+                <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:3px;background:#8b5cf6;display:inline-block"></span>Remaining</span>
+            </div>
+        </div>
+        <div style="padding:6px 12px 8px;flex:1;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;">
+            <div id="barChartWrap" style="position:relative;height:270px;min-width:100%">
                 <canvas id="barChart" style="display:block"></canvas>
             </div>
         </div>
@@ -673,12 +683,19 @@ pwfOfficeHeader('Dashboard', 'dashboard');
             const totals = <?= json_encode($barTotal) ?>;
             if (!labels.length) return;
 
+            const totalPr = totals.reduce((s, v) => s + (parseFloat(v) || 0), 0);
+            const totalPrEl = document.getElementById('barTotalFixed');
+            if (totalPrEl) {
+                const txt = Number.isInteger(totalPr) ? totalPr.toFixed(0) : totalPr.toFixed(2).replace(/\.00$/, '');
+                totalPrEl.textContent = txt + ' pcs';
+            }
+
             const wrap = document.getElementById('barChartWrap');
             const canvas = document.getElementById('barChart');
             if (!wrap || !canvas) return;
 
             // Make each column readable and keep horizontal scroll on smaller screens.
-            const colW = 54;
+            const colW = 46;
             const containerW = wrap.parentElement ? wrap.parentElement.offsetWidth : 420;
             const minW = Math.max(containerW - 8, labels.length * colW + 70);
             wrap.style.width = minW + 'px';
@@ -698,10 +715,9 @@ pwfOfficeHeader('Dashboard', 'dashboard');
                                 borderRadius: 0,
                                 borderSkipped: false,
                                 stack: 'qty',
-                                barThickness: 24,
-                                maxBarThickness: 26,
-                                categoryPercentage: 0.78,
-                                barPercentage: 0.9
+                                barThickness: 26,
+                                categoryPercentage: 0.96,
+                                barPercentage: 1
                             },
                             {
                                 label: 'Producing',
@@ -711,10 +727,9 @@ pwfOfficeHeader('Dashboard', 'dashboard');
                                 borderRadius: 0,
                                 borderSkipped: false,
                                 stack: 'qty',
-                                barThickness: 24,
-                                maxBarThickness: 26,
-                                categoryPercentage: 0.78,
-                                barPercentage: 0.9
+                                barThickness: 26,
+                                categoryPercentage: 0.96,
+                                barPercentage: 1
                             },
                             {
                                 label: 'Remaining',
@@ -727,10 +742,9 @@ pwfOfficeHeader('Dashboard', 'dashboard');
                                 },
                                 borderSkipped: false,
                                 stack: 'qty',
-                                barThickness: 24,
-                                maxBarThickness: 26,
-                                categoryPercentage: 0.78,
-                                barPercentage: 0.9
+                                barThickness: 26,
+                                categoryPercentage: 0.96,
+                                barPercentage: 1
                             }
                         ]
                     },
@@ -759,7 +773,10 @@ pwfOfficeHeader('Dashboard', 'dashboard');
                                     display: false
                                 },
                                 grid: {
-                                    display: false
+                                    display: true,
+                                    color: isDark ? 'rgba(255,255,255,.05)' : 'rgba(15,23,42,.08)',
+                                    lineWidth: 1,
+                                    drawTicks: false
                                 },
                                 ticks: {
                                     color: isDark ? '#d1d5db' : '#374151',
@@ -794,18 +811,7 @@ pwfOfficeHeader('Dashboard', 'dashboard');
                         },
                         plugins: {
                             legend: {
-                                position: 'bottom',
-                                labels: {
-                                    padding: 18,
-                                    font: {
-                                        size: 11,
-                                        weight: '600'
-                                    },
-                                    color: tickColor,
-                                    usePointStyle: true,
-                                    pointStyle: 'rectRounded',
-                                    pointStyleWidth: 12
-                                }
+                                display: false
                             },
                             tooltip: {
                                 ...tt,
