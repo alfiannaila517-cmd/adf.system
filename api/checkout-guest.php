@@ -66,6 +66,53 @@ try {
     // VALIDASI: Tagihan HARUS LUNAS untuk checkout
     // ==========================================
     $finalPrice = (float)($booking['final_price'] ?? 0);
+    $pdo = $db->getConnection();
+    $businessId = $_SESSION['business_id'] ?? 1;
+
+    // ── Cek rental MOTOR aktif ─────────────────────────────────────────────
+    $blockingIssues = [];
+    try {
+        $motorCheck = $pdo->prepare("
+            SELECT rb.id, rb.guest_name, rm.plate_number, rm.motor_name, rb.start_datetime, rb.status
+            FROM rental_motor_bookings rb
+            JOIN rental_motors rm ON rb.motor_id = rm.id
+            WHERE rb.business_id = ? AND rb.booking_id = ? AND rb.status IN ('active','overdue')
+        ");
+        $motorCheck->execute([$businessId, $bookingId]);
+        $activeMotors = $motorCheck->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($activeMotors as $m) {
+            $blockingIssues[] = "🏍️ Motor " . $m['plate_number'] . " (" . $m['motor_name'] . ") belum dikembalikan [" . $m['status'] . "]";
+        }
+    } catch (\Throwable $e) { /* table may not exist */
+    }
+
+    // ── Cek rental MOBIL/TAXI aktif ────────────────────────────────────────
+    try {
+        $carCheck = $pdo->prepare("
+            SELECT cb.id, cb.guest_name, rc.plate_number, rc.car_name, cb.start_datetime, cb.status
+            FROM rental_car_bookings cb
+            JOIN rental_cars rc ON cb.car_id = rc.id
+            WHERE cb.business_id = ? AND cb.booking_id = ? AND cb.status IN ('active','overdue')
+        ");
+        $carCheck->execute([$businessId, $bookingId]);
+        $activeCars = $carCheck->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($activeCars as $c) {
+            $blockingIssues[] = "🚗 Mobil/Taxi " . $c['plate_number'] . " (" . $c['car_name'] . ") belum dikembalikan [" . $c['status'] . "]";
+        }
+    } catch (\Throwable $e) { /* table may not exist */
+    }
+
+    if (!empty($blockingIssues)) {
+        echo json_encode([
+            'success'         => false,
+            'type'            => 'rental_pending',
+            'message'         => "Tidak bisa check-out! Ada rental yang belum diselesaikan:\n\n" .
+                implode("\n", $blockingIssues) .
+                "\n\nSilakan kembalikan kendaraan dan selesaikan pembayaran terlebih dahulu.",
+            'blocking_issues' => $blockingIssues,
+        ]);
+        exit;
+    }
 
     // If payment_status already marked as 'paid', skip amount validation
     if ($booking['payment_status'] !== 'paid') {
@@ -85,6 +132,7 @@ try {
         if ($remainingBalance > 1000) {
             echo json_encode([
                 'success' => false,
+                'type'    => 'unpaid',
                 'message' => "Tidak bisa check-out! Tagihan belum LUNAS.\n\nTotal Tagihan: Rp " . number_format($finalPrice, 0, ',', '.') .
                     "\nSudah Dibayar: Rp " . number_format($paidAmount, 0, ',', '.') .
                     "\nKekurangan: Rp " . number_format($remainingBalance, 0, ',', '.') .

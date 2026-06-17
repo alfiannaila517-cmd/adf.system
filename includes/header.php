@@ -331,8 +331,8 @@ if (isset($_SESSION['user_id'])) {
 
                     <!-- Hotel Services Menu (hotel only) -->
                     <?php if (defined('BUSINESS_TYPE') && BUSINESS_TYPE === 'hotel' && $auth->hasPermission('frontdesk')): ?>
-                        <li class="nav-item has-submenu <?php echo (activeMenu('hotel-services.php') || activeMenu('rental-motor.php') || activeMenu('rental-motor-dashboard.php')) ? 'open' : ''; ?>">
-                            <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo (activeMenu('hotel-services.php') || activeMenu('rental-motor.php') || activeMenu('rental-motor-dashboard.php')) ? 'active' : ''; ?>">
+                        <li class="nav-item has-submenu <?php echo (activeMenu('hotel-services.php') || activeMenu('rental-motor.php') || activeMenu('rental-motor-dashboard.php') || activeMenu('rental-mobil.php') || activeMenu('rental-mobil-dashboard.php')) ? 'open' : ''; ?>">
+                            <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo (activeMenu('hotel-services.php') || activeMenu('rental-motor.php') || activeMenu('rental-motor-dashboard.php') || activeMenu('rental-mobil.php') || activeMenu('rental-mobil-dashboard.php')) ? 'active' : ''; ?>">
                                 <i data-feather="briefcase" class="nav-icon"></i>
                                 <span>Hotel Services</span>
                             </a>
@@ -347,6 +347,12 @@ if (isset($_SESSION['user_id'])) {
                                     <a href="<?php echo BASE_URL; ?>/modules/frontdesk/rental-motor-dashboard.php" class="submenu-link <?php echo (activeMenu('rental-motor.php') || activeMenu('rental-motor-dashboard.php')) ? 'active' : ''; ?>">
                                         <i data-feather="truck" class="submenu-icon"></i>
                                         <span>Rental Motor</span>
+                                    </a>
+                                </li>
+                                <li class="submenu-item">
+                                    <a href="<?php echo BASE_URL; ?>/modules/frontdesk/rental-mobil-dashboard.php" class="submenu-link <?php echo (activeMenu('rental-mobil.php') || activeMenu('rental-mobil-dashboard.php')) ? 'active' : ''; ?>">
+                                        <i data-feather="navigation" class="submenu-icon"></i>
+                                        <span>Rental Mobil / Taxi</span>
                                     </a>
                                 </li>
                             </ul>
