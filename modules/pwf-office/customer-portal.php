@@ -1612,7 +1612,10 @@ if (!empty($_manifestParams)) {
             if (!previewContent) return;
 
             const btn = document.getElementById('previewDownloadBtn');
-            if (btn) { btn.disabled = true; btn.innerHTML = '<span>⏳</span><span>Generating…</span>'; }
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span>⏳</span><span>Generating…</span>';
+            }
 
             // Clone into a DOM-attached container (html2canvas requires element to be in DOM)
             const tempDiv = document.createElement('div');
@@ -1627,17 +1630,34 @@ if (!empty($_manifestParams)) {
             const opt = {
                 margin: 8,
                 filename: filename,
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, useCORS: true, logging: false },
-                jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
+                image: {
+                    type: 'jpeg',
+                    quality: 0.98
+                },
+                html2canvas: {
+                    scale: 2,
+                    useCORS: true,
+                    logging: false
+                },
+                jsPDF: {
+                    orientation: 'portrait',
+                    unit: 'mm',
+                    format: 'a4'
+                }
             };
 
             html2pdf().set(opt).from(tempDiv).save().then(() => {
                 document.body.removeChild(tempDiv);
-                if (btn) { btn.disabled = false; btn.innerHTML = '<span>📥</span><span>Download PDF</span>'; }
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<span>📥</span><span>Download PDF</span>';
+                }
             }).catch(() => {
                 document.body.removeChild(tempDiv);
-                if (btn) { btn.disabled = false; btn.innerHTML = '<span>📥</span><span>Download PDF</span>'; }
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<span>📥</span><span>Download PDF</span>';
+                }
             });
         }
 

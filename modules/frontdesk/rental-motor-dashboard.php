@@ -479,9 +479,12 @@ include '../../includes/header.php';
 
 <div class="dashboard-page">
     <!-- Header -->
-    <div class="dashboard-header">
-        <h1>🏍️ Dashboard Rental Motor</h1>
-        <div class="subtitle">Monitoring armada dan penyewaan real-time</div>
+    <div class="dashboard-header" style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+            <h1>🏍️ Dashboard Rental Motor</h1>
+            <div class="subtitle">Monitoring armada dan penyewaan real-time</div>
+        </div>
+        <a href="rental-motor.php?view=manage" class="btn-rm btn-rm-primary" style="white-space:nowrap;text-decoration:none;padding:0.5rem 1rem">⚙️ Kelola Armada</a>
     </div>
 
     <!-- Stats Overview -->

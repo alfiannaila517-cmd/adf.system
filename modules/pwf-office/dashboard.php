@@ -704,136 +704,136 @@ pwfOfficeHeader('Dashboard', 'dashboard');
             if (!ctx) return;
 
             new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels,
-                        datasets: [{
-                                label: 'Done / Ready',
-                                data: ready,
-                                backgroundColor: '#10b981',
-                                hoverBackgroundColor: '#059669',
-                                borderRadius: 0,
-                                borderSkipped: false,
-                                stack: 'qty',
-                                barThickness: 26,
-                                categoryPercentage: 0.96,
-                                barPercentage: 1
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{
+                            label: 'Done / Ready',
+                            data: ready,
+                            backgroundColor: '#10b981',
+                            hoverBackgroundColor: '#059669',
+                            borderRadius: 0,
+                            borderSkipped: false,
+                            stack: 'qty',
+                            barThickness: 26,
+                            categoryPercentage: 0.96,
+                            barPercentage: 1
+                        },
+                        {
+                            label: 'Producing',
+                            data: producing,
+                            backgroundColor: '#f97316',
+                            hoverBackgroundColor: '#ea580c',
+                            borderRadius: 0,
+                            borderSkipped: false,
+                            stack: 'qty',
+                            barThickness: 26,
+                            categoryPercentage: 0.96,
+                            barPercentage: 1
+                        },
+                        {
+                            label: 'Remaining',
+                            data: remaining,
+                            backgroundColor: '#8b5cf6',
+                            hoverBackgroundColor: '#7c3aed',
+                            borderRadius: {
+                                topLeft: 6,
+                                topRight: 6
                             },
-                            {
-                                label: 'Producing',
-                                data: producing,
-                                backgroundColor: '#f97316',
-                                hoverBackgroundColor: '#ea580c',
-                                borderRadius: 0,
-                                borderSkipped: false,
-                                stack: 'qty',
-                                barThickness: 26,
-                                categoryPercentage: 0.96,
-                                barPercentage: 1
-                            },
-                            {
-                                label: 'Remaining',
-                                data: remaining,
-                                backgroundColor: '#8b5cf6',
-                                hoverBackgroundColor: '#7c3aed',
-                                borderRadius: {
-                                    topLeft: 6,
-                                    topRight: 6
-                                },
-                                borderSkipped: false,
-                                stack: 'qty',
-                                barThickness: 26,
-                                categoryPercentage: 0.96,
-                                barPercentage: 1
-                            }
-                        ]
+                            borderSkipped: false,
+                            stack: 'qty',
+                            barThickness: 26,
+                            categoryPercentage: 0.96,
+                            barPercentage: 1
+                        }
+                    ]
+                },
+                options: {
+                    indexAxis: 'x',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: {
+                        duration: 700,
+                        easing: 'easeOutQuart'
                     },
-                    options: {
-                        indexAxis: 'x',
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        animation: {
-                            duration: 700,
-                            easing: 'easeOutQuart'
-                        },
-                        interaction: {
-                            mode: 'index',
-                            intersect: false
-                        },
-                        layout: {
-                            padding: {
-                                top: 12,
-                                right: 8
-                            }
-                        },
-                        scales: {
-                            x: {
-                                stacked: true,
-                                border: {
-                                    display: false
-                                },
-                                grid: {
-                                    display: true,
-                                    color: isDark ? 'rgba(255,255,255,.05)' : 'rgba(15,23,42,.08)',
-                                    lineWidth: 1,
-                                    drawTicks: false
-                                },
-                                ticks: {
-                                    color: isDark ? '#d1d5db' : '#374151',
-                                    font: {
-                                        size: 10,
-                                        weight: '700'
-                                    },
-                                    maxRotation: 28,
-                                    minRotation: 0
-                                }
-                            },
-                            y: {
-                                stacked: true,
-                                beginAtZero: true,
-                                border: {
-                                    display: false
-                                },
-                                grid: {
-                                    color: isDark ? 'rgba(255,255,255,.07)' : 'rgba(99,102,241,.1)',
-                                    lineWidth: 1,
-                                    drawTicks: false
-                                },
-                                ticks: {
-                                    color: tickColor,
-                                    font: {
-                                        size: 10
-                                    },
-                                    padding: 6,
-                                    callback: v => v + ' pcs'
-                                }
-                            }
-                        },
-                        plugins: {
-                            legend: {
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    layout: {
+                        padding: {
+                            top: 12,
+                            right: 8
+                        }
+                    },
+                    scales: {
+                        x: {
+                            stacked: true,
+                            border: {
                                 display: false
                             },
-                            tooltip: {
-                                ...tt,
-                                padding: 12,
-                                boxPadding: 4,
-                                callbacks: {
-                                    title: ctx => '📦 ' + ctx[0].label,
-                                    label: ctx => {
-                                        const tot = totals[ctx.dataIndex] || 1;
-                                        const v = ctx.parsed.y;
-                                        const p = Math.round(v / tot * 100);
-                                        return `  ${ctx.dataset.label}: ${v} pcs (${p}%)`;
-                                    },
-                                    footer: ctx => {
-                                        const tot = totals[ctx[0].dataIndex];
-                                        return `  Total PO: ${tot} pcs`;
-                                    }
+                            grid: {
+                                display: true,
+                                color: isDark ? 'rgba(255,255,255,.05)' : 'rgba(15,23,42,.08)',
+                                lineWidth: 1,
+                                drawTicks: false
+                            },
+                            ticks: {
+                                color: isDark ? '#d1d5db' : '#374151',
+                                font: {
+                                    size: 10,
+                                    weight: '700'
+                                },
+                                maxRotation: 28,
+                                minRotation: 0
+                            }
+                        },
+                        y: {
+                            stacked: true,
+                            beginAtZero: true,
+                            border: {
+                                display: false
+                            },
+                            grid: {
+                                color: isDark ? 'rgba(255,255,255,.07)' : 'rgba(99,102,241,.1)',
+                                lineWidth: 1,
+                                drawTicks: false
+                            },
+                            ticks: {
+                                color: tickColor,
+                                font: {
+                                    size: 10
+                                },
+                                padding: 6,
+                                callback: v => v + ' pcs'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            ...tt,
+                            padding: 12,
+                            boxPadding: 4,
+                            callbacks: {
+                                title: ctx => '📦 ' + ctx[0].label,
+                                label: ctx => {
+                                    const tot = totals[ctx.dataIndex] || 1;
+                                    const v = ctx.parsed.y;
+                                    const p = Math.round(v / tot * 100);
+                                    return `  ${ctx.dataset.label}: ${v} pcs (${p}%)`;
+                                },
+                                footer: ctx => {
+                                    const tot = totals[ctx[0].dataIndex];
+                                    return `  Total PO: ${tot} pcs`;
                                 }
                             }
                         }
                     }
-                });
+                }
+            });
         })();
     }
 

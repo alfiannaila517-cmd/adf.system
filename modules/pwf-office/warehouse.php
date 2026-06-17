@@ -18,7 +18,8 @@ try {
 // ── MIGRATE: extend source ENUM ──────────────────────────────────────────────
 try {
     $pdo->exec("ALTER TABLE pwf_warehouse_stock MODIFY COLUMN source ENUM('manual','from_order','from_order_failed') DEFAULT 'manual'");
-} catch (\PDOException $e) {}
+} catch (\PDOException $e) {
+}
 
 // ── POST HANDLERS ─────────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -37,7 +38,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                          dimensions, specification, notes, source, order_id, created_by)
                      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)'
                 )->execute([
-                    $code, $productName, $quantity,
+                    $code,
+                    $productName,
+                    $quantity,
                     trim($_POST['unit']         ?? 'pcs'),
                     trim($_POST['finish']        ?? ''),
                     trim($_POST['wood_color']    ?? ''),
@@ -58,7 +61,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $msgType = 'warning';
             $msg = 'Product name and quantity are required.';
         }
-
     } elseif ($action === 'update') {
         $id = (int)($_POST['stock_id'] ?? 0);
         if ($id > 0) {
@@ -87,7 +89,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $msg = 'Failed to update: ' . $e->getMessage();
             }
         }
-
     } elseif ($action === 'delete') {
         $id = (int)($_POST['stock_id'] ?? 0);
         if ($id > 0) {
@@ -191,15 +192,19 @@ try {
         ORDER BY o.order_code DESC
         LIMIT 300
     ")->fetchAll();
-
 } catch (\Throwable $e) {
-    if (empty($msg)) { $msg = 'Database error: ' . $e->getMessage(); $msgType = 'warning'; }
+    if (empty($msg)) {
+        $msg = 'Database error: ' . $e->getMessage();
+        $msgType = 'warning';
+    }
     $ordersForLink = [];
 }
 
 // JS-safe id-keyed data
 $stocksForJs = [];
-foreach ($stocks as $s) { $stocksForJs[(int)$s['id']] = $s; }
+foreach ($stocks as $s) {
+    $stocksForJs[(int)$s['id']] = $s;
+}
 
 $orderStatusLabel = [
     'draft'        => ['Draft',            '#94a3b8'],
@@ -223,80 +228,272 @@ pwfOfficeHeader('Warehouse / Stock', 'warehouse');
 ?>
 
 <style>
-/* ── CRITICAL: modal overlay hidden by default ───────────────────────── */
-.modal-overlay {
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,.45);
-    backdrop-filter: blur(2px);
-    z-index: 9000;
-    display: none;
-    align-items: center;
-    justify-content: center;
-}
-.modal-overlay.open { display: flex; }
-.modal-box {
-    background: var(--card); border-radius: 16px;
-    width: min(760px, 96vw); max-height: 92vh; overflow-y: auto;
-    box-shadow: 0 24px 80px rgba(0,0,0,.25);
-}
-.modal-header {
-    padding: 16px 22px; border-bottom: 1px solid var(--border);
-    display: flex; justify-content: space-between; align-items: center;
-    position: sticky; top: 0; background: var(--card); z-index: 1;
-}
-.modal-body  { padding: 18px 22px; }
-.modal-close { background: none; border: none; font-size: 22px; cursor: pointer; color: var(--muted); line-height: 1; padding: 0; }
-.modal-close:hover { color: var(--text); }
+    /* ── CRITICAL: modal overlay hidden by default ───────────────────────── */
+    .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, .45);
+        backdrop-filter: blur(2px);
+        z-index: 9000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+    }
 
-/* ── Layout ────────────────────────────────────────────────────────── */
-.filter-bar {
-    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-    padding: 12px 16px; background: var(--nav-hover); border-bottom: 1px solid var(--border);
-}
-.stat-grid {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 12px; padding: 16px; background: #fcfdff; border-bottom: 1px solid var(--border);
-}
-.stat-card  { border: 1px solid var(--border); background: #fff; border-radius: 10px; padding: 14px; text-align: center; }
-.stat-label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .4px; font-weight: 700; margin-bottom: 4px; }
-.stat-value { font-size: 20px; font-weight: 800; color: var(--gold); }
-.stock-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(295px,1fr)); gap: 14px; padding: 16px; }
-.stock-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; transition: box-shadow .2s, transform .15s; }
-.stock-card:hover { box-shadow: 0 6px 24px rgba(0,0,0,.09); transform: translateY(-2px); }
-.stock-code  { font-family: monospace; font-size: 11px; color: var(--gold); font-weight: 700; }
-.stock-name  { font-size: 15px; font-weight: 800; margin: 4px 0 6px; color: var(--text); }
-.stock-meta  { font-size: 12px; color: var(--muted); margin: 4px 0; }
-.stock-footer { display: flex; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
-.stock-footer .btn { flex: 1; padding: 6px 8px; font-size: 11px; }
+    .modal-overlay.open {
+        display: flex;
+    }
 
-/* ── Badges ─────────────────────────────────────────────────────────── */
-.stk-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 700; white-space: nowrap; }
-.badge-blue   { background: #dbeafe; color: #1e40af; }
-.badge-gray   { background: #f1f5f9; color: #64748b; }
-.badge-purple { background: #ede9fe; color: #5b21b6; }
+    .modal-box {
+        background: var(--card);
+        border-radius: 16px;
+        width: min(760px, 96vw);
+        max-height: 92vh;
+        overflow-y: auto;
+        box-shadow: 0 24px 80px rgba(0, 0, 0, .25);
+    }
 
-/* ── Detail modal ───────────────────────────────────────────────────── */
-.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; font-size: 13px; }
-.detail-grid .full { grid-column: 1 / -1; }
-.det-label { font-size: 10px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .3px; margin-bottom: 2px; }
-.det-value { font-size: 13px; color: var(--text); font-weight: 500; }
-.det-section { background: var(--nav-hover); border-radius: 8px; padding: 12px; margin-top: 12px; }
-.det-section-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: var(--gold); margin-bottom: 10px; }
+    .modal-header {
+        padding: 16px 22px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        position: sticky;
+        top: 0;
+        background: var(--card);
+        z-index: 1;
+    }
 
-/* ── Filter chips ───────────────────────────────────────────────────── */
-.filter-chip { padding: 4px 12px; border-radius: 20px; font-size: 12px; border: 1px solid var(--border); background: var(--card); color: var(--muted); cursor: pointer; text-decoration: none; transition: all .15s; }
-.filter-chip:hover { border-color: var(--gold); color: var(--gold); }
-.filter-chip.active { background: var(--gold); color: #fff; border-color: var(--gold); }
-.name-clickable { cursor: pointer; color: var(--gold) !important; }
-.name-clickable:hover { text-decoration: underline; }
+    .modal-body {
+        padding: 18px 22px;
+    }
 
-@media print { .no-print { display: none; } }
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 22px;
+        cursor: pointer;
+        color: var(--muted);
+        line-height: 1;
+        padding: 0;
+    }
+
+    .modal-close:hover {
+        color: var(--text);
+    }
+
+    /* ── Layout ────────────────────────────────────────────────────────── */
+    .filter-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        padding: 12px 16px;
+        background: var(--nav-hover);
+        border-bottom: 1px solid var(--border);
+    }
+
+    .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 12px;
+        padding: 16px;
+        background: #fcfdff;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .stat-card {
+        border: 1px solid var(--border);
+        background: #fff;
+        border-radius: 10px;
+        padding: 14px;
+        text-align: center;
+    }
+
+    .stat-label {
+        color: var(--muted);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: .4px;
+        font-weight: 700;
+        margin-bottom: 4px;
+    }
+
+    .stat-value {
+        font-size: 20px;
+        font-weight: 800;
+        color: var(--gold);
+    }
+
+    .stock-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(295px, 1fr));
+        gap: 14px;
+        padding: 16px;
+    }
+
+    .stock-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 14px;
+        transition: box-shadow .2s, transform .15s;
+    }
+
+    .stock-card:hover {
+        box-shadow: 0 6px 24px rgba(0, 0, 0, .09);
+        transform: translateY(-2px);
+    }
+
+    .stock-code {
+        font-family: monospace;
+        font-size: 11px;
+        color: var(--gold);
+        font-weight: 700;
+    }
+
+    .stock-name {
+        font-size: 15px;
+        font-weight: 800;
+        margin: 4px 0 6px;
+        color: var(--text);
+    }
+
+    .stock-meta {
+        font-size: 12px;
+        color: var(--muted);
+        margin: 4px 0;
+    }
+
+    .stock-footer {
+        display: flex;
+        gap: 6px;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid var(--border);
+    }
+
+    .stock-footer .btn {
+        flex: 1;
+        padding: 6px 8px;
+        font-size: 11px;
+    }
+
+    /* ── Badges ─────────────────────────────────────────────────────────── */
+    .stk-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: 20px;
+        font-size: 10px;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .badge-blue {
+        background: #dbeafe;
+        color: #1e40af;
+    }
+
+    .badge-gray {
+        background: #f1f5f9;
+        color: #64748b;
+    }
+
+    .badge-purple {
+        background: #ede9fe;
+        color: #5b21b6;
+    }
+
+    /* ── Detail modal ───────────────────────────────────────────────────── */
+    .detail-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px 20px;
+        font-size: 13px;
+    }
+
+    .detail-grid .full {
+        grid-column: 1 / -1;
+    }
+
+    .det-label {
+        font-size: 10px;
+        color: var(--muted);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .3px;
+        margin-bottom: 2px;
+    }
+
+    .det-value {
+        font-size: 13px;
+        color: var(--text);
+        font-weight: 500;
+    }
+
+    .det-section {
+        background: var(--nav-hover);
+        border-radius: 8px;
+        padding: 12px;
+        margin-top: 12px;
+    }
+
+    .det-section-title {
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: .5px;
+        color: var(--gold);
+        margin-bottom: 10px;
+    }
+
+    /* ── Filter chips ───────────────────────────────────────────────────── */
+    .filter-chip {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        border: 1px solid var(--border);
+        background: var(--card);
+        color: var(--muted);
+        cursor: pointer;
+        text-decoration: none;
+        transition: all .15s;
+    }
+
+    .filter-chip:hover {
+        border-color: var(--gold);
+        color: var(--gold);
+    }
+
+    .filter-chip.active {
+        background: var(--gold);
+        color: #fff;
+        border-color: var(--gold);
+    }
+
+    .name-clickable {
+        cursor: pointer;
+        color: var(--gold) !important;
+    }
+
+    .name-clickable:hover {
+        text-decoration: underline;
+    }
+
+    @media print {
+        .no-print {
+            display: none;
+        }
+    }
 </style>
 
 <?php if ($msg): ?>
-<div class="alert alert-<?= $msgType === 'success' ? 'success' : 'warning' ?>" style="margin-bottom:16px">
-    <?= htmlspecialchars($msg) ?>
-</div>
+    <div class="alert alert-<?= $msgType === 'success' ? 'success' : 'warning' ?>" style="margin-bottom:16px">
+        <?= htmlspecialchars($msg) ?>
+    </div>
 <?php endif; ?>
 
 <!-- ═══ FILTER BAR ═══════════════════════════════════════════════════════ -->
@@ -304,7 +501,7 @@ pwfOfficeHeader('Warehouse / Stock', 'warehouse');
     <div class="filter-bar">
         <form method="get" style="display:contents">
             <input type="text" name="search" placeholder="Cari produk, kode, customer..."
-                   value="<?= htmlspecialchars($filterSearch) ?>" class="input" style="flex:1;min-width:200px">
+                value="<?= htmlspecialchars($filterSearch) ?>" class="input" style="flex:1;min-width:200px">
             <?php if ($filterContainer): ?>
                 <input type="hidden" name="filter" value="<?= htmlspecialchars($filterContainer) ?>">
             <?php endif; ?>
@@ -312,18 +509,18 @@ pwfOfficeHeader('Warehouse / Stock', 'warehouse');
                 <i class="bi bi-search"></i> Cari
             </button>
             <?php if ($filterSearch): ?>
-                <a href="warehouse.php<?= $filterContainer ? '?filter='.urlencode($filterContainer) : '' ?>"
-                   class="btn btn-sm btn-outline-secondary"><i class="bi bi-x"></i> Clear</a>
+                <a href="warehouse.php<?= $filterContainer ? '?filter=' . urlencode($filterContainer) : '' ?>"
+                    class="btn btn-sm btn-outline-secondary"><i class="bi bi-x"></i> Clear</a>
             <?php endif; ?>
         </form>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-            <a href="warehouse.php<?= $filterSearch ? '?search='.urlencode($filterSearch) : '' ?>"
-               class="filter-chip <?= $filterContainer==='' ? 'active':'' ?>">All</a>
-            <a href="warehouse.php?filter=in_container<?= $filterSearch ? '&search='.urlencode($filterSearch):'' ?>"
-               class="filter-chip <?= $filterContainer==='in_container' ? 'active':'' ?>">
+            <a href="warehouse.php<?= $filterSearch ? '?search=' . urlencode($filterSearch) : '' ?>"
+                class="filter-chip <?= $filterContainer === '' ? 'active' : '' ?>">All</a>
+            <a href="warehouse.php?filter=in_container<?= $filterSearch ? '&search=' . urlencode($filterSearch) : '' ?>"
+                class="filter-chip <?= $filterContainer === 'in_container' ? 'active' : '' ?>">
                 <i class="bi bi-box-seam"></i> In Container</a>
-            <a href="warehouse.php?filter=no_container<?= $filterSearch ? '&search='.urlencode($filterSearch):'' ?>"
-               class="filter-chip <?= $filterContainer==='no_container' ? 'active':'' ?>">
+            <a href="warehouse.php?filter=no_container<?= $filterSearch ? '&search=' . urlencode($filterSearch) : '' ?>"
+                class="filter-chip <?= $filterContainer === 'no_container' ? 'active' : '' ?>">
                 <i class="bi bi-clock"></i> Belum Container</a>
         </div>
         <div style="margin-left:auto">
@@ -343,119 +540,119 @@ pwfOfficeHeader('Warehouse / Stock', 'warehouse');
         </div>
         <div class="stat-card">
             <div class="stat-label">Total Qty</div>
-            <div class="stat-value"><?= rtrim(rtrim(number_format((float)($summary['total_qty']??0),2),'0'),'.') ?></div>
+            <div class="stat-value"><?= rtrim(rtrim(number_format((float)($summary['total_qty'] ?? 0), 2), '0'), '.') ?></div>
         </div>
         <div class="stat-card">
             <div class="stat-label">In Container</div>
-            <div class="stat-value" style="color:#0ea5e9"><?= (int)($summary['in_container']??0) ?></div>
+            <div class="stat-value" style="color:#0ea5e9"><?= (int)($summary['in_container'] ?? 0) ?></div>
         </div>
     </div>
 </div>
 
 <!-- ═══ STOCK GRID ═══════════════════════════════════════════════════════ -->
 <div class="pwf-card">
-<?php if (empty($stocks)): ?>
-    <div style="text-align:center;padding:60px 20px;color:var(--muted)">
-        <i class="bi bi-inbox" style="font-size:40px;display:block;margin-bottom:12px;opacity:.4"></i>
-        No stock items found.
-    </div>
-<?php else: ?>
-    <div class="stock-grid">
-    <?php foreach ($stocks as $s):
-        $hasOrder     = !empty($s['order_id']);
-        $hasContainer = !empty($s['container_code']);
-        $orderStatus  = $s['order_status'] ?? '';
-        [$statusLabel, $statusColor] = $orderStatusLabel[$orderStatus] ?? ['Unknown','#94a3b8'];
-        $colorStr = trim((string)($s['finish'] ?? ''));
-        if ($colorStr === '') $colorStr = trim((string)($s['wood_color'] ?? ''));
-    ?>
-        <div class="stock-card">
-            <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:5px">
-                <span class="stock-code"><?= htmlspecialchars($s['stock_code']) ?></span>
-                <?php if ($hasContainer): ?>
-                    <span class="stk-badge badge-blue" title="Container: <?= htmlspecialchars($s['container_code']) ?>">
-                        <i class="bi bi-box-seam"></i> <?= htmlspecialchars($s['container_code']) ?>
-                    </span>
-                <?php else: ?>
-                    <span class="stk-badge badge-gray"><i class="bi bi-clock"></i> Awaiting</span>
-                <?php endif; ?>
-                <?php if ($hasOrder): ?>
-                    <span class="stk-badge badge-purple">
-                        <i class="bi bi-person-badge"></i> <?= htmlspecialchars($s['customer_name'] ?? 'Order') ?>
-                    </span>
-                <?php endif; ?>
-            </div>
-
-            <?php if ($hasOrder): ?>
-                <div class="stock-name name-clickable" onclick="openDetailModal(<?= (int)$s['id'] ?>)"
-                     title="Klik lihat detail order">
-                    <?= htmlspecialchars($s['product_name']) ?>
-                    <i class="bi bi-arrow-up-right-square" style="font-size:11px;opacity:.6"></i>
-                </div>
-            <?php else: ?>
-                <div class="stock-name"><?= htmlspecialchars($s['product_name']) ?></div>
-            <?php endif; ?>
-
-            <div class="stock-meta">
-                <span style="font-weight:700;color:var(--gold)">
-                    <?= rtrim(rtrim(number_format((float)$s['quantity'],2),'0'),'.') ?>
-                    <?= htmlspecialchars($s['unit']) ?>
-                </span>
-            </div>
-            <?php if (!empty($s['dimensions'])): ?>
-                <div class="stock-meta">📏 <?= htmlspecialchars($s['dimensions']) ?></div>
-            <?php endif; ?>
-            <?php if ($colorStr !== ''): ?>
-                <div class="stock-meta">🎨 <?= htmlspecialchars($colorStr) ?></div>
-            <?php endif; ?>
-
-            <?php if ($hasOrder): ?>
-                <div class="stock-meta" style="margin-top:5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-                    <span style="padding:2px 8px;border-radius:10px;font-weight:700;font-size:10px;
-                                 background:<?= htmlspecialchars($statusColor) ?>22;color:<?= htmlspecialchars($statusColor) ?>">
-                        <?= htmlspecialchars($statusLabel) ?>
-                    </span>
-                    <?php if (!empty($s['order_code'])): ?>
-                        <span style="font-size:10px;color:var(--muted);font-family:monospace">
-                            <?= htmlspecialchars($s['order_code']) ?>
-                        </span>
-                    <?php endif; ?>
-                </div>
-            <?php endif; ?>
-
-            <?php if ($hasContainer): ?>
-                <div class="stock-meta" style="font-size:11px;color:#1e40af;margin-top:4px">
-                    <i class="bi bi-geo-alt"></i>
-                    <?= htmlspecialchars($s['destination_country'] ?? '') ?>
-                    <?php if (!empty($s['destination_port'])): ?> – <?= htmlspecialchars($s['destination_port']) ?><?php endif; ?>
-                    <?php if (!empty($s['shipment_date'])): ?> &bull; <?= date('d M Y', strtotime($s['shipment_date'])) ?><?php endif; ?>
-                </div>
-            <?php elseif ($hasOrder && in_array($orderStatus,['qc','ready_ship','partial_ship','shipped','completed'])): ?>
-                <div class="stock-meta" style="font-size:11px;color:#92400e;margin-top:4px">
-                    <i class="bi bi-exclamation-circle"></i> Belum dimasukkan container
-                </div>
-            <?php endif; ?>
-
-            <div class="stock-meta" style="color:#94a3b8;font-size:10px;margin-top:4px">
-                Added: <?= date('d M Y', strtotime($s['created_at'])) ?>
-            </div>
-            <div class="stock-footer no-print">
-                <?php if ($hasOrder): ?>
-                    <button class="btn btn-sm" onclick="openDetailModal(<?= (int)$s['id'] ?>)" style="gap:4px;font-size:11px">
-                        <i class="bi bi-eye"></i> Detail
-                    </button>
-                <?php endif; ?>
-                <button class="btn btn-sm btn-outline-secondary" onclick="openEditModal(<?= (int)$s['id'] ?>)" style="gap:4px">
-                    <i class="bi bi-pencil"></i> Edit
-                </button>
-                <button class="btn btn-sm btn-outline-danger" onclick="confirmDelete(<?= (int)$s['id'] ?>)" style="gap:4px">
-                    <i class="bi bi-trash"></i>
-                </button>
-            </div>
+    <?php if (empty($stocks)): ?>
+        <div style="text-align:center;padding:60px 20px;color:var(--muted)">
+            <i class="bi bi-inbox" style="font-size:40px;display:block;margin-bottom:12px;opacity:.4"></i>
+            No stock items found.
         </div>
-    <?php endforeach; ?>
-    </div>
-<?php endif; ?>
+    <?php else: ?>
+        <div class="stock-grid">
+            <?php foreach ($stocks as $s):
+                $hasOrder     = !empty($s['order_id']);
+                $hasContainer = !empty($s['container_code']);
+                $orderStatus  = $s['order_status'] ?? '';
+                [$statusLabel, $statusColor] = $orderStatusLabel[$orderStatus] ?? ['Unknown', '#94a3b8'];
+                $colorStr = trim((string)($s['finish'] ?? ''));
+                if ($colorStr === '') $colorStr = trim((string)($s['wood_color'] ?? ''));
+            ?>
+                <div class="stock-card">
+                    <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:5px">
+                        <span class="stock-code"><?= htmlspecialchars($s['stock_code']) ?></span>
+                        <?php if ($hasContainer): ?>
+                            <span class="stk-badge badge-blue" title="Container: <?= htmlspecialchars($s['container_code']) ?>">
+                                <i class="bi bi-box-seam"></i> <?= htmlspecialchars($s['container_code']) ?>
+                            </span>
+                        <?php else: ?>
+                            <span class="stk-badge badge-gray"><i class="bi bi-clock"></i> Awaiting</span>
+                        <?php endif; ?>
+                        <?php if ($hasOrder): ?>
+                            <span class="stk-badge badge-purple">
+                                <i class="bi bi-person-badge"></i> <?= htmlspecialchars($s['customer_name'] ?? 'Order') ?>
+                            </span>
+                        <?php endif; ?>
+                    </div>
+
+                    <?php if ($hasOrder): ?>
+                        <div class="stock-name name-clickable" onclick="openDetailModal(<?= (int)$s['id'] ?>)"
+                            title="Klik lihat detail order">
+                            <?= htmlspecialchars($s['product_name']) ?>
+                            <i class="bi bi-arrow-up-right-square" style="font-size:11px;opacity:.6"></i>
+                        </div>
+                    <?php else: ?>
+                        <div class="stock-name"><?= htmlspecialchars($s['product_name']) ?></div>
+                    <?php endif; ?>
+
+                    <div class="stock-meta">
+                        <span style="font-weight:700;color:var(--gold)">
+                            <?= rtrim(rtrim(number_format((float)$s['quantity'], 2), '0'), '.') ?>
+                            <?= htmlspecialchars($s['unit']) ?>
+                        </span>
+                    </div>
+                    <?php if (!empty($s['dimensions'])): ?>
+                        <div class="stock-meta">📏 <?= htmlspecialchars($s['dimensions']) ?></div>
+                    <?php endif; ?>
+                    <?php if ($colorStr !== ''): ?>
+                        <div class="stock-meta">🎨 <?= htmlspecialchars($colorStr) ?></div>
+                    <?php endif; ?>
+
+                    <?php if ($hasOrder): ?>
+                        <div class="stock-meta" style="margin-top:5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                            <span style="padding:2px 8px;border-radius:10px;font-weight:700;font-size:10px;
+                                 background:<?= htmlspecialchars($statusColor) ?>22;color:<?= htmlspecialchars($statusColor) ?>">
+                                <?= htmlspecialchars($statusLabel) ?>
+                            </span>
+                            <?php if (!empty($s['order_code'])): ?>
+                                <span style="font-size:10px;color:var(--muted);font-family:monospace">
+                                    <?= htmlspecialchars($s['order_code']) ?>
+                                </span>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
+
+                    <?php if ($hasContainer): ?>
+                        <div class="stock-meta" style="font-size:11px;color:#1e40af;margin-top:4px">
+                            <i class="bi bi-geo-alt"></i>
+                            <?= htmlspecialchars($s['destination_country'] ?? '') ?>
+                            <?php if (!empty($s['destination_port'])): ?> – <?= htmlspecialchars($s['destination_port']) ?><?php endif; ?>
+                                <?php if (!empty($s['shipment_date'])): ?> &bull; <?= date('d M Y', strtotime($s['shipment_date'])) ?><?php endif; ?>
+                        </div>
+                    <?php elseif ($hasOrder && in_array($orderStatus, ['qc', 'ready_ship', 'partial_ship', 'shipped', 'completed'])): ?>
+                        <div class="stock-meta" style="font-size:11px;color:#92400e;margin-top:4px">
+                            <i class="bi bi-exclamation-circle"></i> Belum dimasukkan container
+                        </div>
+                    <?php endif; ?>
+
+                    <div class="stock-meta" style="color:#94a3b8;font-size:10px;margin-top:4px">
+                        Added: <?= date('d M Y', strtotime($s['created_at'])) ?>
+                    </div>
+                    <div class="stock-footer no-print">
+                        <?php if ($hasOrder): ?>
+                            <button class="btn btn-sm" onclick="openDetailModal(<?= (int)$s['id'] ?>)" style="gap:4px;font-size:11px">
+                                <i class="bi bi-eye"></i> Detail
+                            </button>
+                        <?php endif; ?>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="openEditModal(<?= (int)$s['id'] ?>)" style="gap:4px">
+                            <i class="bi bi-pencil"></i> Edit
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="confirmDelete(<?= (int)$s['id'] ?>)" style="gap:4px">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
 </div>
 
 <!-- ═══ CREATE MODAL ═════════════════════════════════════════════════════ -->
@@ -508,7 +705,7 @@ pwfOfficeHeader('Warehouse / Stock', 'warehouse');
                             <option value="">— Tidak ada link order —</option>
                             <?php foreach ($ordersForLink as $ol): ?>
                                 <option value="<?= (int)$ol['id'] ?>">
-                                    <?= htmlspecialchars($ol['order_code'].' | '.$ol['customer_name'].' — '.mb_strimwidth($ol['product_name'],0,40,'…')) ?>
+                                    <?= htmlspecialchars($ol['order_code'] . ' | ' . $ol['customer_name'] . ' — ' . mb_strimwidth($ol['product_name'], 0, 40, '…')) ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -574,7 +771,7 @@ pwfOfficeHeader('Warehouse / Stock', 'warehouse');
                             <option value="">— Tidak ada link order —</option>
                             <?php foreach ($ordersForLink as $ol): ?>
                                 <option value="<?= (int)$ol['id'] ?>">
-                                    <?= htmlspecialchars($ol['order_code'].' | '.$ol['customer_name'].' — '.mb_strimwidth($ol['product_name'],0,40,'…')) ?>
+                                    <?= htmlspecialchars($ol['order_code'] . ' | ' . $ol['customer_name'] . ' — ' . mb_strimwidth($ol['product_name'], 0, 40, '…')) ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -607,79 +804,102 @@ pwfOfficeHeader('Warehouse / Stock', 'warehouse');
 </form>
 
 <script>
-const PWF_STOCKS          = <?= json_encode($stocksForJs, JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_HEX_AMP) ?>;
-const ORDER_STATUS_MAP    = <?= json_encode($orderStatusLabel) ?>;
-const CONTAINER_STATUS_MAP = <?= json_encode($containerStatusLabel) ?>;
+    const PWF_STOCKS = <?= json_encode($stocksForJs, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
+    const ORDER_STATUS_MAP = <?= json_encode($orderStatusLabel) ?>;
+    const CONTAINER_STATUS_MAP = <?= json_encode($containerStatusLabel) ?>;
 
-function pwfOpen(id)  { document.getElementById(id).classList.add('open');    }
-function pwfClose(id) { document.getElementById(id).classList.remove('open'); }
-
-['createModal','editModal','detailModal'].forEach(id => {
-    document.getElementById(id).addEventListener('click', e => { if (e.target.id === id) pwfClose(id); });
-});
-
-/* CREATE */
-document.getElementById('btnAddStock').addEventListener('click', () => pwfOpen('createModal'));
-document.getElementById('btnCloseCreate').addEventListener('click', () => pwfClose('createModal'));
-document.getElementById('btnCancelCreate').addEventListener('click', () => pwfClose('createModal'));
-
-/* EDIT */
-document.getElementById('btnCloseEdit').addEventListener('click', () => pwfClose('editModal'));
-document.getElementById('btnCancelEdit').addEventListener('click', () => pwfClose('editModal'));
-
-function openEditModal(stockId) {
-    const d = PWF_STOCKS[stockId];
-    if (!d) return;
-    document.getElementById('ef_id').value      = d.id;
-    document.getElementById('ef_product').value = d.product_name  || '';
-    document.getElementById('ef_qty').value     = d.quantity      || 1;
-    document.getElementById('ef_unit').value    = d.unit          || 'pcs';
-    document.getElementById('ef_dim').value     = d.dimensions    || '';
-    document.getElementById('ef_color').value   = d.wood_color    || '';
-    document.getElementById('ef_finish').value  = d.finish        || '';
-    document.getElementById('ef_spec').value    = d.specification || '';
-    document.getElementById('ef_notes').value   = d.notes         || '';
-    const sel = document.getElementById('ef_order');
-    sel.value = d.order_id ? String(d.order_id) : '';
-    pwfOpen('editModal');
-}
-
-/* DELETE */
-function confirmDelete(stockId) {
-    if (confirm('Hapus stock item ini?')) {
-        document.getElementById('df_id').value = stockId;
-        document.getElementById('deleteForm').submit();
+    function pwfOpen(id) {
+        document.getElementById(id).classList.add('open');
     }
-}
 
-/* DETAIL */
-document.getElementById('btnCloseDetail').addEventListener('click', () => pwfClose('detailModal'));
+    function pwfClose(id) {
+        document.getElementById(id).classList.remove('open');
+    }
 
-function fmt(v)  { return (v !== null && v !== undefined && v !== '') ? v : '—'; }
-function fmtDate(d) {
-    if (!d) return '—';
-    try { const dt = new Date(d.replace(' ','T'));
-          return dt.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}); }
-    catch { return d; }
-}
-function fmtMoney(v) {
-    if (!v || +v===0) return '—';
-    return new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(+v);
-}
-function statusBadge(status, map) {
-    if (!status || !map[status]) return '—';
-    const [label,color] = map[status];
-    return `<span style="padding:3px 10px;border-radius:20px;background:${color}22;color:${color};font-weight:700;font-size:11px">${label}</span>`;
-}
+    ['createModal', 'editModal', 'detailModal'].forEach(id => {
+        document.getElementById(id).addEventListener('click', e => {
+            if (e.target.id === id) pwfClose(id);
+        });
+    });
 
-function openDetailModal(stockId) {
-    const d = PWF_STOCKS[stockId];
-    if (!d) return;
-    const hasOrder     = !!d.order_id;
-    const hasContainer = !!d.container_code;
-    let html = '';
+    /* CREATE */
+    document.getElementById('btnAddStock').addEventListener('click', () => pwfOpen('createModal'));
+    document.getElementById('btnCloseCreate').addEventListener('click', () => pwfClose('createModal'));
+    document.getElementById('btnCancelCreate').addEventListener('click', () => pwfClose('createModal'));
 
-    html += `<div class="det-section">
+    /* EDIT */
+    document.getElementById('btnCloseEdit').addEventListener('click', () => pwfClose('editModal'));
+    document.getElementById('btnCancelEdit').addEventListener('click', () => pwfClose('editModal'));
+
+    function openEditModal(stockId) {
+        const d = PWF_STOCKS[stockId];
+        if (!d) return;
+        document.getElementById('ef_id').value = d.id;
+        document.getElementById('ef_product').value = d.product_name || '';
+        document.getElementById('ef_qty').value = d.quantity || 1;
+        document.getElementById('ef_unit').value = d.unit || 'pcs';
+        document.getElementById('ef_dim').value = d.dimensions || '';
+        document.getElementById('ef_color').value = d.wood_color || '';
+        document.getElementById('ef_finish').value = d.finish || '';
+        document.getElementById('ef_spec').value = d.specification || '';
+        document.getElementById('ef_notes').value = d.notes || '';
+        const sel = document.getElementById('ef_order');
+        sel.value = d.order_id ? String(d.order_id) : '';
+        pwfOpen('editModal');
+    }
+
+    /* DELETE */
+    function confirmDelete(stockId) {
+        if (confirm('Hapus stock item ini?')) {
+            document.getElementById('df_id').value = stockId;
+            document.getElementById('deleteForm').submit();
+        }
+    }
+
+    /* DETAIL */
+    document.getElementById('btnCloseDetail').addEventListener('click', () => pwfClose('detailModal'));
+
+    function fmt(v) {
+        return (v !== null && v !== undefined && v !== '') ? v : '—';
+    }
+
+    function fmtDate(d) {
+        if (!d) return '—';
+        try {
+            const dt = new Date(d.replace(' ', 'T'));
+            return dt.toLocaleDateString('id-ID', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric'
+            });
+        } catch {
+            return d;
+        }
+    }
+
+    function fmtMoney(v) {
+        if (!v || +v === 0) return '—';
+        return new Intl.NumberFormat('id-ID', {
+            style: 'currency',
+            currency: 'IDR',
+            maximumFractionDigits: 0
+        }).format(+v);
+    }
+
+    function statusBadge(status, map) {
+        if (!status || !map[status]) return '—';
+        const [label, color] = map[status];
+        return `<span style="padding:3px 10px;border-radius:20px;background:${color}22;color:${color};font-weight:700;font-size:11px">${label}</span>`;
+    }
+
+    function openDetailModal(stockId) {
+        const d = PWF_STOCKS[stockId];
+        if (!d) return;
+        const hasOrder = !!d.order_id;
+        const hasContainer = !!d.container_code;
+        let html = '';
+
+        html += `<div class="det-section">
         <div class="det-section-title">📦 Info Stock</div>
         <div class="detail-grid">
             <div><div class="det-label">Stock Code</div>
@@ -696,8 +916,8 @@ function openDetailModal(stockId) {
             <div><div class="det-label">Ditambahkan</div><div class="det-value">${fmtDate(d.created_at)}</div></div>
         </div></div>`;
 
-    if (hasOrder) {
-        html += `<div class="det-section" style="border-left:3px solid var(--gold)">
+        if (hasOrder) {
+            html += `<div class="det-section" style="border-left:3px solid var(--gold)">
             <div class="det-section-title">🛒 Customer Order</div>
             <div class="detail-grid">
                 <div><div class="det-label">Order Code</div>
@@ -716,10 +936,10 @@ function openDetailModal(stockId) {
                 ${d.o_specification ? `<div class="full"><div class="det-label">Spesifikasi</div><div class="det-value">${fmt(d.o_specification)}</div></div>` : ''}
                 ${d.o_notes ? `<div class="full"><div class="det-label">Catatan Order</div><div class="det-value">${fmt(d.o_notes)}</div></div>` : ''}
             </div></div>`;
-    }
+        }
 
-    if (hasContainer) {
-        html += `<div class="det-section" style="background:#eff6ff;border:1px solid #bfdbfe">
+        if (hasContainer) {
+            html += `<div class="det-section" style="background:#eff6ff;border:1px solid #bfdbfe">
             <div class="det-section-title" style="color:#1d4ed8">🚢 Container Assigned</div>
             <div class="detail-grid">
                 <div><div class="det-label">Container Code</div>
@@ -732,14 +952,14 @@ function openDetailModal(stockId) {
                 <div><div class="det-label">Tanggal Kirim</div><div class="det-value">${fmtDate(d.shipment_date)}</div></div>
                 ${+d.qty_shipped>0 ? `<div><div class="det-label">Qty Shipped</div><div class="det-value">${fmt(d.qty_shipped)} ${fmt(d.unit)}</div></div>` : ''}
             </div></div>`;
-    } else if (hasOrder) {
-        html += `<div style="text-align:center;padding:12px;color:#92400e;background:#fef3c7;border-radius:8px;
+        } else if (hasOrder) {
+            html += `<div style="text-align:center;padding:12px;color:#92400e;background:#fef3c7;border-radius:8px;
                              font-size:12px;font-weight:600;margin-top:12px;border:1px solid #fde68a">
             <i class="bi bi-clock" style="margin-right:6px"></i>Barang belum dimasukkan ke dalam container
         </div>`;
-    }
+        }
 
-    document.getElementById('dm_body').innerHTML = html;
-    pwfOpen('detailModal');
-}
+        document.getElementById('dm_body').innerHTML = html;
+        pwfOpen('detailModal');
+    }
 </script>
