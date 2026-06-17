@@ -11,6 +11,7 @@ require_once '../../config/config.php';
 require_once '../../config/database.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/CloudinaryHelper.php';
+require_once '../../includes/InvoiceHelper.php';
 
 $auth = new Auth();
 $auth->requireLogin();
@@ -463,63 +464,192 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $payStatus  = ($paidAmount <= 0) ? 'unpaid' : ($remaining <= 0 ? 'paid' : 'partial');
 
             // Invoice number
-            $prefix = 'HSV-' . date('Ym') . '-';
-            $last   = $pdo->query("SELECT invoice_number FROM hotel_invoices WHERE invoice_number LIKE '{$prefix}%' ORDER BY invoice_number DESC LIMIT 1")->fetchColumn();
-            $seq    = $last ? ((int)substr($last, -4) + 1) : 1;
-            $invNo  = $prefix . str_pad($seq, 4, '0', STR_PAD_LEFT);
+            // Check if guest already has unpaid consolidated invoice, reuse it instead
+            $existingInvId = null;
+            if ($bookingId) {
+                $existingStmt = $pdo->prepare("
+                    SELECT id FROM hotel_invoices
+                    WHERE business_id = ? AND booking_id = ?
+                      AND payment_status IN ('unpaid','partial')
+                      AND status = 'confirmed'
+                      AND cashbook_synced = 0
+                    LIMIT 1
+                ");
+                $existingStmt->execute([$businessId, $bookingId]);
+                $existingInvId = (int)$existingStmt->fetchColumn() ?: null;
+            }
 
             $pdo->beginTransaction();
-            $pdo->prepare("INSERT INTO hotel_invoices
-                (business_id, invoice_number, booking_id, guest_name, guest_phone, room_number,
-                 total, paid_amount, payment_status, payment_method, status, notes,
-                 tax_rate, tax_amount, service_charge_rate, service_charge_amount,
-                 discount_rate, discount_amount, created_by, created_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())")
-                ->execute([
-                    $businessId,
-                    $invNo,
-                    $bookingId,
-                    $guestName,
-                    $guestPhone ?: null,
-                    $roomNumber ?: null,
-                    $total,
-                    $paidAmount,
-                    $payStatus,
-                    $payMethod,
-                    'confirmed',
-                    $notes ?: null,
-                    $taxRate,
-                    $taxAmount,
-                    $serviceChargeRate,
-                    $serviceChargeAmount,
-                    $discountRate,
-                    $discountAmount,
-                    $currentUser['id'] ?? null
-                ]);
-            $invId = (int)$pdo->lastInsertId();
+            
+            if ($existingInvId) {
+                // Reuse existing invoice - add items to it
+                $invId = $existingInvId;
+                // Update totals based on new items
+                $iStmt = $pdo->prepare("INSERT INTO hotel_invoice_items
+                    (invoice_id, service_type, description, quantity, unit_price, total_price, start_datetime, end_datetime)
+                    VALUES (?,?,?,?,?,?,?,?)");
+                foreach ($items as $item) {
+                    $iStmt->execute([
+                        $invId,
+                        $item['service_type'],
+                        $item['description'] ?: null,
+                        $item['qty'],
+                        $item['unit_price'],
+                        $item['total'],
+                        $item['start_dt'] ?: null,
+                        $item['end_dt'] ?: null,
+                    ]);
+                }
+                // Update invoice total with new items
+                $pdo->prepare("UPDATE hotel_invoices 
+                    SET total = total + ?, 
+                        payment_status = CASE WHEN (total + ?) >= paid_amount THEN 'partial' ELSE 'unpaid' END,
+                        updated_at = NOW()
+                    WHERE id = ? AND cashbook_synced = 0")
+                    ->execute([$subtotal, $subtotal, $invId]);
+                $invNo = $pdo->prepare("SELECT invoice_number FROM hotel_invoices WHERE id = ?")->execute([$invId]);
+                $invNo = $pdo->prepare("SELECT invoice_number FROM hotel_invoices WHERE id = ?")->execute([$invId])->fetchColumn();
+            } else {
+                // Create new invoice
+                $prefix = 'HSV-' . date('Ym') . '-';
+                $last   = $pdo->query("SELECT invoice_number FROM hotel_invoices WHERE invoice_number LIKE '{$prefix}%' ORDER BY invoice_number DESC LIMIT 1")->fetchColumn();
+                $seq    = $last ? ((int)substr($last, -4) + 1) : 1;
+                $invNo  = $prefix . str_pad($seq, 4, '0', STR_PAD_LEFT);
 
-            $iStmt = $pdo->prepare("INSERT INTO hotel_invoice_items
-                (invoice_id, service_type, description, quantity, unit_price, total_price, start_datetime, end_datetime)
-                VALUES (?,?,?,?,?,?,?,?)");
-            $svcLabels = [];
-            foreach ($items as $item) {
-                $iStmt->execute([
-                    $invId,
-                    $item['service_type'],
-                    $item['description'] ?: null,
-                    $item['qty'],
-                    $item['unit_price'],
-                    $item['total'],
-                    $item['start_dt'] ?: null,
-                    $item['end_dt'] ?: null,
-                ]);
-                $svcLabels[] = $serviceTypes[$item['service_type']]['label'];
+                $pdo->prepare("INSERT INTO hotel_invoices
+                    (business_id, invoice_number, booking_id, guest_name, guest_phone, room_number,
+                     total, paid_amount, payment_status, payment_method, status, notes,
+                     tax_rate, tax_amount, service_charge_rate, service_charge_amount,
+                     discount_rate, discount_amount, created_by, created_at)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())")
+                    ->execute([
+                        $businessId,
+                        $invNo,
+                        $bookingId,
+                        $guestName,
+                        $guestPhone ?: null,
+                        $roomNumber ?: null,
+                        $total,
+                        $paidAmount,
+                        $payStatus,
+                        $payMethod,
+                        'confirmed',
+                        $notes ?: null,
+                        $taxRate,
+                        $taxAmount,
+                        $serviceChargeRate,
+                        $serviceChargeAmount,
+                        $discountRate,
+                        $discountAmount,
+                        $currentUser['id'] ?? null
+                    ]);
+                $invId = (int)$pdo->lastInsertId();
+
+                $iStmt = $pdo->prepare("INSERT INTO hotel_invoice_items
+                    (invoice_id, service_type, description, quantity, unit_price, total_price, start_datetime, end_datetime)
+                    VALUES (?,?,?,?,?,?,?,?)");
+                foreach ($items as $item) {
+                    $iStmt->execute([
+                        $invId,
+                        $item['service_type'],
+                        $item['description'] ?: null,
+                        $item['qty'],
+                        $item['unit_price'],
+                        $item['total'],
+                        $item['start_dt'] ?: null,
+                        $item['end_dt'] ?: null,
+                    ]);
+                }
             }
             $pdo->commit();
 
             // Cashbook is NOT synced on save — staff must click "Process Invoice" in preview
             ob_clean();
             echo json_encode(['success' => true, 'invoice_number' => $invNo, 'id' => $invId, 'cashbook' => false]);
+            exit;
+        }
+
+        // ── ADD RENTAL CAR TO INVOICE ───────────────────────────────────────────
+        if ($action === 'add_rental_car') {
+            $invoiceId  = (int)($_POST['invoice_id'] ?? 0);
+            $carId      = (int)($_POST['car_id'] ?? 0);
+            $startDt    = trim($_POST['start_datetime'] ?? '');
+            $endDt      = trim($_POST['end_datetime'] ?? '');
+            $dailyRate  = max(0, (float)($_POST['daily_rate'] ?? 0));
+            $deposit    = max(0, (float)($_POST['deposit'] ?? 0));
+            $tripDest   = trim($_POST['trip_destination'] ?? '');
+            $notes      = trim($_POST['notes'] ?? '');
+            
+            if (!$invoiceId) throw new Exception('Invoice ID required');
+            if (!$carId) throw new Exception('Car ID required');
+            if (!$startDt || !$endDt) throw new Exception('Start and end dates required');
+
+            // Get invoice details
+            $inv = $pdo->prepare("SELECT * FROM hotel_invoices WHERE id=? AND business_id=? AND cashbook_synced=0");
+            $inv->execute([$invoiceId, $businessId]);
+            $invRow = $inv->fetch(PDO::FETCH_ASSOC);
+            if (!$invRow) throw new Exception('Invoice not found or already synced');
+
+            // Get car details
+            $car = $pdo->prepare("SELECT * FROM rental_cars WHERE id=? AND business_id=?");
+            $car->execute([$carId, $businessId]);
+            $carRow = $car->fetch(PDO::FETCH_ASSOC);
+            if (!$carRow) throw new Exception('Car not found');
+            if ($carRow['status'] === 'rented') throw new Exception("Car {$carRow['plate_number']} is currently rented");
+
+            $start = new DateTime($startDt);
+            $end = new DateTime($endDt);
+            if ($end <= $start) throw new Exception('End date must be after start date');
+
+            $pdo->beginTransaction();
+
+            // Create rental car booking linked to this invoice
+            $pdo->prepare("INSERT INTO rental_car_bookings
+                (business_id, car_id, invoice_id, guest_name, guest_phone, room_number, booking_id,
+                 start_datetime, end_datetime, daily_rate, total_price, owner_amount, hotel_commission,
+                 deposit, trip_destination, status, notes, created_by)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+                ->execute([
+                    $businessId,
+                    $carId,
+                    $invoiceId,
+                    $invRow['guest_name'],
+                    $invRow['guest_phone'],
+                    $invRow['room_number'],
+                    $invRow['booking_id'],
+                    $startDt,
+                    $endDt,
+                    $dailyRate,
+                    0,  // total_price - set when returned
+                    0,  // owner_amount - calculated on return
+                    0,  // hotel_commission - calculated on return
+                    $deposit,
+                    $tripDest ?: null,
+                    'active',
+                    $notes ?: null,
+                    $currentUser['id'] ?? null
+                ]);
+            $rentalId = (int)$pdo->lastInsertId();
+
+            // Add invoice item for this car rental
+            addInvoiceItem(
+                $pdo,
+                $invoiceId,
+                'car_rental',
+                "{$carRow['car_name']} ({$carRow['plate_number']})" .
+                ($tripDest ? " — Tujuan: {$tripDest}" : ''),
+                0,  // quantity
+                $dailyRate,  // unit_price
+                $startDt,
+                $endDt
+            );
+
+            // Update car status to rented
+            $pdo->prepare("UPDATE rental_cars SET status='rented', updated_at=NOW() WHERE id=?")->execute([$carId]);
+
+            $pdo->commit();
+            ob_clean();
+            echo json_encode(['success' => true, 'rental_id' => $rentalId, 'message' => 'Rental car added to invoice']);
             exit;
         }
 

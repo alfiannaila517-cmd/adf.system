@@ -146,6 +146,16 @@ try {
         foreach ($unpaidInvoices as $inv) {
             $remaining = (float)$inv['total'] - (float)$inv['paid_amount'];
             if ($remaining > 100) {
+                // Get invoice items for detail breakdown
+                $itemStmt = $pdo->prepare("
+                    SELECT service_type, description, quantity, unit_price, total_price
+                    FROM hotel_invoice_items
+                    WHERE invoice_id = ?
+                    ORDER BY id
+                ");
+                $itemStmt->execute([$inv['id']]);
+                $items = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
+
                 $bills['invoices'][] = [
                     'id'              => $inv['id'],
                     'invoice_number'  => $inv['invoice_number'],
@@ -154,6 +164,7 @@ try {
                     'remaining'       => $remaining,
                     'payment_status'  => $inv['payment_status'],
                     'notes'           => $inv['notes'],
+                    'items'           => $items,  // Include items for detailed display
                 ];
                 $bills['has_blocking'] = true;
             }

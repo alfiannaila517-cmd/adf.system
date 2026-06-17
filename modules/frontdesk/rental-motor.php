@@ -10,6 +10,7 @@ define('APP_ACCESS', true);
 require_once '../../config/config.php';
 require_once '../../config/database.php';
 require_once '../../includes/auth.php';
+require_once '../../includes/InvoiceHelper.php';
 
 $auth = new Auth();
 $auth->requireLogin();
@@ -167,53 +168,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
 
             $pdo->beginTransaction();
 
+            // Use consolidated invoice system - get or create single invoice for guest
             $invoiceId = null;
             if ($createInvoice) {
-                $prefix = 'HSV-' . date('Ym') . '-';
-                $last   = $pdo->query("SELECT invoice_number FROM hotel_invoices WHERE invoice_number LIKE '{$prefix}%' ORDER BY invoice_number DESC LIMIT 1")->fetchColumn();
-                $seq    = $last ? ((int)substr($last, -4) + 1) : 1;
-                $invNo  = $prefix . str_pad($seq, 4, '0', STR_PAD_LEFT);
-
-                $motorLabels = array_map(fn($m) => $m['row']['motor_name'] . ' (' . $m['row']['plate_number'] . ')', $motorRows);
-                $invNotes = "Rental Motor: " . implode(', ', $motorLabels) . ($notes ? " - {$notes}" : '');
-
-                // Create invoice with 0 initial total (will be filled when motor is returned)
-                $pdo->prepare("INSERT INTO hotel_invoices
-                    (business_id, invoice_number, booking_id, guest_name, guest_phone, room_number,
-                     total, paid_amount, payment_status, payment_method, status, notes, created_by, created_at)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())")
-                    ->execute([
-                        $businessId,
-                        $invNo,
-                        $bookingId,
-                        $guestName,
-                        $guestPhone ?: null,
-                        $roomNumber ?: null,
-                        0,
-                        0,
-                        'unpaid',
-                        'cash',
-                        'confirmed',
-                        $invNotes,
-                        $currentUser['id'] ?? null
-                    ]);
-                $invoiceId = (int)$pdo->lastInsertId();
+                $invoiceId = getOrCreateGuestInvoice(
+                    $pdo,
+                    $businessId,
+                    $bookingId,
+                    $guestName,
+                    $guestPhone ?: null,
+                    $roomNumber ?: null
+                );
 
                 // Add invoice items for tracking (quantity and price will be updated on return)
-                $iiStmt = $pdo->prepare("INSERT INTO hotel_invoice_items
-                    (invoice_id, service_type, description, quantity, unit_price, total_price, start_datetime, end_datetime)
-                    VALUES (?,?,?,?,?,?,?,?)");
                 foreach ($motorRows as $mr) {
-                    $iiStmt->execute([
+                    addInvoiceItem(
+                        $pdo,
                         $invoiceId,
                         'motor_rental',
                         "{$mr['row']['motor_name']} ({$mr['row']['plate_number']})",
-                        0,
-                        $mr['rate'],
-                        0,
+                        0,  // quantity
+                        $mr['rate'],  // unit_price (daily rate)
                         $startDt,
                         $endDt
-                    ]);
+                    );
                 }
             }
 

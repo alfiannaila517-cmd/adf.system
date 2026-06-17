@@ -916,7 +916,22 @@ include '../../includes/header.php';
             html += `<div class="co-bill-section co-bill-alert">
             <div class="co-bill-head">📄 Invoice Hotel Service Belum Lunas</div>`;
             bills.invoices.forEach(inv => {
-                html += `<div class="co-bill-row"><span>${inv.invoice_number}</span><span class="co-warn">${fmtRp(inv.remaining)}</span></div>`;
+                html += `<div style="margin:0.6rem 0;border-left:3px solid #f59e0b;padding-left:0.6rem">
+                    <div class="co-bill-row" style="margin-bottom:0.3rem"><strong>${inv.invoice_number}</strong><span class="co-warn">${fmtRp(inv.remaining)} sisa</span></div>`;
+                
+                // Show invoice items if available
+                if (inv.items && inv.items.length > 0) {
+                    inv.items.forEach(item => {
+                        let icon = '🔹';
+                        if (item.service_type.includes('motor')) icon = '🏍️';
+                        else if (item.service_type.includes('car')) icon = '🚗';
+                        else if (item.service_type === 'laundry') icon = '👕';
+                        html += `<div style="font-size:0.75rem;color:#666;margin:0.2rem 0">
+                            ${icon} ${item.description || item.service_type}: <strong>${fmtRp(item.total_price)}</strong>
+                        </div>`;
+                    });
+                }
+                html += `</div>`;
             });
             html += `</div>`;
         }

@@ -10,6 +10,7 @@ define('APP_ACCESS', true);
 require_once '../../config/config.php';
 require_once '../../config/database.php';
 require_once '../../includes/auth.php';
+require_once '../../includes/InvoiceHelper.php';
 
 $auth = new Auth();
 $auth->requireLogin();
@@ -177,28 +178,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
 
             $invoiceId = null;
             if ($createInv) {
-                $prefix = 'RMB-' . date('Ym') . '-';
-                $last   = $pdo->query("SELECT invoice_number FROM hotel_invoices WHERE invoice_number LIKE '{$prefix}%' ORDER BY invoice_number DESC LIMIT 1")->fetchColumn();
-                $seq    = $last ? ((int)substr($last, -4) + 1) : 1;
-                $invNo  = $prefix . str_pad($seq, 4, '0', STR_PAD_LEFT);
-                $invNotes = "Rental Mobil: {$carRow['car_name']} ({$carRow['plate_number']})" .
-                            ($destination ? " — Tujuan: {$destination}" : '') .
-                            ($notes ? " — {$notes}" : '');
+                // Use consolidated invoice system - get or create single invoice for guest
+                $invoiceId = getOrCreateGuestInvoice(
+                    $pdo,
+                    $businessId,
+                    $bookingId2,
+                    $guestName,
+                    $guestPhone ?: null,
+                    $roomNumber ?: null
+                );
 
-                $pdo->prepare("INSERT INTO hotel_invoices
-                    (business_id,invoice_number,booking_id,guest_name,guest_phone,room_number,
-                     total,paid_amount,payment_status,payment_method,status,notes,created_by,created_at)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())")
-                    ->execute([$businessId,$invNo,$bookingId2,$guestName,$guestPhone?:null,$roomNumber?:null,
-                               0,0,'unpaid','cash','confirmed',$invNotes,$currentUser['id']??null]);
-                $invoiceId = (int)$pdo->lastInsertId();
-
-                $pdo->prepare("INSERT INTO hotel_invoice_items
-                    (invoice_id,service_type,description,quantity,unit_price,total_price,start_datetime,end_datetime)
-                    VALUES (?,?,?,?,?,?,?,?)")
-                    ->execute([$invoiceId,'car_rental',
-                               "{$carRow['car_name']} ({$carRow['plate_number']})",
-                               0,$dailyRate2,0,$startDt,$endDt]);
+                // Add invoice item for this car rental
+                addInvoiceItem(
+                    $pdo,
+                    $invoiceId,
+                    'car_rental',
+                    "{$carRow['car_name']} ({$carRow['plate_number']})" . 
+                    ($destination ? " — Tujuan: {$destination}" : ''),
+                    0,  // quantity
+                    $dailyRate2,  // unit_price (daily rate)
+                    $startDt,
+                    $endDt
+                );
             }
 
             $pdo->prepare("INSERT INTO rental_car_bookings
