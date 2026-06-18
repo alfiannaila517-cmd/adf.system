@@ -277,9 +277,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
 
             // Update invoice if exists
             if ($rentalRow['invoice_id']) {
-                // Update invoice total (add the calculated rental price)
-                $pdo->prepare("UPDATE hotel_invoices SET total = total + ?, updated_at=NOW() WHERE id=? AND cashbook_synced=0")
-                    ->execute([$newTotal, $rentalRow['invoice_id']]);
+                $oldTotal = (float)($rentalRow['total_price'] ?? 0);
+                $deltaTotal = $newTotal - $oldTotal;
+                if (abs($deltaTotal) > 0.009) {
+                    $pdo->prepare("UPDATE hotel_invoices SET total = total + ?, updated_at=NOW() WHERE id=? AND cashbook_synced=0")
+                        ->execute([$deltaTotal, $rentalRow['invoice_id']]);
+                }
 
                 // Update invoice items with calculated quantity and price
                 $pdo->prepare("UPDATE hotel_invoice_items 

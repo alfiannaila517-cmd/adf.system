@@ -257,8 +257,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $pdo->prepare("UPDATE rental_cars SET status='available',updated_at=NOW() WHERE id=?")->execute([$rentalRow['car_id']]);
 
             if ($rentalRow['invoice_id']) {
-                $pdo->prepare("UPDATE hotel_invoices SET total=total+?,updated_at=NOW() WHERE id=? AND cashbook_synced=0")
-                    ->execute([$newTotal, $rentalRow['invoice_id']]);
+                $oldTotal = (float)($rentalRow['total_price'] ?? 0);
+                $deltaTotal = $newTotal - $oldTotal;
+                if (abs($deltaTotal) > 0.009) {
+                    $pdo->prepare("UPDATE hotel_invoices SET total=total+?,updated_at=NOW() WHERE id=? AND cashbook_synced=0")
+                        ->execute([$deltaTotal, $rentalRow['invoice_id']]);
+                }
                 $pdo->prepare("UPDATE hotel_invoice_items SET quantity=?,unit_price=?,total_price=?
                     WHERE invoice_id=? AND service_type='car_rental' AND description LIKE ?")
                     ->execute([$actualDays,$dailyRate,$newTotal,$rentalRow['invoice_id'],"%{$rentalRow['plate_number']}%"]);

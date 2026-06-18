@@ -144,17 +144,28 @@ try {
     if ((int)$svcCount->fetchColumn() === 0) {
         $defaults = [
             ['motor_rental', 'Motor Rental', '🏍️', 1],
-            ['laundry', 'Laundry', '👕', 2],
-            ['service', 'Service', '🔧', 3],
-            ['airport_drop', 'Airport Drop', '✈️', 4],
-            ['harbor_drop', 'Harbor Drop', '⚓', 5],
-            ['narayana_trip', 'Narayana Trip', '🚤', 6],
-            ['lain_lain', 'Lain-lain', '📦', 7],
+            ['car_rental', 'Rental Mobil / Taxi', '🚗', 2],
+            ['laundry', 'Laundry', '👕', 3],
+            ['service', 'Service', '🔧', 4],
+            ['airport_drop', 'Airport Drop', '✈️', 5],
+            ['harbor_drop', 'Harbor Drop', '⚓', 6],
+            ['narayana_trip', 'Narayana Trip', '🚤', 7],
+            ['lain_lain', 'Lain-lain', '📦', 8],
         ];
         $seedStmt = $pdo->prepare("INSERT INTO hotel_service_types (business_id, type_key, type_label, type_icon, sort_order) VALUES (?,?,?,?,?)");
         foreach ($defaults as $d) {
             $seedStmt->execute([$businessId, $d[0], $d[1], $d[2], $d[3]]);
         }
+    }
+} catch (\Throwable $e) {
+}
+
+try {
+    $ensureTypeStmt = $pdo->prepare("SELECT COUNT(*) FROM hotel_service_types WHERE business_id=? AND type_key=?");
+    $ensureTypeStmt->execute([$businessId, 'car_rental']);
+    if ((int)$ensureTypeStmt->fetchColumn() === 0) {
+        $pdo->prepare("INSERT INTO hotel_service_types (business_id, type_key, type_label, type_icon, sort_order) VALUES (?,?,?,?,?)")
+            ->execute([$businessId, 'car_rental', 'Rental Mobil / Taxi', '🚗', 2]);
     }
 } catch (\Throwable $e) {
 }
@@ -173,6 +184,7 @@ try {
 if (empty($serviceTypes)) {
     $serviceTypes = [
         'motor_rental'   => ['label' => 'Motor Rental',   'icon' => '🏍️'],
+        'car_rental'     => ['label' => 'Rental Mobil / Taxi', 'icon' => '🚗'],
         'laundry'        => ['label' => 'Laundry',         'icon' => '👕'],
         'service'        => ['label' => 'Service',         'icon' => '🔧'],
         'airport_drop'   => ['label' => 'Airport Drop',    'icon' => '✈️'],
@@ -194,6 +206,7 @@ function getDivisionForService(PDO $pdo, string $serviceType): int
     // Preferred division names — must match exactly what's in the DB (or close synonyms)
     $nameMap = [
         'motor_rental'  => ['Motor Rental',  'MOTOR_RENTAL',  'Motor'],
+        'car_rental'    => ['Car Rental',    'CAR_RENTAL',    'Transport'],
         'laundry'       => ['Laundry',        'LAUNDRY',       'Housekeeping'],
         'service'       => ['General Service', 'GEN_SERVICE',   'Hotel'],
         'airport_drop'  => ['Airport Drop',   'AIRPORT_DROP',  'Hotel'],
@@ -442,13 +455,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             if (empty($items)) throw new Exception('At least one service item is required');
 
             $subtotal = 0;
+            $motorRentalItems = [];
+            $carRentalItems   = [];
             foreach ($items as &$item) {
                 $item['qty']        = max(0.5, (float)($item['qty']        ?? 1));
                 $item['unit_price'] = max(0,   (float)($item['unit_price'] ?? 0));
+                $item['start_dt']   = trim((string)($item['start_dt'] ?? '')) ?: null;
+                $item['end_dt']     = trim((string)($item['end_dt'] ?? '')) ?: null;
+                $item['deposit']    = max(0, (float)($item['deposit'] ?? 0));
+                $item['trip_destination'] = trim((string)($item['trip_destination'] ?? '')) ?: null;
                 $item['total']      = round($item['qty'] * $item['unit_price'], 2);
                 $subtotal += $item['total'];
                 if (!isset($serviceTypes[$item['service_type'] ?? ''])) {
                     throw new Exception('Invalid service type: ' . ($item['service_type'] ?? ''));
+                }
+
+                if (($item['service_type'] ?? '') === 'motor_rental') {
+                    $item['motor_id'] = (int)($item['motor_id'] ?? 0);
+                    if (!$item['motor_id'] || !$item['start_dt'] || !$item['end_dt']) {
+                        throw new Exception('Motor rental wajib pilih armada, mulai, dan selesai');
+                    }
+                    $motorStmt = $pdo->prepare("SELECT * FROM rental_motors WHERE id=? AND business_id=?");
+                    $motorStmt->execute([$item['motor_id'], $businessId]);
+                    $motorRow = $motorStmt->fetch(PDO::FETCH_ASSOC);
+                    if (!$motorRow) throw new Exception('Armada motor tidak ditemukan');
+                    if ($motorRow['status'] !== 'available') throw new Exception("Motor {$motorRow['plate_number']} tidak tersedia");
+                    $item['description'] = trim((string)($item['description'] ?? '')) ?: ($motorRow['motor_name'] . ' (' . $motorRow['plate_number'] . ')');
+                    $motorRentalItems[] = ['item' => $item, 'row' => $motorRow];
+                }
+
+                if (($item['service_type'] ?? '') === 'car_rental') {
+                    $item['car_id'] = (int)($item['car_id'] ?? 0);
+                    if (!$item['car_id'] || !$item['start_dt'] || !$item['end_dt']) {
+                        throw new Exception('Rental mobil/taxi wajib pilih armada, mulai, dan selesai');
+                    }
+                    $carStmt = $pdo->prepare("SELECT * FROM rental_cars WHERE id=? AND business_id=?");
+                    $carStmt->execute([$item['car_id'], $businessId]);
+                    $carRow = $carStmt->fetch(PDO::FETCH_ASSOC);
+                    if (!$carRow) throw new Exception('Armada mobil tidak ditemukan');
+                    if ($carRow['status'] !== 'available') throw new Exception("Mobil {$carRow['plate_number']} tidak tersedia");
+                    $baseDesc = $carRow['car_name'] . ' (' . $carRow['plate_number'] . ')';
+                    if ($item['trip_destination']) {
+                        $baseDesc .= ' — Tujuan: ' . $item['trip_destination'];
+                    }
+                    $item['description'] = trim((string)($item['description'] ?? '')) ?: $baseDesc;
+                    $carRentalItems[] = ['item' => $item, 'row' => $carRow];
                 }
             }
             unset($item);
@@ -478,12 +529,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 $existingStmt->execute([$businessId, $bookingId]);
                 $existingInvId = (int)$existingStmt->fetchColumn() ?: null;
             }
+            if (!$existingInvId) {
+                $existingStmt = $pdo->prepare("
+                    SELECT id FROM hotel_invoices
+                    WHERE business_id = ? AND guest_name = ?
+                      AND payment_status IN ('unpaid','partial')
+                      AND status = 'confirmed'
+                      AND cashbook_synced = 0
+                      AND (booking_id IS NULL OR booking_id = ? OR ? IS NULL)
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                ");
+                $existingStmt->execute([$businessId, $guestName, $bookingId, $bookingId]);
+                $existingInvId = (int)$existingStmt->fetchColumn() ?: null;
+            }
 
             $pdo->beginTransaction();
             
             if ($existingInvId) {
                 // Reuse existing invoice - add items to it
                 $invId = $existingInvId;
+                $invLoad = $pdo->prepare("SELECT invoice_number, paid_amount, tax_rate, service_charge_rate, discount_rate FROM hotel_invoices WHERE id=? AND business_id=? LIMIT 1");
+                $invLoad->execute([$invId, $businessId]);
+                $existingInvoice = $invLoad->fetch(PDO::FETCH_ASSOC);
+                if (!$existingInvoice) throw new Exception('Invoice existing tidak ditemukan');
+                $sumStmt = $pdo->prepare("SELECT COALESCE(SUM(total_price),0) FROM hotel_invoice_items WHERE invoice_id=?");
+                $sumStmt->execute([$invId]);
+                $existingSubtotal = (float)$sumStmt->fetchColumn();
                 // Update totals based on new items
                 $iStmt = $pdo->prepare("INSERT INTO hotel_invoice_items
                     (invoice_id, service_type, description, quantity, unit_price, total_price, start_datetime, end_datetime)
@@ -500,15 +572,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                         $item['end_dt'] ?: null,
                     ]);
                 }
-                // Update invoice total with new items
+                $mergedSubtotal = $existingSubtotal + $subtotal;
+                $mergedServiceChargeRate = (float)($existingInvoice['service_charge_rate'] ?? 0);
+                $mergedDiscountRate = (float)($existingInvoice['discount_rate'] ?? 0);
+                $mergedTaxRate = (float)($existingInvoice['tax_rate'] ?? 0);
+                $mergedServiceCharge = round($mergedSubtotal * $mergedServiceChargeRate / 100, 2);
+                $mergedDiscount = round($mergedSubtotal * $mergedDiscountRate / 100, 2);
+                $mergedAfterChargeDiscount = $mergedSubtotal + $mergedServiceCharge - $mergedDiscount;
+                $mergedTax = round($mergedAfterChargeDiscount * $mergedTaxRate / 100, 2);
+                $mergedTotal = $mergedAfterChargeDiscount + $mergedTax;
+                $mergedPaid = min((float)($existingInvoice['paid_amount'] ?? 0), $mergedTotal);
+                $mergedRemaining = $mergedTotal - $mergedPaid;
+                $mergedPayStatus = ($mergedPaid <= 0) ? 'unpaid' : ($mergedRemaining <= 0 ? 'paid' : 'partial');
                 $pdo->prepare("UPDATE hotel_invoices 
-                    SET total = total + ?, 
-                        payment_status = CASE WHEN (total + ?) >= paid_amount THEN 'partial' ELSE 'unpaid' END,
+                    SET total = ?,
+                        payment_status = ?,
+                        tax_amount = ?,
+                        service_charge_amount = ?,
+                        discount_amount = ?,
                         updated_at = NOW()
                     WHERE id = ? AND cashbook_synced = 0")
-                    ->execute([$subtotal, $subtotal, $invId]);
-                $invNo = $pdo->prepare("SELECT invoice_number FROM hotel_invoices WHERE id = ?")->execute([$invId]);
-                $invNo = $pdo->prepare("SELECT invoice_number FROM hotel_invoices WHERE id = ?")->execute([$invId])->fetchColumn();
+                    ->execute([$mergedTotal, $mergedPayStatus, $mergedTax, $mergedServiceCharge, $mergedDiscount, $invId]);
+                $invNo = (string)$existingInvoice['invoice_number'];
             } else {
                 // Create new invoice
                 $prefix = 'HSV-' . date('Ym') . '-';
@@ -560,6 +645,66 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                         $item['end_dt'] ?: null,
                     ]);
                 }
+            }
+
+            foreach ($motorRentalItems as $motorRental) {
+                $item = $motorRental['item'];
+                $motorRow = $motorRental['row'];
+                $pdo->prepare("INSERT INTO rental_motor_bookings
+                    (business_id, motor_id, invoice_id, guest_name, guest_phone, room_number, booking_id,
+                     start_datetime, end_datetime, daily_rate, total_price, deposit, status, notes, created_by)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+                    ->execute([
+                        $businessId,
+                        (int)$motorRow['id'],
+                        $invId,
+                        $guestName,
+                        $guestPhone ?: null,
+                        $roomNumber ?: null,
+                        $bookingId,
+                        $item['start_dt'],
+                        $item['end_dt'],
+                        $item['unit_price'],
+                        $item['total'],
+                        $item['deposit'],
+                        'active',
+                        $notes ?: null,
+                        $currentUser['id'] ?? null
+                    ]);
+                $pdo->prepare("UPDATE rental_motors SET status='rented', updated_at=NOW() WHERE id=?")
+                    ->execute([(int)$motorRow['id']]);
+            }
+
+            foreach ($carRentalItems as $carRental) {
+                $item = $carRental['item'];
+                $carRow = $carRental['row'];
+                $pdo->prepare("INSERT INTO rental_car_bookings
+                    (business_id, car_id, invoice_id, guest_name, guest_phone, room_number, booking_id,
+                     start_datetime, end_datetime, daily_rate, total_price, owner_amount, hotel_commission,
+                     deposit, trip_destination, status, notes, created_by)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+                    ->execute([
+                        $businessId,
+                        (int)$carRow['id'],
+                        $invId,
+                        $guestName,
+                        $guestPhone ?: null,
+                        $roomNumber ?: null,
+                        $bookingId,
+                        $item['start_dt'],
+                        $item['end_dt'],
+                        $item['unit_price'],
+                        $item['total'],
+                        0,
+                        0,
+                        $item['deposit'],
+                        $item['trip_destination'],
+                        'active',
+                        $notes ?: null,
+                        $currentUser['id'] ?? null
+                    ]);
+                $pdo->prepare("UPDATE rental_cars SET status='rented', updated_at=NOW() WHERE id=?")
+                    ->execute([(int)$carRow['id']]);
             }
             $pdo->commit();
 
@@ -918,17 +1063,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             if (empty($items)) throw new Exception('At least one service item is required');
 
             // Verify invoice belongs to this business
-            $chk = $pdo->prepare("SELECT id FROM hotel_invoices WHERE id=? AND business_id=? AND cashbook_synced=0");
+            $chk = $pdo->prepare("SELECT id, booking_id FROM hotel_invoices WHERE id=? AND business_id=? AND cashbook_synced=0");
             $chk->execute([$id, $businessId]);
-            if (!$chk->fetch()) throw new Exception('Invoice not found or already processed (cannot edit processed invoices)');
+            $invoiceRow = $chk->fetch(PDO::FETCH_ASSOC);
+            if (!$invoiceRow) throw new Exception('Invoice not found or already processed (cannot edit processed invoices)');
+            $invoiceBookingId = (int)($invoiceRow['booking_id'] ?? 0) ?: null;
+
+            $existingMotorRows = $pdo->prepare("SELECT rb.*, rm.status as asset_status, rm.plate_number, rm.motor_name
+                FROM rental_motor_bookings rb
+                JOIN rental_motors rm ON rb.motor_id = rm.id
+                WHERE rb.invoice_id=? AND rb.business_id=?");
+            $existingMotorRows->execute([$id, $businessId]);
+            $existingMotorBookings = $existingMotorRows->fetchAll(PDO::FETCH_ASSOC);
+            $existingMotorByAssetId = [];
+            foreach ($existingMotorBookings as $row) {
+                $existingMotorByAssetId[(int)$row['motor_id']] = $row;
+            }
+
+            $existingCarRows = $pdo->prepare("SELECT cb.*, rc.status as asset_status, rc.plate_number, rc.car_name
+                FROM rental_car_bookings cb
+                JOIN rental_cars rc ON cb.car_id = rc.id
+                WHERE cb.invoice_id=? AND cb.business_id=?");
+            $existingCarRows->execute([$id, $businessId]);
+            $existingCarBookings = $existingCarRows->fetchAll(PDO::FETCH_ASSOC);
+            $existingCarByAssetId = [];
+            foreach ($existingCarBookings as $row) {
+                $existingCarByAssetId[(int)$row['car_id']] = $row;
+            }
 
             $subtotal = 0;
+            $motorRentalItems = [];
+            $carRentalItems = [];
             foreach ($items as &$item) {
                 $item['qty']        = max(0.5, (float)($item['qty'] ?? 1));
                 $item['unit_price'] = max(0, (float)($item['unit_price'] ?? 0));
+                $item['start_dt']   = trim((string)($item['start_dt'] ?? '')) ?: null;
+                $item['end_dt']     = trim((string)($item['end_dt'] ?? '')) ?: null;
+                $item['deposit']    = max(0, (float)($item['deposit'] ?? 0));
+                $item['trip_destination'] = trim((string)($item['trip_destination'] ?? '')) ?: null;
                 $item['total']      = round($item['qty'] * $item['unit_price'], 2);
                 $subtotal += $item['total'];
                 if (!isset($serviceTypes[$item['service_type'] ?? ''])) throw new Exception('Invalid service type');
+
+                if (($item['service_type'] ?? '') === 'motor_rental') {
+                    $item['motor_id'] = (int)($item['motor_id'] ?? 0);
+                    if (!$item['motor_id'] || !$item['start_dt'] || !$item['end_dt']) throw new Exception('Motor rental wajib pilih armada, mulai, dan selesai');
+                    $motorStmt = $pdo->prepare("SELECT * FROM rental_motors WHERE id=? AND business_id=?");
+                    $motorStmt->execute([$item['motor_id'], $businessId]);
+                    $motorRow = $motorStmt->fetch(PDO::FETCH_ASSOC);
+                    if (!$motorRow) throw new Exception('Armada motor tidak ditemukan');
+                    if ($motorRow['status'] !== 'available' && !isset($existingMotorByAssetId[$item['motor_id']])) throw new Exception("Motor {$motorRow['plate_number']} tidak tersedia");
+                    $item['description'] = trim((string)($item['description'] ?? '')) ?: ($motorRow['motor_name'] . ' (' . $motorRow['plate_number'] . ')');
+                    $motorRentalItems[] = ['item' => $item, 'row' => $motorRow];
+                }
+
+                if (($item['service_type'] ?? '') === 'car_rental') {
+                    $item['car_id'] = (int)($item['car_id'] ?? 0);
+                    if (!$item['car_id'] || !$item['start_dt'] || !$item['end_dt']) throw new Exception('Rental mobil/taxi wajib pilih armada, mulai, dan selesai');
+                    $carStmt = $pdo->prepare("SELECT * FROM rental_cars WHERE id=? AND business_id=?");
+                    $carStmt->execute([$item['car_id'], $businessId]);
+                    $carRow = $carStmt->fetch(PDO::FETCH_ASSOC);
+                    if (!$carRow) throw new Exception('Armada mobil tidak ditemukan');
+                    if ($carRow['status'] !== 'available' && !isset($existingCarByAssetId[$item['car_id']])) throw new Exception("Mobil {$carRow['plate_number']} tidak tersedia");
+                    $baseDesc = $carRow['car_name'] . ' (' . $carRow['plate_number'] . ')';
+                    if ($item['trip_destination']) $baseDesc .= ' — Tujuan: ' . $item['trip_destination'];
+                    $item['description'] = trim((string)($item['description'] ?? '')) ?: $baseDesc;
+                    $carRentalItems[] = ['item' => $item, 'row' => $carRow];
+                }
             }
             unset($item);
 
@@ -945,9 +1146,103 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $pdo->prepare("UPDATE hotel_invoices SET guest_name=?,guest_phone=?,room_number=?,total=?,paid_amount=?,payment_status=?,payment_method=?,notes=?,tax_rate=?,tax_amount=?,service_charge_rate=?,service_charge_amount=?,discount_rate=?,discount_amount=?,updated_at=NOW() WHERE id=?")
                 ->execute([$guestName, $guestPhone ?: null, $roomNumber ?: null, $total, $paidAmount, $payStatus, $payMethod, $notes ?: null, $taxRate, $taxAmount, $serviceChargeRate, $serviceChargeAmount, $discountRate, $discountAmount, $id]);
             $pdo->prepare("DELETE FROM hotel_invoice_items WHERE invoice_id=?")->execute([$id]);
-            $iStmt = $pdo->prepare("INSERT INTO hotel_invoice_items (invoice_id,service_type,description,quantity,unit_price,total_price) VALUES (?,?,?,?,?,?)");
+            $iStmt = $pdo->prepare("INSERT INTO hotel_invoice_items (invoice_id,service_type,description,quantity,unit_price,total_price,start_datetime,end_datetime) VALUES (?,?,?,?,?,?,?,?)");
             foreach ($items as $item) {
-                $iStmt->execute([$id, $item['service_type'], $item['description'] ?: null, $item['qty'], $item['unit_price'], $item['total']]);
+                $iStmt->execute([$id, $item['service_type'], $item['description'] ?: null, $item['qty'], $item['unit_price'], $item['total'], $item['start_dt'] ?: null, $item['end_dt'] ?: null]);
+            }
+
+            $matchedMotorBookingIds = [];
+            foreach ($motorRentalItems as $motorRental) {
+                $item = $motorRental['item'];
+                $motorRow = $motorRental['row'];
+                $existingBooking = $existingMotorByAssetId[(int)$item['motor_id']] ?? null;
+                if ($existingBooking) {
+                    $matchedMotorBookingIds[] = (int)$existingBooking['id'];
+                    $newStatus = in_array($existingBooking['status'], ['returned', 'cancelled'], true) ? 'active' : $existingBooking['status'];
+                    $pdo->prepare("UPDATE rental_motor_bookings
+                        SET invoice_id=?, guest_name=?, guest_phone=?, room_number=?, booking_id=?,
+                            start_datetime=?, end_datetime=?, daily_rate=?, total_price=?, deposit=?,
+                            status=?, notes=?, updated_at=NOW()
+                        WHERE id=? AND business_id=?")
+                        ->execute([$id, $guestName, $guestPhone ?: null, $roomNumber ?: null, $invoiceBookingId,
+                            $item['start_dt'], $item['end_dt'], $item['unit_price'], $item['total'], $item['deposit'],
+                            $newStatus, $notes ?: null, $existingBooking['id'], $businessId]);
+                } else {
+                    $pdo->prepare("INSERT INTO rental_motor_bookings
+                        (business_id, motor_id, invoice_id, guest_name, guest_phone, room_number, booking_id,
+                         start_datetime, end_datetime, daily_rate, total_price, deposit, status, notes, created_by)
+                        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+                        ->execute([$businessId, (int)$motorRow['id'], $id, $guestName, $guestPhone ?: null, $roomNumber ?: null, $invoiceBookingId,
+                            $item['start_dt'], $item['end_dt'], $item['unit_price'], $item['total'], $item['deposit'], 'active', $notes ?: null, $currentUser['id'] ?? null]);
+                    $matchedMotorBookingIds[] = (int)$pdo->lastInsertId();
+                }
+                $pdo->prepare("UPDATE rental_motors SET status='rented', updated_at=NOW() WHERE id=?")
+                    ->execute([(int)$motorRow['id']]);
+            }
+
+            foreach ($existingMotorBookings as $booking) {
+                if (in_array((int)$booking['id'], $matchedMotorBookingIds, true)) continue;
+                if (in_array($booking['status'], ['active', 'overdue'], true)) {
+                    $pdo->prepare("UPDATE rental_motor_bookings SET status='cancelled', invoice_id=NULL, updated_at=NOW() WHERE id=? AND business_id=?")
+                        ->execute([$booking['id'], $businessId]);
+                    $activeCheck = $pdo->prepare("SELECT COUNT(*) FROM rental_motor_bookings WHERE motor_id=? AND status IN ('active','overdue') AND id<>? AND business_id=?");
+                    $activeCheck->execute([$booking['motor_id'], $booking['id'], $businessId]);
+                    if ((int)$activeCheck->fetchColumn() === 0) {
+                        $pdo->prepare("UPDATE rental_motors SET status='available', updated_at=NOW() WHERE id=?")
+                            ->execute([$booking['motor_id']]);
+                    }
+                } else {
+                    $pdo->prepare("UPDATE rental_motor_bookings SET invoice_id=NULL, updated_at=NOW() WHERE id=? AND business_id=?")
+                        ->execute([$booking['id'], $businessId]);
+                }
+            }
+
+            $matchedCarBookingIds = [];
+            foreach ($carRentalItems as $carRental) {
+                $item = $carRental['item'];
+                $carRow = $carRental['row'];
+                $existingBooking = $existingCarByAssetId[(int)$item['car_id']] ?? null;
+                if ($existingBooking) {
+                    $matchedCarBookingIds[] = (int)$existingBooking['id'];
+                    $newStatus = in_array($existingBooking['status'], ['returned', 'cancelled'], true) ? 'active' : $existingBooking['status'];
+                    $pdo->prepare("UPDATE rental_car_bookings
+                        SET invoice_id=?, guest_name=?, guest_phone=?, room_number=?, booking_id=?,
+                            start_datetime=?, end_datetime=?, daily_rate=?, total_price=?, deposit=?,
+                            trip_destination=?, status=?, notes=?, updated_at=NOW()
+                        WHERE id=? AND business_id=?")
+                        ->execute([$id, $guestName, $guestPhone ?: null, $roomNumber ?: null, $invoiceBookingId,
+                            $item['start_dt'], $item['end_dt'], $item['unit_price'], $item['total'], $item['deposit'],
+                            $item['trip_destination'], $newStatus, $notes ?: null, $existingBooking['id'], $businessId]);
+                } else {
+                    $pdo->prepare("INSERT INTO rental_car_bookings
+                        (business_id, car_id, invoice_id, guest_name, guest_phone, room_number, booking_id,
+                         start_datetime, end_datetime, daily_rate, total_price, owner_amount, hotel_commission,
+                         deposit, trip_destination, status, notes, created_by)
+                        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+                        ->execute([$businessId, (int)$carRow['id'], $id, $guestName, $guestPhone ?: null, $roomNumber ?: null, $invoiceBookingId,
+                            $item['start_dt'], $item['end_dt'], $item['unit_price'], $item['total'], 0, 0,
+                            $item['deposit'], $item['trip_destination'], 'active', $notes ?: null, $currentUser['id'] ?? null]);
+                    $matchedCarBookingIds[] = (int)$pdo->lastInsertId();
+                }
+                $pdo->prepare("UPDATE rental_cars SET status='rented', updated_at=NOW() WHERE id=?")
+                    ->execute([(int)$carRow['id']]);
+            }
+
+            foreach ($existingCarBookings as $booking) {
+                if (in_array((int)$booking['id'], $matchedCarBookingIds, true)) continue;
+                if (in_array($booking['status'], ['active', 'overdue'], true)) {
+                    $pdo->prepare("UPDATE rental_car_bookings SET status='cancelled', invoice_id=NULL, updated_at=NOW() WHERE id=? AND business_id=?")
+                        ->execute([$booking['id'], $businessId]);
+                    $activeCheck = $pdo->prepare("SELECT COUNT(*) FROM rental_car_bookings WHERE car_id=? AND status IN ('active','overdue') AND id<>? AND business_id=?");
+                    $activeCheck->execute([$booking['car_id'], $booking['id'], $businessId]);
+                    if ((int)$activeCheck->fetchColumn() === 0) {
+                        $pdo->prepare("UPDATE rental_cars SET status='available', updated_at=NOW() WHERE id=?")
+                            ->execute([$booking['car_id']]);
+                    }
+                } else {
+                    $pdo->prepare("UPDATE rental_car_bookings SET invoice_id=NULL, updated_at=NOW() WHERE id=? AND business_id=?")
+                        ->execute([$booking['id'], $businessId]);
+                }
             }
             $pdo->commit();
             ob_clean();
@@ -1035,6 +1330,22 @@ try {
     $inHouseGuests = [];
 }
 
+try {
+    $motorStmt = $pdo->prepare("SELECT id, plate_number, motor_name, daily_rate FROM rental_motors WHERE business_id=? AND status='available' ORDER BY motor_name ASC, plate_number ASC");
+    $motorStmt->execute([$businessId]);
+    $availableMotors = $motorStmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (\Throwable $e) {
+    $availableMotors = [];
+}
+
+try {
+    $carStmt = $pdo->prepare("SELECT id, plate_number, car_name, car_type, daily_rate FROM rental_cars WHERE business_id=? AND status='available' ORDER BY car_name ASC, plate_number ASC");
+    $carStmt->execute([$businessId]);
+    $availableCars = $carStmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (\Throwable $e) {
+    $availableCars = [];
+}
+
 // ── GET: load invoice for edit modal ─────────────────────────────────────────
 if (isset($_GET['get_invoice']) && isset($_GET['id'])) {
     $gid = (int)$_GET['id'];
@@ -1047,6 +1358,46 @@ if (isset($_GET['get_invoice']) && isset($_GET['id'])) {
         $gItems = $pdo->prepare("SELECT * FROM hotel_invoice_items WHERE invoice_id=? ORDER BY id");
         $gItems->execute([$gid]);
         $gRow['items'] = $gItems->fetchAll(PDO::FETCH_ASSOC);
+        $motorMapStmt = $pdo->prepare("SELECT rb.*, rm.plate_number, rm.motor_name
+            FROM rental_motor_bookings rb
+            JOIN rental_motors rm ON rb.motor_id = rm.id
+            WHERE rb.invoice_id=? AND rb.business_id=?");
+        $motorMapStmt->execute([$gid, $businessId]);
+        $motorRentals = $motorMapStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $carMapStmt = $pdo->prepare("SELECT cb.*, rc.plate_number, rc.car_name, rc.car_type
+            FROM rental_car_bookings cb
+            JOIN rental_cars rc ON cb.car_id = rc.id
+            WHERE cb.invoice_id=? AND cb.business_id=?");
+        $carMapStmt->execute([$gid, $businessId]);
+        $carRentals = $carMapStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($gRow['items'] as &$gItem) {
+            if (($gItem['service_type'] ?? '') === 'motor_rental') {
+                foreach ($motorRentals as $mr) {
+                    if (strpos((string)($gItem['description'] ?? ''), (string)$mr['plate_number']) !== false) {
+                        $gItem['motor_id'] = (int)$mr['motor_id'];
+                        $gItem['start_dt'] = $mr['start_datetime'];
+                        $gItem['end_dt'] = $mr['end_datetime'];
+                        $gItem['deposit'] = (float)$mr['deposit'];
+                        break;
+                    }
+                }
+            }
+            if (($gItem['service_type'] ?? '') === 'car_rental') {
+                foreach ($carRentals as $cr) {
+                    if (strpos((string)($gItem['description'] ?? ''), (string)$cr['plate_number']) !== false) {
+                        $gItem['car_id'] = (int)$cr['car_id'];
+                        $gItem['start_dt'] = $cr['start_datetime'];
+                        $gItem['end_dt'] = $cr['end_datetime'];
+                        $gItem['deposit'] = (float)$cr['deposit'];
+                        $gItem['trip_destination'] = $cr['trip_destination'];
+                        break;
+                    }
+                }
+            }
+        }
+        unset($gItem);
         $gRow['success'] = true;
         echo json_encode($gRow);
     } catch (\Throwable $e) {
@@ -1232,6 +1583,37 @@ include '../../includes/header.php';
         color: #5b21b6;
         margin: 0.1rem 0.1rem 0 0;
         white-space: nowrap;
+    }
+
+    .hs-rental-extra {
+        display: none;
+        margin-top: 0.35rem;
+        padding: 0.45rem;
+        border: 1px dashed #cbd5e1;
+        border-radius: 8px;
+        background: #f8fafc;
+        gap: 0.4rem;
+    }
+
+    .hs-rental-extra.open {
+        display: grid;
+    }
+
+    .hs-rental-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.35rem;
+    }
+
+    .hs-rental-extra input,
+    .hs-rental-extra select {
+        width: 100%;
+        padding: 0.38rem 0.5rem;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        font-size: 0.76rem;
+        box-sizing: border-box;
+        background: #fff;
     }
 
     .hs-action-btn {
@@ -1634,7 +2016,7 @@ include '../../includes/header.php';
             </div>
             <div style="display:flex;flex-wrap:wrap;gap:0.6rem;">
                 <?php
-                $svcColors = ['motor_rental' => '#f59e0b', 'laundry' => '#3b82f6', 'service' => '#10b981', 'airport_drop' => '#8b5cf6', 'harbor_drop' => '#06b6d4', 'narayana_trip' => '#ec4899', 'lain_lain' => '#78716c'];
+                $svcColors = ['motor_rental' => '#f59e0b', 'car_rental' => '#0f766e', 'laundry' => '#3b82f6', 'service' => '#10b981', 'airport_drop' => '#8b5cf6', 'harbor_drop' => '#06b6d4', 'narayana_trip' => '#ec4899', 'lain_lain' => '#78716c'];
                 foreach ($svcRevStats as $sr):
                     $svcKey  = $sr['service_type'];
                     $svcInfo = $serviceTypes[$svcKey] ?? ['label' => $svcKey, 'icon' => '🔹'];
@@ -2130,6 +2512,8 @@ include '../../includes/header.php';
                             }
                             echo json_encode($catalogByType);
                             ?>;
+    const RENTAL_MOTORS = <?php echo json_encode(array_map(fn($m) => ['id' => (int)$m['id'], 'label' => $m['motor_name'] . ' (' . $m['plate_number'] . ')', 'daily_rate' => (float)$m['daily_rate']], $availableMotors)); ?>;
+    const RENTAL_CARS = <?php echo json_encode(array_map(fn($c) => ['id' => (int)$c['id'], 'label' => $c['car_name'] . ' (' . $c['plate_number'] . ')' . (!empty($c['car_type']) ? ' - ' . $c['car_type'] : ''), 'daily_rate' => (float)$c['daily_rate']], $availableCars)); ?>;
 
     // ── Guest mode ────────────────────────────────────────────────────────────────
     function setGuestMode(mode) {
@@ -2169,6 +2553,25 @@ include '../../includes/header.php';
         ).join('');
     }
 
+    function buildRentalAssetOpts(items, selected) {
+        let html = '<option value="">Pilih armada...</option>';
+        items.forEach(item => {
+            html += `<option value="${item.id}" data-rate="${item.daily_rate}" ${String(item.id)===String(selected||'')?'selected':''}>${item.label}</option>`;
+        });
+        return html;
+    }
+
+    function isRentalService(svc) {
+        return svc === 'motor_rental' || svc === 'car_rental';
+    }
+
+    function rentalDefaultDate(offsetDays) {
+        const dt = new Date();
+        dt.setDate(dt.getDate() + offsetDays);
+        dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
+        return dt.toISOString().slice(0, 16);
+    }
+
     function addItemRow(svc, desc, qty, price) {
         rowCnt++;
         const id = 'r' + rowCnt;
@@ -2176,7 +2579,20 @@ include '../../includes/header.php';
         tr.id = id;
         tr.innerHTML =
             `<td><select class="iSvc" onchange="onSvcChange('${id}')">${buildSvcOpts(svc||'')}</select></td>` +
-            `<td><input type="text" class="iDesc" placeholder="e.g. Honda Beat 2 days" value="${desc||''}"></td>` +
+            `<td>` +
+            `<input type="text" class="iDesc" placeholder="e.g. Honda Beat 2 days" value="${(desc||'').replace(/"/g,'&quot;')}">` +
+            `<div class="hs-rental-extra">` +
+            `<select class="iAsset" onchange="onRentalAssetChange('${id}')"></select>` +
+            `<div class="hs-rental-grid">` +
+            `<input type="datetime-local" class="iStart" onchange="syncRentalDuration('${id}')">` +
+            `<input type="datetime-local" class="iEnd" onchange="syncRentalDuration('${id}')">` +
+            `</div>` +
+            `<div class="hs-rental-grid">` +
+            `<input type="number" class="iDeposit" value="0" min="0" placeholder="Deposit (Rp)">` +
+            `<input type="text" class="iDest" placeholder="Tujuan / catatan mobil">` +
+            `</div>` +
+            `</div>` +
+            `</td>` +
             `<td><input type="number" class="iQty" value="${qty||1}" min="0.5" step="0.5" style="width:60px" oninput="rcalc('${id}')"></td>` +
             `<td><input type="number" class="iPrice" value="${price||0}" min="0" style="width:105px" oninput="rcalc('${id}')"></td>` +
             `<td style="font-weight:700;color:#4338ca;text-align:right;white-space:nowrap" class="iTotal">Rp 0</td>` +
@@ -2193,7 +2609,25 @@ include '../../includes/header.php';
         const svc = tr.querySelector('.iSvc').value;
         const priceInput = tr.querySelector('.iPrice');
         const descInput = tr.querySelector('.iDesc');
+        const rentalWrap = tr.querySelector('.hs-rental-extra');
+        const assetSelect = tr.querySelector('.iAsset');
+        const destInput = tr.querySelector('.iDest');
         const items = CATALOG_DATA[svc];
+        const rentalItems = svc === 'motor_rental' ? RENTAL_MOTORS : (svc === 'car_rental' ? RENTAL_CARS : []);
+        if (isRentalService(svc)) {
+            rentalWrap.classList.add('open');
+            assetSelect.innerHTML = buildRentalAssetOpts(rentalItems, assetSelect.value);
+            destInput.style.display = svc === 'car_rental' ? '' : 'none';
+            if (!tr.querySelector('.iStart').value) tr.querySelector('.iStart').value = rentalDefaultDate(0);
+            if (!tr.querySelector('.iEnd').value) tr.querySelector('.iEnd').value = rentalDefaultDate(1);
+        } else {
+            rentalWrap.classList.remove('open');
+            assetSelect.innerHTML = '<option value="">Pilih armada...</option>';
+            tr.querySelector('.iStart').value = '';
+            tr.querySelector('.iEnd').value = '';
+            tr.querySelector('.iDeposit').value = 0;
+            tr.querySelector('.iDest').value = '';
+        }
         if (items && items.length > 0) {
             // On new row: fill only if still empty/zero
             // On manual service-type change: always sync from catalog
@@ -2209,7 +2643,49 @@ include '../../includes/header.php';
             // Switched to a type with no catalog entry — clear price so user must enter manually
             priceInput.value = 0;
         }
+        if (isRentalService(svc)) {
+            onRentalAssetChange(id, !!isNew);
+            syncRentalDuration(id);
+        }
         rcalc(id);
+    }
+
+    function onRentalAssetChange(id, keepManualDesc) {
+        const tr = document.getElementById(id);
+        if (!tr) return;
+        const svc = tr.querySelector('.iSvc').value;
+        const assetSelect = tr.querySelector('.iAsset');
+        const selectedId = assetSelect.value;
+        const source = svc === 'motor_rental' ? RENTAL_MOTORS : RENTAL_CARS;
+        const chosen = source.find(item => String(item.id) === String(selectedId));
+        if (!chosen) return;
+        const priceInput = tr.querySelector('.iPrice');
+        const descInput = tr.querySelector('.iDesc');
+        if (!priceInput.value || parseFloat(priceInput.value) === 0 || !keepManualDesc) {
+            priceInput.value = chosen.daily_rate;
+        }
+        if (!descInput.value.trim() || descInput.dataset.autoFilled === '1' || !keepManualDesc) {
+            descInput.value = chosen.label;
+            descInput.dataset.autoFilled = '1';
+        }
+        syncRentalDuration(id);
+    }
+
+    function syncRentalDuration(id) {
+        const tr = document.getElementById(id);
+        if (!tr) return;
+        const svc = tr.querySelector('.iSvc').value;
+        if (!isRentalService(svc)) return;
+        const startVal = tr.querySelector('.iStart').value;
+        const endVal = tr.querySelector('.iEnd').value;
+        if (!startVal || !endVal) return;
+        const start = new Date(startVal);
+        const end = new Date(endVal);
+        const diffHours = (end - start) / (1000 * 60 * 60);
+        if (Number.isFinite(diffHours) && diffHours > 0) {
+            tr.querySelector('.iQty').value = Math.max(1, Math.ceil(diffHours / 24));
+            rcalc(id);
+        }
     }
 
     function delRow(id) {
@@ -2358,11 +2834,25 @@ include '../../includes/header.php';
                 alert('Select service type for all rows');
                 return;
             }
+            const motorId = svc === 'motor_rental' ? parseInt(tr.querySelector('.iAsset').value || '0', 10) : 0;
+            const carId = svc === 'car_rental' ? parseInt(tr.querySelector('.iAsset').value || '0', 10) : 0;
+            const startDt = tr.querySelector('.iStart').value || '';
+            const endDt = tr.querySelector('.iEnd').value || '';
+            if ((svc === 'motor_rental' || svc === 'car_rental') && (!startDt || !endDt || (!motorId && !carId))) {
+                alert('Item rental motor/mobil wajib pilih armada dan periode sewa');
+                return;
+            }
             items.push({
                 service_type: svc,
                 description: tr.querySelector('.iDesc').value.trim(),
                 qty: parseFloat(tr.querySelector('.iQty').value) || 1,
-                unit_price: parseFloat(tr.querySelector('.iPrice').value) || 0
+                unit_price: parseFloat(tr.querySelector('.iPrice').value) || 0,
+                motor_id: motorId || null,
+                car_id: carId || null,
+                start_dt: startDt || null,
+                end_dt: endDt || null,
+                deposit: parseFloat(tr.querySelector('.iDeposit').value) || 0,
+                trip_destination: tr.querySelector('.iDest').value.trim() || null
             });
         }
 
@@ -2670,7 +3160,7 @@ include '../../includes/header.php';
                 document.getElementById('eDiscount').value = parseFloat(inv.discount_rate) || 0;
                 document.getElementById('eItemsBody').innerHTML = '';
                 eRowCnt = 0;
-                (inv.items || []).forEach(it => eAddItemRow(it.service_type, it.description, it.quantity, it.unit_price));
+                (inv.items || []).forEach(it => eAddItemRow(it));
                 eRefreshTotal();
                 document.getElementById('editModal').classList.add('open');
             })
@@ -2681,21 +3171,52 @@ include '../../includes/header.php';
         document.getElementById('editModal').classList.remove('open');
     }
 
-    function eAddItemRow(svc, desc, qty, price) {
+    function eAddItemRow(itemOrSvc, desc, qty, price) {
+        const item = typeof itemOrSvc === 'object' && itemOrSvc !== null ? itemOrSvc : {
+            service_type: itemOrSvc,
+            description: desc,
+            quantity: qty,
+            unit_price: price,
+            motor_id: null,
+            car_id: null,
+            start_dt: null,
+            end_dt: null,
+            deposit: 0,
+            trip_destination: null
+        };
         eRowCnt++;
         const id2 = 'er' + eRowCnt;
         const tr3 = document.createElement('tr');
         tr3.id = id2;
         tr3.innerHTML =
-            `<td><select class="iSvc" onchange="eOnSvcChange('${id2}')">${buildSvcOpts(svc||'')}</select></td>` +
-            `<td><input type="text" class="iDesc" value="${(desc||'').replace(/"/g,'&quot;')}" placeholder="Description"></td>` +
-            `<td><input type="number" class="iQty" value="${qty||1}" min="0.5" step="0.5" style="width:60px" oninput="ercalc('${id2}')"></td>` +
-            `<td><input type="number" class="iPrice" value="${price||0}" min="0" style="width:105px" oninput="ercalc('${id2}')"></td>` +
+            `<td><select class="iSvc" onchange="eOnSvcChange('${id2}')">${buildSvcOpts(item.service_type||'')}</select></td>` +
+            `<td>` +
+            `<input type="text" class="iDesc" value="${(item.description||'').replace(/"/g,'&quot;')}" placeholder="Description">` +
+            `<div class="hs-rental-extra">` +
+            `<select class="iAsset" onchange="eOnRentalAssetChange('${id2}')"></select>` +
+            `<div class="hs-rental-grid">` +
+            `<input type="datetime-local" class="iStart" value="${item.start_dt ? String(item.start_dt).replace(' ', 'T').slice(0,16) : ''}" onchange="eSyncRentalDuration('${id2}')">` +
+            `<input type="datetime-local" class="iEnd" value="${item.end_dt ? String(item.end_dt).replace(' ', 'T').slice(0,16) : ''}" onchange="eSyncRentalDuration('${id2}')">` +
+            `</div>` +
+            `<div class="hs-rental-grid">` +
+            `<input type="number" class="iDeposit" value="${item.deposit||0}" min="0" placeholder="Deposit (Rp)">` +
+            `<input type="text" class="iDest" value="${(item.trip_destination||'').replace(/"/g,'&quot;')}" placeholder="Tujuan / catatan mobil">` +
+            `</div>` +
+            `</div>` +
+            `</td>` +
+            `<td><input type="number" class="iQty" value="${item.quantity||1}" min="0.5" step="0.5" style="width:60px" oninput="ercalc('${id2}')"></td>` +
+            `<td><input type="number" class="iPrice" value="${item.unit_price||0}" min="0" style="width:105px" oninput="ercalc('${id2}')"></td>` +
             `<td style="font-weight:700;color:#4338ca;text-align:right;white-space:nowrap" class="iTotal">Rp 0</td>` +
             `<td><button type="button" class="btn-del-row" onclick="eDelRow('${id2}')">✕</button></td>`;
         document.getElementById('eItemsBody').appendChild(tr3);
-        if (!price) eOnSvcChange(id2, true);
-        else ercalc(id2);
+        if (item.service_type === 'motor_rental') {
+            tr3.querySelector('.iAsset').innerHTML = buildRentalAssetOpts(RENTAL_MOTORS, item.motor_id);
+        }
+        if (item.service_type === 'car_rental') {
+            tr3.querySelector('.iAsset').innerHTML = buildRentalAssetOpts(RENTAL_CARS, item.car_id);
+        }
+        eOnSvcChange(id2, !(item.unit_price > 0));
+        ercalc(id2);
     }
 
     function eOnSvcChange(id2, isNew) {
@@ -2704,7 +3225,23 @@ include '../../includes/header.php';
         const svc = tr3.querySelector('.iSvc').value;
         const priceInput = tr3.querySelector('.iPrice');
         const descInput = tr3.querySelector('.iDesc');
+        const rentalWrap = tr3.querySelector('.hs-rental-extra');
+        const assetSelect = tr3.querySelector('.iAsset');
+        const destInput = tr3.querySelector('.iDest');
         const items = CATALOG_DATA[svc];
+        const rentalItems = svc === 'motor_rental' ? RENTAL_MOTORS : (svc === 'car_rental' ? RENTAL_CARS : []);
+        if (isRentalService(svc)) {
+            rentalWrap.classList.add('open');
+            assetSelect.innerHTML = buildRentalAssetOpts(rentalItems, assetSelect.value);
+            destInput.style.display = svc === 'car_rental' ? '' : 'none';
+        } else {
+            rentalWrap.classList.remove('open');
+            assetSelect.innerHTML = '<option value="">Pilih armada...</option>';
+            tr3.querySelector('.iStart').value = '';
+            tr3.querySelector('.iEnd').value = '';
+            tr3.querySelector('.iDeposit').value = 0;
+            tr3.querySelector('.iDest').value = '';
+        }
         if (items && items.length > 0) {
             if (isNew) {
                 if (parseFloat(priceInput.value) === 0) priceInput.value = items[0].price;
@@ -2716,7 +3253,49 @@ include '../../includes/header.php';
         } else if (!isNew) {
             priceInput.value = 0;
         }
+        if (isRentalService(svc)) {
+            eOnRentalAssetChange(id2, !!isNew);
+            eSyncRentalDuration(id2);
+        }
         ercalc(id2);
+    }
+
+    function eOnRentalAssetChange(id2, keepManualDesc) {
+        const tr3 = document.getElementById(id2);
+        if (!tr3) return;
+        const svc = tr3.querySelector('.iSvc').value;
+        const assetSelect = tr3.querySelector('.iAsset');
+        const selectedId = assetSelect.value;
+        const source = svc === 'motor_rental' ? RENTAL_MOTORS : RENTAL_CARS;
+        const chosen = source.find(item => String(item.id) === String(selectedId));
+        if (!chosen) return;
+        const priceInput = tr3.querySelector('.iPrice');
+        const descInput = tr3.querySelector('.iDesc');
+        if (!priceInput.value || parseFloat(priceInput.value) === 0 || !keepManualDesc) {
+            priceInput.value = chosen.daily_rate;
+        }
+        if (!descInput.value.trim() || descInput.dataset.autoFilled === '1' || !keepManualDesc) {
+            descInput.value = chosen.label;
+            descInput.dataset.autoFilled = '1';
+        }
+        eSyncRentalDuration(id2);
+    }
+
+    function eSyncRentalDuration(id2) {
+        const tr3 = document.getElementById(id2);
+        if (!tr3) return;
+        const svc = tr3.querySelector('.iSvc').value;
+        if (!isRentalService(svc)) return;
+        const startVal = tr3.querySelector('.iStart').value;
+        const endVal = tr3.querySelector('.iEnd').value;
+        if (!startVal || !endVal) return;
+        const start = new Date(startVal);
+        const end = new Date(endVal);
+        const diffHours = (end - start) / (1000 * 60 * 60);
+        if (Number.isFinite(diffHours) && diffHours > 0) {
+            tr3.querySelector('.iQty').value = Math.max(1, Math.ceil(diffHours / 24));
+            ercalc(id2);
+        }
     }
 
     function eDelRow(id) {
@@ -2778,11 +3357,26 @@ include '../../includes/header.php';
         }
         const items = [];
         for (const tr of rows) {
+            const svc = tr.querySelector('.iSvc').value;
+            const motorId = svc === 'motor_rental' ? parseInt(tr.querySelector('.iAsset').value || '0', 10) : 0;
+            const carId = svc === 'car_rental' ? parseInt(tr.querySelector('.iAsset').value || '0', 10) : 0;
+            const startDt = tr.querySelector('.iStart').value || '';
+            const endDt = tr.querySelector('.iEnd').value || '';
+            if ((svc === 'motor_rental' || svc === 'car_rental') && (!startDt || !endDt || (!motorId && !carId))) {
+                alert('Item rental motor/mobil wajib pilih armada dan periode sewa');
+                return;
+            }
             items.push({
-                service_type: tr.querySelector('.iSvc').value,
+                service_type: svc,
                 description: tr.querySelector('.iDesc').value.trim(),
                 qty: parseFloat(tr.querySelector('.iQty').value) || 1,
-                unit_price: parseFloat(tr.querySelector('.iPrice').value) || 0
+                unit_price: parseFloat(tr.querySelector('.iPrice').value) || 0,
+                motor_id: motorId || null,
+                car_id: carId || null,
+                start_dt: startDt || null,
+                end_dt: endDt || null,
+                deposit: parseFloat(tr.querySelector('.iDeposit').value) || 0,
+                trip_destination: tr.querySelector('.iDest').value.trim() || null
             });
         }
         const sel = document.getElementById('eTaxRate');
