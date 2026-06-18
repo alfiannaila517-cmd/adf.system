@@ -1,4 +1,5 @@
 <?php
+
 /**
  * NARAYANA KARIMUNJAWA — Rooms
  * Marriott-style room showcase with real-time availability
@@ -15,7 +16,14 @@ function normalizeRoomTypeKey(string $value): string
 {
     $normalized = strtolower(trim($value));
     $normalized = preg_replace('/[^a-z0-9]+/', '_', $normalized);
-    return trim((string)$normalized, '_');
+    $normalized = trim((string)$normalized, '_');
+
+    // Match settings keys like deluxe_king even if DB type_name is "Deluxe King Room".
+    if (str_ends_with($normalized, '_room')) {
+        $normalized = substr($normalized, 0, -5);
+    }
+
+    return $normalized;
 }
 
 // Load room galleries from settings
@@ -91,7 +99,7 @@ include __DIR__ . '/includes/header.php';
 ?>
 
 <!-- Page Hero -->
-<section class="page-hero"<?php if (!empty($roomsHeroBg)): ?> style="background: linear-gradient(180deg, rgba(0,0,0,0.45), rgba(0,0,0,0.6)), url('<?= htmlspecialchars($roomsHeroBg) ?>') center/cover no-repeat;"<?php endif; ?>>
+<section class="page-hero" <?php if (!empty($roomsHeroBg)): ?> style="background: linear-gradient(180deg, rgba(0,0,0,0.45), rgba(0,0,0,0.6)), url('<?= htmlspecialchars($roomsHeroBg) ?>') center/cover no-repeat;" <?php endif; ?>>
     <div class="container">
         <div class="section-eyebrow" style="color:var(--gold-light);"><?= htmlspecialchars($roomsHeroEyebrow) ?></div>
         <h1><?= htmlspecialchars($roomsHeroTitle) ?></h1>
@@ -109,85 +117,92 @@ include __DIR__ . '/includes/header.php';
             $desc = $roomDescriptions[$typeName] ?? 'A comfortable room designed for your perfect island stay.';
             $avail = (int)$room['available_rooms'];
             $reverse = $i % 2 !== 0;
-            
-            if ($avail >= 3) { $ac = 'available'; $at = $avail . ' rooms available'; }
-            elseif ($avail > 0) { $ac = 'limited'; $at = 'Only ' . $avail . ' remaining'; }
-            else { $ac = 'full'; $at = 'Fully booked today'; }
+
+            if ($avail >= 3) {
+                $ac = 'available';
+                $at = $avail . ' rooms available';
+            } elseif ($avail > 0) {
+                $ac = 'limited';
+                $at = 'Only ' . $avail . ' remaining';
+            } else {
+                $ac = 'full';
+                $at = 'Fully booked today';
+            }
 
             $typeRooms = array_filter($rooms, fn($r) => $r['room_type_id'] == $room['id']);
             $typeKey = normalizeRoomTypeKey($typeName);
             $gallery = $roomGalleries[$typeKey] ?? [];
             $firstImage = !empty($gallery) ? $gallery[0] : null;
         ?>
-        <div class="room-detail <?= $reverse ? 'reverse' : '' ?> fade-in">
-            <!-- Image -->
-            <div class="room-detail-image">
-                <?php if ($firstImage): 
-                    $imgSrc = (str_starts_with($firstImage, 'http://') || str_starts_with($firstImage, 'https://')) 
-                        ? $firstImage 
-                        : BASE_URL . '/' . $firstImage;
-                ?>
-                    <img src="<?= htmlspecialchars($imgSrc) ?>" alt="<?= htmlspecialchars($typeName) ?> Room" style="width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0;">
-                <?php else: ?>
-                    <span class="room-emoji"><?= $icon ?></span>
-                <?php endif; ?>
-                <div style="position:absolute; bottom:12px; left:12px; z-index: 2;">
-                    <span class="avail-badge <?= $ac ?>"><span class="avail-dot"></span><?= $at ?></span>
-                </div>
-            </div>
-
-            <!-- Info -->
-            <div class="room-detail-info">
-                <div class="section-eyebrow"><?= htmlspecialchars($typeName) ?> Room</div>
-                <h2><?= htmlspecialchars($typeName) ?></h2>
-                <div class="divider"></div>
-                <p style="color:var(--warm-gray); line-height:1.7; margin-bottom:12px; font-size:13px;"><?= $desc ?></p>
-
-                <div class="room-specs">
-                    <div class="room-spec"><i class="fas fa-user"></i> Up to <?= $room['max_occupancy'] ?> Guests</div>
-                    <div class="room-spec"><i class="fas fa-door-open"></i> <?= (int)$room['total_rooms'] ?> Rooms</div>
-                    <div class="room-spec"><i class="fas fa-clock"></i> Check-in <?= BUSINESS_CHECKIN_TIME ?></div>
-                    <div class="room-spec"><i class="fas fa-wifi"></i> Free WiFi</div>
+            <div class="room-detail <?= $reverse ? 'reverse' : '' ?> fade-in">
+                <!-- Image -->
+                <div class="room-detail-image">
+                    <?php if ($firstImage):
+                        $imgSrc = (str_starts_with($firstImage, 'http://') || str_starts_with($firstImage, 'https://'))
+                            ? $firstImage
+                            : BASE_URL . '/' . $firstImage;
+                    ?>
+                        <img src="<?= htmlspecialchars($imgSrc) ?>" alt="<?= htmlspecialchars($typeName) ?> Room" style="width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0;">
+                    <?php else: ?>
+                        <span class="room-emoji"><?= $icon ?></span>
+                    <?php endif; ?>
+                    <div style="position:absolute; bottom:12px; left:12px; z-index: 2;">
+                        <span class="avail-badge <?= $ac ?>"><span class="avail-dot"></span><?= $at ?></span>
+                    </div>
                 </div>
 
-                <!-- Amenities -->
-                <div class="room-amenities">
-                    <?php foreach ($amenities as $a): ?>
-                        <span><?= htmlspecialchars($a) ?></span>
-                    <?php endforeach; ?>
-                </div>
+                <!-- Info -->
+                <div class="room-detail-info">
+                    <div class="section-eyebrow"><?= htmlspecialchars($typeName) ?> Room</div>
+                    <h2><?= htmlspecialchars($typeName) ?></h2>
+                    <div class="divider"></div>
+                    <p style="color:var(--warm-gray); line-height:1.7; margin-bottom:12px; font-size:13px;"><?= $desc ?></p>
 
-                <!-- Room Status -->
-                <div style="margin-top:6px;">
-                    <div style="font-size:10px; font-weight:600; letter-spacing:1px; text-transform:uppercase; color:var(--mid-gray); margin-bottom:4px;">Room Status</div>
-                    <div class="room-status-grid">
-                        <?php foreach ($typeRooms as $tr):
-                            $sc = match($tr['live_status']) {
-                                'available' => 'available',
-                                'occupied' => 'occupied',
-                                'cleaning' => 'cleaning',
-                                default => 'maintenance'
-                            };
-                        ?>
-                        <div class="room-status-box <?= $sc ?>" title="Room <?= $tr['room_number'] ?> — <?= ucfirst($tr['live_status']) ?>">
-                            <?= $tr['room_number'] ?>
-                        </div>
+                    <div class="room-specs">
+                        <div class="room-spec"><i class="fas fa-user"></i> Up to <?= $room['max_occupancy'] ?> Guests</div>
+                        <div class="room-spec"><i class="fas fa-door-open"></i> <?= (int)$room['total_rooms'] ?> Rooms</div>
+                        <div class="room-spec"><i class="fas fa-clock"></i> Check-in <?= BUSINESS_CHECKIN_TIME ?></div>
+                        <div class="room-spec"><i class="fas fa-wifi"></i> Free WiFi</div>
+                    </div>
+
+                    <!-- Amenities -->
+                    <div class="room-amenities">
+                        <?php foreach ($amenities as $a): ?>
+                            <span><?= htmlspecialchars($a) ?></span>
                         <?php endforeach; ?>
                     </div>
-                    <div class="status-legend">
-                        <span class="legend-available">Available</span>
-                        <span class="legend-occupied">Occupied</span>
-                        <span class="legend-cleaning">Cleaning</span>
+
+                    <!-- Room Status -->
+                    <div style="margin-top:6px;">
+                        <div style="font-size:10px; font-weight:600; letter-spacing:1px; text-transform:uppercase; color:var(--mid-gray); margin-bottom:4px;">Room Status</div>
+                        <div class="room-status-grid">
+                            <?php foreach ($typeRooms as $tr):
+                                $sc = match ($tr['live_status']) {
+                                    'available' => 'available',
+                                    'occupied' => 'occupied',
+                                    'cleaning' => 'cleaning',
+                                    default => 'maintenance'
+                                };
+                            ?>
+                                <div class="room-status-box <?= $sc ?>" title="Room <?= $tr['room_number'] ?> — <?= ucfirst($tr['live_status']) ?>">
+                                    <?= $tr['room_number'] ?>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                        <div class="status-legend">
+                            <span class="legend-available">Available</span>
+                            <span class="legend-occupied">Occupied</span>
+                            <span class="legend-cleaning">Cleaning</span>
+                        </div>
+                    </div>
+
+                    <!-- Price & CTA -->
+                    <div class="room-detail-footer">
+                        <div class="room-price"><?= formatCurrency($room['base_price']) ?><small> /night</small></div>
+                        <a href="<?= htmlspecialchars(buildCloudbedsReservationUrl()) ?>" class="btn btn-primary">Book Now</a>
                     </div>
                 </div>
-
-                <!-- Price & CTA -->
-                <div class="room-detail-footer">
-                    <div class="room-price"><?= formatCurrency($room['base_price']) ?><small> /night</small></div>
-                    <a href="<?= htmlspecialchars(buildCloudbedsReservationUrl()) ?>" class="btn btn-primary">Book Now</a>
-                </div>
             </div>
-        </div>
         <?php endforeach; ?>
     </div>
 </section>
@@ -212,11 +227,11 @@ include __DIR__ . '/includes/header.php';
             ];
             foreach ($amenList as $am):
             ?>
-            <div class="feature-card fade-in" style="text-align:center;">
-                <div class="feature-icon" style="margin:0 auto 16px;"><i class="fas <?= $am['icon'] ?>"></i></div>
-                <h4><?= $am['name'] ?></h4>
-                <p><?= $am['desc'] ?></p>
-            </div>
+                <div class="feature-card fade-in" style="text-align:center;">
+                    <div class="feature-icon" style="margin:0 auto 16px;"><i class="fas <?= $am['icon'] ?>"></i></div>
+                    <h4><?= $am['name'] ?></h4>
+                    <p><?= $am['desc'] ?></p>
+                </div>
             <?php endforeach; ?>
         </div>
     </div>

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * NARAYANA KARIMUNJAWA — Homepage
  * Marriott-Inspired Clean Luxury Design
@@ -14,7 +15,14 @@ function normalizeRoomTypeKey(string $value): string
 {
     $normalized = strtolower(trim($value));
     $normalized = preg_replace('/[^a-z0-9]+/', '_', $normalized);
-    return trim((string)$normalized, '_');
+    $normalized = trim((string)$normalized, '_');
+
+    // Match settings keys like deluxe_king even if DB type_name is "Deluxe King Room".
+    if (str_ends_with($normalized, '_room')) {
+        $normalized = substr($normalized, 0, -5);
+    }
+
+    return $normalized;
 }
 
 // Load hero settings from database
@@ -75,8 +83,12 @@ try {
     $_actRow = dbFetch("SELECT setting_value FROM settings WHERE setting_key = 'web_activities'");
     $_actList = $_actRow ? json_decode($_actRow['setting_value'], true) : [];
     if (!empty($_actList)) {
-        $_actList = array_filter($_actList, function($a) { return ($a['active'] ?? true) && !empty($a['image']); });
-        usort($_actList, function($a, $b) { return ($a['order'] ?? 0) - ($b['order'] ?? 0); });
+        $_actList = array_filter($_actList, function ($a) {
+            return ($a['active'] ?? true) && !empty($a['image']);
+        });
+        usort($_actList, function ($a, $b) {
+            return ($a['order'] ?? 0) - ($b['order'] ?? 0);
+        });
         $homeActivities = array_values($_actList);
     }
 } catch (Exception $e) {
@@ -85,14 +97,14 @@ try {
 // Fallback defaults if DB empty
 if (empty($homeActivities)) {
     $homeActivities = [
-        ['id'=>'snorkeling','eyebrow'=>'Underwater World','title'=>'Snorkelling in Crystal-Clear Waters','image'=>'https://images.unsplash.com/photo-1534258936925-c58bed479fcb?w=900&q=80','body'=>'Karimunjawa\'s waters are among the clearest in the Java Sea, with visibility reaching 15–20 metres. Float above vibrant coral gardens teeming with clownfish, parrotfish, giant clams, and green sea turtles.','details'=>['Best time: 07:00–11:00','Top spots: Menjangan Kecil, Gosong Cemara','Suitable for all ages & skill levels'],'order'=>1,'active'=>true],
-        ['id'=>'island-hopping','eyebrow'=>'Island Exploration','title'=>'Hopping Between 27 Islands','image'=>'https://images.unsplash.com/photo-1559128010-7c1ad6e1b6a5?w=900&q=80','body'=>'The Karimunjawa archipelago comprises 27 islands — only five are inhabited. Board a traditional wooden boat and sail between pristine beaches, hidden lagoons, and deserted shores.','details'=>['Full-day excursion (08:00–16:00)','Visit 3–5 islands per trip','Grilled seafood lunch included'],'order'=>2,'active'=>true],
-        ['id'=>'diving','eyebrow'=>'Deep Exploration','title'=>'Scuba Diving the Marine National Park','image'=>'https://images.unsplash.com/photo-1682687220742-aba13b6e50ba?w=900&q=80','body'=>'Karimunjawa National Marine Park protects some of Indonesia\'s healthiest reefs — towering sea fans, barrel sponges, reef sharks, Napoleon wrasse, and on lucky days, passing whale sharks.','details'=>['Over 30 mapped dive sites','Marine life: reef sharks, turtles, whale sharks','PADI courses available'],'order'=>3,'active'=>true],
-        ['id'=>'sunset','eyebrow'=>'Golden Hour','title'=>'Sunset from Bukit Love','image'=>'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=900&q=80','body'=>'Bukit Love is Karimunjawa\'s most iconic sunset viewpoint — a hilltop overlooking the archipelago where the sky erupts in amber and coral as the sun dips below the horizon.','details'=>['Elevation: ~120 metres','10-minute walk from hotel','Best from April to October'],'order'=>4,'active'=>true],
-        ['id'=>'mangrove','eyebrow'=>'Nature Trail','title'=>'Mangrove Forest Trail','image'=>'https://images.unsplash.com/photo-1569974498991-d3c12a56ab4c?w=900&q=80','body'=>'Walk elevated boardwalks through 27 identified mangrove species in one of Java\'s most pristine mangrove ecosystems — a sanctuary for monitor lizards, mudskippers, and migratory birds.','details'=>['1.5 km boardwalk loop','27 mangrove species identified','Great for photography'],'order'=>5,'active'=>true],
-        ['id'=>'motorbike','eyebrow'=>'Free Roaming','title'=>'Motorbike Island Exploration','image'=>'https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=900&q=80','body'=>'Rent a motorbike directly from Narayana and discover Karimunjawa at your own rhythm — wind through fishing villages, empty coastal roads, and jungle-fringed hills without a schedule.','details'=>['Available directly from hotel','Full island circuit: ~3 hours','No special licence needed'],'order'=>6,'active'=>true],
-        ['id'=>'fishing','eyebrow'=>'Ocean Heritage','title'=>'Traditional & Sport Fishing','image'=>'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=900&q=80','body'=>'Join local fishermen at dawn for a traditional handline session, or charter a sport-fishing boat to target giant trevally, barracuda, and red snapper in the deeper channels.','details'=>['Depart 05:30 or 15:00','Traditional & sport options','Cook your catch at the hotel'],'order'=>7,'active'=>true],
-        ['id'=>'kayaking','eyebrow'=>'Coastal Adventure','title'=>'Kayaking & Stand-Up Paddleboarding','image'=>'https://images.unsplash.com/photo-1472745942893-4b9f730c7668?w=900&q=80','body'=>'Glide across glass-calm lagoons and mangrove channels by kayak or SUP — an intimate way to explore the coastline and spot marine life from above in perfectly clear water.','details'=>['Best conditions: early morning','Single & tandem kayaks available','SUP boards with anchor leash'],'order'=>8,'active'=>true],
+        ['id' => 'snorkeling', 'eyebrow' => 'Underwater World', 'title' => 'Snorkelling in Crystal-Clear Waters', 'image' => 'https://images.unsplash.com/photo-1534258936925-c58bed479fcb?w=900&q=80', 'body' => 'Karimunjawa\'s waters are among the clearest in the Java Sea, with visibility reaching 15–20 metres. Float above vibrant coral gardens teeming with clownfish, parrotfish, giant clams, and green sea turtles.', 'details' => ['Best time: 07:00–11:00', 'Top spots: Menjangan Kecil, Gosong Cemara', 'Suitable for all ages & skill levels'], 'order' => 1, 'active' => true],
+        ['id' => 'island-hopping', 'eyebrow' => 'Island Exploration', 'title' => 'Hopping Between 27 Islands', 'image' => 'https://images.unsplash.com/photo-1559128010-7c1ad6e1b6a5?w=900&q=80', 'body' => 'The Karimunjawa archipelago comprises 27 islands — only five are inhabited. Board a traditional wooden boat and sail between pristine beaches, hidden lagoons, and deserted shores.', 'details' => ['Full-day excursion (08:00–16:00)', 'Visit 3–5 islands per trip', 'Grilled seafood lunch included'], 'order' => 2, 'active' => true],
+        ['id' => 'diving', 'eyebrow' => 'Deep Exploration', 'title' => 'Scuba Diving the Marine National Park', 'image' => 'https://images.unsplash.com/photo-1682687220742-aba13b6e50ba?w=900&q=80', 'body' => 'Karimunjawa National Marine Park protects some of Indonesia\'s healthiest reefs — towering sea fans, barrel sponges, reef sharks, Napoleon wrasse, and on lucky days, passing whale sharks.', 'details' => ['Over 30 mapped dive sites', 'Marine life: reef sharks, turtles, whale sharks', 'PADI courses available'], 'order' => 3, 'active' => true],
+        ['id' => 'sunset', 'eyebrow' => 'Golden Hour', 'title' => 'Sunset from Bukit Love', 'image' => 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=900&q=80', 'body' => 'Bukit Love is Karimunjawa\'s most iconic sunset viewpoint — a hilltop overlooking the archipelago where the sky erupts in amber and coral as the sun dips below the horizon.', 'details' => ['Elevation: ~120 metres', '10-minute walk from hotel', 'Best from April to October'], 'order' => 4, 'active' => true],
+        ['id' => 'mangrove', 'eyebrow' => 'Nature Trail', 'title' => 'Mangrove Forest Trail', 'image' => 'https://images.unsplash.com/photo-1569974498991-d3c12a56ab4c?w=900&q=80', 'body' => 'Walk elevated boardwalks through 27 identified mangrove species in one of Java\'s most pristine mangrove ecosystems — a sanctuary for monitor lizards, mudskippers, and migratory birds.', 'details' => ['1.5 km boardwalk loop', '27 mangrove species identified', 'Great for photography'], 'order' => 5, 'active' => true],
+        ['id' => 'motorbike', 'eyebrow' => 'Free Roaming', 'title' => 'Motorbike Island Exploration', 'image' => 'https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=900&q=80', 'body' => 'Rent a motorbike directly from Narayana and discover Karimunjawa at your own rhythm — wind through fishing villages, empty coastal roads, and jungle-fringed hills without a schedule.', 'details' => ['Available directly from hotel', 'Full island circuit: ~3 hours', 'No special licence needed'], 'order' => 6, 'active' => true],
+        ['id' => 'fishing', 'eyebrow' => 'Ocean Heritage', 'title' => 'Traditional & Sport Fishing', 'image' => 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=900&q=80', 'body' => 'Join local fishermen at dawn for a traditional handline session, or charter a sport-fishing boat to target giant trevally, barracuda, and red snapper in the deeper channels.', 'details' => ['Depart 05:30 or 15:00', 'Traditional & sport options', 'Cook your catch at the hotel'], 'order' => 7, 'active' => true],
+        ['id' => 'kayaking', 'eyebrow' => 'Coastal Adventure', 'title' => 'Kayaking & Stand-Up Paddleboarding', 'image' => 'https://images.unsplash.com/photo-1472745942893-4b9f730c7668?w=900&q=80', 'body' => 'Glide across glass-calm lagoons and mangrove channels by kayak or SUP — an intimate way to explore the coastline and spot marine life from above in perfectly clear water.', 'details' => ['Best conditions: early morning', 'Single & tandem kayaks available', 'SUP boards with anchor leash'], 'order' => 8, 'active' => true],
     ];
 }
 
@@ -115,7 +127,7 @@ require_once __DIR__ . '/includes/header.php';
 ?>
 
 <!-- Hero -->
-<section class="luxury-hero" <?php if (!empty($heroBg)): ?>style="background-image: url('<?= (strpos($heroBg, 'http') === 0) ? htmlspecialchars($heroBg) : BASE_URL . '/' . htmlspecialchars($heroBg) ?>');"<?php endif; ?>>
+<section class="luxury-hero" <?php if (!empty($heroBg)): ?>style="background-image: url('<?= (strpos($heroBg, 'http') === 0) ? htmlspecialchars($heroBg) : BASE_URL . '/' . htmlspecialchars($heroBg) ?>');" <?php endif; ?>>
     <div class="hero-content-luxury">
         <div class="hero-left">
             <p class="hero-eyebrow">&mdash; <?= htmlspecialchars($heroAccent) ?></p>
@@ -123,30 +135,38 @@ require_once __DIR__ . '/includes/header.php';
             <p class="hero-subtitle"><?= htmlspecialchars($heroSubtitle) ?></p>
         </div>
         <?php if (!empty($heroCards)): ?>
-        <div class="hero-right">
-            <div class="hero-cards-row">
-                <?php foreach ($heroCards as $ci => $card): ?>
-                <?php if (empty($card['title'])) continue; ?>
-                <div class="hero-room-card <?= $ci === 0 ? 'active' : '' ?>">
-                    <?php if (!empty($card['image'])): ?>
-                    <img src="<?= (strpos($card['image'], 'http') === 0) ? htmlspecialchars($card['image']) : BASE_URL . '/' . htmlspecialchars($card['image']) ?>" alt="<?= htmlspecialchars($card['title']) ?>" class="hero-card-img">
-                    <?php else: ?>
-                    <div class="hero-card-img hero-card-placeholder"></div>
-                    <?php endif; ?>
-                    <div class="hero-card-overlay">
-                        <span class="hero-card-sub"><?= htmlspecialchars($card['subtitle'] ?? '') ?></span>
-                        <span class="hero-card-title"><?= htmlspecialchars($card['title']) ?></span>
-                    </div>
+            <div class="hero-right">
+                <div class="hero-cards-row">
+                    <?php foreach ($heroCards as $ci => $card): ?>
+                        <?php if (empty($card['title'])) continue; ?>
+                        <div class="hero-room-card <?= $ci === 0 ? 'active' : '' ?>">
+                            <?php if (!empty($card['image'])): ?>
+                                <img src="<?= (strpos($card['image'], 'http') === 0) ? htmlspecialchars($card['image']) : BASE_URL . '/' . htmlspecialchars($card['image']) ?>" alt="<?= htmlspecialchars($card['title']) ?>" class="hero-card-img">
+                            <?php else: ?>
+                                <div class="hero-card-img hero-card-placeholder"></div>
+                            <?php endif; ?>
+                            <div class="hero-card-overlay">
+                                <span class="hero-card-sub"><?= htmlspecialchars($card['subtitle'] ?? '') ?></span>
+                                <span class="hero-card-title"><?= htmlspecialchars($card['title']) ?></span>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
                 </div>
-                <?php endforeach; ?>
+                <div class="hero-cards-nav">
+                    <button class="hero-nav-btn" aria-label="Previous"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="15 18 9 12 15 6" />
+                        </svg></button>
+                    <button class="hero-nav-btn" aria-label="Next"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="9 18 15 12 9 6" />
+                        </svg></button>
+                    <div class="hero-progress">
+                        <div class="hero-progress-bar"></div>
+                    </div>
+                    <span class="hero-counter">0<?= min(count(array_filter($heroCards, function ($c) {
+                                                    return !empty($c['title']);
+                                                })), 1) ?></span>
+                </div>
             </div>
-            <div class="hero-cards-nav">
-                <button class="hero-nav-btn" aria-label="Previous"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
-                <button class="hero-nav-btn" aria-label="Next"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button>
-                <div class="hero-progress"><div class="hero-progress-bar"></div></div>
-                <span class="hero-counter">0<?= min(count(array_filter($heroCards, function($c){ return !empty($c['title']); })), 1) ?></span>
-            </div>
-        </div>
         <?php endif; ?>
     </div>
 </section>
@@ -211,31 +231,31 @@ require_once __DIR__ . '/includes/header.php';
             </div>
 
             <?php if (!empty($homeActivities)): ?>
-            <!-- Activities Slideshow (right side) -->
-            <div class="act-slideshow">
-                <div class="act-slideshow-viewport">
-                    <?php foreach ($homeActivities as $ai => $act): ?>
-                    <div class="act-ss-slide <?= $ai === 0 ? 'active' : '' ?>" data-index="<?= $ai ?>">
-                        <div class="act-ss-img">
-                            <img src="<?= htmlspecialchars($act['image']) ?>" alt="<?= htmlspecialchars($act['title'] ?? '') ?>" loading="<?= $ai < 2 ? 'eager' : 'lazy' ?>">
-                            <div class="act-ss-gradient"></div>
-                        </div>
-                        <div class="act-ss-caption">
-                            <span class="act-ss-eyebrow"><?= htmlspecialchars($act['eyebrow'] ?? '') ?></span>
-                            <h4 class="act-ss-title"><?= htmlspecialchars($act['title'] ?? '') ?></h4>
-                        </div>
-                    </div>
-                    <?php endforeach; ?>
-                </div>
-                <div class="act-ss-controls">
-                    <div class="act-ss-dots">
-                        <?php foreach (array_slice($homeActivities, 0, 8) as $ai => $a): ?>
-                        <span class="act-ss-dot <?= $ai === 0 ? 'active' : '' ?>" data-index="<?= $ai ?>"></span>
+                <!-- Activities Slideshow (right side) -->
+                <div class="act-slideshow">
+                    <div class="act-slideshow-viewport">
+                        <?php foreach ($homeActivities as $ai => $act): ?>
+                            <div class="act-ss-slide <?= $ai === 0 ? 'active' : '' ?>" data-index="<?= $ai ?>">
+                                <div class="act-ss-img">
+                                    <img src="<?= htmlspecialchars($act['image']) ?>" alt="<?= htmlspecialchars($act['title'] ?? '') ?>" loading="<?= $ai < 2 ? 'eager' : 'lazy' ?>">
+                                    <div class="act-ss-gradient"></div>
+                                </div>
+                                <div class="act-ss-caption">
+                                    <span class="act-ss-eyebrow"><?= htmlspecialchars($act['eyebrow'] ?? '') ?></span>
+                                    <h4 class="act-ss-title"><?= htmlspecialchars($act['title'] ?? '') ?></h4>
+                                </div>
+                            </div>
                         <?php endforeach; ?>
                     </div>
-                    <a href="<?= BASE_URL ?>/activities.php" class="act-ss-link">All Activities <i class="fas fa-arrow-right"></i></a>
+                    <div class="act-ss-controls">
+                        <div class="act-ss-dots">
+                            <?php foreach (array_slice($homeActivities, 0, 8) as $ai => $a): ?>
+                                <span class="act-ss-dot <?= $ai === 0 ? 'active' : '' ?>" data-index="<?= $ai ?>"></span>
+                            <?php endforeach; ?>
+                        </div>
+                        <a href="<?= BASE_URL ?>/activities.php" class="act-ss-link">All Activities <i class="fas fa-arrow-right"></i></a>
+                    </div>
                 </div>
-            </div>
             <?php endif; ?>
         </div>
 
@@ -291,12 +311,19 @@ require_once __DIR__ . '/includes/header.php';
                 $icon = $roomIcons[trim($room['type_name'])] ?? '🏨';
                 $avail = (int)$room['available_rooms'];
                 $total = (int)$room['total_rooms'];
-                
-                if ($avail >= 3) { $ac = 'available'; $at = $avail . ' Available'; }
-                elseif ($avail > 0) { $ac = 'limited'; $at = 'Only ' . $avail . ' Left'; }
-                else { $ac = 'full'; $at = 'Fully Booked'; }
+
+                if ($avail >= 3) {
+                    $ac = 'available';
+                    $at = $avail . ' Available';
+                } elseif ($avail > 0) {
+                    $ac = 'limited';
+                    $at = 'Only ' . $avail . ' Left';
+                } else {
+                    $ac = 'full';
+                    $at = 'Fully Booked';
+                }
             ?>
-            <?php
+                <?php
                 $typeName = trim($room['type_name']);
                 $typeKey = normalizeRoomTypeKey($typeName);
                 $gallery = $roomGalleries[$typeKey] ?? [];
@@ -306,47 +333,47 @@ require_once __DIR__ . '/includes/header.php';
                     $gallery = array_values(array_diff($gallery, [$primary]));
                     array_unshift($gallery, $primary);
                 }
-            ?>
-            <div class="room-card fade-in">
-                <div class="room-card-image <?= count($gallery) > 1 ? 'has-gallery' : '' ?>" data-total="<?= count($gallery) ?>">
-                    <span class="room-type-badge"><?= htmlspecialchars($typeName) ?></span>
-                    <?php if (!empty($gallery)): ?>
-                        <?php foreach ($gallery as $gi => $gImg): ?>
-                        <div class="room-slide <?= $gi === 0 ? 'active' : '' ?>" style="background-image: url('<?= (strpos($gImg, 'http') === 0) ? htmlspecialchars($gImg) : BASE_URL . '/' . htmlspecialchars($gImg) ?>');"></div>
-                        <?php endforeach; ?>
-                        <?php if (count($gallery) > 1): ?>
-                        <button class="room-nav room-nav-prev" onclick="slideRoom(this,-1)"><i class="fas fa-chevron-left"></i></button>
-                        <button class="room-nav room-nav-next" onclick="slideRoom(this,1)"><i class="fas fa-chevron-right"></i></button>
-                        <div class="room-dots">
-                            <?php for ($di = 0; $di < count($gallery); $di++): ?>
-                            <span class="room-dot <?= $di === 0 ? 'active' : '' ?>" onclick="goSlide(this,<?= $di ?>)"></span>
-                            <?php endfor; ?>
-                        </div>
+                ?>
+                <div class="room-card fade-in">
+                    <div class="room-card-image <?= count($gallery) > 1 ? 'has-gallery' : '' ?>" data-total="<?= count($gallery) ?>">
+                        <span class="room-type-badge"><?= htmlspecialchars($typeName) ?></span>
+                        <?php if (!empty($gallery)): ?>
+                            <?php foreach ($gallery as $gi => $gImg): ?>
+                                <div class="room-slide <?= $gi === 0 ? 'active' : '' ?>" style="background-image: url('<?= (strpos($gImg, 'http') === 0) ? htmlspecialchars($gImg) : BASE_URL . '/' . htmlspecialchars($gImg) ?>');"></div>
+                            <?php endforeach; ?>
+                            <?php if (count($gallery) > 1): ?>
+                                <button class="room-nav room-nav-prev" onclick="slideRoom(this,-1)"><i class="fas fa-chevron-left"></i></button>
+                                <button class="room-nav room-nav-next" onclick="slideRoom(this,1)"><i class="fas fa-chevron-right"></i></button>
+                                <div class="room-dots">
+                                    <?php for ($di = 0; $di < count($gallery); $di++): ?>
+                                        <span class="room-dot <?= $di === 0 ? 'active' : '' ?>" onclick="goSlide(this,<?= $di ?>)"></span>
+                                    <?php endfor; ?>
+                                </div>
+                            <?php endif; ?>
+                        <?php else: ?>
+                            <div class="room-visual"><?= $icon ?></div>
                         <?php endif; ?>
-                    <?php else: ?>
-                        <div class="room-visual"><?= $icon ?></div>
-                    <?php endif; ?>
-                </div>
-                <div class="room-card-body">
-                    <h3><?= htmlspecialchars($room['type_name']) ?> Room</h3>
-                    <div class="room-meta">
-                        <span class="room-meta-item"><i class="fas fa-user"></i> Up to <?= $room['max_occupancy'] ?> guests</span>
-                        <span class="room-meta-item"><i class="fas fa-door-open"></i> <?= $total ?> rooms</span>
                     </div>
-                    <div class="room-amenities">
-                        <?php foreach (array_slice($amenities, 0, 4) as $a): ?>
-                            <span><?= htmlspecialchars(trim($a)) ?></span>
-                        <?php endforeach; ?>
-                    </div>
-                    <div class="room-card-footer">
-                        <div class="room-price"><?= formatCurrency($room['base_price']) ?><small>/night</small></div>
-                        <span class="avail-badge <?= $ac ?>"><span class="avail-dot"></span><?= $at ?></span>
-                    </div>
-                    <div class="room-book-btn">
-                        <a href="<?= htmlspecialchars(buildCloudbedsReservationUrl()) ?>" class="btn btn-primary btn-block">Book This Room</a>
+                    <div class="room-card-body">
+                        <h3><?= htmlspecialchars($room['type_name']) ?> Room</h3>
+                        <div class="room-meta">
+                            <span class="room-meta-item"><i class="fas fa-user"></i> Up to <?= $room['max_occupancy'] ?> guests</span>
+                            <span class="room-meta-item"><i class="fas fa-door-open"></i> <?= $total ?> rooms</span>
+                        </div>
+                        <div class="room-amenities">
+                            <?php foreach (array_slice($amenities, 0, 4) as $a): ?>
+                                <span><?= htmlspecialchars(trim($a)) ?></span>
+                            <?php endforeach; ?>
+                        </div>
+                        <div class="room-card-footer">
+                            <div class="room-price"><?= formatCurrency($room['base_price']) ?><small>/night</small></div>
+                            <span class="avail-badge <?= $ac ?>"><span class="avail-dot"></span><?= $at ?></span>
+                        </div>
+                        <div class="room-book-btn">
+                            <a href="<?= htmlspecialchars(buildCloudbedsReservationUrl()) ?>" class="btn btn-primary btn-block">Book This Room</a>
+                        </div>
                     </div>
                 </div>
-            </div>
             <?php endforeach; ?>
         </div>
     </div>
@@ -475,75 +502,87 @@ require_once __DIR__ . '/includes/header.php';
 <?php include __DIR__ . '/includes/footer.php'; ?>
 
 <script>
-// Room gallery slider
-function slideRoom(btn, dir) {
-    const container = btn.closest('.room-card-image');
-    const slides = container.querySelectorAll('.room-slide');
-    const dots = container.querySelectorAll('.room-dot');
-    let current = [...slides].findIndex(s => s.classList.contains('active'));
-    slides[current].classList.remove('active');
-    if (dots[current]) dots[current].classList.remove('active');
-    current = (current + dir + slides.length) % slides.length;
-    slides[current].classList.add('active');
-    if (dots[current]) dots[current].classList.add('active');
-}
-function goSlide(dot, idx) {
-    const container = dot.closest('.room-card-image');
-    const slides = container.querySelectorAll('.room-slide');
-    const dots = container.querySelectorAll('.room-dot');
-    slides.forEach(s => s.classList.remove('active'));
-    dots.forEach(d => d.classList.remove('active'));
-    slides[idx].classList.add('active');
-    dots[idx].classList.add('active');
-}
-
-// Touch swipe support for room gallery
-document.querySelectorAll('.room-card-image.has-gallery').forEach(card => {
-    let startX = 0, startY = 0, distX = 0;
-    card.addEventListener('touchstart', e => {
-        startX = e.touches[0].clientX;
-        startY = e.touches[0].clientY;
-    }, { passive: true });
-    card.addEventListener('touchmove', e => {
-        distX = e.touches[0].clientX - startX;
-    }, { passive: true });
-    card.addEventListener('touchend', () => {
-        if (Math.abs(distX) > 40) {
-            const slides = card.querySelectorAll('.room-slide');
-            const dots = card.querySelectorAll('.room-dot');
-            let current = [...slides].findIndex(s => s.classList.contains('active'));
-            slides[current].classList.remove('active');
-            if (dots[current]) dots[current].classList.remove('active');
-            current = (current + (distX < 0 ? 1 : -1) + slides.length) % slides.length;
-            slides[current].classList.add('active');
-            if (dots[current]) dots[current].classList.add('active');
-        }
-        distX = 0;
-    }, { passive: true });
-});
-
-// ── Activities Slideshow (crossfade) ──
-(function() {
-    const ss = document.querySelector('.act-slideshow');
-    if (!ss) return;
-    const slides = ss.querySelectorAll('.act-ss-slide');
-    const dots = ss.querySelectorAll('.act-ss-dot');
-    const total = slides.length;
-    if (total === 0) return;
-
-    let current = 0;
-    function goTo(idx) {
+    // Room gallery slider
+    function slideRoom(btn, dir) {
+        const container = btn.closest('.room-card-image');
+        const slides = container.querySelectorAll('.room-slide');
+        const dots = container.querySelectorAll('.room-dot');
+        let current = [...slides].findIndex(s => s.classList.contains('active'));
         slides[current].classList.remove('active');
         if (dots[current]) dots[current].classList.remove('active');
-        current = ((idx % total) + total) % total;
+        current = (current + dir + slides.length) % slides.length;
         slides[current].classList.add('active');
         if (dots[current]) dots[current].classList.add('active');
     }
 
-    dots.forEach(d => d.addEventListener('click', () => goTo(+d.dataset.index)));
+    function goSlide(dot, idx) {
+        const container = dot.closest('.room-card-image');
+        const slides = container.querySelectorAll('.room-slide');
+        const dots = container.querySelectorAll('.room-dot');
+        slides.forEach(s => s.classList.remove('active'));
+        dots.forEach(d => d.classList.remove('active'));
+        slides[idx].classList.add('active');
+        dots[idx].classList.add('active');
+    }
 
-    let timer = setInterval(() => goTo(current + 1), 4000);
-    ss.addEventListener('mouseenter', () => clearInterval(timer));
-    ss.addEventListener('mouseleave', () => { timer = setInterval(() => goTo(current + 1), 4000); });
-})();
+    // Touch swipe support for room gallery
+    document.querySelectorAll('.room-card-image.has-gallery').forEach(card => {
+        let startX = 0,
+            startY = 0,
+            distX = 0;
+        card.addEventListener('touchstart', e => {
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+        }, {
+            passive: true
+        });
+        card.addEventListener('touchmove', e => {
+            distX = e.touches[0].clientX - startX;
+        }, {
+            passive: true
+        });
+        card.addEventListener('touchend', () => {
+            if (Math.abs(distX) > 40) {
+                const slides = card.querySelectorAll('.room-slide');
+                const dots = card.querySelectorAll('.room-dot');
+                let current = [...slides].findIndex(s => s.classList.contains('active'));
+                slides[current].classList.remove('active');
+                if (dots[current]) dots[current].classList.remove('active');
+                current = (current + (distX < 0 ? 1 : -1) + slides.length) % slides.length;
+                slides[current].classList.add('active');
+                if (dots[current]) dots[current].classList.add('active');
+            }
+            distX = 0;
+        }, {
+            passive: true
+        });
+    });
+
+    // ── Activities Slideshow (crossfade) ──
+    (function() {
+        const ss = document.querySelector('.act-slideshow');
+        if (!ss) return;
+        const slides = ss.querySelectorAll('.act-ss-slide');
+        const dots = ss.querySelectorAll('.act-ss-dot');
+        const total = slides.length;
+        if (total === 0) return;
+
+        let current = 0;
+
+        function goTo(idx) {
+            slides[current].classList.remove('active');
+            if (dots[current]) dots[current].classList.remove('active');
+            current = ((idx % total) + total) % total;
+            slides[current].classList.add('active');
+            if (dots[current]) dots[current].classList.add('active');
+        }
+
+        dots.forEach(d => d.addEventListener('click', () => goTo(+d.dataset.index)));
+
+        let timer = setInterval(() => goTo(current + 1), 4000);
+        ss.addEventListener('mouseenter', () => clearInterval(timer));
+        ss.addEventListener('mouseleave', () => {
+            timer = setInterval(() => goTo(current + 1), 4000);
+        });
+    })();
 </script>
