@@ -60,6 +60,15 @@ if ($isLocal) {
 define('SITE_URL', 'http' . ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 's' : '') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost'));
 define('BASE_URL', $base_path);
 
+// Channel Manager (Cloudbeds) Booking URL
+define('CLOUDBEDS_RESERVATION_BASE_URL', 'https://hotels.cloudbeds.com/en/reservation/RHAfo6');
+define('CLOUDBEDS_CURRENCY', 'idr');
+define('CLOUDBEDS_UTM_SOURCE', 'google');
+define('CLOUDBEDS_UTM_MEDIUM', 'fbl');
+define('CLOUDBEDS_UTM_CAMPAIGN', 'cloudbeds');
+define('CLOUDBEDS_UTM_TERM', '3541085-gh3-92');
+define('CLOUDBEDS_RID', '651704');
+
 // Business Information
 define('BUSINESS_EMAIL', 'narayanahotelkarimunjawa@gmail.com');
 define('BUSINESS_PHONE', '+62 812-2222-8590');
@@ -231,4 +240,43 @@ function json_response($success, $data = null, $error = null) {
         'error' => $error
     ]);
     exit;
+}
+
+/**
+ * Build Cloudbeds reservation URL with optional dynamic date/guest parameters.
+ */
+function buildCloudbedsReservationUrl(array $overrides = []): string {
+    $today = new DateTime('today');
+    $tomorrow = (clone $today)->modify('+1 day');
+    $dayAfter = (clone $tomorrow)->modify('+1 day');
+
+    $params = [
+        'currency' => CLOUDBEDS_CURRENCY,
+        'utm_source' => CLOUDBEDS_UTM_SOURCE,
+        'utm_medium' => CLOUDBEDS_UTM_MEDIUM,
+        'utm_campaign' => CLOUDBEDS_UTM_CAMPAIGN,
+        'utm_term' => CLOUDBEDS_UTM_TERM,
+        'checkin' => $tomorrow->format('Y-m-d'),
+        'checkout' => $dayAfter->format('Y-m-d'),
+        'adults' => 2,
+        'kids' => 0,
+        'rid' => CLOUDBEDS_RID,
+    ];
+
+    foreach ($overrides as $k => $v) {
+        if ($v === null || $v === '') {
+            continue;
+        }
+        $params[$k] = $v;
+    }
+
+    if (!empty($params['checkin']) && !empty($params['checkout'])) {
+        $in = strtotime((string)$params['checkin']);
+        $out = strtotime((string)$params['checkout']);
+        if ($in !== false && $out !== false && $out <= $in) {
+            $params['checkout'] = date('Y-m-d', strtotime('+1 day', $in));
+        }
+    }
+
+    return CLOUDBEDS_RESERVATION_BASE_URL . '?' . http_build_query($params);
 }

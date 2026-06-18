@@ -149,7 +149,7 @@ include __DIR__ . '/includes/header.php';
         <h2 style="color:var(--white); margin-bottom:12px;">Start Planning Your Island Escape</h2>
         <p style="color:rgba(255,255,255,0.75); margin-bottom:28px;">Browse our rooms and secure the best rate when you book directly.</p>
         <div class="btn-group" style="justify-content:center;">
-            <a href="<?= BASE_URL ?>/booking.php" class="btn btn-gold btn-lg"><i class="fas fa-calendar-alt"></i> Make a Reservation</a>
+            <a href="<?= htmlspecialchars(buildCloudbedsReservationUrl()) ?>" class="btn btn-gold btn-lg"><i class="fas fa-calendar-alt"></i> Make a Reservation</a>
             <a href="<?= BASE_URL ?>/rooms.php" class="btn btn-outline-white btn-lg">View Rooms</a>
         </div>
     </div>

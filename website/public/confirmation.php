@@ -207,7 +207,7 @@ include __DIR__ . '/includes/header.php';
                 <button type="submit" class="btn btn-primary btn-block">Look Up Booking</button>
             </form>
             <div style="margin-top:24px; padding-top:20px; border-top:1px solid var(--pale-gray);">
-                <a href="<?= BASE_URL ?>/booking.php" class="btn btn-outline">Make a New Reservation</a>
+                <a href="<?= htmlspecialchars(buildCloudbedsReservationUrl()) ?>" class="btn btn-outline">Make a New Reservation</a>
             </div>
         </div>
         <?php endif; ?>

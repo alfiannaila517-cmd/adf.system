@@ -238,7 +238,7 @@ require_once __DIR__ . '/includes/header.php';
                     <h3>Interested in visiting <?= htmlspecialchars($selectedDest['title']) ?>?</h3>
                     <p>Book your stay at Narayana Karimunjawa and explore this amazing destination during your trip.</p>
                     <div class="dest-cta-buttons">
-                        <a href="<?= BASE_URL ?>/booking.php" class="btn-primary-dest">Book Your Stay</a>
+                        <a href="<?= htmlspecialchars(buildCloudbedsReservationUrl()) ?>" class="btn-primary-dest">Book Your Stay</a>
                         <a href="https://wa.me/<?= BUSINESS_WHATSAPP ?>?text=Hi%2C%20I%27m%20interested%20in%20visiting%20<?= urlencode($selectedDest['title']) ?>" target="_blank" class="btn-outline-dest"><i class="fab fa-whatsapp"></i> Ask Us</a>
                     </div>
                 </div>
@@ -395,7 +395,7 @@ require_once __DIR__ . '/includes/header.php';
         <h2>Ready to Explore Karimunjawa?</h2>
         <p>Stay at Narayana and discover all these amazing destinations during your island getaway.</p>
         <div class="dest-cta-buttons" style="justify-content:center;">
-            <a href="<?= BASE_URL ?>/booking.php" class="btn-primary-dest">Book Your Stay</a>
+            <a href="<?= htmlspecialchars(buildCloudbedsReservationUrl()) ?>" class="btn-primary-dest">Book Your Stay</a>
             <a href="https://wa.me/<?= BUSINESS_WHATSAPP ?>" target="_blank" class="btn-outline-dest"><i class="fab fa-whatsapp"></i> Contact Us</a>
         </div>
     </div>

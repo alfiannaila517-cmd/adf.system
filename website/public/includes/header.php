@@ -181,9 +181,9 @@
             <li><a href="<?= BASE_URL ?>/rooms.php" class="<?= ($currentPage ?? '') === 'rooms' ? 'active' : '' ?>">Rooms</a></li>
             <li><a href="<?= BASE_URL ?>/activities.php" class="<?= ($currentPage ?? '') === 'activities' ? 'active' : '' ?>">Activities</a></li>
             <li><a href="<?= BASE_URL ?>/destinations.php" class="<?= ($currentPage ?? '') === 'destinations' ? 'active' : '' ?>">Destinations</a></li>
-            <li><a href="<?= BASE_URL ?>/booking.php" class="<?= ($currentPage ?? '') === 'booking' ? 'active' : '' ?>">Reservations</a></li>
+            <li><a href="<?= htmlspecialchars(buildCloudbedsReservationUrl()) ?>" class="<?= ($currentPage ?? '') === 'booking' ? 'active' : '' ?>">Reservations</a></li>
             <li><a href="<?= BASE_URL ?>/contact.php" class="<?= ($currentPage ?? '') === 'contact' ? 'active' : '' ?>">Contact</a></li>
-            <li><a href="<?= BASE_URL ?>/booking.php" class="nav-book-btn">Book Now</a></li>
+            <li><a href="<?= htmlspecialchars(buildCloudbedsReservationUrl()) ?>" class="nav-book-btn">Book Now</a></li>
         </ul>
         <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
             <span></span><span></span><span></span>

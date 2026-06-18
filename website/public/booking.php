@@ -8,6 +8,22 @@ $_cfg = __DIR__ . '/config/config.php';
 if (!file_exists($_cfg)) $_cfg = dirname(__DIR__) . '/config/config.php';
 require_once $_cfg;
 
+// Booking is handled by Cloudbeds channel manager.
+$checkInParam = $_GET['checkin'] ?? $_GET['check_in'] ?? null;
+$checkOutParam = $_GET['checkout'] ?? $_GET['check_out'] ?? null;
+$adultsParam = $_GET['adults'] ?? $_GET['guests'] ?? null;
+$kidsParam = $_GET['kids'] ?? 0;
+
+$cloudbedsUrl = buildCloudbedsReservationUrl([
+    'checkin' => $checkInParam,
+    'checkout' => $checkOutParam,
+    'adults' => $adultsParam,
+    'kids' => $kidsParam,
+]);
+
+header('Location: ' . $cloudbedsUrl, true, 302);
+exit;
+
 $currentPage = 'booking';
 $pageTitle = 'Reservations';
 

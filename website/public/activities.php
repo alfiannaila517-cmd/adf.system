@@ -245,7 +245,7 @@ require_once __DIR__ . '/includes/header.php';
         <h2>Start Planning Your Stay</h2>
         <p>Book a room at Narayana and explore everything Karimunjawa has to offer — right from your doorstep.</p>
         <div class="btn-group" style="justify-content:center;">
-            <a href="<?= BASE_URL ?>/booking.php" class="btn btn-gold btn-lg">Reserve a Room</a>
+            <a href="<?= htmlspecialchars(buildCloudbedsReservationUrl()) ?>" class="btn btn-gold btn-lg">Reserve a Room</a>
             <a href="https://wa.me/<?= BUSINESS_WHATSAPP ?>?text=Hi%20Narayana%2C%20I%27d%20like%20to%20know%20more%20about%20activities%20during%20my%20stay" target="_blank" class="btn btn-outline-white btn-lg">
                 <i class="fab fa-whatsapp"></i> Ask Us Anything
             </a>
