@@ -21,6 +21,42 @@ $sourceBase = __DIR__ . '/website';
 $sourcePublic = $sourceBase . '/public';
 $sourceConfig = $sourceBase . '/config/config.php';
 
+$repo = 'arifnarayana88-collab/adf.system';
+$branch = 'main';
+
+function githubRawUrl(string $repo, string $ref, string $path): string
+{
+    return "https://raw.githubusercontent.com/{$repo}/{$ref}/{$path}";
+}
+
+function resolveLatestRef(string $repo, string $fallbackRef = 'main'): string
+{
+    $api = "https://api.github.com/repos/{$repo}/git/ref/heads/{$fallbackRef}";
+    $ctx = stream_context_create(['http' => [
+        'timeout' => 12,
+        'user_agent' => 'ADF-Force-Deploy/1.0',
+        'header' => "Accept: application/vnd.github.v3+json\r\n",
+    ]]);
+    $json = @file_get_contents($api, false, $ctx);
+    if ($json === false) {
+        return $fallbackRef;
+    }
+    $data = json_decode($json, true);
+    $sha = $data['object']['sha'] ?? '';
+    return $sha !== '' ? $sha : $fallbackRef;
+}
+
+function fetchLatestContent(string $repo, string $ref, string $path): ?string
+{
+    $url = githubRawUrl($repo, $ref, $path);
+    $ctx = stream_context_create(['http' => [
+        'timeout' => 20,
+        'user_agent' => 'ADF-Force-Deploy/1.0',
+    ]]);
+    $content = @file_get_contents($url, false, $ctx);
+    return $content === false ? null : $content;
+}
+
 $targets = [
     '/home/adfb2574/public_html/narayanakarimunjawa.com',
     '/home/adfb2574/narayanakarimunjawa.com',
@@ -40,13 +76,11 @@ if ($targetBase === null) {
     @mkdir($targetBase, 0755, true);
 }
 
-if (!is_dir($sourcePublic)) {
-    echo "ERROR: Source not found: {$sourcePublic}\n";
-    exit;
-}
-
-echo "Source: {$sourcePublic}\n";
+echo "Source (local fallback): {$sourcePublic}\n";
 echo "Target: {$targetBase}\n\n";
+
+$latestRef = resolveLatestRef($repo, $branch);
+echo "GitHub ref: {$latestRef}\n\n";
 
 $ok = 0;
 $fail = 0;
@@ -75,6 +109,41 @@ function copyFileSafe(string $src, string $dst, int &$ok, int &$fail): void
     }
 }
 
+function writeContentSafe(string $content, string $dst, int &$ok, int &$fail): void
+{
+    $dir = dirname($dst);
+    if (!is_dir($dir) && !@mkdir($dir, 0755, true)) {
+        echo "FAILED mkdir: {$dir}\n";
+        $fail++;
+        return;
+    }
+    if (@file_put_contents($dst, $content) === false) {
+        echo "FAILED write: {$dst}\n";
+        $fail++;
+        return;
+    }
+    @chmod($dst, 0644);
+    echo "OK: {$dst}\n";
+    $ok++;
+}
+
+function deployFromRepoOrLocal(
+    string $repo,
+    string $ref,
+    string $repoPath,
+    string $localPath,
+    string $destPath,
+    int &$ok,
+    int &$fail
+): void {
+    $content = fetchLatestContent($repo, $ref, $repoPath);
+    if ($content !== null) {
+        writeContentSafe($content, $destPath, $ok, $fail);
+        return;
+    }
+    copyFileSafe($localPath, $destPath, $ok, $fail);
+}
+
 $rootFiles = [
     'index.php',
     'rooms.php',
@@ -88,11 +157,35 @@ $rootFiles = [
 ];
 
 foreach ($rootFiles as $f) {
-    copyFileSafe($sourcePublic . '/' . $f, $targetBase . '/' . $f, $ok, $fail);
+    deployFromRepoOrLocal(
+        $repo,
+        $latestRef,
+        'website/public/' . $f,
+        $sourcePublic . '/' . $f,
+        $targetBase . '/' . $f,
+        $ok,
+        $fail
+    );
 }
 
-copyFileSafe($sourcePublic . '/.htaccess.production', $targetBase . '/.htaccess', $ok, $fail);
-copyFileSafe($sourceConfig, $targetBase . '/config/config.php', $ok, $fail);
+deployFromRepoOrLocal(
+    $repo,
+    $latestRef,
+    'website/public/.htaccess.production',
+    $sourcePublic . '/.htaccess.production',
+    $targetBase . '/.htaccess',
+    $ok,
+    $fail
+);
+deployFromRepoOrLocal(
+    $repo,
+    $latestRef,
+    'website/config/config.php',
+    $sourceConfig,
+    $targetBase . '/config/config.php',
+    $ok,
+    $fail
+);
 
 $dirMap = [
     'includes' => 'includes',
@@ -125,7 +218,16 @@ foreach ($dirMap as $srcRel => $dstRel) {
             continue;
         }
 
-        copyFileSafe($item->getPathname(), $dst, $ok, $fail);
+        $relative = str_replace('\\', '/', $rel);
+        deployFromRepoOrLocal(
+            $repo,
+            $latestRef,
+            'website/public/' . $srcRel . '/' . $relative,
+            $item->getPathname(),
+            $dst,
+            $ok,
+            $fail
+        );
     }
 }
 
@@ -133,9 +235,25 @@ foreach ($dirMap as $srcRel => $dstRel) {
 $publicMirror = $targetBase . '/public';
 @mkdir($publicMirror, 0755, true);
 foreach ($rootFiles as $f) {
-    copyFileSafe($sourcePublic . '/' . $f, $publicMirror . '/' . $f, $ok, $fail);
+    deployFromRepoOrLocal(
+        $repo,
+        $latestRef,
+        'website/public/' . $f,
+        $sourcePublic . '/' . $f,
+        $publicMirror . '/' . $f,
+        $ok,
+        $fail
+    );
 }
-copyFileSafe($sourcePublic . '/.htaccess.production', $publicMirror . '/.htaccess', $ok, $fail);
+deployFromRepoOrLocal(
+    $repo,
+    $latestRef,
+    'website/public/.htaccess.production',
+    $sourcePublic . '/.htaccess.production',
+    $publicMirror . '/.htaccess',
+    $ok,
+    $fail
+);
 
 @mkdir($targetBase . '/logs', 0755, true);
 @mkdir($targetBase . '/uploads', 0755, true);
