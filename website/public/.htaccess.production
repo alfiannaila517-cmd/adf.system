@@ -3,6 +3,9 @@
     RewriteEngine On
     RewriteBase /
 
+    # Ensure homepage resolves even when server index defaults are restricted
+    DirectoryIndex index.php
+
     # Force HTTPS
     RewriteCond %{HTTPS} off
     RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
