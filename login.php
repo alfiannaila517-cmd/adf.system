@@ -549,13 +549,13 @@ if (isset($_GET['biz'])) {
         }
 
         .login-box {
-            background: rgba(15, 23, 42, 0.88);
+            background: rgba(15, 23, 42, 0.7);
             backdrop-filter: blur(8px);
             border-radius: 14px;
             padding: 1.1rem;
-            box-shadow: 0 14px 30px -14px rgba(2, 6, 23, 0.9),
-                0 0 0 1px rgba(148, 163, 184, 0.12);
-            border: 1px solid rgba(71, 85, 105, 0.35);
+            box-shadow: 0 12px 26px -14px rgba(2, 6, 23, 0.8),
+                0 0 0 1px rgba(148, 163, 184, 0.18);
+            border: 1px solid rgba(148, 163, 184, 0.22);
             width: 100%;
             max-width: 300px;
             position: relative;
@@ -680,7 +680,7 @@ if (isset($_GET['biz'])) {
         .form-control {
             width: 100%;
             padding: 0.52rem 0.68rem;
-            background: rgba(15, 23, 42, 0.8);
+            background: rgba(15, 23, 42, 0.56);
             border: 1px solid rgba(71, 85, 105, 0.6);
             border-radius: 8px;
             color: #e2e8f0;
@@ -713,8 +713,8 @@ if (isset($_GET['biz'])) {
         }
 
         .database-status {
-            background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(15, 23, 42, 0.7));
-            border: 1px solid rgba(51, 65, 85, 0.6);
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.58), rgba(15, 23, 42, 0.42));
+            border: 1px solid rgba(148, 163, 184, 0.2);
             padding: 0.55rem 0.72rem;
             border-radius: 9px;
             margin-top: 0.75rem;
@@ -865,7 +865,7 @@ if (isset($_GET['biz'])) {
             text-align: center;
             margin-top: 0.72rem;
             padding-top: 0.72rem;
-            border-top: 1px solid rgba(51, 65, 85, 0.5);
+            border-top: 1px solid rgba(148, 163, 184, 0.18);
             color: #64748b;
             font-size: 0.66rem;
         }
