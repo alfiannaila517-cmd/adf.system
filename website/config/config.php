@@ -62,7 +62,7 @@ define('SITE_URL', 'http' . ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !==
 define('BASE_URL', $base_path);
 
 // Channel Manager (Cloudbeds) Booking URL
-define('CLOUDBEDS_RESERVATION_BASE_URL', 'https://hotels.cloudbeds.com/en/reservation/RHAfo6');
+define('CLOUDBEDS_RESERVATION_BASE_URL', 'https://hotels.cloudbeds.com/reservation/RHAfo6');
 define('CLOUDBEDS_CURRENCY', 'idr');
 define('CLOUDBEDS_UTM_SOURCE', 'google');
 define('CLOUDBEDS_UTM_MEDIUM', 'fbl');
