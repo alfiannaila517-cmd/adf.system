@@ -772,29 +772,7 @@ if (isset($_GET['biz'])) {
             text-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
         }
 
-        .remember-me-info {
-            margin-bottom: 0.7rem;
-            padding: 0.55rem 0.62rem;
-            border-radius: 8px;
-            border: 1px solid rgba(71, 85, 105, 0.45);
-            background: rgba(15, 23, 42, 0.45);
-            display: grid;
-            grid-template-columns: 18px 1fr;
-            column-gap: 0.5rem;
-            align-items: start;
-        }
-
-        .remember-me-info-icon {
-            font-size: 0.8rem;
-            line-height: 1.2;
-            opacity: 0.85;
-        }
-
-        .remember-me-info-text {
-            color: #cbd5e1;
-            font-size: 0.72rem;
-            line-height: 1.4;
-        }
+        /* remember-me-info simplified to checkbox row */
 
         .remember-me-wrapper {
             display: flex;
@@ -840,94 +818,48 @@ if (isset($_GET['biz'])) {
             font-weight: 600;
         }
 
-        .remember-me-button-group {
+        .save-pw-row {
             display: flex;
-            gap: 0.55rem;
-            margin-bottom: 0.82rem;
             align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.9rem;
         }
 
-        .btn-save-password {
-            flex: 1;
-            padding: 10px 12px;
-            background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.08));
-            border: 1.5px solid rgba(34, 197, 94, 0.4);
-            border-radius: 10px;
-            color: #86efac;
-            font-size: 0.79rem;
-            font-weight: 600;
+        .save-pw-label {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            color: #94a3b8;
+            font-size: 0.75rem;
             cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.6rem;
-            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.08);
+            user-select: none;
         }
 
-        .btn-save-password:hover {
-            background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(34, 197, 94, 0.12));
-            border-color: rgba(34, 197, 94, 0.6);
-            box-shadow: 0 6px 16px rgba(34, 197, 94, 0.15);
-            transform: translateY(-1px);
-        }
-
-        .btn-save-password.active {
-            background: linear-gradient(135deg, rgba(34, 197, 94, 0.25), rgba(34, 197, 94, 0.15));
-            border-color: rgba(34, 197, 94, 0.7);
-            color: #34d399;
-            box-shadow: 0 8px 20px rgba(34, 197, 94, 0.2);
+        .save-pw-label input[type="checkbox"] {
+            width: 14px;
+            height: 14px;
+            accent-color: #6366f1;
+            cursor: pointer;
+            flex-shrink: 0;
         }
 
         .btn-clear-saved {
-            padding: 10px 12px;
-            background: linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(239, 68, 68, 0.05));
-            border: 1.5px solid rgba(239, 68, 68, 0.3);
-            border-radius: 10px;
+            padding: 4px 10px;
+            background: transparent;
+            border: 1px solid rgba(239, 68, 68, 0.35);
+            border-radius: 6px;
             color: #fca5a5;
-            font-size: 0.79rem;
-            font-weight: 600;
+            font-size: 0.7rem;
             cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.4rem;
-            min-width: 82px;
+            transition: all 0.2s;
         }
 
         .btn-clear-saved:hover {
-            background: linear-gradient(135deg, rgba(239, 68, 68, 0.18), rgba(239, 68, 68, 0.08));
-            border-color: rgba(239, 68, 68, 0.5);
-            box-shadow: 0 6px 16px rgba(239, 68, 68, 0.12);
-            transform: translateY(-1px);
+            background: rgba(239, 68, 68, 0.08);
+            border-color: rgba(239, 68, 68, 0.55);
         }
 
-        .demo-credentials {
-            background: rgba(51, 65, 85, 0.6);
-            border: 1px solid rgba(71, 85, 105, 0.4);
-            padding: 0.52rem 0.68rem;
-            border-radius: 8px;
-            margin-top: 0.72rem;
-            font-size: 0.68rem;
-            color: #cbd5e1;
-            backdrop-filter: blur(4px);
-        }
-
-        .demo-credentials strong {
-            color: #818cf8;
-        }
-
-        .demo-credentials-clickable {
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .demo-credentials-clickable:hover {
-            background: rgba(71, 85, 105, 0.6);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(129, 140, 248, 0.2);
-        }
+        /* demo-credentials removed */
 
         .login-footer {
             text-align: center;
@@ -1052,34 +984,19 @@ if (isset($_GET['biz'])) {
                     </div>
                 </div>
 
-                <!-- Save Password Section with Buttons -->
-                <div class="remember-me-info">
-                    <div class="remember-me-info-icon">💾</div>
-                    <div class="remember-me-info-text">
-                        Klik <strong>"Simpan Password"</strong> untuk menyimpan kredensial & aktifkan auto-login aman
-                    </div>
-                </div>
-
-                <div class="remember-me-button-group">
-                    <button type="button" class="btn-save-password" id="savePasswordBtn" onclick="enableSavePassword()">
-                        💾 Simpan Password
-                    </button>
-                    <button type="button" class="btn-clear-saved" id="clearSavedBtn" onclick="clearSavedCredentials()" style="display: none;">
-                        🗑️ Hapus
-                    </button>
+                <div class="save-pw-row">
+                    <label class="save-pw-label">
+                        <input type="checkbox" id="savePasswordChk" onchange="toggleSavePassword(this)">
+                        <span>Simpan Password</span>
+                    </label>
+                    <button type="button" class="btn-clear-saved" id="clearSavedBtn" onclick="clearSavedCredentials()" style="display:none;">Hapus</button>
                 </div>
 
                 <div class="login-buttons">
-                    <button type="submit" name="login_type" value="owner" class="btn-owner">📊 Login Owner</button>
-                    <button type="submit" name="login_type" value="normal" class="btn-primary">🏢 Login System</button>
+                    <button type="submit" name="login_type" value="owner" class="btn-owner">Login Owner</button>
+                    <button type="submit" name="login_type" value="normal" class="btn-primary">Login System</button>
                 </div>
             </form>
-
-            <div class="demo-credentials demo-credentials-clickable" onclick="fillDemoCredentials()" title="Klik untuk isi otomatis">
-                <div style="text-align: center; margin-bottom: 0.5rem;"><strong>🎯 Demo Credentials (Click to Fill)</strong></div>
-                <div id="demoUsername">👤 Username: <strong><?php echo htmlspecialchars($demoUsername); ?></strong></div>
-                <div id="demoPassword">🔑 Password: <strong><?php echo htmlspecialchars($demoPassword); ?></strong></div>
-            </div>
 
             <div class="login-footer">
                 &copy; <?php echo APP_YEAR; ?> <?php echo APP_NAME; ?>
@@ -1100,37 +1017,21 @@ if (isset($_GET['biz'])) {
             }
         }
 
-        // Enable Save Password - set remember_me checkbox
-        function enableSavePassword() {
-            const usernameInput = document.querySelector('input[name="username"]');
-            const passwordInput = document.querySelector('input[name="password"]');
-            const saveBtn = document.getElementById('savePasswordBtn');
-            const clearBtn = document.getElementById('clearSavedBtn');
-
-            if (!usernameInput.value || !passwordInput.value) {
-                alert('Silakan isi username dan password terlebih dahulu!');
-                return;
-            }
-
-            // Create hidden input for remember_me
+        function toggleSavePassword(chk) {
             let rememberInput = document.querySelector('input[name="remember_me"]');
-            if (!rememberInput) {
-                rememberInput = document.createElement('input');
-                rememberInput.type = 'hidden';
-                rememberInput.name = 'remember_me';
+            if (chk.checked) {
+                if (!rememberInput) {
+                    rememberInput = document.createElement('input');
+                    rememberInput.type = 'hidden';
+                    rememberInput.name = 'remember_me';
+                    document.querySelector('form').appendChild(rememberInput);
+                }
                 rememberInput.value = '1';
-                document.querySelector('form').appendChild(rememberInput);
+                document.getElementById('clearSavedBtn').style.display = 'inline-flex';
             } else {
-                rememberInput.value = '1';
+                if (rememberInput) rememberInput.value = '0';
+                document.getElementById('clearSavedBtn').style.display = 'none';
             }
-
-            // Update button UI to show active state
-            saveBtn.classList.add('active');
-            saveBtn.innerHTML = '✅ <strong>Password Akan Disimpan</strong>';
-            clearBtn.style.display = 'flex';
-
-            // Show success message
-            showPasswordSaveNotification();
         }
 
         // Clear Saved Credentials
@@ -1166,58 +1067,21 @@ if (isset($_GET['biz'])) {
             }
         }
 
-        // Show notification when password will be saved
-        function showPasswordSaveNotification() {
-            const notification = document.createElement('div');
-            notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: linear-gradient(135deg, rgba(34, 197, 94, 0.9), rgba(16, 185, 129, 0.9));
-            border: 1px solid rgba(34, 197, 94, 0.5);
-            color: #34d399;
-            padding: 14px 18px;
-            border-radius: 12px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            box-shadow: 0 8px 24px rgba(34, 197, 94, 0.3);
-            z-index: 9999;
-            backdrop-filter: blur(8px);
-            animation: slideInDown 0.3s ease-out;
-        `;
-            notification.innerHTML = '✅ Password akan disimpan setelah login berhasil. Browser akan menyimpan kredensial Anda dengan aman.';
-            document.body.appendChild(notification);
 
-            setTimeout(() => {
-                notification.style.animation = 'slideOutUp 0.3s ease-out';
-                setTimeout(() => notification.remove(), 300);
-            }, 4000);
-        }
 
-        // Fill demo credentials
-        function fillDemoCredentials() {
-            const demoUsername = document.getElementById('demoUsername').querySelector('strong').textContent.trim();
-            const demoPassword = document.getElementById('demoPassword').querySelector('strong').textContent.trim();
 
-            document.querySelector('input[name="username"]').value = demoUsername;
-            document.querySelector('input[name="password"]').value = demoPassword;
-
-            // Focus on submit button
-            document.querySelector('.btn-primary').focus();
-        }
 
         // Remember me - auto login via secure HMAC token
         document.addEventListener('DOMContentLoaded', function() {
-            const saveBtn = document.getElementById('savePasswordBtn');
             const clearBtn = document.getElementById('clearSavedBtn');
             const usernameInput = document.querySelector('input[name="username"]');
 
-            // If user saved, show clear button
+            // If user saved, check the checkbox and show clear button
             const hasSavedUser = <?= !empty($savedUser) ? 'true' : 'false' ?>;
             if (hasSavedUser) {
-                saveBtn.classList.add('active');
-                saveBtn.innerHTML = '✅ <strong>Password Tersimpan</strong>';
-                clearBtn.style.display = 'flex';
+                const chk = document.getElementById('savePasswordChk');
+                if (chk) chk.checked = true;
+                clearBtn.style.display = 'inline-flex';
             }
 
             // Clean up old localStorage (one-time migration)
