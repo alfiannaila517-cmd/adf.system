@@ -174,6 +174,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $end   = new DateTime($endDt);
             if ($end <= $start) throw new Exception('Tanggal selesai harus setelah tanggal mulai');
 
+            $plannedSeconds = max(0, $end->getTimestamp() - $start->getTimestamp());
+            $plannedDays    = max(1, (int)ceil($plannedSeconds / 86400));
+            $plannedTotal   = max(0, round($plannedDays * $dailyRate2, 2));
+            $ownerPct       = (float)($carRow['owner_commission_pct'] ?? 0);
+            $plannedOwner   = round($plannedTotal * ($ownerPct / 100), 2);
+            $plannedHotel   = $plannedTotal - $plannedOwner;
+
             $pdo->beginTransaction();
 
             $invoiceId = null;
@@ -195,7 +202,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                     'car_rental',
                     "{$carRow['car_name']} ({$carRow['plate_number']})" . 
                     ($destination ? " — Tujuan: {$destination}" : ''),
-                    0,  // quantity
+                    $plannedDays,
                     $dailyRate2,  // unit_price (daily rate)
                     $startDt,
                     $endDt
@@ -208,7 +215,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                  deposit,trip_destination,status,notes,created_by)
                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
                 ->execute([$businessId,$carId,$invoiceId,$guestName,$guestPhone?:null,$roomNumber?:null,
-                           $bookingId2,$startDt,$endDt,$dailyRate2,0,0,0,
+                           $bookingId2,$startDt,$endDt,$dailyRate2,$plannedTotal,$plannedOwner,$plannedHotel,
                            $deposit,$destination?:null,'active',$notes?:null,$currentUser['id']??null]);
             $rentalId = (int)$pdo->lastInsertId();
 
@@ -242,41 +249,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $actualDays = max(1, (int)ceil($totalHours / 24));
 
             $dailyRate   = (float)$rentalRow['daily_rate'];
-            $newTotal    = max(0, round($actualDays * $dailyRate, 2));
-            $ownerPct    = (float)$rentalRow['owner_commission_pct'];
-            $ownerAmt    = round($newTotal * ($ownerPct / 100), 2);
-            $hotelComm   = $newTotal - $ownerAmt;
+            $billedTotal = (float)($rentalRow['total_price'] ?? 0);
+            $ownerAmt    = (float)($rentalRow['owner_amount'] ?? 0);
+            $hotelComm   = (float)($rentalRow['hotel_commission'] ?? 0);
+            $plannedEnd  = new DateTime($rentalRow['end_datetime']);
+            $plannedSeconds = max(0, $plannedEnd->getTimestamp() - $start->getTimestamp());
+            $billedDays  = max(1, (int)ceil($plannedSeconds / 86400));
 
             $pdo->beginTransaction();
 
             $pdo->prepare("UPDATE rental_car_bookings
-                SET status='returned',actual_return=?,total_price=?,owner_amount=?,hotel_commission=?,updated_at=NOW()
+                SET status='returned',actual_return=?,updated_at=NOW()
                 WHERE id=?")
-                ->execute([$returnTime,$newTotal,$ownerAmt,$hotelComm,$rentalId]);
+                ->execute([$returnTime,$rentalId]);
 
             $pdo->prepare("UPDATE rental_cars SET status='available',updated_at=NOW() WHERE id=?")->execute([$rentalRow['car_id']]);
-
-            if ($rentalRow['invoice_id']) {
-                $oldTotal = (float)($rentalRow['total_price'] ?? 0);
-                $deltaTotal = $newTotal - $oldTotal;
-                if (abs($deltaTotal) > 0.009) {
-                    $pdo->prepare("UPDATE hotel_invoices SET total=total+?,updated_at=NOW() WHERE id=? AND cashbook_synced=0")
-                        ->execute([$deltaTotal, $rentalRow['invoice_id']]);
-                }
-                $pdo->prepare("UPDATE hotel_invoice_items SET quantity=?,unit_price=?,total_price=?
-                    WHERE invoice_id=? AND service_type='car_rental' AND description LIKE ?")
-                    ->execute([$actualDays,$dailyRate,$newTotal,$rentalRow['invoice_id'],"%{$rentalRow['plate_number']}%"]);
-            }
 
             $pdo->commit();
             ob_clean();
             echo json_encode([
                 'success'      => true,
                 'actual_days'  => $actualDays,
+                'billed_days'  => $billedDays,
                 'daily_rate'   => $dailyRate,
-                'new_total'    => $newTotal,
+                'billed_total' => $billedTotal,
                 'owner_amount' => $ownerAmt,
                 'hotel_comm'   => $hotelComm,
+                'invoice_locked' => !empty($rentalRow['invoice_id']),
             ]);
             exit;
         }
@@ -1003,7 +1002,7 @@ include '../../includes/header.php';
     }
 
     function returnCar(rentalId, carName) {
-        if (!confirm('Konfirmasi pengembalian ' + carName + '?\n\nHarga akan dihitung berdasarkan durasi aktual.')) return;
+        if (!confirm('Konfirmasi pengembalian ' + carName + '?\n\nInvoice tidak diubah otomatis. Jika perlu koreksi (mis. pulang lebih cepat), edit invoice manual.')) return;
         const fd = new FormData(); fd.append('action','return_car'); fd.append('rental_id', rentalId);
         fetch('rental-mobil.php', { method:'POST', body:fd })
             .then(r => r.json())
@@ -1011,8 +1010,12 @@ include '../../includes/header.php';
                 if (d.success) {
                     const ownerFmt  = 'Rp ' + Number(d.owner_amount).toLocaleString('id-ID');
                     const hotelFmt  = 'Rp ' + Number(d.hotel_comm).toLocaleString('id-ID');
-                    const totalFmt  = 'Rp ' + Number(d.new_total).toLocaleString('id-ID');
-                    alert(`✅ Kendaraan dikembalikan!\n\n${d.actual_days} hari × Rp ${Number(d.daily_rate).toLocaleString('id-ID')}/hari = ${totalFmt}\n👤 Bagian Pemilik: ${ownerFmt}\n🏨 Komisi Hotel: ${hotelFmt}`);
+                    const totalFmt  = 'Rp ' + Number(d.billed_total).toLocaleString('id-ID');
+                    const billedMsg = `${d.billed_days} hari × Rp ${Number(d.daily_rate).toLocaleString('id-ID')}/hari = ${totalFmt}`;
+                    const adjustMsg = d.invoice_locked
+                        ? '\n\nCatatan: Bila durasi aktual berbeda (' + d.actual_days + ' hari), edit nominal di invoice manual.'
+                        : '';
+                    alert(`✅ Kendaraan dikembalikan!\n\nTagihan saat ini: ${billedMsg}\n👤 Bagian Pemilik: ${ownerFmt}\n🏨 Komisi Hotel: ${hotelFmt}${adjustMsg}`);
                     location.reload();
                 } else alert(d.message || 'Gagal');
             }).catch(() => alert('Network error'));

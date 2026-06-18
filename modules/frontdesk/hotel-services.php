@@ -746,6 +746,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $end = new DateTime($endDt);
             if ($end <= $start) throw new Exception('End date must be after start date');
 
+            $plannedSeconds = max(0, $end->getTimestamp() - $start->getTimestamp());
+            $plannedDays = max(1, (int)ceil($plannedSeconds / 86400));
+            $plannedTotal = max(0, round($plannedDays * $dailyRate, 2));
+            $ownerPct = (float)($carRow['owner_commission_pct'] ?? 0);
+            $ownerAmount = round($plannedTotal * ($ownerPct / 100), 2);
+            $hotelCommission = $plannedTotal - $ownerAmount;
+
             $pdo->beginTransaction();
 
             // Create rental car booking linked to this invoice
@@ -765,9 +772,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                     $startDt,
                     $endDt,
                     $dailyRate,
-                    0,  // total_price - set when returned
-                    0,  // owner_amount - calculated on return
-                    0,  // hotel_commission - calculated on return
+                    $plannedTotal,
+                    $ownerAmount,
+                    $hotelCommission,
                     $deposit,
                     $tripDest ?: null,
                     'active',
@@ -783,7 +790,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 'car_rental',
                 "{$carRow['car_name']} ({$carRow['plate_number']})" .
                 ($tripDest ? " — Tujuan: {$tripDest}" : ''),
-                0,  // quantity
+                $plannedDays,
                 $dailyRate,  // unit_price
                 $startDt,
                 $endDt
