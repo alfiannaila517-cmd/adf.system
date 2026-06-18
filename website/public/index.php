@@ -10,6 +10,13 @@ require_once $_cfg;
 
 $currentPage = 'home';
 
+function normalizeRoomTypeKey(string $value): string
+{
+    $normalized = strtolower(trim($value));
+    $normalized = preg_replace('/[^a-z0-9]+/', '_', $normalized);
+    return trim((string)$normalized, '_');
+}
+
 // Load hero settings from database
 $heroSettings = dbFetchAll("SELECT setting_key, setting_value FROM settings WHERE setting_key LIKE 'web_hero_%'");
 $hero = [];
@@ -96,11 +103,11 @@ $roomPrimary = [];
 foreach ($gallerySettings as $gs) {
     if (strpos($gs['setting_key'], 'web_room_gallery_') === 0) {
         $type = str_replace('web_room_gallery_', '', $gs['setting_key']);
-        $roomGalleries[ucfirst($type)] = json_decode($gs['setting_value'], true) ?: [];
+        $roomGalleries[normalizeRoomTypeKey($type)] = json_decode($gs['setting_value'], true) ?: [];
     }
     if (strpos($gs['setting_key'], 'web_room_primary_') === 0) {
         $type = str_replace('web_room_primary_', '', $gs['setting_key']);
-        $roomPrimary[ucfirst($type)] = $gs['setting_value'];
+        $roomPrimary[normalizeRoomTypeKey($type)] = $gs['setting_value'];
     }
 }
 
@@ -291,8 +298,9 @@ require_once __DIR__ . '/includes/header.php';
             ?>
             <?php
                 $typeName = trim($room['type_name']);
-                $gallery = $roomGalleries[$typeName] ?? [];
-                $primary = $roomPrimary[$typeName] ?? '';
+                $typeKey = normalizeRoomTypeKey($typeName);
+                $gallery = $roomGalleries[$typeKey] ?? [];
+                $primary = $roomPrimary[$typeKey] ?? '';
                 // If primary is set, put it first
                 if ($primary && in_array($primary, $gallery)) {
                     $gallery = array_values(array_diff($gallery, [$primary]));

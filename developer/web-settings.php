@@ -93,11 +93,15 @@ $webSettings = [
     'web_room_gallery_king'  => '', // JSON array of image paths
     'web_room_gallery_queen' => '',
     'web_room_gallery_twin'  => '',
+    'web_room_gallery_deluxe_king' => '',
+    'web_room_gallery_deluxe_queen' => '',
 
     // Room Primary (cover) Image
     'web_room_primary_king'  => '',
     'web_room_primary_queen' => '',
     'web_room_primary_twin'  => '',
+    'web_room_primary_deluxe_king' => '',
+    'web_room_primary_deluxe_queen' => '',
 
     // SEO
     'web_meta_title'        => 'Narayana Karimunjawa | Luxury Island Resort',
@@ -161,6 +165,9 @@ foreach ($rows as $row) {
 foreach ($webSettings as $key => $default) {
     $webSettings[$key] = $currentValues[$key] ?? $default;
 }
+
+$webEnabledRaw = strtolower(trim((string)($webSettings['web_enabled'] ?? '0')));
+$isWebEnabled = in_array($webEnabledRaw, ['1', 'true', 'on', 'yes'], true);
 
 // Handle flash messages from redirect
 $activeTab = $_GET['tab'] ?? 'general';
@@ -245,7 +252,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         foreach ($fields as $key) {
             if (isset($_POST[$key])) {
-                $val = trim($_POST[$key]);
+                $val = $key === 'web_enabled' ? '1' : trim($_POST[$key]);
                 $stmt = $webDb->prepare("INSERT INTO settings (setting_key, setting_value, setting_type, description) 
                             VALUES (?, ?, 'text', ?) ON DUPLICATE KEY UPDATE setting_value = ?");
                 $stmt->execute([$key, $val, 'Website: ' . str_replace('web_', '', $key), $val]);
@@ -258,6 +265,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute();
             $webSettings['web_enabled'] = '0';
         }
+        $webEnabledRaw = strtolower(trim((string)($webSettings['web_enabled'] ?? '0')));
+        $isWebEnabled = in_array($webEnabledRaw, ['1', 'true', 'on', 'yes'], true);
         // Handle favicon upload
         if (isset($_FILES['web_favicon']) && $_FILES['web_favicon']['error'] === UPLOAD_ERR_OK) {
             $fileInfo = pathinfo($_FILES['web_favicon']['name']);
@@ -581,7 +590,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'save_room_gallery') {
         $redirectTab = 'gallery';
         $roomType = $_POST['room_type'] ?? '';
-        if (!in_array($roomType, ['king', 'queen', 'twin'])) {
+        $allowedRoomTypes = ['king', 'queen', 'twin', 'deluxe_king', 'deluxe_queen'];
+        if (!in_array($roomType, $allowedRoomTypes, true)) {
             $error = 'Invalid room type!';
         } else {
             $galleryKey = 'web_room_gallery_' . $roomType;
@@ -676,7 +686,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$galleryKey, $galleryJson, 'Website Room Gallery', $galleryJson]);
             $webSettings[$galleryKey] = $galleryJson;
 
-            $success = ucfirst($roomType) . ' room gallery updated!';
+            $roomTypeLabels = [
+                'king' => 'King Room',
+                'queen' => 'Queen Room',
+                'twin' => 'Twin Room',
+                'deluxe_king' => 'Deluxe King Room',
+                'deluxe_queen' => 'Deluxe Queen Room',
+            ];
+            $success = ($roomTypeLabels[$roomType] ?? ucfirst(str_replace('_', ' ', $roomType))) . ' gallery updated!';
         }
     } elseif ($action === 'save_destinations') {
         $redirectTab = 'destinations';
@@ -1363,11 +1380,11 @@ require_once __DIR__ . '/includes/header.php';
     <?php endif; ?>
 
     <!-- Website Status -->
-    <div class="website-status <?= $webSettings['web_enabled'] === '1' ? 'online' : 'offline' ?>">
+    <div class="website-status <?= $isWebEnabled ? 'online' : 'offline' ?>">
         <div class="status-dot"></div>
-        <strong>Website is <?= $webSettings['web_enabled'] === '1' ? 'Online' : 'Offline' ?></strong>
+        <strong>Website is <?= $isWebEnabled ? 'Online' : 'Offline' ?></strong>
         <span class="ms-auto">
-            <?php if ($webSettings['web_enabled'] === '1'): ?>
+            <?php if ($isWebEnabled): ?>
                 Accepting reservations
             <?php else: ?>
                 Visitors will see a maintenance page
@@ -1465,7 +1482,7 @@ require_once __DIR__ . '/includes/header.php';
                                 <div class="form-text">Enable or disable the public booking website</div>
                             </div>
                             <label class="toggle-switch">
-                                <input type="checkbox" name="web_enabled" value="1" <?= $webSettings['web_enabled'] === '1' ? 'checked' : '' ?>>
+                                <input type="checkbox" name="web_enabled" value="1" <?= $isWebEnabled ? 'checked' : '' ?>>
                                 <span class="toggle-slider"></span>
                             </label>
                         </div>
@@ -1980,15 +1997,25 @@ require_once __DIR__ . '/includes/header.php';
         $roomGalleries = [
             'king' => json_decode($webSettings['web_room_gallery_king'] ?? '[]', true) ?: [],
             'queen' => json_decode($webSettings['web_room_gallery_queen'] ?? '[]', true) ?: [],
-            'twin' => json_decode($webSettings['web_room_gallery_twin'] ?? '[]', true) ?: []
+            'twin' => json_decode($webSettings['web_room_gallery_twin'] ?? '[]', true) ?: [],
+            'deluxe_king' => json_decode($webSettings['web_room_gallery_deluxe_king'] ?? '[]', true) ?: [],
+            'deluxe_queen' => json_decode($webSettings['web_room_gallery_deluxe_queen'] ?? '[]', true) ?: []
         ];
         $roomPrimaries = [
             'king' => $webSettings['web_room_primary_king'] ?? '',
             'queen' => $webSettings['web_room_primary_queen'] ?? '',
-            'twin' => $webSettings['web_room_primary_twin'] ?? ''
+            'twin' => $webSettings['web_room_primary_twin'] ?? '',
+            'deluxe_king' => $webSettings['web_room_primary_deluxe_king'] ?? '',
+            'deluxe_queen' => $webSettings['web_room_primary_deluxe_queen'] ?? ''
         ];
-        $roomIcons = ['king' => '👑', 'queen' => '🌙', 'twin' => '🛏️'];
-        $roomNames = ['king' => 'King Room', 'queen' => 'Queen Room', 'twin' => 'Twin Room'];
+        $roomIcons = ['king' => '👑', 'queen' => '🌙', 'twin' => '🛏️', 'deluxe_king' => '🏨', 'deluxe_queen' => '🏖️'];
+        $roomNames = [
+            'king' => 'King Room',
+            'queen' => 'Queen Room',
+            'twin' => 'Twin Room',
+            'deluxe_king' => 'Deluxe King Room',
+            'deluxe_queen' => 'Deluxe Queen Room'
+        ];
         foreach ($roomGalleries as $roomType => $gallery):
         ?>
             <div class="settings-card mb-4">

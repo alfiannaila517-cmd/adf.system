@@ -11,12 +11,19 @@ require_once $_cfg;
 $currentPage = 'rooms';
 $pageTitle = 'Rooms';
 
+function normalizeRoomTypeKey(string $value): string
+{
+    $normalized = strtolower(trim($value));
+    $normalized = preg_replace('/[^a-z0-9]+/', '_', $normalized);
+    return trim((string)$normalized, '_');
+}
+
 // Load room galleries from settings
 $gallerySettings = dbFetchAll("SELECT setting_key, setting_value FROM settings WHERE setting_key LIKE 'web_room_gallery_%'");
 $roomGalleries = [];
 foreach ($gallerySettings as $setting) {
     $roomType = str_replace('web_room_gallery_', '', $setting['setting_key']);
-    $roomGalleries[ucfirst($roomType)] = json_decode($setting['setting_value'] ?? '[]', true) ?: [];
+    $roomGalleries[normalizeRoomTypeKey($roomType)] = json_decode($setting['setting_value'] ?? '[]', true) ?: [];
 }
 
 // Load room descriptions from settings
@@ -108,7 +115,8 @@ include __DIR__ . '/includes/header.php';
             else { $ac = 'full'; $at = 'Fully booked today'; }
 
             $typeRooms = array_filter($rooms, fn($r) => $r['room_type_id'] == $room['id']);
-            $gallery = $roomGalleries[$typeName] ?? [];
+            $typeKey = normalizeRoomTypeKey($typeName);
+            $gallery = $roomGalleries[$typeKey] ?? [];
             $firstImage = !empty($gallery) ? $gallery[0] : null;
         ?>
         <div class="room-detail <?= $reverse ? 'reverse' : '' ?> fade-in">
