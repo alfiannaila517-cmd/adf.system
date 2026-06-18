@@ -109,23 +109,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $notes        = trim($_POST['notes'] ?? '');
 
             if (!$plate || !$carName) throw new Exception('Plat nomor dan nama kendaraan wajib diisi');
-            $validTypes = ['sedan','mpv','minibus','pickup','suv','van','other'];
+            $validTypes = ['sedan', 'mpv', 'minibus', 'pickup', 'suv', 'van', 'other'];
             if (!in_array($carType, $validTypes)) $carType = 'mpv';
-            if (!in_array($carStatus, ['available','rented','maintenance'])) $carStatus = 'available';
+            if (!in_array($carStatus, ['available', 'rented', 'maintenance'])) $carStatus = 'available';
 
             if ($cid) {
                 $pdo->prepare("UPDATE rental_cars SET plate_number=?,car_name=?,car_type=?,color=?,year=?,
                     capacity=?,daily_rate=?,partner_owner=?,owner_phone=?,owner_commission_pct=?,
                     status=?,notes=?,updated_at=NOW() WHERE id=? AND business_id=?")
-                    ->execute([$plate,$carName,$carType,$color?:null,$year,$capacity,$dailyRate,
-                               $owner?:null,$ownerPhone?:null,$ownerCommPct,$carStatus,$notes?:null,$cid,$businessId]);
+                    ->execute([
+                        $plate,
+                        $carName,
+                        $carType,
+                        $color ?: null,
+                        $year,
+                        $capacity,
+                        $dailyRate,
+                        $owner ?: null,
+                        $ownerPhone ?: null,
+                        $ownerCommPct,
+                        $carStatus,
+                        $notes ?: null,
+                        $cid,
+                        $businessId
+                    ]);
             } else {
                 $pdo->prepare("INSERT INTO rental_cars
                     (business_id,plate_number,car_name,car_type,color,year,capacity,daily_rate,
                      partner_owner,owner_phone,owner_commission_pct,status,notes)
                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")
-                    ->execute([$businessId,$plate,$carName,$carType,$color?:null,$year,$capacity,
-                               $dailyRate,$owner?:null,$ownerPhone?:null,$ownerCommPct,$carStatus,$notes?:null]);
+                    ->execute([
+                        $businessId,
+                        $plate,
+                        $carName,
+                        $carType,
+                        $color ?: null,
+                        $year,
+                        $capacity,
+                        $dailyRate,
+                        $owner ?: null,
+                        $ownerPhone ?: null,
+                        $ownerCommPct,
+                        $carStatus,
+                        $notes ?: null
+                    ]);
                 $cid = (int)$pdo->lastInsertId();
             }
             ob_clean();
@@ -200,8 +227,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                     $pdo,
                     $invoiceId,
                     'car_rental',
-                    "{$carRow['car_name']} ({$carRow['plate_number']})" . 
-                    ($destination ? " — Tujuan: {$destination}" : ''),
+                    "{$carRow['car_name']} ({$carRow['plate_number']})" .
+                        ($destination ? " — Tujuan: {$destination}" : ''),
                     $plannedDays,
                     $dailyRate2,  // unit_price (daily rate)
                     $startDt,
@@ -214,9 +241,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                  start_datetime,end_datetime,daily_rate,total_price,owner_amount,hotel_commission,
                  deposit,trip_destination,status,notes,created_by)
                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
-                ->execute([$businessId,$carId,$invoiceId,$guestName,$guestPhone?:null,$roomNumber?:null,
-                           $bookingId2,$startDt,$endDt,$dailyRate2,$plannedTotal,$plannedOwner,$plannedHotel,
-                           $deposit,$destination?:null,'active',$notes?:null,$currentUser['id']??null]);
+                ->execute([
+                    $businessId,
+                    $carId,
+                    $invoiceId,
+                    $guestName,
+                    $guestPhone ?: null,
+                    $roomNumber ?: null,
+                    $bookingId2,
+                    $startDt,
+                    $endDt,
+                    $dailyRate2,
+                    $plannedTotal,
+                    $plannedOwner,
+                    $plannedHotel,
+                    $deposit,
+                    $destination ?: null,
+                    'active',
+                    $notes ?: null,
+                    $currentUser['id'] ?? null
+                ]);
             $rentalId = (int)$pdo->lastInsertId();
 
             $pdo->prepare("UPDATE rental_cars SET status='rented',updated_at=NOW() WHERE id=?")->execute([$carId]);
@@ -261,7 +305,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $pdo->prepare("UPDATE rental_car_bookings
                 SET status='returned',actual_return=?,updated_at=NOW()
                 WHERE id=?")
-                ->execute([$returnTime,$rentalId]);
+                ->execute([$returnTime, $rentalId]);
 
             $pdo->prepare("UPDATE rental_cars SET status='available',updated_at=NOW() WHERE id=?")->execute([$rentalRow['car_id']]);
 
@@ -329,11 +373,16 @@ $filterSearch = trim($_GET['q'] ?? '');
 
 $rwhere  = ["cb.business_id = ?"];
 $rparams = [$businessId];
-if ($filterStatus) { $rwhere[] = "cb.status = ?"; $rparams[] = $filterStatus; }
+if ($filterStatus) {
+    $rwhere[] = "cb.status = ?";
+    $rparams[] = $filterStatus;
+}
 if ($filterSearch) {
     $rwhere[] = "(cb.guest_name LIKE ? OR rc.plate_number LIKE ? OR rc.car_name LIKE ? OR rc.partner_owner LIKE ?)";
-    $rparams[] = "%{$filterSearch}%"; $rparams[] = "%{$filterSearch}%";
-    $rparams[] = "%{$filterSearch}%"; $rparams[] = "%{$filterSearch}%";
+    $rparams[] = "%{$filterSearch}%";
+    $rparams[] = "%{$filterSearch}%";
+    $rparams[] = "%{$filterSearch}%";
+    $rparams[] = "%{$filterSearch}%";
 }
 
 $rentalStmt = $pdo->prepare("SELECT cb.*, rc.plate_number, rc.car_name, rc.car_type, rc.color as car_color,
@@ -368,7 +417,9 @@ try {
     $inHouseGuests = $pdo->query("SELECT b.id as booking_id, g.guest_name, r.room_number, g.phone
         FROM bookings b LEFT JOIN guests g ON b.guest_id=g.id LEFT JOIN rooms r ON b.room_id=r.id
         WHERE b.status='checked_in' ORDER BY r.room_number ASC LIMIT 100")->fetchAll(PDO::FETCH_ASSOC);
-} catch (\Throwable $e) { $inHouseGuests = []; }
+} catch (\Throwable $e) {
+    $inHouseGuests = [];
+}
 
 // Open invoices
 try {
@@ -377,75 +428,485 @@ try {
         ORDER BY created_at DESC LIMIT 50");
     $openInvStmt->execute([$businessId]);
     $openInvoiceList = $openInvStmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (\Throwable $e) { $openInvoiceList = []; }
+} catch (\Throwable $e) {
+    $openInvoiceList = [];
+}
 
 include '../../includes/header.php';
 ?>
 <style>
-    .rm-page { padding: 1.25rem; }
-    .rm-topbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem; flex-wrap:wrap; gap:0.75rem; }
-    .rm-topbar h2 { font-size:1.2rem; font-weight:700; color:var(--text-primary); margin:0; }
-    .rm-stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:0.75rem; margin-bottom:1.25rem; }
-    .rm-stat { background:white; border-radius:10px; padding:0.85rem 1rem; box-shadow:0 1px 4px rgba(0,0,0,0.07); border-top:3px solid var(--c); }
-    .rm-stat .val { font-size:1.25rem; font-weight:800; color:var(--c); }
-    .rm-stat .lbl { font-size:0.72rem; color:var(--text-secondary); margin-top:0.15rem; }
-    .rm-fleet { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:0.75rem; margin-bottom:1.25rem; }
-    .rm-car-card { background:white; border-radius:10px; padding:0.9rem; box-shadow:0 1px 4px rgba(0,0,0,0.07); border-left:4px solid var(--mc); position:relative; transition:transform 0.15s; }
-    .rm-car-card:hover { transform:translateY(-2px); box-shadow:0 4px 12px rgba(0,0,0,0.1); }
-    .rm-car-card .mc-plate { font-size:0.9rem; font-weight:800; color:#1e293b; }
-    .rm-car-card .mc-name { font-size:0.78rem; color:var(--text-secondary); margin-top:0.15rem; }
-    .rm-car-card .mc-owner { font-size:0.72rem; color:#6366f1; margin-top:0.2rem; font-weight:600; }
-    .rm-car-card .mc-rate { font-size:0.75rem; color:#6366f1; font-weight:600; margin-top:0.3rem; }
-    .rm-car-card .mc-status { position:absolute; top:0.65rem; right:0.75rem; display:inline-block; padding:0.15rem 0.5rem; border-radius:20px; font-size:0.68rem; font-weight:600; color:white; }
-    .rm-car-card .mc-actions { display:flex; gap:0.35rem; margin-top:0.6rem; flex-wrap:wrap; }
-    .mc-btn { padding:0.2rem 0.5rem; border:none; border-radius:5px; font-size:0.7rem; font-weight:600; cursor:pointer; transition:opacity 0.2s; }
-    .mc-btn:hover { opacity:0.8; }
-    .rm-filters { background:white; border-radius:10px; padding:0.85rem 1rem; box-shadow:0 1px 4px rgba(0,0,0,0.07); margin-bottom:1rem; display:flex; flex-wrap:wrap; gap:0.6rem; align-items:center; }
-    .rm-filters input,.rm-filters select { padding:0.4rem 0.6rem; border:1px solid #e2e8f0; border-radius:6px; font-size:0.8rem; background:white; color:var(--text-primary); }
-    .rm-table-wrap { background:white; border-radius:10px; box-shadow:0 1px 4px rgba(0,0,0,0.07); overflow:hidden; margin-bottom:1.25rem; }
-    .rm-table { width:100%; border-collapse:collapse; font-size:0.8rem; }
-    .rm-table th { background:#f8fafc; padding:0.65rem 0.85rem; text-align:left; font-weight:600; color:var(--text-secondary); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.03em; border-bottom:1px solid #e2e8f0; }
-    .rm-table td { padding:0.65rem 0.85rem; border-bottom:1px solid #f1f5f9; vertical-align:middle; }
-    .rm-table tr:last-child td { border-bottom:none; }
-    .rm-table tr:hover td { background:#fafbff; }
-    .rm-badge { display:inline-block; padding:0.2rem 0.55rem; border-radius:20px; font-size:0.7rem; font-weight:600; color:white; }
-    .rm-action-btn { padding:0.35rem 0.7rem; border:none; border-radius:7px; cursor:pointer; font-size:0.76rem; font-weight:700; transition:opacity 0.2s, transform 0.15s; display:inline-flex; align-items:center; justify-content:center; gap:0.25rem; }
-    .rm-action-btn:hover { opacity:0.8; }
-    .rm-action-btn.return-btn { padding:0.5rem 1rem; font-size:0.82rem; border:1px solid #86efac; box-shadow:0 2px 8px rgba(22,163,74,0.15); }
-    .rm-action-btn.return-btn:hover { transform:translateY(-1px); }
-    .rm-modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:99999; align-items:center; justify-content:center; padding:1rem; }
-    .rm-modal-overlay.open { display:flex; }
-    .rm-modal { background:white; border-radius:14px; padding:1.5rem; width:100%; max-width:560px; max-height:92vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,0.3); }
-    .rm-modal h3 { margin:0 0 1rem; font-size:1.05rem; font-weight:700; }
-    .rm-form-row { display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:0.75rem; }
-    .rm-form-row.full { grid-template-columns:1fr; }
-    .rm-field label { display:block; font-size:0.75rem; font-weight:600; color:var(--text-secondary); margin-bottom:0.3rem; }
-    .rm-field input,.rm-field select,.rm-field textarea { width:100%; padding:0.5rem 0.65rem; border:1px solid #e2e8f0; border-radius:7px; font-size:0.85rem; color:var(--text-primary); background:white; box-sizing:border-box; }
-    .rm-field textarea { resize:vertical; min-height:55px; }
-    .rm-field input:focus,.rm-field select:focus,.rm-field textarea:focus { outline:none; border-color:#6366f1; box-shadow:0 0 0 2px rgba(99,102,241,0.15); }
-    .rm-modal-footer { display:flex; justify-content:flex-end; gap:0.6rem; margin-top:1rem; }
-    .btn-rm { padding:0.5rem 1.25rem; border:none; border-radius:8px; font-weight:600; cursor:pointer; font-size:0.85rem; }
-    .btn-rm-primary { background:var(--primary,#6366f1); color:white; }
-    .btn-rm-secondary { background:#f3f4f6; color:#374151; border:1px solid #e5e7eb; }
-    .btn-rm-success { background:#10b981; color:white; }
-    .btn-rm-danger { background:#ef4444; color:white; }
-    .rm-empty { text-align:center; padding:3rem 1rem; color:var(--text-secondary); }
-    .rm-empty .em-icon { font-size:2.5rem; margin-bottom:0.5rem; }
-    .rm-section { font-size:0.78rem; font-weight:700; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.04em; margin:1.25rem 0 0.6rem; }
-    .rm-tabs { display:flex; border-bottom:2px solid #e2e8f0; margin-bottom:1rem; }
-    .rm-tab { padding:0.5rem 1rem; font-size:0.82rem; font-weight:600; cursor:pointer; color:#64748b; border-bottom:2px solid transparent; margin-bottom:-2px; background:none; border-top:none; border-left:none; border-right:none; }
-    .rm-tab.active { color:#4338ca; border-bottom-color:#6366f1; }
-    .rm-tab-pane { display:none; }
-    .rm-tab-pane.active { display:block; }
-    .rm-total-preview { background:linear-gradient(135deg,#f0f4ff,#e8edff); border-radius:8px; padding:0.75rem 1rem; text-align:center; margin:0.75rem 0; font-size:1.1rem; font-weight:700; color:#4338ca; }
-    .owner-info-box { background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:0.7rem 0.9rem; font-size:0.8rem; margin-top:0.5rem; }
-    .owner-info-box strong { color:#065f46; }
-    .rm-overdue-pulse { animation:overduePulse 2s ease-in-out infinite; }
-    @keyframes overduePulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
-    .guest-toggle { display:flex; gap:0.4rem; margin-bottom:0.6rem; }
-    .guest-toggle button { flex:1; padding:0.4rem 0.6rem; border:2px solid #e2e8f0; border-radius:7px; background:white; font-size:0.78rem; font-weight:600; cursor:pointer; color:#374151; }
-    .guest-toggle button.active { border-color:#6366f1; background:#ede9fe; color:#4c1d95; }
-    @media(max-width:580px) { .rm-form-row{grid-template-columns:1fr} .rm-stats{grid-template-columns:repeat(2,1fr)} .rm-fleet{grid-template-columns:repeat(2,1fr)} }
+    .rm-page {
+        padding: 1.25rem;
+    }
+
+    .rm-topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.25rem;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+
+    .rm-topbar h2 {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin: 0;
+    }
+
+    .rm-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 0.75rem;
+        margin-bottom: 1.25rem;
+    }
+
+    .rm-stat {
+        background: white;
+        border-radius: 10px;
+        padding: 0.85rem 1rem;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+        border-top: 3px solid var(--c);
+    }
+
+    .rm-stat .val {
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: var(--c);
+    }
+
+    .rm-stat .lbl {
+        font-size: 0.72rem;
+        color: var(--text-secondary);
+        margin-top: 0.15rem;
+    }
+
+    .rm-fleet {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+        gap: 0.75rem;
+        margin-bottom: 1.25rem;
+    }
+
+    .rm-car-card {
+        background: white;
+        border-radius: 10px;
+        padding: 0.9rem;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+        border-left: 4px solid var(--mc);
+        position: relative;
+        transition: transform 0.15s;
+    }
+
+    .rm-car-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .rm-car-card .mc-plate {
+        font-size: 0.9rem;
+        font-weight: 800;
+        color: #1e293b;
+    }
+
+    .rm-car-card .mc-name {
+        font-size: 0.78rem;
+        color: var(--text-secondary);
+        margin-top: 0.15rem;
+    }
+
+    .rm-car-card .mc-owner {
+        font-size: 0.72rem;
+        color: #6366f1;
+        margin-top: 0.2rem;
+        font-weight: 600;
+    }
+
+    .rm-car-card .mc-rate {
+        font-size: 0.75rem;
+        color: #6366f1;
+        font-weight: 600;
+        margin-top: 0.3rem;
+    }
+
+    .rm-car-card .mc-status {
+        position: absolute;
+        top: 0.65rem;
+        right: 0.75rem;
+        display: inline-block;
+        padding: 0.15rem 0.5rem;
+        border-radius: 20px;
+        font-size: 0.68rem;
+        font-weight: 600;
+        color: white;
+    }
+
+    .rm-car-card .mc-actions {
+        display: flex;
+        gap: 0.35rem;
+        margin-top: 0.6rem;
+        flex-wrap: wrap;
+    }
+
+    .mc-btn {
+        padding: 0.2rem 0.5rem;
+        border: none;
+        border-radius: 5px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: opacity 0.2s;
+    }
+
+    .mc-btn:hover {
+        opacity: 0.8;
+    }
+
+    .rm-filters {
+        background: white;
+        border-radius: 10px;
+        padding: 0.85rem 1rem;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+        margin-bottom: 1rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.6rem;
+        align-items: center;
+    }
+
+    .rm-filters input,
+    .rm-filters select {
+        padding: 0.4rem 0.6rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        background: white;
+        color: var(--text-primary);
+    }
+
+    .rm-table-wrap {
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+        overflow: hidden;
+        margin-bottom: 1.25rem;
+    }
+
+    .rm-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.8rem;
+    }
+
+    .rm-table th {
+        background: #f8fafc;
+        padding: 0.65rem 0.85rem;
+        text-align: left;
+        font-weight: 600;
+        color: var(--text-secondary);
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .rm-table td {
+        padding: 0.65rem 0.85rem;
+        border-bottom: 1px solid #f1f5f9;
+        vertical-align: middle;
+    }
+
+    .rm-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .rm-table tr:hover td {
+        background: #fafbff;
+    }
+
+    .rm-badge {
+        display: inline-block;
+        padding: 0.2rem 0.55rem;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: white;
+    }
+
+    .rm-action-btn {
+        padding: 0.35rem 0.7rem;
+        border: none;
+        border-radius: 7px;
+        cursor: pointer;
+        font-size: 0.76rem;
+        font-weight: 700;
+        transition: opacity 0.2s, transform 0.15s;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.25rem;
+    }
+
+    .rm-action-btn:hover {
+        opacity: 0.8;
+    }
+
+    .rm-action-btn.return-btn {
+        padding: 0.5rem 1rem;
+        font-size: 0.82rem;
+        border: 1px solid #86efac;
+        box-shadow: 0 2px 8px rgba(22, 163, 74, 0.15);
+    }
+
+    .rm-action-btn.return-btn:hover {
+        transform: translateY(-1px);
+    }
+
+    .rm-modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.55);
+        z-index: 99999;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+
+    .rm-modal-overlay.open {
+        display: flex;
+    }
+
+    .rm-modal {
+        background: white;
+        border-radius: 14px;
+        padding: 1.5rem;
+        width: 100%;
+        max-width: 560px;
+        max-height: 92vh;
+        overflow-y: auto;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+
+    .rm-modal h3 {
+        margin: 0 0 1rem;
+        font-size: 1.05rem;
+        font-weight: 700;
+    }
+
+    .rm-form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .rm-form-row.full {
+        grid-template-columns: 1fr;
+    }
+
+    .rm-field label {
+        display: block;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        margin-bottom: 0.3rem;
+    }
+
+    .rm-field input,
+    .rm-field select,
+    .rm-field textarea {
+        width: 100%;
+        padding: 0.5rem 0.65rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 7px;
+        font-size: 0.85rem;
+        color: var(--text-primary);
+        background: white;
+        box-sizing: border-box;
+    }
+
+    .rm-field textarea {
+        resize: vertical;
+        min-height: 55px;
+    }
+
+    .rm-field input:focus,
+    .rm-field select:focus,
+    .rm-field textarea:focus {
+        outline: none;
+        border-color: #6366f1;
+        box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+    }
+
+    .rm-modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.6rem;
+        margin-top: 1rem;
+    }
+
+    .btn-rm {
+        padding: 0.5rem 1.25rem;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        font-size: 0.85rem;
+    }
+
+    .btn-rm-primary {
+        background: var(--primary, #6366f1);
+        color: white;
+    }
+
+    .btn-rm-secondary {
+        background: #f3f4f6;
+        color: #374151;
+        border: 1px solid #e5e7eb;
+    }
+
+    .btn-rm-success {
+        background: #10b981;
+        color: white;
+    }
+
+    .btn-rm-danger {
+        background: #ef4444;
+        color: white;
+    }
+
+    .rm-empty {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: var(--text-secondary);
+    }
+
+    .rm-empty .em-icon {
+        font-size: 2.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .rm-section {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        margin: 1.25rem 0 0.6rem;
+    }
+
+    .rm-tabs {
+        display: flex;
+        border-bottom: 2px solid #e2e8f0;
+        margin-bottom: 1rem;
+    }
+
+    .rm-tab {
+        padding: 0.5rem 1rem;
+        font-size: 0.82rem;
+        font-weight: 600;
+        cursor: pointer;
+        color: #64748b;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+        background: none;
+        border-top: none;
+        border-left: none;
+        border-right: none;
+    }
+
+    .rm-tab.active {
+        color: #4338ca;
+        border-bottom-color: #6366f1;
+    }
+
+    .rm-tab-pane {
+        display: none;
+    }
+
+    .rm-tab-pane.active {
+        display: block;
+    }
+
+    .rm-total-preview {
+        background: linear-gradient(135deg, #f0f4ff, #e8edff);
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        text-align: center;
+        margin: 0.75rem 0;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #4338ca;
+    }
+
+    .owner-info-box {
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        border-radius: 8px;
+        padding: 0.7rem 0.9rem;
+        font-size: 0.8rem;
+        margin-top: 0.5rem;
+    }
+
+    .owner-info-box strong {
+        color: #065f46;
+    }
+
+    .rm-overdue-pulse {
+        animation: overduePulse 2s ease-in-out infinite;
+    }
+
+    @keyframes overduePulse {
+
+        0%,
+        100% {
+            opacity: 1
+        }
+
+        50% {
+            opacity: 0.6
+        }
+    }
+
+    .guest-toggle {
+        display: flex;
+        gap: 0.4rem;
+        margin-bottom: 0.6rem;
+    }
+
+    .guest-toggle button {
+        flex: 1;
+        padding: 0.4rem 0.6rem;
+        border: 2px solid #e2e8f0;
+        border-radius: 7px;
+        background: white;
+        font-size: 0.78rem;
+        font-weight: 600;
+        cursor: pointer;
+        color: #374151;
+    }
+
+    .guest-toggle button.active {
+        border-color: #6366f1;
+        background: #ede9fe;
+        color: #4c1d95;
+    }
+
+    @media(max-width:580px) {
+        .rm-form-row {
+            grid-template-columns: 1fr
+        }
+
+        .rm-stats {
+            grid-template-columns: repeat(2, 1fr)
+        }
+
+        .rm-fleet {
+            grid-template-columns: repeat(2, 1fr)
+        }
+    }
 </style>
 
 <div class="rm-page">
@@ -465,12 +926,30 @@ include '../../includes/header.php';
 
     <!-- Stats -->
     <div class="rm-stats">
-        <div class="rm-stat" style="--c:#6366f1"><div class="val"><?php echo $totalCars; ?></div><div class="lbl">Total Kendaraan</div></div>
-        <div class="rm-stat" style="--c:#10b981"><div class="val"><?php echo $availableCars; ?></div><div class="lbl">Tersedia</div></div>
-        <div class="rm-stat" style="--c:#f59e0b"><div class="val"><?php echo $rentedCars; ?></div><div class="lbl">Disewa</div></div>
-        <div class="rm-stat" style="--c:#ef4444"><div class="val"><?php echo $activeRentals; ?></div><div class="lbl">Rental Aktif</div></div>
-        <div class="rm-stat" style="--c:#8b5cf6"><div class="val">Rp <?php echo number_format($revStats['revenue'],0,',','.'); ?></div><div class="lbl">Revenue Bulan Ini</div></div>
-        <div class="rm-stat" style="--c:#06b6d4"><div class="val">Rp <?php echo number_format($revStats['hotel_total'],0,',','.'); ?></div><div class="lbl">Komisi Hotel Bln Ini</div></div>
+        <div class="rm-stat" style="--c:#6366f1">
+            <div class="val"><?php echo $totalCars; ?></div>
+            <div class="lbl">Total Kendaraan</div>
+        </div>
+        <div class="rm-stat" style="--c:#10b981">
+            <div class="val"><?php echo $availableCars; ?></div>
+            <div class="lbl">Tersedia</div>
+        </div>
+        <div class="rm-stat" style="--c:#f59e0b">
+            <div class="val"><?php echo $rentedCars; ?></div>
+            <div class="lbl">Disewa</div>
+        </div>
+        <div class="rm-stat" style="--c:#ef4444">
+            <div class="val"><?php echo $activeRentals; ?></div>
+            <div class="lbl">Rental Aktif</div>
+        </div>
+        <div class="rm-stat" style="--c:#8b5cf6">
+            <div class="val">Rp <?php echo number_format($revStats['revenue'], 0, ',', '.'); ?></div>
+            <div class="lbl">Revenue Bulan Ini</div>
+        </div>
+        <div class="rm-stat" style="--c:#06b6d4">
+            <div class="val">Rp <?php echo number_format($revStats['hotel_total'], 0, ',', '.'); ?></div>
+            <div class="lbl">Komisi Hotel Bln Ini</div>
+        </div>
     </div>
 
     <!-- Tabs -->
@@ -486,7 +965,10 @@ include '../../includes/header.php';
         $activeList = array_filter($rentals, fn($r) => in_array($r['status'], ['active', 'overdue']));
         if (empty($activeList)):
         ?>
-            <div class="rm-empty"><div class="em-icon">🚗</div><p>Tidak ada rental aktif saat ini</p></div>
+            <div class="rm-empty">
+                <div class="em-icon">🚗</div>
+                <p>Tidak ada rental aktif saat ini</p>
+            </div>
         <?php else: ?>
             <div class="rm-table-wrap">
                 <table class="rm-table">
@@ -529,7 +1011,7 @@ include '../../includes/header.php';
                                 <td style="font-size:0.75rem"><?php echo date('d M H:i', strtotime($r['start_datetime'])); ?></td>
                                 <td style="font-size:0.75rem"><?php echo date('d M H:i', strtotime($r['end_datetime'])); ?></td>
                                 <td><span style="font-weight:700;color:<?php echo $isOverdue ? '#ef4444' : '#10b981'; ?>;font-size:0.78rem"><?php echo $remaining; ?></span></td>
-                                <td style="font-weight:600;font-size:0.82rem">Rp <?php echo number_format($r['daily_rate'],0,',','.'); ?></td>
+                                <td style="font-weight:600;font-size:0.82rem">Rp <?php echo number_format($r['daily_rate'], 0, ',', '.'); ?></td>
                                 <td style="font-size:0.75rem"><?php echo htmlspecialchars($r['partner_owner'] ?? '—'); ?></td>
                                 <td><span class="rm-badge" style="background:<?php echo $isOverdue ? '#ef4444' : '#10b981'; ?>"><?php echo $isOverdue ? '⚠ Overdue' : '✓ Aktif'; ?></span></td>
                                 <td style="white-space:nowrap">
@@ -555,9 +1037,9 @@ include '../../includes/header.php';
         <?php else: ?>
             <div class="rm-fleet">
                 <?php
-                $statusColors = ['available'=>'#10b981','rented'=>'#f59e0b','maintenance'=>'#6b7280'];
-                $statusLabels = ['available'=>'Tersedia','rented'=>'Disewa','maintenance'=>'Maint.'];
-                $typeIcons    = ['sedan'=>'🚘','mpv'=>'🚙','minibus'=>'🚌','pickup'=>'🛻','suv'=>'🚐','van'=>'🚐','other'=>'🚗'];
+                $statusColors = ['available' => '#10b981', 'rented' => '#f59e0b', 'maintenance' => '#6b7280'];
+                $statusLabels = ['available' => 'Tersedia', 'rented' => 'Disewa', 'maintenance' => 'Maint.'];
+                $typeIcons    = ['sedan' => '🚘', 'mpv' => '🚙', 'minibus' => '🚌', 'pickup' => '🛻', 'suv' => '🚐', 'van' => '🚐', 'other' => '🚗'];
                 foreach ($carList as $c):
                     $mc = $statusColors[$c['status']] ?? '#6b7280';
                     $icon = $typeIcons[$c['car_type']] ?? '🚗';
@@ -578,7 +1060,7 @@ include '../../includes/header.php';
                                 <?php endif; ?>
                             </div>
                         <?php endif; ?>
-                        <div class="mc-rate">Rp <?php echo number_format($c['daily_rate'],0,',','.'); ?> / hari</div>
+                        <div class="mc-rate">Rp <?php echo number_format($c['daily_rate'], 0, ',', '.'); ?> / hari</div>
                         <div class="mc-actions">
                             <button class="mc-btn" style="background:#e0e7ff;color:#4338ca" onclick="editCar(<?php echo htmlspecialchars(json_encode($c)); ?>)">✏️ Edit</button>
                             <?php if ($c['status'] === 'available'): ?>
@@ -601,8 +1083,8 @@ include '../../includes/header.php';
             <input type="text" name="q" placeholder="🔍 Cari tamu / plat / pemilik..." value="<?php echo htmlspecialchars($filterSearch); ?>">
             <select name="rs">
                 <option value="">Semua Status</option>
-                <?php foreach (['active'=>'Aktif','overdue'=>'Overdue','returned'=>'Dikembalikan','cancelled'=>'Dibatalkan'] as $sk=>$sl): ?>
-                    <option value="<?php echo $sk; ?>" <?php echo $filterStatus===$sk?'selected':''; ?>><?php echo $sl; ?></option>
+                <?php foreach (['active' => 'Aktif', 'overdue' => 'Overdue', 'returned' => 'Dikembalikan', 'cancelled' => 'Dibatalkan'] as $sk => $sl): ?>
+                    <option value="<?php echo $sk; ?>" <?php echo $filterStatus === $sk ? 'selected' : ''; ?>><?php echo $sl; ?></option>
                 <?php endforeach; ?>
             </select>
             <button type="submit" class="btn-rm btn-rm-primary" style="padding:0.4rem 0.9rem;font-size:0.8rem">Filter</button>
@@ -611,7 +1093,10 @@ include '../../includes/header.php';
             <?php endif; ?>
         </form>
         <?php if (empty($rentals)): ?>
-            <div class="rm-empty"><div class="em-icon">📋</div><p>Belum ada data rental</p></div>
+            <div class="rm-empty">
+                <div class="em-icon">📋</div>
+                <p>Belum ada data rental</p>
+            </div>
         <?php else: ?>
             <div class="rm-table-wrap">
                 <table class="rm-table">
@@ -631,8 +1116,8 @@ include '../../includes/header.php';
                     </thead>
                     <tbody>
                         <?php
-                        $rStatusColors = ['active'=>'#10b981','overdue'=>'#ef4444','returned'=>'#6b7280','cancelled'=>'#94a3b8'];
-                        $rStatusLabels = ['active'=>'Aktif','overdue'=>'Overdue','returned'=>'Kembali','cancelled'=>'Batal'];
+                        $rStatusColors = ['active' => '#10b981', 'overdue' => '#ef4444', 'returned' => '#6b7280', 'cancelled' => '#94a3b8'];
+                        $rStatusLabels = ['active' => 'Aktif', 'overdue' => 'Overdue', 'returned' => 'Kembali', 'cancelled' => 'Batal'];
                         foreach ($rentals as $r):
                         ?>
                             <tr>
@@ -647,23 +1132,23 @@ include '../../includes/header.php';
                                     <?php echo date('d M Y H:i', strtotime($r['end_datetime'])); ?>
                                     <?php if ($r['actual_return']): ?><div style="font-size:0.68rem;color:#10b981">↩ <?php echo date('d M H:i', strtotime($r['actual_return'])); ?></div><?php endif; ?>
                                 </td>
-                                <td style="font-weight:600">Rp <?php echo number_format($r['total_price'],0,',','.'); ?></td>
+                                <td style="font-weight:600">Rp <?php echo number_format($r['total_price'], 0, ',', '.'); ?></td>
                                 <td style="font-size:0.75rem">
                                     <?php if ($r['partner_owner']): ?>
                                         <div><?php echo htmlspecialchars($r['partner_owner']); ?></div>
-                                        <div style="color:#059669;font-weight:600">Rp <?php echo number_format($r['owner_amount'],0,',','.'); ?></div>
-                                    <?php else: ?>—<?php endif; ?>
+                                        <div style="color:#059669;font-weight:600">Rp <?php echo number_format($r['owner_amount'], 0, ',', '.'); ?></div>
+                                        <?php else: ?>—<?php endif; ?>
                                 </td>
-                                <td style="font-weight:600;color:#6366f1">Rp <?php echo number_format($r['hotel_commission'],0,',','.'); ?></td>
+                                <td style="font-weight:600;color:#6366f1">Rp <?php echo number_format($r['hotel_commission'], 0, ',', '.'); ?></td>
                                 <td>
                                     <?php if ($r['invoice_number']): ?>
                                         <a href="hotel-service-invoice.php?id=<?php echo $r['invoice_id']; ?>" target="_blank" style="color:#6366f1;font-weight:600;font-size:0.75rem;text-decoration:none"><?php echo htmlspecialchars($r['invoice_number']); ?></a>
                                         <?php if ($r['inv_pay_status']): ?>
-                                            <span class="rm-badge" style="background:<?php echo ['unpaid'=>'#ef4444','partial'=>'#f59e0b','paid'=>'#10b981'][$r['inv_pay_status']]??'#6b7280';?>;font-size:0.62rem"><?php echo $r['inv_pay_status']; ?></span>
+                                            <span class="rm-badge" style="background:<?php echo ['unpaid' => '#ef4444', 'partial' => '#f59e0b', 'paid' => '#10b981'][$r['inv_pay_status']] ?? '#6b7280'; ?>;font-size:0.62rem"><?php echo $r['inv_pay_status']; ?></span>
                                         <?php endif; ?>
                                     <?php else: ?><span style="color:var(--text-secondary);font-size:0.72rem">—</span><?php endif; ?>
                                 </td>
-                                <td><span class="rm-badge" style="background:<?php echo $rStatusColors[$r['status']]??'#6b7280'; ?>"><?php echo $rStatusLabels[$r['status']]??$r['status']; ?></span></td>
+                                <td><span class="rm-badge" style="background:<?php echo $rStatusColors[$r['status']] ?? '#6b7280'; ?>"><?php echo $rStatusLabels[$r['status']] ?? $r['status']; ?></span></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
@@ -844,9 +1329,9 @@ include '../../includes/header.php';
     // ── Car Modal ───────────────────────────────────────────────────────────────
     function openCarModal() {
         document.getElementById('fc_id').value = 0;
-        ['fc_plate','fc_name','fc_color','fc_year','fc_capacity','fc_rate','fc_owner','fc_owner_phone','fc_notes'].forEach(id => document.getElementById(id).value = '');
-        document.getElementById('fc_type').value    = 'mpv';
-        document.getElementById('fc_status').value  = 'available';
+        ['fc_plate', 'fc_name', 'fc_color', 'fc_year', 'fc_capacity', 'fc_rate', 'fc_owner', 'fc_owner_phone', 'fc_notes'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('fc_type').value = 'mpv';
+        document.getElementById('fc_status').value = 'available';
         document.getElementById('fc_comm_pct').value = 0;
         updateOwnerPreview();
         document.getElementById('carModalTitle').textContent = 'Tambah Kendaraan';
@@ -854,88 +1339,110 @@ include '../../includes/header.php';
     }
 
     function editCar(c) {
-        document.getElementById('fc_id').value         = c.id;
-        document.getElementById('fc_plate').value      = c.plate_number;
-        document.getElementById('fc_name').value       = c.car_name;
-        document.getElementById('fc_type').value       = c.car_type;
-        document.getElementById('fc_color').value      = c.color || '';
-        document.getElementById('fc_year').value       = c.year || '';
-        document.getElementById('fc_capacity').value   = c.capacity || '';
-        document.getElementById('fc_rate').value       = c.daily_rate;
-        document.getElementById('fc_owner').value      = c.partner_owner || '';
+        document.getElementById('fc_id').value = c.id;
+        document.getElementById('fc_plate').value = c.plate_number;
+        document.getElementById('fc_name').value = c.car_name;
+        document.getElementById('fc_type').value = c.car_type;
+        document.getElementById('fc_color').value = c.color || '';
+        document.getElementById('fc_year').value = c.year || '';
+        document.getElementById('fc_capacity').value = c.capacity || '';
+        document.getElementById('fc_rate').value = c.daily_rate;
+        document.getElementById('fc_owner').value = c.partner_owner || '';
         document.getElementById('fc_owner_phone').value = c.owner_phone || '';
-        document.getElementById('fc_comm_pct').value   = c.owner_commission_pct;
-        document.getElementById('fc_status').value     = c.status;
-        document.getElementById('fc_notes').value      = c.notes || '';
+        document.getElementById('fc_comm_pct').value = c.owner_commission_pct;
+        document.getElementById('fc_status').value = c.status;
+        document.getElementById('fc_notes').value = c.notes || '';
         updateOwnerPreview();
         document.getElementById('carModalTitle').textContent = 'Edit Kendaraan';
         document.getElementById('carModal').classList.add('open');
     }
 
-    function closeCarModal() { document.getElementById('carModal').classList.remove('open'); }
+    function closeCarModal() {
+        document.getElementById('carModal').classList.remove('open');
+    }
 
     function saveCar() {
         const fd = new FormData();
         fd.append('action', 'save_car');
-        ['fc_id:car_id','fc_plate:plate_number','fc_name:car_name','fc_type:car_type',
-         'fc_color:color','fc_year:year','fc_capacity:capacity','fc_rate:daily_rate',
-         'fc_owner:partner_owner','fc_owner_phone:owner_phone','fc_comm_pct:owner_commission_pct',
-         'fc_status:car_status','fc_notes:notes'].forEach(pair => {
+        ['fc_id:car_id', 'fc_plate:plate_number', 'fc_name:car_name', 'fc_type:car_type',
+            'fc_color:color', 'fc_year:year', 'fc_capacity:capacity', 'fc_rate:daily_rate',
+            'fc_owner:partner_owner', 'fc_owner_phone:owner_phone', 'fc_comm_pct:owner_commission_pct',
+            'fc_status:car_status', 'fc_notes:notes'
+        ].forEach(pair => {
             const [id, key] = pair.split(':');
             fd.append(key, document.getElementById(id).value);
         });
-        fetch('rental-mobil.php', { method:'POST', body: fd })
+        fetch('rental-mobil.php', {
+                method: 'POST',
+                body: fd
+            })
             .then(r => r.json())
-            .then(d => { if (d.success) { closeCarModal(); location.reload(); } else alert(d.message || 'Gagal menyimpan'); })
+            .then(d => {
+                if (d.success) {
+                    closeCarModal();
+                    location.reload();
+                } else alert(d.message || 'Gagal menyimpan');
+            })
             .catch(() => alert('Network error'));
     }
 
     function deleteCar(id, plate) {
         if (!confirm('Hapus kendaraan ' + plate + '?')) return;
         const fd = new FormData();
-        fd.append('action','delete_car'); fd.append('car_id', id);
-        fetch('rental-mobil.php', { method:'POST', body:fd })
-            .then(r => r.json()).then(d => { if (d.success) location.reload(); else alert(d.message); })
+        fd.append('action', 'delete_car');
+        fd.append('car_id', id);
+        fetch('rental-mobil.php', {
+                method: 'POST',
+                body: fd
+            })
+            .then(r => r.json()).then(d => {
+                if (d.success) location.reload();
+                else alert(d.message);
+            })
             .catch(() => alert('Network error'));
     }
 
     // ── Rental Modal ────────────────────────────────────────────────────────────
     function openRentalModal(preselectedCarId) {
-        ['fr_guest_select','fr_guest_name','fr_guest_phone','fr_room','fr_notes','fr_destination'].forEach(id => document.getElementById(id).value = '');
+        ['fr_guest_select', 'fr_guest_name', 'fr_guest_phone', 'fr_room', 'fr_notes', 'fr_destination'].forEach(id => document.getElementById(id).value = '');
         document.getElementById('fr_booking_id').value = '';
-        document.getElementById('fr_deposit').value    = '0';
+        document.getElementById('fr_deposit').value = '0';
         document.getElementById('fr_create_invoice').checked = true;
-        document.getElementById('fr_car_id').value     = preselectedCarId || '';
+        document.getElementById('fr_car_id').value = preselectedCarId || '';
         if (preselectedCarId) onCarSelect();
-        const now = new Date(), tmrw = new Date(now); tmrw.setDate(tmrw.getDate()+1);
+        const now = new Date(),
+            tmrw = new Date(now);
+        tmrw.setDate(tmrw.getDate() + 1);
         document.getElementById('fr_start').value = fmtDTL(now);
-        document.getElementById('fr_end').value   = fmtDTL(tmrw);
+        document.getElementById('fr_end').value = fmtDTL(tmrw);
         calcRentalTotal();
         document.getElementById('rentalModal').classList.add('open');
     }
 
-    function closeRentalModal() { document.getElementById('rentalModal').classList.remove('open'); }
+    function closeRentalModal() {
+        document.getElementById('rentalModal').classList.remove('open');
+    }
 
     function fmtDTL(d) {
-        return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+
-               'T'+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') +
+            'T' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
     }
 
     function toggleGuestMode(mode, btn) {
         document.querySelectorAll('.guest-toggle button').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        document.getElementById('guestInhouse').style.display  = mode==='inhouse' ? 'block' : 'none';
-        document.getElementById('guestManual').style.display   = mode==='manual'  ? 'block' : 'none';
+        document.getElementById('guestInhouse').style.display = mode === 'inhouse' ? 'block' : 'none';
+        document.getElementById('guestManual').style.display = mode === 'manual' ? 'block' : 'none';
     }
 
     function onGuestSelect() {
         const sel = document.getElementById('fr_guest_select');
         const opt = sel.options[sel.selectedIndex];
         if (opt && opt.value) {
-            document.getElementById('fr_guest_name').value  = opt.dataset.name  || '';
+            document.getElementById('fr_guest_name').value = opt.dataset.name || '';
             document.getElementById('fr_guest_phone').value = opt.dataset.phone || '';
-            document.getElementById('fr_room').value        = opt.dataset.room  || '';
-            document.getElementById('fr_booking_id').value  = opt.value;
+            document.getElementById('fr_room').value = opt.dataset.room || '';
+            document.getElementById('fr_booking_id').value = opt.value;
         }
     }
 
@@ -945,7 +1452,7 @@ include '../../includes/header.php';
         if (opt && opt.value) {
             document.getElementById('fr_rate').value = opt.dataset.rate || 0;
             const owner = opt.dataset.owner || '';
-            const comm  = parseFloat(opt.dataset.comm || 0);
+            const comm = parseFloat(opt.dataset.comm || 0);
             const infoBox = document.getElementById('carOwnerInfo');
             if (owner) {
                 infoBox.style.display = 'block';
@@ -961,27 +1468,42 @@ include '../../includes/header.php';
 
     function calcRentalTotal() {
         const start = document.getElementById('fr_start').value;
-        const end   = document.getElementById('fr_end').value;
-        const rate  = parseFloat(document.getElementById('fr_rate').value) || 0;
-        const el    = document.getElementById('rentalTotalPreview');
-        if (!start || !end) { el.textContent = 'Estimasi: Rp 0 (0 hari)'; return; }
-        const diff  = (new Date(end) - new Date(start)) / (1000*3600);
-        if (diff <= 0) { el.textContent = 'Tanggal tidak valid'; return; }
-        const days  = Math.max(1, Math.ceil(diff / 24));
+        const end = document.getElementById('fr_end').value;
+        const rate = parseFloat(document.getElementById('fr_rate').value) || 0;
+        const el = document.getElementById('rentalTotalPreview');
+        if (!start || !end) {
+            el.textContent = 'Estimasi: Rp 0 (0 hari)';
+            return;
+        }
+        const diff = (new Date(end) - new Date(start)) / (1000 * 3600);
+        if (diff <= 0) {
+            el.textContent = 'Tanggal tidak valid';
+            return;
+        }
+        const days = Math.max(1, Math.ceil(diff / 24));
         const total = days * rate;
         el.textContent = 'Estimasi: Rp ' + total.toLocaleString('id-ID') + ' (' + days + ' hari)';
     }
 
     function createRental() {
         const guestName = document.getElementById('fr_guest_name').value.trim() ||
-                          (document.getElementById('fr_guest_select').options[document.getElementById('fr_guest_select').selectedIndex]?.dataset?.name || '');
+            (document.getElementById('fr_guest_select').options[document.getElementById('fr_guest_select').selectedIndex]?.dataset?.name || '');
         const carId = document.getElementById('fr_car_id').value;
-        if (!guestName) { alert('Pilih atau isi nama tamu'); return; }
-        if (!carId) { alert('Pilih kendaraan'); return; }
-        if (!document.getElementById('fr_start').value || !document.getElementById('fr_end').value) { alert('Isi tanggal'); return; }
+        if (!guestName) {
+            alert('Pilih atau isi nama tamu');
+            return;
+        }
+        if (!carId) {
+            alert('Pilih kendaraan');
+            return;
+        }
+        if (!document.getElementById('fr_start').value || !document.getElementById('fr_end').value) {
+            alert('Isi tanggal');
+            return;
+        }
 
         const fd = new FormData();
-        fd.append('action','create_rental');
+        fd.append('action', 'create_rental');
         fd.append('guest_name', guestName);
         fd.append('guest_phone', document.getElementById('fr_guest_phone').value);
         fd.append('room_number', document.getElementById('fr_room').value);
@@ -993,28 +1515,41 @@ include '../../includes/header.php';
         fd.append('deposit', document.getElementById('fr_deposit').value);
         fd.append('trip_destination', document.getElementById('fr_destination').value);
         fd.append('notes', document.getElementById('fr_notes').value);
-        if (document.getElementById('fr_create_invoice').checked) fd.append('create_invoice','1');
+        if (document.getElementById('fr_create_invoice').checked) fd.append('create_invoice', '1');
 
-        fetch('rental-mobil.php', { method:'POST', body:fd })
+        fetch('rental-mobil.php', {
+                method: 'POST',
+                body: fd
+            })
             .then(r => r.json())
-            .then(d => { if (d.success) { closeRentalModal(); location.reload(); } else alert(d.message || 'Gagal membuat rental'); })
+            .then(d => {
+                if (d.success) {
+                    closeRentalModal();
+                    location.reload();
+                } else alert(d.message || 'Gagal membuat rental');
+            })
             .catch(() => alert('Network error'));
     }
 
     function returnCar(rentalId, carName) {
         if (!confirm('Konfirmasi pengembalian ' + carName + '?\n\nInvoice tidak diubah otomatis. Jika perlu koreksi (mis. pulang lebih cepat), edit invoice manual.')) return;
-        const fd = new FormData(); fd.append('action','return_car'); fd.append('rental_id', rentalId);
-        fetch('rental-mobil.php', { method:'POST', body:fd })
+        const fd = new FormData();
+        fd.append('action', 'return_car');
+        fd.append('rental_id', rentalId);
+        fetch('rental-mobil.php', {
+                method: 'POST',
+                body: fd
+            })
             .then(r => r.json())
             .then(d => {
                 if (d.success) {
-                    const ownerFmt  = 'Rp ' + Number(d.owner_amount).toLocaleString('id-ID');
-                    const hotelFmt  = 'Rp ' + Number(d.hotel_comm).toLocaleString('id-ID');
-                    const totalFmt  = 'Rp ' + Number(d.billed_total).toLocaleString('id-ID');
+                    const ownerFmt = 'Rp ' + Number(d.owner_amount).toLocaleString('id-ID');
+                    const hotelFmt = 'Rp ' + Number(d.hotel_comm).toLocaleString('id-ID');
+                    const totalFmt = 'Rp ' + Number(d.billed_total).toLocaleString('id-ID');
                     const billedMsg = `${d.billed_days} hari × Rp ${Number(d.daily_rate).toLocaleString('id-ID')}/hari = ${totalFmt}`;
-                    const adjustMsg = d.invoice_locked
-                        ? '\n\nCatatan: Bila durasi aktual berbeda (' + d.actual_days + ' hari), edit nominal di invoice manual.'
-                        : '';
+                    const adjustMsg = d.invoice_locked ?
+                        '\n\nCatatan: Bila durasi aktual berbeda (' + d.actual_days + ' hari), edit nominal di invoice manual.' :
+                        '';
                     alert(`✅ Kendaraan dikembalikan!\n\nTagihan saat ini: ${billedMsg}\n👤 Bagian Pemilik: ${ownerFmt}\n🏨 Komisi Hotel: ${hotelFmt}${adjustMsg}`);
                     location.reload();
                 } else alert(d.message || 'Gagal');
@@ -1023,10 +1558,18 @@ include '../../includes/header.php';
 
     function cancelRental(rentalId) {
         if (!confirm('Batalkan rental ini?')) return;
-        const fd = new FormData(); fd.append('action','cancel_rental'); fd.append('rental_id', rentalId);
-        fetch('rental-mobil.php', { method:'POST', body:fd })
+        const fd = new FormData();
+        fd.append('action', 'cancel_rental');
+        fd.append('rental_id', rentalId);
+        fetch('rental-mobil.php', {
+                method: 'POST',
+                body: fd
+            })
             .then(r => r.json())
-            .then(d => { if (d.success) location.reload(); else alert(d.message); })
+            .then(d => {
+                if (d.success) location.reload();
+                else alert(d.message);
+            })
             .catch(() => alert('Network error'));
     }
 </script>

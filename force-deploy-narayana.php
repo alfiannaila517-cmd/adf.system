@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Force deploy website files to addon domain docroot.
  * Usage:

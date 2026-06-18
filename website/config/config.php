@@ -1,12 +1,13 @@
 <?php
+
 /**
  * NARAYANA KARIMUNJAWA - Configuration
  * Connects to MAIN hotel system database for real-time room & booking sync
  */
 
 // Detect environment
-$isLocal = (strpos($_SERVER['HTTP_HOST'] ?? 'localhost', 'localhost') !== false || 
-            strpos($_SERVER['HTTP_HOST'] ?? '127.0.0.1', '127.0.0.1') !== false);
+$isLocal = (strpos($_SERVER['HTTP_HOST'] ?? 'localhost', 'localhost') !== false ||
+    strpos($_SERVER['HTTP_HOST'] ?? '127.0.0.1', '127.0.0.1') !== false);
 
 // Database Configuration — DUAL DATABASE SETUP
 // Database Sistem: untuk ambil data master (room types, harga, occupancy) - READ ONLY
@@ -19,7 +20,7 @@ if ($isLocal) {
     define('DB_PASS', '');
     define('DB_NAME', 'adf_narayana_hotel');   // Sistem hotel management
     define('DB_PORT', 3306);
-    
+
     // Database WEBSITE (untuk booking customer, payment)
     define('DB_WEB_HOST', 'localhost');
     define('DB_WEB_USER', 'root');
@@ -34,7 +35,7 @@ if ($isLocal) {
     define('DB_PASS', '@Nnoc2025');
     define('DB_NAME', 'adfb2574_narayana_hotel'); // Sistem hotel management
     define('DB_PORT', 3306);
-    
+
     // Database WEBSITE (untuk booking customer)
     define('DB_WEB_HOST', 'localhost');
     define('DB_WEB_USER', 'adfb2574_adfsystem');
@@ -123,7 +124,8 @@ try {
     // Koneksi ke Database SISTEM (untuk ambil data master)
     $pdo = new PDO(
         'mysql:host=' . DB_HOST . ';port=' . DB_PORT . ';dbname=' . DB_NAME . ';charset=utf8mb4',
-        DB_USER, DB_PASS,
+        DB_USER,
+        DB_PASS,
         [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
@@ -143,7 +145,8 @@ $pdo_web = null;
 try {
     $pdo_web = new PDO(
         'mysql:host=' . DB_WEB_HOST . ';port=' . DB_WEB_PORT . ';dbname=' . DB_WEB_NAME . ';charset=utf8mb4',
-        DB_WEB_USER, DB_WEB_PASS,
+        DB_WEB_USER,
+        DB_WEB_PASS,
         [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
@@ -160,38 +163,45 @@ try {
 // Helper Functions — DUAL DATABASE SUPPORT
 
 // === Database SISTEM (room types, harga, occupancy) - READ ONLY ===
-function dbQuery($sql, $params = []) {
+function dbQuery($sql, $params = [])
+{
     global $pdo;
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     return $stmt;
 }
 
-function dbFetch($sql, $params = []) {
+function dbFetch($sql, $params = [])
+{
     return dbQuery($sql, $params)->fetch();
 }
 
-function dbFetchAll($sql, $params = []) {
+function dbFetchAll($sql, $params = [])
+{
     return dbQuery($sql, $params)->fetchAll();
 }
 
 // === Database WEBSITE (bookings, payments, guests) - READ WRITE ===
-function dbWebQuery($sql, $params = []) {
+function dbWebQuery($sql, $params = [])
+{
     global $pdo_web;
     $stmt = $pdo_web->prepare($sql);
     $stmt->execute($params);
     return $stmt;
 }
 
-function dbWebFetch($sql, $params = []) {
+function dbWebFetch($sql, $params = [])
+{
     return dbWebQuery($sql, $params)->fetch();
 }
 
-function dbWebFetchAll($sql, $params = []) {
+function dbWebFetchAll($sql, $params = [])
+{
     return dbWebQuery($sql, $params)->fetchAll();
 }
 
-function dbWebInsert($table, $data) {
+function dbWebInsert($table, $data)
+{
     global $pdo_web;
     $cols = implode(', ', array_keys($data));
     $vals = implode(', ', array_fill(0, count($data), '?'));
@@ -201,7 +211,8 @@ function dbWebInsert($table, $data) {
     return $pdo_web->lastInsertId();
 }
 
-function dbWebUpdate($table, $data, $where, $whereParams = []) {
+function dbWebUpdate($table, $data, $where, $whereParams = [])
+{
     global $pdo_web;
     $set = implode(', ', array_map(fn($k) => "$k = ?", array_keys($data)));
     $sql = "UPDATE $table SET $set WHERE $where";
@@ -211,28 +222,34 @@ function dbWebUpdate($table, $data, $where, $whereParams = []) {
 }
 
 // === BACKWARD COMPATIBILITY (untuk data website) ===
-function dbInsert($table, $data) {
+function dbInsert($table, $data)
+{
     return dbWebInsert($table, $data);
 }
 
-function dbUpdate($table, $data, $where, $whereParams = []) {
+function dbUpdate($table, $data, $where, $whereParams = [])
+{
     return dbWebUpdate($table, $data, $where, $whereParams);
 }
 
-function formatCurrency($amount) {
+function formatCurrency($amount)
+{
     return 'Rp ' . number_format($amount, 0, ',', '.');
 }
 
-function formatDate($date) {
+function formatDate($date)
+{
     return date('d M Y', strtotime($date));
 }
 
-function redirect($url) {
+function redirect($url)
+{
     header('Location: ' . $url);
     exit;
 }
 
-function json_response($success, $data = null, $error = null) {
+function json_response($success, $data = null, $error = null)
+{
     header('Content-Type: application/json');
     echo json_encode([
         'success' => $success,
@@ -245,7 +262,8 @@ function json_response($success, $data = null, $error = null) {
 /**
  * Build Cloudbeds reservation URL with optional dynamic date/guest parameters.
  */
-function buildCloudbedsReservationUrl(array $overrides = []): string {
+function buildCloudbedsReservationUrl(array $overrides = []): string
+{
     $today = new DateTime('today');
     $tomorrow = (clone $today)->modify('+1 day');
     $dayAfter = (clone $tomorrow)->modify('+1 day');

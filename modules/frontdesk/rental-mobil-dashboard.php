@@ -51,7 +51,8 @@ try {
         KEY idx_biz (business_id), KEY idx_car (car_id), KEY idx_status (business_id, status),
         KEY idx_booking (booking_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-} catch (\Throwable $e) { /* ignore */ }
+} catch (\Throwable $e) { /* ignore */
+}
 
 $pdo->exec("UPDATE rental_car_bookings SET status='overdue'
     WHERE status='active' AND end_datetime < NOW() AND business_id={$businessId}");
@@ -103,7 +104,10 @@ $availableList = $availStmt->fetchAll(PDO::FETCH_ASSOC);
 // ── Owner Recap ────────────────────────────────────────────────────────────────
 $ownerWhere  = "cb.business_id=? AND cb.status='returned' AND DATE(cb.actual_return) BETWEEN ? AND ?";
 $ownerParams = [$businessId, $monthStart, $monthEnd];
-if ($filterOwner) { $ownerWhere .= " AND rc.partner_owner LIKE ?"; $ownerParams[] = "%{$filterOwner}%"; }
+if ($filterOwner) {
+    $ownerWhere .= " AND rc.partner_owner LIKE ?";
+    $ownerParams[] = "%{$filterOwner}%";
+}
 
 $ownerStmt = $pdo->prepare("SELECT
     rc.partner_owner, rc.owner_phone,
@@ -272,7 +276,7 @@ $recentReturns = $recentStmt->fetchAll(PDO::FETCH_ASSOC);
 
 // ── Build year/month options ───────────────────────────────────────────────────
 $yearOptions  = range(date('Y'), date('Y') - 3);
-$monthNames   = ['','Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+$monthNames   = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 
 $totalCars      = (int)$fleetData['total'];
 $availableCount = (int)$fleetData['available'];
@@ -283,59 +287,359 @@ $occupancyRate  = $totalCars > 0 ? round(($rentedCount / $totalCars) * 100, 1) :
 include '../../includes/header.php';
 ?>
 <style>
-    .rmd-page { padding:1rem 1.15rem 1.25rem; max-width:1400px; margin:0 auto; }
-    .rmd-header { margin-bottom:1rem; }
-    .rmd-header h1 { margin:0 0 0.2rem; font-size:1.45rem; font-weight:800; color:var(--text-primary); }
-    .rmd-header .subtitle { font-size:0.78rem; color:var(--text-secondary); }
-    .stats-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:0.75rem; margin-bottom:1rem; }
-    .stat-card { background:white; border-radius:10px; padding:0.85rem 0.9rem 0.8rem; box-shadow:0 1px 6px rgba(0,0,0,0.07); border-top:3px solid var(--stat-color); }
-    .stat-card .label { font-size:0.72rem; color:var(--text-secondary); font-weight:600; text-transform:uppercase; letter-spacing:0.03em; margin-bottom:0.3rem; }
-    .stat-card .value { font-size:1.5rem; font-weight:900; color:var(--stat-color); line-height:1; margin-bottom:0.25rem; }
-    .stat-card .detail { font-size:0.7rem; color:var(--text-secondary); }
-    .stat-card .progress-bar { height:5px; background:#e2e8f0; border-radius:3px; margin-top:0.6rem; overflow:hidden; }
-    .stat-card .progress-fill { height:100%; background:var(--stat-color); border-radius:3px; }
-    .section-title { font-size:1rem; font-weight:700; color:var(--text-primary); margin:1rem 0 0.75rem; display:flex; align-items:center; gap:0.5rem; }
-    .dashboard-content { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(320px,0.85fr); gap:0.9rem; margin-bottom:0.9rem; }
-    .dashboard-panel { background:rgba(255,255,255,0.68); border:1px solid rgba(148,163,184,0.18); border-radius:14px; padding:0.9rem; box-shadow:0 1px 10px rgba(15,23,42,0.04); backdrop-filter:blur(6px); }
-    .panel-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:0.7rem; }
-    .panel-head h2 { margin:0; font-size:0.92rem; font-weight:800; color:var(--text-primary); }
-    .panel-head .hint { font-size:0.72rem; color:var(--text-secondary); }
+    .rmd-page {
+        padding: 1rem 1.15rem 1.25rem;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    .rmd-header {
+        margin-bottom: 1rem;
+    }
+
+    .rmd-header h1 {
+        margin: 0 0 0.2rem;
+        font-size: 1.45rem;
+        font-weight: 800;
+        color: var(--text-primary);
+    }
+
+    .rmd-header .subtitle {
+        font-size: 0.78rem;
+        color: var(--text-secondary);
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+    }
+
+    .stat-card {
+        background: white;
+        border-radius: 10px;
+        padding: 0.85rem 0.9rem 0.8rem;
+        box-shadow: 0 1px 6px rgba(0, 0, 0, 0.07);
+        border-top: 3px solid var(--stat-color);
+    }
+
+    .stat-card .label {
+        font-size: 0.72rem;
+        color: var(--text-secondary);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        margin-bottom: 0.3rem;
+    }
+
+    .stat-card .value {
+        font-size: 1.5rem;
+        font-weight: 900;
+        color: var(--stat-color);
+        line-height: 1;
+        margin-bottom: 0.25rem;
+    }
+
+    .stat-card .detail {
+        font-size: 0.7rem;
+        color: var(--text-secondary);
+    }
+
+    .stat-card .progress-bar {
+        height: 5px;
+        background: #e2e8f0;
+        border-radius: 3px;
+        margin-top: 0.6rem;
+        overflow: hidden;
+    }
+
+    .stat-card .progress-fill {
+        height: 100%;
+        background: var(--stat-color);
+        border-radius: 3px;
+    }
+
+    .section-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin: 1rem 0 0.75rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .dashboard-content {
+        display: grid;
+        grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+        gap: 0.9rem;
+        margin-bottom: 0.9rem;
+    }
+
+    .dashboard-panel {
+        background: rgba(255, 255, 255, 0.68);
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 14px;
+        padding: 0.9rem;
+        box-shadow: 0 1px 10px rgba(15, 23, 42, 0.04);
+        backdrop-filter: blur(6px);
+    }
+
+    .panel-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.7rem;
+    }
+
+    .panel-head h2 {
+        margin: 0;
+        font-size: 0.92rem;
+        font-weight: 800;
+        color: var(--text-primary);
+    }
+
+    .panel-head .hint {
+        font-size: 0.72rem;
+        color: var(--text-secondary);
+    }
+
     /* Active rental cards */
-    .active-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(310px,1fr)); gap:0.75rem; margin-bottom:0.5rem; }
-    .rc-card { background:white; border-radius:10px; padding:0.95rem 1rem; box-shadow:0 1px 6px rgba(0,0,0,0.07); border-left:4px solid #10b981; }
-    .rc-card.overdue { border-left-color:#ef4444; background:#fef2f2; }
-    .rc-header { display:flex; justify-content:space-between; align-items:start; margin-bottom:0.55rem; }
-    .rc-plate { font-size:0.98rem; font-weight:800; color:#1e293b; font-family:'Courier New',monospace; }
-    .rc-status { display:inline-block; padding:0.2rem 0.6rem; border-radius:20px; font-size:0.65rem; font-weight:700; color:white; }
-    .rc-info-row { display:flex; justify-content:space-between; margin-bottom:0.25rem; font-size:0.8rem; }
-    .rc-info-label { color:var(--text-secondary); font-weight:500; }
-    .rc-info-value { font-weight:600; color:var(--text-primary); }
+    .active-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+        gap: 0.75rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .rc-card {
+        background: white;
+        border-radius: 10px;
+        padding: 0.95rem 1rem;
+        box-shadow: 0 1px 6px rgba(0, 0, 0, 0.07);
+        border-left: 4px solid #10b981;
+    }
+
+    .rc-card.overdue {
+        border-left-color: #ef4444;
+        background: #fef2f2;
+    }
+
+    .rc-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        margin-bottom: 0.55rem;
+    }
+
+    .rc-plate {
+        font-size: 0.98rem;
+        font-weight: 800;
+        color: #1e293b;
+        font-family: 'Courier New', monospace;
+    }
+
+    .rc-status {
+        display: inline-block;
+        padding: 0.2rem 0.6rem;
+        border-radius: 20px;
+        font-size: 0.65rem;
+        font-weight: 700;
+        color: white;
+    }
+
+    .rc-info-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.25rem;
+        font-size: 0.8rem;
+    }
+
+    .rc-info-label {
+        color: var(--text-secondary);
+        font-weight: 500;
+    }
+
+    .rc-info-value {
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
     /* Owner Recap */
-    .filter-bar { background:white; border-radius:10px; padding:0.75rem 1rem; margin-bottom:1rem; display:flex; flex-wrap:wrap; gap:0.6rem; align-items:center; box-shadow:0 1px 4px rgba(0,0,0,0.07); }
-    .filter-bar select, .filter-bar input { padding:0.4rem 0.6rem; border:1px solid #e2e8f0; border-radius:6px; font-size:0.8rem; background:white; }
-    .filter-bar .filt-btn { padding:0.4rem 0.9rem; background:#6366f1; color:white; border:none; border-radius:6px; font-size:0.8rem; font-weight:600; cursor:pointer; }
-    .owner-recap-table { width:100%; border-collapse:collapse; background:white; border-radius:12px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.08); }
-    .owner-recap-table th { background:#f8fafc; padding:0.75rem 1rem; text-align:left; font-weight:700; font-size:0.78rem; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.03em; border-bottom:1px solid #e2e8f0; }
-    .owner-recap-table td { padding:0.8rem 1rem; border-bottom:1px solid #f1f5f9; vertical-align:middle; }
-    .owner-recap-table tr:last-child td { border-bottom:none; }
-    .owner-recap-table tr:hover { background:#fafbff; }
-    .owner-total-row { background:#f0fdf4 !important; font-weight:700; border-top:2px solid #bbf7d0 !important; }
-    .owner-total-row td { color:#065f46 !important; }
-    .available-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:0.65rem; }
-    .car-available { background:linear-gradient(135deg,#dcfce7,#d1fae5); border-radius:10px; padding:0.8rem 0.75rem; border:1px solid #10b981; text-align:center; }
-    .car-available .icon { font-size:1.8rem; margin-bottom:0.4rem; }
-    .car-available .name { font-weight:800; color:#047857; margin-bottom:0.2rem; font-size:0.82rem; }
-    .car-available .plate { font-size:0.82rem; font-family:'Courier New'; font-weight:700; color:#065f46; }
-    .car-available .owner { font-size:0.7rem; color:#059669; margin-top:0.25rem; }
-    .car-available .rate { font-size:0.72rem; color:#047857; margin-top:0.25rem; }
-    .badge { display:inline-block; padding:0.3rem 0.75rem; border-radius:20px; font-size:0.75rem; font-weight:700; color:white; }
-    .empty-state { text-align:center; padding:2rem 1rem; color:var(--text-secondary); }
-    .print-btn { background:#f3f4f6; border:1px solid #e5e7eb; border-radius:7px; padding:0.35rem 0.8rem; font-size:0.78rem; font-weight:600; cursor:pointer; color:#374151; }
-    .print-btn:hover { background:#e5e7eb; }
-    @media(max-width:768px) { .dashboard-content{grid-template-columns:1fr} .stats-grid{grid-template-columns:repeat(2,1fr)} }
+    .filter-bar {
+        background: white;
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+        margin-bottom: 1rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.6rem;
+        align-items: center;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+    }
+
+    .filter-bar select,
+    .filter-bar input {
+        padding: 0.4rem 0.6rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        background: white;
+    }
+
+    .filter-bar .filt-btn {
+        padding: 0.4rem 0.9rem;
+        background: #6366f1;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .owner-recap-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .owner-recap-table th {
+        background: #f8fafc;
+        padding: 0.75rem 1rem;
+        text-align: left;
+        font-weight: 700;
+        font-size: 0.78rem;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .owner-recap-table td {
+        padding: 0.8rem 1rem;
+        border-bottom: 1px solid #f1f5f9;
+        vertical-align: middle;
+    }
+
+    .owner-recap-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .owner-recap-table tr:hover {
+        background: #fafbff;
+    }
+
+    .owner-total-row {
+        background: #f0fdf4 !important;
+        font-weight: 700;
+        border-top: 2px solid #bbf7d0 !important;
+    }
+
+    .owner-total-row td {
+        color: #065f46 !important;
+    }
+
+    .available-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 0.65rem;
+    }
+
+    .car-available {
+        background: linear-gradient(135deg, #dcfce7, #d1fae5);
+        border-radius: 10px;
+        padding: 0.8rem 0.75rem;
+        border: 1px solid #10b981;
+        text-align: center;
+    }
+
+    .car-available .icon {
+        font-size: 1.8rem;
+        margin-bottom: 0.4rem;
+    }
+
+    .car-available .name {
+        font-weight: 800;
+        color: #047857;
+        margin-bottom: 0.2rem;
+        font-size: 0.82rem;
+    }
+
+    .car-available .plate {
+        font-size: 0.82rem;
+        font-family: 'Courier New';
+        font-weight: 700;
+        color: #065f46;
+    }
+
+    .car-available .owner {
+        font-size: 0.7rem;
+        color: #059669;
+        margin-top: 0.25rem;
+    }
+
+    .car-available .rate {
+        font-size: 0.72rem;
+        color: #047857;
+        margin-top: 0.25rem;
+    }
+
+    .badge {
+        display: inline-block;
+        padding: 0.3rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: white;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 2rem 1rem;
+        color: var(--text-secondary);
+    }
+
+    .print-btn {
+        background: #f3f4f6;
+        border: 1px solid #e5e7eb;
+        border-radius: 7px;
+        padding: 0.35rem 0.8rem;
+        font-size: 0.78rem;
+        font-weight: 600;
+        cursor: pointer;
+        color: #374151;
+    }
+
+    .print-btn:hover {
+        background: #e5e7eb;
+    }
+
+    @media(max-width:768px) {
+        .dashboard-content {
+            grid-template-columns: 1fr
+        }
+
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr)
+        }
+    }
+
     @media print {
-        .rmd-header a, .filter-bar, .dashboard-content .dashboard-panel:not(.print-target) { display:none; }
-        .stats-grid { grid-template-columns:repeat(3,1fr); }
+
+        .rmd-header a,
+        .filter-bar,
+        .dashboard-content .dashboard-panel:not(.print-target) {
+            display: none;
+        }
+
+        .stats-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
     }
 </style>
 
@@ -365,7 +669,9 @@ include '../../includes/header.php';
             <div class="value"><?php echo $availableCount; ?></div>
             <div class="detail">tersedia sekarang</div>
             <?php if ($totalCars > 0): ?>
-                <div class="progress-bar"><div class="progress-fill" style="width:<?php echo ($availableCount/$totalCars)*100; ?>%"></div></div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width:<?php echo ($availableCount / $totalCars) * 100; ?>%"></div>
+                </div>
             <?php endif; ?>
         </div>
         <div class="stat-card" style="--stat-color:#f59e0b">
@@ -373,22 +679,24 @@ include '../../includes/header.php';
             <div class="value"><?php echo $rentedCount; ?></div>
             <div class="detail"><?php echo $occupancyRate; ?>% okupansi</div>
             <?php if ($totalCars > 0): ?>
-                <div class="progress-bar"><div class="progress-fill" style="width:<?php echo ($rentedCount/$totalCars)*100; ?>%"></div></div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width:<?php echo ($rentedCount / $totalCars) * 100; ?>%"></div>
+                </div>
             <?php endif; ?>
         </div>
         <div class="stat-card" style="--stat-color:#8b5cf6">
             <div class="label">Revenue <?php echo $monthNames[$filterMonth]; ?></div>
-            <div class="value">Rp <?php echo number_format($revData['total_revenue'],0,',','.'); ?></div>
+            <div class="value">Rp <?php echo number_format($revData['total_revenue'], 0, ',', '.'); ?></div>
             <div class="detail"><?php echo $revData['total_trips']; ?> trip selesai</div>
         </div>
         <div class="stat-card" style="--stat-color:#06b6d4">
             <div class="label">Komisi Hotel</div>
-            <div class="value">Rp <?php echo number_format($revData['total_hotel'],0,',','.'); ?></div>
+            <div class="value">Rp <?php echo number_format($revData['total_hotel'], 0, ',', '.'); ?></div>
             <div class="detail"><?php echo $monthNames[$filterMonth] . ' ' . $filterYear; ?></div>
         </div>
         <div class="stat-card" style="--stat-color:#10b981">
             <div class="label">Total ke Pemilik</div>
-            <div class="value">Rp <?php echo number_format($revData['total_owner'],0,',','.'); ?></div>
+            <div class="value">Rp <?php echo number_format($revData['total_owner'], 0, ',', '.'); ?></div>
             <div class="detail"><?php echo $monthNames[$filterMonth] . ' ' . $filterYear; ?></div>
         </div>
     </div>
@@ -403,15 +711,17 @@ include '../../includes/header.php';
             <?php if (!empty($activeRentals)): ?>
                 <div class="active-grid" style="margin-bottom:0">
                     <?php foreach ($activeRentals as $r):
-                        $now = new DateTime(); $endDt = new DateTime($r['end_datetime']);
-                        $diff = $now->diff($endDt); $isOverdue = $r['status'] === 'overdue';
-                        $typeIcons = ['sedan'=>'🚘','mpv'=>'🚙','minibus'=>'🚌','pickup'=>'🛻','suv'=>'🚐','van'=>'🚐','other'=>'🚗'];
+                        $now = new DateTime();
+                        $endDt = new DateTime($r['end_datetime']);
+                        $diff = $now->diff($endDt);
+                        $isOverdue = $r['status'] === 'overdue';
+                        $typeIcons = ['sedan' => '🚘', 'mpv' => '🚙', 'minibus' => '🚌', 'pickup' => '🛻', 'suv' => '🚐', 'van' => '🚐', 'other' => '🚗'];
                         $icon = $typeIcons[$r['car_type']] ?? '🚗';
                     ?>
                         <div class="rc-card <?php echo $r['status']; ?>">
                             <div class="rc-header">
                                 <div class="rc-plate"><?php echo htmlspecialchars($r['plate_number']); ?></div>
-                                <span class="rc-status" style="background:<?php echo $isOverdue?'#ef4444':'#10b981'; ?>">
+                                <span class="rc-status" style="background:<?php echo $isOverdue ? '#ef4444' : '#10b981'; ?>">
                                     <?php echo $isOverdue ? '⚠ OVERDUE' : '✓ AKTIF'; ?>
                                 </span>
                             </div>
@@ -423,7 +733,7 @@ include '../../includes/header.php';
                             <div style="border-top:1px solid rgba(0,0,0,0.08);padding-top:0.5rem;margin-top:0.5rem">
                                 <div class="rc-info-row">
                                     <span class="rc-info-label">👤 Tamu</span>
-                                    <span class="rc-info-value"><?php echo htmlspecialchars(substr($r['guest_name'],0,20)); ?></span>
+                                    <span class="rc-info-value"><?php echo htmlspecialchars(substr($r['guest_name'], 0, 20)); ?></span>
                                 </div>
                                 <?php if ($r['room_number']): ?>
                                     <div class="rc-info-row">
@@ -434,7 +744,7 @@ include '../../includes/header.php';
                                 <?php if ($r['trip_destination']): ?>
                                     <div class="rc-info-row">
                                         <span class="rc-info-label">📍 Tujuan</span>
-                                        <span class="rc-info-value" style="font-size:0.75rem"><?php echo htmlspecialchars(substr($r['trip_destination'],0,25)); ?></span>
+                                        <span class="rc-info-value" style="font-size:0.75rem"><?php echo htmlspecialchars(substr($r['trip_destination'], 0, 25)); ?></span>
                                     </div>
                                 <?php endif; ?>
                                 <?php if ($r['partner_owner']): ?>
@@ -446,7 +756,7 @@ include '../../includes/header.php';
                                 <div style="background:#f8fafc;border-radius:8px;padding:0.5rem 0.65rem;margin-top:0.5rem;font-size:0.75rem">
                                     <div>🚪 Mulai: <strong><?php echo date('d M H:i', strtotime($r['start_datetime'])); ?></strong></div>
                                     <div>🔑 Kembali: <strong><?php echo date('d M H:i', strtotime($r['end_datetime'])); ?></strong></div>
-                                    <div style="margin-top:0.3rem;font-weight:700;color:<?php echo $isOverdue?'#ef4444':'#10b981'; ?>">
+                                    <div style="margin-top:0.3rem;font-weight:700;color:<?php echo $isOverdue ? '#ef4444' : '#10b981'; ?>">
                                         <?php if ($isOverdue): ?>
                                             ⏰ Terlambat: <?php echo $diff->days; ?>h <?php echo $diff->h; ?>j
                                         <?php else: ?>
@@ -462,7 +772,10 @@ include '../../includes/header.php';
                     <?php endforeach; ?>
                 </div>
             <?php else: ?>
-                <div class="empty-state"><div style="font-size:2.5rem">😊</div><p>Tidak ada rental aktif saat ini</p></div>
+                <div class="empty-state">
+                    <div style="font-size:2.5rem">😊</div>
+                    <p>Tidak ada rental aktif saat ini</p>
+                </div>
             <?php endif; ?>
         </div>
 
@@ -475,7 +788,7 @@ include '../../includes/header.php';
                 <?php if (!empty($availableList)): ?>
                     <div class="available-grid">
                         <?php foreach ($availableList as $c):
-                            $typeIcons = ['sedan'=>'🚘','mpv'=>'🚙','minibus'=>'🚌','pickup'=>'🛻','suv'=>'🚐','van'=>'🚐','other'=>'🚗'];
+                            $typeIcons = ['sedan' => '🚘', 'mpv' => '🚙', 'minibus' => '🚌', 'pickup' => '🛻', 'suv' => '🚐', 'van' => '🚐', 'other' => '🚗'];
                         ?>
                             <div class="car-available">
                                 <div class="icon"><?php echo $typeIcons[$c['car_type']] ?? '🚗'; ?></div>
@@ -484,7 +797,7 @@ include '../../includes/header.php';
                                 <?php if ($c['partner_owner']): ?>
                                     <div class="owner">👤 <?php echo htmlspecialchars($c['partner_owner']); ?></div>
                                 <?php endif; ?>
-                                <div class="rate">Rp <?php echo number_format($c['daily_rate'],0,',','.'); ?>/hari</div>
+                                <div class="rate">Rp <?php echo number_format($c['daily_rate'], 0, ',', '.'); ?>/hari</div>
                             </div>
                         <?php endforeach; ?>
                     </div>
@@ -497,33 +810,33 @@ include '../../includes/header.php';
             </div>
 
             <?php if (!empty($recentReturns)): ?>
-            <div class="dashboard-panel">
-                <div class="panel-head">
-                    <h2>Transaksi Terakhir</h2>
-                    <div class="hint">10 terbaru</div>
+                <div class="dashboard-panel">
+                    <div class="panel-head">
+                        <h2>Transaksi Terakhir</h2>
+                        <div class="hint">10 terbaru</div>
+                    </div>
+                    <table style="width:100%;border-collapse:collapse;font-size:0.8rem">
+                        <thead>
+                            <tr>
+                                <th style="background:#f8fafc;padding:0.55rem 0.7rem;text-align:left;font-size:0.7rem;font-weight:700;color:var(--text-secondary);border-bottom:1px solid #e2e8f0">Kendaraan</th>
+                                <th style="background:#f8fafc;padding:0.55rem 0.7rem;text-align:right;font-size:0.7rem;font-weight:700;color:var(--text-secondary);border-bottom:1px solid #e2e8f0">Total</th>
+                                <th style="background:#f8fafc;padding:0.55rem 0.7rem;text-align:right;font-size:0.7rem;font-weight:700;color:var(--text-secondary);border-bottom:1px solid #e2e8f0">Hotel</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($recentReturns as $ret): ?>
+                                <tr>
+                                    <td style="padding:0.55rem 0.7rem;border-bottom:1px solid #f1f5f9">
+                                        <strong><?php echo htmlspecialchars($ret['plate_number']); ?></strong>
+                                        <div style="font-size:0.7rem;color:var(--text-secondary)"><?php echo htmlspecialchars($ret['car_name']); ?></div>
+                                    </td>
+                                    <td style="padding:0.55rem 0.7rem;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:600">Rp <?php echo number_format($ret['total_price'], 0, ',', '.'); ?></td>
+                                    <td style="padding:0.55rem 0.7rem;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:600;color:#6366f1">Rp <?php echo number_format($ret['hotel_commission'], 0, ',', '.'); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
                 </div>
-                <table style="width:100%;border-collapse:collapse;font-size:0.8rem">
-                    <thead>
-                        <tr>
-                            <th style="background:#f8fafc;padding:0.55rem 0.7rem;text-align:left;font-size:0.7rem;font-weight:700;color:var(--text-secondary);border-bottom:1px solid #e2e8f0">Kendaraan</th>
-                            <th style="background:#f8fafc;padding:0.55rem 0.7rem;text-align:right;font-size:0.7rem;font-weight:700;color:var(--text-secondary);border-bottom:1px solid #e2e8f0">Total</th>
-                            <th style="background:#f8fafc;padding:0.55rem 0.7rem;text-align:right;font-size:0.7rem;font-weight:700;color:var(--text-secondary);border-bottom:1px solid #e2e8f0">Hotel</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($recentReturns as $ret): ?>
-                        <tr>
-                            <td style="padding:0.55rem 0.7rem;border-bottom:1px solid #f1f5f9">
-                                <strong><?php echo htmlspecialchars($ret['plate_number']); ?></strong>
-                                <div style="font-size:0.7rem;color:var(--text-secondary)"><?php echo htmlspecialchars($ret['car_name']); ?></div>
-                            </td>
-                            <td style="padding:0.55rem 0.7rem;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:600">Rp <?php echo number_format($ret['total_price'],0,',','.'); ?></td>
-                            <td style="padding:0.55rem 0.7rem;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:600;color:#6366f1">Rp <?php echo number_format($ret['hotel_commission'],0,',','.'); ?></td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
             <?php endif; ?>
         </div>
     </div>
@@ -537,12 +850,12 @@ include '../../includes/header.php';
         <form method="GET" style="display:flex;gap:0.6rem;flex-wrap:wrap;align-items:center;width:100%">
             <select name="year">
                 <?php foreach ($yearOptions as $y): ?>
-                    <option value="<?php echo $y; ?>" <?php echo $y===$filterYear?'selected':''; ?>><?php echo $y; ?></option>
+                    <option value="<?php echo $y; ?>" <?php echo $y === $filterYear ? 'selected' : ''; ?>><?php echo $y; ?></option>
                 <?php endforeach; ?>
             </select>
             <select name="month">
-                <?php for ($m=1; $m<=12; $m++): ?>
-                    <option value="<?php echo $m; ?>" <?php echo $m===$filterMonth?'selected':''; ?>><?php echo $monthNames[$m]; ?></option>
+                <?php for ($m = 1; $m <= 12; $m++): ?>
+                    <option value="<?php echo $m; ?>" <?php echo $m === $filterMonth ? 'selected' : ''; ?>><?php echo $monthNames[$m]; ?></option>
                 <?php endfor; ?>
             </select>
             <input type="text" name="owner" placeholder="Filter pemilik..." value="<?php echo htmlspecialchars($filterOwner); ?>" style="flex:1;min-width:140px">
@@ -562,7 +875,10 @@ include '../../includes/header.php';
         </div>
     <?php else: ?>
         <?php
-        $recapTotalRevenue = 0; $recapTotalOwner = 0; $recapTotalHotel = 0; $recapTotalTrips = 0;
+        $recapTotalRevenue = 0;
+        $recapTotalOwner = 0;
+        $recapTotalHotel = 0;
+        $recapTotalTrips = 0;
         foreach ($ownerRecap as $or) {
             $recapTotalRevenue += $or['total_revenue'];
             $recapTotalOwner  += $or['owner_total'];
@@ -571,55 +887,55 @@ include '../../includes/header.php';
         }
         ?>
         <div style="overflow-x:auto">
-        <table class="owner-recap-table">
-            <thead>
-                <tr>
-                    <th>Pemilik / Mitra</th>
-                    <th>Kendaraan / Jasa</th>
-                    <th style="text-align:center">Trip</th>
-                    <th style="text-align:center">Rental</th>
-                    <th style="text-align:center">Airport</th>
-                    <th style="text-align:center">Harbor</th>
-                    <th style="text-align:right">Total Revenue</th>
-                    <th style="text-align:right">Bagian Pemilik</th>
-                    <th style="text-align:right">Komisi Hotel</th>
-                    <th style="text-align:center">% Pemilik</th>
-                    <th style="text-align:center">Kontak</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($ownerRecap as $or): ?>
+            <table class="owner-recap-table">
+                <thead>
                     <tr>
-                        <td>
-                            <div style="font-weight:700;color:#1e293b"><?php echo htmlspecialchars($or['partner_owner'] ?: '—'); ?></div>
-                        </td>
-                        <td style="font-size:0.78rem;color:var(--text-secondary)"><?php echo htmlspecialchars($or['cars']); ?></td>
-                        <td style="text-align:center;font-weight:700"><?php echo $or['total_trips']; ?></td>
-                        <td style="text-align:center"><?php echo (int)($or['rental_trips'] ?? $or['total_trips']); ?></td>
-                        <td style="text-align:center"><?php echo (int)($or['airport_trips'] ?? 0); ?></td>
-                        <td style="text-align:center"><?php echo (int)($or['harbor_trips'] ?? 0); ?></td>
-                        <td style="text-align:right;font-weight:700">Rp <?php echo number_format($or['total_revenue'],0,',','.'); ?></td>
-                        <td style="text-align:right;font-weight:700;color:#059669">Rp <?php echo number_format($or['owner_total'],0,',','.'); ?></td>
-                        <td style="text-align:right;font-weight:700;color:#6366f1">Rp <?php echo number_format($or['hotel_total'],0,',','.'); ?></td>
-                        <td style="text-align:center">
-                            <span style="background:#dcfce7;color:#065f46;padding:0.15rem 0.5rem;border-radius:20px;font-size:0.75rem;font-weight:700"><?php echo number_format($or['avg_comm_pct'],0); ?>%</span>
-                        </td>
-                        <td style="text-align:center;font-size:0.78rem;color:var(--text-secondary)"><?php echo htmlspecialchars($or['owner_phone'] ?: '—'); ?></td>
+                        <th>Pemilik / Mitra</th>
+                        <th>Kendaraan / Jasa</th>
+                        <th style="text-align:center">Trip</th>
+                        <th style="text-align:center">Rental</th>
+                        <th style="text-align:center">Airport</th>
+                        <th style="text-align:center">Harbor</th>
+                        <th style="text-align:right">Total Revenue</th>
+                        <th style="text-align:right">Bagian Pemilik</th>
+                        <th style="text-align:right">Komisi Hotel</th>
+                        <th style="text-align:center">% Pemilik</th>
+                        <th style="text-align:center">Kontak</th>
                     </tr>
-                <?php endforeach; ?>
-                <tr class="owner-total-row">
-                    <td colspan="2"><strong>TOTAL <?php echo strtoupper($monthNames[$filterMonth]); ?> <?php echo $filterYear; ?></strong></td>
-                    <td style="text-align:center"><strong><?php echo $recapTotalTrips; ?></strong></td>
-                    <td style="text-align:center"></td>
-                    <td style="text-align:center"></td>
-                    <td style="text-align:center"></td>
-                    <td style="text-align:right"><strong>Rp <?php echo number_format($recapTotalRevenue,0,',','.'); ?></strong></td>
-                    <td style="text-align:right"><strong>Rp <?php echo number_format($recapTotalOwner,0,',','.'); ?></strong></td>
-                    <td style="text-align:right"><strong>Rp <?php echo number_format($recapTotalHotel,0,',','.'); ?></strong></td>
-                    <td colspan="2"></td>
-                </tr>
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    <?php foreach ($ownerRecap as $or): ?>
+                        <tr>
+                            <td>
+                                <div style="font-weight:700;color:#1e293b"><?php echo htmlspecialchars($or['partner_owner'] ?: '—'); ?></div>
+                            </td>
+                            <td style="font-size:0.78rem;color:var(--text-secondary)"><?php echo htmlspecialchars($or['cars']); ?></td>
+                            <td style="text-align:center;font-weight:700"><?php echo $or['total_trips']; ?></td>
+                            <td style="text-align:center"><?php echo (int)($or['rental_trips'] ?? $or['total_trips']); ?></td>
+                            <td style="text-align:center"><?php echo (int)($or['airport_trips'] ?? 0); ?></td>
+                            <td style="text-align:center"><?php echo (int)($or['harbor_trips'] ?? 0); ?></td>
+                            <td style="text-align:right;font-weight:700">Rp <?php echo number_format($or['total_revenue'], 0, ',', '.'); ?></td>
+                            <td style="text-align:right;font-weight:700;color:#059669">Rp <?php echo number_format($or['owner_total'], 0, ',', '.'); ?></td>
+                            <td style="text-align:right;font-weight:700;color:#6366f1">Rp <?php echo number_format($or['hotel_total'], 0, ',', '.'); ?></td>
+                            <td style="text-align:center">
+                                <span style="background:#dcfce7;color:#065f46;padding:0.15rem 0.5rem;border-radius:20px;font-size:0.75rem;font-weight:700"><?php echo number_format($or['avg_comm_pct'], 0); ?>%</span>
+                            </td>
+                            <td style="text-align:center;font-size:0.78rem;color:var(--text-secondary)"><?php echo htmlspecialchars($or['owner_phone'] ?: '—'); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    <tr class="owner-total-row">
+                        <td colspan="2"><strong>TOTAL <?php echo strtoupper($monthNames[$filterMonth]); ?> <?php echo $filterYear; ?></strong></td>
+                        <td style="text-align:center"><strong><?php echo $recapTotalTrips; ?></strong></td>
+                        <td style="text-align:center"></td>
+                        <td style="text-align:center"></td>
+                        <td style="text-align:center"></td>
+                        <td style="text-align:right"><strong>Rp <?php echo number_format($recapTotalRevenue, 0, ',', '.'); ?></strong></td>
+                        <td style="text-align:right"><strong>Rp <?php echo number_format($recapTotalOwner, 0, ',', '.'); ?></strong></td>
+                        <td style="text-align:right"><strong>Rp <?php echo number_format($recapTotalHotel, 0, ',', '.'); ?></strong></td>
+                        <td colspan="2"></td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
 
         <!-- Per-owner detail cards (print-friendly) -->
@@ -637,15 +953,15 @@ include '../../includes/header.php';
                             <div style="color:var(--text-secondary);font-size:0.7rem">Trip</div>
                         </div>
                         <div style="background:#f0fdf4;border-radius:8px;padding:0.6rem;text-align:center">
-                            <div style="font-size:1rem;font-weight:800;color:#059669">Rp <?php echo number_format($or['total_revenue'],0,',','.'); ?></div>
+                            <div style="font-size:1rem;font-weight:800;color:#059669">Rp <?php echo number_format($or['total_revenue'], 0, ',', '.'); ?></div>
                             <div style="color:var(--text-secondary);font-size:0.7rem">Total Revenue</div>
                         </div>
                         <div style="background:#eff6ff;border-radius:8px;padding:0.6rem;text-align:center">
-                            <div style="font-size:1rem;font-weight:800;color:#2563eb">Rp <?php echo number_format($or['owner_total'],0,',','.'); ?></div>
-                            <div style="color:var(--text-secondary);font-size:0.7rem">Bagian Pemilik (<?php echo number_format($or['avg_comm_pct'],0); ?>%)</div>
+                            <div style="font-size:1rem;font-weight:800;color:#2563eb">Rp <?php echo number_format($or['owner_total'], 0, ',', '.'); ?></div>
+                            <div style="color:var(--text-secondary);font-size:0.7rem">Bagian Pemilik (<?php echo number_format($or['avg_comm_pct'], 0); ?>%)</div>
                         </div>
                         <div style="background:#f5f3ff;border-radius:8px;padding:0.6rem;text-align:center">
-                            <div style="font-size:1rem;font-weight:800;color:#7c3aed">Rp <?php echo number_format($or['hotel_total'],0,',','.'); ?></div>
+                            <div style="font-size:1rem;font-weight:800;color:#7c3aed">Rp <?php echo number_format($or['hotel_total'], 0, ',', '.'); ?></div>
                             <div style="color:var(--text-secondary);font-size:0.7rem">Komisi Hotel</div>
                         </div>
                     </div>
@@ -696,8 +1012,8 @@ include '../../includes/header.php';
                                                     <?php echo htmlspecialchars($detail['guest_name'] ?: '—'); ?>
                                                     <?php if (!empty($detail['room_number'])): ?><div style="font-size:0.68rem;color:#64748b">Kamar <?php echo htmlspecialchars($detail['room_number']); ?></div><?php endif; ?>
                                                 </td>
-                                                <td style="padding:0.3rem;border-top:1px solid #eef2f7;text-align:right;font-weight:700">Rp <?php echo number_format($detail['total_price'],0,',','.'); ?></td>
-                                                <td style="padding:0.3rem;border-top:1px solid #eef2f7;text-align:right;color:#059669;font-weight:700">Rp <?php echo number_format($detail['owner_amount'],0,',','.'); ?></td>
+                                                <td style="padding:0.3rem;border-top:1px solid #eef2f7;text-align:right;font-weight:700">Rp <?php echo number_format($detail['total_price'], 0, ',', '.'); ?></td>
+                                                <td style="padding:0.3rem;border-top:1px solid #eef2f7;text-align:right;color:#059669;font-weight:700">Rp <?php echo number_format($detail['owner_amount'], 0, ',', '.'); ?></td>
                                             </tr>
                                         <?php endforeach; ?>
                                     </tbody>

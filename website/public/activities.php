@@ -1,4 +1,5 @@
 <?php
+
 /**
  * NARAYANA KARIMUNJAWA — Activities & Experiences
  * What to Do During Your Stay — Inspirational Travel Guide
@@ -24,8 +25,12 @@ $_actRow = dbFetch("SELECT setting_value FROM settings WHERE setting_key = 'web_
 $_actFromDb = $_actRow ? json_decode($_actRow['setting_value'], true) : [];
 // Filter active only and sort by order
 if (!empty($_actFromDb)) {
-    $_actFromDb = array_filter($_actFromDb, function($a) { return $a['active'] ?? true; });
-    usort($_actFromDb, function($a, $b) { return ($a['order'] ?? 0) - ($b['order'] ?? 0); });
+    $_actFromDb = array_filter($_actFromDb, function ($a) {
+        return $a['active'] ?? true;
+    });
+    usort($_actFromDb, function ($a, $b) {
+        return ($a['order'] ?? 0) - ($b['order'] ?? 0);
+    });
     $activities = array_values($_actFromDb);
 } else {
     // Comprehensive defaults — detailed Karimunjawa activity guide
@@ -155,10 +160,12 @@ if (!empty($_actFromDb)) {
     // Auto-seed to database so activities appear in developer panel
     try {
         $seedJson = json_encode($activities);
-        dbQuery("INSERT INTO settings (setting_key, setting_value, setting_type, description) 
+        dbQuery(
+            "INSERT INTO settings (setting_key, setting_value, setting_type, description) 
                  VALUES ('web_activities', ?, 'text', 'Website Activities') 
                  ON DUPLICATE KEY UPDATE setting_value = CASE WHEN setting_value = '[]' OR setting_value = '' THEN VALUES(setting_value) ELSE setting_value END",
-                 [$seedJson]);
+            [$seedJson]
+        );
     } catch (Exception $e) {
         // Silently fail — defaults will still render
     }
@@ -200,42 +207,42 @@ require_once __DIR__ . '/includes/header.php';
 
 <!-- Activities — Editorial Alternating Layout -->
 <div id="activities-guide">
-<?php foreach ($activities as $i => $act):
-    $reverse = $i % 2 !== 0;
-?>
-<section class="act-story <?= $reverse ? 'act-story-reverse' : '' ?>">
-    <div class="container">
-        <div class="act-story-inner fade-in">
+    <?php foreach ($activities as $i => $act):
+        $reverse = $i % 2 !== 0;
+    ?>
+        <section class="act-story <?= $reverse ? 'act-story-reverse' : '' ?>">
+            <div class="container">
+                <div class="act-story-inner fade-in">
 
-            <!-- Photo -->
-            <div class="act-story-image">
-                <img src="<?= htmlspecialchars($act['image']) ?>" alt="<?= htmlspecialchars($act['title']) ?>" loading="lazy">
-                <div class="act-story-image-label"><?= htmlspecialchars($act['eyebrow']) ?></div>
+                    <!-- Photo -->
+                    <div class="act-story-image">
+                        <img src="<?= htmlspecialchars($act['image']) ?>" alt="<?= htmlspecialchars($act['title']) ?>" loading="lazy">
+                        <div class="act-story-image-label"><?= htmlspecialchars($act['eyebrow']) ?></div>
+                    </div>
+
+                    <!-- Text -->
+                    <div class="act-story-content">
+                        <div class="act-story-num"><?= str_pad($i + 1, 2, '0', STR_PAD_LEFT) ?></div>
+                        <div class="section-eyebrow"><?= htmlspecialchars($act['eyebrow']) ?></div>
+                        <h2><?= htmlspecialchars($act['title']) ?></h2>
+                        <div class="divider"></div>
+                        <p class="act-story-body"><?= $act['body'] ?></p>
+
+                        <ul class="act-story-details">
+                            <?php foreach ($act['details'] as $d): ?>
+                                <li><i class="fas fa-circle-dot"></i> <?= htmlspecialchars($d) ?></li>
+                            <?php endforeach; ?>
+                        </ul>
+
+                        <a href="https://wa.me/<?= BUSINESS_WHATSAPP ?>?text=Hi%20Narayana%2C%20I%27d%20like%20to%20know%20more%20about%20<?= urlencode($act['title']) ?>" target="_blank" class="act-story-link">
+                            Ask us about this <i class="fas fa-arrow-right"></i>
+                        </a>
+                    </div>
+
+                </div>
             </div>
-
-            <!-- Text -->
-            <div class="act-story-content">
-                <div class="act-story-num"><?= str_pad($i + 1, 2, '0', STR_PAD_LEFT) ?></div>
-                <div class="section-eyebrow"><?= htmlspecialchars($act['eyebrow']) ?></div>
-                <h2><?= htmlspecialchars($act['title']) ?></h2>
-                <div class="divider"></div>
-                <p class="act-story-body"><?= $act['body'] ?></p>
-
-                <ul class="act-story-details">
-                    <?php foreach ($act['details'] as $d): ?>
-                    <li><i class="fas fa-circle-dot"></i> <?= htmlspecialchars($d) ?></li>
-                    <?php endforeach; ?>
-                </ul>
-
-                <a href="https://wa.me/<?= BUSINESS_WHATSAPP ?>?text=Hi%20Narayana%2C%20I%27d%20like%20to%20know%20more%20about%20<?= urlencode($act['title']) ?>" target="_blank" class="act-story-link">
-                    Ask us about this <i class="fas fa-arrow-right"></i>
-                </a>
-            </div>
-
-        </div>
-    </div>
-</section>
-<?php endforeach; ?>
+        </section>
+    <?php endforeach; ?>
 </div>
 
 <!-- Final CTA -->

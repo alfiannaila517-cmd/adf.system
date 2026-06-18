@@ -574,10 +574,10 @@ include '../../includes/header.php';
                                     <span class="rc-info-value"><?php echo htmlspecialchars(substr($r['guest_name'], 0, 20)); ?></span>
                                 </div>
                                 <?php if ($r['room_number']): ?>
-                                <div class="rc-info-row">
-                                    <span class="rc-info-label">🚪 Kamar</span>
-                                    <span class="rc-info-value">#<?php echo htmlspecialchars($r['room_number']); ?></span>
-                                </div>
+                                    <div class="rc-info-row">
+                                        <span class="rc-info-label">🚪 Kamar</span>
+                                        <span class="rc-info-value">#<?php echo htmlspecialchars($r['room_number']); ?></span>
+                                    </div>
                                 <?php endif; ?>
                             </div>
 
@@ -663,33 +663,33 @@ include '../../includes/header.php';
             </div>
 
             <?php if (!empty($recentReturns)): ?>
-            <div class="dashboard-panel">
-                <div class="panel-head">
-                    <h2>Transaksi Terakhir</h2>
-                    <div class="hint">10 data terbaru</div>
+                <div class="dashboard-panel">
+                    <div class="panel-head">
+                        <h2>Transaksi Terakhir</h2>
+                        <div class="hint">10 data terbaru</div>
+                    </div>
+                    <table class="recent-table" style="box-shadow:none;border-radius:10px;overflow:hidden">
+                        <thead>
+                            <tr>
+                                <th style="padding:0.7rem">Motor</th>
+                                <th style="padding:0.7rem">Total</th>
+                                <th style="padding:0.7rem">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($recentReturns as $ret): ?>
+                                <tr>
+                                    <td style="padding:0.7rem">
+                                        <strong><?php echo htmlspecialchars($ret['plate_number']); ?></strong>
+                                        <div style="font-size:0.75rem;color:var(--text-secondary)"><?php echo htmlspecialchars($ret['motor_name']); ?></div>
+                                    </td>
+                                    <td style="padding:0.7rem;font-weight:600">Rp <?php echo number_format($ret['total_price'], 0, ',', '.'); ?></td>
+                                    <td style="padding:0.7rem"><span class="badge badge-success">Kembali</span></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
                 </div>
-                <table class="recent-table" style="box-shadow:none;border-radius:10px;overflow:hidden">
-                    <thead>
-                        <tr>
-                            <th style="padding:0.7rem">Motor</th>
-                            <th style="padding:0.7rem">Total</th>
-                            <th style="padding:0.7rem">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($recentReturns as $ret): ?>
-                        <tr>
-                            <td style="padding:0.7rem">
-                                <strong><?php echo htmlspecialchars($ret['plate_number']); ?></strong>
-                                <div style="font-size:0.75rem;color:var(--text-secondary)"><?php echo htmlspecialchars($ret['motor_name']); ?></div>
-                            </td>
-                            <td style="padding:0.7rem;font-weight:600">Rp <?php echo number_format($ret['total_price'], 0, ',', '.'); ?></td>
-                            <td style="padding:0.7rem"><span class="badge badge-success">Kembali</span></td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
             <?php endif; ?>
         </div>
     </div>

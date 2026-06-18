@@ -1,4 +1,5 @@
 <?php
+
 /**
  * NARAYANA KARIMUNJAWA — Destinations & Travel Guide
  * Karimunjawa Island Tourist Destinations with editorial layout
@@ -11,7 +12,8 @@ $currentPage = 'destinations';
 $pageTitle = 'Destinations';
 
 // Helper: resolve image URL (supports absolute & relative)
-function destImgUrl($img) {
+function destImgUrl($img)
+{
     if (empty($img)) return '';
     if (str_starts_with($img, 'http://') || str_starts_with($img, 'https://')) return $img;
     return BASE_URL . '/' . $img;
@@ -149,9 +151,12 @@ try {
                 $destinations[] = $d;
             }
         }
-        usort($destinations, function($a, $b) { return ($a['order'] ?? 0) - ($b['order'] ?? 0); });
+        usort($destinations, function ($a, $b) {
+            return ($a['order'] ?? 0) - ($b['order'] ?? 0);
+        });
     }
-} catch (Exception $e) {}
+} catch (Exception $e) {
+}
 
 // Use defaults when database is empty
 if (empty($destinations)) {
@@ -184,222 +189,223 @@ require_once __DIR__ . '/includes/header.php';
 ?>
 
 <?php if ($selectedDest): ?>
-<!-- ============== SINGLE DESTINATION DETAIL ============== -->
-<?php $detImg = destImgUrl($selectedDest['image'] ?? ''); ?>
-<section class="dest-hero" <?php if ($detImg): ?>style="background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.55)), url('<?= htmlspecialchars($detImg) ?>')"<?php endif; ?>>
-    <div class="container">
-        <div class="dest-hero-content">
-            <a href="<?= BASE_URL ?>/destinations.php" class="dest-back-link"><i class="fas fa-arrow-left"></i> All Destinations</a>
-            <?php if (!empty($selectedDest['category'])): ?>
-            <div class="dest-hero-eyebrow"><?= htmlspecialchars($selectedDest['category']) ?></div>
-            <?php endif; ?>
-            <h1 class="dest-hero-title"><?= htmlspecialchars($selectedDest['title']) ?></h1>
-            <?php if (!empty($selectedDest['subtitle'])): ?>
-            <p style="color:rgba(255,255,255,0.8); font-size:15px; margin-top:12px; max-width:600px;"><?= htmlspecialchars($selectedDest['subtitle']) ?></p>
-            <?php endif; ?>
+    <!-- ============== SINGLE DESTINATION DETAIL ============== -->
+    <?php $detImg = destImgUrl($selectedDest['image'] ?? ''); ?>
+    <section class="dest-hero" <?php if ($detImg): ?>style="background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.55)), url('<?= htmlspecialchars($detImg) ?>')" <?php endif; ?>>
+        <div class="container">
+            <div class="dest-hero-content">
+                <a href="<?= BASE_URL ?>/destinations.php" class="dest-back-link"><i class="fas fa-arrow-left"></i> All Destinations</a>
+                <?php if (!empty($selectedDest['category'])): ?>
+                    <div class="dest-hero-eyebrow"><?= htmlspecialchars($selectedDest['category']) ?></div>
+                <?php endif; ?>
+                <h1 class="dest-hero-title"><?= htmlspecialchars($selectedDest['title']) ?></h1>
+                <?php if (!empty($selectedDest['subtitle'])): ?>
+                    <p style="color:rgba(255,255,255,0.8); font-size:15px; margin-top:12px; max-width:600px;"><?= htmlspecialchars($selectedDest['subtitle']) ?></p>
+                <?php endif; ?>
+            </div>
         </div>
-    </div>
-</section>
+    </section>
 
-<section class="section" style="padding: 48px 0;">
-    <div class="container">
-        <div class="dest-detail-content">
-            <?php if ($detImg): ?>
-            <div class="dest-detail-image">
-                <img src="<?= htmlspecialchars($detImg) ?>" alt="<?= htmlspecialchars($selectedDest['title']) ?>">
-            </div>
-            <?php endif; ?>
-            
-            <div class="dest-detail-text">
-                <?php if (!empty($selectedDest['content'])): ?>
-                <p><?= $selectedDest['content'] ?></p>
-                <?php endif; ?>
-            </div>
-
-            <?php if (!empty($selectedDest['tips']) || !empty($selectedDest['distance'])): ?>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:24px 0;">
-                <?php if (!empty($selectedDest['tips'])): ?>
-                <div style="background:var(--cream); padding:20px; border-radius:8px;">
-                    <div style="font-size:11px; font-weight:600; letter-spacing:1px; text-transform:uppercase; color:var(--gold); margin-bottom:6px;"><i class="fas fa-lightbulb"></i> Travel Tips</div>
-                    <p style="font-size:13px; color:var(--warm-gray); line-height:1.6; margin:0;"><?= htmlspecialchars($selectedDest['tips']) ?></p>
-                </div>
-                <?php endif; ?>
-                <?php if (!empty($selectedDest['distance'])): ?>
-                <div style="background:var(--cream); padding:20px; border-radius:8px;">
-                    <div style="font-size:11px; font-weight:600; letter-spacing:1px; text-transform:uppercase; color:var(--gold); margin-bottom:6px;"><i class="fas fa-location-dot"></i> Distance</div>
-                    <p style="font-size:13px; color:var(--warm-gray); line-height:1.6; margin:0;"><?= htmlspecialchars($selectedDest['distance']) ?></p>
-                </div>
-                <?php endif; ?>
-            </div>
-            <?php endif; ?>
-
-            <div class="dest-detail-cta">
-                <div class="dest-cta-box">
-                    <h3>Interested in visiting <?= htmlspecialchars($selectedDest['title']) ?>?</h3>
-                    <p>Book your stay at Narayana Karimunjawa and explore this amazing destination during your trip.</p>
-                    <div class="dest-cta-buttons">
-                        <a href="<?= htmlspecialchars(buildCloudbedsReservationUrl()) ?>" class="btn-primary-dest">Book Your Stay</a>
-                        <a href="https://wa.me/<?= BUSINESS_WHATSAPP ?>?text=Hi%2C%20I%27m%20interested%20in%20visiting%20<?= urlencode($selectedDest['title']) ?>" target="_blank" class="btn-outline-dest"><i class="fab fa-whatsapp"></i> Ask Us</a>
+    <section class="section" style="padding: 48px 0;">
+        <div class="container">
+            <div class="dest-detail-content">
+                <?php if ($detImg): ?>
+                    <div class="dest-detail-image">
+                        <img src="<?= htmlspecialchars($detImg) ?>" alt="<?= htmlspecialchars($selectedDest['title']) ?>">
                     </div>
-                </div>
-            </div>
-        </div>
+                <?php endif; ?>
 
-        <!-- Other Destinations -->
-        <?php 
-        $otherDest = array_filter($destinations, fn($d) => $d['id'] !== $selectedDest['id']);
-        if (!empty($otherDest)):
-        ?>
-        <div class="dest-other-section">
-            <h2 class="dest-other-title">Explore More Destinations</h2>
-            <div class="dest-grid">
-                <?php foreach (array_slice(array_values($otherDest), 0, 3) as $other): 
-                    $otherImg = destImgUrl($other['image'] ?? '');
-                ?>
-                <a href="<?= BASE_URL ?>/destinations.php?id=<?= urlencode($other['id']) ?>" class="dest-card fade-in">
-                    <div class="dest-card-image">
-                        <?php if ($otherImg): ?>
-                        <img src="<?= htmlspecialchars($otherImg) ?>" alt="<?= htmlspecialchars($other['title']) ?>" loading="lazy">
-                        <?php else: ?>
-                        <div class="dest-card-placeholder"><i class="fas fa-mountain"></i></div>
+                <div class="dest-detail-text">
+                    <?php if (!empty($selectedDest['content'])): ?>
+                        <p><?= $selectedDest['content'] ?></p>
+                    <?php endif; ?>
+                </div>
+
+                <?php if (!empty($selectedDest['tips']) || !empty($selectedDest['distance'])): ?>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:24px 0;">
+                        <?php if (!empty($selectedDest['tips'])): ?>
+                            <div style="background:var(--cream); padding:20px; border-radius:8px;">
+                                <div style="font-size:11px; font-weight:600; letter-spacing:1px; text-transform:uppercase; color:var(--gold); margin-bottom:6px;"><i class="fas fa-lightbulb"></i> Travel Tips</div>
+                                <p style="font-size:13px; color:var(--warm-gray); line-height:1.6; margin:0;"><?= htmlspecialchars($selectedDest['tips']) ?></p>
+                            </div>
+                        <?php endif; ?>
+                        <?php if (!empty($selectedDest['distance'])): ?>
+                            <div style="background:var(--cream); padding:20px; border-radius:8px;">
+                                <div style="font-size:11px; font-weight:600; letter-spacing:1px; text-transform:uppercase; color:var(--gold); margin-bottom:6px;"><i class="fas fa-location-dot"></i> Distance</div>
+                                <p style="font-size:13px; color:var(--warm-gray); line-height:1.6; margin:0;"><?= htmlspecialchars($selectedDest['distance']) ?></p>
+                            </div>
                         <?php endif; ?>
                     </div>
-                    <div class="dest-card-body">
-                        <h3><?= htmlspecialchars($other['title']) ?></h3>
-                        <?php if (!empty($other['subtitle'])): ?>
-                        <p class="dest-card-subtitle"><?= htmlspecialchars($other['subtitle']) ?></p>
-                        <?php endif; ?>
+                <?php endif; ?>
+
+                <div class="dest-detail-cta">
+                    <div class="dest-cta-box">
+                        <h3>Interested in visiting <?= htmlspecialchars($selectedDest['title']) ?>?</h3>
+                        <p>Book your stay at Narayana Karimunjawa and explore this amazing destination during your trip.</p>
+                        <div class="dest-cta-buttons">
+                            <a href="<?= htmlspecialchars(buildCloudbedsReservationUrl()) ?>" class="btn-primary-dest">Book Your Stay</a>
+                            <a href="https://wa.me/<?= BUSINESS_WHATSAPP ?>?text=Hi%2C%20I%27m%20interested%20in%20visiting%20<?= urlencode($selectedDest['title']) ?>" target="_blank" class="btn-outline-dest"><i class="fab fa-whatsapp"></i> Ask Us</a>
+                        </div>
                     </div>
-                </a>
-                <?php endforeach; ?>
+                </div>
             </div>
+
+            <!-- Other Destinations -->
+            <?php
+            $otherDest = array_filter($destinations, fn($d) => $d['id'] !== $selectedDest['id']);
+            if (!empty($otherDest)):
+            ?>
+                <div class="dest-other-section">
+                    <h2 class="dest-other-title">Explore More Destinations</h2>
+                    <div class="dest-grid">
+                        <?php foreach (array_slice(array_values($otherDest), 0, 3) as $other):
+                            $otherImg = destImgUrl($other['image'] ?? '');
+                        ?>
+                            <a href="<?= BASE_URL ?>/destinations.php?id=<?= urlencode($other['id']) ?>" class="dest-card fade-in">
+                                <div class="dest-card-image">
+                                    <?php if ($otherImg): ?>
+                                        <img src="<?= htmlspecialchars($otherImg) ?>" alt="<?= htmlspecialchars($other['title']) ?>" loading="lazy">
+                                    <?php else: ?>
+                                        <div class="dest-card-placeholder"><i class="fas fa-mountain"></i></div>
+                                    <?php endif; ?>
+                                </div>
+                                <div class="dest-card-body">
+                                    <h3><?= htmlspecialchars($other['title']) ?></h3>
+                                    <?php if (!empty($other['subtitle'])): ?>
+                                        <p class="dest-card-subtitle"><?= htmlspecialchars($other['subtitle']) ?></p>
+                                    <?php endif; ?>
+                                </div>
+                            </a>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            <?php endif; ?>
         </div>
-        <?php endif; ?>
-    </div>
-</section>
+    </section>
 
 <?php else: ?>
-<!-- ============== DESTINATIONS LISTING PAGE ============== -->
+    <!-- ============== DESTINATIONS LISTING PAGE ============== -->
 
-<!-- Hero -->
-<section class="dest-page-hero"<?php if (!empty($destHeroBg)): ?> style="background: linear-gradient(180deg, rgba(0,0,0,0.4), rgba(0,0,0,0.6)), url('<?= htmlspecialchars(destImgUrl($destHeroBg)) ?>') center/cover;"<?php endif; ?>>
-    <div class="container">
-        <div class="dest-page-hero-content">
-            <div class="section-eyebrow" style="color:var(--gold-light);"><?= htmlspecialchars($destHeroEyebrow) ?></div>
-            <h1 class="dest-page-title"><?= $destHeroTitle ?></h1>
-            <p class="dest-page-desc"><?= htmlspecialchars($destHeroSubtitle) ?></p>
-        </div>
-    </div>
-</section>
-
-<!-- Quick Stats Bar -->
-<section style="background:var(--dark); padding:0;">
-    <div class="container">
-        <div style="display:grid; grid-template-columns:repeat(3,1fr); text-align:center;">
-            <div style="padding:20px; border-right:1px solid rgba(255,255,255,0.1);">
-                <div style="font-family:var(--font-heading); font-size:1.6rem; color:var(--gold-light);"><?= count($destinations) ?></div>
-                <div style="font-size:10px; letter-spacing:2px; text-transform:uppercase; color:rgba(255,255,255,0.5);">Destinations</div>
-            </div>
-            <div style="padding:20px; border-right:1px solid rgba(255,255,255,0.1);">
-                <div style="font-family:var(--font-heading); font-size:1.6rem; color:var(--gold-light);">27</div>
-                <div style="font-size:10px; letter-spacing:2px; text-transform:uppercase; color:rgba(255,255,255,0.5);">Islands</div>
-            </div>
-            <div style="padding:20px;">
-                <div style="font-family:var(--font-heading); font-size:1.6rem; color:var(--gold-light);">1</div>
-                <div style="font-size:10px; letter-spacing:2px; text-transform:uppercase; color:rgba(255,255,255,0.5);">National Park</div>
+    <!-- Hero -->
+    <section class="dest-page-hero" <?php if (!empty($destHeroBg)): ?> style="background: linear-gradient(180deg, rgba(0,0,0,0.4), rgba(0,0,0,0.6)), url('<?= htmlspecialchars(destImgUrl($destHeroBg)) ?>') center/cover;" <?php endif; ?>>
+        <div class="container">
+            <div class="dest-page-hero-content">
+                <div class="section-eyebrow" style="color:var(--gold-light);"><?= htmlspecialchars($destHeroEyebrow) ?></div>
+                <h1 class="dest-page-title"><?= $destHeroTitle ?></h1>
+                <p class="dest-page-desc"><?= htmlspecialchars($destHeroSubtitle) ?></p>
             </div>
         </div>
-    </div>
-</section>
+    </section>
 
-<!-- Featured Destination (first one) -->
-<?php $featured = $destinations[0]; $featImg = destImgUrl($featured['image'] ?? ''); ?>
-<section class="dest-featured-section">
-    <div class="container">
-        <a href="<?= BASE_URL ?>/destinations.php?id=<?= urlencode($featured['id']) ?>" class="dest-featured fade-in">
-            <div class="dest-featured-image">
-                <?php if ($featImg): ?>
-                <img src="<?= htmlspecialchars($featImg) ?>" alt="<?= htmlspecialchars($featured['title']) ?>" loading="lazy">
-                <?php else: ?>
-                <div class="dest-card-placeholder" style="height:100%;"><i class="fas fa-mountain" style="font-size:48px;"></i></div>
-                <?php endif; ?>
+    <!-- Quick Stats Bar -->
+    <section style="background:var(--dark); padding:0;">
+        <div class="container">
+            <div style="display:grid; grid-template-columns:repeat(3,1fr); text-align:center;">
+                <div style="padding:20px; border-right:1px solid rgba(255,255,255,0.1);">
+                    <div style="font-family:var(--font-heading); font-size:1.6rem; color:var(--gold-light);"><?= count($destinations) ?></div>
+                    <div style="font-size:10px; letter-spacing:2px; text-transform:uppercase; color:rgba(255,255,255,0.5);">Destinations</div>
+                </div>
+                <div style="padding:20px; border-right:1px solid rgba(255,255,255,0.1);">
+                    <div style="font-family:var(--font-heading); font-size:1.6rem; color:var(--gold-light);">27</div>
+                    <div style="font-size:10px; letter-spacing:2px; text-transform:uppercase; color:rgba(255,255,255,0.5);">Islands</div>
+                </div>
+                <div style="padding:20px;">
+                    <div style="font-family:var(--font-heading); font-size:1.6rem; color:var(--gold-light);">1</div>
+                    <div style="font-size:10px; letter-spacing:2px; text-transform:uppercase; color:rgba(255,255,255,0.5);">National Park</div>
+                </div>
             </div>
-            <div class="dest-featured-content">
-                <div class="dest-featured-badge"><i class="fas fa-star"></i> Featured Destination</div>
-                <h2><?= htmlspecialchars($featured['title']) ?></h2>
-                <?php if (!empty($featured['subtitle'])): ?>
-                <p class="dest-featured-subtitle"><?= htmlspecialchars($featured['subtitle']) ?></p>
-                <?php endif; ?>
-                <p class="dest-featured-excerpt"><?= htmlspecialchars(mb_substr(strip_tags($featured['content'] ?? ''), 0, 180)) ?>...</p>
-                <?php if (!empty($featured['distance'])): ?>
-                <p style="font-size:12px; color:var(--mid-gray); margin-bottom:16px;"><i class="fas fa-location-dot" style="color:var(--gold);"></i> <?= htmlspecialchars($featured['distance']) ?></p>
-                <?php endif; ?>
-                <span class="dest-read-more">Explore <i class="fas fa-arrow-right"></i></span>
-            </div>
-        </a>
-    </div>
-</section>
-
-<!-- All Destinations - Editorial Grid -->
-<?php $gridDest = array_slice($destinations, 1); ?>
-<?php if (!empty($gridDest)): ?>
-<section class="section" style="padding:48px 0 64px;">
-    <div class="container">
-        <div class="section-header text-center fade-in" style="margin-bottom:36px;">
-            <div class="section-eyebrow">Island Guide</div>
-            <h2 class="section-title" style="font-size:clamp(1.4rem, 2.5vw, 1.8rem);">More Places to Explore</h2>
-            <div class="divider center"></div>
         </div>
-        <div class="dest-grid">
-            <?php foreach ($gridDest as $dest): 
-                $dImg = destImgUrl($dest['image'] ?? '');
-            ?>
-            <a href="<?= BASE_URL ?>/destinations.php?id=<?= urlencode($dest['id']) ?>" class="dest-card fade-in">
-                <div class="dest-card-image">
-                    <?php if ($dImg): ?>
-                    <img src="<?= htmlspecialchars($dImg) ?>" alt="<?= htmlspecialchars($dest['title']) ?>" loading="lazy">
+    </section>
+
+    <!-- Featured Destination (first one) -->
+    <?php $featured = $destinations[0];
+    $featImg = destImgUrl($featured['image'] ?? ''); ?>
+    <section class="dest-featured-section">
+        <div class="container">
+            <a href="<?= BASE_URL ?>/destinations.php?id=<?= urlencode($featured['id']) ?>" class="dest-featured fade-in">
+                <div class="dest-featured-image">
+                    <?php if ($featImg): ?>
+                        <img src="<?= htmlspecialchars($featImg) ?>" alt="<?= htmlspecialchars($featured['title']) ?>" loading="lazy">
                     <?php else: ?>
-                    <div class="dest-card-placeholder"><i class="fas fa-mountain"></i></div>
-                    <?php endif; ?>
-                    <div class="dest-card-overlay">
-                        <span>View Details</span>
-                    </div>
-                    <?php if (!empty($dest['category'])): ?>
-                    <div class="dest-card-cat"><?= htmlspecialchars($dest['category']) ?></div>
+                        <div class="dest-card-placeholder" style="height:100%;"><i class="fas fa-mountain" style="font-size:48px;"></i></div>
                     <?php endif; ?>
                 </div>
-                <div class="dest-card-body">
-                    <h3><?= htmlspecialchars($dest['title']) ?></h3>
-                    <?php if (!empty($dest['subtitle'])): ?>
-                    <p class="dest-card-subtitle"><?= htmlspecialchars($dest['subtitle']) ?></p>
+                <div class="dest-featured-content">
+                    <div class="dest-featured-badge"><i class="fas fa-star"></i> Featured Destination</div>
+                    <h2><?= htmlspecialchars($featured['title']) ?></h2>
+                    <?php if (!empty($featured['subtitle'])): ?>
+                        <p class="dest-featured-subtitle"><?= htmlspecialchars($featured['subtitle']) ?></p>
                     <?php endif; ?>
-                    <p class="dest-card-excerpt"><?= htmlspecialchars(mb_substr(strip_tags($dest['content'] ?? ''), 0, 100)) ?>...</p>
-                    <div class="dest-card-meta">
-                        <?php if (!empty($dest['distance'])): ?>
-                        <span><i class="fas fa-location-dot"></i> <?= htmlspecialchars($dest['distance']) ?></span>
-                        <?php endif; ?>
-                        <span class="dest-read-more">Explore <i class="fas fa-arrow-right"></i></span>
-                    </div>
+                    <p class="dest-featured-excerpt"><?= htmlspecialchars(mb_substr(strip_tags($featured['content'] ?? ''), 0, 180)) ?>...</p>
+                    <?php if (!empty($featured['distance'])): ?>
+                        <p style="font-size:12px; color:var(--mid-gray); margin-bottom:16px;"><i class="fas fa-location-dot" style="color:var(--gold);"></i> <?= htmlspecialchars($featured['distance']) ?></p>
+                    <?php endif; ?>
+                    <span class="dest-read-more">Explore <i class="fas fa-arrow-right"></i></span>
                 </div>
             </a>
-            <?php endforeach; ?>
         </div>
-    </div>
-</section>
-<?php endif; ?>
+    </section>
 
-<!-- CTA Section -->
-<section class="dest-cta-section">
-    <div class="container text-center">
-        <div class="section-eyedrow" style="font-size:10px; letter-spacing:3px; text-transform:uppercase; color:var(--gold-light); margin-bottom:12px;">Start Your Adventure</div>
-        <h2>Ready to Explore Karimunjawa?</h2>
-        <p>Stay at Narayana and discover all these amazing destinations during your island getaway.</p>
-        <div class="dest-cta-buttons" style="justify-content:center;">
-            <a href="<?= htmlspecialchars(buildCloudbedsReservationUrl()) ?>" class="btn-primary-dest">Book Your Stay</a>
-            <a href="https://wa.me/<?= BUSINESS_WHATSAPP ?>" target="_blank" class="btn-outline-dest"><i class="fab fa-whatsapp"></i> Contact Us</a>
+    <!-- All Destinations - Editorial Grid -->
+    <?php $gridDest = array_slice($destinations, 1); ?>
+    <?php if (!empty($gridDest)): ?>
+        <section class="section" style="padding:48px 0 64px;">
+            <div class="container">
+                <div class="section-header text-center fade-in" style="margin-bottom:36px;">
+                    <div class="section-eyebrow">Island Guide</div>
+                    <h2 class="section-title" style="font-size:clamp(1.4rem, 2.5vw, 1.8rem);">More Places to Explore</h2>
+                    <div class="divider center"></div>
+                </div>
+                <div class="dest-grid">
+                    <?php foreach ($gridDest as $dest):
+                        $dImg = destImgUrl($dest['image'] ?? '');
+                    ?>
+                        <a href="<?= BASE_URL ?>/destinations.php?id=<?= urlencode($dest['id']) ?>" class="dest-card fade-in">
+                            <div class="dest-card-image">
+                                <?php if ($dImg): ?>
+                                    <img src="<?= htmlspecialchars($dImg) ?>" alt="<?= htmlspecialchars($dest['title']) ?>" loading="lazy">
+                                <?php else: ?>
+                                    <div class="dest-card-placeholder"><i class="fas fa-mountain"></i></div>
+                                <?php endif; ?>
+                                <div class="dest-card-overlay">
+                                    <span>View Details</span>
+                                </div>
+                                <?php if (!empty($dest['category'])): ?>
+                                    <div class="dest-card-cat"><?= htmlspecialchars($dest['category']) ?></div>
+                                <?php endif; ?>
+                            </div>
+                            <div class="dest-card-body">
+                                <h3><?= htmlspecialchars($dest['title']) ?></h3>
+                                <?php if (!empty($dest['subtitle'])): ?>
+                                    <p class="dest-card-subtitle"><?= htmlspecialchars($dest['subtitle']) ?></p>
+                                <?php endif; ?>
+                                <p class="dest-card-excerpt"><?= htmlspecialchars(mb_substr(strip_tags($dest['content'] ?? ''), 0, 100)) ?>...</p>
+                                <div class="dest-card-meta">
+                                    <?php if (!empty($dest['distance'])): ?>
+                                        <span><i class="fas fa-location-dot"></i> <?= htmlspecialchars($dest['distance']) ?></span>
+                                    <?php endif; ?>
+                                    <span class="dest-read-more">Explore <i class="fas fa-arrow-right"></i></span>
+                                </div>
+                            </div>
+                        </a>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        </section>
+    <?php endif; ?>
+
+    <!-- CTA Section -->
+    <section class="dest-cta-section">
+        <div class="container text-center">
+            <div class="section-eyedrow" style="font-size:10px; letter-spacing:3px; text-transform:uppercase; color:var(--gold-light); margin-bottom:12px;">Start Your Adventure</div>
+            <h2>Ready to Explore Karimunjawa?</h2>
+            <p>Stay at Narayana and discover all these amazing destinations during your island getaway.</p>
+            <div class="dest-cta-buttons" style="justify-content:center;">
+                <a href="<?= htmlspecialchars(buildCloudbedsReservationUrl()) ?>" class="btn-primary-dest">Book Your Stay</a>
+                <a href="https://wa.me/<?= BUSINESS_WHATSAPP ?>" target="_blank" class="btn-outline-dest"><i class="fab fa-whatsapp"></i> Contact Us</a>
+            </div>
         </div>
-    </div>
-</section>
+    </section>
 
 <?php endif; ?>
 

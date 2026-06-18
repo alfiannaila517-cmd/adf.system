@@ -1,4 +1,5 @@
 <?php
+
 /**
  * NARAYANA KARIMUNJAWA — Contact
  * Marriott-style contact page
@@ -24,7 +25,7 @@ include __DIR__ . '/includes/header.php';
 ?>
 
 <!-- Page Hero -->
-<section class="page-hero"<?php if (!empty($heroBg)): ?> style="background: linear-gradient(180deg, rgba(0,0,0,0.4), rgba(0,0,0,0.6)), url('<?= BASE_URL ?>/<?= htmlspecialchars($heroBg) ?>') center/cover;"<?php endif; ?>>
+<section class="page-hero" <?php if (!empty($heroBg)): ?> style="background: linear-gradient(180deg, rgba(0,0,0,0.4), rgba(0,0,0,0.6)), url('<?= BASE_URL ?>/<?= htmlspecialchars($heroBg) ?>') center/cover;" <?php endif; ?>>
     <div class="container">
         <div class="section-eyebrow" style="color:var(--gold-light);"><?= htmlspecialchars($heroEyebrow) ?></div>
         <h1><?= $heroTitle ?></h1>
@@ -158,17 +159,17 @@ include __DIR__ . '/includes/header.php';
 <?php include __DIR__ . '/includes/footer.php'; ?>
 
 <script>
-function submitContact(e) {
-    e.preventDefault();
-    const name = document.getElementById('contactName').value;
-    const email = document.getElementById('contactEmail').value;
-    const phone = document.getElementById('contactPhone').value;
-    const subject = document.getElementById('contactSubject').value;
-    const message = document.getElementById('contactMessage').value;
+    function submitContact(e) {
+        e.preventDefault();
+        const name = document.getElementById('contactName').value;
+        const email = document.getElementById('contactEmail').value;
+        const phone = document.getElementById('contactPhone').value;
+        const subject = document.getElementById('contactSubject').value;
+        const message = document.getElementById('contactMessage').value;
 
-    const text = `*New Inquiry — ${subject}*\n\nName: ${name}\nEmail: ${email}\nPhone: ${phone}\n\n${message}`;
-    const encoded = encodeURIComponent(text);
-    window.open(`https://wa.me/<?= BUSINESS_WHATSAPP ?>?text=${encoded}`, '_blank');
-    showToast('Opening WhatsApp...', 'success');
-}
+        const text = `*New Inquiry — ${subject}*\n\nName: ${name}\nEmail: ${email}\nPhone: ${phone}\n\n${message}`;
+        const encoded = encodeURIComponent(text);
+        window.open(`https://wa.me/<?= BUSINESS_WHATSAPP ?>?text=${encoded}`, '_blank');
+        showToast('Opening WhatsApp...', 'success');
+    }
 </script>

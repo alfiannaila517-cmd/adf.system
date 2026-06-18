@@ -918,7 +918,7 @@ include '../../includes/header.php';
             bills.invoices.forEach(inv => {
                 html += `<div style="margin:0.6rem 0;border-left:3px solid #f59e0b;padding-left:0.6rem">
                     <div class="co-bill-row" style="margin-bottom:0.3rem"><strong>${inv.invoice_number}</strong><span class="co-warn">${fmtRp(inv.remaining)} sisa</span></div>`;
-                
+
                 // Show invoice items if available
                 if (inv.items && inv.items.length > 0) {
                     inv.items.forEach(item => {

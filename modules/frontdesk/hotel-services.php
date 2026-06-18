@@ -551,7 +551,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             }
 
             $pdo->beginTransaction();
-            
+
             if ($existingInvId) {
                 // Reuse existing invoice - add items to it
                 $invId = $existingInvId;
@@ -730,7 +730,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $deposit    = max(0, (float)($_POST['deposit'] ?? 0));
             $tripDest   = trim($_POST['trip_destination'] ?? '');
             $notes      = trim($_POST['notes'] ?? '');
-            
+
             if (!$invoiceId) throw new Exception('Invoice ID required');
             if (!$carId) throw new Exception('Car ID required');
             if (!$startDt || !$endDt) throw new Exception('Start and end dates required');
@@ -795,7 +795,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 $invoiceId,
                 'car_rental',
                 "{$carRow['car_name']} ({$carRow['plate_number']})" .
-                ($tripDest ? " — Tujuan: {$tripDest}" : ''),
+                    ($tripDest ? " — Tujuan: {$tripDest}" : ''),
                 $plannedDays,
                 $dailyRate,  // unit_price
                 $startDt,
@@ -1177,16 +1177,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                             start_datetime=?, end_datetime=?, daily_rate=?, total_price=?, deposit=?,
                             status=?, notes=?, updated_at=NOW()
                         WHERE id=? AND business_id=?")
-                        ->execute([$id, $guestName, $guestPhone ?: null, $roomNumber ?: null, $invoiceBookingId,
-                            $item['start_dt'], $item['end_dt'], $item['unit_price'], $item['total'], $item['deposit'],
-                            $newStatus, $notes ?: null, $existingBooking['id'], $businessId]);
+                        ->execute([
+                            $id,
+                            $guestName,
+                            $guestPhone ?: null,
+                            $roomNumber ?: null,
+                            $invoiceBookingId,
+                            $item['start_dt'],
+                            $item['end_dt'],
+                            $item['unit_price'],
+                            $item['total'],
+                            $item['deposit'],
+                            $newStatus,
+                            $notes ?: null,
+                            $existingBooking['id'],
+                            $businessId
+                        ]);
                 } else {
                     $pdo->prepare("INSERT INTO rental_motor_bookings
                         (business_id, motor_id, invoice_id, guest_name, guest_phone, room_number, booking_id,
                          start_datetime, end_datetime, daily_rate, total_price, deposit, status, notes, created_by)
                         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
-                        ->execute([$businessId, (int)$motorRow['id'], $id, $guestName, $guestPhone ?: null, $roomNumber ?: null, $invoiceBookingId,
-                            $item['start_dt'], $item['end_dt'], $item['unit_price'], $item['total'], $item['deposit'], 'active', $notes ?: null, $currentUser['id'] ?? null]);
+                        ->execute([
+                            $businessId,
+                            (int)$motorRow['id'],
+                            $id,
+                            $guestName,
+                            $guestPhone ?: null,
+                            $roomNumber ?: null,
+                            $invoiceBookingId,
+                            $item['start_dt'],
+                            $item['end_dt'],
+                            $item['unit_price'],
+                            $item['total'],
+                            $item['deposit'],
+                            'active',
+                            $notes ?: null,
+                            $currentUser['id'] ?? null
+                        ]);
                     $matchedMotorBookingIds[] = (int)$pdo->lastInsertId();
                 }
                 $pdo->prepare("UPDATE rental_motors SET status='rented', updated_at=NOW() WHERE id=?")
@@ -1223,18 +1251,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                             start_datetime=?, end_datetime=?, daily_rate=?, total_price=?, deposit=?,
                             trip_destination=?, status=?, notes=?, updated_at=NOW()
                         WHERE id=? AND business_id=?")
-                        ->execute([$id, $guestName, $guestPhone ?: null, $roomNumber ?: null, $invoiceBookingId,
-                            $item['start_dt'], $item['end_dt'], $item['unit_price'], $item['total'], $item['deposit'],
-                            $item['trip_destination'], $newStatus, $notes ?: null, $existingBooking['id'], $businessId]);
+                        ->execute([
+                            $id,
+                            $guestName,
+                            $guestPhone ?: null,
+                            $roomNumber ?: null,
+                            $invoiceBookingId,
+                            $item['start_dt'],
+                            $item['end_dt'],
+                            $item['unit_price'],
+                            $item['total'],
+                            $item['deposit'],
+                            $item['trip_destination'],
+                            $newStatus,
+                            $notes ?: null,
+                            $existingBooking['id'],
+                            $businessId
+                        ]);
                 } else {
                     $pdo->prepare("INSERT INTO rental_car_bookings
                         (business_id, car_id, invoice_id, guest_name, guest_phone, room_number, booking_id,
                          start_datetime, end_datetime, daily_rate, total_price, owner_amount, hotel_commission,
                          deposit, trip_destination, status, notes, created_by)
                         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
-                        ->execute([$businessId, (int)$carRow['id'], $id, $guestName, $guestPhone ?: null, $roomNumber ?: null, $invoiceBookingId,
-                            $item['start_dt'], $item['end_dt'], $item['unit_price'], $item['total'], 0, 0,
-                            $item['deposit'], $item['trip_destination'], 'active', $notes ?: null, $currentUser['id'] ?? null]);
+                        ->execute([
+                            $businessId,
+                            (int)$carRow['id'],
+                            $id,
+                            $guestName,
+                            $guestPhone ?: null,
+                            $roomNumber ?: null,
+                            $invoiceBookingId,
+                            $item['start_dt'],
+                            $item['end_dt'],
+                            $item['unit_price'],
+                            $item['total'],
+                            0,
+                            0,
+                            $item['deposit'],
+                            $item['trip_destination'],
+                            'active',
+                            $notes ?: null,
+                            $currentUser['id'] ?? null
+                        ]);
                     $matchedCarBookingIds[] = (int)$pdo->lastInsertId();
                 }
                 $pdo->prepare("UPDATE rental_cars SET status='rented', updated_at=NOW() WHERE id=?")
@@ -3232,7 +3291,11 @@ include '../../includes/header.php';
         if (item.service_type === 'motor_rental') {
             let motorOpts = [...RENTAL_MOTORS];
             if (item.motor_id && !motorOpts.find(m => m.id === item.motor_id)) {
-                motorOpts = [{ id: item.motor_id, label: (item.motor_name || 'Motor') + (item.plate_number ? ' (' + item.plate_number + ')' : ''), daily_rate: item.daily_rate || 0 }, ...motorOpts];
+                motorOpts = [{
+                    id: item.motor_id,
+                    label: (item.motor_name || 'Motor') + (item.plate_number ? ' (' + item.plate_number + ')' : ''),
+                    daily_rate: item.daily_rate || 0
+                }, ...motorOpts];
             }
             tr3.querySelector('.iAsset').innerHTML = buildRentalAssetOpts(motorOpts, item.motor_id);
         }
@@ -3240,7 +3303,11 @@ include '../../includes/header.php';
             let carOpts = [...RENTAL_CARS];
             if (item.car_id && !carOpts.find(c => c.id === item.car_id)) {
                 const label = (item.car_name || 'Mobil') + (item.plate_number ? ' (' + item.plate_number + ')' : '') + (item.car_type ? ' - ' + item.car_type : '');
-                carOpts = [{ id: item.car_id, label: label, daily_rate: item.daily_rate || 0 }, ...carOpts];
+                carOpts = [{
+                    id: item.car_id,
+                    label: label,
+                    daily_rate: item.daily_rate || 0
+                }, ...carOpts];
             }
             tr3.querySelector('.iAsset').innerHTML = buildRentalAssetOpts(carOpts, item.car_id);
         }

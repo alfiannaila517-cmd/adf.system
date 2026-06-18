@@ -1,4 +1,5 @@
 <?php
+
 /**
  * NARAYANA KARIMUNJAWA — Reservations
  * Marriott-style booking with real-time availability
@@ -41,7 +42,7 @@ if ($hasSearch && $checkIn && $checkOut && strtotime($checkIn) < strtotime($chec
     $checkInDate = new DateTime($checkIn);
     $checkOutDate = new DateTime($checkOut);
     $totalNights = $checkInDate->diff($checkOutDate)->days;
-    
+
     $sql = "
         SELECT r.id, r.room_number, r.floor_number,
                rt.id as room_type_id, rt.type_name, rt.base_price, 
@@ -59,12 +60,12 @@ if ($hasSearch && $checkIn && $checkOut && strtotime($checkIn) < strtotime($chec
         )
     ";
     $params = [':guests' => $guests, ':checkout' => $checkOut, ':checkin' => $checkIn];
-    
+
     if ($roomTypeFilter > 0) {
         $sql .= " AND rt.id = :room_type";
         $params[':room_type'] = $roomTypeFilter;
     }
-    
+
     $sql .= " ORDER BY rt.base_price DESC, r.room_number ASC";
     $availableRooms = dbFetchAll($sql, $params);
 }
@@ -106,7 +107,7 @@ include __DIR__ . '/includes/header.php';
                         <label>Guests</label>
                         <select name="guests" class="form-control">
                             <?php for ($i = 1; $i <= 6; $i++): ?>
-                            <option value="<?= $i ?>" <?= $guests === $i ? 'selected' : '' ?>><?= $i ?> Guest<?= $i > 1 ? 's' : '' ?></option>
+                                <option value="<?= $i ?>" <?= $guests === $i ? 'selected' : '' ?>><?= $i ?> Guest<?= $i > 1 ? 's' : '' ?></option>
                             <?php endfor; ?>
                         </select>
                     </div>
@@ -115,9 +116,9 @@ include __DIR__ . '/includes/header.php';
                         <select name="room_type" class="form-control">
                             <option value="0">All Room Types</option>
                             <?php foreach ($roomTypes as $rt): ?>
-                            <option value="<?= $rt['id'] ?>" <?= $roomTypeFilter === (int)$rt['id'] ? 'selected' : '' ?>>
-                                <?= htmlspecialchars($rt['type_name']) ?> — <?= formatCurrency($rt['base_price']) ?>/night
-                            </option>
+                                <option value="<?= $rt['id'] ?>" <?= $roomTypeFilter === (int)$rt['id'] ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($rt['type_name']) ?> — <?= formatCurrency($rt['base_price']) ?>/night
+                                </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
@@ -129,67 +130,67 @@ include __DIR__ . '/includes/header.php';
         </div>
 
         <?php if ($hasSearch): ?>
-        <!-- Results -->
-        <div style="margin-top:32px;" class="fade-in">
-            <?php if ($totalNights > 0): ?>
-                <div class="search-summary">
-                    <div>
-                        <strong><?= count($availableRooms) ?></strong> room<?= count($availableRooms) !== 1 ? 's' : '' ?> available
-                        &nbsp;·&nbsp;
-                        <?= date('d M Y', strtotime($checkIn)) ?> → <?= date('d M Y', strtotime($checkOut)) ?>
-                        &nbsp;·&nbsp;
-                        <?= $totalNights ?> night<?= $totalNights > 1 ? 's' : '' ?>
+            <!-- Results -->
+            <div style="margin-top:32px;" class="fade-in">
+                <?php if ($totalNights > 0): ?>
+                    <div class="search-summary">
+                        <div>
+                            <strong><?= count($availableRooms) ?></strong> room<?= count($availableRooms) !== 1 ? 's' : '' ?> available
+                            &nbsp;·&nbsp;
+                            <?= date('d M Y', strtotime($checkIn)) ?> → <?= date('d M Y', strtotime($checkOut)) ?>
+                            &nbsp;·&nbsp;
+                            <?= $totalNights ?> night<?= $totalNights > 1 ? 's' : '' ?>
+                        </div>
+                        <div style="font-size:13px; color:var(--mid-gray);">
+                            <?= $guests ?> guest<?= $guests > 1 ? 's' : '' ?>
+                        </div>
                     </div>
-                    <div style="font-size:13px; color:var(--mid-gray);">
-                        <?= $guests ?> guest<?= $guests > 1 ? 's' : '' ?>
-                    </div>
-                </div>
 
-                <?php if (empty($availableRooms)): ?>
-                <div style="text-align:center; padding:48px 24px; background:var(--white); border:1px solid var(--pale-gray); border-radius:var(--radius-lg);">
-                    <i class="fas fa-bed" style="font-size:2rem; color:var(--light-gray); display:block; margin-bottom:16px;"></i>
-                    <h3 style="margin-bottom:8px;">No Rooms Available</h3>
-                    <p style="color:var(--warm-gray); margin-bottom:20px;">No rooms match your criteria for these dates. Try different dates or fewer guests.</p>
-                    <a href="https://wa.me/<?= BUSINESS_WHATSAPP ?>?text=Hi%2C%20I'd%20like%20to%20check%20availability%20for%20<?= $checkIn ?>%20to%20<?= $checkOut ?>" target="_blank" class="btn btn-primary">
-                        <i class="fab fa-whatsapp"></i> Ask via WhatsApp
-                    </a>
-                </div>
+                    <?php if (empty($availableRooms)): ?>
+                        <div style="text-align:center; padding:48px 24px; background:var(--white); border:1px solid var(--pale-gray); border-radius:var(--radius-lg);">
+                            <i class="fas fa-bed" style="font-size:2rem; color:var(--light-gray); display:block; margin-bottom:16px;"></i>
+                            <h3 style="margin-bottom:8px;">No Rooms Available</h3>
+                            <p style="color:var(--warm-gray); margin-bottom:20px;">No rooms match your criteria for these dates. Try different dates or fewer guests.</p>
+                            <a href="https://wa.me/<?= BUSINESS_WHATSAPP ?>?text=Hi%2C%20I'd%20like%20to%20check%20availability%20for%20<?= $checkIn ?>%20to%20<?= $checkOut ?>" target="_blank" class="btn btn-primary">
+                                <i class="fab fa-whatsapp"></i> Ask via WhatsApp
+                            </a>
+                        </div>
+                    <?php else: ?>
+                        <?php foreach ($availableRooms as $room):
+                            $amenities = $room['amenities'] ? array_map('trim', explode(',', $room['amenities'])) : [];
+                            $totalPrice = $room['base_price'] * $totalNights;
+                            $icon = $roomIcons[$room['type_name']] ?? '🏨';
+                        ?>
+                            <div class="room-result-card" id="room-<?= $room['id'] ?>">
+                                <div class="room-result-img"><span><?= $icon ?></span></div>
+                                <div class="room-result-info">
+                                    <h4><?= htmlspecialchars($room['type_name']) ?> Room</h4>
+                                    <div class="room-number">Room <?= htmlspecialchars($room['room_number']) ?> · Floor <?= $room['floor_number'] ?></div>
+                                    <div class="room-amenities" style="margin-bottom:0;">
+                                        <?php foreach (array_slice($amenities, 0, 4) as $a): ?>
+                                            <span><?= htmlspecialchars($a) ?></span>
+                                        <?php endforeach; ?>
+                                    </div>
+                                    <div style="margin-top:6px; font-size:12px; color:var(--mid-gray);">
+                                        <i class="fas fa-user"></i> Up to <?= $room['max_occupancy'] ?> guests
+                                    </div>
+                                </div>
+                                <div class="room-result-price">
+                                    <div class="per-night"><?= formatCurrency($room['base_price']) ?></div>
+                                    <div class="total"><?= formatCurrency($totalPrice) ?> total · <?= $totalNights ?> night<?= $totalNights > 1 ? 's' : '' ?></div>
+                                    <button onclick="selectRoom(<?= $room['id'] ?>, '<?= htmlspecialchars($room['type_name']) ?>', '<?= $room['room_number'] ?>', <?= $room['base_price'] ?>, <?= $totalPrice ?>)" class="btn btn-primary btn-block btn-sm">
+                                        Select Room
+                                    </button>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
                 <?php else: ?>
-                    <?php foreach ($availableRooms as $room):
-                        $amenities = $room['amenities'] ? array_map('trim', explode(',', $room['amenities'])) : [];
-                        $totalPrice = $room['base_price'] * $totalNights;
-                        $icon = $roomIcons[$room['type_name']] ?? '🏨';
-                    ?>
-                    <div class="room-result-card" id="room-<?= $room['id'] ?>">
-                        <div class="room-result-img"><span><?= $icon ?></span></div>
-                        <div class="room-result-info">
-                            <h4><?= htmlspecialchars($room['type_name']) ?> Room</h4>
-                            <div class="room-number">Room <?= htmlspecialchars($room['room_number']) ?> · Floor <?= $room['floor_number'] ?></div>
-                            <div class="room-amenities" style="margin-bottom:0;">
-                                <?php foreach (array_slice($amenities, 0, 4) as $a): ?>
-                                    <span><?= htmlspecialchars($a) ?></span>
-                                <?php endforeach; ?>
-                            </div>
-                            <div style="margin-top:6px; font-size:12px; color:var(--mid-gray);">
-                                <i class="fas fa-user"></i> Up to <?= $room['max_occupancy'] ?> guests
-                            </div>
-                        </div>
-                        <div class="room-result-price">
-                            <div class="per-night"><?= formatCurrency($room['base_price']) ?></div>
-                            <div class="total"><?= formatCurrency($totalPrice) ?> total · <?= $totalNights ?> night<?= $totalNights > 1 ? 's' : '' ?></div>
-                            <button onclick="selectRoom(<?= $room['id'] ?>, '<?= htmlspecialchars($room['type_name']) ?>', '<?= $room['room_number'] ?>', <?= $room['base_price'] ?>, <?= $totalPrice ?>)" class="btn btn-primary btn-block btn-sm">
-                                Select Room
-                            </button>
-                        </div>
+                    <div style="text-align:center; padding:24px; background:#fff8e1; border:1px solid #ffe082; border-radius:var(--radius);">
+                        <p style="color:var(--warning);">Check-out date must be after check-in date.</p>
                     </div>
-                    <?php endforeach; ?>
                 <?php endif; ?>
-            <?php else: ?>
-                <div style="text-align:center; padding:24px; background:#fff8e1; border:1px solid #ffe082; border-radius:var(--radius);">
-                    <p style="color:var(--warning);">Check-out date must be after check-in date.</p>
-                </div>
-            <?php endif; ?>
-        </div>
+            </div>
         <?php endif; ?>
     </div>
 </section>
@@ -288,60 +289,65 @@ include __DIR__ . '/includes/header.php';
 <?php include __DIR__ . '/includes/footer.php'; ?>
 
 <script>
-function selectRoom(roomId, typeName, roomNumber, perNight, total) {
-    document.getElementById('formRoomId').value = roomId;
-    document.getElementById('sumRoomType').textContent = typeName + ' Room';
-    document.getElementById('sumRoomNumber').textContent = roomNumber;
-    document.getElementById('sumPerNight').textContent = formatCurrency(perNight);
-    document.getElementById('sumTotal').textContent = formatCurrency(total);
+    function selectRoom(roomId, typeName, roomNumber, perNight, total) {
+        document.getElementById('formRoomId').value = roomId;
+        document.getElementById('sumRoomType').textContent = typeName + ' Room';
+        document.getElementById('sumRoomNumber').textContent = roomNumber;
+        document.getElementById('sumPerNight').textContent = formatCurrency(perNight);
+        document.getElementById('sumTotal').textContent = formatCurrency(total);
 
-    document.querySelectorAll('.room-result-card').forEach(c => c.classList.remove('selected'));
-    document.getElementById('room-' + roomId).classList.add('selected');
+        document.querySelectorAll('.room-result-card').forEach(c => c.classList.remove('selected'));
+        document.getElementById('room-' + roomId).classList.add('selected');
 
-    const section = document.getElementById('bookingFormSection');
-    section.style.display = 'block';
-    setTimeout(() => section.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
-}
+        const section = document.getElementById('bookingFormSection');
+        section.style.display = 'block';
+        setTimeout(() => section.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+        }), 100);
+    }
 
-async function submitBooking(e) {
-    e.preventDefault();
-    const form = document.getElementById('reservationForm');
-    const btn = document.getElementById('submitBtn');
-    const formData = new FormData(form);
+    async function submitBooking(e) {
+        e.preventDefault();
+        const form = document.getElementById('reservationForm');
+        const btn = document.getElementById('submitBtn');
+        const formData = new FormData(form);
 
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
 
-    try {
-        const response = await fetch('<?= BASE_URL ?>/api/create-booking.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(Object.fromEntries(formData))
-        });
-        const result = await response.json();
+        try {
+            const response = await fetch('<?= BASE_URL ?>/api/create-booking.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(Object.fromEntries(formData))
+            });
+            const result = await response.json();
 
-        if (result.success) {
-            showToast('Reservation confirmed! Code: ' + result.data.booking_code, 'success');
-            setTimeout(() => {
-                window.location.href = '<?= BASE_URL ?>/confirmation.php?code=' + result.data.booking_code;
-            }, 1500);
-        } else {
-            showToast(result.error || 'Failed to create reservation', 'error');
+            if (result.success) {
+                showToast('Reservation confirmed! Code: ' + result.data.booking_code, 'success');
+                setTimeout(() => {
+                    window.location.href = '<?= BASE_URL ?>/confirmation.php?code=' + result.data.booking_code;
+                }, 1500);
+            } else {
+                showToast(result.error || 'Failed to create reservation', 'error');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-check"></i> Confirm Reservation';
+            }
+        } catch (err) {
+            showToast('Connection error. Please try again.', 'error');
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-check"></i> Confirm Reservation';
         }
-    } catch (err) {
-        showToast('Connection error. Please try again.', 'error');
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-check"></i> Confirm Reservation';
     }
-}
 
-document.querySelector('input[name="check_in"]')?.addEventListener('change', function() {
-    const co = document.querySelector('input[name="check_out"]');
-    const next = new Date(this.value);
-    next.setDate(next.getDate() + 1);
-    co.min = next.toISOString().split('T')[0];
-    if (co.value <= this.value) co.value = co.min;
-});
+    document.querySelector('input[name="check_in"]')?.addEventListener('change', function() {
+        const co = document.querySelector('input[name="check_out"]');
+        const next = new Date(this.value);
+        next.setDate(next.getDate() + 1);
+        co.min = next.toISOString().split('T')[0];
+        if (co.value <= this.value) co.value = co.min;
+    });
 </script>

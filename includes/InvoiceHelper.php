@@ -109,7 +109,7 @@ function addInvoiceItem(
         (invoice_id, service_type, description, quantity, unit_price, total_price, start_datetime, end_datetime)
         VALUES (?,?,?,?,?,?,?,?)
     ");
-    
+
     $totalPrice = round($quantity * $unitPrice, 2);
     $stmt->execute([
         $invoiceId,
@@ -141,7 +141,7 @@ function updateInvoiceItem(
     $oldItem = $pdo->prepare("SELECT invoice_id, total_price FROM hotel_invoice_items WHERE id = ?");
     $oldItem->execute([$itemId]);
     $item = $oldItem->fetch(PDO::FETCH_ASSOC);
-    
+
     if (!$item) return false;
 
     $invId = (int)$item['invoice_id'];
