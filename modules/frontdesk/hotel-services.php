@@ -2676,6 +2676,7 @@ include '../../includes/header.php';
             descInput.dataset.autoFilled = '1';
         }
         syncRentalDuration(id);
+        rcalc(id);
     }
 
     function syncRentalDuration(id) {
@@ -3286,6 +3287,7 @@ include '../../includes/header.php';
             descInput.dataset.autoFilled = '1';
         }
         eSyncRentalDuration(id2);
+        ercalc(id2);
     }
 
     function eSyncRentalDuration(id2) {
