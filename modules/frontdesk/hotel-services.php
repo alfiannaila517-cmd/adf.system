@@ -23,7 +23,13 @@ if (!$auth->hasPermission('frontdesk')) {
 $db          = Database::getInstance();
 $pdo         = $db->getConnection();
 $currentUser = $auth->getCurrentUser();
-$businessId  = $_SESSION['business_id'] ?? 1;
+$businessId  = (int)($_SESSION['business_id'] ?? 1);
+if (isset($_GET['business_id']) && is_numeric($_GET['business_id'])) {
+    $reqBizId = (int)$_GET['business_id'];
+    if ($reqBizId > 0) {
+        $businessId = $reqBizId;
+    }
+}
 
 // ── Auto-create tables ─────────────────────────────────────────────────────────
 $pdo->exec("CREATE TABLE IF NOT EXISTS hotel_invoices (
@@ -3140,8 +3146,10 @@ include '../../includes/header.php';
     // ── EDIT INVOICE ──────────────────────────────────────────────────────────────
     let eRowCnt = 0;
 
+    const ACTIVE_BIZ_ID = <?php echo (int)$businessId; ?>;
+
     function openEditModal(id) {
-        fetch('hotel-services.php?get_invoice=1&id=' + id, {
+        fetch('hotel-services.php?get_invoice=1&id=' + id + '&business_id=' + encodeURIComponent(ACTIVE_BIZ_ID), {
                 credentials: 'include'
             })
             .then(r => r.json())
