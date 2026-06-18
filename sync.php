@@ -500,7 +500,7 @@ $head = @file_get_contents($dir . '/.git/refs/heads/main');
 echo "Current commit: " . ($head ? trim($head) : 'unknown') . "\n\n";
 
 // Files to sync from GitHub
-$repo = 'ratn050-oss/adf_system';
+$repo = 'arifnarayana88-collab/adf.system';
 $branch = 'main';
 $filesToSync = [
     'sync.php',
