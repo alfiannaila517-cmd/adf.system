@@ -1395,6 +1395,10 @@ if (isset($_GET['get_invoice']) && isset($_GET['id'])) {
                 foreach ($carRentals as $cr) {
                     if (strpos((string)($gItem['description'] ?? ''), (string)$cr['plate_number']) !== false) {
                         $gItem['car_id'] = (int)$cr['car_id'];
+                        $gItem['car_name'] = $cr['car_name'];
+                        $gItem['plate_number'] = $cr['plate_number'];
+                        $gItem['car_type'] = $cr['car_type'] ?? '';
+                        $gItem['daily_rate'] = (float)$cr['daily_rate'];
                         $gItem['start_dt'] = $cr['start_datetime'];
                         $gItem['end_dt'] = $cr['end_datetime'];
                         $gItem['deposit'] = (float)$cr['deposit'];
@@ -3218,12 +3222,22 @@ include '../../includes/header.php';
             `<td><button type="button" class="btn-del-row" onclick="eDelRow('${id2}')">✕</button></td>`;
         document.getElementById('eItemsBody').appendChild(tr3);
         if (item.service_type === 'motor_rental') {
-            tr3.querySelector('.iAsset').innerHTML = buildRentalAssetOpts(RENTAL_MOTORS, item.motor_id);
+            let motorOpts = [...RENTAL_MOTORS];
+            if (item.motor_id && !motorOpts.find(m => m.id === item.motor_id)) {
+                motorOpts = [{ id: item.motor_id, label: (item.motor_name || 'Motor') + (item.plate_number ? ' (' + item.plate_number + ')' : ''), daily_rate: item.daily_rate || 0 }, ...motorOpts];
+            }
+            tr3.querySelector('.iAsset').innerHTML = buildRentalAssetOpts(motorOpts, item.motor_id);
         }
         if (item.service_type === 'car_rental') {
-            tr3.querySelector('.iAsset').innerHTML = buildRentalAssetOpts(RENTAL_CARS, item.car_id);
+            let carOpts = [...RENTAL_CARS];
+            if (item.car_id && !carOpts.find(c => c.id === item.car_id)) {
+                const label = (item.car_name || 'Mobil') + (item.plate_number ? ' (' + item.plate_number + ')' : '') + (item.car_type ? ' - ' + item.car_type : '');
+                carOpts = [{ id: item.car_id, label: label, daily_rate: item.daily_rate || 0 }, ...carOpts];
+            }
+            tr3.querySelector('.iAsset').innerHTML = buildRentalAssetOpts(carOpts, item.car_id);
         }
-        eOnSvcChange(id2, !(item.unit_price > 0));
+        // Pass true so existing price/desc are never overwritten by catalog defaults when loading
+        eOnSvcChange(id2, true);
         ercalc(id2);
     }
 
