@@ -665,6 +665,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $primaryKey = 'web_room_primary_' . $roomType;
             if (isset($_POST['primary_image']) && in_array($_POST['primary_image'], $existingGallery)) {
                 $primaryVal = $_POST['primary_image'];
+
+                // Keep primary image at index 0 so all website render variants show it first.
+                $existingGallery = array_values(array_diff($existingGallery, [$primaryVal]));
+                array_unshift($existingGallery, $primaryVal);
+
                 $stmt = $webDb->prepare("INSERT INTO settings (setting_key, setting_value, setting_type, description) 
                             VALUES (?, ?, 'text', ?) ON DUPLICATE KEY UPDATE setting_value = ?");
                 $stmt->execute([$primaryKey, $primaryVal, 'Room Primary Image', $primaryVal]);
