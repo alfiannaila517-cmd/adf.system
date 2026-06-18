@@ -546,8 +546,15 @@ $filesToSync = [
     'website/public/rooms.php',
     'website/public/activities.php',
     'website/public/destinations.php',
+    'website/public/booking.php',
+    'website/public/contact.php',
+    'website/public/confirmation.php',
+    'website/public/robots.txt',
+    'website/public/sitemap.xml',
     'website/public/includes/header.php',
+    'website/public/includes/footer.php',
     'website/public/assets/css/style.css',
+    'website/config/config.php',
     '.cpanel.yml',
 ];
 
@@ -565,8 +572,15 @@ foreach ($webBases as $webBase) {
         ['src' => 'website/public/rooms.php', 'dest' => $webBase . '/rooms.php'],
         ['src' => 'website/public/activities.php', 'dest' => $webBase . '/activities.php'],
         ['src' => 'website/public/destinations.php', 'dest' => $webBase . '/destinations.php'],
+        ['src' => 'website/public/booking.php', 'dest' => $webBase . '/booking.php'],
+        ['src' => 'website/public/contact.php', 'dest' => $webBase . '/contact.php'],
+        ['src' => 'website/public/confirmation.php', 'dest' => $webBase . '/confirmation.php'],
+        ['src' => 'website/public/robots.txt', 'dest' => $webBase . '/robots.txt'],
+        ['src' => 'website/public/sitemap.xml', 'dest' => $webBase . '/sitemap.xml'],
         ['src' => 'website/public/includes/header.php', 'dest' => $webBase . '/includes/header.php'],
+        ['src' => 'website/public/includes/footer.php', 'dest' => $webBase . '/includes/footer.php'],
         ['src' => 'website/public/assets/css/style.css', 'dest' => $webBase . '/assets/css/style.css'],
+        ['src' => 'website/config/config.php', 'dest' => $webBase . '/config/config.php'],
         ['src' => 'website/public/.htaccess.production', 'dest' => $webBase . '/.htaccess'],
 
         // public/ subdirectory (legacy structure)
@@ -574,7 +588,13 @@ foreach ($webBases as $webBase) {
         ['src' => 'website/public/rooms.php', 'dest' => $webBase . '/public/rooms.php'],
         ['src' => 'website/public/activities.php', 'dest' => $webBase . '/public/activities.php'],
         ['src' => 'website/public/destinations.php', 'dest' => $webBase . '/public/destinations.php'],
+        ['src' => 'website/public/booking.php', 'dest' => $webBase . '/public/booking.php'],
+        ['src' => 'website/public/contact.php', 'dest' => $webBase . '/public/contact.php'],
+        ['src' => 'website/public/confirmation.php', 'dest' => $webBase . '/public/confirmation.php'],
+        ['src' => 'website/public/robots.txt', 'dest' => $webBase . '/public/robots.txt'],
+        ['src' => 'website/public/sitemap.xml', 'dest' => $webBase . '/public/sitemap.xml'],
         ['src' => 'website/public/includes/header.php', 'dest' => $webBase . '/public/includes/header.php'],
+        ['src' => 'website/public/includes/footer.php', 'dest' => $webBase . '/public/includes/footer.php'],
         ['src' => 'website/public/assets/css/style.css', 'dest' => $webBase . '/public/assets/css/style.css'],
     ]);
 }
