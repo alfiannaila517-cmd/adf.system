@@ -410,8 +410,10 @@ include '../../includes/header.php';
     .rm-table tr:last-child td { border-bottom:none; }
     .rm-table tr:hover td { background:#fafbff; }
     .rm-badge { display:inline-block; padding:0.2rem 0.55rem; border-radius:20px; font-size:0.7rem; font-weight:600; color:white; }
-    .rm-action-btn { padding:0.25rem 0.55rem; border:none; border-radius:5px; cursor:pointer; font-size:0.72rem; font-weight:600; transition:opacity 0.2s; }
+    .rm-action-btn { padding:0.35rem 0.7rem; border:none; border-radius:7px; cursor:pointer; font-size:0.76rem; font-weight:700; transition:opacity 0.2s, transform 0.15s; display:inline-flex; align-items:center; justify-content:center; gap:0.25rem; }
     .rm-action-btn:hover { opacity:0.8; }
+    .rm-action-btn.return-btn { padding:0.5rem 1rem; font-size:0.82rem; border:1px solid #86efac; box-shadow:0 2px 8px rgba(22,163,74,0.15); }
+    .rm-action-btn.return-btn:hover { transform:translateY(-1px); }
     .rm-modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:99999; align-items:center; justify-content:center; padding:1rem; }
     .rm-modal-overlay.open { display:flex; }
     .rm-modal { background:white; border-radius:14px; padding:1.5rem; width:100%; max-width:560px; max-height:92vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,0.3); }
@@ -532,7 +534,7 @@ include '../../includes/header.php';
                                 <td style="font-size:0.75rem"><?php echo htmlspecialchars($r['partner_owner'] ?? '—'); ?></td>
                                 <td><span class="rm-badge" style="background:<?php echo $isOverdue ? '#ef4444' : '#10b981'; ?>"><?php echo $isOverdue ? '⚠ Overdue' : '✓ Aktif'; ?></span></td>
                                 <td style="white-space:nowrap">
-                                    <button class="rm-action-btn" style="background:#dcfce7;color:#15803d" onclick="returnCar(<?php echo $r['id']; ?>,'<?php echo htmlspecialchars(addslashes($r['car_name'])); ?>')">↩ Kembali</button>
+                                    <button class="rm-action-btn return-btn" style="background:#dcfce7;color:#15803d" onclick="returnCar(<?php echo $r['id']; ?>,'<?php echo htmlspecialchars(addslashes($r['car_name'])); ?>')">↩ Kembalikan</button>
                                     <button class="rm-action-btn" style="background:#fee2e2;color:#b91c1c" onclick="cancelRental(<?php echo $r['id']; ?>)">✕</button>
                                 </td>
                             </tr>

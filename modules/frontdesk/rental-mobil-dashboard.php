@@ -121,6 +121,146 @@ $ownerStmt = $pdo->prepare("SELECT
 $ownerStmt->execute($ownerParams);
 $ownerRecap = $ownerStmt->fetchAll(PDO::FETCH_ASSOC);
 
+$ownerDetailMap = [];
+$ownerKey = static function (?string $name): string {
+    $name = trim((string)$name);
+    return $name !== '' ? strtolower($name) : '__tanpa_pemilik__';
+};
+
+foreach ($ownerRecap as &$or) {
+    $or['rental_trips'] = (int)$or['total_trips'];
+    $or['airport_trips'] = 0;
+    $or['harbor_trips'] = 0;
+    $or['airport_total'] = 0.0;
+    $or['harbor_total'] = 0.0;
+    $or['detail_rows'] = [];
+}
+unset($or);
+
+$ownerIndexMap = [];
+foreach ($ownerRecap as $idx => $or) {
+    $ownerIndexMap[$ownerKey($or['partner_owner'] ?? '')] = $idx;
+}
+
+$ownerDetailWhere = "cb.business_id=? AND cb.status='returned' AND DATE(cb.actual_return) BETWEEN ? AND ?";
+$ownerDetailParams = [$businessId, $monthStart, $monthEnd];
+if ($filterOwner) {
+    $ownerDetailWhere .= " AND rc.partner_owner LIKE ?";
+    $ownerDetailParams[] = "%{$filterOwner}%";
+}
+
+$ownerDetailStmt = $pdo->prepare("SELECT
+    rc.partner_owner,
+    rc.owner_phone,
+    cb.actual_return as trx_date,
+    cb.guest_name,
+    cb.room_number,
+    cb.trip_destination,
+    cb.total_price,
+    cb.owner_amount,
+    cb.hotel_commission,
+    rc.car_name,
+    rc.plate_number,
+    'car_rental' as service_type
+    FROM rental_car_bookings cb
+    JOIN rental_cars rc ON cb.car_id = rc.id
+    WHERE {$ownerDetailWhere}
+    ORDER BY cb.actual_return DESC, cb.id DESC");
+$ownerDetailStmt->execute($ownerDetailParams);
+$ownerRentalDetails = $ownerDetailStmt->fetchAll(PDO::FETCH_ASSOC);
+foreach ($ownerRentalDetails as $detail) {
+    $key = $ownerKey($detail['partner_owner'] ?? '');
+    $ownerDetailMap[$key][] = [
+        'trx_date' => $detail['trx_date'],
+        'guest_name' => $detail['guest_name'],
+        'room_number' => $detail['room_number'],
+        'label' => trim(($detail['car_name'] ?? '') . ' (' . ($detail['plate_number'] ?? '') . ')'),
+        'service_type' => 'car_rental',
+        'trip_destination' => $detail['trip_destination'],
+        'total_price' => (float)$detail['total_price'],
+        'owner_amount' => (float)$detail['owner_amount'],
+        'hotel_commission' => (float)$detail['hotel_commission'],
+    ];
+}
+
+$dropOwnerName = 'Moyong';
+$dropOwnerPhone = '—';
+$dropKey = $ownerKey($dropOwnerName);
+$dropFilterMatch = !$filterOwner || stripos($dropOwnerName, $filterOwner) !== false;
+if ($dropFilterMatch) {
+    $dropStmt = $pdo->prepare("SELECT
+        hi.guest_name,
+        hi.room_number,
+        hi.created_at as trx_date,
+        hii.service_type,
+        hii.description,
+        hii.total_price
+        FROM hotel_invoice_items hii
+        JOIN hotel_invoices hi ON hii.invoice_id = hi.id
+        WHERE hi.business_id=?
+          AND hii.service_type IN ('airport_drop','harbor_drop')
+          AND hi.status NOT IN ('cancelled')
+          AND DATE(hi.created_at) BETWEEN ? AND ?
+        ORDER BY hi.created_at DESC, hii.id DESC");
+    $dropStmt->execute([$businessId, $monthStart, $monthEnd]);
+    $dropDetails = $dropStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    if (!isset($ownerIndexMap[$dropKey]) && !empty($dropDetails)) {
+        $ownerRecap[] = [
+            'partner_owner' => $dropOwnerName,
+            'owner_phone' => $dropOwnerPhone,
+            'total_trips' => 0,
+            'total_revenue' => 0.0,
+            'owner_total' => 0.0,
+            'hotel_total' => 0.0,
+            'avg_comm_pct' => 100,
+            'cars' => 'Airport Drop, Harbor Drop',
+            'rental_trips' => 0,
+            'airport_trips' => 0,
+            'harbor_trips' => 0,
+            'airport_total' => 0.0,
+            'harbor_total' => 0.0,
+            'detail_rows' => [],
+        ];
+        $ownerIndexMap[$dropKey] = count($ownerRecap) - 1;
+    }
+
+    foreach ($dropDetails as $detail) {
+        $idx = $ownerIndexMap[$dropKey] ?? null;
+        if ($idx === null) continue;
+        $amount = (float)$detail['total_price'];
+        $ownerRecap[$idx]['total_trips'] += 1;
+        $ownerRecap[$idx]['total_revenue'] += $amount;
+        $ownerRecap[$idx]['owner_total'] += $amount;
+        $ownerRecap[$idx]['avg_comm_pct'] = 100;
+        if ($detail['service_type'] === 'airport_drop') {
+            $ownerRecap[$idx]['airport_trips'] += 1;
+            $ownerRecap[$idx]['airport_total'] += $amount;
+        }
+        if ($detail['service_type'] === 'harbor_drop') {
+            $ownerRecap[$idx]['harbor_trips'] += 1;
+            $ownerRecap[$idx]['harbor_total'] += $amount;
+        }
+        $ownerDetailMap[$dropKey][] = [
+            'trx_date' => $detail['trx_date'],
+            'guest_name' => $detail['guest_name'],
+            'room_number' => $detail['room_number'],
+            'label' => $detail['description'] ?: $detail['service_type'],
+            'service_type' => $detail['service_type'],
+            'trip_destination' => null,
+            'total_price' => $amount,
+            'owner_amount' => $amount,
+            'hotel_commission' => 0.0,
+        ];
+    }
+}
+
+foreach ($ownerRecap as &$or) {
+    $key = $ownerKey($or['partner_owner'] ?? '');
+    $or['detail_rows'] = $ownerDetailMap[$key] ?? [];
+}
+unset($or);
+
 // ── Recent returned rentals ────────────────────────────────────────────────────
 $recentStmt = $pdo->prepare("SELECT cb.*, rc.plate_number, rc.car_name, rc.partner_owner
     FROM rental_car_bookings cb
@@ -435,8 +575,11 @@ include '../../includes/header.php';
             <thead>
                 <tr>
                     <th>Pemilik / Mitra</th>
-                    <th>Kendaraan</th>
+                    <th>Kendaraan / Jasa</th>
                     <th style="text-align:center">Trip</th>
+                    <th style="text-align:center">Rental</th>
+                    <th style="text-align:center">Airport</th>
+                    <th style="text-align:center">Harbor</th>
                     <th style="text-align:right">Total Revenue</th>
                     <th style="text-align:right">Bagian Pemilik</th>
                     <th style="text-align:right">Komisi Hotel</th>
@@ -452,6 +595,9 @@ include '../../includes/header.php';
                         </td>
                         <td style="font-size:0.78rem;color:var(--text-secondary)"><?php echo htmlspecialchars($or['cars']); ?></td>
                         <td style="text-align:center;font-weight:700"><?php echo $or['total_trips']; ?></td>
+                        <td style="text-align:center"><?php echo (int)($or['rental_trips'] ?? $or['total_trips']); ?></td>
+                        <td style="text-align:center"><?php echo (int)($or['airport_trips'] ?? 0); ?></td>
+                        <td style="text-align:center"><?php echo (int)($or['harbor_trips'] ?? 0); ?></td>
                         <td style="text-align:right;font-weight:700">Rp <?php echo number_format($or['total_revenue'],0,',','.'); ?></td>
                         <td style="text-align:right;font-weight:700;color:#059669">Rp <?php echo number_format($or['owner_total'],0,',','.'); ?></td>
                         <td style="text-align:right;font-weight:700;color:#6366f1">Rp <?php echo number_format($or['hotel_total'],0,',','.'); ?></td>
@@ -464,6 +610,9 @@ include '../../includes/header.php';
                 <tr class="owner-total-row">
                     <td colspan="2"><strong>TOTAL <?php echo strtoupper($monthNames[$filterMonth]); ?> <?php echo $filterYear; ?></strong></td>
                     <td style="text-align:center"><strong><?php echo $recapTotalTrips; ?></strong></td>
+                    <td style="text-align:center"></td>
+                    <td style="text-align:center"></td>
+                    <td style="text-align:center"></td>
                     <td style="text-align:right"><strong>Rp <?php echo number_format($recapTotalRevenue,0,',','.'); ?></strong></td>
                     <td style="text-align:right"><strong>Rp <?php echo number_format($recapTotalOwner,0,',','.'); ?></strong></td>
                     <td style="text-align:right"><strong>Rp <?php echo number_format($recapTotalHotel,0,',','.'); ?></strong></td>
@@ -500,6 +649,62 @@ include '../../includes/header.php';
                             <div style="color:var(--text-secondary);font-size:0.7rem">Komisi Hotel</div>
                         </div>
                     </div>
+                    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0.45rem;margin-top:0.6rem;font-size:0.78rem">
+                        <div style="background:#fff7ed;border-radius:8px;padding:0.55rem;text-align:center">
+                            <div style="font-weight:800;color:#c2410c"><?php echo (int)($or['rental_trips'] ?? $or['total_trips']); ?></div>
+                            <div style="color:var(--text-secondary);font-size:0.68rem">Rental Mobil</div>
+                        </div>
+                        <div style="background:#ecfeff;border-radius:8px;padding:0.55rem;text-align:center">
+                            <div style="font-weight:800;color:#0f766e"><?php echo (int)($or['airport_trips'] ?? 0); ?></div>
+                            <div style="color:var(--text-secondary);font-size:0.68rem">Airport Drop</div>
+                        </div>
+                        <div style="background:#eff6ff;border-radius:8px;padding:0.55rem;text-align:center">
+                            <div style="font-weight:800;color:#1d4ed8"><?php echo (int)($or['harbor_trips'] ?? 0); ?></div>
+                            <div style="color:var(--text-secondary);font-size:0.68rem">Harbor Drop</div>
+                        </div>
+                    </div>
+                    <?php if (!empty($or['detail_rows'])): ?>
+                        <div style="margin-top:0.8rem;border-top:1px dashed #cbd5e1;padding-top:0.7rem">
+                            <div style="font-size:0.76rem;font-weight:700;color:#475569;margin-bottom:0.45rem">Detail Transaksi</div>
+                            <div style="overflow-x:auto">
+                                <table style="width:100%;border-collapse:collapse;font-size:0.74rem">
+                                    <thead>
+                                        <tr>
+                                            <th style="text-align:left;padding:0.35rem 0.3rem;color:#64748b">Tanggal</th>
+                                            <th style="text-align:left;padding:0.35rem 0.3rem;color:#64748b">Jenis</th>
+                                            <th style="text-align:left;padding:0.35rem 0.3rem;color:#64748b">Tamu</th>
+                                            <th style="text-align:right;padding:0.35rem 0.3rem;color:#64748b">Total</th>
+                                            <th style="text-align:right;padding:0.35rem 0.3rem;color:#64748b">Pemilik</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($or['detail_rows'] as $detail): ?>
+                                            <tr>
+                                                <td style="padding:0.3rem;border-top:1px solid #eef2f7"><?php echo date('d M Y', strtotime($detail['trx_date'])); ?></td>
+                                                <td style="padding:0.3rem;border-top:1px solid #eef2f7">
+                                                    <?php
+                                                    $detailLabel = [
+                                                        'car_rental' => 'Rental Mobil',
+                                                        'airport_drop' => 'Airport Drop',
+                                                        'harbor_drop' => 'Harbor Drop',
+                                                    ][$detail['service_type']] ?? $detail['service_type'];
+                                                    echo htmlspecialchars($detailLabel);
+                                                    ?>
+                                                    <div style="font-size:0.68rem;color:#64748b"><?php echo htmlspecialchars($detail['label']); ?></div>
+                                                </td>
+                                                <td style="padding:0.3rem;border-top:1px solid #eef2f7">
+                                                    <?php echo htmlspecialchars($detail['guest_name'] ?: '—'); ?>
+                                                    <?php if (!empty($detail['room_number'])): ?><div style="font-size:0.68rem;color:#64748b">Kamar <?php echo htmlspecialchars($detail['room_number']); ?></div><?php endif; ?>
+                                                </td>
+                                                <td style="padding:0.3rem;border-top:1px solid #eef2f7;text-align:right;font-weight:700">Rp <?php echo number_format($detail['total_price'],0,',','.'); ?></td>
+                                                <td style="padding:0.3rem;border-top:1px solid #eef2f7;text-align:right;color:#059669;font-weight:700">Rp <?php echo number_format($detail['owner_amount'],0,',','.'); ?></td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    <?php endif; ?>
                 </div>
             <?php endforeach; ?>
         </div>
