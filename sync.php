@@ -552,24 +552,32 @@ $filesToSync = [
 ];
 
 // Also deploy website files directly to narayanakarimunjawa.com
-// The REAL website runs from public/ subdirectory!
-$webBase = '/home/adfb2574/public_html/narayanakarimunjawa.com';
-$websiteDeploy = [
-    // Deploy to public/ (where website actually runs from)
-    ['src' => 'website/public/index.php', 'dest' => $webBase . '/public/index.php'],
-    ['src' => 'website/public/rooms.php', 'dest' => $webBase . '/public/rooms.php'],
-    ['src' => 'website/public/activities.php', 'dest' => $webBase . '/public/activities.php'],
-    ['src' => 'website/public/destinations.php', 'dest' => $webBase . '/public/destinations.php'],
-    ['src' => 'website/public/includes/header.php', 'dest' => $webBase . '/public/includes/header.php'],
-    ['src' => 'website/public/assets/css/style.css', 'dest' => $webBase . '/public/assets/css/style.css'],
-    // Also deploy to root level (for .cpanel.yml compatibility)
-    ['src' => 'website/public/index.php', 'dest' => $webBase . '/index.php'],
-    ['src' => 'website/public/rooms.php', 'dest' => $webBase . '/rooms.php'],
-    ['src' => 'website/public/activities.php', 'dest' => $webBase . '/activities.php'],
-    ['src' => 'website/public/destinations.php', 'dest' => $webBase . '/destinations.php'],
-    ['src' => 'website/public/includes/header.php', 'dest' => $webBase . '/includes/header.php'],
-    ['src' => 'website/public/assets/css/style.css', 'dest' => $webBase . '/assets/css/style.css'],
+// Some hosting setups point addon domain to one of these two locations.
+$webBases = [
+    '/home/adfb2574/public_html/narayanakarimunjawa.com',
+    '/home/adfb2574/narayanakarimunjawa.com',
 ];
+$websiteDeploy = [];
+foreach ($webBases as $webBase) {
+    $websiteDeploy = array_merge($websiteDeploy, [
+        // Root level (most addon-domain docroots)
+        ['src' => 'website/public/index.php', 'dest' => $webBase . '/index.php'],
+        ['src' => 'website/public/rooms.php', 'dest' => $webBase . '/rooms.php'],
+        ['src' => 'website/public/activities.php', 'dest' => $webBase . '/activities.php'],
+        ['src' => 'website/public/destinations.php', 'dest' => $webBase . '/destinations.php'],
+        ['src' => 'website/public/includes/header.php', 'dest' => $webBase . '/includes/header.php'],
+        ['src' => 'website/public/assets/css/style.css', 'dest' => $webBase . '/assets/css/style.css'],
+        ['src' => 'website/public/.htaccess.production', 'dest' => $webBase . '/.htaccess'],
+
+        // public/ subdirectory (legacy structure)
+        ['src' => 'website/public/index.php', 'dest' => $webBase . '/public/index.php'],
+        ['src' => 'website/public/rooms.php', 'dest' => $webBase . '/public/rooms.php'],
+        ['src' => 'website/public/activities.php', 'dest' => $webBase . '/public/activities.php'],
+        ['src' => 'website/public/destinations.php', 'dest' => $webBase . '/public/destinations.php'],
+        ['src' => 'website/public/includes/header.php', 'dest' => $webBase . '/public/includes/header.php'],
+        ['src' => 'website/public/assets/css/style.css', 'dest' => $webBase . '/public/assets/css/style.css'],
+    ]);
+}
 
 $success = 0;
 $failed = 0;
