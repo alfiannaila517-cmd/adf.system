@@ -565,6 +565,97 @@ if (empty($sunseaNavItemsVisible)) {
             font-size: 12px;
         }
 
+        /* ---- QUICK ACTION GRID ---- */
+        .ss-quick-actions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 16px;
+            padding: 0;
+        }
+
+        .ss-quick-action-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 16px 12px;
+            border-radius: 12px;
+            background: var(--ss-gray-1);
+            border: 1.5px solid var(--ss-gray-2);
+            color: var(--ss-text);
+            text-decoration: none;
+            transition: all .25s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            min-height: 110px;
+        }
+
+        .ss-quick-action-btn:hover {
+            border-color: var(--ss-ocean);
+            background: var(--ss-sky);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(14, 165, 233, .15);
+        }
+
+        .ss-quick-action-btn.ss-qa-primary {
+            background: linear-gradient(135deg, var(--ss-ocean), var(--ss-cyan));
+            border-color: transparent;
+            color: white;
+            box-shadow: 0 4px 12px rgba(14, 165, 233, .25);
+        }
+
+        .ss-quick-action-btn.ss-qa-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(14, 165, 233, .35);
+        }
+
+        .ss-qa-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, .1);
+        }
+
+        .ss-quick-action-btn.ss-qa-primary .ss-qa-icon {
+            background: rgba(255, 255, 255, .2);
+        }
+
+        .ss-quick-action-btn .ss-qa-icon svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .ss-qa-label {
+            font-size: 12px;
+            font-weight: 600;
+            text-align: center;
+            word-break: break-word;
+        }
+
+        @media (max-width: 768px) {
+            .ss-quick-actions-grid {
+                grid-template-columns: repeat(auto-fit, minmax(85px, 1fr));
+                gap: 12px;
+            }
+
+            .ss-quick-action-btn {
+                padding: 12px 8px;
+                min-height: 100px;
+            }
+
+            .ss-qa-icon {
+                width: 36px;
+                height: 36px;
+            }
+
+            .ss-qa-label {
+                font-size: 11px;
+            }
+        }
+
         /* ---- STATUS BADGES ---- */
         .ss-status {
             display: inline-flex;
