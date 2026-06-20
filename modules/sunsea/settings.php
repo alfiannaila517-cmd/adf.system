@@ -46,6 +46,19 @@ $tab = $_GET['tab'] ?? 'company';
 $flashMsg = '';
 $flashType = '';
 
+$sidebarMenuOptions = [
+    'dashboard'    => 'Dashboard',
+    'database'     => 'Database',
+    'bookings'     => 'Booking',
+    'calendar'     => 'Kalender Blokir',
+    'coordinators' => 'Koordinator',
+    'packages'     => 'Paket Wisata',
+    'rab'          => 'Cetak RAB',
+    'quotations'   => 'Penawaran',
+    'invoices'     => 'Invoice',
+    'settings'     => 'Pengaturan',
+];
+
 // Handle POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $postTab = $_POST['tab'] ?? 'company';
@@ -101,6 +114,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $flashType = 'success';
         $tab = 'invoice';
     }
+
+    if ($postTab === 'sidebar') {
+        $selected = $_POST['sidebar_menu'] ?? [];
+        if (!is_array($selected)) {
+            $selected = [];
+        }
+
+        $selected = array_values(array_intersect(array_keys($sidebarMenuOptions), $selected));
+        if (empty($selected)) {
+            $selected = ['bookings'];
+        }
+
+        setSetting($pdo, 'sidebar_visible_menu_keys', json_encode($selected));
+
+        $flashMsg = 'Pengaturan sidebar berhasil disimpan.';
+        $flashType = 'success';
+        $tab = 'sidebar';
+    }
 }
 
 // Load semua settings
@@ -112,6 +143,7 @@ $keys = [
     'bank_name','bank_account','bank_holder',
     'bank_name2','bank_account2','bank_holder2',
     'default_tax_pct','invoice_valid_days','invoice_show_tax',
+    'sidebar_visible_menu_keys',
 ];
 foreach ($keys as $k) {
     $cfg[$k] = getSetting($pdo, $k);
@@ -123,6 +155,15 @@ $cfg['default_tax_pct']    = $cfg['default_tax_pct']    ?: '11';
 $cfg['invoice_valid_days'] = $cfg['invoice_valid_days'] ?: '7';
 $cfg['company_name']       = $cfg['company_name']       ?: 'Sunsea Travel';
 $cfg['company_tagline']    = $cfg['company_tagline']    ?: 'Your Trusted Travel Partner in Karimunjawa';
+
+$visibleSidebarMenus = json_decode($cfg['sidebar_visible_menu_keys'] ?? '[]', true);
+if (!is_array($visibleSidebarMenus) || empty($visibleSidebarMenus)) {
+    $visibleSidebarMenus = array_keys($sidebarMenuOptions);
+}
+$visibleSidebarMenus = array_values(array_intersect(array_keys($sidebarMenuOptions), $visibleSidebarMenus));
+if (empty($visibleSidebarMenus)) {
+    $visibleSidebarMenus = ['bookings'];
+}
 
 $pageTitle = 'Pengaturan';
 $activePage = 'settings';
@@ -149,6 +190,10 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
     <a href="?tab=invoice" style="padding:10px 24px;font-weight:600;text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-2px;
         <?php echo $tab==='invoice' ? 'border-bottom-color:#0EA5E9;color:#0EA5E9;' : 'color:#666;'; ?>">
         🧾 Invoice & Pembayaran
+    </a>
+    <a href="?tab=sidebar" style="padding:10px 24px;font-weight:600;text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-2px;
+        <?php echo $tab==='sidebar' ? 'border-bottom-color:#0EA5E9;color:#0EA5E9;' : 'color:#666;'; ?>">
+        🧭 Setup Sidebar
     </a>
 </div>
 
@@ -390,6 +435,49 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
         <button type="submit" style="padding:10px 24px;background:#0EA5E9;color:white;border:none;border-radius:5px;font-weight:700;cursor:pointer;font-size:14px;">
             💾 Simpan Pengaturan Invoice
         </button>
+    </div>
+</form>
+
+<!-- TAB: SIDEBAR -->
+<?php elseif ($tab === 'sidebar'): ?>
+<form method="POST">
+    <input type="hidden" name="tab" value="sidebar">
+    <div style="display:grid;grid-template-columns:1fr 320px;gap:18px;align-items:start;">
+        <div style="background:#fff;border:1px solid #dde5ef;border-radius:8px;padding:20px;">
+            <div style="font-size:16px;font-weight:700;color:#0c4a6e;margin-bottom:8px;">🧭 Setup Sidebar</div>
+            <div style="font-size:13px;color:#666;margin-bottom:16px;">Centang menu yang ingin ditampilkan di sidebar Sunsea.</div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                <?php foreach ($sidebarMenuOptions as $key => $label): ?>
+                <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid #d9e2ec;border-radius:6px;cursor:pointer;background:#fafcff;">
+                    <input type="checkbox" name="sidebar_menu[]" value="<?php echo htmlspecialchars($key); ?>"
+                        <?php echo in_array($key, $visibleSidebarMenus, true) ? 'checked' : ''; ?>>
+                    <span style="font-size:13px;font-weight:600;color:#334155;"><?php echo htmlspecialchars($label); ?></span>
+                </label>
+                <?php endforeach; ?>
+            </div>
+
+            <div style="margin-top:14px;padding:10px 12px;border-radius:6px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;font-size:12px;">
+                Jika semua checkbox tidak dipilih, sistem otomatis menampilkan menu Booking agar sidebar tidak kosong.
+            </div>
+
+            <div style="padding-top:14px;">
+                <button type="submit" style="padding:10px 24px;background:#0EA5E9;color:white;border:none;border-radius:5px;font-weight:700;cursor:pointer;font-size:14px;">
+                    💾 Simpan Setup Sidebar
+                </button>
+            </div>
+        </div>
+
+        <div style="background:#fff;border:1px solid #dde5ef;border-radius:8px;padding:20px;">
+            <div style="font-size:14px;font-weight:700;color:#0c4a6e;margin-bottom:12px;">👁️ Preview Menu Aktif</div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+                <?php foreach ($visibleSidebarMenus as $mKey): ?>
+                    <div style="padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;color:#334155;background:#f8fafc;">
+                        <?php echo htmlspecialchars($sidebarMenuOptions[$mKey] ?? $mKey); ?>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
     </div>
 </form>
 <?php endif; ?>

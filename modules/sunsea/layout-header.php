@@ -28,6 +28,8 @@ $activePage = $activePage ?? '';
 $currentUser = isset($auth) ? $auth->getCurrentUser() : [];
 $userName    = $currentUser['full_name'] ?? $currentUser['username'] ?? 'User';
 
+$visibleMenuKeys = array_keys($sunseaNavItems);
+
 // Load company settings for sidebar
 $_sidebarLogoSrc = '';
 $_sidebarCompanyName = 'Sunsea';
@@ -43,7 +45,36 @@ if (isset($pdo)) {
                 $_sidebarCompanyName = $__row['setting_value'];
             }
         }
+
+        $__menuRaw = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key='sidebar_visible_menu_keys' LIMIT 1");
+        $__menuRaw->execute();
+        $__menuJson = $__menuRaw->fetchColumn();
+        if ($__menuJson) {
+            $__selected = json_decode((string)$__menuJson, true);
+            if (is_array($__selected) && !empty($__selected)) {
+                $visibleMenuKeys = array_values(array_intersect(array_keys($sunseaNavItems), $__selected));
+            }
+        }
     } catch (Exception $__e) { /* settings table may not exist yet */ }
+}
+
+if (empty($visibleMenuKeys)) {
+    $visibleMenuKeys = ['bookings'];
+}
+
+$sunseaNavItemsVisible = [];
+foreach ($visibleMenuKeys as $__k) {
+    if (isset($sunseaNavItems[$__k])) {
+        $sunseaNavItemsVisible[$__k] = $sunseaNavItems[$__k];
+    }
+}
+
+if (!isset($sunseaNavItemsVisible[$activePage]) && isset($sunseaNavItems[$activePage])) {
+    $sunseaNavItemsVisible[$activePage] = $sunseaNavItems[$activePage];
+}
+
+if (empty($sunseaNavItemsVisible)) {
+    $sunseaNavItemsVisible = ['bookings' => $sunseaNavItems['bookings']];
 }
 ?>
 <!DOCTYPE html>
@@ -763,7 +794,7 @@ if (isset($pdo)) {
 
         <nav class="ss-nav">
             <div class="ss-nav-label">Menu Utama</div>
-            <?php foreach ($sunseaNavItems as $key => $item): ?>
+            <?php foreach ($sunseaNavItemsVisible as $key => $item): ?>
                 <a href="<?php echo $item['url']; ?>"
                     class="ss-nav-item <?php echo ($activePage === $key) ? 'active' : ''; ?>">
                     <i data-feather="<?php echo $item['icon']; ?>"></i>
