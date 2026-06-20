@@ -13,10 +13,32 @@ $auth = new Auth();
 $auth->requireLogin();
 $pdo = getSunseaConnection();
 
+// Auto-create tickets table if not exists
+try {
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `tickets` (
+        `id`              INT AUTO_INCREMENT PRIMARY KEY,
+        `ticket_code`     VARCHAR(20) UNIQUE,
+        `ticket_type`     VARCHAR(50) NOT NULL,
+        `ticket_name`     VARCHAR(150) NOT NULL,
+        `description`     TEXT,
+        `unit`            VARCHAR(30) DEFAULT 'pax',
+        `price_cost`      DECIMAL(15,2) DEFAULT 0.00,
+        `price_sell`      DECIMAL(15,2) DEFAULT 0.00,
+        `notes`           TEXT,
+        `is_active`       TINYINT(1) DEFAULT 1,
+        `created_at`      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        `updated_at`      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_ticket_active (`is_active`),
+        INDEX idx_ticket_type (`ticket_type`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+} catch (Exception $e) {
+    // table may already exist or no permission — continue
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save') {
     $id = (int)($_POST['id'] ?? 0);
     $payload = [
-        'ticket_type' => $_POST['ticket_type'] ?? 'kapal',
+        'ticket_type' => $_POST['ticket_type'] ?? 'express_bahari',
         'ticket_name' => trim($_POST['ticket_name'] ?? ''),
         'description' => trim($_POST['description'] ?? ''),
         'unit' => trim($_POST['unit'] ?? 'pax'),
@@ -33,34 +55,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save'
         exit;
     }
 
-    if ($id > 0) {
-        $pdo->prepare("UPDATE tickets
-            SET ticket_type=?, ticket_name=?, description=?, unit=?, price_cost=?, price_sell=?, notes=?, is_active=?, updated_at=NOW()
-            WHERE id=?")
-            ->execute([
-                $payload['ticket_type'], $payload['ticket_name'], $payload['description'], $payload['unit'],
-                $payload['price_cost'], $payload['price_sell'], $payload['notes'], $payload['is_active'], $id
-            ]);
-        $_SESSION['flash_message'] = 'Data tiket berhasil diperbarui.';
-    } else {
-        $lastCode = $pdo->query("SELECT ticket_code FROM tickets ORDER BY id DESC LIMIT 1")->fetchColumn();
-        $next = 1;
-        if ($lastCode && preg_match('/(\\d+)$/', $lastCode, $m)) {
-            $next = (int)$m[1] + 1;
-        }
-        $code = 'SS-TKT-' . str_pad($next, 3, '0', STR_PAD_LEFT);
+    try {
+        if ($id > 0) {
+            $pdo->prepare("UPDATE tickets
+                SET ticket_type=?, ticket_name=?, description=?, unit=?, price_cost=?, price_sell=?, notes=?, is_active=?, updated_at=NOW()
+                WHERE id=?")
+                ->execute([
+                    $payload['ticket_type'], $payload['ticket_name'], $payload['description'], $payload['unit'],
+                    $payload['price_cost'], $payload['price_sell'], $payload['notes'], $payload['is_active'], $id
+                ]);
+            $_SESSION['flash_message'] = 'Data tiket berhasil diperbarui.';
+        } else {
+            $lastCode = $pdo->query("SELECT ticket_code FROM tickets ORDER BY id DESC LIMIT 1")->fetchColumn();
+            $next = 1;
+            if ($lastCode && preg_match('/(\d+)$/', $lastCode, $m)) {
+                $next = (int)$m[1] + 1;
+            }
+            $code = 'SS-TKT-' . str_pad($next, 3, '0', STR_PAD_LEFT);
 
-        $pdo->prepare("INSERT INTO tickets
-            (ticket_code, ticket_type, ticket_name, description, unit, price_cost, price_sell, notes, is_active)
-            VALUES (?,?,?,?,?,?,?,?,?)")
-            ->execute([
-                $code, $payload['ticket_type'], $payload['ticket_name'], $payload['description'], $payload['unit'],
-                $payload['price_cost'], $payload['price_sell'], $payload['notes'], $payload['is_active']
-            ]);
-        $_SESSION['flash_message'] = 'Database tiket berhasil ditambahkan.';
+            $pdo->prepare("INSERT INTO tickets
+                (ticket_code, ticket_type, ticket_name, description, unit, price_cost, price_sell, notes, is_active)
+                VALUES (?,?,?,?,?,?,?,?,?)")
+                ->execute([
+                    $code, $payload['ticket_type'], $payload['ticket_name'], $payload['description'], $payload['unit'],
+                    $payload['price_cost'], $payload['price_sell'], $payload['notes'], $payload['is_active']
+                ]);
+            $_SESSION['flash_message'] = 'Database tiket berhasil ditambahkan.';
+        }
+        $_SESSION['flash_type'] = 'success';
+    } catch (Exception $e) {
+        $_SESSION['flash_message'] = 'Gagal simpan: ' . $e->getMessage();
+        $_SESSION['flash_type'] = 'error';
     }
 
-    $_SESSION['flash_type'] = 'success';
     header('Location: tickets.php');
     exit;
 }
