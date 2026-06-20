@@ -28,6 +28,24 @@ $sunseaNavItems = [
 $activePage = $activePage ?? '';
 $currentUser = isset($auth) ? $auth->getCurrentUser() : [];
 $userName    = $currentUser['full_name'] ?? $currentUser['username'] ?? 'User';
+
+// Load company settings for sidebar
+$_sidebarLogoSrc = '';
+$_sidebarCompanyName = 'Sunsea';
+if (isset($pdo)) {
+    try {
+        $__s = $pdo->query("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('company_logo','company_name')");
+        foreach ($__s->fetchAll() as $__row) {
+            if ($__row['setting_key'] === 'company_logo' && $__row['setting_value']) {
+                $__proto = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS']==='on') ? 'https' : 'http';
+                $_sidebarLogoSrc = $__proto . '://' . $_SERVER['HTTP_HOST'] . '/' . ltrim($__row['setting_value'], '/');
+            }
+            if ($__row['setting_key'] === 'company_name' && $__row['setting_value']) {
+                $_sidebarCompanyName = $__row['setting_value'];
+            }
+        }
+    } catch (Exception $__e) { /* settings table may not exist yet */ }
+}
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -128,6 +146,23 @@ $userName    = $currentUser['full_name'] ?? $currentUser['username'] ?? 'User';
             align-items: center;
             justify-content: center;
             font-size: 20px;
+        }
+
+        .ss-brand-logo-img {
+            display: block;
+            width: 100%;
+            max-height: 90px;
+            object-fit: contain;
+            margin: 0 auto;
+        }
+
+        .ss-brand-logo-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-decoration: none;
+            width: 100%;
+            gap: 8px;
         }
 
         .ss-brand-name {
@@ -709,13 +744,22 @@ $userName    = $currentUser['full_name'] ?? $currentUser['username'] ?? 'User';
     <!-- ==================== SIDEBAR ==================== -->
     <aside class="ss-sidebar" id="sunseaSidebar">
         <div class="ss-brand">
+            <?php if ($_sidebarLogoSrc): ?>
+            <a href="dashboard.php" class="ss-brand-logo-wrap">
+                <img src="<?php echo htmlspecialchars($_sidebarLogoSrc); ?>" alt="Logo" class="ss-brand-logo-img">
+                <div style="text-align:center;">
+                    <div class="ss-brand-sub"><?php echo htmlspecialchars($_sidebarCompanyName); ?></div>
+                </div>
+            </a>
+            <?php else: ?>
             <a href="dashboard.php" class="ss-brand-logo">
                 <div class="ss-brand-icon">🌊</div>
                 <div>
-                    <div class="ss-brand-name">Sunsea</div>
+                    <div class="ss-brand-name"><?php echo htmlspecialchars($_sidebarCompanyName); ?></div>
                     <div class="ss-brand-sub">Travel Bureau</div>
                 </div>
             </a>
+            <?php endif; ?>
         </div>
 
         <nav class="ss-nav">
