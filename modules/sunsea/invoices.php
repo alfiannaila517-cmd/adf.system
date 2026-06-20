@@ -271,6 +271,18 @@ if ($action === 'print' && $invoice):
         $lastPayment = end($payments);
     }
 
+    $dpPayment = null;
+    if (!empty($payments)) {
+        $dpPayment = $payments[0];
+    }
+
+    $watermarkText = '';
+    if ((float)$invoice['remaining_amount'] <= 0 || $invoice['status'] === 'paid') {
+        $watermarkText = 'LUNAS';
+    } elseif ((float)$invoice['paid_amount'] > 0 || $invoice['status'] === 'partial') {
+        $watermarkText = 'DP';
+    }
+
     $fmtMoney = function ($amount, $prefix = 'Rp') {
         return $prefix . number_format((float) $amount, 2, '.', ',');
     };
@@ -306,6 +318,29 @@ if ($action === 'print' && $invoice):
                 margin: 0 auto;
                 padding: 18mm 14mm 16mm;
                 position: relative;
+            }
+
+            .watermark {
+                position: absolute;
+                top: 44%;
+                left: 50%;
+                transform: translate(-50%, -50%) rotate(-20deg);
+                font-size: 96px;
+                font-weight: 900;
+                letter-spacing: 6px;
+                opacity: .08;
+                pointer-events: none;
+                z-index: 1;
+                text-transform: uppercase;
+                white-space: nowrap;
+            }
+
+            .watermark.dp {
+                color: #f59e0b;
+            }
+
+            .watermark.paid {
+                color: #16a34a;
             }
 
             .top-accent {
@@ -344,6 +379,8 @@ if ($action === 'print' && $invoice):
                 justify-content: space-between;
                 align-items: flex-start;
                 margin-bottom: 18px;
+                position: relative;
+                z-index: 2;
             }
 
             .company {
@@ -424,6 +461,8 @@ if ($action === 'print' && $invoice):
                 text-transform: uppercase;
                 color: #636363;
                 margin-bottom: 5px;
+                position: relative;
+                z-index: 2;
             }
 
             .bill-to-name {
@@ -431,18 +470,24 @@ if ($action === 'print' && $invoice):
                 font-weight: 700;
                 color: #343434;
                 margin-bottom: 4px;
+                position: relative;
+                z-index: 2;
             }
 
             .bill-to-phone {
                 font-size: 11px;
                 color: #646464;
                 margin-bottom: 14px;
+                position: relative;
+                z-index: 2;
             }
 
             .item-table {
                 width: 100%;
                 border-collapse: collapse;
                 margin-top: 6px;
+                position: relative;
+                z-index: 2;
             }
 
             .item-table thead th {
@@ -487,6 +532,8 @@ if ($action === 'print' && $invoice):
                 margin-top: 14px;
                 border-top: 1px solid #9cc9e3;
                 padding-top: 12px;
+                position: relative;
+                z-index: 2;
             }
 
             .payment-left-title {
@@ -545,6 +592,8 @@ if ($action === 'print' && $invoice):
                 font-size: 11px;
                 color: #4f4f4f;
                 line-height: 1.4;
+                position: relative;
+                z-index: 2;
             }
 
             @media print {
@@ -557,6 +606,9 @@ if ($action === 'print' && $invoice):
 
     <body onload="window.print()">
         <div class="sheet">
+            <?php if ($watermarkText): ?>
+                <div class="watermark <?php echo $watermarkText === 'LUNAS' ? 'paid' : 'dp'; ?>"><?php echo $watermarkText; ?></div>
+            <?php endif; ?>
             <div class="top-accent"></div>
 
             <div class="header">
@@ -637,9 +689,10 @@ if ($action === 'print' && $invoice):
                 <div class="payment-right">
                     <div class="sum-row"><span>Total</span><span class="v"><?php echo $fmtMoney((float)$invoice['total_amount']); ?></span></div>
                     <?php if ($invoice['paid_amount'] > 0): ?>
-                        <div class="sum-row"><span>Payment</span><span class="v">-<?php echo $fmtMoney((float)$invoice['paid_amount']); ?></span></div>
+                        <div class="sum-row"><span>Down Payment</span><span class="v">-<?php echo $fmtMoney((float)$invoice['paid_amount']); ?></span></div>
                     <?php endif; ?>
-                    <div class="sum-row"><span>Bank Transfer</span><span class="v"><?php echo $lastPayment && !empty($lastPayment['payment_date']) ? date('d/m/Y', strtotime($lastPayment['payment_date'])) : '-'; ?></span></div>
+                    <div class="sum-row"><span>Tanggal DP</span><span class="v"><?php echo $dpPayment && !empty($dpPayment['payment_date']) ? date('d/m/Y', strtotime($dpPayment['payment_date'])) : '-'; ?></span></div>
+                    <div class="sum-row"><span>Pembayaran Terakhir</span><span class="v"><?php echo $lastPayment && !empty($lastPayment['payment_date']) ? date('d/m/Y', strtotime($lastPayment['payment_date'])) : '-'; ?></span></div>
                     <div class="sum-row total"><span>Balance Due</span><span class="v">IDR <?php echo $fmtMoney((float)$invoice['remaining_amount'] > 0 ? (float)$invoice['remaining_amount'] : 0, 'Rp'); ?></span></div>
                 </div>
             </div>

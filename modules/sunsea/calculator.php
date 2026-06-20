@@ -66,6 +66,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
     $tripName   = trim($_POST['trip_name'] ?? 'Trip Custom');
     $paxCount   = max(1, (int)($_POST['pax_count'] ?? 1));
     $taxPct     = max(0, (float)($_POST['tax_pct'] ?? 0));
+    $dpAmount   = (float)str_replace(['.', ','], ['', '.'], (string)($_POST['dp_amount'] ?? '0'));
+    $dpDateRaw  = trim((string)($_POST['dp_date'] ?? ''));
+    $dpDate     = $dpDateRaw !== '' ? $dpDateRaw : date('Y-m-d');
     $payload    = $_POST['calc_payload'] ?? '[]';
     $itemsData  = json_decode($payload, true);
     $user       = $auth->getCurrentUser()['username'] ?? 'system';
@@ -123,8 +126,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
 
     $taxAmount = round($subtotal * $taxPct / 100, 2);
     $totalAmount = $subtotal + $taxAmount;
+    if ($dpAmount < 0) {
+        $dpAmount = 0;
+    }
+    if ($dpAmount > $totalAmount) {
+        $dpAmount = $totalAmount;
+    }
+    $remainingAmount = max(0, $totalAmount - $dpAmount);
+    $invoiceStatus = $dpAmount <= 0 ? 'issued' : ($remainingAmount <= 0 ? 'paid' : 'partial');
     $dueDate = date('Y-m-d');
     $tripNotes = 'Generated from Kalkulator: ' . $tripName;
+    if ($dpAmount > 0) {
+        $tripNotes .= ' | DP: Rp ' . number_format($dpAmount, 0, ',', '.') . ' (' . $dpDate . ')';
+    }
 
     try {
         $pdo->beginTransaction();
@@ -135,7 +149,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
              status, subtotal, tax_pct, tax_amount, discount_amount,
              total_amount, paid_amount, remaining_amount, due_date,
              notes, issued_at, created_by)
-            VALUES (?,?,?,?,?,'issued',?,?,?,?,?,?,?,?,?,NOW(),?)");
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW(),?)");
 
         $insInv->execute([
             $invoiceNo,
@@ -143,13 +157,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
             date('Y-m-d'),
             date('Y-m-d'),
             $paxCount,
+            $invoiceStatus,
             $subtotal,
             $taxPct,
             $taxAmount,
             0,
             $totalAmount,
-            0,
-            $totalAmount,
+            $dpAmount,
+            $remainingAmount,
             $dueDate,
             $tripNotes,
             $user,
@@ -171,6 +186,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
                 $it['price'],
                 $it['subtotal'],
                 $it['sort_order'],
+            ]);
+        }
+
+        if ($dpAmount > 0) {
+            $insPay = $pdo->prepare("INSERT INTO payments (invoice_id, payment_date, amount, method, reference, notes, created_by)
+                VALUES (?,?,?,?,?,?,?)");
+            $insPay->execute([
+                $invoiceId,
+                $dpDate,
+                $dpAmount,
+                'transfer',
+                'DP-' . $invoiceNo,
+                'DP dari Booking Kalkulator',
+                $user,
             ]);
         }
 
@@ -492,8 +521,22 @@ include 'layout-header.php';
                 </select>
             </div>
 
+            <div style="margin-bottom:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <div>
+                    <label style="font-size:12px;font-weight:600;color:#666;display:block;margin-bottom:5px;">Down Payment (DP)</label>
+                    <input type="text" id="dpAmount" class="calc-input" placeholder="0" oninput="recalc()">
+                </div>
+                <div>
+                    <label style="font-size:12px;font-weight:600;color:#666;display:block;margin-bottom:5px;">Tanggal DP</label>
+                    <input type="date" id="dpDate" class="calc-input" value="<?php echo date('Y-m-d'); ?>">
+                </div>
+            </div>
+
             <button onclick="recalc()" style="width:100%;padding:9px;background:#fff;color:#0EA5E9;border:1px solid #0EA5E9;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer;margin-bottom:8px;">
                 🧮 Hitung Kalkulasi Ecer
+            </button>
+            <button onclick="saveTempBooking()" style="width:100%;padding:9px;background:#fff;color:#0c4a6e;border:1px solid #93c5fd;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer;margin-bottom:8px;">
+                💾 Save Sementara
             </button>
             <button onclick="sendToQuotation()" style="width:100%;padding:11px;background:#0EA5E9;color:#fff;border:none;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:8px;">
                 📄 Buat Penawaran dari Booking
@@ -520,6 +563,8 @@ include 'layout-header.php';
     <input type="hidden" name="trip_name" id="piTripName">
     <input type="hidden" name="pax_count" id="piPaxCount">
     <input type="hidden" name="tax_pct" id="piTaxPct">
+    <input type="hidden" name="dp_amount" id="piDpAmount">
+    <input type="hidden" name="dp_date" id="piDpDate">
     <input type="hidden" name="calc_payload" id="piPayload">
 </form>
 
@@ -685,6 +730,7 @@ function recalc() {
     var pax=parseInt(document.getElementById('paxCount').value)||1;
     var margin=parseFloat(document.getElementById('marginPct').value)||0;
     var taxPct=parseFloat(document.getElementById('taxCalc').value)||0;
+    var dpAmt=unFmt(document.getElementById('dpAmount')?.value||'0');
     var totalCost=0;
     document.getElementById('marginLabel').textContent=margin;
     document.querySelectorAll('#calcBody tr').forEach(function(row) {
@@ -702,6 +748,7 @@ function recalc() {
     var subtotal=sellPerPax*pax;
     var tax=subtotal*taxPct/100;
     var total=subtotal+tax;
+    var remain=Math.max(0,total-dpAmt);
     document.getElementById('sumCost').textContent=fmt(totalCost);
     document.getElementById('sumCostPerPax').textContent=fmt(costPerPax);
     document.getElementById('sumMargin').textContent=fmt(marginAmt*pax);
@@ -709,12 +756,30 @@ function recalc() {
     document.getElementById('sumSubtotal').textContent=fmt(subtotal);
     document.getElementById('sumTax').textContent=fmt(tax);
     document.getElementById('sumTotal').textContent=fmt(total);
+
+    if (!document.getElementById('sumDpRow')) {
+        var box = document.getElementById('sumTotal').closest('div').parentElement;
+        var dpRow = document.createElement('div');
+        dpRow.className = 'summary-row';
+        dpRow.id = 'sumDpRow';
+        dpRow.innerHTML = '<span style="color:#666;">DP</span><span id="sumDp">Rp 0</span>';
+        var remRow = document.createElement('div');
+        remRow.className = 'summary-row';
+        remRow.id = 'sumRemainRow';
+        remRow.innerHTML = '<span style="color:#666;font-weight:700;">Sisa Bayar</span><span id="sumRemain" style="font-weight:700;color:#ef4444;">Rp 0</span>';
+        box.appendChild(dpRow);
+        box.appendChild(remRow);
+    }
+    document.getElementById('sumDp').textContent = fmt(dpAmt);
+    document.getElementById('sumRemain').textContent = fmt(remain);
 }
 function clearAll() {
     if (!confirm('Bersihkan semua?')) return;
     document.getElementById('calcBody').innerHTML='';
     document.getElementById('tripName').value=''; document.getElementById('tripDuration').value='';
     document.getElementById('quickPkg').value='';
+    var dpEl=document.getElementById('dpAmount'); if(dpEl) dpEl.value='';
+    var dpDateEl=document.getElementById('dpDate'); if(dpDateEl) dpDateEl.value='<?php echo date('Y-m-d'); ?>';
     document.querySelectorAll('.pkg-card').forEach(function(c){c.classList.remove('active');});
     closeDbPicker(); recalc();
 }
@@ -762,8 +827,58 @@ function printInvoiceFromCalculator() {
     document.getElementById('piTripName').value = document.getElementById('tripName').value || 'Trip Custom';
     document.getElementById('piPaxCount').value = parseInt(document.getElementById('paxCount').value) || 1;
     document.getElementById('piTaxPct').value = parseFloat(document.getElementById('taxCalc').value) || 0;
+    document.getElementById('piDpAmount').value = unFmt(document.getElementById('dpAmount')?.value || '0');
+    document.getElementById('piDpDate').value = document.getElementById('dpDate')?.value || '';
     document.getElementById('piPayload').value = JSON.stringify(items);
     document.getElementById('printInvoiceForm').submit();
+}
+
+function saveTempBooking() {
+    var draft = {
+        tripName: document.getElementById('tripName')?.value || '',
+        tripDuration: document.getElementById('tripDuration')?.value || '',
+        pax: document.getElementById('paxCount')?.value || '1',
+        margin: document.getElementById('marginPct')?.value || '15',
+        tax: document.getElementById('taxCalc')?.value || '11',
+        customerId: document.getElementById('toCustomer')?.value || '',
+        dpAmount: document.getElementById('dpAmount')?.value || '',
+        dpDate: document.getElementById('dpDate')?.value || '',
+        items: []
+    };
+    document.querySelectorAll('#calcBody tr').forEach(function(row){
+        draft.items.push({
+            type: row.querySelector('.ci-type')?.value || 'other',
+            desc: row.querySelector('.ci-desc')?.value || '',
+            qty: row.querySelector('.ci-qty')?.value || '1',
+            unit: row.querySelector('.ci-unit')?.value || 'unit',
+            price: row.querySelector('.ci-price')?.value || '',
+            perPax: row.querySelector('.ci-perpax')?.checked ? 1 : 0
+        });
+    });
+    localStorage.setItem('sunsea_booking_temp', JSON.stringify(draft));
+    alert('Draft booking sementara berhasil disimpan.');
+}
+
+function loadTempBooking() {
+    var raw = localStorage.getItem('sunsea_booking_temp');
+    if (!raw) return;
+    try {
+        var d = JSON.parse(raw);
+        if (!d || !Array.isArray(d.items) || d.items.length === 0) return;
+        document.getElementById('tripName').value = d.tripName || '';
+        document.getElementById('tripDuration').value = d.tripDuration || '';
+        document.getElementById('paxCount').value = d.pax || '1';
+        document.getElementById('marginPct').value = d.margin || '15';
+        document.getElementById('taxCalc').value = d.tax || '11';
+        document.getElementById('toCustomer').value = d.customerId || '';
+        if (document.getElementById('dpAmount')) document.getElementById('dpAmount').value = d.dpAmount || '';
+        if (document.getElementById('dpDate')) document.getElementById('dpDate').value = d.dpDate || '<?php echo date('Y-m-d'); ?>';
+        document.getElementById('calcBody').innerHTML = '';
+        d.items.forEach(function(it){
+            addManualRow(it.type, it.desc, parseFloat(it.qty)||1, it.unit||'unit', unFmt(it.price||'0'), !!it.perPax);
+        });
+        recalc();
+    } catch (e) {}
 }
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
 function fmtNum(n){return n?Math.round(n).toLocaleString('id-ID'):'';}
@@ -771,7 +886,9 @@ function unFmt(s){return parseFloat(String(s).replace(/\./g,'').replace(',','.')
 function fmt(n){return 'Rp '+Math.round(n).toLocaleString('id-ID');}
 function fmt0(n){return Math.round(n).toLocaleString('id-ID');}
 
-addManualRow('accommodation'); addManualRow('transport'); addManualRow('meal'); recalc();
+addManualRow('accommodation'); addManualRow('transport'); addManualRow('meal');
+loadTempBooking();
+recalc();
 </script>
 
 <?php include 'layout-footer.php'; ?>
