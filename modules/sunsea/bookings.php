@@ -1,0 +1,434 @@
+<?php
+/**
+ * Sunsea - Pemesanan (Paket / Ecer)
+ */
+define('APP_ACCESS', true);
+require_once '../../config/config.php';
+require_once '../../config/database.php';
+require_once '../../includes/auth.php';
+require_once '../../includes/functions.php';
+require_once 'db-helper.php';
+
+$auth = new Auth();
+$auth->requireLogin();
+$pdo = getSunseaConnection();
+
+function postNum(string $key): float {
+    return (float)str_replace(['.', ','], ['', '.'], $_POST[$key] ?? '0');
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_booking') {
+    $customerId = (int)($_POST['customer_id'] ?? 0);
+    $bookingMode = $_POST['booking_mode'] ?? 'paket';
+    $packageId = (int)($_POST['package_id'] ?? 0) ?: null;
+    $startDate = $_POST['start_date'] ?? '';
+    $endDate = $_POST['end_date'] ?? '';
+    $pax = max(1, (int)($_POST['pax_count'] ?? 1));
+
+    if ($customerId <= 0 || $startDate === '' || $endDate === '') {
+        $_SESSION['flash_message'] = 'Customer, tanggal mulai, dan tanggal selesai wajib diisi.';
+        $_SESSION['flash_type'] = 'error';
+        header('Location: bookings.php?action=add');
+        exit;
+    }
+
+    $ticketKapalType = $_POST['ticket_kapal_type'] ?? 'none';
+    $includeBtn = isset($_POST['include_btn_ticket']) ? 1 : 0;
+    $transportNotes = trim($_POST['transport_notes'] ?? '');
+    $mealNotes = trim($_POST['meal_notes'] ?? '');
+    $islandTrip = isset($_POST['island_trip']) ? 1 : 0;
+    $landTrip = isset($_POST['land_trip']) ? 1 : 0;
+    $documentation = isset($_POST['documentation']) ? 1 : 0;
+
+    $coordId = (int)($_POST['coordinator_id'] ?? 0) ?: null;
+    $guideDaratId = (int)($_POST['guide_darat_id'] ?? 0) ?: null;
+    $guideLautId = (int)($_POST['guide_laut_id'] ?? 0) ?: null;
+
+    $components = [];
+    $costTotal = 0.0;
+    $sellTotal = 0.0;
+
+    // Komponen helper
+    $pushComponent = function($code, $name, $qty, $unit, $cost, $sell, $details = []) use (&$components, &$costTotal, &$sellTotal) {
+        $totalCost = $qty * $cost;
+        $totalSell = $qty * $sell;
+        $costTotal += $totalCost;
+        $sellTotal += $totalSell;
+        $components[] = [
+            'component_code' => $code,
+            'component_name' => $name,
+            'qty' => $qty,
+            'unit' => $unit,
+            'price_cost' => $cost,
+            'price_sell' => $sell,
+            'total_cost' => $totalCost,
+            'total_sell' => $totalSell,
+            'details_json' => json_encode($details, JSON_UNESCAPED_UNICODE),
+        ];
+    };
+
+    // 1. Paket (jika mode paket dan dipilih)
+    if ($bookingMode === 'paket' && $packageId) {
+        $pkg = $pdo->prepare("SELECT name, base_price FROM trip_packages WHERE id=?");
+        $pkg->execute([$packageId]);
+        if ($row = $pkg->fetch()) {
+            $baseSell = (float)$row['base_price'];
+            $baseCost = $baseSell * 0.8; // estimasi modal awal, bisa disesuaikan nanti
+            $pushComponent('paket', 'Paket: ' . $row['name'], $pax, 'pax', $baseCost, $baseSell, ['package_id' => $packageId]);
+        }
+    }
+
+    // 2. Tiket kapal
+    if ($ticketKapalType !== 'none') {
+        $qty = postNum('ticket_kapal_qty') ?: $pax;
+        $pushComponent('ticket_kapal', 'Tiket Kapal ' . strtoupper($ticketKapalType), $qty, 'pax', postNum('ticket_kapal_cost'), postNum('ticket_kapal_sell'), ['type' => $ticketKapalType]);
+    }
+
+    // 3. Tiket BTN
+    if (isset($_POST['include_btn_ticket'])) {
+        $qty = postNum('btn_ticket_qty') ?: $pax;
+        $pushComponent('ticket_btn', 'Tiket BTN', $qty, 'pax', postNum('btn_ticket_cost'), postNum('btn_ticket_sell'));
+    }
+
+    // 4. Transport
+    if ($transportNotes !== '' || postNum('transport_sell') > 0 || postNum('transport_cost') > 0) {
+        $qty = postNum('transport_qty') ?: 1;
+        $pushComponent('transport', 'Transportasi', $qty, 'trip', postNum('transport_cost'), postNum('transport_sell'), ['notes' => $transportNotes]);
+    }
+
+    // 5. Penginapan
+    $roomId = (int)($_POST['room_id'] ?? 0);
+    if ($roomId > 0) {
+        $roomStmt = $pdo->prepare("SELECT r.room_type, r.price_cost, r.price_sell, p.name as partner_name FROM accommodation_rooms r JOIN accommodation_partners p ON p.id=r.partner_id WHERE r.id=?");
+        $roomStmt->execute([$roomId]);
+        if ($room = $roomStmt->fetch()) {
+            $nights = max(1, (int)($_POST['stay_nights'] ?? 1));
+            $qty = max(1, (int)($_POST['stay_room_qty'] ?? 1));
+            $unitQty = $nights * $qty;
+            $pushComponent('penginapan', 'Penginapan: ' . $room['partner_name'] . ' - ' . $room['room_type'], $unitQty, 'room-night', (float)$room['price_cost'], (float)$room['price_sell']);
+        }
+    }
+
+    // 6. Makan
+    if ($mealNotes !== '' || postNum('meal_sell') > 0 || postNum('meal_cost') > 0) {
+        $qty = postNum('meal_qty') ?: $pax;
+        $pushComponent('makan', 'Makan', $qty, 'porsi', postNum('meal_cost'), postNum('meal_sell'), ['notes' => $mealNotes]);
+    }
+
+    // 7. Island hopping
+    if ($islandTrip) {
+        $qty = postNum('island_trip_qty') ?: 1;
+        $pushComponent('island_trip', 'Trip Island Hopping', $qty, 'trip', postNum('island_trip_cost'), postNum('island_trip_sell'));
+    }
+
+    // 8. Trip darat
+    if ($landTrip) {
+        $qty = postNum('land_trip_qty') ?: 1;
+        $pushComponent('land_trip', 'Trip Darat', $qty, 'trip', postNum('land_trip_cost'), postNum('land_trip_sell'));
+    }
+
+    // 9. Dokumentasi
+    if ($documentation) {
+        $qty = postNum('documentation_qty') ?: 1;
+        $pushComponent('dokumentasi', 'Dokumentasi', $qty, 'paket', postNum('documentation_cost'), postNum('documentation_sell'));
+    }
+
+    // 10. Fasilitas tambahan
+    if (!empty($_POST['facility_ids']) && is_array($_POST['facility_ids'])) {
+        $facStmt = $pdo->prepare("SELECT id, name, unit, price_cost, price_sell FROM facilities WHERE id=?");
+        foreach ($_POST['facility_ids'] as $fid) {
+            $fid = (int)$fid;
+            if ($fid <= 0) continue;
+            $facStmt->execute([$fid]);
+            if ($fac = $facStmt->fetch()) {
+                $qtyMap = postNum('facility_qty_' . $fid);
+                $qty = $qtyMap > 0 ? $qtyMap : 1;
+                $pushComponent('fasilitas', 'Fasilitas: ' . $fac['name'], $qty, $fac['unit'] ?: 'unit', (float)$fac['price_cost'], (float)$fac['price_sell'], ['facility_id' => $fid]);
+            }
+        }
+    }
+
+    $margin = $sellTotal - $costTotal;
+    $createdBy = $auth->getCurrentUser()['username'] ?? 'system';
+    $bookingNo = sunseaNextNumber($pdo, 'booking');
+
+    $pdo->beginTransaction();
+    try {
+        $pdo->prepare("INSERT INTO booking_orders
+            (booking_no, customer_id, booking_mode, package_id, start_date, end_date, pax_count,
+             ticket_kapal_type, include_btn_ticket, transport_notes, meal_notes, island_trip, land_trip, documentation,
+             coordinator_id, guide_darat_id, guide_laut_id, status, cost_total, sell_total, margin_amount, notes, created_by)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+            ->execute([
+                $bookingNo, $customerId, $bookingMode, $packageId, $startDate, $endDate, $pax,
+                $ticketKapalType, $includeBtn, $transportNotes, $mealNotes, $islandTrip, $landTrip, $documentation,
+                $coordId, $guideDaratId, $guideLautId, 'draft', $costTotal, $sellTotal, $margin,
+                trim($_POST['notes'] ?? ''), $createdBy
+            ]);
+        $bookingId = (int)$pdo->lastInsertId();
+
+        $ins = $pdo->prepare("INSERT INTO booking_order_items
+            (booking_id, component_code, component_name, qty, unit, price_cost, price_sell, total_cost, total_sell, details_json, sort_order)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?)");
+
+        foreach ($components as $idx => $c) {
+            $ins->execute([
+                $bookingId,
+                $c['component_code'],
+                $c['component_name'],
+                $c['qty'],
+                $c['unit'],
+                $c['price_cost'],
+                $c['price_sell'],
+                $c['total_cost'],
+                $c['total_sell'],
+                $c['details_json'],
+                $idx,
+            ]);
+        }
+
+        // Generate schedule rows from date range
+        $cur = strtotime($startDate);
+        $end = strtotime($endDate);
+        $sched = $pdo->prepare("INSERT INTO booking_schedule (booking_id, activity_date, activity_type, title, notes) VALUES (?,?,?,?,?)");
+        while ($cur <= $end) {
+            $date = date('Y-m-d', $cur);
+            $sched->execute([$bookingId, $date, 'other', 'Operasional ' . $bookingNo, 'Auto-generated schedule']);
+            $cur = strtotime('+1 day', $cur);
+        }
+
+        $pdo->commit();
+        $_SESSION['flash_message'] = 'Pemesanan berhasil disimpan: ' . $bookingNo;
+        $_SESSION['flash_type'] = 'success';
+        header('Location: bookings.php?view=' . $bookingId);
+        exit;
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        $_SESSION['flash_message'] = 'Gagal simpan pemesanan: ' . $e->getMessage();
+        $_SESSION['flash_type'] = 'error';
+        header('Location: bookings.php?action=add');
+        exit;
+    }
+}
+
+$action = $_GET['action'] ?? 'list';
+$viewId = (int)($_GET['view'] ?? 0);
+
+$customers = $pdo->query("SELECT id, name, phone FROM customers WHERE is_active=1 ORDER BY name")->fetchAll();
+$packages = $pdo->query("SELECT id, name, base_price FROM trip_packages WHERE is_active=1 ORDER BY name")->fetchAll();
+$partnersRooms = $pdo->query("SELECT r.id, r.room_type, r.price_cost, r.price_sell, p.name as partner_name, p.partner_type FROM accommodation_rooms r JOIN accommodation_partners p ON p.id=r.partner_id WHERE r.is_active=1 AND p.is_active=1 ORDER BY p.name, r.room_type")->fetchAll();
+$guidesDarat = $pdo->query("SELECT id, name FROM guides WHERE is_active=1 AND guide_type='darat' ORDER BY name")->fetchAll();
+$guidesLaut = $pdo->query("SELECT id, name FROM guides WHERE is_active=1 AND guide_type='laut' ORDER BY name")->fetchAll();
+$coordinators = $pdo->query("SELECT id, name FROM coordinators WHERE is_active=1 ORDER BY name")->fetchAll();
+$facilities = $pdo->query("SELECT id, name, unit, price_sell, price_cost FROM facilities WHERE is_active=1 ORDER BY name")->fetchAll();
+
+$list = $pdo->query("SELECT b.*, c.name as customer_name
+    FROM booking_orders b
+    JOIN customers c ON c.id=b.customer_id
+    ORDER BY b.created_at DESC
+    LIMIT 200")->fetchAll();
+
+$detail = null;
+$detailItems = [];
+if ($viewId > 0) {
+    $s = $pdo->prepare("SELECT b.*, c.name as customer_name, c.phone as customer_phone,
+        p.name as package_name,
+        cd.name as coordinator_name,
+        gd.name as guide_darat_name,
+        gl.name as guide_laut_name
+        FROM booking_orders b
+        JOIN customers c ON c.id=b.customer_id
+        LEFT JOIN trip_packages p ON p.id=b.package_id
+        LEFT JOIN coordinators cd ON cd.id=b.coordinator_id
+        LEFT JOIN guides gd ON gd.id=b.guide_darat_id
+        LEFT JOIN guides gl ON gl.id=b.guide_laut_id
+        WHERE b.id=?");
+    $s->execute([$viewId]);
+    $detail = $s->fetch();
+
+    $si = $pdo->prepare("SELECT * FROM booking_order_items WHERE booking_id=? ORDER BY sort_order");
+    $si->execute([$viewId]);
+    $detailItems = $si->fetchAll();
+}
+
+$pageTitle = 'Pemesanan';
+$activePage = 'bookings';
+include 'layout-header.php';
+?>
+
+<?php if ($detail): ?>
+<div style="margin-bottom:14px;"><a class="ss-btn ss-btn-outline ss-btn-sm" href="bookings.php"><i data-feather="arrow-left"></i> Kembali</a></div>
+<div style="display:grid;grid-template-columns:1fr 320px;gap:18px;">
+    <div class="ss-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <div>
+                <div class="ss-card-title"><?php echo htmlspecialchars($detail['booking_no']); ?></div>
+                <div class="ss-card-sub"><?php echo htmlspecialchars($detail['customer_name']); ?> · <?php echo date('d M Y', strtotime($detail['start_date'])); ?> - <?php echo date('d M Y', strtotime($detail['end_date'])); ?></div>
+            </div>
+            <span class="ss-status ss-status-<?php echo $detail['status'] === 'completed' ? 'approved' : ($detail['status'] === 'cancelled' ? 'rejected' : 'sent'); ?>"><?php echo ucfirst($detail['status']); ?></span>
+        </div>
+        <div class="ss-table-wrap">
+            <table class="ss-table">
+                <thead><tr><th>Komponen</th><th>Qty</th><th>Modal</th><th>Jual</th><th>Total Jual</th></tr></thead>
+                <tbody>
+                <?php foreach ($detailItems as $it): ?>
+                    <tr>
+                        <td><?php echo htmlspecialchars($it['component_name']); ?></td>
+                        <td><?php echo rtrim(rtrim(number_format((float)$it['qty'], 2, '.', ''), '0'), '.'); ?> <?php echo htmlspecialchars($it['unit']); ?></td>
+                        <td><?php echo sunseaRupiah((float)$it['total_cost']); ?></td>
+                        <td><?php echo sunseaRupiah((float)$it['price_sell']); ?></td>
+                        <td><strong><?php echo sunseaRupiah((float)$it['total_sell']); ?></strong></td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div>
+        <div class="ss-card" style="margin-bottom:12px;">
+            <div class="ss-card-title" style="margin-bottom:8px;">Ringkasan Biaya</div>
+            <div style="display:flex;justify-content:space-between;padding:6px 0;"><span style="color:var(--ss-muted)">Total Modal</span><strong><?php echo sunseaRupiah((float)$detail['cost_total']); ?></strong></div>
+            <div style="display:flex;justify-content:space-between;padding:6px 0;"><span style="color:var(--ss-muted)">Total Jual</span><strong><?php echo sunseaRupiah((float)$detail['sell_total']); ?></strong></div>
+            <div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid var(--ss-gray-2);font-size:16px;"><span>Margin</span><strong style="color:var(--ss-success)"><?php echo sunseaRupiah((float)$detail['margin_amount']); ?></strong></div>
+        </div>
+        <div class="ss-card">
+            <div class="ss-card-title" style="margin-bottom:8px;">Tim Lapangan</div>
+            <div style="font-size:13px;color:var(--ss-muted);line-height:1.8;">
+                Koordinator: <strong style="color:var(--ss-text)"><?php echo htmlspecialchars($detail['coordinator_name'] ?: '-'); ?></strong><br>
+                Guide Darat: <strong style="color:var(--ss-text)"><?php echo htmlspecialchars($detail['guide_darat_name'] ?: '-'); ?></strong><br>
+                Guide Laut: <strong style="color:var(--ss-text)"><?php echo htmlspecialchars($detail['guide_laut_name'] ?: '-'); ?></strong>
+            </div>
+            <a href="rab.php?booking_id=<?php echo $detail['id']; ?>" class="ss-btn ss-btn-primary" style="margin-top:10px;"><i data-feather="printer"></i> Cetak RAB</a>
+        </div>
+    </div>
+</div>
+
+<?php elseif ($action === 'add'): ?>
+<div style="margin-bottom:14px;"><a class="ss-btn ss-btn-outline ss-btn-sm" href="bookings.php"><i data-feather="arrow-left"></i> Kembali</a></div>
+<form method="POST">
+    <input type="hidden" name="action" value="save_booking">
+    <div style="display:grid;grid-template-columns:1fr 340px;gap:18px;">
+        <div>
+            <div class="ss-card" style="margin-bottom:16px;">
+                <div class="ss-card-title" style="margin-bottom:10px;">Input Customer & Range Waktu</div>
+                <div class="ss-form-grid cols-2">
+                    <div class="ss-form-group" style="grid-column:1/-1;"><label class="ss-label">Customer</label><select name="customer_id" class="ss-select" required><option value="">-- pilih customer --</option><?php foreach ($customers as $c): ?><option value="<?php echo $c['id']; ?>"><?php echo htmlspecialchars($c['name'] . ($c['phone'] ? ' - ' . $c['phone'] : '')); ?></option><?php endforeach; ?></select></div>
+                    <div class="ss-form-group"><label class="ss-label">Mode Pesanan</label><select name="booking_mode" id="modeSelect" class="ss-select"><option value="paket">Paket</option><option value="ecer">Ecer</option></select></div>
+                    <div class="ss-form-group"><label class="ss-label">Paket Wisata</label><select name="package_id" class="ss-select"><option value="">-- custom/ecer --</option><?php foreach ($packages as $p): ?><option value="<?php echo $p['id']; ?>"><?php echo htmlspecialchars($p['name']); ?></option><?php endforeach; ?></select></div>
+                    <div class="ss-form-group"><label class="ss-label">Tanggal Mulai</label><input type="date" name="start_date" class="ss-input" required></div>
+                    <div class="ss-form-group"><label class="ss-label">Tanggal Selesai</label><input type="date" name="end_date" class="ss-input" required></div>
+                    <div class="ss-form-group"><label class="ss-label">Jumlah Pax</label><input type="number" name="pax_count" class="ss-input" value="1" min="1"></div>
+                    <div class="ss-form-group"><label class="ss-label">Catatan</label><input name="notes" class="ss-input" placeholder="Catatan tambahan"></div>
+                </div>
+            </div>
+
+            <div class="ss-card">
+                <div class="ss-card-title" style="margin-bottom:10px;">Komponen Pilihan Pesanan</div>
+                <div class="ss-form-grid cols-2">
+                    <div class="ss-form-group"><label class="ss-label">Tiket Kapal</label><select name="ticket_kapal_type" class="ss-select"><option value="none">Tidak</option><option value="pp">PP</option><option value="single">Satu Arah</option></select></div>
+                    <div class="ss-form-group"><label class="ss-label">Qty Tiket Kapal</label><input class="ss-input" name="ticket_kapal_qty" type="number" min="0" step="1" value="1"></div>
+                    <div class="ss-form-group"><label class="ss-label">Modal Tiket Kapal</label><input class="ss-input" name="ticket_kapal_cost"></div>
+                    <div class="ss-form-group"><label class="ss-label">Jual Tiket Kapal</label><input class="ss-input" name="ticket_kapal_sell"></div>
+
+                    <div class="ss-form-group" style="grid-column:1/-1;"><label><input type="checkbox" name="include_btn_ticket"> Tiket BTN (Retribusi)</label></div>
+                    <div class="ss-form-group"><label class="ss-label">Qty BTN</label><input class="ss-input" name="btn_ticket_qty" type="number" min="0" step="1" value="1"></div>
+                    <div class="ss-form-group"><label class="ss-label">Modal BTN</label><input class="ss-input" name="btn_ticket_cost"></div>
+                    <div class="ss-form-group"><label class="ss-label">Jual BTN</label><input class="ss-input" name="btn_ticket_sell"></div>
+
+                    <div class="ss-form-group"><label class="ss-label">Transportasi</label><input class="ss-input" name="transport_notes" placeholder="Mobil jemput / local transport"></div>
+                    <div class="ss-form-group"><label class="ss-label">Qty Transport</label><input class="ss-input" name="transport_qty" type="number" min="0" step="1" value="1"></div>
+                    <div class="ss-form-group"><label class="ss-label">Modal Transport</label><input class="ss-input" name="transport_cost"></div>
+                    <div class="ss-form-group"><label class="ss-label">Jual Transport</label><input class="ss-input" name="transport_sell"></div>
+
+                    <div class="ss-form-group" style="grid-column:1/-1;"><label class="ss-label">Penginapan (Hotel/Homestay)</label><select name="room_id" class="ss-select"><option value="">-- tidak pilih --</option><?php foreach ($partnersRooms as $r): ?><option value="<?php echo $r['id']; ?>"><?php echo htmlspecialchars($r['partner_name'] . ' - ' . $r['room_type'] . ' (' . $r['partner_type'] . ')'); ?></option><?php endforeach; ?></select></div>
+                    <div class="ss-form-group"><label class="ss-label">Jumlah Kamar</label><input class="ss-input" name="stay_room_qty" type="number" min="1" value="1"></div>
+                    <div class="ss-form-group"><label class="ss-label">Jumlah Malam</label><input class="ss-input" name="stay_nights" type="number" min="1" value="1"></div>
+
+                    <div class="ss-form-group"><label class="ss-label">Makan</label><input class="ss-input" name="meal_notes" placeholder="Katering/resto"></div>
+                    <div class="ss-form-group"><label class="ss-label">Qty Makan</label><input class="ss-input" name="meal_qty" type="number" min="0" value="1"></div>
+                    <div class="ss-form-group"><label class="ss-label">Modal Makan</label><input class="ss-input" name="meal_cost"></div>
+                    <div class="ss-form-group"><label class="ss-label">Jual Makan</label><input class="ss-input" name="meal_sell"></div>
+
+                    <div class="ss-form-group"><label><input type="checkbox" name="island_trip"> Trip Island Hopping</label></div>
+                    <div class="ss-form-group"><label class="ss-label">Qty Island Trip</label><input class="ss-input" name="island_trip_qty" type="number" min="0" value="1"></div>
+                    <div class="ss-form-group"><label class="ss-label">Modal Island</label><input class="ss-input" name="island_trip_cost"></div>
+                    <div class="ss-form-group"><label class="ss-label">Jual Island</label><input class="ss-input" name="island_trip_sell"></div>
+
+                    <div class="ss-form-group"><label><input type="checkbox" name="land_trip"> Trip Darat</label></div>
+                    <div class="ss-form-group"><label class="ss-label">Qty Trip Darat</label><input class="ss-input" name="land_trip_qty" type="number" min="0" value="1"></div>
+                    <div class="ss-form-group"><label class="ss-label">Modal Darat</label><input class="ss-input" name="land_trip_cost"></div>
+                    <div class="ss-form-group"><label class="ss-label">Jual Darat</label><input class="ss-input" name="land_trip_sell"></div>
+
+                    <div class="ss-form-group"><label><input type="checkbox" name="documentation"> Dokumentasi</label></div>
+                    <div class="ss-form-group"><label class="ss-label">Qty Dokumentasi</label><input class="ss-input" name="documentation_qty" type="number" min="0" value="1"></div>
+                    <div class="ss-form-group"><label class="ss-label">Modal Dokumentasi</label><input class="ss-input" name="documentation_cost"></div>
+                    <div class="ss-form-group"><label class="ss-label">Jual Dokumentasi</label><input class="ss-input" name="documentation_sell"></div>
+
+                    <div class="ss-form-group" style="grid-column:1/-1;">
+                        <label class="ss-label">Fasilitas Tambahan</label>
+                        <div style="display:grid;grid-template-columns:1fr 100px;gap:8px;">
+                            <?php foreach ($facilities as $f): ?>
+                            <label style="display:flex;align-items:center;gap:8px;grid-column:1/2;">
+                                <input type="checkbox" name="facility_ids[]" value="<?php echo $f['id']; ?>"> <?php echo htmlspecialchars($f['name']); ?>
+                                <small style="color:var(--ss-muted)"><?php echo sunseaRupiah((float)$f['price_sell']) . '/' . htmlspecialchars($f['unit']); ?></small>
+                            </label>
+                            <input class="ss-input" type="number" min="0" step="0.01" name="facility_qty_<?php echo $f['id']; ?>" placeholder="Qty">
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <div class="ss-card" style="margin-bottom:16px;">
+                <div class="ss-card-title" style="margin-bottom:10px;">Penanggung Jawab</div>
+                <div class="ss-form-group"><label class="ss-label">Koordinator</label><select name="coordinator_id" class="ss-select"><option value="">-- pilih --</option><?php foreach ($coordinators as $c): ?><option value="<?php echo $c['id']; ?>"><?php echo htmlspecialchars($c['name']); ?></option><?php endforeach; ?></select></div>
+                <div class="ss-form-group"><label class="ss-label">Guide Darat</label><select name="guide_darat_id" class="ss-select"><option value="">-- pilih --</option><?php foreach ($guidesDarat as $g): ?><option value="<?php echo $g['id']; ?>"><?php echo htmlspecialchars($g['name']); ?></option><?php endforeach; ?></select></div>
+                <div class="ss-form-group"><label class="ss-label">Guide Laut</label><select name="guide_laut_id" class="ss-select"><option value="">-- pilih --</option><?php foreach ($guidesLaut as $g): ?><option value="<?php echo $g['id']; ?>"><?php echo htmlspecialchars($g['name']); ?></option><?php endforeach; ?></select></div>
+            </div>
+            <div class="ss-card">
+                <div class="ss-card-title" style="margin-bottom:10px;">Aksi</div>
+                <button class="ss-btn ss-btn-primary" style="width:100%;" type="submit"><i data-feather="save"></i> Simpan Pemesanan</button>
+                <p style="margin-top:8px;color:var(--ss-muted);font-size:12px;">Setelah tersimpan, sistem akan otomatis membuat detail pesanan + jadwal blokir harian.</p>
+            </div>
+        </div>
+    </div>
+</form>
+
+<?php else: ?>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+    <div>
+        <h3 style="margin:0;font-size:18px;">Daftar Pemesanan</h3>
+        <div style="color:var(--ss-muted);font-size:12px;">Paket / Ecer dengan rentang tanggal</div>
+    </div>
+    <a class="ss-btn ss-btn-primary" href="bookings.php?action=add"><i data-feather="plus"></i> Input Pemesanan</a>
+</div>
+<div class="ss-card">
+    <div class="ss-table-wrap">
+        <table class="ss-table">
+            <thead><tr><th>No Booking</th><th>Customer</th><th>Mode</th><th>Tanggal</th><th>Status</th><th>Modal</th><th>Jual</th><th>Margin</th><th>Aksi</th></tr></thead>
+            <tbody>
+            <?php foreach ($list as $r): ?>
+                <tr>
+                    <td><strong><?php echo htmlspecialchars($r['booking_no']); ?></strong></td>
+                    <td><?php echo htmlspecialchars($r['customer_name']); ?></td>
+                    <td><?php echo strtoupper($r['booking_mode']); ?></td>
+                    <td><?php echo date('d M Y', strtotime($r['start_date'])); ?> - <?php echo date('d M Y', strtotime($r['end_date'])); ?></td>
+                    <td><span class="ss-status ss-status-<?php echo $r['status'] === 'completed' ? 'approved' : ($r['status'] === 'cancelled' ? 'rejected' : 'sent'); ?>"><?php echo ucfirst($r['status']); ?></span></td>
+                    <td><?php echo sunseaRupiah((float)$r['cost_total']); ?></td>
+                    <td><?php echo sunseaRupiah((float)$r['sell_total']); ?></td>
+                    <td><strong style="color:var(--ss-success)"><?php echo sunseaRupiah((float)$r['margin_amount']); ?></strong></td>
+                    <td>
+                        <a class="ss-btn ss-btn-outline ss-btn-sm" href="bookings.php?view=<?php echo $r['id']; ?>"><i data-feather="eye"></i></a>
+                        <a class="ss-btn ss-btn-outline ss-btn-sm" href="rab.php?booking_id=<?php echo $r['id']; ?>"><i data-feather="printer"></i></a>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php include 'layout-footer.php';

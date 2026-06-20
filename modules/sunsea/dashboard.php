@@ -47,6 +47,12 @@ try {
     // Stats: Packages
     $pkgCount  = (int)$pdo->query("SELECT COUNT(*) FROM trip_packages WHERE is_active=1")->fetchColumn();
 
+    // Stats: Bookings
+    $bookingStats = $pdo->query("SELECT
+        COUNT(*) as total,
+        SUM(CASE WHEN status IN ('draft','confirmed','ongoing') THEN 1 ELSE 0 END) as active
+        FROM booking_orders")->fetch();
+
     // Revenue this month
     $monthRevenue = (float)$pdo->query("
         SELECT COALESCE(SUM(amount),0) FROM payments 
@@ -79,6 +85,7 @@ try {
     $iStats = ['total'=>0,'issued'=>0,'partial'=>0,'paid'=>0,'overdue'=>0,'outstanding'=>0];
     $custCount = $pkgCount = 0;
     $monthRevenue = 0;
+    $bookingStats = ['total' => 0, 'active' => 0];
     $recentQuotations = $recentInvoices = [];
 }
 
@@ -139,6 +146,13 @@ include 'layout-header.php';
             <div class="ss-stat-label">Paket Wisata Aktif</div>
         </div>
     </div>
+    <div class="ss-stat-card">
+        <div class="ss-stat-icon cyan"><i data-feather="briefcase"></i></div>
+        <div>
+            <div class="ss-stat-value"><?php echo (int)($bookingStats['total'] ?? 0); ?></div>
+            <div class="ss-stat-label">Pemesanan <span style="color:var(--ss-ocean);"><?php echo (int)($bookingStats['active'] ?? 0); ?> aktif</span></div>
+        </div>
+    </div>
 </div>
 
 <!-- ============================
@@ -152,6 +166,24 @@ include 'layout-header.php';
         </div>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:10px;">
+        <a href="bookings.php?action=add" class="ss-btn ss-btn-primary">
+            <i data-feather="briefcase"></i> Input Pemesanan
+        </a>
+        <a href="calendar.php" class="ss-btn ss-btn-outline">
+            <i data-feather="calendar"></i> Kalender Blokir
+        </a>
+        <a href="partners.php" class="ss-btn ss-btn-outline">
+            <i data-feather="building"></i> Hotel & Homestay
+        </a>
+        <a href="guides.php" class="ss-btn ss-btn-outline">
+            <i data-feather="compass"></i> Guide Darat/Laut
+        </a>
+        <a href="coordinators.php" class="ss-btn ss-btn-outline">
+            <i data-feather="user-check"></i> Koordinator
+        </a>
+        <a href="facilities.php" class="ss-btn ss-btn-outline">
+            <i data-feather="tool"></i> Fasilitas
+        </a>
         <a href="customers.php?action=add" class="ss-btn ss-btn-outline">
             <i data-feather="user-plus"></i> Pelanggan Baru
         </a>

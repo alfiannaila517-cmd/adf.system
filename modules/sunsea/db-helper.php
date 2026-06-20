@@ -62,6 +62,7 @@ function sunseaNextNumber(PDO $pdo, string $type): string {
     $prefixMap = [
         'quotation' => 'SS-QUO',
         'invoice'   => 'SS-INV',
+        'booking'   => 'SS-BOOK',
     ];
     $prefix = $prefixMap[$type] ?? 'SS-DOC';
     $year   = date('Y');

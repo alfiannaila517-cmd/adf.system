@@ -358,3 +358,176 @@ CREATE TABLE IF NOT EXISTS `sequences` (
 INSERT IGNORE INTO `sequences` (`seq_name`, `last_value`, `year`) VALUES
 ('quotation', 0, YEAR(NOW())),
 ('invoice',   0, YEAR(NOW()));
+
+-- ============================================================
+-- 15. MITRA PENGINAPAN (Hotel & Homestay)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS `accommodation_partners` (
+    `id`           INT AUTO_INCREMENT PRIMARY KEY,
+    `partner_code` VARCHAR(20) UNIQUE,
+    `partner_type` ENUM('hotel','homestay') NOT NULL,
+    `name`         VARCHAR(150) NOT NULL,
+    `contact_person` VARCHAR(120),
+    `phone`        VARCHAR(30),
+    `email`        VARCHAR(120),
+    `address`      TEXT,
+    `location`     VARCHAR(120),
+    `notes`        TEXT,
+    `is_active`    TINYINT(1) DEFAULT 1,
+    `created_at`   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`   TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_partner_type (`partner_type`),
+    INDEX idx_partner_active (`is_active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `accommodation_rooms` (
+    `id`             INT AUTO_INCREMENT PRIMARY KEY,
+    `partner_id`     INT NOT NULL,
+    `room_type`      VARCHAR(100) NOT NULL,
+    `capacity`       SMALLINT DEFAULT 2,
+    `price_cost`     DECIMAL(15,2) DEFAULT 0.00,
+    `price_sell`     DECIMAL(15,2) DEFAULT 0.00,
+    `quota`          SMALLINT DEFAULT 0,
+    `notes`          TEXT,
+    `is_active`      TINYINT(1) DEFAULT 1,
+    `created_at`     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`     TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (`partner_id`) REFERENCES `accommodation_partners`(`id`) ON DELETE CASCADE,
+    INDEX idx_room_partner (`partner_id`),
+    INDEX idx_room_active (`is_active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- 16. GUIDE (Darat & Laut)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS `guides` (
+    `id`            INT AUTO_INCREMENT PRIMARY KEY,
+    `guide_code`    VARCHAR(20) UNIQUE,
+    `guide_type`    ENUM('darat','laut') NOT NULL,
+    `name`          VARCHAR(150) NOT NULL,
+    `phone`         VARCHAR(30),
+    `email`         VARCHAR(120),
+    `daily_rate_cost` DECIMAL(15,2) DEFAULT 0.00,
+    `daily_rate_sell` DECIMAL(15,2) DEFAULT 0.00,
+    `status`        ENUM('available','on_trip','off') DEFAULT 'available',
+    `notes`         TEXT,
+    `is_active`     TINYINT(1) DEFAULT 1,
+    `created_at`    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_guide_type (`guide_type`),
+    INDEX idx_guide_status (`status`),
+    INDEX idx_guide_active (`is_active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- 17. KOORDINATOR
+-- ============================================================
+CREATE TABLE IF NOT EXISTS `coordinators` (
+    `id`            INT AUTO_INCREMENT PRIMARY KEY,
+    `coordinator_code` VARCHAR(20) UNIQUE,
+    `name`          VARCHAR(150) NOT NULL,
+    `phone`         VARCHAR(30),
+    `email`         VARCHAR(120),
+    `area`          VARCHAR(120),
+    `notes`         TEXT,
+    `is_active`     TINYINT(1) DEFAULT 1,
+    `created_at`    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_coord_active (`is_active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- 18. FASILITAS LOGISTIK
+-- ============================================================
+CREATE TABLE IF NOT EXISTS `facilities` (
+    `id`            INT AUTO_INCREMENT PRIMARY KEY,
+    `facility_code` VARCHAR(20) UNIQUE,
+    `name`          VARCHAR(150) NOT NULL,
+    `category`      VARCHAR(80),
+    `unit`          VARCHAR(30) DEFAULT 'unit',
+    `price_cost`    DECIMAL(15,2) DEFAULT 0.00,
+    `price_sell`    DECIMAL(15,2) DEFAULT 0.00,
+    `stock_qty`     DECIMAL(10,2) DEFAULT 0,
+    `status`        ENUM('ready','maintenance','unavailable') DEFAULT 'ready',
+    `notes`         TEXT,
+    `is_active`     TINYINT(1) DEFAULT 1,
+    `created_at`    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_facility_active (`is_active`),
+    INDEX idx_facility_status (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- 19. BOOKING / PEMESANAN (Paket & Ecer)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS `booking_orders` (
+    `id`              INT AUTO_INCREMENT PRIMARY KEY,
+    `booking_no`      VARCHAR(30) UNIQUE NOT NULL COMMENT 'SS-BOOK-2026-001',
+    `customer_id`     INT NOT NULL,
+    `booking_mode`    ENUM('paket','ecer') DEFAULT 'paket',
+    `package_id`      INT NULL,
+    `start_date`      DATE NOT NULL,
+    `end_date`        DATE NOT NULL,
+    `pax_count`       SMALLINT DEFAULT 1,
+    `ticket_kapal_type` ENUM('none','pp','single') DEFAULT 'none',
+    `include_btn_ticket` TINYINT(1) DEFAULT 0,
+    `transport_notes` VARCHAR(255),
+    `meal_notes`      VARCHAR(255),
+    `island_trip`     TINYINT(1) DEFAULT 0,
+    `land_trip`       TINYINT(1) DEFAULT 0,
+    `documentation`   TINYINT(1) DEFAULT 0,
+    `coordinator_id`  INT NULL,
+    `guide_darat_id`  INT NULL,
+    `guide_laut_id`   INT NULL,
+    `status`          ENUM('draft','confirmed','ongoing','completed','cancelled') DEFAULT 'draft',
+    `cost_total`      DECIMAL(15,2) DEFAULT 0.00,
+    `sell_total`      DECIMAL(15,2) DEFAULT 0.00,
+    `margin_amount`   DECIMAL(15,2) DEFAULT 0.00,
+    `notes`           TEXT,
+    `created_by`      VARCHAR(100),
+    `created_at`      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (`customer_id`) REFERENCES `customers`(`id`) ON DELETE RESTRICT,
+    FOREIGN KEY (`package_id`) REFERENCES `trip_packages`(`id`) ON DELETE SET NULL,
+    FOREIGN KEY (`coordinator_id`) REFERENCES `coordinators`(`id`) ON DELETE SET NULL,
+    FOREIGN KEY (`guide_darat_id`) REFERENCES `guides`(`id`) ON DELETE SET NULL,
+    FOREIGN KEY (`guide_laut_id`) REFERENCES `guides`(`id`) ON DELETE SET NULL,
+    INDEX idx_booking_dates (`start_date`, `end_date`),
+    INDEX idx_booking_status (`status`),
+    INDEX idx_booking_customer (`customer_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `booking_order_items` (
+    `id`              INT AUTO_INCREMENT PRIMARY KEY,
+    `booking_id`      INT NOT NULL,
+    `component_code`  VARCHAR(50) NOT NULL COMMENT 'ticket_kapal,ticket_btn,transport,penginapan,makan,island_trip,land_trip,dokumentasi,fasilitas',
+    `component_name`  VARCHAR(150) NOT NULL,
+    `qty`             DECIMAL(10,2) DEFAULT 1,
+    `unit`            VARCHAR(30) DEFAULT 'unit',
+    `price_cost`      DECIMAL(15,2) DEFAULT 0.00,
+    `price_sell`      DECIMAL(15,2) DEFAULT 0.00,
+    `total_cost`      DECIMAL(15,2) DEFAULT 0.00,
+    `total_sell`      DECIMAL(15,2) DEFAULT 0.00,
+    `details_json`    TEXT,
+    `sort_order`      SMALLINT DEFAULT 0,
+    `created_at`      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (`booking_id`) REFERENCES `booking_orders`(`id`) ON DELETE CASCADE,
+    INDEX idx_booking_item (`booking_id`),
+    INDEX idx_component (`component_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `booking_schedule` (
+    `id`              INT AUTO_INCREMENT PRIMARY KEY,
+    `booking_id`      INT NOT NULL,
+    `activity_date`   DATE NOT NULL,
+    `activity_type`   ENUM('kapal','btn','transport','penginapan','makan','island_trip','land_trip','guide','fasilitas','other') DEFAULT 'other',
+    `title`           VARCHAR(150) NOT NULL,
+    `notes`           TEXT,
+    `created_at`      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (`booking_id`) REFERENCES `booking_orders`(`id`) ON DELETE CASCADE,
+    INDEX idx_activity_date (`activity_date`),
+    INDEX idx_schedule_booking (`booking_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT IGNORE INTO `sequences` (`seq_name`, `last_value`, `year`) VALUES
+('booking', 0, YEAR(NOW()));

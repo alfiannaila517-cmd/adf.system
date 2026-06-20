@@ -11,12 +11,19 @@
 if (!defined('APP_ACCESS')) define('APP_ACCESS', true);
 
 $sunseaNavItems = [
-    'dashboard'   => ['icon' => 'home',       'label' => 'Dashboard',   'url' => 'dashboard.php'],
-    'customers'   => ['icon' => 'users',       'label' => 'Pelanggan',   'url' => 'customers.php'],
-    'packages'    => ['icon' => 'package',     'label' => 'Paket Wisata','url' => 'packages.php'],
-    'calculator'  => ['icon' => 'calculator',  'label' => 'Kalkulator',  'url' => 'calculator.php'],
-    'quotations'  => ['icon' => 'file-text',   'label' => 'Penawaran',   'url' => 'quotations.php'],
-    'invoices'    => ['icon' => 'credit-card', 'label' => 'Invoice',     'url' => 'invoices.php'],
+    'dashboard'     => ['icon' => 'home',       'label' => 'Dashboard',         'url' => 'dashboard.php'],
+    'customers'     => ['icon' => 'users',      'label' => 'Pelanggan',         'url' => 'customers.php'],
+    'bookings'      => ['icon' => 'briefcase',  'label' => 'Pemesanan',         'url' => 'bookings.php'],
+    'calendar'      => ['icon' => 'calendar',   'label' => 'Kalender Blokir',   'url' => 'calendar.php'],
+    'partners'      => ['icon' => 'building',   'label' => 'Hotel & Homestay',  'url' => 'partners.php'],
+    'guides'        => ['icon' => 'compass',    'label' => 'Guide Darat/Laut',  'url' => 'guides.php'],
+    'coordinators'  => ['icon' => 'user-check', 'label' => 'Koordinator',       'url' => 'coordinators.php'],
+    'facilities'    => ['icon' => 'tool',       'label' => 'Fasilitas',         'url' => 'facilities.php'],
+    'packages'      => ['icon' => 'package',    'label' => 'Paket Wisata',      'url' => 'packages.php'],
+    'calculator'    => ['icon' => 'calculator', 'label' => 'Kalkulator Biaya',  'url' => 'calculator.php'],
+    'rab'           => ['icon' => 'file-minus', 'label' => 'Cetak RAB',         'url' => 'rab.php'],
+    'quotations'    => ['icon' => 'file-text',  'label' => 'Penawaran',         'url' => 'quotations.php'],
+    'invoices'      => ['icon' => 'credit-card','label' => 'Invoice',           'url' => 'invoices.php'],
 ];
 
 $activePage = $activePage ?? '';
