@@ -339,6 +339,9 @@ CREATE TABLE IF NOT EXISTS `user_preferences` (
     `user_id`     INT NOT NULL,
     `branch_id`   VARCHAR(50) DEFAULT 'sunsea',
     `theme`       VARCHAR(20) DEFAULT 'light',
+    `language`    VARCHAR(5) DEFAULT 'id',
+    `sidebar_collapsed` TINYINT(1) DEFAULT 0,
+    `created_at`  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     `updated_at`  TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uk_user_branch (`user_id`, `branch_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

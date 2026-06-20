@@ -249,6 +249,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $bizPdo->exec($statement);
                         }
                     }
+
+                    // Compatibility patch: ensure global settings module can write user preferences
+                    // even if DB was initialized before latest Sunsea schema.
+                    try {
+                        $prefCols = $bizPdo->query("SHOW COLUMNS FROM user_preferences")->fetchAll(PDO::FETCH_COLUMN);
+                        if (!in_array('language', $prefCols)) {
+                            $bizPdo->exec("ALTER TABLE user_preferences ADD COLUMN language VARCHAR(5) DEFAULT 'id' AFTER theme");
+                        }
+                        if (!in_array('sidebar_collapsed', $prefCols)) {
+                            $bizPdo->exec("ALTER TABLE user_preferences ADD COLUMN sidebar_collapsed TINYINT(1) DEFAULT 0 AFTER language");
+                        }
+                        if (!in_array('created_at', $prefCols)) {
+                            $bizPdo->exec("ALTER TABLE user_preferences ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP AFTER sidebar_collapsed");
+                        }
+                    } catch (Exception $prefPatchErr) {
+                        error_log('Sunsea user_preferences patch skipped: ' . $prefPatchErr->getMessage());
+                    }
                 } else {
                     // Create all essential tables
                     $bizPdo->exec("CREATE TABLE IF NOT EXISTS divisions (

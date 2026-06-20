@@ -5,6 +5,23 @@ require_once __DIR__ . '/functions.php';
 // Load language system
 require_once __DIR__ . '/language.php';
 
+// Sunsea must use its own custom UI/module stack.
+// If a generic module tries to render with this global header, redirect to Sunsea dashboard.
+if (defined('ACTIVE_BUSINESS_ID') && ACTIVE_BUSINESS_ID === 'sunsea') {
+    $requestUri = $_SERVER['REQUEST_URI'] ?? '';
+    $isSunseaModule = (strpos($requestUri, '/modules/sunsea/') !== false);
+    $isAllowedPath =
+        (strpos($requestUri, '/logout.php') !== false) ||
+        (strpos($requestUri, '/select-business.php') !== false) ||
+        (strpos($requestUri, '/developer/') !== false) ||
+        (strpos($requestUri, '/api/') !== false);
+
+    if (!$isSunseaModule && !$isAllowedPath) {
+        header('Location: ' . BASE_URL . '/modules/sunsea/dashboard.php');
+        exit;
+    }
+}
+
 // Get favicon from settings
 $faviconUrl = null;
 try {
