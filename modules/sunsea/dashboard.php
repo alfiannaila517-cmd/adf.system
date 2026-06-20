@@ -79,6 +79,45 @@ try {
         ORDER BY i.created_at DESC
         LIMIT 5
     ")->fetchAll();
+
+    // Monthly guest reservations (last 12 months)
+    $monthlyGuests = [];
+    $monthLabels = [];
+    $currentYear = (int)date('Y');
+
+    for ($m = 11; $m >= 0; $m--) {
+        $date = new DateTime();
+        $date->modify("-{$m} months");
+        $monthKey = $date->format('Y-m');
+        $monthLabels[] = $date->format('M');
+
+        $count = (int)$pdo->query("
+            SELECT COALESCE(SUM(pax_count),0) FROM booking_orders
+            WHERE status='confirmed' 
+              AND YEAR(start_date)={$currentYear}
+              AND DATE_FORMAT(start_date,'%Y-%m')='{$monthKey}'
+        ")->fetchColumn();
+        $monthlyGuests[] = $count;
+    }
+    $monthLabels = json_encode($monthLabels);
+    $monthlyGuests = json_encode($monthlyGuests);
+
+    // Yearly guest reservations (last 5 years)
+    $yearlyGuests = [];
+    $yearLabels = [];
+
+    for ($y = 4; $y >= 0; $y--) {
+        $year = $currentYear - $y;
+        $yearLabels[] = $year;
+
+        $count = (int)$pdo->query("
+            SELECT COALESCE(SUM(pax_count),0) FROM booking_orders
+            WHERE status='confirmed' AND YEAR(start_date)={$year}
+        ")->fetchColumn();
+        $yearlyGuests[] = $count;
+    }
+    $yearLabels = json_encode($yearLabels);
+    $yearlyGuests = json_encode($yearlyGuests);
 } catch (Exception $e) {
     $dbError = $e->getMessage();
     $qStats = ['total' => 0, 'draft' => 0, 'sent' => 0, 'approved' => 0];
@@ -87,6 +126,10 @@ try {
     $monthRevenue = 0;
     $bookingStats = ['total' => 0, 'active' => 0];
     $recentQuotations = $recentInvoices = [];
+    $monthLabels = json_encode([]);
+    $monthlyGuests = json_encode([]);
+    $yearLabels = json_encode([]);
+    $yearlyGuests = json_encode([]);
 }
 
 include 'layout-header.php';
@@ -203,6 +246,39 @@ include 'layout-header.php';
 </div>
 
 <!-- ============================
+     RESERVATION CHARTS
+============================= -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px;">
+
+    <!-- Monthly Guests Chart -->
+    <div class="ss-card">
+        <div class="ss-card-header">
+            <div>
+                <div class="ss-card-title">Tamu Reservasi Bulanan</div>
+                <div class="ss-card-sub">Total tamu per bulan (12 bulan terakhir)</div>
+            </div>
+        </div>
+        <div style="position:relative;height:300px;padding:10px;">
+            <canvas id="monthlyGuestsChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Yearly Guests Chart -->
+    <div class="ss-card">
+        <div class="ss-card-header">
+            <div>
+                <div class="ss-card-title">Tamu Reservasi Tahunan</div>
+                <div class="ss-card-sub">Total tamu per tahun (5 tahun terakhir)</div>
+            </div>
+        </div>
+        <div style="position:relative;height:300px;padding:10px;">
+            <canvas id="yearlyGuestsChart"></canvas>
+        </div>
+    </div>
+
+</div>
+
+<!-- ============================
      TWO COLUMN: Recent Quotations & Invoices
 ============================= -->
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
@@ -298,5 +374,140 @@ include 'layout-header.php';
     </div>
 
 </div>
+
+<!-- Chart.js Library -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<script>
+    // Ocean theme colors
+    const oceanColors = {
+        primary: '#0369a1', // Ocean blue
+        secondary: '#06b6d4', // Cyan
+        success: '#10b981', // Green
+        warning: '#f59e0b', // Amber
+        danger: '#ef4444' // Red
+    };
+
+    // Monthly Guests Chart
+    const monthlyCtx = document.getElementById('monthlyGuestsChart');
+    if (monthlyCtx) {
+        new Chart(monthlyCtx, {
+            type: 'line',
+            data: {
+                labels: <?php echo $monthLabels; ?>,
+                datasets: [{
+                    label: 'Tamu Reservasi',
+                    data: <?php echo $monthlyGuests; ?>,
+                    borderColor: oceanColors.primary,
+                    backgroundColor: oceanColors.primary + '15',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 5,
+                    pointBackgroundColor: oceanColors.primary,
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointHoverRadius: 7
+                }],
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                font: {
+                                    size: 13
+                                },
+                                padding: 15,
+                                usePointStyle: true
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 5,
+                                font: {
+                                    size: 12
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(0,0,0,0.05)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Yearly Guests Chart
+    const yearlyCtx = document.getElementById('yearlyGuestsChart');
+    if (yearlyCtx) {
+        new Chart(yearlyCtx, {
+            type: 'bar',
+            data: {
+                labels: <?php echo $yearLabels; ?>,
+                datasets: [{
+                    label: 'Total Tamu',
+                    data: <?php echo $yearlyGuests; ?>,
+                    backgroundColor: [
+                        oceanColors.primary,
+                        oceanColors.secondary,
+                        oceanColors.success,
+                        oceanColors.warning,
+                        oceanColors.danger
+                    ],
+                    borderRadius: 8,
+                    borderWidth: 0
+                }],
+                options: {
+                    indexAxis: 'x',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                font: {
+                                    size: 13
+                                },
+                                padding: 15
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 20,
+                                font: {
+                                    size: 12
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(0,0,0,0.05)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+</script>
 
 <?php include 'layout-footer.php'; ?>
