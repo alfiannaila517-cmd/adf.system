@@ -14,10 +14,6 @@ $auth = new Auth();
 $auth->requireLogin();
 $pdo = getSunseaConnection();
 
-// Booking page now uses the enhanced calculator flow directly.
-header('Location: calculator.php');
-exit;
-
 function postNum(string $key): float
 {
     return (float)str_replace(['.', ','], ['', '.'], $_POST[$key] ?? '0');
@@ -454,7 +450,7 @@ include 'layout-header.php';
             <h3 style="margin:0;font-size:18px;">Daftar Pemesanan</h3>
             <div style="color:var(--ss-muted);font-size:12px;">Paket / Ecer dengan rentang tanggal</div>
         </div>
-        <a class="ss-btn ss-btn-primary" href="bookings.php?action=add"><i data-feather="plus"></i> Input Pemesanan</a>
+        <a class="ss-btn ss-btn-primary" href="bookings.php?action=add"><i data-feather="plus"></i> Reservasi Baru</a>
     </div>
     <div class="ss-card">
         <div class="ss-table-wrap">
