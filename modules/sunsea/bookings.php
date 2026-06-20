@@ -20,6 +20,36 @@ function postNum(string $key): float
     return (float)str_replace(['.', ','], ['', '.'], $_POST[$key] ?? '0');
 }
 
+function safeFetchAll(PDO $pdo, string $sql, array $params = [], string $context = ''): array
+{
+    global $pageError;
+    try {
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    } catch (Exception $e) {
+        if ($pageError === '') {
+            $pageError = 'Gagal memuat data ' . ($context ?: 'booking') . ': ' . $e->getMessage();
+        }
+        return [];
+    }
+}
+
+function safeFetchOne(PDO $pdo, string $sql, array $params = [], string $context = '')
+{
+    global $pageError;
+    try {
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetch();
+    } catch (Exception $e) {
+        if ($pageError === '') {
+            $pageError = 'Gagal memuat data ' . ($context ?: 'detail booking') . ': ' . $e->getMessage();
+        }
+        return false;
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_booking') {
     $customerId = (int)($_POST['customer_id'] ?? 0);
     $bookingMode = $_POST['booking_mode'] ?? 'paket';
@@ -235,25 +265,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
 
 $action = $_GET['action'] ?? 'list';
 $viewId = (int)($_GET['view'] ?? 0);
+$pageError = '';
 
-$customers = $pdo->query("SELECT id, name, phone FROM customers WHERE is_active=1 ORDER BY name")->fetchAll();
-$packages = $pdo->query("SELECT id, name, base_price FROM trip_packages WHERE is_active=1 ORDER BY name")->fetchAll();
-$partnersRooms = $pdo->query("SELECT r.id, r.room_type, r.price_cost, r.price_sell, p.name as partner_name, p.partner_type FROM accommodation_rooms r JOIN accommodation_partners p ON p.id=r.partner_id WHERE r.is_active=1 AND p.is_active=1 ORDER BY p.name, r.room_type")->fetchAll();
-$guidesDarat = $pdo->query("SELECT id, name FROM guides WHERE is_active=1 AND guide_type='darat' ORDER BY name")->fetchAll();
-$guidesLaut = $pdo->query("SELECT id, name FROM guides WHERE is_active=1 AND guide_type='laut' ORDER BY name")->fetchAll();
-$coordinators = $pdo->query("SELECT id, name FROM coordinators WHERE is_active=1 ORDER BY name")->fetchAll();
-$facilities = $pdo->query("SELECT id, name, unit, price_sell, price_cost FROM facilities WHERE is_active=1 ORDER BY name")->fetchAll();
+$customers = safeFetchAll($pdo, "SELECT id, name, phone FROM customers WHERE is_active=1 ORDER BY name", [], 'customer');
+$packages = safeFetchAll($pdo, "SELECT id, name, base_price FROM trip_packages WHERE is_active=1 ORDER BY name", [], 'paket');
+$partnersRooms = safeFetchAll($pdo, "SELECT r.id, r.room_type, r.price_cost, r.price_sell, p.name as partner_name, p.partner_type FROM accommodation_rooms r JOIN accommodation_partners p ON p.id=r.partner_id WHERE r.is_active=1 AND p.is_active=1 ORDER BY p.name, r.room_type", [], 'penginapan');
+$guidesDarat = safeFetchAll($pdo, "SELECT id, name FROM guides WHERE is_active=1 AND guide_type='darat' ORDER BY name", [], 'guide darat');
+$guidesLaut = safeFetchAll($pdo, "SELECT id, name FROM guides WHERE is_active=1 AND guide_type='laut' ORDER BY name", [], 'guide laut');
+$coordinators = safeFetchAll($pdo, "SELECT id, name FROM coordinators WHERE is_active=1 ORDER BY name", [], 'koordinator');
+$facilities = safeFetchAll($pdo, "SELECT id, name, unit, price_sell, price_cost FROM facilities WHERE is_active=1 ORDER BY name", [], 'fasilitas');
 
-$list = $pdo->query("SELECT b.*, c.name as customer_name
+$list = safeFetchAll(
+    $pdo,
+    "SELECT b.*, c.name as customer_name
     FROM booking_orders b
     JOIN customers c ON c.id=b.customer_id
     ORDER BY b.created_at DESC
-    LIMIT 200")->fetchAll();
+    LIMIT 200",
+    [],
+    'list booking'
+);
 
 $detail = null;
 $detailItems = [];
 if ($viewId > 0) {
-    $s = $pdo->prepare("SELECT b.*, c.name as customer_name, c.phone as customer_phone,
+    $detail = safeFetchOne($pdo, "SELECT b.*, c.name as customer_name, c.phone as customer_phone,
         p.name as package_name,
         cd.name as coordinator_name,
         gd.name as guide_darat_name,
@@ -264,19 +300,22 @@ if ($viewId > 0) {
         LEFT JOIN coordinators cd ON cd.id=b.coordinator_id
         LEFT JOIN guides gd ON gd.id=b.guide_darat_id
         LEFT JOIN guides gl ON gl.id=b.guide_laut_id
-        WHERE b.id=?");
-    $s->execute([$viewId]);
-    $detail = $s->fetch();
+        WHERE b.id=?", [$viewId], 'detail booking');
 
-    $si = $pdo->prepare("SELECT * FROM booking_order_items WHERE booking_id=? ORDER BY sort_order");
-    $si->execute([$viewId]);
-    $detailItems = $si->fetchAll();
+    $detailItems = safeFetchAll($pdo, "SELECT * FROM booking_order_items WHERE booking_id=? ORDER BY sort_order", [$viewId], 'item booking');
 }
 
 $pageTitle = 'Pemesanan';
 $activePage = 'bookings';
 include 'layout-header.php';
 ?>
+
+<?php if ($pageError): ?>
+    <div class="ss-alert ss-alert-error" style="margin-bottom:14px;">
+        <i data-feather="alert-triangle"></i>
+        <?php echo htmlspecialchars($pageError); ?>
+    </div>
+<?php endif; ?>
 
 <?php if ($detail): ?>
     <div style="margin-bottom:14px;"><a class="ss-btn ss-btn-outline ss-btn-sm" href="bookings.php"><i data-feather="arrow-left"></i> Kembali</a></div>
