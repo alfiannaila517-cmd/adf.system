@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Sunsea - Setup Tickets Table
  */
@@ -42,7 +43,7 @@ try {
     $check = $pdo->query("SHOW TABLES LIKE 'tickets'")->fetchAll();
     if (!empty($check)) {
         echo "<p style='color:green;'>✓ Verifikasi: Tabel tickets sudah ada</p>";
-        
+
         $columns = $pdo->query("DESCRIBE tickets")->fetchAll();
         echo "<h3>Struktur Tabel:</h3>";
         echo "<table border='1' cellpadding='8'>";
@@ -59,7 +60,6 @@ try {
         }
         echo "</table>";
     }
-
 } catch (Exception $e) {
     echo "<h2 style='color:red;'>❌ Error: " . htmlspecialchars($e->getMessage()) . "</h2>";
     echo "<p>Silakan jalankan query SQL manual atau periksa koneksi database.</p>";

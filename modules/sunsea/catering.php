@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Sunsea - Database Catering
  */
@@ -40,9 +41,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save'
             SET vendor_name=?, menu_name=?, category=?, portion_unit=?, price_cost=?, price_sell=?, phone=?, location=?, notes=?, is_active=?, updated_at=NOW()
             WHERE id=?")
             ->execute([
-                $payload['vendor_name'], $payload['menu_name'], $payload['category'], $payload['portion_unit'],
-                $payload['price_cost'], $payload['price_sell'], $payload['phone'], $payload['location'], $payload['notes'],
-                $payload['is_active'], $id
+                $payload['vendor_name'],
+                $payload['menu_name'],
+                $payload['category'],
+                $payload['portion_unit'],
+                $payload['price_cost'],
+                $payload['price_sell'],
+                $payload['phone'],
+                $payload['location'],
+                $payload['notes'],
+                $payload['is_active'],
+                $id
             ]);
         $_SESSION['flash_message'] = 'Data catering berhasil diperbarui.';
     } else {
@@ -57,8 +66,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save'
             (catering_code, vendor_name, menu_name, category, portion_unit, price_cost, price_sell, phone, location, notes, is_active)
             VALUES (?,?,?,?,?,?,?,?,?,?,?)")
             ->execute([
-                $code, $payload['vendor_name'], $payload['menu_name'], $payload['category'], $payload['portion_unit'],
-                $payload['price_cost'], $payload['price_sell'], $payload['phone'], $payload['location'], $payload['notes'], $payload['is_active']
+                $code,
+                $payload['vendor_name'],
+                $payload['menu_name'],
+                $payload['category'],
+                $payload['portion_unit'],
+                $payload['price_cost'],
+                $payload['price_sell'],
+                $payload['phone'],
+                $payload['location'],
+                $payload['notes'],
+                $payload['is_active']
             ]);
         $_SESSION['flash_message'] = 'Database catering berhasil ditambahkan.';
     }
@@ -121,20 +139,20 @@ include 'layout-header.php';
                 </thead>
                 <tbody>
                     <?php if (empty($rows)): ?>
-                    <tr>
-                        <td colspan="7" style="text-align:center;color:var(--ss-muted);">Belum ada data catering.</td>
-                    </tr>
+                        <tr>
+                            <td colspan="7" style="text-align:center;color:var(--ss-muted);">Belum ada data catering.</td>
+                        </tr>
                     <?php else: ?>
                         <?php foreach ($rows as $r): ?>
-                        <tr>
-                            <td><?php echo htmlspecialchars($r['catering_code'] ?? '-'); ?></td>
-                            <td><strong><?php echo htmlspecialchars($r['vendor_name']); ?></strong><br><small style="color:var(--ss-muted)"><?php echo htmlspecialchars($r['location'] ?: '-'); ?></small></td>
-                            <td><?php echo htmlspecialchars($r['menu_name']); ?><br><small style="color:var(--ss-muted)"><?php echo htmlspecialchars($r['portion_unit']); ?></small></td>
-                            <td><?php echo htmlspecialchars($r['category'] ?: '-'); ?></td>
-                            <td><?php echo htmlspecialchars($r['phone'] ?: '-'); ?></td>
-                            <td>Modal <?php echo sunseaRupiah((float)$r['price_cost']); ?><br><small style="color:var(--ss-muted)">Jual <?php echo sunseaRupiah((float)$r['price_sell']); ?></small></td>
-                            <td><?php echo $r['is_active'] ? '<span class="ss-status ss-status-approved">Aktif</span>' : '<span class="ss-status ss-status-draft">Nonaktif</span>'; ?></td>
-                        </tr>
+                            <tr>
+                                <td><?php echo htmlspecialchars($r['catering_code'] ?? '-'); ?></td>
+                                <td><strong><?php echo htmlspecialchars($r['vendor_name']); ?></strong><br><small style="color:var(--ss-muted)"><?php echo htmlspecialchars($r['location'] ?: '-'); ?></small></td>
+                                <td><?php echo htmlspecialchars($r['menu_name']); ?><br><small style="color:var(--ss-muted)"><?php echo htmlspecialchars($r['portion_unit']); ?></small></td>
+                                <td><?php echo htmlspecialchars($r['category'] ?: '-'); ?></td>
+                                <td><?php echo htmlspecialchars($r['phone'] ?: '-'); ?></td>
+                                <td>Modal <?php echo sunseaRupiah((float)$r['price_cost']); ?><br><small style="color:var(--ss-muted)">Jual <?php echo sunseaRupiah((float)$r['price_sell']); ?></small></td>
+                                <td><?php echo $r['is_active'] ? '<span class="ss-status ss-status-approved">Aktif</span>' : '<span class="ss-status ss-status-draft">Nonaktif</span>'; ?></td>
+                            </tr>
                         <?php endforeach; ?>
                     <?php endif; ?>
                 </tbody>

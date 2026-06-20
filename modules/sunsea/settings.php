@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Sunsea - Pengaturan Sistem
  * Pengaturan Perusahaan & Invoice
@@ -23,20 +24,25 @@ try {
         `updated_at`    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         INDEX idx_key (`setting_key`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-} catch (Exception $e) { /* table exists */ }
+} catch (Exception $e) { /* table exists */
+}
 
 // Helper: get setting
-function getSetting(PDO $pdo, string $key, string $default = ''): string {
+function getSetting(PDO $pdo, string $key, string $default = ''): string
+{
     try {
         $s = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key=?");
         $s->execute([$key]);
         $v = $s->fetchColumn();
         return ($v !== false && $v !== null) ? (string)$v : $default;
-    } catch (Exception $e) { return $default; }
+    } catch (Exception $e) {
+        return $default;
+    }
 }
 
 // Helper: set setting
-function setSetting(PDO $pdo, string $key, string $value): void {
+function setSetting(PDO $pdo, string $key, string $value): void
+{
     $pdo->prepare("INSERT INTO settings (setting_key, setting_value) VALUES (?,?)
         ON DUPLICATE KEY UPDATE setting_value=?, updated_at=NOW()")
         ->execute([$key, $value, $value]);
@@ -64,8 +70,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $postTab = $_POST['tab'] ?? 'company';
 
     if ($postTab === 'company') {
-        $fields = ['company_name','company_tagline','company_address','company_phone',
-                   'company_email','company_website','company_npwp'];
+        $fields = [
+            'company_name',
+            'company_tagline',
+            'company_address',
+            'company_phone',
+            'company_email',
+            'company_website',
+            'company_npwp'
+        ];
         foreach ($fields as $f) {
             setSetting($pdo, $f, trim($_POST[$f] ?? ''));
         }
@@ -75,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $uploadDir = __DIR__ . '/../../uploads/sunsea/';
             if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
             $ext = strtolower(pathinfo($_FILES['company_logo']['name'], PATHINFO_EXTENSION));
-            if (in_array($ext, ['png','jpg','jpeg','webp','gif'])) {
+            if (in_array($ext, ['png', 'jpg', 'jpeg', 'webp', 'gif'])) {
                 $fname = 'company_logo.' . $ext;
                 if (move_uploaded_file($_FILES['company_logo']['tmp_name'], $uploadDir . $fname)) {
                     setSetting($pdo, 'company_logo', 'uploads/sunsea/' . $fname);
@@ -89,9 +102,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($postTab === 'invoice') {
-        $fields = ['invoice_prefix','invoice_footer','invoice_notes',
-                   'bank_name','bank_account','bank_holder','bank_name2','bank_account2','bank_holder2',
-                   'default_tax_pct','invoice_valid_days','invoice_show_tax'];
+        $fields = [
+            'invoice_prefix',
+            'invoice_footer',
+            'invoice_notes',
+            'bank_name',
+            'bank_account',
+            'bank_holder',
+            'bank_name2',
+            'bank_account2',
+            'bank_holder2',
+            'default_tax_pct',
+            'invoice_valid_days',
+            'invoice_show_tax'
+        ];
         foreach ($fields as $f) {
             setSetting($pdo, $f, trim($_POST[$f] ?? ''));
         }
@@ -101,7 +125,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $uploadDir = __DIR__ . '/../../uploads/sunsea/';
             if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
             $ext = strtolower(pathinfo($_FILES['invoice_logo']['name'], PATHINFO_EXTENSION));
-            if (in_array($ext, ['png','jpg','jpeg','webp','gif'])) {
+            if (in_array($ext, ['png', 'jpg', 'jpeg', 'webp', 'gif'])) {
                 $fname = 'invoice_logo.' . $ext . '?t=' . time();
                 $fname = 'invoice_logo.' . $ext;
                 if (move_uploaded_file($_FILES['invoice_logo']['tmp_name'], $uploadDir . $fname)) {
@@ -137,12 +161,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Load semua settings
 $cfg = [];
 $keys = [
-    'company_name','company_tagline','company_address','company_phone',
-    'company_email','company_website','company_npwp','company_logo',
-    'invoice_prefix','invoice_footer','invoice_notes','invoice_logo',
-    'bank_name','bank_account','bank_holder',
-    'bank_name2','bank_account2','bank_holder2',
-    'default_tax_pct','invoice_valid_days','invoice_show_tax',
+    'company_name',
+    'company_tagline',
+    'company_address',
+    'company_phone',
+    'company_email',
+    'company_website',
+    'company_npwp',
+    'company_logo',
+    'invoice_prefix',
+    'invoice_footer',
+    'invoice_notes',
+    'invoice_logo',
+    'bank_name',
+    'bank_account',
+    'bank_holder',
+    'bank_name2',
+    'bank_account2',
+    'bank_holder2',
+    'default_tax_pct',
+    'invoice_valid_days',
+    'invoice_show_tax',
     'sidebar_visible_menu_keys',
 ];
 foreach ($keys as $k) {
@@ -173,313 +212,313 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
 ?>
 
 <?php if ($flashMsg): ?>
-<div style="padding:12px 16px;margin-bottom:16px;border-radius:6px;font-weight:500;
-    background:<?php echo $flashType==='success' ? '#e6f7f0' : '#fee'; ?>;
-    border:1px solid <?php echo $flashType==='success' ? '#34d399' : '#f88'; ?>;
-    color:<?php echo $flashType==='success' ? '#065f46' : '#c33'; ?>;">
-    <?php echo htmlspecialchars($flashMsg); ?>
-</div>
+    <div style="padding:12px 16px;margin-bottom:16px;border-radius:6px;font-weight:500;
+    background:<?php echo $flashType === 'success' ? '#e6f7f0' : '#fee'; ?>;
+    border:1px solid <?php echo $flashType === 'success' ? '#34d399' : '#f88'; ?>;
+    color:<?php echo $flashType === 'success' ? '#065f46' : '#c33'; ?>;">
+        <?php echo htmlspecialchars($flashMsg); ?>
+    </div>
 <?php endif; ?>
 
 <!-- Tab Navigation -->
 <div style="display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid #e0e7ef;">
     <a href="?tab=company" style="padding:10px 24px;font-weight:600;text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-2px;
-        <?php echo $tab==='company' ? 'border-bottom-color:#0EA5E9;color:#0EA5E9;' : 'color:#666;'; ?>">
+        <?php echo $tab === 'company' ? 'border-bottom-color:#0EA5E9;color:#0EA5E9;' : 'color:#666;'; ?>">
         🏢 Perusahaan
     </a>
     <a href="?tab=invoice" style="padding:10px 24px;font-weight:600;text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-2px;
-        <?php echo $tab==='invoice' ? 'border-bottom-color:#0EA5E9;color:#0EA5E9;' : 'color:#666;'; ?>">
+        <?php echo $tab === 'invoice' ? 'border-bottom-color:#0EA5E9;color:#0EA5E9;' : 'color:#666;'; ?>">
         🧾 Invoice & Pembayaran
     </a>
     <a href="?tab=sidebar" style="padding:10px 24px;font-weight:600;text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-2px;
-        <?php echo $tab==='sidebar' ? 'border-bottom-color:#0EA5E9;color:#0EA5E9;' : 'color:#666;'; ?>">
+        <?php echo $tab === 'sidebar' ? 'border-bottom-color:#0EA5E9;color:#0EA5E9;' : 'color:#666;'; ?>">
         🧭 Setup Sidebar
     </a>
 </div>
 
 <!-- TAB: PERUSAHAAN -->
 <?php if ($tab === 'company'): ?>
-<div style="display:grid;grid-template-columns:1fr 320px;gap:18px;align-items:start;">
-    <div style="background:#fff;border:1px solid #dde5ef;border-radius:8px;padding:20px;">
-        <div style="font-size:16px;font-weight:700;color:#0c4a6e;margin-bottom:16px;">⚙️ Pengaturan Perusahaan</div>
-        <form method="POST" enctype="multipart/form-data" style="display:flex;flex-direction:column;gap:14px;">
-            <input type="hidden" name="tab" value="company">
-
-            <div>
-                <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Nama Perusahaan *</label>
-                <input type="text" name="company_name" value="<?php echo htmlspecialchars($cfg['company_name']); ?>"
-                    style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;">
-            </div>
-
-            <div>
-                <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Tagline / Slogan</label>
-                <input type="text" name="company_tagline" value="<?php echo htmlspecialchars($cfg['company_tagline']); ?>"
-                    style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;">
-            </div>
-
-            <div>
-                <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Alamat</label>
-                <textarea name="company_address" rows="3"
-                    style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;resize:vertical;"><?php echo htmlspecialchars($cfg['company_address']); ?></textarea>
-            </div>
-
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                <div>
-                    <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Telepon / WA</label>
-                    <input type="text" name="company_phone" value="<?php echo htmlspecialchars($cfg['company_phone']); ?>"
-                        style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;">
-                </div>
-                <div>
-                    <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Email</label>
-                    <input type="email" name="company_email" value="<?php echo htmlspecialchars($cfg['company_email']); ?>"
-                        style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;">
-                </div>
-            </div>
-
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                <div>
-                    <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Website</label>
-                    <input type="text" name="company_website" value="<?php echo htmlspecialchars($cfg['company_website']); ?>"
-                        style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;">
-                </div>
-                <div>
-                    <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">NPWP</label>
-                    <input type="text" name="company_npwp" value="<?php echo htmlspecialchars($cfg['company_npwp']); ?>"
-                        style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;">
-                </div>
-            </div>
-
-            <div>
-                <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Logo Perusahaan</label>
-                <input type="file" name="company_logo" accept="image/*"
-                    style="width:100%;padding:6px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:13px;box-sizing:border-box;">
-                <small style="color:#888;">Format: PNG/JPG/WEBP. Maks 2MB. Digunakan di header, sidebar, dokumen.</small>
-            </div>
-
-            <div style="padding-top:6px;">
-                <button type="submit" style="padding:10px 24px;background:#0EA5E9;color:white;border:none;border-radius:5px;font-weight:700;cursor:pointer;font-size:14px;">
-                    💾 Simpan Pengaturan Perusahaan
-                </button>
-            </div>
-        </form>
-    </div>
-
-    <!-- Preview -->
-    <div style="background:#fff;border:1px solid #dde5ef;border-radius:8px;padding:20px;">
-        <div style="font-size:14px;font-weight:700;color:#0c4a6e;margin-bottom:12px;">👁️ Preview</div>
-        <?php if ($cfg['company_logo']): ?>
-        <div style="text-align:center;margin-bottom:12px;padding:12px;background:#f8fbff;border-radius:6px;">
-            <img src="<?php echo htmlspecialchars($baseUrl . '/' . trim($cfg['company_logo'], '/')); ?>"
-                 alt="Logo" style="max-height:80px;max-width:100%;object-fit:contain;">
-        </div>
-        <?php else: ?>
-        <div style="text-align:center;padding:24px 12px;background:#f8fbff;border-radius:6px;color:#999;margin-bottom:12px;">
-            <div style="font-size:32px;">🌊</div>
-            <small>Logo belum diupload</small>
-        </div>
-        <?php endif; ?>
-        <div style="font-size:18px;font-weight:700;color:#0c4a6e;"><?php echo htmlspecialchars($cfg['company_name']); ?></div>
-        <div style="font-size:12px;color:#666;margin-top:4px;"><?php echo htmlspecialchars($cfg['company_tagline']); ?></div>
-        <?php if ($cfg['company_address']): ?>
-        <div style="font-size:12px;color:#888;margin-top:8px;border-top:1px solid #eee;padding-top:8px;"><?php echo nl2br(htmlspecialchars($cfg['company_address'])); ?></div>
-        <?php endif; ?>
-        <?php if ($cfg['company_phone']): ?>
-        <div style="font-size:12px;color:#888;margin-top:4px;">📞 <?php echo htmlspecialchars($cfg['company_phone']); ?></div>
-        <?php endif; ?>
-        <?php if ($cfg['company_email']): ?>
-        <div style="font-size:12px;color:#888;margin-top:2px;">✉️ <?php echo htmlspecialchars($cfg['company_email']); ?></div>
-        <?php endif; ?>
-    </div>
-</div>
-
-<!-- TAB: INVOICE -->
-<?php elseif ($tab === 'invoice'): ?>
-<form method="POST" enctype="multipart/form-data">
-    <input type="hidden" name="tab" value="invoice">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start;">
-
-        <!-- Logo & Identitas Invoice -->
+    <div style="display:grid;grid-template-columns:1fr 320px;gap:18px;align-items:start;">
         <div style="background:#fff;border:1px solid #dde5ef;border-radius:8px;padding:20px;">
-            <div style="font-size:15px;font-weight:700;color:#0c4a6e;margin-bottom:14px;">🧾 Identitas Invoice</div>
-            <div style="display:flex;flex-direction:column;gap:12px;">
+            <div style="font-size:16px;font-weight:700;color:#0c4a6e;margin-bottom:16px;">⚙️ Pengaturan Perusahaan</div>
+            <form method="POST" enctype="multipart/form-data" style="display:flex;flex-direction:column;gap:14px;">
+                <input type="hidden" name="tab" value="company">
 
                 <div>
-                    <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Logo Invoice</label>
-                    <input type="file" name="invoice_logo" accept="image/*"
-                        style="width:100%;padding:6px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:13px;box-sizing:border-box;">
-                    <?php if ($cfg['invoice_logo']): ?>
-                    <div style="margin-top:8px;padding:8px;background:#f8fbff;border-radius:4px;text-align:center;">
-                        <img src="<?php echo htmlspecialchars($baseUrl . '/' . trim($cfg['invoice_logo'], '/')); ?>"
-                             alt="Invoice Logo" style="max-height:50px;max-width:100%;object-fit:contain;">
-                        <div style="font-size:11px;color:#888;margin-top:4px;">Logo saat ini</div>
+                    <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Nama Perusahaan *</label>
+                    <input type="text" name="company_name" value="<?php echo htmlspecialchars($cfg['company_name']); ?>"
+                        style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;">
+                </div>
+
+                <div>
+                    <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Tagline / Slogan</label>
+                    <input type="text" name="company_tagline" value="<?php echo htmlspecialchars($cfg['company_tagline']); ?>"
+                        style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;">
+                </div>
+
+                <div>
+                    <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Alamat</label>
+                    <textarea name="company_address" rows="3"
+                        style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;resize:vertical;"><?php echo htmlspecialchars($cfg['company_address']); ?></textarea>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                    <div>
+                        <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Telepon / WA</label>
+                        <input type="text" name="company_phone" value="<?php echo htmlspecialchars($cfg['company_phone']); ?>"
+                            style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;">
                     </div>
-                    <?php endif; ?>
-                    <small style="color:#888;">Tampil di kop surat invoice. Gunakan logo dengan background transparan (PNG).</small>
+                    <div>
+                        <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Email</label>
+                        <input type="email" name="company_email" value="<?php echo htmlspecialchars($cfg['company_email']); ?>"
+                            style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;">
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                    <div>
+                        <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Website</label>
+                        <input type="text" name="company_website" value="<?php echo htmlspecialchars($cfg['company_website']); ?>"
+                            style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;">
+                    </div>
+                    <div>
+                        <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">NPWP</label>
+                        <input type="text" name="company_npwp" value="<?php echo htmlspecialchars($cfg['company_npwp']); ?>"
+                            style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;">
+                    </div>
                 </div>
 
                 <div>
-                    <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Prefix Nomor Invoice</label>
-                    <input type="text" name="invoice_prefix" value="<?php echo htmlspecialchars($cfg['invoice_prefix']); ?>"
-                        style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;"
-                        placeholder="SS-INV">
-                    <small style="color:#888;">Contoh: SS-INV-2026-001</small>
+                    <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Logo Perusahaan</label>
+                    <input type="file" name="company_logo" accept="image/*"
+                        style="width:100%;padding:6px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:13px;box-sizing:border-box;">
+                    <small style="color:#888;">Format: PNG/JPG/WEBP. Maks 2MB. Digunakan di header, sidebar, dokumen.</small>
                 </div>
 
-                <div>
-                    <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">% Pajak Default</label>
-                    <input type="number" name="default_tax_pct" value="<?php echo htmlspecialchars($cfg['default_tax_pct']); ?>"
-                        min="0" max="100" step="0.01"
-                        style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;"
-                        placeholder="11">
-                    <small style="color:#888;">Isi 0 jika tidak menggunakan pajak.</small>
+                <div style="padding-top:6px;">
+                    <button type="submit" style="padding:10px 24px;background:#0EA5E9;color:white;border:none;border-radius:5px;font-weight:700;cursor:pointer;font-size:14px;">
+                        💾 Simpan Pengaturan Perusahaan
+                    </button>
                 </div>
-
-                <div>
-                    <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Validitas Invoice (hari)</label>
-                    <input type="number" name="invoice_valid_days" value="<?php echo htmlspecialchars($cfg['invoice_valid_days']); ?>"
-                        min="1"
-                        style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;"
-                        placeholder="7">
-                </div>
-
-                <div>
-                    <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Catatan Bawah Invoice</label>
-                    <textarea name="invoice_footer" rows="3"
-                        style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;resize:vertical;"
-                        placeholder="Terima kasih telah mempercayakan perjalanan Anda kepada kami."><?php echo htmlspecialchars($cfg['invoice_footer']); ?></textarea>
-                </div>
-
-                <div>
-                    <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Syarat & Ketentuan</label>
-                    <textarea name="invoice_notes" rows="4"
-                        style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;resize:vertical;"
-                        placeholder="1. Pembayaran dilakukan paling lambat H-3 keberangkatan.&#10;2. Booking fee tidak dapat dikembalikan."><?php echo htmlspecialchars($cfg['invoice_notes']); ?></textarea>
-                </div>
-            </div>
+            </form>
         </div>
 
-        <!-- Rekening Pembayaran -->
-        <div>
-            <div style="background:#fff;border:1px solid #dde5ef;border-radius:8px;padding:20px;margin-bottom:16px;">
-                <div style="font-size:15px;font-weight:700;color:#0c4a6e;margin-bottom:14px;">🏦 Rekening Pembayaran Utama</div>
-                <div style="display:flex;flex-direction:column;gap:10px;">
-                    <div>
-                        <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Nama Bank</label>
-                        <input type="text" name="bank_name" value="<?php echo htmlspecialchars($cfg['bank_name']); ?>"
-                            style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;"
-                            placeholder="BCA / BRI / BNI / Mandiri">
-                    </div>
-                    <div>
-                        <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Nomor Rekening</label>
-                        <input type="text" name="bank_account" value="<?php echo htmlspecialchars($cfg['bank_account']); ?>"
-                            style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;"
-                            placeholder="1234567890">
-                    </div>
-                    <div>
-                        <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Atas Nama</label>
-                        <input type="text" name="bank_holder" value="<?php echo htmlspecialchars($cfg['bank_holder']); ?>"
-                            style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;"
-                            placeholder="Nama Pemilik Rekening">
-                    </div>
+        <!-- Preview -->
+        <div style="background:#fff;border:1px solid #dde5ef;border-radius:8px;padding:20px;">
+            <div style="font-size:14px;font-weight:700;color:#0c4a6e;margin-bottom:12px;">👁️ Preview</div>
+            <?php if ($cfg['company_logo']): ?>
+                <div style="text-align:center;margin-bottom:12px;padding:12px;background:#f8fbff;border-radius:6px;">
+                    <img src="<?php echo htmlspecialchars($baseUrl . '/' . trim($cfg['company_logo'], '/')); ?>"
+                        alt="Logo" style="max-height:80px;max-width:100%;object-fit:contain;">
                 </div>
-            </div>
-
-            <div style="background:#fff;border:1px solid #dde5ef;border-radius:8px;padding:20px;margin-bottom:16px;">
-                <div style="font-size:15px;font-weight:700;color:#0c4a6e;margin-bottom:14px;">🏦 Rekening Pembayaran Kedua (opsional)</div>
-                <div style="display:flex;flex-direction:column;gap:10px;">
-                    <div>
-                        <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Nama Bank</label>
-                        <input type="text" name="bank_name2" value="<?php echo htmlspecialchars($cfg['bank_name2']); ?>"
-                            style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;"
-                            placeholder="BCA / BRI / BNI / Mandiri">
-                    </div>
-                    <div>
-                        <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Nomor Rekening</label>
-                        <input type="text" name="bank_account2" value="<?php echo htmlspecialchars($cfg['bank_account2']); ?>"
-                            style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;"
-                            placeholder="1234567890">
-                    </div>
-                    <div>
-                        <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Atas Nama</label>
-                        <input type="text" name="bank_holder2" value="<?php echo htmlspecialchars($cfg['bank_holder2']); ?>"
-                            style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;"
-                            placeholder="Nama Pemilik Rekening">
-                    </div>
+            <?php else: ?>
+                <div style="text-align:center;padding:24px 12px;background:#f8fbff;border-radius:6px;color:#999;margin-bottom:12px;">
+                    <div style="font-size:32px;">🌊</div>
+                    <small>Logo belum diupload</small>
                 </div>
-            </div>
-
-            <!-- Preview rekening -->
-            <?php if ($cfg['bank_name'] || $cfg['bank_account']): ?>
-            <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:14px;">
-                <div style="font-size:13px;font-weight:700;color:#0369a1;margin-bottom:8px;">Preview di Invoice:</div>
-                <div style="font-size:13px;color:#0c4a6e;">
-                    <strong><?php echo htmlspecialchars($cfg['bank_name']); ?></strong><br>
-                    <?php echo htmlspecialchars($cfg['bank_account']); ?><br>
-                    a.n. <?php echo htmlspecialchars($cfg['bank_holder']); ?>
-                    <?php if ($cfg['bank_name2']): ?>
-                    <hr style="border:none;border-top:1px solid #bae6fd;margin:8px 0;">
-                    <strong><?php echo htmlspecialchars($cfg['bank_name2']); ?></strong><br>
-                    <?php echo htmlspecialchars($cfg['bank_account2']); ?><br>
-                    a.n. <?php echo htmlspecialchars($cfg['bank_holder2']); ?>
-                    <?php endif; ?>
-                </div>
-            </div>
+            <?php endif; ?>
+            <div style="font-size:18px;font-weight:700;color:#0c4a6e;"><?php echo htmlspecialchars($cfg['company_name']); ?></div>
+            <div style="font-size:12px;color:#666;margin-top:4px;"><?php echo htmlspecialchars($cfg['company_tagline']); ?></div>
+            <?php if ($cfg['company_address']): ?>
+                <div style="font-size:12px;color:#888;margin-top:8px;border-top:1px solid #eee;padding-top:8px;"><?php echo nl2br(htmlspecialchars($cfg['company_address'])); ?></div>
+            <?php endif; ?>
+            <?php if ($cfg['company_phone']): ?>
+                <div style="font-size:12px;color:#888;margin-top:4px;">📞 <?php echo htmlspecialchars($cfg['company_phone']); ?></div>
+            <?php endif; ?>
+            <?php if ($cfg['company_email']): ?>
+                <div style="font-size:12px;color:#888;margin-top:2px;">✉️ <?php echo htmlspecialchars($cfg['company_email']); ?></div>
             <?php endif; ?>
         </div>
     </div>
 
-    <div style="margin-top:16px;padding:16px;background:#fff;border:1px solid #dde5ef;border-radius:8px;display:flex;justify-content:flex-end;gap:10px;">
-        <a href="invoices.php" style="padding:10px 20px;background:#f0f9ff;color:#0EA5E9;border:1px solid #0EA5E9;border-radius:5px;text-decoration:none;font-weight:600;font-size:14px;">
-            📄 Lihat Invoice
-        </a>
-        <button type="submit" style="padding:10px 24px;background:#0EA5E9;color:white;border:none;border-radius:5px;font-weight:700;cursor:pointer;font-size:14px;">
-            💾 Simpan Pengaturan Invoice
-        </button>
-    </div>
-</form>
+    <!-- TAB: INVOICE -->
+<?php elseif ($tab === 'invoice'): ?>
+    <form method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="tab" value="invoice">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start;">
 
-<!-- TAB: SIDEBAR -->
-<?php elseif ($tab === 'sidebar'): ?>
-<form method="POST">
-    <input type="hidden" name="tab" value="sidebar">
-    <div style="display:grid;grid-template-columns:1fr 320px;gap:18px;align-items:start;">
-        <div style="background:#fff;border:1px solid #dde5ef;border-radius:8px;padding:20px;">
-            <div style="font-size:16px;font-weight:700;color:#0c4a6e;margin-bottom:8px;">🧭 Setup Sidebar</div>
-            <div style="font-size:13px;color:#666;margin-bottom:16px;">Centang menu yang ingin ditampilkan di sidebar Sunsea.</div>
+            <!-- Logo & Identitas Invoice -->
+            <div style="background:#fff;border:1px solid #dde5ef;border-radius:8px;padding:20px;">
+                <div style="font-size:15px;font-weight:700;color:#0c4a6e;margin-bottom:14px;">🧾 Identitas Invoice</div>
+                <div style="display:flex;flex-direction:column;gap:12px;">
 
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                <?php foreach ($sidebarMenuOptions as $key => $label): ?>
-                <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid #d9e2ec;border-radius:6px;cursor:pointer;background:#fafcff;">
-                    <input type="checkbox" name="sidebar_menu[]" value="<?php echo htmlspecialchars($key); ?>"
-                        <?php echo in_array($key, $visibleSidebarMenus, true) ? 'checked' : ''; ?>>
-                    <span style="font-size:13px;font-weight:600;color:#334155;"><?php echo htmlspecialchars($label); ?></span>
-                </label>
-                <?php endforeach; ?>
-            </div>
-
-            <div style="margin-top:14px;padding:10px 12px;border-radius:6px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;font-size:12px;">
-                Jika semua checkbox tidak dipilih, sistem otomatis menampilkan menu Booking agar sidebar tidak kosong.
-            </div>
-
-            <div style="padding-top:14px;">
-                <button type="submit" style="padding:10px 24px;background:#0EA5E9;color:white;border:none;border-radius:5px;font-weight:700;cursor:pointer;font-size:14px;">
-                    💾 Simpan Setup Sidebar
-                </button>
-            </div>
-        </div>
-
-        <div style="background:#fff;border:1px solid #dde5ef;border-radius:8px;padding:20px;">
-            <div style="font-size:14px;font-weight:700;color:#0c4a6e;margin-bottom:12px;">👁️ Preview Menu Aktif</div>
-            <div style="display:flex;flex-direction:column;gap:8px;">
-                <?php foreach ($visibleSidebarMenus as $mKey): ?>
-                    <div style="padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;color:#334155;background:#f8fafc;">
-                        <?php echo htmlspecialchars($sidebarMenuOptions[$mKey] ?? $mKey); ?>
+                    <div>
+                        <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Logo Invoice</label>
+                        <input type="file" name="invoice_logo" accept="image/*"
+                            style="width:100%;padding:6px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:13px;box-sizing:border-box;">
+                        <?php if ($cfg['invoice_logo']): ?>
+                            <div style="margin-top:8px;padding:8px;background:#f8fbff;border-radius:4px;text-align:center;">
+                                <img src="<?php echo htmlspecialchars($baseUrl . '/' . trim($cfg['invoice_logo'], '/')); ?>"
+                                    alt="Invoice Logo" style="max-height:50px;max-width:100%;object-fit:contain;">
+                                <div style="font-size:11px;color:#888;margin-top:4px;">Logo saat ini</div>
+                            </div>
+                        <?php endif; ?>
+                        <small style="color:#888;">Tampil di kop surat invoice. Gunakan logo dengan background transparan (PNG).</small>
                     </div>
-                <?php endforeach; ?>
+
+                    <div>
+                        <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Prefix Nomor Invoice</label>
+                        <input type="text" name="invoice_prefix" value="<?php echo htmlspecialchars($cfg['invoice_prefix']); ?>"
+                            style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;"
+                            placeholder="SS-INV">
+                        <small style="color:#888;">Contoh: SS-INV-2026-001</small>
+                    </div>
+
+                    <div>
+                        <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">% Pajak Default</label>
+                        <input type="number" name="default_tax_pct" value="<?php echo htmlspecialchars($cfg['default_tax_pct']); ?>"
+                            min="0" max="100" step="0.01"
+                            style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;"
+                            placeholder="11">
+                        <small style="color:#888;">Isi 0 jika tidak menggunakan pajak.</small>
+                    </div>
+
+                    <div>
+                        <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Validitas Invoice (hari)</label>
+                        <input type="number" name="invoice_valid_days" value="<?php echo htmlspecialchars($cfg['invoice_valid_days']); ?>"
+                            min="1"
+                            style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;"
+                            placeholder="7">
+                    </div>
+
+                    <div>
+                        <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Catatan Bawah Invoice</label>
+                        <textarea name="invoice_footer" rows="3"
+                            style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;resize:vertical;"
+                            placeholder="Terima kasih telah mempercayakan perjalanan Anda kepada kami."><?php echo htmlspecialchars($cfg['invoice_footer']); ?></textarea>
+                    </div>
+
+                    <div>
+                        <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Syarat & Ketentuan</label>
+                        <textarea name="invoice_notes" rows="4"
+                            style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;resize:vertical;"
+                            placeholder="1. Pembayaran dilakukan paling lambat H-3 keberangkatan.&#10;2. Booking fee tidak dapat dikembalikan."><?php echo htmlspecialchars($cfg['invoice_notes']); ?></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rekening Pembayaran -->
+            <div>
+                <div style="background:#fff;border:1px solid #dde5ef;border-radius:8px;padding:20px;margin-bottom:16px;">
+                    <div style="font-size:15px;font-weight:700;color:#0c4a6e;margin-bottom:14px;">🏦 Rekening Pembayaran Utama</div>
+                    <div style="display:flex;flex-direction:column;gap:10px;">
+                        <div>
+                            <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Nama Bank</label>
+                            <input type="text" name="bank_name" value="<?php echo htmlspecialchars($cfg['bank_name']); ?>"
+                                style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;"
+                                placeholder="BCA / BRI / BNI / Mandiri">
+                        </div>
+                        <div>
+                            <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Nomor Rekening</label>
+                            <input type="text" name="bank_account" value="<?php echo htmlspecialchars($cfg['bank_account']); ?>"
+                                style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;"
+                                placeholder="1234567890">
+                        </div>
+                        <div>
+                            <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Atas Nama</label>
+                            <input type="text" name="bank_holder" value="<?php echo htmlspecialchars($cfg['bank_holder']); ?>"
+                                style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;"
+                                placeholder="Nama Pemilik Rekening">
+                        </div>
+                    </div>
+                </div>
+
+                <div style="background:#fff;border:1px solid #dde5ef;border-radius:8px;padding:20px;margin-bottom:16px;">
+                    <div style="font-size:15px;font-weight:700;color:#0c4a6e;margin-bottom:14px;">🏦 Rekening Pembayaran Kedua (opsional)</div>
+                    <div style="display:flex;flex-direction:column;gap:10px;">
+                        <div>
+                            <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Nama Bank</label>
+                            <input type="text" name="bank_name2" value="<?php echo htmlspecialchars($cfg['bank_name2']); ?>"
+                                style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;"
+                                placeholder="BCA / BRI / BNI / Mandiri">
+                        </div>
+                        <div>
+                            <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Nomor Rekening</label>
+                            <input type="text" name="bank_account2" value="<?php echo htmlspecialchars($cfg['bank_account2']); ?>"
+                                style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;"
+                                placeholder="1234567890">
+                        </div>
+                        <div>
+                            <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Atas Nama</label>
+                            <input type="text" name="bank_holder2" value="<?php echo htmlspecialchars($cfg['bank_holder2']); ?>"
+                                style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;"
+                                placeholder="Nama Pemilik Rekening">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Preview rekening -->
+                <?php if ($cfg['bank_name'] || $cfg['bank_account']): ?>
+                    <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:14px;">
+                        <div style="font-size:13px;font-weight:700;color:#0369a1;margin-bottom:8px;">Preview di Invoice:</div>
+                        <div style="font-size:13px;color:#0c4a6e;">
+                            <strong><?php echo htmlspecialchars($cfg['bank_name']); ?></strong><br>
+                            <?php echo htmlspecialchars($cfg['bank_account']); ?><br>
+                            a.n. <?php echo htmlspecialchars($cfg['bank_holder']); ?>
+                            <?php if ($cfg['bank_name2']): ?>
+                                <hr style="border:none;border-top:1px solid #bae6fd;margin:8px 0;">
+                                <strong><?php echo htmlspecialchars($cfg['bank_name2']); ?></strong><br>
+                                <?php echo htmlspecialchars($cfg['bank_account2']); ?><br>
+                                a.n. <?php echo htmlspecialchars($cfg['bank_holder2']); ?>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
-    </div>
-</form>
+
+        <div style="margin-top:16px;padding:16px;background:#fff;border:1px solid #dde5ef;border-radius:8px;display:flex;justify-content:flex-end;gap:10px;">
+            <a href="invoices.php" style="padding:10px 20px;background:#f0f9ff;color:#0EA5E9;border:1px solid #0EA5E9;border-radius:5px;text-decoration:none;font-weight:600;font-size:14px;">
+                📄 Lihat Invoice
+            </a>
+            <button type="submit" style="padding:10px 24px;background:#0EA5E9;color:white;border:none;border-radius:5px;font-weight:700;cursor:pointer;font-size:14px;">
+                💾 Simpan Pengaturan Invoice
+            </button>
+        </div>
+    </form>
+
+    <!-- TAB: SIDEBAR -->
+<?php elseif ($tab === 'sidebar'): ?>
+    <form method="POST">
+        <input type="hidden" name="tab" value="sidebar">
+        <div style="display:grid;grid-template-columns:1fr 320px;gap:18px;align-items:start;">
+            <div style="background:#fff;border:1px solid #dde5ef;border-radius:8px;padding:20px;">
+                <div style="font-size:16px;font-weight:700;color:#0c4a6e;margin-bottom:8px;">🧭 Setup Sidebar</div>
+                <div style="font-size:13px;color:#666;margin-bottom:16px;">Centang menu yang ingin ditampilkan di sidebar Sunsea.</div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                    <?php foreach ($sidebarMenuOptions as $key => $label): ?>
+                        <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid #d9e2ec;border-radius:6px;cursor:pointer;background:#fafcff;">
+                            <input type="checkbox" name="sidebar_menu[]" value="<?php echo htmlspecialchars($key); ?>"
+                                <?php echo in_array($key, $visibleSidebarMenus, true) ? 'checked' : ''; ?>>
+                            <span style="font-size:13px;font-weight:600;color:#334155;"><?php echo htmlspecialchars($label); ?></span>
+                        </label>
+                    <?php endforeach; ?>
+                </div>
+
+                <div style="margin-top:14px;padding:10px 12px;border-radius:6px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;font-size:12px;">
+                    Jika semua checkbox tidak dipilih, sistem otomatis menampilkan menu Booking agar sidebar tidak kosong.
+                </div>
+
+                <div style="padding-top:14px;">
+                    <button type="submit" style="padding:10px 24px;background:#0EA5E9;color:white;border:none;border-radius:5px;font-weight:700;cursor:pointer;font-size:14px;">
+                        💾 Simpan Setup Sidebar
+                    </button>
+                </div>
+            </div>
+
+            <div style="background:#fff;border:1px solid #dde5ef;border-radius:8px;padding:20px;">
+                <div style="font-size:14px;font-weight:700;color:#0c4a6e;margin-bottom:12px;">👁️ Preview Menu Aktif</div>
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                    <?php foreach ($visibleSidebarMenus as $mKey): ?>
+                        <div style="padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;color:#334155;background:#f8fafc;">
+                            <?php echo htmlspecialchars($sidebarMenuOptions[$mKey] ?? $mKey); ?>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        </div>
+    </form>
 <?php endif; ?>
 
 <?php include 'layout-footer.php'; ?>

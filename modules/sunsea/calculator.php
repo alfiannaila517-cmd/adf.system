@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Sunsea - Kalkulator Harga Trip (Enhanced)
  * - Pilihan paket (3H2M, 4H3M, custom, dll)
@@ -225,29 +226,34 @@ $dbCustomers = $pdo->query("SELECT id, name FROM customers WHERE is_active=1 ORD
 $dbTickets = [];
 try {
     $dbTickets = $pdo->query("SELECT id, ticket_name, ticket_type, price_cost, price_sell, unit FROM tickets WHERE is_active=1 ORDER BY ticket_type, ticket_name")->fetchAll();
-} catch(Exception $e) {}
+} catch (Exception $e) {
+}
 
 $dbRooms = [];
 try {
     $dbRooms = $pdo->query("SELECT r.id, r.room_type, r.price_cost, r.price_sell, p.name as partner_name
         FROM accommodation_rooms r JOIN accommodation_partners p ON p.id=r.partner_id
         WHERE r.is_active=1 AND p.is_active=1 ORDER BY p.name, r.room_type")->fetchAll();
-} catch(Exception $e) {}
+} catch (Exception $e) {
+}
 
 $dbCaterings = [];
 try {
     $dbCaterings = $pdo->query("SELECT id, vendor_name, menu_name, portion_unit, price_cost, price_sell FROM caterings WHERE is_active=1 ORDER BY vendor_name, menu_name")->fetchAll();
-} catch(Exception $e) {}
+} catch (Exception $e) {
+}
 
 $dbGuides = [];
 try {
     $dbGuides = $pdo->query("SELECT id, name, guide_type, daily_rate_cost, daily_rate_sell FROM guides WHERE is_active=1 ORDER BY guide_type, name")->fetchAll();
-} catch(Exception $e) {}
+} catch (Exception $e) {
+}
 
 $dbFacilities = [];
 try {
     $dbFacilities = $pdo->query("SELECT id, name, unit, price_cost, price_sell, category FROM facilities WHERE is_active=1 ORDER BY category, name")->fetchAll();
-} catch(Exception $e) {}
+} catch (Exception $e) {
+}
 
 $pkgPresetPrices = [
     '2d1n' => (float)sunseaSetting($pdo, 'calc_pkg_price_2d1n', '0'),
@@ -270,35 +276,168 @@ include 'layout-header.php';
 ?>
 
 <style>
-.calc-section { background:#fff; border:1px solid #dde5ef; border-radius:8px; padding:20px; margin-bottom:16px; }
-.calc-section-title { font-size:14px; font-weight:700; color:#0c4a6e; margin-bottom:14px; display:flex; align-items:center; gap:8px; }
-.pkg-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin-bottom:12px; }
-.pkg-card { border:2px solid #dde5ef; border-radius:8px; padding:12px; text-align:center; cursor:pointer; transition:all .15s; }
-.pkg-card:hover,.pkg-card.active { border-color:#0EA5E9; background:#f0f9ff; }
-.pkg-card .pkg-duration { font-size:20px; font-weight:800; color:#0c4a6e; }
-.pkg-card .pkg-label { font-size:11px; color:#666; margin-top:2px; }
-.pkg-card .pkg-price { font-size:11px; font-weight:700; color:#0EA5E9; margin-top:6px; }
-.calc-table { width:100%; border-collapse:collapse; font-size:13px; }
-.calc-table th { padding:8px 10px; text-align:left; font-size:11px; color:#666; background:#f8fbff; font-weight:700; }
-.calc-table td { padding:5px 7px; border-bottom:1px solid #f0f4f8; vertical-align:middle; }
-.calc-input { width:100%; padding:6px 8px; border:1px solid #dde5ef; border-radius:4px; font-size:12px; font-family:inherit; box-sizing:border-box; }
-.calc-input:focus { outline:none; border-color:#0EA5E9; }
-.calc-select { width:100%; padding:6px 8px; border:1px solid #dde5ef; border-radius:4px; font-size:12px; font-family:inherit; background:#fff; box-sizing:border-box; }
-.calc-btn-sm { padding:5px 10px; border:1px solid #dde5ef; border-radius:4px; font-size:12px; cursor:pointer; background:#fff; font-family:inherit; }
-.summary-row { display:flex; justify-content:space-between; padding:6px 0; font-size:13px; }
-.summary-total { display:flex; justify-content:space-between; font-size:18px; font-weight:800; color:#0EA5E9; border-top:2px solid #0EA5E9; padding-top:10px; margin-top:6px; }
-.add-db-btn { display:inline-flex; align-items:center; gap:5px; padding:6px 12px; background:#f0f9ff; border:1px solid #bae6fd; border-radius:5px; font-size:12px; font-weight:600; color:#0369a1; cursor:pointer; }
-.add-db-btn:hover { background:#e0f2fe; }
+    .calc-section {
+        background: #fff;
+        border: 1px solid #dde5ef;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 16px;
+    }
+
+    .calc-section-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: #0c4a6e;
+        margin-bottom: 14px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .pkg-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+
+    .pkg-card {
+        border: 2px solid #dde5ef;
+        border-radius: 8px;
+        padding: 12px;
+        text-align: center;
+        cursor: pointer;
+        transition: all .15s;
+    }
+
+    .pkg-card:hover,
+    .pkg-card.active {
+        border-color: #0EA5E9;
+        background: #f0f9ff;
+    }
+
+    .pkg-card .pkg-duration {
+        font-size: 20px;
+        font-weight: 800;
+        color: #0c4a6e;
+    }
+
+    .pkg-card .pkg-label {
+        font-size: 11px;
+        color: #666;
+        margin-top: 2px;
+    }
+
+    .pkg-card .pkg-price {
+        font-size: 11px;
+        font-weight: 700;
+        color: #0EA5E9;
+        margin-top: 6px;
+    }
+
+    .calc-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+    }
+
+    .calc-table th {
+        padding: 8px 10px;
+        text-align: left;
+        font-size: 11px;
+        color: #666;
+        background: #f8fbff;
+        font-weight: 700;
+    }
+
+    .calc-table td {
+        padding: 5px 7px;
+        border-bottom: 1px solid #f0f4f8;
+        vertical-align: middle;
+    }
+
+    .calc-input {
+        width: 100%;
+        padding: 6px 8px;
+        border: 1px solid #dde5ef;
+        border-radius: 4px;
+        font-size: 12px;
+        font-family: inherit;
+        box-sizing: border-box;
+    }
+
+    .calc-input:focus {
+        outline: none;
+        border-color: #0EA5E9;
+    }
+
+    .calc-select {
+        width: 100%;
+        padding: 6px 8px;
+        border: 1px solid #dde5ef;
+        border-radius: 4px;
+        font-size: 12px;
+        font-family: inherit;
+        background: #fff;
+        box-sizing: border-box;
+    }
+
+    .calc-btn-sm {
+        padding: 5px 10px;
+        border: 1px solid #dde5ef;
+        border-radius: 4px;
+        font-size: 12px;
+        cursor: pointer;
+        background: #fff;
+        font-family: inherit;
+    }
+
+    .summary-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 0;
+        font-size: 13px;
+    }
+
+    .summary-total {
+        display: flex;
+        justify-content: space-between;
+        font-size: 18px;
+        font-weight: 800;
+        color: #0EA5E9;
+        border-top: 2px solid #0EA5E9;
+        padding-top: 10px;
+        margin-top: 6px;
+    }
+
+    .add-db-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 6px 12px;
+        background: #f0f9ff;
+        border: 1px solid #bae6fd;
+        border-radius: 5px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #0369a1;
+        cursor: pointer;
+    }
+
+    .add-db-btn:hover {
+        background: #e0f2fe;
+    }
 </style>
 
 <?php if (!empty($_SESSION['flash_message'])): ?>
-<div style="padding:10px 12px;margin-bottom:14px;border-radius:6px;font-size:13px;font-weight:600;
+    <div style="padding:10px 12px;margin-bottom:14px;border-radius:6px;font-size:13px;font-weight:600;
     background:<?php echo ($_SESSION['flash_type'] ?? '') === 'success' ? '#ecfdf5' : '#fef2f2'; ?>;
     border:1px solid <?php echo ($_SESSION['flash_type'] ?? '') === 'success' ? '#86efac' : '#fecaca'; ?>;
     color:<?php echo ($_SESSION['flash_type'] ?? '') === 'success' ? '#166534' : '#991b1b'; ?>;">
-    <?php echo htmlspecialchars($_SESSION['flash_message']); ?>
-</div>
-<?php unset($_SESSION['flash_message'], $_SESSION['flash_type']); endif; ?>
+        <?php echo htmlspecialchars($_SESSION['flash_message']); ?>
+    </div>
+<?php unset($_SESSION['flash_message'], $_SESSION['flash_type']);
+endif; ?>
 
 <div style="display:grid;grid-template-columns:1fr 340px;gap:20px;">
 
@@ -387,14 +526,14 @@ include 'layout-header.php';
                 <select id="quickPkg" class="calc-select" style="max-width:360px;" onchange="loadFromSavedPackage(this.value)">
                     <option value="">-- Pilih paket tersimpan --</option>
                     <?php foreach ($dbPackages as $p): ?>
-                    <option value="<?php echo $p['id']; ?>"
-                        data-name="<?php echo htmlspecialchars($p['name'], ENT_QUOTES); ?>"
-                        data-price="<?php echo $p['base_price']; ?>"
-                        data-days="<?php echo $p['duration_days']; ?>"
-                        data-nights="<?php echo $p['duration_nights']; ?>"
-                        data-includes="<?php echo htmlspecialchars($p['includes'] ?? '', ENT_QUOTES); ?>">
-                        <?php echo htmlspecialchars($p['name']); ?> — Rp <?php echo number_format((float)$p['base_price'], 0, ',', '.'); ?>/org
-                    </option>
+                        <option value="<?php echo $p['id']; ?>"
+                            data-name="<?php echo htmlspecialchars($p['name'], ENT_QUOTES); ?>"
+                            data-price="<?php echo $p['base_price']; ?>"
+                            data-days="<?php echo $p['duration_days']; ?>"
+                            data-nights="<?php echo $p['duration_nights']; ?>"
+                            data-includes="<?php echo htmlspecialchars($p['includes'] ?? '', ENT_QUOTES); ?>">
+                            <?php echo htmlspecialchars($p['name']); ?> — Rp <?php echo number_format((float)$p['base_price'], 0, ',', '.'); ?>/org
+                        </option>
                     <?php endforeach; ?>
                 </select>
             </div>
@@ -516,7 +655,7 @@ include 'layout-header.php';
                 <select id="toCustomer" class="calc-select">
                     <option value="">-- Pilih Customer --</option>
                     <?php foreach ($dbCustomers as $c): ?>
-                    <option value="<?php echo $c['id']; ?>"><?php echo htmlspecialchars($c['name']); ?></option>
+                        <option value="<?php echo $c['id']; ?>"><?php echo htmlspecialchars($c['name']); ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
@@ -569,326 +708,448 @@ include 'layout-header.php';
 </form>
 
 <script>
-var DB = {
-    ticket:   <?php echo $jsTickets; ?>,
-    hotel:    <?php echo $jsRooms; ?>,
-    catering: <?php echo $jsCaterings; ?>,
-    guide:    <?php echo $jsGuides; ?>,
-    facility: <?php echo $jsFacilities; ?>
-};
-var PACKAGE_PRESET_PRICES = <?php echo $jsPkgPreset; ?>;
-var activePkgDays = 0, activePkgNights = 0, currentDbType = '';
+    var DB = {
+        ticket: <?php echo $jsTickets; ?>,
+        hotel: <?php echo $jsRooms; ?>,
+        catering: <?php echo $jsCaterings; ?>,
+        guide: <?php echo $jsGuides; ?>,
+        facility: <?php echo $jsFacilities; ?>
+    };
+    var PACKAGE_PRESET_PRICES = <?php echo $jsPkgPreset; ?>;
+    var activePkgDays = 0,
+        activePkgNights = 0,
+        currentDbType = '';
 
-function togglePkgSetup() {
-    var p = document.getElementById('pkgSetupPanel');
-    if (!p) return;
-    p.style.display = p.style.display === 'none' ? '' : 'none';
-}
+    function togglePkgSetup() {
+        var p = document.getElementById('pkgSetupPanel');
+        if (!p) return;
+        p.style.display = p.style.display === 'none' ? '' : 'none';
+    }
 
-function removePresetPackageRows() {
-    document.querySelectorAll('#calcBody tr').forEach(function(row) {
-        var descEl = row.querySelector('.ci-desc');
-        if (!descEl) return;
-        var v = (descEl.value || '').trim().toLowerCase();
-        if (v.indexOf('harga paket preset') === 0) {
-            row.remove();
+    function removePresetPackageRows() {
+        document.querySelectorAll('#calcBody tr').forEach(function(row) {
+            var descEl = row.querySelector('.ci-desc');
+            if (!descEl) return;
+            var v = (descEl.value || '').trim().toLowerCase();
+            if (v.indexOf('harga paket preset') === 0) {
+                row.remove();
+            }
+        });
+    }
+
+    function applyPresetPackagePrice(packageCode) {
+        var key = String(packageCode || '').toLowerCase();
+        var price = parseFloat(PACKAGE_PRESET_PRICES[key] || 0);
+        removePresetPackageRows();
+        if (price > 0) {
+            addManualRow('other', 'Harga Paket Preset ' + String(packageCode).toUpperCase(), 1, 'pax', price, true);
         }
-    });
-}
-
-function applyPresetPackagePrice(packageCode) {
-    var key = String(packageCode || '').toLowerCase();
-    var price = parseFloat(PACKAGE_PRESET_PRICES[key] || 0);
-    removePresetPackageRows();
-    if (price > 0) {
-        addManualRow('other', 'Harga Paket Preset ' + String(packageCode).toUpperCase(), 1, 'pax', price, true);
     }
-}
 
-function selectPkg(el, code, label, days, nights) {
-    document.querySelectorAll('.pkg-card').forEach(function(c) { c.classList.remove('active'); });
-    el.classList.add('active');
-    activePkgDays = days; activePkgNights = nights;
-    document.getElementById('tripName').value = 'Trip Karimunjawa ' + code;
-    document.getElementById('tripDuration').value = days + ' Hari ' + nights + ' Malam';
-    document.getElementById('customDurWrap').style.display = 'none';
-    applyPresetPackagePrice(code);
-    recalc();
-}
-function selectPkgCustom(el) {
-    document.querySelectorAll('.pkg-card').forEach(function(c) { c.classList.remove('active'); });
-    el.classList.add('active');
-    document.getElementById('customDurWrap').style.display = '';
-    removePresetPackageRows();
-    recalc();
-}
-function applyCustomPkg() {
-    var name = document.getElementById('customPkgName').value || 'Custom Trip';
-    var days = parseInt(document.getElementById('customDays').value) || 1;
-    var nights = parseInt(document.getElementById('customNights').value) || 0;
-    activePkgDays = days; activePkgNights = nights;
-    document.getElementById('tripName').value = name;
-    document.getElementById('tripDuration').value = days + ' Hari ' + nights + ' Malam';
-    removePresetPackageRows();
-    recalc();
-}
-function loadFromSavedPackage(pkgId) {
-    if (!pkgId) return;
-    var opt = document.querySelector('#quickPkg option[value="' + pkgId + '"]');
-    if (!opt) return;
-    var days = parseInt(opt.dataset.days) || 1;
-    var nights = parseInt(opt.dataset.nights) || 0;
-    activePkgDays = days; activePkgNights = nights;
-    document.getElementById('tripName').value = opt.dataset.name;
-    document.getElementById('tripDuration').value = days + ' Hari ' + nights + ' Malam';
-    var includes = opt.dataset.includes || '';
-    if (includes) {
-        document.getElementById('calcBody').innerHTML = '';
-        includes.split('\n').forEach(function(line) {
-            line = line.replace(/^[-*•]\s*/, '').trim();
-            if (line) addManualRow('other', line, 1, 'unit', 0, false);
+    function selectPkg(el, code, label, days, nights) {
+        document.querySelectorAll('.pkg-card').forEach(function(c) {
+            c.classList.remove('active');
         });
-    }
-    var basePrice = parseFloat(opt.dataset.price) || 0;
-    if (basePrice > 0) addManualRow('other', 'Harga Dasar: ' + opt.dataset.name, 1, 'paket', basePrice, false);
-    document.querySelectorAll('.pkg-card').forEach(function(c) { c.classList.remove('active'); });
-    recalc();
-}
-
-var DB_LABELS = { ticket:'🎫 Pilih Tiket', hotel:'🏨 Pilih Hotel/Penginapan', catering:'🍽️ Pilih Catering', guide:'👤 Pilih Guide', facility:'⚙️ Pilih Fasilitas' };
-function openDbPicker(type) {
-    currentDbType = type;
-    document.getElementById('dbPickerTitle').textContent = DB_LABELS[type] || 'Pilih Item';
-    var sel = document.getElementById('dbPickerSelect');
-    sel.innerHTML = '<option value="">-- Pilih item --</option>';
-    var items = DB[type] || [];
-    items.forEach(function(item, i) {
-        var label='', cost=0, sell=0, unit='unit';
-        if (type==='ticket') { label='['+item.ticket_type+'] '+item.ticket_name+' — Jual: Rp '+fmt0(item.price_sell); cost=item.price_cost; sell=item.price_sell; unit=item.unit||'pax'; }
-        else if (type==='hotel') { label=item.partner_name+' — '+item.room_type+' — Rp '+fmt0(item.price_sell)+'/malam'; cost=item.price_cost; sell=item.price_sell; unit='malam'; }
-        else if (type==='catering') { label=item.vendor_name+' — '+item.menu_name+' ('+item.portion_unit+') — Rp '+fmt0(item.price_sell); cost=item.price_cost; sell=item.price_sell; unit=item.portion_unit||'porsi'; }
-        else if (type==='guide') { label='['+item.guide_type+'] '+item.name+' — Rp '+fmt0(item.daily_rate_sell)+'/hari'; cost=item.daily_rate_cost; sell=item.daily_rate_sell; unit='hari'; }
-        else if (type==='facility') { label=(item.category?'['+item.category+'] ':'')+item.name+' ('+item.unit+') — Rp '+fmt0(item.price_sell); cost=item.price_cost; sell=item.price_sell; unit=item.unit||'unit'; }
-        var opt = document.createElement('option');
-        opt.value = i; opt.textContent = label;
-        opt.dataset.cost=cost; opt.dataset.sell=sell; opt.dataset.unit=unit;
-        sel.appendChild(opt);
-    });
-    sel.onchange = function() {
-        var o = sel.options[sel.selectedIndex];
-        if (!o||!o.value) { document.getElementById('dbPickerPreview').textContent=''; return; }
-        document.getElementById('dbPickerPreview').innerHTML = '<strong>Modal:</strong> Rp '+fmt0(o.dataset.cost)+' &nbsp;|&nbsp; <strong>Jual:</strong> Rp '+fmt0(o.dataset.sell)+' &nbsp;|&nbsp; Satuan: <strong>'+(o.dataset.unit||'-')+'</strong>';
-        document.getElementById('dbPickerUnit').value = o.dataset.unit||'unit';
-        document.getElementById('dbPickerQty').value = (type==='hotel'&&activePkgNights>0) ? activePkgNights : (type==='guide'&&activePkgDays>0) ? activePkgDays : 1;
-    };
-    document.getElementById('dbPickerPanel').style.display = '';
-    document.getElementById('dbPickerPreview').textContent = '';
-    document.getElementById('dbPickerQty').value = 1;
-}
-function addFromDb() {
-    var sel = document.getElementById('dbPickerSelect');
-    var opt = sel.options[sel.selectedIndex];
-    if (!opt||!opt.value) { alert('Pilih item terlebih dahulu.'); return; }
-    var items = DB[currentDbType]||[];
-    var item = items[parseInt(opt.value)];
-    if (!item) return;
-    var qty = parseFloat(document.getElementById('dbPickerQty').value)||1;
-    var unit = document.getElementById('dbPickerUnit').value||opt.dataset.unit||'unit';
-    var sell = parseFloat(opt.dataset.sell)||0;
-    var catMap = {ticket:'transport',hotel:'accommodation',catering:'meal',guide:'guide',facility:'equipment'};
-    var desc='';
-    if (currentDbType==='ticket') desc=item.ticket_name+' ('+item.ticket_type+')';
-    else if (currentDbType==='hotel') desc=item.partner_name+' — '+item.room_type;
-    else if (currentDbType==='catering') desc=item.vendor_name+' — '+item.menu_name;
-    else if (currentDbType==='guide') desc='Guide '+item.guide_type+': '+item.name;
-    else if (currentDbType==='facility') desc=item.name;
-    addManualRow(catMap[currentDbType]||'other', desc, qty, unit, sell, false);
-    sel.value=''; document.getElementById('dbPickerPreview').textContent=''; document.getElementById('dbPickerQty').value=1;
-}
-function closeDbPicker() { document.getElementById('dbPickerPanel').style.display='none'; currentDbType=''; }
-
-var categoryLabels = {accommodation:'Penginapan',transport:'Transport',meal:'Makan',activity:'Aktivitas',guide:'Guide',equipment:'Perlengkapan',other:'Lainnya'};
-var categoryOptions = Object.keys(categoryLabels).map(function(k){return '<option value="'+k+'">'+categoryLabels[k]+'</option>';}).join('');
-
-function addManualRow(type, desc, qty, unit, price, perPax) {
-    type=type||'other'; desc=desc||''; qty=qty||1; unit=unit||'unit'; price=price||0; perPax=perPax!==undefined?perPax:false;
-    var tr = document.createElement('tr');
-    tr.innerHTML =
-        '<td><select class="calc-select ci-type" onchange="recalc()">'+categoryOptions.replace('value="'+type+'"','value="'+type+'" selected')+'</select></td>'+
-        '<td><input type="text" class="calc-input ci-desc" value="'+esc(desc)+'" placeholder="Keterangan..." oninput="recalc()"></td>'+
-        '<td><input type="number" class="calc-input ci-qty" value="'+qty+'" min="0" step="0.5" oninput="recalc()" style="text-align:center;"></td>'+
-        '<td><input type="text" class="calc-input ci-unit" value="'+unit+'" style="text-align:center;"></td>'+
-        '<td><input type="text" class="calc-input ci-price" value="'+(price?fmtNum(price):'')+'" placeholder="0 (manual)" oninput="recalc()"></td>'+
-        '<td style="text-align:center;"><input type="checkbox" class="ci-perpax"'+(perPax?' checked':'')+' onchange="recalc()" title="Per pax?" style="width:16px;height:16px;cursor:pointer;"></td>'+
-        '<td style="text-align:right;font-weight:700;" class="ci-sub">Rp 0</td>'+
-        '<td style="text-align:center;"><button type="button" onclick="this.closest(\'tr\').remove();recalc();" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:16px;line-height:1;">×</button></td>';
-    document.getElementById('calcBody').appendChild(tr);
-    recalc();
-}
-
-function recalc() {
-    var pax=parseInt(document.getElementById('paxCount').value)||1;
-    var margin=parseFloat(document.getElementById('marginPct').value)||0;
-    var taxPct=parseFloat(document.getElementById('taxCalc').value)||0;
-    var dpAmt=unFmt(document.getElementById('dpAmount')?.value||'0');
-    var totalCost=0;
-    document.getElementById('marginLabel').textContent=margin;
-    document.querySelectorAll('#calcBody tr').forEach(function(row) {
-        var qty=parseFloat(row.querySelector('.ci-qty')?.value)||0;
-        var price=unFmt(row.querySelector('.ci-price')?.value||'0');
-        var perPax=row.querySelector('.ci-perpax')?.checked;
-        var sub=qty*price*(perPax?pax:1);
-        var cell=row.querySelector('.ci-sub');
-        if (cell) cell.textContent=fmt(sub);
-        totalCost+=sub;
-    });
-    var costPerPax=pax>0?totalCost/pax:0;
-    var marginAmt=costPerPax*margin/100;
-    var sellPerPax=costPerPax+marginAmt;
-    var subtotal=sellPerPax*pax;
-    var tax=subtotal*taxPct/100;
-    var total=subtotal+tax;
-    var remain=Math.max(0,total-dpAmt);
-    document.getElementById('sumCost').textContent=fmt(totalCost);
-    document.getElementById('sumCostPerPax').textContent=fmt(costPerPax);
-    document.getElementById('sumMargin').textContent=fmt(marginAmt*pax);
-    document.getElementById('sumSellPerPax').textContent=fmt(sellPerPax);
-    document.getElementById('sumSubtotal').textContent=fmt(subtotal);
-    document.getElementById('sumTax').textContent=fmt(tax);
-    document.getElementById('sumTotal').textContent=fmt(total);
-
-    if (!document.getElementById('sumDpRow')) {
-        var box = document.getElementById('sumTotal').closest('div').parentElement;
-        var dpRow = document.createElement('div');
-        dpRow.className = 'summary-row';
-        dpRow.id = 'sumDpRow';
-        dpRow.innerHTML = '<span style="color:#666;">DP</span><span id="sumDp">Rp 0</span>';
-        var remRow = document.createElement('div');
-        remRow.className = 'summary-row';
-        remRow.id = 'sumRemainRow';
-        remRow.innerHTML = '<span style="color:#666;font-weight:700;">Sisa Bayar</span><span id="sumRemain" style="font-weight:700;color:#ef4444;">Rp 0</span>';
-        box.appendChild(dpRow);
-        box.appendChild(remRow);
-    }
-    document.getElementById('sumDp').textContent = fmt(dpAmt);
-    document.getElementById('sumRemain').textContent = fmt(remain);
-}
-function clearAll() {
-    if (!confirm('Bersihkan semua?')) return;
-    document.getElementById('calcBody').innerHTML='';
-    document.getElementById('tripName').value=''; document.getElementById('tripDuration').value='';
-    document.getElementById('quickPkg').value='';
-    var dpEl=document.getElementById('dpAmount'); if(dpEl) dpEl.value='';
-    var dpDateEl=document.getElementById('dpDate'); if(dpDateEl) dpDateEl.value='<?php echo date('Y-m-d'); ?>';
-    document.querySelectorAll('.pkg-card').forEach(function(c){c.classList.remove('active');});
-    closeDbPicker(); recalc();
-}
-function sendToQuotation() {
-    var custId=document.getElementById('toCustomer').value;
-    if (!custId){alert('Pilih customer terlebih dahulu.');return;}
-    var items=[];
-    document.querySelectorAll('#calcBody tr').forEach(function(row){
-        items.push({type:row.querySelector('.ci-type')?.value||'other',desc:row.querySelector('.ci-desc')?.value||'',qty:parseFloat(row.querySelector('.ci-qty')?.value)||1,unit:row.querySelector('.ci-unit')?.value||'unit',price:unFmt(row.querySelector('.ci-price')?.value||'0'),perPax:row.querySelector('.ci-perpax')?.checked?1:0});
-    });
-    sessionStorage.setItem('sunsea_calc',JSON.stringify({items,pax:parseInt(document.getElementById('paxCount').value)||1,margin:parseFloat(document.getElementById('marginPct').value)||0,tripName:document.getElementById('tripName').value}));
-    document.getElementById('fCustomerId').value=custId;
-    document.getElementById('toQuotationForm').submit();
-}
-
-function printInvoiceFromCalculator() {
-    var custId = document.getElementById('toCustomer').value;
-    if (!custId) {
-        alert('Pilih customer terlebih dahulu sebelum cetak invoice.');
-        return;
+        el.classList.add('active');
+        activePkgDays = days;
+        activePkgNights = nights;
+        document.getElementById('tripName').value = 'Trip Karimunjawa ' + code;
+        document.getElementById('tripDuration').value = days + ' Hari ' + nights + ' Malam';
+        document.getElementById('customDurWrap').style.display = 'none';
+        applyPresetPackagePrice(code);
+        recalc();
     }
 
-    var items = [];
-    document.querySelectorAll('#calcBody tr').forEach(function(row) {
-        var desc = row.querySelector('.ci-desc')?.value || '';
-        var qty = parseFloat(row.querySelector('.ci-qty')?.value) || 0;
-        var price = unFmt(row.querySelector('.ci-price')?.value || '0');
-        if (!desc.trim() || qty <= 0) return;
-        items.push({
-            type: row.querySelector('.ci-type')?.value || 'other',
-            desc: desc,
-            qty: qty,
-            unit: row.querySelector('.ci-unit')?.value || 'unit',
-            price: price,
-            perPax: row.querySelector('.ci-perpax')?.checked ? 1 : 0
+    function selectPkgCustom(el) {
+        document.querySelectorAll('.pkg-card').forEach(function(c) {
+            c.classList.remove('active');
         });
-    });
-
-    if (!items.length) {
-        alert('Belum ada komponen biaya yang valid untuk dibuat invoice.');
-        return;
+        el.classList.add('active');
+        document.getElementById('customDurWrap').style.display = '';
+        removePresetPackageRows();
+        recalc();
     }
 
-    document.getElementById('piCustomerId').value = custId;
-    document.getElementById('piTripName').value = document.getElementById('tripName').value || 'Trip Custom';
-    document.getElementById('piPaxCount').value = parseInt(document.getElementById('paxCount').value) || 1;
-    document.getElementById('piTaxPct').value = parseFloat(document.getElementById('taxCalc').value) || 0;
-    document.getElementById('piDpAmount').value = unFmt(document.getElementById('dpAmount')?.value || '0');
-    document.getElementById('piDpDate').value = document.getElementById('dpDate')?.value || '';
-    document.getElementById('piPayload').value = JSON.stringify(items);
-    document.getElementById('printInvoiceForm').submit();
-}
+    function applyCustomPkg() {
+        var name = document.getElementById('customPkgName').value || 'Custom Trip';
+        var days = parseInt(document.getElementById('customDays').value) || 1;
+        var nights = parseInt(document.getElementById('customNights').value) || 0;
+        activePkgDays = days;
+        activePkgNights = nights;
+        document.getElementById('tripName').value = name;
+        document.getElementById('tripDuration').value = days + ' Hari ' + nights + ' Malam';
+        removePresetPackageRows();
+        recalc();
+    }
 
-function saveTempBooking() {
-    var draft = {
-        tripName: document.getElementById('tripName')?.value || '',
-        tripDuration: document.getElementById('tripDuration')?.value || '',
-        pax: document.getElementById('paxCount')?.value || '1',
-        margin: document.getElementById('marginPct')?.value || '15',
-        tax: document.getElementById('taxCalc')?.value || '11',
-        customerId: document.getElementById('toCustomer')?.value || '',
-        dpAmount: document.getElementById('dpAmount')?.value || '',
-        dpDate: document.getElementById('dpDate')?.value || '',
-        items: []
-    };
-    document.querySelectorAll('#calcBody tr').forEach(function(row){
-        draft.items.push({
-            type: row.querySelector('.ci-type')?.value || 'other',
-            desc: row.querySelector('.ci-desc')?.value || '',
-            qty: row.querySelector('.ci-qty')?.value || '1',
-            unit: row.querySelector('.ci-unit')?.value || 'unit',
-            price: row.querySelector('.ci-price')?.value || '',
-            perPax: row.querySelector('.ci-perpax')?.checked ? 1 : 0
-        });
-    });
-    localStorage.setItem('sunsea_booking_temp', JSON.stringify(draft));
-    alert('Draft booking sementara berhasil disimpan.');
-}
-
-function loadTempBooking() {
-    var raw = localStorage.getItem('sunsea_booking_temp');
-    if (!raw) return;
-    try {
-        var d = JSON.parse(raw);
-        if (!d || !Array.isArray(d.items) || d.items.length === 0) return;
-        document.getElementById('tripName').value = d.tripName || '';
-        document.getElementById('tripDuration').value = d.tripDuration || '';
-        document.getElementById('paxCount').value = d.pax || '1';
-        document.getElementById('marginPct').value = d.margin || '15';
-        document.getElementById('taxCalc').value = d.tax || '11';
-        document.getElementById('toCustomer').value = d.customerId || '';
-        if (document.getElementById('dpAmount')) document.getElementById('dpAmount').value = d.dpAmount || '';
-        if (document.getElementById('dpDate')) document.getElementById('dpDate').value = d.dpDate || '<?php echo date('Y-m-d'); ?>';
-        document.getElementById('calcBody').innerHTML = '';
-        d.items.forEach(function(it){
-            addManualRow(it.type, it.desc, parseFloat(it.qty)||1, it.unit||'unit', unFmt(it.price||'0'), !!it.perPax);
+    function loadFromSavedPackage(pkgId) {
+        if (!pkgId) return;
+        var opt = document.querySelector('#quickPkg option[value="' + pkgId + '"]');
+        if (!opt) return;
+        var days = parseInt(opt.dataset.days) || 1;
+        var nights = parseInt(opt.dataset.nights) || 0;
+        activePkgDays = days;
+        activePkgNights = nights;
+        document.getElementById('tripName').value = opt.dataset.name;
+        document.getElementById('tripDuration').value = days + ' Hari ' + nights + ' Malam';
+        var includes = opt.dataset.includes || '';
+        if (includes) {
+            document.getElementById('calcBody').innerHTML = '';
+            includes.split('\n').forEach(function(line) {
+                line = line.replace(/^[-*•]\s*/, '').trim();
+                if (line) addManualRow('other', line, 1, 'unit', 0, false);
+            });
+        }
+        var basePrice = parseFloat(opt.dataset.price) || 0;
+        if (basePrice > 0) addManualRow('other', 'Harga Dasar: ' + opt.dataset.name, 1, 'paket', basePrice, false);
+        document.querySelectorAll('.pkg-card').forEach(function(c) {
+            c.classList.remove('active');
         });
         recalc();
-    } catch (e) {}
-}
-function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
-function fmtNum(n){return n?Math.round(n).toLocaleString('id-ID'):'';}
-function unFmt(s){return parseFloat(String(s).replace(/\./g,'').replace(',','.'))||0;}
-function fmt(n){return 'Rp '+Math.round(n).toLocaleString('id-ID');}
-function fmt0(n){return Math.round(n).toLocaleString('id-ID');}
+    }
 
-addManualRow('accommodation'); addManualRow('transport'); addManualRow('meal');
-loadTempBooking();
-recalc();
+    var DB_LABELS = {
+        ticket: '🎫 Pilih Tiket',
+        hotel: '🏨 Pilih Hotel/Penginapan',
+        catering: '🍽️ Pilih Catering',
+        guide: '👤 Pilih Guide',
+        facility: '⚙️ Pilih Fasilitas'
+    };
+
+    function openDbPicker(type) {
+        currentDbType = type;
+        document.getElementById('dbPickerTitle').textContent = DB_LABELS[type] || 'Pilih Item';
+        var sel = document.getElementById('dbPickerSelect');
+        sel.innerHTML = '<option value="">-- Pilih item --</option>';
+        var items = DB[type] || [];
+        items.forEach(function(item, i) {
+            var label = '',
+                cost = 0,
+                sell = 0,
+                unit = 'unit';
+            if (type === 'ticket') {
+                label = '[' + item.ticket_type + '] ' + item.ticket_name + ' — Jual: Rp ' + fmt0(item.price_sell);
+                cost = item.price_cost;
+                sell = item.price_sell;
+                unit = item.unit || 'pax';
+            } else if (type === 'hotel') {
+                label = item.partner_name + ' — ' + item.room_type + ' — Rp ' + fmt0(item.price_sell) + '/malam';
+                cost = item.price_cost;
+                sell = item.price_sell;
+                unit = 'malam';
+            } else if (type === 'catering') {
+                label = item.vendor_name + ' — ' + item.menu_name + ' (' + item.portion_unit + ') — Rp ' + fmt0(item.price_sell);
+                cost = item.price_cost;
+                sell = item.price_sell;
+                unit = item.portion_unit || 'porsi';
+            } else if (type === 'guide') {
+                label = '[' + item.guide_type + '] ' + item.name + ' — Rp ' + fmt0(item.daily_rate_sell) + '/hari';
+                cost = item.daily_rate_cost;
+                sell = item.daily_rate_sell;
+                unit = 'hari';
+            } else if (type === 'facility') {
+                label = (item.category ? '[' + item.category + '] ' : '') + item.name + ' (' + item.unit + ') — Rp ' + fmt0(item.price_sell);
+                cost = item.price_cost;
+                sell = item.price_sell;
+                unit = item.unit || 'unit';
+            }
+            var opt = document.createElement('option');
+            opt.value = i;
+            opt.textContent = label;
+            opt.dataset.cost = cost;
+            opt.dataset.sell = sell;
+            opt.dataset.unit = unit;
+            sel.appendChild(opt);
+        });
+        sel.onchange = function() {
+            var o = sel.options[sel.selectedIndex];
+            if (!o || !o.value) {
+                document.getElementById('dbPickerPreview').textContent = '';
+                return;
+            }
+            document.getElementById('dbPickerPreview').innerHTML = '<strong>Modal:</strong> Rp ' + fmt0(o.dataset.cost) + ' &nbsp;|&nbsp; <strong>Jual:</strong> Rp ' + fmt0(o.dataset.sell) + ' &nbsp;|&nbsp; Satuan: <strong>' + (o.dataset.unit || '-') + '</strong>';
+            document.getElementById('dbPickerUnit').value = o.dataset.unit || 'unit';
+            document.getElementById('dbPickerQty').value = (type === 'hotel' && activePkgNights > 0) ? activePkgNights : (type === 'guide' && activePkgDays > 0) ? activePkgDays : 1;
+        };
+        document.getElementById('dbPickerPanel').style.display = '';
+        document.getElementById('dbPickerPreview').textContent = '';
+        document.getElementById('dbPickerQty').value = 1;
+    }
+
+    function addFromDb() {
+        var sel = document.getElementById('dbPickerSelect');
+        var opt = sel.options[sel.selectedIndex];
+        if (!opt || !opt.value) {
+            alert('Pilih item terlebih dahulu.');
+            return;
+        }
+        var items = DB[currentDbType] || [];
+        var item = items[parseInt(opt.value)];
+        if (!item) return;
+        var qty = parseFloat(document.getElementById('dbPickerQty').value) || 1;
+        var unit = document.getElementById('dbPickerUnit').value || opt.dataset.unit || 'unit';
+        var sell = parseFloat(opt.dataset.sell) || 0;
+        var catMap = {
+            ticket: 'transport',
+            hotel: 'accommodation',
+            catering: 'meal',
+            guide: 'guide',
+            facility: 'equipment'
+        };
+        var desc = '';
+        if (currentDbType === 'ticket') desc = item.ticket_name + ' (' + item.ticket_type + ')';
+        else if (currentDbType === 'hotel') desc = item.partner_name + ' — ' + item.room_type;
+        else if (currentDbType === 'catering') desc = item.vendor_name + ' — ' + item.menu_name;
+        else if (currentDbType === 'guide') desc = 'Guide ' + item.guide_type + ': ' + item.name;
+        else if (currentDbType === 'facility') desc = item.name;
+        addManualRow(catMap[currentDbType] || 'other', desc, qty, unit, sell, false);
+        sel.value = '';
+        document.getElementById('dbPickerPreview').textContent = '';
+        document.getElementById('dbPickerQty').value = 1;
+    }
+
+    function closeDbPicker() {
+        document.getElementById('dbPickerPanel').style.display = 'none';
+        currentDbType = '';
+    }
+
+    var categoryLabels = {
+        accommodation: 'Penginapan',
+        transport: 'Transport',
+        meal: 'Makan',
+        activity: 'Aktivitas',
+        guide: 'Guide',
+        equipment: 'Perlengkapan',
+        other: 'Lainnya'
+    };
+    var categoryOptions = Object.keys(categoryLabels).map(function(k) {
+        return '<option value="' + k + '">' + categoryLabels[k] + '</option>';
+    }).join('');
+
+    function addManualRow(type, desc, qty, unit, price, perPax) {
+        type = type || 'other';
+        desc = desc || '';
+        qty = qty || 1;
+        unit = unit || 'unit';
+        price = price || 0;
+        perPax = perPax !== undefined ? perPax : false;
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+            '<td><select class="calc-select ci-type" onchange="recalc()">' + categoryOptions.replace('value="' + type + '"', 'value="' + type + '" selected') + '</select></td>' +
+            '<td><input type="text" class="calc-input ci-desc" value="' + esc(desc) + '" placeholder="Keterangan..." oninput="recalc()"></td>' +
+            '<td><input type="number" class="calc-input ci-qty" value="' + qty + '" min="0" step="0.5" oninput="recalc()" style="text-align:center;"></td>' +
+            '<td><input type="text" class="calc-input ci-unit" value="' + unit + '" style="text-align:center;"></td>' +
+            '<td><input type="text" class="calc-input ci-price" value="' + (price ? fmtNum(price) : '') + '" placeholder="0 (manual)" oninput="recalc()"></td>' +
+            '<td style="text-align:center;"><input type="checkbox" class="ci-perpax"' + (perPax ? ' checked' : '') + ' onchange="recalc()" title="Per pax?" style="width:16px;height:16px;cursor:pointer;"></td>' +
+            '<td style="text-align:right;font-weight:700;" class="ci-sub">Rp 0</td>' +
+            '<td style="text-align:center;"><button type="button" onclick="this.closest(\'tr\').remove();recalc();" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:16px;line-height:1;">×</button></td>';
+        document.getElementById('calcBody').appendChild(tr);
+        recalc();
+    }
+
+    function recalc() {
+        var pax = parseInt(document.getElementById('paxCount').value) || 1;
+        var margin = parseFloat(document.getElementById('marginPct').value) || 0;
+        var taxPct = parseFloat(document.getElementById('taxCalc').value) || 0;
+        var dpAmt = unFmt(document.getElementById('dpAmount')?.value || '0');
+        var totalCost = 0;
+        document.getElementById('marginLabel').textContent = margin;
+        document.querySelectorAll('#calcBody tr').forEach(function(row) {
+            var qty = parseFloat(row.querySelector('.ci-qty')?.value) || 0;
+            var price = unFmt(row.querySelector('.ci-price')?.value || '0');
+            var perPax = row.querySelector('.ci-perpax')?.checked;
+            var sub = qty * price * (perPax ? pax : 1);
+            var cell = row.querySelector('.ci-sub');
+            if (cell) cell.textContent = fmt(sub);
+            totalCost += sub;
+        });
+        var costPerPax = pax > 0 ? totalCost / pax : 0;
+        var marginAmt = costPerPax * margin / 100;
+        var sellPerPax = costPerPax + marginAmt;
+        var subtotal = sellPerPax * pax;
+        var tax = subtotal * taxPct / 100;
+        var total = subtotal + tax;
+        var remain = Math.max(0, total - dpAmt);
+        document.getElementById('sumCost').textContent = fmt(totalCost);
+        document.getElementById('sumCostPerPax').textContent = fmt(costPerPax);
+        document.getElementById('sumMargin').textContent = fmt(marginAmt * pax);
+        document.getElementById('sumSellPerPax').textContent = fmt(sellPerPax);
+        document.getElementById('sumSubtotal').textContent = fmt(subtotal);
+        document.getElementById('sumTax').textContent = fmt(tax);
+        document.getElementById('sumTotal').textContent = fmt(total);
+
+        if (!document.getElementById('sumDpRow')) {
+            var box = document.getElementById('sumTotal').closest('div').parentElement;
+            var dpRow = document.createElement('div');
+            dpRow.className = 'summary-row';
+            dpRow.id = 'sumDpRow';
+            dpRow.innerHTML = '<span style="color:#666;">DP</span><span id="sumDp">Rp 0</span>';
+            var remRow = document.createElement('div');
+            remRow.className = 'summary-row';
+            remRow.id = 'sumRemainRow';
+            remRow.innerHTML = '<span style="color:#666;font-weight:700;">Sisa Bayar</span><span id="sumRemain" style="font-weight:700;color:#ef4444;">Rp 0</span>';
+            box.appendChild(dpRow);
+            box.appendChild(remRow);
+        }
+        document.getElementById('sumDp').textContent = fmt(dpAmt);
+        document.getElementById('sumRemain').textContent = fmt(remain);
+    }
+
+    function clearAll() {
+        if (!confirm('Bersihkan semua?')) return;
+        document.getElementById('calcBody').innerHTML = '';
+        document.getElementById('tripName').value = '';
+        document.getElementById('tripDuration').value = '';
+        document.getElementById('quickPkg').value = '';
+        var dpEl = document.getElementById('dpAmount');
+        if (dpEl) dpEl.value = '';
+        var dpDateEl = document.getElementById('dpDate');
+        if (dpDateEl) dpDateEl.value = '<?php echo date('Y-m-d'); ?>';
+        document.querySelectorAll('.pkg-card').forEach(function(c) {
+            c.classList.remove('active');
+        });
+        closeDbPicker();
+        recalc();
+    }
+
+    function sendToQuotation() {
+        var custId = document.getElementById('toCustomer').value;
+        if (!custId) {
+            alert('Pilih customer terlebih dahulu.');
+            return;
+        }
+        var items = [];
+        document.querySelectorAll('#calcBody tr').forEach(function(row) {
+            items.push({
+                type: row.querySelector('.ci-type')?.value || 'other',
+                desc: row.querySelector('.ci-desc')?.value || '',
+                qty: parseFloat(row.querySelector('.ci-qty')?.value) || 1,
+                unit: row.querySelector('.ci-unit')?.value || 'unit',
+                price: unFmt(row.querySelector('.ci-price')?.value || '0'),
+                perPax: row.querySelector('.ci-perpax')?.checked ? 1 : 0
+            });
+        });
+        sessionStorage.setItem('sunsea_calc', JSON.stringify({
+            items,
+            pax: parseInt(document.getElementById('paxCount').value) || 1,
+            margin: parseFloat(document.getElementById('marginPct').value) || 0,
+            tripName: document.getElementById('tripName').value
+        }));
+        document.getElementById('fCustomerId').value = custId;
+        document.getElementById('toQuotationForm').submit();
+    }
+
+    function printInvoiceFromCalculator() {
+        var custId = document.getElementById('toCustomer').value;
+        if (!custId) {
+            alert('Pilih customer terlebih dahulu sebelum cetak invoice.');
+            return;
+        }
+
+        var items = [];
+        document.querySelectorAll('#calcBody tr').forEach(function(row) {
+            var desc = row.querySelector('.ci-desc')?.value || '';
+            var qty = parseFloat(row.querySelector('.ci-qty')?.value) || 0;
+            var price = unFmt(row.querySelector('.ci-price')?.value || '0');
+            if (!desc.trim() || qty <= 0) return;
+            items.push({
+                type: row.querySelector('.ci-type')?.value || 'other',
+                desc: desc,
+                qty: qty,
+                unit: row.querySelector('.ci-unit')?.value || 'unit',
+                price: price,
+                perPax: row.querySelector('.ci-perpax')?.checked ? 1 : 0
+            });
+        });
+
+        if (!items.length) {
+            alert('Belum ada komponen biaya yang valid untuk dibuat invoice.');
+            return;
+        }
+
+        document.getElementById('piCustomerId').value = custId;
+        document.getElementById('piTripName').value = document.getElementById('tripName').value || 'Trip Custom';
+        document.getElementById('piPaxCount').value = parseInt(document.getElementById('paxCount').value) || 1;
+        document.getElementById('piTaxPct').value = parseFloat(document.getElementById('taxCalc').value) || 0;
+        document.getElementById('piDpAmount').value = unFmt(document.getElementById('dpAmount')?.value || '0');
+        document.getElementById('piDpDate').value = document.getElementById('dpDate')?.value || '';
+        document.getElementById('piPayload').value = JSON.stringify(items);
+        document.getElementById('printInvoiceForm').submit();
+    }
+
+    function saveTempBooking() {
+        var draft = {
+            tripName: document.getElementById('tripName')?.value || '',
+            tripDuration: document.getElementById('tripDuration')?.value || '',
+            pax: document.getElementById('paxCount')?.value || '1',
+            margin: document.getElementById('marginPct')?.value || '15',
+            tax: document.getElementById('taxCalc')?.value || '11',
+            customerId: document.getElementById('toCustomer')?.value || '',
+            dpAmount: document.getElementById('dpAmount')?.value || '',
+            dpDate: document.getElementById('dpDate')?.value || '',
+            items: []
+        };
+        document.querySelectorAll('#calcBody tr').forEach(function(row) {
+            draft.items.push({
+                type: row.querySelector('.ci-type')?.value || 'other',
+                desc: row.querySelector('.ci-desc')?.value || '',
+                qty: row.querySelector('.ci-qty')?.value || '1',
+                unit: row.querySelector('.ci-unit')?.value || 'unit',
+                price: row.querySelector('.ci-price')?.value || '',
+                perPax: row.querySelector('.ci-perpax')?.checked ? 1 : 0
+            });
+        });
+        localStorage.setItem('sunsea_booking_temp', JSON.stringify(draft));
+        alert('Draft booking sementara berhasil disimpan.');
+    }
+
+    function loadTempBooking() {
+        var raw = localStorage.getItem('sunsea_booking_temp');
+        if (!raw) return;
+        try {
+            var d = JSON.parse(raw);
+            if (!d || !Array.isArray(d.items) || d.items.length === 0) return;
+            document.getElementById('tripName').value = d.tripName || '';
+            document.getElementById('tripDuration').value = d.tripDuration || '';
+            document.getElementById('paxCount').value = d.pax || '1';
+            document.getElementById('marginPct').value = d.margin || '15';
+            document.getElementById('taxCalc').value = d.tax || '11';
+            document.getElementById('toCustomer').value = d.customerId || '';
+            if (document.getElementById('dpAmount')) document.getElementById('dpAmount').value = d.dpAmount || '';
+            if (document.getElementById('dpDate')) document.getElementById('dpDate').value = d.dpDate || '<?php echo date('Y-m-d'); ?>';
+            document.getElementById('calcBody').innerHTML = '';
+            d.items.forEach(function(it) {
+                addManualRow(it.type, it.desc, parseFloat(it.qty) || 1, it.unit || 'unit', unFmt(it.price || '0'), !!it.perPax);
+            });
+            recalc();
+        } catch (e) {}
+    }
+
+    function esc(s) {
+        return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    }
+
+    function fmtNum(n) {
+        return n ? Math.round(n).toLocaleString('id-ID') : '';
+    }
+
+    function unFmt(s) {
+        return parseFloat(String(s).replace(/\./g, '').replace(',', '.')) || 0;
+    }
+
+    function fmt(n) {
+        return 'Rp ' + Math.round(n).toLocaleString('id-ID');
+    }
+
+    function fmt0(n) {
+        return Math.round(n).toLocaleString('id-ID');
+    }
+
+    addManualRow('accommodation');
+    addManualRow('transport');
+    addManualRow('meal');
+    loadTempBooking();
+    recalc();
 </script>
 
 <?php include 'layout-footer.php'; ?>

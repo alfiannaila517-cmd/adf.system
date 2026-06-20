@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Sunsea - Database Tiket (Kapal, BTN, dll)
  */
@@ -61,8 +62,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save'
                 SET ticket_type=?, ticket_name=?, description=?, unit=?, price_cost=?, price_sell=?, notes=?, is_active=?, updated_at=NOW()
                 WHERE id=?")
                 ->execute([
-                    $payload['ticket_type'], $payload['ticket_name'], $payload['description'], $payload['unit'],
-                    $payload['price_cost'], $payload['price_sell'], $payload['notes'], $payload['is_active'], $id
+                    $payload['ticket_type'],
+                    $payload['ticket_name'],
+                    $payload['description'],
+                    $payload['unit'],
+                    $payload['price_cost'],
+                    $payload['price_sell'],
+                    $payload['notes'],
+                    $payload['is_active'],
+                    $id
                 ]);
             $_SESSION['flash_message'] = 'Data tiket berhasil diperbarui.';
         } else {
@@ -77,8 +85,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save'
                 (ticket_code, ticket_type, ticket_name, description, unit, price_cost, price_sell, notes, is_active)
                 VALUES (?,?,?,?,?,?,?,?,?)")
                 ->execute([
-                    $code, $payload['ticket_type'], $payload['ticket_name'], $payload['description'], $payload['unit'],
-                    $payload['price_cost'], $payload['price_sell'], $payload['notes'], $payload['is_active']
+                    $code,
+                    $payload['ticket_type'],
+                    $payload['ticket_name'],
+                    $payload['description'],
+                    $payload['unit'],
+                    $payload['price_cost'],
+                    $payload['price_sell'],
+                    $payload['notes'],
+                    $payload['is_active']
                 ]);
             $_SESSION['flash_message'] = 'Database tiket berhasil ditambahkan.';
         }
@@ -110,16 +125,16 @@ include 'layout-header.php';
 
 <div style="display:grid;grid-template-columns:400px 1fr;gap:18px;padding:16px;">
     <?php if ($dbError): ?>
-    <div style="grid-column:1/-1;padding:12px;background:#fee;border:1px solid #f88;border-radius:4px;color:#c33;margin-bottom:12px;">
-        <strong>Database Error:</strong> <?php echo htmlspecialchars($dbError); ?>
-    </div>
+        <div style="grid-column:1/-1;padding:12px;background:#fee;border:1px solid #f88;border-radius:4px;color:#c33;margin-bottom:12px;">
+            <strong>Database Error:</strong> <?php echo htmlspecialchars($dbError); ?>
+        </div>
     <?php endif; ?>
-    
+
     <div class="ss-card">
         <div class="ss-card-title" style="margin-bottom:12px;">Input Tiket</div>
         <form method="POST" style="display:flex;flex-direction:column;gap:12px;">
             <input type="hidden" name="action" value="save">
-            
+
             <div class="ss-form-group">
                 <label class="ss-label" style="display:block;margin-bottom:6px;font-weight:500;">Tipe Tiket</label>
                 <select name="ticket_type" class="ss-select" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;">
@@ -128,17 +143,17 @@ include 'layout-header.php';
                     <option value="pesawat_susi">Pesawat Susi Air</option>
                 </select>
             </div>
-            
+
             <div class="ss-form-group">
                 <label class="ss-label" style="display:block;margin-bottom:6px;font-weight:500;">Nama Tiket *</label>
                 <input type="text" class="ss-input" name="ticket_name" required placeholder="Kapal Reguler PP / BTN Anak" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
             </div>
-            
+
             <div class="ss-form-group">
                 <label class="ss-label" style="display:block;margin-bottom:6px;font-weight:500;">Deskripsi</label>
                 <input type="text" class="ss-input" name="description" placeholder="Jam berangkat, estimasi waktu, dll" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
             </div>
-            
+
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
                 <div class="ss-form-group">
                     <label class="ss-label" style="display:block;margin-bottom:6px;font-weight:500;">Unit</label>
@@ -149,23 +164,23 @@ include 'layout-header.php';
                     <input type="number" class="ss-input" name="price_cost" placeholder="0" step="0.01" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
                 </div>
             </div>
-            
+
             <div class="ss-form-group">
                 <label class="ss-label" style="display:block;margin-bottom:6px;font-weight:500;">Harga Jual</label>
                 <input type="number" class="ss-input" name="price_sell" placeholder="0" step="0.01" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
             </div>
-            
+
             <div class="ss-form-group">
                 <label class="ss-label" style="display:block;margin-bottom:6px;font-weight:500;">Catatan</label>
                 <textarea class="ss-textarea" name="notes" placeholder="Catatan khusus" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;min-height:80px;"></textarea>
             </div>
-            
+
             <div class="ss-form-group" style="margin-bottom:0;">
                 <label style="display:flex;align-items:center;gap:8px;font-weight:500;">
                     <input type="checkbox" name="is_active" checked style="width:16px;height:16px;cursor:pointer;"> Aktif
                 </label>
             </div>
-            
+
             <button class="ss-btn ss-btn-primary" type="submit" style="padding:10px 16px;background:#0EA5E9;color:white;border:none;border-radius:4px;font-weight:600;cursor:pointer;font-size:14px;">💾 Simpan Tiket</button>
         </form>
     </div>
@@ -187,20 +202,20 @@ include 'layout-header.php';
                 </thead>
                 <tbody>
                     <?php if (empty($rows)): ?>
-                    <tr>
-                        <td colspan="7" style="text-align:center;color:#999;padding:20px;border:1px solid #ddd;">Belum ada data tiket.</td>
-                    </tr>
+                        <tr>
+                            <td colspan="7" style="text-align:center;color:#999;padding:20px;border:1px solid #ddd;">Belum ada data tiket.</td>
+                        </tr>
                     <?php else: ?>
                         <?php foreach ($rows as $r): ?>
-                        <tr style="border-bottom:1px solid #eee;">
-                            <td style="padding:10px;border:1px solid #ddd;"><?php echo htmlspecialchars($r['ticket_code'] ?? '-'); ?></td>
-                            <td style="padding:10px;border:1px solid #ddd;"><?php echo ucfirst(str_replace('_', ' ', $r['ticket_type'] ?? '')); ?></td>
-                            <td style="padding:10px;border:1px solid #ddd;"><strong><?php echo htmlspecialchars($r['ticket_name']); ?></strong><br><small style="color:#999;"><?php echo htmlspecialchars($r['description'] ?: '-'); ?></small></td>
-                            <td style="padding:10px;border:1px solid #ddd;font-size:12px;color:#666;"><?php echo htmlspecialchars($r['description'] ?: '-'); ?></td>
-                            <td style="padding:10px;border:1px solid #ddd;text-align:right;">Rp <?php echo number_format((float)($r['price_cost'] ?? 0), 0, ',', '.'); ?></td>
-                            <td style="padding:10px;border:1px solid #ddd;text-align:right;font-weight:600;color:#0EA5E9;">Rp <?php echo number_format((float)($r['price_sell'] ?? 0), 0, ',', '.'); ?></td>
-                            <td style="padding:10px;border:1px solid #ddd;text-align:center;"><?php echo $r['is_active'] ? '<span style="background:#e6f7ff;color:#0EA5E9;padding:4px 8px;border-radius:3px;font-size:12px;font-weight:600;">Aktif</span>' : '<span style="background:#f5f5f5;color:#666;padding:4px 8px;border-radius:3px;font-size:12px;font-weight:600;">Nonaktif</span>'; ?></td>
-                        </tr>
+                            <tr style="border-bottom:1px solid #eee;">
+                                <td style="padding:10px;border:1px solid #ddd;"><?php echo htmlspecialchars($r['ticket_code'] ?? '-'); ?></td>
+                                <td style="padding:10px;border:1px solid #ddd;"><?php echo ucfirst(str_replace('_', ' ', $r['ticket_type'] ?? '')); ?></td>
+                                <td style="padding:10px;border:1px solid #ddd;"><strong><?php echo htmlspecialchars($r['ticket_name']); ?></strong><br><small style="color:#999;"><?php echo htmlspecialchars($r['description'] ?: '-'); ?></small></td>
+                                <td style="padding:10px;border:1px solid #ddd;font-size:12px;color:#666;"><?php echo htmlspecialchars($r['description'] ?: '-'); ?></td>
+                                <td style="padding:10px;border:1px solid #ddd;text-align:right;">Rp <?php echo number_format((float)($r['price_cost'] ?? 0), 0, ',', '.'); ?></td>
+                                <td style="padding:10px;border:1px solid #ddd;text-align:right;font-weight:600;color:#0EA5E9;">Rp <?php echo number_format((float)($r['price_sell'] ?? 0), 0, ',', '.'); ?></td>
+                                <td style="padding:10px;border:1px solid #ddd;text-align:center;"><?php echo $r['is_active'] ? '<span style="background:#e6f7ff;color:#0EA5E9;padding:4px 8px;border-radius:3px;font-size:12px;font-weight:600;">Aktif</span>' : '<span style="background:#f5f5f5;color:#666;padding:4px 8px;border-radius:3px;font-size:12px;font-weight:600;">Nonaktif</span>'; ?></td>
+                            </tr>
                         <?php endforeach; ?>
                     <?php endif; ?>
                 </tbody>

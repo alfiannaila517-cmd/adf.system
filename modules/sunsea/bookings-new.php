@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Sunsea - Pemesanan Baru (Simplified dengan dropdown database & auto-calculate)
  */
@@ -28,9 +29,9 @@ if ($_GET['action'] ?? '' === 'get_price') {
     header('Content-Type: application/json');
     $type = $_GET['type'] ?? '';
     $id = (int)($_GET['id'] ?? 0);
-    
+
     $price = ['cost' => 0, 'sell' => 0];
-    
+
     if ($type === 'ticket' && $id > 0) {
         $r = $pdo->prepare("SELECT price_cost, price_sell FROM tickets WHERE id=?")->execute([$id]);
         if ($r) $price = ['cost' => (float)$r['price_cost'], 'sell' => (float)$r['price_sell']];
@@ -47,7 +48,7 @@ if ($_GET['action'] ?? '' === 'get_price') {
         $r = $pdo->prepare("SELECT price_cost, price_sell FROM facilities WHERE id=?")->execute([$id]);
         if ($r) $price = ['cost' => (float)$r['price_cost'], 'sell' => (float)$r['price_sell']];
     }
-    
+
     echo json_encode($price);
     exit;
 }
@@ -72,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
     $sellTotal = 0.0;
 
     // Helper function untuk tambah komponen
-    $addComponent = function($code, $name, $qty, $unit, $costPrice, $sellPrice) use (&$components, &$costTotal, &$sellTotal) {
+    $addComponent = function ($code, $name, $qty, $unit, $costPrice, $sellPrice) use (&$components, &$costTotal, &$sellTotal) {
         $totalCost = $qty * $costPrice;
         $totalSell = $qty * $sellPrice;
         $costTotal += $totalCost;
@@ -179,9 +180,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
              coordinator_id, status, cost_total, sell_total, margin_amount, notes, created_by)
             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")
             ->execute([
-                $bookingNo, $customerId, $bookingMode, $startDate, $endDate, $pax,
-                $coordId, 'draft', $costTotal, $sellTotal, $margin,
-                trim($_POST['notes'] ?? ''), $createdBy
+                $bookingNo,
+                $customerId,
+                $bookingMode,
+                $startDate,
+                $endDate,
+                $pax,
+                $coordId,
+                'draft',
+                $costTotal,
+                $sellTotal,
+                $margin,
+                trim($_POST['notes'] ?? ''),
+                $createdBy
             ]);
         $bookingId = (int)$pdo->lastInsertId();
 
@@ -247,7 +258,7 @@ include 'layout-header.php';
                     <select name="customer_id" required style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
                         <option value="">-- Pilih Customer --</option>
                         <?php foreach ($customers as $c): ?>
-                        <option value="<?php echo $c['id']; ?>"><?php echo htmlspecialchars($c['name'] . ' (' . $c['phone'] . ')'); ?></option>
+                            <option value="<?php echo $c['id']; ?>"><?php echo htmlspecialchars($c['name'] . ' (' . $c['phone'] . ')'); ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -275,7 +286,7 @@ include 'layout-header.php';
                     <select name="coordinator_id" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
                         <option value="">-- Pilih Koordinator --</option>
                         <?php foreach ($coordinators as $c): ?>
-                        <option value="<?php echo $c['id']; ?>"><?php echo htmlspecialchars($c['name']); ?></option>
+                            <option value="<?php echo $c['id']; ?>"><?php echo htmlspecialchars($c['name']); ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -296,7 +307,7 @@ include 'layout-header.php';
                     <select name="ticket_id" onchange="loadPrice('ticket', this.value, 'ticketPrice')" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;">
                         <option value="">-- Tidak pilih --</option>
                         <?php foreach ($tickets as $t): ?>
-                        <option value="<?php echo $t['id']; ?>"><?php echo htmlspecialchars($t['ticket_name'] . ' (' . $t['ticket_type'] . ')'); ?></option>
+                            <option value="<?php echo $t['id']; ?>"><?php echo htmlspecialchars($t['ticket_name'] . ' (' . $t['ticket_type'] . ')'); ?></option>
                         <?php endforeach; ?>
                     </select>
                     <input type="number" name="ticket_qty" placeholder="Qty" value="1" min="1" onchange="calculateTotal()" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
@@ -314,7 +325,7 @@ include 'layout-header.php';
                     <select name="room_id" onchange="loadPrice('room', this.value, 'roomPrice')" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;">
                         <option value="">-- Tidak pilih --</option>
                         <?php foreach ($rooms as $r): ?>
-                        <option value="<?php echo $r['id']; ?>"><?php echo htmlspecialchars($r['partner_name'] . ' - ' . $r['room_type']); ?></option>
+                            <option value="<?php echo $r['id']; ?>"><?php echo htmlspecialchars($r['partner_name'] . ' - ' . $r['room_type']); ?></option>
                         <?php endforeach; ?>
                     </select>
                     <input type="number" name="stay_room_qty" placeholder="Kamar" value="1" min="1" onchange="calculateTotal()" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
@@ -333,7 +344,7 @@ include 'layout-header.php';
                     <select name="catering_id" onchange="loadPrice('catering', this.value, 'cateringPrice')" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;">
                         <option value="">-- Tidak pilih --</option>
                         <?php foreach ($caterings as $c): ?>
-                        <option value="<?php echo $c['id']; ?>"><?php echo htmlspecialchars($c['vendor_name'] . ' - ' . $c['menu_name'] . ' (' . $c['portion_unit'] . ')'); ?></option>
+                            <option value="<?php echo $c['id']; ?>"><?php echo htmlspecialchars($c['vendor_name'] . ' - ' . $c['menu_name'] . ' (' . $c['portion_unit'] . ')'); ?></option>
                         <?php endforeach; ?>
                     </select>
                     <input type="number" name="catering_qty" placeholder="Qty" value="1" min="1" onchange="calculateTotal()" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
@@ -351,8 +362,9 @@ include 'layout-header.php';
                     <select name="guide_darat_id" onchange="loadPrice('guide', this.value, 'guideDaratPrice')" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;">
                         <option value="">-- Tidak pilih --</option>
                         <?php foreach ($guides as $g): if ($g['guide_type'] === 'darat'): ?>
-                        <option value="<?php echo $g['id']; ?>"><?php echo htmlspecialchars($g['name']); ?></option>
-                        <?php endif; endforeach; ?>
+                                <option value="<?php echo $g['id']; ?>"><?php echo htmlspecialchars($g['name']); ?></option>
+                        <?php endif;
+                        endforeach; ?>
                     </select>
                     <input type="number" name="guide_darat_days" placeholder="Hari" value="1" min="1" onchange="calculateTotal()" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
                     <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
@@ -369,8 +381,9 @@ include 'layout-header.php';
                     <select name="guide_laut_id" onchange="loadPrice('guide', this.value, 'guideLautPrice')" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;">
                         <option value="">-- Tidak pilih --</option>
                         <?php foreach ($guides as $g): if ($g['guide_type'] === 'laut'): ?>
-                        <option value="<?php echo $g['id']; ?>"><?php echo htmlspecialchars($g['name']); ?></option>
-                        <?php endif; endforeach; ?>
+                                <option value="<?php echo $g['id']; ?>"><?php echo htmlspecialchars($g['name']); ?></option>
+                        <?php endif;
+                        endforeach; ?>
                     </select>
                     <input type="number" name="guide_laut_days" placeholder="Hari" value="1" min="1" onchange="calculateTotal()" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
                     <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
@@ -385,12 +398,12 @@ include 'layout-header.php';
                 <label style="display:block;margin-bottom:8px;font-weight:600;color:#0c4a6e;"><strong>Fasilitas Tambahan</strong></label>
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:8px;">
                     <?php foreach ($facilities as $f): ?>
-                    <label style="display:flex;align-items:center;gap:8px;padding:8px;background:#ffffff;border:1px solid #e0e0e0;border-radius:4px;cursor:pointer;">
-                        <input type="checkbox" name="facility_ids[]" value="<?php echo $f['id']; ?>" onchange="calculateTotal()" style="width:16px;height:16px;cursor:pointer;">
-                        <span style="flex:1;font-size:13px;"><?php echo htmlspecialchars($f['name'] . ' (' . $f['unit'] . ')'); ?></span>
-                        <span style="color:#0EA5E9;font-weight:600;min-width:100px;text-align:right;font-size:12px;">Rp <?php echo number_format((float)$f['price_sell'], 0, ',', '.'); ?></span>
-                        <input type="number" name="facility_qty_<?php echo $f['id']; ?>" placeholder="Qty" value="1" min="0" step="0.01" onchange="calculateTotal()" style="width:60px;padding:4px;border:1px solid #ccc;border-radius:3px;font-family:inherit;font-size:12px;">
-                    </label>
+                        <label style="display:flex;align-items:center;gap:8px;padding:8px;background:#ffffff;border:1px solid #e0e0e0;border-radius:4px;cursor:pointer;">
+                            <input type="checkbox" name="facility_ids[]" value="<?php echo $f['id']; ?>" onchange="calculateTotal()" style="width:16px;height:16px;cursor:pointer;">
+                            <span style="flex:1;font-size:13px;"><?php echo htmlspecialchars($f['name'] . ' (' . $f['unit'] . ')'); ?></span>
+                            <span style="color:#0EA5E9;font-weight:600;min-width:100px;text-align:right;font-size:12px;">Rp <?php echo number_format((float)$f['price_sell'], 0, ',', '.'); ?></span>
+                            <input type="number" name="facility_qty_<?php echo $f['id']; ?>" placeholder="Qty" value="1" min="0" step="0.01" onchange="calculateTotal()" style="width:60px;padding:4px;border:1px solid #ccc;border-radius:3px;font-family:inherit;font-size:12px;">
+                        </label>
                     <?php endforeach; ?>
                 </div>
             </div>
@@ -424,83 +437,84 @@ include 'layout-header.php';
 </div>
 
 <script>
-function rupiah(n) {
-    return 'Rp ' + new Intl.NumberFormat('id-ID').format(Math.round(n));
-}
-
-function loadPrice(type, id, displayId) {
-    if (!id) {
-        document.getElementById(displayId).textContent = '-';
-        calculateTotal();
-        return;
+    function rupiah(n) {
+        return 'Rp ' + new Intl.NumberFormat('id-ID').format(Math.round(n));
     }
-    fetch('bookings-new.php?action=get_price&type=' + type + '&id=' + id)
-        .then(r => r.json())
-        .then(data => {
-            document.getElementById(displayId).textContent = rupiah(data.sell);
+
+    function loadPrice(type, id, displayId) {
+        if (!id) {
+            document.getElementById(displayId).textContent = '-';
             calculateTotal();
-        })
-        .catch(e => console.error(e));
-}
-
-function calculateTotal() {
-    let costTotal = 0, sellTotal = 0;
-
-    // Tiket
-    if (document.querySelector('select[name="ticket_id"]').value) {
-        const priceText = document.getElementById('ticketPrice').textContent;
-        const price = parseFloat(priceText.replace(/[^0-9.-]/g, '')) || 0;
-        const qty = parseFloat(document.querySelector('input[name="ticket_qty"]').value) || 0;
-        sellTotal += price * qty;
+            return;
+        }
+        fetch('bookings-new.php?action=get_price&type=' + type + '&id=' + id)
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById(displayId).textContent = rupiah(data.sell);
+                calculateTotal();
+            })
+            .catch(e => console.error(e));
     }
 
-    // Penginapan
-    if (document.querySelector('select[name="room_id"]').value) {
-        const priceText = document.getElementById('roomPrice').textContent;
-        const price = parseFloat(priceText.replace(/[^0-9.-]/g, '')) || 0;
-        const nights = parseFloat(document.querySelector('input[name="stay_nights"]').value) || 1;
-        const qty = parseFloat(document.querySelector('input[name="stay_room_qty"]').value) || 1;
-        sellTotal += price * nights * qty;
+    function calculateTotal() {
+        let costTotal = 0,
+            sellTotal = 0;
+
+        // Tiket
+        if (document.querySelector('select[name="ticket_id"]').value) {
+            const priceText = document.getElementById('ticketPrice').textContent;
+            const price = parseFloat(priceText.replace(/[^0-9.-]/g, '')) || 0;
+            const qty = parseFloat(document.querySelector('input[name="ticket_qty"]').value) || 0;
+            sellTotal += price * qty;
+        }
+
+        // Penginapan
+        if (document.querySelector('select[name="room_id"]').value) {
+            const priceText = document.getElementById('roomPrice').textContent;
+            const price = parseFloat(priceText.replace(/[^0-9.-]/g, '')) || 0;
+            const nights = parseFloat(document.querySelector('input[name="stay_nights"]').value) || 1;
+            const qty = parseFloat(document.querySelector('input[name="stay_room_qty"]').value) || 1;
+            sellTotal += price * nights * qty;
+        }
+
+        // Catering
+        if (document.querySelector('select[name="catering_id"]').value) {
+            const priceText = document.getElementById('cateringPrice').textContent;
+            const price = parseFloat(priceText.replace(/[^0-9.-]/g, '')) || 0;
+            const qty = parseFloat(document.querySelector('input[name="catering_qty"]').value) || 0;
+            sellTotal += price * qty;
+        }
+
+        // Guide Darat
+        if (document.querySelector('select[name="guide_darat_id"]').value) {
+            const priceText = document.getElementById('guideDaratPrice').textContent;
+            const price = parseFloat(priceText.replace(/[^0-9.-]/g, '')) || 0;
+            const days = parseFloat(document.querySelector('input[name="guide_darat_days"]').value) || 1;
+            sellTotal += price * days;
+        }
+
+        // Guide Laut
+        if (document.querySelector('select[name="guide_laut_id"]').value) {
+            const priceText = document.getElementById('guideLautPrice').textContent;
+            const price = parseFloat(priceText.replace(/[^0-9.-]/g, '')) || 0;
+            const days = parseFloat(document.querySelector('input[name="guide_laut_days"]').value) || 1;
+            sellTotal += price * days;
+        }
+
+        // Fasilitas
+        document.querySelectorAll('input[name="facility_ids[]"]:checked').forEach(checkbox => {
+            const facId = checkbox.value;
+            const facPriceText = checkbox.parentElement.querySelector('small').textContent;
+            const facPrice = parseFloat(facPriceText.replace(/[^0-9.-]/g, '')) || 0;
+            const facQty = parseFloat(document.querySelector('input[name="facility_qty_' + facId + '"]').value) || 1;
+            sellTotal += facPrice * facQty;
+        });
+
+        const margin = sellTotal - costTotal;
+        document.getElementById('totalCost').textContent = rupiah(costTotal);
+        document.getElementById('totalSell').textContent = rupiah(sellTotal);
+        document.getElementById('totalMargin').textContent = rupiah(margin);
     }
-
-    // Catering
-    if (document.querySelector('select[name="catering_id"]').value) {
-        const priceText = document.getElementById('cateringPrice').textContent;
-        const price = parseFloat(priceText.replace(/[^0-9.-]/g, '')) || 0;
-        const qty = parseFloat(document.querySelector('input[name="catering_qty"]').value) || 0;
-        sellTotal += price * qty;
-    }
-
-    // Guide Darat
-    if (document.querySelector('select[name="guide_darat_id"]').value) {
-        const priceText = document.getElementById('guideDaratPrice').textContent;
-        const price = parseFloat(priceText.replace(/[^0-9.-]/g, '')) || 0;
-        const days = parseFloat(document.querySelector('input[name="guide_darat_days"]').value) || 1;
-        sellTotal += price * days;
-    }
-
-    // Guide Laut
-    if (document.querySelector('select[name="guide_laut_id"]').value) {
-        const priceText = document.getElementById('guideLautPrice').textContent;
-        const price = parseFloat(priceText.replace(/[^0-9.-]/g, '')) || 0;
-        const days = parseFloat(document.querySelector('input[name="guide_laut_days"]').value) || 1;
-        sellTotal += price * days;
-    }
-
-    // Fasilitas
-    document.querySelectorAll('input[name="facility_ids[]"]:checked').forEach(checkbox => {
-        const facId = checkbox.value;
-        const facPriceText = checkbox.parentElement.querySelector('small').textContent;
-        const facPrice = parseFloat(facPriceText.replace(/[^0-9.-]/g, '')) || 0;
-        const facQty = parseFloat(document.querySelector('input[name="facility_qty_' + facId + '"]').value) || 1;
-        sellTotal += facPrice * facQty;
-    });
-
-    const margin = sellTotal - costTotal;
-    document.getElementById('totalCost').textContent = rupiah(costTotal);
-    document.getElementById('totalSell').textContent = rupiah(sellTotal);
-    document.getElementById('totalMargin').textContent = rupiah(margin);
-}
 </script>
 
 <?php include 'layout-footer.php';

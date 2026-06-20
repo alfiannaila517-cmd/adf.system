@@ -38,7 +38,7 @@ if (isset($pdo)) {
         $__s = $pdo->query("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('company_logo','company_name')");
         foreach ($__s->fetchAll() as $__row) {
             if ($__row['setting_key'] === 'company_logo' && $__row['setting_value']) {
-                $__proto = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS']==='on') ? 'https' : 'http';
+                $__proto = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
                 $_sidebarLogoSrc = $__proto . '://' . $_SERVER['HTTP_HOST'] . '/' . ltrim($__row['setting_value'], '/');
             }
             if ($__row['setting_key'] === 'company_name' && $__row['setting_value']) {
@@ -55,7 +55,8 @@ if (isset($pdo)) {
                 $visibleMenuKeys = array_values(array_intersect(array_keys($sunseaNavItems), $__selected));
             }
         }
-    } catch (Exception $__e) { /* settings table may not exist yet */ }
+    } catch (Exception $__e) { /* settings table may not exist yet */
+    }
 }
 
 if (empty($visibleMenuKeys)) {
@@ -775,20 +776,20 @@ if (empty($sunseaNavItemsVisible)) {
     <aside class="ss-sidebar" id="sunseaSidebar">
         <div class="ss-brand">
             <?php if ($_sidebarLogoSrc): ?>
-            <a href="dashboard.php" class="ss-brand-logo-wrap">
-                <img src="<?php echo htmlspecialchars($_sidebarLogoSrc); ?>" alt="Logo" class="ss-brand-logo-img">
-                <div style="text-align:center;">
-                    <div class="ss-brand-sub"><?php echo htmlspecialchars($_sidebarCompanyName); ?></div>
-                </div>
-            </a>
+                <a href="dashboard.php" class="ss-brand-logo-wrap">
+                    <img src="<?php echo htmlspecialchars($_sidebarLogoSrc); ?>" alt="Logo" class="ss-brand-logo-img">
+                    <div style="text-align:center;">
+                        <div class="ss-brand-sub"><?php echo htmlspecialchars($_sidebarCompanyName); ?></div>
+                    </div>
+                </a>
             <?php else: ?>
-            <a href="dashboard.php" class="ss-brand-logo">
-                <div class="ss-brand-icon">🌊</div>
-                <div>
-                    <div class="ss-brand-name"><?php echo htmlspecialchars($_sidebarCompanyName); ?></div>
-                    <div class="ss-brand-sub">Travel Bureau</div>
-                </div>
-            </a>
+                <a href="dashboard.php" class="ss-brand-logo">
+                    <div class="ss-brand-icon">🌊</div>
+                    <div>
+                        <div class="ss-brand-name"><?php echo htmlspecialchars($_sidebarCompanyName); ?></div>
+                        <div class="ss-brand-sub">Travel Bureau</div>
+                    </div>
+                </a>
             <?php endif; ?>
         </div>
 

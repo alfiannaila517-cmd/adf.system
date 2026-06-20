@@ -698,11 +698,11 @@ if ($action === 'print' && $invoice):
             </div>
 
             <?php if ($invoiceNotes || $invoice['notes'] || $footer): ?>
-            <div class="invoice-note">
-                <?php if ($invoiceNotes): ?><div><?php echo nl2br(htmlspecialchars($invoiceNotes)); ?></div><?php endif; ?>
-                <?php if ($invoice['notes']): ?><div style="margin-top:8px;"><strong>Catatan:</strong> <?php echo nl2br(htmlspecialchars($invoice['notes'])); ?></div><?php endif; ?>
-                <?php if ($footer): ?><div style="margin-top:8px;"><?php echo nl2br(htmlspecialchars($footer)); ?></div><?php endif; ?>
-            </div>
+                <div class="invoice-note">
+                    <?php if ($invoiceNotes): ?><div><?php echo nl2br(htmlspecialchars($invoiceNotes)); ?></div><?php endif; ?>
+                    <?php if ($invoice['notes']): ?><div style="margin-top:8px;"><strong>Catatan:</strong> <?php echo nl2br(htmlspecialchars($invoice['notes'])); ?></div><?php endif; ?>
+                    <?php if ($footer): ?><div style="margin-top:8px;"><?php echo nl2br(htmlspecialchars($footer)); ?></div><?php endif; ?>
+                </div>
             <?php endif; ?>
 
             <div class="bottom-accent"></div>
