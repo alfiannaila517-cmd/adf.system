@@ -480,7 +480,27 @@ CREATE TABLE IF NOT EXISTS `caterings` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
--- 20. BOOKING / PEMESANAN (Paket & Ecer)
+-- 20. TIKET (Kapal, Express Bahari, Ferry, Pesawat, dll)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS `tickets` (
+    `id`              INT AUTO_INCREMENT PRIMARY KEY,
+    `ticket_code`     VARCHAR(20) UNIQUE,
+    `ticket_type`     VARCHAR(50) NOT NULL COMMENT 'express_bahari, ferry, pesawat_susi',
+    `ticket_name`     VARCHAR(150) NOT NULL,
+    `description`     TEXT,
+    `unit`            VARCHAR(30) DEFAULT 'pax',
+    `price_cost`      DECIMAL(15,2) DEFAULT 0.00,
+    `price_sell`      DECIMAL(15,2) DEFAULT 0.00,
+    `notes`           TEXT,
+    `is_active`       TINYINT(1) DEFAULT 1,
+    `created_at`      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_ticket_active (`is_active`),
+    INDEX idx_ticket_type (`ticket_type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- 21. BOOKING / PEMESANAN (Paket & Ecer)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS `booking_orders` (
     `id`              INT AUTO_INCREMENT PRIMARY KEY,
