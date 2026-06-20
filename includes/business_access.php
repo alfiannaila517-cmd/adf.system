@@ -63,7 +63,7 @@ function checkOwnerBusinessAccess($userId, $businessSlug)
         // Check if user_business_assignment table exists
         $tableCheck = $masterPdo->query("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = '" . DB_NAME . "' AND TABLE_NAME = 'user_business_assignment'")->fetchColumn();
         if (!$tableCheck) {
-            // Table doesn't exist yet — allow access (backward compatibility)
+            // Table doesn't exist yet — fall back to legacy access rules
             return true;
         }
 
@@ -72,9 +72,10 @@ function checkOwnerBusinessAccess($userId, $businessSlug)
         $countStmt->execute([$userId]);
         $totalAssignments = (int)$countStmt->fetchColumn();
 
-        // If owner has no assignments configured, allow all (backward compatibility for unconfigured owners)
+        // If owner has no assignments configured, deny access to business-specific pages
+        // so access follows the developer setup instead of opening everything.
         if ($totalAssignments === 0) {
-            return true;
+            return false;
         }
 
         // Owner has assignments — check if current business is in the list
@@ -98,8 +99,8 @@ function checkOwnerBusinessAccess($userId, $businessSlug)
         return (int)$checkStmt->fetchColumn() > 0;
     } catch (Exception $e) {
         error_log('checkOwnerBusinessAccess error: ' . $e->getMessage());
-        // On error, allow access (fail-open for owners)
-        return true;
+        // On error, deny access rather than fail-open.
+        return false;
     }
 }
 
@@ -201,9 +202,9 @@ function getUserAvailableBusinesses()
         $countStmt->execute([$masterId]);
         $totalAssignments = (int)$countStmt->fetchColumn();
 
-        // If user has no assignments configured, show all (backward compatibility)
+        // If user has no assignments configured, do not expose all businesses.
         if ($totalAssignments === 0) {
-            return getAvailableBusinesses();
+            return [];
         }
 
         // Get assigned businesses - ordered by first assignment (not alphabetical)

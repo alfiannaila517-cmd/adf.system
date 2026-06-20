@@ -88,7 +88,10 @@ if (!empty($_COOKIE['adf_owner_remember_token']) && !$auth->isLoggedIn() && !isP
                 // Set business and redirect
                 require_once __DIR__ . '/includes/business_access.php';
                 $ownerBizList = getUserAvailableBusinesses();
-                if (!empty($ownerBizList)) {
+                if (empty($ownerBizList)) {
+                    setcookie('adf_owner_remember_token', '', time() - 3600, $cookiePath, '', $isSecure, true);
+                    $error = 'Akun owner ini belum memiliki akses bisnis yang diatur di Developer.';
+                } else {
                     // Use user's business_access as default if it's a valid slug
                     $tokenUserBiz = trim($tokenUser['business_access'] ?? '');
                     if ($tokenUserBiz && $tokenUserBiz !== 'all' && !str_starts_with($tokenUserBiz, '[') && isset($ownerBizList[$tokenUserBiz])) {
@@ -96,9 +99,9 @@ if (!empty($_COOKIE['adf_owner_remember_token']) && !$auth->isLoggedIn() && !isP
                     } else {
                         setActiveBusinessId(array_key_first($ownerBizList));
                     }
+                    header('Location: ' . BASE_URL . '/modules/owner/dashboard-2028.php');
+                    exit;
                 }
-                header('Location: ' . BASE_URL . '/modules/owner/dashboard-2028.php');
-                exit;
             }
         } catch (Exception $e) {
             error_log("Owner remember token auto-login failed: " . $e->getMessage());
@@ -189,7 +192,10 @@ if (isPost()) {
                     // Set business and redirect
                     require_once __DIR__ . '/includes/business_access.php';
                     $ownerBizList = getUserAvailableBusinesses();
-                    if (!empty($ownerBizList)) {
+                    if (empty($ownerBizList)) {
+                        session_destroy();
+                        $error = 'Akun owner ini belum memiliki akses bisnis yang diatur di Developer.';
+                    } else {
                         // Prefer the user's own business_access field if it maps to a valid slug
                         $preferredBiz = trim($businessAccess ?? '');
                         if ($preferredBiz && $preferredBiz !== 'all' && !str_starts_with($preferredBiz, '[') && isset($ownerBizList[$preferredBiz])) {
@@ -200,9 +206,8 @@ if (isPost()) {
                             $firstBiz = array_key_first($ownerBizList);
                             setActiveBusinessId($firstBiz);
                         }
+                        redirect(BASE_URL . '/modules/owner/dashboard-2028.php');
                     }
-
-                    redirect(BASE_URL . '/modules/owner/dashboard-2028.php');
                 }
             }
         } catch (Exception $e) {
