@@ -299,15 +299,16 @@ $pageError = '';
 if ($action === 'print_invoice') {
     $bookingId = (int)($_GET['id'] ?? 0);
     if ($bookingId > 0) {
-        $bookingStmt = $pdo->prepare("SELECT id, customer_id, start_date, end_date, pax_count FROM booking_orders WHERE id=?");
+        $bookingStmt = $pdo->prepare("SELECT id, booking_no, customer_id, start_date, end_date, pax_count FROM booking_orders WHERE id=?");
         $bookingStmt->execute([$bookingId]);
         $booking = $bookingStmt->fetch(PDO::FETCH_ASSOC);
 
         if ($booking) {
             $invoiceId = 0;
+            $internalRef = 'booking_id:' . (int)$booking['id'];
             try {
-                $invStmt = $pdo->prepare("SELECT id FROM invoices WHERE customer_id=? AND trip_date=? AND trip_end_date=? ORDER BY id DESC LIMIT 1");
-                $invStmt->execute([(int)$booking['customer_id'], $booking['start_date'], $booking['end_date']]);
+                $invStmt = $pdo->prepare("SELECT id FROM invoices WHERE internal_notes=? ORDER BY id DESC LIMIT 1");
+                $invStmt->execute([$internalRef]);
                 $invoiceId = (int)($invStmt->fetchColumn() ?: 0);
             } catch (Exception $e) {
                 $invoiceId = 0;
@@ -318,10 +319,90 @@ if ($action === 'print_invoice') {
                 exit;
             }
 
-            $_SESSION['flash_message'] = 'Invoice belum tersedia. Silakan buat invoice dulu untuk reservasi ini.';
-            $_SESSION['flash_type'] = 'warning';
-            header('Location: invoices.php?action=add&customer_id=' . (int)$booking['customer_id'] . '&trip_date=' . urlencode($booking['start_date']) . '&trip_end_date=' . urlencode($booking['end_date']) . '&pax_count=' . (int)$booking['pax_count']);
-            exit;
+            $itemsStmt = $pdo->prepare("SELECT component_name, qty, unit, price_sell, total_sell FROM booking_order_items WHERE booking_id=? ORDER BY sort_order");
+            $itemsStmt->execute([(int)$booking['id']]);
+            $bookingItems = $itemsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            if (empty($bookingItems)) {
+                $_SESSION['flash_message'] = 'Item reservasi belum tersedia, invoice tidak dapat dibuat.';
+                $_SESSION['flash_type'] = 'error';
+                header('Location: bookings.php?view=' . (int)$booking['id']);
+                exit;
+            }
+
+            $subtotal = 0.0;
+            foreach ($bookingItems as $bi) {
+                $subtotal += (float)$bi['total_sell'];
+            }
+            $taxPct = 0.0;
+            $taxAmount = 0.0;
+            $discountAmount = 0.0;
+            $totalAmount = $subtotal;
+            $remainingAmount = $totalAmount;
+            $dueDate = date('Y-m-d', strtotime('+14 days'));
+            $createdBy = $auth->getCurrentUser()['username'] ?? 'system';
+
+            try {
+                $pdo->beginTransaction();
+
+                $invoiceNo = sunseaNextNumber($pdo, 'invoice');
+                $insInv = $pdo->prepare("INSERT INTO invoices
+                    (invoice_no, customer_id, trip_date, trip_end_date, pax_count,
+                     status, subtotal, tax_pct, tax_amount, discount_amount,
+                     total_amount, paid_amount, remaining_amount, due_date,
+                     notes, internal_notes, issued_at, created_by)
+                    VALUES (?,?,?,?,?,'issued',?,?,?,?,?,?,?,?,?, ?,NOW(),?)");
+
+                $insInv->execute([
+                    $invoiceNo,
+                    (int)$booking['customer_id'],
+                    $booking['start_date'],
+                    $booking['end_date'],
+                    (int)$booking['pax_count'],
+                    $subtotal,
+                    $taxPct,
+                    $taxAmount,
+                    $discountAmount,
+                    $totalAmount,
+                    0,
+                    $remainingAmount,
+                    $dueDate,
+                    'Generated from Reservasi: ' . $booking['booking_no'],
+                    $internalRef,
+                    $createdBy,
+                ]);
+
+                $invoiceId = (int)$pdo->lastInsertId();
+
+                $insItem = $pdo->prepare("INSERT INTO invoice_items
+                    (invoice_id, item_type, description, qty, unit, unit_price, subtotal, sort_order)
+                    VALUES (?,?,?,?,?,?,?,?)");
+
+                foreach ($bookingItems as $idx => $bi) {
+                    $insItem->execute([
+                        $invoiceId,
+                        'other',
+                        (string)$bi['component_name'],
+                        (float)$bi['qty'],
+                        (string)$bi['unit'],
+                        (float)$bi['price_sell'],
+                        (float)$bi['total_sell'],
+                        $idx,
+                    ]);
+                }
+
+                $pdo->commit();
+                header('Location: invoices.php?action=print&id=' . $invoiceId);
+                exit;
+            } catch (Exception $e) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                $_SESSION['flash_message'] = 'Gagal membuat invoice dari reservasi: ' . $e->getMessage();
+                $_SESSION['flash_type'] = 'error';
+                header('Location: bookings.php?view=' . (int)$booking['id']);
+                exit;
+            }
         }
     }
 
