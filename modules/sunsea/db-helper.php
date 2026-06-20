@@ -150,6 +150,106 @@ function sunseaEnsureBookingSchema(PDO $pdo): void
 }
 
 /**
+ * Ensure accommodation master tables exist.
+ * Prevents white-screen on Hotel/Homestay database page when tables are missing.
+ */
+function sunseaEnsureAccommodationSchema(PDO $pdo): void
+{
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS accommodation_partners (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            partner_code VARCHAR(30) UNIQUE NOT NULL,
+            partner_type ENUM('hotel','homestay') DEFAULT 'hotel',
+            name VARCHAR(200) NOT NULL,
+            contact_person VARCHAR(120) NULL,
+            phone VARCHAR(50) NULL,
+            email VARCHAR(120) NULL,
+            address TEXT NULL,
+            location VARCHAR(150) NULL,
+            notes TEXT NULL,
+            is_active TINYINT(1) DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_partner_name (name),
+            INDEX idx_partner_type (partner_type),
+            INDEX idx_partner_active (is_active)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $partnerColumns = [
+            'partner_code' => "ALTER TABLE accommodation_partners ADD COLUMN partner_code VARCHAR(30) UNIQUE NOT NULL AFTER id",
+            'partner_type' => "ALTER TABLE accommodation_partners ADD COLUMN partner_type ENUM('hotel','homestay') DEFAULT 'hotel' AFTER partner_code",
+            'name' => "ALTER TABLE accommodation_partners ADD COLUMN name VARCHAR(200) NOT NULL AFTER partner_type",
+            'contact_person' => "ALTER TABLE accommodation_partners ADD COLUMN contact_person VARCHAR(120) NULL AFTER name",
+            'phone' => "ALTER TABLE accommodation_partners ADD COLUMN phone VARCHAR(50) NULL AFTER contact_person",
+            'email' => "ALTER TABLE accommodation_partners ADD COLUMN email VARCHAR(120) NULL AFTER phone",
+            'address' => "ALTER TABLE accommodation_partners ADD COLUMN address TEXT NULL AFTER email",
+            'location' => "ALTER TABLE accommodation_partners ADD COLUMN location VARCHAR(150) NULL AFTER address",
+            'notes' => "ALTER TABLE accommodation_partners ADD COLUMN notes TEXT NULL AFTER location",
+            'is_active' => "ALTER TABLE accommodation_partners ADD COLUMN is_active TINYINT(1) DEFAULT 1 AFTER notes",
+            'created_at' => "ALTER TABLE accommodation_partners ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP AFTER is_active",
+            'updated_at' => "ALTER TABLE accommodation_partners ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at",
+        ];
+
+        $columnCheck = $pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'accommodation_partners' AND COLUMN_NAME = ?");
+        foreach ($partnerColumns as $column => $alterSql) {
+            $columnCheck->execute([$column]);
+            if ((int)$columnCheck->fetchColumn() === 0) {
+                $pdo->exec($alterSql);
+            }
+        }
+
+        $codeCheck = $pdo->query("SELECT COUNT(*) FROM accommodation_partners WHERE (partner_code IS NULL OR partner_code = '')");
+        if ((int)$codeCheck->fetchColumn() > 0) {
+            $rows = $pdo->query("SELECT id FROM accommodation_partners WHERE (partner_code IS NULL OR partner_code = '') ORDER BY id")->fetchAll();
+            $updCode = $pdo->prepare("UPDATE accommodation_partners SET partner_code=? WHERE id=?");
+            foreach ($rows as $row) {
+                $updCode->execute(['SS-ACC-' . str_pad((string)$row['id'], 3, '0', STR_PAD_LEFT), (int)$row['id']]);
+            }
+        }
+
+        $pdo->exec("CREATE TABLE IF NOT EXISTS accommodation_rooms (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            partner_id INT NOT NULL,
+            room_type VARCHAR(150) NOT NULL,
+            capacity SMALLINT DEFAULT 2,
+            price_cost DECIMAL(15,2) DEFAULT 0.00,
+            price_sell DECIMAL(15,2) DEFAULT 0.00,
+            quota INT DEFAULT 0,
+            notes TEXT NULL,
+            is_active TINYINT(1) DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_rooms_partner (partner_id),
+            INDEX idx_rooms_active (is_active),
+            CONSTRAINT fk_rooms_partner FOREIGN KEY (partner_id) REFERENCES accommodation_partners(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $roomColumns = [
+            'partner_id' => "ALTER TABLE accommodation_rooms ADD COLUMN partner_id INT NOT NULL AFTER id",
+            'room_type' => "ALTER TABLE accommodation_rooms ADD COLUMN room_type VARCHAR(150) NOT NULL AFTER partner_id",
+            'capacity' => "ALTER TABLE accommodation_rooms ADD COLUMN capacity SMALLINT DEFAULT 2 AFTER room_type",
+            'price_cost' => "ALTER TABLE accommodation_rooms ADD COLUMN price_cost DECIMAL(15,2) DEFAULT 0.00 AFTER capacity",
+            'price_sell' => "ALTER TABLE accommodation_rooms ADD COLUMN price_sell DECIMAL(15,2) DEFAULT 0.00 AFTER price_cost",
+            'quota' => "ALTER TABLE accommodation_rooms ADD COLUMN quota INT DEFAULT 0 AFTER price_sell",
+            'notes' => "ALTER TABLE accommodation_rooms ADD COLUMN notes TEXT NULL AFTER quota",
+            'is_active' => "ALTER TABLE accommodation_rooms ADD COLUMN is_active TINYINT(1) DEFAULT 1 AFTER notes",
+            'created_at' => "ALTER TABLE accommodation_rooms ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP AFTER is_active",
+            'updated_at' => "ALTER TABLE accommodation_rooms ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at",
+        ];
+
+        $roomColumnCheck = $pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'accommodation_rooms' AND COLUMN_NAME = ?");
+        foreach ($roomColumns as $column => $alterSql) {
+            $roomColumnCheck->execute([$column]);
+            if ((int)$roomColumnCheck->fetchColumn() === 0) {
+                $pdo->exec($alterSql);
+            }
+        }
+    } catch (Exception $e) {
+        error_log('sunseaEnsureAccommodationSchema error: ' . $e->getMessage());
+    }
+}
+
+/**
  * Get next auto-number for quotation / invoice.
  * Format: SS-QUO-2026-001
  *

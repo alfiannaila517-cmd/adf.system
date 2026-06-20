@@ -13,6 +13,24 @@ require_once 'db-helper.php';
 $auth = new Auth();
 $auth->requireLogin();
 $pdo = getSunseaConnection();
+sunseaEnsureAccommodationSchema($pdo);
+
+$pageError = '';
+
+function safeFetchAllPartners(PDO $pdo, string $sql, array $params = [], string $context = ''): array
+{
+    global $pageError;
+    try {
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    } catch (Exception $e) {
+        if ($pageError === '') {
+            $pageError = 'Gagal memuat data ' . ($context ?: 'penginapan') . ': ' . $e->getMessage();
+        }
+        return [];
+    }
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
@@ -79,16 +97,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$partners = $pdo->query("SELECT * FROM accommodation_partners ORDER BY is_active DESC, partner_type, name")->fetchAll();
-$rooms = $pdo->query("SELECT r.*, p.name AS partner_name, p.partner_type
+$partners = safeFetchAllPartners($pdo, "SELECT * FROM accommodation_partners ORDER BY is_active DESC, partner_type, name", [], 'mitra penginapan');
+$rooms = safeFetchAllPartners(
+    $pdo,
+    "SELECT r.*, p.name AS partner_name, p.partner_type
     FROM accommodation_rooms r
     JOIN accommodation_partners p ON p.id = r.partner_id
-    ORDER BY p.name, r.room_type")->fetchAll();
+    ORDER BY p.name, r.room_type",
+    [],
+    'kamar penginapan'
+);
 
 $pageTitle = 'Database Hotel & Homestay';
 $activePage = 'database';
 include 'layout-header.php';
 ?>
+
+<?php if ($pageError): ?>
+    <div class="ss-alert ss-alert-error" style="margin-bottom:14px;">
+        <i data-feather="alert-triangle"></i>
+        <?php echo htmlspecialchars($pageError); ?>
+    </div>
+<?php endif; ?>
 
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
     <div class="ss-card">

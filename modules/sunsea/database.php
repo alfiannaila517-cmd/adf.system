@@ -13,6 +13,21 @@ require_once 'db-helper.php';
 $auth = new Auth();
 $auth->requireLogin();
 $pdo = getSunseaConnection();
+sunseaEnsureAccommodationSchema($pdo);
+
+function safeCountTable(PDO $pdo, string $table, string $where = '1=1'): int
+{
+    try {
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?");
+        $stmt->execute([$table]);
+        if ((int)$stmt->fetchColumn() === 0) {
+            return 0;
+        }
+        return (int)$pdo->query("SELECT COUNT(*) FROM {$table} WHERE {$where}")->fetchColumn();
+    } catch (Exception $e) {
+        return 0;
+    }
+}
 
 $stats = [
     'customers' => 0,
@@ -23,16 +38,12 @@ $stats = [
     'facilities' => 0,
 ];
 
-try {
-    $stats['customers'] = (int)$pdo->query("SELECT COUNT(*) FROM customers WHERE is_active=1")->fetchColumn();
-    $stats['partners'] = (int)$pdo->query("SELECT COUNT(*) FROM accommodation_partners WHERE is_active=1")->fetchColumn();
-    $stats['guides'] = (int)$pdo->query("SELECT COUNT(*) FROM guides WHERE is_active=1")->fetchColumn();
-    $stats['tickets'] = (int)$pdo->query("SELECT COUNT(*) FROM tickets WHERE is_active=1")->fetchColumn();
-    $stats['caterings'] = (int)$pdo->query("SELECT COUNT(*) FROM caterings WHERE is_active=1")->fetchColumn();
-    $stats['facilities'] = (int)$pdo->query("SELECT COUNT(*) FROM facilities WHERE is_active=1")->fetchColumn();
-} catch (Exception $e) {
-    // Older Sunsea DB may not have all tables yet.
-}
+$stats['customers'] = safeCountTable($pdo, 'customers', 'is_active=1');
+$stats['partners'] = safeCountTable($pdo, 'accommodation_partners', 'is_active=1');
+$stats['guides'] = safeCountTable($pdo, 'guides', 'is_active=1');
+$stats['tickets'] = safeCountTable($pdo, 'tickets', 'is_active=1');
+$stats['caterings'] = safeCountTable($pdo, 'caterings', 'is_active=1');
+$stats['facilities'] = safeCountTable($pdo, 'facilities', 'is_active=1');
 
 $pageTitle = 'Database';
 $activePage = 'database';
@@ -44,6 +55,9 @@ include 'layout-header.php';
         <div>
             <div class="ss-card-title">Database Master Sunsea</div>
             <div class="ss-card-sub">Pusat data referensi untuk operasional booking, quotation, dan invoice</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <a href="partners.php" class="ss-btn ss-btn-primary ss-btn-sm"><i data-feather="plus"></i> Tambah Database Baru</a>
         </div>
     </div>
 
@@ -97,37 +111,55 @@ include 'layout-header.php';
     <div class="ss-card">
         <div class="ss-card-title" style="margin-bottom:6px;">Database Harga Hotel & Homestay</div>
         <div class="ss-card-sub" style="margin-bottom:12px;">Master mitra penginapan, tipe kamar, modal, dan harga jual.</div>
-        <a href="partners.php" class="ss-btn ss-btn-primary"><i data-feather="building"></i> Kelola Hotel/Homestay</a>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <a href="partners.php" class="ss-btn ss-btn-primary"><i data-feather="building"></i> Kelola Hotel/Homestay</a>
+            <a href="partners.php" class="ss-btn ss-btn-outline"><i data-feather="plus"></i> Tambah Hotel/Homestay</a>
+        </div>
     </div>
 
     <div class="ss-card">
         <div class="ss-card-title" style="margin-bottom:6px;">Database Nama Pelanggan Detail</div>
         <div class="ss-card-sub" style="margin-bottom:12px;">Data identitas pelanggan lengkap untuk kebutuhan dokumen.</div>
-        <a href="customers.php" class="ss-btn ss-btn-primary"><i data-feather="users"></i> Kelola Pelanggan</a>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <a href="customers.php" class="ss-btn ss-btn-primary"><i data-feather="users"></i> Kelola Pelanggan</a>
+            <a href="customers.php" class="ss-btn ss-btn-outline"><i data-feather="plus"></i> Tambah Pelanggan</a>
+        </div>
     </div>
 
     <div class="ss-card">
         <div class="ss-card-title" style="margin-bottom:6px;">Database Guide</div>
         <div class="ss-card-sub" style="margin-bottom:12px;">Guide darat/laut, status ketersediaan, dan tarif harian.</div>
-        <a href="guides.php" class="ss-btn ss-btn-primary"><i data-feather="compass"></i> Kelola Guide</a>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <a href="guides.php" class="ss-btn ss-btn-primary"><i data-feather="compass"></i> Kelola Guide</a>
+            <a href="guides.php" class="ss-btn ss-btn-outline"><i data-feather="plus"></i> Tambah Guide</a>
+        </div>
     </div>
 
     <div class="ss-card">
         <div class="ss-card-title" style="margin-bottom:6px;">Database Tiket</div>
         <div class="ss-card-sub" style="margin-bottom:12px;">Tiket kapal, BTN, express, fast boat, dengan harga modal dan jual.</div>
-        <a href="tickets.php" class="ss-btn ss-btn-primary"><i data-feather="ticket"></i> Kelola Tiket</a>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <a href="tickets.php" class="ss-btn ss-btn-primary"><i data-feather="ticket"></i> Kelola Tiket</a>
+            <a href="tickets.php" class="ss-btn ss-btn-outline"><i data-feather="plus"></i> Tambah Tiket</a>
+        </div>
     </div>
 
     <div class="ss-card">
         <div class="ss-card-title" style="margin-bottom:6px;">Database Catering</div>
         <div class="ss-card-sub" style="margin-bottom:12px;">Master vendor catering, menu paket, dan harga porsi.</div>
-        <a href="catering.php" class="ss-btn ss-btn-primary"><i data-feather="coffee"></i> Kelola Catering</a>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <a href="catering.php" class="ss-btn ss-btn-primary"><i data-feather="coffee"></i> Kelola Catering</a>
+            <a href="catering.php" class="ss-btn ss-btn-outline"><i data-feather="plus"></i> Tambah Catering</a>
+        </div>
     </div>
 
     <div class="ss-card">
         <div class="ss-card-title" style="margin-bottom:6px;">Database Fasilitas Tambahan</div>
         <div class="ss-card-sub" style="margin-bottom:12px;">Peralatan/layanan tambahan untuk booking ecer maupun paket.</div>
-        <a href="facilities.php" class="ss-btn ss-btn-primary"><i data-feather="tool"></i> Kelola Fasilitas</a>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <a href="facilities.php" class="ss-btn ss-btn-primary"><i data-feather="tool"></i> Kelola Fasilitas</a>
+            <a href="facilities.php" class="ss-btn ss-btn-outline"><i data-feather="plus"></i> Tambah Fasilitas</a>
+        </div>
     </div>
 </div>
 
