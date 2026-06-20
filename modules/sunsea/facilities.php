@@ -1,4 +1,5 @@
 <?php
+
 /** Sunsea - Fasilitas */
 define('APP_ACCESS', true);
 require_once '../../config/config.php';
@@ -43,8 +44,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save'
 }
 
 $rows = $pdo->query("SELECT * FROM facilities ORDER BY is_active DESC, name")->fetchAll();
-$pageTitle = 'Fasilitas';
-$activePage = 'facilities';
+$pageTitle = 'Database Fasilitas Tambahan';
+$activePage = 'database';
 include 'layout-header.php';
 ?>
 
@@ -63,7 +64,11 @@ include 'layout-header.php';
                 <div class="ss-form-group"><label class="ss-label">Harga Modal</label><input class="ss-input" name="price_cost"></div>
                 <div class="ss-form-group"><label class="ss-label">Harga Jual</label><input class="ss-input" name="price_sell"></div>
             </div>
-            <div class="ss-form-group"><label class="ss-label">Status</label><select name="status" class="ss-select"><option value="ready">Ready</option><option value="maintenance">Maintenance</option><option value="unavailable">Unavailable</option></select></div>
+            <div class="ss-form-group"><label class="ss-label">Status</label><select name="status" class="ss-select">
+                    <option value="ready">Ready</option>
+                    <option value="maintenance">Maintenance</option>
+                    <option value="unavailable">Unavailable</option>
+                </select></div>
             <div class="ss-form-group"><label class="ss-label">Catatan</label><textarea class="ss-textarea" name="notes"></textarea></div>
             <div class="ss-form-group"><label><input type="checkbox" name="is_active" checked> Aktif</label></div>
             <button class="ss-btn ss-btn-primary" type="submit"><i data-feather="save"></i> Simpan Fasilitas</button>
@@ -74,17 +79,26 @@ include 'layout-header.php';
         <div class="ss-card-title" style="margin-bottom:10px;">Daftar Fasilitas</div>
         <div class="ss-table-wrap">
             <table class="ss-table">
-                <thead><tr><th>Kode</th><th>Nama</th><th>Kategori</th><th>Stock</th><th>Harga</th><th>Status</th></tr></thead>
+                <thead>
+                    <tr>
+                        <th>Kode</th>
+                        <th>Nama</th>
+                        <th>Kategori</th>
+                        <th>Stock</th>
+                        <th>Harga</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
                 <tbody>
                     <?php foreach ($rows as $r): ?>
-                    <tr>
-                        <td><?php echo htmlspecialchars($r['facility_code'] ?? '-'); ?></td>
-                        <td><?php echo htmlspecialchars($r['name']); ?></td>
-                        <td><?php echo htmlspecialchars($r['category'] ?: '-'); ?></td>
-                        <td><?php echo rtrim(rtrim(number_format((float)$r['stock_qty'], 2, '.', ''), '0'), '.'); ?> <?php echo htmlspecialchars($r['unit']); ?></td>
-                        <td>Modal <?php echo sunseaRupiah((float)$r['price_cost']); ?><br><small style="color:var(--ss-muted)">Jual <?php echo sunseaRupiah((float)$r['price_sell']); ?></small></td>
-                        <td><?php echo '<span class="ss-status ss-status-' . ($r['status'] === 'ready' ? 'approved' : ($r['status'] === 'maintenance' ? 'partial' : 'draft')) . '">' . ucfirst($r['status']) . '</span>'; ?></td>
-                    </tr>
+                        <tr>
+                            <td><?php echo htmlspecialchars($r['facility_code'] ?? '-'); ?></td>
+                            <td><?php echo htmlspecialchars($r['name']); ?></td>
+                            <td><?php echo htmlspecialchars($r['category'] ?: '-'); ?></td>
+                            <td><?php echo rtrim(rtrim(number_format((float)$r['stock_qty'], 2, '.', ''), '0'), '.'); ?> <?php echo htmlspecialchars($r['unit']); ?></td>
+                            <td>Modal <?php echo sunseaRupiah((float)$r['price_cost']); ?><br><small style="color:var(--ss-muted)">Jual <?php echo sunseaRupiah((float)$r['price_sell']); ?></small></td>
+                            <td><?php echo '<span class="ss-status ss-status-' . ($r['status'] === 'ready' ? 'approved' : ($r['status'] === 'maintenance' ? 'partial' : 'draft')) . '">' . ucfirst($r['status']) . '</span>'; ?></td>
+                        </tr>
                     <?php endforeach; ?>
                 </tbody>
             </table>

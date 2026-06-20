@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Sunsea - Manajemen Pelanggan (Customer Database)
  */
@@ -63,7 +64,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         header('Location: customers.php');
         exit;
-
     } elseif ($postAction === 'delete') {
         $id = (int)($_POST['id'] ?? 0);
         // Check if customer has quotations / invoices
@@ -88,7 +88,10 @@ if ($action === 'edit' && $custId > 0) {
     $stmt = $pdo->prepare("SELECT * FROM customers WHERE id = ?");
     $stmt->execute([$custId]);
     $editCustomer = $stmt->fetch();
-    if (!$editCustomer) { header('Location: customers.php'); exit; }
+    if (!$editCustomer) {
+        header('Location: customers.php');
+        exit;
+    }
 }
 
 // List customers (with search)
@@ -107,189 +110,189 @@ $customers->execute($params);
 $customers = $customers->fetchAll();
 
 $pageTitle  = ($action === 'add' || $action === 'edit') ? (($editCustomer ? 'Edit Pelanggan' : 'Tambah Pelanggan')) : 'Database Pelanggan';
-$activePage = 'customers';
+$activePage = 'database';
 
 include 'layout-header.php';
 ?>
 
 <?php if ($action === 'add' || $action === 'edit'): ?>
-<!-- ============ FORM ============ -->
-<div style="max-width:700px;">
-    <div style="margin-bottom:20px;">
-        <a href="customers.php" class="ss-btn ss-btn-outline ss-btn-sm">
-            <i data-feather="arrow-left"></i> Kembali
-        </a>
+    <!-- ============ FORM ============ -->
+    <div style="max-width:700px;">
+        <div style="margin-bottom:20px;">
+            <a href="customers.php" class="ss-btn ss-btn-outline ss-btn-sm">
+                <i data-feather="arrow-left"></i> Kembali
+            </a>
+        </div>
+
+        <div class="ss-card">
+            <div class="ss-card-header">
+                <div>
+                    <div class="ss-card-title"><?php echo $editCustomer ? 'Edit Pelanggan' : 'Tambah Pelanggan Baru'; ?></div>
+                    <div class="ss-card-sub"><?php echo $editCustomer ? htmlspecialchars($editCustomer['code']) : 'Kode akan digenerate otomatis'; ?></div>
+                </div>
+            </div>
+
+            <form method="POST" action="customers.php">
+                <input type="hidden" name="action" value="save">
+                <input type="hidden" name="id" value="<?php echo $editCustomer ? $editCustomer['id'] : 0; ?>">
+
+                <div class="ss-form-grid cols-2">
+                    <div class="ss-form-group" style="grid-column:1/-1;">
+                        <label class="ss-label">Nama Lengkap *</label>
+                        <input type="text" name="name" class="ss-input" required
+                            value="<?php echo htmlspecialchars($editCustomer['name'] ?? ''); ?>" placeholder="Nama pelanggan">
+                    </div>
+                    <div class="ss-form-group">
+                        <label class="ss-label">Tipe Pelanggan</label>
+                        <select name="type" class="ss-select">
+                            <?php foreach (['individual' => 'Individual', 'group' => 'Group', 'corporate' => 'Perusahaan', 'travel_agent' => 'Travel Agent'] as $v => $l): ?>
+                                <option value="<?php echo $v; ?>" <?php echo ($editCustomer['type'] ?? 'individual') === $v ? 'selected' : ''; ?>>
+                                    <?php echo $l; ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="ss-form-group">
+                        <label class="ss-label">No. HP / WhatsApp</label>
+                        <input type="text" name="phone" class="ss-input"
+                            value="<?php echo htmlspecialchars($editCustomer['phone'] ?? ''); ?>" placeholder="08xxxxxxxxxx">
+                    </div>
+                    <div class="ss-form-group">
+                        <label class="ss-label">WhatsApp (jika beda)</label>
+                        <input type="text" name="whatsapp" class="ss-input"
+                            value="<?php echo htmlspecialchars($editCustomer['whatsapp'] ?? ''); ?>" placeholder="Kosongkan jika sama">
+                    </div>
+                    <div class="ss-form-group">
+                        <label class="ss-label">Email</label>
+                        <input type="email" name="email" class="ss-input"
+                            value="<?php echo htmlspecialchars($editCustomer['email'] ?? ''); ?>" placeholder="email@domain.com">
+                    </div>
+                    <div class="ss-form-group">
+                        <label class="ss-label">Kota</label>
+                        <input type="text" name="city" class="ss-input"
+                            value="<?php echo htmlspecialchars($editCustomer['city'] ?? ''); ?>" placeholder="Jakarta">
+                    </div>
+                    <div class="ss-form-group">
+                        <label class="ss-label">Negara</label>
+                        <input type="text" name="country" class="ss-input"
+                            value="<?php echo htmlspecialchars($editCustomer['country'] ?? 'Indonesia'); ?>">
+                    </div>
+                    <div class="ss-form-group">
+                        <label class="ss-label">Tipe ID</label>
+                        <select name="id_type" class="ss-select">
+                            <option value="ktp" <?php echo ($editCustomer['id_type'] ?? '') === 'ktp' ? 'selected' : ''; ?>>KTP</option>
+                            <option value="passport" <?php echo ($editCustomer['id_type'] ?? '') === 'passport' ? 'selected' : ''; ?>>Passport</option>
+                            <option value="other" <?php echo ($editCustomer['id_type'] ?? '') === 'other' ? 'selected' : ''; ?>>Lainnya</option>
+                        </select>
+                    </div>
+                    <div class="ss-form-group">
+                        <label class="ss-label">No. KTP / Passport</label>
+                        <input type="text" name="id_number" class="ss-input"
+                            value="<?php echo htmlspecialchars($editCustomer['id_number'] ?? ''); ?>" placeholder="Nomor identitas">
+                    </div>
+                    <div class="ss-form-group" style="grid-column:1/-1;">
+                        <label class="ss-label">Alamat</label>
+                        <textarea name="address" class="ss-textarea" placeholder="Alamat lengkap"><?php echo htmlspecialchars($editCustomer['address'] ?? ''); ?></textarea>
+                    </div>
+                    <div class="ss-form-group" style="grid-column:1/-1;">
+                        <label class="ss-label">Catatan Internal</label>
+                        <textarea name="notes" class="ss-textarea" rows="3" placeholder="Catatan pribadi (tidak ditampilkan ke customer)"><?php echo htmlspecialchars($editCustomer['notes'] ?? ''); ?></textarea>
+                    </div>
+                </div>
+
+                <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
+                    <a href="customers.php" class="ss-btn ss-btn-outline">Batal</a>
+                    <button type="submit" class="ss-btn ss-btn-primary">
+                        <i data-feather="save"></i>
+                        <?php echo $editCustomer ? 'Simpan Perubahan' : 'Tambah Pelanggan'; ?>
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 
+<?php else: ?>
+    <!-- ============ LIST ============ -->
     <div class="ss-card">
         <div class="ss-card-header">
             <div>
-                <div class="ss-card-title"><?php echo $editCustomer ? 'Edit Pelanggan' : 'Tambah Pelanggan Baru'; ?></div>
-                <div class="ss-card-sub"><?php echo $editCustomer ? htmlspecialchars($editCustomer['code']) : 'Kode akan digenerate otomatis'; ?></div>
+                <div class="ss-card-title">Database Pelanggan</div>
+                <div class="ss-card-sub"><?php echo count($customers); ?> pelanggan<?php echo $search ? " (filter: " . htmlspecialchars($search) . ")" : ''; ?></div>
             </div>
+            <a href="customers.php?action=add" class="ss-btn ss-btn-primary">
+                <i data-feather="user-plus"></i> Tambah Pelanggan
+            </a>
         </div>
 
-        <form method="POST" action="customers.php">
-            <input type="hidden" name="action" value="save">
-            <input type="hidden" name="id" value="<?php echo $editCustomer ? $editCustomer['id'] : 0; ?>">
-
-            <div class="ss-form-grid cols-2">
-                <div class="ss-form-group" style="grid-column:1/-1;">
-                    <label class="ss-label">Nama Lengkap *</label>
-                    <input type="text" name="name" class="ss-input" required
-                           value="<?php echo htmlspecialchars($editCustomer['name'] ?? ''); ?>" placeholder="Nama pelanggan">
-                </div>
-                <div class="ss-form-group">
-                    <label class="ss-label">Tipe Pelanggan</label>
-                    <select name="type" class="ss-select">
-                        <?php foreach (['individual'=>'Individual','group'=>'Group','corporate'=>'Perusahaan','travel_agent'=>'Travel Agent'] as $v=>$l): ?>
-                        <option value="<?php echo $v; ?>" <?php echo ($editCustomer['type'] ?? 'individual') === $v ? 'selected' : ''; ?>>
-                            <?php echo $l; ?>
-                        </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="ss-form-group">
-                    <label class="ss-label">No. HP / WhatsApp</label>
-                    <input type="text" name="phone" class="ss-input"
-                           value="<?php echo htmlspecialchars($editCustomer['phone'] ?? ''); ?>" placeholder="08xxxxxxxxxx">
-                </div>
-                <div class="ss-form-group">
-                    <label class="ss-label">WhatsApp (jika beda)</label>
-                    <input type="text" name="whatsapp" class="ss-input"
-                           value="<?php echo htmlspecialchars($editCustomer['whatsapp'] ?? ''); ?>" placeholder="Kosongkan jika sama">
-                </div>
-                <div class="ss-form-group">
-                    <label class="ss-label">Email</label>
-                    <input type="email" name="email" class="ss-input"
-                           value="<?php echo htmlspecialchars($editCustomer['email'] ?? ''); ?>" placeholder="email@domain.com">
-                </div>
-                <div class="ss-form-group">
-                    <label class="ss-label">Kota</label>
-                    <input type="text" name="city" class="ss-input"
-                           value="<?php echo htmlspecialchars($editCustomer['city'] ?? ''); ?>" placeholder="Jakarta">
-                </div>
-                <div class="ss-form-group">
-                    <label class="ss-label">Negara</label>
-                    <input type="text" name="country" class="ss-input"
-                           value="<?php echo htmlspecialchars($editCustomer['country'] ?? 'Indonesia'); ?>">
-                </div>
-                <div class="ss-form-group">
-                    <label class="ss-label">Tipe ID</label>
-                    <select name="id_type" class="ss-select">
-                        <option value="ktp"      <?php echo ($editCustomer['id_type'] ?? '') === 'ktp' ? 'selected':'' ; ?>>KTP</option>
-                        <option value="passport" <?php echo ($editCustomer['id_type'] ?? '') === 'passport' ? 'selected':'' ; ?>>Passport</option>
-                        <option value="other"    <?php echo ($editCustomer['id_type'] ?? '') === 'other' ? 'selected':'' ; ?>>Lainnya</option>
-                    </select>
-                </div>
-                <div class="ss-form-group">
-                    <label class="ss-label">No. KTP / Passport</label>
-                    <input type="text" name="id_number" class="ss-input"
-                           value="<?php echo htmlspecialchars($editCustomer['id_number'] ?? ''); ?>" placeholder="Nomor identitas">
-                </div>
-                <div class="ss-form-group" style="grid-column:1/-1;">
-                    <label class="ss-label">Alamat</label>
-                    <textarea name="address" class="ss-textarea" placeholder="Alamat lengkap"><?php echo htmlspecialchars($editCustomer['address'] ?? ''); ?></textarea>
-                </div>
-                <div class="ss-form-group" style="grid-column:1/-1;">
-                    <label class="ss-label">Catatan Internal</label>
-                    <textarea name="notes" class="ss-textarea" rows="3" placeholder="Catatan pribadi (tidak ditampilkan ke customer)"><?php echo htmlspecialchars($editCustomer['notes'] ?? ''); ?></textarea>
-                </div>
-            </div>
-
-            <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
-                <a href="customers.php" class="ss-btn ss-btn-outline">Batal</a>
-                <button type="submit" class="ss-btn ss-btn-primary">
-                    <i data-feather="save"></i>
-                    <?php echo $editCustomer ? 'Simpan Perubahan' : 'Tambah Pelanggan'; ?>
-                </button>
-            </div>
+        <!-- Search -->
+        <form method="GET" style="margin-bottom:16px;display:flex;gap:10px;">
+            <input type="text" name="q" value="<?php echo htmlspecialchars($search); ?>"
+                class="ss-input" style="max-width:300px;" placeholder="Cari nama, kode, HP, email...">
+            <button type="submit" class="ss-btn ss-btn-outline"><i data-feather="search"></i> Cari</button>
+            <?php if ($search): ?><a href="customers.php" class="ss-btn ss-btn-outline"><i data-feather="x"></i></a><?php endif; ?>
         </form>
+
+        <?php if (empty($customers)): ?>
+            <div class="ss-empty">
+                <div class="ss-empty-icon">👥</div>
+                <h3>Belum ada pelanggan</h3>
+                <p>Tambahkan pelanggan pertama untuk mulai membuat penawaran</p>
+            </div>
+        <?php else: ?>
+            <div class="ss-table-wrap">
+                <table class="ss-table">
+                    <thead>
+                        <tr>
+                            <th>Kode</th>
+                            <th>Nama</th>
+                            <th>Tipe</th>
+                            <th>HP / WA</th>
+                            <th>Kota</th>
+                            <th>Penawaran</th>
+                            <th>Invoice</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($customers as $c): ?>
+                            <tr>
+                                <td style="font-size:11px;color:var(--ss-muted);"><?php echo htmlspecialchars($c['code']); ?></td>
+                                <td>
+                                    <strong><?php echo htmlspecialchars($c['name']); ?></strong>
+                                    <?php if ($c['email']): ?><br><small style="color:var(--ss-muted);"><?php echo htmlspecialchars($c['email']); ?></small><?php endif; ?>
+                                </td>
+                                <td><?php
+                                    $typeLabels = ['individual' => 'Individual', 'group' => 'Group', 'corporate' => 'Perusahaan', 'travel_agent' => 'Travel Agent'];
+                                    echo $typeLabels[$c['type']] ?? ucfirst($c['type']);
+                                    ?></td>
+                                <td><?php echo htmlspecialchars($c['phone'] ?: $c['whatsapp'] ?: '-'); ?></td>
+                                <td><?php echo htmlspecialchars($c['city'] ?: '-'); ?></td>
+                                <td style="text-align:center;"><?php echo (int)$c['total_quotations']; ?></td>
+                                <td style="text-align:center;"><?php echo (int)$c['total_invoices']; ?></td>
+                                <td>
+                                    <div style="display:flex;gap:6px;">
+                                        <a href="customers.php?action=edit&id=<?php echo $c['id']; ?>"
+                                            class="ss-btn ss-btn-outline ss-btn-sm"><i data-feather="edit-2"></i></a>
+                                        <a href="quotations.php?action=add&customer_id=<?php echo $c['id']; ?>"
+                                            class="ss-btn ss-btn-primary ss-btn-sm" title="Buat penawaran">
+                                            <i data-feather="file-plus"></i>
+                                        </a>
+                                        <?php if ($c['total_quotations'] == 0 && $c['total_invoices'] == 0): ?>
+                                            <form method="POST" style="display:inline;" onsubmit="return confirm('Hapus pelanggan ini?')">
+                                                <input type="hidden" name="action" value="delete">
+                                                <input type="hidden" name="id" value="<?php echo $c['id']; ?>">
+                                                <button type="submit" class="ss-btn ss-btn-danger ss-btn-sm"><i data-feather="trash-2"></i></button>
+                                            </form>
+                                        <?php endif; ?>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php endif; ?>
     </div>
-</div>
-
-<?php else: ?>
-<!-- ============ LIST ============ -->
-<div class="ss-card">
-    <div class="ss-card-header">
-        <div>
-            <div class="ss-card-title">Database Pelanggan</div>
-            <div class="ss-card-sub"><?php echo count($customers); ?> pelanggan<?php echo $search ? " (filter: ".htmlspecialchars($search).")" : ''; ?></div>
-        </div>
-        <a href="customers.php?action=add" class="ss-btn ss-btn-primary">
-            <i data-feather="user-plus"></i> Tambah Pelanggan
-        </a>
-    </div>
-
-    <!-- Search -->
-    <form method="GET" style="margin-bottom:16px;display:flex;gap:10px;">
-        <input type="text" name="q" value="<?php echo htmlspecialchars($search); ?>"
-               class="ss-input" style="max-width:300px;" placeholder="Cari nama, kode, HP, email...">
-        <button type="submit" class="ss-btn ss-btn-outline"><i data-feather="search"></i> Cari</button>
-        <?php if ($search): ?><a href="customers.php" class="ss-btn ss-btn-outline"><i data-feather="x"></i></a><?php endif; ?>
-    </form>
-
-    <?php if (empty($customers)): ?>
-        <div class="ss-empty">
-            <div class="ss-empty-icon">👥</div>
-            <h3>Belum ada pelanggan</h3>
-            <p>Tambahkan pelanggan pertama untuk mulai membuat penawaran</p>
-        </div>
-    <?php else: ?>
-        <div class="ss-table-wrap">
-            <table class="ss-table">
-                <thead>
-                    <tr>
-                        <th>Kode</th>
-                        <th>Nama</th>
-                        <th>Tipe</th>
-                        <th>HP / WA</th>
-                        <th>Kota</th>
-                        <th>Penawaran</th>
-                        <th>Invoice</th>
-                        <th>Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($customers as $c): ?>
-                    <tr>
-                        <td style="font-size:11px;color:var(--ss-muted);"><?php echo htmlspecialchars($c['code']); ?></td>
-                        <td>
-                            <strong><?php echo htmlspecialchars($c['name']); ?></strong>
-                            <?php if ($c['email']): ?><br><small style="color:var(--ss-muted);"><?php echo htmlspecialchars($c['email']); ?></small><?php endif; ?>
-                        </td>
-                        <td><?php
-                            $typeLabels = ['individual'=>'Individual','group'=>'Group','corporate'=>'Perusahaan','travel_agent'=>'Travel Agent'];
-                            echo $typeLabels[$c['type']] ?? ucfirst($c['type']);
-                        ?></td>
-                        <td><?php echo htmlspecialchars($c['phone'] ?: $c['whatsapp'] ?: '-'); ?></td>
-                        <td><?php echo htmlspecialchars($c['city'] ?: '-'); ?></td>
-                        <td style="text-align:center;"><?php echo (int)$c['total_quotations']; ?></td>
-                        <td style="text-align:center;"><?php echo (int)$c['total_invoices']; ?></td>
-                        <td>
-                            <div style="display:flex;gap:6px;">
-                                <a href="customers.php?action=edit&id=<?php echo $c['id']; ?>"
-                                   class="ss-btn ss-btn-outline ss-btn-sm"><i data-feather="edit-2"></i></a>
-                                <a href="quotations.php?action=add&customer_id=<?php echo $c['id']; ?>"
-                                   class="ss-btn ss-btn-primary ss-btn-sm" title="Buat penawaran">
-                                    <i data-feather="file-plus"></i>
-                                </a>
-                                <?php if ($c['total_quotations'] == 0 && $c['total_invoices'] == 0): ?>
-                                <form method="POST" style="display:inline;" onsubmit="return confirm('Hapus pelanggan ini?')">
-                                    <input type="hidden" name="action" value="delete">
-                                    <input type="hidden" name="id" value="<?php echo $c['id']; ?>">
-                                    <button type="submit" class="ss-btn ss-btn-danger ss-btn-sm"><i data-feather="trash-2"></i></button>
-                                </form>
-                                <?php endif; ?>
-                            </div>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    <?php endif; ?>
-</div>
 <?php endif; ?>
 
 <?php include 'layout-footer.php'; ?>

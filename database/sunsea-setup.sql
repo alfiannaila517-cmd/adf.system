@@ -458,7 +458,29 @@ CREATE TABLE IF NOT EXISTS `facilities` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
--- 19. BOOKING / PEMESANAN (Paket & Ecer)
+-- 19. CATERING
+-- ============================================================
+CREATE TABLE IF NOT EXISTS `caterings` (
+    `id`            INT AUTO_INCREMENT PRIMARY KEY,
+    `catering_code` VARCHAR(20) UNIQUE,
+    `vendor_name`   VARCHAR(150) NOT NULL,
+    `menu_name`     VARCHAR(150) NOT NULL,
+    `category`      VARCHAR(80),
+    `portion_unit`  VARCHAR(30) DEFAULT 'porsi',
+    `price_cost`    DECIMAL(15,2) DEFAULT 0.00,
+    `price_sell`    DECIMAL(15,2) DEFAULT 0.00,
+    `phone`         VARCHAR(30),
+    `location`      VARCHAR(120),
+    `notes`         TEXT,
+    `is_active`     TINYINT(1) DEFAULT 1,
+    `created_at`    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_catering_active (`is_active`),
+    INDEX idx_catering_vendor (`vendor_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- 20. BOOKING / PEMESANAN (Paket & Ecer)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS `booking_orders` (
     `id`              INT AUTO_INCREMENT PRIMARY KEY,

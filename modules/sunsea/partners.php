@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Sunsea - Mitra Penginapan (Hotel & Homestay)
  */
@@ -84,8 +85,8 @@ $rooms = $pdo->query("SELECT r.*, p.name AS partner_name, p.partner_type
     JOIN accommodation_partners p ON p.id = r.partner_id
     ORDER BY p.name, r.room_type")->fetchAll();
 
-$pageTitle = 'Hotel & Homestay';
-$activePage = 'partners';
+$pageTitle = 'Database Hotel & Homestay';
+$activePage = 'database';
 include 'layout-header.php';
 ?>
 
@@ -138,7 +139,7 @@ include 'layout-header.php';
                     <select class="ss-select" name="partner_id" required>
                         <option value="">-- pilih mitra --</option>
                         <?php foreach ($partners as $p): ?>
-                        <option value="<?php echo $p['id']; ?>"><?php echo htmlspecialchars($p['name'] . ' (' . $p['partner_type'] . ')'); ?></option>
+                            <option value="<?php echo $p['id']; ?>"><?php echo htmlspecialchars($p['name'] . ' (' . $p['partner_type'] . ')'); ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -159,18 +160,27 @@ include 'layout-header.php';
     <div class="ss-card-title" style="margin-bottom:10px;">Daftar Mitra</div>
     <div class="ss-table-wrap">
         <table class="ss-table">
-            <thead><tr><th>Kode</th><th>Nama</th><th>Tipe</th><th>PIC</th><th>Kontak</th><th>Status</th></tr></thead>
-            <tbody>
-            <?php foreach ($partners as $p): ?>
+            <thead>
                 <tr>
-                    <td><?php echo htmlspecialchars($p['partner_code'] ?? '-'); ?></td>
-                    <td><strong><?php echo htmlspecialchars($p['name']); ?></strong><br><small style="color:var(--ss-muted)"><?php echo htmlspecialchars($p['location'] ?? '-'); ?></small></td>
-                    <td><?php echo ucfirst($p['partner_type']); ?></td>
-                    <td><?php echo htmlspecialchars($p['contact_person'] ?: '-'); ?></td>
-                    <td><?php echo htmlspecialchars($p['phone'] ?: '-'); ?></td>
-                    <td><?php echo $p['is_active'] ? '<span class="ss-status ss-status-approved">Aktif</span>' : '<span class="ss-status ss-status-draft">Nonaktif</span>'; ?></td>
+                    <th>Kode</th>
+                    <th>Nama</th>
+                    <th>Tipe</th>
+                    <th>PIC</th>
+                    <th>Kontak</th>
+                    <th>Status</th>
                 </tr>
-            <?php endforeach; ?>
+            </thead>
+            <tbody>
+                <?php foreach ($partners as $p): ?>
+                    <tr>
+                        <td><?php echo htmlspecialchars($p['partner_code'] ?? '-'); ?></td>
+                        <td><strong><?php echo htmlspecialchars($p['name']); ?></strong><br><small style="color:var(--ss-muted)"><?php echo htmlspecialchars($p['location'] ?? '-'); ?></small></td>
+                        <td><?php echo ucfirst($p['partner_type']); ?></td>
+                        <td><?php echo htmlspecialchars($p['contact_person'] ?: '-'); ?></td>
+                        <td><?php echo htmlspecialchars($p['phone'] ?: '-'); ?></td>
+                        <td><?php echo $p['is_active'] ? '<span class="ss-status ss-status-approved">Aktif</span>' : '<span class="ss-status ss-status-draft">Nonaktif</span>'; ?></td>
+                    </tr>
+                <?php endforeach; ?>
             </tbody>
         </table>
     </div>
@@ -180,18 +190,27 @@ include 'layout-header.php';
     <div class="ss-card-title" style="margin-bottom:10px;">Daftar Tipe Kamar / Homestay</div>
     <div class="ss-table-wrap">
         <table class="ss-table">
-            <thead><tr><th>Mitra</th><th>Tipe</th><th>Kapasitas</th><th>Harga Modal</th><th>Harga Jual</th><th>Quota</th></tr></thead>
-            <tbody>
-            <?php foreach ($rooms as $r): ?>
+            <thead>
                 <tr>
-                    <td><?php echo htmlspecialchars($r['partner_name']); ?><br><small style="color:var(--ss-muted)"><?php echo htmlspecialchars($r['partner_type']); ?></small></td>
-                    <td><?php echo htmlspecialchars($r['room_type']); ?></td>
-                    <td><?php echo (int)$r['capacity']; ?></td>
-                    <td><?php echo sunseaRupiah((float)$r['price_cost']); ?></td>
-                    <td><?php echo sunseaRupiah((float)$r['price_sell']); ?></td>
-                    <td><?php echo (int)$r['quota']; ?></td>
+                    <th>Mitra</th>
+                    <th>Tipe</th>
+                    <th>Kapasitas</th>
+                    <th>Harga Modal</th>
+                    <th>Harga Jual</th>
+                    <th>Quota</th>
                 </tr>
-            <?php endforeach; ?>
+            </thead>
+            <tbody>
+                <?php foreach ($rooms as $r): ?>
+                    <tr>
+                        <td><?php echo htmlspecialchars($r['partner_name']); ?><br><small style="color:var(--ss-muted)"><?php echo htmlspecialchars($r['partner_type']); ?></small></td>
+                        <td><?php echo htmlspecialchars($r['room_type']); ?></td>
+                        <td><?php echo (int)$r['capacity']; ?></td>
+                        <td><?php echo sunseaRupiah((float)$r['price_cost']); ?></td>
+                        <td><?php echo sunseaRupiah((float)$r['price_sell']); ?></td>
+                        <td><?php echo (int)$r['quota']; ?></td>
+                    </tr>
+                <?php endforeach; ?>
             </tbody>
         </table>
     </div>
