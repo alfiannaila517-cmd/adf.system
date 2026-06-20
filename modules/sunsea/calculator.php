@@ -56,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
         $_SESSION['flash_type'] = 'error';
     }
 
-    header('Location: calculator.php');
+    header('Location: bookings.php');
     exit;
 }
 
@@ -73,14 +73,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
     if ($customerId <= 0) {
         $_SESSION['flash_message'] = 'Pilih customer terlebih dahulu sebelum cetak invoice.';
         $_SESSION['flash_type'] = 'error';
-        header('Location: calculator.php');
+        header('Location: bookings.php');
         exit;
     }
 
     if (!is_array($itemsData) || empty($itemsData)) {
         $_SESSION['flash_message'] = 'Komponen kalkulasi kosong. Tambahkan item dulu.';
         $_SESSION['flash_type'] = 'error';
-        header('Location: calculator.php');
+        header('Location: bookings.php');
         exit;
     }
 
@@ -117,7 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
     if (empty($invoiceItems)) {
         $_SESSION['flash_message'] = 'Tidak ada item valid untuk dibuat invoice.';
         $_SESSION['flash_type'] = 'error';
-        header('Location: calculator.php');
+        header('Location: bookings.php');
         exit;
     }
 
@@ -183,7 +183,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
         }
         $_SESSION['flash_message'] = 'Gagal membuat invoice dari kalkulator: ' . $e->getMessage();
         $_SESSION['flash_type'] = 'error';
-        header('Location: calculator.php');
+        header('Location: bookings.php');
         exit;
     }
 }
@@ -235,8 +235,8 @@ $jsGuides     = json_encode($dbGuides);
 $jsFacilities = json_encode($dbFacilities);
 $jsPkgPreset  = json_encode($pkgPresetPrices);
 
-$pageTitle  = 'Kalkulator Harga Trip';
-$activePage = 'calculator';
+$pageTitle  = 'Booking';
+$activePage = 'bookings';
 include 'layout-header.php';
 ?>
 
@@ -492,8 +492,11 @@ include 'layout-header.php';
                 </select>
             </div>
 
+            <button onclick="recalc()" style="width:100%;padding:9px;background:#fff;color:#0EA5E9;border:1px solid #0EA5E9;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer;margin-bottom:8px;">
+                🧮 Hitung Kalkulasi Ecer
+            </button>
             <button onclick="sendToQuotation()" style="width:100%;padding:11px;background:#0EA5E9;color:#fff;border:none;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:8px;">
-                📄 Buat Penawaran dari Kalkulator
+                📄 Buat Penawaran dari Booking
             </button>
             <button onclick="printInvoiceFromCalculator()" style="width:100%;padding:9px;background:#fff;color:#0EA5E9;border:1px solid #0EA5E9;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;margin-bottom:8px;">
                 🖨️ Cetak Invoice

@@ -14,6 +14,10 @@ $auth = new Auth();
 $auth->requireLogin();
 $pdo = getSunseaConnection();
 
+// Booking page now uses the enhanced calculator flow directly.
+header('Location: calculator.php');
+exit;
+
 function postNum(string $key): float
 {
     return (float)str_replace(['.', ','], ['', '.'], $_POST[$key] ?? '0');
