@@ -170,7 +170,7 @@ include 'layout-header.php';
             <i data-feather="briefcase"></i> Input Pemesanan
         </a>
         <a href="calendar.php" class="ss-btn ss-btn-outline">
-            <i data-feather="calendar"></i> Kalender Blokir
+            <i data-feather="calendar"></i> Kalender Booking
         </a>
         <a href="partners.php" class="ss-btn ss-btn-outline">
             <i data-feather="building"></i> Hotel & Homestay

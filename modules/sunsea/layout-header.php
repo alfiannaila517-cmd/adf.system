@@ -15,7 +15,7 @@ $sunseaNavItems = [
     'dashboard'     => ['icon' => 'home',       'label' => 'Dashboard',         'url' => 'dashboard.php'],
     'database'      => ['icon' => 'database',   'label' => 'Database',          'url' => 'database.php'],
     'bookings'      => ['icon' => 'briefcase',  'label' => 'Booking',           'url' => 'bookings.php'],
-    'calendar'      => ['icon' => 'calendar',   'label' => 'Kalender Blokir',   'url' => 'calendar.php'],
+    'calendar'      => ['icon' => 'calendar',   'label' => 'Kalender Booking',  'url' => 'calendar.php'],
     'coordinators'  => ['icon' => 'user-check', 'label' => 'Koordinator',       'url' => 'coordinators.php'],
     'packages'      => ['icon' => 'package',    'label' => 'Paket Wisata',      'url' => 'packages.php'],
     'rab'           => ['icon' => 'file-minus', 'label' => 'Cetak RAB',         'url' => 'rab.php'],
