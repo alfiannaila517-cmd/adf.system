@@ -233,197 +233,191 @@ $activePage = 'bookings';
 include 'layout-header.php';
 ?>
 
-<div style="max-width:900px;">
-    <div style="margin-bottom:16px;"><a class="ss-btn ss-btn-outline ss-btn-sm" href="bookings.php"><i data-feather="arrow-left"></i> Kembali ke Daftar</a></div>
+<div style="max-width:900px;padding:16px;">
+    <div style="margin-bottom:16px;"><a href="bookings.php" style="display:inline-flex;align-items:center;gap:6px;padding:8px 12px;background:#f0f9ff;color:#0EA5E9;border:1px solid #0EA5E9;border-radius:4px;text-decoration:none;font-weight:500;cursor:pointer;">← Kembali ke Daftar</a></div>
 
-    <form method="POST" id="bookingForm">
+    <form method="POST" id="bookingForm" style="display:flex;flex-direction:column;gap:16px;">
         <input type="hidden" name="action" value="save_booking">
 
-        <div class="ss-card" style="margin-bottom:16px;">
-            <div class="ss-card-title" style="margin-bottom:12px;">1. Data Dasar Pemesanan</div>
-            <div class="ss-form-grid cols-2">
-                <div class="ss-form-group" style="grid-column:1/-1;">
-                    <label class="ss-label">Customer *</label>
-                    <select name="customer_id" class="ss-select" required>
+        <div style="padding:16px;background:#ffffff;border:1px solid #ddd;border-radius:6px;">
+            <div style="margin-bottom:12px;font-size:16px;font-weight:600;color:#0c4a6e;">1. Data Dasar Pemesanan</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div style="grid-column:1/-1;">
+                    <label style="display:block;margin-bottom:6px;font-weight:500;">Customer *</label>
+                    <select name="customer_id" required style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
                         <option value="">-- Pilih Customer --</option>
                         <?php foreach ($customers as $c): ?>
                         <option value="<?php echo $c['id']; ?>"><?php echo htmlspecialchars($c['name'] . ' (' . $c['phone'] . ')'); ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div class="ss-form-group">
-                    <label class="ss-label">Mode Booking *</label>
-                    <select name="booking_mode" class="ss-select">
+                <div>
+                    <label style="display:block;margin-bottom:6px;font-weight:500;">Mode Booking *</label>
+                    <select name="booking_mode" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
                         <option value="paket">Paket</option>
                         <option value="ecer">Ecer</option>
                     </select>
                 </div>
-                <div class="ss-form-group">
-                    <label class="ss-label">Jumlah Pax *</label>
-                    <input type="number" name="pax_count" class="ss-input" value="1" min="1" required>
+                <div>
+                    <label style="display:block;margin-bottom:6px;font-weight:500;">Jumlah Pax *</label>
+                    <input type="number" name="pax_count" value="1" min="1" required style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
                 </div>
-                <div class="ss-form-group">
-                    <label class="ss-label">Tanggal Mulai *</label>
-                    <input type="date" name="start_date" class="ss-input" required>
+                <div>
+                    <label style="display:block;margin-bottom:6px;font-weight:500;">Tanggal Mulai *</label>
+                    <input type="date" name="start_date" required style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
                 </div>
-                <div class="ss-form-group">
-                    <label class="ss-label">Tanggal Selesai *</label>
-                    <input type="date" name="end_date" class="ss-input" required>
+                <div>
+                    <label style="display:block;margin-bottom:6px;font-weight:500;">Tanggal Selesai *</label>
+                    <input type="date" name="end_date" required style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
                 </div>
-                <div class="ss-form-group">
-                    <label class="ss-label">Koordinator</label>
-                    <select name="coordinator_id" class="ss-select">
+                <div>
+                    <label style="display:block;margin-bottom:6px;font-weight:500;">Koordinator</label>
+                    <select name="coordinator_id" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
                         <option value="">-- Pilih Koordinator --</option>
                         <?php foreach ($coordinators as $c): ?>
                         <option value="<?php echo $c['id']; ?>"><?php echo htmlspecialchars($c['name']); ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div class="ss-form-group" style="grid-column:1/-1;">
-                    <label class="ss-label">Catatan</label>
-                    <textarea name="notes" class="ss-textarea" placeholder="Catatan khusus pesanan"></textarea>
+                <div style="grid-column:1/-1;">
+                    <label style="display:block;margin-bottom:6px;font-weight:500;">Catatan</label>
+                    <textarea name="notes" placeholder="Catatan khusus pesanan" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;min-height:80px;"></textarea>
                 </div>
             </div>
         </div>
 
-        <div class="ss-card" style="margin-bottom:16px;">
-            <div class="ss-card-title" style="margin-bottom:12px;">2. Pilih Komponen dari Database</div>
+        <div style="padding:16px;background:#ffffff;border:1px solid #ddd;border-radius:6px;">
+            <div style="margin-bottom:12px;font-size:16px;font-weight:600;color:#0c4a6e;">2. Pilih Komponen dari Database</div>
 
             <!-- Tiket -->
-            <div style="margin-bottom:12px;padding:12px;background:var(--ss-gray-1);border-radius:8px;">
-                <label class="ss-label" style="margin-bottom:6px;"><strong>Tiket</strong></label>
-                <div class="ss-form-grid cols-3">
-                    <select name="ticket_id" class="ss-select" onchange="loadPrice('ticket', this.value, 'ticketPrice')">
+            <div style="margin-bottom:12px;padding:12px;background:#f8fbff;border:1px solid #d0e8ff;border-radius:6px;">
+                <label style="display:block;margin-bottom:8px;font-weight:600;color:#0c4a6e;"><strong>Tiket</strong></label>
+                <div style="display:grid;grid-template-columns:1fr 120px 120px;gap:8px;align-items:flex-end;">
+                    <select name="ticket_id" onchange="loadPrice('ticket', this.value, 'ticketPrice')" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;">
                         <option value="">-- Tidak pilih --</option>
                         <?php foreach ($tickets as $t): ?>
                         <option value="<?php echo $t['id']; ?>"><?php echo htmlspecialchars($t['ticket_name'] . ' (' . $t['ticket_type'] . ')'); ?></option>
                         <?php endforeach; ?>
                     </select>
-                    <input type="number" name="ticket_qty" class="ss-input" placeholder="Qty" value="1" min="1" onchange="calculateTotal()">
-                    <div style="display:flex;gap:6px;align-items:flex-end;">
-                        <div>
-                            <small style="color:var(--ss-muted)">Jual</small><br>
-                            <strong id="ticketPrice" style="color:var(--ss-ocean)">-</strong>
-                        </div>
+                    <input type="number" name="ticket_qty" placeholder="Qty" value="1" min="1" onchange="calculateTotal()" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+                        <small style="color:#666;">Harga Jual</small>
+                        <strong id="ticketPrice" style="color:#0EA5E9;font-size:14px;">-</strong>
                     </div>
                 </div>
             </div>
 
             <!-- Penginapan -->
-            <div style="margin-bottom:12px;padding:12px;background:var(--ss-gray-1);border-radius:8px;">
-                <label class="ss-label" style="margin-bottom:6px;"><strong>Penginapan</strong></label>
-                <div class="ss-form-grid cols-3">
-                    <select name="room_id" class="ss-select" onchange="loadPrice('room', this.value, 'roomPrice')">
+            <div style="margin-bottom:12px;padding:12px;background:#f8fbff;border:1px solid #d0e8ff;border-radius:6px;">
+                <label style="display:block;margin-bottom:8px;font-weight:600;color:#0c4a6e;"><strong>Penginapan</strong></label>
+                <div style="display:grid;grid-template-columns:1fr 80px 80px 120px;gap:8px;align-items:flex-end;">
+                    <select name="room_id" onchange="loadPrice('room', this.value, 'roomPrice')" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;">
                         <option value="">-- Tidak pilih --</option>
                         <?php foreach ($rooms as $r): ?>
                         <option value="<?php echo $r['id']; ?>"><?php echo htmlspecialchars($r['partner_name'] . ' - ' . $r['room_type']); ?></option>
                         <?php endforeach; ?>
                     </select>
-                    <div class="ss-form-grid cols-2" style="gap:6px;">
-                        <input type="number" name="stay_room_qty" class="ss-input" placeholder="Jml Kamar" value="1" min="1" onchange="calculateTotal()">
-                        <input type="number" name="stay_nights" class="ss-input" placeholder="Malam" value="1" min="1" onchange="calculateTotal()">
-                    </div>
-                    <div style="display:flex;gap:6px;align-items:flex-end;">
-                        <div>
-                            <small style="color:var(--ss-muted)">Jual</small><br>
-                            <strong id="roomPrice" style="color:var(--ss-ocean)">-</strong>
-                        </div>
+                    <input type="number" name="stay_room_qty" placeholder="Kamar" value="1" min="1" onchange="calculateTotal()" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
+                    <input type="number" name="stay_nights" placeholder="Malam" value="1" min="1" onchange="calculateTotal()" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+                        <small style="color:#666;">Harga/Malam</small>
+                        <strong id="roomPrice" style="color:#0EA5E9;font-size:14px;">-</strong>
                     </div>
                 </div>
             </div>
 
             <!-- Catering -->
-            <div style="margin-bottom:12px;padding:12px;background:var(--ss-gray-1);border-radius:8px;">
-                <label class="ss-label" style="margin-bottom:6px;"><strong>Catering</strong></label>
-                <div class="ss-form-grid cols-3">
-                    <select name="catering_id" class="ss-select" onchange="loadPrice('catering', this.value, 'cateringPrice')">
+            <div style="margin-bottom:12px;padding:12px;background:#f8fbff;border:1px solid #d0e8ff;border-radius:6px;">
+                <label style="display:block;margin-bottom:8px;font-weight:600;color:#0c4a6e;"><strong>Catering</strong></label>
+                <div style="display:grid;grid-template-columns:1fr 120px 120px;gap:8px;align-items:flex-end;">
+                    <select name="catering_id" onchange="loadPrice('catering', this.value, 'cateringPrice')" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;">
                         <option value="">-- Tidak pilih --</option>
                         <?php foreach ($caterings as $c): ?>
                         <option value="<?php echo $c['id']; ?>"><?php echo htmlspecialchars($c['vendor_name'] . ' - ' . $c['menu_name'] . ' (' . $c['portion_unit'] . ')'); ?></option>
                         <?php endforeach; ?>
                     </select>
-                    <input type="number" name="catering_qty" class="ss-input" placeholder="Qty" value="1" min="1" onchange="calculateTotal()">
-                    <div style="display:flex;gap:6px;align-items:flex-end;">
-                        <div>
-                            <small style="color:var(--ss-muted)">Jual</small><br>
-                            <strong id="cateringPrice" style="color:var(--ss-ocean)">-</strong>
-                        </div>
+                    <input type="number" name="catering_qty" placeholder="Qty" value="1" min="1" onchange="calculateTotal()" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+                        <small style="color:#666;">Harga Jual</small>
+                        <strong id="cateringPrice" style="color:#0EA5E9;font-size:14px;">-</strong>
                     </div>
                 </div>
             </div>
 
             <!-- Guide Darat -->
-            <div style="margin-bottom:12px;padding:12px;background:var(--ss-gray-1);border-radius:8px;">
-                <label class="ss-label" style="margin-bottom:6px;"><strong>Guide Darat</strong></label>
-                <div class="ss-form-grid cols-3">
-                    <select name="guide_darat_id" class="ss-select" onchange="loadPrice('guide', this.value, 'guideDaratPrice')">
+            <div style="margin-bottom:12px;padding:12px;background:#f8fbff;border:1px solid #d0e8ff;border-radius:6px;">
+                <label style="display:block;margin-bottom:8px;font-weight:600;color:#0c4a6e;"><strong>Guide Darat</strong></label>
+                <div style="display:grid;grid-template-columns:1fr 120px 120px;gap:8px;align-items:flex-end;">
+                    <select name="guide_darat_id" onchange="loadPrice('guide', this.value, 'guideDaratPrice')" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;">
                         <option value="">-- Tidak pilih --</option>
                         <?php foreach ($guides as $g): if ($g['guide_type'] === 'darat'): ?>
                         <option value="<?php echo $g['id']; ?>"><?php echo htmlspecialchars($g['name']); ?></option>
                         <?php endif; endforeach; ?>
                     </select>
-                    <input type="number" name="guide_darat_days" class="ss-input" placeholder="Hari" value="1" min="1" onchange="calculateTotal()">
-                    <div style="display:flex;gap:6px;align-items:flex-end;">
-                        <div>
-                            <small style="color:var(--ss-muted)">Jual</small><br>
-                            <strong id="guideDaratPrice" style="color:var(--ss-ocean)">-</strong>
-                        </div>
+                    <input type="number" name="guide_darat_days" placeholder="Hari" value="1" min="1" onchange="calculateTotal()" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+                        <small style="color:#666;">Harga/Hari</small>
+                        <strong id="guideDaratPrice" style="color:#0EA5E9;font-size:14px;">-</strong>
                     </div>
                 </div>
             </div>
 
             <!-- Guide Laut -->
-            <div style="margin-bottom:12px;padding:12px;background:var(--ss-gray-1);border-radius:8px;">
-                <label class="ss-label" style="margin-bottom:6px;"><strong>Guide Laut</strong></label>
-                <div class="ss-form-grid cols-3">
-                    <select name="guide_laut_id" class="ss-select" onchange="loadPrice('guide', this.value, 'guideLautPrice')">
+            <div style="margin-bottom:12px;padding:12px;background:#f8fbff;border:1px solid #d0e8ff;border-radius:6px;">
+                <label style="display:block;margin-bottom:8px;font-weight:600;color:#0c4a6e;"><strong>Guide Laut</strong></label>
+                <div style="display:grid;grid-template-columns:1fr 120px 120px;gap:8px;align-items:flex-end;">
+                    <select name="guide_laut_id" onchange="loadPrice('guide', this.value, 'guideLautPrice')" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;">
                         <option value="">-- Tidak pilih --</option>
                         <?php foreach ($guides as $g): if ($g['guide_type'] === 'laut'): ?>
                         <option value="<?php echo $g['id']; ?>"><?php echo htmlspecialchars($g['name']); ?></option>
                         <?php endif; endforeach; ?>
                     </select>
-                    <input type="number" name="guide_laut_days" class="ss-input" placeholder="Hari" value="1" min="1" onchange="calculateTotal()">
-                    <div style="display:flex;gap:6px;align-items:flex-end;">
-                        <div>
-                            <small style="color:var(--ss-muted)">Jual</small><br>
-                            <strong id="guideLautPrice" style="color:var(--ss-ocean)">-</strong>
-                        </div>
+                    <input type="number" name="guide_laut_days" placeholder="Hari" value="1" min="1" onchange="calculateTotal()" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+                        <small style="color:#666;">Harga/Hari</small>
+                        <strong id="guideLautPrice" style="color:#0EA5E9;font-size:14px;">-</strong>
                     </div>
                 </div>
             </div>
 
             <!-- Fasilitas -->
-            <div style="margin-bottom:12px;padding:12px;background:var(--ss-gray-1);border-radius:8px;">
-                <label class="ss-label" style="margin-bottom:6px;"><strong>Fasilitas Tambahan</strong></label>
-                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:8px;">
+            <div style="margin-bottom:12px;padding:12px;background:#f8fbff;border:1px solid #d0e8ff;border-radius:6px;">
+                <label style="display:block;margin-bottom:8px;font-weight:600;color:#0c4a6e;"><strong>Fasilitas Tambahan</strong></label>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:8px;">
                     <?php foreach ($facilities as $f): ?>
-                    <label style="display:flex;align-items:center;gap:8px;">
-                        <input type="checkbox" name="facility_ids[]" value="<?php echo $f['id']; ?>" onchange="calculateTotal()">
-                        <span><?php echo htmlspecialchars($f['name'] . ' (' . $f['unit'] . ')'); ?></span>
-                        <small style="color:var(--ss-ocean)"><?php echo sunseaRupiah((float)$f['price_sell']); ?></small>
-                        <input type="number" name="facility_qty_<?php echo $f['id']; ?>" class="ss-input" placeholder="Qty" value="1" min="0" step="0.01" style="width:70px;" onchange="calculateTotal()">
+                    <label style="display:flex;align-items:center;gap:8px;padding:8px;background:#ffffff;border:1px solid #e0e0e0;border-radius:4px;cursor:pointer;">
+                        <input type="checkbox" name="facility_ids[]" value="<?php echo $f['id']; ?>" onchange="calculateTotal()" style="width:16px;height:16px;cursor:pointer;">
+                        <span style="flex:1;font-size:13px;"><?php echo htmlspecialchars($f['name'] . ' (' . $f['unit'] . ')'); ?></span>
+                        <span style="color:#0EA5E9;font-weight:600;min-width:100px;text-align:right;font-size:12px;">Rp <?php echo number_format((float)$f['price_sell'], 0, ',', '.'); ?></span>
+                        <input type="number" name="facility_qty_<?php echo $f['id']; ?>" placeholder="Qty" value="1" min="0" step="0.01" onchange="calculateTotal()" style="width:60px;padding:4px;border:1px solid #ccc;border-radius:3px;font-family:inherit;font-size:12px;">
                     </label>
                     <?php endforeach; ?>
                 </div>
             </div>
         </div>
 
-        <div class="ss-card">
-            <div class="ss-card-title" style="margin-bottom:12px;">3. Estimasi Harga</div>
+        <div style="padding:16px;background:#ffffff;border:1px solid #ddd;border-radius:6px;">
+            <div style="margin-bottom:12px;font-size:16px;font-weight:600;color:#0c4a6e;">3. Estimasi Harga</div>
             <div style="display:grid;grid-template-columns:1fr 280px;gap:18px;">
                 <div></div>
                 <div>
-                    <div style="display:flex;justify-content:space-between;padding:8px 0;"><span style="color:var(--ss-muted)">Total Modal</span><strong id="totalCost">Rp 0</strong></div>
-                    <div style="display:flex;justify-content:space-between;padding:8px 0;"><span style="color:var(--ss-muted)">Total Jual</span><strong id="totalSell">Rp 0</strong></div>
-                    <div style="display:flex;justify-content:space-between;padding:10px 0;border-top:2px solid var(--ss-ocean);font-size:16px;">
-                        <span>Margin</span>
-                        <strong style="color:var(--ss-success)" id="totalMargin">Rp 0</strong>
+                    <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee;">
+                        <span style="color:#666;">Total Modal</span>
+                        <strong id="totalCost" style="color:#0EA5E9;">Rp 0</strong>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee;">
+                        <span style="color:#666;">Total Jual</span>
+                        <strong id="totalSell" style="color:#0EA5E9;">Rp 0</strong>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:10px 0;border-top:2px solid #0EA5E9;font-size:16px;">
+                        <span style="font-weight:600;">Margin</span>
+                        <strong style="color:#10b981;" id="totalMargin">Rp 0</strong>
                     </div>
                 </div>
             </div>
             <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
-                <a href="bookings.php" class="ss-btn ss-btn-outline">Batal</a>
-                <button type="submit" class="ss-btn ss-btn-primary"><i data-feather="save"></i> Simpan Pemesanan</button>
+                <a href="bookings.php" style="padding:10px 16px;background:#f0f9ff;color:#0EA5E9;border:1px solid #0EA5E9;border-radius:4px;text-decoration:none;font-weight:600;cursor:pointer;">Batal</a>
+                <button type="submit" style="padding:10px 16px;background:#0EA5E9;color:white;border:none;border-radius:4px;font-weight:600;cursor:pointer;font-size:14px;">💾 Simpan Pemesanan</button>
             </div>
         </div>
     </form>
