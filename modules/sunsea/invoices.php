@@ -740,6 +740,12 @@ endif;
 include 'layout-header.php';
 ?>
 
+<?php
+$prefillTripDate = (string)($_GET['trip_date'] ?? '');
+$prefillTripEndDate = (string)($_GET['trip_end_date'] ?? '');
+$prefillPaxCount = max(1, (int)($_GET['pax_count'] ?? 1));
+?>
+
 <?php if ($action === 'view' && $invoice): ?>
     <!-- ============ VIEW ============ -->
     <div style="margin-bottom:20px;display:flex;gap:10px;flex-wrap:wrap;">
@@ -928,9 +934,9 @@ include 'layout-header.php';
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    <div class="ss-form-group"><label class="ss-label">Tanggal Trip</label><input type="date" name="trip_date" class="ss-input" value="<?php echo $editInvoice['trip_date'] ?? ''; ?>"></div>
-                    <div class="ss-form-group"><label class="ss-label">Tanggal Selesai</label><input type="date" name="trip_end_date" class="ss-input" value="<?php echo $editInvoice['trip_end_date'] ?? ''; ?>"></div>
-                    <div class="ss-form-group"><label class="ss-label">Peserta</label><input type="number" name="pax_count" class="ss-input" min="1" value="<?php echo $editInvoice['pax_count'] ?? 1; ?>"></div>
+                    <div class="ss-form-group"><label class="ss-label">Tanggal Trip</label><input type="date" name="trip_date" class="ss-input" value="<?php echo htmlspecialchars($editInvoice['trip_date'] ?? $prefillTripDate); ?>"></div>
+                    <div class="ss-form-group"><label class="ss-label">Tanggal Selesai</label><input type="date" name="trip_end_date" class="ss-input" value="<?php echo htmlspecialchars($editInvoice['trip_end_date'] ?? $prefillTripEndDate); ?>"></div>
+                    <div class="ss-form-group"><label class="ss-label">Peserta</label><input type="number" name="pax_count" class="ss-input" min="1" value="<?php echo (int)($editInvoice['pax_count'] ?? $prefillPaxCount); ?>"></div>
                     <div class="ss-form-group"><label class="ss-label">Jatuh Tempo</label><input type="date" name="due_date" class="ss-input" value="<?php echo $editInvoice['due_date'] ?? date('Y-m-d', strtotime('+14 days')); ?>"></div>
                     <div class="ss-form-group"><label class="ss-label">PPN (%)</label><input type="number" name="tax_pct" class="ss-input" step="0.1" value="<?php echo $editInvoice['tax_pct'] ?? 11; ?>" id="taxInput2"></div>
                     <div class="ss-form-group"><label class="ss-label">Diskon (Rp)</label><input type="text" name="discount_amount" class="ss-input" value="<?php echo number_format($editInvoice['discount_amount'] ?? 0, 0, ',', '.'); ?>" id="discountInput2"></div>

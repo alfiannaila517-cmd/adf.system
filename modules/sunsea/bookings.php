@@ -296,6 +296,41 @@ $action = $_GET['action'] ?? 'list';
 $viewId = (int)($_GET['view'] ?? 0);
 $pageError = '';
 
+if ($action === 'print_invoice') {
+    $bookingId = (int)($_GET['id'] ?? 0);
+    if ($bookingId > 0) {
+        $bookingStmt = $pdo->prepare("SELECT id, customer_id, start_date, end_date, pax_count FROM booking_orders WHERE id=?");
+        $bookingStmt->execute([$bookingId]);
+        $booking = $bookingStmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($booking) {
+            $invoiceId = 0;
+            try {
+                $invStmt = $pdo->prepare("SELECT id FROM invoices WHERE customer_id=? AND trip_date=? AND trip_end_date=? ORDER BY id DESC LIMIT 1");
+                $invStmt->execute([(int)$booking['customer_id'], $booking['start_date'], $booking['end_date']]);
+                $invoiceId = (int)($invStmt->fetchColumn() ?: 0);
+            } catch (Exception $e) {
+                $invoiceId = 0;
+            }
+
+            if ($invoiceId > 0) {
+                header('Location: invoices.php?action=print&id=' . $invoiceId);
+                exit;
+            }
+
+            $_SESSION['flash_message'] = 'Invoice belum tersedia. Silakan buat invoice dulu untuk reservasi ini.';
+            $_SESSION['flash_type'] = 'warning';
+            header('Location: invoices.php?action=add&customer_id=' . (int)$booking['customer_id'] . '&trip_date=' . urlencode($booking['start_date']) . '&trip_end_date=' . urlencode($booking['end_date']) . '&pax_count=' . (int)$booking['pax_count']);
+            exit;
+        }
+    }
+
+    $_SESSION['flash_message'] = 'Data booking tidak ditemukan.';
+    $_SESSION['flash_type'] = 'error';
+    header('Location: bookings.php');
+    exit;
+}
+
 if ($action === 'add') {
     // Use DB-driven reservation form so layanan always sync from master data.
     header('Location: bookings-new.php');
@@ -413,6 +448,7 @@ include 'layout-header.php';
                     <button class="ss-btn ss-btn-outline" type="submit"><i data-feather="save"></i></button>
                 </form>
                 <a href="rab.php?booking_id=<?php echo $detail['id']; ?>" class="ss-btn ss-btn-primary" style="margin-top:10px;"><i data-feather="printer"></i> Cetak RAB</a>
+                <a href="bookings.php?action=print_invoice&id=<?php echo $detail['id']; ?>" class="ss-btn ss-btn-outline" style="margin-top:8px;"><i data-feather="file-text"></i> Cetak Invoice</a>
             </div>
         </div>
     </div>
@@ -579,6 +615,7 @@ include 'layout-header.php';
                             <td>
                                 <a class="ss-btn ss-btn-outline ss-btn-sm" href="bookings.php?view=<?php echo $r['id']; ?>"><i data-feather="eye"></i></a>
                                 <a class="ss-btn ss-btn-outline ss-btn-sm" href="rab.php?booking_id=<?php echo $r['id']; ?>"><i data-feather="printer"></i></a>
+                                <a class="ss-btn ss-btn-outline ss-btn-sm" href="bookings.php?action=print_invoice&id=<?php echo $r['id']; ?>" title="Cetak Invoice"><i data-feather="file-text"></i></a>
                             </td>
                         </tr>
                     <?php endforeach; ?>
