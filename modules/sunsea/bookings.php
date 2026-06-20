@@ -263,17 +263,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
     }
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'update_status') {
+    $bookingId = (int)($_POST['booking_id'] ?? 0);
+    $newStatus = trim($_POST['status'] ?? '');
+
+    if ($newStatus === 'cancel') {
+        $newStatus = 'cancelled';
+    }
+
+    $allowed = ['confirmed', 'cancelled'];
+    if ($bookingId > 0 && in_array($newStatus, $allowed, true)) {
+        try {
+            $pdo->prepare("UPDATE booking_orders SET status=?, updated_at=NOW() WHERE id=?")
+                ->execute([$newStatus, $bookingId]);
+            $_SESSION['flash_message'] = 'Status reservasi berhasil diperbarui.';
+            $_SESSION['flash_type'] = 'success';
+        } catch (Exception $e) {
+            $_SESSION['flash_message'] = 'Gagal update status: ' . $e->getMessage();
+            $_SESSION['flash_type'] = 'error';
+        }
+    }
+
+    $redirectTo = 'bookings.php';
+    if (!empty($_POST['return_view'])) {
+        $redirectTo .= '?view=' . $bookingId;
+    }
+    header('Location: ' . $redirectTo);
+    exit;
+}
+
 $action = $_GET['action'] ?? 'list';
 $viewId = (int)($_GET['view'] ?? 0);
 $pageError = '';
 
+if ($action === 'add') {
+    // Use DB-driven reservation form so layanan always sync from master data.
+    header('Location: bookings-new.php');
+    exit;
+}
+
 $customers = safeFetchAll($pdo, "SELECT id, name, phone FROM customers WHERE is_active=1 ORDER BY name", [], 'customer');
-$packages = safeFetchAll($pdo, "SELECT id, name, base_price FROM trip_packages WHERE is_active=1 ORDER BY name", [], 'paket');
-$partnersRooms = safeFetchAll($pdo, "SELECT r.id, r.room_type, r.price_cost, r.price_sell, p.name as partner_name, p.partner_type FROM accommodation_rooms r JOIN accommodation_partners p ON p.id=r.partner_id WHERE r.is_active=1 AND p.is_active=1 ORDER BY p.name, r.room_type", [], 'penginapan');
-$guidesDarat = safeFetchAll($pdo, "SELECT id, name FROM guides WHERE is_active=1 AND guide_type='darat' ORDER BY name", [], 'guide darat');
-$guidesLaut = safeFetchAll($pdo, "SELECT id, name FROM guides WHERE is_active=1 AND guide_type='laut' ORDER BY name", [], 'guide laut');
-$coordinators = safeFetchAll($pdo, "SELECT id, name FROM coordinators WHERE is_active=1 ORDER BY name", [], 'koordinator');
-$facilities = safeFetchAll($pdo, "SELECT id, name, unit, price_sell, price_cost FROM facilities WHERE is_active=1 ORDER BY name", [], 'fasilitas');
+$packages = [];
+$partnersRooms = [];
+$guidesDarat = [];
+$guidesLaut = [];
+$coordinators = [];
+$facilities = [];
 
 $list = safeFetchAll(
     $pdo,
@@ -367,6 +402,16 @@ include 'layout-header.php';
                     Guide Darat: <strong style="color:var(--ss-text)"><?php echo htmlspecialchars($detail['guide_darat_name'] ?: '-'); ?></strong><br>
                     Guide Laut: <strong style="color:var(--ss-text)"><?php echo htmlspecialchars($detail['guide_laut_name'] ?: '-'); ?></strong>
                 </div>
+                <form method="POST" style="margin-top:12px;display:flex;gap:8px;align-items:center;">
+                    <input type="hidden" name="action" value="update_status">
+                    <input type="hidden" name="booking_id" value="<?php echo (int)$detail['id']; ?>">
+                    <input type="hidden" name="return_view" value="1">
+                    <select name="status" class="ss-select" style="flex:1;">
+                        <option value="confirmed" <?php echo $detail['status'] === 'confirmed' ? 'selected' : ''; ?>>Confirmed</option>
+                        <option value="cancel" <?php echo $detail['status'] === 'cancelled' ? 'selected' : ''; ?>>Cancel</option>
+                    </select>
+                    <button class="ss-btn ss-btn-outline" type="submit"><i data-feather="save"></i></button>
+                </form>
                 <a href="rab.php?booking_id=<?php echo $detail['id']; ?>" class="ss-btn ss-btn-primary" style="margin-top:10px;"><i data-feather="printer"></i> Cetak RAB</a>
             </div>
         </div>
@@ -515,7 +560,19 @@ include 'layout-header.php';
                             <td><?php echo htmlspecialchars($r['customer_name']); ?></td>
                             <td><?php echo strtoupper($r['booking_mode']); ?></td>
                             <td><?php echo date('d M Y', strtotime($r['start_date'])); ?> - <?php echo date('d M Y', strtotime($r['end_date'])); ?></td>
-                            <td><span class="ss-status ss-status-<?php echo $r['status'] === 'completed' ? 'approved' : ($r['status'] === 'cancelled' ? 'rejected' : 'sent'); ?>"><?php echo ucfirst($r['status']); ?></span></td>
+                            <td>
+                                <form method="POST" style="display:flex;gap:6px;align-items:center;">
+                                    <input type="hidden" name="action" value="update_status">
+                                    <input type="hidden" name="booking_id" value="<?php echo (int)$r['id']; ?>">
+                                    <select name="status" class="ss-select" style="min-width:130px;height:32px;padding:4px 8px;font-size:12px;">
+                                        <option value="confirmed" <?php echo $r['status'] === 'confirmed' ? 'selected' : ''; ?>>Confirmed</option>
+                                        <option value="cancel" <?php echo $r['status'] === 'cancelled' ? 'selected' : ''; ?>>Cancel</option>
+                                    </select>
+                                    <button type="submit" class="ss-btn ss-btn-outline ss-btn-sm" title="Update status">
+                                        <i data-feather="check"></i>
+                                    </button>
+                                </form>
+                            </td>
                             <td><?php echo sunseaRupiah((float)$r['cost_total']); ?></td>
                             <td><?php echo sunseaRupiah((float)$r['sell_total']); ?></td>
                             <td><strong style="color:var(--ss-success)"><?php echo sunseaRupiah((float)$r['margin_amount']); ?></strong></td>
