@@ -293,6 +293,9 @@ if ($action === 'print' && $invoice):
     <head>
         <meta charset="UTF-8">
         <title>Invoice <?php echo htmlspecialchars($invoice['invoice_no']); ?></title>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
         <style>
             * {
                 margin: 0;
@@ -306,29 +309,31 @@ if ($action === 'print' && $invoice):
             }
 
             body {
-                font-family: "Georgia", "Times New Roman", serif;
+                font-family: "Inter", "Segoe UI", Arial, sans-serif;
                 font-size: 12px;
-                color: #142b44;
+                color: #13253b;
                 background: #eef3f8;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
             }
 
             .sheet {
                 width: 210mm;
                 min-height: 297mm;
                 margin: 0 auto;
-                padding: 15mm 13mm 13mm;
+                padding: 14mm 12mm 12mm;
                 position: relative;
                 background: #ffffff;
             }
 
             .watermark {
                 position: absolute;
-                top: 47%;
+                top: 49%;
                 left: 50%;
                 transform: translate(-50%, -50%) rotate(-20deg);
-                font-size: 110px;
+                font-size: 104px;
                 font-weight: 900;
-                letter-spacing: 10px;
+                letter-spacing: 12px;
                 opacity: .06;
                 pointer-events: none;
                 z-index: 1;
@@ -349,8 +354,8 @@ if ($action === 'print' && $invoice):
                 left: 0;
                 top: 0;
                 right: 0;
-                height: 14mm;
-                background: linear-gradient(100deg, #0d3f73 0%, #145a95 55%, #2487bf 100%);
+                height: 12mm;
+                background: linear-gradient(100deg, #0b3158 0%, #124978 55%, #1c74ab 100%);
                 opacity: .98;
             }
 
@@ -359,22 +364,23 @@ if ($action === 'print' && $invoice):
                 left: 0;
                 right: 0;
                 bottom: 0;
-                height: 6mm;
-                background: linear-gradient(90deg, #0d3f73 0%, #207db4 100%);
+                height: 5mm;
+                background: linear-gradient(90deg, #0b3158 0%, #1d6ea7 100%);
             }
 
             .header {
                 display: flex;
                 justify-content: space-between;
                 align-items: flex-start;
-                margin-bottom: 14px;
-                margin-top: 6mm;
+                margin-bottom: 16px;
+                margin-top: 6.5mm;
                 position: relative;
                 z-index: 2;
-                padding: 11px 12px;
-                border: 1px solid #c8d9ea;
-                border-radius: 9px;
-                background: linear-gradient(165deg, #ffffff 0%, #f2f7fc 100%);
+                padding: 12px 12px 11px;
+                border: 1px solid #c7d8e8;
+                border-radius: 12px;
+                background: linear-gradient(165deg, #ffffff 0%, #f4f8fc 100%);
+                box-shadow: 0 10px 30px rgba(12, 74, 110, .06);
             }
 
             .company {
@@ -390,10 +396,11 @@ if ($action === 'print' && $invoice):
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                border-radius: 8px;
+                border-radius: 10px;
                 background: #ffffff;
                 border: 1px solid #d4e4f2;
-                padding: 4px;
+                padding: 5px;
+                box-shadow: inset 0 0 0 1px rgba(255,255,255,.55);
             }
 
             .logo img {
@@ -408,20 +415,19 @@ if ($action === 'print' && $invoice):
             }
 
             .company-name {
-                font-size: 24px;
+                font-size: 22px;
                 font-weight: 800;
                 color: #103b67;
                 line-height: 1.1;
                 margin-bottom: 4px;
-                letter-spacing: .3px;
-                font-family: "Georgia", "Times New Roman", serif;
+                letter-spacing: .5px;
+                font-family: "Cormorant Garamond", "Georgia", serif;
             }
 
             .company-line {
-                font-size: 11px;
-                color: #44627e;
-                line-height: 1.35;
-                font-family: "Segoe UI", Arial, sans-serif;
+                font-size: 10.5px;
+                color: #46627a;
+                line-height: 1.45;
             }
 
             .invoice-meta {
@@ -429,24 +435,24 @@ if ($action === 'print' && $invoice):
                 text-align: left;
                 font-size: 11px;
                 color: #3c5b77;
-                border-radius: 8px;
-                background: #edf4fb;
-                border: 1px solid #cfdfee;
+                border-radius: 12px;
+                background: linear-gradient(180deg, #f7fbff 0%, #edf4fb 100%);
+                border: 1px solid #c8d9ea;
                 padding: 10px 12px;
-                font-family: "Segoe UI", Arial, sans-serif;
+                box-shadow: inset 0 1px 0 rgba(255,255,255,.7);
             }
 
             .meta-title {
-                font-size: 10px;
+                font-size: 9px;
                 font-weight: 700;
                 text-transform: uppercase;
                 color: #5b7892;
                 margin-bottom: 1px;
-                letter-spacing: .4px;
+                letter-spacing: .7px;
             }
 
             .meta-value {
-                margin-bottom: 5px;
+                margin-bottom: 6px;
                 color: #0e3760;
                 font-weight: 600;
                 font-variant-numeric: tabular-nums;
@@ -454,45 +460,47 @@ if ($action === 'print' && $invoice):
             }
 
             .balance-title {
-                font-size: 10px;
+                font-size: 9px;
                 font-weight: 800;
                 text-transform: uppercase;
-                margin-top: 6px;
+                margin-top: 7px;
                 color: #0e4f83;
+                letter-spacing: .7px;
             }
 
             .balance-value {
-                font-size: 15px;
-                font-weight: 700;
-                color: #0b3f72;
-                line-height: 1.2;
-                letter-spacing: .2px;
+                font-size: 17px;
+                font-weight: 800;
+                color: #0a3a68;
+                line-height: 1.1;
+                letter-spacing: .15px;
                 font-variant-numeric: tabular-nums;
                 font-feature-settings: "tnum";
             }
 
             .bill-to-label {
-                font-size: 10px;
+                font-size: 9px;
                 font-weight: 800;
                 text-transform: uppercase;
                 color: #5f7d97;
                 margin-bottom: 5px;
                 position: relative;
                 z-index: 2;
-                letter-spacing: .4px;
+                letter-spacing: .7px;
             }
 
             .bill-to-name {
-                font-size: 19px;
+                font-size: 20px;
                 font-weight: 700;
                 color: #123f67;
                 margin-bottom: 4px;
                 position: relative;
                 z-index: 2;
+                font-family: "Cormorant Garamond", "Georgia", serif;
             }
 
             .bill-to-phone {
-                font-size: 11px;
+                font-size: 10.5px;
                 color: #5b7590;
                 margin-bottom: 14px;
                 position: relative;
@@ -502,24 +510,25 @@ if ($action === 'print' && $invoice):
             .item-table {
                 width: 100%;
                 border-collapse: collapse;
-                margin-top: 6px;
+                margin-top: 7px;
                 position: relative;
                 z-index: 2;
-                border: 1px solid #cfe0ef;
-                border-radius: 8px;
+                border: 1px solid #c7d8e8;
+                border-radius: 12px;
                 overflow: hidden;
+                box-shadow: 0 6px 16px rgba(12, 74, 110, .04);
             }
 
             .item-table thead th {
-                background: linear-gradient(90deg, #114b81 0%, #1d6ea7 100%);
+                background: linear-gradient(90deg, #0f406c 0%, #165d92 100%);
                 color: #fff;
-                font-size: 10px;
+                font-size: 9px;
                 text-transform: uppercase;
-                letter-spacing: .4px;
+                letter-spacing: .7px;
                 font-weight: 700;
-                padding: 7px 9px;
+                padding: 8px 9px;
                 text-align: left;
-                font-family: "Segoe UI", Arial, sans-serif;
+                font-family: "Inter", "Segoe UI", Arial, sans-serif;
             }
 
             .item-table thead th.r,
@@ -530,73 +539,77 @@ if ($action === 'print' && $invoice):
             }
 
             .item-table tbody td {
-                padding: 9px 8px;
+                padding: 8px 8px 9px;
                 font-size: 11px;
-                border-bottom: 1px solid #dbe8f4;
+                border-bottom: 1px solid #e1ebf5;
                 vertical-align: top;
                 color: #264865;
                 background: #ffffff;
-                font-family: "Segoe UI", Arial, sans-serif;
+                font-family: "Inter", "Segoe UI", Arial, sans-serif;
             }
 
             .item-table tbody tr:nth-child(even) td {
-                background: #f5f9fd;
+                background: #f7fbff;
             }
 
             .desc-main {
                 font-weight: 700;
                 margin-bottom: 2px;
                 color: #103c66;
+                font-family: "Cormorant Garamond", "Georgia", serif;
+                font-size: 14px;
             }
 
             .desc-sub {
-                font-size: 10px;
+                font-size: 9.5px;
                 color: #62819b;
             }
 
             .payment-wrap {
                 display: grid;
                 grid-template-columns: 1fr 1fr;
-                gap: 14px;
-                margin-top: 14px;
-                border-top: 1px solid #c9dced;
-                padding-top: 12px;
+                gap: 16px;
+                margin-top: 16px;
+                border-top: 1px solid #c8d9ea;
+                padding-top: 13px;
                 position: relative;
                 z-index: 2;
             }
 
             .payment-left-title {
-                font-size: 18px;
+                font-size: 19px;
                 font-weight: 700;
                 color: #0e4473;
                 margin-bottom: 8px;
+                font-family: "Cormorant Garamond", "Georgia", serif;
             }
 
             .payment-block-title {
-                font-size: 10px;
+                font-size: 9px;
                 font-weight: 800;
                 text-transform: uppercase;
                 color: #5b7891;
                 margin-bottom: 4px;
-                letter-spacing: .4px;
+                letter-spacing: .7px;
             }
 
             .payment-line {
-                font-size: 11px;
+                font-size: 10.5px;
                 color: #315470;
                 line-height: 1.4;
-                font-family: "Segoe UI", Arial, sans-serif;
+                font-family: "Inter", "Segoe UI", Arial, sans-serif;
             }
 
             .payment-right {
-                font-size: 11px;
+                font-size: 10.5px;
                 border-left: 1px solid #d4e3ef;
                 padding-left: 12px;
-                background: #f3f8fd;
-                border-radius: 8px;
-                border: 1px solid #cfdfee;
-                padding: 10px 12px;
-                font-family: "Segoe UI", Arial, sans-serif;
+                background: linear-gradient(180deg, #f8fbfe 0%, #f1f6fb 100%);
+                border-radius: 12px;
+                border: 1px solid #c8d9ea;
+                padding: 11px 12px;
+                font-family: "Inter", "Segoe UI", Arial, sans-serif;
+                box-shadow: inset 0 1px 0 rgba(255,255,255,.7);
             }
 
             .sum-row {
@@ -611,14 +624,14 @@ if ($action === 'print' && $invoice):
             }
 
             .sum-row .v {
-                min-width: 150px;
+                min-width: 155px;
                 text-align: right;
                 font-weight: 700;
             }
 
             .sum-row.total {
                 margin-top: 8px;
-                border-top: 1px solid #b7d4ea;
+                border-top: 1px solid #afcfe6;
                 padding-top: 8px;
                 font-weight: 800;
                 text-transform: uppercase;
@@ -626,7 +639,7 @@ if ($action === 'print' && $invoice):
             }
 
             .sum-row.total .v {
-                font-size: 16px;
+                font-size: 18px;
                 text-transform: none;
                 letter-spacing: .2px;
                 color: #0b3f72;
@@ -634,16 +647,28 @@ if ($action === 'print' && $invoice):
             }
 
             .invoice-note {
-                margin-top: 18px;
-                max-width: 76%;
+                margin-top: 16px;
+                max-width: 78%;
                 border-top: 1px solid #bfd6e8;
                 padding-top: 10px;
-                font-size: 11px;
+                font-size: 10.5px;
                 color: #355572;
                 line-height: 1.4;
                 position: relative;
                 z-index: 2;
                 font-family: "Segoe UI", Arial, sans-serif;
+            }
+
+            .lux-rule {
+                height: 1px;
+                margin: 10px 0 12px;
+                background: linear-gradient(90deg, rgba(13, 63, 115, .0), rgba(13, 63, 115, .6), rgba(13, 63, 115, .0));
+            }
+
+            .compact-note {
+                font-size: 10px;
+                letter-spacing: .2px;
+                color: #5f748b;
             }
 
             @media print {
@@ -697,6 +722,8 @@ if ($action === 'print' && $invoice):
             <div class="bill-to-name"><?php echo htmlspecialchars($invoice['customer_name']); ?></div>
             <?php if ($invoice['customer_phone']): ?><div class="bill-to-phone"><?php echo htmlspecialchars($invoice['customer_phone']); ?></div><?php endif; ?>
 
+            <div class="lux-rule"></div>
+
             <table class="item-table">
                 <thead>
                     <tr>
@@ -725,6 +752,7 @@ if ($action === 'print' && $invoice):
                 <div>
                     <div class="payment-left-title">Payment Info</div>
                     <div class="payment-block-title">Payment Instructions</div>
+                    <div class="compact-note" style="margin-bottom:8px;">Silakan gunakan referensi invoice ini saat transfer atau pelunasan.</div>
                     <?php if ($bankName || $bankAccount): ?>
                         <div class="payment-line"><?php echo htmlspecialchars($bankName ?: '-'); ?></div>
                         <div class="payment-line">Account Number: <?php echo htmlspecialchars($bankAccount ?: '-'); ?></div>
