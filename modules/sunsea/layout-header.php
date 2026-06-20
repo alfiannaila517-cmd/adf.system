@@ -406,13 +406,6 @@ $userName    = $currentUser['full_name'] ?? $currentUser['username'] ?? 'User';
             </a>
         <?php endforeach; ?>
 
-        <div class="ss-nav-label" style="margin-top:16px;">Sistem</div>
-        <a href="<?php echo BASE_URL; ?>/index.php" class="ss-nav-item">
-            <i data-feather="grid"></i> Dashboard ADF
-        </a>
-        <a href="<?php echo BASE_URL; ?>/select-business.php" class="ss-nav-item">
-            <i data-feather="briefcase"></i> Pilih Bisnis
-        </a>
     </nav>
 
     <div class="ss-sidebar-footer">
