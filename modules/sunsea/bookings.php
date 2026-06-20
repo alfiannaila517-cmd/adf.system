@@ -13,6 +13,7 @@ require_once 'db-helper.php';
 $auth = new Auth();
 $auth->requireLogin();
 $pdo = getSunseaConnection();
+sunseaEnsureBookingSchema($pdo);
 
 function postNum(string $key): float
 {

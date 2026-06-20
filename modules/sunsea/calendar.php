@@ -13,31 +13,7 @@ require_once 'db-helper.php';
 $auth = new Auth();
 $auth->requireLogin();
 $pdo = getSunseaConnection();
-
-// Auto-create booking_orders table if missing
-try {
-    $pdo->exec("CREATE TABLE IF NOT EXISTS `booking_orders` (
-        `id`              INT AUTO_INCREMENT PRIMARY KEY,
-        `booking_no`      VARCHAR(30) UNIQUE NOT NULL,
-        `customer_id`     INT NOT NULL,
-        `booking_mode`    ENUM('paket','ecer') DEFAULT 'paket',
-        `package_id`      INT NULL,
-        `start_date`      DATE NOT NULL,
-        `end_date`        DATE NOT NULL,
-        `pax_count`       SMALLINT DEFAULT 1,
-        `status`          ENUM('draft','confirmed','ongoing','completed','cancelled') DEFAULT 'draft',
-        `cost_total`      DECIMAL(15,2) DEFAULT 0.00,
-        `sell_total`      DECIMAL(15,2) DEFAULT 0.00,
-        `notes`           TEXT,
-        `created_by`      VARCHAR(100),
-        `created_at`      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        `updated_at`      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (`customer_id`) REFERENCES `customers`(`id`) ON DELETE RESTRICT,
-        INDEX idx_booking_dates (`start_date`, `end_date`),
-        INDEX idx_booking_status (`status`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-} catch (Exception $e) { /* table exists */
-}
+sunseaEnsureBookingSchema($pdo);
 
 $month = $_GET['month'] ?? date('Y-m');
 $startMonth = date('Y-m-01', strtotime($month . '-01'));

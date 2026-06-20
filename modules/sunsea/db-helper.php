@@ -54,6 +54,102 @@ function getSunseaConnection(): PDO
 }
 
 /**
+ * Ensure booking-related tables and columns exist.
+ * Safe to call on every request.
+ */
+function sunseaEnsureBookingSchema(PDO $pdo): void
+{
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS `booking_orders` (
+            `id`              INT AUTO_INCREMENT PRIMARY KEY,
+            `booking_no`      VARCHAR(30) UNIQUE NOT NULL,
+            `customer_id`     INT NOT NULL,
+            `booking_mode`    ENUM('paket','ecer') DEFAULT 'paket',
+            `package_id`      INT NULL,
+            `start_date`      DATE NOT NULL,
+            `end_date`        DATE NOT NULL,
+            `pax_count`       SMALLINT DEFAULT 1,
+            `ticket_kapal_type` ENUM('none','single','pp') DEFAULT 'none',
+            `include_btn_ticket` TINYINT(1) DEFAULT 0,
+            `transport_notes` TEXT NULL,
+            `meal_notes`      TEXT NULL,
+            `island_trip`     TINYINT(1) DEFAULT 0,
+            `land_trip`       TINYINT(1) DEFAULT 0,
+            `documentation`   TINYINT(1) DEFAULT 0,
+            `coordinator_id`  INT NULL,
+            `guide_darat_id`  INT NULL,
+            `guide_laut_id`   INT NULL,
+            `status`          ENUM('draft','confirmed','ongoing','completed','cancelled') DEFAULT 'draft',
+            `cost_total`      DECIMAL(15,2) DEFAULT 0.00,
+            `sell_total`      DECIMAL(15,2) DEFAULT 0.00,
+            `margin_amount`   DECIMAL(15,2) DEFAULT 0.00,
+            `notes`           TEXT,
+            `created_by`      VARCHAR(100),
+            `created_at`      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            `updated_at`      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_booking_dates (`start_date`, `end_date`),
+            INDEX idx_booking_status (`status`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $requiredColumns = [
+            'package_id' => "ALTER TABLE booking_orders ADD COLUMN package_id INT NULL AFTER booking_mode",
+            'ticket_kapal_type' => "ALTER TABLE booking_orders ADD COLUMN ticket_kapal_type ENUM('none','single','pp') DEFAULT 'none' AFTER pax_count",
+            'include_btn_ticket' => "ALTER TABLE booking_orders ADD COLUMN include_btn_ticket TINYINT(1) DEFAULT 0 AFTER ticket_kapal_type",
+            'transport_notes' => "ALTER TABLE booking_orders ADD COLUMN transport_notes TEXT NULL AFTER include_btn_ticket",
+            'meal_notes' => "ALTER TABLE booking_orders ADD COLUMN meal_notes TEXT NULL AFTER transport_notes",
+            'island_trip' => "ALTER TABLE booking_orders ADD COLUMN island_trip TINYINT(1) DEFAULT 0 AFTER meal_notes",
+            'land_trip' => "ALTER TABLE booking_orders ADD COLUMN land_trip TINYINT(1) DEFAULT 0 AFTER island_trip",
+            'documentation' => "ALTER TABLE booking_orders ADD COLUMN documentation TINYINT(1) DEFAULT 0 AFTER land_trip",
+            'coordinator_id' => "ALTER TABLE booking_orders ADD COLUMN coordinator_id INT NULL AFTER documentation",
+            'guide_darat_id' => "ALTER TABLE booking_orders ADD COLUMN guide_darat_id INT NULL AFTER coordinator_id",
+            'guide_laut_id' => "ALTER TABLE booking_orders ADD COLUMN guide_laut_id INT NULL AFTER guide_darat_id",
+            'margin_amount' => "ALTER TABLE booking_orders ADD COLUMN margin_amount DECIMAL(15,2) DEFAULT 0.00 AFTER sell_total",
+            'notes' => "ALTER TABLE booking_orders ADD COLUMN notes TEXT NULL AFTER margin_amount",
+            'created_by' => "ALTER TABLE booking_orders ADD COLUMN created_by VARCHAR(100) NULL AFTER notes",
+        ];
+
+        $columnCheck = $pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'booking_orders' AND COLUMN_NAME = ?");
+        foreach ($requiredColumns as $column => $alterSql) {
+            $columnCheck->execute([$column]);
+            if ((int)$columnCheck->fetchColumn() === 0) {
+                $pdo->exec($alterSql);
+            }
+        }
+
+        $pdo->exec("CREATE TABLE IF NOT EXISTS booking_order_items (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            booking_id INT NOT NULL,
+            component_code VARCHAR(50) NOT NULL,
+            component_name VARCHAR(200) NOT NULL,
+            qty DECIMAL(12,2) DEFAULT 1,
+            unit VARCHAR(50) DEFAULT 'unit',
+            price_cost DECIMAL(15,2) DEFAULT 0,
+            price_sell DECIMAL(15,2) DEFAULT 0,
+            total_cost DECIMAL(15,2) DEFAULT 0,
+            total_sell DECIMAL(15,2) DEFAULT 0,
+            details_json TEXT NULL,
+            sort_order INT DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_booking_items_booking (booking_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $pdo->exec("CREATE TABLE IF NOT EXISTS booking_schedule (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            booking_id INT NOT NULL,
+            activity_date DATE NOT NULL,
+            activity_type VARCHAR(50) DEFAULT 'other',
+            title VARCHAR(200) NOT NULL,
+            notes TEXT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_booking_sched_booking (booking_id),
+            INDEX idx_booking_sched_date (activity_date)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } catch (Exception $e) {
+        error_log('sunseaEnsureBookingSchema error: ' . $e->getMessage());
+    }
+}
+
+/**
  * Get next auto-number for quotation / invoice.
  * Format: SS-QUO-2026-001
  *

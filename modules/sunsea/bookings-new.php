@@ -13,6 +13,7 @@ require_once 'db-helper.php';
 $auth = new Auth();
 $auth->requireLogin();
 $pdo = getSunseaConnection();
+sunseaEnsureBookingSchema($pdo);
 
 // Load data dari database
 $customers = $pdo->query("SELECT id, name, phone FROM customers WHERE is_active=1 ORDER BY name")->fetchAll();
@@ -33,19 +34,29 @@ if ($_GET['action'] ?? '' === 'get_price') {
     $price = ['cost' => 0, 'sell' => 0];
 
     if ($type === 'ticket' && $id > 0) {
-        $r = $pdo->prepare("SELECT price_cost, price_sell FROM tickets WHERE id=?")->execute([$id]);
+        $stmt = $pdo->prepare("SELECT price_cost, price_sell FROM tickets WHERE id=?");
+        $stmt->execute([$id]);
+        $r = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($r) $price = ['cost' => (float)$r['price_cost'], 'sell' => (float)$r['price_sell']];
     } elseif ($type === 'room' && $id > 0) {
-        $r = $pdo->prepare("SELECT price_cost, price_sell FROM accommodation_rooms WHERE id=?")->execute([$id]);
+        $stmt = $pdo->prepare("SELECT price_cost, price_sell FROM accommodation_rooms WHERE id=?");
+        $stmt->execute([$id]);
+        $r = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($r) $price = ['cost' => (float)$r['price_cost'], 'sell' => (float)$r['price_sell']];
     } elseif ($type === 'catering' && $id > 0) {
-        $r = $pdo->prepare("SELECT price_cost, price_sell FROM caterings WHERE id=?")->execute([$id]);
+        $stmt = $pdo->prepare("SELECT price_cost, price_sell FROM caterings WHERE id=?");
+        $stmt->execute([$id]);
+        $r = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($r) $price = ['cost' => (float)$r['price_cost'], 'sell' => (float)$r['price_sell']];
     } elseif ($type === 'guide' && $id > 0) {
-        $r = $pdo->prepare("SELECT daily_rate_cost, daily_rate_sell FROM guides WHERE id=?")->execute([$id]);
+        $stmt = $pdo->prepare("SELECT daily_rate_cost, daily_rate_sell FROM guides WHERE id=?");
+        $stmt->execute([$id]);
+        $r = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($r) $price = ['cost' => (float)$r['daily_rate_cost'], 'sell' => (float)$r['daily_rate_sell']];
     } elseif ($type === 'facility' && $id > 0) {
-        $r = $pdo->prepare("SELECT price_cost, price_sell FROM facilities WHERE id=?")->execute([$id]);
+        $stmt = $pdo->prepare("SELECT price_cost, price_sell FROM facilities WHERE id=?");
+        $stmt->execute([$id]);
+        $r = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($r) $price = ['cost' => (float)$r['price_cost'], 'sell' => (float)$r['price_sell']];
     }
 
@@ -94,8 +105,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
     if (!empty($_POST['ticket_id'])) {
         $ticketId = (int)$_POST['ticket_id'];
         $ticketQty = max(1, (int)($_POST['ticket_qty'] ?? $pax));
-        $tkt = $pdo->prepare("SELECT ticket_name, price_cost, price_sell FROM tickets WHERE id=?")->fetch(PDO::FETCH_ASSOC);
-        $tkt->execute([$ticketId]);
+        $tktStmt = $pdo->prepare("SELECT ticket_name, price_cost, price_sell FROM tickets WHERE id=?");
+        $tktStmt->execute([$ticketId]);
+        $tkt = $tktStmt->fetch(PDO::FETCH_ASSOC);
         if ($tkt) {
             $addComponent('ticket', 'Tiket: ' . $tkt['ticket_name'], $ticketQty, 'pax', (float)$tkt['price_cost'], (float)$tkt['price_sell']);
         }
@@ -106,8 +118,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
         $roomId = (int)$_POST['room_id'];
         $nights = max(1, (int)($_POST['stay_nights'] ?? 1));
         $roomQty = max(1, (int)($_POST['stay_room_qty'] ?? 1));
-        $rm = $pdo->prepare("SELECT r.room_type, r.price_cost, r.price_sell, p.name FROM accommodation_rooms r JOIN accommodation_partners p ON p.id=r.partner_id WHERE r.id=?")->fetch(PDO::FETCH_ASSOC);
-        $rm->execute([$roomId]);
+        $rmStmt = $pdo->prepare("SELECT r.room_type, r.price_cost, r.price_sell, p.name FROM accommodation_rooms r JOIN accommodation_partners p ON p.id=r.partner_id WHERE r.id=?");
+        $rmStmt->execute([$roomId]);
+        $rm = $rmStmt->fetch(PDO::FETCH_ASSOC);
         if ($rm) {
             $unitQty = $nights * $roomQty;
             $addComponent('penginapan', 'Penginapan: ' . $rm['name'] . ' - ' . $rm['room_type'], $unitQty, 'room-night', (float)$rm['price_cost'], (float)$rm['price_sell']);
@@ -118,8 +131,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
     if (!empty($_POST['catering_id'])) {
         $cateringId = (int)$_POST['catering_id'];
         $cateringQty = max(1, (int)($_POST['catering_qty'] ?? $pax));
-        $cat = $pdo->prepare("SELECT menu_name, vendor_name, portion_unit, price_cost, price_sell FROM caterings WHERE id=?")->fetch(PDO::FETCH_ASSOC);
-        $cat->execute([$cateringId]);
+        $catStmt = $pdo->prepare("SELECT menu_name, vendor_name, portion_unit, price_cost, price_sell FROM caterings WHERE id=?");
+        $catStmt->execute([$cateringId]);
+        $cat = $catStmt->fetch(PDO::FETCH_ASSOC);
         if ($cat) {
             $addComponent('catering', 'Catering: ' . $cat['vendor_name'] . ' - ' . $cat['menu_name'], $cateringQty, $cat['portion_unit'], (float)$cat['price_cost'], (float)$cat['price_sell']);
         }
@@ -129,8 +143,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
     if (!empty($_POST['guide_darat_id'])) {
         $guideId = (int)$_POST['guide_darat_id'];
         $days = max(1, (int)($_POST['guide_darat_days'] ?? 1));
-        $gd = $pdo->prepare("SELECT name, daily_rate_cost, daily_rate_sell FROM guides WHERE id=?")->fetch(PDO::FETCH_ASSOC);
-        $gd->execute([$guideId]);
+        $gdStmt = $pdo->prepare("SELECT name, daily_rate_cost, daily_rate_sell FROM guides WHERE id=?");
+        $gdStmt->execute([$guideId]);
+        $gd = $gdStmt->fetch(PDO::FETCH_ASSOC);
         if ($gd) {
             $addComponent('guide_darat', 'Guide Darat: ' . $gd['name'], $days, 'hari', (float)$gd['daily_rate_cost'], (float)$gd['daily_rate_sell']);
         }
@@ -140,8 +155,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
     if (!empty($_POST['guide_laut_id'])) {
         $guideId = (int)$_POST['guide_laut_id'];
         $days = max(1, (int)($_POST['guide_laut_days'] ?? 1));
-        $gl = $pdo->prepare("SELECT name, daily_rate_cost, daily_rate_sell FROM guides WHERE id=?")->fetch(PDO::FETCH_ASSOC);
-        $gl->execute([$guideId]);
+        $glStmt = $pdo->prepare("SELECT name, daily_rate_cost, daily_rate_sell FROM guides WHERE id=?");
+        $glStmt->execute([$guideId]);
+        $gl = $glStmt->fetch(PDO::FETCH_ASSOC);
         if ($gl) {
             $addComponent('guide_laut', 'Guide Laut: ' . $gl['name'], $days, 'hari', (float)$gl['daily_rate_cost'], (float)$gl['daily_rate_sell']);
         }
