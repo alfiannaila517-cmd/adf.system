@@ -17,6 +17,49 @@ $auth->requireLogin();
 
 $pdo = getSunseaConnection();
 
+// Ensure settings table exists (used for package preset prices)
+try {
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `settings` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `setting_key` VARCHAR(100) NOT NULL UNIQUE,
+        `setting_value` TEXT,
+        `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_key (`setting_key`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+} catch (Exception $e) {
+    // Ignore: table may already exist or no privilege
+}
+
+// Save preset package prices for fast invoice creation
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_package_price_setup') {
+    $priceKeys = [
+        '2d1n' => 'calc_pkg_price_2d1n',
+        '3d2n' => 'calc_pkg_price_3d2n',
+        '4d3n' => 'calc_pkg_price_4d3n',
+        '5d4n' => 'calc_pkg_price_5d4n',
+    ];
+
+    try {
+        $stmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = NOW()");
+        foreach ($priceKeys as $postKey => $settingKey) {
+            $raw = (string)($_POST['pkg_price_' . $postKey] ?? '0');
+            $val = (float)str_replace(['.', ','], ['', '.'], $raw);
+            if ($val < 0) {
+                $val = 0;
+            }
+            $stmt->execute([$settingKey, (string)$val]);
+        }
+        $_SESSION['flash_message'] = 'Setup harga paket berhasil disimpan.';
+        $_SESSION['flash_type'] = 'success';
+    } catch (Exception $e) {
+        $_SESSION['flash_message'] = 'Gagal simpan setup harga paket: ' . $e->getMessage();
+        $_SESSION['flash_type'] = 'error';
+    }
+
+    header('Location: calculator.php');
+    exit;
+}
+
 // Create invoice directly from calculator and open print view
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'create_invoice_from_calc') {
     $customerId = (int)($_POST['customer_id'] ?? 0);
@@ -177,12 +220,20 @@ try {
     $dbFacilities = $pdo->query("SELECT id, name, unit, price_cost, price_sell, category FROM facilities WHERE is_active=1 ORDER BY category, name")->fetchAll();
 } catch(Exception $e) {}
 
+$pkgPresetPrices = [
+    '2d1n' => (float)sunseaSetting($pdo, 'calc_pkg_price_2d1n', '0'),
+    '3d2n' => (float)sunseaSetting($pdo, 'calc_pkg_price_3d2n', '0'),
+    '4d3n' => (float)sunseaSetting($pdo, 'calc_pkg_price_4d3n', '0'),
+    '5d4n' => (float)sunseaSetting($pdo, 'calc_pkg_price_5d4n', '0'),
+];
+
 // Encode semua data ke JSON untuk JavaScript
 $jsTickets    = json_encode($dbTickets);
 $jsRooms      = json_encode($dbRooms);
 $jsCaterings  = json_encode($dbCaterings);
 $jsGuides     = json_encode($dbGuides);
 $jsFacilities = json_encode($dbFacilities);
+$jsPkgPreset  = json_encode($pkgPresetPrices);
 
 $pageTitle  = 'Kalkulator Harga Trip';
 $activePage = 'calculator';
@@ -197,6 +248,7 @@ include 'layout-header.php';
 .pkg-card:hover,.pkg-card.active { border-color:#0EA5E9; background:#f0f9ff; }
 .pkg-card .pkg-duration { font-size:20px; font-weight:800; color:#0c4a6e; }
 .pkg-card .pkg-label { font-size:11px; color:#666; margin-top:2px; }
+.pkg-card .pkg-price { font-size:11px; font-weight:700; color:#0EA5E9; margin-top:6px; }
 .calc-table { width:100%; border-collapse:collapse; font-size:13px; }
 .calc-table th { padding:8px 10px; text-align:left; font-size:11px; color:#666; background:#f8fbff; font-weight:700; }
 .calc-table td { padding:5px 7px; border-bottom:1px solid #f0f4f8; vertical-align:middle; }
@@ -210,6 +262,15 @@ include 'layout-header.php';
 .add-db-btn:hover { background:#e0f2fe; }
 </style>
 
+<?php if (!empty($_SESSION['flash_message'])): ?>
+<div style="padding:10px 12px;margin-bottom:14px;border-radius:6px;font-size:13px;font-weight:600;
+    background:<?php echo ($_SESSION['flash_type'] ?? '') === 'success' ? '#ecfdf5' : '#fef2f2'; ?>;
+    border:1px solid <?php echo ($_SESSION['flash_type'] ?? '') === 'success' ? '#86efac' : '#fecaca'; ?>;
+    color:<?php echo ($_SESSION['flash_type'] ?? '') === 'success' ? '#166534' : '#991b1b'; ?>;">
+    <?php echo htmlspecialchars($_SESSION['flash_message']); ?>
+</div>
+<?php unset($_SESSION['flash_message'], $_SESSION['flash_type']); endif; ?>
+
 <div style="display:grid;grid-template-columns:1fr 340px;gap:20px;">
 
     <!-- LEFT: Builder -->
@@ -217,27 +278,60 @@ include 'layout-header.php';
 
         <!-- 1. PILIH PAKET -->
         <div class="calc-section">
-            <div class="calc-section-title">📦 Pilihan Paket</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;">
+                <div class="calc-section-title" style="margin-bottom:0;">📦 Pilihan Paket</div>
+                <button type="button" onclick="togglePkgSetup()" class="calc-btn-sm" style="font-weight:700;color:#0c4a6e;">⚙️ Setup Harga Paket</button>
+            </div>
+
+            <div id="pkgSetupPanel" style="display:none;padding:12px;background:#f8fbff;border:1px solid #dbeafe;border-radius:8px;margin-bottom:12px;">
+                <form method="POST" style="display:grid;grid-template-columns:repeat(4,minmax(110px,1fr)) auto;gap:8px;align-items:end;">
+                    <input type="hidden" name="action" value="save_package_price_setup">
+                    <div>
+                        <label style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:4px;">2D1N</label>
+                        <input type="text" name="pkg_price_2d1n" class="calc-input" value="<?php echo number_format((float)$pkgPresetPrices['2d1n'], 0, ',', '.'); ?>" placeholder="0">
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:4px;">3D2N</label>
+                        <input type="text" name="pkg_price_3d2n" class="calc-input" value="<?php echo number_format((float)$pkgPresetPrices['3d2n'], 0, ',', '.'); ?>" placeholder="0">
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:4px;">4D3N</label>
+                        <input type="text" name="pkg_price_4d3n" class="calc-input" value="<?php echo number_format((float)$pkgPresetPrices['4d3n'], 0, ',', '.'); ?>" placeholder="0">
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:4px;">5D4N</label>
+                        <input type="text" name="pkg_price_5d4n" class="calc-input" value="<?php echo number_format((float)$pkgPresetPrices['5d4n'], 0, ',', '.'); ?>" placeholder="0">
+                    </div>
+                    <button type="submit" style="padding:8px 12px;background:#0EA5E9;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">💾 Simpan</button>
+                </form>
+                <div style="margin-top:8px;font-size:11px;color:#64748b;">Harga di atas dipakai otomatis saat paket dipilih, untuk mempercepat pembuatan invoice.</div>
+            </div>
+
             <div class="pkg-grid" id="pkgGrid">
                 <div class="pkg-card" onclick="selectPkg(this,'2D1N','2 Hari 1 Malam',2,1)">
                     <div class="pkg-duration">2D1N</div>
                     <div class="pkg-label">2 Hari 1 Malam</div>
+                    <div class="pkg-price" id="pkgPrice2d1n"><?php echo $pkgPresetPrices['2d1n'] > 0 ? 'Rp ' . number_format($pkgPresetPrices['2d1n'], 0, ',', '.') : 'Belum set'; ?></div>
                 </div>
                 <div class="pkg-card" onclick="selectPkg(this,'3D2N','3 Hari 2 Malam',3,2)">
                     <div class="pkg-duration">3D2N</div>
                     <div class="pkg-label">3 Hari 2 Malam</div>
+                    <div class="pkg-price" id="pkgPrice3d2n"><?php echo $pkgPresetPrices['3d2n'] > 0 ? 'Rp ' . number_format($pkgPresetPrices['3d2n'], 0, ',', '.') : 'Belum set'; ?></div>
                 </div>
                 <div class="pkg-card" onclick="selectPkg(this,'4D3N','4 Hari 3 Malam',4,3)">
                     <div class="pkg-duration">4D3N</div>
                     <div class="pkg-label">4 Hari 3 Malam</div>
+                    <div class="pkg-price" id="pkgPrice4d3n"><?php echo $pkgPresetPrices['4d3n'] > 0 ? 'Rp ' . number_format($pkgPresetPrices['4d3n'], 0, ',', '.') : 'Belum set'; ?></div>
                 </div>
                 <div class="pkg-card" onclick="selectPkg(this,'5D4N','5 Hari 4 Malam',5,4)">
                     <div class="pkg-duration">5D4N</div>
                     <div class="pkg-label">5 Hari 4 Malam</div>
+                    <div class="pkg-price" id="pkgPrice5d4n"><?php echo $pkgPresetPrices['5d4n'] > 0 ? 'Rp ' . number_format($pkgPresetPrices['5d4n'], 0, ',', '.') : 'Belum set'; ?></div>
                 </div>
                 <div class="pkg-card" onclick="selectPkgCustom(this)">
                     <div class="pkg-duration" style="font-size:16px;">✏️</div>
                     <div class="pkg-label">Custom</div>
+                    <div class="pkg-price">Manual</div>
                 </div>
             </div>
 
@@ -434,7 +528,34 @@ var DB = {
     guide:    <?php echo $jsGuides; ?>,
     facility: <?php echo $jsFacilities; ?>
 };
+var PACKAGE_PRESET_PRICES = <?php echo $jsPkgPreset; ?>;
 var activePkgDays = 0, activePkgNights = 0, currentDbType = '';
+
+function togglePkgSetup() {
+    var p = document.getElementById('pkgSetupPanel');
+    if (!p) return;
+    p.style.display = p.style.display === 'none' ? '' : 'none';
+}
+
+function removePresetPackageRows() {
+    document.querySelectorAll('#calcBody tr').forEach(function(row) {
+        var descEl = row.querySelector('.ci-desc');
+        if (!descEl) return;
+        var v = (descEl.value || '').trim().toLowerCase();
+        if (v.indexOf('harga paket preset') === 0) {
+            row.remove();
+        }
+    });
+}
+
+function applyPresetPackagePrice(packageCode) {
+    var key = String(packageCode || '').toLowerCase();
+    var price = parseFloat(PACKAGE_PRESET_PRICES[key] || 0);
+    removePresetPackageRows();
+    if (price > 0) {
+        addManualRow('other', 'Harga Paket Preset ' + String(packageCode).toUpperCase(), 1, 'pax', price, true);
+    }
+}
 
 function selectPkg(el, code, label, days, nights) {
     document.querySelectorAll('.pkg-card').forEach(function(c) { c.classList.remove('active'); });
@@ -443,11 +564,15 @@ function selectPkg(el, code, label, days, nights) {
     document.getElementById('tripName').value = 'Trip Karimunjawa ' + code;
     document.getElementById('tripDuration').value = days + ' Hari ' + nights + ' Malam';
     document.getElementById('customDurWrap').style.display = 'none';
+    applyPresetPackagePrice(code);
+    recalc();
 }
 function selectPkgCustom(el) {
     document.querySelectorAll('.pkg-card').forEach(function(c) { c.classList.remove('active'); });
     el.classList.add('active');
     document.getElementById('customDurWrap').style.display = '';
+    removePresetPackageRows();
+    recalc();
 }
 function applyCustomPkg() {
     var name = document.getElementById('customPkgName').value || 'Custom Trip';
@@ -456,6 +581,8 @@ function applyCustomPkg() {
     activePkgDays = days; activePkgNights = nights;
     document.getElementById('tripName').value = name;
     document.getElementById('tripDuration').value = days + ' Hari ' + nights + ' Malam';
+    removePresetPackageRows();
+    recalc();
 }
 function loadFromSavedPackage(pkgId) {
     if (!pkgId) return;
