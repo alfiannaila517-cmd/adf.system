@@ -50,6 +50,106 @@ function safeFetchOne(PDO $pdo, string $sql, array $params = [], string $context
     }
 }
 
+/**
+ * Ensure invoice exists for a booking and return invoice id.
+ * Creates invoice from booking items when not found.
+ */
+function ensureInvoiceFromBooking(PDO $pdo, Auth $auth, array $booking): int
+{
+    $invoiceId = 0;
+    $internalRef = 'booking_id:' . (int)$booking['id'];
+
+    try {
+        $invStmt = $pdo->prepare("SELECT id FROM invoices WHERE internal_notes=? ORDER BY id DESC LIMIT 1");
+        $invStmt->execute([$internalRef]);
+        $invoiceId = (int)($invStmt->fetchColumn() ?: 0);
+    } catch (Exception $e) {
+        $invoiceId = 0;
+    }
+
+    if ($invoiceId > 0) {
+        return $invoiceId;
+    }
+
+    $itemsStmt = $pdo->prepare("SELECT component_name, qty, unit, price_sell, total_sell FROM booking_order_items WHERE booking_id=? ORDER BY sort_order");
+    $itemsStmt->execute([(int)$booking['id']]);
+    $bookingItems = $itemsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    if (empty($bookingItems)) {
+        throw new RuntimeException('Item reservasi belum tersedia, invoice tidak dapat dibuat.');
+    }
+
+    $subtotal = 0.0;
+    foreach ($bookingItems as $bi) {
+        $subtotal += (float)$bi['total_sell'];
+    }
+
+    $taxPct = 0.0;
+    $taxAmount = 0.0;
+    $discountAmount = 0.0;
+    $totalAmount = $subtotal;
+    $remainingAmount = $totalAmount;
+    $dueDate = date('Y-m-d', strtotime('+14 days'));
+    $createdBy = $auth->getCurrentUser()['username'] ?? 'system';
+
+    $pdo->beginTransaction();
+    try {
+        $invoiceNo = sunseaNextNumber($pdo, 'invoice');
+        $insInv = $pdo->prepare("INSERT INTO invoices
+            (invoice_no, customer_id, trip_date, trip_end_date, pax_count,
+             status, subtotal, tax_pct, tax_amount, discount_amount,
+             total_amount, paid_amount, remaining_amount, due_date,
+             notes, internal_notes, issued_at, created_by)
+            VALUES (?,?,?,?,?,'issued',?,?,?,?,?,?,?,?,?, ?,NOW(),?)");
+
+        $insInv->execute([
+            $invoiceNo,
+            (int)$booking['customer_id'],
+            $booking['start_date'],
+            $booking['end_date'],
+            (int)$booking['pax_count'],
+            $subtotal,
+            $taxPct,
+            $taxAmount,
+            $discountAmount,
+            $totalAmount,
+            0,
+            $remainingAmount,
+            $dueDate,
+            'Generated from Reservasi: ' . $booking['booking_no'],
+            $internalRef,
+            $createdBy,
+        ]);
+
+        $invoiceId = (int)$pdo->lastInsertId();
+
+        $insItem = $pdo->prepare("INSERT INTO invoice_items
+            (invoice_id, item_type, description, qty, unit, unit_price, subtotal, sort_order)
+            VALUES (?,?,?,?,?,?,?,?)");
+
+        foreach ($bookingItems as $idx => $bi) {
+            $insItem->execute([
+                $invoiceId,
+                'other',
+                (string)$bi['component_name'],
+                (float)$bi['qty'],
+                (string)$bi['unit'],
+                (float)$bi['price_sell'],
+                (float)$bi['total_sell'],
+                $idx,
+            ]);
+        }
+
+        $pdo->commit();
+        return $invoiceId;
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_booking') {
     $customerId = (int)($_POST['customer_id'] ?? 0);
     $bookingMode = $_POST['booking_mode'] ?? 'paket';
@@ -296,7 +396,7 @@ $action = $_GET['action'] ?? 'list';
 $viewId = (int)($_GET['view'] ?? 0);
 $pageError = '';
 
-if ($action === 'print_invoice') {
+if ($action === 'print_invoice' || $action === 'pay_invoice') {
     $bookingId = (int)($_GET['id'] ?? 0);
     if ($bookingId > 0) {
         $bookingStmt = $pdo->prepare("SELECT id, booking_no, customer_id, start_date, end_date, pax_count FROM booking_orders WHERE id=?");
@@ -304,101 +404,18 @@ if ($action === 'print_invoice') {
         $booking = $bookingStmt->fetch(PDO::FETCH_ASSOC);
 
         if ($booking) {
-            $invoiceId = 0;
-            $internalRef = 'booking_id:' . (int)$booking['id'];
             try {
-                $invStmt = $pdo->prepare("SELECT id FROM invoices WHERE internal_notes=? ORDER BY id DESC LIMIT 1");
-                $invStmt->execute([$internalRef]);
-                $invoiceId = (int)($invStmt->fetchColumn() ?: 0);
-            } catch (Exception $e) {
-                $invoiceId = 0;
-            }
-
-            if ($invoiceId > 0) {
-                header('Location: invoices.php?action=print&id=' . $invoiceId);
-                exit;
-            }
-
-            $itemsStmt = $pdo->prepare("SELECT component_name, qty, unit, price_sell, total_sell FROM booking_order_items WHERE booking_id=? ORDER BY sort_order");
-            $itemsStmt->execute([(int)$booking['id']]);
-            $bookingItems = $itemsStmt->fetchAll(PDO::FETCH_ASSOC);
-
-            if (empty($bookingItems)) {
-                $_SESSION['flash_message'] = 'Item reservasi belum tersedia, invoice tidak dapat dibuat.';
-                $_SESSION['flash_type'] = 'error';
-                header('Location: bookings.php?view=' . (int)$booking['id']);
-                exit;
-            }
-
-            $subtotal = 0.0;
-            foreach ($bookingItems as $bi) {
-                $subtotal += (float)$bi['total_sell'];
-            }
-            $taxPct = 0.0;
-            $taxAmount = 0.0;
-            $discountAmount = 0.0;
-            $totalAmount = $subtotal;
-            $remainingAmount = $totalAmount;
-            $dueDate = date('Y-m-d', strtotime('+14 days'));
-            $createdBy = $auth->getCurrentUser()['username'] ?? 'system';
-
-            try {
-                $pdo->beginTransaction();
-
-                $invoiceNo = sunseaNextNumber($pdo, 'invoice');
-                $insInv = $pdo->prepare("INSERT INTO invoices
-                    (invoice_no, customer_id, trip_date, trip_end_date, pax_count,
-                     status, subtotal, tax_pct, tax_amount, discount_amount,
-                     total_amount, paid_amount, remaining_amount, due_date,
-                     notes, internal_notes, issued_at, created_by)
-                    VALUES (?,?,?,?,?,'issued',?,?,?,?,?,?,?,?,?, ?,NOW(),?)");
-
-                $insInv->execute([
-                    $invoiceNo,
-                    (int)$booking['customer_id'],
-                    $booking['start_date'],
-                    $booking['end_date'],
-                    (int)$booking['pax_count'],
-                    $subtotal,
-                    $taxPct,
-                    $taxAmount,
-                    $discountAmount,
-                    $totalAmount,
-                    0,
-                    $remainingAmount,
-                    $dueDate,
-                    'Generated from Reservasi: ' . $booking['booking_no'],
-                    $internalRef,
-                    $createdBy,
-                ]);
-
-                $invoiceId = (int)$pdo->lastInsertId();
-
-                $insItem = $pdo->prepare("INSERT INTO invoice_items
-                    (invoice_id, item_type, description, qty, unit, unit_price, subtotal, sort_order)
-                    VALUES (?,?,?,?,?,?,?,?)");
-
-                foreach ($bookingItems as $idx => $bi) {
-                    $insItem->execute([
-                        $invoiceId,
-                        'other',
-                        (string)$bi['component_name'],
-                        (float)$bi['qty'],
-                        (string)$bi['unit'],
-                        (float)$bi['price_sell'],
-                        (float)$bi['total_sell'],
-                        $idx,
-                    ]);
+                $invoiceId = ensureInvoiceFromBooking($pdo, $auth, $booking);
+                if ($action === 'print_invoice') {
+                    header('Location: invoices.php?action=print&id=' . $invoiceId);
+                    exit;
                 }
 
-                $pdo->commit();
-                header('Location: invoices.php?action=print&id=' . $invoiceId);
+                $payMode = ($_GET['pay_mode'] ?? 'dp') === 'full' ? 'full' : 'dp';
+                header('Location: invoices.php?action=view&id=' . $invoiceId . '&open_payment=1&pay_mode=' . $payMode);
                 exit;
             } catch (Exception $e) {
-                if ($pdo->inTransaction()) {
-                    $pdo->rollBack();
-                }
-                $_SESSION['flash_message'] = 'Gagal membuat invoice dari reservasi: ' . $e->getMessage();
+                $_SESSION['flash_message'] = 'Gagal menyiapkan invoice pembayaran: ' . $e->getMessage();
                 $_SESSION['flash_type'] = 'error';
                 header('Location: bookings.php?view=' . (int)$booking['id']);
                 exit;
@@ -530,6 +547,8 @@ include 'layout-header.php';
                 </form>
                 <a href="rab.php?booking_id=<?php echo $detail['id']; ?>" class="ss-btn ss-btn-primary" style="margin-top:10px;"><i data-feather="printer"></i> Cetak RAB</a>
                 <a href="bookings.php?action=print_invoice&id=<?php echo $detail['id']; ?>" class="ss-btn ss-btn-outline" style="margin-top:8px;"><i data-feather="file-text"></i> Cetak Invoice</a>
+                <a href="bookings.php?action=pay_invoice&id=<?php echo $detail['id']; ?>&pay_mode=dp" class="ss-btn ss-btn-outline" style="margin-top:8px;"><i data-feather="dollar-sign"></i> Bayar DP</a>
+                <a href="bookings.php?action=pay_invoice&id=<?php echo $detail['id']; ?>&pay_mode=full" class="ss-btn ss-btn-outline" style="margin-top:8px;"><i data-feather="check-circle"></i> Pelunasan</a>
             </div>
         </div>
     </div>
@@ -697,6 +716,8 @@ include 'layout-header.php';
                                 <a class="ss-btn ss-btn-outline ss-btn-sm" href="bookings.php?view=<?php echo $r['id']; ?>"><i data-feather="eye"></i></a>
                                 <a class="ss-btn ss-btn-outline ss-btn-sm" href="rab.php?booking_id=<?php echo $r['id']; ?>"><i data-feather="printer"></i></a>
                                 <a class="ss-btn ss-btn-outline ss-btn-sm" href="bookings.php?action=print_invoice&id=<?php echo $r['id']; ?>" title="Cetak Invoice"><i data-feather="file-text"></i></a>
+                                <a class="ss-btn ss-btn-outline ss-btn-sm" href="bookings.php?action=pay_invoice&id=<?php echo $r['id']; ?>&pay_mode=dp" title="Bayar DP"><i data-feather="dollar-sign"></i></a>
+                                <a class="ss-btn ss-btn-outline ss-btn-sm" href="bookings.php?action=pay_invoice&id=<?php echo $r['id']; ?>&pay_mode=full" title="Pelunasan"><i data-feather="check-circle"></i></a>
                             </td>
                         </tr>
                     <?php endforeach; ?>

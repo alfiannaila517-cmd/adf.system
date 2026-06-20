@@ -306,17 +306,17 @@ if ($action === 'print' && $invoice):
             }
 
             body {
-                font-family: "Cambria", "Segoe UI", "Trebuchet MS", Arial, sans-serif;
+                font-family: "Georgia", "Times New Roman", serif;
                 font-size: 12px;
-                color: #17324d;
-                background: #f3f7fb;
+                color: #142b44;
+                background: #eef3f8;
             }
 
             .sheet {
                 width: 210mm;
                 min-height: 297mm;
                 margin: 0 auto;
-                padding: 16mm 14mm 14mm;
+                padding: 15mm 13mm 13mm;
                 position: relative;
                 background: #ffffff;
             }
@@ -349,9 +349,9 @@ if ($action === 'print' && $invoice):
                 left: 0;
                 top: 0;
                 right: 0;
-                height: 18mm;
-                background: linear-gradient(95deg, #0b3b6e 0%, #0f4d87 32%, #1279b5 68%, #35a7df 100%);
-                opacity: .96;
+                height: 14mm;
+                background: linear-gradient(100deg, #0d3f73 0%, #145a95 55%, #2487bf 100%);
+                opacity: .98;
             }
 
             .bottom-accent {
@@ -359,22 +359,22 @@ if ($action === 'print' && $invoice):
                 left: 0;
                 right: 0;
                 bottom: 0;
-                height: 8mm;
-                background: linear-gradient(90deg, #0b3b6e 0%, #1077b2 100%);
+                height: 6mm;
+                background: linear-gradient(90deg, #0d3f73 0%, #207db4 100%);
             }
 
             .header {
                 display: flex;
                 justify-content: space-between;
                 align-items: flex-start;
-                margin-bottom: 16px;
+                margin-bottom: 14px;
                 margin-top: 6mm;
                 position: relative;
                 z-index: 2;
-                padding: 10px 12px;
-                border: 1px solid #d8e7f4;
-                border-radius: 10px;
-                background: linear-gradient(160deg, #ffffff 0%, #f5faff 100%);
+                padding: 11px 12px;
+                border: 1px solid #c8d9ea;
+                border-radius: 9px;
+                background: linear-gradient(165deg, #ffffff 0%, #f2f7fc 100%);
             }
 
             .company {
@@ -408,19 +408,20 @@ if ($action === 'print' && $invoice):
             }
 
             .company-name {
-                font-size: 26px;
+                font-size: 24px;
                 font-weight: 800;
                 color: #103b67;
                 line-height: 1.1;
                 margin-bottom: 4px;
-                letter-spacing: .2px;
-                font-family: "Cambria", "Times New Roman", serif;
+                letter-spacing: .3px;
+                font-family: "Georgia", "Times New Roman", serif;
             }
 
             .company-line {
                 font-size: 11px;
-                color: #47657f;
+                color: #44627e;
                 line-height: 1.35;
+                font-family: "Segoe UI", Arial, sans-serif;
             }
 
             .invoice-meta {
@@ -429,9 +430,10 @@ if ($action === 'print' && $invoice):
                 font-size: 11px;
                 color: #3c5b77;
                 border-radius: 8px;
-                background: #eef5fc;
-                border: 1px solid #d5e7f5;
+                background: #edf4fb;
+                border: 1px solid #cfdfee;
                 padding: 10px 12px;
+                font-family: "Segoe UI", Arial, sans-serif;
             }
 
             .meta-title {
@@ -460,8 +462,8 @@ if ($action === 'print' && $invoice):
             }
 
             .balance-value {
-                font-size: 16px;
-                font-weight: 800;
+                font-size: 15px;
+                font-weight: 700;
                 color: #0b3f72;
                 line-height: 1.2;
                 letter-spacing: .2px;
@@ -481,7 +483,7 @@ if ($action === 'print' && $invoice):
             }
 
             .bill-to-name {
-                font-size: 21px;
+                font-size: 19px;
                 font-weight: 700;
                 color: #123f67;
                 margin-bottom: 4px;
@@ -503,20 +505,21 @@ if ($action === 'print' && $invoice):
                 margin-top: 6px;
                 position: relative;
                 z-index: 2;
-                border: 1px solid #d8e7f4;
+                border: 1px solid #cfe0ef;
                 border-radius: 8px;
                 overflow: hidden;
             }
 
             .item-table thead th {
-                background: linear-gradient(90deg, #0e4b80 0%, #1276af 100%);
+                background: linear-gradient(90deg, #114b81 0%, #1d6ea7 100%);
                 color: #fff;
                 font-size: 10px;
                 text-transform: uppercase;
                 letter-spacing: .4px;
                 font-weight: 700;
-                padding: 8px 9px;
+                padding: 7px 9px;
                 text-align: left;
+                font-family: "Segoe UI", Arial, sans-serif;
             }
 
             .item-table thead th.r,
@@ -529,14 +532,15 @@ if ($action === 'print' && $invoice):
             .item-table tbody td {
                 padding: 9px 8px;
                 font-size: 11px;
-                border-bottom: 1px solid #e3edf6;
+                border-bottom: 1px solid #dbe8f4;
                 vertical-align: top;
                 color: #264865;
                 background: #ffffff;
+                font-family: "Segoe UI", Arial, sans-serif;
             }
 
             .item-table tbody tr:nth-child(even) td {
-                background: #f7fbff;
+                background: #f5f9fd;
             }
 
             .desc-main {
@@ -553,16 +557,16 @@ if ($action === 'print' && $invoice):
             .payment-wrap {
                 display: grid;
                 grid-template-columns: 1fr 1fr;
-                gap: 16px;
+                gap: 14px;
                 margin-top: 14px;
-                border-top: 1px solid #d3e4f2;
+                border-top: 1px solid #c9dced;
                 padding-top: 12px;
                 position: relative;
                 z-index: 2;
             }
 
             .payment-left-title {
-                font-size: 21px;
+                font-size: 18px;
                 font-weight: 700;
                 color: #0e4473;
                 margin-bottom: 8px;
@@ -581,16 +585,18 @@ if ($action === 'print' && $invoice):
                 font-size: 11px;
                 color: #315470;
                 line-height: 1.4;
+                font-family: "Segoe UI", Arial, sans-serif;
             }
 
             .payment-right {
                 font-size: 11px;
-                border-left: 1px solid #dbe8f3;
+                border-left: 1px solid #d4e3ef;
                 padding-left: 12px;
-                background: #f4f9fe;
+                background: #f3f8fd;
                 border-radius: 8px;
-                border: 1px solid #d6e6f4;
+                border: 1px solid #cfdfee;
                 padding: 10px 12px;
+                font-family: "Segoe UI", Arial, sans-serif;
             }
 
             .sum-row {
@@ -620,7 +626,7 @@ if ($action === 'print' && $invoice):
             }
 
             .sum-row.total .v {
-                font-size: 18px;
+                font-size: 16px;
                 text-transform: none;
                 letter-spacing: .2px;
                 color: #0b3f72;
@@ -630,13 +636,14 @@ if ($action === 'print' && $invoice):
             .invoice-note {
                 margin-top: 18px;
                 max-width: 76%;
-                border-top: 1px solid #c4dbec;
+                border-top: 1px solid #bfd6e8;
                 padding-top: 10px;
                 font-size: 11px;
                 color: #355572;
                 line-height: 1.4;
                 position: relative;
                 z-index: 2;
+                font-family: "Segoe UI", Arial, sans-serif;
             }
 
             @media print {
@@ -767,6 +774,14 @@ $prefillPaxCount = max(1, (int)($_GET['pax_count'] ?? 1));
 ?>
 
 <?php if ($action === 'view' && $invoice): ?>
+    <?php
+    $payMode = (($_GET['pay_mode'] ?? 'dp') === 'full') ? 'full' : 'dp';
+    $openPaymentModal = (($_GET['open_payment'] ?? '0') === '1') && in_array($invoice['status'], ['issued', 'partial'], true);
+    $remainingForPayment = max(0, (float)$invoice['remaining_amount']);
+    $dpSuggested = $remainingForPayment > 0 ? min($remainingForPayment, max(100000, round(((float)$invoice['total_amount']) * 0.3))) : 0;
+    $paymentPreset = $payMode === 'full' ? $remainingForPayment : $dpSuggested;
+    $paymentPresetFmt = number_format($paymentPreset, 0, ',', '.');
+    ?>
     <!-- ============ VIEW ============ -->
     <div style="margin-bottom:20px;display:flex;gap:10px;flex-wrap:wrap;">
         <a href="invoices.php" class="ss-btn ss-btn-outline ss-btn-sm"><i data-feather="arrow-left"></i> Kembali</a>
@@ -892,7 +907,7 @@ $prefillPaxCount = max(1, (int)($_GET['pax_count'] ?? 1));
     <div id="paymentModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;align-items:center;justify-content:center;">
         <div class="ss-card" style="width:420px;max-width:96vw;">
             <div class="ss-card-header">
-                <div class="ss-card-title">Catat Pembayaran</div>
+                <div class="ss-card-title"><?php echo $payMode === 'full' ? 'Pelunasan Invoice' : 'Catat DP Invoice'; ?></div>
                 <button onclick="document.getElementById('paymentModal').style.display='none'" style="background:none;border:none;cursor:pointer;"><i data-feather="x"></i></button>
             </div>
             <form method="POST">
@@ -901,8 +916,8 @@ $prefillPaxCount = max(1, (int)($_GET['pax_count'] ?? 1));
                 <div class="ss-form-group">
                     <label class="ss-label">Jumlah (Rp) *</label>
                     <input type="text" name="amount" class="ss-input" required
-                        placeholder="<?php echo number_format($invoice['remaining_amount'], 0, ',', '.'); ?>"
-                        value="<?php echo number_format($invoice['remaining_amount'], 0, ',', '.'); ?>">
+                        placeholder="<?php echo $paymentPresetFmt; ?>"
+                        value="<?php echo $paymentPresetFmt; ?>">
                 </div>
                 <div class="ss-form-group">
                     <label class="ss-label">Tanggal Bayar</label>
@@ -932,6 +947,17 @@ $prefillPaxCount = max(1, (int)($_GET['pax_count'] ?? 1));
             </form>
         </div>
     </div>
+
+    <?php if ($openPaymentModal): ?>
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                var modal = document.getElementById('paymentModal');
+                if (modal) {
+                    modal.style.display = 'flex';
+                }
+            });
+        </script>
+    <?php endif; ?>
 
 <?php elseif (in_array($action, ['add', 'edit'])): ?>
     <!-- Add/Edit: same pattern as quotations form (simplified) -->
