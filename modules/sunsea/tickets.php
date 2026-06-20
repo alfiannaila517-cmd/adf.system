@@ -86,11 +86,9 @@ include 'layout-header.php';
             <div class="ss-form-group">
                 <label class="ss-label">Tipe Tiket</label>
                 <select name="ticket_type" class="ss-select">
-                    <option value="kapal">Tiket Kapal</option>
-                    <option value="btn">Tiket BTN (Retribusi)</option>
-                    <option value="express">Express Ferry</option>
-                    <option value="fast_boat">Fast Boat</option>
-                    <option value="other">Lainnya</option>
+                    <option value="express_bahari">Express Bahari</option>
+                    <option value="ferry">Ferry Siginjal</option>
+                    <option value="pesawat_susi">Pesawat Susi Air</option>
                 </select>
             </div>
             <div class="ss-form-group">
