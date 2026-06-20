@@ -15,15 +15,41 @@ $auth->requireLogin();
 $pdo = getSunseaConnection();
 sunseaEnsureBookingSchema($pdo);
 
+// Fail-safe query agar halaman tidak blank jika tabel layanan optional belum ada.
+$pageWarnings = [];
+
+function safeQueryAll(PDO $pdo, string $sql, string $label, array &$warnings): array
+{
+    try {
+        $stmt = $pdo->query($sql);
+        return $stmt ? $stmt->fetchAll() : [];
+    } catch (Exception $e) {
+        $warnings[] = 'Data ' . $label . ' belum tersedia: ' . $e->getMessage();
+        return [];
+    }
+}
+
+function safeQueryPrice(PDO $pdo, string $sql, array $params): ?array
+{
+    try {
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    } catch (Exception $e) {
+        return null;
+    }
+}
+
 // Load data dari database
-$customers = $pdo->query("SELECT id, name, phone FROM customers WHERE is_active=1 ORDER BY name")->fetchAll();
-$packages = $pdo->query("SELECT id, name, base_price FROM trip_packages WHERE is_active=1 ORDER BY name")->fetchAll();
-$tickets = $pdo->query("SELECT id, ticket_name, ticket_type, price_cost, price_sell FROM tickets WHERE is_active=1 ORDER BY ticket_name")->fetchAll();
-$rooms = $pdo->query("SELECT r.id, r.room_type, r.price_cost, r.price_sell, p.name as partner_name FROM accommodation_rooms r JOIN accommodation_partners p ON p.id=r.partner_id WHERE r.is_active=1 AND p.is_active=1 ORDER BY p.name, r.room_type")->fetchAll();
-$caterings = $pdo->query("SELECT id, menu_name, vendor_name, price_cost, price_sell, portion_unit FROM caterings WHERE is_active=1 ORDER BY vendor_name, menu_name")->fetchAll();
-$guides = $pdo->query("SELECT id, name, guide_type, daily_rate_cost, daily_rate_sell FROM guides WHERE is_active=1 ORDER BY guide_type, name")->fetchAll();
-$facilities = $pdo->query("SELECT id, name, unit, price_cost, price_sell FROM facilities WHERE is_active=1 ORDER BY name")->fetchAll();
-$coordinators = $pdo->query("SELECT id, name FROM coordinators WHERE is_active=1 ORDER BY name")->fetchAll();
+$customers = safeQueryAll($pdo, "SELECT id, name, phone FROM customers WHERE is_active=1 ORDER BY name", 'customer', $pageWarnings);
+$packages = safeQueryAll($pdo, "SELECT id, name, base_price FROM trip_packages WHERE is_active=1 ORDER BY name", 'paket', $pageWarnings);
+$tickets = safeQueryAll($pdo, "SELECT id, ticket_name, ticket_type, price_cost, price_sell FROM tickets WHERE is_active=1 ORDER BY ticket_name", 'tiket', $pageWarnings);
+$rooms = safeQueryAll($pdo, "SELECT r.id, r.room_type, r.price_cost, r.price_sell, p.name as partner_name FROM accommodation_rooms r JOIN accommodation_partners p ON p.id=r.partner_id WHERE r.is_active=1 AND p.is_active=1 ORDER BY p.name, r.room_type", 'penginapan', $pageWarnings);
+$caterings = safeQueryAll($pdo, "SELECT id, menu_name, vendor_name, price_cost, price_sell, portion_unit FROM caterings WHERE is_active=1 ORDER BY vendor_name, menu_name", 'catering', $pageWarnings);
+$guides = safeQueryAll($pdo, "SELECT id, name, guide_type, daily_rate_cost, daily_rate_sell FROM guides WHERE is_active=1 ORDER BY guide_type, name", 'guide', $pageWarnings);
+$facilities = safeQueryAll($pdo, "SELECT id, name, unit, price_cost, price_sell FROM facilities WHERE is_active=1 ORDER BY name", 'fasilitas', $pageWarnings);
+$coordinators = safeQueryAll($pdo, "SELECT id, name FROM coordinators WHERE is_active=1 ORDER BY name", 'koordinator', $pageWarnings);
 
 // Handle AJAX request untuk fetch price
 if ($_GET['action'] ?? '' === 'get_price') {
@@ -34,29 +60,19 @@ if ($_GET['action'] ?? '' === 'get_price') {
     $price = ['cost' => 0, 'sell' => 0];
 
     if ($type === 'ticket' && $id > 0) {
-        $stmt = $pdo->prepare("SELECT price_cost, price_sell FROM tickets WHERE id=?");
-        $stmt->execute([$id]);
-        $r = $stmt->fetch(PDO::FETCH_ASSOC);
+        $r = safeQueryPrice($pdo, "SELECT price_cost, price_sell FROM tickets WHERE id=?", [$id]);
         if ($r) $price = ['cost' => (float)$r['price_cost'], 'sell' => (float)$r['price_sell']];
     } elseif ($type === 'room' && $id > 0) {
-        $stmt = $pdo->prepare("SELECT price_cost, price_sell FROM accommodation_rooms WHERE id=?");
-        $stmt->execute([$id]);
-        $r = $stmt->fetch(PDO::FETCH_ASSOC);
+        $r = safeQueryPrice($pdo, "SELECT price_cost, price_sell FROM accommodation_rooms WHERE id=?", [$id]);
         if ($r) $price = ['cost' => (float)$r['price_cost'], 'sell' => (float)$r['price_sell']];
     } elseif ($type === 'catering' && $id > 0) {
-        $stmt = $pdo->prepare("SELECT price_cost, price_sell FROM caterings WHERE id=?");
-        $stmt->execute([$id]);
-        $r = $stmt->fetch(PDO::FETCH_ASSOC);
+        $r = safeQueryPrice($pdo, "SELECT price_cost, price_sell FROM caterings WHERE id=?", [$id]);
         if ($r) $price = ['cost' => (float)$r['price_cost'], 'sell' => (float)$r['price_sell']];
     } elseif ($type === 'guide' && $id > 0) {
-        $stmt = $pdo->prepare("SELECT daily_rate_cost, daily_rate_sell FROM guides WHERE id=?");
-        $stmt->execute([$id]);
-        $r = $stmt->fetch(PDO::FETCH_ASSOC);
+        $r = safeQueryPrice($pdo, "SELECT daily_rate_cost, daily_rate_sell FROM guides WHERE id=?", [$id]);
         if ($r) $price = ['cost' => (float)$r['daily_rate_cost'], 'sell' => (float)$r['daily_rate_sell']];
     } elseif ($type === 'facility' && $id > 0) {
-        $stmt = $pdo->prepare("SELECT price_cost, price_sell FROM facilities WHERE id=?");
-        $stmt->execute([$id]);
-        $r = $stmt->fetch(PDO::FETCH_ASSOC);
+        $r = safeQueryPrice($pdo, "SELECT price_cost, price_sell FROM facilities WHERE id=?", [$id]);
         if ($r) $price = ['cost' => (float)$r['price_cost'], 'sell' => (float)$r['price_sell']];
     }
 
@@ -261,6 +277,15 @@ include 'layout-header.php';
 ?>
 
 <div style="max-width:900px;padding:16px;">
+    <?php if (!empty($pageWarnings)): ?>
+        <div style="margin-bottom:12px;padding:10px 12px;border:1px solid #f59e0b;background:#fffbeb;color:#92400e;border-radius:6px;">
+            <div style="font-weight:600;margin-bottom:4px;">Sebagian data layanan belum tersedia</div>
+            <div style="font-size:13px;line-height:1.6;">
+                <?php echo htmlspecialchars($pageWarnings[0]); ?>
+            </div>
+        </div>
+    <?php endif; ?>
+
     <div style="margin-bottom:16px;"><a href="bookings.php" style="display:inline-flex;align-items:center;gap:6px;padding:8px 12px;background:#f0f9ff;color:#0EA5E9;border:1px solid #0EA5E9;border-radius:4px;text-decoration:none;font-weight:500;cursor:pointer;">← Kembali ke Daftar</a></div>
 
     <form method="POST" id="bookingForm" style="display:flex;flex-direction:column;gap:16px;">
