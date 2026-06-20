@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Sunsea Module - Database Helper
  * Provides PDO connection to adf_sunsea database
@@ -16,7 +17,8 @@ defined('APP_ACCESS') or define('APP_ACCESS', true);
  * @return PDO
  * @throws Exception on connection failure
  */
-function getSunseaConnection(): PDO {
+function getSunseaConnection(): PDO
+{
     // Use the central Database class (it reads ACTIVE_BUSINESS_ID = 'sunsea' and picks adf_sunsea)
     if (class_exists('Database')) {
         return Database::getInstance()->getConnection();
@@ -24,7 +26,7 @@ function getSunseaConnection(): PDO {
 
     // Standalone fallback (if ever hosted separately)
     $isProduction = (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') === false &&
-                     strpos($_SERVER['HTTP_HOST'] ?? '', '127.0.0.1') === false);
+        strpos($_SERVER['HTTP_HOST'] ?? '', '127.0.0.1') === false);
 
     if ($isProduction) {
         $host = 'localhost';
@@ -40,7 +42,8 @@ function getSunseaConnection(): PDO {
 
     $pdo = new PDO(
         "mysql:host={$host};dbname={$db};charset=utf8mb4",
-        $user, $pass,
+        $user,
+        $pass,
         [
             PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
@@ -58,7 +61,8 @@ function getSunseaConnection(): PDO {
  * @param string $type  'quotation' | 'invoice'
  * @return string
  */
-function sunseaNextNumber(PDO $pdo, string $type): string {
+function sunseaNextNumber(PDO $pdo, string $type): string
+{
     $prefixMap = [
         'quotation' => 'SS-QUO',
         'invoice'   => 'SS-INV',
@@ -88,7 +92,8 @@ function sunseaNextNumber(PDO $pdo, string $type): string {
 /**
  * Format Rupiah
  */
-function sunseaRupiah(float $amount, bool $short = false): string {
+function sunseaRupiah(float $amount, bool $short = false): string
+{
     if ($short && $amount >= 1_000_000) {
         return 'Rp ' . number_format($amount / 1_000_000, 1) . ' jt';
     }
@@ -98,7 +103,8 @@ function sunseaRupiah(float $amount, bool $short = false): string {
 /**
  * Get Sunsea setting value from settings table.
  */
-function sunseaSetting(PDO $pdo, string $key, string $default = ''): string {
+function sunseaSetting(PDO $pdo, string $key, string $default = ''): string
+{
     try {
         $stmt = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = ? LIMIT 1");
         $stmt->execute([$key]);

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Sunsea - Kalkulator Harga Trip
  * Tool untuk menghitung & menyusun estimasi harga paket wisata
@@ -49,15 +50,15 @@ include 'layout-header.php';
                 <select id="quickPkg" class="ss-select" onchange="loadPackage(this.value)">
                     <option value="">-- Pilih paket untuk dimuat --</option>
                     <?php foreach ($packages as $p): ?>
-                    <option value="<?php echo $p['id']; ?>"
+                        <option value="<?php echo $p['id']; ?>"
                             data-price="<?php echo $p['base_price']; ?>"
                             data-days="<?php echo $p['duration_days']; ?>"
                             data-nights="<?php echo $p['duration_nights']; ?>"
                             data-name="<?php echo htmlspecialchars($p['name'], ENT_QUOTES); ?>"
                             data-includes="<?php echo htmlspecialchars($p['includes'] ?? '', ENT_QUOTES); ?>">
-                        <?php echo htmlspecialchars($p['name']); ?>
-                        — <?php echo 'Rp ' . number_format((float)$p['base_price'], 0, ',', '.'); ?>/org
-                    </option>
+                            <?php echo htmlspecialchars($p['name']); ?>
+                            — <?php echo 'Rp ' . number_format((float)$p['base_price'], 0, ',', '.'); ?>/org
+                        </option>
                     <?php endforeach; ?>
                 </select>
             </div>
@@ -165,7 +166,7 @@ include 'layout-header.php';
                 <select id="toCustomer" class="ss-select">
                     <option value="">-- Pilih Customer --</option>
                     <?php foreach ($customers as $c): ?>
-                    <option value="<?php echo $c['id']; ?>"><?php echo htmlspecialchars($c['name']); ?></option>
+                        <option value="<?php echo $c['id']; ?>"><?php echo htmlspecialchars($c['name']); ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
@@ -191,161 +192,190 @@ include 'layout-header.php';
 </form>
 
 <script>
-var calcItems = [];
-var categoryLabels = {
-    accommodation: 'Penginapan', transport: 'Transport', meal: 'Makan',
-    activity: 'Aktivitas', guide: 'Guide', equipment: 'Perlengkapan', other: 'Lainnya'
-};
-var categoryOptions = Object.keys(categoryLabels).map(function(k){
-    return '<option value="'+k+'">'+categoryLabels[k]+'</option>';
-}).join('');
+    var calcItems = [];
+    var categoryLabels = {
+        accommodation: 'Penginapan',
+        transport: 'Transport',
+        meal: 'Makan',
+        activity: 'Aktivitas',
+        guide: 'Guide',
+        equipment: 'Perlengkapan',
+        other: 'Lainnya'
+    };
+    var categoryOptions = Object.keys(categoryLabels).map(function(k) {
+        return '<option value="' + k + '">' + categoryLabels[k] + '</option>';
+    }).join('');
 
-function addCalcItem(type, desc, qty, unit, price, perPax) {
-    type    = type    || 'other';
-    desc    = desc    || '';
-    qty     = qty     || 1;
-    unit    = unit    || 'unit';
-    price   = price   || 0;
-    perPax  = perPax  !== undefined ? perPax : false;
+    function addCalcItem(type, desc, qty, unit, price, perPax) {
+        type = type || 'other';
+        desc = desc || '';
+        qty = qty || 1;
+        unit = unit || 'unit';
+        price = price || 0;
+        perPax = perPax !== undefined ? perPax : false;
 
-    var id = Date.now() + Math.random();
-    var tr = document.createElement('tr');
-    tr.dataset.id = id;
-    tr.style.borderBottom = '1px solid var(--ss-gray-2)';
-    tr.innerHTML =
-        '<td style="padding:6px 8px;"><select class="ss-select ci-type" style="font-size:12px;padding:5px 7px;" onchange="recalc()">'+
-            categoryOptions.replace('value="'+type+'"', 'value="'+type+'" selected') +
-        '</select></td>' +
-        '<td style="padding:6px 8px;"><input type="text" class="ss-input ci-desc" style="font-size:12px;padding:5px 8px;" value="'+esc(desc)+'" placeholder="Keterangan..." onchange="recalc()"></td>' +
-        '<td style="padding:6px 8px;"><input type="number" class="ss-input ci-qty" style="font-size:12px;padding:5px 6px;" value="'+qty+'" min="0" step="0.5" oninput="recalc()"></td>' +
-        '<td style="padding:6px 8px;"><input type="text" class="ss-input ci-unit" style="font-size:12px;padding:5px 6px;" value="'+unit+'"></td>' +
-        '<td style="padding:6px 8px;"><input type="text" class="ss-input ci-price" style="font-size:12px;padding:5px 8px;" value="'+fmtNum(price)+'" placeholder="0" oninput="recalc()"></td>' +
-        '<td style="padding:6px 8px;text-align:center;"><input type="checkbox" class="ci-perpax" '+( perPax ? 'checked' : '' )+' onchange="recalc()" title="Biaya ini per pax?"></td>' +
-        '<td style="padding:6px 8px;text-align:right;font-weight:600;" class="ci-sub">Rp 0</td>' +
-        '<td style="padding:6px 8px;"><button type="button" onclick="removeCalcItem(this)" style="background:none;border:none;cursor:pointer;color:var(--ss-danger);"><i data-feather="x" style="width:14px;height:14px;"></i></button></td>';
-    document.getElementById('calcBody').appendChild(tr);
-    feather.replace();
-    recalc();
-}
-
-function removeCalcItem(btn) { btn.closest('tr').remove(); recalc(); }
-
-function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
-function fmtNum(n){ return n ? Math.round(n).toLocaleString('id-ID') : ''; }
-function unFmt(s){ return parseFloat(String(s).replace(/\./g,'').replace(',','.')) || 0; }
-function fmt(n){ return 'Rp '+Math.round(n).toLocaleString('id-ID'); }
-
-function recalc() {
-    var pax     = parseInt(document.getElementById('paxCount').value) || 1;
-    var margin  = parseFloat(document.getElementById('marginPct').value) || 0;
-    var taxPct  = parseFloat(document.getElementById('taxCalc').value) || 0;
-    var totalCost = 0;
-
-    document.getElementById('marginLabel').textContent = margin;
-
-    document.querySelectorAll('#calcBody tr').forEach(function(row){
-        var qty      = parseFloat(row.querySelector('.ci-qty')?.value) || 0;
-        var price    = unFmt(row.querySelector('.ci-price')?.value || '0');
-        var perPax   = row.querySelector('.ci-perpax')?.checked;
-        var sub      = qty * price * (perPax ? pax : 1);
-        var subCell  = row.querySelector('.ci-sub');
-        if (subCell) subCell.textContent = fmt(sub);
-        totalCost += sub;
-    });
-
-    var costPerPax   = pax > 0 ? totalCost / pax : 0;
-    var marginAmt    = costPerPax * margin / 100;
-    var sellPerPax   = costPerPax + marginAmt;
-    var subtotal     = sellPerPax * pax;
-    var tax          = subtotal * taxPct / 100;
-    var total        = subtotal + tax;
-
-    document.getElementById('sumCost').textContent        = fmt(totalCost);
-    document.getElementById('sumCostPerPax').textContent  = fmt(costPerPax);
-    document.getElementById('sumMargin').textContent      = fmt(marginAmt * pax);
-    document.getElementById('sumSellPerPax').textContent  = fmt(sellPerPax);
-    document.getElementById('sumSubtotal').textContent    = fmt(subtotal);
-    document.getElementById('sumTax').textContent         = fmt(tax);
-    document.getElementById('sumTotal').textContent       = fmt(total);
-}
-
-function clearAll(){
-    if (!confirm('Bersihkan semua item?')) return;
-    document.getElementById('calcBody').innerHTML = '';
-    document.getElementById('quickPkg').value = '';
-    document.getElementById('tripName').value = '';
-    document.getElementById('paxCount').value = 1;
-    document.getElementById('pkgInfoCard').style.display = 'none';
-    recalc();
-}
-
-function loadPackage(pkgId){
-    if (!pkgId) return;
-    var opt = document.querySelector('#quickPkg option[value="'+pkgId+'"]');
-    if (!opt) return;
-
-    var basePrice = parseFloat(opt.dataset.price) || 0;
-    var name      = opt.dataset.name || '';
-    var includes  = opt.dataset.includes || '';
-
-    document.getElementById('tripName').value = name;
-    document.getElementById('calcBody').innerHTML = '';
-
-    // Parse includes text into rows
-    if (includes) {
-        var lines = includes.split('\n').filter(function(l){ return l.trim(); });
-        lines.forEach(function(line){
-            line = line.replace(/^[-*•]\s*/,'').trim();
-            if (line) addCalcItem('other', line, 1, 'unit', 0, false);
-        });
+        var id = Date.now() + Math.random();
+        var tr = document.createElement('tr');
+        tr.dataset.id = id;
+        tr.style.borderBottom = '1px solid var(--ss-gray-2)';
+        tr.innerHTML =
+            '<td style="padding:6px 8px;"><select class="ss-select ci-type" style="font-size:12px;padding:5px 7px;" onchange="recalc()">' +
+            categoryOptions.replace('value="' + type + '"', 'value="' + type + '" selected') +
+            '</select></td>' +
+            '<td style="padding:6px 8px;"><input type="text" class="ss-input ci-desc" style="font-size:12px;padding:5px 8px;" value="' + esc(desc) + '" placeholder="Keterangan..." onchange="recalc()"></td>' +
+            '<td style="padding:6px 8px;"><input type="number" class="ss-input ci-qty" style="font-size:12px;padding:5px 6px;" value="' + qty + '" min="0" step="0.5" oninput="recalc()"></td>' +
+            '<td style="padding:6px 8px;"><input type="text" class="ss-input ci-unit" style="font-size:12px;padding:5px 6px;" value="' + unit + '"></td>' +
+            '<td style="padding:6px 8px;"><input type="text" class="ss-input ci-price" style="font-size:12px;padding:5px 8px;" value="' + fmtNum(price) + '" placeholder="0" oninput="recalc()"></td>' +
+            '<td style="padding:6px 8px;text-align:center;"><input type="checkbox" class="ci-perpax" ' + (perPax ? 'checked' : '') + ' onchange="recalc()" title="Biaya ini per pax?"></td>' +
+            '<td style="padding:6px 8px;text-align:right;font-weight:600;" class="ci-sub">Rp 0</td>' +
+            '<td style="padding:6px 8px;"><button type="button" onclick="removeCalcItem(this)" style="background:none;border:none;cursor:pointer;color:var(--ss-danger);"><i data-feather="x" style="width:14px;height:14px;"></i></button></td>';
+        document.getElementById('calcBody').appendChild(tr);
+        feather.replace();
+        recalc();
     }
 
-    // Add base price row
-    if (basePrice > 0) {
-        addCalcItem('other', 'Harga Dasar Paket', 1, 'paket', basePrice, false);
+    function removeCalcItem(btn) {
+        btn.closest('tr').remove();
+        recalc();
     }
 
-    // Show info card
-    var infoCard = document.getElementById('pkgInfoCard');
-    var infoCont = document.getElementById('pkgInfoContent');
-    infoCont.textContent = (opt.dataset.includes ? 'Include:\n' + opt.dataset.includes : '') + '\n\n' + (opt.dataset.itinerary || '');
-    infoCard.style.display = infoCont.textContent.trim() ? '' : 'none';
+    function esc(s) {
+        return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    }
 
-    recalc();
-}
+    function fmtNum(n) {
+        return n ? Math.round(n).toLocaleString('id-ID') : '';
+    }
 
-function sendToQuotation(){
-    var custId = document.getElementById('toCustomer').value;
-    if (!custId) { alert('Pilih customer terlebih dahulu.'); return; }
+    function unFmt(s) {
+        return parseFloat(String(s).replace(/\./g, '').replace(',', '.')) || 0;
+    }
 
-    // Save calc items to sessionStorage so quotations.php can pre-fill
-    var items = [];
-    document.querySelectorAll('#calcBody tr').forEach(function(row){
-        items.push({
-            type  : row.querySelector('.ci-type')?.value || 'other',
-            desc  : row.querySelector('.ci-desc')?.value || '',
-            qty   : parseFloat(row.querySelector('.ci-qty')?.value) || 1,
-            unit  : row.querySelector('.ci-unit')?.value || 'unit',
-            price : unFmt(row.querySelector('.ci-price')?.value || '0'),
-            perPax: row.querySelector('.ci-perpax')?.checked ? 1 : 0,
+    function fmt(n) {
+        return 'Rp ' + Math.round(n).toLocaleString('id-ID');
+    }
+
+    function recalc() {
+        var pax = parseInt(document.getElementById('paxCount').value) || 1;
+        var margin = parseFloat(document.getElementById('marginPct').value) || 0;
+        var taxPct = parseFloat(document.getElementById('taxCalc').value) || 0;
+        var totalCost = 0;
+
+        document.getElementById('marginLabel').textContent = margin;
+
+        document.querySelectorAll('#calcBody tr').forEach(function(row) {
+            var qty = parseFloat(row.querySelector('.ci-qty')?.value) || 0;
+            var price = unFmt(row.querySelector('.ci-price')?.value || '0');
+            var perPax = row.querySelector('.ci-perpax')?.checked;
+            var sub = qty * price * (perPax ? pax : 1);
+            var subCell = row.querySelector('.ci-sub');
+            if (subCell) subCell.textContent = fmt(sub);
+            totalCost += sub;
         });
-    });
 
-    var pax    = parseInt(document.getElementById('paxCount').value) || 1;
-    var margin = parseFloat(document.getElementById('marginPct').value) || 0;
-    var name   = document.getElementById('tripName').value;
+        var costPerPax = pax > 0 ? totalCost / pax : 0;
+        var marginAmt = costPerPax * margin / 100;
+        var sellPerPax = costPerPax + marginAmt;
+        var subtotal = sellPerPax * pax;
+        var tax = subtotal * taxPct / 100;
+        var total = subtotal + tax;
 
-    sessionStorage.setItem('sunsea_calc', JSON.stringify({ items, pax, margin, tripName: name }));
+        document.getElementById('sumCost').textContent = fmt(totalCost);
+        document.getElementById('sumCostPerPax').textContent = fmt(costPerPax);
+        document.getElementById('sumMargin').textContent = fmt(marginAmt * pax);
+        document.getElementById('sumSellPerPax').textContent = fmt(sellPerPax);
+        document.getElementById('sumSubtotal').textContent = fmt(subtotal);
+        document.getElementById('sumTax').textContent = fmt(tax);
+        document.getElementById('sumTotal').textContent = fmt(total);
+    }
 
-    document.getElementById('fCustomerId').value = custId;
-    document.getElementById('toQuotationForm').submit();
-}
+    function clearAll() {
+        if (!confirm('Bersihkan semua item?')) return;
+        document.getElementById('calcBody').innerHTML = '';
+        document.getElementById('quickPkg').value = '';
+        document.getElementById('tripName').value = '';
+        document.getElementById('paxCount').value = 1;
+        document.getElementById('pkgInfoCard').style.display = 'none';
+        recalc();
+    }
 
-// Initialize with 3 empty rows
-addCalcItem('accommodation');
-addCalcItem('transport');
-addCalcItem('meal');
-recalc();
+    function loadPackage(pkgId) {
+        if (!pkgId) return;
+        var opt = document.querySelector('#quickPkg option[value="' + pkgId + '"]');
+        if (!opt) return;
+
+        var basePrice = parseFloat(opt.dataset.price) || 0;
+        var name = opt.dataset.name || '';
+        var includes = opt.dataset.includes || '';
+
+        document.getElementById('tripName').value = name;
+        document.getElementById('calcBody').innerHTML = '';
+
+        // Parse includes text into rows
+        if (includes) {
+            var lines = includes.split('\n').filter(function(l) {
+                return l.trim();
+            });
+            lines.forEach(function(line) {
+                line = line.replace(/^[-*•]\s*/, '').trim();
+                if (line) addCalcItem('other', line, 1, 'unit', 0, false);
+            });
+        }
+
+        // Add base price row
+        if (basePrice > 0) {
+            addCalcItem('other', 'Harga Dasar Paket', 1, 'paket', basePrice, false);
+        }
+
+        // Show info card
+        var infoCard = document.getElementById('pkgInfoCard');
+        var infoCont = document.getElementById('pkgInfoContent');
+        infoCont.textContent = (opt.dataset.includes ? 'Include:\n' + opt.dataset.includes : '') + '\n\n' + (opt.dataset.itinerary || '');
+        infoCard.style.display = infoCont.textContent.trim() ? '' : 'none';
+
+        recalc();
+    }
+
+    function sendToQuotation() {
+        var custId = document.getElementById('toCustomer').value;
+        if (!custId) {
+            alert('Pilih customer terlebih dahulu.');
+            return;
+        }
+
+        // Save calc items to sessionStorage so quotations.php can pre-fill
+        var items = [];
+        document.querySelectorAll('#calcBody tr').forEach(function(row) {
+            items.push({
+                type: row.querySelector('.ci-type')?.value || 'other',
+                desc: row.querySelector('.ci-desc')?.value || '',
+                qty: parseFloat(row.querySelector('.ci-qty')?.value) || 1,
+                unit: row.querySelector('.ci-unit')?.value || 'unit',
+                price: unFmt(row.querySelector('.ci-price')?.value || '0'),
+                perPax: row.querySelector('.ci-perpax')?.checked ? 1 : 0,
+            });
+        });
+
+        var pax = parseInt(document.getElementById('paxCount').value) || 1;
+        var margin = parseFloat(document.getElementById('marginPct').value) || 0;
+        var name = document.getElementById('tripName').value;
+
+        sessionStorage.setItem('sunsea_calc', JSON.stringify({
+            items,
+            pax,
+            margin,
+            tripName: name
+        }));
+
+        document.getElementById('fCustomerId').value = custId;
+        document.getElementById('toQuotationForm').submit();
+    }
+
+    // Initialize with 3 empty rows
+    addCalcItem('accommodation');
+    addCalcItem('transport');
+    addCalcItem('meal');
+    recalc();
 </script>
 
 <?php include 'layout-footer.php'; ?>

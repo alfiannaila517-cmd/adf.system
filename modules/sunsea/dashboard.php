@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Sunsea - Dashboard
  * Ocean-themed travel bureau dashboard
@@ -78,11 +79,10 @@ try {
         ORDER BY i.created_at DESC
         LIMIT 5
     ")->fetchAll();
-
 } catch (Exception $e) {
     $dbError = $e->getMessage();
-    $qStats = ['total'=>0,'draft'=>0,'sent'=>0,'approved'=>0];
-    $iStats = ['total'=>0,'issued'=>0,'partial'=>0,'paid'=>0,'overdue'=>0,'outstanding'=>0];
+    $qStats = ['total' => 0, 'draft' => 0, 'sent' => 0, 'approved' => 0];
+    $iStats = ['total' => 0, 'issued' => 0, 'partial' => 0, 'paid' => 0, 'overdue' => 0, 'outstanding' => 0];
     $custCount = $pkgCount = 0;
     $monthRevenue = 0;
     $bookingStats = ['total' => 0, 'active' => 0];
@@ -93,11 +93,11 @@ include 'layout-header.php';
 ?>
 
 <?php if (isset($dbError)): ?>
-<div class="ss-alert ss-alert-error">
-    <i data-feather="alert-circle"></i>
-    Database belum siap. Jalankan <code>database/sunsea-setup.sql</code> terlebih dahulu.
-    <br><small style="opacity:.7"><?php echo htmlspecialchars($dbError); ?></small>
-</div>
+    <div class="ss-alert ss-alert-error">
+        <i data-feather="alert-circle"></i>
+        Database belum siap. Jalankan <code>database/sunsea-setup.sql</code> terlebih dahulu.
+        <br><small style="opacity:.7"><?php echo htmlspecialchars($dbError); ?></small>
+    </div>
 <?php endif; ?>
 
 <!-- ============================
@@ -235,15 +235,15 @@ include 'layout-header.php';
                     </thead>
                     <tbody>
                         <?php foreach ($recentQuotations as $q): ?>
-                        <tr>
-                            <td><a href="quotations.php?view=<?php echo urlencode($q['quotation_no']); ?>"
-                                   style="color:var(--ss-ocean);font-weight:600;text-decoration:none;">
-                                <?php echo htmlspecialchars($q['quotation_no']); ?>
-                            </a></td>
-                            <td><?php echo htmlspecialchars($q['customer_name']); ?></td>
-                            <td><span class="ss-status ss-status-<?php echo $q['status']; ?>"><?php echo ucfirst($q['status']); ?></span></td>
-                            <td style="font-weight:600;"><?php echo sunseaRupiah((float)$q['total_amount']); ?></td>
-                        </tr>
+                            <tr>
+                                <td><a href="quotations.php?view=<?php echo urlencode($q['quotation_no']); ?>"
+                                        style="color:var(--ss-ocean);font-weight:600;text-decoration:none;">
+                                        <?php echo htmlspecialchars($q['quotation_no']); ?>
+                                    </a></td>
+                                <td><?php echo htmlspecialchars($q['customer_name']); ?></td>
+                                <td><span class="ss-status ss-status-<?php echo $q['status']; ?>"><?php echo ucfirst($q['status']); ?></span></td>
+                                <td style="font-weight:600;"><?php echo sunseaRupiah((float)$q['total_amount']); ?></td>
+                            </tr>
                         <?php endforeach; ?>
                     </tbody>
                 </table>
@@ -279,17 +279,17 @@ include 'layout-header.php';
                     </thead>
                     <tbody>
                         <?php foreach ($recentInvoices as $inv): ?>
-                        <tr>
-                            <td><a href="invoices.php?view=<?php echo urlencode($inv['invoice_no']); ?>"
-                                   style="color:var(--ss-ocean);font-weight:600;text-decoration:none;">
-                                <?php echo htmlspecialchars($inv['invoice_no']); ?>
-                            </a></td>
-                            <td><?php echo htmlspecialchars($inv['customer_name']); ?></td>
-                            <td><span class="ss-status ss-status-<?php echo $inv['status']; ?>"><?php echo ucfirst($inv['status']); ?></span></td>
-                            <td style="font-weight:600;color:<?php echo ($inv['remaining_amount'] > 0) ? 'var(--ss-danger)' : 'var(--ss-success)'; ?>">
-                                <?php echo sunseaRupiah((float)$inv['remaining_amount']); ?>
-                            </td>
-                        </tr>
+                            <tr>
+                                <td><a href="invoices.php?view=<?php echo urlencode($inv['invoice_no']); ?>"
+                                        style="color:var(--ss-ocean);font-weight:600;text-decoration:none;">
+                                        <?php echo htmlspecialchars($inv['invoice_no']); ?>
+                                    </a></td>
+                                <td><?php echo htmlspecialchars($inv['customer_name']); ?></td>
+                                <td><span class="ss-status ss-status-<?php echo $inv['status']; ?>"><?php echo ucfirst($inv['status']); ?></span></td>
+                                <td style="font-weight:600;color:<?php echo ($inv['remaining_amount'] > 0) ? 'var(--ss-danger)' : 'var(--ss-success)'; ?>">
+                                    <?php echo sunseaRupiah((float)$inv['remaining_amount']); ?>
+                                </td>
+                            </tr>
                         <?php endforeach; ?>
                     </tbody>
                 </table>

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Sunsea - Kalender Blokir Balok
  */
@@ -49,7 +50,7 @@ include 'layout-header.php';
         <div style="min-width:900px;">
             <div style="display:grid;grid-template-columns:260px repeat(<?php echo $daysInMonth; ?>, 24px);gap:2px;align-items:center;margin-bottom:8px;">
                 <div style="font-size:11px;color:var(--ss-muted);font-weight:700;">Booking</div>
-                <?php for ($d=1; $d <= $daysInMonth; $d++): ?>
+                <?php for ($d = 1; $d <= $daysInMonth; $d++): ?>
                     <div style="font-size:10px;color:var(--ss-muted);text-align:center;"><?php echo $d; ?></div>
                 <?php endfor; ?>
             </div>
@@ -60,19 +61,19 @@ include 'layout-header.php';
                 $span = max(1, $e - $s + 1);
                 $statusColor = $b['status'] === 'completed' ? '#10B981' : ($b['status'] === 'cancelled' ? '#EF4444' : '#0EA5E9');
             ?>
-            <div style="display:grid;grid-template-columns:260px repeat(<?php echo $daysInMonth; ?>, 24px);gap:2px;align-items:center;margin-bottom:4px;">
-                <div style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                    <a href="bookings.php?view=<?php echo $b['id']; ?>" style="color:var(--ss-ocean);text-decoration:none;font-weight:600;"><?php echo htmlspecialchars($b['booking_no']); ?></a>
-                    <div style="font-size:10px;color:var(--ss-muted)"><?php echo htmlspecialchars($b['customer_name']); ?> · <?php echo (int)$b['pax_count']; ?> pax</div>
+                <div style="display:grid;grid-template-columns:260px repeat(<?php echo $daysInMonth; ?>, 24px);gap:2px;align-items:center;margin-bottom:4px;">
+                    <div style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                        <a href="bookings.php?view=<?php echo $b['id']; ?>" style="color:var(--ss-ocean);text-decoration:none;font-weight:600;"><?php echo htmlspecialchars($b['booking_no']); ?></a>
+                        <div style="font-size:10px;color:var(--ss-muted)"><?php echo htmlspecialchars($b['customer_name']); ?> · <?php echo (int)$b['pax_count']; ?> pax</div>
+                    </div>
+                    <?php for ($d = 1; $d <= $daysInMonth; $d++): ?>
+                        <?php if ($d >= $s && $d <= $e): ?>
+                            <div style="height:16px;background:<?php echo $statusColor; ?>;border-radius:3px;"></div>
+                        <?php else: ?>
+                            <div style="height:16px;background:#F1F5F9;border-radius:3px;"></div>
+                        <?php endif; ?>
+                    <?php endfor; ?>
                 </div>
-                <?php for ($d=1; $d <= $daysInMonth; $d++): ?>
-                    <?php if ($d >= $s && $d <= $e): ?>
-                        <div style="height:16px;background:<?php echo $statusColor; ?>;border-radius:3px;"></div>
-                    <?php else: ?>
-                        <div style="height:16px;background:#F1F5F9;border-radius:3px;"></div>
-                    <?php endif; ?>
-                <?php endfor; ?>
-            </div>
             <?php endforeach; ?>
         </div>
     </div>
@@ -82,17 +83,25 @@ include 'layout-header.php';
     <div class="ss-card-title" style="margin-bottom:8px;">Daftar Jadwal Bulan Ini</div>
     <div class="ss-table-wrap">
         <table class="ss-table">
-            <thead><tr><th>Booking</th><th>Customer</th><th>Tanggal</th><th>Pax</th><th>Status</th></tr></thead>
-            <tbody>
-            <?php foreach ($bookings as $b): ?>
+            <thead>
                 <tr>
-                    <td><a href="bookings.php?view=<?php echo $b['id']; ?>" style="color:var(--ss-ocean);font-weight:600;text-decoration:none;"><?php echo htmlspecialchars($b['booking_no']); ?></a></td>
-                    <td><?php echo htmlspecialchars($b['customer_name']); ?></td>
-                    <td><?php echo date('d M Y', strtotime($b['start_date'])); ?> - <?php echo date('d M Y', strtotime($b['end_date'])); ?></td>
-                    <td><?php echo (int)$b['pax_count']; ?></td>
-                    <td><span class="ss-status ss-status-<?php echo $b['status'] === 'completed' ? 'approved' : ($b['status'] === 'cancelled' ? 'rejected' : 'sent'); ?>"><?php echo ucfirst($b['status']); ?></span></td>
+                    <th>Booking</th>
+                    <th>Customer</th>
+                    <th>Tanggal</th>
+                    <th>Pax</th>
+                    <th>Status</th>
                 </tr>
-            <?php endforeach; ?>
+            </thead>
+            <tbody>
+                <?php foreach ($bookings as $b): ?>
+                    <tr>
+                        <td><a href="bookings.php?view=<?php echo $b['id']; ?>" style="color:var(--ss-ocean);font-weight:600;text-decoration:none;"><?php echo htmlspecialchars($b['booking_no']); ?></a></td>
+                        <td><?php echo htmlspecialchars($b['customer_name']); ?></td>
+                        <td><?php echo date('d M Y', strtotime($b['start_date'])); ?> - <?php echo date('d M Y', strtotime($b['end_date'])); ?></td>
+                        <td><?php echo (int)$b['pax_count']; ?></td>
+                        <td><span class="ss-status ss-status-<?php echo $b['status'] === 'completed' ? 'approved' : ($b['status'] === 'cancelled' ? 'rejected' : 'sent'); ?>"><?php echo ucfirst($b['status']); ?></span></td>
+                    </tr>
+                <?php endforeach; ?>
             </tbody>
         </table>
     </div>

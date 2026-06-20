@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Sunsea - Penawaran Harga (Quotations)
  * List, Create, View, Edit penawaran ke customer
@@ -51,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $desc = trim($desc);
             if (empty($desc)) continue;
             $qty  = max(0, (float)$qtys[$i]);
-            $price= (float)str_replace(['.', ','], ['', '.'], $prices[$i] ?? '0');
+            $price = (float)str_replace(['.', ','], ['', '.'], $prices[$i] ?? '0');
             $sub  = $qty * $price;
             $subtotal += $sub;
             $items[] = [
@@ -84,9 +85,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 pax_count=?, subtotal=?, tax_pct=?, tax_amount=?, discount_amount=?, total_amount=?,
                 notes=?, internal_notes=?, valid_until=?, updated_at=NOW()
                 WHERE id=?
-            ")->execute([$customerId, $packageId, $tripDate, $tripEnd, $paxCount,
-                         $subtotal, $taxPct, $taxAmount, $discount, $total,
-                         $notes, $intNotes, $validUntil, $id]);
+            ")->execute([
+                $customerId,
+                $packageId,
+                $tripDate,
+                $tripEnd,
+                $paxCount,
+                $subtotal,
+                $taxPct,
+                $taxAmount,
+                $discount,
+                $total,
+                $notes,
+                $intNotes,
+                $validUntil,
+                $id
+            ]);
             // Replace items
             $pdo->prepare("DELETE FROM quotation_items WHERE quotation_id=?")->execute([$id]);
         } else {
@@ -97,9 +111,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                  subtotal, tax_pct, tax_amount, discount_amount, total_amount,
                  notes, internal_notes, valid_until, created_by)
                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-            ")->execute([$qNo, $customerId, $packageId, $tripDate, $tripEnd, $paxCount,
-                         $subtotal, $taxPct, $taxAmount, $discount, $total,
-                         $notes, $intNotes, $validUntil, $createdBy]);
+            ")->execute([
+                $qNo,
+                $customerId,
+                $packageId,
+                $tripDate,
+                $tripEnd,
+                $paxCount,
+                $subtotal,
+                $taxPct,
+                $taxAmount,
+                $discount,
+                $total,
+                $notes,
+                $intNotes,
+                $validUntil,
+                $createdBy
+            ]);
             $id = (int)$pdo->lastInsertId();
         }
 
@@ -110,9 +138,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             VALUES (?,?,?,?,?,?,?,?)
         ");
         foreach ($items as $item) {
-            $insItem->execute([$id, $item['item_type'], $item['description'],
-                               $item['qty'], $item['unit'], $item['unit_price'],
-                               $item['subtotal'], $item['sort_order']]);
+            $insItem->execute([
+                $id,
+                $item['item_type'],
+                $item['description'],
+                $item['qty'],
+                $item['unit'],
+                $item['unit_price'],
+                $item['subtotal'],
+                $item['sort_order']
+            ]);
         }
 
         $_SESSION['flash_message'] = 'Penawaran berhasil disimpan.';
@@ -120,11 +155,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: quotations.php?action=view&id=' . $id);
         exit;
 
-    // Change status (sent / approved / rejected / expired)
+        // Change status (sent / approved / rejected / expired)
     } elseif ($postAction === 'setstatus') {
         $id     = (int)($_POST['id'] ?? 0);
         $status = $_POST['status'] ?? '';
-        $allowed = ['draft','sent','approved','rejected','expired'];
+        $allowed = ['draft', 'sent', 'approved', 'rejected', 'expired'];
         if ($id > 0 && in_array($status, $allowed)) {
             $extra = $status === 'sent' ? ', sent_at=NOW()' : ($status === 'approved' ? ', approved_at=NOW()' : '');
             $pdo->prepare("UPDATE quotations SET status=? $extra WHERE id=?")->execute([$status, $id]);
@@ -132,7 +167,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: quotations.php?action=view&id=' . $id);
         exit;
 
-    // Convert to invoice
+        // Convert to invoice
     } elseif ($postAction === 'convert') {
         $qId2 = (int)($_POST['quotation_id'] ?? 0);
         $q    = $pdo->prepare("SELECT * FROM quotations WHERE id=? AND status='approved'");
@@ -151,10 +186,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                  notes, due_date, status, created_by)
                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,'issued',?)
             ")->execute([
-                $invNo, $qId2, $quote['customer_id'], $quote['trip_date'], $quote['trip_end_date'],
-                $quote['pax_count'], $quote['subtotal'], $quote['tax_pct'], $quote['tax_amount'],
-                $quote['discount_amount'], $quote['total_amount'], $quote['total_amount'],
-                $quote['notes'], $dueDate, $currentUser['username'] ?? 'system'
+                $invNo,
+                $qId2,
+                $quote['customer_id'],
+                $quote['trip_date'],
+                $quote['trip_end_date'],
+                $quote['pax_count'],
+                $quote['subtotal'],
+                $quote['tax_pct'],
+                $quote['tax_amount'],
+                $quote['discount_amount'],
+                $quote['total_amount'],
+                $quote['total_amount'],
+                $quote['notes'],
+                $dueDate,
+                $currentUser['username'] ?? 'system'
             ]);
             $newInvId = (int)$pdo->lastInsertId();
 
@@ -166,9 +212,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 VALUES (?,?,?,?,?,?,?,?)
             ");
             foreach ($qItems->fetchAll() as $qi) {
-                $insInvItem->execute([$newInvId, $qi['item_type'], $qi['description'],
-                                      $qi['qty'], $qi['unit'], $qi['unit_price'],
-                                      $qi['subtotal'], $qi['sort_order']]);
+                $insInvItem->execute([
+                    $newInvId,
+                    $qi['item_type'],
+                    $qi['description'],
+                    $qi['qty'],
+                    $qi['unit'],
+                    $qi['unit_price'],
+                    $qi['subtotal'],
+                    $qi['sort_order']
+                ]);
             }
 
             // Mark quotation as converted
@@ -198,7 +251,10 @@ if (in_array($action, ['view', 'edit', 'print']) && $qId > 0) {
     ");
     $s->execute([$qId]);
     $quotation = $s->fetch();
-    if (!$quotation) { header('Location: quotations.php'); exit; }
+    if (!$quotation) {
+        header('Location: quotations.php');
+        exit;
+    }
 
     $si = $pdo->prepare("SELECT * FROM quotation_items WHERE quotation_id=? ORDER BY sort_order");
     $si->execute([$qId]);
@@ -226,7 +282,7 @@ $quotations = $pdo->prepare("
 $quotations->execute($listParams);
 $quotations = $quotations->fetchAll();
 
-$pageTitle  = match($action) {
+$pageTitle  = match ($action) {
     'add'   => 'Buat Penawaran Baru',
     'edit'  => 'Edit Penawaran',
     'view'  => 'Detail Penawaran',
@@ -245,431 +301,573 @@ if ($action === 'print' && $quotation):
     $bankHolder     = sunseaSetting($pdo, 'bank_holder', '');
     $footer         = sunseaSetting($pdo, 'invoice_footer', '');
 ?>
-<!DOCTYPE html>
-<html lang="id">
-<head>
-<meta charset="UTF-8">
-<title>Penawaran <?php echo htmlspecialchars($quotation['quotation_no']); ?></title>
-<style>
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family:'Segoe UI',sans-serif; font-size:12px; color:#0F172A; padding:30px 40px; }
-    .header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:28px; border-bottom:2px solid #0EA5E9; padding-bottom:16px; }
-    .brand { font-size:24px; font-weight:800; color:#0C4A6E; }
-    .brand-sub { font-size:11px; color:#64748B; }
-    .doc-info { text-align:right; }
-    .doc-no { font-size:18px; font-weight:800; color:#0EA5E9; }
-    .section-title { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#64748B; margin-bottom:6px; }
-    .to-from { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:24px; }
-    table { width:100%; border-collapse:collapse; margin-bottom:16px; }
-    th { background:#F0F9FF; padding:8px 10px; text-align:left; font-size:11px; color:#64748B; font-weight:700; }
-    td { padding:8px 10px; border-bottom:1px solid #E2E8F0; }
-    .total-box { float:right; width:280px; }
-    .total-row { display:flex; justify-content:space-between; padding:4px 0; font-size:12px; }
-    .total-row.final { font-size:14px; font-weight:800; color:#0EA5E9; border-top:2px solid #0EA5E9; padding-top:8px; margin-top:4px; }
-    .footer { margin-top:32px; padding-top:12px; border-top:1px solid #E2E8F0; font-size:11px; color:#64748B; text-align:center; }
-    .bank-info { background:#F0F9FF; padding:12px; border-radius:8px; margin-top:20px; }
-    @media print { body { padding:15px; } }
-</style>
-</head>
-<body onload="window.print()">
-<div class="header">
-    <div>
-        <div class="brand">🌊 <?php echo htmlspecialchars($companyName); ?></div>
-        <div class="brand-sub">Travel Bureau</div>
-        <?php if ($companyAddress): ?><div style="margin-top:4px;color:#64748B;font-size:11px;"><?php echo nl2br(htmlspecialchars($companyAddress)); ?></div><?php endif; ?>
-        <?php if ($companyPhone): ?><div style="color:#64748B;font-size:11px;">📞 <?php echo htmlspecialchars($companyPhone); ?></div><?php endif; ?>
-    </div>
-    <div class="doc-info">
-        <div class="doc-no"><?php echo htmlspecialchars($quotation['quotation_no']); ?></div>
-        <div>SURAT PENAWARAN HARGA</div>
-        <div style="color:#64748B;">Tanggal: <?php echo date('d/m/Y', strtotime($quotation['created_at'])); ?></div>
-        <div style="color:#64748B;">Berlaku s/d: <?php echo $quotation['valid_until'] ? date('d/m/Y', strtotime($quotation['valid_until'])) : '-'; ?></div>
-    </div>
-</div>
+    <!DOCTYPE html>
+    <html lang="id">
 
-<div class="to-from">
-    <div>
-        <div class="section-title">Kepada Yth.</div>
-        <strong><?php echo htmlspecialchars($quotation['customer_name']); ?></strong>
-        <?php if ($quotation['customer_address']): ?><div><?php echo htmlspecialchars($quotation['customer_address']); ?></div><?php endif; ?>
-        <?php if ($quotation['customer_city']): ?><div><?php echo htmlspecialchars($quotation['customer_city']); ?></div><?php endif; ?>
-        <?php if ($quotation['customer_phone']): ?><div>📞 <?php echo htmlspecialchars($quotation['customer_phone']); ?></div><?php endif; ?>
-    </div>
-    <div>
-        <div class="section-title">Info Perjalanan</div>
-        <?php if ($quotation['trip_date']): ?><div>Tanggal: <strong><?php echo date('d/m/Y', strtotime($quotation['trip_date'])); ?><?php echo $quotation['trip_end_date'] ? ' - '.date('d/m/Y', strtotime($quotation['trip_end_date'])) : ''; ?></strong></div><?php endif; ?>
-        <div>Jumlah Peserta: <strong><?php echo $quotation['pax_count']; ?> orang</strong></div>
-        <?php if ($quotation['package_name']): ?><div>Paket: <strong><?php echo htmlspecialchars($quotation['package_name']); ?></strong></div><?php endif; ?>
-    </div>
-</div>
+    <head>
+        <meta charset="UTF-8">
+        <title>Penawaran <?php echo htmlspecialchars($quotation['quotation_no']); ?></title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
 
-<table>
-    <thead><tr><th>#</th><th>Keterangan</th><th>Qty</th><th>Sat.</th><th>Harga Satuan</th><th>Jumlah</th></tr></thead>
-    <tbody>
-        <?php foreach ($qItems as $i => $item): ?>
-        <tr>
-            <td><?php echo $i+1; ?></td>
-            <td><?php echo htmlspecialchars($item['description']); ?></td>
-            <td style="text-align:right;"><?php echo $item['qty'] == intval($item['qty']) ? (int)$item['qty'] : $item['qty']; ?></td>
-            <td><?php echo htmlspecialchars($item['unit']); ?></td>
-            <td style="text-align:right;"><?php echo sunseaRupiah((float)$item['unit_price']); ?></td>
-            <td style="text-align:right;font-weight:600;"><?php echo sunseaRupiah((float)$item['subtotal']); ?></td>
-        </tr>
-        <?php endforeach; ?>
-    </tbody>
-</table>
+            body {
+                font-family: 'Segoe UI', sans-serif;
+                font-size: 12px;
+                color: #0F172A;
+                padding: 30px 40px;
+            }
 
-<div class="total-box">
-    <div class="total-row"><span>Subtotal</span><span><?php echo sunseaRupiah((float)$quotation['subtotal']); ?></span></div>
-    <?php if ($quotation['discount_amount'] > 0): ?>
-    <div class="total-row"><span>Diskon</span><span>- <?php echo sunseaRupiah((float)$quotation['discount_amount']); ?></span></div>
-    <?php endif; ?>
-    <div class="total-row"><span>PPN <?php echo $quotation['tax_pct']; ?>%</span><span><?php echo sunseaRupiah((float)$quotation['tax_amount']); ?></span></div>
-    <div class="total-row final"><span>TOTAL</span><span><?php echo sunseaRupiah((float)$quotation['total_amount']); ?></span></div>
-</div>
-<div style="clear:both;"></div>
+            .header {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                margin-bottom: 28px;
+                border-bottom: 2px solid #0EA5E9;
+                padding-bottom: 16px;
+            }
 
-<?php if ($bankName || $bankAccount): ?>
-<div class="bank-info">
-    <strong>Informasi Pembayaran</strong><br>
-    Bank: <?php echo htmlspecialchars($bankName); ?><br>
-    No. Rekening: <?php echo htmlspecialchars($bankAccount); ?><br>
-    Atas Nama: <?php echo htmlspecialchars($bankHolder); ?>
-</div>
-<?php endif; ?>
+            .brand {
+                font-size: 24px;
+                font-weight: 800;
+                color: #0C4A6E;
+            }
 
-<?php if ($quotation['notes']): ?>
-<div style="margin-top:16px;"><strong>Catatan:</strong><br><?php echo nl2br(htmlspecialchars($quotation['notes'])); ?></div>
-<?php endif; ?>
+            .brand-sub {
+                font-size: 11px;
+                color: #64748B;
+            }
 
-<div class="footer"><?php echo htmlspecialchars($footer); ?></div>
-</body></html>
-<?php exit; endif;
+            .doc-info {
+                text-align: right;
+            }
+
+            .doc-no {
+                font-size: 18px;
+                font-weight: 800;
+                color: #0EA5E9;
+            }
+
+            .section-title {
+                font-size: 10px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                color: #64748B;
+                margin-bottom: 6px;
+            }
+
+            .to-from {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 20px;
+                margin-bottom: 24px;
+            }
+
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 16px;
+            }
+
+            th {
+                background: #F0F9FF;
+                padding: 8px 10px;
+                text-align: left;
+                font-size: 11px;
+                color: #64748B;
+                font-weight: 700;
+            }
+
+            td {
+                padding: 8px 10px;
+                border-bottom: 1px solid #E2E8F0;
+            }
+
+            .total-box {
+                float: right;
+                width: 280px;
+            }
+
+            .total-row {
+                display: flex;
+                justify-content: space-between;
+                padding: 4px 0;
+                font-size: 12px;
+            }
+
+            .total-row.final {
+                font-size: 14px;
+                font-weight: 800;
+                color: #0EA5E9;
+                border-top: 2px solid #0EA5E9;
+                padding-top: 8px;
+                margin-top: 4px;
+            }
+
+            .footer {
+                margin-top: 32px;
+                padding-top: 12px;
+                border-top: 1px solid #E2E8F0;
+                font-size: 11px;
+                color: #64748B;
+                text-align: center;
+            }
+
+            .bank-info {
+                background: #F0F9FF;
+                padding: 12px;
+                border-radius: 8px;
+                margin-top: 20px;
+            }
+
+            @media print {
+                body {
+                    padding: 15px;
+                }
+            }
+        </style>
+    </head>
+
+    <body onload="window.print()">
+        <div class="header">
+            <div>
+                <div class="brand">🌊 <?php echo htmlspecialchars($companyName); ?></div>
+                <div class="brand-sub">Travel Bureau</div>
+                <?php if ($companyAddress): ?><div style="margin-top:4px;color:#64748B;font-size:11px;"><?php echo nl2br(htmlspecialchars($companyAddress)); ?></div><?php endif; ?>
+                <?php if ($companyPhone): ?><div style="color:#64748B;font-size:11px;">📞 <?php echo htmlspecialchars($companyPhone); ?></div><?php endif; ?>
+            </div>
+            <div class="doc-info">
+                <div class="doc-no"><?php echo htmlspecialchars($quotation['quotation_no']); ?></div>
+                <div>SURAT PENAWARAN HARGA</div>
+                <div style="color:#64748B;">Tanggal: <?php echo date('d/m/Y', strtotime($quotation['created_at'])); ?></div>
+                <div style="color:#64748B;">Berlaku s/d: <?php echo $quotation['valid_until'] ? date('d/m/Y', strtotime($quotation['valid_until'])) : '-'; ?></div>
+            </div>
+        </div>
+
+        <div class="to-from">
+            <div>
+                <div class="section-title">Kepada Yth.</div>
+                <strong><?php echo htmlspecialchars($quotation['customer_name']); ?></strong>
+                <?php if ($quotation['customer_address']): ?><div><?php echo htmlspecialchars($quotation['customer_address']); ?></div><?php endif; ?>
+                <?php if ($quotation['customer_city']): ?><div><?php echo htmlspecialchars($quotation['customer_city']); ?></div><?php endif; ?>
+                <?php if ($quotation['customer_phone']): ?><div>📞 <?php echo htmlspecialchars($quotation['customer_phone']); ?></div><?php endif; ?>
+            </div>
+            <div>
+                <div class="section-title">Info Perjalanan</div>
+                <?php if ($quotation['trip_date']): ?><div>Tanggal: <strong><?php echo date('d/m/Y', strtotime($quotation['trip_date'])); ?><?php echo $quotation['trip_end_date'] ? ' - ' . date('d/m/Y', strtotime($quotation['trip_end_date'])) : ''; ?></strong></div><?php endif; ?>
+                <div>Jumlah Peserta: <strong><?php echo $quotation['pax_count']; ?> orang</strong></div>
+                <?php if ($quotation['package_name']): ?><div>Paket: <strong><?php echo htmlspecialchars($quotation['package_name']); ?></strong></div><?php endif; ?>
+            </div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Keterangan</th>
+                    <th>Qty</th>
+                    <th>Sat.</th>
+                    <th>Harga Satuan</th>
+                    <th>Jumlah</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($qItems as $i => $item): ?>
+                    <tr>
+                        <td><?php echo $i + 1; ?></td>
+                        <td><?php echo htmlspecialchars($item['description']); ?></td>
+                        <td style="text-align:right;"><?php echo $item['qty'] == intval($item['qty']) ? (int)$item['qty'] : $item['qty']; ?></td>
+                        <td><?php echo htmlspecialchars($item['unit']); ?></td>
+                        <td style="text-align:right;"><?php echo sunseaRupiah((float)$item['unit_price']); ?></td>
+                        <td style="text-align:right;font-weight:600;"><?php echo sunseaRupiah((float)$item['subtotal']); ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+
+        <div class="total-box">
+            <div class="total-row"><span>Subtotal</span><span><?php echo sunseaRupiah((float)$quotation['subtotal']); ?></span></div>
+            <?php if ($quotation['discount_amount'] > 0): ?>
+                <div class="total-row"><span>Diskon</span><span>- <?php echo sunseaRupiah((float)$quotation['discount_amount']); ?></span></div>
+            <?php endif; ?>
+            <div class="total-row"><span>PPN <?php echo $quotation['tax_pct']; ?>%</span><span><?php echo sunseaRupiah((float)$quotation['tax_amount']); ?></span></div>
+            <div class="total-row final"><span>TOTAL</span><span><?php echo sunseaRupiah((float)$quotation['total_amount']); ?></span></div>
+        </div>
+        <div style="clear:both;"></div>
+
+        <?php if ($bankName || $bankAccount): ?>
+            <div class="bank-info">
+                <strong>Informasi Pembayaran</strong><br>
+                Bank: <?php echo htmlspecialchars($bankName); ?><br>
+                No. Rekening: <?php echo htmlspecialchars($bankAccount); ?><br>
+                Atas Nama: <?php echo htmlspecialchars($bankHolder); ?>
+            </div>
+        <?php endif; ?>
+
+        <?php if ($quotation['notes']): ?>
+            <div style="margin-top:16px;"><strong>Catatan:</strong><br><?php echo nl2br(htmlspecialchars($quotation['notes'])); ?></div>
+        <?php endif; ?>
+
+        <div class="footer"><?php echo htmlspecialchars($footer); ?></div>
+    </body>
+
+    </html>
+<?php exit;
+endif;
 
 include 'layout-header.php';
 ?>
 
 <?php if ($action === 'view' && $quotation): ?>
-<!-- ============ VIEW DETAIL ============ -->
-<div style="margin-bottom:20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-    <a href="quotations.php" class="ss-btn ss-btn-outline ss-btn-sm"><i data-feather="arrow-left"></i> Kembali</a>
-    <a href="quotations.php?action=print&id=<?php echo $quotation['id']; ?>" target="_blank"
-       class="ss-btn ss-btn-outline ss-btn-sm"><i data-feather="printer"></i> Cetak / PDF</a>
-    <?php if ($quotation['status'] === 'draft'): ?>
-    <a href="quotations.php?action=edit&id=<?php echo $quotation['id']; ?>" class="ss-btn ss-btn-outline ss-btn-sm">
-        <i data-feather="edit-2"></i> Edit
-    </a>
-    <?php endif; ?>
-    <!-- Status buttons -->
-    <?php $statusBtns = ['draft'=>'Ubah ke Draft','sent'=>'Tandai Terkirim','approved'=>'Approve','rejected'=>'Tolak','expired'=>'Tandai Kadaluarsa']; ?>
-    <?php foreach ($statusBtns as $st => $lbl): ?>
-        <?php if ($st !== $quotation['status'] && !in_array($quotation['status'], ['converted','rejected']) && !($quotation['status'] === 'approved' && $st === 'sent')): ?>
-        <form method="POST" style="display:inline;">
-            <input type="hidden" name="action" value="setstatus">
-            <input type="hidden" name="id" value="<?php echo $quotation['id']; ?>">
-            <input type="hidden" name="status" value="<?php echo $st; ?>">
-            <button type="submit" class="ss-btn ss-btn-outline ss-btn-sm"><?php echo $lbl; ?></button>
-        </form>
+    <!-- ============ VIEW DETAIL ============ -->
+    <div style="margin-bottom:20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <a href="quotations.php" class="ss-btn ss-btn-outline ss-btn-sm"><i data-feather="arrow-left"></i> Kembali</a>
+        <a href="quotations.php?action=print&id=<?php echo $quotation['id']; ?>" target="_blank"
+            class="ss-btn ss-btn-outline ss-btn-sm"><i data-feather="printer"></i> Cetak / PDF</a>
+        <?php if ($quotation['status'] === 'draft'): ?>
+            <a href="quotations.php?action=edit&id=<?php echo $quotation['id']; ?>" class="ss-btn ss-btn-outline ss-btn-sm">
+                <i data-feather="edit-2"></i> Edit
+            </a>
         <?php endif; ?>
-    <?php endforeach; ?>
-    <?php if ($quotation['status'] === 'approved'): ?>
-    <form method="POST" onsubmit="return confirm('Konversi ke Invoice?')">
-        <input type="hidden" name="action" value="convert">
-        <input type="hidden" name="quotation_id" value="<?php echo $quotation['id']; ?>">
-        <button type="submit" class="ss-btn ss-btn-primary ss-btn-sm">
-            <i data-feather="arrow-right-circle"></i> Konversi ke Invoice
-        </button>
-    </form>
-    <?php endif; ?>
-</div>
+        <!-- Status buttons -->
+        <?php $statusBtns = ['draft' => 'Ubah ke Draft', 'sent' => 'Tandai Terkirim', 'approved' => 'Approve', 'rejected' => 'Tolak', 'expired' => 'Tandai Kadaluarsa']; ?>
+        <?php foreach ($statusBtns as $st => $lbl): ?>
+            <?php if ($st !== $quotation['status'] && !in_array($quotation['status'], ['converted', 'rejected']) && !($quotation['status'] === 'approved' && $st === 'sent')): ?>
+                <form method="POST" style="display:inline;">
+                    <input type="hidden" name="action" value="setstatus">
+                    <input type="hidden" name="id" value="<?php echo $quotation['id']; ?>">
+                    <input type="hidden" name="status" value="<?php echo $st; ?>">
+                    <button type="submit" class="ss-btn ss-btn-outline ss-btn-sm"><?php echo $lbl; ?></button>
+                </form>
+            <?php endif; ?>
+        <?php endforeach; ?>
+        <?php if ($quotation['status'] === 'approved'): ?>
+            <form method="POST" onsubmit="return confirm('Konversi ke Invoice?')">
+                <input type="hidden" name="action" value="convert">
+                <input type="hidden" name="quotation_id" value="<?php echo $quotation['id']; ?>">
+                <button type="submit" class="ss-btn ss-btn-primary ss-btn-sm">
+                    <i data-feather="arrow-right-circle"></i> Konversi ke Invoice
+                </button>
+            </form>
+        <?php endif; ?>
+    </div>
 
-<div style="display:grid;grid-template-columns:1fr 320px;gap:20px;">
-    <div>
-        <div class="ss-card" style="margin-bottom:20px;">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
-                <div>
-                    <div style="font-size:22px;font-weight:800;color:var(--ss-ocean);"><?php echo htmlspecialchars($quotation['quotation_no']); ?></div>
-                    <div style="font-size:13px;color:var(--ss-muted);">untuk <?php echo htmlspecialchars($quotation['customer_name']); ?></div>
+    <div style="display:grid;grid-template-columns:1fr 320px;gap:20px;">
+        <div>
+            <div class="ss-card" style="margin-bottom:20px;">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
+                    <div>
+                        <div style="font-size:22px;font-weight:800;color:var(--ss-ocean);"><?php echo htmlspecialchars($quotation['quotation_no']); ?></div>
+                        <div style="font-size:13px;color:var(--ss-muted);">untuk <?php echo htmlspecialchars($quotation['customer_name']); ?></div>
+                    </div>
+                    <span class="ss-status ss-status-<?php echo $quotation['status']; ?>" style="font-size:13px;padding:5px 12px;">
+                        <?php echo ucfirst($quotation['status']); ?>
+                    </span>
                 </div>
-                <span class="ss-status ss-status-<?php echo $quotation['status']; ?>" style="font-size:13px;padding:5px 12px;">
-                    <?php echo ucfirst($quotation['status']); ?>
-                </span>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px;padding:16px;background:var(--ss-sky);border-radius:8px;">
+                    <div>
+                        <div style="font-size:10px;color:var(--ss-muted);text-transform:uppercase;">Tanggal Trip</div>
+                        <div style="font-weight:600;"><?php echo $quotation['trip_date'] ? date('d M Y', strtotime($quotation['trip_date'])) : '-'; ?></div>
+                    </div>
+                    <div>
+                        <div style="font-size:10px;color:var(--ss-muted);text-transform:uppercase;">Peserta</div>
+                        <div style="font-weight:600;"><?php echo $quotation['pax_count']; ?> orang</div>
+                    </div>
+                    <div>
+                        <div style="font-size:10px;color:var(--ss-muted);text-transform:uppercase;">Berlaku s/d</div>
+                        <div style="font-weight:600;"><?php echo $quotation['valid_until'] ? date('d M Y', strtotime($quotation['valid_until'])) : '-'; ?></div>
+                    </div>
+                </div>
+
+                <!-- Items table -->
+                <div class="ss-table-wrap">
+                    <table class="ss-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Keterangan</th>
+                                <th>Qty</th>
+                                <th>Satuan</th>
+                                <th>Harga</th>
+                                <th>Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($qItems as $i => $item): ?>
+                                <tr>
+                                    <td><?php echo $i + 1; ?></td>
+                                    <td><?php echo htmlspecialchars($item['description']); ?></td>
+                                    <td><?php echo $item['qty'] == intval($item['qty']) ? (int)$item['qty'] : $item['qty']; ?></td>
+                                    <td><?php echo htmlspecialchars($item['unit']); ?></td>
+                                    <td><?php echo sunseaRupiah((float)$item['unit_price']); ?></td>
+                                    <td style="font-weight:600;"><?php echo sunseaRupiah((float)$item['subtotal']); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <div class="ss-card" style="margin-bottom:16px;">
+                <div class="ss-card-title" style="margin-bottom:14px;">Ringkasan Harga</div>
+                <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--ss-gray-2);">
+                    <span style="color:var(--ss-muted);">Subtotal</span>
+                    <span style="font-weight:600;"><?php echo sunseaRupiah((float)$quotation['subtotal']); ?></span>
+                </div>
+                <?php if ($quotation['discount_amount'] > 0): ?>
+                    <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--ss-gray-2);">
+                        <span style="color:var(--ss-muted);">Diskon</span>
+                        <span style="color:var(--ss-success);font-weight:600;">- <?php echo sunseaRupiah((float)$quotation['discount_amount']); ?></span>
+                    </div>
+                <?php endif; ?>
+                <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--ss-gray-2);">
+                    <span style="color:var(--ss-muted);">PPN <?php echo $quotation['tax_pct']; ?>%</span>
+                    <span style="font-weight:600;"><?php echo sunseaRupiah((float)$quotation['tax_amount']); ?></span>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:12px 0 0;font-size:18px;font-weight:800;color:var(--ss-ocean);">
+                    <span>TOTAL</span>
+                    <span><?php echo sunseaRupiah((float)$quotation['total_amount']); ?></span>
+                </div>
             </div>
 
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px;padding:16px;background:var(--ss-sky);border-radius:8px;">
-                <div><div style="font-size:10px;color:var(--ss-muted);text-transform:uppercase;">Tanggal Trip</div>
-                    <div style="font-weight:600;"><?php echo $quotation['trip_date'] ? date('d M Y', strtotime($quotation['trip_date'])) : '-'; ?></div></div>
-                <div><div style="font-size:10px;color:var(--ss-muted);text-transform:uppercase;">Peserta</div>
-                    <div style="font-weight:600;"><?php echo $quotation['pax_count']; ?> orang</div></div>
-                <div><div style="font-size:10px;color:var(--ss-muted);text-transform:uppercase;">Berlaku s/d</div>
-                    <div style="font-weight:600;"><?php echo $quotation['valid_until'] ? date('d M Y', strtotime($quotation['valid_until'])) : '-'; ?></div></div>
-            </div>
+            <?php if ($quotation['notes']): ?>
+                <div class="ss-card">
+                    <div class="ss-card-title" style="margin-bottom:8px;">Catatan</div>
+                    <div style="font-size:13px;color:var(--ss-muted);"><?php echo nl2br(htmlspecialchars($quotation['notes'])); ?></div>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
 
-            <!-- Items table -->
+<?php elseif (in_array($action, ['add', 'edit'])): ?>
+    <!-- ============ ADD/EDIT FORM ============ -->
+    <div style="max-width:900px;">
+        <div style="margin-bottom:20px;">
+            <a href="quotations.php" class="ss-btn ss-btn-outline ss-btn-sm"><i data-feather="arrow-left"></i> Kembali</a>
+        </div>
+
+        <form method="POST" id="quotationForm">
+            <input type="hidden" name="action" value="save">
+            <input type="hidden" name="id" value="<?php echo $quotation['id'] ?? 0; ?>">
+
+            <div style="display:grid;grid-template-columns:1fr 300px;gap:20px;">
+                <div>
+                    <!-- Header -->
+                    <div class="ss-card" style="margin-bottom:16px;">
+                        <div class="ss-card-title" style="margin-bottom:16px;">Informasi Penawaran</div>
+                        <div class="ss-form-grid cols-2">
+                            <div class="ss-form-group" style="grid-column:1/-1;">
+                                <label class="ss-label">Customer *</label>
+                                <select name="customer_id" class="ss-select" required>
+                                    <option value="">-- Pilih Customer --</option>
+                                    <?php foreach ($customers as $c): ?>
+                                        <option value="<?php echo $c['id']; ?>" <?php echo ($quotation['customer_id'] ?? 0) == $c['id'] ? 'selected' : ''; ?>>
+                                            <?php echo htmlspecialchars($c['name']); ?><?php echo $c['phone'] ? ' - ' . htmlspecialchars($c['phone']) : ''; ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="ss-form-group">
+                                <label class="ss-label">Paket (opsional)</label>
+                                <select name="package_id" class="ss-select" id="pkgSelect">
+                                    <option value="">-- Custom / Tidak pakai paket --</option>
+                                    <?php foreach ($packages as $p): ?>
+                                        <option value="<?php echo $p['id']; ?>"
+                                            data-price="<?php echo $p['base_price']; ?>"
+                                            data-days="<?php echo $p['duration_days']; ?>"
+                                            <?php echo ($quotation['package_id'] ?? 0) == $p['id'] ? 'selected' : ''; ?>>
+                                            <?php echo htmlspecialchars($p['name']); ?> — <?php echo sunseaRupiah((float)$p['base_price']); ?>/org
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="ss-form-group">
+                                <label class="ss-label">Jumlah Peserta</label>
+                                <input type="number" name="pax_count" class="ss-input" min="1"
+                                    value="<?php echo $quotation['pax_count'] ?? 1; ?>" id="paxInput">
+                            </div>
+                            <div class="ss-form-group">
+                                <label class="ss-label">Tanggal Trip</label>
+                                <input type="date" name="trip_date" class="ss-input"
+                                    value="<?php echo $quotation['trip_date'] ?? ''; ?>">
+                            </div>
+                            <div class="ss-form-group">
+                                <label class="ss-label">Tanggal Selesai</label>
+                                <input type="date" name="trip_end_date" class="ss-input"
+                                    value="<?php echo $quotation['trip_end_date'] ?? ''; ?>">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Items -->
+                    <div class="ss-card" style="margin-bottom:16px;">
+                        <div class="ss-card-header">
+                            <div class="ss-card-title">Item Penawaran</div>
+                            <button type="button" onclick="addItem()" class="ss-btn ss-btn-outline ss-btn-sm">
+                                <i data-feather="plus"></i> Tambah Baris
+                            </button>
+                        </div>
+                        <div class="ss-table-wrap">
+                            <table class="ss-table" id="itemsTable">
+                                <thead>
+                                    <tr>
+                                        <th style="width:130px;">Kategori</th>
+                                        <th>Keterangan</th>
+                                        <th style="width:60px;">Qty</th>
+                                        <th style="width:60px;">Sat.</th>
+                                        <th style="width:130px;">Harga</th>
+                                        <th style="width:130px;">Subtotal</th>
+                                        <th style="width:40px;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="itemsBody">
+                                    <?php if (!empty($qItems)): ?>
+                                        <?php foreach ($qItems as $item): ?>
+                                            <tr><?php echo itemRowHtml($item['item_type'], $item['description'], $item['qty'], $item['unit'], $item['unit_price']); ?></tr>
+                                        <?php endforeach; ?>
+                                    <?php else: ?>
+                                        <tr><?php echo itemRowHtml(); ?></tr>
+                                        <tr><?php echo itemRowHtml(); ?></tr>
+                                    <?php endif; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sidebar: totals, notes -->
+                <div>
+                    <div class="ss-card" style="margin-bottom:16px;">
+                        <div class="ss-card-title" style="margin-bottom:14px;">Kalkulasi</div>
+                        <div class="ss-form-group">
+                            <label class="ss-label">Diskon (Rp)</label>
+                            <input type="text" name="discount_amount" class="ss-input" id="discountInput"
+                                value="<?php echo number_format($quotation['discount_amount'] ?? 0, 0, ',', '.'); ?>"
+                                placeholder="0">
+                        </div>
+                        <div class="ss-form-group">
+                            <label class="ss-label">PPN (%)</label>
+                            <input type="number" name="tax_pct" class="ss-input" step="0.1"
+                                value="<?php echo $quotation['tax_pct'] ?? 11; ?>" id="taxInput">
+                        </div>
+                        <div class="ss-form-group">
+                            <label class="ss-label">Berlaku (hari)</label>
+                            <input type="number" name="valid_days" class="ss-input" min="1"
+                                value="7" id="validDaysInput">
+                        </div>
+                        <hr style="border:none;border-top:1px solid var(--ss-gray-2);margin:12px 0;">
+                        <div style="font-size:12px;color:var(--ss-muted);">Subtotal: <span id="calcSubtotal" style="float:right;font-weight:600;color:var(--ss-text);">Rp 0</span></div>
+                        <div style="font-size:12px;color:var(--ss-muted);margin-top:4px;">Diskon: <span id="calcDiscount" style="float:right;color:var(--ss-success);font-weight:600;">-Rp 0</span></div>
+                        <div style="font-size:12px;color:var(--ss-muted);margin-top:4px;">PPN: <span id="calcTax" style="float:right;font-weight:600;color:var(--ss-text);">Rp 0</span></div>
+                        <div style="margin-top:10px;padding-top:10px;border-top:2px solid var(--ss-ocean);display:flex;justify-content:space-between;font-size:16px;font-weight:800;color:var(--ss-ocean);">
+                            <span>TOTAL</span><span id="calcTotal">Rp 0</span>
+                        </div>
+                    </div>
+
+                    <div class="ss-card" style="margin-bottom:16px;">
+                        <div class="ss-form-group">
+                            <label class="ss-label">Catatan (tampil di dokumen)</label>
+                            <textarea name="notes" class="ss-textarea" rows="4"><?php echo htmlspecialchars($quotation['notes'] ?? ''); ?></textarea>
+                        </div>
+                        <div class="ss-form-group">
+                            <label class="ss-label">Catatan Internal</label>
+                            <textarea name="internal_notes" class="ss-textarea" rows="3"><?php echo htmlspecialchars($quotation['internal_notes'] ?? ''); ?></textarea>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="ss-btn ss-btn-primary" style="width:100%;">
+                        <i data-feather="save"></i> Simpan Penawaran
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+<?php else: ?>
+    <!-- ============ LIST ============ -->
+    <div class="ss-card">
+        <div class="ss-card-header">
+            <div>
+                <div class="ss-card-title">Daftar Penawaran</div>
+                <div class="ss-card-sub"><?php echo count($quotations); ?> penawaran</div>
+            </div>
+            <a href="quotations.php?action=add" class="ss-btn ss-btn-primary">
+                <i data-feather="plus"></i> Buat Penawaran
+            </a>
+        </div>
+
+        <!-- Filter status -->
+        <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+            <?php foreach (['' => 'Semua', 'draft' => 'Draft', 'sent' => 'Terkirim', 'approved' => 'Approved', 'rejected' => 'Ditolak', 'converted' => 'Converted'] as $st => $lbl): ?>
+                <a href="quotations.php?status=<?php echo $st; ?>"
+                    class="ss-btn ss-btn-sm <?php echo $filter === $st ? 'ss-btn-primary' : 'ss-btn-outline'; ?>">
+                    <?php echo $lbl; ?>
+                </a>
+            <?php endforeach; ?>
+        </div>
+
+        <?php if (empty($quotations)): ?>
+            <div class="ss-empty">
+                <div class="ss-empty-icon">📋</div>
+                <h3>Belum ada penawaran</h3>
+                <p>Buat penawaran untuk customer Anda</p>
+            </div>
+        <?php else: ?>
             <div class="ss-table-wrap">
                 <table class="ss-table">
-                    <thead><tr><th>#</th><th>Keterangan</th><th>Qty</th><th>Satuan</th><th>Harga</th><th>Subtotal</th></tr></thead>
-                    <tbody>
-                        <?php foreach ($qItems as $i => $item): ?>
+                    <thead>
                         <tr>
-                            <td><?php echo $i+1; ?></td>
-                            <td><?php echo htmlspecialchars($item['description']); ?></td>
-                            <td><?php echo $item['qty'] == intval($item['qty']) ? (int)$item['qty'] : $item['qty']; ?></td>
-                            <td><?php echo htmlspecialchars($item['unit']); ?></td>
-                            <td><?php echo sunseaRupiah((float)$item['unit_price']); ?></td>
-                            <td style="font-weight:600;"><?php echo sunseaRupiah((float)$item['subtotal']); ?></td>
+                            <th>No. Penawaran</th>
+                            <th>Customer</th>
+                            <th>Tgl Trip</th>
+                            <th>Pax</th>
+                            <th>Total</th>
+                            <th>Status</th>
+                            <th>Aksi</th>
                         </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($quotations as $q): ?>
+                            <tr>
+                                <td><a href="quotations.php?action=view&id=<?php echo $q['id']; ?>"
+                                        style="color:var(--ss-ocean);font-weight:600;text-decoration:none;">
+                                        <?php echo htmlspecialchars($q['quotation_no']); ?>
+                                    </a></td>
+                                <td><?php echo htmlspecialchars($q['customer_name']); ?></td>
+                                <td><?php echo $q['trip_date'] ? date('d M Y', strtotime($q['trip_date'])) : '-'; ?></td>
+                                <td><?php echo $q['pax_count']; ?></td>
+                                <td style="font-weight:600;"><?php echo sunseaRupiah((float)$q['total_amount']); ?></td>
+                                <td><span class="ss-status ss-status-<?php echo $q['status']; ?>"><?php echo ucfirst($q['status']); ?></span></td>
+                                <td>
+                                    <a href="quotations.php?action=view&id=<?php echo $q['id']; ?>" class="ss-btn ss-btn-outline ss-btn-sm">
+                                        <i data-feather="eye"></i>
+                                    </a>
+                                    <a href="quotations.php?action=print&id=<?php echo $q['id']; ?>" target="_blank" class="ss-btn ss-btn-outline ss-btn-sm">
+                                        <i data-feather="printer"></i>
+                                    </a>
+                                </td>
+                            </tr>
                         <?php endforeach; ?>
                     </tbody>
                 </table>
             </div>
-        </div>
-    </div>
-
-    <div>
-        <div class="ss-card" style="margin-bottom:16px;">
-            <div class="ss-card-title" style="margin-bottom:14px;">Ringkasan Harga</div>
-            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--ss-gray-2);">
-                <span style="color:var(--ss-muted);">Subtotal</span>
-                <span style="font-weight:600;"><?php echo sunseaRupiah((float)$quotation['subtotal']); ?></span>
-            </div>
-            <?php if ($quotation['discount_amount'] > 0): ?>
-            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--ss-gray-2);">
-                <span style="color:var(--ss-muted);">Diskon</span>
-                <span style="color:var(--ss-success);font-weight:600;">- <?php echo sunseaRupiah((float)$quotation['discount_amount']); ?></span>
-            </div>
-            <?php endif; ?>
-            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--ss-gray-2);">
-                <span style="color:var(--ss-muted);">PPN <?php echo $quotation['tax_pct']; ?>%</span>
-                <span style="font-weight:600;"><?php echo sunseaRupiah((float)$quotation['tax_amount']); ?></span>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding:12px 0 0;font-size:18px;font-weight:800;color:var(--ss-ocean);">
-                <span>TOTAL</span>
-                <span><?php echo sunseaRupiah((float)$quotation['total_amount']); ?></span>
-            </div>
-        </div>
-
-        <?php if ($quotation['notes']): ?>
-        <div class="ss-card">
-            <div class="ss-card-title" style="margin-bottom:8px;">Catatan</div>
-            <div style="font-size:13px;color:var(--ss-muted);"><?php echo nl2br(htmlspecialchars($quotation['notes'])); ?></div>
-        </div>
         <?php endif; ?>
     </div>
-</div>
-
-<?php elseif (in_array($action, ['add', 'edit'])): ?>
-<!-- ============ ADD/EDIT FORM ============ -->
-<div style="max-width:900px;">
-    <div style="margin-bottom:20px;">
-        <a href="quotations.php" class="ss-btn ss-btn-outline ss-btn-sm"><i data-feather="arrow-left"></i> Kembali</a>
-    </div>
-
-    <form method="POST" id="quotationForm">
-        <input type="hidden" name="action" value="save">
-        <input type="hidden" name="id" value="<?php echo $quotation['id'] ?? 0; ?>">
-
-        <div style="display:grid;grid-template-columns:1fr 300px;gap:20px;">
-            <div>
-                <!-- Header -->
-                <div class="ss-card" style="margin-bottom:16px;">
-                    <div class="ss-card-title" style="margin-bottom:16px;">Informasi Penawaran</div>
-                    <div class="ss-form-grid cols-2">
-                        <div class="ss-form-group" style="grid-column:1/-1;">
-                            <label class="ss-label">Customer *</label>
-                            <select name="customer_id" class="ss-select" required>
-                                <option value="">-- Pilih Customer --</option>
-                                <?php foreach ($customers as $c): ?>
-                                <option value="<?php echo $c['id']; ?>" <?php echo ($quotation['customer_id'] ?? 0) == $c['id'] ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($c['name']); ?><?php echo $c['phone'] ? ' - ' . htmlspecialchars($c['phone']) : ''; ?>
-                                </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div class="ss-form-group">
-                            <label class="ss-label">Paket (opsional)</label>
-                            <select name="package_id" class="ss-select" id="pkgSelect">
-                                <option value="">-- Custom / Tidak pakai paket --</option>
-                                <?php foreach ($packages as $p): ?>
-                                <option value="<?php echo $p['id']; ?>"
-                                        data-price="<?php echo $p['base_price']; ?>"
-                                        data-days="<?php echo $p['duration_days']; ?>"
-                                        <?php echo ($quotation['package_id'] ?? 0) == $p['id'] ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($p['name']); ?> — <?php echo sunseaRupiah((float)$p['base_price']); ?>/org
-                                </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div class="ss-form-group">
-                            <label class="ss-label">Jumlah Peserta</label>
-                            <input type="number" name="pax_count" class="ss-input" min="1"
-                                   value="<?php echo $quotation['pax_count'] ?? 1; ?>" id="paxInput">
-                        </div>
-                        <div class="ss-form-group">
-                            <label class="ss-label">Tanggal Trip</label>
-                            <input type="date" name="trip_date" class="ss-input"
-                                   value="<?php echo $quotation['trip_date'] ?? ''; ?>">
-                        </div>
-                        <div class="ss-form-group">
-                            <label class="ss-label">Tanggal Selesai</label>
-                            <input type="date" name="trip_end_date" class="ss-input"
-                                   value="<?php echo $quotation['trip_end_date'] ?? ''; ?>">
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Items -->
-                <div class="ss-card" style="margin-bottom:16px;">
-                    <div class="ss-card-header">
-                        <div class="ss-card-title">Item Penawaran</div>
-                        <button type="button" onclick="addItem()" class="ss-btn ss-btn-outline ss-btn-sm">
-                            <i data-feather="plus"></i> Tambah Baris
-                        </button>
-                    </div>
-                    <div class="ss-table-wrap">
-                        <table class="ss-table" id="itemsTable">
-                            <thead><tr>
-                                <th style="width:130px;">Kategori</th>
-                                <th>Keterangan</th>
-                                <th style="width:60px;">Qty</th>
-                                <th style="width:60px;">Sat.</th>
-                                <th style="width:130px;">Harga</th>
-                                <th style="width:130px;">Subtotal</th>
-                                <th style="width:40px;"></th>
-                            </tr></thead>
-                            <tbody id="itemsBody">
-                                <?php if (!empty($qItems)): ?>
-                                    <?php foreach ($qItems as $item): ?>
-                                    <tr><?php echo itemRowHtml($item['item_type'], $item['description'], $item['qty'], $item['unit'], $item['unit_price']); ?></tr>
-                                    <?php endforeach; ?>
-                                <?php else: ?>
-                                    <tr><?php echo itemRowHtml(); ?></tr>
-                                    <tr><?php echo itemRowHtml(); ?></tr>
-                                <?php endif; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Sidebar: totals, notes -->
-            <div>
-                <div class="ss-card" style="margin-bottom:16px;">
-                    <div class="ss-card-title" style="margin-bottom:14px;">Kalkulasi</div>
-                    <div class="ss-form-group">
-                        <label class="ss-label">Diskon (Rp)</label>
-                        <input type="text" name="discount_amount" class="ss-input" id="discountInput"
-                               value="<?php echo number_format($quotation['discount_amount'] ?? 0, 0, ',', '.'); ?>"
-                               placeholder="0">
-                    </div>
-                    <div class="ss-form-group">
-                        <label class="ss-label">PPN (%)</label>
-                        <input type="number" name="tax_pct" class="ss-input" step="0.1"
-                               value="<?php echo $quotation['tax_pct'] ?? 11; ?>" id="taxInput">
-                    </div>
-                    <div class="ss-form-group">
-                        <label class="ss-label">Berlaku (hari)</label>
-                        <input type="number" name="valid_days" class="ss-input" min="1"
-                               value="7" id="validDaysInput">
-                    </div>
-                    <hr style="border:none;border-top:1px solid var(--ss-gray-2);margin:12px 0;">
-                    <div style="font-size:12px;color:var(--ss-muted);">Subtotal: <span id="calcSubtotal" style="float:right;font-weight:600;color:var(--ss-text);">Rp 0</span></div>
-                    <div style="font-size:12px;color:var(--ss-muted);margin-top:4px;">Diskon: <span id="calcDiscount" style="float:right;color:var(--ss-success);font-weight:600;">-Rp 0</span></div>
-                    <div style="font-size:12px;color:var(--ss-muted);margin-top:4px;">PPN: <span id="calcTax" style="float:right;font-weight:600;color:var(--ss-text);">Rp 0</span></div>
-                    <div style="margin-top:10px;padding-top:10px;border-top:2px solid var(--ss-ocean);display:flex;justify-content:space-between;font-size:16px;font-weight:800;color:var(--ss-ocean);">
-                        <span>TOTAL</span><span id="calcTotal">Rp 0</span>
-                    </div>
-                </div>
-
-                <div class="ss-card" style="margin-bottom:16px;">
-                    <div class="ss-form-group">
-                        <label class="ss-label">Catatan (tampil di dokumen)</label>
-                        <textarea name="notes" class="ss-textarea" rows="4"><?php echo htmlspecialchars($quotation['notes'] ?? ''); ?></textarea>
-                    </div>
-                    <div class="ss-form-group">
-                        <label class="ss-label">Catatan Internal</label>
-                        <textarea name="internal_notes" class="ss-textarea" rows="3"><?php echo htmlspecialchars($quotation['internal_notes'] ?? ''); ?></textarea>
-                    </div>
-                </div>
-
-                <button type="submit" class="ss-btn ss-btn-primary" style="width:100%;">
-                    <i data-feather="save"></i> Simpan Penawaran
-                </button>
-            </div>
-        </div>
-    </form>
-</div>
-
-<?php else: ?>
-<!-- ============ LIST ============ -->
-<div class="ss-card">
-    <div class="ss-card-header">
-        <div>
-            <div class="ss-card-title">Daftar Penawaran</div>
-            <div class="ss-card-sub"><?php echo count($quotations); ?> penawaran</div>
-        </div>
-        <a href="quotations.php?action=add" class="ss-btn ss-btn-primary">
-            <i data-feather="plus"></i> Buat Penawaran
-        </a>
-    </div>
-
-    <!-- Filter status -->
-    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
-        <?php foreach (['' => 'Semua', 'draft' => 'Draft', 'sent' => 'Terkirim', 'approved' => 'Approved', 'rejected' => 'Ditolak', 'converted' => 'Converted'] as $st => $lbl): ?>
-        <a href="quotations.php?status=<?php echo $st; ?>"
-           class="ss-btn ss-btn-sm <?php echo $filter === $st ? 'ss-btn-primary' : 'ss-btn-outline'; ?>">
-            <?php echo $lbl; ?>
-        </a>
-        <?php endforeach; ?>
-    </div>
-
-    <?php if (empty($quotations)): ?>
-        <div class="ss-empty">
-            <div class="ss-empty-icon">📋</div>
-            <h3>Belum ada penawaran</h3>
-            <p>Buat penawaran untuk customer Anda</p>
-        </div>
-    <?php else: ?>
-        <div class="ss-table-wrap">
-            <table class="ss-table">
-                <thead><tr>
-                    <th>No. Penawaran</th><th>Customer</th><th>Tgl Trip</th>
-                    <th>Pax</th><th>Total</th><th>Status</th><th>Aksi</th>
-                </tr></thead>
-                <tbody>
-                    <?php foreach ($quotations as $q): ?>
-                    <tr>
-                        <td><a href="quotations.php?action=view&id=<?php echo $q['id']; ?>"
-                               style="color:var(--ss-ocean);font-weight:600;text-decoration:none;">
-                            <?php echo htmlspecialchars($q['quotation_no']); ?>
-                        </a></td>
-                        <td><?php echo htmlspecialchars($q['customer_name']); ?></td>
-                        <td><?php echo $q['trip_date'] ? date('d M Y', strtotime($q['trip_date'])) : '-'; ?></td>
-                        <td><?php echo $q['pax_count']; ?></td>
-                        <td style="font-weight:600;"><?php echo sunseaRupiah((float)$q['total_amount']); ?></td>
-                        <td><span class="ss-status ss-status-<?php echo $q['status']; ?>"><?php echo ucfirst($q['status']); ?></span></td>
-                        <td>
-                            <a href="quotations.php?action=view&id=<?php echo $q['id']; ?>" class="ss-btn ss-btn-outline ss-btn-sm">
-                                <i data-feather="eye"></i>
-                            </a>
-                            <a href="quotations.php?action=print&id=<?php echo $q['id']; ?>" target="_blank" class="ss-btn ss-btn-outline ss-btn-sm">
-                                <i data-feather="printer"></i>
-                            </a>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    <?php endif; ?>
-</div>
 <?php endif; ?>
 
 <?php
 // Helper: render a single item row HTML
-function itemRowHtml($type='', $desc='', $qty=1, $unit='pax', $price=0): string {
-    $typeOpts = ['accommodation','transport','meal','activity','guide','equipment','other'];
-    $typeLabels = ['Penginapan','Transport','Makan','Aktivitas','Guide','Perlengkapan','Lainnya'];
+function itemRowHtml($type = '', $desc = '', $qty = 1, $unit = 'pax', $price = 0): string
+{
+    $typeOpts = ['accommodation', 'transport', 'meal', 'activity', 'guide', 'equipment', 'other'];
+    $typeLabels = ['Penginapan', 'Transport', 'Makan', 'Aktivitas', 'Guide', 'Perlengkapan', 'Lainnya'];
     $sel = '';
     foreach ($typeOpts as $i => $t) {
         $s = $type === $t ? ' selected' : '';
@@ -689,33 +887,38 @@ HTML;
 ?>
 
 <script>
-function fmt(n){ return 'Rp '+Math.round(n).toLocaleString('id-ID'); }
-function unFmt(s){ return parseFloat(String(s).replace(/\./g,'').replace(',','.')) || 0; }
+    function fmt(n) {
+        return 'Rp ' + Math.round(n).toLocaleString('id-ID');
+    }
 
-function calcTotals(){
-    var sub=0;
-    document.querySelectorAll('#itemsBody tr').forEach(function(row){
-        var q = parseFloat(row.querySelector('.item-qty')?.value)||0;
-        var p = unFmt(row.querySelector('.item-price')?.value||'0');
-        var s = q*p;
-        var sf = row.querySelector('.item-sub');
-        if(sf) sf.value = s ? Math.round(s).toLocaleString('id-ID') : '';
-        sub += s;
-    });
-    var disc = unFmt(document.getElementById('discountInput')?.value||'0');
-    var taxP = parseFloat(document.getElementById('taxInput')?.value)||0;
-    var tax  = (sub - disc) * taxP / 100;
-    var tot  = sub + tax - disc;
-    document.getElementById('calcSubtotal').textContent = fmt(sub);
-    document.getElementById('calcDiscount').textContent = '-'+fmt(disc);
-    document.getElementById('calcTax').textContent = fmt(tax);
-    document.getElementById('calcTotal').textContent = fmt(tot);
-}
+    function unFmt(s) {
+        return parseFloat(String(s).replace(/\./g, '').replace(',', '.')) || 0;
+    }
 
-function addItem(){
-    var tbody = document.getElementById('itemsBody');
-    var tr = document.createElement('tr');
-    tr.innerHTML = `<td><select name="item_type[]" class="ss-select" style="font-size:12px;padding:6px 8px;">
+    function calcTotals() {
+        var sub = 0;
+        document.querySelectorAll('#itemsBody tr').forEach(function(row) {
+            var q = parseFloat(row.querySelector('.item-qty')?.value) || 0;
+            var p = unFmt(row.querySelector('.item-price')?.value || '0');
+            var s = q * p;
+            var sf = row.querySelector('.item-sub');
+            if (sf) sf.value = s ? Math.round(s).toLocaleString('id-ID') : '';
+            sub += s;
+        });
+        var disc = unFmt(document.getElementById('discountInput')?.value || '0');
+        var taxP = parseFloat(document.getElementById('taxInput')?.value) || 0;
+        var tax = (sub - disc) * taxP / 100;
+        var tot = sub + tax - disc;
+        document.getElementById('calcSubtotal').textContent = fmt(sub);
+        document.getElementById('calcDiscount').textContent = '-' + fmt(disc);
+        document.getElementById('calcTax').textContent = fmt(tax);
+        document.getElementById('calcTotal').textContent = fmt(tot);
+    }
+
+    function addItem() {
+        var tbody = document.getElementById('itemsBody');
+        var tr = document.createElement('tr');
+        tr.innerHTML = `<td><select name="item_type[]" class="ss-select" style="font-size:12px;padding:6px 8px;">
         <option value="accommodation">Penginapan</option><option value="transport">Transport</option>
         <option value="meal">Makan</option><option value="activity">Aktivitas</option>
         <option value="guide">Guide</option><option value="equipment">Perlengkapan</option>
@@ -726,23 +929,26 @@ function addItem(){
         <td><input type="text" name="item_price[]" class="ss-input item-price" style="font-size:12px;padding:6px 8px;" placeholder="0"></td>
         <td><input type="text" class="ss-input item-sub" style="font-size:12px;padding:6px 8px;font-weight:600;" readonly placeholder="0"></td>
         <td><button type="button" onclick="removeRow(this)" style="background:none;border:none;cursor:pointer;color:var(--ss-danger);"><i data-feather="x" style="width:14px;height:14px;"></i></button></td>`;
-    tbody.appendChild(tr);
-    feather.replace();
-    setupRowListeners(tr);
-}
+        tbody.appendChild(tr);
+        feather.replace();
+        setupRowListeners(tr);
+    }
 
-function removeRow(btn){ btn.closest('tr').remove(); calcTotals(); }
+    function removeRow(btn) {
+        btn.closest('tr').remove();
+        calcTotals();
+    }
 
-function setupRowListeners(row){
-    row.querySelectorAll('.item-qty, .item-price').forEach(function(inp){
-        inp.addEventListener('input', calcTotals);
-    });
-}
+    function setupRowListeners(row) {
+        row.querySelectorAll('.item-qty, .item-price').forEach(function(inp) {
+            inp.addEventListener('input', calcTotals);
+        });
+    }
 
-document.querySelectorAll('#itemsBody tr').forEach(setupRowListeners);
-document.getElementById('discountInput')?.addEventListener('input', calcTotals);
-document.getElementById('taxInput')?.addEventListener('input', calcTotals);
-calcTotals();
+    document.querySelectorAll('#itemsBody tr').forEach(setupRowListeners);
+    document.getElementById('discountInput')?.addEventListener('input', calcTotals);
+    document.getElementById('taxInput')?.addEventListener('input', calcTotals);
+    calcTotals();
 </script>
 
 <?php include 'layout-footer.php'; ?>

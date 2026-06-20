@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Sunsea - Cetak RAB Internal
  */
@@ -38,43 +39,117 @@ $print = isset($_GET['print']) ? 1 : 0;
 
 if ($print):
 ?>
-<!DOCTYPE html>
-<html lang="id"><head><meta charset="UTF-8"><title>RAB <?php echo htmlspecialchars($booking['booking_no']); ?></title>
-<style>
-body{font-family:'Segoe UI',sans-serif;font-size:12px;padding:24px;color:#0f172a}
-h1{font-size:22px;margin:0;color:#0C4A6E} h2{font-size:14px;margin:2px 0 16px;color:#64748B}
-table{width:100%;border-collapse:collapse;margin-top:12px} th,td{border:1px solid #E2E8F0;padding:8px;text-align:left}
-th{background:#F0F9FF;font-size:11px;color:#64748B}
-.total{margin-top:16px;max-width:360px;float:right}.row{display:flex;justify-content:space-between;padding:4px 0}
-.final{font-size:16px;font-weight:700;border-top:2px solid #0EA5E9;padding-top:8px;color:#0EA5E9}
-@media print { body{padding:8px} }
-</style></head>
-<body onload="window.print()">
-<h1>RAB Internal</h1><h2><?php echo htmlspecialchars($booking['booking_no']); ?> · <?php echo htmlspecialchars($booking['customer_name']); ?></h2>
-<div>Periode: <?php echo date('d M Y', strtotime($booking['start_date'])); ?> - <?php echo date('d M Y', strtotime($booking['end_date'])); ?> | Pax: <?php echo (int)$booking['pax_count']; ?></div>
-<table>
-<thead><tr><th>Komponen</th><th>Qty</th><th>Harga Modal</th><th>Total Modal</th><th>Harga Jual</th><th>Total Jual</th></tr></thead>
-<tbody>
-<?php foreach ($items as $it): ?>
-<tr>
-<td><?php echo htmlspecialchars($it['component_name']); ?></td>
-<td><?php echo rtrim(rtrim(number_format((float)$it['qty'],2,'.',''),'0'),'.') . ' ' . htmlspecialchars($it['unit']); ?></td>
-<td><?php echo sunseaRupiah((float)$it['price_cost']); ?></td>
-<td><?php echo sunseaRupiah((float)$it['total_cost']); ?></td>
-<td><?php echo sunseaRupiah((float)$it['price_sell']); ?></td>
-<td><?php echo sunseaRupiah((float)$it['total_sell']); ?></td>
-</tr>
-<?php endforeach; ?>
-</tbody>
-</table>
-<div class="total">
-  <div class="row"><span>Total Modal</span><strong><?php echo sunseaRupiah((float)$booking['cost_total']); ?></strong></div>
-  <div class="row"><span>Total Jual</span><strong><?php echo sunseaRupiah((float)$booking['sell_total']); ?></strong></div>
-  <div class="row final"><span>Margin</span><strong><?php echo sunseaRupiah((float)$booking['margin_amount']); ?></strong></div>
-</div>
-</body></html>
+    <!DOCTYPE html>
+    <html lang="id">
+
+    <head>
+        <meta charset="UTF-8">
+        <title>RAB <?php echo htmlspecialchars($booking['booking_no']); ?></title>
+        <style>
+            body {
+                font-family: 'Segoe UI', sans-serif;
+                font-size: 12px;
+                padding: 24px;
+                color: #0f172a
+            }
+
+            h1 {
+                font-size: 22px;
+                margin: 0;
+                color: #0C4A6E
+            }
+
+            h2 {
+                font-size: 14px;
+                margin: 2px 0 16px;
+                color: #64748B
+            }
+
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 12px
+            }
+
+            th,
+            td {
+                border: 1px solid #E2E8F0;
+                padding: 8px;
+                text-align: left
+            }
+
+            th {
+                background: #F0F9FF;
+                font-size: 11px;
+                color: #64748B
+            }
+
+            .total {
+                margin-top: 16px;
+                max-width: 360px;
+                float: right
+            }
+
+            .row {
+                display: flex;
+                justify-content: space-between;
+                padding: 4px 0
+            }
+
+            .final {
+                font-size: 16px;
+                font-weight: 700;
+                border-top: 2px solid #0EA5E9;
+                padding-top: 8px;
+                color: #0EA5E9
+            }
+
+            @media print {
+                body {
+                    padding: 8px
+                }
+            }
+        </style>
+    </head>
+
+    <body onload="window.print()">
+        <h1>RAB Internal</h1>
+        <h2><?php echo htmlspecialchars($booking['booking_no']); ?> · <?php echo htmlspecialchars($booking['customer_name']); ?></h2>
+        <div>Periode: <?php echo date('d M Y', strtotime($booking['start_date'])); ?> - <?php echo date('d M Y', strtotime($booking['end_date'])); ?> | Pax: <?php echo (int)$booking['pax_count']; ?></div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Komponen</th>
+                    <th>Qty</th>
+                    <th>Harga Modal</th>
+                    <th>Total Modal</th>
+                    <th>Harga Jual</th>
+                    <th>Total Jual</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($items as $it): ?>
+                    <tr>
+                        <td><?php echo htmlspecialchars($it['component_name']); ?></td>
+                        <td><?php echo rtrim(rtrim(number_format((float)$it['qty'], 2, '.', ''), '0'), '.') . ' ' . htmlspecialchars($it['unit']); ?></td>
+                        <td><?php echo sunseaRupiah((float)$it['price_cost']); ?></td>
+                        <td><?php echo sunseaRupiah((float)$it['total_cost']); ?></td>
+                        <td><?php echo sunseaRupiah((float)$it['price_sell']); ?></td>
+                        <td><?php echo sunseaRupiah((float)$it['total_sell']); ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+        <div class="total">
+            <div class="row"><span>Total Modal</span><strong><?php echo sunseaRupiah((float)$booking['cost_total']); ?></strong></div>
+            <div class="row"><span>Total Jual</span><strong><?php echo sunseaRupiah((float)$booking['sell_total']); ?></strong></div>
+            <div class="row final"><span>Margin</span><strong><?php echo sunseaRupiah((float)$booking['margin_amount']); ?></strong></div>
+        </div>
+    </body>
+
+    </html>
 <?php
-exit;
+    exit;
 endif;
 
 $pageTitle = 'Cetak RAB';
@@ -96,19 +171,27 @@ include 'layout-header.php';
 
     <div class="ss-table-wrap">
         <table class="ss-table">
-            <thead><tr><th>Komponen</th><th>Qty</th><th>Total Modal</th><th>Total Jual</th><th>Margin</th></tr></thead>
-            <tbody>
-            <?php foreach ($items as $it):
-                $margin = (float)$it['total_sell'] - (float)$it['total_cost'];
-            ?>
+            <thead>
                 <tr>
-                    <td><?php echo htmlspecialchars($it['component_name']); ?></td>
-                    <td><?php echo rtrim(rtrim(number_format((float)$it['qty'],2,'.',''),'0'),'.') . ' ' . htmlspecialchars($it['unit']); ?></td>
-                    <td><?php echo sunseaRupiah((float)$it['total_cost']); ?></td>
-                    <td><?php echo sunseaRupiah((float)$it['total_sell']); ?></td>
-                    <td style="font-weight:600;color:var(--ss-success)"><?php echo sunseaRupiah($margin); ?></td>
+                    <th>Komponen</th>
+                    <th>Qty</th>
+                    <th>Total Modal</th>
+                    <th>Total Jual</th>
+                    <th>Margin</th>
                 </tr>
-            <?php endforeach; ?>
+            </thead>
+            <tbody>
+                <?php foreach ($items as $it):
+                    $margin = (float)$it['total_sell'] - (float)$it['total_cost'];
+                ?>
+                    <tr>
+                        <td><?php echo htmlspecialchars($it['component_name']); ?></td>
+                        <td><?php echo rtrim(rtrim(number_format((float)$it['qty'], 2, '.', ''), '0'), '.') . ' ' . htmlspecialchars($it['unit']); ?></td>
+                        <td><?php echo sunseaRupiah((float)$it['total_cost']); ?></td>
+                        <td><?php echo sunseaRupiah((float)$it['total_sell']); ?></td>
+                        <td style="font-weight:600;color:var(--ss-success)"><?php echo sunseaRupiah($margin); ?></td>
+                    </tr>
+                <?php endforeach; ?>
             </tbody>
         </table>
     </div>

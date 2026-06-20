@@ -1,4 +1,5 @@
 <?php
+
 /** Sunsea - Koordinator */
 define('APP_ACCESS', true);
 require_once '../../config/config.php';
@@ -63,16 +64,24 @@ include 'layout-header.php';
         <div class="ss-card-title" style="margin-bottom:10px;">Daftar Koordinator</div>
         <div class="ss-table-wrap">
             <table class="ss-table">
-                <thead><tr><th>Kode</th><th>Nama</th><th>Kontak</th><th>Area</th><th>Status</th></tr></thead>
+                <thead>
+                    <tr>
+                        <th>Kode</th>
+                        <th>Nama</th>
+                        <th>Kontak</th>
+                        <th>Area</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
                 <tbody>
                     <?php foreach ($rows as $r): ?>
-                    <tr>
-                        <td><?php echo htmlspecialchars($r['coordinator_code'] ?? '-'); ?></td>
-                        <td><?php echo htmlspecialchars($r['name']); ?></td>
-                        <td><?php echo htmlspecialchars($r['phone'] ?: '-'); ?><br><small style="color:var(--ss-muted)"><?php echo htmlspecialchars($r['email'] ?: '-'); ?></small></td>
-                        <td><?php echo htmlspecialchars($r['area'] ?: '-'); ?></td>
-                        <td><?php echo $r['is_active'] ? '<span class="ss-status ss-status-approved">Aktif</span>' : '<span class="ss-status ss-status-draft">Nonaktif</span>'; ?></td>
-                    </tr>
+                        <tr>
+                            <td><?php echo htmlspecialchars($r['coordinator_code'] ?? '-'); ?></td>
+                            <td><?php echo htmlspecialchars($r['name']); ?></td>
+                            <td><?php echo htmlspecialchars($r['phone'] ?: '-'); ?><br><small style="color:var(--ss-muted)"><?php echo htmlspecialchars($r['email'] ?: '-'); ?></small></td>
+                            <td><?php echo htmlspecialchars($r['area'] ?: '-'); ?></td>
+                            <td><?php echo $r['is_active'] ? '<span class="ss-status ss-status-approved">Aktif</span>' : '<span class="ss-status ss-status-draft">Nonaktif</span>'; ?></td>
+                        </tr>
                     <?php endforeach; ?>
                 </tbody>
             </table>
