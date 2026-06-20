@@ -66,11 +66,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save'
 }
 
 $rows = [];
+$dbError = '';
 try {
+    if (!$pdo) {
+        throw new Exception('Database connection failed');
+    }
     $rows = $pdo->query("SELECT * FROM tickets ORDER BY is_active DESC, ticket_type, ticket_name")->fetchAll();
 } catch (Exception $e) {
-    $_SESSION['flash_message'] = 'Tabel tickets belum ada. Jalankan update database Sunsea terbaru terlebih dahulu.';
-    $_SESSION['flash_type'] = 'error';
+    $dbError = $e->getMessage();
 }
 
 $pageTitle = 'Database Tiket';
@@ -78,82 +81,98 @@ $activePage = 'database';
 include 'layout-header.php';
 ?>
 
-<div style="display:grid;grid-template-columns:400px 1fr;gap:18px;">
+<div style="display:grid;grid-template-columns:400px 1fr;gap:18px;padding:16px;">
+    <?php if ($dbError): ?>
+    <div style="grid-column:1/-1;padding:12px;background:#fee;border:1px solid #f88;border-radius:4px;color:#c33;margin-bottom:12px;">
+        <strong>Database Error:</strong> <?php echo htmlspecialchars($dbError); ?>
+    </div>
+    <?php endif; ?>
+    
     <div class="ss-card">
         <div class="ss-card-title" style="margin-bottom:12px;">Input Tiket</div>
-        <form method="POST">
+        <form method="POST" style="display:flex;flex-direction:column;gap:12px;">
             <input type="hidden" name="action" value="save">
+            
             <div class="ss-form-group">
-                <label class="ss-label">Tipe Tiket</label>
-                <select name="ticket_type" class="ss-select">
+                <label class="ss-label" style="display:block;margin-bottom:6px;font-weight:500;">Tipe Tiket</label>
+                <select name="ticket_type" class="ss-select" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;">
                     <option value="express_bahari">Express Bahari</option>
                     <option value="ferry">Ferry Siginjal</option>
                     <option value="pesawat_susi">Pesawat Susi Air</option>
                 </select>
             </div>
+            
             <div class="ss-form-group">
-                <label class="ss-label">Nama Tiket *</label>
-                <input class="ss-input" name="ticket_name" required placeholder="Kapal Reguler PP / BTN Anak">
+                <label class="ss-label" style="display:block;margin-bottom:6px;font-weight:500;">Nama Tiket *</label>
+                <input type="text" class="ss-input" name="ticket_name" required placeholder="Kapal Reguler PP / BTN Anak" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
             </div>
+            
             <div class="ss-form-group">
-                <label class="ss-label">Deskripsi</label>
-                <input class="ss-input" name="description" placeholder="Jam berangkat, estimasi waktu, dll">
+                <label class="ss-label" style="display:block;margin-bottom:6px;font-weight:500;">Deskripsi</label>
+                <input type="text" class="ss-input" name="description" placeholder="Jam berangkat, estimasi waktu, dll" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
             </div>
-            <div class="ss-form-grid cols-2">
+            
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
                 <div class="ss-form-group">
-                    <label class="ss-label">Unit</label>
-                    <input class="ss-input" name="unit" value="pax">
+                    <label class="ss-label" style="display:block;margin-bottom:6px;font-weight:500;">Unit</label>
+                    <input type="text" class="ss-input" name="unit" value="pax" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
                 </div>
                 <div class="ss-form-group">
-                    <label class="ss-label">Harga Modal</label>
-                    <input class="ss-input" name="price_cost" placeholder="0">
+                    <label class="ss-label" style="display:block;margin-bottom:6px;font-weight:500;">Harga Modal</label>
+                    <input type="number" class="ss-input" name="price_cost" placeholder="0" step="0.01" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
                 </div>
             </div>
+            
             <div class="ss-form-group">
-                <label class="ss-label">Harga Jual</label>
-                <input class="ss-input" name="price_sell" placeholder="0">
+                <label class="ss-label" style="display:block;margin-bottom:6px;font-weight:500;">Harga Jual</label>
+                <input type="number" class="ss-input" name="price_sell" placeholder="0" step="0.01" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
             </div>
+            
             <div class="ss-form-group">
-                <label class="ss-label">Catatan</label>
-                <textarea class="ss-textarea" name="notes" placeholder="Catatan khusus"></textarea>
+                <label class="ss-label" style="display:block;margin-bottom:6px;font-weight:500;">Catatan</label>
+                <textarea class="ss-textarea" name="notes" placeholder="Catatan khusus" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;min-height:80px;"></textarea>
             </div>
-            <div class="ss-form-group">
-                <label><input type="checkbox" name="is_active" checked> Aktif</label>
+            
+            <div class="ss-form-group" style="margin-bottom:0;">
+                <label style="display:flex;align-items:center;gap:8px;font-weight:500;">
+                    <input type="checkbox" name="is_active" checked style="width:16px;height:16px;cursor:pointer;"> Aktif
+                </label>
             </div>
-            <button class="ss-btn ss-btn-primary" type="submit"><i data-feather="save"></i> Simpan Tiket</button>
+            
+            <button class="ss-btn ss-btn-primary" type="submit" style="padding:10px 16px;background:#0EA5E9;color:white;border:none;border-radius:4px;font-weight:600;cursor:pointer;font-size:14px;">💾 Simpan Tiket</button>
         </form>
     </div>
 
     <div class="ss-card">
         <div class="ss-card-title" style="margin-bottom:10px;">Daftar Database Tiket</div>
-        <div class="ss-table-wrap">
-            <table class="ss-table">
+        <div class="ss-table-wrap" style="overflow-x:auto;">
+            <table class="ss-table" style="width:100%;border-collapse:collapse;border:1px solid #ddd;">
                 <thead>
-                    <tr>
-                        <th>Kode</th>
-                        <th>Tipe</th>
-                        <th>Nama Tiket</th>
-                        <th>Deskripsi</th>
-                        <th>Harga Modal</th>
-                        <th>Harga Jual</th>
-                        <th>Status</th>
+                    <tr style="background:#f5f5f5;border-bottom:2px solid #ddd;">
+                        <th style="padding:10px;text-align:left;border:1px solid #ddd;font-weight:600;">Kode</th>
+                        <th style="padding:10px;text-align:left;border:1px solid #ddd;font-weight:600;">Tipe</th>
+                        <th style="padding:10px;text-align:left;border:1px solid #ddd;font-weight:600;">Nama Tiket</th>
+                        <th style="padding:10px;text-align:left;border:1px solid #ddd;font-weight:600;">Deskripsi</th>
+                        <th style="padding:10px;text-align:right;border:1px solid #ddd;font-weight:600;">Harga Modal</th>
+                        <th style="padding:10px;text-align:right;border:1px solid #ddd;font-weight:600;">Harga Jual</th>
+                        <th style="padding:10px;text-align:center;border:1px solid #ddd;font-weight:600;">Status</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (empty($rows)): ?>
                     <tr>
-                        <td colspan="7" style="text-align:center;color:var(--ss-muted);">Belum ada data tiket.</td>
+                        <td colspan="7" style="text-align:center;color:#999;padding:20px;border:1px solid #ddd;">Belum ada data tiket.</td>
                     </tr>
                     <?php else: ?>
                         <?php foreach ($rows as $r): ?>
-                        <tr>
-                            <td><?php echo htmlspecialchars($r['ticket_code'] ?? '-'); ?></td>
-                            <td><?php echo ucfirst($r['ticket_type']); ?></td>
-                            <td><strong><?php echo htmlspecialchars($r['ticket_name']); ?></strong><br><small style="color:var(--ss-muted)"><?php echo htmlspecialchars($r['description'] ?: '-'); ?></small></td>
-                            <td><?php echo htmlspecialchars($r['description'] ?: '-'); ?></td>
-                            <td><?php echo sunseaRupiah((float)$r['price_cost']); ?></td>
-                            <td><strong><?php echo sunseaRupiah((float)$r['price_sell']); ?></strong></td>
-                            <td><?php echo $r['is_active'] ? '<span class="ss-status ss-status-approved">Aktif</span>' : '<span class="ss-status ss-status-draft">Nonaktif</span>'; ?></td>
+                        <tr style="border-bottom:1px solid #eee;">
+                            <td style="padding:10px;border:1px solid #ddd;"><?php echo htmlspecialchars($r['ticket_code'] ?? '-'); ?></td>
+                            <td style="padding:10px;border:1px solid #ddd;"><?php echo ucfirst(str_replace('_', ' ', $r['ticket_type'] ?? '')); ?></td>
+                            <td style="padding:10px;border:1px solid #ddd;"><strong><?php echo htmlspecialchars($r['ticket_name']); ?></strong><br><small style="color:#999;"><?php echo htmlspecialchars($r['description'] ?: '-'); ?></small></td>
+                            <td style="padding:10px;border:1px solid #ddd;font-size:12px;color:#666;"><?php echo htmlspecialchars($r['description'] ?: '-'); ?></td>
+                            <td style="padding:10px;border:1px solid #ddd;text-align:right;">Rp <?php echo number_format((float)($r['price_cost'] ?? 0), 0, ',', '.'); ?></td>
+                            <td style="padding:10px;border:1px solid #ddd;text-align:right;font-weight:600;color:#0EA5E9;">Rp <?php echo number_format((float)($r['price_sell'] ?? 0), 0, ',', '.'); ?></td>
+                            <td style="padding:10px;border:1px solid #ddd;text-align:center;"><?php echo $r['is_active'] ? '<span style="background:#e6f7ff;color:#0EA5E9;padding:4px 8px;border-radius:3px;font-size:12px;font-weight:600;">Aktif</span>' : '<span style="background:#f5f5f5;color:#666;padding:4px 8px;border-radius:3px;font-size:12px;font-weight:600;">Nonaktif</span>'; ?></td>
                         </tr>
                         <?php endforeach; ?>
                     <?php endif; ?>
