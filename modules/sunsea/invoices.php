@@ -306,7 +306,7 @@ if ($action === 'print' && $invoice):
             }
 
             body {
-                font-family: "Segoe UI", "Trebuchet MS", Arial, sans-serif;
+                font-family: "Cambria", "Segoe UI", "Trebuchet MS", Arial, sans-serif;
                 font-size: 12px;
                 color: #17324d;
                 background: #f3f7fb;
@@ -414,6 +414,7 @@ if ($action === 'print' && $invoice):
                 line-height: 1.1;
                 margin-bottom: 4px;
                 letter-spacing: .2px;
+                font-family: "Cambria", "Times New Roman", serif;
             }
 
             .company-line {
@@ -446,6 +447,8 @@ if ($action === 'print' && $invoice):
                 margin-bottom: 5px;
                 color: #0e3760;
                 font-weight: 600;
+                font-variant-numeric: tabular-nums;
+                font-feature-settings: "tnum";
             }
 
             .balance-title {
@@ -457,10 +460,13 @@ if ($action === 'print' && $invoice):
             }
 
             .balance-value {
-                font-size: 22px;
-                font-weight: 900;
+                font-size: 16px;
+                font-weight: 800;
                 color: #0b3f72;
-                line-height: 1.1;
+                line-height: 1.2;
+                letter-spacing: .2px;
+                font-variant-numeric: tabular-nums;
+                font-feature-settings: "tnum";
             }
 
             .bill-to-label {
@@ -516,6 +522,8 @@ if ($action === 'print' && $invoice):
             .item-table thead th.r,
             .item-table tbody td.r {
                 text-align: right;
+                font-variant-numeric: tabular-nums;
+                font-feature-settings: "tnum";
             }
 
             .item-table tbody td {
@@ -590,6 +598,16 @@ if ($action === 'print' && $invoice):
                 justify-content: space-between;
                 margin-bottom: 6px;
                 color: #274867;
+                align-items: baseline;
+                gap: 12px;
+                font-variant-numeric: tabular-nums;
+                font-feature-settings: "tnum";
+            }
+
+            .sum-row .v {
+                min-width: 150px;
+                text-align: right;
+                font-weight: 700;
             }
 
             .sum-row.total {
@@ -602,10 +620,11 @@ if ($action === 'print' && $invoice):
             }
 
             .sum-row.total .v {
-                font-size: 25px;
+                font-size: 18px;
                 text-transform: none;
-                letter-spacing: .3px;
+                letter-spacing: .2px;
                 color: #0b3f72;
+                font-weight: 800;
             }
 
             .invoice-note {
@@ -658,11 +677,12 @@ if ($action === 'print' && $invoice):
                     <div class="meta-value"><?php echo htmlspecialchars($invoice['invoice_no']); ?></div>
                     <div class="meta-title">Date</div>
                     <div class="meta-value"><?php echo date('d/m/Y', $issuedDate); ?></div>
-                    <div class="meta-title">Due</div>
+                    <div class="meta-title">Due Date</div>
+                    <div class="meta-value"><?php echo date('d/m/Y', $dueDateTs); ?></div>
+                    <div class="meta-title">Terms</div>
                     <div class="meta-value"><?php echo htmlspecialchars($termsLabel); ?></div>
-                    <div class="meta-title">On Receipt</div>
                     <div class="balance-title">Balance Due</div>
-                    <div class="balance-value">IDR <?php echo $fmtMoney((float)$invoice['remaining_amount'] > 0 ? (float)$invoice['remaining_amount'] : (float)$invoice['total_amount'], 'Rp'); ?></div>
+                    <div class="balance-value"><?php echo $fmtMoney((float)$invoice['remaining_amount'] > 0 ? (float)$invoice['remaining_amount'] : (float)$invoice['total_amount'], 'Rp'); ?></div>
                 </div>
             </div>
 
@@ -717,7 +737,7 @@ if ($action === 'print' && $invoice):
                     <?php endif; ?>
                     <div class="sum-row"><span>Tanggal DP</span><span class="v"><?php echo $dpPayment && !empty($dpPayment['payment_date']) ? date('d/m/Y', strtotime($dpPayment['payment_date'])) : '-'; ?></span></div>
                     <div class="sum-row"><span>Pembayaran Terakhir</span><span class="v"><?php echo $lastPayment && !empty($lastPayment['payment_date']) ? date('d/m/Y', strtotime($lastPayment['payment_date'])) : '-'; ?></span></div>
-                    <div class="sum-row total"><span>Balance Due</span><span class="v">IDR <?php echo $fmtMoney((float)$invoice['remaining_amount'] > 0 ? (float)$invoice['remaining_amount'] : 0, 'Rp'); ?></span></div>
+                    <div class="sum-row total"><span>Balance Due</span><span class="v"><?php echo $fmtMoney((float)$invoice['remaining_amount'] > 0 ? (float)$invoice['remaining_amount'] : 0, 'Rp'); ?></span></div>
                 </div>
             </div>
 
