@@ -1,0 +1,466 @@
+<?php
+/**
+ * Sunsea Module - Shared Layout Header
+ * Ocean blue design, different from all other ADF System businesses.
+ *
+ * Usage: include at top of every Sunsea module page.
+ * Required vars before include:
+ *   $pageTitle  (string)
+ *   $activePage (string) matching nav keys
+ */
+if (!defined('APP_ACCESS')) define('APP_ACCESS', true);
+
+$sunseaNavItems = [
+    'dashboard'   => ['icon' => 'home',       'label' => 'Dashboard',   'url' => 'dashboard.php'],
+    'customers'   => ['icon' => 'users',       'label' => 'Pelanggan',   'url' => 'customers.php'],
+    'packages'    => ['icon' => 'package',     'label' => 'Paket Wisata','url' => 'packages.php'],
+    'calculator'  => ['icon' => 'calculator',  'label' => 'Kalkulator',  'url' => 'calculator.php'],
+    'quotations'  => ['icon' => 'file-text',   'label' => 'Penawaran',   'url' => 'quotations.php'],
+    'invoices'    => ['icon' => 'credit-card', 'label' => 'Invoice',     'url' => 'invoices.php'],
+];
+
+$activePage = $activePage ?? '';
+$currentUser = isset($auth) ? $auth->getCurrentUser() : [];
+$userName    = $currentUser['full_name'] ?? $currentUser['username'] ?? 'User';
+?>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?php echo htmlspecialchars($pageTitle ?? 'Sunsea'); ?> — Sunsea</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/feather-icons"></script>
+
+    <style>
+        /* ================================================
+           SUNSEA DESIGN SYSTEM — Ocean Theme
+           Colors:
+             --ss-ocean   : #0EA5E9  (sky/ocean blue)
+             --ss-deep    : #0C4A6E  (deep ocean)
+             --ss-cyan    : #06B6D4  (cyan wave)
+             --ss-sky     : #F0F9FF  (light sky bg)
+             --ss-white   : #FFFFFF
+             --ss-gray-1  : #F8FAFC
+             --ss-gray-2  : #E2E8F0
+             --ss-text    : #0F172A  (dark navy text)
+             --ss-muted   : #64748B  (muted gray)
+             --ss-success : #10B981
+             --ss-warning : #F59E0B
+             --ss-danger  : #EF4444
+        ================================================ */
+        :root {
+            --ss-ocean:   #0EA5E9;
+            --ss-deep:    #0C4A6E;
+            --ss-cyan:    #06B6D4;
+            --ss-sky:     #F0F9FF;
+            --ss-white:   #FFFFFF;
+            --ss-gray-1:  #F8FAFC;
+            --ss-gray-2:  #E2E8F0;
+            --ss-gray-3:  #CBD5E1;
+            --ss-text:    #0F172A;
+            --ss-muted:   #64748B;
+            --ss-success: #10B981;
+            --ss-warning: #F59E0B;
+            --ss-danger:  #EF4444;
+            --ss-radius:  12px;
+            --ss-shadow:  0 1px 3px rgba(14,165,233,.08), 0 4px 16px rgba(14,165,233,.06);
+            --ss-shadow-md: 0 4px 24px rgba(14,165,233,.12), 0 1px 4px rgba(0,0,0,.04);
+            --sidebar-w:  240px;
+        }
+
+        * { margin:0; padding:0; box-sizing:border-box; }
+
+        body {
+            font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
+            background: var(--ss-sky);
+            color: var(--ss-text);
+            min-height: 100vh;
+            display: flex;
+        }
+
+        /* ---- SIDEBAR ---- */
+        .ss-sidebar {
+            width: var(--sidebar-w);
+            min-height: 100vh;
+            background: linear-gradient(180deg, var(--ss-deep) 0%, #083452 100%);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            left: 0; top: 0; bottom: 0;
+            z-index: 100;
+            overflow-y: auto;
+        }
+
+        .ss-brand {
+            padding: 24px 20px 20px;
+            border-bottom: 1px solid rgba(255,255,255,.08);
+        }
+        .ss-brand-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+        }
+        .ss-brand-icon {
+            width: 40px; height: 40px;
+            background: linear-gradient(135deg, var(--ss-ocean), var(--ss-cyan));
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px;
+        }
+        .ss-brand-name {
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--ss-white);
+            letter-spacing: -0.5px;
+        }
+        .ss-brand-sub {
+            font-size: 10px;
+            color: rgba(255,255,255,.45);
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            margin-top: 1px;
+        }
+
+        .ss-nav {
+            padding: 16px 12px;
+            flex: 1;
+        }
+        .ss-nav-label {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: rgba(255,255,255,.3);
+            padding: 8px 8px 4px;
+            margin-bottom: 4px;
+        }
+        .ss-nav-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            text-decoration: none;
+            color: rgba(255,255,255,.65);
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 2px;
+            transition: all .2s;
+        }
+        .ss-nav-item:hover {
+            background: rgba(255,255,255,.08);
+            color: var(--ss-white);
+        }
+        .ss-nav-item.active {
+            background: linear-gradient(135deg, var(--ss-ocean), var(--ss-cyan));
+            color: var(--ss-white);
+            box-shadow: 0 4px 12px rgba(14,165,233,.35);
+        }
+        .ss-nav-item svg { width:16px; height:16px; flex-shrink:0; }
+
+        .ss-sidebar-footer {
+            padding: 16px;
+            border-top: 1px solid rgba(255,255,255,.08);
+        }
+        .ss-user-block {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 10px; border-radius: 8px;
+            background: rgba(255,255,255,.05);
+        }
+        .ss-user-avatar {
+            width: 32px; height: 32px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--ss-ocean), var(--ss-cyan));
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px; font-weight: 700; color: white; flex-shrink: 0;
+        }
+        .ss-user-name { font-size: 12px; font-weight: 600; color: rgba(255,255,255,.8); }
+        .ss-user-role { font-size: 10px; color: rgba(255,255,255,.35); }
+        .ss-logout-btn {
+            display: flex; align-items: center; gap: 8px;
+            margin-top: 8px; padding: 8px 10px; border-radius: 8px;
+            text-decoration: none; color: rgba(255,255,255,.4);
+            font-size: 12px; transition: .2s;
+        }
+        .ss-logout-btn:hover { color: #EF4444; background: rgba(239,68,68,.08); }
+        .ss-logout-btn svg { width:14px; height:14px; }
+
+        /* ---- MAIN CONTENT ---- */
+        .ss-main {
+            margin-left: var(--sidebar-w);
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        .ss-topbar {
+            background: var(--ss-white);
+            border-bottom: 1px solid var(--ss-gray-2);
+            padding: 0 28px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky; top: 0; z-index: 50;
+        }
+        .ss-page-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--ss-text);
+        }
+        .ss-topbar-actions { display: flex; align-items: center; gap: 12px; }
+        .ss-badge {
+            display: inline-flex; align-items: center;
+            padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 600;
+        }
+        .ss-badge-ocean { background: #E0F2FE; color: var(--ss-ocean); }
+
+        .ss-content {
+            flex: 1;
+            padding: 28px;
+        }
+
+        /* ---- CARDS ---- */
+        .ss-card {
+            background: var(--ss-white);
+            border-radius: var(--ss-radius);
+            box-shadow: var(--ss-shadow);
+            padding: 24px;
+        }
+        .ss-card-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .ss-card-title {
+            font-size: 15px; font-weight: 700; color: var(--ss-text);
+        }
+        .ss-card-sub { font-size: 12px; color: var(--ss-muted); margin-top: 2px; }
+
+        /* ---- STAT CARDS ---- */
+        .ss-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .ss-stat-card {
+            background: var(--ss-white);
+            border-radius: var(--ss-radius);
+            box-shadow: var(--ss-shadow);
+            padding: 20px;
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+        }
+        .ss-stat-icon {
+            width: 44px; height: 44px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .ss-stat-icon svg { width: 20px; height: 20px; }
+        .ss-stat-icon.ocean   { background: #E0F2FE; color: var(--ss-ocean); }
+        .ss-stat-icon.cyan    { background: #ECFEFF; color: var(--ss-cyan); }
+        .ss-stat-icon.success { background: #D1FAE5; color: var(--ss-success); }
+        .ss-stat-icon.warning { background: #FEF3C7; color: var(--ss-warning); }
+        .ss-stat-icon.danger  { background: #FEE2E2; color: var(--ss-danger); }
+        .ss-stat-value { font-size: 22px; font-weight: 800; color: var(--ss-text); line-height: 1; }
+        .ss-stat-label { font-size: 12px; color: var(--ss-muted); margin-top: 4px; }
+
+        /* ---- TABLE ---- */
+        .ss-table-wrap { overflow-x: auto; }
+        .ss-table {
+            width: 100%; border-collapse: collapse; font-size: 13px;
+        }
+        .ss-table th {
+            background: var(--ss-gray-1);
+            padding: 10px 14px;
+            text-align: left;
+            font-size: 11px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: .8px;
+            color: var(--ss-muted);
+            border-bottom: 1px solid var(--ss-gray-2);
+        }
+        .ss-table td {
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--ss-gray-2);
+            color: var(--ss-text);
+            vertical-align: middle;
+        }
+        .ss-table tr:last-child td { border-bottom: none; }
+        .ss-table tr:hover td { background: var(--ss-sky); }
+
+        /* ---- BUTTONS ---- */
+        .ss-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 8px 16px; border-radius: 8px;
+            font-size: 13px; font-weight: 600; cursor: pointer;
+            border: none; text-decoration: none; transition: .2s;
+        }
+        .ss-btn svg { width: 14px; height: 14px; }
+        .ss-btn-primary {
+            background: linear-gradient(135deg, var(--ss-ocean), var(--ss-cyan));
+            color: white; box-shadow: 0 4px 12px rgba(14,165,233,.3);
+        }
+        .ss-btn-primary:hover { opacity: .9; transform: translateY(-1px); }
+        .ss-btn-outline {
+            background: transparent; border: 1.5px solid var(--ss-gray-2);
+            color: var(--ss-text);
+        }
+        .ss-btn-outline:hover { border-color: var(--ss-ocean); color: var(--ss-ocean); }
+        .ss-btn-danger { background: #FEE2E2; color: var(--ss-danger); }
+        .ss-btn-success { background: #D1FAE5; color: var(--ss-success); }
+        .ss-btn-sm { padding: 5px 10px; font-size: 12px; }
+
+        /* ---- STATUS BADGES ---- */
+        .ss-status {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 3px 9px; border-radius: 99px; font-size: 11px; font-weight: 600;
+        }
+        .ss-status::before {
+            content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor;
+        }
+        .ss-status-draft    { background: #F1F5F9; color: #64748B; }
+        .ss-status-sent     { background: #E0F2FE; color: var(--ss-ocean); }
+        .ss-status-approved { background: #D1FAE5; color: var(--ss-success); }
+        .ss-status-rejected { background: #FEE2E2; color: var(--ss-danger); }
+        .ss-status-paid     { background: #D1FAE5; color: var(--ss-success); }
+        .ss-status-partial  { background: #FEF3C7; color: var(--ss-warning); }
+        .ss-status-overdue  { background: #FEE2E2; color: var(--ss-danger); }
+        .ss-status-issued   { background: #E0F2FE; color: var(--ss-ocean); }
+        .ss-status-expired  { background: #F1F5F9; color: #94A3B8; }
+        .ss-status-converted{ background: #EDE9FE; color: #7C3AED; }
+
+        /* ---- FORM ---- */
+        .ss-form-group { margin-bottom: 16px; }
+        .ss-label { font-size: 12px; font-weight: 600; color: var(--ss-text); margin-bottom: 6px; display: block; }
+        .ss-input, .ss-select, .ss-textarea {
+            width: 100%; padding: 9px 12px;
+            border: 1.5px solid var(--ss-gray-2); border-radius: 8px;
+            font-size: 13px; color: var(--ss-text);
+            background: var(--ss-white); transition: .2s;
+            font-family: inherit;
+        }
+        .ss-input:focus, .ss-select:focus, .ss-textarea:focus {
+            outline: none; border-color: var(--ss-ocean);
+            box-shadow: 0 0 0 3px rgba(14,165,233,.12);
+        }
+        .ss-textarea { resize: vertical; min-height: 80px; }
+        .ss-form-grid { display: grid; gap: 16px; }
+        .ss-form-grid.cols-2 { grid-template-columns: 1fr 1fr; }
+        .ss-form-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+
+        /* ---- FLASH MESSAGES ---- */
+        .ss-alert {
+            padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;
+            font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 8px;
+        }
+        .ss-alert svg { width: 16px; height: 16px; flex-shrink: 0; }
+        .ss-alert-success { background: #D1FAE5; color: #065F46; }
+        .ss-alert-error   { background: #FEE2E2; color: #991B1B; }
+        .ss-alert-info    { background: #E0F2FE; color: #0C4A6E; }
+
+        /* ---- EMPTY STATE ---- */
+        .ss-empty {
+            text-align: center; padding: 48px 20px; color: var(--ss-muted);
+        }
+        .ss-empty-icon { font-size: 40px; margin-bottom: 12px; }
+        .ss-empty h3 { font-size: 15px; font-weight: 700; color: var(--ss-text); margin-bottom: 6px; }
+        .ss-empty p  { font-size: 13px; }
+
+        /* ---- MOBILE ---- */
+        @media (max-width: 768px) {
+            .ss-sidebar { transform: translateX(-100%); transition: transform .3s; }
+            .ss-sidebar.open { transform: translateX(0); }
+            .ss-main { margin-left: 0; }
+            .ss-content { padding: 16px; }
+            .ss-form-grid.cols-2,
+            .ss-form-grid.cols-3 { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ==================== SIDEBAR ==================== -->
+<aside class="ss-sidebar" id="sunseaSidebar">
+    <div class="ss-brand">
+        <a href="dashboard.php" class="ss-brand-logo">
+            <div class="ss-brand-icon">🌊</div>
+            <div>
+                <div class="ss-brand-name">Sunsea</div>
+                <div class="ss-brand-sub">Travel Bureau</div>
+            </div>
+        </a>
+    </div>
+
+    <nav class="ss-nav">
+        <div class="ss-nav-label">Menu Utama</div>
+        <?php foreach ($sunseaNavItems as $key => $item): ?>
+            <a href="<?php echo $item['url']; ?>"
+               class="ss-nav-item <?php echo ($activePage === $key) ? 'active' : ''; ?>">
+                <i data-feather="<?php echo $item['icon']; ?>"></i>
+                <?php echo $item['label']; ?>
+            </a>
+        <?php endforeach; ?>
+
+        <div class="ss-nav-label" style="margin-top:16px;">Sistem</div>
+        <a href="<?php echo BASE_URL; ?>/index.php" class="ss-nav-item">
+            <i data-feather="grid"></i> Dashboard ADF
+        </a>
+        <a href="<?php echo BASE_URL; ?>/select-business.php" class="ss-nav-item">
+            <i data-feather="briefcase"></i> Pilih Bisnis
+        </a>
+    </nav>
+
+    <div class="ss-sidebar-footer">
+        <div class="ss-user-block">
+            <div class="ss-user-avatar"><?php echo strtoupper(substr($userName, 0, 1)); ?></div>
+            <div>
+                <div class="ss-user-name"><?php echo htmlspecialchars($userName); ?></div>
+                <div class="ss-user-role">Sunsea</div>
+            </div>
+        </div>
+        <a href="<?php echo BASE_URL; ?>/logout.php" class="ss-logout-btn">
+            <i data-feather="log-out"></i> Keluar
+        </a>
+    </div>
+</aside>
+
+<!-- ==================== MAIN ==================== -->
+<div class="ss-main">
+    <header class="ss-topbar">
+        <div style="display:flex;align-items:center;gap:12px;">
+            <button onclick="document.getElementById('sunseaSidebar').classList.toggle('open')"
+                    style="display:none;background:none;border:none;cursor:pointer;padding:4px;"
+                    id="sidebarToggle">
+                <i data-feather="menu" style="width:20px;height:20px;"></i>
+            </button>
+            <span class="ss-page-title"><?php echo htmlspecialchars($pageTitle ?? 'Sunsea'); ?></span>
+        </div>
+        <div class="ss-topbar-actions">
+            <span class="ss-badge ss-badge-ocean">🌊 Sunsea Travel</span>
+            <a href="<?php echo BASE_URL; ?>/logout.php" style="color:var(--ss-muted);text-decoration:none;font-size:12px;">
+                <i data-feather="log-out" style="width:15px;height:15px;vertical-align:middle;"></i>
+            </a>
+        </div>
+    </header>
+
+    <div class="ss-content">
+<?php
+// Flash messages from session
+if (!empty($_SESSION['flash_message'])):
+    $fType = $_SESSION['flash_type'] ?? 'info';
+    $fClass = ['success' => 'ss-alert-success', 'error' => 'ss-alert-error', 'info' => 'ss-alert-info'][$fType] ?? 'ss-alert-info';
+    $fIcon  = ['success' => 'check-circle', 'error' => 'x-circle', 'info' => 'info'][$fType] ?? 'info';
+?>
+<div class="ss-alert <?php echo $fClass; ?>">
+    <i data-feather="<?php echo $fIcon; ?>"></i>
+    <?php echo htmlspecialchars($_SESSION['flash_message']); ?>
+</div>
+<?php
+    unset($_SESSION['flash_message'], $_SESSION['flash_type']);
+endif;
+?>

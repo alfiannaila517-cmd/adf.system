@@ -12,7 +12,8 @@ function businessCodeToSlug($code) {
         'BENSCAFE' => 'bens-cafe',
         'NARAYANAHOTEL' => 'narayana-hotel',
         'CQC' => 'cqc',
-        'DEMO' => 'demo'
+        'DEMO' => 'demo',
+        'SUNSEA' => 'sunsea'
     ];
     if (isset($knownSlugs[$code])) return $knownSlugs[$code];
     // Convert: EAT_MEET => eat-meet, EATMEET => eatmeet
@@ -58,9 +59,11 @@ function autoSyncBusinessConfigs() {
             'cafe'       => ['icon' => '☕', 'primary' => '#92400e', 'secondary' => '#78350f', 'extra_modules' => ''],
             'retail'     => ['icon' => '🏪', 'primary' => '#0d9488', 'secondary' => '#134e4a', 'extra_modules' => ''],
             'manufacture'=> ['icon' => '🏭', 'primary' => '#4f46e5', 'secondary' => '#312e81', 'extra_modules' => ''],
-            'tourism'    => ['icon' => '🏝️', 'primary' => '#0891b2', 'secondary' => '#164e63',
-                             'extra_modules' => "'frontdesk', 'investor', 'project'"],
-            'other'      => ['icon' => '🏢', 'primary' => '#059669', 'secondary' => '#065f46', 'extra_modules' => ''],
+            'tourism'       => ['icon' => '🏝️', 'primary' => '#0891b2', 'secondary' => '#164e63',
+                                'extra_modules' => "'frontdesk', 'investor', 'project'"],
+            'travel_bureau' => ['icon' => '🌊', 'primary' => '#0EA5E9', 'secondary' => '#0C4A6E',
+                                'extra_modules' => "'sunsea'"],
+            'other'         => ['icon' => '🏢', 'primary' => '#059669', 'secondary' => '#065f46', 'extra_modules' => ''],
         ];
         
         foreach ($rows as $biz) {
