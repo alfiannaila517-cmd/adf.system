@@ -17,6 +17,134 @@ $auth->requireLogin();
 
 $pdo = getSunseaConnection();
 
+// Create invoice directly from calculator and open print view
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'create_invoice_from_calc') {
+    $customerId = (int)($_POST['customer_id'] ?? 0);
+    $tripName   = trim($_POST['trip_name'] ?? 'Trip Custom');
+    $paxCount   = max(1, (int)($_POST['pax_count'] ?? 1));
+    $taxPct     = max(0, (float)($_POST['tax_pct'] ?? 0));
+    $payload    = $_POST['calc_payload'] ?? '[]';
+    $itemsData  = json_decode($payload, true);
+    $user       = $auth->getCurrentUser()['username'] ?? 'system';
+
+    if ($customerId <= 0) {
+        $_SESSION['flash_message'] = 'Pilih customer terlebih dahulu sebelum cetak invoice.';
+        $_SESSION['flash_type'] = 'error';
+        header('Location: calculator.php');
+        exit;
+    }
+
+    if (!is_array($itemsData) || empty($itemsData)) {
+        $_SESSION['flash_message'] = 'Komponen kalkulasi kosong. Tambahkan item dulu.';
+        $_SESSION['flash_type'] = 'error';
+        header('Location: calculator.php');
+        exit;
+    }
+
+    $invoiceItems = [];
+    $subtotal = 0.0;
+
+    foreach ($itemsData as $idx => $row) {
+        $desc   = trim((string)($row['desc'] ?? ''));
+        $qty    = (float)($row['qty'] ?? 0);
+        $unit   = trim((string)($row['unit'] ?? 'unit'));
+        $price  = (float)($row['price'] ?? 0);
+        $perPax = !empty($row['perPax']);
+        $type   = trim((string)($row['type'] ?? 'other'));
+
+        if ($desc === '' || $qty <= 0) {
+            continue;
+        }
+
+        $effectiveQty = $perPax ? ($qty * $paxCount) : $qty;
+        $lineSubtotal = $effectiveQty * $price;
+        $subtotal += $lineSubtotal;
+
+        $invoiceItems[] = [
+            'type' => $type,
+            'desc' => $desc,
+            'qty' => $effectiveQty,
+            'unit' => $unit,
+            'price' => $price,
+            'subtotal' => $lineSubtotal,
+            'sort_order' => $idx,
+        ];
+    }
+
+    if (empty($invoiceItems)) {
+        $_SESSION['flash_message'] = 'Tidak ada item valid untuk dibuat invoice.';
+        $_SESSION['flash_type'] = 'error';
+        header('Location: calculator.php');
+        exit;
+    }
+
+    $taxAmount = round($subtotal * $taxPct / 100, 2);
+    $totalAmount = $subtotal + $taxAmount;
+    $dueDate = date('Y-m-d');
+    $tripNotes = 'Generated from Kalkulator: ' . $tripName;
+
+    try {
+        $pdo->beginTransaction();
+
+        $invoiceNo = sunseaNextNumber($pdo, 'invoice');
+        $insInv = $pdo->prepare("INSERT INTO invoices
+            (invoice_no, customer_id, trip_date, trip_end_date, pax_count,
+             status, subtotal, tax_pct, tax_amount, discount_amount,
+             total_amount, paid_amount, remaining_amount, due_date,
+             notes, issued_at, created_by)
+            VALUES (?,?,?,?,?,'issued',?,?,?,?,?,?,?,?,?,NOW(),?)");
+
+        $insInv->execute([
+            $invoiceNo,
+            $customerId,
+            date('Y-m-d'),
+            date('Y-m-d'),
+            $paxCount,
+            $subtotal,
+            $taxPct,
+            $taxAmount,
+            0,
+            $totalAmount,
+            0,
+            $totalAmount,
+            $dueDate,
+            $tripNotes,
+            $user,
+        ]);
+
+        $invoiceId = (int)$pdo->lastInsertId();
+
+        $insItem = $pdo->prepare("INSERT INTO invoice_items
+            (invoice_id, item_type, description, qty, unit, unit_price, subtotal, sort_order)
+            VALUES (?,?,?,?,?,?,?,?)");
+
+        foreach ($invoiceItems as $it) {
+            $insItem->execute([
+                $invoiceId,
+                $it['type'],
+                $it['desc'],
+                $it['qty'],
+                $it['unit'],
+                $it['price'],
+                $it['subtotal'],
+                $it['sort_order'],
+            ]);
+        }
+
+        $pdo->commit();
+        header('Location: invoices.php?action=print&id=' . $invoiceId);
+        exit;
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        $_SESSION['flash_message'] = 'Gagal membuat invoice dari kalkulator: ' . $e->getMessage();
+        $_SESSION['flash_type'] = 'error';
+        header('Location: calculator.php');
+        exit;
+    }
+}
+
 // Load semua data master dari database
 $dbPackages = $pdo->query("SELECT id, name, base_price, duration_days, duration_nights, min_pax, max_pax, includes FROM trip_packages WHERE is_active=1 ORDER BY name")->fetchAll();
 $dbCustomers = $pdo->query("SELECT id, name FROM customers WHERE is_active=1 ORDER BY name")->fetchAll();
@@ -273,8 +401,8 @@ include 'layout-header.php';
             <button onclick="sendToQuotation()" style="width:100%;padding:11px;background:#0EA5E9;color:#fff;border:none;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:8px;">
                 📄 Buat Penawaran dari Kalkulator
             </button>
-            <button onclick="window.print()" style="width:100%;padding:9px;background:#fff;color:#0EA5E9;border:1px solid #0EA5E9;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;margin-bottom:8px;">
-                🖨️ Cetak Kalkulasi
+            <button onclick="printInvoiceFromCalculator()" style="width:100%;padding:9px;background:#fff;color:#0EA5E9;border:1px solid #0EA5E9;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;margin-bottom:8px;">
+                🖨️ Cetak Invoice
             </button>
             <button onclick="clearAll()" style="width:100%;padding:8px;background:#fff;color:#ef4444;border:1px solid #fca5a5;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;">
                 🗑️ Bersihkan Semua
@@ -287,6 +415,15 @@ include 'layout-header.php';
     <input type="hidden" name="action" value="add">
     <input type="hidden" name="customer_id" id="fCustomerId">
     <input type="hidden" name="from_calc" value="1">
+</form>
+
+<form id="printInvoiceForm" method="POST" action="calculator.php" style="display:none;">
+    <input type="hidden" name="action" value="create_invoice_from_calc">
+    <input type="hidden" name="customer_id" id="piCustomerId">
+    <input type="hidden" name="trip_name" id="piTripName">
+    <input type="hidden" name="pax_count" id="piPaxCount">
+    <input type="hidden" name="tax_pct" id="piTaxPct">
+    <input type="hidden" name="calc_payload" id="piPayload">
 </form>
 
 <script>
@@ -461,6 +598,42 @@ function sendToQuotation() {
     sessionStorage.setItem('sunsea_calc',JSON.stringify({items,pax:parseInt(document.getElementById('paxCount').value)||1,margin:parseFloat(document.getElementById('marginPct').value)||0,tripName:document.getElementById('tripName').value}));
     document.getElementById('fCustomerId').value=custId;
     document.getElementById('toQuotationForm').submit();
+}
+
+function printInvoiceFromCalculator() {
+    var custId = document.getElementById('toCustomer').value;
+    if (!custId) {
+        alert('Pilih customer terlebih dahulu sebelum cetak invoice.');
+        return;
+    }
+
+    var items = [];
+    document.querySelectorAll('#calcBody tr').forEach(function(row) {
+        var desc = row.querySelector('.ci-desc')?.value || '';
+        var qty = parseFloat(row.querySelector('.ci-qty')?.value) || 0;
+        var price = unFmt(row.querySelector('.ci-price')?.value || '0');
+        if (!desc.trim() || qty <= 0) return;
+        items.push({
+            type: row.querySelector('.ci-type')?.value || 'other',
+            desc: desc,
+            qty: qty,
+            unit: row.querySelector('.ci-unit')?.value || 'unit',
+            price: price,
+            perPax: row.querySelector('.ci-perpax')?.checked ? 1 : 0
+        });
+    });
+
+    if (!items.length) {
+        alert('Belum ada komponen biaya yang valid untuk dibuat invoice.');
+        return;
+    }
+
+    document.getElementById('piCustomerId').value = custId;
+    document.getElementById('piTripName').value = document.getElementById('tripName').value || 'Trip Custom';
+    document.getElementById('piPaxCount').value = parseInt(document.getElementById('paxCount').value) || 1;
+    document.getElementById('piTaxPct').value = parseFloat(document.getElementById('taxCalc').value) || 0;
+    document.getElementById('piPayload').value = JSON.stringify(items);
+    document.getElementById('printInvoiceForm').submit();
 }
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
 function fmtNum(n){return n?Math.round(n).toLocaleString('id-ID'):'';}
