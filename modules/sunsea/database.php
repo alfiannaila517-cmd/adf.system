@@ -17,6 +17,7 @@ $stats = [
     'customers' => 0,
     'partners' => 0,
     'guides' => 0,
+    'tickets' => 0,
     'caterings' => 0,
     'facilities' => 0,
 ];
@@ -25,6 +26,7 @@ try {
     $stats['customers'] = (int)$pdo->query("SELECT COUNT(*) FROM customers WHERE is_active=1")->fetchColumn();
     $stats['partners'] = (int)$pdo->query("SELECT COUNT(*) FROM accommodation_partners WHERE is_active=1")->fetchColumn();
     $stats['guides'] = (int)$pdo->query("SELECT COUNT(*) FROM guides WHERE is_active=1")->fetchColumn();
+    $stats['tickets'] = (int)$pdo->query("SELECT COUNT(*) FROM tickets WHERE is_active=1")->fetchColumn();
     $stats['caterings'] = (int)$pdo->query("SELECT COUNT(*) FROM caterings WHERE is_active=1")->fetchColumn();
     $stats['facilities'] = (int)$pdo->query("SELECT COUNT(*) FROM facilities WHERE is_active=1")->fetchColumn();
 } catch (Exception $e) {
@@ -67,6 +69,13 @@ include 'layout-header.php';
             </div>
         </div>
         <div class="ss-stat-card">
+            <div class="ss-stat-icon success"><i data-feather="tickets"></i></div>
+            <div>
+                <div class="ss-stat-value"><?php echo $stats['tickets']; ?></div>
+                <div class="ss-stat-label">Tiket Aktif</div>
+            </div>
+        </div>
+        <div class="ss-stat-card">
             <div class="ss-stat-icon warning"><i data-feather="coffee"></i></div>
             <div>
                 <div class="ss-stat-value"><?php echo $stats['caterings']; ?></div>
@@ -100,6 +109,12 @@ include 'layout-header.php';
         <div class="ss-card-title" style="margin-bottom:6px;">Database Guide</div>
         <div class="ss-card-sub" style="margin-bottom:12px;">Guide darat/laut, status ketersediaan, dan tarif harian.</div>
         <a href="guides.php" class="ss-btn ss-btn-primary"><i data-feather="compass"></i> Kelola Guide</a>
+    </div>
+
+    <div class="ss-card">
+        <div class="ss-card-title" style="margin-bottom:6px;">Database Tiket</div>
+        <div class="ss-card-sub" style="margin-bottom:12px;">Tiket kapal, BTN, express, fast boat, dengan harga modal dan jual.</div>
+        <a href="tickets.php" class="ss-btn ss-btn-primary"><i data-feather="ticket"></i> Kelola Tiket</a>
     </div>
 
     <div class="ss-card">
