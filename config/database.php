@@ -65,7 +65,26 @@ class Database {
             // Auto-sync schema once per session for business databases
             $this->autoSyncSchema($dbName);
         } catch (PDOException $e) {
-            die("Database Connection Error to '{$dbName}': " . $e->getMessage());
+            $errorCode = (string)($e->errorInfo[1] ?? $e->getCode());
+            $rawMessage = $e->getMessage();
+
+            // Shared-hosting common case: DB exists but user is not assigned to it.
+            if ($errorCode === '1044') {
+                $safeDb = htmlspecialchars((string)$dbName, ENT_QUOTES, 'UTF-8');
+                $safeUser = htmlspecialchars((string)DB_USER, ENT_QUOTES, 'UTF-8');
+                die(
+                    "Database access denied for business database '<strong>{$safeDb}</strong>'.<br>" .
+                    "MySQL user '<strong>{$safeUser}</strong>' belum punya izin ke database tersebut.<br><br>" .
+                    "Perbaikan cepat di cPanel:<br>" .
+                    "1) Buka <strong>MySQL Databases</strong><br>" .
+                    "2) Pada <strong>Add User To Database</strong>, pilih user '<strong>{$safeUser}</strong>' dan DB '<strong>{$safeDb}</strong>'<br>" .
+                    "3) Beri privilege <strong>ALL PRIVILEGES</strong><br>" .
+                    "4) Kembali ke ADF lalu refresh halaman<br><br>" .
+                    "Detail: " . htmlspecialchars($rawMessage, ENT_QUOTES, 'UTF-8')
+                );
+            }
+
+            die("Database Connection Error to '{$dbName}': " . $rawMessage);
         }
     }
 

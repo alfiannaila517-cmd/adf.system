@@ -181,6 +181,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $rootPdo = new PDO("mysql:host=" . DB_HOST, DB_USER, DB_PASS);
                         $rootPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
                         $rootPdo->exec("CREATE DATABASE IF NOT EXISTS `{$actualDbName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+
+                        // Some shared-hosting MySQL setups require explicit privilege assignment
+                        // even when DB and user share the same cPanel prefix.
+                        try {
+                            $grantUser = DB_USER;
+                            $rootPdo->exec("GRANT ALL PRIVILEGES ON `{$actualDbName}`.* TO '{$grantUser}'@'localhost'");
+                            $rootPdo->exec("FLUSH PRIVILEGES");
+                        } catch (Exception $grantErr) {
+                            // Ignore silently: many shared hosts deny GRANT statement.
+                            error_log("Auto GRANT failed for {$actualDbName}: " . $grantErr->getMessage());
+                        }
+
                         $dbCreated = true;
                     } catch (Exception $dbCreateErr) {
                         // Shared hosting - CREATE DATABASE not allowed, need cPanel
