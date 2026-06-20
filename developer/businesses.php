@@ -51,7 +51,16 @@ try {
 } catch (Exception $e) {}
 
 // Business types
-$businessTypes = ['hotel', 'restaurant', 'retail', 'manufacture', 'tourism', 'other'];
+$businessTypes = ['hotel', 'restaurant', 'retail', 'manufacture', 'tourism', 'travel_bureau', 'other'];
+
+// Ensure travel_bureau is supported in the businesses enum
+try {
+    $typeCol = $pdo->query("SHOW COLUMNS FROM businesses LIKE 'business_type'")->fetch(PDO::FETCH_ASSOC);
+    $currentTypeDef = strtolower($typeCol['Type'] ?? '');
+    if ($currentTypeDef && strpos($currentTypeDef, "'travel_bureau'") === false) {
+        $pdo->exec("ALTER TABLE businesses MODIFY business_type ENUM('hotel', 'restaurant', 'retail', 'manufacture', 'tourism', 'travel_bureau', 'other') DEFAULT 'other'");
+    }
+} catch (Exception $e) {}
 
 // Get owners (users with owner or developer role)
 $owners = [];
@@ -150,13 +159,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $autoConfigPath = dirname(dirname(__FILE__)) . '/config/businesses/' . $autoSlug . '.php';
                     if (!file_exists($autoConfigPath)) {
                         $typeConf = [
-                            'hotel'      => ['icon' => '🏨', 'primary' => '#4338ca', 'secondary' => '#1e1b4b', 'extra' => "'frontdesk', 'investor', 'project'"],
-                            'restaurant' => ['icon' => '🍽️', 'primary' => '#dc2626', 'secondary' => '#7f1d1d', 'extra' => ''],
-                            'cafe'       => ['icon' => '☕', 'primary' => '#92400e', 'secondary' => '#78350f', 'extra' => ''],
-                            'retail'     => ['icon' => '🏪', 'primary' => '#0d9488', 'secondary' => '#134e4a', 'extra' => ''],
-                            'manufacture'=> ['icon' => '🏭', 'primary' => '#4f46e5', 'secondary' => '#312e81', 'extra' => ''],
-                            'tourism'    => ['icon' => '🏝️', 'primary' => '#0891b2', 'secondary' => '#164e63', 'extra' => "'frontdesk', 'investor', 'project'"],
-                            'other'      => ['icon' => '🏢', 'primary' => '#059669', 'secondary' => '#065f46', 'extra' => ''],
+                            'hotel'         => ['icon' => '🏨', 'primary' => '#4338ca', 'secondary' => '#1e1b4b', 'extra' => "'frontdesk', 'investor', 'project'"],
+                            'restaurant'    => ['icon' => '🍽️', 'primary' => '#dc2626', 'secondary' => '#7f1d1d', 'extra' => ''],
+                            'cafe'          => ['icon' => '☕', 'primary' => '#92400e', 'secondary' => '#78350f', 'extra' => ''],
+                            'retail'        => ['icon' => '🏪', 'primary' => '#0d9488', 'secondary' => '#134e4a', 'extra' => ''],
+                            'manufacture'   => ['icon' => '🏭', 'primary' => '#4f46e5', 'secondary' => '#312e81', 'extra' => ''],
+                            'tourism'       => ['icon' => '🏝️', 'primary' => '#0891b2', 'secondary' => '#164e63', 'extra' => "'frontdesk', 'investor', 'project'"],
+                            'travel_bureau' => ['icon' => '🌊', 'primary' => '#0EA5E9', 'secondary' => '#0C4A6E', 'extra' => "'sunsea'"],
+                            'other'         => ['icon' => '🏢', 'primary' => '#059669', 'secondary' => '#065f46', 'extra' => ''],
                         ];
                         $tc = $typeConf[$businessType] ?? $typeConf['other'];
                         $mods = "'cashbook', 'auth', 'settings', 'reports', 'divisions', 'procurement', 'sales', 'bills', 'payroll'";
@@ -211,9 +221,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 $bizPdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . $bizDbName, DB_USER, DB_PASS);
                 $bizPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-                
-                // Create all essential tables
-                $bizPdo->exec("CREATE TABLE IF NOT EXISTS divisions (
+
+                if ($businessType === 'travel_bureau') {
+                    $sunseaSetupPath = dirname(dirname(__FILE__)) . '/database/sunsea-setup.sql';
+                    if (!file_exists($sunseaSetupPath)) {
+                        throw new Exception('File database/sunsea-setup.sql tidak ditemukan.');
+                    }
+
+                    $sqlContent = file_get_contents($sunseaSetupPath);
+                    $sqlContent = preg_replace('/^--.*$/m', '', $sqlContent);
+                    $statements = array_filter(array_map('trim', explode(';', $sqlContent)));
+
+                    foreach ($statements as $statement) {
+                        if ($statement !== '') {
+                            $bizPdo->exec($statement);
+                        }
+                    }
+                } else {
+                    // Create all essential tables
+                    $bizPdo->exec("CREATE TABLE IF NOT EXISTS divisions (
                     id INT AUTO_INCREMENT PRIMARY KEY, branch_id VARCHAR(50), division_code VARCHAR(20), division_name VARCHAR(100) NOT NULL,
                     description TEXT, division_type ENUM('income','expense','both') DEFAULT 'both', is_active TINYINT(1) DEFAULT 1,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -454,11 +480,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ('print_receipt', '1', 'boolean', 'Enable print receipt'),
                     ('demo_password', 'admin', 'string', 'Demo password')");
                 
-                if ($businessType === 'hotel') {
-                    $bizPdo->exec("INSERT IGNORE INTO room_types (id, type_name, base_price, max_occupancy, description, color_code) VALUES
-                        (1, 'Standard', 500000, 2, 'Standard room', '#6366f1'),
-                        (2, 'Deluxe', 750000, 2, 'Deluxe room', '#10b981'),
-                        (3, 'Suite', 1200000, 4, 'Suite room', '#f59e0b')");
+                    if ($businessType === 'hotel') {
+                        $bizPdo->exec("INSERT IGNORE INTO room_types (id, type_name, base_price, max_occupancy, description, color_code) VALUES
+                            (1, 'Standard', 500000, 2, 'Standard room', '#6366f1'),
+                            (2, 'Deluxe', 750000, 2, 'Deluxe room', '#10b981'),
+                            (3, 'Suite', 1200000, 4, 'Suite room', '#f59e0b')");
+                    }
                 }
                 
                 $seedSuccess = true;
@@ -482,13 +509,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                     
                     $typeConf2 = [
-                        'hotel'      => ['icon' => '🏨', 'primary' => '#4338ca', 'secondary' => '#1e1b4b', 'extra' => "'frontdesk', 'investor', 'project'"],
-                        'restaurant' => ['icon' => '🍽️', 'primary' => '#dc2626', 'secondary' => '#7f1d1d', 'extra' => ''],
-                        'cafe'       => ['icon' => '☕', 'primary' => '#92400e', 'secondary' => '#78350f', 'extra' => ''],
-                        'retail'     => ['icon' => '🏪', 'primary' => '#0d9488', 'secondary' => '#134e4a', 'extra' => ''],
-                        'manufacture'=> ['icon' => '🏭', 'primary' => '#4f46e5', 'secondary' => '#312e81', 'extra' => ''],
-                        'tourism'    => ['icon' => '🏝️', 'primary' => '#0891b2', 'secondary' => '#164e63', 'extra' => "'frontdesk', 'investor', 'project'"],
-                        'other'      => ['icon' => '🏢', 'primary' => '#059669', 'secondary' => '#065f46', 'extra' => ''],
+                        'hotel'         => ['icon' => '🏨', 'primary' => '#4338ca', 'secondary' => '#1e1b4b', 'extra' => "'frontdesk', 'investor', 'project'"],
+                        'restaurant'    => ['icon' => '🍽️', 'primary' => '#dc2626', 'secondary' => '#7f1d1d', 'extra' => ''],
+                        'cafe'          => ['icon' => '☕', 'primary' => '#92400e', 'secondary' => '#78350f', 'extra' => ''],
+                        'retail'        => ['icon' => '🏪', 'primary' => '#0d9488', 'secondary' => '#134e4a', 'extra' => ''],
+                        'manufacture'   => ['icon' => '🏭', 'primary' => '#4f46e5', 'secondary' => '#312e81', 'extra' => ''],
+                        'tourism'       => ['icon' => '🏝️', 'primary' => '#0891b2', 'secondary' => '#164e63', 'extra' => "'frontdesk', 'investor', 'project'"],
+                        'travel_bureau' => ['icon' => '🌊', 'primary' => '#0EA5E9', 'secondary' => '#0C4A6E', 'extra' => "'sunsea'"],
+                        'other'         => ['icon' => '🏢', 'primary' => '#059669', 'secondary' => '#065f46', 'extra' => ''],
                     ];
                     $tc2 = $typeConf2[$cfgType] ?? $typeConf2['other'];
                     $mods2 = "'cashbook', 'auth', 'settings', 'reports', 'divisions', 'procurement', 'sales', 'bills'";
@@ -541,19 +569,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Determine modules based on type
             $modules = "        'cashbook',\n        'auth',\n        'settings',\n        'reports',\n        'divisions',\n        'procurement',\n        'sales',\n        'bills'";
-            if (in_array($type, ['hotel', 'tourism'])) {
+            if ($type === 'travel_bureau') {
+                $modules .= ",\n        'sunsea'";
+            } elseif (in_array($type, ['hotel', 'tourism'])) {
                 $modules .= ",\n        'frontdesk',\n        'investor',\n        'project'";
             }
             
             // Determine icon & colors based on type
             $typeConfig = [
-                'hotel'      => ['icon' => '🏨', 'primary' => '#4338ca', 'secondary' => '#1e1b4b'],
-                'restaurant' => ['icon' => '🍽️', 'primary' => '#dc2626', 'secondary' => '#7f1d1d'],
-                'cafe'       => ['icon' => '☕', 'primary' => '#92400e', 'secondary' => '#78350f'],
-                'retail'     => ['icon' => '🏪', 'primary' => '#0d9488', 'secondary' => '#134e4a'],
-                'manufacture'=> ['icon' => '🏭', 'primary' => '#4f46e5', 'secondary' => '#312e81'],
-                'tourism'    => ['icon' => '🏝️', 'primary' => '#0891b2', 'secondary' => '#164e63'],
-                'other'      => ['icon' => '🏢', 'primary' => '#059669', 'secondary' => '#065f46'],
+                'hotel'         => ['icon' => '🏨', 'primary' => '#4338ca', 'secondary' => '#1e1b4b'],
+                'restaurant'    => ['icon' => '🍽️', 'primary' => '#dc2626', 'secondary' => '#7f1d1d'],
+                'cafe'          => ['icon' => '☕', 'primary' => '#92400e', 'secondary' => '#78350f'],
+                'retail'        => ['icon' => '🏪', 'primary' => '#0d9488', 'secondary' => '#134e4a'],
+                'manufacture'   => ['icon' => '🏭', 'primary' => '#4f46e5', 'secondary' => '#312e81'],
+                'tourism'       => ['icon' => '🏝️', 'primary' => '#0891b2', 'secondary' => '#164e63'],
+                'travel_bureau' => ['icon' => '🌊', 'primary' => '#0EA5E9', 'secondary' => '#0C4A6E'],
+                'other'         => ['icon' => '🏢', 'primary' => '#059669', 'secondary' => '#065f46'],
             ];
             $tc = $typeConfig[$type] ?? $typeConfig['other'];
             
@@ -851,6 +882,12 @@ require_once __DIR__ . '/includes/header.php';
                 
                 <div class="instruction-box">
                     <div class="step-label">Yang Akan Dibuat</div>
+                    <?php if (($setupBusiness['business_type'] ?? '') === 'travel_bureau'): ?>
+                    <p><i class="bi bi-check2 text-success me-1"></i> Schema Sunsea travel bureau otomatis</p>
+                    <p><i class="bi bi-check2 text-success me-1"></i> Tabel customer, trip_packages, quotations, invoices, payments</p>
+                    <p><i class="bi bi-check2 text-success me-1"></i> Cashbook, cash accounts, bills, employees, settings</p>
+                    <p><i class="bi bi-check2 text-success me-1"></i> Nomor otomatis SS-QUO dan SS-INV</p>
+                    <?php else: ?>
                     <p><i class="bi bi-check2 text-success me-1"></i> 25+ tabel (cash_book, rooms, bookings, suppliers, dll)</p>
                     <p><i class="bi bi-check2 text-success me-1"></i> 5 roles (Admin, Manager, Staff, Developer, Owner)</p>
                     <p><i class="bi bi-check2 text-success me-1"></i> 8 divisions default</p>
@@ -858,6 +895,7 @@ require_once __DIR__ . '/includes/header.php';
                     <p><i class="bi bi-check2 text-success me-1"></i> 14 settings default</p>
                     <?php if ($setupBusiness['business_type'] === 'hotel'): ?>
                     <p><i class="bi bi-check2 text-success me-1"></i> 3 room types (Standard, Deluxe, Suite)</p>
+                    <?php endif; ?>
                     <?php endif; ?>
                 </div>
                 
@@ -1004,7 +1042,7 @@ require_once __DIR__ . '/includes/header.php';
                                 <select class="form-select" name="business_type" required>
                                     <?php foreach ($businessTypes as $type): ?>
                                     <option value="<?php echo $type; ?>" <?php echo ($editBusiness['business_type'] ?? '') === $type ? 'selected' : ''; ?>>
-                                        <?php echo ucfirst($type); ?>
+                                        <?php echo ucwords(str_replace('_', ' ', $type)); ?>
                                     </option>
                                     <?php endforeach; ?>
                                 </select>
@@ -1140,7 +1178,7 @@ require_once __DIR__ . '/includes/header.php';
                             <?php endif; ?>
                         </td>
                         <td>
-                            <span class="badge bg-secondary"><?php echo ucfirst($biz['business_type']); ?></span>
+                            <span class="badge bg-secondary"><?php echo ucwords(str_replace('_', ' ', $biz['business_type'])); ?></span>
                         </td>
                         <td>
                             <code><?php echo htmlspecialchars($biz['database_name']); ?></code>

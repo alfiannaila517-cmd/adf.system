@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS businesses (
     id INT AUTO_INCREMENT PRIMARY KEY,
     business_code VARCHAR(30) UNIQUE NOT NULL,
     business_name VARCHAR(100) NOT NULL,
-    business_type ENUM('hotel', 'restaurant', 'retail', 'manufacture', 'tourism', 'other') DEFAULT 'other',
+    business_type ENUM('hotel', 'restaurant', 'retail', 'manufacture', 'tourism', 'travel_bureau', 'other') DEFAULT 'other',
     database_name VARCHAR(100) NOT NULL UNIQUE,
     owner_id INT NOT NULL,
     description TEXT,
