@@ -1427,7 +1427,7 @@ include '../../includes/header.php';
                     <button type="button" onclick="closeSetorTunaiModal()" class="btn btn-secondary" style="flex: 1; padding: 0.65rem; border-radius: 8px; font-weight: 600; cursor: pointer;">
                         Batal
                     </button>
-                    <button type="submit" class="btn btn-primary" style="flex: 1; padding: 0.65rem; border-radius: 8px; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #0284c7, #0369a1);">
+                    <button type="button" onclick="submitSetorTunai(event)" class="btn btn-primary" style="flex: 1; padding: 0.65rem; border-radius: 8px; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #0284c7, #0369a1);">
                         ✓ Setor Tunai
                     </button>
                 </div>
