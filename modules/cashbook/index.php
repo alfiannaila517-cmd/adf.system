@@ -24,6 +24,66 @@ try {
 }
 
 // ==========================================
+// BACKFILL: Setor Tunai (cash_transfers, master DB) rows that are missing a
+// linked cash_book entry (business DB) - happens for transfers made before
+// this link existed, or if a transfer was made without visiting the
+// Ringkasan Setor Tunai page (which also runs this same backfill). Doing it
+// here too means simply opening Buku Kas is enough to sync them in.
+// ==========================================
+try {
+    $btMasterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4", DB_USER, DB_PASS);
+    $btMasterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+    // Make sure cash_transfers table + link column exist (no-op if already there)
+    try {
+        $btMasterDb->exec("ALTER TABLE cash_transfers ADD COLUMN cash_book_id INT NULL AFTER archived_by");
+    } catch (Exception $e) { /* column already exists or table doesn't exist */
+    }
+
+    $btBusinessId = getMasterBusinessId();
+
+    $missingStmt = $btMasterDb->prepare("
+        SELECT ct.*, ca_bank.account_name as bank_name
+        FROM cash_transfers ct
+        LEFT JOIN cash_accounts ca_bank ON ct.bank_account_id = ca_bank.id
+        WHERE ct.business_id = ? AND (ct.cash_book_id IS NULL OR ct.cash_book_id = 0)
+    ");
+    $missingStmt->execute([$btBusinessId]);
+    $btMissingTransfers = $missingStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($btMissingTransfers as $mt) {
+        $rawDesc = $mt['description'] ?? '';
+        $penyetor = '';
+        if (preg_match('/^\[(.*?)\]\s*(.*)$/', $rawDesc, $m)) {
+            $penyetor = $m[1];
+            $rawDesc = $m[2];
+        }
+        $cbData = [
+            'transaction_date' => $mt['transfer_date'],
+            'transaction_time' => $mt['transfer_time'],
+            'division_id' => null,
+            'category_id' => null,
+            'transaction_type' => 'expense',
+            'amount' => $mt['amount'],
+            'description' => "Pemindahan Uang / Setoran Harian ke " . ($mt['bank_name'] ?: 'rekening bank')
+                . ($penyetor ? " - Penyetor: {$penyetor}" : '') . ($rawDesc ? " - {$rawDesc}" : ''),
+            'payment_method' => 'cash',
+            'cash_account_id' => $mt['cash_account_id'],
+            'created_by' => $mt['created_by'],
+            'source_type' => 'cash_transfer',
+            'is_editable' => 0
+        ];
+        if ($db->insert('cash_book', $cbData)) {
+            $btNewCashBookId = $db->getConnection()->lastInsertId();
+            $btMasterDb->prepare("UPDATE cash_transfers SET cash_book_id = ? WHERE id = ?")
+                ->execute([$btNewCashBookId, $mt['id']]);
+        }
+    }
+} catch (Exception $e) {
+    error_log("index.php: backfill cash_book for cash_transfers failed: " . $e->getMessage());
+}
+
+// ==========================================
 // AUTO-SYNC UNSYNCED BOOKING PAYMENTS TO CASHBOOK
 // Works on both local AND hosting (with/without synced_to_cashbook column)
 // ==========================================
