@@ -1471,7 +1471,7 @@ include '../../includes/header.php';
         }
     })();
 
-    <?php if (!$isCQC): ?>
+    <?php // Base transaction + Setor Tunai handlers must load for all business modes ?>
         // Show/hide project expense toggle based on transaction type (only visible for expense)
         document.querySelectorAll('input[name="transaction_type"]').forEach(radio => {
             radio.addEventListener('change', function() {
@@ -1916,8 +1916,6 @@ document.addEventListener('keypress', function(e) {
                 }, 300);
             }, 8000);
         }
-    <?php endif; ?>
-
     <?php if ($isCQC): ?>
         // CQC: Transfer to Petty Cash
         function fillTransferPettyCash() {
