@@ -1214,7 +1214,10 @@ include '../../includes/header.php';
                 
                 <!-- Pilih Rekening Bank (Tujuan) -->
                 <div>
-                    <label style="display: block; font-weight: 600; margin-bottom: 0.4rem; color: #334155; font-size: 0.875rem;">Rekening Bank Tujuan <span style="color: #dc2626;">*</span></label>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                        <label style="display: block; font-weight: 600; color: #334155; font-size: 0.875rem;">Rekening Bank Tujuan <span style="color: #dc2626;">*</span></label>
+                        <a href="#" onclick="openAddBankAccountModal(event)" style="font-size: 0.75rem; color: #0284c7; font-weight: 600; text-decoration: none; border-bottom: 1px dashed #0284c7; cursor: pointer;">+ Tambah</a>
+                    </div>
                     <select name="setor_bank_account" id="setorBankAccount" required style="width: 100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem;">
                         <option value="">-- Pilih Rekening Bank --</option>
                         <?php 
@@ -1279,8 +1282,8 @@ style.textContent = `
             transform: translateY(0);
         }
     }
-    #setorTunaiModal {
-        display: flex !important;
+    #setorTunaiModal.show {
+        display: flex;
     }
 `;
 document.head.appendChild(style);
@@ -1343,7 +1346,7 @@ document.querySelectorAll('input[name="transaction_type"]').forEach(radio => {
 // ========================================
 function showSetorTunaiModal() {
     const modal = document.getElementById('setorTunaiModal');
-    modal.style.display = 'flex';
+    modal.classList.add('show');
     // Focus on nominal input
     setTimeout(() => {
         document.getElementById('setorAmount').focus();
@@ -1352,9 +1355,15 @@ function showSetorTunaiModal() {
 
 function closeSetorTunaiModal() {
     const modal = document.getElementById('setorTunaiModal');
-    modal.style.display = 'none';
+    modal.classList.remove('show');
     // Reset form
     document.getElementById('setorTunaiForm').reset();
+}
+
+function openAddBankAccountModal(e) {
+    e.preventDefault();
+    alert('⚙️ Fitur "Tambah Rekening Bank" akan diarahkan ke halaman setup rekening.\n\nUntuk saat ini, silakan tambah rekening melalui menu: Admin > Setup Rekening Bank');
+    // In future: window.open('setup-bank-accounts.php', 'bankSetup', 'width=600,height=400');
 }
 
 // Close modal when clicking outside
