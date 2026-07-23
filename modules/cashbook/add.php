@@ -1336,7 +1336,7 @@ include '../../includes/header.php';
                 <span>🏦</span> Setor Tunai ke Rekening Bank
             </h2>
 
-            <form id="setorTunaiForm" onsubmit="submitSetorTunai(event)" style="display: flex; flex-direction: column; gap: 1.25rem;">
+            <div id="setorTunaiForm" style="display: flex; flex-direction: column; gap: 1.25rem;">
                 <!-- Pilih Rekening Kas (Sumber) -->
                 <div>
                     <label style="display: block; font-weight: 600; margin-bottom: 0.4rem; color: #334155; font-size: 0.875rem;">Kas / Rekening Sumber <span style="color: #dc2626;">*</span></label>
@@ -1431,7 +1431,7 @@ include '../../includes/header.php';
                         ✓ Setor Tunai
                     </button>
                 </div>
-            </form>
+            </div>
         </div>
     </div>
 </form>
@@ -1459,9 +1459,12 @@ include '../../includes/header.php';
         var modal = document.getElementById('setorTunaiModal');
         if (modal) {
             modal.classList.remove('show');
-            var form = document.getElementById('setorTunaiForm');
-            if (form) form.reset();
-            // Also hide quick-add
+            // Reset modal fields manually (it's a div, not a form)
+            var fields = ['setorCashAccount','setorBankAccount','setorAmount','setorPenyetor','setorNotes'];
+            fields.forEach(function(id) {
+                var el = document.getElementById(id);
+                if (el) el.value = '';
+            });
             var qa = document.getElementById('quickAddAccountSection');
             if (qa) qa.style.display = 'none';
         }
@@ -1539,14 +1542,15 @@ include '../../includes/header.php';
     // Submit Setor Tunai
     window.submitSetorTunai = function(event) {
         if (event) event.preventDefault();
-        var form = document.getElementById('setorTunaiForm');
-        if (!form) { alert('❌ Form tidak ditemukan!'); return; }
+        var container = document.getElementById('setorTunaiForm');
+        if (!container) { alert('❌ Modal form tidak ditemukan!'); return; }
 
-        var cashAccountId = form.setor_cash_account ? form.setor_cash_account.value : '';
-        var bankAccountId = form.setor_bank_account ? form.setor_bank_account.value : '';
-        var amount        = form.setor_amount       ? form.setor_amount.value : '';
-        var penyetor      = form.setor_penyetor     ? form.setor_penyetor.value : '';
-        var notes         = form.setor_notes        ? form.setor_notes.value : '';
+        // Use getElementById for each field (more reliable than named form access)
+        var cashAccountId = (document.getElementById('setorCashAccount') || {}).value || '';
+        var bankAccountId = (document.getElementById('setorBankAccount') || {}).value || '';
+        var amount        = (document.getElementById('setorAmount')       || {}).value || '';
+        var penyetor      = (document.getElementById('setorPenyetor')     || {}).value || '';
+        var notes         = (document.getElementById('setorNotes')        || {}).value || '';
 
         if (!cashAccountId || !bankAccountId || !amount || !penyetor) {
             alert('❌ Silakan isi semua field yang wajib diisi!');
@@ -1557,8 +1561,10 @@ include '../../includes/header.php';
             return;
         }
 
-        var mainForm = document.querySelector('form');
-        if (!mainForm) { alert('❌ Form utama tidak ditemukan!'); return; }
+        // Find main transaction form by its unique submit button text or by name of a unique field
+        var mainForm = document.querySelector('input[name="transaction_date"]');
+        mainForm = mainForm ? mainForm.closest('form') : null;
+        if (!mainForm) { alert('❌ Form transaksi utama tidak ditemukan!'); return; }
 
         function setHidden(name, value) {
             var f = mainForm.querySelector('input[name="' + name + '"]');
@@ -1578,10 +1584,15 @@ include '../../includes/header.php';
         setHidden('transaction_type',  'income');
         setHidden('setor_penyetor',    penyetor);
 
-        if (mainForm.transaction_date) mainForm.transaction_date.value = '<?php echo date("Y-m-d"); ?>';
-        if (mainForm.transaction_time) mainForm.transaction_time.value = '<?php echo date("H:i"); ?>';
-        if (mainForm.division_id)      mainForm.division_id.value = '';
-        if (mainForm.description)      mainForm.description.value = '[' + penyetor + '] ' + (notes || 'Setor tunai dari kas ke rekening bank');
+        var dateField = mainForm.querySelector('input[name="transaction_date"]');
+        var timeField = mainForm.querySelector('input[name="transaction_time"]');
+        var divField  = mainForm.querySelector('select[name="division_id"]');
+        var descField = mainForm.querySelector('textarea[name="description"], input[name="description"]');
+
+        if (dateField) dateField.value = '<?php echo date("Y-m-d"); ?>';
+        if (timeField) timeField.value = '<?php echo date("H:i"); ?>';
+        if (divField)  divField.removeAttribute('required');
+        if (descField) descField.value = '[' + penyetor + '] ' + (notes || 'Setor tunai dari kas ke rekening bank');
 
         window.closeSetorTunaiModal();
         mainForm.submit();
