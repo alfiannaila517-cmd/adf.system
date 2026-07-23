@@ -199,6 +199,85 @@ if (isPost()) {
     $description = sanitize(getPost('description'));
     $paymentMethod = sanitize(getPost('payment_method'));
     $cashAccountId = sanitize(getPost('cash_account_id')) ?: null; // Optional: can be null for now
+    $sourceType = sanitize(getPost('source_type'));
+    $penyetor = sanitize(getPost('setor_penyetor')); // Nama penyetor for cash_transfer
+
+    // ============================================
+    // EARLY RETURN: CASH TRANSFER (SETOR TUNAI)
+    // Skip regular validation - only need amount, accounts, date/time
+    // ============================================
+    if ($sourceType === 'cash_transfer') {
+        if (empty($transactionDate) || empty($amount) || empty($cashAccountId)) {
+            setFlash('error', 'Data setor tunai tidak lengkap! Diperlukan: tanggal, nominal, dan rekening kas sumber.');
+        } else {
+            try {
+                // Connect to master DB
+                $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
+                $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                $bizId = getMasterBusinessId();
+
+                // Get destination account (bank) - first active bank account
+                $stmt = $masterDb->prepare("SELECT id, account_name FROM cash_accounts WHERE business_id = ? AND account_type = 'bank' AND is_active = 1 ORDER BY id LIMIT 1");
+                $stmt->execute([$bizId]);
+                $destAccount = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                if (!$destAccount) {
+                    throw new Exception("Tidak ada rekening bank untuk penerima transfer");
+                }
+
+                // Get source account info
+                $stmt = $masterDb->prepare("SELECT account_name FROM cash_accounts WHERE id = ?");
+                $stmt->execute([$cashAccountId]);
+                $sourceAcct = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                if (!$sourceAcct) {
+                    throw new Exception("Akun kas sumber tidak ditemukan");
+                }
+
+                // STEP 1: Debit from source cash account
+                $stmt = $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance - ? WHERE id = ?");
+                $stmt->execute([$amount, $cashAccountId]);
+                error_log("SETOR TUNAI: Debit from {$sourceAcct['account_name']} (ID: {$cashAccountId}) - Amount: {$amount} - Penyetor: {$penyetor}");
+
+                // STEP 2: Credit to destination bank account
+                $stmt = $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance + ? WHERE id = ?");
+                $stmt->execute([$amount, $destAccount['id']]);
+                error_log("SETOR TUNAI: Credit to {$destAccount['account_name']} (ID: {$destAccount['id']}) - Amount: {$amount}");
+
+                // STEP 3: Record in cash_transfers table for tracking & archiving
+                $refNum = 'ST-' . date('YmdHis') . '-' . $_SESSION['user_id']; // Reference tracking
+
+                $transferStmt = $masterDb->prepare("
+                    INSERT INTO cash_transfers 
+                    (business_id, cash_account_id, bank_account_id, amount, transfer_date, transfer_time, reference_number, description, created_by, is_archived)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+                ");
+
+                $transferStmt->execute([
+                    $bizId,
+                    $cashAccountId,
+                    $destAccount['id'],
+                    $amount,
+                    $transactionDate,
+                    $transactionTime ?: date('H:i:s'),
+                    $refNum,
+                    "[{$penyetor}] " . ($description ?: 'Setor tunai dari kas cabang ke rekening operasional'),
+                    $_SESSION['user_id']
+                ]);
+
+                error_log("SETOR TUNAI: Recorded in cash_transfers - From {$sourceAcct['account_name']} to {$destAccount['account_name']} - Amount: {$amount} - Penyetor: {$penyetor}");
+                setFlash('success', '✅ Setor tunai berhasil dicatat! Nominal: ' . number_format($amount, 0, ',', '.') . ' - Penyetor: ' . $penyetor);
+
+                // Redirect to ringkasan page
+                redirect('cash-transfers.php');
+                exit;
+
+            } catch (Exception $e) {
+                error_log("SETOR TUNAI ERROR: " . $e->getMessage());
+                setFlash('error', 'Error setor tunai: ' . $e->getMessage());
+            }
+        }
+    }
 
     // Validation
     if (empty($transactionDate) || empty($divisionId) || empty($categoryName) || empty($amount)) {
@@ -388,78 +467,6 @@ if (isPost()) {
             // ============================================
 
             // ============================================
-            // SPECIAL CASE: CASH TRANSFER (SETOR TUNAI)
-            // Pure internal transfer - NOT in cash_book
-            // Only updates balance in cash_accounts
-            // ============================================
-            if ($sourceType === 'cash_transfer') {
-                try {
-                    $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
-                    $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-                    $bizId = getMasterBusinessId();
-
-                    // Get destination account (bank)
-                    $stmt = $masterDb->prepare("SELECT id, account_name FROM cash_accounts WHERE business_id = ? AND account_type = 'bank' ORDER BY id LIMIT 1");
-                    $stmt->execute([$bizId]);
-                    $destAccount = $stmt->fetch(PDO::FETCH_ASSOC);
-
-                    if (!$destAccount) {
-                        throw new Exception("Tidak ada rekening bank untuk penerima transfer");
-                    }
-
-                    // Get source account info
-                    $stmt = $masterDb->prepare("SELECT account_name FROM cash_accounts WHERE id = ?");
-                    $stmt->execute([$cashAccountId]);
-                    $sourceAcct = $stmt->fetch(PDO::FETCH_ASSOC);
-
-                    if (!$sourceAcct) {
-                        throw new Exception("Akun kas sumber tidak ditemukan");
-                    }
-
-                    // STEP 1: Debit from source cash account
-                    $stmt = $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance - ? WHERE id = ?");
-                    $stmt->execute([$amount, $cashAccountId]);
-                    error_log("SETOR TUNAI: Debit from {$sourceAcct['account_name']} (ID: {$cashAccountId}) - Amount: {$amount}");
-
-                    // STEP 2: Credit to destination bank account
-                    $stmt = $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance + ? WHERE id = ?");
-                    $stmt->execute([$amount, $destAccount['id']]);
-                    error_log("SETOR TUNAI: Credit to {$destAccount['account_name']} (ID: {$destAccount['id']}) - Amount: {$amount}");
-
-                    // STEP 3: Record in cash_transfers table for tracking & archiving
-                    $refNum = 'ST-' . date('YmdHis') . '-' . $_SESSION['user_id']; // Reference tracking
-
-                    $transferStmt = $masterDb->prepare("
-                        INSERT INTO cash_transfers 
-                        (business_id, cash_account_id, bank_account_id, amount, transfer_date, transfer_time, reference_number, description, created_by, is_archived)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
-                    ");
-
-                    $transferStmt->execute([
-                        $bizId,
-                        $cashAccountId,
-                        $destAccount['id'],
-                        $amount,
-                        $transactionDate,
-                        $transactionTime ?: date('H:i:s'),
-                        $refNum,
-                        $description ?: 'Setor tunai dari kas cabang ke rekening operasional',
-                        $_SESSION['user_id']
-                    ]);
-
-                    error_log("SETOR TUNAI: Recorded in cash_transfers - From {$sourceAcct['account_name']} to {$destAccount['account_name']} - Amount: {$amount}");
-
-                    // SUCCESS - Don't commit to cash_book, only update balances
-                    setFlash('success', 'Setor tunai berhasil dicatat! Saldo kas berkurang & rekening bank bertambah.');
-                    redirect(BASE_URL . '/modules/cashbook/index.php');
-                    exit;
-                } catch (Exception $e) {
-                    error_log('SETOR TUNAI ERROR: ' . $e->getMessage());
-                    setFlash('error', 'Error setor tunai: ' . $e->getMessage());
-                    redirect(BASE_URL . '/modules/cashbook/add.php');
-                    exit;
-                }
-            }
             // ============================================
 
             // Start transaction for atomic operation
@@ -1379,6 +1386,12 @@ include '../../includes/header.php';
                     <label style="display: block; font-weight: 600; margin-bottom: 0.4rem; color: #334155; font-size: 0.875rem;">Nominal Setor <span style="color: #dc2626;">*</span></label>
                     <input type="number" name="setor_amount" id="setorAmount" required min="1000" placeholder="Contoh: 500000" style="width: 100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem; font-family: 'Courier New', monospace;">
                 </div>
+                
+                <!-- Nama Penyetor -->
+                <div>
+                    <label style="display: block; font-weight: 600; margin-bottom: 0.4rem; color: #334155; font-size: 0.875rem;">Nama Penyetor <span style="color: #dc2626;">*</span></label>
+                    <input type="text" name="setor_penyetor" id="setorPenyetor" required placeholder="Nama orang yang melakukan setor" style="width: 100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem;">
+                </div>
 
                 <!-- Keterangan (Optional) -->
                 <div>
@@ -1617,15 +1630,17 @@ window.refreshBankAccountDropdown = function() {
             const cashAccountId = form.setor_cash_account?.value;
             const bankAccountId = form.setor_bank_account?.value;
             const amount = form.setor_amount?.value;
+            const penyetor = form.setor_penyetor?.value;
             const notes = form.setor_notes?.value || '';
 
             console.log('Form values:', {
                 cashAccountId,
                 bankAccountId,
-                amount
+                amount,
+                penyetor
             });
 
-            if (!cashAccountId || !bankAccountId || !amount) {
+            if (!cashAccountId || !bankAccountId || !amount || !penyetor) {
                 alert('❌ Silakan isi semua field yang wajib diisi!');
                 return;
             }
@@ -1660,13 +1675,19 @@ window.refreshBankAccountDropdown = function() {
             ensureHiddenField('bank_account_id', bankAccountId);
             ensureHiddenField('amount', amount);
             ensureHiddenField('transaction_type', 'income');
+            ensureHiddenField('setor_penyetor', penyetor);
 
             // Set date/time
             mainForm.transaction_date.value = '<?php echo date("Y-m-d"); ?>';
             mainForm.transaction_time.value = '<?php echo date("H:i"); ?>';
 
-            // Set description
-            mainForm.description.value = notes || 'Setor tunai dari kas cabang ke rekening operasional';
+            // Clear division - don't set it for cash_transfer
+            if (mainForm.division_id) {
+                mainForm.division_id.value = '';
+            }
+
+            // Set description with penyetor name
+            mainForm.description.value = `[${penyetor}] ${notes || 'Setor tunai dari kas cabang ke rekening operasional'}`;
 
             // Close modal
             window.closeSetorTunaiModal();
