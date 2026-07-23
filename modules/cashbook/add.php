@@ -1436,6 +1436,188 @@ include '../../includes/header.php';
     </div>
 </form>
 
+<!-- ====== SETOR TUNAI: Clean isolated script block ====== -->
+<!-- This is separate from the main script to survive any syntax errors elsewhere -->
+<script>
+(function() {
+    'use strict';
+
+    // Show modal
+    window.showSetorTunaiModal = function() {
+        var modal = document.getElementById('setorTunaiModal');
+        if (modal) {
+            modal.classList.add('show');
+            setTimeout(function() {
+                var f = document.getElementById('setorAmount');
+                if (f) f.focus();
+            }, 100);
+        }
+    };
+
+    // Close modal
+    window.closeSetorTunaiModal = function() {
+        var modal = document.getElementById('setorTunaiModal');
+        if (modal) {
+            modal.classList.remove('show');
+            var form = document.getElementById('setorTunaiForm');
+            if (form) form.reset();
+            // Also hide quick-add
+            var qa = document.getElementById('quickAddAccountSection');
+            if (qa) qa.style.display = 'none';
+        }
+    };
+
+    // Open quick-add account panel
+    window.openAddBankAccountModal = function(e) {
+        if (e) e.preventDefault();
+        var section = document.getElementById('quickAddAccountSection');
+        if (section) {
+            section.style.display = (section.style.display === 'none' || !section.style.display) ? 'block' : 'none';
+            if (section.style.display === 'block') {
+                var inp = document.getElementById('quickAccountName');
+                if (inp) inp.focus();
+            }
+        }
+    };
+
+    // Save quick-add account via AJAX
+    window.saveQuickAccount = function() {
+        var accountName = document.getElementById('quickAccountName') ? document.getElementById('quickAccountName').value : '';
+        if (!accountName || accountName.trim().length < 3) {
+            alert('❌ Nama rekening minimal 3 karakter');
+            return;
+        }
+        fetch(window.location.pathname, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'action=add_bank_account&account_name=' + encodeURIComponent(accountName)
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                alert('✅ Rekening berhasil ditambahkan!');
+                window.refreshBankAccountDropdown();
+                document.getElementById('quickAccountName').value = '';
+                var qa = document.getElementById('quickAddAccountSection');
+                if (qa) qa.style.display = 'none';
+            } else {
+                alert('❌ Error: ' + (data.message || 'Gagal menambahkan rekening'));
+            }
+        })
+        .catch(function(err) { alert('❌ Error: ' + err.message); });
+    };
+
+    // Cancel quick-add
+    window.cancelQuickAccount = function() {
+        var qa = document.getElementById('quickAddAccountSection');
+        if (qa) qa.style.display = 'none';
+        var inp = document.getElementById('quickAccountName');
+        if (inp) inp.value = '';
+    };
+
+    // Refresh bank account dropdown
+    window.refreshBankAccountDropdown = function() {
+        var bizId = '<?php echo getMasterBusinessId(); ?>';
+        var select = document.getElementById('setorBankAccount');
+        if (!select) return;
+        fetch(window.location.pathname + '?action=get_bank_accounts&biz_id=' + bizId)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            select.innerHTML = '<option value="">-- Pilih Rekening Bank --</option>';
+            if (data.accounts && data.accounts.length > 0) {
+                data.accounts.forEach(function(acc) {
+                    var opt = document.createElement('option');
+                    opt.value = acc.id;
+                    opt.textContent = '🏛️ ' + acc.account_name;
+                    select.appendChild(opt);
+                });
+            }
+        })
+        .catch(function(err) { console.error('Refresh error:', err); });
+    };
+
+    // Submit Setor Tunai
+    window.submitSetorTunai = function(event) {
+        if (event) event.preventDefault();
+        var form = document.getElementById('setorTunaiForm');
+        if (!form) { alert('❌ Form tidak ditemukan!'); return; }
+
+        var cashAccountId = form.setor_cash_account ? form.setor_cash_account.value : '';
+        var bankAccountId = form.setor_bank_account ? form.setor_bank_account.value : '';
+        var amount        = form.setor_amount       ? form.setor_amount.value : '';
+        var penyetor      = form.setor_penyetor     ? form.setor_penyetor.value : '';
+        var notes         = form.setor_notes        ? form.setor_notes.value : '';
+
+        if (!cashAccountId || !bankAccountId || !amount || !penyetor) {
+            alert('❌ Silakan isi semua field yang wajib diisi!');
+            return;
+        }
+        if (parseFloat(amount) < 1000) {
+            alert('❌ Nominal minimal Rp 1.000,-');
+            return;
+        }
+
+        var mainForm = document.querySelector('form');
+        if (!mainForm) { alert('❌ Form utama tidak ditemukan!'); return; }
+
+        function setHidden(name, value) {
+            var f = mainForm.querySelector('input[name="' + name + '"]');
+            if (!f) {
+                f = document.createElement('input');
+                f.type = 'hidden';
+                f.name = name;
+                mainForm.appendChild(f);
+            }
+            f.value = value;
+        }
+
+        setHidden('source_type',       'cash_transfer');
+        setHidden('cash_account_id',   cashAccountId);
+        setHidden('bank_account_id',   bankAccountId);
+        setHidden('amount',            amount);
+        setHidden('transaction_type',  'income');
+        setHidden('setor_penyetor',    penyetor);
+
+        if (mainForm.transaction_date) mainForm.transaction_date.value = '<?php echo date("Y-m-d"); ?>';
+        if (mainForm.transaction_time) mainForm.transaction_time.value = '<?php echo date("H:i"); ?>';
+        if (mainForm.division_id)      mainForm.division_id.value = '';
+        if (mainForm.description)      mainForm.description.value = '[' + penyetor + '] ' + (notes || 'Setor tunai dari kas ke rekening bank');
+
+        window.closeSetorTunaiModal();
+        mainForm.submit();
+    };
+
+    // Close on click outside
+    document.addEventListener('click', function(e) {
+        var modal = document.getElementById('setorTunaiModal');
+        if (modal && e.target === modal) {
+            window.closeSetorTunaiModal();
+        }
+    });
+
+    // Close on Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            var qa = document.getElementById('quickAddAccountSection');
+            if (qa && qa.style.display === 'block') {
+                window.cancelQuickAccount();
+            } else {
+                window.closeSetorTunaiModal();
+            }
+        }
+    });
+
+    // Enter in quick-add name field saves
+    document.addEventListener('keypress', function(e) {
+        if (e.target && e.target.id === 'quickAccountName' && e.key === 'Enter') {
+            e.preventDefault();
+            window.saveQuickAccount();
+        }
+    });
+
+})();
+</script>
+
 <script>
     feather.replace();
 
@@ -1716,8 +1898,11 @@ document.addEventListener('keypress', function(e) {
     if (e.target.id === 'quickAccountName' && e.key === 'Enter') {
         e.preventDefault();
         window.saveQuickAccount();
-        // Owner Fund - Input dari Bu Sita
-        function fillOwnerFund() {
+    }
+});
+
+// Owner Fund - Input dari Bu Sita
+function fillOwnerFund() {
             // Set transaction type to income
             const incomeRadio = document.querySelector('input[name="transaction_type"][value="income"]');
             if (incomeRadio) {
