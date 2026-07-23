@@ -400,7 +400,7 @@ if ($action === 'print' && $invoice):
                 background: #ffffff;
                 border: 1px solid #d4e4f2;
                 padding: 5px;
-                box-shadow: inset 0 0 0 1px rgba(255,255,255,.55);
+                box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .55);
             }
 
             .logo img {
@@ -439,7 +439,7 @@ if ($action === 'print' && $invoice):
                 background: linear-gradient(180deg, #f7fbff 0%, #edf4fb 100%);
                 border: 1px solid #c8d9ea;
                 padding: 10px 12px;
-                box-shadow: inset 0 1px 0 rgba(255,255,255,.7);
+                box-shadow: inset 0 1px 0 rgba(255, 255, 255, .7);
             }
 
             .meta-title {
@@ -609,7 +609,7 @@ if ($action === 'print' && $invoice):
                 border: 1px solid #c8d9ea;
                 padding: 11px 12px;
                 font-family: "Inter", "Segoe UI", Arial, sans-serif;
-                box-shadow: inset 0 1px 0 rgba(255,255,255,.7);
+                box-shadow: inset 0 1px 0 rgba(255, 255, 255, .7);
             }
 
             .sum-row {
