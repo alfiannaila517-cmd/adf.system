@@ -1546,14 +1546,27 @@ include '../../includes/header.php';
         if (!container) { alert('❌ Modal form tidak ditemukan!'); return; }
 
         // Use getElementById for each field (more reliable than named form access)
-        var cashAccountId = (document.getElementById('setorCashAccount') || {}).value || '';
-        var bankAccountId = (document.getElementById('setorBankAccount') || {}).value || '';
-        var amount        = (document.getElementById('setorAmount')       || {}).value || '';
-        var penyetor      = (document.getElementById('setorPenyetor')     || {}).value || '';
-        var notes         = (document.getElementById('setorNotes')        || {}).value || '';
+        var elCash    = document.getElementById('setorCashAccount');
+        var elBank    = document.getElementById('setorBankAccount');
+        var elAmount  = document.getElementById('setorAmount');
+        var elPenyetor= document.getElementById('setorPenyetor');
+        var elNotes   = document.getElementById('setorNotes');
 
-        if (!cashAccountId || !bankAccountId || !amount || !penyetor) {
-            alert('❌ Silakan isi semua field yang wajib diisi!');
+        var cashAccountId = elCash    ? elCash.value.trim()    : '';
+        var bankAccountId = elBank    ? elBank.value.trim()    : '';
+        var amount        = elAmount  ? elAmount.value.trim()  : '';
+        var penyetor      = elPenyetor? elPenyetor.value.trim(): '';
+        var notes         = elNotes   ? elNotes.value.trim()   : '';
+
+        // Debug: show which fields are empty
+        var emptyFields = [];
+        if (!cashAccountId) emptyFields.push('Kas Sumber' + (elCash ? '' : ' [elemen tidak ada]'));
+        if (!bankAccountId) emptyFields.push('Rekening Bank Tujuan' + (elBank ? '' : ' [elemen tidak ada]'));
+        if (!amount)        emptyFields.push('Nominal' + (elAmount ? '' : ' [elemen tidak ada]'));
+        if (!penyetor)      emptyFields.push('Nama Penyetor' + (elPenyetor ? '' : ' [elemen tidak ada]'));
+
+        if (emptyFields.length > 0) {
+            alert('❌ Harap isi: ' + emptyFields.join(', '));
             return;
         }
         if (parseFloat(amount) < 1000) {
