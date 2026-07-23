@@ -1979,6 +1979,10 @@ echo getPrintCSS();
                 </div>
             </div>
             <div class="table-actions" style="display: flex; gap: 0.5rem;">
+                <a href="cash-transfers.php" class="btn btn-secondary btn-white-text cashbook-action-btn cashbook-btn-reset" style="display: flex; align-items: center; gap: 0.5rem; background: linear-gradient(135deg, #0284c7, #0369a1); color: white;" title="Lihat ringkasan setor tunai antar rekening">
+                    <i data-feather="send" style="width: 16px; height: 16px;"></i>
+                    <span>🏦 Ringkasan Setor Tunai</span>
+                </a>
                 <a href="logs.php" class="btn btn-secondary btn-white-text cashbook-action-btn cashbook-btn-reset" style="display: flex; align-items: center; gap: 0.5rem;">
                     <i data-feather="activity" style="width: 16px; height: 16px;"></i>
                     <span>Audit Log</span>

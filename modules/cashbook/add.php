@@ -185,6 +185,8 @@ if (isPost()) {
                 $sourceType = 'owner_fund';
             } elseif ($explicitSourceType === 'owner_project') {
                 $sourceType = 'owner_project';
+            } elseif ($explicitSourceType === 'cash_transfer') {
+                $sourceType = 'cash_transfer';
             }
             // For CQC with project module: use cqc_income_type field
             elseif ($hasProjectModule && $transactionType === 'income') {
@@ -429,6 +431,66 @@ if (isPost()) {
                                     }
                                 }
                                 // ============================================
+                            } elseif ($sourceType === 'cash_transfer') {
+                                // ============================================
+                                // SETOR TUNAI - CASH TRANSFER
+                                // Internal transfer dari cash ke bank
+                                // Double-entry: debit from cash, credit to bank
+                                // ============================================
+                                $bizId = getMasterBusinessId();
+                                
+                                // Get source account (cash) - this is already in $cashAccountId
+                                // Get destination account (bank)
+                                $stmt = $masterDb->prepare("SELECT id, account_name FROM cash_accounts WHERE business_id = ? AND account_type = 'bank' ORDER BY id LIMIT 1");
+                                $stmt->execute([$bizId]);
+                                $destAccount = $stmt->fetch(PDO::FETCH_ASSOC);
+                                
+                                if ($destAccount) {
+                                    // Step 1: Debit (reduce) from source cash account
+                                    $stmt = $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance - ? WHERE id = ?");
+                                    $stmt->execute([$amount, $cashAccountId]);
+                                    error_log("CASH_TRANSFER: Source account (Cash) ID: {$cashAccountId} - DEBIT -{$amount}");
+                                    
+                                    // Step 2: Credit to destination bank account
+                                    $stmt = $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance + ? WHERE id = ?");
+                                    $stmt->execute([$amount, $destAccount['id']]);
+                                    error_log("CASH_TRANSFER: Destination account (Bank) ID: {$destAccount['id']} - CREDIT +{$amount}");
+                                    
+                                    // Step 3: Record the transfer in cash_transfers table for tracking & archiving
+                                    try {
+                                        $getSourceAcct = $masterDb->prepare("SELECT account_name FROM cash_accounts WHERE id = ?");
+                                        $getSourceAcct->execute([$cashAccountId]);
+                                        $sourceAcct = $getSourceAcct->fetch(PDO::FETCH_ASSOC);
+                                        
+                                        $refNum = 'CB-' . $transactionId; // Reference to cash_book transaction
+                                        
+                                        $transferStmt = $masterDb->prepare("
+                                            INSERT INTO cash_transfers 
+                                            (business_id, cash_account_id, bank_account_id, amount, transfer_date, transfer_time, reference_number, description, created_by, is_archived)
+                                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+                                        ");
+                                        
+                                        $transferStmt->execute([
+                                            $bizId,
+                                            $cashAccountId,
+                                            $destAccount['id'],
+                                            $amount,
+                                            $transactionDate,
+                                            $transactionTime ?: date('H:i:s'),
+                                            $refNum,
+                                            $data['description'] ?: 'Setor tunai ke rekening operasional',
+                                            $_SESSION['user_id']
+                                        ]);
+                                        
+                                        error_log("CASH_TRANSFER: Recorded in cash_transfers table - From {$sourceAcct['account_name']} ({$cashAccountId}) to {$destAccount['account_name']} ({$destAccount['id']}) - Amount: {$amount}");
+                                    } catch (Exception $e) {
+                                        error_log("WARNING: Failed to record in cash_transfers: " . $e->getMessage());
+                                        // Don't fail the whole transaction, just warn
+                                    }
+                                } else {
+                                    error_log("ERROR: No bank account found for cash transfer destination");
+                                    throw new Exception("Tidak ada rekening bank untuk penerima transfer setor tunai");
+                                }
                             } else {
                                 // Expense: subtract from balance (smart logic already handled account switch)
                                 $stmt = $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance - ? WHERE id = ?");
@@ -815,6 +877,13 @@ include '../../includes/header.php';
                         <span style="font-size: 1.25rem;">💰</span>
                         <div style="font-weight: 700; font-size: 0.813rem;">INPUT DARI BU SITA</div>
                         <div style="font-size: 0.7rem; color: #b45309;">Modal Pemilik</div>
+                    </button>
+                    
+                    <!-- Special Button: Setor Tunai ke Rekening Operasional -->
+                    <button type="button" id="btnSetorTunai" onclick="fillSetorTunai()" style="padding: 0.75rem; flex: 1; min-width: 140px; max-width: 180px; background: linear-gradient(135deg, #dbeafe, #bfdbfe); color: #0c4a6e; border: 2px solid #0284c7; border-radius: 12px; font-size: 0.875rem; font-weight: 700; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.3rem; box-shadow: 0 2px 8px rgba(2, 132, 199, 0.2); transition: all 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(2, 132, 199, 0.35)'; this.style.borderColor='#0369a1'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(2, 132, 199, 0.2)'; this.style.borderColor='#0284c7'">
+                        <span style="font-size: 1.25rem;">🏦</span>
+                        <div style="font-weight: 700; font-size: 0.813rem;">SETOR TUNAI</div>
+                        <div style="font-size: 0.7rem; color: #0c4a6e;">Ke Rekening Bank</div>
                     </button>
                     <?php else: ?>
                     <!-- CQC: Transfer to Petty Cash Button -->
@@ -1265,6 +1334,98 @@ function showOwnerFundNotice() {
         if (el) el.style.opacity = '0';
         setTimeout(() => { if (el) el.remove(); }, 300);
     }, 5000);
+}
+
+// Setor Tunai ke Rekening Operasional
+function fillSetorTunai() {
+    // Set transaction type to income (uang masuk ke Bank)
+    const incomeRadio = document.querySelector('input[name="transaction_type"][value="income"]');
+    if (incomeRadio) {
+        incomeRadio.checked = true;
+        incomeRadio.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    
+    // Set date to today
+    document.querySelector('input[name="transaction_date"]').value = '<?php echo date("Y-m-d"); ?>';
+    document.querySelector('input[name="transaction_time"]').value = '<?php echo date("H:i"); ?>';
+    
+    // Set division - use first available
+    const divisionSelect = document.querySelector('select[name="division_id"]');
+    if (divisionSelect && divisionSelect.options.length > 1) {
+        divisionSelect.selectedIndex = 1;
+    }
+    
+    // Set category to "Setor Tunai"
+    document.querySelector('input[name="category_name"]').value = 'Setor Tunai ke Rekening Bank';
+    
+    // Set cash account to Bank (Rekening Operasional)
+    const cashAccountSelect = document.querySelector('select[name="cash_account_id"]');
+    if (cashAccountSelect) {
+        // Find Bank account
+        for (let opt of cashAccountSelect.options) {
+            if (opt.text.includes('🏦') || opt.text.toLowerCase().includes('bank')) {
+                cashAccountSelect.value = opt.value;
+                break;
+            }
+        }
+    }
+    
+    // Set payment method to cash (dari tunai)
+    const cashPayment = document.querySelector('input[name="payment_method"][value="cash"]');
+    if (cashPayment) cashPayment.checked = true;
+    
+    // Set source_type hidden field to cash_transfer (transfer internal, bukan pendapatan)
+    let sourceTypeField = document.querySelector('input[name="source_type"]');
+    if (!sourceTypeField) {
+        sourceTypeField = document.createElement('input');
+        sourceTypeField.type = 'hidden';
+        sourceTypeField.name = 'source_type';
+        document.querySelector('form').appendChild(sourceTypeField);
+    }
+    sourceTypeField.value = 'cash_transfer';
+    
+    // Set description
+    document.querySelector('textarea[name="description"]').value = 'Setor tunai dari kas cabang ke rekening operasional';
+    
+    // Focus on amount field
+    const amountField = document.querySelector('input[name="amount"]');
+    if (amountField) {
+        amountField.value = '';
+        amountField.focus();
+    }
+    
+    // Show notification
+    showSetorTunaiNotice();
+}
+
+function showSetorTunaiNotice() {
+    // Remove existing notice
+    const existing = document.getElementById('setorTunaiNotice');
+    if (existing) existing.remove();
+    
+    // Create notice
+    const notice = document.createElement('div');
+    notice.id = 'setorTunaiNotice';
+    notice.innerHTML = `
+        <div style="position: fixed; top: 80px; right: 20px; padding: 1rem 1.25rem; background: linear-gradient(135deg, #dbeafe, #bfdbfe); border: 1px solid #0284c7; border-radius: 12px; box-shadow: 0 4px 20px rgba(2, 132, 199, 0.3); z-index: 9999; max-width: 340px; animation: slideIn 0.3s ease;">
+            <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
+                <span style="font-size: 1.5rem;">🏦</span>
+                <div>
+                    <div style="font-weight: 700; color: #0c4a6e; font-size: 0.875rem; margin-bottom: 0.25rem;">Setor Tunai ke Rekening Operasional</div>
+                    <div style="font-size: 0.75rem; color: #0c5460; line-height: 1.4;">Transfer dari kas tunai ke rekening bank. Kas tunai akan berkurang, rekening bank bertambah. Hanya pindah akun, bukan pendapatan baru.</div>
+                </div>
+                <button onclick="this.parentElement.parentElement.parentElement.remove()" style="background: none; border: none; color: #0c4a6e; cursor: pointer; font-size: 1.25rem; line-height: 1; padding: 0;">&times;</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(notice);
+    
+    // Auto-remove after 6 seconds
+    setTimeout(() => {
+        const el = document.getElementById('setorTunaiNotice');
+        if (el) el.style.opacity = '0';
+        setTimeout(() => { if (el) el.remove(); }, 300);
+    }, 6000);
 }
 <?php endif; ?>
 
