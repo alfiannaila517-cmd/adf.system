@@ -1,4 +1,5 @@
 ﻿<?php
+
 /**
  * NARAYANA HOTEL MANAGEMENT SYSTEM
  * Add New Transaction
@@ -17,7 +18,8 @@ $db = Database::getInstance();
 // Auto-drop FK constraint on cash_book.created_by (references users in master DB, not business DB)
 try {
     $db->getConnection()->exec("ALTER TABLE `cash_book` DROP FOREIGN KEY `cash_book_ibfk_3`");
-} catch (Exception $e) { /* already dropped or doesn't exist */ }
+} catch (Exception $e) { /* already dropped or doesn't exist */
+}
 
 // Auto-fix: Convert payment_method ENUM to VARCHAR (ENUM misses edc, ota, etc.)
 try {
@@ -25,7 +27,8 @@ try {
     if ($colInfo && stripos($colInfo['COLUMN_TYPE'], 'enum') !== false) {
         $db->getConnection()->exec("ALTER TABLE `cash_book` MODIFY COLUMN `payment_method` VARCHAR(50) NOT NULL DEFAULT 'cash'");
     }
-} catch (Exception $e) { /* ignore */ }
+} catch (Exception $e) { /* ignore */
+}
 
 // Load business configuration
 $businessConfig = require '../../config/businesses/' . ACTIVE_BUSINESS_ID . '.php';
@@ -60,20 +63,20 @@ if ($isHotel) {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             created_by INT
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-        
+
         // Detect actual column names (table may have 'name' instead of 'project_name', etc.)
         $descStmt = $pdo->query("DESCRIBE projects");
         $cols = array_column($descStmt->fetchAll(PDO::FETCH_ASSOC), 'Field');
-        
+
         $nameCol = in_array('project_name', $cols) ? 'project_name' : (in_array('name', $cols) ? 'name' : "'Unknown'");
         $codeCol = in_array('project_code', $cols) ? 'project_code' : (in_array('code', $cols) ? 'code' : "NULL");
         $statusCol = in_array('status', $cols) ? 'status' : "NULL";
-        
+
         $sql = "SELECT id, {$nameCol} as project_name, {$codeCol} as project_code, {$statusCol} as status FROM projects ORDER BY id DESC";
         $investorProjects = $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
-        
+
         // Filter out completed/cancelled in PHP (safer than SQL with unknown ENUM)
-        $investorProjects = array_filter($investorProjects, function($p) {
+        $investorProjects = array_filter($investorProjects, function ($p) {
             $s = strtolower($p['status'] ?? '');
             return !in_array($s, ['completed', 'cancelled']);
         });
@@ -105,10 +108,10 @@ $cashAccounts = [];
 try {
     $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
     $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    
+
     // Get business ID dynamically
     $businessId = getMasterBusinessId();
-    
+
     // Load cash accounts if we have a business ID
     if ($businessId) {
         // Show cash and bank accounts only (exclude owner_capital - not for direct selection)
@@ -133,7 +136,7 @@ if (isPost()) {
     $description = sanitize(getPost('description'));
     $paymentMethod = sanitize(getPost('payment_method'));
     $cashAccountId = sanitize(getPost('cash_account_id')) ?: null; // Optional: can be null for now
-    
+
     // Validation
     if (empty($transactionDate) || empty($divisionId) || empty($categoryName) || empty($amount)) {
         setFlash('error', 'Mohon lengkapi semua field yang wajib diisi!');
@@ -144,7 +147,7 @@ if (isPost()) {
                 "SELECT id FROM categories WHERE LOWER(category_name) = LOWER(:name) AND category_type = :type",
                 ['name' => $categoryName, 'type' => $transactionType]
             );
-            
+
             if ($existingCategory) {
                 $categoryId = $existingCategory['id'];
             } else {
@@ -155,11 +158,11 @@ if (isPost()) {
                     'division_id' => $divisionId,
                     'is_active' => 1
                 ]);
-                
+
                 // Get the newly inserted ID
                 $categoryId = $db->getConnection()->lastInsertId();
             }
-            
+
             // CQC: Embed project reference in description for list page lookup
             if ($isCQC && !empty(getPost('cqc_project_id'))) {
                 $cqcProjVal = getPost('cqc_project_id');
@@ -178,7 +181,7 @@ if (isPost()) {
             // Regular income (from customers) = 'manual' or 'invoice_payment'
             // ============================================
             $sourceType = 'manual';
-            
+
             // Check if source_type is explicitly set
             $explicitSourceType = sanitize(getPost('source_type'));
             if ($explicitSourceType === 'owner_fund') {
@@ -197,7 +200,7 @@ if (isPost()) {
                     $sourceType = 'invoice_payment';
                 }
             }
-            
+
             // NOTE: source_type is determined by:
             // 1. Explicit owner_fund from "Input dari Bu Sita" button
             // 2. Explicit owner_project from project expense toggle
@@ -218,7 +221,7 @@ if (isPost()) {
                 'source_type' => $sourceType,
                 'is_editable' => 1
             ];
-            
+
             // ============================================
             // SMART LOGIC - INCOME BASED ON PAYMENT METHOD
             // Cash payment → goes to Petty Cash (operational)
@@ -230,13 +233,13 @@ if (isPost()) {
                     $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
                     $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
                     $businessId = getMasterBusinessId();
-                    
+
                     // OWNER_FUND: Always goes to Petty Cash regardless of payment method
                     if ($sourceType === 'owner_fund') {
                         $stmt = $masterDb->prepare("SELECT id, account_name FROM cash_accounts WHERE business_id = ? AND account_type = 'cash' ORDER BY id LIMIT 1");
                         $stmt->execute([$businessId]);
                         $pettyCashAccount = $stmt->fetch(PDO::FETCH_ASSOC);
-                        
+
                         if ($pettyCashAccount) {
                             $cashAccountId = $pettyCashAccount['id'];
                             $data['cash_account_id'] = $cashAccountId;
@@ -247,7 +250,7 @@ if (isPost()) {
                         $stmt = $masterDb->prepare("SELECT id, account_name FROM cash_accounts WHERE business_id = ? AND account_type = 'cash' ORDER BY id LIMIT 1");
                         $stmt->execute([$businessId]);
                         $pettyCashAccount = $stmt->fetch(PDO::FETCH_ASSOC);
-                        
+
                         if ($pettyCashAccount) {
                             $cashAccountId = $pettyCashAccount['id'];
                             $data['cash_account_id'] = $cashAccountId;
@@ -262,7 +265,7 @@ if (isPost()) {
                         $stmt = $masterDb->prepare("SELECT id, account_name FROM cash_accounts WHERE business_id = ? AND account_type = 'bank' ORDER BY id LIMIT 1");
                         $stmt->execute([$businessId]);
                         $bankAccount = $stmt->fetch(PDO::FETCH_ASSOC);
-                        
+
                         if ($bankAccount) {
                             $cashAccountId = $bankAccount['id'];
                             $data['cash_account_id'] = $cashAccountId;
@@ -281,7 +284,7 @@ if (isPost()) {
                     error_log("Income smart logic error: " . $e->getMessage());
                 }
             }
-            
+
             // ============================================
             // USE USER'S ACCOUNT SELECTION DIRECTLY
             // User explicitly selects Petty Cash or Bank from dropdown
@@ -297,7 +300,7 @@ if (isPost()) {
                         $stmt = $masterDb->prepare("SELECT account_type, account_name FROM cash_accounts WHERE id = ?");
                         $stmt->execute([$cashAccountId]);
                         $selectedAccount = $stmt->fetch(PDO::FETCH_ASSOC);
-                        
+
                         if ($selectedAccount) {
                             // Determine fund source tag based on account type
                             if ($selectedAccount['account_type'] === 'cash') {
@@ -312,7 +315,7 @@ if (isPost()) {
                         error_log("Error checking account type: " . $e->getMessage());
                     }
                 }
-                
+
                 // Add fund source tag to description for tracking
                 if (strpos($data['description'] ?? '', '[Petty Cash]') === false && strpos($data['description'] ?? '', '[Kas Besar]') === false) {
                     $data['description'] = trim(($data['description'] ?? '') . ' ' . $fundTag);
@@ -320,7 +323,7 @@ if (isPost()) {
                 }
             }
             // ============================================
-            
+
             // ============================================
             // SPECIAL CASE: CASH TRANSFER (SETOR TUNAI)
             // Pure internal transfer - NOT in cash_book
@@ -331,44 +334,44 @@ if (isPost()) {
                     $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
                     $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
                     $bizId = getMasterBusinessId();
-                    
+
                     // Get destination account (bank)
                     $stmt = $masterDb->prepare("SELECT id, account_name FROM cash_accounts WHERE business_id = ? AND account_type = 'bank' ORDER BY id LIMIT 1");
                     $stmt->execute([$bizId]);
                     $destAccount = $stmt->fetch(PDO::FETCH_ASSOC);
-                    
+
                     if (!$destAccount) {
                         throw new Exception("Tidak ada rekening bank untuk penerima transfer");
                     }
-                    
+
                     // Get source account info
                     $stmt = $masterDb->prepare("SELECT account_name FROM cash_accounts WHERE id = ?");
                     $stmt->execute([$cashAccountId]);
                     $sourceAcct = $stmt->fetch(PDO::FETCH_ASSOC);
-                    
+
                     if (!$sourceAcct) {
                         throw new Exception("Akun kas sumber tidak ditemukan");
                     }
-                    
+
                     // STEP 1: Debit from source cash account
                     $stmt = $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance - ? WHERE id = ?");
                     $stmt->execute([$amount, $cashAccountId]);
                     error_log("SETOR TUNAI: Debit from {$sourceAcct['account_name']} (ID: {$cashAccountId}) - Amount: {$amount}");
-                    
+
                     // STEP 2: Credit to destination bank account
                     $stmt = $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance + ? WHERE id = ?");
                     $stmt->execute([$amount, $destAccount['id']]);
                     error_log("SETOR TUNAI: Credit to {$destAccount['account_name']} (ID: {$destAccount['id']}) - Amount: {$amount}");
-                    
+
                     // STEP 3: Record in cash_transfers table for tracking & archiving
                     $refNum = 'ST-' . date('YmdHis') . '-' . $_SESSION['user_id']; // Reference tracking
-                    
+
                     $transferStmt = $masterDb->prepare("
                         INSERT INTO cash_transfers 
                         (business_id, cash_account_id, bank_account_id, amount, transfer_date, transfer_time, reference_number, description, created_by, is_archived)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
                     ");
-                    
+
                     $transferStmt->execute([
                         $bizId,
                         $cashAccountId,
@@ -380,14 +383,13 @@ if (isPost()) {
                         $description ?: 'Setor tunai dari kas cabang ke rekening operasional',
                         $_SESSION['user_id']
                     ]);
-                    
+
                     error_log("SETOR TUNAI: Recorded in cash_transfers - From {$sourceAcct['account_name']} to {$destAccount['account_name']} - Amount: {$amount}");
-                    
+
                     // SUCCESS - Don't commit to cash_book, only update balances
                     setFlash('success', 'Setor tunai berhasil dicatat! Saldo kas berkurang & rekening bank bertambah.');
                     redirect(BASE_URL . '/modules/cashbook/index.php');
                     exit;
-                    
                 } catch (Exception $e) {
                     error_log('SETOR TUNAI ERROR: ' . $e->getMessage());
                     setFlash('error', 'Error setor tunai: ' . $e->getMessage());
@@ -396,31 +398,31 @@ if (isPost()) {
                 }
             }
             // ============================================
-            
+
             // Start transaction for atomic operation
             $db->beginTransaction();
-            
+
             try {
                 // Insert to cash_book (business database)
                 if ($db->insert('cash_book', $data)) {
                     $transactionId = $db->getConnection()->lastInsertId();
-                    
+
                     // If user selected a cash account, also save to cash_account_transactions (master DB)
                     if (!empty($cashAccountId)) {
                         error_log("PROCESSING cash account transaction - Account ID: {$cashAccountId}, Type: {$transactionType}, Amount: {$amount}");
-                        
+
                         try {
                             $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
                             $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-                            
+
                             // Get account type to determine transaction type
                             $stmt = $masterDb->prepare("SELECT account_type FROM cash_accounts WHERE id = ?");
                             $stmt->execute([$cashAccountId]);
                             $account = $stmt->fetch(PDO::FETCH_ASSOC);
-                            
+
                             // Determine transaction type for cash_account_transactions
                             $accountTransactionType = $transactionType; // Default: 'income' or 'expense'
-                            
+
                             // ONLY owner_capital account income = capital_injection
                             // Petty Cash income from customers = real income (not capital_injection)
                             if ($account && $account['account_type'] === 'owner_capital' && $transactionType === 'income') {
@@ -429,14 +431,14 @@ if (isPost()) {
                             }
                             // Cash account income from customers via cash payment = real income
                             // This adds to petty cash balance for operational use
-                            
+
                             // Insert to cash_account_transactions
                             $stmt = $masterDb->prepare("
                                 INSERT INTO cash_account_transactions 
                                 (cash_account_id, transaction_date, description, amount, transaction_type, created_by) 
                                 VALUES (?, ?, ?, ?, ?, ?)
                             ");
-                            
+
                             $stmt->execute([
                                 $cashAccountId,
                                 $transactionDate,
@@ -445,16 +447,16 @@ if (isPost()) {
                                 $accountTransactionType,
                                 $_SESSION['user_id']
                             ]);
-                            
+
                             error_log("SAVED to cash_account_transactions - Account ID: {$cashAccountId}, Type: {$accountTransactionType}, Amount: {$amount}");
-                            
+
                             // Update current_balance in cash_accounts
                             if ($transactionType === 'income') {
                                 // Income: add to balance
                                 $stmt = $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance + ? WHERE id = ?");
                                 $stmt->execute([$amount, $cashAccountId]);
                                 error_log("BALANCE UPDATED - Account ID: {$cashAccountId} - INCOME +{$amount}");
-                                
+
                                 // ============================================
                                 // TRANSFER PETTY CASH / MODAL OWNER
                                 // CQC: Transfer dari Bank (invoice income)
@@ -462,7 +464,7 @@ if (isPost()) {
                                 // ============================================
                                 if ($sourceType === 'owner_fund') {
                                     $bizId = getMasterBusinessId();
-                                    
+
                                     if ($isCQC) {
                                         // CQC: Transfer ke Petty Cash dari BANK (Kas Besar)
                                         // Karena di CQC, uang invoice masuk ke Bank, bukan dari owner
@@ -478,7 +480,7 @@ if (isPost()) {
                                         $sourceAccount = $stmt->fetch(PDO::FETCH_ASSOC);
                                         $sourceLabel = 'Kas Modal Owner';
                                     }
-                                    
+
                                     if ($sourceAccount) {
                                         // Record expense transaction from source account
                                         $stmt = $masterDb->prepare("
@@ -486,7 +488,7 @@ if (isPost()) {
                                             (cash_account_id, transaction_date, description, amount, transaction_type, created_by) 
                                             VALUES (?, ?, ?, ?, 'expense', ?)
                                         ");
-                                        $transferDesc = $isCQC 
+                                        $transferDesc = $isCQC
                                             ? 'Transfer ke Petty Cash' . ($data['description'] ? ': ' . $data['description'] : '')
                                             : 'Modal dari Bu Sita' . ($data['description'] ? ': ' . $data['description'] : '');
                                         $stmt->execute([
@@ -496,11 +498,11 @@ if (isPost()) {
                                             $amount,
                                             $_SESSION['user_id']
                                         ]);
-                                        
+
                                         // Deduct from source account
                                         $stmt = $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance - ? WHERE id = ?");
                                         $stmt->execute([$amount, $sourceAccount['id']]);
-                                        
+
                                         error_log("TRANSFER/MODAL: {$sourceLabel} ({$sourceAccount['account_name']}) -{$amount}, Petty Cash +{$amount}");
                                     } else {
                                         error_log("WARNING: No {$sourceLabel} account found for transfer deduction");
@@ -513,7 +515,6 @@ if (isPost()) {
                                 $stmt->execute([$amount, $cashAccountId]);
                                 error_log("BALANCE UPDATED - Account ID: {$cashAccountId} - EXPENSE -{$amount}");
                             }
-                            
                         } catch (Exception $e) {
                             error_log("ERROR saving to cash_account_transactions: " . $e->getMessage());
                             error_log("ERROR Stack Trace: " . $e->getTraceAsString());
@@ -523,16 +524,16 @@ if (isPost()) {
                     } else {
                         error_log("WARNING: cash_account_id is empty, skipping cash account transaction");
                     }
-                    
+
                     // INVESTOR PROJECT: Sync expense to project_expenses table
                     $investorProjectId = intval(getPost('project_id'));
                     if ($sourceType === 'owner_project' && $transactionType === 'expense') {
                         try {
                             // Commit current transaction first (DDL causes implicit commit anyway)
                             $db->commit();
-                            
+
                             $pdo = $db->getConnection();
-                            
+
                             // Ensure projects table exists (DDL - outside transaction)
                             $pdo->exec("CREATE TABLE IF NOT EXISTS projects (
                                 id INT AUTO_INCREMENT PRIMARY KEY, project_name VARCHAR(150) NOT NULL, project_code VARCHAR(50),
@@ -541,7 +542,7 @@ if (isPost()) {
                                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                                 created_by INT, INDEX idx_status (status)
                             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-                            
+
                             // Ensure project_expenses table exists (DDL - outside transaction)
                             $pdo->exec("CREATE TABLE IF NOT EXISTS project_expenses (
                                 id INT AUTO_INCREMENT PRIMARY KEY, project_id INT NOT NULL, category_id INT,
@@ -550,11 +551,17 @@ if (isPost()) {
                                 cash_book_id INT NULL,
                                 INDEX idx_project (project_id), INDEX idx_date (expense_date)
                             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-                            
+
                             // Add columns if not exists (DDL - outside transaction)
-                            try { $pdo->exec("ALTER TABLE project_expenses ADD COLUMN cash_book_id INT NULL"); } catch (Exception $ignore) {}
-                            try { $pdo->exec("ALTER TABLE project_expenses ADD COLUMN division_name VARCHAR(100)"); } catch (Exception $ignore) {}
-                            
+                            try {
+                                $pdo->exec("ALTER TABLE project_expenses ADD COLUMN cash_book_id INT NULL");
+                            } catch (Exception $ignore) {
+                            }
+                            try {
+                                $pdo->exec("ALTER TABLE project_expenses ADD COLUMN division_name VARCHAR(100)");
+                            } catch (Exception $ignore) {
+                            }
+
                             // If no project selected, auto-create/use "Proyek Umum"
                             if ($investorProjectId <= 0) {
                                 $defStmt = $pdo->prepare("SELECT id FROM projects WHERE project_code = 'UMUM' LIMIT 1");
@@ -569,7 +576,7 @@ if (isPost()) {
                                     error_log("PROJECT AUTO-CREATE: Created default 'Proyek Umum' with ID #{$investorProjectId}");
                                 }
                             }
-                            
+
                             // Get division name for project_expenses
                             $divName = '';
                             if ($divisionId) {
@@ -577,11 +584,11 @@ if (isPost()) {
                                 $divStmt->execute([$divisionId]);
                                 $divName = $divStmt->fetchColumn() ?: '';
                             }
-                            
+
                             $peStmt = $pdo->prepare("INSERT INTO project_expenses (project_id, amount, description, division_name, expense_date, created_by, cash_book_id) VALUES (?, ?, ?, ?, ?, ?, ?)");
                             $peStmt->execute([$investorProjectId, $amount, ($description ?: $categoryName), $divName, $transactionDate, $_SESSION['user_id'], $transactionId]);
                             error_log("PROJECT SYNC: Cashbook #{$transactionId} -> project_expenses for project #{$investorProjectId}, Amount: {$amount}");
-                            
+
                             // Auto-sync to project_salaries if division is "Gaji"
                             if (stripos($divName, 'gaji') !== false || stripos($divName, 'salary') !== false) {
                                 try {
@@ -602,7 +609,7 @@ if (isPost()) {
                                         status ENUM('draft','submitted','approved','paid') DEFAULT 'draft',
                                         notes TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, created_by INT
                                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-                                    
+
                                     // Find or create default worker for this project
                                     $wStmt = $pdo->prepare("SELECT id FROM project_workers WHERE project_id = ? AND name = 'Gaji dari Kas' LIMIT 1");
                                     $wStmt->execute([$investorProjectId]);
@@ -612,7 +619,7 @@ if (isPost()) {
                                         $wIns->execute([$investorProjectId]);
                                         $workerId = (int)$pdo->lastInsertId();
                                     }
-                                    
+
                                     $salStmt = $pdo->prepare("INSERT INTO project_salaries (project_id, worker_id, period_type, period_label, daily_rate, total_days, total_salary, status, notes, created_by) VALUES (?, ?, 'monthly', ?, ?, 1, ?, 'submitted', ?, ?)");
                                     $periodLabel = date('F Y', strtotime($transactionDate));
                                     $salStmt->execute([$investorProjectId, $workerId, $periodLabel, $amount, $amount, ($description ?: $categoryName), $_SESSION['user_id'] ?? null]);
@@ -621,7 +628,7 @@ if (isPost()) {
                                     error_log("GAJI SYNC ERROR: " . $gajiErr->getMessage());
                                 }
                             }
-                            
+
                             // Success - redirect directly (transaction already committed)
                             setFlash('success', 'Transaksi berhasil ditambahkan! 🏗️ Tersinkron ke Proyek.');
                             redirect(BASE_URL . '/modules/cashbook/index.php');
@@ -634,7 +641,7 @@ if (isPost()) {
                             exit;
                         }
                     }
-                    
+
                     // CQC: Also save to cqc_project_expenses if project selected (expense only)
                     // Skip if "operational" - that's for office expenses, not project expenses
                     $cqcProjectVal = getPost('cqc_project_id');
@@ -644,14 +651,14 @@ if (isPost()) {
                             $cqcPdo = getCQCDatabaseConnection();
                             $cqcProjectId = intval($cqcProjectVal);
                             $cqcCategoryId = !empty(getPost('cqc_category_id')) ? intval(getPost('cqc_category_id')) : null;
-                            
+
                             if ($transactionType === 'expense') {
                                 // Add source marker to notes to track it came from cashbook
                                 $syncNotes = '[SYNCED_FROM_CASHBOOK:' . $transactionId . '] ' . ($description ?: $categoryName);
                                 $stmtExp = $cqcPdo->prepare("INSERT INTO cqc_project_expenses (project_id, category_id, description, amount, expense_date, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)");
                                 $stmtExp->execute([$cqcProjectId, $cqcCategoryId, $categoryName, $amount, $transactionDate, $syncNotes, $_SESSION['user_id']]);
                                 error_log("CQC SYNC: Cashbook -> Project expense. Project ID: {$cqcProjectId}, Amount: {$amount}");
-                                
+
                                 // Update spent_idr on the project
                                 $stmtUpd = $cqcPdo->prepare("UPDATE cqc_projects SET spent_idr = (SELECT COALESCE(SUM(amount),0) FROM cqc_project_expenses WHERE project_id = ?) WHERE id = ?");
                                 $stmtUpd->execute([$cqcProjectId, $cqcProjectId]);
@@ -660,16 +667,16 @@ if (isPost()) {
                             error_log('CQC expense save error: ' . $e->getMessage());
                         }
                     }
-                    
+
                     $db->commit();
-                    
+
                     // Success message with auto-switch notification
                     if ($autoSwitched) {
                         setFlash('success', 'Transaksi berhasil! ⚡ Petty Cash tidak cukup, otomatis dipotong dari Modal Owner.');
                     } else {
                         setFlash('success', 'Transaksi berhasil ditambahkan!');
                     }
-                    
+
                     redirect(BASE_URL . '/modules/cashbook/index.php');
                 } else {
                     $db->rollBack();
@@ -689,160 +696,210 @@ include '../../includes/header.php';
 ?>
 
 <?php if ($isCQC): ?>
-<style>
-:root, body, body[data-theme="light"], body[data-theme="dark"] {
-    --primary-color: #f0b429 !important;
-    --primary-dark: #d4960d !important;
-    --secondary-color: #0d1f3c !important;
-}
-.transaction-type-card:has(input[value="income"]:checked),
-.transaction-type-card:has(input[value="expense"]:checked),
-.payment-method-card:has(input[type="radio"]:checked) {
-    border-color: #0d1f3c !important;
-    box-shadow: 0 0 0 4px rgba(13,31,60,0.15), 0 8px 20px rgba(13,31,60,0.1) !important;
-}
-.transaction-type-card:has(input[value="income"]:checked) { border-color: #10b981 !important; box-shadow: 0 0 0 4px rgba(16,185,129,0.15) !important; }
-.transaction-type-card:has(input[value="expense"]:checked) { border-color: #ef4444 !important; box-shadow: 0 0 0 4px rgba(239,68,68,0.15) !important; }
-.btn-primary { background: linear-gradient(135deg, #0d1f3c, #1a3a5c) !important; color: #f0b429 !important; border: none !important; }
-.btn-primary:hover { background: linear-gradient(135deg, #122a4e, #1f4570) !important; }
-.cqc-project-option { display: flex; justify-content: space-between; }
-.cqc-form-header { background: #ffffff !important; border-bottom: none !important; border-left: 4px solid #f0b429 !important; }
-.cqc-form-header h3 { color: #0d1f3c !important; }
-.cqc-form-header i { color: #f0b429 !important; }
-.cqc-select-project { border: 2px solid rgba(13,31,60,0.15) !important; font-weight: 600 !important; }
-.cqc-select-project:focus { border-color: #f0b429 !important; box-shadow: 0 0 0 3px rgba(240,180,41,0.2) !important; }
-</style>
+    <style>
+        :root,
+        body,
+        body[data-theme="light"],
+        body[data-theme="dark"] {
+            --primary-color: #f0b429 !important;
+            --primary-dark: #d4960d !important;
+            --secondary-color: #0d1f3c !important;
+        }
+
+        .transaction-type-card:has(input[value="income"]:checked),
+        .transaction-type-card:has(input[value="expense"]:checked),
+        .payment-method-card:has(input[type="radio"]:checked) {
+            border-color: #0d1f3c !important;
+            box-shadow: 0 0 0 4px rgba(13, 31, 60, 0.15), 0 8px 20px rgba(13, 31, 60, 0.1) !important;
+        }
+
+        .transaction-type-card:has(input[value="income"]:checked) {
+            border-color: #10b981 !important;
+            box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15) !important;
+        }
+
+        .transaction-type-card:has(input[value="expense"]:checked) {
+            border-color: #ef4444 !important;
+            box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15) !important;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #0d1f3c, #1a3a5c) !important;
+            color: #f0b429 !important;
+            border: none !important;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #122a4e, #1f4570) !important;
+        }
+
+        .cqc-project-option {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .cqc-form-header {
+            background: #ffffff !important;
+            border-bottom: none !important;
+            border-left: 4px solid #f0b429 !important;
+        }
+
+        .cqc-form-header h3 {
+            color: #0d1f3c !important;
+        }
+
+        .cqc-form-header i {
+            color: #f0b429 !important;
+        }
+
+        .cqc-select-project {
+            border: 2px solid rgba(13, 31, 60, 0.15) !important;
+            font-weight: 600 !important;
+        }
+
+        .cqc-select-project:focus {
+            border-color: #f0b429 !important;
+            box-shadow: 0 0 0 3px rgba(240, 180, 41, 0.2) !important;
+        }
+    </style>
 <?php endif; ?>
 
 <style>
-.payment-method-card {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 0.75rem;
-    background: var(--bg-tertiary);
-    border: 2px solid transparent;
-    border-radius: 0.75rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.payment-method-card:hover {
-    background: var(--bg-secondary);
-    transform: translateY(-2px);
-}
-
-.payment-method-card input[type="radio"] {
-    position: absolute;
-    opacity: 0;
-}
-
-.payment-method-card input[type="radio"]:checked + .payment-content {
-    border-color: var(--primary-color);
-}
-
-.payment-method-card input[type="radio"]:checked ~ * {
-    color: var(--primary-color);
-}
-
-/* Enhanced checked state for payment method */
-.payment-method-card input[type="radio"]:checked ~ .payment-content {
-    position: relative;
-}
-
-.payment-method-card input[type="radio"]:checked ~ .payment-content::after {
-    content: '✓';
-    position: absolute;
-    top: -8px;
-    right: -8px;
-    width: 20px;
-    height: 20px;
-    background: var(--success);
-    color: white;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
-    font-weight: 700;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-}
-
-.payment-method-card input[type="radio"]:checked {
-    & + .payment-content {
-        background: rgba(99, 102, 241, 0.1);
-        border-radius: 0.5rem;
-        padding: 0.25rem;
+    .payment-method-card {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 0.75rem;
+        background: var(--bg-tertiary);
+        border: 2px solid transparent;
+        border-radius: 0.75rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
     }
-}
 
-.payment-method-card:has(input[type="radio"]:checked) {
-    background: rgba(99, 102, 241, 0.05);
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-}
+    .payment-method-card:hover {
+        background: var(--bg-secondary);
+        transform: translateY(-2px);
+    }
 
-.compact-form-group {
-    margin-bottom: 0.5rem;
-}
+    .payment-method-card input[type="radio"] {
+        position: absolute;
+        opacity: 0;
+    }
 
-.compact-form-group:last-child {
-    margin-bottom: 0;
-}
+    .payment-method-card input[type="radio"]:checked+.payment-content {
+        border-color: var(--primary-color);
+    }
 
-/* Animation for owner fund notification */
-@keyframes slideIn {
-    from { transform: translateX(100%); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
-}
+    .payment-method-card input[type="radio"]:checked~* {
+        color: var(--primary-color);
+    }
 
-.transaction-type-card {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--bg-tertiary);
-    border: 2px solid transparent;
-    border-radius: 0.5rem;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    min-height: 85px;
-}
+    /* Enhanced checked state for payment method */
+    .payment-method-card input[type="radio"]:checked~.payment-content {
+        position: relative;
+    }
 
-.transaction-type-card:hover {
-    background: var(--bg-secondary);
-    transform: translateY(-3px);
-    box-shadow: 0 6px 16px rgba(0,0,0,0.12);
-}
+    .payment-method-card input[type="radio"]:checked~.payment-content::after {
+        content: '✓';
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        width: 20px;
+        height: 20px;
+        background: var(--success);
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: 700;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
 
-.transaction-type-card input[type="radio"] {
-    position: absolute;
-    opacity: 0;
-}
+    .payment-method-card input[type="radio"]:checked {
+        &+.payment-content {
+            background: rgba(99, 102, 241, 0.1);
+            border-radius: 0.5rem;
+            padding: 0.25rem;
+        }
+    }
 
-.transaction-type-card input[type="radio"]:checked ~ div i {
-    transform: scale(1.1);
-}
+    .payment-method-card:has(input[type="radio"]:checked) {
+        background: rgba(99, 102, 241, 0.05);
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
 
-.transaction-type-card:has(input[type="radio"]:checked) {
-    background: rgba(99, 102, 241, 0.08);
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15), 0 8px 20px rgba(0,0,0,0.15);
-    transform: translateY(-2px);
-}
+    .compact-form-group {
+        margin-bottom: 0.5rem;
+    }
 
-/* Green highlight for income */
-.transaction-type-card:has(input[value="income"]:checked) {
-    border-color: #10b981;
-    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15), 0 8px 20px rgba(16, 185, 129, 0.2);
-}
+    .compact-form-group:last-child {
+        margin-bottom: 0;
+    }
 
-/* Red highlight for expense */
-.transaction-type-card:has(input[value="expense"]:checked) {
-    border-color: #ef4444;
-    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15), 0 8px 20px rgba(239, 68, 68, 0.2);
-}
+    /* Animation for owner fund notification */
+    @keyframes slideIn {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+
+    .transaction-type-card {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--bg-tertiary);
+        border: 2px solid transparent;
+        border-radius: 0.5rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        min-height: 85px;
+    }
+
+    .transaction-type-card:hover {
+        background: var(--bg-secondary);
+        transform: translateY(-3px);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+    }
+
+    .transaction-type-card input[type="radio"] {
+        position: absolute;
+        opacity: 0;
+    }
+
+    .transaction-type-card input[type="radio"]:checked~div i {
+        transform: scale(1.1);
+    }
+
+    .transaction-type-card:has(input[type="radio"]:checked) {
+        background: rgba(99, 102, 241, 0.08);
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15), 0 8px 20px rgba(0, 0, 0, 0.15);
+        transform: translateY(-2px);
+    }
+
+    /* Green highlight for income */
+    .transaction-type-card:has(input[value="income"]:checked) {
+        border-color: #10b981;
+        box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15), 0 8px 20px rgba(16, 185, 129, 0.2);
+    }
+
+    /* Red highlight for expense */
+    .transaction-type-card:has(input[value="expense"]:checked) {
+        border-color: #ef4444;
+        box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15), 0 8px 20px rgba(239, 68, 68, 0.2);
+    }
 </style>
 
 <form method="POST" id="transactionForm" onsubmit="return handleFormSubmit(event)">
@@ -859,7 +916,7 @@ include '../../includes/header.php';
                 </h3>
             </div>
         </div>
-        
+
         <div style="padding: 0.875rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.625rem 0.875rem;">
             <!-- Transaction Type - FIRST (Full Width) -->
             <div style="grid-column: span 2; margin-bottom: 0.5rem;">
@@ -875,7 +932,7 @@ include '../../includes/header.php';
                             </div>
                         </div>
                     </label>
-                    
+
                     <label class="transaction-type-card" style="padding: 0.75rem; flex: 1; min-width: 140px; max-width: 180px;">
                         <input type="radio" name="transaction_type" value="expense" required checked>
                         <div style="display: flex; flex-direction: column; align-items: center; gap: 0.3rem; text-align: center;">
@@ -886,36 +943,36 @@ include '../../includes/header.php';
                             </div>
                         </div>
                     </label>
-                    
+
                     <?php if (!$isCQC): ?>
-                    <!-- Special Button: Input dari Bu Sita (Owner Fund) -->
-                    <button type="button" id="btnOwnerFund" onclick="fillOwnerFund()" style="padding: 0.75rem; flex: 1; min-width: 140px; max-width: 180px; background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e; border: 2px solid #f59e0b; border-radius: 12px; font-size: 0.875rem; font-weight: 700; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.3rem; box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2); transition: all 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(245, 158, 11, 0.35)'; this.style.borderColor='#d97706'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(245, 158, 11, 0.2)'; this.style.borderColor='#f59e0b'">
-                        <span style="font-size: 1.25rem;">💰</span>
-                        <div style="font-weight: 700; font-size: 0.813rem;">INPUT DARI BU SITA</div>
-                        <div style="font-size: 0.7rem; color: #b45309;">Modal Pemilik</div>
-                    </button>
-                    
-                    <!-- Special Button: Setor Tunai ke Rekening Operasional -->
-                    <button type="button" id="btnSetorTunai" onclick="showSetorTunaiModal()" style="padding: 0.75rem; flex: 1; min-width: 140px; max-width: 180px; background: linear-gradient(135deg, #dbeafe, #bfdbfe); color: #0c4a6e; border: 2px solid #0284c7; border-radius: 12px; font-size: 0.875rem; font-weight: 700; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.3rem; box-shadow: 0 2px 8px rgba(2, 132, 199, 0.2); transition: all 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(2, 132, 199, 0.35)'; this.style.borderColor='#0369a1'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(2, 132, 199, 0.2)'; this.style.borderColor='#0284c7'">
-                        <span style="font-size: 1.25rem;">🏦</span>
-                        <div style="font-weight: 700; font-size: 0.813rem;">SETOR TUNAI</div>
-                        <div style="font-size: 0.7rem; color: #0c4a6e;">Ke Rekening Bank</div>
-                    </button>
+                        <!-- Special Button: Input dari Bu Sita (Owner Fund) -->
+                        <button type="button" id="btnOwnerFund" onclick="fillOwnerFund()" style="padding: 0.75rem; flex: 1; min-width: 140px; max-width: 180px; background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e; border: 2px solid #f59e0b; border-radius: 12px; font-size: 0.875rem; font-weight: 700; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.3rem; box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2); transition: all 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(245, 158, 11, 0.35)'; this.style.borderColor='#d97706'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(245, 158, 11, 0.2)'; this.style.borderColor='#f59e0b'">
+                            <span style="font-size: 1.25rem;">💰</span>
+                            <div style="font-weight: 700; font-size: 0.813rem;">INPUT DARI BU SITA</div>
+                            <div style="font-size: 0.7rem; color: #b45309;">Modal Pemilik</div>
+                        </button>
+
+                        <!-- Special Button: Setor Tunai ke Rekening Operasional -->
+                        <button type="button" id="btnSetorTunai" onclick="showSetorTunaiModal()" style="padding: 0.75rem; flex: 1; min-width: 140px; max-width: 180px; background: linear-gradient(135deg, #dbeafe, #bfdbfe); color: #0c4a6e; border: 2px solid #0284c7; border-radius: 12px; font-size: 0.875rem; font-weight: 700; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.3rem; box-shadow: 0 2px 8px rgba(2, 132, 199, 0.2); transition: all 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(2, 132, 199, 0.35)'; this.style.borderColor='#0369a1'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(2, 132, 199, 0.2)'; this.style.borderColor='#0284c7'">
+                            <span style="font-size: 1.25rem;">🏦</span>
+                            <div style="font-weight: 700; font-size: 0.813rem;">SETOR TUNAI</div>
+                            <div style="font-size: 0.7rem; color: #0c4a6e;">Ke Rekening Bank</div>
+                        </button>
                     <?php else: ?>
-                    <!-- CQC: Transfer to Petty Cash Button -->
-                    <label class="transaction-type-card" id="btnTransferPettyCash" onclick="fillTransferPettyCash()" style="padding: 0.75rem; flex: 1; min-width: 140px; max-width: 180px; cursor: pointer;">
-                        <div style="display: flex; flex-direction: column; align-items: center; gap: 0.3rem; text-align: center;">
-                            <span style="font-size: 1.25rem;">💸</span>
-                            <div>
-                                <div style="font-weight: 700; font-size: 0.813rem; color: var(--text-primary);">TRANSFER PETTY CASH</div>
-                                <div style="font-size: 0.7rem; color: var(--text-muted);">Office & Proyek</div>
+                        <!-- CQC: Transfer to Petty Cash Button -->
+                        <label class="transaction-type-card" id="btnTransferPettyCash" onclick="fillTransferPettyCash()" style="padding: 0.75rem; flex: 1; min-width: 140px; max-width: 180px; cursor: pointer;">
+                            <div style="display: flex; flex-direction: column; align-items: center; gap: 0.3rem; text-align: center;">
+                                <span style="font-size: 1.25rem;">💸</span>
+                                <div>
+                                    <div style="font-weight: 700; font-size: 0.813rem; color: var(--text-primary);">TRANSFER PETTY CASH</div>
+                                    <div style="font-size: 0.7rem; color: var(--text-muted);">Office & Proyek</div>
+                                </div>
                             </div>
-                        </div>
-                    </label>
+                        </label>
                     <?php endif; ?>
                 </div>
             </div>
-            
+
             <!-- Column 1 -->
             <div>
                 <!-- Date & Time -->
@@ -923,126 +980,126 @@ include '../../includes/header.php';
                     <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem;">Tanggal <span style="color: var(--danger);">*</span></label>
                     <input type="date" name="transaction_date" class="form-control" style="height: 34px; font-size: 0.813rem;" value="<?php echo date('Y-m-d'); ?>" required>
                 </div>
-                
+
                 <div class="compact-form-group">
                     <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem;">Waktu</label>
                     <input type="time" name="transaction_time" class="form-control" style="height: 34px; font-size: 0.813rem;" value="<?php echo date('H:i'); ?>">
                 </div>
-                
+
                 <?php if ($isCQC): ?>
-                <!-- CQC: Project Selection -->
-                <div class="compact-form-group">
-                    <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem; color: #0d1f3c;">☀️ Proyek <span style="color: var(--danger);">*</span></label>
-                    <select name="cqc_project_id" id="cqc_project_id" class="form-control cqc-select-project" style="height: 38px; font-size: 0.813rem;" required onchange="updateCQCProjectInfo(this)">
-                        <option value="">-- Pilih Proyek --</option>
-                        <option value="operational" data-budget="0" data-spent="0" data-remaining="0" data-client="Office" style="background: #f0f9ff; font-weight: 600;">💼 Operasional Office & Proyek</option>
-                        <?php foreach ($cqcProjects as $proj): 
-                            $statusLabels = ['planning'=>'📋 Planning','procurement'=>'🛒 Procurement','installation'=>'⚡ Instalasi','testing'=>'🔧 Testing','completed'=>'✅ Selesai','on_hold'=>'⏸️ Ditunda'];
-                            $statusLabel = $statusLabels[$proj['status']] ?? ucfirst($proj['status']);
-                            $remaining = floatval($proj['budget_idr']) - floatval($proj['spent_idr'] ?? 0);
-                        ?>
-                            <option value="<?php echo $proj['id']; ?>" 
-                                    data-budget="<?php echo $proj['budget_idr']; ?>" 
+                    <!-- CQC: Project Selection -->
+                    <div class="compact-form-group">
+                        <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem; color: #0d1f3c;">☀️ Proyek <span style="color: var(--danger);">*</span></label>
+                        <select name="cqc_project_id" id="cqc_project_id" class="form-control cqc-select-project" style="height: 38px; font-size: 0.813rem;" required onchange="updateCQCProjectInfo(this)">
+                            <option value="">-- Pilih Proyek --</option>
+                            <option value="operational" data-budget="0" data-spent="0" data-remaining="0" data-client="Office" style="background: #f0f9ff; font-weight: 600;">💼 Operasional Office & Proyek</option>
+                            <?php foreach ($cqcProjects as $proj):
+                                $statusLabels = ['planning' => '📋 Planning', 'procurement' => '🛒 Procurement', 'installation' => '⚡ Instalasi', 'testing' => '🔧 Testing', 'completed' => '✅ Selesai', 'on_hold' => '⏸️ Ditunda'];
+                                $statusLabel = $statusLabels[$proj['status']] ?? ucfirst($proj['status']);
+                                $remaining = floatval($proj['budget_idr']) - floatval($proj['spent_idr'] ?? 0);
+                            ?>
+                                <option value="<?php echo $proj['id']; ?>"
+                                    data-budget="<?php echo $proj['budget_idr']; ?>"
                                     data-spent="<?php echo $proj['spent_idr'] ?? 0; ?>"
                                     data-remaining="<?php echo $remaining; ?>"
                                     data-client="<?php echo htmlspecialchars($proj['client_name'] ?? ''); ?>">
-                                <?php echo htmlspecialchars($proj['project_code'] . ' - ' . $proj['project_name']); ?> [<?php echo $statusLabel; ?>]
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                    <div id="cqcProjectInfo" style="display: none; margin-top: 0.4rem; padding: 0.5rem 0.75rem; background: linear-gradient(135deg, rgba(13,31,60,0.05), rgba(240,180,41,0.08)); border-radius: 8px; border-left: 3px solid #f0b429;">
-                        <div style="display: flex; gap: 1rem; font-size: 0.7rem;">
-                            <span>💰 Budget: <strong id="cqcBudgetDisplay">-</strong></span>
-                            <span>📤 Terpakai: <strong id="cqcSpentDisplay" style="color: #ef4444;">-</strong></span>
-                            <span>💵 Sisa: <strong id="cqcRemainingDisplay" style="color: #10b981;">-</strong></span>
-                        </div>
-                    </div>
-                    <!-- Hidden division_id for cashbook compatibility -->
-                    <input type="hidden" name="division_id" value="<?php echo !empty($divisions) ? $divisions[0]['id'] : 1; ?>">
-                </div>
-                
-                <!-- CQC: Expense Category -->
-                <div class="compact-form-group" id="cqcExpenseSection">
-                    <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem; color: #0d1f3c;">📦 Kategori Biaya <span style="color: var(--danger);">*</span></label>
-                    <select name="cqc_category_id" id="cqc_category_id" class="form-control" style="height: 34px; font-size: 0.813rem;" onchange="document.querySelector('[name=category_name]').value = this.options[this.selectedIndex].text">
-                        <option value="">-- Pilih Kategori --</option>
-                        <?php foreach ($cqcCategories as $cat): ?>
-                            <option value="<?php echo $cat['id']; ?>">
-                                <?php echo $cat['category_icon'] . ' ' . htmlspecialchars($cat['category_name']); ?>
-                            </option>
-                        <?php endforeach; ?>
-                        <option value="custom">✏️ Tulis Manual</option>
-                    </select>
-                    <input type="text" name="category_name" class="form-control" style="height: 34px; font-size: 0.813rem; margin-top: 0.3rem;" placeholder="Nama item / deskripsi biaya" required>
-                </div>
-                <!-- CQC: Income Type -->
-                <div class="compact-form-group" id="cqcIncomeSection" style="display: none;">
-                    <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem; color: #0d1f3c;">💰 Jenis Uang Masuk <span style="color: var(--danger);">*</span></label>
-                    <select name="cqc_income_type" id="cqc_income_type" class="form-control" style="height: 34px; font-size: 0.813rem;" onchange="updateCQCIncomeCategory(this)">
-                        <option value="">-- Pilih Jenis --</option>
-                        <option value="topup_owner" style="background: #fef3c7; font-weight: 600;">� Operasional Office & Proyek</option>
-                        <option value="dp">💵 DP Masuk (Invoice)</option>
-                        <option value="termin">📄 Pembayaran Termin (Invoice)</option>
-                        <option value="pelunasan">✅ Pelunasan (Invoice)</option>
-                        <option value="retensi">🔒 Retensi / Garansi</option>
-                        <option value="manual">✏️ Tulis Manual</option>
-                    </select>
-                    <input type="text" name="cqc_income_desc" id="cqc_income_desc" class="form-control" style="height: 34px; font-size: 0.813rem; margin-top: 0.3rem;" placeholder="Keterangan" readonly>
-                    <div id="cqcIncomeNote" style="display: none; margin-top: 0.3rem; padding: 6px 10px; border-radius: 6px; font-size: 0.7rem;"></div>
-                </div>
-                <?php else: ?>
-                <!-- Division -->
-                <div class="compact-form-group">
-                    <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem;">Divisi <span style="color: var(--danger);">*</span></label>
-                    <select name="division_id" id="division_id" class="form-control" style="height: 34px; font-size: 0.813rem;" required>
-                        <option value="">-- Pilih Divisi --</option>
-                        <?php foreach ($divisions as $div): ?>
-                            <option value="<?php echo $div['id']; ?>"><?php echo $div['division_name']; ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                
-                <!-- Category -->
-                <div class="compact-form-group">
-                    <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem;">Kategori/Nama <span style="color: var(--danger);">*</span></label>
-                    <input type="text" name="category_name" class="form-control" style="height: 34px; font-size: 0.813rem;" placeholder="Nama kategori atau nama item" required>
-                </div>
-                
-                <?php if ($isHotel): ?>
-                <!-- Project Expense Toggle -->
-                <div class="compact-form-group" id="projectExpenseGroup">
-                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.5rem 0.75rem; background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); border-radius: 8px; transition: all 0.2s;" id="projectToggleLabel">
-                        <input type="checkbox" id="isProjectExpense" name="is_project_expense" value="1" onchange="toggleProjectExpense()" style="width: 16px; height: 16px; accent-color: #f59e0b;">
-                        <span style="font-size: 0.813rem; font-weight: 600; color: #92400e;">🏗️ Pengeluaran Proyek (bukan beban hotel)</span>
-                    </label>
-                    <div id="projectSelectWrapper" style="display: none; margin-top: 0.5rem;">
-                        <label class="form-label" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 0.25rem; color: #92400e;">Pilih Proyek <span style="color: var(--danger);">*</span></label>
-                        <select name="project_id" id="projectSelect" class="form-control" style="height: 36px; font-size: 0.813rem; border-color: #f59e0b;">
-                            <option value="">-- Pilih Proyek --</option>
-                            <?php foreach ($investorProjects as $proj): ?>
-                            <option value="<?php echo $proj['id']; ?>">
-                                <?php echo htmlspecialchars(($proj['project_code'] ? $proj['project_code'] . ' - ' : '') . $proj['project_name']); ?>
-                                <?php echo ' [' . ucfirst($proj['status']) . ']'; ?>
-                            </option>
+                                    <?php echo htmlspecialchars($proj['project_code'] . ' - ' . $proj['project_name']); ?> [<?php echo $statusLabel; ?>]
+                                </option>
                             <?php endforeach; ?>
                         </select>
-                        <?php if (empty($investorProjects)): ?>
-                        <div style="font-size: 0.72rem; color: #dc2626; margin-top: 0.25rem;">⚠️ Belum ada proyek. Buat dulu di menu <a href="<?php echo BASE_URL; ?>/modules/investor/index.php" style="color: #4f46e5; font-weight: 600;">Investor & Proyek</a></div>
-                        <?php endif; ?>
+                        <div id="cqcProjectInfo" style="display: none; margin-top: 0.4rem; padding: 0.5rem 0.75rem; background: linear-gradient(135deg, rgba(13,31,60,0.05), rgba(240,180,41,0.08)); border-radius: 8px; border-left: 3px solid #f0b429;">
+                            <div style="display: flex; gap: 1rem; font-size: 0.7rem;">
+                                <span>💰 Budget: <strong id="cqcBudgetDisplay">-</strong></span>
+                                <span>📤 Terpakai: <strong id="cqcSpentDisplay" style="color: #ef4444;">-</strong></span>
+                                <span>💵 Sisa: <strong id="cqcRemainingDisplay" style="color: #10b981;">-</strong></span>
+                            </div>
+                        </div>
+                        <!-- Hidden division_id for cashbook compatibility -->
+                        <input type="hidden" name="division_id" value="<?php echo !empty($divisions) ? $divisions[0]['id'] : 1; ?>">
                     </div>
-                    <div id="projectExpenseNote" style="display: none; font-size: 0.72rem; color: #f59e0b; margin-top: 0.25rem;">⚠️ Transaksi ini tidak masuk laporan P&L hotel, tapi tercatat di menu Investor & Proyek</div>
-                    <input type="hidden" name="source_type" id="sourceTypeHidden" value="">
-                </div>
+
+                    <!-- CQC: Expense Category -->
+                    <div class="compact-form-group" id="cqcExpenseSection">
+                        <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem; color: #0d1f3c;">📦 Kategori Biaya <span style="color: var(--danger);">*</span></label>
+                        <select name="cqc_category_id" id="cqc_category_id" class="form-control" style="height: 34px; font-size: 0.813rem;" onchange="document.querySelector('[name=category_name]').value = this.options[this.selectedIndex].text">
+                            <option value="">-- Pilih Kategori --</option>
+                            <?php foreach ($cqcCategories as $cat): ?>
+                                <option value="<?php echo $cat['id']; ?>">
+                                    <?php echo $cat['category_icon'] . ' ' . htmlspecialchars($cat['category_name']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                            <option value="custom">✏️ Tulis Manual</option>
+                        </select>
+                        <input type="text" name="category_name" class="form-control" style="height: 34px; font-size: 0.813rem; margin-top: 0.3rem;" placeholder="Nama item / deskripsi biaya" required>
+                    </div>
+                    <!-- CQC: Income Type -->
+                    <div class="compact-form-group" id="cqcIncomeSection" style="display: none;">
+                        <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem; color: #0d1f3c;">💰 Jenis Uang Masuk <span style="color: var(--danger);">*</span></label>
+                        <select name="cqc_income_type" id="cqc_income_type" class="form-control" style="height: 34px; font-size: 0.813rem;" onchange="updateCQCIncomeCategory(this)">
+                            <option value="">-- Pilih Jenis --</option>
+                            <option value="topup_owner" style="background: #fef3c7; font-weight: 600;">� Operasional Office & Proyek</option>
+                            <option value="dp">💵 DP Masuk (Invoice)</option>
+                            <option value="termin">📄 Pembayaran Termin (Invoice)</option>
+                            <option value="pelunasan">✅ Pelunasan (Invoice)</option>
+                            <option value="retensi">🔒 Retensi / Garansi</option>
+                            <option value="manual">✏️ Tulis Manual</option>
+                        </select>
+                        <input type="text" name="cqc_income_desc" id="cqc_income_desc" class="form-control" style="height: 34px; font-size: 0.813rem; margin-top: 0.3rem;" placeholder="Keterangan" readonly>
+                        <div id="cqcIncomeNote" style="display: none; margin-top: 0.3rem; padding: 6px 10px; border-radius: 6px; font-size: 0.7rem;"></div>
+                    </div>
+                <?php else: ?>
+                    <!-- Division -->
+                    <div class="compact-form-group">
+                        <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem;">Divisi <span style="color: var(--danger);">*</span></label>
+                        <select name="division_id" id="division_id" class="form-control" style="height: 34px; font-size: 0.813rem;" required>
+                            <option value="">-- Pilih Divisi --</option>
+                            <?php foreach ($divisions as $div): ?>
+                                <option value="<?php echo $div['id']; ?>"><?php echo $div['division_name']; ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <!-- Category -->
+                    <div class="compact-form-group">
+                        <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem;">Kategori/Nama <span style="color: var(--danger);">*</span></label>
+                        <input type="text" name="category_name" class="form-control" style="height: 34px; font-size: 0.813rem;" placeholder="Nama kategori atau nama item" required>
+                    </div>
+
+                    <?php if ($isHotel): ?>
+                        <!-- Project Expense Toggle -->
+                        <div class="compact-form-group" id="projectExpenseGroup">
+                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.5rem 0.75rem; background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); border-radius: 8px; transition: all 0.2s;" id="projectToggleLabel">
+                                <input type="checkbox" id="isProjectExpense" name="is_project_expense" value="1" onchange="toggleProjectExpense()" style="width: 16px; height: 16px; accent-color: #f59e0b;">
+                                <span style="font-size: 0.813rem; font-weight: 600; color: #92400e;">🏗️ Pengeluaran Proyek (bukan beban hotel)</span>
+                            </label>
+                            <div id="projectSelectWrapper" style="display: none; margin-top: 0.5rem;">
+                                <label class="form-label" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 0.25rem; color: #92400e;">Pilih Proyek <span style="color: var(--danger);">*</span></label>
+                                <select name="project_id" id="projectSelect" class="form-control" style="height: 36px; font-size: 0.813rem; border-color: #f59e0b;">
+                                    <option value="">-- Pilih Proyek --</option>
+                                    <?php foreach ($investorProjects as $proj): ?>
+                                        <option value="<?php echo $proj['id']; ?>">
+                                            <?php echo htmlspecialchars(($proj['project_code'] ? $proj['project_code'] . ' - ' : '') . $proj['project_name']); ?>
+                                            <?php echo ' [' . ucfirst($proj['status']) . ']'; ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <?php if (empty($investorProjects)): ?>
+                                    <div style="font-size: 0.72rem; color: #dc2626; margin-top: 0.25rem;">⚠️ Belum ada proyek. Buat dulu di menu <a href="<?php echo BASE_URL; ?>/modules/investor/index.php" style="color: #4f46e5; font-weight: 600;">Investor & Proyek</a></div>
+                                <?php endif; ?>
+                            </div>
+                            <div id="projectExpenseNote" style="display: none; font-size: 0.72rem; color: #f59e0b; margin-top: 0.25rem;">⚠️ Transaksi ini tidak masuk laporan P&L hotel, tapi tercatat di menu Investor & Proyek</div>
+                            <input type="hidden" name="source_type" id="sourceTypeHidden" value="">
+                        </div>
+                    <?php endif; ?>
                 <?php endif; ?>
-                <?php endif; ?>
-                
+
                 <!-- Amount -->
                 <div class="compact-form-group">
                     <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem;">Jumlah <span style="color: var(--danger);">*</span></label>
                     <input type="text" name="amount" class="form-control amount-input" style="height: 36px; font-size: 0.938rem; font-weight: 600;" placeholder="0" required>
                 </div>
             </div>
-            
+
             <!-- Column 2 -->
             <div>
                 <!-- Cash Account Selection -->
@@ -1058,9 +1115,9 @@ include '../../includes/header.php';
                         <?php if (empty($cashAccounts)): ?>
                             <option value="" disabled style="color: #dc2626;">⚠️ Tidak ada akun kas tersedia. Hubungi admin!</option>
                         <?php else: ?>
-                            <?php 
-                            $accTypeIcons = ['cash'=>'💵','bank'=>'🏦','e-wallet'=>'📱','credit_card'=>'💳'];
-                            foreach ($cashAccounts as $acc): 
+                            <?php
+                            $accTypeIcons = ['cash' => '💵', 'bank' => '🏦', 'e-wallet' => '📱', 'credit_card' => '💳'];
+                            foreach ($cashAccounts as $acc):
                                 $icon = $accTypeIcons[$acc['account_type']] ?? '💰';
                             ?>
                                 <option value="<?php echo htmlspecialchars($acc['id']); ?>">
@@ -1079,7 +1136,7 @@ include '../../includes/header.php';
                         </div>
                     <?php endif; ?>
                 </div>
-                
+
                 <!-- Payment Method -->
                 <div class="compact-form-group">
                     <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem;">Metode Pembayaran <span style="color: var(--danger);">*</span></label>
@@ -1091,7 +1148,7 @@ include '../../includes/header.php';
                                 <div style="font-weight: 600; font-size: 0.75rem; color: var(--text-primary);">Cash</div>
                             </div>
                         </label>
-                        
+
                         <label class="payment-method-card" style="padding: 0.5rem;">
                             <input type="radio" name="payment_method" value="debit" required>
                             <div class="payment-content" style="text-align: center; position: relative;">
@@ -1099,7 +1156,7 @@ include '../../includes/header.php';
                                 <div style="font-weight: 600; font-size: 0.75rem; color: var(--text-primary);">Debit</div>
                             </div>
                         </label>
-                        
+
                         <label class="payment-method-card" style="padding: 0.5rem;">
                             <input type="radio" name="payment_method" value="transfer" required>
                             <div class="payment-content" style="text-align: center; position: relative;">
@@ -1107,7 +1164,7 @@ include '../../includes/header.php';
                                 <div style="font-weight: 600; font-size: 0.75rem; color: var(--text-primary);">Transfer</div>
                             </div>
                         </label>
-                        
+
                         <label class="payment-method-card" style="padding: 0.5rem;">
                             <input type="radio" name="payment_method" value="qr" required>
                             <div class="payment-content" style="text-align: center; position: relative;">
@@ -1115,7 +1172,7 @@ include '../../includes/header.php';
                                 <div style="font-weight: 600; font-size: 0.75rem; color: var(--text-primary);">QR Code</div>
                             </div>
                         </label>
-                        
+
                         <label class="payment-method-card" style="padding: 0.5rem;">
                             <input type="radio" name="payment_method" value="edc" required>
                             <div class="payment-content" style="text-align: center; position: relative;">
@@ -1123,7 +1180,7 @@ include '../../includes/header.php';
                                 <div style="font-weight: 600; font-size: 0.75rem; color: var(--text-primary);">EDC</div>
                             </div>
                         </label>
-                        
+
                         <label class="payment-method-card" style="padding: 0.5rem;">
                             <input type="radio" name="payment_method" value="ota" required id="payment_ota">
                             <div class="payment-content" style="text-align: center; position: relative;">
@@ -1131,7 +1188,7 @@ include '../../includes/header.php';
                                 <div style="font-weight: 600; font-size: 0.75rem; color: var(--text-primary);">OTA</div>
                             </div>
                         </label>
-                        
+
                         <label class="payment-method-card" style="padding: 0.5rem;">
                             <input type="radio" name="payment_method" value="other" required>
                             <div class="payment-content" style="text-align: center; position: relative;">
@@ -1140,7 +1197,7 @@ include '../../includes/header.php';
                             </div>
                         </label>
                     </div>
-                    
+
                     <!-- OTA Source Selection -->
                     <div id="ota_source_section" style="display: none; margin-top: 0.5rem;">
                         <label class="form-label" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 0.25rem; color: #06b6d4;">
@@ -1159,7 +1216,7 @@ include '../../includes/header.php';
                         </select>
                     </div>
                 </div>
-                
+
                 <!-- Description -->
                 <div class="compact-form-group">
                     <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem;">Keterangan</label>
@@ -1168,7 +1225,7 @@ include '../../includes/header.php';
             </div>
         </div>
     </div>
-    
+
     <!-- Form Actions Container -->
     <div class="card" style="max-width: 920px; margin: 0 auto; padding: 0.875rem 1.125rem; background: var(--bg-secondary); display: flex; justify-content: flex-end; gap: 0.75rem;">
         <a href="index.php" class="btn btn-secondary" style="padding: 0.625rem 1.125rem; font-size: 0.875rem;">
@@ -1178,30 +1235,30 @@ include '../../includes/header.php';
             <i data-feather="save" style="width: 15px; height: 15px;"></i> Simpan Transaksi
         </button>
     </div>
-    
+
     <!-- Modal: Setor Tunai -->
     <div id="setorTunaiModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); z-index: 9999; align-items: center; justify-content: center;">
         <div style="background: white; border-radius: 12px; padding: 2rem; max-width: 450px; width: 90%; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); animation: slideUp 0.3s ease;">
             <h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 1.5rem; color: #0c4a6e; display: flex; align-items: center; gap: 0.5rem;">
                 <span>🏦</span> Setor Tunai ke Rekening Bank
             </h2>
-            
+
             <form id="setorTunaiForm" onsubmit="submitSetorTunai(event)" style="display: flex; flex-direction: column; gap: 1.25rem;">
                 <!-- Pilih Rekening Kas (Sumber) -->
                 <div>
                     <label style="display: block; font-weight: 600; margin-bottom: 0.4rem; color: #334155; font-size: 0.875rem;">Kas / Rekening Sumber <span style="color: #dc2626;">*</span></label>
                     <select name="setor_cash_account" id="setorCashAccount" required style="width: 100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem;">
                         <option value="">-- Pilih Rekening Kas --</option>
-                        <?php 
+                        <?php
                         try {
                             $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
                             $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
                             $bizId = getMasterBusinessId();
-                            
+
                             $stmt = $masterDb->prepare("SELECT id, account_name FROM cash_accounts WHERE business_id = ? AND account_type = 'cash' AND is_active = 1 ORDER BY account_name");
                             $stmt->execute([$bizId]);
                             $cashAccounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                            
+
                             foreach ($cashAccounts as $acc) {
                                 echo '<option value="' . htmlspecialchars($acc['id']) . '">💵 ' . htmlspecialchars($acc['account_name']) . '</option>';
                             }
@@ -1211,7 +1268,7 @@ include '../../includes/header.php';
                         ?>
                     </select>
                 </div>
-                
+
                 <!-- Pilih Rekening Bank (Tujuan) -->
                 <div>
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
@@ -1220,16 +1277,16 @@ include '../../includes/header.php';
                     </div>
                     <select name="setor_bank_account" id="setorBankAccount" required style="width: 100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem;">
                         <option value="">-- Pilih Rekening Bank --</option>
-                        <?php 
+                        <?php
                         try {
                             $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
                             $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
                             $bizId = getMasterBusinessId();
-                            
+
                             $stmt = $masterDb->prepare("SELECT id, account_name FROM cash_accounts WHERE business_id = ? AND account_type = 'bank' AND is_active = 1 ORDER BY account_name");
                             $stmt->execute([$bizId]);
                             $bankAccounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                            
+
                             foreach ($bankAccounts as $acc) {
                                 echo '<option value="' . htmlspecialchars($acc['id']) . '">🏛️ ' . htmlspecialchars($acc['account_name']) . '</option>';
                             }
@@ -1239,19 +1296,19 @@ include '../../includes/header.php';
                         ?>
                     </select>
                 </div>
-                
+
                 <!-- Input Nominal -->
                 <div>
                     <label style="display: block; font-weight: 600; margin-bottom: 0.4rem; color: #334155; font-size: 0.875rem;">Nominal Setor <span style="color: #dc2626;">*</span></label>
                     <input type="number" name="setor_amount" id="setorAmount" required min="1000" placeholder="Contoh: 500000" style="width: 100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem; font-family: 'Courier New', monospace;">
                 </div>
-                
+
                 <!-- Keterangan (Optional) -->
                 <div>
                     <label style="display: block; font-weight: 600; margin-bottom: 0.4rem; color: #334155; font-size: 0.875rem;">Keterangan <span style="color: #94a3b8;">(Opsional)</span></label>
                     <input type="text" name="setor_notes" id="setorNotes" placeholder="Contoh: Setor harian" style="width: 100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem;">
                 </div>
-                
+
                 <!-- Tombol Aksi -->
                 <div style="display: flex; gap: 0.75rem; margin-top: 1rem;">
                     <button type="button" onclick="closeSetorTunaiModal()" class="btn btn-secondary" style="flex: 1; padding: 0.65rem; border-radius: 8px; font-weight: 600; cursor: pointer;">
@@ -1267,11 +1324,11 @@ include '../../includes/header.php';
 </form>
 
 <script>
-feather.replace();
+    feather.replace();
 
-// Modal slideUp animation
-const style = document.createElement('style');
-style.textContent = `
+    // Modal slideUp animation
+    const style = document.createElement('style');
+    style.textContent = `
     @keyframes slideUp {
         from {
             opacity: 0;
@@ -1286,249 +1343,296 @@ style.textContent = `
         display: flex;
     }
 `;
-document.head.appendChild(style);
+    document.head.appendChild(style);
 
-// OTA Payment Method Handler
-(function() {
-    const paymentRadios = document.querySelectorAll('input[name="payment_method"]');
-    const otaSection = document.getElementById('ota_source_section');
-    const otaSelect = document.getElementById('ota_source');
-    const paymentOta = document.getElementById('payment_ota');
-    
-    // Show/hide OTA dropdown based on selection
-    paymentRadios.forEach(radio => {
-        radio.addEventListener('change', function() {
-            if (this.value === 'ota') {
-                otaSection.style.display = 'block';
-                otaSelect.required = true;
-                setTimeout(() => feather.replace(), 10);
+    // OTA Payment Method Handler
+    (function() {
+        const paymentRadios = document.querySelectorAll('input[name="payment_method"]');
+        const otaSection = document.getElementById('ota_source_section');
+        const otaSelect = document.getElementById('ota_source');
+        const paymentOta = document.getElementById('payment_ota');
+
+        // Show/hide OTA dropdown based on selection
+        paymentRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                if (this.value === 'ota') {
+                    otaSection.style.display = 'block';
+                    otaSelect.required = true;
+                    setTimeout(() => feather.replace(), 10);
+                } else {
+                    otaSection.style.display = 'none';
+                    otaSelect.required = false;
+                    otaSelect.value = '';
+                }
+            });
+        });
+
+        // Update payment_method value when OTA source changes
+        if (otaSelect) {
+            otaSelect.addEventListener('change', function() {
+                if (this.value && paymentOta) {
+                    paymentOta.value = this.value;
+                }
+            });
+        }
+    })();
+
+    <?php if (!$isCQC): ?>
+        // Show/hide project expense toggle based on transaction type (only visible for expense)
+        document.querySelectorAll('input[name="transaction_type"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                const projectGroup = document.getElementById('projectExpenseGroup');
+                const checkbox = document.getElementById('isProjectExpense');
+                if (projectGroup) {
+                    if (this.value === 'expense') {
+                        projectGroup.style.display = 'block';
+                    } else {
+                        projectGroup.style.display = 'none';
+                        // Uncheck and reset when switching to income
+                        if (checkbox && checkbox.checked) {
+                            checkbox.checked = false;
+                            toggleProjectExpense();
+                        }
+                    }
+                }
+            });
+        });
+
+        // ========================================
+        // SETOR TUNAI MODAL FUNCTIONS
+        // ========================================
+        window.showSetorTunaiModal = function() {
+            console.log('showSetorTunaiModal called');
+            const modal = document.getElementById('setorTunaiModal');
+            console.log('Modal element:', modal);
+            if (modal) {
+                modal.classList.add('show');
+                // Focus on nominal input
+                setTimeout(() => {
+                    const amountField = document.getElementById('setorAmount');
+                    if (amountField) amountField.focus();
+                }, 100);
             } else {
-                otaSection.style.display = 'none';
-                otaSelect.required = false;
-                otaSelect.value = '';
+                console.error('setorTunaiModal element not found!');
+            }
+        };
+
+        window.closeSetorTunaiModal = function() {
+            console.log('closeSetorTunaiModal called');
+            const modal = document.getElementById('setorTunaiModal');
+            if (modal) {
+                modal.classList.remove('show');
+                // Reset form
+                const form = document.getElementById('setorTunaiForm');
+                if (form) form.reset();
+            }
+        };
+
+        window.openAddBankAccountModal = function(e) {
+            e.preventDefault();
+            alert('⚙️ Fitur "Tambah Rekening Bank" akan diarahkan ke halaman setup rekening.\n\nUntuk saat ini, silakan tambah rekening melalui menu: Admin > Setup Rekening Bank');
+            // In future: window.open('setup-bank-accounts.php', 'bankSetup', 'width=600,height=400');
+        };
+
+        // Close modal when clicking outside - ensure DOM is ready
+        function initSetorTunaiModal() {
+            const modal = document.getElementById('setorTunaiModal');
+            if (modal) {
+                modal.addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        window.closeSetorTunaiModal();
+                    }
+                });
+                console.log('Setor Tunai modal initialized successfully');
+            } else {
+                console.warn('setorTunaiModal element not found during init');
+            }
+        }
+
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initSetorTunaiModal);
+        } else {
+            initSetorTunaiModal();
+        }
+
+        window.submitSetorTunai = function(event) {
+            event.preventDefault();
+            console.log('submitSetorTunai called');
+
+            const form = document.getElementById('setorTunaiForm');
+            if (!form) {
+                console.error('setorTunaiForm not found');
+                alert('❌ Form tidak ditemukan!');
+                return;
+            }
+
+            const cashAccountId = form.setor_cash_account?.value;
+            const bankAccountId = form.setor_bank_account?.value;
+            const amount = form.setor_amount?.value;
+            const notes = form.setor_notes?.value || '';
+
+            console.log('Form values:', {
+                cashAccountId,
+                bankAccountId,
+                amount
+            });
+
+            if (!cashAccountId || !bankAccountId || !amount) {
+                alert('❌ Silakan isi semua field yang wajib diisi!');
+                return;
+            }
+
+            if (parseFloat(amount) < 1000) {
+                alert('❌ Nominal minimal Rp 1.000,-');
+                return;
+            }
+
+            // Get the main form
+            const mainForm = document.querySelector('form');
+            if (!mainForm) {
+                console.error('Main form not found');
+                alert('❌ Form utama tidak ditemukan!');
+                return;
+            }
+
+            // Create/update hidden fields for source_type and accounts
+            const ensureHiddenField = (name, value) => {
+                let field = mainForm.querySelector(`input[name="${name}"]`);
+                if (!field) {
+                    field = document.createElement('input');
+                    field.type = 'hidden';
+                    field.name = name;
+                    mainForm.appendChild(field);
+                }
+                field.value = value;
+            };
+
+            ensureHiddenField('source_type', 'cash_transfer');
+            ensureHiddenField('cash_account_id', cashAccountId);
+            ensureHiddenField('bank_account_id', bankAccountId);
+            ensureHiddenField('amount', amount);
+            ensureHiddenField('transaction_type', 'income');
+
+            // Set date/time
+            mainForm.transaction_date.value = '<?php echo date("Y-m-d"); ?>';
+            mainForm.transaction_time.value = '<?php echo date("H:i"); ?>';
+
+            // Set description
+            mainForm.description.value = notes || 'Setor tunai dari kas cabang ke rekening operasional';
+
+            // Close modal
+            window.closeSetorTunaiModal();
+
+            // Submit the main form
+            console.log('Submitting main form with hidden fields');
+            mainForm.submit();
+        };
+
+        // Close modal on Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                window.closeSetorTunaiModal();
             }
         });
-    });
-    
-    // Update payment_method value when OTA source changes
-    if (otaSelect) {
-        otaSelect.addEventListener('change', function() {
-            if (this.value && paymentOta) {
-                paymentOta.value = this.value;
-            }
-        });
-    }
-})();
 
-<?php if (!$isCQC): ?>
-// Show/hide project expense toggle based on transaction type (only visible for expense)
-document.querySelectorAll('input[name="transaction_type"]').forEach(radio => {
-    radio.addEventListener('change', function() {
-        const projectGroup = document.getElementById('projectExpenseGroup');
-        const checkbox = document.getElementById('isProjectExpense');
-        if (projectGroup) {
-            if (this.value === 'expense') {
-                projectGroup.style.display = 'block';
-            } else {
-                projectGroup.style.display = 'none';
-                // Uncheck and reset when switching to income
-                if (checkbox && checkbox.checked) {
-                    checkbox.checked = false;
-                    toggleProjectExpense();
+        // Owner Fund - Input dari Bu Sita
+        function fillOwnerFund() {
+            // Set transaction type to income
+            const incomeRadio = document.querySelector('input[name="transaction_type"][value="income"]');
+            if (incomeRadio) {
+                incomeRadio.checked = true;
+                incomeRadio.dispatchEvent(new Event('change', {
+                    bubbles: true
+                }));
+            }
+
+            // Set date to today
+            document.querySelector('input[name="transaction_date"]').value = '<?php echo date("Y-m-d"); ?>';
+            document.querySelector('input[name="transaction_time"]').value = '<?php echo date("H:i"); ?>';
+
+            // Set division - try to find "Kas", "Modal", "Owner", "Finance" division
+            // If not found, use Hotel or first available (will be excluded from pie chart anyway)
+            const divisionSelect = document.querySelector('select[name="division_id"]');
+            if (divisionSelect) {
+                let foundKasDiv = false;
+                const keywords = ['kas', 'modal', 'owner', 'finance', 'keuangan', 'petty'];
+                for (let opt of divisionSelect.options) {
+                    const text = opt.text.toLowerCase();
+                    if (keywords.some(kw => text.includes(kw))) {
+                        divisionSelect.value = opt.value;
+                        foundKasDiv = true;
+                        break;
+                    }
+                }
+                // If no special division found, look for Hotel
+                if (!foundKasDiv) {
+                    for (let opt of divisionSelect.options) {
+                        if (opt.text.toLowerCase().includes('hotel')) {
+                            divisionSelect.value = opt.value;
+                            foundKasDiv = true;
+                            break;
+                        }
+                    }
+                }
+                // Still not found, use first non-placeholder
+                if (!foundKasDiv && divisionSelect.options.length > 1) {
+                    divisionSelect.selectedIndex = 1;
                 }
             }
-        }
-    });
-});
 
-// ========================================
-// SETOR TUNAI MODAL FUNCTIONS
-// ========================================
-function showSetorTunaiModal() {
-    const modal = document.getElementById('setorTunaiModal');
-    modal.classList.add('show');
-    // Focus on nominal input
-    setTimeout(() => {
-        document.getElementById('setorAmount').focus();
-    }, 100);
-}
+            // Set category to "Modal Operasional"
+            document.querySelector('input[name="category_name"]').value = 'Modal Operasional dari Bu Sita';
 
-function closeSetorTunaiModal() {
-    const modal = document.getElementById('setorTunaiModal');
-    modal.classList.remove('show');
-    // Reset form
-    document.getElementById('setorTunaiForm').reset();
-}
-
-function openAddBankAccountModal(e) {
-    e.preventDefault();
-    alert('⚙️ Fitur "Tambah Rekening Bank" akan diarahkan ke halaman setup rekening.\n\nUntuk saat ini, silakan tambah rekening melalui menu: Admin > Setup Rekening Bank');
-    // In future: window.open('setup-bank-accounts.php', 'bankSetup', 'width=600,height=400');
-}
-
-// Close modal when clicking outside
-document.getElementById('setorTunaiModal')?.addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeSetorTunaiModal();
-    }
-});
-
-function submitSetorTunai(event) {
-    event.preventDefault();
-    
-    const form = document.getElementById('setorTunaiForm');
-    const cashAccountId = form.setor_cash_account.value;
-    const bankAccountId = form.setor_bank_account.value;
-    const amount = form.setor_amount.value;
-    const notes = form.setor_notes.value || '';
-    
-    if (!cashAccountId || !bankAccountId || !amount) {
-        alert('❌ Silakan isi semua field yang wajib diisi!');
-        return;
-    }
-    
-    if (parseFloat(amount) < 1000) {
-        alert('❌ Nominal minimal Rp 1.000,-');
-        return;
-    }
-    
-    // Get the main form
-    const mainForm = document.querySelector('form');
-    
-    // Create/update hidden fields for source_type and accounts
-    const ensureHiddenField = (name, value) => {
-        let field = mainForm.querySelector(`input[name="${name}"]`);
-        if (!field) {
-            field = document.createElement('input');
-            field.type = 'hidden';
-            field.name = name;
-            mainForm.appendChild(field);
-        }
-        field.value = value;
-    };
-    
-    ensureHiddenField('source_type', 'cash_transfer');
-    ensureHiddenField('cash_account_id', cashAccountId);
-    ensureHiddenField('bank_account_id', bankAccountId);
-    ensureHiddenField('amount', amount);
-    ensureHiddenField('transaction_type', 'income');
-    
-    // Set date/time
-    mainForm.transaction_date.value = '<?php echo date("Y-m-d"); ?>';
-    mainForm.transaction_time.value = '<?php echo date("H:i"); ?>';
-    
-    // Set description
-    mainForm.description.value = notes || 'Setor tunai dari kas cabang ke rekening operasional';
-    
-    // Close modal
-    closeSetorTunaiModal();
-    
-    // Submit the main form
-    mainForm.submit();
-}
-
-// Close modal on Escape key
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-        closeSetorTunaiModal();
-    }
-});
-
-// Owner Fund - Input dari Bu Sita
-function fillOwnerFund() {
-    // Set transaction type to income
-    const incomeRadio = document.querySelector('input[name="transaction_type"][value="income"]');
-    if (incomeRadio) {
-        incomeRadio.checked = true;
-        incomeRadio.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-    
-    // Set date to today
-    document.querySelector('input[name="transaction_date"]').value = '<?php echo date("Y-m-d"); ?>';
-    document.querySelector('input[name="transaction_time"]').value = '<?php echo date("H:i"); ?>';
-    
-    // Set division - try to find "Kas", "Modal", "Owner", "Finance" division
-    // If not found, use Hotel or first available (will be excluded from pie chart anyway)
-    const divisionSelect = document.querySelector('select[name="division_id"]');
-    if (divisionSelect) {
-        let foundKasDiv = false;
-        const keywords = ['kas', 'modal', 'owner', 'finance', 'keuangan', 'petty'];
-        for (let opt of divisionSelect.options) {
-            const text = opt.text.toLowerCase();
-            if (keywords.some(kw => text.includes(kw))) {
-                divisionSelect.value = opt.value;
-                foundKasDiv = true;
-                break;
-            }
-        }
-        // If no special division found, look for Hotel
-        if (!foundKasDiv) {
-            for (let opt of divisionSelect.options) {
-                if (opt.text.toLowerCase().includes('hotel')) {
-                    divisionSelect.value = opt.value;
-                    foundKasDiv = true;
-                    break;
+            // Set cash account to Petty Cash (Kas Operasional)
+            const cashAccountSelect = document.querySelector('select[name="cash_account_id"]');
+            if (cashAccountSelect) {
+                // Find Kas Operasional option
+                for (let opt of cashAccountSelect.options) {
+                    if (opt.text.toLowerCase().includes('kas operasional') || opt.text.toLowerCase().includes('petty cash')) {
+                        cashAccountSelect.value = opt.value;
+                        break;
+                    }
                 }
             }
-        }
-        // Still not found, use first non-placeholder
-        if (!foundKasDiv && divisionSelect.options.length > 1) {
-            divisionSelect.selectedIndex = 1;
-        }
-    }
-    
-    // Set category to "Modal Operasional"
-    document.querySelector('input[name="category_name"]').value = 'Modal Operasional dari Bu Sita';
-    
-    // Set cash account to Petty Cash (Kas Operasional)
-    const cashAccountSelect = document.querySelector('select[name="cash_account_id"]');
-    if (cashAccountSelect) {
-        // Find Kas Operasional option
-        for (let opt of cashAccountSelect.options) {
-            if (opt.text.toLowerCase().includes('kas operasional') || opt.text.toLowerCase().includes('petty cash')) {
-                cashAccountSelect.value = opt.value;
-                break;
-            }
-        }
-    }
-    
-    // Set payment method to cash (default)
-    const cashPayment = document.querySelector('input[name="payment_method"][value="cash"]');
-    if (cashPayment) cashPayment.checked = true;
-    
-    // Set source_type hidden field to owner_fund
-    let sourceTypeField = document.querySelector('input[name="source_type"]');
-    if (!sourceTypeField) {
-        sourceTypeField = document.createElement('input');
-        sourceTypeField.type = 'hidden';
-        sourceTypeField.name = 'source_type';
-        document.querySelector('form').appendChild(sourceTypeField);
-    }
-    sourceTypeField.value = 'owner_fund';
-    
-    // Set description
-    document.querySelector('textarea[name="description"]').value = 'Transfer dana operasional dari Bu Sita';
-    
-    // Focus on amount field
-    const amountField = document.querySelector('input[name="amount"]');
-    if (amountField) {
-        amountField.value = '';
-        amountField.focus();
-    }
-    
-    // Show notification
-    showOwnerFundNotice();
-}
 
-function showOwnerFundNotice() {
-    // Remove existing notice
-    const existing = document.getElementById('ownerFundNotice');
-    if (existing) existing.remove();
-    
-    // Create notice
-    const notice = document.createElement('div');
-    notice.id = 'ownerFundNotice';
-    notice.innerHTML = `
+            // Set payment method to cash (default)
+            const cashPayment = document.querySelector('input[name="payment_method"][value="cash"]');
+            if (cashPayment) cashPayment.checked = true;
+
+            // Set source_type hidden field to owner_fund
+            let sourceTypeField = document.querySelector('input[name="source_type"]');
+            if (!sourceTypeField) {
+                sourceTypeField = document.createElement('input');
+                sourceTypeField.type = 'hidden';
+                sourceTypeField.name = 'source_type';
+                document.querySelector('form').appendChild(sourceTypeField);
+            }
+            sourceTypeField.value = 'owner_fund';
+
+            // Set description
+            document.querySelector('textarea[name="description"]').value = 'Transfer dana operasional dari Bu Sita';
+
+            // Focus on amount field
+            const amountField = document.querySelector('input[name="amount"]');
+            if (amountField) {
+                amountField.value = '';
+                amountField.focus();
+            }
+
+            // Show notification
+            showOwnerFundNotice();
+        }
+
+        function showOwnerFundNotice() {
+            // Remove existing notice
+            const existing = document.getElementById('ownerFundNotice');
+            if (existing) existing.remove();
+
+            // Create notice
+            const notice = document.createElement('div');
+            notice.id = 'ownerFundNotice';
+            notice.innerHTML = `
         <div style="position: fixed; top: 80px; right: 20px; padding: 1rem 1.25rem; background: linear-gradient(135deg, #fef3c7, #fde68a); border: 1px solid #f59e0b; border-radius: 12px; box-shadow: 0 4px 20px rgba(245, 158, 11, 0.3); z-index: 9999; max-width: 320px; animation: slideIn 0.3s ease;">
             <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
                 <span style="font-size: 1.5rem;">💰</span>
@@ -1540,68 +1644,70 @@ function showOwnerFundNotice() {
             </div>
         </div>
     `;
-    document.body.appendChild(notice);
-    
-    // Auto-remove after 5 seconds
-    setTimeout(() => {
-        const el = document.getElementById('ownerFundNotice');
-        if (el) el.style.opacity = '0';
-        setTimeout(() => { if (el) el.remove(); }, 300);
-    }, 5000);
-}
+            document.body.appendChild(notice);
 
-// Setor Tunai ke Rekening Operasional
-// Pure internal transfer - NOT entered in cash_book, only balance updates
-function fillSetorTunai() {
-    // Set date to today
-    document.querySelector('input[name="transaction_date"]').value = '<?php echo date("Y-m-d"); ?>';
-    document.querySelector('input[name="transaction_time"]').value = '<?php echo date("H:i"); ?>';
-    
-    // Set cash account to Kas Tunai (source account to be debited)
-    const cashAccountSelect = document.querySelector('select[name="cash_account_id"]');
-    if (cashAccountSelect) {
-        // Find cash/tunai account
-        for (let opt of cashAccountSelect.options) {
-            if (opt.text.toLowerCase().includes('tunai') || opt.text.toLowerCase().includes('cash')) {
-                cashAccountSelect.value = opt.value;
-                break;
-            }
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                const el = document.getElementById('ownerFundNotice');
+                if (el) el.style.opacity = '0';
+                setTimeout(() => {
+                    if (el) el.remove();
+                }, 300);
+            }, 5000);
         }
-    }
-    
-    // Set description (optional)
-    document.querySelector('textarea[name="description"]').value = '';
-    
-    // Create hidden source_type field if not exists
-    let sourceTypeField = document.querySelector('input[name="source_type"]');
-    if (!sourceTypeField) {
-        sourceTypeField = document.createElement('input');
-        sourceTypeField.type = 'hidden';
-        sourceTypeField.name = 'source_type';
-        document.querySelector('form').appendChild(sourceTypeField);
-    }
-    sourceTypeField.value = 'cash_transfer';
-    
-    // Focus on amount field for user to input nominal
-    const amountField = document.querySelector('input[name="amount"]');
-    if (amountField) {
-        amountField.value = '';
-        amountField.focus();
-    }
-    
-    // Show notification
-    showSetorTunaiNotice();
-}
 
-function showSetorTunaiNotice() {
-    // Remove existing notice
-    const existing = document.getElementById('setorTunaiNotice');
-    if (existing) existing.remove();
-    
-    // Create notice
-    const notice = document.createElement('div');
-    notice.id = 'setorTunaiNotice';
-    notice.innerHTML = `
+        // Setor Tunai ke Rekening Operasional
+        // Pure internal transfer - NOT entered in cash_book, only balance updates
+        function fillSetorTunai() {
+            // Set date to today
+            document.querySelector('input[name="transaction_date"]').value = '<?php echo date("Y-m-d"); ?>';
+            document.querySelector('input[name="transaction_time"]').value = '<?php echo date("H:i"); ?>';
+
+            // Set cash account to Kas Tunai (source account to be debited)
+            const cashAccountSelect = document.querySelector('select[name="cash_account_id"]');
+            if (cashAccountSelect) {
+                // Find cash/tunai account
+                for (let opt of cashAccountSelect.options) {
+                    if (opt.text.toLowerCase().includes('tunai') || opt.text.toLowerCase().includes('cash')) {
+                        cashAccountSelect.value = opt.value;
+                        break;
+                    }
+                }
+            }
+
+            // Set description (optional)
+            document.querySelector('textarea[name="description"]').value = '';
+
+            // Create hidden source_type field if not exists
+            let sourceTypeField = document.querySelector('input[name="source_type"]');
+            if (!sourceTypeField) {
+                sourceTypeField = document.createElement('input');
+                sourceTypeField.type = 'hidden';
+                sourceTypeField.name = 'source_type';
+                document.querySelector('form').appendChild(sourceTypeField);
+            }
+            sourceTypeField.value = 'cash_transfer';
+
+            // Focus on amount field for user to input nominal
+            const amountField = document.querySelector('input[name="amount"]');
+            if (amountField) {
+                amountField.value = '';
+                amountField.focus();
+            }
+
+            // Show notification
+            showSetorTunaiNotice();
+        }
+
+        function showSetorTunaiNotice() {
+            // Remove existing notice
+            const existing = document.getElementById('setorTunaiNotice');
+            if (existing) existing.remove();
+
+            // Create notice
+            const notice = document.createElement('div');
+            notice.id = 'setorTunaiNotice';
+            notice.innerHTML = `
         <div style="position: fixed; top: 80px; right: 20px; padding: 1rem 1.25rem; background: linear-gradient(135deg, #dbeafe, #bfdbfe); border: 1px solid #0284c7; border-radius: 12px; box-shadow: 0 4px 20px rgba(2, 132, 199, 0.3); z-index: 9999; max-width: 380px; animation: slideIn 0.3s ease;">
             <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
                 <span style="font-size: 1.5rem;">🏦</span>
@@ -1619,101 +1725,109 @@ function showSetorTunaiNotice() {
             </div>
         </div>
     `;
-    document.body.appendChild(notice);
-    
-    // Auto-remove after 8 seconds
-    setTimeout(() => {
-        const el = document.getElementById('setorTunaiNotice');
-        if (el) el.style.opacity = '0';
-        setTimeout(() => { if (el) el.remove(); }, 300);
-    }, 8000);
-}
-<?php endif; ?>
+            document.body.appendChild(notice);
 
-<?php if ($isCQC): ?>
-// CQC: Transfer to Petty Cash
-function fillTransferPettyCash() {
-    // Set transaction type to income (uang masuk ke Petty Cash)
-    const incomeRadio = document.querySelector('input[name="transaction_type"][value="income"]');
-    if (incomeRadio) {
-        incomeRadio.checked = true;
-        incomeRadio.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-    
-    // Wait for income section to show, then fill
-    setTimeout(() => {
-        // Set income type to topup_owner
-        const incomeTypeSelect = document.getElementById('cqc_income_type');
-        if (incomeTypeSelect) {
-            incomeTypeSelect.value = 'topup_owner';
-            incomeTypeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            // Auto-remove after 8 seconds
+            setTimeout(() => {
+                const el = document.getElementById('setorTunaiNotice');
+                if (el) el.style.opacity = '0';
+                setTimeout(() => {
+                    if (el) el.remove();
+                }, 300);
+            }, 8000);
         }
-        
-        // Set project to Operational Office
-        const projectSelect = document.getElementById('cqc_project_id');
-        if (projectSelect) {
-            projectSelect.value = 'operational';
-            projectSelect.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-        
-        // Set cash account to Petty Cash
-        const cashAccountSelect = document.querySelector('select[name="cash_account_id"]');
-        if (cashAccountSelect) {
-            for (let opt of cashAccountSelect.options) {
-                if (opt.text.toLowerCase().includes('petty') || opt.text.toLowerCase().includes('kas operasional')) {
-                    cashAccountSelect.value = opt.value;
-                    break;
-                }
+    <?php endif; ?>
+
+    <?php if ($isCQC): ?>
+        // CQC: Transfer to Petty Cash
+        function fillTransferPettyCash() {
+            // Set transaction type to income (uang masuk ke Petty Cash)
+            const incomeRadio = document.querySelector('input[name="transaction_type"][value="income"]');
+            if (incomeRadio) {
+                incomeRadio.checked = true;
+                incomeRadio.dispatchEvent(new Event('change', {
+                    bubbles: true
+                }));
             }
-        }
-        
-        // Set payment method to cash
-        const cashPayment = document.querySelector('input[name="payment_method"][value="cash"]');
-        if (cashPayment) cashPayment.checked = true;
-        
-        // Set source_type hidden field to owner_fund
-        let sourceTypeField = document.querySelector('input[name="source_type"]');
-        if (!sourceTypeField) {
-            sourceTypeField = document.createElement('input');
-            sourceTypeField.type = 'hidden';
-            sourceTypeField.name = 'source_type';
-            document.querySelector('form').appendChild(sourceTypeField);
-        }
-        sourceTypeField.value = 'owner_fund';
-        
-        // Set description
-        const descField = document.querySelector('textarea[name="description"]');
-        if (descField) {
-            descField.value = 'Transfer Petty Cash - Operasional Office & Proyek';
-        }
-        
-        // Update income desc field
-        const incomeDescField = document.getElementById('cqc_income_desc');
-        if (incomeDescField) {
-            incomeDescField.value = 'Operasional Office & Proyek';
-        }
-        
-        // Focus on amount field
-        const amountField = document.querySelector('input[name="amount"]');
-        if (amountField) {
-            amountField.value = '';
-            amountField.focus();
-        }
-        
-        // Show notification
-        showPettyCashNotice();
-    }, 100);
-}
 
-function showPettyCashNotice() {
-    // Remove existing notice
-    const existing = document.getElementById('pettyCashNotice');
-    if (existing) existing.remove();
-    
-    // Create notice
-    const notice = document.createElement('div');
-    notice.id = 'pettyCashNotice';
-    notice.innerHTML = `
+            // Wait for income section to show, then fill
+            setTimeout(() => {
+                // Set income type to topup_owner
+                const incomeTypeSelect = document.getElementById('cqc_income_type');
+                if (incomeTypeSelect) {
+                    incomeTypeSelect.value = 'topup_owner';
+                    incomeTypeSelect.dispatchEvent(new Event('change', {
+                        bubbles: true
+                    }));
+                }
+
+                // Set project to Operational Office
+                const projectSelect = document.getElementById('cqc_project_id');
+                if (projectSelect) {
+                    projectSelect.value = 'operational';
+                    projectSelect.dispatchEvent(new Event('change', {
+                        bubbles: true
+                    }));
+                }
+
+                // Set cash account to Petty Cash
+                const cashAccountSelect = document.querySelector('select[name="cash_account_id"]');
+                if (cashAccountSelect) {
+                    for (let opt of cashAccountSelect.options) {
+                        if (opt.text.toLowerCase().includes('petty') || opt.text.toLowerCase().includes('kas operasional')) {
+                            cashAccountSelect.value = opt.value;
+                            break;
+                        }
+                    }
+                }
+
+                // Set payment method to cash
+                const cashPayment = document.querySelector('input[name="payment_method"][value="cash"]');
+                if (cashPayment) cashPayment.checked = true;
+
+                // Set source_type hidden field to owner_fund
+                let sourceTypeField = document.querySelector('input[name="source_type"]');
+                if (!sourceTypeField) {
+                    sourceTypeField = document.createElement('input');
+                    sourceTypeField.type = 'hidden';
+                    sourceTypeField.name = 'source_type';
+                    document.querySelector('form').appendChild(sourceTypeField);
+                }
+                sourceTypeField.value = 'owner_fund';
+
+                // Set description
+                const descField = document.querySelector('textarea[name="description"]');
+                if (descField) {
+                    descField.value = 'Transfer Petty Cash - Operasional Office & Proyek';
+                }
+
+                // Update income desc field
+                const incomeDescField = document.getElementById('cqc_income_desc');
+                if (incomeDescField) {
+                    incomeDescField.value = 'Operasional Office & Proyek';
+                }
+
+                // Focus on amount field
+                const amountField = document.querySelector('input[name="amount"]');
+                if (amountField) {
+                    amountField.value = '';
+                    amountField.focus();
+                }
+
+                // Show notification
+                showPettyCashNotice();
+            }, 100);
+        }
+
+        function showPettyCashNotice() {
+            // Remove existing notice
+            const existing = document.getElementById('pettyCashNotice');
+            if (existing) existing.remove();
+
+            // Create notice
+            const notice = document.createElement('div');
+            notice.id = 'pettyCashNotice';
+            notice.innerHTML = `
         <div style="position: fixed; top: 80px; right: 20px; padding: 1rem 1.25rem; background: linear-gradient(135deg, #f0fdf4, #dcfce7); border: 2px solid #22c55e; border-radius: 12px; box-shadow: 0 4px 20px rgba(34, 197, 94, 0.25); z-index: 9999; max-width: 350px; animation: slideIn 0.3s ease;">
             <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
                 <span style="font-size: 1.5rem;">💸</span>
@@ -1726,258 +1840,269 @@ function showPettyCashNotice() {
             </div>
         </div>
     `;
-    document.body.appendChild(notice);
-    
-    // Auto-remove after 6 seconds
-    setTimeout(() => {
-        const el = document.getElementById('pettyCashNotice');
-        if (el) el.style.opacity = '0';
-        setTimeout(() => { if (el) el.remove(); }, 300);
-    }, 6000);
-}
+            document.body.appendChild(notice);
 
-// CQC Project Info Display
-function updateCQCProjectInfo(select) {
-    const opt = select.options[select.selectedIndex];
-    const info = document.getElementById('cqcProjectInfo');
-    if (!opt.value) { info.style.display = 'none'; return; }
-    
-    // Handle Operational Office selection
-    if (opt.value === 'operational') {
-        info.innerHTML = '<div style="display: flex; gap: 1rem; font-size: 0.75rem; color: #0d1f3c;"><span>💼 <strong>Operasional Office & Proyek</strong> - Untuk kebutuhan kantor dan proyek</span></div>';
-        info.style.display = 'block';
-        info.style.background = 'linear-gradient(135deg, rgba(59,130,246,0.08), rgba(59,130,246,0.03))';
-        info.style.borderLeftColor = '#3b82f6';
-        return;
-    }
-    
-    // Reset styling for regular projects
-    info.style.background = 'linear-gradient(135deg, rgba(13,31,60,0.05), rgba(240,180,41,0.08))';
-    info.style.borderLeftColor = '#f0b429';
-    info.innerHTML = '<div style="display: flex; gap: 1rem; font-size: 0.7rem;"><span>💰 Budget: <strong id="cqcBudgetDisplay">-</strong></span><span>📤 Terpakai: <strong id="cqcSpentDisplay" style="color: #ef4444;">-</strong></span><span>💵 Sisa: <strong id="cqcRemainingDisplay" style="color: #10b981;">-</strong></span></div>';
-    
-    const budget = parseFloat(opt.dataset.budget || 0);
-    const spent = parseFloat(opt.dataset.spent || 0);
-    const remaining = parseFloat(opt.dataset.remaining || 0);
-    
-    document.getElementById('cqcBudgetDisplay').textContent = 'Rp ' + budget.toLocaleString('id-ID');
-    document.getElementById('cqcSpentDisplay').textContent = 'Rp ' + spent.toLocaleString('id-ID');
-    document.getElementById('cqcRemainingDisplay').textContent = 'Rp ' + remaining.toLocaleString('id-ID');
-    document.getElementById('cqcRemainingDisplay').style.color = remaining >= 0 ? '#10b981' : '#ef4444';
-    info.style.display = 'block';
-    
-    // Update income description if income is selected
-    updateCQCIncomeCategory(document.getElementById('cqc_income_type'));
-}
-
-// Toggle expense/income sections based on transaction type
-function toggleCQCSections() {
-    const type = document.querySelector('input[name="transaction_type"]:checked')?.value;
-    const expSection = document.getElementById('cqcExpenseSection');
-    const incSection = document.getElementById('cqcIncomeSection');
-    const catInput = document.querySelector('[name=category_name]');
-    
-    if (type === 'expense') {
-        expSection.style.display = 'block';
-        incSection.style.display = 'none';
-        catInput.setAttribute('required', 'required');
-        catInput.value = '';
-    } else {
-        expSection.style.display = 'none';
-        incSection.style.display = 'block';
-        catInput.removeAttribute('required');
-        // Reset income type
-        document.getElementById('cqc_income_type').value = '';
-        document.getElementById('cqc_income_desc').value = '';
-    }
-}
-
-// Update category_name based on income type + selected project
-function updateCQCIncomeCategory(select) {
-    if (!select) return;
-    const type = select.value;
-    const projSelect = document.getElementById('cqc_project_id');
-    const projOpt = projSelect.options[projSelect.selectedIndex];
-    const projName = projOpt && projOpt.value ? projOpt.textContent.trim().split(' [')[0] : '';
-    const descInput = document.getElementById('cqc_income_desc');
-    const catInput = document.querySelector('[name=category_name]');
-    const noteDiv = document.getElementById('cqcIncomeNote');
-    
-    const labels = {
-        'topup_owner': 'Transfer Petty Cash',
-        'dp': 'DP Masuk',
-        'termin': 'Pembayaran Termin',
-        'pelunasan': 'Pelunasan',
-        'retensi': 'Retensi / Garansi'
-    };
-    
-    // Show/hide note
-    if (type === 'topup_owner') {
-        noteDiv.style.display = 'block';
-        noteDiv.style.background = '#fef3c7';
-        noteDiv.style.color = '#92400e';
-        noteDiv.innerHTML = '⚠️ <strong>Ini BUKAN pendapatan perusahaan.</strong> Transfer ke Petty Cash untuk operasional proyek. Tidak masuk ke laporan income.';
-    } else if (['dp', 'termin', 'pelunasan'].includes(type)) {
-        noteDiv.style.display = 'block';
-        noteDiv.style.background = '#dcfce7';
-        noteDiv.style.color = '#166534';
-        noteDiv.innerHTML = '✅ Ini adalah <strong>pendapatan dari invoice</strong>. Masuk ke laporan income.';
-    } else {
-        noteDiv.style.display = 'none';
-    }
-    
-    if (type === 'manual') {
-        descInput.removeAttribute('readonly');
-        descInput.placeholder = 'Tulis keterangan...';
-        descInput.value = '';
-        descInput.focus();
-    } else if (type === 'topup_owner') {
-        descInput.setAttribute('readonly', 'readonly');
-        descInput.value = 'Transfer Petty Cash dari Owner';
-        catInput.value = 'Transfer Petty Cash';
-    } else if (type && labels[type]) {
-        descInput.setAttribute('readonly', 'readonly');
-        const desc = projName ? labels[type] + ' - ' + projName : labels[type];
-        descInput.value = desc;
-        catInput.value = desc;
-    } else {
-        descInput.setAttribute('readonly', 'readonly');
-        descInput.value = '';
-        catInput.value = '';
-        noteDiv.style.display = 'none';
-    }
-}
-
-// Listen for transaction type changes
-document.querySelectorAll('input[name="transaction_type"]').forEach(radio => {
-    radio.addEventListener('change', toggleCQCSections);
-});
-
-// Handle form submit - sync income desc to category_name
-document.getElementById('transactionForm').addEventListener('submit', function() {
-    const type = document.querySelector('input[name="transaction_type"]:checked')?.value;
-    if (type === 'income') {
-        const desc = document.getElementById('cqc_income_desc').value;
-        if (desc) {
-            document.querySelector('[name=category_name]').value = desc;
+            // Auto-remove after 6 seconds
+            setTimeout(() => {
+                const el = document.getElementById('pettyCashNotice');
+                if (el) el.style.opacity = '0';
+                setTimeout(() => {
+                    if (el) el.remove();
+                }, 300);
+            }, 6000);
         }
-    }
-});
 
-// Initialize on load
-toggleCQCSections();
-<?php endif; ?>
+        // CQC Project Info Display
+        function updateCQCProjectInfo(select) {
+            const opt = select.options[select.selectedIndex];
+            const info = document.getElementById('cqcProjectInfo');
+            if (!opt.value) {
+                info.style.display = 'none';
+                return;
+            }
 
-// ============================================
-// PROJECT EXPENSE TOGGLE (NON-HOTEL EXPENSE)
-// ============================================
-<?php if ($isHotel): ?>
-const projectDivisionKeywords = ['proyek', 'projek', 'project', 'konstruksi', 'renovasi', 'pembangunan', 'bangunan'];
+            // Handle Operational Office selection
+            if (opt.value === 'operational') {
+                info.innerHTML = '<div style="display: flex; gap: 1rem; font-size: 0.75rem; color: #0d1f3c;"><span>💼 <strong>Operasional Office & Proyek</strong> - Untuk kebutuhan kantor dan proyek</span></div>';
+                info.style.display = 'block';
+                info.style.background = 'linear-gradient(135deg, rgba(59,130,246,0.08), rgba(59,130,246,0.03))';
+                info.style.borderLeftColor = '#3b82f6';
+                return;
+            }
 
-function toggleProjectExpense() {
-    const checked = document.getElementById('isProjectExpense').checked;
-    const wrapper = document.getElementById('projectSelectWrapper');
-    const label = document.getElementById('projectToggleLabel');
-    const sourceField = document.getElementById('sourceTypeHidden');
-    const note = document.getElementById('projectExpenseNote');
-    const projectSelect = document.getElementById('projectSelect');
-    
-    if (wrapper) wrapper.style.display = checked ? 'block' : 'none';
-    if (note) note.style.display = checked ? 'block' : 'none';
-    label.style.background = checked ? 'rgba(245,158,11,0.25)' : 'rgba(245,158,11,0.1)';
-    label.style.borderColor = checked ? '#f59e0b' : 'rgba(245,158,11,0.3)';
-    sourceField.value = checked ? 'owner_project' : '';
-    
-    if (projectSelect) {
-        projectSelect.required = checked;
-        if (!checked) projectSelect.value = '';
-    }
-}
+            // Reset styling for regular projects
+            info.style.background = 'linear-gradient(135deg, rgba(13,31,60,0.05), rgba(240,180,41,0.08))';
+            info.style.borderLeftColor = '#f0b429';
+            info.innerHTML = '<div style="display: flex; gap: 1rem; font-size: 0.7rem;"><span>💰 Budget: <strong id="cqcBudgetDisplay">-</strong></span><span>📤 Terpakai: <strong id="cqcSpentDisplay" style="color: #ef4444;">-</strong></span><span>💵 Sisa: <strong id="cqcRemainingDisplay" style="color: #10b981;">-</strong></span></div>';
 
-// Auto-detect project division
-const divisionSelect = document.getElementById('division_id');
-if (divisionSelect) {
-    divisionSelect.addEventListener('change', function() {
-        const text = this.options[this.selectedIndex]?.text?.toLowerCase() || '';
-        const isProjectDiv = projectDivisionKeywords.some(kw => text.includes(kw));
-        const checkbox = document.getElementById('isProjectExpense');
-        if (checkbox && isProjectDiv && !checkbox.checked) {
-            checkbox.checked = true;
-            toggleProjectExpense();
+            const budget = parseFloat(opt.dataset.budget || 0);
+            const spent = parseFloat(opt.dataset.spent || 0);
+            const remaining = parseFloat(opt.dataset.remaining || 0);
+
+            document.getElementById('cqcBudgetDisplay').textContent = 'Rp ' + budget.toLocaleString('id-ID');
+            document.getElementById('cqcSpentDisplay').textContent = 'Rp ' + spent.toLocaleString('id-ID');
+            document.getElementById('cqcRemainingDisplay').textContent = 'Rp ' + remaining.toLocaleString('id-ID');
+            document.getElementById('cqcRemainingDisplay').style.color = remaining >= 0 ? '#10b981' : '#ef4444';
+            info.style.display = 'block';
+
+            // Update income description if income is selected
+            updateCQCIncomeCategory(document.getElementById('cqc_income_type'));
         }
-    });
-}
-<?php endif; ?>
 
-// ============================================
-// DUPLICATE TRANSACTION CHECK
-// ============================================
-let dupCheckBypassed = false;
+        // Toggle expense/income sections based on transaction type
+        function toggleCQCSections() {
+            const type = document.querySelector('input[name="transaction_type"]:checked')?.value;
+            const expSection = document.getElementById('cqcExpenseSection');
+            const incSection = document.getElementById('cqcIncomeSection');
+            const catInput = document.querySelector('[name=category_name]');
 
-function handleFormSubmit(e) {
-    e.preventDefault();
-    
-    if (!validateForm('transactionForm')) return false;
-    if (dupCheckBypassed) {
-        dupCheckBypassed = false;
-        document.getElementById('transactionForm').submit();
-        return true;
-    }
+            if (type === 'expense') {
+                expSection.style.display = 'block';
+                incSection.style.display = 'none';
+                catInput.setAttribute('required', 'required');
+                catInput.value = '';
+            } else {
+                expSection.style.display = 'none';
+                incSection.style.display = 'block';
+                catInput.removeAttribute('required');
+                // Reset income type
+                document.getElementById('cqc_income_type').value = '';
+                document.getElementById('cqc_income_desc').value = '';
+            }
+        }
 
-    const form = document.getElementById('transactionForm');
-    const date = form.querySelector('[name=transaction_date]').value;
-    const rawAmount = form.querySelector('[name=amount]').value;
-    const amount = rawAmount.replace(/[.,]/g, '');
-    const category = form.querySelector('[name=category_name]').value;
-    const description = form.querySelector('[name=description]')?.value || '';
-    const type = form.querySelector('input[name=transaction_type]:checked')?.value || '';
+        // Update category_name based on income type + selected project
+        function updateCQCIncomeCategory(select) {
+            if (!select) return;
+            const type = select.value;
+            const projSelect = document.getElementById('cqc_project_id');
+            const projOpt = projSelect.options[projSelect.selectedIndex];
+            const projName = projOpt && projOpt.value ? projOpt.textContent.trim().split(' [')[0] : '';
+            const descInput = document.getElementById('cqc_income_desc');
+            const catInput = document.querySelector('[name=category_name]');
+            const noteDiv = document.getElementById('cqcIncomeNote');
 
-    if (!amount || parseFloat(amount) <= 0 || !category) {
-        form.submit();
-        return true;
-    }
+            const labels = {
+                'topup_owner': 'Transfer Petty Cash',
+                'dp': 'DP Masuk',
+                'termin': 'Pembayaran Termin',
+                'pelunasan': 'Pelunasan',
+                'retensi': 'Retensi / Garansi'
+            };
 
-    const params = new URLSearchParams({ date, amount, category, description, type });
-    
-    fetch('../../api/check-duplicate-transaction.php?' + params)
-    .then(r => r.json())
-    .then(data => {
-        if (data.success && data.count > 0) {
-            showDuplicateWarning(data.duplicates, rawAmount, category);
-        } else {
+            // Show/hide note
+            if (type === 'topup_owner') {
+                noteDiv.style.display = 'block';
+                noteDiv.style.background = '#fef3c7';
+                noteDiv.style.color = '#92400e';
+                noteDiv.innerHTML = '⚠️ <strong>Ini BUKAN pendapatan perusahaan.</strong> Transfer ke Petty Cash untuk operasional proyek. Tidak masuk ke laporan income.';
+            } else if (['dp', 'termin', 'pelunasan'].includes(type)) {
+                noteDiv.style.display = 'block';
+                noteDiv.style.background = '#dcfce7';
+                noteDiv.style.color = '#166534';
+                noteDiv.innerHTML = '✅ Ini adalah <strong>pendapatan dari invoice</strong>. Masuk ke laporan income.';
+            } else {
+                noteDiv.style.display = 'none';
+            }
+
+            if (type === 'manual') {
+                descInput.removeAttribute('readonly');
+                descInput.placeholder = 'Tulis keterangan...';
+                descInput.value = '';
+                descInput.focus();
+            } else if (type === 'topup_owner') {
+                descInput.setAttribute('readonly', 'readonly');
+                descInput.value = 'Transfer Petty Cash dari Owner';
+                catInput.value = 'Transfer Petty Cash';
+            } else if (type && labels[type]) {
+                descInput.setAttribute('readonly', 'readonly');
+                const desc = projName ? labels[type] + ' - ' + projName : labels[type];
+                descInput.value = desc;
+                catInput.value = desc;
+            } else {
+                descInput.setAttribute('readonly', 'readonly');
+                descInput.value = '';
+                catInput.value = '';
+                noteDiv.style.display = 'none';
+            }
+        }
+
+        // Listen for transaction type changes
+        document.querySelectorAll('input[name="transaction_type"]').forEach(radio => {
+            radio.addEventListener('change', toggleCQCSections);
+        });
+
+        // Handle form submit - sync income desc to category_name
+        document.getElementById('transactionForm').addEventListener('submit', function() {
+            const type = document.querySelector('input[name="transaction_type"]:checked')?.value;
+            if (type === 'income') {
+                const desc = document.getElementById('cqc_income_desc').value;
+                if (desc) {
+                    document.querySelector('[name=category_name]').value = desc;
+                }
+            }
+        });
+
+        // Initialize on load
+        toggleCQCSections();
+    <?php endif; ?>
+
+    // ============================================
+    // PROJECT EXPENSE TOGGLE (NON-HOTEL EXPENSE)
+    // ============================================
+    <?php if ($isHotel): ?>
+        const projectDivisionKeywords = ['proyek', 'projek', 'project', 'konstruksi', 'renovasi', 'pembangunan', 'bangunan'];
+
+        function toggleProjectExpense() {
+            const checked = document.getElementById('isProjectExpense').checked;
+            const wrapper = document.getElementById('projectSelectWrapper');
+            const label = document.getElementById('projectToggleLabel');
+            const sourceField = document.getElementById('sourceTypeHidden');
+            const note = document.getElementById('projectExpenseNote');
+            const projectSelect = document.getElementById('projectSelect');
+
+            if (wrapper) wrapper.style.display = checked ? 'block' : 'none';
+            if (note) note.style.display = checked ? 'block' : 'none';
+            label.style.background = checked ? 'rgba(245,158,11,0.25)' : 'rgba(245,158,11,0.1)';
+            label.style.borderColor = checked ? '#f59e0b' : 'rgba(245,158,11,0.3)';
+            sourceField.value = checked ? 'owner_project' : '';
+
+            if (projectSelect) {
+                projectSelect.required = checked;
+                if (!checked) projectSelect.value = '';
+            }
+        }
+
+        // Auto-detect project division
+        const divisionSelect = document.getElementById('division_id');
+        if (divisionSelect) {
+            divisionSelect.addEventListener('change', function() {
+                const text = this.options[this.selectedIndex]?.text?.toLowerCase() || '';
+                const isProjectDiv = projectDivisionKeywords.some(kw => text.includes(kw));
+                const checkbox = document.getElementById('isProjectExpense');
+                if (checkbox && isProjectDiv && !checkbox.checked) {
+                    checkbox.checked = true;
+                    toggleProjectExpense();
+                }
+            });
+        }
+    <?php endif; ?>
+
+    // ============================================
+    // DUPLICATE TRANSACTION CHECK
+    // ============================================
+    let dupCheckBypassed = false;
+
+    function handleFormSubmit(e) {
+        e.preventDefault();
+
+        if (!validateForm('transactionForm')) return false;
+        if (dupCheckBypassed) {
+            dupCheckBypassed = false;
+            document.getElementById('transactionForm').submit();
+            return true;
+        }
+
+        const form = document.getElementById('transactionForm');
+        const date = form.querySelector('[name=transaction_date]').value;
+        const rawAmount = form.querySelector('[name=amount]').value;
+        const amount = rawAmount.replace(/[.,]/g, '');
+        const category = form.querySelector('[name=category_name]').value;
+        const description = form.querySelector('[name=description]')?.value || '';
+        const type = form.querySelector('input[name=transaction_type]:checked')?.value || '';
+
+        if (!amount || parseFloat(amount) <= 0 || !category) {
             form.submit();
+            return true;
         }
-    })
-    .catch(() => {
-        // If check fails, allow submit anyway
-        form.submit();
-    });
 
-    return false;
-}
+        const params = new URLSearchParams({
+            date,
+            amount,
+            category,
+            description,
+            type
+        });
 
-function showDuplicateWarning(duplicates, amount, category) {
-    // Remove existing modal if any
-    const existing = document.getElementById('dupWarningModal');
-    if (existing) existing.remove();
+        fetch('../../api/check-duplicate-transaction.php?' + params)
+            .then(r => r.json())
+            .then(data => {
+                if (data.success && data.count > 0) {
+                    showDuplicateWarning(data.duplicates, rawAmount, category);
+                } else {
+                    form.submit();
+                }
+            })
+            .catch(() => {
+                // If check fails, allow submit anyway
+                form.submit();
+            });
 
-    let rows = '';
-    duplicates.forEach(d => {
-        const time = d.transaction_time ? d.transaction_time.substring(0,5) : '-';
-        const amt = parseInt(d.amount).toLocaleString('id-ID');
-        const cat = d.category_name || '-';
-        const desc = d.description ? (d.description.length > 40 ? d.description.substring(0,40) + '...' : d.description) : '-';
-        rows += `<tr>
+        return false;
+    }
+
+    function showDuplicateWarning(duplicates, amount, category) {
+        // Remove existing modal if any
+        const existing = document.getElementById('dupWarningModal');
+        if (existing) existing.remove();
+
+        let rows = '';
+        duplicates.forEach(d => {
+            const time = d.transaction_time ? d.transaction_time.substring(0, 5) : '-';
+            const amt = parseInt(d.amount).toLocaleString('id-ID');
+            const cat = d.category_name || '-';
+            const desc = d.description ? (d.description.length > 40 ? d.description.substring(0, 40) + '...' : d.description) : '-';
+            rows += `<tr>
             <td style="padding:8px; border-bottom:1px solid #333;">${time}</td>
             <td style="padding:8px; border-bottom:1px solid #333;">${cat}</td>
             <td style="padding:8px; border-bottom:1px solid #333; text-align:right; font-weight:700;">Rp ${amt}</td>
             <td style="padding:8px; border-bottom:1px solid #333; font-size:0.8rem;">${desc}</td>
         </tr>`;
-    });
+        });
 
-    const modal = document.createElement('div');
-    modal.id = 'dupWarningModal';
-    modal.innerHTML = `
+        const modal = document.createElement('div');
+        modal.id = 'dupWarningModal';
+        modal.innerHTML = `
     <div style="position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:9999; display:flex; align-items:center; justify-content:center; padding:1rem;">
         <div style="background:#1e1e2e; border:2px solid #f59e0b; border-radius:16px; max-width:560px; width:100%; box-shadow:0 20px 60px rgba(0,0,0,0.5);">
             <div style="padding:1.25rem; border-bottom:1px solid #333; display:flex; align-items:center; gap:0.75rem;">
@@ -2014,15 +2139,15 @@ function showDuplicateWarning(duplicates, amount, category) {
             </div>
         </div>
     </div>`;
-    document.body.appendChild(modal);
-}
+        document.body.appendChild(modal);
+    }
 
-function submitDespiteDuplicate() {
-    const modal = document.getElementById('dupWarningModal');
-    if (modal) modal.remove();
-    dupCheckBypassed = true;
-    document.getElementById('transactionForm').dispatchEvent(new Event('submit'));
-}
+    function submitDespiteDuplicate() {
+        const modal = document.getElementById('dupWarningModal');
+        if (modal) modal.remove();
+        dupCheckBypassed = true;
+        document.getElementById('transactionForm').dispatchEvent(new Event('submit'));
+    }
 </script>
 
 <?php include '../../includes/footer.php'; ?>
