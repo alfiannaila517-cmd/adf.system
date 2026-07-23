@@ -2854,6 +2854,10 @@ header('Expires: 0');
                 <div id="bfStats">
                     <div class="loading"><span class="spin"></span> Memuat...</div>
                 </div>
+                <div class="card" id="bfRecapCard" style="display:none;">
+                    <div class="card-title" style="margin:0;">📋 Rekap Total per Menu <span style="font-weight:400;color:var(--muted,#888);font-size:11px;">(untuk kitchen)</span></div>
+                    <div id="bfMenuRecap" style="margin-top:8px;"></div>
+                </div>
                 <div class="card">
                     <div style="display:flex;align-items:center;justify-content:space-between;">
                         <div class="card-title" style="margin:0;">☕ Today's Breakfast Orders</div>
@@ -4077,6 +4081,7 @@ header('Expires: 0');
                 const data = await res.json();
                 const d = data.data || {};
                 const orders = d.orders || [];
+                const menuRecap = d.menu_recap || [];
                 const stats = d.stats || {};
                 const sc = stats.status || {};
 
@@ -4088,6 +4093,17 @@ header('Expires: 0');
                 <div class="stat-card"><div class="sl">⏳ PENDING</div><div class="sv" style="color:#f59e0b;">${sc.pending||0}</div></div>
                 <div class="stat-card"><div class="sl">✅ SERVED</div><div class="sv" style="color:var(--green);">${(sc.served||0)+(sc.completed||0)}</div></div>
             </div>`;
+
+                // Menu recap (kitchen prep)
+                const recapCard = document.getElementById('bfRecapCard');
+                if (menuRecap.length > 0) {
+                    recapCard.style.display = '';
+                    document.getElementById('bfMenuRecap').innerHTML = menuRecap.map(m =>
+                        `<div class="bf-menu-row"><span class="bf-menu-name">${m.menu_name}</span><span class="bf-menu-qty">×${m.qty}</span></div>`
+                    ).join('');
+                } else {
+                    recapCard.style.display = 'none';
+                }
 
                 // Order list
                 if (orders.length === 0) {

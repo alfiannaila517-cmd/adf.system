@@ -640,8 +640,26 @@ if ($action === 'breakfast_orders') {
             if (isset($statusCounts[$s])) $statusCounts[$s]++;
         }
 
+        // Rekap total pesanan per menu (untuk kitchen prep)
+        $menuRecap = [];
+        foreach ($orders as $o) {
+            foreach ($o['menu_items'] as $item) {
+                $menuName = trim($item['menu_name'] ?? '');
+                if ($menuName === '') continue;
+                $qty = (int)($item['quantity'] ?? 1);
+                if (!isset($menuRecap[$menuName])) $menuRecap[$menuName] = 0;
+                $menuRecap[$menuName] += $qty;
+            }
+        }
+        arsort($menuRecap);
+        $menuRecapList = [];
+        foreach ($menuRecap as $name => $qty) {
+            $menuRecapList[] = ['menu_name' => $name, 'qty' => $qty];
+        }
+
         echo json_encode(['success' => true, 'data' => [
             'orders' => $orders,
+            'menu_recap' => $menuRecapList,
             'stats' => [
                 'total_orders' => $totalOrders,
                 'total_pax' => $totalPax,

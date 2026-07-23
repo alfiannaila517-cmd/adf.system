@@ -148,8 +148,24 @@ try {
     foreach ($todayOrders as &$o) {
         $o['menu_items'] = json_decode($o['menu_items'], true) ?: [];
     }
+    unset($o);
 } catch (Exception $e) {
 }
+
+// Rekap total pesanan per menu (untuk kitchen prep) — jumlahkan quantity semua
+// order hari ini per nama menu, diurutkan dari yang paling banyak dipesan.
+$menuRecap = [];
+foreach ($todayOrders as $order) {
+    foreach ($order['menu_items'] as $item) {
+        $menuName = trim($item['menu_name'] ?? '');
+        if ($menuName === '') continue;
+        $qty = (int)($item['quantity'] ?? 1);
+        if (!isset($menuRecap[$menuName])) $menuRecap[$menuName] = 0;
+        $menuRecap[$menuName] += $qty;
+    }
+}
+arsort($menuRecap);
+
 
 // Edit mode
 $editOrder = null;
@@ -518,6 +534,79 @@ include '../../includes/header.php';
         border-radius: 10px;
         font-size: .7rem;
         margin-left: auto
+    }
+
+    .bf-recap-card {
+        margin: .75rem;
+        border: 1px solid #fde68a;
+        background: #fffbeb;
+        border-radius: 10px;
+        overflow: hidden
+    }
+
+    [data-theme="dark"] .bf-recap-card {
+        background: #292015;
+        border-color: #78350f
+    }
+
+    .bf-recap-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: .5rem;
+        padding: .55rem .75rem;
+        font-size: .78rem;
+        font-weight: 700;
+        color: #92400e;
+        border-bottom: 1px solid #fde68a
+    }
+
+    [data-theme="dark"] .bf-recap-head {
+        color: #fbbf24;
+        border-bottom-color: #78350f
+    }
+
+    .bf-recap-print {
+        border: none;
+        background: #f59e0b;
+        color: #fff;
+        font-size: .7rem;
+        font-weight: 700;
+        padding: .25rem .55rem;
+        border-radius: 6px;
+        cursor: pointer;
+        white-space: nowrap
+    }
+
+    .bf-recap-print:hover {
+        background: #d97706
+    }
+
+    .bf-recap-table {
+        width: 100%;
+        border-collapse: collapse
+    }
+
+    .bf-recap-table tr:not(:last-child) td {
+        border-bottom: 1px dashed #fde68a
+    }
+
+    [data-theme="dark"] .bf-recap-table tr:not(:last-child) td {
+        border-bottom-color: #78350f
+    }
+
+    .bf-recap-name {
+        padding: .4rem .75rem;
+        font-size: .8rem;
+        color: var(--text-primary)
+    }
+
+    .bf-recap-qty {
+        padding: .4rem .75rem;
+        font-size: .85rem;
+        font-weight: 800;
+        color: #d97706;
+        text-align: right
     }
 
     .bf-order {
@@ -1216,6 +1305,23 @@ include '../../includes/header.php';
 
         <!-- SIDEBAR: Today's Orders -->
         <div class="bf-side">
+            <?php if (!empty($menuRecap)): ?>
+            <div class="bf-recap-card">
+                <div class="bf-recap-head">
+                    <span>📋 Rekap Total per Menu <span style="font-weight:400;color:var(--text-muted);font-size:.7rem">(untuk kitchen)</span></span>
+                    <button type="button" class="bf-recap-print" onclick="cetakRekap()" title="Cetak Rekap PDF">🖨️ PDF</button>
+                </div>
+                <table class="bf-recap-table">
+                    <?php foreach ($menuRecap as $menuName => $qty): ?>
+                        <tr>
+                            <td class="bf-recap-name"><?php echo htmlspecialchars($menuName); ?></td>
+                            <td class="bf-recap-qty">×<?php echo $qty; ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </table>
+            </div>
+            <?php endif; ?>
+
             <div class="bf-side-title">
                 📊 Today's Orders
                 <span class="bf-side-count"><?php echo count($todayOrders); ?></span>
@@ -1738,6 +1844,71 @@ include '../../includes/header.php';
         html2pdf().set({
             margin: [10, 15, 15, 15],
             filename: 'breakfast-' + escHtml(order.guest_name).replace(/[\s,]+/g, '-') + '-' + dateStr + '.pdf',
+            html2canvas: {
+                scale: 2,
+                useCORS: true
+            },
+            jsPDF: {
+                unit: 'mm',
+                format: 'a4',
+                orientation: 'portrait'
+            },
+            pagebreak: {
+                mode: ['avoid-all']
+            }
+        }).from(container).save().then(function() {
+            document.body.removeChild(container);
+        });
+    }
+
+    // Rekap Total Pesanan per Menu — PDF untuk kitchen prep
+    var rekapMenuData = <?php echo json_encode($menuRecap, JSON_HEX_APOS | JSON_HEX_TAG); ?>;
+    var rekapTotalPax = <?php echo (int) array_sum(array_column($todayOrders, 'total_pax')); ?>;
+
+    function cetakRekap() {
+        var entries = Object.keys(rekapMenuData).map(function(name) {
+            return {
+                name: name,
+                qty: rekapMenuData[name]
+            };
+        });
+
+        var html = '<div style="font-family:Arial,sans-serif;width:100%;max-width:700px;margin:0 auto;padding:30px 40px;color:#1a1a2e">';
+
+        html += '<div style="text-align:center;border-bottom:3px solid #f59e0b;padding-bottom:15px;margin-bottom:25px">';
+        html += '<div style="font-size:26px;font-weight:800;color:#f59e0b;letter-spacing:1px">REKAP PESANAN SARAPAN</div>';
+        html += '<div style="font-size:14px;color:#374151;margin-top:6px;font-weight:600"><?php echo htmlspecialchars($_SESSION["business_name"] ?? "Narayana Karimunjawa"); ?></div>';
+        html += '<div style="font-size:11px;color:#9ca3af;margin-top:4px"><?php echo $today; ?> | Total ' + <?php echo (int) count($todayOrders); ?> + ' order, ' + rekapTotalPax + ' pax</div>';
+        html += '</div>';
+
+        html += '<table style="width:100%;font-size:13px;border-collapse:collapse">';
+        html += '<thead><tr style="background:#fef3c7">';
+        html += '<th style="padding:10px 12px;text-align:left;border-bottom:2px solid #fde68a;font-size:11px;color:#92400e;text-transform:uppercase">Menu</th>';
+        html += '<th style="padding:10px 12px;text-align:right;width:100px;border-bottom:2px solid #fde68a;font-size:11px;color:#92400e;text-transform:uppercase">Total Qty</th>';
+        html += '</tr></thead><tbody>';
+
+        for (var i = 0; i < entries.length; i++) {
+            html += '<tr style="border-bottom:1px solid #f3f4f6">';
+            html += '<td style="padding:10px 12px;font-weight:600">' + escHtml(entries[i].name) + '</td>';
+            html += '<td style="padding:10px 12px;text-align:right;font-weight:800;color:#d97706;font-size:15px">×' + entries[i].qty + '</td>';
+            html += '</tr>';
+        }
+        html += '</tbody></table>';
+
+        html += '<div style="text-align:center;font-size:9px;color:#9ca3af;border-top:1px solid #e5e7eb;padding-top:12px;margin-top:30px">';
+        html += 'Printed from ADF System — <?php echo htmlspecialchars($_SESSION["business_name"] ?? "Narayana Hotel"); ?> &copy; <?php echo date("Y"); ?>';
+        html += '<br>Printed: ' + new Date().toLocaleString('id-ID');
+        html += '</div>';
+
+        html += '</div>';
+
+        var container = document.createElement('div');
+        container.innerHTML = html;
+        document.body.appendChild(container);
+
+        html2pdf().set({
+            margin: [10, 15, 15, 15],
+            filename: 'rekap-sarapan-<?php echo $today; ?>.pdf',
             html2canvas: {
                 scale: 2,
                 useCORS: true
