@@ -1340,7 +1340,7 @@ include '../../includes/header.php';
                 <!-- Pilih Rekening Kas (Sumber) -->
                 <div>
                     <label style="display: block; font-weight: 600; margin-bottom: 0.4rem; color: #334155; font-size: 0.875rem;">Kas / Rekening Sumber <span style="color: #dc2626;">*</span></label>
-                    <select name="setor_cash_account" id="setorCashAccount" required style="width: 100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem;">
+                    <select name="setor_cash_account" id="setorCashAccount" style="width: 100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem;">
                         <option value="">-- Pilih Rekening Kas --</option>
                         <?php
                         try {
@@ -1368,7 +1368,7 @@ include '../../includes/header.php';
                         <label style="display: block; font-weight: 600; color: #334155; font-size: 0.875rem;">Rekening Bank Tujuan <span style="color: #dc2626;">*</span></label>
                         <a href="#" onclick="openAddBankAccountModal(event)" style="font-size: 0.75rem; color: #0284c7; font-weight: 600; text-decoration: none; border-bottom: 1px dashed #0284c7; cursor: pointer;">+ Tambah</a>
                     </div>
-                    <select name="setor_bank_account" id="setorBankAccount" required style="width: 100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem;">
+                    <select name="setor_bank_account" id="setorBankAccount" style="width: 100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem;">
                         <option value="">-- Pilih Rekening Bank --</option>
                         <?php
                         try {
@@ -1407,13 +1407,13 @@ include '../../includes/header.php';
                 <!-- Input Nominal -->
                 <div>
                     <label style="display: block; font-weight: 600; margin-bottom: 0.4rem; color: #334155; font-size: 0.875rem;">Nominal Setor <span style="color: #dc2626;">*</span></label>
-                    <input type="number" name="setor_amount" id="setorAmount" required min="1000" placeholder="Contoh: 500000" style="width: 100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem; font-family: 'Courier New', monospace;">
+                    <input type="number" name="setor_amount" id="setorAmount" min="1000" placeholder="Contoh: 500000" style="width: 100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem; font-family: 'Courier New', monospace;">
                 </div>
                 
                 <!-- Nama Penyetor -->
                 <div>
                     <label style="display: block; font-weight: 600; margin-bottom: 0.4rem; color: #334155; font-size: 0.875rem;">Nama Penyetor <span style="color: #dc2626;">*</span></label>
-                    <input type="text" name="setor_penyetor" id="setorPenyetor" required placeholder="Nama orang yang melakukan setor" style="width: 100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem;">
+                    <input type="text" name="setor_penyetor" id="setorPenyetor" placeholder="Nama orang yang melakukan setor" style="width: 100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem;">
                 </div>
 
                 <!-- Keterangan (Optional) -->
