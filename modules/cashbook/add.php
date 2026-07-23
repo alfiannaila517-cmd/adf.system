@@ -363,9 +363,47 @@ if (isPost()) {
                     // STEP 3: Record in cash_transfers table for tracking & archiving
                     $refNum = 'ST-' . date('YmdHis') . '-' . $_SESSION['user_id']; // Reference tracking
                     
-                    $transferStmt = $masterDb->prepare("\n                        INSERT INTO cash_transfers \n                        (business_id, cash_account_id, bank_account_id, amount, transfer_date, transfer_time, reference_number, description, created_by, is_archived)\n                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)\n                    ");
+                    $transferStmt = $masterDb->prepare("
+                        INSERT INTO cash_transfers 
+                        (business_id, cash_account_id, bank_account_id, amount, transfer_date, transfer_time, reference_number, description, created_by, is_archived)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+                    ");
                     
-                    $transferStmt->execute([\n                        $bizId,\n                        $cashAccountId,\n                        $destAccount['id'],\n                        $amount,\n                        $transactionDate,\n                        $transactionTime ?: date('H:i:s'),\n                        $refNum,\n                        $description ?: 'Setor tunai dari kas cabang ke rekening operasional',\n                        $_SESSION['user_id']\n                    ]);\n                    \n                    error_log(\"SETOR TUNAI: Recorded in cash_transfers - From {$sourceAcct['account_name']} to {$destAccount['account_name']} - Amount: {$amount}\");\n                    \n                    // SUCCESS - Don't commit to cash_book, only update balances\n                    setFlash('success', 'Setor tunai berhasil dicatat! Saldo kas berkurang & rekening bank bertambah.');\n                    redirect(BASE_URL . '/modules/cashbook/index.php');\n                    exit;\n                    \n                } catch (Exception $e) {\n                    error_log('SETOR TUNAI ERROR: ' . $e->getMessage());\n                    setFlash('error', 'Error setor tunai: ' . $e->getMessage());\n                    redirect(BASE_URL . '/modules/cashbook/add.php');\n                    exit;\n                }\n            }\n            // ============================================\n            \n            // Start transaction for atomic operation\n            $db->beginTransaction();\n            \n            try {\n                // Insert to cash_book (business database)\n                if ($db->insert('cash_book', $data)) {\n                    $transactionId = $db->getConnection()->lastInsertId();
+                    $transferStmt->execute([
+                        $bizId,
+                        $cashAccountId,
+                        $destAccount['id'],
+                        $amount,
+                        $transactionDate,
+                        $transactionTime ?: date('H:i:s'),
+                        $refNum,
+                        $description ?: 'Setor tunai dari kas cabang ke rekening operasional',
+                        $_SESSION['user_id']
+                    ]);
+                    
+                    error_log("SETOR TUNAI: Recorded in cash_transfers - From {$sourceAcct['account_name']} to {$destAccount['account_name']} - Amount: {$amount}");
+                    
+                    // SUCCESS - Don't commit to cash_book, only update balances
+                    setFlash('success', 'Setor tunai berhasil dicatat! Saldo kas berkurang & rekening bank bertambah.');
+                    redirect(BASE_URL . '/modules/cashbook/index.php');
+                    exit;
+                    
+                } catch (Exception $e) {
+                    error_log('SETOR TUNAI ERROR: ' . $e->getMessage());
+                    setFlash('error', 'Error setor tunai: ' . $e->getMessage());
+                    redirect(BASE_URL . '/modules/cashbook/add.php');
+                    exit;
+                }
+            }
+            // ============================================
+            
+            // Start transaction for atomic operation
+            $db->beginTransaction();
+            
+            try {
+                // Insert to cash_book (business database)
+                if ($db->insert('cash_book', $data)) {
+                    $transactionId = $db->getConnection()->lastInsertId();
                     
                     // If user selected a cash account, also save to cash_account_transactions (master DB)
                     if (!empty($cashAccountId)) {
