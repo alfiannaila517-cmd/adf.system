@@ -73,25 +73,28 @@ $dateTo = $_GET['date_to'] ?? '';
 $filterAccount = $_GET['account'] ?? '';
 
 // Build query
-$where = ['business_id = ?'];
+// NOTE: all columns here must be qualified with ct. because the transfers
+// query below JOINs cash_accounts (aliased ca_cash/ca_bank), which also has
+// a business_id column -> unqualified "business_id" is ambiguous (SQLSTATE 23000).
+$where = ['ct.business_id = ?'];
 $params = [$businessId];
 
 if (!$showArchived) {
-    $where[] = 'is_archived = 0';
+    $where[] = 'ct.is_archived = 0';
 }
 
 if ($dateFrom) {
-    $where[] = 'transfer_date >= ?';
+    $where[] = 'ct.transfer_date >= ?';
     $params[] = $dateFrom;
 }
 
 if ($dateTo) {
-    $where[] = 'transfer_date <= ?';
+    $where[] = 'ct.transfer_date <= ?';
     $params[] = $dateTo;
 }
 
 if ($filterAccount) {
-    $where[] = '(cash_account_id = ? OR bank_account_id = ?)';
+    $where[] = '(ct.cash_account_id = ? OR ct.bank_account_id = ?)';
     $params[] = $filterAccount;
     $params[] = $filterAccount;
 }
