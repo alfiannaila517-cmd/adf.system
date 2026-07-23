@@ -354,7 +354,9 @@ class Auth
     {
         if (!$this->isLoggedIn()) return false;
         $userRole = $_SESSION['role'] ?? 'staff';
-        if ($userRole === 'admin') return true;
+        // Admin (system-wide) and Owner (business owner) always have full access -
+        // granular per-menu permissions only restrict staff/manager/accountant roles.
+        if (in_array($userRole, ['admin', 'owner'])) return true;
 
         $username = $_SESSION['username'] ?? null;
         if (!$username) return false;

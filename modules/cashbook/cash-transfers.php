@@ -633,7 +633,7 @@ include '../../includes/header.php';
     function toggleArchive(id, isArchive) {
         const action = isArchive ? 'Arsipkan' : 'Batalkan arsip';
 
-        if (!confirm(`${action} setor tunai ini?`)) return;
+        if (!confirm(`${action} setor tunai ini?` + (isArchive ? '\n\n(Data TIDAK dihapus - hanya disembunyikan dari daftar "Aktif". Bisa dilihat lagi lewat filter "Arsipan" di atas.)' : ''))) return;
 
         const formData = new FormData();
         formData.append('id', id);
@@ -646,6 +646,9 @@ include '../../includes/header.php';
             .then(r => r.json())
             .then(data => {
                 if (data.success) {
+                    if (isArchive) {
+                        alert('✅ Berhasil diarsipkan.\n\nData TIDAK hilang - ganti filter status di atas ke "Arsipan" untuk melihatnya kembali, atau gunakan tombol Hapus jika memang ingin menghapus permanen.');
+                    }
                     // Reload page
                     location.reload();
                 } else {

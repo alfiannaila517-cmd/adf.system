@@ -514,6 +514,7 @@ $filesToSync = [
     'api/fingerprint-webhook.php',
     'includes/header.php',
     'includes/footer.php',
+    'includes/auth.php',
     'assets/icons/favicon.svg',
     'modules/frontdesk/rental-motor.php',
     'modules/frontdesk/rental-motor-dashboard.php',
