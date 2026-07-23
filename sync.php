@@ -533,6 +533,7 @@ $filesToSync = [
     'modules/cashbook/add.php',
     'modules/cashbook/cash-transfers.php',
     'modules/cashbook/delete.php',
+    'debug-setor-tunai.php',
     'config/vapid.php',
     'includes/PushNotificationHelper.php',
     'api/push-subscription.php',
