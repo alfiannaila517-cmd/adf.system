@@ -557,6 +557,7 @@ $filesToSync = [
     'website/public/includes/footer.php',
     'website/public/assets/css/style.css',
     'website/config/config.php',
+    'create-cash-transfers-table.php',
     '.cpanel.yml',
 ];
 
