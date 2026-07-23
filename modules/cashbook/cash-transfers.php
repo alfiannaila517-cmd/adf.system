@@ -494,6 +494,22 @@ include '../../includes/header.php';
         </a>
     </div>
 
+    <!-- Quick toggle: Aktif <-> Arsipan (clears date/account filters so archived
+         items from ANY date are shown, since the date filter otherwise defaults
+         to hiding items outside the selected range) -->
+    <div style="margin-bottom: 1rem;">
+        <?php if (!$showArchived): ?>
+            <a href="?archived=1" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.85rem; text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem;">
+                📦 Lihat Arsipan
+            </a>
+        <?php else: ?>
+            <a href="?archived=0" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.85rem; text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem;">
+                👁️ Lihat Aktif
+            </a>
+            <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 0.5rem;">Sedang menampilkan data yang diarsipkan. Gunakan tombol "🗑️ Hapus" di bawah untuk menghapus permanen.</span>
+        <?php endif; ?>
+    </div>
+
     <?php if ($pageError): ?>
         <div class="card" style="margin-bottom: 1.5rem; padding: 1rem 1.25rem; border-left: 4px solid #dc2626; background: #fef2f2; color: #991b1b;">
             ⚠️ <?php echo htmlspecialchars($pageError); ?>
