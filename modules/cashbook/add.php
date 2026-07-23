@@ -216,9 +216,15 @@ if (isPost()) {
                 $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
                 $bizId = getMasterBusinessId();
 
-                // Get destination account (bank) - first active bank account
-                $stmt = $masterDb->prepare("SELECT id, account_name FROM cash_accounts WHERE business_id = ? AND account_type = 'bank' AND is_active = 1 ORDER BY id LIMIT 1");
-                $stmt->execute([$bizId]);
+                // Get destination account (bank) - use explicit bank_account_id if provided
+                $bankAccountId = sanitize(getPost('bank_account_id')) ?: null;
+                if ($bankAccountId) {
+                    $stmt = $masterDb->prepare("SELECT id, account_name FROM cash_accounts WHERE id = ? AND business_id = ? AND account_type = 'bank' AND is_active = 1");
+                    $stmt->execute([$bankAccountId, $bizId]);
+                } else {
+                    $stmt = $masterDb->prepare("SELECT id, account_name FROM cash_accounts WHERE business_id = ? AND account_type = 'bank' AND is_active = 1 ORDER BY id LIMIT 1");
+                    $stmt->execute([$bizId]);
+                }
                 $destAccount = $stmt->fetch(PDO::FETCH_ASSOC);
 
                 if (!$destAccount) {
@@ -277,6 +283,14 @@ if (isPost()) {
                 setFlash('error', 'Error setor tunai: ' . $e->getMessage());
             }
         }
+
+        // Any cash_transfer path that didn't already redirect (validation failure or
+        // caught exception) must stop here - otherwise execution falls through to the
+        // generic transaction validation below, which overwrites the flash message with
+        // "Mohon lengkapi semua field yang wajib diisi!" because division_id/category_name
+        // are intentionally empty for Setor Tunai.
+        redirect('add.php');
+        exit;
     }
 
     // Validation
