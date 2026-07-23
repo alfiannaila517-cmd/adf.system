@@ -30,6 +30,21 @@ try {
 $businessId = getMasterBusinessId();
 $currentUser = $auth->getCurrentUser();
 
+// Auto-migrate: link column so each cash_transfers row knows which cash_book
+// row (business DB) it created, so delete/backfill can find & remove it.
+try {
+    $masterDb->exec("ALTER TABLE cash_transfers ADD COLUMN cash_book_id INT NULL AFTER archived_by");
+} catch (Exception $e) { /* column already exists */
+}
+
+// Auto-drop FK constraint on cash_book.created_by (references users in master DB, not
+// business DB) - same fix already applied in add.php/index.php - needed here too since
+// we insert/delete cash_book rows directly from this page (backfill + delete below).
+try {
+    $db->getConnection()->exec("ALTER TABLE `cash_book` DROP FOREIGN KEY `cash_book_ibfk_3`");
+} catch (Exception $e) { /* already dropped or doesn't exist */
+}
+
 // Handle AJAX requests
 if (isset($_GET['ajax'])) {
     header('Content-Type: application/json');
@@ -57,6 +72,64 @@ if (isset($_GET['ajax'])) {
                 echo json_encode(['success' => true, 'message' => 'Setor tunai berhasil di-unarchive']);
             }
         } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
+        }
+        exit;
+    }
+
+    // Delete a cash transfer entirely: reverses BOTH sides of the transfer
+    // (adds amount back to the source cash account, removes it from the
+    // destination bank account) and removes the linked cash_book row so
+    // Buku Kas / Cash Available also revert correctly.
+    if ($_GET['ajax'] === 'delete' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        if (!$auth->canDelete('cashbook')) {
+            echo json_encode(['success' => false, 'message' => 'Anda tidak memiliki izin untuk menghapus.']);
+            exit;
+        }
+
+        $id = intval($_POST['id'] ?? 0);
+        if (!$id) {
+            echo json_encode(['success' => false, 'message' => 'ID tidak valid']);
+            exit;
+        }
+
+        try {
+            $stmt = $masterDb->prepare("SELECT * FROM cash_transfers WHERE id = ? AND business_id = ?");
+            $stmt->execute([$id, $businessId]);
+            $tr = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$tr) {
+                echo json_encode(['success' => false, 'message' => 'Data setor tunai tidak ditemukan']);
+                exit;
+            }
+
+            $masterDb->beginTransaction();
+
+            // Reverse: give the amount back to the source cash account...
+            $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance + ? WHERE id = ?")
+                ->execute([$tr['amount'], $tr['cash_account_id']]);
+            // ...and remove it from the destination bank account
+            $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance - ? WHERE id = ?")
+                ->execute([$tr['amount'], $tr['bank_account_id']]);
+
+            // Remove the linked cash_book tracking row (if any)
+            if (!empty($tr['cash_book_id'])) {
+                try {
+                    $db->delete('cash_book', 'id = :id', ['id' => $tr['cash_book_id']]);
+                } catch (Exception $cbEx) {
+                    error_log("cash-transfers.php delete: failed removing linked cash_book row: " . $cbEx->getMessage());
+                }
+            }
+
+            $masterDb->prepare("DELETE FROM cash_transfers WHERE id = ?")->execute([$id]);
+
+            $masterDb->commit();
+            echo json_encode(['success' => true, 'message' => '✅ Setor tunai dihapus & saldo dikembalikan']);
+        } catch (Exception $e) {
+            if ($masterDb->inTransaction()) {
+                $masterDb->rollBack();
+            }
+            error_log("cash-transfers.php delete error: " . $e->getMessage());
             echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
         }
         exit;
@@ -105,6 +178,54 @@ $pageError = '';
 $transfers = [];
 $accounts = [];
 $totalAmount = 0;
+
+// Backfill: older cash_transfers rows (created before the cash_book link
+// existed) have no matching row in Buku Kas / no cash_book_id. Create the
+// missing cash_book entry now so "Cash Available" + the ledger reflect them,
+// then remember the link so future page loads / delete skip it.
+try {
+    $missingStmt = $masterDb->prepare("
+        SELECT ct.*, ca_cash.account_name as cash_name, ca_bank.account_name as bank_name
+        FROM cash_transfers ct
+        LEFT JOIN cash_accounts ca_cash ON ct.cash_account_id = ca_cash.id
+        LEFT JOIN cash_accounts ca_bank ON ct.bank_account_id = ca_bank.id
+        WHERE ct.business_id = ? AND (ct.cash_book_id IS NULL OR ct.cash_book_id = 0)
+    ");
+    $missingStmt->execute([$businessId]);
+    $missingTransfers = $missingStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($missingTransfers as $mt) {
+        // Description was stored as "[Penyetor] rest of text..." - extract penyetor name
+        $rawDesc = $mt['description'] ?? '';
+        $penyetor = '';
+        if (preg_match('/^\[(.*?)\]\s*(.*)$/', $rawDesc, $m)) {
+            $penyetor = $m[1];
+            $rawDesc = $m[2];
+        }
+        $cbData = [
+            'transaction_date' => $mt['transfer_date'],
+            'transaction_time' => $mt['transfer_time'],
+            'division_id' => null,
+            'category_id' => null,
+            'transaction_type' => 'expense',
+            'amount' => $mt['amount'],
+            'description' => "Pemindahan Uang / Setoran Harian ke " . ($mt['bank_name'] ?: 'rekening bank')
+                . ($penyetor ? " - Penyetor: {$penyetor}" : '') . ($rawDesc ? " - {$rawDesc}" : ''),
+            'payment_method' => 'cash',
+            'cash_account_id' => $mt['cash_account_id'],
+            'created_by' => $mt['created_by'],
+            'source_type' => 'cash_transfer',
+            'is_editable' => 0
+        ];
+        if ($db->insert('cash_book', $cbData)) {
+            $newCashBookId = $db->getConnection()->lastInsertId();
+            $masterDb->prepare("UPDATE cash_transfers SET cash_book_id = ? WHERE id = ?")
+                ->execute([$newCashBookId, $mt['id']]);
+        }
+    }
+} catch (Exception $e) {
+    error_log("cash-transfers.php: backfill cash_book failed: " . $e->getMessage());
+}
 
 try {
     // Get transfers
@@ -475,6 +596,14 @@ include '../../includes/header.php';
                             title="<?php echo $transfer['is_archived'] ? 'Batalkan arsip' : 'Arsipkan'; ?>">
                             <?php echo $transfer['is_archived'] ? '↩️ Unarchive' : '📦 Arsipkan'; ?>
                         </button>
+                        <?php if ($auth->canDelete('cashbook')): ?>
+                        <button class="btn-small btn-delete"
+                            onclick="deleteTransfer(<?php echo $transfer['id']; ?>)"
+                            title="Hapus setor tunai (saldo dikembalikan)"
+                            style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;">
+                            🗑️ Hapus
+                        </button>
+                        <?php endif; ?>
                     </div>
                 </div>
             <?php endforeach; ?>
@@ -506,6 +635,27 @@ include '../../includes/header.php';
             .then(data => {
                 if (data.success) {
                     // Reload page
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(err => alert('Error: ' + err.message));
+    }
+
+    function deleteTransfer(id) {
+        if (!confirm('Hapus setor tunai ini? Saldo kas & bank akan dikembalikan seperti semula. Tindakan ini tidak bisa dibatalkan.')) return;
+
+        const formData = new FormData();
+        formData.append('id', id);
+
+        fetch('cash-transfers.php?ajax=delete', {
+                method: 'POST',
+                body: formData
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
                     location.reload();
                 } else {
                     alert('Error: ' + data.message);

@@ -216,6 +216,14 @@ if (isPost()) {
                 $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
                 $bizId = getMasterBusinessId();
 
+                // Auto-migrate: link column so this cash_transfers row remembers which
+                // cash_book row (business DB) it created - used by cash-transfers.php's
+                // delete feature to also remove/reverse the ledger entry.
+                try {
+                    $masterDb->exec("ALTER TABLE cash_transfers ADD COLUMN cash_book_id INT NULL AFTER archived_by");
+                } catch (Exception $e) { /* column already exists */
+                }
+
                 // Get destination account (bank) - use explicit bank_account_id if provided
                 $bankAccountId = sanitize(getPost('bank_account_id')) ?: null;
                 if ($bankAccountId) {
@@ -271,6 +279,8 @@ if (isPost()) {
                     $_SESSION['user_id']
                 ]);
 
+                $transferId = $masterDb->lastInsertId();
+
                 error_log("SETOR TUNAI: Recorded in cash_transfers - From {$sourceAcct['account_name']} to {$destAccount['account_name']} - Amount: {$amount} - Penyetor: {$penyetor}");
 
                 // STEP 4: Insert into cash_book (business DB) so "Cash Available" on the
@@ -293,7 +303,11 @@ if (isPost()) {
                         'source_type' => 'cash_transfer',
                         'is_editable' => 0
                     ];
-                    $db->insert('cash_book', $cashBookData);
+                    if ($db->insert('cash_book', $cashBookData)) {
+                        $newCashBookId = $db->getConnection()->lastInsertId();
+                        $masterDb->prepare("UPDATE cash_transfers SET cash_book_id = ? WHERE id = ?")
+                            ->execute([$newCashBookId, $transferId]);
+                    }
                 } catch (Exception $cbEx) {
                     error_log("SETOR TUNAI: Failed to insert cash_book tracking row: " . $cbEx->getMessage());
                     // Non-fatal: the transfer itself (cash_accounts + cash_transfers) already succeeded
