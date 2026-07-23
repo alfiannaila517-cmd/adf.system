@@ -1306,9 +1306,32 @@ include '../../includes/header.php';
         </button>
     </div>
 
+    <!-- Modal CSS (inline before modal to ensure styles load first) -->
+    <style>
+        #setorTunaiModal {
+            display: none !important;
+        }
+        #setorTunaiModal.show {
+            display: flex !important;
+        }
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        #setorTunaiModal.show > div {
+            animation: slideUp 0.3s ease;
+        }
+    </style>
+
     <!-- Modal: Setor Tunai -->
-    <div id="setorTunaiModal" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); z-index: 9999; align-items: center; justify-content: center;">
-        <div style="background: white; border-radius: 12px; padding: 2rem; max-width: 450px; width: 90%; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); animation: slideUp 0.3s ease;">
+    <div id="setorTunaiModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); z-index: 9999; align-items: center; justify-content: center;">
+        <div style="background: white; border-radius: 12px; padding: 2rem; max-width: 450px; width: 90%; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);">
             <h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 1.5rem; color: #0c4a6e; display: flex; align-items: center; gap: 0.5rem;">
                 <span>🏦</span> Setor Tunai ke Rekening Bank
             </h2>
@@ -1415,28 +1438,6 @@ include '../../includes/header.php';
 
 <script>
     feather.replace();
-
-    // Modal slideUp animation
-    const style = document.createElement('style');
-    style.textContent = `
-    @keyframes slideUp {
-        from {
-            opacity: 0;
-            transform: translateY(20px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-    #setorTunaiModal {
-        display: none !important;
-    }
-    #setorTunaiModal.show {
-        display: flex !important;
-    }
-`;
-    document.head.appendChild(style);
 
     // OTA Payment Method Handler
     (function() {
