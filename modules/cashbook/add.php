@@ -48,6 +48,69 @@ $isCQC = $hasProjectModule; // Only true if business has cqc-projects module ena
 $pageTitle = $hasProjectModule ? '☀️ Input Transaksi Proyek' : 'Tambah Transaksi';
 $pageSubtitle = $hasProjectModule ? 'Catat pemasukan & pengeluaran proyek solar panel' : 'Input Transaksi Baru';
 
+// ============================================
+// HANDLE AJAX REQUESTS
+// ============================================
+$action = $_GET['action'] ?? $_POST['action'] ?? null;
+
+// AJAX: Add new bank account
+if ($action === 'add_bank_account' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    header('Content-Type: application/json');
+    
+    $accountName = $_POST['account_name'] ?? null;
+    $bizId = getMasterBusinessId();
+    
+    if (!$accountName || strlen(trim($accountName)) < 3) {
+        echo json_encode(['success' => false, 'message' => 'Nama rekening minimal 3 karakter']);
+        exit;
+    }
+    
+    try {
+        // Connect to master DB
+        $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
+        $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        
+        // Insert new bank account
+        $stmt = $masterDb->prepare("
+            INSERT INTO cash_accounts (business_id, account_name, account_type, current_balance, is_active)
+            VALUES (?, ?, 'bank', 0, 1)
+        ");
+        $stmt->execute([$bizId, trim($accountName)]);
+        
+        echo json_encode(['success' => true, 'message' => 'Rekening berhasil ditambahkan']);
+    } catch (Exception $e) {
+        error_log("Add Bank Account Error: " . $e->getMessage());
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+    exit;
+}
+
+// AJAX: Get bank accounts (for dropdown refresh)
+if ($action === 'get_bank_accounts' && $_SERVER['REQUEST_METHOD'] === 'GET') {
+    header('Content-Type: application/json');
+    
+    $bizId = $_GET['biz_id'] ?? getMasterBusinessId();
+    
+    try {
+        $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
+        $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        
+        $stmt = $masterDb->prepare("
+            SELECT id, account_name FROM cash_accounts 
+            WHERE business_id = ? AND account_type = 'bank' AND is_active = 1 
+            ORDER BY account_name
+        ");
+        $stmt->execute([$bizId]);
+        $accounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        echo json_encode(['success' => true, 'accounts' => $accounts]);
+    } catch (Exception $e) {
+        error_log("Get Bank Accounts Error: " . $e->getMessage());
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+    exit;
+}
+
 // Get divisions and categories
 $divisions = $db->fetchAll("SELECT * FROM divisions WHERE is_active = 1 ORDER BY division_name");
 
@@ -1296,6 +1359,20 @@ include '../../includes/header.php';
                         ?>
                     </select>
                 </div>
+                
+                <!-- Quick-Add Bank Account Section (Hidden) -->
+                <div id="quickAddAccountSection" style="display: none; border: 1px solid #dbeafe; border-radius: 8px; padding: 1rem; background: #f0f9ff;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #0c4a6e; font-size: 0.875rem;">➕ Tambah Rekening Bank Baru</label>
+                    <input type="text" id="quickAccountName" placeholder="Nama rekening: e.g., BNI Operasional" style="width: 100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.875rem; margin-bottom: 0.5rem;">
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button type="button" onclick="saveQuickAccount()" class="btn btn-primary" style="flex: 1; padding: 0.5rem; border-radius: 6px; font-weight: 600; font-size: 0.875rem; background: linear-gradient(135deg, #10b981, #059669); border: none; color: white; cursor: pointer;">
+                            💾 Simpan
+                        </button>
+                        <button type="button" onclick="cancelQuickAccount()" style="padding: 0.5rem 1rem; border-radius: 6px; font-weight: 600; font-size: 0.875rem; border: 1px solid #cbd5e1; background: white; color: #334155; cursor: pointer;">
+                            Batal
+                        </button>
+                    </div>
+                </div>
 
                 <!-- Input Nominal -->
                 <div>
@@ -1433,10 +1510,77 @@ include '../../includes/header.php';
 
         window.openAddBankAccountModal = function(e) {
             e.preventDefault();
-            alert('⚙️ Fitur "Tambah Rekening Bank" akan diarahkan ke halaman setup rekening.\n\nUntuk saat ini, silakan tambah rekening melalui menu: Admin > Setup Rekening Bank');
-            // In future: window.open('setup-bank-accounts.php', 'bankSetup', 'width=600,height=400');
-        };
+    const section = document.getElementById('quickAddAccountSection');
+    if (section.style.display === 'none') {
+        section.style.display = 'block';
+        document.getElementById('quickAccountName').focus();
+        console.log('Quick add account form shown');
+    }
+};
 
+window.saveQuickAccount = function() {
+    const accountName = document.getElementById('quickAccountName')?.value;
+    if (!accountName || accountName.trim().length < 3) {
+        alert('❌ Nama rekening minimal 3 karakter');
+        return;
+    }
+    
+    console.log('Saving account:', accountName);
+    
+    // AJAX call to save account
+    fetch(window.location.pathname, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: 'action=add_bank_account&account_name=' + encodeURIComponent(accountName)
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Save response:', data);
+        if (data.success) {
+            alert('✅ Rekening berhasil ditambahkan!');
+            // Refresh dropdown
+            window.refreshBankAccountDropdown();
+            // Clear and hide form
+            document.getElementById('quickAccountName').value = '';
+            document.getElementById('quickAddAccountSection').style.display = 'none';
+        } else {
+            alert('❌ Error: ' + (data.message || 'Gagal menambahkan rekening'));
+        }
+    })
+    .catch(error => {
+        console.error('Save error:', error);
+        alert('❌ Error: ' + error.message);
+    });
+};
+
+window.cancelQuickAccount = function() {
+    document.getElementById('quickAddAccountSection').style.display = 'none';
+    document.getElementById('quickAccountName').value = '';
+};
+
+window.refreshBankAccountDropdown = function() {
+    const bizId = '<?php echo getMasterBusinessId(); ?>';
+    const select = document.getElementById('setorBankAccount');
+    
+    fetch(window.location.pathname + '?action=get_bank_accounts&biz_id=' + bizId)
+        .then(response => response.json())
+        .then(data => {
+            console.log('Bank accounts refreshed:', data);
+            // Keep the placeholder option
+            select.innerHTML = '<option value="">-- Pilih Rekening Bank --</option>';
+            // Add new options
+            if (data.accounts && data.accounts.length > 0) {
+                data.accounts.forEach(acc => {
+                    const option = document.createElement('option');
+                    option.value = acc.id;
+                    option.textContent = '🏛️ ' + acc.account_name;
+                    select.appendChild(option);
+                });
+            }
+        })
+        .catch(error => console.error('Refresh error:', error));
         // Close modal when clicking outside - ensure DOM is ready
         function initSetorTunaiModal() {
             const modal = document.getElementById('setorTunaiModal');
@@ -1535,10 +1679,21 @@ include '../../includes/header.php';
         // Close modal on Escape key
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
-                window.closeSetorTunaiModal();
-            }
-        });
+        // Close quick-add first if open
+        const quickAdd = document.getElementById('quickAddAccountSection');
+        if (quickAdd && quickAdd.style.display !== 'none') {
+            window.cancelQuickAccount();
+        } else {
+            window.closeSetorTunaiModal();
+        }
+    }
+});
 
+// Allow Enter key in quick-add name field to save
+document.addEventListener('keypress', function(e) {
+    if (e.target.id === 'quickAccountName' && e.key === 'Enter') {
+        e.preventDefault();
+        window.saveQuickAccount();
         // Owner Fund - Input dari Bu Sita
         function fillOwnerFund() {
             // Set transaction type to income
