@@ -51,6 +51,16 @@ if (!$transaction) {
     exit;
 }
 
+// Setor Tunai rows are tracked separately in cash_transfers (master DB) and already
+// moved real money between cash_accounts. Deleting the cash_book row here would NOT
+// reverse the bank-side credit, causing a balance mismatch. Use the archive feature
+// on the "Ringkasan Setor Tunai" page instead.
+if (isset($transaction['source_type']) && $transaction['source_type'] === 'cash_transfer') {
+    $_SESSION['error'] = '⛔ Transaksi Setor Tunai tidak bisa dihapus dari sini. Gunakan fitur arsip di halaman Ringkasan Setor Tunai.';
+    header('Location: index.php');
+    exit;
+}
+
 try {
     $db->beginTransaction();
     

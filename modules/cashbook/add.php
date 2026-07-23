@@ -272,6 +272,33 @@ if (isPost()) {
                 ]);
 
                 error_log("SETOR TUNAI: Recorded in cash_transfers - From {$sourceAcct['account_name']} to {$destAccount['account_name']} - Amount: {$amount} - Penyetor: {$penyetor}");
+
+                // STEP 4: Insert into cash_book (business DB) so "Cash Available" on the
+                // Buku Kas page reduces correctly. transaction_type='expense' makes the
+                // cash balance math work, but source_type='cash_transfer' marks it so the
+                // UI shows a distinct "Setor Tunai" badge/color and EXCLUDES it from
+                // Total Pengeluaran (it's an internal transfer, not a real business expense).
+                try {
+                    $cashBookData = [
+                        'transaction_date' => $transactionDate,
+                        'transaction_time' => $transactionTime ?: date('H:i:s'),
+                        'division_id' => null,
+                        'category_id' => null,
+                        'transaction_type' => 'expense',
+                        'amount' => $amount,
+                        'description' => "Pemindahan Uang / Setoran Harian ke {$destAccount['account_name']} - Penyetor: {$penyetor}" . ($description ? " - {$description}" : ''),
+                        'payment_method' => 'cash',
+                        'cash_account_id' => $cashAccountId,
+                        'created_by' => $_SESSION['user_id'],
+                        'source_type' => 'cash_transfer',
+                        'is_editable' => 0
+                    ];
+                    $db->insert('cash_book', $cashBookData);
+                } catch (Exception $cbEx) {
+                    error_log("SETOR TUNAI: Failed to insert cash_book tracking row: " . $cbEx->getMessage());
+                    // Non-fatal: the transfer itself (cash_accounts + cash_transfers) already succeeded
+                }
+
                 setFlash('success', '✅ Setor tunai berhasil dicatat! Nominal: ' . number_format($amount, 0, ',', '.') . ' - Penyetor: ' . $penyetor);
 
                 // Redirect to ringkasan page

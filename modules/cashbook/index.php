@@ -559,6 +559,7 @@ $totalOfficeExpense = 0; // Office/operational expenses only (no project)
 $totalProjectExpense = 0; // Project-linked expenses (for contractor businesses)
 $totalPettyCashExpense = 0; // Expenses funded from Petty Cash (office + project)
 $totalKasBesarExpense = 0; // Expenses funded from Kas Besar
+$totalCashTransfer = 0; // Setor Tunai (internal cash->bank transfer) - reduces cash but NOT a business expense
 foreach ($transactions as $trans) {
     if ($trans['transaction_type'] === 'income') {
         $totalIncome += $trans['amount'];
@@ -569,6 +570,13 @@ foreach ($transactions as $trans) {
             $totalRealIncome += $trans['amount'];
         }
     } else {
+        // Setor Tunai internal transfers reduce cash on hand but are NOT a real
+        // business expense (money just moves to the bank account) - track them
+        // separately and exclude from $totalExpense / P&L breakdowns below.
+        if (isset($trans['source_type']) && $trans['source_type'] === 'cash_transfer') {
+            $totalCashTransfer += $trans['amount'];
+            continue;
+        }
         $totalExpense += $trans['amount'];
         // Separate project expenses (not hotel operational)
         if (isset($trans['source_type']) && $trans['source_type'] === 'owner_project') {
@@ -1804,12 +1812,19 @@ echo getPrintCSS();
                     <td><?php echo isset($trans['transaction_time']) ? date('H:i', strtotime($trans['transaction_time'])) : '-'; ?></td>
                     <td><strong><?php echo $trans['division_name']; ?></strong></td>
                     <td><?php echo $trans['category_name']; ?></td>
-                    <td><span class="badge <?php echo $trans['transaction_type']; ?>"><?php echo $trans['transaction_type'] === 'income' ? 'Masuk' : 'Keluar'; ?></span></td>
+                    <?php $isCashTransfer = isset($trans['source_type']) && $trans['source_type'] === 'cash_transfer'; ?>
+                    <td>
+                        <?php if ($isCashTransfer): ?>
+                            <span class="badge" style="background:#e0e7ff; color:#4338ca;">Setor Tunai</span>
+                        <?php else: ?>
+                            <span class="badge <?php echo $trans['transaction_type']; ?>"><?php echo $trans['transaction_type'] === 'income' ? 'Masuk' : 'Keluar'; ?></span>
+                        <?php endif; ?>
+                    </td>
                     <td style="text-align: center; font-size: 0.75rem; text-transform: uppercase;"><?php echo htmlspecialchars($trans['payment_method'] ?? '-'); ?></td>
-                    <td style="text-align: right; font-weight: 700; color: <?php echo $trans['transaction_type'] === 'income' ? '#059669' : '#dc2626'; ?>;">
+                    <td style="text-align: right; font-weight: 700; color: <?php echo $isCashTransfer ? '#4338ca' : ($trans['transaction_type'] === 'income' ? '#059669' : '#dc2626'); ?>;">
                         <?php echo formatCurrency($trans['amount']); ?>
                     </td>
-                    <td style="font-size: 0.8rem;"><?php echo $trans['description'] ?: '-'; ?></td>
+                    <td style="font-size: 0.8rem;"><?php echo $isCashTransfer ? '🔄 Pemindahan Uang / Setoran Harian — ' . htmlspecialchars($trans['description'] ?: '') : ($trans['description'] ?: '-'); ?></td>
                     <td style="font-size: 0.7rem; color: #475569;"><?php echo htmlspecialchars($trans['created_by_name'] ?: 'System'); ?></td>
                 </tr>
             <?php endforeach; ?>
@@ -2345,13 +2360,20 @@ echo getPrintCSS();
                                             <span style="font-size: 0.75rem; color: #9ca3af;">—</span>
                                         <?php endif; ?>
                                     <?php else: ?>
-                                        <strong><?php echo $trans['division_name']; ?></strong>
-                                        <div style="font-size: 0.7rem; color: var(--text-muted);"><?php echo $trans['division_code']; ?></div>
+                                        <?php if (isset($trans['source_type']) && $trans['source_type'] === 'cash_transfer'): ?>
+                                            <span style="font-size: 0.75rem; color: #9ca3af;">—</span>
+                                        <?php else: ?>
+                                            <strong><?php echo $trans['division_name']; ?></strong>
+                                            <div style="font-size: 0.7rem; color: var(--text-muted);"><?php echo $trans['division_code']; ?></div>
+                                        <?php endif; ?>
                                     <?php endif; ?>
                                 </td>
+                                <?php $rowIsCashTransfer = isset($trans['source_type']) && $trans['source_type'] === 'cash_transfer'; ?>
                                 <td style="font-size: 0.8rem;">
                                     <?php
-                                    if ($trans['source_type'] === 'purchase_order' && strpos($trans['category_name'], 'Supplies') !== false) {
+                                    if ($rowIsCashTransfer) {
+                                        echo 'Setor Tunai';
+                                    } elseif ($trans['source_type'] === 'purchase_order' && strpos($trans['category_name'], 'Supplies') !== false) {
                                         if (preg_match('/Pembayaran PO .* - (.*)/', $trans['description'], $matches)) {
                                             echo 'Payment ' . htmlspecialchars($matches[1]);
                                         } else {
@@ -2363,20 +2385,24 @@ echo getPrintCSS();
                                     ?>
                                 </td>
                                 <td>
-                                    <span class="cb-badge <?php echo $trans['transaction_type']; ?>">
-                                        <?php echo $trans['transaction_type'] === 'income' ? 'MASUK' : 'KELUAR'; ?>
-                                    </span>
+                                    <?php if ($rowIsCashTransfer): ?>
+                                        <span class="cb-badge" style="background:#e0e7ff; color:#4338ca;">🔄 SETOR</span>
+                                    <?php else: ?>
+                                        <span class="cb-badge <?php echo $trans['transaction_type']; ?>">
+                                            <?php echo $trans['transaction_type'] === 'income' ? 'MASUK' : 'KELUAR'; ?>
+                                        </span>
+                                    <?php endif; ?>
                                 </td>
                                 <td>
                                     <span class="cb-method">
                                         <?php echo htmlspecialchars(isset($trans['payment_method']) ? strtoupper($trans['payment_method']) : '-'); ?>
                                     </span>
                                 </td>
-                                <td style="text-align: right; font-weight: 700; font-size: 0.85rem; color: <?php echo $trans['transaction_type'] === 'income' ? '#059669' : '#dc2626'; ?>;">
+                                <td style="text-align: right; font-weight: 700; font-size: 0.85rem; color: <?php echo $rowIsCashTransfer ? '#4338ca' : ($trans['transaction_type'] === 'income' ? '#059669' : '#dc2626'); ?>;">
                                     <?php echo formatCurrency($trans['amount']); ?>
                                 </td>
                                 <td style="font-size: 0.8rem;">
-                                    <?php if (isset($trans['source_type']) && $trans['source_type'] != 'manual'): ?>
+                                    <?php if (!$rowIsCashTransfer && isset($trans['source_type']) && $trans['source_type'] != 'manual'): ?>
                                         <span class="cb-ref-tag">
                                             <i data-feather="shopping-cart" style="width: 10px; height: 10px;"></i>
                                             <?php echo isset($trans['reference_no']) ? $trans['reference_no'] : 'REF'; ?>
@@ -2390,7 +2416,11 @@ echo getPrintCSS();
                                         $descDisplay = trim(preg_replace('/\[OPERATIONAL_OFFICE\]\s*/', '', $descDisplay));
                                         if (empty($descDisplay)) $descDisplay = '-';
                                     }
-                                    echo $descDisplay;
+                                    if ($rowIsCashTransfer) {
+                                        echo '<span style="color:#4338ca;">🔄 Pemindahan Uang / Setoran Harian</span> — ' . htmlspecialchars($descDisplay);
+                                    } else {
+                                        echo $descDisplay;
+                                    }
                                     ?>
 
                                 </td>
@@ -2429,9 +2459,15 @@ echo getPrintCSS();
                 <?php if (!empty($transactions)):
                     $incomeCount  = 0;
                     $expenseCount = 0;
+                    $transferCount = 0;
                     foreach ($transactions as $t) {
-                        if ($t['transaction_type'] === 'income') $incomeCount++;
-                        else $expenseCount++;
+                        if ($t['transaction_type'] === 'income') {
+                            $incomeCount++;
+                        } elseif (isset($t['source_type']) && $t['source_type'] === 'cash_transfer') {
+                            $transferCount++;
+                        } else {
+                            $expenseCount++;
+                        }
                     }
                 ?>
                     <tfoot>
@@ -2455,6 +2491,18 @@ echo getPrintCSS();
                             </td>
                             <td colspan="3" style="padding: 0.65rem 0.5rem;"></td>
                         </tr>
+                        <?php if ($totalCashTransfer > 0): ?>
+                        <tr style="background: linear-gradient(135deg, #e0e7ff, #c7d2fe); border-top: 1px solid #818cf8;">
+                            <td colspan="6" style="padding: 0.65rem 1rem; text-align: right; font-weight: 700; font-size: 0.82rem; color: #3730a3;">
+                                🔄 Total Setor Tunai <span style="font-weight: 400;">(bukan pengeluaran, hanya pindah ke bank)</span>
+                                <span style="font-weight: 400; font-size: 0.74rem; opacity: 0.8;">(<?php echo $transferCount; ?> transaksi)</span>
+                            </td>
+                            <td style="padding: 0.65rem 1rem; text-align: right; font-weight: 800; font-size: 0.95rem; color: #4338ca; white-space: nowrap;">
+                                <?php echo formatCurrency($totalCashTransfer); ?>
+                            </td>
+                            <td colspan="3" style="padding: 0.65rem 0.5rem;"></td>
+                        </tr>
+                        <?php endif; ?>
                         <tr style="background: linear-gradient(135deg, <?php echo $balance >= 0 ? '#eff6ff, #dbeafe' : '#fff7ed, #fed7aa'; ?>); border-top: 2px solid <?php echo $balance >= 0 ? '#3b82f6' : '#f97316'; ?>;">
                             <td colspan="6" style="padding: 0.75rem 1rem; text-align: right; font-weight: 700; font-size: 0.85rem; color: #1e293b;">
                                 💰 Balance
