@@ -1800,7 +1800,7 @@ header('Expires: 0');
 
         .bf-menu-row {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             justify-content: space-between;
             gap: 8px;
             font-size: 10px;
@@ -1821,6 +1821,15 @@ header('Expires: 0');
             border-radius: 999px;
             padding: 2px 7px;
             white-space: nowrap;
+        }
+
+        .bf-menu-note {
+            font-size: 9.5px;
+            color: #92400e;
+            font-style: italic;
+            line-height: 1.3;
+            margin-top: 1px;
+            word-break: break-word;
         }
 
         .bf-special {
@@ -4147,7 +4156,8 @@ header('Expires: 0');
                     if (items.length > 0) {
                         items.forEach(m => {
                             const qty = parseInt(m.quantity || 1, 10) || 1;
-                            menuRows += `<div class="bf-menu-row"><span class="bf-menu-name">${m.menu_name||'Menu'}</span><span class="bf-menu-qty">x${qty}</span></div>`;
+                            const noteHtml = m.note ? `<div class="bf-menu-note">↳ ${m.note}</div>` : '';
+                            menuRows += `<div class="bf-menu-row"><span class="bf-menu-name">${m.menu_name||'Menu'}${noteHtml}</span><span class="bf-menu-qty">x${qty}</span></div>`;
                         });
                     } else {
                         menuRows = `<div class="bf-menu-row"><span class="bf-menu-name">${o.menu_name || 'Menu belum diisi'}</span><span class="bf-menu-qty">x1</span></div>`;
