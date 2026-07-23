@@ -896,7 +896,7 @@ include '../../includes/header.php';
                     </button>
                     
                     <!-- Special Button: Setor Tunai ke Rekening Operasional -->
-                    <button type="button" id="btnSetorTunai" onclick="fillSetorTunai()" style="padding: 0.75rem; flex: 1; min-width: 140px; max-width: 180px; background: linear-gradient(135deg, #dbeafe, #bfdbfe); color: #0c4a6e; border: 2px solid #0284c7; border-radius: 12px; font-size: 0.875rem; font-weight: 700; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.3rem; box-shadow: 0 2px 8px rgba(2, 132, 199, 0.2); transition: all 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(2, 132, 199, 0.35)'; this.style.borderColor='#0369a1'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(2, 132, 199, 0.2)'; this.style.borderColor='#0284c7'">
+                    <button type="button" id="btnSetorTunai" onclick="showSetorTunaiModal()" style="padding: 0.75rem; flex: 1; min-width: 140px; max-width: 180px; background: linear-gradient(135deg, #dbeafe, #bfdbfe); color: #0c4a6e; border: 2px solid #0284c7; border-radius: 12px; font-size: 0.875rem; font-weight: 700; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.3rem; box-shadow: 0 2px 8px rgba(2, 132, 199, 0.2); transition: all 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(2, 132, 199, 0.35)'; this.style.borderColor='#0369a1'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(2, 132, 199, 0.2)'; this.style.borderColor='#0284c7'">
                         <span style="font-size: 1.25rem;">🏦</span>
                         <div style="font-weight: 700; font-size: 0.813rem;">SETOR TUNAI</div>
                         <div style="font-size: 0.7rem; color: #0c4a6e;">Ke Rekening Bank</div>
@@ -1178,10 +1178,112 @@ include '../../includes/header.php';
             <i data-feather="save" style="width: 15px; height: 15px;"></i> Simpan Transaksi
         </button>
     </div>
+    
+    <!-- Modal: Setor Tunai -->
+    <div id="setorTunaiModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); z-index: 9999; align-items: center; justify-content: center;">
+        <div style="background: white; border-radius: 12px; padding: 2rem; max-width: 450px; width: 90%; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); animation: slideUp 0.3s ease;">
+            <h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 1.5rem; color: #0c4a6e; display: flex; align-items: center; gap: 0.5rem;">
+                <span>🏦</span> Setor Tunai ke Rekening Bank
+            </h2>
+            
+            <form id="setorTunaiForm" onsubmit="submitSetorTunai(event)" style="display: flex; flex-direction: column; gap: 1.25rem;">
+                <!-- Pilih Rekening Kas (Sumber) -->
+                <div>
+                    <label style="display: block; font-weight: 600; margin-bottom: 0.4rem; color: #334155; font-size: 0.875rem;">Kas / Rekening Sumber <span style="color: #dc2626;">*</span></label>
+                    <select name="setor_cash_account" id="setorCashAccount" required style="width: 100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem;">
+                        <option value="">-- Pilih Rekening Kas --</option>
+                        <?php 
+                        try {
+                            $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
+                            $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                            $bizId = getMasterBusinessId();
+                            
+                            $stmt = $masterDb->prepare("SELECT id, account_name FROM cash_accounts WHERE business_id = ? AND account_type = 'cash' AND is_active = 1 ORDER BY account_name");
+                            $stmt->execute([$bizId]);
+                            $cashAccounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                            
+                            foreach ($cashAccounts as $acc) {
+                                echo '<option value="' . htmlspecialchars($acc['id']) . '">💵 ' . htmlspecialchars($acc['account_name']) . '</option>';
+                            }
+                        } catch (Exception $e) {
+                            error_log("Setor Tunai Modal: Error loading cash accounts: " . $e->getMessage());
+                        }
+                        ?>
+                    </select>
+                </div>
+                
+                <!-- Pilih Rekening Bank (Tujuan) -->
+                <div>
+                    <label style="display: block; font-weight: 600; margin-bottom: 0.4rem; color: #334155; font-size: 0.875rem;">Rekening Bank Tujuan <span style="color: #dc2626;">*</span></label>
+                    <select name="setor_bank_account" id="setorBankAccount" required style="width: 100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem;">
+                        <option value="">-- Pilih Rekening Bank --</option>
+                        <?php 
+                        try {
+                            $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
+                            $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                            $bizId = getMasterBusinessId();
+                            
+                            $stmt = $masterDb->prepare("SELECT id, account_name FROM cash_accounts WHERE business_id = ? AND account_type = 'bank' AND is_active = 1 ORDER BY account_name");
+                            $stmt->execute([$bizId]);
+                            $bankAccounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                            
+                            foreach ($bankAccounts as $acc) {
+                                echo '<option value="' . htmlspecialchars($acc['id']) . '">🏛️ ' . htmlspecialchars($acc['account_name']) . '</option>';
+                            }
+                        } catch (Exception $e) {
+                            error_log("Setor Tunai Modal: Error loading bank accounts: " . $e->getMessage());
+                        }
+                        ?>
+                    </select>
+                </div>
+                
+                <!-- Input Nominal -->
+                <div>
+                    <label style="display: block; font-weight: 600; margin-bottom: 0.4rem; color: #334155; font-size: 0.875rem;">Nominal Setor <span style="color: #dc2626;">*</span></label>
+                    <input type="number" name="setor_amount" id="setorAmount" required min="1000" placeholder="Contoh: 500000" style="width: 100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem; font-family: 'Courier New', monospace;">
+                </div>
+                
+                <!-- Keterangan (Optional) -->
+                <div>
+                    <label style="display: block; font-weight: 600; margin-bottom: 0.4rem; color: #334155; font-size: 0.875rem;">Keterangan <span style="color: #94a3b8;">(Opsional)</span></label>
+                    <input type="text" name="setor_notes" id="setorNotes" placeholder="Contoh: Setor harian" style="width: 100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem;">
+                </div>
+                
+                <!-- Tombol Aksi -->
+                <div style="display: flex; gap: 0.75rem; margin-top: 1rem;">
+                    <button type="button" onclick="closeSetorTunaiModal()" class="btn btn-secondary" style="flex: 1; padding: 0.65rem; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                        Batal
+                    </button>
+                    <button type="submit" class="btn btn-primary" style="flex: 1; padding: 0.65rem; border-radius: 8px; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #0284c7, #0369a1);">
+                        ✓ Setor Tunai
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 </form>
 
 <script>
 feather.replace();
+
+// Modal slideUp animation
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    #setorTunaiModal {
+        display: flex !important;
+    }
+`;
+document.head.appendChild(style);
 
 // OTA Payment Method Handler
 (function() {
@@ -1234,6 +1336,93 @@ document.querySelectorAll('input[name="transaction_type"]').forEach(radio => {
             }
         }
     });
+});
+
+// ========================================
+// SETOR TUNAI MODAL FUNCTIONS
+// ========================================
+function showSetorTunaiModal() {
+    const modal = document.getElementById('setorTunaiModal');
+    modal.style.display = 'flex';
+    // Focus on nominal input
+    setTimeout(() => {
+        document.getElementById('setorAmount').focus();
+    }, 100);
+}
+
+function closeSetorTunaiModal() {
+    const modal = document.getElementById('setorTunaiModal');
+    modal.style.display = 'none';
+    // Reset form
+    document.getElementById('setorTunaiForm').reset();
+}
+
+// Close modal when clicking outside
+document.getElementById('setorTunaiModal')?.addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeSetorTunaiModal();
+    }
+});
+
+function submitSetorTunai(event) {
+    event.preventDefault();
+    
+    const form = document.getElementById('setorTunaiForm');
+    const cashAccountId = form.setor_cash_account.value;
+    const bankAccountId = form.setor_bank_account.value;
+    const amount = form.setor_amount.value;
+    const notes = form.setor_notes.value || '';
+    
+    if (!cashAccountId || !bankAccountId || !amount) {
+        alert('❌ Silakan isi semua field yang wajib diisi!');
+        return;
+    }
+    
+    if (parseFloat(amount) < 1000) {
+        alert('❌ Nominal minimal Rp 1.000,-');
+        return;
+    }
+    
+    // Get the main form
+    const mainForm = document.querySelector('form');
+    
+    // Create/update hidden fields for source_type and accounts
+    const ensureHiddenField = (name, value) => {
+        let field = mainForm.querySelector(`input[name="${name}"]`);
+        if (!field) {
+            field = document.createElement('input');
+            field.type = 'hidden';
+            field.name = name;
+            mainForm.appendChild(field);
+        }
+        field.value = value;
+    };
+    
+    ensureHiddenField('source_type', 'cash_transfer');
+    ensureHiddenField('cash_account_id', cashAccountId);
+    ensureHiddenField('bank_account_id', bankAccountId);
+    ensureHiddenField('amount', amount);
+    ensureHiddenField('transaction_type', 'income');
+    
+    // Set date/time
+    mainForm.transaction_date.value = '<?php echo date("Y-m-d"); ?>';
+    mainForm.transaction_time.value = '<?php echo date("H:i"); ?>';
+    
+    // Set description
+    mainForm.description.value = notes || 'Setor tunai dari kas cabang ke rekening operasional';
+    
+    // Close modal
+    closeSetorTunaiModal();
+    
+    // Submit the main form
+    mainForm.submit();
+}
+
+// Close modal on Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeSetorTunaiModal();
+    }
 });
 
 // Owner Fund - Input dari Bu Sita
