@@ -1,13 +1,15 @@
-# 🏦 Fitur Setor Tunai ke Rekening Operasional
+# 🏦 Fitur Setor Tunai (Cash Transfer Internal)
 
 ## Deskripsi
-Fitur ini memungkinkan admin untuk mencatat transfer uang tunai dari kas cabang ke rekening bank operasional dengan otomatis:
-- Mengurangi saldo akun kas tunai
-- Menambah saldo akun bank operasional  
-- Mencatat timestamp (jam, tanggal) setiap transfer
-- Menyimpan siapa yang input (created_by)
-- Opsi arsip untuk organisasi data jangka panjang
-- Ringkasan dengan filter dan laporan transfer
+Fitur ini memungkinkan admin untuk mencatat **transfer internal** uang tunai dari kas cabang ke rekening bank operasional dengan:
+- ✅ Mengurangi saldo akun kas tunai
+- ✅ Menambah saldo akun rekening bank  
+- ❌ **TIDAK masuk cash_book** (bukan income/expense)
+- ❌ **TIDAK mengubah total nominal** - hanya transfer antar akun
+- ✅ Mencatat timestamp (jam, tanggal) setiap transfer
+- ✅ Menyimpan siapa yang input (created_by)
+- ✅ Opsi arsip untuk organisasi data jangka panjang
+- ✅ Ringkasan dengan filter dan laporan transfer
 
 ---
 
@@ -76,12 +78,14 @@ CREATE TABLE cash_transfers (
 - `is_archived`: Status arsip (1=arsipkan, 0=aktif)
 - `archived_at`, `archived_by`: Tracking siapa yang mengarsip & kapan
 
-### 4. POST Handler (Cash Transfer Logic)
-**Lokasi:** `modules/cashbook/add.php` (Baris ~380-440)
+### 4. POST Handler (Pure Transfer Logic)
+**Lokasi:** `modules/cashbook/add.php` (Baris ~325-380)
 
-**Logika Double-Entry Bookkeeping:**
+**Logika Transfer Internal (TIDAK masuk cash_book):**
 
 Ketika form disubmit dengan `source_type='cash_transfer'`:
+
+**PENTING:** Setor tunai TIDAK insert ke `cash_book` - ini pure internal transfer:
 
 1. **Debit dari Akun Kas Tunai:**
    ```sql
@@ -105,14 +109,12 @@ Ketika form disubmit dengan `source_type='cash_transfer'`:
     created_by, is_archived)
    ```
 
-4. **Record di cash_book** (normal transaction flow):
-   - Dengan `source_type='cash_transfer'` agar tidak dihitung sebagai pendapatan P&L
-
 **Hasil:**
-- Saldo kas tunai berkurang
-- Saldo bank bertambah
-- Transfer tercatat dalam audit trail
-- Tidak masuk perhitungan income/revenue
+- ✅ Saldo kas tunai berkurang
+- ✅ Saldo bank bertambah
+- ✅ Transfer tercatat dalam cash_transfers dengan timestamp & operator
+- ❌ Tidak masuk cash_book (bukan income/expense)
+- ❌ Tidak mempengaruhi perhitungan P&L/revenue
 
 ### 5. Halaman Ringkasan Setor Tunai
 **Lokasi:** `modules/cashbook/cash-transfers.php`
@@ -204,21 +206,25 @@ Buku Kas → "🏦 Ringkasan Setor Tunai"
 
 ## Source Type Mapping
 
-| source_type | Tipe | P&L Impact | Use Case |
-|---|---|---|---|
-| `manual` | Income | ✅ Yes | Pemasukan normal (dari customer) |
-| `invoice_payment` | Income | ✅ Yes | Pembayaran invoice |
-| `owner_fund` | Income | ❌ No | Modal dari owner (Bu Sita) |
-| `cash_transfer` | Transfer | ❌ No | Setor tunai (internal transfer) |
-| `owner_project` | Expense | ✅ Yes | Pengeluaran proyek dari modal |
+| source_type | Tipe | Masuk cash_book | P&L Impact | Use Case |
+|---|---|---|---|---|
+| `manual` | Income | ✅ Yes | ✅ Yes | Pemasukan normal (dari customer) |
+| `invoice_payment` | Income | ✅ Yes | ✅ Yes | Pembayaran invoice |
+| `owner_fund` | Income | ✅ Yes | ❌ No | Modal dari owner (Bu Sita) |
+| `cash_transfer` | Transfer | ❌ No | ❌ No | **Setor tunai (pure internal)** |
+| `owner_project` | Expense | ✅ Yes | ✅ Yes | Pengeluaran proyek dari modal |
 
-**Kesimpulan:** Transfer internal (`cash_transfer`) & modal owner (`owner_fund`) tidak dihitung dalam P&L karena bukan pendapatan operasional.
+**Kesimpulan:** 
+- `cash_transfer` adalah **PURE TRANSFER** yang tidak masuk `cash_book` sama sekali
+- Hanya update balance di `cash_accounts`
+- Tidak dihitung dalam P&L atau revenue
+- Konsep: uang hanya pindah lokasi (dari kas ke bank), bukan income/expense baru
 
 ---
 
 ## Balance Update Flow
 
-### Setor Tunai Workflow:
+### Setor Tunai (Pure Transfer) Workflow:
 
 ```
 User Input: Setor Tunai Rp 500.000 dari Kas Tunai ke Bank
@@ -231,37 +237,36 @@ User Input: Setor Tunai Rp 500.000 dari Kas Tunai ke Bank
 │  bank_account_id=2 (Bank)           │
 └──────────────────┬──────────────────┘
                    │
-         ┌─────────▼─────────┐
-         │ Double-Entry      │
-         │ Bookkeeping       │
-         └─────────┬─────────┘
+         ┌─────────▼──────────────────┐
+         │ EARLY RETURN - NOT NORMAL  │
+         │ flow (NO cash_book entry)  │
+         └─────────┬──────────────────┘
                    │
-        ┌──────────┴──────────┐
-        │                     │
-    ┌───▼────┐          ┌────▼────┐
-    │ DEBIT  │          │ CREDIT  │
-    ├────────┤          ├─────────┤
-    │ Kas:   │          │ Bank:   │
-    │ -500k  │          │ +500k   │
-    └────────┘          └─────────┘
-        │                     │
-        └──────────┬──────────┘
-                   │
-      ┌────────────▼────────────┐
-      │ cash_account_transactions│
-      │ (audit trail)           │
-      └────────────┬────────────┘
-                   │
-      ┌────────────▼────────────┐
-      │ cash_transfers          │
-      │ (tracking & archive)    │
-      └────────────┬────────────┘
-                   │
-      ┌────────────▼────────────┐
-      │ cash_book               │
-      │ (normal record)         │
-      └────────────────────────┘
+        ┌──────────┴──────────────────┐
+        │                             │
+    ┌───▼────┐                  ┌────▼────┐
+    │ DEBIT  │                  │ CREDIT  │
+    ├────────┤                  ├─────────┤
+    │ Kas:   │                  │ Bank:   │
+    │ -500k  │                  │ +500k   │
+    └────────┘                  └─────────┘
+        │                             │
+        └──────────────┬──────────────┘
+                       │
+      ┌────────────────▼────────────┐
+      │ cash_transfers table        │
+      │ (tracking & archive only)   │
+      └────────────────┬────────────┘
+                       │
+      ┌────────────────▼────────────┐
+      │ SUCCESS - Redirect           │
+      │ NOT stored in cash_book      │
+      └────────────────────────────┘
 ```
+
+**Perbedaan dari Normal Transaction:**
+- Normal flow: Insert cash_book → then update cash_accounts
+- Setor tunai: Check early for `source_type='cash_transfer'` → handle seperti function terpisah → return early tanpa cash_book
 
 ---
 
