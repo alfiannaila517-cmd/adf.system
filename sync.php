@@ -532,6 +532,7 @@ $filesToSync = [
     'modules/cashbook/export-excel.php',
     'modules/cashbook/add.php',
     'modules/cashbook/cash-transfers.php',
+    'modules/cashbook/delete.php',
     'config/vapid.php',
     'includes/PushNotificationHelper.php',
     'api/push-subscription.php',
