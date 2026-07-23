@@ -140,3 +140,64 @@ try {
 } catch (Exception $e) {
     echo "ERROR reading business DB cash_book: " . $e->getMessage() . "\n";
 }
+
+// ============================================
+// OPTIONAL: ?fix=1 - actually run the schema auto-fix + backfill right here,
+// with verbose success/error reporting (unlike the silent try/catch in the
+// normal page loads).
+// ============================================
+if (($_GET['fix'] ?? '') === '1' && isset($bizDb)) {
+    echo "\n=== RUNNING FIX ===\n";
+
+    foreach ([
+        "ALTER TABLE `cash_book` DROP FOREIGN KEY `cash_book_ibfk_3`" => 'Drop FK cash_book_ibfk_3',
+        "ALTER TABLE `cash_book` MODIFY COLUMN `division_id` INT NULL" => 'Make division_id nullable',
+        "ALTER TABLE `cash_book` MODIFY COLUMN `category_id` INT NULL" => 'Make category_id nullable',
+    ] as $sql => $label) {
+        try {
+            $bizDb->exec($sql);
+            echo "OK: {$label}\n";
+        } catch (Exception $e) {
+            echo "SKIP/ERR: {$label} -> " . $e->getMessage() . "\n";
+        }
+    }
+
+    try {
+        $missingStmt = $masterDb->prepare("
+            SELECT ct.*, ca_bank.account_name as bank_name
+            FROM cash_transfers ct
+            LEFT JOIN cash_accounts ca_bank ON ct.bank_account_id = ca_bank.id
+            WHERE ct.business_id = ? AND (ct.cash_book_id IS NULL OR ct.cash_book_id = 0)
+        ");
+        $missingStmt->execute([$numericBusinessId]);
+        $missing = $missingStmt->fetchAll(PDO::FETCH_ASSOC);
+        echo "Transfers missing cash_book_id: " . count($missing) . "\n";
+
+        foreach ($missing as $mt) {
+            $rawDesc = $mt['description'] ?? '';
+            $penyetor = '';
+            if (preg_match('/^\[(.*?)\]\s*(.*)$/', $rawDesc, $m)) {
+                $penyetor = $m[1];
+                $rawDesc = $m[2];
+            }
+            try {
+                $ins = $bizDb->prepare("
+                    INSERT INTO cash_book
+                        (transaction_date, transaction_time, division_id, category_id, transaction_type, amount, description, payment_method, cash_account_id, created_by, source_type, is_editable)
+                    VALUES (?, ?, NULL, NULL, 'expense', ?, ?, 'cash', ?, ?, 'cash_transfer', 0)
+                ");
+                $desc = "Pemindahan Uang / Setoran Harian ke " . ($mt['bank_name'] ?: 'rekening bank')
+                    . ($penyetor ? " - Penyetor: {$penyetor}" : '') . ($rawDesc ? " - {$rawDesc}" : '');
+                $ins->execute([$mt['transfer_date'], $mt['transfer_time'], $mt['amount'], $desc, $mt['cash_account_id'], $mt['created_by']]);
+                $newId = $bizDb->lastInsertId();
+                $masterDb->prepare("UPDATE cash_transfers SET cash_book_id = ? WHERE id = ?")->execute([$newId, $mt['id']]);
+                echo "OK: transfer id={$mt['id']} -> new cash_book id={$newId}\n";
+            } catch (Exception $e) {
+                echo "ERROR inserting cash_book for transfer id={$mt['id']}: " . $e->getMessage() . "\n";
+            }
+        }
+    } catch (Exception $e) {
+        echo "ERROR during fix/backfill: " . $e->getMessage() . "\n";
+    }
+}
+

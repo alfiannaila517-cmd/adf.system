@@ -45,6 +45,18 @@ try {
 } catch (Exception $e) { /* already dropped or doesn't exist */
 }
 
+// Auto-fix: allow NULL division_id/category_id - Setor Tunai (cash_transfer) rows
+// have no division/category since they're an internal cash<->bank transfer, not a
+// real income/expense transaction. Original schema had these NOT NULL.
+try {
+    $db->getConnection()->exec("ALTER TABLE `cash_book` MODIFY COLUMN `division_id` INT NULL");
+} catch (Exception $e) { /* ignore */
+}
+try {
+    $db->getConnection()->exec("ALTER TABLE `cash_book` MODIFY COLUMN `category_id` INT NULL");
+} catch (Exception $e) { /* ignore */
+}
+
 // Handle AJAX requests
 if (isset($_GET['ajax'])) {
     header('Content-Type: application/json');
