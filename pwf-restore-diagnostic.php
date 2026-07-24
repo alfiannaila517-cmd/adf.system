@@ -96,4 +96,18 @@ if (!$permOrphans) {
     foreach ($permOrphans as $o) echo json_encode($o) . "\n";
 }
 
+echo "\n=== 7) Users with ZERO rows in user_business_assignment (likely PWF staff who lost their link) ===\n";
+$noAssign = $pdo->query("
+    SELECT u.id, u.username, u.email, u.full_name, u.role_id, u.created_by, u.created_at
+    FROM users u
+    LEFT JOIN user_business_assignment uba ON uba.user_id = u.id
+    WHERE uba.user_id IS NULL
+    ORDER BY u.id DESC
+")->fetchAll();
+if (!$noAssign) {
+    echo "(none found)\n";
+} else {
+    foreach ($noAssign as $u) echo json_encode($u) . "\n";
+}
+
 echo "\nDone.\n";
