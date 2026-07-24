@@ -1398,6 +1398,15 @@
                             --card: #fff;
                             --border: #e2e8f0;
                             --muted: #64748b;
+                            /* Luxe accents (visual redesign only) */
+                            --grad-gold: linear-gradient(135deg, #f0b429, #f7c948);
+                            --grad-navy: linear-gradient(135deg, #0d1f3c, #1a3a5c);
+                            --grad-green: linear-gradient(135deg, #059669, #34d399);
+                            --grad-orange: linear-gradient(135deg, #ea580c, #fb923c);
+                            --grad-purple: linear-gradient(135deg, #7c3aed, #a78bfa);
+                            --grad-gray: linear-gradient(135deg, #94a3b8, #cbd5e1);
+                            --pr-radius: 18px;
+                            --pr-shadow: 0 10px 30px rgba(13, 31, 60, .07);
                         }
 
                         .att-wrap {
@@ -1408,44 +1417,120 @@
                         /* Header */
                         .att-head {
                             background: #fff;
-                            padding: 14px 18px;
-                            border-radius: 12px;
+                            padding: 16px 20px;
+                            border-radius: var(--pr-radius);
                             margin-bottom: 14px;
                             display: flex;
                             justify-content: space-between;
                             align-items: center;
+                            gap: 12px;
+                            flex-wrap: wrap;
                             border: 1px solid var(--border);
-                            border-left: 4px solid var(--gold);
-                            box-shadow: 0 2px 8px rgba(0, 0, 0, .06);
+                            box-shadow: var(--pr-shadow);
+                            position: relative;
+                            overflow: hidden;
+                        }
+
+                        .att-head::before {
+                            content: '';
+                            position: absolute;
+                            top: 0;
+                            left: 0;
+                            right: 0;
+                            height: 4px;
+                            background: var(--grad-gold);
+                        }
+
+                        .att-head-title {
+                            display: flex;
+                            align-items: center;
+                            gap: 12px;
+                        }
+
+                        .att-head-icon {
+                            width: 44px;
+                            height: 44px;
+                            border-radius: 14px;
+                            background: var(--grad-navy);
+                            color: #fff;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            flex-shrink: 0;
+                        }
+
+                        .att-head-icon svg {
+                            width: 22px;
+                            height: 22px;
                         }
 
                         .att-head h1 {
-                            font-size: 17px;
+                            font-size: 18px;
                             font-weight: 700;
                             color: var(--navy);
                             margin: 0 0 2px;
+                            letter-spacing: -.2px;
                         }
 
                         .att-head p {
-                            font-size: 11px;
+                            font-size: 12px;
                             margin: 0;
                             color: var(--muted);
+                        }
+
+                        .att-head .btn svg {
+                            width: 14px;
+                            height: 14px;
                         }
 
                         /* Stats Row */
                         .st-row {
                             display: grid;
                             grid-template-columns: repeat(5, 1fr);
-                            gap: 10px;
+                            gap: 12px;
                             margin-bottom: 14px;
                         }
 
                         .st-card {
                             background: #fff;
-                            padding: 14px 16px;
-                            border-radius: 10px;
+                            padding: 16px;
+                            border-radius: var(--pr-radius);
                             border: 1px solid var(--border);
-                            border-top: 3px solid var(--border);
+                            position: relative;
+                            overflow: hidden;
+                            transition: transform .2s ease, box-shadow .2s ease;
+                        }
+
+                        .st-card::before {
+                            content: '';
+                            position: absolute;
+                            top: 0;
+                            left: 0;
+                            right: 0;
+                            height: 4px;
+                            background: var(--st-accent, var(--grad-gold));
+                        }
+
+                        .st-card:hover {
+                            transform: translateY(-3px);
+                            box-shadow: var(--pr-shadow);
+                        }
+
+                        .st-icon {
+                            width: 32px;
+                            height: 32px;
+                            border-radius: 10px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            margin-bottom: 8px;
+                            background: var(--st-accent-soft, rgba(240, 180, 41, .12));
+                            color: var(--st-accent-color, var(--gold));
+                        }
+
+                        .st-icon svg {
+                            width: 16px;
+                            height: 16px;
                         }
 
                         .st-card .lb {
@@ -1473,32 +1558,54 @@
                         /* Tabs */
                         .att-tabs {
                             display: flex;
-                            gap: 3px;
+                            gap: 6px;
                             background: var(--bg);
-                            padding: 3px;
-                            border-radius: 10px;
+                            padding: 6px;
+                            border-radius: 16px;
                             margin-bottom: 14px;
                             border: 1px solid var(--border);
                             overflow-x: auto;
                         }
 
                         .att-tab {
-                            padding: 9px 14px;
+                            display: inline-flex;
+                            align-items: center;
+                            gap: 6px;
+                            padding: 8px 14px;
                             border: none;
                             background: transparent;
-                            border-radius: 8px;
+                            border-radius: 11px;
                             cursor: pointer;
                             font-weight: 600;
                             font-size: 12px;
                             color: var(--muted);
-                            transition: all .15s;
+                            transition: all .18s ease;
                             white-space: nowrap;
                         }
 
+                        .att-tab:hover {
+                            background: rgba(13, 31, 60, .05);
+                            color: var(--navy);
+                        }
+
+                        .att-tab-icon {
+                            display: inline-flex;
+                            align-items: center;
+                            justify-content: center;
+                            width: 18px;
+                            height: 18px;
+                        }
+
+                        .att-tab-icon svg {
+                            width: 15px;
+                            height: 15px;
+                        }
+
                         .att-tab.active {
-                            background: var(--gold);
+                            background: var(--grad-gold);
                             color: var(--navy);
                             font-weight: 800;
+                            box-shadow: 0 4px 12px rgba(240, 180, 41, .35);
                         }
 
                         /* Table */
@@ -1601,6 +1708,11 @@
                             text-decoration: none;
                         }
 
+                        .btn svg {
+                            width: 14px;
+                            height: 14px;
+                        }
+
                         .btn:hover {
                             opacity: .85;
                         }
@@ -1650,12 +1762,27 @@
                         .url-bar {
                             background: #fff;
                             border: 1px solid var(--border);
-                            border-radius: 10px;
-                            padding: 8px 12px;
+                            border-radius: 14px;
+                            padding: 10px 14px;
                             margin-bottom: 14px;
                             display: flex;
                             align-items: center;
                             gap: 8px;
+                        }
+
+                        .url-bar-label {
+                            display: inline-flex;
+                            align-items: center;
+                            gap: 4px;
+                            font-size: 10px;
+                            font-weight: 700;
+                            color: var(--muted);
+                            text-transform: uppercase;
+                        }
+
+                        .url-bar-label svg {
+                            width: 12px;
+                            height: 12px;
                         }
 
                         .url-bar input {
@@ -1836,46 +1963,54 @@
 
                         <!-- Header -->
                         <div class="att-head">
-                            <div>
-                                <h1>📋 Absensi Karyawan</h1>
-                                <p>Dashboard harian, GPS, Fingerprint, Manual & Reset</p>
+                            <div class="att-head-title">
+                                <div class="att-head-icon"><i data-feather="clipboard"></i></div>
+                                <div>
+                                    <h1>Absensi Karyawan</h1>
+                                    <p>Dashboard harian, GPS, Fingerprint, Manual & Reset</p>
+                                </div>
                             </div>
                             <div style="display:flex; gap:6px;">
-                                <a href="<?php echo htmlspecialchars($staffPortalUrl); ?>" target="_blank" class="btn btn-primary">📱 Staff Portal</a>
-                                <button onclick="openManualModal()" class="btn btn-gold">➕ Input Manual</button>
+                                <a href="<?php echo htmlspecialchars($staffPortalUrl); ?>" target="_blank" class="btn btn-primary"><i data-feather="smartphone"></i> Staff Portal</a>
+                                <button onclick="openManualModal()" class="btn btn-gold"><i data-feather="plus-circle"></i> Input Manual</button>
                             </div>
                         </div>
 
                         <!-- URL bar -->
                         <div class="url-bar">
-                            <span style="font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase;">� Staff Portal</span>
+                            <span class="url-bar-label"><i data-feather="link"></i> Staff Portal</span>
                             <input type="text" value="<?php echo htmlspecialchars($staffPortalUrl); ?>" readonly id="portalUrlInput">
-                            <button onclick="copyUrl('portalUrlInput')" class="btn btn-primary btn-sm">📋 Salin</button>
+                            <button onclick="copyUrl('portalUrlInput')" class="btn btn-primary btn-sm"><i data-feather="copy"></i> Salin</button>
                         </div>
 
                         <!-- Stats -->
                         <div class="st-row">
-                            <div class="st-card" style="border-top-color:var(--green);">
+                            <div class="st-card" style="--st-accent:var(--grad-green); --st-accent-soft:rgba(5,150,105,.12); --st-accent-color:var(--green);">
+                                <div class="st-icon"><i data-feather="user-check"></i></div>
                                 <div class="lb">Hadir</div>
                                 <div class="vl" style="color:var(--green);"><?php echo $todayStats['present']; ?>/<?php echo $todayStats['total']; ?></div>
                                 <div class="sb"><?php echo $todayStats['total'] > 0 ? round($todayStats['present'] / $todayStats['total'] * 100) : 0; ?>% kehadiran</div>
                             </div>
-                            <div class="st-card" style="border-top-color:var(--orange);">
+                            <div class="st-card" style="--st-accent:var(--grad-orange); --st-accent-soft:rgba(234,88,12,.12); --st-accent-color:var(--orange);">
+                                <div class="st-icon"><i data-feather="clock"></i></div>
                                 <div class="lb">Terlambat</div>
                                 <div class="vl" style="color:var(--orange);"><?php echo $todayStats['late']; ?></div>
                                 <div class="sb">dari yang hadir</div>
                             </div>
-                            <div class="st-card" style="border-top-color:var(--navy);">
+                            <div class="st-card" style="--st-accent:var(--grad-navy); --st-accent-soft:rgba(13,31,60,.1); --st-accent-color:var(--navy);">
+                                <div class="st-icon"><i data-feather="bar-chart-2"></i></div>
                                 <div class="lb">Total Jam</div>
                                 <div class="vl"><?php echo number_format($todayStats['total_hours'], 1); ?></div>
                                 <div class="sb"><?php echo number_format($todayStats['regular_hours'], 1); ?>j reguler</div>
                             </div>
-                            <div class="st-card" style="border-top-color:var(--purple);">
-                                <div class="lb">🔥 Lembur</div>
+                            <div class="st-card" style="--st-accent:var(--grad-purple); --st-accent-soft:rgba(124,58,237,.12); --st-accent-color:var(--purple);">
+                                <div class="st-icon"><i data-feather="zap"></i></div>
+                                <div class="lb">Lembur</div>
                                 <div class="vl" style="color:var(--purple);"><?php echo number_format($todayStats['overtime_hours'], 1); ?>j</div>
                                 <div class="sb"><?php echo $todayStats['ot_count']; ?> staff lembur</div>
                             </div>
-                            <div class="st-card" style="border-top-color:#94a3b8;">
+                            <div class="st-card" style="--st-accent:var(--grad-gray); --st-accent-soft:rgba(148,163,184,.15); --st-accent-color:#94a3b8;">
+                                <div class="st-icon"><i data-feather="user-x"></i></div>
                                 <div class="lb">Belum Absen</div>
                                 <div class="vl" style="color:#94a3b8;"><?php echo max(0, $todayStats['total'] - $todayStats['present']); ?></div>
                                 <div class="sb">perlu perhatian</div>
@@ -1884,14 +2019,14 @@
 
                         <!-- ═══ TABS ═══ -->
                         <div class="att-tabs">
-                            <button class="att-tab active" data-tab="dashboard">📊 Dashboard Harian</button>
-                            <button class="att-tab" data-tab="gps">📍 Absen GPS</button>
-                            <button class="att-tab" data-tab="fingerprint">🔐 Fingerprint</button>
-                            <button class="att-tab" data-tab="cuti">🏖️ Cuti<?php if ($pendingLeaves > 0): ?> <span style="background:var(--red);color:#fff;padding:1px 6px;border-radius:10px;font-size:9px;font-weight:800;"><?php echo $pendingLeaves; ?></span><?php endif; ?></button>
-                            <button class="att-tab" data-tab="lembur">⏰ Lembur<?php if ($pendingOT > 0): ?> <span style="background:var(--red);color:#fff;padding:1px 6px;border-radius:10px;font-size:9px;font-weight:800;"><?php echo $pendingOT; ?></span><?php endif; ?></button>
-                            <button class="att-tab" data-tab="manual">✋ Manual</button>
-                            <button class="att-tab" data-tab="schedule">📅 Jadwal Kerja</button>
-                            <button class="att-tab" data-tab="reset">🔄 Reset</button>
+                            <button class="att-tab active" data-tab="dashboard"><span class="att-tab-icon"><i data-feather="grid"></i></span> Dashboard Harian</button>
+                            <button class="att-tab" data-tab="gps"><span class="att-tab-icon"><i data-feather="map-pin"></i></span> Absen GPS</button>
+                            <button class="att-tab" data-tab="fingerprint"><span class="att-tab-icon"><i data-feather="shield"></i></span> Fingerprint</button>
+                            <button class="att-tab" data-tab="cuti"><span class="att-tab-icon"><i data-feather="sun"></i></span> Cuti<?php if ($pendingLeaves > 0): ?> <span style="background:var(--red);color:#fff;padding:1px 6px;border-radius:10px;font-size:9px;font-weight:800;"><?php echo $pendingLeaves; ?></span><?php endif; ?></button>
+                            <button class="att-tab" data-tab="lembur"><span class="att-tab-icon"><i data-feather="zap"></i></span> Lembur<?php if ($pendingOT > 0): ?> <span style="background:var(--red);color:#fff;padding:1px 6px;border-radius:10px;font-size:9px;font-weight:800;"><?php echo $pendingOT; ?></span><?php endif; ?></button>
+                            <button class="att-tab" data-tab="manual"><span class="att-tab-icon"><i data-feather="edit-3"></i></span> Manual</button>
+                            <button class="att-tab" data-tab="schedule"><span class="att-tab-icon"><i data-feather="calendar"></i></span> Jadwal Kerja</button>
+                            <button class="att-tab" data-tab="reset"><span class="att-tab-icon"><i data-feather="refresh-cw"></i></span> Reset</button>
                         </div>
 
                         <!-- ═══════════════════════════════════════ -->
