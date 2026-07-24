@@ -61,6 +61,11 @@ $companyEmail = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_
 $companyTagline = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key='company_tagline'")['setting_value'] ?? 'Fresh Coffee & Good Vibes';
 $logoUrl = getBusinessLogo();
 
+// Load payment/bank account info shown on the invoice (editable via "Rekening" button)
+$invBankName = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key='invoice_bank_name'")['setting_value'] ?? '';
+$invBankAccountNumber = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key='invoice_bank_account_number'")['setting_value'] ?? '';
+$invBankAccountHolder = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key='invoice_bank_account_holder'")['setting_value'] ?? '';
+
 // Load cash accounts from master DB
 $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
 $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -169,6 +174,22 @@ if (isset($_GET['ajax'])) {
         } catch (Exception $e) {
             if ($db->inTransaction()) $db->rollback();
             echo json_encode(['success' => false, 'message' => 'Gagal hapus: ' . $e->getMessage()]);
+        }
+        exit;
+    }
+
+    if ($_GET['ajax'] === 'save_bank_info' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        $bankName = sanitize($_POST['bank_name'] ?? '');
+        $bankAccountNumber = sanitize($_POST['bank_account_number'] ?? '');
+        $bankAccountHolder = sanitize($_POST['bank_account_holder'] ?? '');
+        try {
+            $stmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
+            $stmt->execute(['invoice_bank_name', $bankName]);
+            $stmt->execute(['invoice_bank_account_number', $bankAccountNumber]);
+            $stmt->execute(['invoice_bank_account_holder', $bankAccountHolder]);
+            echo json_encode(['success' => true, 'message' => 'Info rekening berhasil disimpan']);
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => 'Gagal simpan: ' . $e->getMessage()]);
         }
         exit;
     }
@@ -382,6 +403,12 @@ $businessIcon = defined('BUSINESS_ICON') ? BUSINESS_ICON : 'C';
 .inv-totals { margin-left: auto; width: 240px; }
 .inv-total-row { display: flex; justify-content: space-between; padding: 5px 0; font-size: 12px; color: #6b7280; }
 .inv-total-row.grand { font-size: 16px; font-weight: 900; color: var(--cafe-espresso); border-top: 2px solid var(--cafe); padding: 10px 0 0; margin-top: 6px; }
+.inv-bank-box { clear: both; margin: 18px 0 4px; padding: 12px 16px; background: var(--cafe-cream); border: 1.5px dashed var(--cafe-gold); border-radius: 10px; }
+.inv-bank-label { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: var(--cafe); margin-bottom: 4px; }
+.inv-bank-row { display: flex; align-items: baseline; gap: 10px; }
+.inv-bank-bankname { font-size: 12px; font-weight: 800; color: var(--cafe-espresso); }
+.inv-bank-num { font-size: 15px; font-weight: 900; color: var(--cafe-dark); font-family: "Courier New", monospace; letter-spacing: .5px; }
+.inv-bank-holder { font-size: 11px; color: #6b7280; margin-top: 2px; }
 .inv-stamp { text-align: center; margin: 20px 0 8px; }
 .inv-stamp-paid { display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #059669, #047857); color: #fff; padding: 8px 24px; border-radius: 24px; font-size: 12px; font-weight: 900; letter-spacing: .5px; box-shadow: 0 4px 12px rgba(5,150,105,.25); }
 .inv-stamp-unpaid { display: inline-flex; align-items: center; gap: 6px; background: linear-gradient(135deg, #fef2f2, #fee2e2); color: #dc2626; padding: 8px 24px; border-radius: 24px; font-size: 12px; font-weight: 900; border: 1.5px solid #fca5a5; }
@@ -432,6 +459,7 @@ $businessIcon = defined('BUSINESS_ICON') ? BUSINESS_ICON : 'C';
             <input type="text" name="q" value="<?php echo htmlspecialchars($search); ?>" placeholder="Cari invoice..." class="cf-input" style="width:180px;padding:7px 13px;font-size:12px;">
             <button type="submit" class="btn-cafe btn-sm btn-search">Cari</button>
         </form>
+        <button onclick="openBankModal()" class="btn-cafe btn-sm btn-ghost" title="Atur rekening pembayaran yang tampil di invoice">Rekening</button>
         <button onclick="showCreate()" class="btn-cafe btn-create">+ Buat Invoice</button>
     </div>
 </div>
@@ -541,6 +569,24 @@ $businessIcon = defined('BUSINESS_ICON') ? BUSINESS_ICON : 'C';
     </form>
 </div>
 
+<!-- MODAL: EDIT REKENING PEMBAYARAN -->
+<div class="modal-bg" id="bankModal">
+    <div class="modal-box">
+        <div class="modal-title">Rekening Pembayaran di Invoice</div>
+        <p style="font-size:11px;color:#9ca3af;margin:-8px 0 14px;">Informasi ini akan tampil di bagian bawah invoice untuk pelanggan transfer.</p>
+        <label class="cf-label">Nama Bank</label>
+        <input type="text" id="bankName" class="cf-input" placeholder="Contoh: BCA" style="margin-bottom:12px;" value="<?php echo htmlspecialchars($invBankName); ?>">
+        <label class="cf-label">Nomor Rekening</label>
+        <input type="text" id="bankAccountNumber" class="cf-input" placeholder="Contoh: 1234567890" style="margin-bottom:12px;" value="<?php echo htmlspecialchars($invBankAccountNumber); ?>">
+        <label class="cf-label">Atas Nama</label>
+        <input type="text" id="bankAccountHolder" class="cf-input" placeholder="Contoh: PT Bens Cafe Indonesia" style="margin-bottom:16px;" value="<?php echo htmlspecialchars($invBankAccountHolder); ?>">
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+            <button onclick="closeBankModal()" class="btn-cafe btn-ghost">Batal</button>
+            <button onclick="saveBankInfo()" class="btn-cafe btn-pay" id="bankSaveBtn">Simpan</button>
+        </div>
+    </div>
+</div>
+
 <!-- MODAL: PAY INVOICE -->
 <div class="modal-bg" id="payModal">
     <div class="modal-box">
@@ -598,9 +644,34 @@ var COMPANY_ADDRESS = <?php echo json_encode($companyAddress); ?>;
 var COMPANY_PHONE = <?php echo json_encode($companyPhone); ?>;
 var COMPANY_EMAIL = <?php echo json_encode($companyEmail); ?>;
 var COMPANY_TAGLINE = <?php echo json_encode($companyTagline); ?>;
+var BANK_NAME = <?php echo json_encode($invBankName); ?>;
+var BANK_ACCOUNT_NUMBER = <?php echo json_encode($invBankAccountNumber); ?>;
+var BANK_ACCOUNT_HOLDER = <?php echo json_encode($invBankAccountHolder); ?>;
 
 function showCreate() { document.getElementById('viewList').style.display = 'none'; document.getElementById('viewCreate').style.display = 'block'; }
 function hideCreate() { document.getElementById('viewList').style.display = 'block'; document.getElementById('viewCreate').style.display = 'none'; }
+
+function openBankModal() { document.getElementById('bankModal').classList.add('open'); }
+function closeBankModal() { document.getElementById('bankModal').classList.remove('open'); }
+function saveBankInfo() {
+    var btn = document.getElementById('bankSaveBtn');
+    btn.disabled = true; btn.textContent = 'Menyimpan...';
+    var fd = new FormData();
+    fd.append('bank_name', document.getElementById('bankName').value.trim());
+    fd.append('bank_account_number', document.getElementById('bankAccountNumber').value.trim());
+    fd.append('bank_account_holder', document.getElementById('bankAccountHolder').value.trim());
+    fetch('?ajax=save_bank_info', { method: 'POST', body: fd })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            btn.disabled = false; btn.textContent = 'Simpan';
+            if (data.success) {
+                BANK_NAME = fd.get('bank_name');
+                BANK_ACCOUNT_NUMBER = fd.get('bank_account_number');
+                BANK_ACCOUNT_HOLDER = fd.get('bank_account_holder');
+                closeBankModal();
+            } else { alert(data.message || 'Gagal menyimpan'); }
+        }).catch(function() { btn.disabled = false; btn.textContent = 'Simpan'; alert('Network error'); });
+}
 
 var itemIndex = 1;
 function addItem() {
@@ -736,6 +807,16 @@ function viewInvoice(id) {
             var phoneHtml = inv.customer_phone ? '<div class="inv-meta-item"><div class="inv-meta-label">Telepon</div><div class="inv-meta-val">' + escHtml(inv.customer_phone) + '</div></div>' : '';
             var noteHtml = inv.customer_note ? '<div class="inv-meta-item" style="grid-column:1/-1;"><div class="inv-meta-label">Catatan</div><div class="inv-meta-val">' + escHtml(inv.customer_note) + '</div></div>' : '';
 
+            var bankHtml = '';
+            if (inv.status !== 'paid' && (BANK_NAME || BANK_ACCOUNT_NUMBER)) {
+                bankHtml = '<div class="inv-bank-box">' +
+                    '<div class="inv-bank-label">Pembayaran via Transfer</div>' +
+                    '<div class="inv-bank-row"><span class="inv-bank-bankname">' + escHtml(BANK_NAME) + '</span>' +
+                    '<span class="inv-bank-num">' + escHtml(BANK_ACCOUNT_NUMBER) + '</span></div>' +
+                    (BANK_ACCOUNT_HOLDER ? '<div class="inv-bank-holder">a.n. ' + escHtml(BANK_ACCOUNT_HOLDER) + '</div>' : '') +
+                    '</div>';
+            }
+
             document.getElementById('invPreviewContent').innerHTML =
                 watermarkHtml +
                 '<div class="inv-hdr-band"><div class="inv-hdr-content">' +
@@ -759,6 +840,7 @@ function viewInvoice(id) {
                 '<div class="inv-totals"><div class="inv-total-row"><span>Subtotal</span><span style="font-weight:700;">' + fmtRp(inv.subtotal) + '</span></div>' +
                 discountHtml + taxHtml +
                 '<div class="inv-total-row grand"><span>TOTAL</span><span>' + fmtRp(inv.total_amount) + '</span></div></div>' +
+                bankHtml +
                 stampHtml + '</div>' +
                 '<div class="inv-footer-bar"><div class="thanks">Terima Kasih atas Kunjungan Anda!</div>' +
                 '<div class="tagline">' + escHtml(COMPANY_NAME) + ' - ' + escHtml(COMPANY_TAGLINE) + '</div>' +
@@ -790,6 +872,11 @@ function printInvoice() {
         '.inv-items-tbl td:last-child { text-align:right;font-weight:700; } .inv-items-tbl td:nth-child(3) { text-align:center; } .inv-items-tbl td:nth-child(4) { text-align:right; }' +
         '.inv-totals { margin-left:auto;width:220px; } .inv-total-row { display:flex;justify-content:space-between;padding:5px 0;font-size:12px;color:#6b7280; }' +
         '.inv-total-row.grand { font-size:16px;font-weight:900;color:#0c4a6e;border-top:2px solid #0369a1;padding-top:10px;margin-top:6px; }' +
+        '.inv-bank-box { clear:both;margin:18px 0 4px;padding:12px 16px;background:#f0f9ff!important;border:1.5px dashed #38bdf8;border-radius:10px; }' +
+        '.inv-bank-label { font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#0369a1;margin-bottom:4px; }' +
+        '.inv-bank-row { display:flex;align-items:baseline;gap:10px; } .inv-bank-bankname { font-size:12px;font-weight:800;color:#0c4a6e; }' +
+        '.inv-bank-num { font-size:15px;font-weight:900;color:#075985;font-family:"Courier New",monospace;letter-spacing:.5px; }' +
+        '.inv-bank-holder { font-size:11px;color:#6b7280;margin-top:2px; }' +
         '.inv-stamp { text-align:center;margin:20px 0 8px; } .inv-stamp-paid { display:inline-block;background:#059669!important;color:#fff;padding:8px 24px;border-radius:24px;font-size:12px;font-weight:900; }' +
         '.inv-stamp-unpaid { display:inline-block;background:#fef2f2;color:#dc2626;padding:8px 24px;border-radius:24px;font-size:12px;font-weight:900;border:1.5px solid #fca5a5; }' +
         '.inv-footer-bar { background:#f0f9ff!important;padding:18px 36px;text-align:center;border-top:1px solid #bae6fd;margin-top:auto; }' +
