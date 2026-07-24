@@ -1818,9 +1818,14 @@ include '../../includes/header.php';
         const modal = document.getElementById('setorTunaiModal');
         if (modal) {
             modal.classList.remove('show');
-            // Reset form
-            const form = document.getElementById('setorTunaiForm');
-            if (form) form.reset();
+            // #setorTunaiForm is a <div>, not a <form>, so it has no .reset() method.
+            // Manually clear each input field instead.
+            ['setorCashAccount', 'setorBankAccount', 'setorAmount', 'setorPenyetor', 'setorNotes'].forEach(function(id) {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+            const qa = document.getElementById('quickAddAccountSection');
+            if (qa) qa.style.display = 'none';
         }
     };
 
