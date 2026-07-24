@@ -91,6 +91,17 @@ if (isset($_GET['ajax'])) {
         $cashAccountId = !empty($_POST['cash_account_id']) ? (int)$_POST['cash_account_id'] : null;
         $inv = $db->fetchOne("SELECT * FROM cafe_invoices WHERE id = ? AND status = 'unpaid'", [$invId]);
         if (!$inv) { echo json_encode(['success' => false, 'message' => 'Invoice tidak ditemukan atau sudah dibayar']); exit; }
+        if (!$cashAccountId) { echo json_encode(['success' => false, 'message' => 'Rekening tujuan wajib dipilih']); exit; }
+        // Enforce that the chosen rekening type matches the payment method (cash -> cash account,
+        // edc/qr/transfer/debit/other -> non-cash account) so money always lands in the right bukukas.
+        $accRow = $masterDb->prepare("SELECT account_type FROM cash_accounts WHERE id = ? AND business_id = ? AND is_active = 1");
+        $accRow->execute([$cashAccountId, $businessId]);
+        $accRow = $accRow->fetch(PDO::FETCH_ASSOC);
+        if (!$accRow) { echo json_encode(['success' => false, 'message' => 'Rekening tidak valid']); exit; }
+        $isCashType = $accRow['account_type'] === 'cash';
+        if (($paymentMethod === 'cash' && !$isCashType) || ($paymentMethod !== 'cash' && $isCashType)) {
+            echo json_encode(['success' => false, 'message' => 'Rekening tidak sesuai dengan metode pembayaran yang dipilih']); exit;
+        }
         try {
             $db->beginTransaction();
             $cat = $db->fetchOne("SELECT id FROM categories WHERE LOWER(category_name) = 'invoice cafe' AND category_type = 'income'");
@@ -129,11 +140,36 @@ if (isset($_GET['ajax'])) {
 
     if ($_GET['ajax'] === 'delete' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $invId = (int)($_POST['invoice_id'] ?? 0);
-        $inv = $db->fetchOne("SELECT * FROM cafe_invoices WHERE id = ? AND status = 'unpaid'", [$invId]);
-        if (!$inv) { echo json_encode(['success' => false, 'message' => 'Hanya invoice unpaid yang bisa dihapus']); exit; }
-        $db->delete('cafe_invoice_items', 'invoice_id = :id', ['id' => $invId]);
-        $db->delete('cafe_invoices', 'id = :id', ['id' => $invId]);
-        echo json_encode(['success' => true, 'message' => 'Invoice dihapus']);
+        $inv = $db->fetchOne("SELECT * FROM cafe_invoices WHERE id = ?", [$invId]);
+        if (!$inv) { echo json_encode(['success' => false, 'message' => 'Invoice tidak ditemukan']); exit; }
+        try {
+            $db->beginTransaction();
+            // If the invoice was already paid, reverse its cashbook entry & account balance
+            // so deleting it never leaves stale/incorrect money in the bukukas.
+            if ($inv['status'] === 'paid') {
+                if (!empty($inv['cash_book_id'])) {
+                    $db->delete('cash_book', 'id = :id', ['id' => $inv['cash_book_id']]);
+                }
+                if (!empty($inv['cash_account_id'])) {
+                    try {
+                        $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance - ? WHERE id = ?")
+                            ->execute([$inv['total_amount'], $inv['cash_account_id']]);
+                        $masterDb->prepare("DELETE FROM cash_account_transactions WHERE reference_type = 'cafe_invoice' AND reference_id = ?")
+                            ->execute([$invId]);
+                    } catch (Exception $e) { error_log("Cash account reverse: " . $e->getMessage()); }
+                }
+            }
+            $db->delete('cafe_invoice_items', 'invoice_id = :id', ['id' => $invId]);
+            $db->delete('cafe_invoices', 'id = :id', ['id' => $invId]);
+            $db->commit();
+            $msg = $inv['status'] === 'paid'
+                ? 'Invoice ' . $inv['invoice_number'] . ' dan catatan kas terkait berhasil dihapus'
+                : 'Invoice dihapus';
+            echo json_encode(['success' => true, 'message' => $msg]);
+        } catch (Exception $e) {
+            if ($db->inTransaction()) $db->rollback();
+            echo json_encode(['success' => false, 'message' => 'Gagal hapus: ' . $e->getMessage()]);
+        }
         exit;
     }
     exit;
@@ -435,7 +471,9 @@ $businessIcon = defined('BUSINESS_ICON') ? BUSINESS_ICON : 'C';
                     <button onclick="viewInvoice(<?php echo $inv['id']; ?>)" class="btn-cafe btn-sm btn-view">Lihat</button>
                     <?php if ($inv['status'] === 'unpaid'): ?>
                     <button onclick="openPayModal(<?php echo $inv['id']; ?>, '<?php echo htmlspecialchars($inv['invoice_number']); ?>', <?php echo $inv['total_amount']; ?>)" class="btn-cafe btn-sm btn-pay">Bayar</button>
-                    <button onclick="deleteInvoice(<?php echo $inv['id']; ?>)" class="btn-cafe btn-sm btn-del">Hapus</button>
+                    <?php endif; ?>
+                    <?php if ($inv['status'] !== 'cancelled'): ?>
+                    <button onclick="deleteInvoice(<?php echo $inv['id']; ?>, <?php echo $inv['status'] === 'paid' ? 'true' : 'false'; ?>)" class="btn-cafe btn-sm btn-del">Hapus</button>
                     <?php endif; ?>
                 </div>
             </td>
@@ -525,9 +563,10 @@ $businessIcon = defined('BUSINESS_ICON') ? BUSINESS_ICON : 'C';
         <select class="cf-input" id="payAccount" style="margin-bottom:16px;">
             <option value="">-- Pilih Rekening --</option>
             <?php foreach ($cashAccounts as $acc): ?>
-            <option value="<?php echo $acc['id']; ?>"><?php echo htmlspecialchars($acc['account_name']); ?> (<?php echo ucfirst($acc['account_type']); ?>) - <?php echo formatCurrency($acc['current_balance']); ?></option>
+            <option value="<?php echo $acc['id']; ?>" data-type="<?php echo htmlspecialchars($acc['account_type']); ?>"><?php echo htmlspecialchars($acc['account_name']); ?> (<?php echo ucfirst($acc['account_type']); ?>) - <?php echo formatCurrency($acc['current_balance']); ?></option>
             <?php endforeach; ?>
         </select>
+        <div id="payAccountHint" style="font-size:11px;color:#9ca3af;margin-top:-10px;margin-bottom:16px;"></div>
         <div style="display:flex;gap:8px;justify-content:flex-end;">
             <button onclick="closePayModal()" class="btn-cafe btn-ghost">Batal</button>
             <button onclick="submitPay()" class="btn-cafe btn-pay" style="padding:11px 28px;font-size:13px;" id="payBtn">Bayar Sekarang</button>
@@ -613,6 +652,8 @@ function openPayModal(id, num, amount) {
     document.getElementById('payInvAmount').textContent = fmtRp(amount);
     document.querySelectorAll('.pay-card').forEach(function(c) { c.classList.remove('selected'); });
     document.getElementById('payAccount').value = '';
+    document.querySelectorAll('#payAccount option[data-type]').forEach(function(o) { o.hidden = false; o.disabled = false; });
+    document.getElementById('payAccountHint').textContent = '';
     document.getElementById('payModal').classList.add('open');
 }
 function closePayModal() { document.getElementById('payModal').classList.remove('open'); }
@@ -620,6 +661,29 @@ function selectPayMethod(method) {
     payMethod = method;
     document.querySelectorAll('.pay-card').forEach(function(c) { c.classList.remove('selected'); });
     document.querySelector('.pay-card[data-method="' + method + '"]').classList.add('selected');
+    filterPayAccounts(method);
+}
+function filterPayAccounts(method) {
+    // Enforce that the correct rekening (cash-type vs non-cash) is used for the
+    // chosen payment method, so cash/edc/qr/transfer always post to the right account.
+    var sel = document.getElementById('payAccount');
+    var hint = document.getElementById('payAccountHint');
+    var opts = sel.querySelectorAll('option[data-type]');
+    var visibleCount = 0, firstVisibleValue = '';
+    opts.forEach(function(opt) {
+        var type = opt.getAttribute('data-type');
+        var match = (method === 'cash') ? (type === 'cash') : (type !== 'cash');
+        opt.hidden = !match;
+        opt.disabled = !match;
+        if (match) { visibleCount++; if (!firstVisibleValue) firstVisibleValue = opt.value; }
+    });
+    var current = sel.querySelector('option[value="' + sel.value + '"]');
+    if (sel.value === '' || !current || current.hidden) {
+        sel.value = visibleCount === 1 ? firstVisibleValue : '';
+    }
+    hint.textContent = visibleCount === 0
+        ? '⚠️ Tidak ada rekening yang cocok untuk metode ini, hubungi admin untuk setup rekening.'
+        : 'Menampilkan rekening yang sesuai dengan metode pembayaran ini.';
 }
 function submitPay() {
     if (!payMethod) { alert('Pilih metode pembayaran!'); return; }
@@ -737,8 +801,11 @@ function printInvoice() {
 
 function escHtml(s) { var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
 
-function deleteInvoice(id) {
-    if (!confirm('Hapus invoice ini?')) return;
+function deleteInvoice(id, isPaid) {
+    var msg = isPaid
+        ? 'Invoice ini SUDAH DIBAYAR. Menghapusnya akan menghapus catatan pemasukan terkait di bukukas dan mengembalikan saldo rekening. Lanjutkan?'
+        : 'Hapus invoice ini?';
+    if (!confirm(msg)) return;
     var fd = new FormData(); fd.append('invoice_id', id);
     fetch('?ajax=delete', { method: 'POST', body: fd })
         .then(function(r) { return r.json(); })
