@@ -442,21 +442,21 @@ $businessIcon = defined('BUSINESS_ICON') ? BUSINESS_ICON : 'C';
 .pay-card .pay-icon { font-size: 24px; margin-bottom: 4px; }
 .pay-card .pay-label { font-size: 11px; font-weight: 800; color: #374151; }
 
-/* Invoice Preview - compact & elegant */
+/* Invoice Preview - compact & elegant (kept in sync with printInvoice()'s inline CSS) */
 .inv-preview { background: #fff; border-radius: 14px; overflow: hidden; box-shadow: var(--shadow-lg); border: 1px solid rgba(3,105,161,.08); position: relative; }
-.inv-preview-inner { padding: 20px 22px 18px; }
-.inv-hdr-band { background: linear-gradient(135deg, var(--cafe-espresso) 0%, var(--cafe-dark) 50%, var(--cafe) 100%); padding: 16px 20px; color: #fff; position: relative; overflow: hidden; }
-.inv-hdr-content { position: relative; z-index: 1; display: flex; align-items: center; gap: 12px; }
-.inv-hdr-logo { width: 44px; height: 44px; border-radius: 10px; overflow: hidden; background: rgba(255,255,255,.15); border: 2px solid rgba(255,255,255,.25); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.inv-hdr-logo img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; }
+.inv-preview-inner { padding: 22px 30px 24px; }
+.inv-hdr-band { background: linear-gradient(135deg, var(--cafe-espresso) 0%, var(--cafe-dark) 50%, var(--cafe) 100%); padding: 18px 30px; color: #fff; position: relative; overflow: hidden; }
+.inv-hdr-content { position: relative; z-index: 1; display: flex; align-items: center; gap: 14px; }
+.inv-hdr-logo { width: 48px; height: 48px; border-radius: 11px; overflow: hidden; background: rgba(255,255,255,.15); border: 2px solid rgba(255,255,255,.25); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.inv-hdr-logo img { width: 100%; height: 100%; object-fit: cover; border-radius: 9px; }
 .inv-hdr-logo .fallback-icon { font-size: 20px; font-weight: 900; color: #fff; }
-.inv-hdr-name { font-size: 15px; font-weight: 800; letter-spacing: .3px; margin: 0; text-shadow: 0 1px 2px rgba(0,0,0,.25); }
-.inv-hdr-tagline { font-size: 10px; color: rgba(255,255,255,.92); margin: 2px 0 0; font-style: italic; text-shadow: 0 1px 2px rgba(0,0,0,.2); }
+.inv-hdr-name { font-size: 17px; font-weight: 800; letter-spacing: .3px; margin: 0; text-shadow: 0 1px 2px rgba(0,0,0,.25); }
+.inv-hdr-tagline { font-size: 10.5px; color: rgba(255,255,255,.92); margin: 2px 0 0; font-style: italic; text-shadow: 0 1px 2px rgba(0,0,0,.2); }
 .inv-hdr-contacts { font-size: 9.5px; font-weight: 600; color: rgba(255,255,255,.9); margin-top: 4px; display: flex; flex-wrap: wrap; gap: 8px; text-shadow: 0 1px 2px rgba(0,0,0,.2); }
-.inv-title-bar { display: flex; justify-content: space-between; align-items: flex-start; padding: 12px 0 10px; margin: 0 0 12px; border-bottom: 2px solid var(--cafe-light); }
+.inv-title-bar { display: flex; justify-content: space-between; align-items: flex-start; padding: 14px 0 12px; margin: 0 0 12px; border-bottom: 2px solid var(--cafe-light); }
 .inv-title-label { font-size: 20px; font-weight: 900; color: var(--cafe); letter-spacing: 1.5px; }
 .inv-title-number { font-size: 11.5px; font-weight: 700; color: var(--cafe-dark); font-family: 'Courier New', monospace; margin-top: 3px; }
-.inv-meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; padding: 10px 12px; background: var(--cafe-cream); border-radius: 8px; border: 1px solid #bae6fd; }
+.inv-meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; padding: 10px 14px; background: var(--cafe-cream); border-radius: 8px; border: 1px solid #bae6fd; }
 .inv-meta-label { font-size: 9px; font-weight: 700; text-transform: uppercase; color: #9ca3af; letter-spacing: .6px; margin-bottom: 2px; }
 .inv-meta-val { font-size: 11.5px; font-weight: 700; color: #1f2937; }
 .inv-items-tbl { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 14px; }
@@ -468,7 +468,7 @@ $businessIcon = defined('BUSINESS_ICON') ? BUSINESS_ICON : 'C';
 .inv-items-tbl td:last-child { text-align: right; font-weight: 700; }
 .inv-items-tbl td:nth-child(3) { text-align: center; }
 .inv-items-tbl td:nth-child(4) { text-align: right; }
-.inv-totals { margin-left: auto; width: 200px; }
+.inv-totals { margin-left: auto; width: 190px; }
 .inv-total-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 11.5px; color: #6b7280; }
 .inv-total-row.grand { font-size: 14.5px; font-weight: 900; color: var(--cafe-espresso); border-top: 2px solid var(--cafe); padding: 8px 0 0; margin-top: 5px; }
 .inv-bank-box { clear: both; margin: 12px 0 4px; padding: 9px 12px; background: var(--cafe-cream); border: 1.5px dashed var(--cafe-gold); border-radius: 8px; }
@@ -482,16 +482,16 @@ $businessIcon = defined('BUSINESS_ICON') ? BUSINESS_ICON : 'C';
 .inv-qr-box { padding: 9px 12px; background: var(--cafe-cream); border: 1.5px dashed var(--cafe-gold); border-radius: 8px; text-align: center; flex-shrink: 0; }
 .inv-qr-label { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: var(--cafe); margin-bottom: 5px; }
 .inv-qr-box img { width: 72px; height: 72px; object-fit: contain; background: #fff; border-radius: 6px; border: 1px solid #e5e7eb; padding: 3px; }
-.inv-stamp { text-align: center; margin: 14px 0 6px; }
-.inv-stamp-paid { display: inline-flex; align-items: center; gap: 6px; background: linear-gradient(135deg, #059669, #047857); color: #fff; padding: 6px 18px; border-radius: 20px; font-size: 11px; font-weight: 900; letter-spacing: .5px; box-shadow: 0 4px 12px rgba(5,150,105,.25); }
-.inv-stamp-unpaid { display: inline-flex; align-items: center; gap: 5px; background: linear-gradient(135deg, #fef2f2, #fee2e2); color: #dc2626; padding: 6px 18px; border-radius: 20px; font-size: 11px; font-weight: 900; border: 1.5px solid #fca5a5; }
-.inv-footer-bar { background: linear-gradient(135deg, #f0f9ff, #e0f2fe); padding: 11px 20px; text-align: center; border-top: 1px solid #bae6fd; }
+.inv-status-line { text-align: center; margin: 10px 0 4px; font-size: 10.5px; font-weight: 700; letter-spacing: .3px; }
+.inv-status-line.paid { color: #059669; }
+.inv-status-line.unpaid { color: #dc2626; }
+.inv-footer-bar { background: linear-gradient(135deg, #f0f9ff, #e0f2fe); padding: 11px 30px; text-align: center; border-top: 1px solid #bae6fd; }
 .inv-footer-bar .thanks { font-size: 12px; font-weight: 700; color: var(--cafe-dark); margin: 0 0 3px; }
 .inv-footer-bar .tagline { font-size: 9.5px; color: #9ca3af; font-style: italic; }
 .inv-footer-bar .legal { font-size: 8.5px; color: #d1d5db; margin-top: 4px; }
 
-/* Watermark LUNAS */
-.inv-watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%) rotate(-35deg); font-size: 60px; font-weight: 900; color: rgba(5,150,105,.12); letter-spacing: 10px; text-transform: uppercase; pointer-events: none; z-index: 5; white-space: nowrap; border: 6px solid rgba(5,150,105,.10); padding: 8px 32px; border-radius: 16px; }
+/* Anti-forgery watermark: color is set inline per status (green=PAID, red=UNPAID) */
+.inv-watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%) rotate(-35deg); font-size: 64px; font-weight: 900; letter-spacing: 10px; text-transform: uppercase; pointer-events: none; z-index: 5; white-space: nowrap; border-width: 6px; border-style: solid; padding: 8px 32px; border-radius: 16px; }
 
 @media print { body * { visibility: hidden; } #printArea, #printArea * { visibility: visible; } #printArea { position: absolute; left: 0; top: 0; width: 100%; } }
 @media (max-width: 768px) {
@@ -569,7 +569,7 @@ $businessIcon = defined('BUSINESS_ICON') ? BUSINESS_ICON : 'C';
                     <span style="color:#d1d5db;">-</span>
                 <?php endif; ?>
             </td>
-            <td><span class="badge b-<?php echo $inv['status']; ?>"><?php echo $inv['status'] === 'paid' ? 'LUNAS' : ($inv['status'] === 'unpaid' ? 'BELUM BAYAR' : 'BATAL'); ?></span></td>
+            <td><span class="badge b-<?php echo $inv['status']; ?>"><?php echo $inv['status'] === 'paid' ? 'PAID' : ($inv['status'] === 'unpaid' ? 'UNPAID' : 'BATAL'); ?></span></td>
             <td style="font-size:11px;color:#6b7280;">
                 <?php echo date('d/m/Y H:i', strtotime($inv['created_at'])); ?>
                 <?php if ($inv['paid_at']): ?><br><span style="color:#059669;font-size:10px;font-weight:600;">Bayar: <?php echo date('d/m H:i', strtotime($inv['paid_at'])); ?></span><?php endif; ?>
@@ -741,7 +741,7 @@ $businessIcon = defined('BUSINESS_ICON') ? BUSINESS_ICON : 'C';
 
 <!-- MODAL: VIEW INVOICE -->
 <div class="modal-bg" id="viewModal">
-    <div class="modal-box" style="max-width:500px;padding:0;overflow:hidden;">
+    <div class="modal-box" style="max-width:800px;padding:0;overflow:hidden;">
         <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 24px;background:#fafafa;border-bottom:1px solid #f3f4f6;">
             <div style="font-size:14px;font-weight:800;color:var(--cafe-dark);">Detail Invoice</div>
             <div style="display:flex;gap:6px;">
@@ -964,10 +964,12 @@ function viewInvoice(id) {
                     '<td style="text-align:right;">' + fmtRp(it.unit_price) + '</td>' +
                     '<td style="text-align:right;">' + fmtRp(it.subtotal) + '</td></tr>';
             }
-            var stampHtml = inv.status === 'paid'
-                ? '<div class="inv-stamp"><span class="inv-stamp-paid">LUNAS - ' + (inv.payment_method||'').toUpperCase() + ' - ' + (inv.paid_at ? inv.paid_at.substring(0,16) : '') + '</span></div>'
-                : '<div class="inv-stamp"><span class="inv-stamp-unpaid">BELUM BAYAR</span></div>';
-            var watermarkHtml = inv.status === 'paid' ? '<div class="inv-watermark">LUNAS</div>' : '';
+            var isPaidStatus = inv.status === 'paid';
+            var statusRgb = isPaidStatus ? '5,150,105' : '220,38,38';
+            var watermarkHtml = '<div class="inv-watermark" style="color:rgba(' + statusRgb + ',.12);border-color:rgba(' + statusRgb + ',.10);">' + (isPaidStatus ? 'PAID' : 'UNPAID') + '</div>';
+            var statusLineHtml = isPaidStatus
+                ? '<div class="inv-status-line paid">Status: <b>PAID</b>' + ((inv.payment_method) ? ' &middot; ' + escHtml((inv.payment_method||'').toUpperCase()) : '') + (inv.paid_at ? ' &middot; ' + escHtml(inv.paid_at.substring(0,16)) : '') + '</div>'
+                : '<div class="inv-status-line unpaid">Status: <b>UNPAID</b></div>';
 
             var discountHtml = parseFloat(inv.discount_amount) > 0
                 ? '<div class="inv-total-row"><span>Diskon</span><span style="color:#dc2626;font-weight:700;">- ' + fmtRp(inv.discount_amount) + '</span></div>' : '';
@@ -1017,7 +1019,7 @@ function viewInvoice(id) {
                 discountHtml + taxHtml +
                 '<div class="inv-total-row grand"><span>TOTAL</span><span>' + fmtRp(inv.total_amount) + '</span></div></div>' +
                 payInfoHtml +
-                stampHtml + '</div>' +
+                statusLineHtml + '</div>' +
                 '<div class="inv-footer-bar"><div class="thanks">Terima Kasih atas Kunjungan Anda!</div>' +
                 '<div class="tagline">' + escHtml(COMPANY_NAME) + ' - ' + escHtml(COMPANY_TAGLINE) + '</div>' +
                 '<div class="legal">Dokumen ini sah dan diproses secara elektronik</div></div>';
@@ -1057,11 +1059,10 @@ function printInvoice() {
         '.inv-qr-box { padding:9px 12px;background:#f0f9ff!important;border:1.5px dashed #38bdf8;border-radius:8px;text-align:center;flex-shrink:0; }' +
         '.inv-qr-label { font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#0369a1;margin-bottom:5px; }' +
         '.inv-qr-box img { width:72px;height:72px;object-fit:contain;background:#fff;border-radius:6px;border:1px solid #e5e7eb;padding:3px; }' +
-        '.inv-stamp { text-align:center;margin:14px 0 6px; } .inv-stamp-paid { display:inline-block;background:#059669!important;color:#fff;padding:6px 18px;border-radius:18px;font-size:11px;font-weight:900; }' +
-        '.inv-stamp-unpaid { display:inline-block;background:#fef2f2;color:#dc2626;padding:6px 18px;border-radius:18px;font-size:11px;font-weight:900;border:1.5px solid #fca5a5; }' +
+        '.inv-status-line { text-align:center;margin:10px 0 4px;font-size:10.5px;font-weight:700;letter-spacing:.3px; } .inv-status-line.paid { color:#059669; } .inv-status-line.unpaid { color:#dc2626; }' +
         '.inv-footer-bar { background:#f0f9ff!important;padding:11px 30px;text-align:center;border-top:1px solid #bae6fd;margin-top:auto; }' +
         '.inv-footer-bar .thanks { font-size:12px;font-weight:700;color:#075985; } .inv-footer-bar .tagline { font-size:9.5px;color:#9ca3af;font-style:italic; } .inv-footer-bar .legal { font-size:8.5px;color:#d1d5db;margin-top:4px; }' +
-        '.inv-watermark { position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-35deg);font-size:64px;font-weight:900;color:rgba(5,150,105,.10);letter-spacing:10px;text-transform:uppercase;pointer-events:none;z-index:5;white-space:nowrap;border:6px solid rgba(5,150,105,.08);padding:8px 32px;border-radius:16px; }' +
+        '.inv-watermark { position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-35deg);font-size:64px;font-weight:900;letter-spacing:10px;text-transform:uppercase;pointer-events:none;z-index:5;white-space:nowrap;border-width:6px;border-style:solid;padding:8px 32px;border-radius:16px; }' +
         '</style></head><body onload="window.print();window.close()">' + content + '</body></html>');
     w.document.close();
 }
