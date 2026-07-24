@@ -1897,8 +1897,10 @@ include '../../includes/header.php';
                     }
                 })
                 .catch(error => console.error('Refresh error:', error));
-            // Close modal when clicking outside - ensure DOM is ready
-            function initSetorTunaiModal() {
+    };
+
+    // Close modal when clicking outside - ensure DOM is ready
+    function initSetorTunaiModal() {
                 const modal = document.getElementById('setorTunaiModal');
                 if (modal) {
                     modal.addEventListener('click', function(e) {
