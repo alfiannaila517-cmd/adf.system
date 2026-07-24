@@ -7,12 +7,14 @@ define('APP_ACCESS', true);
 require_once __DIR__ . '/../_bootstrap.php';
 require_once __DIR__ . '/../db-helper.php';
 
-// Domain restriction - only allow www.pwfoffice.com
-$allowedHost = 'www.pwfoffice.com';
+// Domain restriction - allow the PWF addon domain (with/without www) and the
+// shared ADF system domain (used while pwfoffice.com addon isn't the only entry point)
+$allowedHosts = ['www.pwfoffice.com', 'pwfoffice.com', 'adfsystem.online', 'www.adfsystem.online'];
 $currentHost = strtolower($_SERVER['HTTP_HOST'] ?? '');
-if ($currentHost !== $allowedHost) {
+$isLocal = (strpos($currentHost, 'localhost') !== false || strpos($currentHost, '127.0.0.1') !== false);
+if (!$isLocal && !in_array($currentHost, $allowedHosts, true)) {
     http_response_code(403);
-    echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>403 Forbidden</title><style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0f172a;color:#94a3b8;flex-direction:column;gap:12px}h1{color:#fff;font-size:28px}code{background:#1e293b;padding:4px 10px;border-radius:6px;color:#f59e0b;font-size:14px}</style></head><body><h1>403 Forbidden</h1><p>Halaman ini hanya dapat diakses dari <code>www.pwfoffice.com</code></p></body></html>';
+    echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>403 Forbidden</title><style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0f172a;color:#94a3b8;flex-direction:column;gap:12px}h1{color:#fff;font-size:28px}code{background:#1e293b;padding:4px 10px;border-radius:6px;color:#f59e0b;font-size:14px}</style></head><body><h1>403 Forbidden</h1><p>Halaman ini tidak dapat diakses dari domain ini.</p></body></html>';
     exit;
 }
 
