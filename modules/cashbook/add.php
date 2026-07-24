@@ -1930,11 +1930,15 @@ include '../../includes/header.php';
                     return;
                 }
 
-                const cashAccountId = form.setor_cash_account?.value;
-                const bankAccountId = form.setor_bank_account?.value;
-                const amount = form.setor_amount?.value;
-                const penyetor = form.setor_penyetor?.value;
-                const notes = form.setor_notes?.value || '';
+                // NOTE: #setorTunaiForm is a <div>, not a <form>, so named-property
+                // access (form.setor_cash_account) never works - HTMLFormElement is
+                // the only element type that supports that. Must use getElementById
+                // (or querySelector) on the actual input/select IDs instead.
+                const cashAccountId = document.getElementById('setorCashAccount')?.value;
+                const bankAccountId = document.getElementById('setorBankAccount')?.value;
+                const amount = document.getElementById('setorAmount')?.value;
+                const penyetor = document.getElementById('setorPenyetor')?.value;
+                const notes = document.getElementById('setorNotes')?.value || '';
 
                 console.log('Form values:', {
                     cashAccountId,
@@ -1991,6 +1995,14 @@ include '../../includes/header.php';
 
                 // Set description with penyetor name
                 mainForm.description.value = `[${penyetor}] ${notes || 'Setor tunai dari kas cabang ke rekening operasional'}`;
+
+                // Skip native HTML5 validation - other required fields on the main form
+                // (Kategori/Nama, dropdown "Pilih Akun", etc.) are intentionally left
+                // empty for a cash transfer and would otherwise silently block submit /
+                // re-highlight as "still empty" even though the Setor Tunai popup was
+                // fully filled. Already validated the popup's own fields above; server
+                // (add.php cash_transfer branch) re-validates too.
+                mainForm.noValidate = true;
 
                 // Close modal
                 window.closeSetorTunaiModal();
