@@ -1352,6 +1352,16 @@ function toggleNavGroup(btn, subId) {
     sub.classList.toggle("open", open);
 }
 
+// Klik area gelap (backdrop) di luar modal box akan menutup modal.
+// Ini mencegah modal-overlay yang lupa/gagal ditutup memblokir seluruh
+// klik di halaman (termasuk menu sidebar) karena backdrop-nya menutupi
+// seluruh layar (position:fixed;inset:0) dengan z-index tinggi.
+document.addEventListener("click", function(e) {
+    if (e.target.classList && e.target.classList.contains("modal-overlay") && e.target.classList.contains("open")) {
+        e.target.classList.remove("open");
+    }
+});
+
 (function cleanupBuyerPortalServiceWorkerOnInternalPages() {
                     if (!("serviceWorker" in navigator)) return;
 
