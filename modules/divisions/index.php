@@ -25,7 +25,7 @@ $monthName = date('F Y', strtotime($filterDate));
 // Get all divisions
 $divisions = [];
 try {
-    $divisions = $db->fetchAll("SELECT * FROM divisions ORDER BY division_name");
+    $divisions = $db->fetchAll("SELECT * FROM divisions WHERE is_active = 1 ORDER BY division_name");
 } catch (\Throwable $e) {
     error_log("Error fetching divisions: " . $e->getMessage());
     // Only show error if debugging
@@ -49,6 +49,7 @@ $summaryQuery = "
     LEFT JOIN cash_book cb ON d.id = cb.division_id 
         AND YEAR(cb.transaction_date) = :year 
         AND MONTH(cb.transaction_date) = :month
+    WHERE d.is_active = 1
     GROUP BY d.id, d.division_name, d.division_code
     ORDER BY net_balance DESC
 ";
