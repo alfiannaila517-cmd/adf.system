@@ -1693,6 +1693,15 @@ include '../../includes/header.php';
             if (divField) divField.removeAttribute('required');
             if (descField) descField.value = '[' + penyetor + '] ' + (notes || 'Setor tunai dari kas ke rekening bank');
 
+            // Setor Tunai only needs date/amount/cash_account_id/bank_account_id (already
+            // validated above with the "Harap isi: ..." alert). The rest of the main
+            // transaction form (Kategori/Nama, dropdown "Pilih Akun", etc.) is intentionally
+            // left empty since it doesn't apply to a cash transfer, but those fields still
+            // carry `required` - the browser's native validation was silently blocking
+            // submission and re-highlighting those unrelated empty fields. Skip native
+            // validation here; server-side (add.php cash_transfer branch) re-validates anyway.
+            mainForm.noValidate = true;
+
             window.closeSetorTunaiModal();
             mainForm.submit();
         };
@@ -1888,10 +1897,8 @@ include '../../includes/header.php';
                     }
                 })
                 .catch(error => console.error('Refresh error:', error));
-    };
-
-    // Close modal when clicking outside - ensure DOM is ready
-    function initSetorTunaiModal() {
+            // Close modal when clicking outside - ensure DOM is ready
+            function initSetorTunaiModal() {
                 const modal = document.getElementById('setorTunaiModal');
                 if (modal) {
                     modal.addEventListener('click', function(e) {
