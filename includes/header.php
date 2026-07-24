@@ -455,12 +455,6 @@ if (isset($_SESSION['user_id'])) {
                             </a>
                             <ul class="submenu">
                                 <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/payroll/index.php" class="submenu-link <?php echo activeMenu('index.php'); ?>">
-                                        <i data-feather="layout" class="submenu-icon"></i>
-                                        <span>Dashboard</span>
-                                    </a>
-                                </li>
-                                <li class="submenu-item">
                                     <a href="<?php echo BASE_URL; ?>/modules/payroll/employees.php" class="submenu-link <?php echo activeMenu('employees.php'); ?>">
                                         <i data-feather="users" class="submenu-icon"></i>
                                         <span>Employee Data</span>
@@ -470,12 +464,6 @@ if (isset($_SESSION['user_id'])) {
                                     <a href="<?php echo BASE_URL; ?>/modules/payroll/process.php" class="submenu-link <?php echo activeMenu('process.php'); ?>">
                                         <i data-feather="monitor" class="submenu-icon"></i>
                                         <span>Process Salary</span>
-                                    </a>
-                                </li>
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/payroll/slips.php" class="submenu-link <?php echo activeMenu('slips.php'); ?>">
-                                        <i data-feather="file-text" class="submenu-icon"></i>
-                                        <span>Salary Slips</span>
                                     </a>
                                 </li>
                                 <li class="submenu-item">
