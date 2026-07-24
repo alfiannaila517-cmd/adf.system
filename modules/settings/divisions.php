@@ -38,7 +38,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'division_code' => strtoupper($_POST['division_code']),
                 'division_name' => $_POST['division_name'],
                 'division_type' => $_POST['division_type'] ?? 'both',
-                'description' => $_POST['description'] ?? ''
+                'description' => $_POST['description'] ?? '',
+                'is_active' => isset($_POST['is_active']) ? 1 : 0
             ];
             $db->update('divisions', $data, 'id = :id', ['id' => $id]);
             setFlashMessage('success', 'Divisi berhasil diupdate!');
@@ -63,6 +64,24 @@ if ($action === 'delete' && $id > 0) {
         exit;
     } catch (Exception $e) {
         setFlashMessage('error', 'Tidak dapat menghapus divisi yang masih memiliki transaksi!');
+        header('Location: divisions.php');
+        exit;
+    }
+}
+
+// Handle quick activate/deactivate toggle
+if ($action === 'toggle_active' && $id > 0) {
+    try {
+        $div = $db->fetchOne("SELECT is_active FROM divisions WHERE id = ?", [$id]);
+        if ($div) {
+            $newStatus = $div['is_active'] ? 0 : 1;
+            $db->update('divisions', ['is_active' => $newStatus], 'id = :id', ['id' => $id]);
+            setFlashMessage('success', $newStatus ? 'Divisi diaktifkan kembali!' : 'Divisi dinonaktifkan!');
+        }
+        header('Location: divisions.php');
+        exit;
+    } catch (Exception $e) {
+        setFlashMessage('error', 'Error: ' . $e->getMessage());
         header('Location: divisions.php');
         exit;
     }
@@ -124,6 +143,12 @@ include '../../includes/header.php';
                 <label class="form-label">Deskripsi</label>
                 <textarea name="description" class="form-control" rows="2" placeholder="Deskripsi divisi..."><?php echo $editDivision['description'] ?? ''; ?></textarea>
             </div>
+            <?php if ($action === 'edit'): ?>
+            <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem;">
+                <input type="checkbox" name="is_active" id="is_active" value="1" <?php echo !empty($editDivision['is_active']) ? 'checked' : ''; ?> style="width: 16px; height: 16px;">
+                <label for="is_active" class="form-label" style="margin: 0;">Divisi Aktif</label>
+            </div>
+            <?php endif; ?>
             <div style="display: flex; gap: 0.5rem; padding-top: 0.75rem; border-top: 1px solid var(--bg-tertiary);">
                 <button type="submit" class="btn btn-primary btn-sm">
                     <i data-feather="save" style="width: 14px; height: 14px;"></i> Simpan
@@ -165,9 +190,10 @@ include '../../includes/header.php';
                             </td>
                             <td style="font-size: 0.875rem; color: var(--text-muted);"><?php echo htmlspecialchars($div['description'] ?: '-'); ?></td>
                             <td>
-                                <span class="badge" style="background: <?php echo $div['is_active'] ? 'rgba(16, 185, 129, 0.15)' : 'rgba(148, 163, 184, 0.15)'; ?>; color: <?php echo $div['is_active'] ? 'var(--success)' : 'var(--text-muted)'; ?>;">
+                                <button type="button" onclick="confirmToggle(<?php echo $div['id']; ?>, '<?php echo addslashes($div['division_name']); ?>', <?php echo $div['is_active'] ? 'true' : 'false'; ?>)"
+                                        class="badge" style="cursor: pointer; border: none; background: <?php echo $div['is_active'] ? 'rgba(16, 185, 129, 0.15)' : 'rgba(148, 163, 184, 0.15)'; ?>; color: <?php echo $div['is_active'] ? 'var(--success)' : 'var(--text-muted)'; ?>;">
                                     <?php echo $div['is_active'] ? 'Active' : 'Inactive'; ?>
-                                </span>
+                                </button>
                             </td>
                             <td style="text-align: center;">
                                 <div style="display: flex; gap: 0.5rem; justify-content: center;">
@@ -214,6 +240,13 @@ include '../../includes/header.php';
     function confirmDelete(id, name) {
         if (confirm(`Hapus divisi "${name}"?\n\nPeringatan: Divisi yang memiliki transaksi tidak dapat dihapus!`)) {
             window.location.href = `?action=delete&id=${id}`;
+        }
+    }
+
+    function confirmToggle(id, name, isActive) {
+        const action = isActive ? 'menonaktifkan' : 'mengaktifkan';
+        if (confirm(`Yakin ingin ${action} divisi "${name}"?`)) {
+            window.location.href = `?action=toggle_active&id=${id}`;
         }
     }
 </script>
