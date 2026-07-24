@@ -988,3 +988,5 @@ pwfOfficeHeader('Warehouse / Stock', 'warehouse');
         pwfOpen('detailModal');
     }
 </script>
+<?php pwfOfficeFooter(); ?>
+</script>
