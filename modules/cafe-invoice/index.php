@@ -990,7 +990,7 @@ function viewInvoice(id) {
             }
             var qrHtml = '';
             if (QR_URL) {
-                qrHtml = '<div class="inv-qr-box"><div class="inv-qr-label">Scan QR untuk Bayar</div>' +
+                qrHtml = '<div class="inv-qr-box"><div class="inv-qr-label">QRIS</div>' +
                     '<img src="' + escHtml(QR_URL) + '" alt="QR Pembayaran"></div>';
             }
             var payInfoHtml = (bankHtml || qrHtml) ? '<div class="inv-pay-row">' + bankHtml + qrHtml + '</div>' : '';
