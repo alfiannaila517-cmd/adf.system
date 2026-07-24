@@ -290,6 +290,89 @@ function pwfUserHasAccess(string $menuCode, string $action = 'view'): bool
     return $cache[$cacheKey][$action] ?? false;
 }
 
+/**
+ * Return the relative URL (inside modules/pwf-office/) the currently logged-in
+ * PWF user should land on right after login, based on their menu permissions.
+ * Owner/developer and users with no permission rows (default full access) land
+ * on dashboard.php as before. Restricted users land on the first menu (in the
+ * standard sidebar order) they actually have can_view access to.
+ */
+function pwfGetDefaultLandingUrl(): string
+{
+    $default = 'dashboard.php';
+
+    $order = [
+        'dashboard'    => 'dashboard.php',
+        'orders'       => 'orders.php',
+        'progress'     => 'progress.php',
+        'warehouse'    => 'warehouse.php',
+        'shipping'     => 'shipping.php',
+        'rekap-order'  => 'rekap-order.php',
+        'buyers'       => 'buyers.php',
+        'customers'    => 'customers.php',
+        'craftsmen'    => 'craftsmen.php',
+        'containers'   => 'db-containers.php',
+        'settings-main' => 'settings.php',
+        'manage'       => 'manage/index.php',
+    ];
+
+    $role = $_SESSION['role'] ?? '';
+    if (in_array($role, ['owner', 'developer'], true)) {
+        return $default;
+    }
+
+    $userId = $_SESSION['user_id'] ?? null;
+    if (!$userId) {
+        return $default;
+    }
+
+    try {
+        $masterPdo = new PDO('mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4', DB_USER, DB_PASS, [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_SILENT,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+        ]);
+        $pwfBiz = $masterPdo->query("SELECT id FROM businesses WHERE business_name LIKE '%PWF%' OR business_name LIKE '%Prapen%' LIMIT 1")->fetch();
+        $pwfBizId = $pwfBiz['id'] ?? null;
+        if (!$pwfBizId) {
+            return $default;
+        }
+
+        $stmt = $masterPdo->prepare("
+            SELECT DISTINCT mi.menu_code
+            FROM user_menu_permissions ump
+            INNER JOIN menu_items mi ON ump.menu_id = mi.id
+            WHERE ump.user_id = ? AND ump.business_id = ? AND ump.can_view = 1
+        ");
+        $stmt->execute([$userId, $pwfBizId]);
+        $allowedCodes = [];
+        foreach ($stmt->fetchAll() as $row) {
+            $allowedCodes[] = preg_replace('/^pwf_/', '', strtolower($row['menu_code']));
+        }
+
+        // No permission rows at all -> default/legacy full access -> dashboard
+        if (empty($allowedCodes)) {
+            return $default;
+        }
+
+        $codeMap = ['rekap' => 'rekap-order'];
+        $mapped = [];
+        foreach ($allowedCodes as $code) {
+            $mapped[] = $codeMap[$code] ?? $code;
+        }
+        $allowedCodes = $mapped;
+
+        foreach ($order as $key => $url) {
+            if (in_array($key, $allowedCodes, true)) {
+                return $url;
+            }
+        }
+    } catch (\Throwable $e) {
+        return $default;
+    }
+
+    return $default;
+}
+
 function genPwfCode(PDO $pdo, string $prefix): string
 {
     $yearMonth = date('Ym');
