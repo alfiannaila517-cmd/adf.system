@@ -1951,43 +1951,59 @@ header('Expires: 0');
 
         /* Absen Manual — clearly visible secondary button */
         .absen-link-manual {
-            display: block;
+            display: flex;
+            align-items: center;
+            gap: 12px;
             width: 100%;
-            background: #fff;
-            border: 2px solid var(--navy);
+            background: linear-gradient(135deg, #f8fafc 0%, #eef1f6 100%);
+            border: 1px solid var(--border);
             color: var(--navy);
-            border-radius: 14px;
+            border-radius: 16px;
             padding: 12px 14px;
-            text-align: center;
+            text-align: left;
             margin-bottom: 14px;
             cursor: pointer;
             font-family: inherit;
-            transition: all .15s;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(15, 23, 42, .05);
+            transition: all .18s;
         }
 
         .absen-link-manual:active {
             transform: scale(.98);
-            background: var(--bg);
+            box-shadow: none;
+            background: linear-gradient(135deg, #f1f5f9 0%, #e8ecf2 100%);
         }
 
-        .absen-link-manual .alm-row {
+        .absen-link-manual .alm-icon {
+            width: 40px;
+            height: 40px;
+            flex-shrink: 0;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--navy), var(--navy2));
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
+            box-shadow: 0 4px 10px rgba(15, 23, 42, .18);
         }
 
-        .absen-link-manual svg {
+        .absen-link-manual .alm-icon svg {
             width: 20px;
             height: 20px;
-            flex-shrink: 0;
-            color: var(--navy);
+            color: #fff;
+        }
+
+        .absen-link-manual .alm-body {
+            flex: 1;
+            min-width: 0;
         }
 
         .absen-link-manual .alm-title {
-            font-size: 14px;
+            font-size: 13.5px;
             font-weight: 800;
             letter-spacing: .2px;
+            color: var(--navy);
         }
 
         .absen-link-manual .alm-sub {
@@ -1995,7 +2011,16 @@ header('Expires: 0');
             font-weight: 500;
             color: var(--muted);
             font-size: 10.5px;
-            margin-top: 4px;
+            margin-top: 2px;
+            line-height: 1.35;
+        }
+
+        .absen-link-manual .alm-chevron {
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+            color: var(--muted);
+            opacity: .55;
         }
 
         /* Manual Attendance popup */
@@ -2834,11 +2859,14 @@ header('Expires: 0');
 
             <!-- Absen Manual (fallback jika Face ID lambat/gagal) -->
             <button type="button" class="absen-link-manual" onclick="openManualAttendance()">
-                <span class="alm-row">
+                <span class="alm-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                    <span class="alm-title">Absen Manual</span>
                 </span>
-                <span class="alm-sub">Jika Face ID lambat/gagal — tetap wajib dalam radius lokasi</span>
+                <span class="alm-body">
+                    <span class="alm-title">Absen Manual</span>
+                    <span class="alm-sub">Jika Face ID lambat/gagal — tetap wajib dalam radius lokasi</span>
+                </span>
+                <svg class="alm-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"></path></svg>
             </button>
 
             <!-- Status Hari Ini -->

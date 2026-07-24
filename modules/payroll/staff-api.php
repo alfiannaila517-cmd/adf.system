@@ -882,6 +882,16 @@ if ($action === 'face_clock') {
         }
     }
 
+    // Human-readable note of which location/radius the scan was recorded at,
+    // written into payroll_attendance.notes and the response message so both
+    // staff and admin can see it ("absen dalam radius berapa").
+    $radiusNote = '';
+    $radiusMsg = '';
+    if (isset($nearest) && $nearest) {
+        $radiusNote = " \xe2\x80\x94 {$distance}m dari {$nearest['location_name']}" . ($isOutside ? ' (luar radius)' : '');
+        $radiusMsg = " ({$distance}m dari {$nearest['location_name']})";
+    }
+
     // Get existing attendance
     $pdo = $db->getConnection();
 
@@ -959,11 +969,11 @@ if ($action === 'face_clock') {
                 $statusEmoji = $status === 'late' ? ' ⚠️ Terlambat ' . $lateMinutes . ' menit' : '';
 
                 $pdo->prepare("INSERT INTO payroll_attendance (employee_id, attendance_date, check_in_time, check_in_lat, check_in_lng, check_in_distance_m, check_in_address, check_in_device, status, is_outside_radius, notes, late_minutes, schedule_start, schedule_end) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
-                    ->execute([$empId, $today, $now, $lat ?: null, $lng ?: null, $distance, $address, $device, $status, $isOutside ? 1 : 0, 'Absen masuk', $lateMinutes, $schedStart, $schedEnd]);
+                    ->execute([$empId, $today, $now, $lat ?: null, $lng ?: null, $distance, $address, $device, $status, $isOutside ? 1 : 0, 'Absen masuk' . $radiusNote, $lateMinutes, $schedStart, $schedEnd]);
 
                 echo json_encode([
                     'success' => true,
-                    'message' => '✅ Absen Masuk — ' . date('H:i') . $statusEmoji,
+                    'message' => '✅ Absen Masuk — ' . date('H:i') . $statusEmoji . $radiusMsg,
                     'scan_num' => 1
                 ]);
                 exit;
@@ -979,11 +989,11 @@ if ($action === 'face_clock') {
                 $earlyNote = ($earlyLeave > 5) ? ' ⚠️ Pulang awal ' . $earlyLeave . ' menit' : '';
 
                 $pdo->prepare("UPDATE payroll_attendance SET check_out_time = ?, check_out_lat = ?, check_out_lng = ?, check_out_distance_m = ?, check_out_device = ?, work_hours = ?, shift_1_hours = ?, early_leave_minutes = ?, notes = ? WHERE id = ?")
-                    ->execute([$now, $lat ?: null, $lng ?: null, $distance, $device, $workHours, $workHours, $earlyLeave, 'Absen pulang', $att['id']]);
+                    ->execute([$now, $lat ?: null, $lng ?: null, $distance, $device, $workHours, $workHours, $earlyLeave, 'Absen pulang' . $radiusNote, $att['id']]);
 
                 echo json_encode([
                     'success' => true,
-                    'message' => '✅ Absen Pulang — ' . date('H:i') . " ({$workHours} jam)" . $earlyNote,
+                    'message' => '✅ Absen Pulang — ' . date('H:i') . " ({$workHours} jam)" . $earlyNote . $radiusMsg,
                     'scan_num' => 2
                 ]);
                 exit;
@@ -1024,8 +1034,8 @@ if ($action === 'face_clock') {
                 // Scan 1 — new record
                 $status = ($now > $checkinEnd) ? 'late' : 'present';
                 $pdo->prepare("INSERT INTO payroll_attendance (employee_id, attendance_date, check_in_time, check_in_lat, check_in_lng, check_in_distance_m, check_in_address, check_in_device, status, is_outside_radius, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?)")
-                    ->execute([$empId, $today, $now, $lat ?: null, $lng ?: null, $distance, $address, $device, $status, $isOutside ? 1 : 0, $modeLabel . ' 1/4']);
-                echo json_encode(['success' => true, 'message' => '✅ ' . $scanLabels[0] . ' — ' . date('H:i') . ($status === 'late' ? ' ⚠️ Terlambat' : ''), 'scan_num' => 1]);
+                    ->execute([$empId, $today, $now, $lat ?: null, $lng ?: null, $distance, $address, $device, $status, $isOutside ? 1 : 0, $modeLabel . ' 1/4' . $radiusNote]);
+                echo json_encode(['success' => true, 'message' => '✅ ' . $scanLabels[0] . ' — ' . date('H:i') . ($status === 'late' ? ' ⚠️ Terlambat' : '') . $radiusMsg, 'scan_num' => 1]);
                 exit;
             }
 
@@ -1079,7 +1089,7 @@ if ($action === 'face_clock') {
             }
 
             $updates[] = "notes = ?";
-            $params[] = "{$modeLabel} {$scanNum}/4";
+            $params[] = "{$modeLabel} {$scanNum}/4{$radiusNote}";
             $params[] = $att['id'];
 
             $pdo->prepare("UPDATE payroll_attendance SET " . implode(', ', $updates) . " WHERE id = ?")->execute($params);
@@ -1088,7 +1098,7 @@ if ($action === 'face_clock') {
             if ($scanNum === 2 && $shift1Hours) $hoursTxt = " ({$shift1Hours} jam)";
             if ($scanNum === 4 && $shift2Hours) $hoursTxt = " (total: {$totalHours} jam)";
 
-            echo json_encode(['success' => true, 'message' => '✅ ' . $scanLabels[$scanNum - 1] . ' — ' . date('H:i') . $hoursTxt, 'scan_num' => $scanNum]);
+            echo json_encode(['success' => true, 'message' => '✅ ' . $scanLabels[$scanNum - 1] . ' — ' . date('H:i') . $hoursTxt . $radiusMsg, 'scan_num' => $scanNum]);
             exit;
         } catch (Exception $e) {
             echo json_encode(['success' => false, 'message' => 'Gagal: ' . $e->getMessage()]);
