@@ -27,6 +27,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $orderId = ((int)($_POST['order_id'] ?? 0)) ?: null;
 
     if ($action === 'create') {
+        if (!pwfUserHasAccess('pwf_warehouse', 'create')) {
+            $msgType = 'warning';
+            $msg = 'Anda tidak memiliki akses untuk menambah stock.';
+        } else {
         $productName = trim($_POST['product_name'] ?? '');
         $quantity    = (float)($_POST['quantity']     ?? 0);
         if ($productName !== '' && $quantity > 0) {
@@ -61,7 +65,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $msgType = 'warning';
             $msg = 'Product name and quantity are required.';
         }
+        }
     } elseif ($action === 'update') {
+        if (!pwfUserHasAccess('pwf_warehouse', 'edit')) {
+            $msgType = 'warning';
+            $msg = 'Anda tidak memiliki akses untuk mengubah stock.';
+        } else {
         $id = (int)($_POST['stock_id'] ?? 0);
         if ($id > 0) {
             try {
@@ -89,7 +98,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $msg = 'Failed to update: ' . $e->getMessage();
             }
         }
+        }
     } elseif ($action === 'delete') {
+        if (!pwfUserHasAccess('pwf_warehouse', 'delete')) {
+            $msgType = 'warning';
+            $msg = 'Anda tidak memiliki akses untuk menghapus stock.';
+        } else {
         $id = (int)($_POST['stock_id'] ?? 0);
         if ($id > 0) {
             try {
@@ -101,8 +115,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $msg = 'Failed to delete: ' . $e->getMessage();
             }
         }
+        }
     }
 }
+
+$canCreateStock = pwfUserHasAccess('pwf_warehouse', 'create');
+$canEditStock   = pwfUserHasAccess('pwf_warehouse', 'edit');
+$canDeleteStock = pwfUserHasAccess('pwf_warehouse', 'delete');
 
 // ── FILTERS ───────────────────────────────────────────────────────────────────
 $filterSearch    = trim($_GET['search'] ?? '');
@@ -524,9 +543,11 @@ pwfOfficeHeader('Warehouse / Stock', 'warehouse');
                 <i class="bi bi-clock"></i> Belum Container</a>
         </div>
         <div style="margin-left:auto">
+            <?php if ($canCreateStock): ?>
             <button class="btn btn-sm" id="btnAddStock" style="gap:6px">
                 <i class="bi bi-plus-lg"></i> Add Stock
             </button>
+            <?php endif; ?>
         </div>
     </div>
     <div class="stat-grid">
@@ -642,12 +663,16 @@ pwfOfficeHeader('Warehouse / Stock', 'warehouse');
                                 <i class="bi bi-eye"></i> Detail
                             </button>
                         <?php endif; ?>
+                        <?php if ($canEditStock): ?>
                         <button class="btn btn-sm btn-outline-secondary" onclick="openEditModal(<?= (int)$s['id'] ?>)" style="gap:4px">
                             <i class="bi bi-pencil"></i> Edit
                         </button>
+                        <?php endif; ?>
+                        <?php if ($canDeleteStock): ?>
                         <button class="btn btn-sm btn-outline-danger" onclick="confirmDelete(<?= (int)$s['id'] ?>)" style="gap:4px">
                             <i class="bi bi-trash"></i>
                         </button>
+                        <?php endif; ?>
                     </div>
                 </div>
             <?php endforeach; ?>

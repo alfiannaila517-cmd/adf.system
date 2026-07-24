@@ -228,6 +228,68 @@ function ensurePwfOfficeTables(PDO $pdo): void
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 }
 
+/**
+ * Check whether the current logged-in PWF user is allowed to perform an
+ * action ('view'|'create'|'edit'|'delete') on a given menu code (e.g. 'pwf_warehouse').
+ * Owner/developer always pass. If the user has NO permission rows configured
+ * at all (default/legacy accounts), access is allowed (matches layout.php's
+ * sidebar filter, which only restricts once at least one permission row exists).
+ */
+function pwfUserHasAccess(string $menuCode, string $action = 'view'): bool
+{
+    static $cache = [];
+
+    $role = $_SESSION['role'] ?? '';
+    if (in_array($role, ['owner', 'developer'], true)) {
+        return true;
+    }
+
+    $userId = $_SESSION['user_id'] ?? null;
+    if (!$userId) {
+        return false;
+    }
+
+    $cacheKey = $userId . '|' . $menuCode;
+    if (!isset($cache[$cacheKey])) {
+        $default = ['view' => true, 'create' => true, 'edit' => true, 'delete' => true];
+        try {
+            $masterPdo = new PDO('mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4', DB_USER, DB_PASS, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_SILENT,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+            ]);
+            $pwfBiz = $masterPdo->query("SELECT id FROM businesses WHERE business_name LIKE '%PWF%' OR business_name LIKE '%Prapen%' LIMIT 1")->fetch();
+            $pwfBizId = $pwfBiz['id'] ?? null;
+
+            $countStmt = $masterPdo->prepare("SELECT COUNT(*) FROM user_menu_permissions WHERE user_id = ? AND business_id = ?");
+            $countStmt->execute([$userId, $pwfBizId]);
+            $hasAnyRestriction = ((int)$countStmt->fetchColumn()) > 0;
+
+            if (!$hasAnyRestriction) {
+                $cache[$cacheKey] = $default;
+            } else {
+                $stmt = $masterPdo->prepare(
+                    "SELECT ump.can_view, ump.can_create, ump.can_edit, ump.can_delete
+                     FROM user_menu_permissions ump
+                     INNER JOIN menu_items mi ON ump.menu_id = mi.id
+                     WHERE ump.user_id = ? AND ump.business_id = ? AND mi.menu_code = ?"
+                );
+                $stmt->execute([$userId, $pwfBizId, $menuCode]);
+                $row = $stmt->fetch();
+                $cache[$cacheKey] = [
+                    'view'   => (bool)($row['can_view'] ?? false),
+                    'create' => (bool)($row['can_create'] ?? false),
+                    'edit'   => (bool)($row['can_edit'] ?? false),
+                    'delete' => (bool)($row['can_delete'] ?? false),
+                ];
+            }
+        } catch (\Throwable $e) {
+            $cache[$cacheKey] = $default;
+        }
+    }
+
+    return $cache[$cacheKey][$action] ?? false;
+}
+
 function genPwfCode(PDO $pdo, string $prefix): string
 {
     $yearMonth = date('Ym');

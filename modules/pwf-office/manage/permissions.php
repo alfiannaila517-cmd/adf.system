@@ -21,6 +21,7 @@ $PWF_MENUS = [
     ['code' => 'pwf_dashboard',  'label' => 'Dashboard',         'icon' => 'bi-speedometer2'],
     ['code' => 'pwf_orders',     'label' => 'Orders',            'icon' => 'bi-clipboard2-check'],
     ['code' => 'pwf_progress',   'label' => 'Progress Tracking', 'icon' => 'bi-bar-chart-line'],
+    ['code' => 'pwf_warehouse',  'label' => 'Warehouse / Stock', 'icon' => 'bi-building'],
     ['code' => 'pwf_shipping',   'label' => 'Shipping & Export', 'icon' => 'bi-box-seam'],
     ['code' => 'pwf_rekap',      'label' => 'Rekap Order',       'icon' => 'bi-box2-heart'],
     ['code' => 'pwf_customers',  'label' => 'Customers',         'icon' => 'bi-people'],
