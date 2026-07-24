@@ -1949,18 +1949,19 @@ header('Expires: 0');
             margin-top: 4px;
         }
 
-        /* Absen Manual — secondary fallback button */
+        /* Absen Manual — clearly visible secondary button */
         .absen-link-manual {
-            display: flex;
-            align-items: center;
-            gap: 10px;
+            display: block;
+            width: 100%;
             background: #fff;
-            border: 1.5px dashed var(--border);
+            border: 2px solid var(--navy);
             color: var(--navy);
             border-radius: 14px;
             padding: 12px 14px;
+            text-align: center;
             margin-bottom: 14px;
             cursor: pointer;
+            font-family: inherit;
             transition: all .15s;
         }
 
@@ -1969,24 +1970,32 @@ header('Expires: 0');
             background: var(--bg);
         }
 
+        .absen-link-manual .alm-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
         .absen-link-manual svg {
-            width: 22px;
-            height: 22px;
+            width: 20px;
+            height: 20px;
             flex-shrink: 0;
-            color: var(--muted);
+            color: var(--navy);
         }
 
-        .absen-link-manual span {
-            font-size: 12.5px;
-            font-weight: 700;
+        .absen-link-manual .alm-title {
+            font-size: 14px;
+            font-weight: 800;
+            letter-spacing: .2px;
         }
 
-        .absen-link-manual small {
+        .absen-link-manual .alm-sub {
             display: block;
             font-weight: 500;
             color: var(--muted);
             font-size: 10.5px;
-            margin-top: 2px;
+            margin-top: 4px;
         }
 
         /* Manual Attendance popup */
@@ -2037,8 +2046,11 @@ header('Expires: 0');
             margin-bottom: 14px;
             min-height: 36px;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
+            gap: 3px;
+            line-height: 1.4;
         }
 
         .manual-popup .mp-actions {
@@ -2070,6 +2082,11 @@ header('Expires: 0');
             background: #cbd5e1;
             color: #94a3b8;
             cursor: not-allowed;
+        }
+
+        .manual-popup .mp-confirm.mp-confirm-retry {
+            background: var(--gold);
+            color: #1e293b;
         }
 
         /* ── Face Scan Overlay — Full-Screen Responsive (from absen.php) ── */
@@ -2816,10 +2833,13 @@ header('Expires: 0');
             </div>
 
             <!-- Absen Manual (fallback jika Face ID lambat/gagal) -->
-            <div class="absen-link-manual" onclick="openManualAttendance()">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                <span>Absen Manual <small>Jika Face ID lambat/gagal — tetap wajib dalam radius lokasi</small></span>
-            </div>
+            <button type="button" class="absen-link-manual" onclick="openManualAttendance()">
+                <span class="alm-row">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                    <span class="alm-title">Absen Manual</span>
+                </span>
+                <span class="alm-sub">Jika Face ID lambat/gagal — tetap wajib dalam radius lokasi</span>
+            </button>
 
             <!-- Status Hari Ini -->
             <div class="card">
@@ -5363,8 +5383,10 @@ header('Expires: 0');
             document.getElementById('manualPopup').style.display = 'block';
             const statusEl = document.getElementById('manualStatus');
             const btn = document.getElementById('manualConfirmBtn');
+            btn.classList.remove('mp-confirm-retry');
+            btn.onclick = confirmManualAttendance;
             statusEl.style.color = '';
-            statusEl.textContent = '📍 Mencari lokasi GPS...';
+            statusEl.innerHTML = '📍 Mencari lokasi GPS...';
             btn.disabled = true;
             btn.textContent = 'Konfirmasi Absen';
             manualGps = null;
@@ -5379,31 +5401,82 @@ header('Expires: 0');
             }
 
             if (!navigator.geolocation) {
-                statusEl.textContent = '❌ GPS tidak didukung perangkat ini.';
+                statusEl.textContent = '❌ GPS tidak didukung perangkat/browser ini.';
                 statusEl.style.color = 'var(--red)';
                 return;
             }
+
+            // Cek status izin lokasi lebih dulu (Chrome/Android). Safari/iOS belum
+            // mendukung Permissions API untuk geolocation - akan langsung lanjut
+            // ke watchPosition dan biarkan browser yang munculkan prompt izin.
+            if (navigator.permissions && navigator.permissions.query) {
+                try {
+                    const perm = await navigator.permissions.query({
+                        name: 'geolocation'
+                    });
+                    if (perm.state === 'denied') {
+                        showManualLocationBlocked();
+                        return;
+                    }
+                } catch (e) {}
+            }
+
             if (manualGpsWatcher) navigator.geolocation.clearWatch(manualGpsWatcher);
             manualGpsWatcher = navigator.geolocation.watchPosition(
                 pos => {
                     manualGps = pos;
                     updateManualGpsStatus();
                 },
-                () => {
-                    statusEl.textContent = '❌ GPS tidak tersedia / izin lokasi ditolak.';
-                    statusEl.style.color = 'var(--red)';
-                    btn.disabled = true;
-                }, {
+                err => handleManualGeoError(err), {
                     enableHighAccuracy: true,
-                    maximumAge: 5000
+                    maximumAge: 5000,
+                    timeout: 15000
                 }
             );
+        }
+
+        // Izin lokasi belum aktif / ditolak — tampilkan panduan cara mengaktifkan
+        // dan ubah tombol jadi "Coba Lagi" alih-alih terkunci selamanya.
+        function showManualLocationBlocked() {
+            const statusEl = document.getElementById('manualStatus');
+            const btn = document.getElementById('manualConfirmBtn');
+            statusEl.style.color = 'var(--red)';
+            statusEl.innerHTML = '🔒 Izin lokasi belum diaktifkan.<br>' +
+                '<span style="font-weight:500;font-size:10px;display:block;margin-top:4px;">' +
+                'Aktifkan lewat: ikon 🔒/ⓘ di address bar → Izin/Permission → Lokasi → Izinkan. ' +
+                'Atau: Pengaturan HP → Aplikasi → Browser → Izin → Lokasi.</span>';
+            btn.disabled = false;
+            btn.textContent = 'Coba Lagi';
+            btn.classList.add('mp-confirm-retry');
+            btn.onclick = openManualAttendance;
+        }
+
+        function handleManualGeoError(err) {
+            const statusEl = document.getElementById('manualStatus');
+            const btn = document.getElementById('manualConfirmBtn');
+            if (err && err.code === 1) { // PERMISSION_DENIED
+                showManualLocationBlocked();
+                return;
+            }
+            statusEl.style.color = 'var(--red)';
+            if (err && err.code === 3) { // TIMEOUT
+                statusEl.textContent = '⏱️ Waktu habis mencari sinyal GPS. Pastikan GPS/Lokasi HP aktif.';
+            } else {
+                statusEl.textContent = '❌ Lokasi tidak tersedia. Pastikan GPS/Lokasi HP aktif.';
+            }
+            btn.disabled = false;
+            btn.textContent = 'Coba Lagi';
+            btn.classList.add('mp-confirm-retry');
+            btn.onclick = openManualAttendance;
         }
 
         function updateManualGpsStatus() {
             const statusEl = document.getElementById('manualStatus');
             const btn = document.getElementById('manualConfirmBtn');
             if (!manualGps) return;
+            btn.classList.remove('mp-confirm-retry');
+            btn.onclick = confirmManualAttendance;
+            btn.textContent = 'Konfirmasi Absen';
             const acc = Math.round(manualGps.coords.accuracy);
             const locs = faceConfig?.locations || [];
             if (locs.length === 0) {
