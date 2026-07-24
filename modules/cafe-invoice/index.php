@@ -8,6 +8,7 @@ require_once '../../config/config.php';
 require_once '../../config/database.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
+require_once '../../includes/CloudinaryHelper.php';
 
 $auth = new Auth();
 $auth->requireLogin();
@@ -65,6 +66,7 @@ $logoUrl = getBusinessLogo();
 $invBankName = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key='invoice_bank_name'")['setting_value'] ?? '';
 $invBankAccountNumber = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key='invoice_bank_account_number'")['setting_value'] ?? '';
 $invBankAccountHolder = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key='invoice_bank_account_holder'")['setting_value'] ?? '';
+$invQrUrl = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key='invoice_qr_url'")['setting_value'] ?? '';
 
 // Load cash accounts from master DB
 $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
@@ -192,6 +194,70 @@ if (isset($_GET['ajax'])) {
             echo json_encode(['success' => true, 'message' => 'Info rekening berhasil disimpan']);
         } catch (Exception $e) {
             echo json_encode(['success' => false, 'message' => 'Gagal simpan: ' . $e->getMessage()]);
+        }
+        exit;
+    }
+
+    if ($_GET['ajax'] === 'upload_logo' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        if (empty($_FILES['logo']) || $_FILES['logo']['error'] !== UPLOAD_ERR_OK) {
+            echo json_encode(['success' => false, 'message' => 'File logo tidak valid']); exit;
+        }
+        $fileExt = strtolower(pathinfo($_FILES['logo']['name'], PATHINFO_EXTENSION));
+        if (!in_array($fileExt, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
+            echo json_encode(['success' => false, 'message' => 'Format file tidak didukung (jpg/png/gif/webp)']); exit;
+        }
+        try {
+            $cloudinary = CloudinaryHelper::getInstance();
+            $result = $cloudinary->smartUpload(
+                $_FILES['logo'], 'uploads/logos', ACTIVE_BUSINESS_ID . '_logo.' . $fileExt,
+                'logos', 'company_logo_' . ACTIVE_BUSINESS_ID
+            );
+            if (!$result['success']) {
+                echo json_encode(['success' => false, 'message' => $result['error'] ?? 'Upload gagal']); exit;
+            }
+            $stmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
+            $stmt->execute(['company_logo_' . ACTIVE_BUSINESS_ID, $result['path']]);
+            $url = $result['is_cloud'] ? $result['url'] : (BASE_URL . '/uploads/logos/' . $result['path'] . '?v=' . time());
+            echo json_encode(['success' => true, 'message' => 'Logo berhasil diperbarui', 'url' => $url]);
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => 'Gagal upload: ' . $e->getMessage()]);
+        }
+        exit;
+    }
+
+    if ($_GET['ajax'] === 'upload_qr' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        if (empty($_FILES['qr']) || $_FILES['qr']['error'] !== UPLOAD_ERR_OK) {
+            echo json_encode(['success' => false, 'message' => 'File QR tidak valid']); exit;
+        }
+        $fileExt = strtolower(pathinfo($_FILES['qr']['name'], PATHINFO_EXTENSION));
+        if (!in_array($fileExt, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
+            echo json_encode(['success' => false, 'message' => 'Format file tidak didukung (jpg/png/gif/webp)']); exit;
+        }
+        try {
+            $cloudinary = CloudinaryHelper::getInstance();
+            $result = $cloudinary->smartUpload(
+                $_FILES['qr'], 'uploads/qr', ACTIVE_BUSINESS_ID . '_invoice_qr.' . $fileExt,
+                'invoice-qr', 'invoice_qr_' . ACTIVE_BUSINESS_ID
+            );
+            if (!$result['success']) {
+                echo json_encode(['success' => false, 'message' => $result['error'] ?? 'Upload gagal']); exit;
+            }
+            $url = $result['is_cloud'] ? $result['url'] : (BASE_URL . '/uploads/qr/' . $result['path'] . '?v=' . time());
+            $stmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
+            $stmt->execute(['invoice_qr_url', $url]);
+            echo json_encode(['success' => true, 'message' => 'QR pembayaran berhasil disimpan', 'url' => $url]);
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => 'Gagal upload: ' . $e->getMessage()]);
+        }
+        exit;
+    }
+
+    if ($_GET['ajax'] === 'remove_qr' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        try {
+            $pdo->prepare("UPDATE settings SET setting_value = '' WHERE setting_key = 'invoice_qr_url'")->execute();
+            echo json_encode(['success' => true, 'message' => 'QR pembayaran dihapus']);
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => 'Gagal hapus: ' . $e->getMessage()]);
         }
         exit;
     }
@@ -411,6 +477,11 @@ $businessIcon = defined('BUSINESS_ICON') ? BUSINESS_ICON : 'C';
 .inv-bank-bankname { font-size: 11px; font-weight: 800; color: var(--cafe-espresso); }
 .inv-bank-num { font-size: 13px; font-weight: 900; color: var(--cafe-dark); font-family: "Courier New", monospace; letter-spacing: .4px; }
 .inv-bank-holder { font-size: 10px; color: #6b7280; margin-top: 1px; }
+.inv-pay-row { display: flex; gap: 10px; margin: 12px 0 4px; flex-wrap: wrap; clear: both; }
+.inv-pay-row .inv-bank-box { margin: 0; flex: 1; min-width: 150px; }
+.inv-qr-box { padding: 9px 12px; background: var(--cafe-cream); border: 1.5px dashed var(--cafe-gold); border-radius: 8px; text-align: center; flex-shrink: 0; }
+.inv-qr-label { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: var(--cafe); margin-bottom: 5px; }
+.inv-qr-box img { width: 72px; height: 72px; object-fit: contain; background: #fff; border-radius: 6px; border: 1px solid #e5e7eb; padding: 3px; }
 .inv-stamp { text-align: center; margin: 14px 0 6px; }
 .inv-stamp-paid { display: inline-flex; align-items: center; gap: 6px; background: linear-gradient(135deg, #059669, #047857); color: #fff; padding: 6px 18px; border-radius: 20px; font-size: 11px; font-weight: 900; letter-spacing: .5px; box-shadow: 0 4px 12px rgba(5,150,105,.25); }
 .inv-stamp-unpaid { display: inline-flex; align-items: center; gap: 5px; background: linear-gradient(135deg, #fef2f2, #fee2e2); color: #dc2626; padding: 6px 18px; border-radius: 20px; font-size: 11px; font-weight: 900; border: 1.5px solid #fca5a5; }
@@ -461,12 +532,12 @@ $businessIcon = defined('BUSINESS_ICON') ? BUSINESS_ICON : 'C';
             <input type="text" name="q" value="<?php echo htmlspecialchars($search); ?>" placeholder="Cari invoice..." class="cf-input" style="width:180px;padding:7px 13px;font-size:12px;">
             <button type="submit" class="btn-cafe btn-sm btn-search">Cari</button>
         </form>
-        <button onclick="openBankModal()" class="btn-cafe btn-sm btn-ghost" title="Atur rekening pembayaran yang tampil di invoice">
-            Rekening
-            <?php if ($invBankName || $invBankAccountNumber): ?>
-                <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#10b981;margin-left:5px;" title="Rekening sudah diatur: <?php echo htmlspecialchars($invBankName . ' - ' . $invBankAccountNumber); ?>"></span>
+        <button onclick="openBankModal()" class="btn-cafe btn-sm btn-ghost" title="Atur logo, rekening & QR pembayaran yang tampil di invoice">
+            Setting Invoice
+            <?php if ($invBankName || $invBankAccountNumber || $invQrUrl): ?>
+                <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#10b981;margin-left:5px;" title="Sudah diatur"></span>
             <?php else: ?>
-                <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#d1d5db;margin-left:5px;" title="Rekening belum diatur"></span>
+                <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#d1d5db;margin-left:5px;" title="Belum diatur"></span>
             <?php endif; ?>
         </button>
         <button onclick="showCreate()" class="btn-cafe btn-create">+ Buat Invoice</button>
@@ -578,20 +649,59 @@ $businessIcon = defined('BUSINESS_ICON') ? BUSINESS_ICON : 'C';
     </form>
 </div>
 
-<!-- MODAL: EDIT REKENING PEMBAYARAN -->
+<!-- MODAL: SETTING INVOICE (Logo, Rekening, QR) -->
 <div class="modal-bg" id="bankModal">
-    <div class="modal-box">
-        <div class="modal-title">Rekening Pembayaran di Invoice</div>
-        <p style="font-size:11px;color:#9ca3af;margin:-8px 0 14px;">Informasi ini akan tampil di bagian bawah invoice untuk pelanggan transfer.</p>
-        <label class="cf-label">Nama Bank</label>
-        <input type="text" id="bankName" class="cf-input" placeholder="Contoh: BCA" style="margin-bottom:12px;" value="<?php echo htmlspecialchars($invBankName); ?>">
-        <label class="cf-label">Nomor Rekening</label>
-        <input type="text" id="bankAccountNumber" class="cf-input" placeholder="Contoh: 1234567890" style="margin-bottom:12px;" value="<?php echo htmlspecialchars($invBankAccountNumber); ?>">
-        <label class="cf-label">Atas Nama</label>
-        <input type="text" id="bankAccountHolder" class="cf-input" placeholder="Contoh: PT Bens Cafe Indonesia" style="margin-bottom:16px;" value="<?php echo htmlspecialchars($invBankAccountHolder); ?>">
+    <div class="modal-box" style="max-width:440px;">
+        <div class="modal-title">Setting Invoice</div>
+        <p style="font-size:11px;color:#9ca3af;margin:-8px 0 14px;">Atur logo, rekening & QR pembayaran yang tampil di invoice.</p>
+
+        <!-- Logo -->
+        <div style="border:1px solid #f3f4f6;border-radius:10px;padding:12px;margin-bottom:10px;">
+            <div style="font-size:11px;font-weight:800;color:var(--cafe-dark);margin-bottom:8px;">Logo Perusahaan</div>
+            <div style="display:flex;align-items:center;gap:10px;">
+                <div id="logoPreviewBox" style="width:44px;height:44px;border-radius:10px;overflow:hidden;background:var(--cafe-cream);border:1px solid #e5e7eb;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                    <?php if ($logoUrl): ?>
+                        <img id="logoPreviewImg" src="<?php echo htmlspecialchars($logoUrl); ?>" style="width:100%;height:100%;object-fit:cover;">
+                    <?php else: ?>
+                        <span id="logoPreviewImg" style="font-size:16px;font-weight:900;color:var(--cafe);"><?php echo htmlspecialchars(strtoupper(substr($companyName, 0, 1))); ?></span>
+                    <?php endif; ?>
+                </div>
+                <input type="file" id="logoFile" accept="image/*" class="cf-input" style="flex:1;padding:5px 8px;font-size:11px;">
+            </div>
+            <div style="display:flex;justify-content:flex-end;margin-top:8px;">
+                <button onclick="uploadLogo()" class="btn-cafe btn-sm btn-pay" id="logoUploadBtn">Upload Logo</button>
+            </div>
+        </div>
+
+        <!-- Rekening -->
+        <div style="border:1px solid #f3f4f6;border-radius:10px;padding:12px;margin-bottom:10px;">
+            <div style="font-size:11px;font-weight:800;color:var(--cafe-dark);margin-bottom:8px;">Rekening Pembayaran (Transfer)</div>
+            <label class="cf-label">Nama Bank</label>
+            <input type="text" id="bankName" class="cf-input" placeholder="Contoh: BCA" style="margin-bottom:10px;" value="<?php echo htmlspecialchars($invBankName); ?>">
+            <label class="cf-label">Nomor Rekening</label>
+            <input type="text" id="bankAccountNumber" class="cf-input" placeholder="Contoh: 1234567890" style="margin-bottom:10px;" value="<?php echo htmlspecialchars($invBankAccountNumber); ?>">
+            <label class="cf-label">Atas Nama</label>
+            <input type="text" id="bankAccountHolder" class="cf-input" placeholder="Contoh: PT Bens Cafe Indonesia" style="margin-bottom:10px;" value="<?php echo htmlspecialchars($invBankAccountHolder); ?>">
+            <div style="display:flex;justify-content:flex-end;">
+                <button onclick="saveBankInfo()" class="btn-cafe btn-sm btn-pay" id="bankSaveBtn">Simpan Rekening</button>
+            </div>
+        </div>
+
+        <!-- QR Code -->
+        <div style="border:1px solid #f3f4f6;border-radius:10px;padding:12px;margin-bottom:16px;">
+            <div style="font-size:11px;font-weight:800;color:var(--cafe-dark);margin-bottom:8px;">QR Code Pembayaran (QRIS, dll)</div>
+            <div id="qrPreviewWrap" style="display:<?php echo $invQrUrl ? 'flex' : 'none'; ?>;align-items:center;gap:10px;margin-bottom:8px;">
+                <img id="qrPreviewImg" src="<?php echo htmlspecialchars($invQrUrl); ?>" style="width:52px;height:52px;object-fit:contain;border:1px solid #e5e7eb;border-radius:6px;background:#fff;padding:3px;">
+                <button onclick="removeQr()" type="button" class="btn-cafe btn-sm btn-ghost">Hapus QR</button>
+            </div>
+            <input type="file" id="qrFile" accept="image/*" class="cf-input" style="padding:5px 8px;font-size:11px;margin-bottom:8px;">
+            <div style="display:flex;justify-content:flex-end;">
+                <button onclick="uploadQr()" class="btn-cafe btn-sm btn-pay" id="qrUploadBtn">Upload QR</button>
+            </div>
+        </div>
+
         <div style="display:flex;gap:8px;justify-content:flex-end;">
-            <button onclick="closeBankModal()" class="btn-cafe btn-ghost">Batal</button>
-            <button onclick="saveBankInfo()" class="btn-cafe btn-pay" id="bankSaveBtn">Simpan</button>
+            <button onclick="closeBankModal()" class="btn-cafe btn-ghost">Tutup</button>
         </div>
     </div>
 </div>
@@ -656,6 +766,7 @@ var COMPANY_TAGLINE = <?php echo json_encode($companyTagline); ?>;
 var BANK_NAME = <?php echo json_encode($invBankName); ?>;
 var BANK_ACCOUNT_NUMBER = <?php echo json_encode($invBankAccountNumber); ?>;
 var BANK_ACCOUNT_HOLDER = <?php echo json_encode($invBankAccountHolder); ?>;
+var QR_URL = <?php echo json_encode($invQrUrl); ?>;
 
 function showCreate() { document.getElementById('viewList').style.display = 'none'; document.getElementById('viewCreate').style.display = 'block'; }
 function hideCreate() { document.getElementById('viewList').style.display = 'block'; document.getElementById('viewCreate').style.display = 'none'; }
@@ -672,14 +783,64 @@ function saveBankInfo() {
     fetch('?ajax=save_bank_info', { method: 'POST', body: fd })
         .then(function(r) { return r.json(); })
         .then(function(data) {
-            btn.disabled = false; btn.textContent = 'Simpan';
+            btn.disabled = false; btn.textContent = 'Simpan Rekening';
             if (data.success) {
                 BANK_NAME = fd.get('bank_name');
                 BANK_ACCOUNT_NUMBER = fd.get('bank_account_number');
                 BANK_ACCOUNT_HOLDER = fd.get('bank_account_holder');
-                closeBankModal();
             } else { alert(data.message || 'Gagal menyimpan'); }
-        }).catch(function() { btn.disabled = false; btn.textContent = 'Simpan'; alert('Network error'); });
+        }).catch(function() { btn.disabled = false; btn.textContent = 'Simpan Rekening'; alert('Network error'); });
+}
+
+function uploadLogo() {
+    var fileInput = document.getElementById('logoFile');
+    if (!fileInput.files.length) { alert('Pilih file logo dulu'); return; }
+    var btn = document.getElementById('logoUploadBtn');
+    btn.disabled = true; btn.textContent = 'Mengunggah...';
+    var fd = new FormData();
+    fd.append('logo', fileInput.files[0]);
+    fetch('?ajax=upload_logo', { method: 'POST', body: fd })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            btn.disabled = false; btn.textContent = 'Upload Logo';
+            if (data.success) {
+                LOGO_URL = data.url;
+                document.getElementById('logoPreviewBox').innerHTML = '<img id="logoPreviewImg" src="' + escHtml(data.url) + '" style="width:100%;height:100%;object-fit:cover;">';
+                fileInput.value = '';
+            } else { alert(data.message || 'Gagal upload logo'); }
+        }).catch(function() { btn.disabled = false; btn.textContent = 'Upload Logo'; alert('Network error'); });
+}
+
+function uploadQr() {
+    var fileInput = document.getElementById('qrFile');
+    if (!fileInput.files.length) { alert('Pilih file QR dulu'); return; }
+    var btn = document.getElementById('qrUploadBtn');
+    btn.disabled = true; btn.textContent = 'Mengunggah...';
+    var fd = new FormData();
+    fd.append('qr', fileInput.files[0]);
+    fetch('?ajax=upload_qr', { method: 'POST', body: fd })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            btn.disabled = false; btn.textContent = 'Upload QR';
+            if (data.success) {
+                QR_URL = data.url;
+                document.getElementById('qrPreviewImg').src = data.url;
+                document.getElementById('qrPreviewWrap').style.display = 'flex';
+                fileInput.value = '';
+            } else { alert(data.message || 'Gagal upload QR'); }
+        }).catch(function() { btn.disabled = false; btn.textContent = 'Upload QR'; alert('Network error'); });
+}
+
+function removeQr() {
+    if (!confirm('Hapus QR pembayaran dari invoice?')) return;
+    fetch('?ajax=remove_qr', { method: 'POST' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                QR_URL = '';
+                document.getElementById('qrPreviewWrap').style.display = 'none';
+            } else { alert(data.message || 'Gagal menghapus'); }
+        }).catch(function() { alert('Network error'); });
 }
 
 var itemIndex = 1;
@@ -825,6 +986,12 @@ function viewInvoice(id) {
                     (BANK_ACCOUNT_HOLDER ? '<div class="inv-bank-holder">a.n. ' + escHtml(BANK_ACCOUNT_HOLDER) + '</div>' : '') +
                     '</div>';
             }
+            var qrHtml = '';
+            if (QR_URL) {
+                qrHtml = '<div class="inv-qr-box"><div class="inv-qr-label">Scan QR untuk Bayar</div>' +
+                    '<img src="' + escHtml(QR_URL) + '" alt="QR Pembayaran"></div>';
+            }
+            var payInfoHtml = (bankHtml || qrHtml) ? '<div class="inv-pay-row">' + bankHtml + qrHtml + '</div>' : '';
 
             document.getElementById('invPreviewContent').innerHTML =
                 watermarkHtml +
@@ -849,7 +1016,7 @@ function viewInvoice(id) {
                 '<div class="inv-totals"><div class="inv-total-row"><span>Subtotal</span><span style="font-weight:700;">' + fmtRp(inv.subtotal) + '</span></div>' +
                 discountHtml + taxHtml +
                 '<div class="inv-total-row grand"><span>TOTAL</span><span>' + fmtRp(inv.total_amount) + '</span></div></div>' +
-                bankHtml +
+                payInfoHtml +
                 stampHtml + '</div>' +
                 '<div class="inv-footer-bar"><div class="thanks">Terima Kasih atas Kunjungan Anda!</div>' +
                 '<div class="tagline">' + escHtml(COMPANY_NAME) + ' - ' + escHtml(COMPANY_TAGLINE) + '</div>' +
@@ -886,6 +1053,10 @@ function printInvoice() {
         '.inv-bank-row { display:flex;align-items:baseline;gap:8px; } .inv-bank-bankname { font-size:11px;font-weight:800;color:#0c4a6e; }' +
         '.inv-bank-num { font-size:13px;font-weight:900;color:#075985;font-family:"Courier New",monospace;letter-spacing:.4px; }' +
         '.inv-bank-holder { font-size:10px;color:#6b7280;margin-top:1px; }' +
+        '.inv-pay-row { display:flex;gap:10px;margin:12px 0 4px;flex-wrap:wrap;clear:both; } .inv-pay-row .inv-bank-box { margin:0;flex:1;min-width:150px; }' +
+        '.inv-qr-box { padding:9px 12px;background:#f0f9ff!important;border:1.5px dashed #38bdf8;border-radius:8px;text-align:center;flex-shrink:0; }' +
+        '.inv-qr-label { font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#0369a1;margin-bottom:5px; }' +
+        '.inv-qr-box img { width:72px;height:72px;object-fit:contain;background:#fff;border-radius:6px;border:1px solid #e5e7eb;padding:3px; }' +
         '.inv-stamp { text-align:center;margin:14px 0 6px; } .inv-stamp-paid { display:inline-block;background:#059669!important;color:#fff;padding:6px 18px;border-radius:18px;font-size:11px;font-weight:900; }' +
         '.inv-stamp-unpaid { display:inline-block;background:#fef2f2;color:#dc2626;padding:6px 18px;border-radius:18px;font-size:11px;font-weight:900;border:1.5px solid #fca5a5; }' +
         '.inv-footer-bar { background:#f0f9ff!important;padding:11px 30px;text-align:center;border-top:1px solid #bae6fd;margin-top:auto; }' +
