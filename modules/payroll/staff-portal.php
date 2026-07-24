@@ -1949,6 +1949,129 @@ header('Expires: 0');
             margin-top: 4px;
         }
 
+        /* Absen Manual — secondary fallback button */
+        .absen-link-manual {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #fff;
+            border: 1.5px dashed var(--border);
+            color: var(--navy);
+            border-radius: 14px;
+            padding: 12px 14px;
+            margin-bottom: 14px;
+            cursor: pointer;
+            transition: all .15s;
+        }
+
+        .absen-link-manual:active {
+            transform: scale(.98);
+            background: var(--bg);
+        }
+
+        .absen-link-manual svg {
+            width: 22px;
+            height: 22px;
+            flex-shrink: 0;
+            color: var(--muted);
+        }
+
+        .absen-link-manual span {
+            font-size: 12.5px;
+            font-weight: 700;
+        }
+
+        .absen-link-manual small {
+            display: block;
+            font-weight: 500;
+            color: var(--muted);
+            font-size: 10.5px;
+            margin-top: 2px;
+        }
+
+        /* Manual Attendance popup */
+        .manual-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, .45);
+            z-index: 999;
+        }
+
+        .manual-popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #fff;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, .3);
+            z-index: 1000;
+            width: 300px;
+            max-width: 90vw;
+            text-align: center;
+        }
+
+        .manual-popup h3 {
+            margin: 0 0 6px;
+            font-size: 15px;
+            color: var(--navy);
+        }
+
+        .manual-popup p {
+            margin: 0 0 14px;
+            font-size: 11.5px;
+            color: var(--muted);
+            line-height: 1.5;
+        }
+
+        .manual-popup .mp-status {
+            font-size: 12px;
+            font-weight: 700;
+            padding: 10px;
+            border-radius: 10px;
+            background: var(--bg);
+            color: var(--text);
+            margin-bottom: 14px;
+            min-height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .manual-popup .mp-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .manual-popup .mp-actions button {
+            flex: 1;
+            padding: 10px;
+            border-radius: 10px;
+            border: none;
+            font-weight: 700;
+            font-size: 12.5px;
+            cursor: pointer;
+        }
+
+        .manual-popup .mp-cancel {
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        .manual-popup .mp-confirm {
+            background: var(--navy);
+            color: #fff;
+        }
+
+        .manual-popup .mp-confirm:disabled {
+            background: #cbd5e1;
+            color: #94a3b8;
+            cursor: not-allowed;
+        }
+
         /* ── Face Scan Overlay — Full-Screen Responsive (from absen.php) ── */
         .face-overlay {
             display: none;
@@ -2692,6 +2815,12 @@ header('Expires: 0');
                 <div class="al-sub">Tap untuk verifikasi wajah otomatis</div>
             </div>
 
+            <!-- Absen Manual (fallback jika Face ID lambat/gagal) -->
+            <div class="absen-link-manual" onclick="openManualAttendance()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                <span>Absen Manual <small>Jika Face ID lambat/gagal — tetap wajib dalam radius lokasi</small></span>
+            </div>
+
             <!-- Status Hari Ini -->
             <div class="card">
                 <div class="card-title">📋 Status Absen Hari Ini</div>
@@ -3008,6 +3137,18 @@ header('Expires: 0');
             </div>
             <div class="verified-name" id="verifiedName"></div>
             <div class="verified-sub" id="verifiedSub">Identitas Terverifikasi</div>
+        </div>
+    </div>
+
+    <!-- Absen Manual popup -->
+    <div class="manual-overlay" id="manualOverlay" onclick="closeManualAttendance()"></div>
+    <div class="manual-popup" id="manualPopup">
+        <h3>📍 Absen Manual</h3>
+        <p>Fallback jika Face ID lambat/gagal. Anda tetap wajib berada dalam radius lokasi kerja yang sudah diatur.</p>
+        <div class="mp-status" id="manualStatus">Mencari lokasi GPS...</div>
+        <div class="mp-actions">
+            <button class="mp-cancel" onclick="closeManualAttendance()">Batal</button>
+            <button class="mp-confirm" id="manualConfirmBtn" disabled onclick="confirmManualAttendance()">Konfirmasi Absen</button>
         </div>
     </div>
 
@@ -5207,6 +5348,142 @@ header('Expires: 0');
             } catch (e) {
                 setFaceStatus('Jaringan error', e.message);
                 setTimeout(closeFaceScan, 2000);
+            }
+        }
+
+        // ═══ Absen Manual (fallback ketika Face ID lambat/gagal) ═══
+        // Catatan: server (staff-api.php action=face_clock) tetap WAJIB memvalidasi
+        // radius GPS untuk mode ini juga — pengecekan di sini hanya untuk UX,
+        // bukan satu-satunya pengaman.
+        let manualGps = null;
+        let manualGpsWatcher = null;
+
+        async function openManualAttendance() {
+            document.getElementById('manualOverlay').style.display = 'block';
+            document.getElementById('manualPopup').style.display = 'block';
+            const statusEl = document.getElementById('manualStatus');
+            const btn = document.getElementById('manualConfirmBtn');
+            statusEl.style.color = '';
+            statusEl.textContent = '📍 Mencari lokasi GPS...';
+            btn.disabled = true;
+            btn.textContent = 'Konfirmasi Absen';
+            manualGps = null;
+
+            // Reuse face config (locations/radius) if not loaded yet
+            if (!faceConfig) {
+                try {
+                    const res = await fetch(API + '&action=face_data');
+                    const data = await res.json();
+                    if (data.success) faceConfig = data.config;
+                } catch (e) {}
+            }
+
+            if (!navigator.geolocation) {
+                statusEl.textContent = '❌ GPS tidak didukung perangkat ini.';
+                statusEl.style.color = 'var(--red)';
+                return;
+            }
+            if (manualGpsWatcher) navigator.geolocation.clearWatch(manualGpsWatcher);
+            manualGpsWatcher = navigator.geolocation.watchPosition(
+                pos => {
+                    manualGps = pos;
+                    updateManualGpsStatus();
+                },
+                () => {
+                    statusEl.textContent = '❌ GPS tidak tersedia / izin lokasi ditolak.';
+                    statusEl.style.color = 'var(--red)';
+                    btn.disabled = true;
+                }, {
+                    enableHighAccuracy: true,
+                    maximumAge: 5000
+                }
+            );
+        }
+
+        function updateManualGpsStatus() {
+            const statusEl = document.getElementById('manualStatus');
+            const btn = document.getElementById('manualConfirmBtn');
+            if (!manualGps) return;
+            const acc = Math.round(manualGps.coords.accuracy);
+            const locs = faceConfig?.locations || [];
+            if (locs.length === 0) {
+                statusEl.textContent = '📍 GPS aktif (±' + acc + 'm)';
+                statusEl.style.color = '';
+                btn.disabled = false;
+                return;
+            }
+            let nearest = null,
+                nDist = Infinity;
+            locs.forEach(l => {
+                const d = haversineDist(manualGps.coords.latitude, manualGps.coords.longitude, l.lat, l.lng);
+                if (d < nDist) {
+                    nDist = d;
+                    nearest = l;
+                }
+            });
+            if (nDist <= nearest.radius) {
+                statusEl.textContent = '✅ ' + nDist + 'm dari ' + nearest.name + ' (dalam radius ' + nearest.radius + 'm)';
+                statusEl.style.color = 'var(--green)';
+                btn.disabled = false;
+            } else {
+                statusEl.textContent = '❌ ' + nDist + 'm dari ' + nearest.name + ' — di luar radius (maks ' + nearest.radius + 'm)';
+                statusEl.style.color = 'var(--red)';
+                btn.disabled = true;
+            }
+        }
+
+        function closeManualAttendance() {
+            document.getElementById('manualOverlay').style.display = 'none';
+            document.getElementById('manualPopup').style.display = 'none';
+            if (manualGpsWatcher) {
+                navigator.geolocation.clearWatch(manualGpsWatcher);
+                manualGpsWatcher = null;
+            }
+        }
+
+        async function confirmManualAttendance() {
+            if (!manualGps) return;
+            const statusEl = document.getElementById('manualStatus');
+            const btn = document.getElementById('manualConfirmBtn');
+            btn.disabled = true;
+            btn.textContent = 'Menyimpan...';
+
+            let address = '';
+            try {
+                const r = await fetch('https://nominatim.openstreetmap.org/reverse?lat=' + manualGps.coords.latitude + '&lon=' + manualGps.coords.longitude + '&format=json');
+                const g = await r.json();
+                address = g.display_name || '';
+            } catch (e) {}
+
+            const fd = new FormData();
+            fd.append('action', 'face_clock');
+            fd.append('mode', 'manual');
+            fd.append('lat', manualGps.coords.latitude);
+            fd.append('lng', manualGps.coords.longitude);
+            fd.append('address', address);
+
+            try {
+                const res = await fetch(API, {
+                    method: 'POST',
+                    body: fd
+                });
+                const data = await res.json();
+                statusEl.textContent = (data.success ? '✅ ' : '❌ ') + data.message;
+                statusEl.style.color = data.success ? 'var(--green)' : 'var(--red)';
+                if (data.success) {
+                    setTimeout(() => {
+                        closeManualAttendance();
+                        loadAbsen();
+                    }, 1500);
+                } else {
+                    btn.disabled = false;
+                    btn.textContent = 'Konfirmasi Absen';
+                }
+            } catch (e) {
+                statusEl.textContent = '❌ Jaringan error: ' + e.message;
+                statusEl.style.color = 'var(--red)';
+                btn.disabled = false;
+                btn.textContent = 'Konfirmasi Absen';
             }
         }
 

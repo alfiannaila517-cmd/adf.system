@@ -843,6 +843,9 @@ if ($action === 'face_clock') {
     $lat = (float)($_POST['lat'] ?? 0);
     $lng = (float)($_POST['lng'] ?? 0);
     $address = substr(trim($_POST['address'] ?? ''), 0, 255);
+    // 'manual' = fallback button when Face ID is slow/unavailable. GPS radius check
+    // below is NOT skipped for manual mode - it is exactly the same mandatory check.
+    $clockMode = ($_POST['mode'] ?? 'face') === 'manual' ? 'manual' : 'face';
     $today = date('Y-m-d');
     $now = date('H:i:s');
 
@@ -943,7 +946,7 @@ if ($action === 'face_clock') {
         $schedEnd = $schedule['end_time'] ?? ($config['checkout_start'] ?? '17:00:00');
         $isScheduledOff = (bool)($schedule['is_off'] ?? false);
 
-        $device = 'face:verified';
+        $device = $clockMode === 'manual' ? 'manual:gps' : 'face:verified';
 
         try {
             if (!$att) {
@@ -1012,15 +1015,16 @@ if ($action === 'face_clock') {
             exit;
         }
 
-        $device = 'face:verified';
+        $device = $clockMode === 'manual' ? 'manual:gps' : 'face:verified';
         $scanLabels = ['Masuk Shift 1', 'Pulang Shift 1', 'Masuk Shift 2', 'Pulang Shift 2'];
+        $modeLabel = $clockMode === 'manual' ? 'Manual scan' : 'Face scan';
 
         try {
             if (!$att) {
                 // Scan 1 — new record
                 $status = ($now > $checkinEnd) ? 'late' : 'present';
                 $pdo->prepare("INSERT INTO payroll_attendance (employee_id, attendance_date, check_in_time, check_in_lat, check_in_lng, check_in_distance_m, check_in_address, check_in_device, status, is_outside_radius, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?)")
-                    ->execute([$empId, $today, $now, $lat ?: null, $lng ?: null, $distance, $address, $device, $status, $isOutside ? 1 : 0, 'Face scan 1/4']);
+                    ->execute([$empId, $today, $now, $lat ?: null, $lng ?: null, $distance, $address, $device, $status, $isOutside ? 1 : 0, $modeLabel . ' 1/4']);
                 echo json_encode(['success' => true, 'message' => '✅ ' . $scanLabels[0] . ' — ' . date('H:i') . ($status === 'late' ? ' ⚠️ Terlambat' : ''), 'scan_num' => 1]);
                 exit;
             }
@@ -1075,7 +1079,7 @@ if ($action === 'face_clock') {
             }
 
             $updates[] = "notes = ?";
-            $params[] = "Face scan {$scanNum}/4";
+            $params[] = "{$modeLabel} {$scanNum}/4";
             $params[] = $att['id'];
 
             $pdo->prepare("UPDATE payroll_attendance SET " . implode(', ', $updates) . " WHERE id = ?")->execute($params);
