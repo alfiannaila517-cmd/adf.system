@@ -1458,7 +1458,7 @@ require_once __DIR__ . '/includes/header.php';
                                         <a href="permissions.php?business_id=<?php echo $biz['id']; ?>" class="btn btn-sm btn-outline-info" title="User Permissions">
                                             <i class="bi bi-shield-lock"></i>
                                         </a>
-                                        <button onclick="confirmDelete('?action=delete&id=<?php echo $biz['id']; ?>', '<?php echo addslashes($biz['business_name']); ?>')"
+                                        <button onclick="confirmDeleteBusiness('?action=delete&id=<?php echo $biz['id']; ?>', '<?php echo addslashes($biz['business_name']); ?>')"
                                             class="btn btn-sm btn-outline-danger" title="Delete">
                                             <i class="bi bi-trash"></i>
                                         </button>
@@ -1498,6 +1498,26 @@ require_once __DIR__ . '/includes/header.php';
     function copyBizLoginLink(bizId) {
         const input = document.getElementById('bizLoginLink' + bizId);
         copyText(input.value);
+    }
+
+    function confirmDeleteBusiness(url, name) {
+        Swal.fire({
+            title: 'Hapus bisnis "' + name + '"?',
+            html: 'Tindakan ini akan <b>ikut menghapus otomatis</b>:<br>' +
+                  '&bull; Semua akun staff yang terhubung ke bisnis ini (assignment)<br>' +
+                  '&bull; Semua permission/akses menu yang sudah diatur untuk bisnis ini<br><br>' +
+                  '<b>Database bisnis TIDAK dihapus</b>, tapi link staff & permission akan hilang dan tidak otomatis kembali. Yakin lanjut?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Ya, hapus bisnis ini',
+            cancelButtonText: 'Batal'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.location.href = url;
+            }
+        });
     }
 </script>
 
