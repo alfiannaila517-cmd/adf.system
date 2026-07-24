@@ -141,3 +141,41 @@ foreach ($pdo->query("SHOW COLUMNS FROM businesses")->fetchAll() as $c) echo jso
 
 echo "\n=== 12) user_business_assignment table columns ===\n";
 foreach ($pdo->query("SHOW COLUMNS FROM user_business_assignment")->fetchAll() as $c) echo json_encode($c) . "\n";
+
+// ── RESTORE MODE ────────────────────────────────────────────────────────
+// Usage: ...?token=adf-deploy-2025-secure&action=restore
+if (($_GET['action'] ?? '') === 'restore') {
+    echo "\n=== RESTORE: recreating businesses.id=9 (PWF Furniture) ===\n";
+    $exists = $pdo->prepare("SELECT id FROM businesses WHERE id = ?");
+    $exists->execute([9]);
+    if ($exists->fetch()) {
+        echo "businesses.id=9 already exists - skipping insert.\n";
+    } else {
+        $pdo->prepare("
+            INSERT INTO businesses
+                (id, business_code, slug, business_name, business_type, database_name, owner_id, description, logo_url, address, phone, email, website, is_active, created_at, addon_domain)
+            VALUES
+                (9, 'PWF1', 'pwf-furniture', 'PWF Furniture', 'manufacture', 'adfb2574_pwf1', 8, '', NULL, NULL, NULL, NULL, NULL, 1, '2026-05-26 23:25:30', NULL)
+        ")->execute();
+        echo "Inserted businesses.id=9.\n";
+    }
+
+    echo "\n=== RESTORE: re-linking users 38, 39, 41 to business_id=9 ===\n";
+    foreach ([38, 39, 41] as $uid) {
+        $check = $pdo->prepare("SELECT id FROM user_business_assignment WHERE user_id = ? AND business_id = 9");
+        $check->execute([$uid]);
+        if ($check->fetch()) {
+            echo "user_id={$uid} already assigned to business_id=9 - skipping.\n";
+            continue;
+        }
+        $pdo->prepare("INSERT INTO user_business_assignment (user_id, business_id) VALUES (?, 9)")->execute([$uid]);
+        echo "Assigned user_id={$uid} to business_id=9.\n";
+    }
+
+    $auth_log = $pdo->prepare("INSERT INTO audit_logs (user_id, action, entity_type, entity_id, old_value, new_value, ip_address) VALUES (?, 'restore_business', 'businesses', 9, NULL, ?, ?)");
+    $auth_log->execute([$_SESSION['user_id'] ?? null, json_encode(['restored_users' => [38, 39, 41]]), $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1']);
+
+    echo "\nRestore complete. NOTE: user_menu_permissions (checkbox grants) for these users were\n";
+    echo "permanently lost (cascade-deleted, no orphan rows found) and must be re-set manually\n";
+    echo "via Manajemen Akses.\n";
+}
