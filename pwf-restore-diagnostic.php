@@ -135,3 +135,9 @@ $stmt->execute();
 foreach ($stmt->fetchAll() as $u) echo json_encode($u) . "\n";
 
 echo "\nDone2.\n";
+
+echo "\n=== 11) businesses table columns ===\n";
+foreach ($pdo->query("SHOW COLUMNS FROM businesses")->fetchAll() as $c) echo json_encode($c) . "\n";
+
+echo "\n=== 12) user_business_assignment table columns ===\n";
+foreach ($pdo->query("SHOW COLUMNS FROM user_business_assignment")->fetchAll() as $c) echo json_encode($c) . "\n";
