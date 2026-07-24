@@ -102,8 +102,8 @@ try {
 
         $ins = $masterPdo->prepare(
             "INSERT INTO user_menu_permissions
-             (user_id, business_id, menu_id, can_view, can_create, can_edit, can_delete, granted_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+             (user_id, business_id, menu_id, can_view, can_create, can_edit, can_delete)
+             VALUES (?, ?, ?, ?, ?, ?, ?)"
         );
         $count = 0;
         foreach ($menus as $menu) {
@@ -112,7 +112,7 @@ try {
             $e = isset($_POST["m_{$menu['id']}_edit"])   ? 1 : 0;
             $d = isset($_POST["m_{$menu['id']}_delete"]) ? 1 : 0;
             if ($v || $c || $e || $d) {
-                $ins->execute([$saveId, $pwfBizId, $menu['id'], $v, $c, $e, $d, $_SESSION['user_id'] ?? null]);
+                $ins->execute([$saveId, $pwfBizId, $menu['id'], $v, $c, $e, $d]);
                 $count++;
             }
         }
