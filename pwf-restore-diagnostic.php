@@ -111,3 +111,27 @@ if (!$noAssign) {
 }
 
 echo "\nDone.\n";
+
+echo "\n=== 8) Roles reference ===\n";
+foreach ($pdo->query("SELECT id, role_name, role_code FROM roles ORDER BY id")->fetchAll() as $r) {
+    echo json_encode($r) . "\n";
+}
+
+echo "\n=== 9) audit_logs mentioning these candidate user ids (create/assign actions) ===\n";
+$candidateIds = [41, 40, 39, 38, 31, 27];
+$in = implode(',', array_fill(0, count($candidateIds), '?'));
+$stmt = $pdo->prepare("
+    SELECT id, user_id, action, entity_type, entity_id, old_value, new_value, created_at
+    FROM audit_logs
+    WHERE entity_id IN ($in)
+    ORDER BY id ASC
+");
+$stmt->execute($candidateIds);
+foreach ($stmt->fetchAll() as $l) echo json_encode($l) . "\n";
+
+echo "\n=== 10) Creator users (id=16) info ===\n";
+$stmt = $pdo->prepare("SELECT id, username, email, full_name, role_id FROM users WHERE id IN (8, 16)");
+$stmt->execute();
+foreach ($stmt->fetchAll() as $u) echo json_encode($u) . "\n";
+
+echo "\nDone2.\n";
