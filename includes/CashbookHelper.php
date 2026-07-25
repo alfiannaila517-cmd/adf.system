@@ -502,24 +502,8 @@ class CashbookHelper {
             
             $result['account_name'] = $account['account_name'];
             
-            // ---- DEDUP CHECK: prevent duplicate cash_book entries ----
             $bookingCode = $paymentData['booking_code'] ?? '';
             $isOtaCheckin = $paymentData['is_ota_checkin'] ?? false;
-            if ($bookingCode) {
-                // Payment-level dedup: check by booking_code (amount may differ due to OTA fee)
-                $existingEntry = $this->db->fetchOne("
-                    SELECT id FROM cash_book 
-                    WHERE description LIKE ? AND transaction_type = 'income' LIMIT 1
-                ", ['%' . $bookingCode . '%']);
-                if ($existingEntry) {
-                    $result['success'] = true;
-                    $result['transaction_id'] = $existingEntry['id'];
-                    $result['message'] = 'Entry sudah ada di buku kas (skip duplikat)';
-                    error_log("CashbookHelper: DEDUP - Entry already exists for {$bookingCode}, id={$existingEntry['id']}");
-                    return $result;
-                }
-            }
-            // ---- END DEDUP CHECK ----
             
             // Calculate OTA fee if applicable
             $bookingSource = $paymentData['booking_source'] ?? '';
@@ -536,6 +520,30 @@ class CashbookHelper {
                 $amountToRecord = $otaCalc['net'];
             }
             $result['ota_fee'] = $otaCalc;
+            
+            // ---- DEDUP CHECK: only block a TRUE duplicate submit (same booking,
+            // same amount, within a short time window - e.g. double-click or a
+            // network retry resubmitting the exact same payment). Must NOT block
+            // a legitimate later payment for the same booking (e.g. pelunasan
+            // after DP) - those are different transactions and must both be
+            // recorded in the cashbook, even if by coincidence the amounts match
+            // (the time-window check protects against that edge case).
+            if ($bookingCode) {
+                $existingEntry = $this->db->fetchOne("
+                    SELECT id FROM cash_book 
+                    WHERE description LIKE ? AND transaction_type = 'income' AND amount = ?
+                    AND created_at >= (NOW() - INTERVAL 30 SECOND)
+                    LIMIT 1
+                ", ['%' . $bookingCode . '%', $amountToRecord]);
+                if ($existingEntry) {
+                    $result['success'] = true;
+                    $result['transaction_id'] = $existingEntry['id'];
+                    $result['message'] = 'Entry sudah ada di buku kas (skip duplikat)';
+                    error_log("CashbookHelper: DEDUP - Duplicate submit detected for {$bookingCode} amount={$amountToRecord}, id={$existingEntry['id']}");
+                    return $result;
+                }
+            }
+            // ---- END DEDUP CHECK ----
             
             // Get division and category
             $divisionId = $this->getDivisionId();
