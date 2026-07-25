@@ -150,6 +150,101 @@ function sunseaEnsureBookingSchema(PDO $pdo): void
 }
 
 /**
+ * Ensure guides / coordinators / facilities / caterings master tables exist.
+ * Prevents white-screen / silent save-failure on their respective database
+ * pages when a table hasn't been created yet (e.g. fresh install where
+ * database/sunsea-setup.sql wasn't fully run).
+ */
+function sunseaEnsureMasterDataSchema(PDO $pdo): void
+{
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS `guides` (
+            `id`              INT AUTO_INCREMENT PRIMARY KEY,
+            `guide_code`      VARCHAR(20) UNIQUE,
+            `guide_type`      ENUM('darat','laut') NOT NULL,
+            `name`            VARCHAR(150) NOT NULL,
+            `phone`           VARCHAR(30),
+            `email`           VARCHAR(120),
+            `daily_rate_cost` DECIMAL(15,2) DEFAULT 0.00,
+            `daily_rate_sell` DECIMAL(15,2) DEFAULT 0.00,
+            `status`          ENUM('available','on_trip','off') DEFAULT 'available',
+            `notes`           TEXT,
+            `is_active`       TINYINT(1) DEFAULT 1,
+            `created_at`      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            `updated_at`      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_guide_type (`guide_type`),
+            INDEX idx_guide_status (`status`),
+            INDEX idx_guide_active (`is_active`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    } catch (Exception $e) {
+        error_log('sunseaEnsureMasterDataSchema (guides) error: ' . $e->getMessage());
+    }
+
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS `coordinators` (
+            `id`               INT AUTO_INCREMENT PRIMARY KEY,
+            `coordinator_code` VARCHAR(20) UNIQUE,
+            `name`             VARCHAR(150) NOT NULL,
+            `phone`            VARCHAR(30),
+            `email`            VARCHAR(120),
+            `area`             VARCHAR(120),
+            `notes`            TEXT,
+            `is_active`        TINYINT(1) DEFAULT 1,
+            `created_at`       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            `updated_at`       TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_coord_active (`is_active`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    } catch (Exception $e) {
+        error_log('sunseaEnsureMasterDataSchema (coordinators) error: ' . $e->getMessage());
+    }
+
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS `facilities` (
+            `id`            INT AUTO_INCREMENT PRIMARY KEY,
+            `facility_code` VARCHAR(20) UNIQUE,
+            `name`          VARCHAR(150) NOT NULL,
+            `category`      VARCHAR(80),
+            `unit`          VARCHAR(30) DEFAULT 'unit',
+            `price_cost`    DECIMAL(15,2) DEFAULT 0.00,
+            `price_sell`    DECIMAL(15,2) DEFAULT 0.00,
+            `stock_qty`     DECIMAL(10,2) DEFAULT 0,
+            `status`        ENUM('ready','maintenance','unavailable') DEFAULT 'ready',
+            `notes`         TEXT,
+            `is_active`     TINYINT(1) DEFAULT 1,
+            `created_at`    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            `updated_at`    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_facility_active (`is_active`),
+            INDEX idx_facility_status (`status`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    } catch (Exception $e) {
+        error_log('sunseaEnsureMasterDataSchema (facilities) error: ' . $e->getMessage());
+    }
+
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS `caterings` (
+            `id`            INT AUTO_INCREMENT PRIMARY KEY,
+            `catering_code` VARCHAR(20) UNIQUE,
+            `vendor_name`   VARCHAR(150) NOT NULL,
+            `menu_name`     VARCHAR(150) NOT NULL,
+            `category`      VARCHAR(80),
+            `portion_unit`  VARCHAR(30) DEFAULT 'porsi',
+            `price_cost`    DECIMAL(15,2) DEFAULT 0.00,
+            `price_sell`    DECIMAL(15,2) DEFAULT 0.00,
+            `phone`         VARCHAR(30),
+            `location`      VARCHAR(120),
+            `notes`         TEXT,
+            `is_active`     TINYINT(1) DEFAULT 1,
+            `created_at`    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            `updated_at`    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_catering_active (`is_active`),
+            INDEX idx_catering_vendor (`vendor_name`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    } catch (Exception $e) {
+        error_log('sunseaEnsureMasterDataSchema (caterings) error: ' . $e->getMessage());
+    }
+}
+
+/**
  * Ensure accommodation master tables exist.
  * Prevents white-screen on Hotel/Homestay database page when tables are missing.
  */

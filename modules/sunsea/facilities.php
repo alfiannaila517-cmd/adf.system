@@ -11,6 +11,7 @@ require_once 'db-helper.php';
 $auth = new Auth();
 $auth->requireLogin();
 $pdo = getSunseaConnection();
+sunseaEnsureMasterDataSchema($pdo);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save') {
     $id = (int)($_POST['id'] ?? 0);
@@ -26,28 +27,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save'
         'is_active' => isset($_POST['is_active']) ? 1 : 0,
     ];
 
-    if ($id > 0) {
-        $pdo->prepare("UPDATE facilities SET name=?, category=?, unit=?, price_cost=?, price_sell=?, stock_qty=?, status=?, notes=?, is_active=?, updated_at=NOW() WHERE id=?")
-            ->execute([$d['name'], $d['category'], $d['unit'], $d['price_cost'], $d['price_sell'], $d['stock_qty'], $d['status'], $d['notes'], $d['is_active'], $id]);
-    } else {
-        $last = $pdo->query("SELECT facility_code FROM facilities ORDER BY id DESC LIMIT 1")->fetchColumn();
-        $next = 1;
-        if ($last && preg_match('/(\\d+)$/', $last, $m)) $next = (int)$m[1] + 1;
-        $code = 'SS-FC-' . str_pad($next, 3, '0', STR_PAD_LEFT);
-        $pdo->prepare("INSERT INTO facilities (facility_code, name, category, unit, price_cost, price_sell, stock_qty, status, notes, is_active) VALUES (?,?,?,?,?,?,?,?,?,?)")
-            ->execute([$code, $d['name'], $d['category'], $d['unit'], $d['price_cost'], $d['price_sell'], $d['stock_qty'], $d['status'], $d['notes'], $d['is_active']]);
+    if ($d['name'] === '') {
+        $_SESSION['flash_message'] = 'Nama fasilitas wajib diisi.';
+        $_SESSION['flash_type'] = 'error';
+        header('Location: facilities.php');
+        exit;
     }
-    $_SESSION['flash_message'] = 'Data fasilitas tersimpan.';
-    $_SESSION['flash_type'] = 'success';
+
+    try {
+        if ($id > 0) {
+            $pdo->prepare("UPDATE facilities SET name=?, category=?, unit=?, price_cost=?, price_sell=?, stock_qty=?, status=?, notes=?, is_active=?, updated_at=NOW() WHERE id=?")
+                ->execute([$d['name'], $d['category'], $d['unit'], $d['price_cost'], $d['price_sell'], $d['stock_qty'], $d['status'], $d['notes'], $d['is_active'], $id]);
+        } else {
+            $last = $pdo->query("SELECT facility_code FROM facilities ORDER BY id DESC LIMIT 1")->fetchColumn();
+            $next = 1;
+            if ($last && preg_match('/(\\d+)$/', $last, $m)) $next = (int)$m[1] + 1;
+            $code = 'SS-FC-' . str_pad($next, 3, '0', STR_PAD_LEFT);
+            $pdo->prepare("INSERT INTO facilities (facility_code, name, category, unit, price_cost, price_sell, stock_qty, status, notes, is_active) VALUES (?,?,?,?,?,?,?,?,?,?)")
+                ->execute([$code, $d['name'], $d['category'], $d['unit'], $d['price_cost'], $d['price_sell'], $d['stock_qty'], $d['status'], $d['notes'], $d['is_active']]);
+        }
+        $_SESSION['flash_message'] = 'Data fasilitas tersimpan.';
+        $_SESSION['flash_type'] = 'success';
+    } catch (Exception $e) {
+        $_SESSION['flash_message'] = 'Gagal simpan fasilitas: ' . $e->getMessage();
+        $_SESSION['flash_type'] = 'error';
+    }
     header('Location: facilities.php');
     exit;
 }
 
-$rows = $pdo->query("SELECT * FROM facilities ORDER BY is_active DESC, name")->fetchAll();
+$rows = [];
+$dbError = '';
+try {
+    $rows = $pdo->query("SELECT * FROM facilities ORDER BY is_active DESC, name")->fetchAll();
+} catch (Exception $e) {
+    $dbError = $e->getMessage();
+}
 $pageTitle = 'Database Fasilitas Tambahan';
 $activePage = 'database';
 include 'layout-header.php';
 ?>
+
+<?php if ($dbError): ?>
+    <div style="padding:12px;background:#fee;border:1px solid #f88;border-radius:4px;color:#c33;margin-bottom:12px;">
+        <strong>Database Error:</strong> <?php echo htmlspecialchars($dbError); ?>
+    </div>
+<?php endif; ?>
 
 <div style="display:grid;grid-template-columns:360px 1fr;gap:18px;">
     <div class="ss-card">

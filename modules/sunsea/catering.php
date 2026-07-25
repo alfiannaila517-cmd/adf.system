@@ -13,6 +13,7 @@ require_once 'db-helper.php';
 $auth = new Auth();
 $auth->requireLogin();
 $pdo = getSunseaConnection();
+sunseaEnsureMasterDataSchema($pdo);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save') {
     $id = (int)($_POST['id'] ?? 0);
@@ -36,52 +37,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save'
         exit;
     }
 
-    if ($id > 0) {
-        $pdo->prepare("UPDATE caterings
-            SET vendor_name=?, menu_name=?, category=?, portion_unit=?, price_cost=?, price_sell=?, phone=?, location=?, notes=?, is_active=?, updated_at=NOW()
-            WHERE id=?")
-            ->execute([
-                $payload['vendor_name'],
-                $payload['menu_name'],
-                $payload['category'],
-                $payload['portion_unit'],
-                $payload['price_cost'],
-                $payload['price_sell'],
-                $payload['phone'],
-                $payload['location'],
-                $payload['notes'],
-                $payload['is_active'],
-                $id
-            ]);
-        $_SESSION['flash_message'] = 'Data catering berhasil diperbarui.';
-    } else {
-        $lastCode = $pdo->query("SELECT catering_code FROM caterings ORDER BY id DESC LIMIT 1")->fetchColumn();
-        $next = 1;
-        if ($lastCode && preg_match('/(\\d+)$/', $lastCode, $m)) {
-            $next = (int)$m[1] + 1;
-        }
-        $code = 'SS-CT-' . str_pad($next, 3, '0', STR_PAD_LEFT);
+    try {
+        if ($id > 0) {
+            $pdo->prepare("UPDATE caterings
+                SET vendor_name=?, menu_name=?, category=?, portion_unit=?, price_cost=?, price_sell=?, phone=?, location=?, notes=?, is_active=?, updated_at=NOW()
+                WHERE id=?")
+                ->execute([
+                    $payload['vendor_name'],
+                    $payload['menu_name'],
+                    $payload['category'],
+                    $payload['portion_unit'],
+                    $payload['price_cost'],
+                    $payload['price_sell'],
+                    $payload['phone'],
+                    $payload['location'],
+                    $payload['notes'],
+                    $payload['is_active'],
+                    $id
+                ]);
+            $_SESSION['flash_message'] = 'Data catering berhasil diperbarui.';
+        } else {
+            $lastCode = $pdo->query("SELECT catering_code FROM caterings ORDER BY id DESC LIMIT 1")->fetchColumn();
+            $next = 1;
+            if ($lastCode && preg_match('/(\\d+)$/', $lastCode, $m)) {
+                $next = (int)$m[1] + 1;
+            }
+            $code = 'SS-CT-' . str_pad($next, 3, '0', STR_PAD_LEFT);
 
-        $pdo->prepare("INSERT INTO caterings
-            (catering_code, vendor_name, menu_name, category, portion_unit, price_cost, price_sell, phone, location, notes, is_active)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?)")
-            ->execute([
-                $code,
-                $payload['vendor_name'],
-                $payload['menu_name'],
-                $payload['category'],
-                $payload['portion_unit'],
-                $payload['price_cost'],
-                $payload['price_sell'],
-                $payload['phone'],
-                $payload['location'],
-                $payload['notes'],
-                $payload['is_active']
-            ]);
-        $_SESSION['flash_message'] = 'Database catering berhasil ditambahkan.';
+            $pdo->prepare("INSERT INTO caterings
+                (catering_code, vendor_name, menu_name, category, portion_unit, price_cost, price_sell, phone, location, notes, is_active)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?)")
+                ->execute([
+                    $code,
+                    $payload['vendor_name'],
+                    $payload['menu_name'],
+                    $payload['category'],
+                    $payload['portion_unit'],
+                    $payload['price_cost'],
+                    $payload['price_sell'],
+                    $payload['phone'],
+                    $payload['location'],
+                    $payload['notes'],
+                    $payload['is_active']
+                ]);
+            $_SESSION['flash_message'] = 'Database catering berhasil ditambahkan.';
+        }
+        $_SESSION['flash_type'] = 'success';
+    } catch (Exception $e) {
+        $_SESSION['flash_message'] = 'Gagal simpan catering: ' . $e->getMessage();
+        $_SESSION['flash_type'] = 'error';
     }
 
-    $_SESSION['flash_type'] = 'success';
     header('Location: catering.php');
     exit;
 }
