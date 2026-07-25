@@ -51,6 +51,21 @@ function safeFetchOne(PDO $pdo, string $sql, array $params = [], string $context
 }
 
 /**
+ * Ambil nama komponen (bisa lebih dari satu) berdasarkan component_code
+ * dari daftar item booking, untuk ditampilkan di panel status operasional.
+ */
+function bookingItemsByCode(array $items, string $code): string
+{
+    $names = [];
+    foreach ($items as $it) {
+        if ($it['component_code'] === $code) {
+            $names[] = $it['component_name'];
+        }
+    }
+    return $names ? implode(', ', $names) : '-';
+}
+
+/**
  * Ensure invoice exists for a booking and return invoice id.
  * Creates invoice from booking items when not found.
  */
@@ -392,6 +407,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'updat
     exit;
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'update_ops') {
+    $bookingId = (int)($_POST['booking_id'] ?? 0);
+    $ticketBooked = !empty($_POST['ticket_kapal_booked']) ? 1 : 0;
+    $driverName = trim($_POST['driver_name'] ?? '');
+
+    if ($bookingId > 0) {
+        try {
+            $pdo->prepare("UPDATE booking_orders SET ticket_kapal_booked=?, driver_name=?, updated_at=NOW() WHERE id=?")
+                ->execute([$ticketBooked, $driverName, $bookingId]);
+            $_SESSION['flash_message'] = 'Status operasional berhasil diperbarui.';
+            $_SESSION['flash_type'] = 'success';
+        } catch (Exception $e) {
+            $_SESSION['flash_message'] = 'Gagal update status operasional: ' . $e->getMessage();
+            $_SESSION['flash_type'] = 'error';
+        }
+    }
+
+    header('Location: bookings.php?view=' . $bookingId);
+    exit;
+}
+
 $action = $_GET['action'] ?? 'list';
 $viewId = (int)($_GET['view'] ?? 0);
 $pageError = '';
@@ -522,6 +558,48 @@ include 'layout-header.php';
             </div>
         </div>
         <div>
+            <?php
+                $gdInfo = bookingItemsByCode($detailItems, 'guide_darat');
+                $glInfo = bookingItemsByCode($detailItems, 'guide_laut');
+                if ($gdInfo !== '-' && $glInfo !== '-') {
+                    $tripInfo = $gdInfo . ' | ' . $glInfo;
+                } else {
+                    $tripInfo = ($gdInfo !== '-') ? $gdInfo : $glInfo;
+                }
+                $ticketBooked = !empty($detail['ticket_kapal_booked']);
+            ?>
+            <div class="ss-card" style="margin-bottom:12px;">
+                <div class="ss-card-title" style="margin-bottom:10px;">Aksi &amp; Status Operasional</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;">
+                    <span style="font-size:13px;color:var(--ss-muted)">Tiket Kapal</span>
+                    <span class="ss-status <?php echo $ticketBooked ? 'ss-status-approved' : 'ss-status-rejected'; ?>">
+                        <?php echo $ticketBooked ? 'Sudah Dipesan' : 'Belum Dipesan'; ?>
+                    </span>
+                </div>
+                <div style="padding:6px 0;font-size:13px;">
+                    <span style="color:var(--ss-muted)">Penginapan:</span><br>
+                    <strong style="color:var(--ss-text)"><?php echo htmlspecialchars(bookingItemsByCode($detailItems, 'penginapan')); ?></strong>
+                </div>
+                <div style="padding:6px 0;font-size:13px;">
+                    <span style="color:var(--ss-muted)">Trip / Biro (Open Trip / Private Trip):</span><br>
+                    <strong style="color:var(--ss-text)"><?php echo htmlspecialchars($tripInfo); ?></strong>
+                </div>
+                <div style="padding:6px 0;font-size:13px;">
+                    <span style="color:var(--ss-muted)">Catering:</span><br>
+                    <strong style="color:var(--ss-text)"><?php echo htmlspecialchars(bookingItemsByCode($detailItems, 'catering')); ?></strong>
+                </div>
+                <form method="POST" style="margin-top:8px;border-top:1px solid var(--ss-gray-2);padding-top:10px;">
+                    <input type="hidden" name="action" value="update_ops">
+                    <input type="hidden" name="booking_id" value="<?php echo (int)$detail['id']; ?>">
+                    <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ss-muted);margin-bottom:8px;">
+                        <input type="checkbox" name="ticket_kapal_booked" value="1" <?php echo $ticketBooked ? 'checked' : ''; ?>>
+                        Tiket kapal sudah dipesankan
+                    </label>
+                    <label style="display:block;font-size:12.5px;color:var(--ss-muted);margin-bottom:4px;">Nama Driver Penjemputan</label>
+                    <input type="text" name="driver_name" class="ss-input" style="width:100%;box-sizing:border-box;margin-bottom:8px;" placeholder="Nama driver..." value="<?php echo htmlspecialchars($detail['driver_name'] ?? ''); ?>">
+                    <button class="ss-btn ss-btn-outline ss-btn-sm" type="submit"><i data-feather="save"></i> Simpan Status</button>
+                </form>
+            </div>
             <div class="ss-card" style="margin-bottom:12px;">
                 <div class="ss-card-title" style="margin-bottom:8px;">Ringkasan Biaya</div>
                 <div style="display:flex;justify-content:space-between;padding:6px 0;"><span style="color:var(--ss-muted)">Total Modal</span><strong><?php echo sunseaRupiah((float)$detail['cost_total']); ?></strong></div>
