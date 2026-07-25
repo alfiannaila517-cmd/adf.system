@@ -327,27 +327,27 @@ $activePage = 'bookings';
 include 'layout-header.php';
 ?>
 
-<div style="max-width:900px;padding:16px;">
+<div style="max-width:880px;padding:12px;">
     <?php if (!empty($pageWarnings)): ?>
-        <div style="margin-bottom:12px;padding:10px 12px;border:1px solid #f59e0b;background:#fffbeb;color:#92400e;border-radius:6px;">
-            <div style="font-weight:600;margin-bottom:4px;">Sebagian data layanan belum tersedia</div>
-            <div style="font-size:13px;line-height:1.6;">
+        <div style="margin-bottom:10px;padding:8px 10px;border:1px solid #f59e0b;background:#fffbeb;color:#92400e;border-radius:6px;">
+            <div style="font-weight:600;margin-bottom:3px;font-size:12.5px;">Sebagian data layanan belum tersedia</div>
+            <div style="font-size:12px;line-height:1.5;">
                 <?php echo htmlspecialchars($pageWarnings[0]); ?>
             </div>
         </div>
     <?php endif; ?>
 
-    <div style="margin-bottom:16px;"><a href="bookings.php" style="display:inline-flex;align-items:center;gap:6px;padding:8px 12px;background:#FFF7ED;color:#C2410C;border:1px solid #C2410C;border-radius:4px;text-decoration:none;font-weight:500;cursor:pointer;">← Kembali ke Daftar</a></div>
+    <div style="margin-bottom:10px;"><a href="bookings.php" style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;background:#FFF7ED;color:#C2410C;border:1px solid #C2410C;border-radius:4px;text-decoration:none;font-weight:500;font-size:12.5px;cursor:pointer;">← Kembali ke Daftar</a></div>
 
-    <form method="POST" id="bookingForm" style="display:flex;flex-direction:column;gap:16px;">
+    <form method="POST" id="bookingForm" style="display:flex;flex-direction:column;gap:8px;">
         <input type="hidden" name="action" value="save_booking">
 
-        <div style="padding:12px 14px;background:#ffffff;border:1px solid #ddd;border-radius:6px;">
-            <div style="margin-bottom:8px;font-size:14px;font-weight:600;color:#7C2D12;">👤 1. Data Tamu &amp; Jadwal</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div style="padding:8px 10px;background:#ffffff;border:1px solid #ddd;border-radius:6px;">
+            <div style="margin-bottom:6px;font-size:13px;font-weight:600;color:#7C2D12;">👤 1. Data Tamu &amp; Jadwal</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;">
                 <div style="grid-column:1/-1;">
-                    <label style="display:block;margin-bottom:4px;font-weight:500;font-size:13px;">Customer *</label>
-                    <select name="customer_id" required style="width:100%;padding:7px 8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:13px;box-sizing:border-box;">
+                    <label style="display:block;margin-bottom:3px;font-weight:500;font-size:12px;">Customer *</label>
+                    <select name="customer_id" required style="width:100%;padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
                         <option value="">-- Pilih Customer --</option>
                         <?php foreach ($customers as $c): ?>
                             <option value="<?php echo $c['id']; ?>"><?php echo htmlspecialchars($c['name'] . ' (' . $c['phone'] . ')'); ?></option>
@@ -355,12 +355,12 @@ include 'layout-header.php';
                     </select>
                 </div>
                 <div>
-                    <label style="display:block;margin-bottom:4px;font-weight:500;font-size:13px;">Jumlah Pax *</label>
-                    <input type="number" name="pax_count" id="paxCount" value="1" min="1" required oninput="syncTicketQty(); syncCateringQty(); calculateTotal();" style="width:100%;padding:7px 8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:13px;box-sizing:border-box;">
+                    <label style="display:block;margin-bottom:3px;font-weight:500;font-size:12px;">Jumlah Pax *</label>
+                    <input type="number" name="pax_count" id="paxCount" value="1" min="1" required oninput="syncTicketQty(); syncCateringQty(); calculateTotal();" style="width:100%;padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
                 </div>
                 <div>
-                    <label style="display:block;margin-bottom:4px;font-weight:500;font-size:13px;">Koordinator</label>
-                    <select name="coordinator_id" style="width:100%;padding:7px 8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:13px;box-sizing:border-box;">
+                    <label style="display:block;margin-bottom:3px;font-weight:500;font-size:12px;">Koordinator</label>
+                    <select name="coordinator_id" style="width:100%;padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
                         <option value="">-- Pilih Koordinator --</option>
                         <?php foreach ($coordinators as $c): ?>
                             <option value="<?php echo $c['id']; ?>"><?php echo htmlspecialchars($c['name']); ?></option>
@@ -368,42 +368,42 @@ include 'layout-header.php';
                     </select>
                 </div>
                 <div>
-                    <label style="display:block;margin-bottom:4px;font-weight:500;font-size:13px;">Tanggal Mulai *</label>
-                    <input type="date" name="start_date" id="startDate" required onchange="syncStayNights(); calculateTotal();" style="width:100%;padding:7px 8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:13px;box-sizing:border-box;">
+                    <label style="display:block;margin-bottom:3px;font-weight:500;font-size:12px;">Tanggal Mulai *</label>
+                    <input type="date" name="start_date" id="startDate" required onchange="syncStayNights(); calculateTotal();" style="width:100%;padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
                 </div>
                 <div>
-                    <label style="display:block;margin-bottom:4px;font-weight:500;font-size:13px;">Tanggal Selesai *</label>
-                    <input type="date" name="end_date" id="endDate" required onchange="syncStayNights(); calculateTotal();" style="width:100%;padding:7px 8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:13px;box-sizing:border-box;">
+                    <label style="display:block;margin-bottom:3px;font-weight:500;font-size:12px;">Tanggal Selesai *</label>
+                    <input type="date" name="end_date" id="endDate" required onchange="syncStayNights(); calculateTotal();" style="width:100%;padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
                 </div>
                 <div style="grid-column:1/-1;">
-                    <label style="display:block;margin-bottom:4px;font-weight:500;font-size:13px;">Catatan</label>
-                    <textarea name="notes" placeholder="Catatan khusus pesanan" style="width:100%;padding:7px 8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:13px;box-sizing:border-box;min-height:60px;"></textarea>
+                    <label style="display:block;margin-bottom:3px;font-weight:500;font-size:12px;">Catatan</label>
+                    <textarea name="notes" placeholder="Catatan khusus pesanan" style="width:100%;padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12.5px;box-sizing:border-box;min-height:40px;"></textarea>
                 </div>
             </div>
         </div>
 
-        <div style="padding:12px 14px;background:#ffffff;border:1px solid #ddd;border-radius:6px;">
-            <div style="margin-bottom:8px;font-size:14px;font-weight:600;color:#7C2D12;">🧭 2. Pilih Tipe Layanan</div>
+        <div style="padding:8px 10px;background:#ffffff;border:1px solid #ddd;border-radius:6px;">
+            <div style="margin-bottom:6px;font-size:13px;font-weight:600;color:#7C2D12;">🧭 2. Pilih Tipe Layanan</div>
             <select name="booking_mode" id="bookingModeSelect" style="display:none;">
                 <option value="paket">Paket</option>
                 <option value="ecer" selected>Ecer</option>
             </select>
             <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                <div class="mode-card" data-mode="paket" onclick="selectMode('paket')" style="flex:1;min-width:180px;padding:10px;text-align:center;border:2px solid #ddd;border-radius:8px;cursor:pointer;">
-                    <div style="font-size:22px;">📦</div>
-                    <div style="font-weight:700;margin-top:4px;color:#7C2D12;font-size:13px;">Paket (Sudah Jadi)</div>
-                    <div style="font-size:11px;color:#777;margin-top:2px;">Pilih 1 paket trip yang sudah lengkap</div>
+                <div class="mode-card" data-mode="paket" onclick="selectMode('paket')" style="flex:1;min-width:160px;padding:8px;text-align:center;border:2px solid #ddd;border-radius:8px;cursor:pointer;">
+                    <div style="font-size:18px;">📦</div>
+                    <div style="font-weight:700;margin-top:3px;color:#7C2D12;font-size:12px;">Paket (Sudah Jadi)</div>
+                    <div style="font-size:10.5px;color:#777;margin-top:1px;">Pilih 1 paket trip yang sudah lengkap</div>
                 </div>
-                <div class="mode-card" data-mode="ecer" onclick="selectMode('ecer')" style="flex:1;min-width:180px;padding:10px;text-align:center;border:2px solid #C2410C;background:#FFF7ED;border-radius:8px;cursor:pointer;">
-                    <div style="font-size:22px;">🧩</div>
-                    <div style="font-weight:700;margin-top:4px;color:#7C2D12;font-size:13px;">Ecer (Custom)</div>
-                    <div style="font-size:11px;color:#777;margin-top:2px;">Susun sendiri per komponen (tiket, transport, dll)</div>
+                <div class="mode-card" data-mode="ecer" onclick="selectMode('ecer')" style="flex:1;min-width:160px;padding:8px;text-align:center;border:2px solid #C2410C;background:#FFF7ED;border-radius:8px;cursor:pointer;">
+                    <div style="font-size:18px;">🧩</div>
+                    <div style="font-weight:700;margin-top:3px;color:#7C2D12;font-size:12px;">Ecer (Custom)</div>
+                    <div style="font-size:10.5px;color:#777;margin-top:1px;">Susun sendiri per komponen (tiket, transport, dll)</div>
                 </div>
             </div>
         </div>
 
-        <div id="pkgSection" style="display:none;padding:12px 14px;background:#ffffff;border:1px solid #ddd;border-radius:6px;">
-            <div style="margin-bottom:8px;font-size:14px;font-weight:600;color:#7C2D12;">📦 3. Pilih Paket</div>
+        <div id="pkgSection" style="display:none;padding:8px 10px;background:#ffffff;border:1px solid #ddd;border-radius:6px;">
+            <div style="margin-bottom:6px;font-size:13px;font-weight:600;color:#7C2D12;">📦 3. Pilih Paket</div>
             <select name="package_id" onchange="calculateTotal()" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
                 <option value="">-- Pilih Paket --</option>
                 <?php foreach ($packages as $p): ?>
@@ -414,16 +414,16 @@ include 'layout-header.php';
             <div style="text-align:right;margin-top:6px;font-size:11px;">Subtotal: <strong id="pkgSubtotal" style="color:#7C2D12;">Rp 0</strong></div>
         </div>
 
-        <div id="ecerSection" style="padding:14px;background:#ffffff;border:1px solid #ddd;border-radius:6px;">
-            <div style="margin-bottom:10px;font-size:15px;font-weight:600;color:#7C2D12;">🧩 3. Pilih Komponen dari Database</div>
+        <div id="ecerSection" style="padding:10px 12px;background:#ffffff;border:1px solid #ddd;border-radius:6px;">
+            <div style="margin-bottom:6px;font-size:13px;font-weight:600;color:#7C2D12;">🧩 3. Pilih Komponen dari Database</div>
 
             <!-- Tiket -->
-            <div style="margin-bottom:8px;padding:10px 12px;background:#f8fbff;border:1px solid #d0e8ff;border-radius:6px;">
-                <label style="display:block;margin-bottom:6px;font-weight:600;color:#7C2D12;font-size:13px;">🎫 Tiket Kapal</label>
-                <div style="display:grid;grid-template-columns:1fr 120px 90px 100px;gap:6px;align-items:end;">
+            <div style="margin-bottom:6px;padding:7px 9px;background:#f8fbff;border:1px solid #d0e8ff;border-radius:6px;">
+                <label style="display:block;margin-bottom:4px;font-weight:600;color:#7C2D12;font-size:12.5px;">🎫 Tiket Kapal</label>
+                <div style="display:grid;grid-template-columns:1fr 120px 90px 100px;gap:5px;align-items:end;">
                     <div>
-                        <small style="display:block;color:#888;font-size:10.5px;margin-bottom:2px;">Pilih Tiket</small>
-                        <select name="ticket_id" onchange="loadPrice('ticket', this.value, 'ticketPrice')" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:13px;box-sizing:border-box;">
+                        <small style="display:block;color:#888;font-size:10px;margin-bottom:1px;">Pilih Tiket</small>
+                        <select name="ticket_id" onchange="loadPrice('ticket', this.value, 'ticketPrice')" style="width:100%;padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
                             <option value="">-- Tidak pilih --</option>
                             <?php foreach ($tickets as $t): ?>
                                 <option value="<?php echo $t['id']; ?>"><?php echo htmlspecialchars($t['ticket_name'] . ' (' . $t['ticket_type'] . ')'); ?></option>
@@ -431,18 +431,18 @@ include 'layout-header.php';
                         </select>
                     </div>
                     <div>
-                        <small style="display:block;color:#888;font-size:10.5px;margin-bottom:2px;">Jenis Trip</small>
-                        <select name="ticket_trip_type" onchange="calculateTotal()" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:13px;box-sizing:border-box;">
+                        <small style="display:block;color:#888;font-size:10px;margin-bottom:1px;">Jenis Trip</small>
+                        <select name="ticket_trip_type" onchange="calculateTotal()" style="width:100%;padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
                             <option value="sekali">Sekali Jalan</option>
                             <option value="pp">PP (Pulang-Pergi)</option>
                         </select>
                     </div>
                     <div>
-                        <small style="display:block;color:#888;font-size:10.5px;margin-bottom:2px;">Total Pax</small>
-                        <input type="number" name="ticket_qty" id="ticketQty" value="1" min="1" readonly title="Otomatis mengikuti jumlah pax" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:13px;box-sizing:border-box;background:#f3f4f6;">
+                        <small style="display:block;color:#888;font-size:10px;margin-bottom:1px;">Total Pax</small>
+                        <input type="number" name="ticket_qty" id="ticketQty" value="1" min="1" readonly title="Otomatis mengikuti jumlah pax" style="width:100%;padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12.5px;box-sizing:border-box;background:#f3f4f6;">
                     </div>
                     <div style="text-align:center;">
-                        <small style="display:block;color:#888;font-size:10.5px;margin-bottom:2px;">Harga Jual</small>
+                        <small style="display:block;color:#888;font-size:10px;margin-bottom:1px;">Harga Jual</small>
                         <strong id="ticketPrice" style="color:#C2410C;font-size:13px;">-</strong>
                     </div>
                 </div>
@@ -453,12 +453,12 @@ include 'layout-header.php';
             </div>
 
             <!-- Transportasi -->
-            <div style="margin-bottom:8px;padding:10px 12px;background:#f8fbff;border:1px solid #d0e8ff;border-radius:6px;">
-                <label style="display:block;margin-bottom:6px;font-weight:600;color:#7C2D12;font-size:13px;">🚐 Transportasi Karimunjawa</label>
-                <div style="display:grid;grid-template-columns:1fr 90px 100px;gap:6px;align-items:end;">
+            <div style="margin-bottom:6px;padding:7px 9px;background:#f8fbff;border:1px solid #d0e8ff;border-radius:6px;">
+                <label style="display:block;margin-bottom:4px;font-weight:600;color:#7C2D12;font-size:12.5px;">🚐 Transportasi Karimunjawa</label>
+                <div style="display:grid;grid-template-columns:1fr 90px 100px;gap:5px;align-items:end;">
                     <div>
-                        <small style="display:block;color:#888;font-size:10.5px;margin-bottom:2px;">Pilih Transportasi</small>
-                        <select name="transport_id" onchange="loadPrice('transport', this.value, 'transportPrice')" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:13px;box-sizing:border-box;">
+                        <small style="display:block;color:#888;font-size:10px;margin-bottom:1px;">Pilih Transportasi</small>
+                        <select name="transport_id" onchange="loadPrice('transport', this.value, 'transportPrice')" style="width:100%;padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
                             <option value="">-- Tidak pilih --</option>
                             <?php foreach ($transportItems as $ti): ?>
                                 <option value="<?php echo $ti['id']; ?>"><?php echo htmlspecialchars($ti['name'] . ' (' . ($ti['transport_type'] === 'laut' ? 'Laut' : 'Darat') . ')'); ?></option>
@@ -466,11 +466,11 @@ include 'layout-header.php';
                         </select>
                     </div>
                     <div>
-                        <small style="display:block;color:#888;font-size:10.5px;margin-bottom:2px;">Qty/Trip</small>
-                        <input type="number" name="transport_qty" value="1" min="1" step="0.01" onchange="calculateTotal()" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:13px;box-sizing:border-box;">
+                        <small style="display:block;color:#888;font-size:10px;margin-bottom:1px;">Qty/Trip</small>
+                        <input type="number" name="transport_qty" value="1" min="1" step="0.01" onchange="calculateTotal()" style="width:100%;padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
                     </div>
                     <div style="text-align:center;">
-                        <small style="display:block;color:#888;font-size:10.5px;margin-bottom:2px;">Harga Jual</small>
+                        <small style="display:block;color:#888;font-size:10px;margin-bottom:1px;">Harga Jual</small>
                         <strong id="transportPrice" style="color:#C2410C;font-size:13px;">-</strong>
                     </div>
                 </div>
@@ -481,12 +481,12 @@ include 'layout-header.php';
             </div>
 
             <!-- Penginapan -->
-            <div style="margin-bottom:8px;padding:10px 12px;background:#f8fbff;border:1px solid #d0e8ff;border-radius:6px;">
-                <label style="display:block;margin-bottom:6px;font-weight:600;color:#7C2D12;font-size:13px;">🏨 Penginapan</label>
-                <div style="display:grid;grid-template-columns:1fr 80px 80px 100px;gap:6px;align-items:end;">
+            <div style="margin-bottom:6px;padding:7px 9px;background:#f8fbff;border:1px solid #d0e8ff;border-radius:6px;">
+                <label style="display:block;margin-bottom:4px;font-weight:600;color:#7C2D12;font-size:12.5px;">🏨 Penginapan</label>
+                <div style="display:grid;grid-template-columns:1fr 80px 80px 100px;gap:5px;align-items:end;">
                     <div>
-                        <small style="display:block;color:#888;font-size:10.5px;margin-bottom:2px;">Pilih Kamar</small>
-                        <select name="room_id" onchange="loadPrice('room', this.value, 'roomPrice')" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:13px;box-sizing:border-box;">
+                        <small style="display:block;color:#888;font-size:10px;margin-bottom:1px;">Pilih Kamar</small>
+                        <select name="room_id" onchange="loadPrice('room', this.value, 'roomPrice')" style="width:100%;padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
                             <option value="">-- Tidak pilih --</option>
                             <?php foreach ($rooms as $r): ?>
                                 <option value="<?php echo $r['id']; ?>"><?php echo htmlspecialchars($r['partner_name'] . ' - ' . $r['room_type']); ?></option>
@@ -494,15 +494,15 @@ include 'layout-header.php';
                         </select>
                     </div>
                     <div>
-                        <small style="display:block;color:#888;font-size:10.5px;margin-bottom:2px;">Jml Kamar</small>
-                        <input type="number" name="stay_room_qty" value="1" min="1" onchange="calculateTotal()" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:13px;box-sizing:border-box;">
+                        <small style="display:block;color:#888;font-size:10px;margin-bottom:1px;">Jml Kamar</small>
+                        <input type="number" name="stay_room_qty" value="1" min="1" onchange="calculateTotal()" style="width:100%;padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
                     </div>
                     <div>
-                        <small style="display:block;color:#888;font-size:10.5px;margin-bottom:2px;">Jml Malam</small>
-                        <input type="number" name="stay_nights" id="stayNights" value="1" min="1" title="Otomatis mengikuti tanggal mulai &amp; selesai, bisa diubah manual" onchange="calculateTotal()" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:13px;box-sizing:border-box;background:#f3f4f6;">
+                        <small style="display:block;color:#888;font-size:10px;margin-bottom:1px;">Jml Malam</small>
+                        <input type="number" name="stay_nights" id="stayNights" value="1" min="1" title="Otomatis mengikuti tanggal mulai &amp; selesai, bisa diubah manual" onchange="calculateTotal()" style="width:100%;padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12.5px;box-sizing:border-box;background:#f3f4f6;">
                     </div>
                     <div style="text-align:center;">
-                        <small style="display:block;color:#888;font-size:10.5px;margin-bottom:2px;">Harga/Malam</small>
+                        <small style="display:block;color:#888;font-size:10px;margin-bottom:1px;">Harga/Malam</small>
                         <strong id="roomPrice" style="color:#C2410C;font-size:13px;">-</strong>
                     </div>
                 </div>
@@ -513,12 +513,12 @@ include 'layout-header.php';
             </div>
 
             <!-- Catering -->
-            <div style="margin-bottom:8px;padding:10px 12px;background:#f8fbff;border:1px solid #d0e8ff;border-radius:6px;">
-                <label style="display:block;margin-bottom:6px;font-weight:600;color:#7C2D12;font-size:13px;">🍽️ Makan (Catering)</label>
-                <div style="display:grid;grid-template-columns:1fr 90px 100px;gap:6px;align-items:end;">
+            <div style="margin-bottom:6px;padding:7px 9px;background:#f8fbff;border:1px solid #d0e8ff;border-radius:6px;">
+                <label style="display:block;margin-bottom:4px;font-weight:600;color:#7C2D12;font-size:12.5px;">🍽️ Makan (Catering)</label>
+                <div style="display:grid;grid-template-columns:1fr 90px 100px;gap:5px;align-items:end;">
                     <div>
-                        <small style="display:block;color:#888;font-size:10.5px;margin-bottom:2px;">Pilih Menu</small>
-                        <select name="catering_id" onchange="loadPrice('catering', this.value, 'cateringPrice')" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:13px;box-sizing:border-box;">
+                        <small style="display:block;color:#888;font-size:10px;margin-bottom:1px;">Pilih Menu</small>
+                        <select name="catering_id" onchange="loadPrice('catering', this.value, 'cateringPrice')" style="width:100%;padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
                             <option value="">-- Tidak pilih --</option>
                             <?php foreach ($caterings as $c): ?>
                                 <option value="<?php echo $c['id']; ?>"><?php echo htmlspecialchars($c['vendor_name'] . ' - ' . $c['menu_name'] . ' (' . $c['portion_unit'] . ')'); ?></option>
@@ -526,11 +526,11 @@ include 'layout-header.php';
                         </select>
                     </div>
                     <div>
-                        <small style="display:block;color:#888;font-size:10.5px;margin-bottom:2px;">Qty/Porsi</small>
-                        <input type="number" name="catering_qty" id="cateringQty" value="1" min="1" title="Otomatis mengikuti Jumlah Pax, bisa diubah manual" onchange="calculateTotal()" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:13px;box-sizing:border-box;background:#f3f4f6;">
+                        <small style="display:block;color:#888;font-size:10px;margin-bottom:1px;">Qty/Porsi</small>
+                        <input type="number" name="catering_qty" id="cateringQty" value="1" min="1" title="Otomatis mengikuti Jumlah Pax, bisa diubah manual" onchange="calculateTotal()" style="width:100%;padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12.5px;box-sizing:border-box;background:#f3f4f6;">
                     </div>
                     <div style="text-align:center;">
-                        <small style="display:block;color:#888;font-size:10.5px;margin-bottom:2px;">Harga Jual</small>
+                        <small style="display:block;color:#888;font-size:10px;margin-bottom:1px;">Harga Jual</small>
                         <strong id="cateringPrice" style="color:#C2410C;font-size:13px;">-</strong>
                     </div>
                 </div>
@@ -538,12 +538,12 @@ include 'layout-header.php';
             </div>
 
             <!-- Guide Darat -->
-            <div style="margin-bottom:8px;padding:10px 12px;background:#f8fbff;border:1px solid #d0e8ff;border-radius:6px;">
-                <label style="display:block;margin-bottom:6px;font-weight:600;color:#7C2D12;font-size:13px;">🧭 Guide Darat</label>
-                <div style="display:grid;grid-template-columns:1fr 100px 70px 100px;gap:6px;align-items:end;">
+            <div style="margin-bottom:6px;padding:7px 9px;background:#f8fbff;border:1px solid #d0e8ff;border-radius:6px;">
+                <label style="display:block;margin-bottom:4px;font-weight:600;color:#7C2D12;font-size:12.5px;">🧭 Guide Darat</label>
+                <div style="display:grid;grid-template-columns:1fr 100px 70px 100px;gap:5px;align-items:end;">
                     <div>
-                        <small style="display:block;color:#888;font-size:10.5px;margin-bottom:2px;">Pilih Guide</small>
-                        <select name="guide_darat_id" onchange="loadPrice('guide', this.value, 'guideDaratPrice')" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:13px;box-sizing:border-box;">
+                        <small style="display:block;color:#888;font-size:10px;margin-bottom:1px;">Pilih Guide</small>
+                        <select name="guide_darat_id" onchange="loadPrice('guide', this.value, 'guideDaratPrice')" style="width:100%;padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
                             <option value="">-- Tidak pilih --</option>
                             <?php foreach ($guides as $g): if ($g['guide_type'] === 'darat'): ?>
                                     <option value="<?php echo $g['id']; ?>"><?php echo htmlspecialchars($g['name']); ?></option>
@@ -552,18 +552,18 @@ include 'layout-header.php';
                         </select>
                     </div>
                     <div>
-                        <small style="display:block;color:#888;font-size:10.5px;margin-bottom:2px;">Tipe Trip</small>
-                        <select name="guide_darat_trip_type" onchange="calculateTotal()" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:13px;box-sizing:border-box;">
+                        <small style="display:block;color:#888;font-size:10px;margin-bottom:1px;">Tipe Trip</small>
+                        <select name="guide_darat_trip_type" onchange="calculateTotal()" style="width:100%;padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
                             <option value="open">Open Trip</option>
                             <option value="private">Private Trip</option>
                         </select>
                     </div>
                     <div>
-                        <small style="display:block;color:#888;font-size:10.5px;margin-bottom:2px;">Jml Hari</small>
-                        <input type="number" name="guide_darat_days" value="1" min="1" onchange="calculateTotal()" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:13px;box-sizing:border-box;">
+                        <small style="display:block;color:#888;font-size:10px;margin-bottom:1px;">Jml Hari</small>
+                        <input type="number" name="guide_darat_days" value="1" min="1" onchange="calculateTotal()" style="width:100%;padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
                     </div>
                     <div style="text-align:center;">
-                        <small style="display:block;color:#888;font-size:10.5px;margin-bottom:2px;">Harga/Hari</small>
+                        <small style="display:block;color:#888;font-size:10px;margin-bottom:1px;">Harga/Hari</small>
                         <strong id="guideDaratPrice" style="color:#C2410C;font-size:13px;">-</strong>
                     </div>
                 </div>
@@ -571,12 +571,12 @@ include 'layout-header.php';
             </div>
 
             <!-- Guide Laut -->
-            <div style="margin-bottom:8px;padding:10px 12px;background:#f8fbff;border:1px solid #d0e8ff;border-radius:6px;">
-                <label style="display:block;margin-bottom:6px;font-weight:600;color:#7C2D12;font-size:13px;">⛵ Guide Laut</label>
-                <div style="display:grid;grid-template-columns:1fr 100px 70px 100px;gap:6px;align-items:end;">
+            <div style="margin-bottom:6px;padding:7px 9px;background:#f8fbff;border:1px solid #d0e8ff;border-radius:6px;">
+                <label style="display:block;margin-bottom:4px;font-weight:600;color:#7C2D12;font-size:12.5px;">⛵ Guide Laut</label>
+                <div style="display:grid;grid-template-columns:1fr 100px 70px 100px;gap:5px;align-items:end;">
                     <div>
-                        <small style="display:block;color:#888;font-size:10.5px;margin-bottom:2px;">Pilih Guide</small>
-                        <select name="guide_laut_id" onchange="loadPrice('guide', this.value, 'guideLautPrice')" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:13px;box-sizing:border-box;">
+                        <small style="display:block;color:#888;font-size:10px;margin-bottom:1px;">Pilih Guide</small>
+                        <select name="guide_laut_id" onchange="loadPrice('guide', this.value, 'guideLautPrice')" style="width:100%;padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
                         <option value="">-- Tidak pilih --</option>
                         <?php foreach ($guides as $g): if ($g['guide_type'] === 'laut'): ?>
                                 <option value="<?php echo $g['id']; ?>"><?php echo htmlspecialchars($g['name']); ?></option>
@@ -585,18 +585,18 @@ include 'layout-header.php';
                     </select>
                     </div>
                     <div>
-                        <small style="display:block;color:#888;font-size:10.5px;margin-bottom:2px;">Tipe Trip</small>
-                        <select name="guide_laut_trip_type" onchange="calculateTotal()" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:13px;box-sizing:border-box;">
+                        <small style="display:block;color:#888;font-size:10px;margin-bottom:1px;">Tipe Trip</small>
+                        <select name="guide_laut_trip_type" onchange="calculateTotal()" style="width:100%;padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
                             <option value="open">Open Trip</option>
                             <option value="private">Private Trip</option>
                         </select>
                     </div>
                     <div>
-                        <small style="display:block;color:#888;font-size:10.5px;margin-bottom:2px;">Jml Hari</small>
-                        <input type="number" name="guide_laut_days" value="1" min="1" onchange="calculateTotal()" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:13px;box-sizing:border-box;">
+                        <small style="display:block;color:#888;font-size:10px;margin-bottom:1px;">Jml Hari</small>
+                        <input type="number" name="guide_laut_days" value="1" min="1" onchange="calculateTotal()" style="width:100%;padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
                     </div>
                     <div style="text-align:center;">
-                        <small style="display:block;color:#888;font-size:10.5px;margin-bottom:2px;">Harga/Hari</small>
+                        <small style="display:block;color:#888;font-size:10px;margin-bottom:1px;">Harga/Hari</small>
                         <strong id="guideLautPrice" style="color:#C2410C;font-size:13px;">-</strong>
                     </div>
                 </div>
@@ -604,52 +604,52 @@ include 'layout-header.php';
             </div>
 
             <!-- Fasilitas -->
-            <div style="margin-bottom:8px;padding:10px 12px;background:#f8fbff;border:1px solid #d0e8ff;border-radius:6px;">
-                <label style="display:block;margin-bottom:6px;font-weight:600;color:#7C2D12;font-size:13px;">🎒 Fasilitas Tambahan</label>
-                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:8px;">
+            <div style="margin-bottom:6px;padding:7px 9px;background:#f8fbff;border:1px solid #d0e8ff;border-radius:6px;">
+                <label style="display:block;margin-bottom:4px;font-weight:600;color:#7C2D12;font-size:12.5px;">🎒 Fasilitas Tambahan</label>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:6px;">
                     <?php foreach ($facilities as $f): ?>
-                        <label style="display:flex;align-items:center;gap:8px;padding:8px;background:#ffffff;border:1px solid #e0e0e0;border-radius:4px;cursor:pointer;">
-                            <input type="checkbox" name="facility_ids[]" value="<?php echo $f['id']; ?>" onchange="calculateTotal()" style="width:16px;height:16px;cursor:pointer;">
-                            <span style="flex:1;font-size:13px;"><?php echo htmlspecialchars($f['name'] . ' (' . $f['unit'] . ')'); ?></span>
-                            <span class="fac-price" style="color:#C2410C;font-weight:600;min-width:100px;text-align:right;font-size:12px;">Rp <?php echo number_format((float)$f['price_sell'], 0, ',', '.'); ?></span>
-                            <input type="number" name="facility_qty_<?php echo $f['id']; ?>" placeholder="Qty" value="1" min="0" step="0.01" onchange="calculateTotal()" style="width:60px;padding:4px;border:1px solid #ccc;border-radius:3px;font-family:inherit;font-size:12px;">
+                        <label style="display:flex;align-items:center;gap:6px;padding:6px 8px;background:#ffffff;border:1px solid #e0e0e0;border-radius:4px;cursor:pointer;">
+                            <input type="checkbox" name="facility_ids[]" value="<?php echo $f['id']; ?>" onchange="calculateTotal()" style="width:14px;height:14px;cursor:pointer;">
+                            <span style="flex:1;font-size:12px;"><?php echo htmlspecialchars($f['name'] . ' (' . $f['unit'] . ')'); ?></span>
+                            <span class="fac-price" style="color:#C2410C;font-weight:600;min-width:90px;text-align:right;font-size:11px;">Rp <?php echo number_format((float)$f['price_sell'], 0, ',', '.'); ?></span>
+                            <input type="number" name="facility_qty_<?php echo $f['id']; ?>" placeholder="Qty" value="1" min="0" step="0.01" onchange="calculateTotal()" style="width:50px;padding:3px;border:1px solid #ccc;border-radius:3px;font-family:inherit;font-size:11px;">
                         </label>
                     <?php endforeach; ?>
                 </div>
-                <div style="text-align:right;margin-top:6px;font-size:11px;">Subtotal: <strong id="facilitySubtotal" style="color:#7C2D12;">Rp 0</strong></div>
+                <div style="text-align:right;margin-top:4px;font-size:11px;">Subtotal: <strong id="facilitySubtotal" style="color:#7C2D12;">Rp 0</strong></div>
             </div>
 
             <!-- Item Manual -->
-            <div style="margin-bottom:0;padding:12px;background:#f8fbff;border:1px solid #d0e8ff;border-radius:6px;">
-                <label style="display:block;margin-bottom:8px;font-weight:600;color:#7C2D12;">➕ Item Tambahan (Manual)</label>
+            <div style="margin-bottom:0;padding:7px 9px;background:#f8fbff;border:1px solid #d0e8ff;border-radius:6px;">
+                <label style="display:block;margin-bottom:5px;font-weight:600;color:#7C2D12;font-size:12.5px;">➕ Item Tambahan (Manual)</label>
                 <div id="manualItemsBody"></div>
-                <button type="button" onclick="addManualItem()" style="margin-top:6px;padding:8px 12px;background:#FFF7ED;color:#C2410C;border:1px solid #C2410C;border-radius:4px;font-weight:600;cursor:pointer;font-size:13px;">+ Tambah Item Manual</button>
+                <button type="button" onclick="addManualItem()" style="margin-top:4px;padding:6px 10px;background:#FFF7ED;color:#C2410C;border:1px solid #C2410C;border-radius:4px;font-weight:600;cursor:pointer;font-size:12px;">+ Tambah Item Manual</button>
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:4px;">
-                    <div style="font-size:11px;color:#888;">* Untuk biaya lain di luar database (misal: tiket destinasi, tiket masuk kawasan BTN, biaya lain-lain).</div>
+                    <div style="font-size:10.5px;color:#888;">* Untuk biaya lain di luar database (misal: tiket destinasi, tiket masuk kawasan BTN, biaya lain-lain).</div>
                     <div style="font-size:11px;white-space:nowrap;">Subtotal: <strong id="manualSubtotal" style="color:#7C2D12;">Rp 0</strong></div>
                 </div>
             </div>
         </div>
 
-        <div style="padding:12px 14px;background:#ffffff;border:1px solid #ddd;border-radius:6px;">
-            <div style="margin-bottom:8px;font-size:14px;font-weight:600;color:#7C2D12;">💰 4. Estimasi Harga</div>
-            <div style="max-width:280px;margin-left:auto;">
-                <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #eee;font-size:13px;">
+        <div style="padding:8px 10px;background:#ffffff;border:1px solid #ddd;border-radius:6px;">
+            <div style="margin-bottom:6px;font-size:13px;font-weight:600;color:#7C2D12;">💰 4. Estimasi Harga</div>
+            <div style="max-width:260px;margin-left:auto;">
+                <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #eee;font-size:12.5px;">
                     <span style="color:#666;">Total Modal</span>
                     <strong id="totalCost" style="color:#C2410C;">Rp 0</strong>
                 </div>
-                <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #eee;font-size:13px;">
+                <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #eee;font-size:12.5px;">
                     <span style="color:#666;">Total Jual</span>
                     <strong id="totalSell" style="color:#C2410C;">Rp 0</strong>
                 </div>
-                <div style="display:flex;justify-content:space-between;padding:6px 0;border-top:2px solid #C2410C;font-size:14px;">
+                <div style="display:flex;justify-content:space-between;padding:5px 0;border-top:2px solid #C2410C;font-size:13px;">
                     <span style="font-weight:600;">Margin</span>
                     <strong style="color:#10b981;" id="totalMargin">Rp 0</strong>
                 </div>
             </div>
-            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">
-                <a href="bookings.php" style="padding:7px 14px;background:#FFF7ED;color:#C2410C;border:1px solid #C2410C;border-radius:4px;text-decoration:none;font-weight:600;cursor:pointer;font-size:13px;">Batal</a>
-                <button type="submit" style="padding:7px 14px;background:#C2410C;color:white;border:none;border-radius:4px;font-weight:600;cursor:pointer;font-size:13px;">💾 Simpan Pemesanan</button>
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px;">
+                <a href="bookings.php" style="padding:6px 12px;background:#FFF7ED;color:#C2410C;border:1px solid #C2410C;border-radius:4px;text-decoration:none;font-weight:600;cursor:pointer;font-size:12.5px;">Batal</a>
+                <button type="submit" style="padding:6px 12px;background:#C2410C;color:white;border:none;border-radius:4px;font-weight:600;cursor:pointer;font-size:12.5px;">💾 Simpan Pemesanan</button>
             </div>
         </div>
     </form>
@@ -692,12 +692,12 @@ include 'layout-header.php';
 
     function addManualItem() {
         const row = document.createElement('div');
-        row.style.cssText = 'display:grid;grid-template-columns:1fr 70px 90px 130px 32px;gap:8px;margin-bottom:6px;align-items:center;';
-        row.innerHTML = '<input type="text" name="manual_name[]" placeholder="Nama item" onchange="calculateTotal()" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:13px;box-sizing:border-box;">' +
-            '<input type="number" name="manual_qty[]" placeholder="Qty" value="1" min="0" step="0.01" onchange="calculateTotal()" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:13px;box-sizing:border-box;">' +
-            '<input type="text" name="manual_unit[]" placeholder="Satuan" value="pax" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:13px;box-sizing:border-box;">' +
-            '<input type="text" name="manual_price[]" placeholder="Harga (Rp)" onchange="calculateTotal()" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:13px;box-sizing:border-box;">' +
-            '<button type="button" onclick="this.parentElement.remove(); calculateTotal();" style="background:#fee;color:#c00;border:1px solid #fbb;border-radius:4px;cursor:pointer;padding:8px;">✕</button>';
+        row.style.cssText = 'display:grid;grid-template-columns:1fr 60px 80px 110px 26px;gap:6px;margin-bottom:5px;align-items:center;';
+        row.innerHTML = '<input type="text" name="manual_name[]" placeholder="Nama item" onchange="calculateTotal()" style="padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12px;box-sizing:border-box;">' +
+            '<input type="number" name="manual_qty[]" placeholder="Qty" value="1" min="0" step="0.01" onchange="calculateTotal()" style="padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12px;box-sizing:border-box;">' +
+            '<input type="text" name="manual_unit[]" placeholder="Satuan" value="pax" style="padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12px;box-sizing:border-box;">' +
+            '<input type="text" name="manual_price[]" placeholder="Harga (Rp)" onchange="calculateTotal()" style="padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12px;box-sizing:border-box;">' +
+            '<button type="button" onclick="this.parentElement.remove(); calculateTotal();" style="background:#fee;color:#c00;border:1px solid #fbb;border-radius:4px;cursor:pointer;padding:5px;font-size:12px;">✕</button>';
         document.getElementById('manualItemsBody').appendChild(row);
     }
 
