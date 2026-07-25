@@ -15,11 +15,9 @@ return [
         'reports',
         'divisions',
         'procurement',
-        'sales',
         'bills',
-        'payroll',
-        'cafe-invoice'
-        // Sama persis seperti Bens Cafe: no frontdesk, investor, project
+        'payroll'
+        // sales_invoice & cafe-invoice modules dihilangkan atas permintaan user (2026-07-25)
     ],
 
     'theme' => [
