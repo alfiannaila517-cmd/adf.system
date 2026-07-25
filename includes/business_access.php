@@ -29,12 +29,17 @@ function getBusinessCodeToSlugMap($pdo = null)
 
     if ($pdo) {
         try {
-            $stmt = $pdo->query("SELECT id, business_code, database_name FROM businesses WHERE is_active = 1");
+            $stmt = $pdo->query("SELECT id, business_code, slug, database_name FROM businesses WHERE is_active = 1");
             while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                // Try to derive slug from database_name (adf_benscafe -> bens-cafe mapping)
-                // Keep hardcoded map as primary, add any missing dynamically
+                // Prefer the actual `slug` column (reliable, hosting-prefix independent).
+                // Only fall back to guessing from database_name if slug is empty, and
+                // only if not already covered by the hardcoded map above.
                 if (!isset($map[$row['business_code']])) {
-                    $map[$row['business_code']] = strtolower(str_replace('_', '-', preg_replace('/^adf_/', '', $row['database_name'])));
+                    if (!empty($row['slug'])) {
+                        $map[$row['business_code']] = $row['slug'];
+                    } else {
+                        $map[$row['business_code']] = strtolower(str_replace('_', '-', preg_replace('/^adf_/', '', $row['database_name'])));
+                    }
                 }
             }
         } catch (Exception $e) {
