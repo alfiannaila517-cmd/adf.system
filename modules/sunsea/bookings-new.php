@@ -409,6 +409,7 @@ include 'layout-header.php';
                 <?php endforeach; ?>
             </select>
             <div style="font-size:11px;color:#888;margin-top:4px;">* Harga paket dikalikan jumlah pax. Detail komponen paket bisa diatur di menu Paket Trip.</div>
+            <div style="text-align:right;margin-top:6px;font-size:11px;">Subtotal: <strong id="pkgSubtotal" style="color:#7C2D12;">Rp 0</strong></div>
         </div>
 
         <div id="ecerSection" style="padding:14px;background:#ffffff;border:1px solid #ddd;border-radius:6px;">
@@ -443,7 +444,10 @@ include 'layout-header.php';
                         <strong id="ticketPrice" style="color:#C2410C;font-size:13px;">-</strong>
                     </div>
                 </div>
-                <div style="font-size:10.5px;color:#888;margin-top:4px;">* "Total Pax" otomatis = jumlah pax di atas. Pilih PP jika tiket pulang-pergi (harga dikali 2).</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:4px;">
+                    <div style="font-size:10.5px;color:#888;">* "Total Pax" otomatis = jumlah pax di atas. Pilih PP jika tiket pulang-pergi (harga dikali 2).</div>
+                    <div style="font-size:11px;white-space:nowrap;">Subtotal: <strong id="ticketSubtotal" style="color:#7C2D12;">Rp 0</strong></div>
+                </div>
             </div>
 
             <!-- Transportasi -->
@@ -468,7 +472,10 @@ include 'layout-header.php';
                         <strong id="transportPrice" style="color:#C2410C;font-size:13px;">-</strong>
                     </div>
                 </div>
-                <div style="font-size:10.5px;color:#888;margin-top:4px;">* Penjemputan/pengantaran pelabuhan, trip darat, trip laut. Kelola daftar di menu Database Transportasi.</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:4px;">
+                    <div style="font-size:10.5px;color:#888;">* Penjemputan/pengantaran pelabuhan, trip darat, trip laut. Kelola daftar di menu Database Transportasi.</div>
+                    <div style="font-size:11px;white-space:nowrap;">Subtotal: <strong id="transportSubtotal" style="color:#7C2D12;">Rp 0</strong></div>
+                </div>
             </div>
 
             <!-- Penginapan -->
@@ -497,7 +504,10 @@ include 'layout-header.php';
                         <strong id="roomPrice" style="color:#C2410C;font-size:13px;">-</strong>
                     </div>
                 </div>
-                <div style="font-size:10.5px;color:#888;margin-top:4px;">* "Jml Malam" otomatis dihitung dari tanggal mulai &amp; selesai (bisa diubah manual jika beda).</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:4px;">
+                    <div style="font-size:10.5px;color:#888;">* "Jml Malam" otomatis dihitung dari tanggal mulai &amp; selesai (bisa diubah manual jika beda).</div>
+                    <div style="font-size:11px;white-space:nowrap;">Subtotal: <strong id="roomSubtotal" style="color:#7C2D12;">Rp 0</strong></div>
+                </div>
             </div>
 
             <!-- Catering -->
@@ -522,6 +532,7 @@ include 'layout-header.php';
                         <strong id="cateringPrice" style="color:#C2410C;font-size:13px;">-</strong>
                     </div>
                 </div>
+                <div style="text-align:right;margin-top:4px;font-size:11px;">Subtotal: <strong id="cateringSubtotal" style="color:#7C2D12;">Rp 0</strong></div>
             </div>
 
             <!-- Guide Darat -->
@@ -547,6 +558,7 @@ include 'layout-header.php';
                         <strong id="guideDaratPrice" style="color:#C2410C;font-size:13px;">-</strong>
                     </div>
                 </div>
+                <div style="text-align:right;margin-top:4px;font-size:11px;">Subtotal: <strong id="guideDaratSubtotal" style="color:#7C2D12;">Rp 0</strong></div>
             </div>
 
             <!-- Guide Laut -->
@@ -572,6 +584,7 @@ include 'layout-header.php';
                         <strong id="guideLautPrice" style="color:#C2410C;font-size:13px;">-</strong>
                     </div>
                 </div>
+                <div style="text-align:right;margin-top:4px;font-size:11px;">Subtotal: <strong id="guideLautSubtotal" style="color:#7C2D12;">Rp 0</strong></div>
             </div>
 
             <!-- Fasilitas -->
@@ -587,6 +600,7 @@ include 'layout-header.php';
                         </label>
                     <?php endforeach; ?>
                 </div>
+                <div style="text-align:right;margin-top:6px;font-size:11px;">Subtotal: <strong id="facilitySubtotal" style="color:#7C2D12;">Rp 0</strong></div>
             </div>
 
             <!-- Item Manual -->
@@ -594,7 +608,10 @@ include 'layout-header.php';
                 <label style="display:block;margin-bottom:8px;font-weight:600;color:#7C2D12;">➕ Item Tambahan (Manual)</label>
                 <div id="manualItemsBody"></div>
                 <button type="button" onclick="addManualItem()" style="margin-top:6px;padding:8px 12px;background:#FFF7ED;color:#C2410C;border:1px solid #C2410C;border-radius:4px;font-weight:600;cursor:pointer;font-size:13px;">+ Tambah Item Manual</button>
-                <div style="font-size:11px;color:#888;margin-top:4px;">* Untuk biaya lain di luar database (misal: tiket destinasi, tiket masuk kawasan BTN, biaya lain-lain).</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:4px;">
+                    <div style="font-size:11px;color:#888;">* Untuk biaya lain di luar database (misal: tiket destinasi, tiket masuk kawasan BTN, biaya lain-lain).</div>
+                    <div style="font-size:11px;white-space:nowrap;">Subtotal: <strong id="manualSubtotal" style="color:#7C2D12;">Rp 0</strong></div>
+                </div>
             </div>
         </div>
 
@@ -684,12 +701,18 @@ include 'layout-header.php';
             .catch(e => console.error(e));
     }
 
+    function setSubtotal(id, value) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = rupiah(value);
+    }
+
     function calculateTotal() {
         let costTotal = 0,
             sellTotal = 0;
         const mode = document.getElementById('bookingModeSelect').value;
 
         // Paket
+        let pkgSubtotal = 0;
         if (mode === 'paket') {
             const pkgSelect = document.querySelector('select[name="package_id"]');
             if (pkgSelect && pkgSelect.value) {
@@ -697,71 +720,95 @@ include 'layout-header.php';
                 const priceMatch = optText.match(/Rp\s*([\d.]+)/);
                 const price = priceMatch ? parseFloat(priceMatch[1].replace(/\./g, '')) : 0;
                 const pax = parseFloat(document.getElementById('paxCount').value) || 1;
-                sellTotal += price * pax;
+                pkgSubtotal = price * pax;
+                sellTotal += pkgSubtotal;
             }
         }
+        setSubtotal('pkgSubtotal', pkgSubtotal);
 
         // Tiket (bisa PP / sekali jalan)
+        let ticketSubtotal = 0;
         if (document.querySelector('select[name="ticket_id"]').value) {
             const priceText = document.getElementById('ticketPrice').textContent;
             const price = parseFloat(priceText.replace(/[^0-9.-]/g, '')) || 0;
             const qty = parseFloat(document.getElementById('ticketQty').value) || 0;
             const tripType = document.querySelector('select[name="ticket_trip_type"]').value;
             const multiplier = tripType === 'pp' ? 2 : 1;
-            sellTotal += price * qty * multiplier;
+            ticketSubtotal = price * qty * multiplier;
+            sellTotal += ticketSubtotal;
         }
+        setSubtotal('ticketSubtotal', ticketSubtotal);
 
         // Transportasi
+        let transportSubtotal = 0;
         if (document.querySelector('select[name="transport_id"]').value) {
             const priceText = document.getElementById('transportPrice').textContent;
             const price = parseFloat(priceText.replace(/[^0-9.-]/g, '')) || 0;
             const qty = parseFloat(document.querySelector('input[name="transport_qty"]').value) || 0;
-            sellTotal += price * qty;
+            transportSubtotal = price * qty;
+            sellTotal += transportSubtotal;
         }
+        setSubtotal('transportSubtotal', transportSubtotal);
 
         // Penginapan
+        let roomSubtotal = 0;
         if (document.querySelector('select[name="room_id"]').value) {
             const priceText = document.getElementById('roomPrice').textContent;
             const price = parseFloat(priceText.replace(/[^0-9.-]/g, '')) || 0;
             const nights = parseFloat(document.querySelector('input[name="stay_nights"]').value) || 1;
             const qty = parseFloat(document.querySelector('input[name="stay_room_qty"]').value) || 1;
-            sellTotal += price * nights * qty;
+            roomSubtotal = price * nights * qty;
+            sellTotal += roomSubtotal;
         }
+        setSubtotal('roomSubtotal', roomSubtotal);
 
         // Catering
+        let cateringSubtotal = 0;
         if (document.querySelector('select[name="catering_id"]').value) {
             const priceText = document.getElementById('cateringPrice').textContent;
             const price = parseFloat(priceText.replace(/[^0-9.-]/g, '')) || 0;
             const qty = parseFloat(document.querySelector('input[name="catering_qty"]').value) || 0;
-            sellTotal += price * qty;
+            cateringSubtotal = price * qty;
+            sellTotal += cateringSubtotal;
         }
+        setSubtotal('cateringSubtotal', cateringSubtotal);
 
         // Guide Darat
+        let guideDaratSubtotal = 0;
         if (document.querySelector('select[name="guide_darat_id"]').value) {
             const priceText = document.getElementById('guideDaratPrice').textContent;
             const price = parseFloat(priceText.replace(/[^0-9.-]/g, '')) || 0;
             const days = parseFloat(document.querySelector('input[name="guide_darat_days"]').value) || 1;
-            sellTotal += price * days;
+            guideDaratSubtotal = price * days;
+            sellTotal += guideDaratSubtotal;
         }
+        setSubtotal('guideDaratSubtotal', guideDaratSubtotal);
 
         // Guide Laut
+        let guideLautSubtotal = 0;
         if (document.querySelector('select[name="guide_laut_id"]').value) {
             const priceText = document.getElementById('guideLautPrice').textContent;
             const price = parseFloat(priceText.replace(/[^0-9.-]/g, '')) || 0;
             const days = parseFloat(document.querySelector('input[name="guide_laut_days"]').value) || 1;
-            sellTotal += price * days;
+            guideLautSubtotal = price * days;
+            sellTotal += guideLautSubtotal;
         }
+        setSubtotal('guideLautSubtotal', guideLautSubtotal);
 
         // Fasilitas
+        let facilitySubtotal = 0;
         document.querySelectorAll('input[name="facility_ids[]"]:checked').forEach(checkbox => {
             const facId = checkbox.value;
             const facPriceText = checkbox.parentElement.querySelector('.fac-price').textContent;
             const facPrice = parseFloat(facPriceText.replace(/[^0-9.-]/g, '')) || 0;
             const facQty = parseFloat(document.querySelector('input[name="facility_qty_' + facId + '"]').value) || 1;
-            sellTotal += facPrice * facQty;
+            facilitySubtotal += facPrice * facQty;
         });
+        sellTotal += facilitySubtotal;
+        setSubtotal('facilitySubtotal', facilitySubtotal);
 
         // Item Manual
+        let manualSubtotal = 0;
         const manualNames = document.querySelectorAll('input[name="manual_name[]"]');
         const manualQtys = document.querySelectorAll('input[name="manual_qty[]"]');
         const manualPrices = document.querySelectorAll('input[name="manual_price[]"]');
@@ -769,8 +816,10 @@ include 'layout-header.php';
             if (!nameInput.value.trim()) return;
             const qty = parseFloat(manualQtys[idx] ? manualQtys[idx].value : 0) || 0;
             const price = parseFloat((manualPrices[idx] ? manualPrices[idx].value : '0').replace(/[^0-9.-]/g, '')) || 0;
-            sellTotal += qty * price;
+            manualSubtotal += qty * price;
         });
+        sellTotal += manualSubtotal;
+        setSubtotal('manualSubtotal', manualSubtotal);
 
         const margin = sellTotal - costTotal;
         document.getElementById('totalCost').textContent = rupiah(costTotal);
