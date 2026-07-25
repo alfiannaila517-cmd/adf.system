@@ -85,6 +85,32 @@ try {
 } catch (Exception $e) {
 }
 
+// Which businesses already use each menu (for "Dipakai oleh" hints) +
+// full per-business menu map (for the "Copy menu dari bisnis lain" helper)
+$menuUsageMap = [];   // menu_id => [business_name, ...]
+$businessMenuMap = []; // business_id => [menu_id, ...]
+$businessListForCopy = [];
+try {
+    $usageRows = $pdo->query("
+        SELECT bmc.menu_id, bmc.business_id, b.business_name
+        FROM business_menu_config bmc
+        JOIN businesses b ON b.id = bmc.business_id
+        WHERE bmc.is_enabled = 1
+        ORDER BY b.business_name
+    ")->fetchAll(PDO::FETCH_ASSOC);
+    $seenBiz = [];
+    foreach ($usageRows as $row) {
+        $menuUsageMap[$row['menu_id']][] = $row['business_name'];
+        $businessMenuMap[$row['business_id']][] = (int)$row['menu_id'];
+        if (!isset($seenBiz[$row['business_id']])) {
+            $seenBiz[$row['business_id']] = true;
+            $businessListForCopy[] = ['id' => (int)$row['business_id'], 'name' => $row['business_name']];
+        }
+    }
+    usort($businessListForCopy, fn($a, $b) => strcasecmp($a['name'], $b['name']));
+} catch (Exception $e) {
+}
+
 // cPanel URL for this hosting
 $cpanelUrl = 'https://guangmao.iixcp.rumahweb.net:2083';
 
@@ -1315,22 +1341,62 @@ require_once __DIR__ . '/includes/header.php';
 
                             <div class="mb-3">
                                 <label class="form-label">Enable Menus for this Business</label>
+
+                                <?php if (!empty($businessListForCopy)): ?>
+                                    <div class="input-group input-group-sm mb-3" style="max-width: 420px;">
+                                        <span class="input-group-text"><i class="bi bi-clipboard-check"></i></span>
+                                        <select class="form-select" id="copyMenuFromBiz">
+                                            <option value="">Salin menu dari bisnis lain...</option>
+                                            <?php foreach ($businessListForCopy as $b): ?>
+                                                <?php if (!$editBusiness || $b['id'] != $editBusiness['id']): ?>
+                                                    <option value="<?php echo $b['id']; ?>"><?php echo htmlspecialchars($b['name']); ?></option>
+                                                <?php endif; ?>
+                                            <?php endforeach; ?>
+                                        </select>
+                                        <button type="button" class="btn btn-outline-secondary" id="applyCopyMenuBtn">Terapkan</button>
+                                    </div>
+                                    <small class="text-muted d-block mb-2">Pilih bisnis contoh (mis. Bens Cafe), lalu klik Terapkan untuk mencontek menu yang sudah dipakainya.</small>
+                                <?php endif; ?>
+
                                 <div class="row">
                                     <?php foreach ($menus as $menu): ?>
                                         <div class="col-md-4 mb-2">
                                             <div class="form-check">
-                                                <input class="form-check-input" type="checkbox" name="menus[]" value="<?php echo $menu['id']; ?>"
+                                                <input class="form-check-input menu-checkbox" type="checkbox" name="menus[]" value="<?php echo $menu['id']; ?>"
                                                     id="menu_<?php echo $menu['id']; ?>"
                                                     <?php echo in_array($menu['id'], $editMenus) || $action === 'add' ? 'checked' : ''; ?>>
                                                 <label class="form-check-label" for="menu_<?php echo $menu['id']; ?>">
                                                     <i class="<?php echo $menu['menu_icon']; ?> me-1"></i>
                                                     <?php echo htmlspecialchars($menu['menu_name']); ?>
                                                 </label>
+                                                <?php if (!empty($menuUsageMap[$menu['id']])): ?>
+                                                    <div class="text-muted" style="font-size: 0.72rem; padding-left: 1.6rem;">
+                                                        Dipakai: <?php echo htmlspecialchars(implode(', ', $menuUsageMap[$menu['id']])); ?>
+                                                    </div>
+                                                <?php else: ?>
+                                                    <div class="text-muted fst-italic" style="font-size: 0.72rem; padding-left: 1.6rem;">
+                                                        Belum dipakai bisnis manapun
+                                                    </div>
+                                                <?php endif; ?>
                                             </div>
                                         </div>
                                     <?php endforeach; ?>
                                 </div>
                             </div>
+
+                            <?php if (!empty($businessMenuMap)): ?>
+                                <script>
+                                    const businessMenuMap = <?php echo json_encode($businessMenuMap); ?>;
+                                    document.getElementById('applyCopyMenuBtn')?.addEventListener('click', function () {
+                                        const bizId = document.getElementById('copyMenuFromBiz').value;
+                                        if (!bizId) return;
+                                        const enabledMenuIds = (businessMenuMap[bizId] || []).map(String);
+                                        document.querySelectorAll('.menu-checkbox').forEach(function (cb) {
+                                            cb.checked = enabledMenuIds.includes(cb.value);
+                                        });
+                                    });
+                                </script>
+                            <?php endif; ?>
 
                             <?php if ($action === 'edit'): ?>
                                 <div class="mb-4">
@@ -1504,9 +1570,9 @@ require_once __DIR__ . '/includes/header.php';
         Swal.fire({
             title: 'Hapus bisnis "' + name + '"?',
             html: 'Tindakan ini akan <b>ikut menghapus otomatis</b>:<br>' +
-                  '&bull; Semua akun staff yang terhubung ke bisnis ini (assignment)<br>' +
-                  '&bull; Semua permission/akses menu yang sudah diatur untuk bisnis ini<br><br>' +
-                  '<b>Database bisnis TIDAK dihapus</b>, tapi link staff & permission akan hilang dan tidak otomatis kembali. Yakin lanjut?',
+                '&bull; Semua akun staff yang terhubung ke bisnis ini (assignment)<br>' +
+                '&bull; Semua permission/akses menu yang sudah diatur untuk bisnis ini<br><br>' +
+                '<b>Database bisnis TIDAK dihapus</b>, tapi link staff & permission akan hilang dan tidak otomatis kembali. Yakin lanjut?',
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#ef4444',
