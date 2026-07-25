@@ -14,6 +14,8 @@ $auth = new Auth();
 $auth->requireLogin();
 $pdo = getSunseaConnection();
 sunseaEnsureBookingSchema($pdo);
+sunseaEnsureMasterDataSchema($pdo);
+sunseaEnsureAccommodationSchema($pdo);
 
 // Fail-safe query agar halaman tidak blank jika tabel layanan optional belum ada.
 $pageWarnings = [];
@@ -50,6 +52,7 @@ $caterings = safeQueryAll($pdo, "SELECT id, menu_name, vendor_name, price_cost, 
 $guides = safeQueryAll($pdo, "SELECT id, name, guide_type, daily_rate_cost, daily_rate_sell FROM guides WHERE is_active=1 ORDER BY guide_type, name", 'guide', $pageWarnings);
 $facilities = safeQueryAll($pdo, "SELECT id, name, unit, price_cost, price_sell FROM facilities WHERE is_active=1 ORDER BY name", 'fasilitas', $pageWarnings);
 $coordinators = safeQueryAll($pdo, "SELECT id, name FROM coordinators WHERE is_active=1 ORDER BY name", 'koordinator', $pageWarnings);
+$transportItems = safeQueryAll($pdo, "SELECT id, name, transport_type, unit, price_cost, price_sell FROM transport_items WHERE is_active=1 ORDER BY transport_type, name", 'transportasi', $pageWarnings);
 
 // Handle AJAX request untuk fetch price
 if ($_GET['action'] ?? '' === 'get_price') {
@@ -73,6 +76,9 @@ if ($_GET['action'] ?? '' === 'get_price') {
         if ($r) $price = ['cost' => (float)$r['daily_rate_cost'], 'sell' => (float)$r['daily_rate_sell']];
     } elseif ($type === 'facility' && $id > 0) {
         $r = safeQueryPrice($pdo, "SELECT price_cost, price_sell FROM facilities WHERE id=?", [$id]);
+        if ($r) $price = ['cost' => (float)$r['price_cost'], 'sell' => (float)$r['price_sell']];
+    } elseif ($type === 'transport' && $id > 0) {
+        $r = safeQueryPrice($pdo, "SELECT price_cost, price_sell FROM transport_items WHERE id=?", [$id]);
         if ($r) $price = ['cost' => (float)$r['price_cost'], 'sell' => (float)$r['price_sell']];
     }
 
@@ -117,15 +123,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
         ];
     };
 
-    // 1. Tiket
+    // 0. Paket (jika mode = paket)
+    if ($bookingMode === 'paket' && !empty($_POST['package_id'])) {
+        $packageId = (int)$_POST['package_id'];
+        $pkgStmt = $pdo->prepare("SELECT name, base_price FROM trip_packages WHERE id=?");
+        $pkgStmt->execute([$packageId]);
+        $pkg = $pkgStmt->fetch(PDO::FETCH_ASSOC);
+        if ($pkg) {
+            $addComponent('paket', 'Paket: ' . $pkg['name'], $pax, 'pax', 0, (float)$pkg['base_price']);
+        }
+    }
+
+    // 1. Tiket (auto qty dari total pax, bisa PP / sekali jalan)
     if (!empty($_POST['ticket_id'])) {
         $ticketId = (int)$_POST['ticket_id'];
+        $tripType = ($_POST['ticket_trip_type'] ?? 'sekali') === 'pp' ? 'pp' : 'sekali';
         $ticketQty = max(1, (int)($_POST['ticket_qty'] ?? $pax));
+        if ($tripType === 'pp') {
+            $ticketQty *= 2;
+        }
         $tktStmt = $pdo->prepare("SELECT ticket_name, price_cost, price_sell FROM tickets WHERE id=?");
         $tktStmt->execute([$ticketId]);
         $tkt = $tktStmt->fetch(PDO::FETCH_ASSOC);
         if ($tkt) {
-            $addComponent('ticket', 'Tiket: ' . $tkt['ticket_name'], $ticketQty, 'pax', (float)$tkt['price_cost'], (float)$tkt['price_sell']);
+            $label = 'Tiket: ' . $tkt['ticket_name'] . ($tripType === 'pp' ? ' (PP)' : ' (Sekali Jalan)');
+            $addComponent('ticket', $label, $ticketQty, 'pax', (float)$tkt['price_cost'], (float)$tkt['price_sell']);
+        }
+    }
+
+    // 1b. Transportasi Karimunjawa (jemput/antar pelabuhan, trip darat/laut)
+    if (!empty($_POST['transport_id'])) {
+        $transportId = (int)$_POST['transport_id'];
+        $transportQty = max(1, (float)($_POST['transport_qty'] ?? 1));
+        $trStmt = $pdo->prepare("SELECT name, unit, price_cost, price_sell FROM transport_items WHERE id=?");
+        $trStmt->execute([$transportId]);
+        $tr = $trStmt->fetch(PDO::FETCH_ASSOC);
+        if ($tr) {
+            $addComponent('transport', 'Transportasi: ' . $tr['name'], $transportQty, $tr['unit'] ?: 'trip', (float)$tr['price_cost'], (float)$tr['price_sell']);
         }
     }
 
@@ -193,6 +227,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
         }
     }
 
+    // 7. Item Tambahan (Manual / custom, tidak dari database)
+    if (!empty($_POST['manual_name']) && is_array($_POST['manual_name'])) {
+        foreach ($_POST['manual_name'] as $i => $mName) {
+            $mName = trim($mName);
+            if ($mName === '') continue;
+            $mQty = max(0, (float)($_POST['manual_qty'][$i] ?? 1));
+            if ($mQty <= 0) continue;
+            $mUnit = trim($_POST['manual_unit'][$i] ?? 'pax') ?: 'pax';
+            $mPrice = (float)str_replace(['.', ','], ['', '.'], $_POST['manual_price'][$i] ?? '0');
+            $addComponent('manual', $mName, $mQty, $mUnit, 0, $mPrice);
+        }
+    }
+
     if (empty($components)) {
         $_SESSION['flash_message'] = 'Minimal pilih satu komponen (tiket, penginapan, catering, dll).';
         $_SESSION['flash_type'] = 'error';
@@ -204,17 +251,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
     $createdBy = $auth->getCurrentUser()['username'] ?? 'system';
     $bookingNo = sunseaNextNumber($pdo, 'booking');
     $coordId = (int)($_POST['coordinator_id'] ?? 0) ?: null;
+    $packageId = ($bookingMode === 'paket') ? ((int)($_POST['package_id'] ?? 0) ?: null) : null;
 
     $pdo->beginTransaction();
     try {
         $pdo->prepare("INSERT INTO booking_orders
-            (booking_no, customer_id, booking_mode, start_date, end_date, pax_count,
+            (booking_no, customer_id, booking_mode, package_id, start_date, end_date, pax_count,
              coordinator_id, status, cost_total, sell_total, margin_amount, notes, created_by)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
             ->execute([
                 $bookingNo,
                 $customerId,
                 $bookingMode,
+                $packageId,
                 $startDate,
                 $endDate,
                 $pax,
@@ -292,7 +341,7 @@ include 'layout-header.php';
         <input type="hidden" name="action" value="save_booking">
 
         <div style="padding:16px;background:#ffffff;border:1px solid #ddd;border-radius:6px;">
-            <div style="margin-bottom:12px;font-size:16px;font-weight:600;color:#7C2D12;">1. Data Dasar Pemesanan</div>
+            <div style="margin-bottom:12px;font-size:16px;font-weight:600;color:#7C2D12;">👤 1. Data Tamu &amp; Jadwal</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                 <div style="grid-column:1/-1;">
                     <label style="display:block;margin-bottom:6px;font-weight:500;">Customer *</label>
@@ -304,23 +353,8 @@ include 'layout-header.php';
                     </select>
                 </div>
                 <div>
-                    <label style="display:block;margin-bottom:6px;font-weight:500;">Mode Booking *</label>
-                    <select name="booking_mode" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
-                        <option value="paket">Paket</option>
-                        <option value="ecer">Ecer</option>
-                    </select>
-                </div>
-                <div>
                     <label style="display:block;margin-bottom:6px;font-weight:500;">Jumlah Pax *</label>
-                    <input type="number" name="pax_count" value="1" min="1" required style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
-                </div>
-                <div>
-                    <label style="display:block;margin-bottom:6px;font-weight:500;">Tanggal Mulai *</label>
-                    <input type="date" name="start_date" required style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
-                </div>
-                <div>
-                    <label style="display:block;margin-bottom:6px;font-weight:500;">Tanggal Selesai *</label>
-                    <input type="date" name="end_date" required style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
+                    <input type="number" name="pax_count" id="paxCount" value="1" min="1" required oninput="syncTicketQty(); calculateTotal();" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
                 </div>
                 <div>
                     <label style="display:block;margin-bottom:6px;font-weight:500;">Koordinator</label>
@@ -331,6 +365,14 @@ include 'layout-header.php';
                         <?php endforeach; ?>
                     </select>
                 </div>
+                <div>
+                    <label style="display:block;margin-bottom:6px;font-weight:500;">Tanggal Mulai *</label>
+                    <input type="date" name="start_date" required style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
+                </div>
+                <div>
+                    <label style="display:block;margin-bottom:6px;font-weight:500;">Tanggal Selesai *</label>
+                    <input type="date" name="end_date" required style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
+                </div>
                 <div style="grid-column:1/-1;">
                     <label style="display:block;margin-bottom:6px;font-weight:500;">Catatan</label>
                     <textarea name="notes" placeholder="Catatan khusus pesanan" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;min-height:80px;"></textarea>
@@ -339,29 +381,84 @@ include 'layout-header.php';
         </div>
 
         <div style="padding:16px;background:#ffffff;border:1px solid #ddd;border-radius:6px;">
-            <div style="margin-bottom:12px;font-size:16px;font-weight:600;color:#7C2D12;">2. Pilih Komponen dari Database</div>
+            <div style="margin-bottom:12px;font-size:16px;font-weight:600;color:#7C2D12;">🧭 2. Pilih Tipe Layanan</div>
+            <select name="booking_mode" id="bookingModeSelect" style="display:none;">
+                <option value="paket">Paket</option>
+                <option value="ecer" selected>Ecer</option>
+            </select>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                <div class="mode-card" data-mode="paket" onclick="selectMode('paket')" style="flex:1;min-width:200px;padding:16px;text-align:center;border:2px solid #ddd;border-radius:8px;cursor:pointer;">
+                    <div style="font-size:30px;">📦</div>
+                    <div style="font-weight:700;margin-top:6px;color:#7C2D12;">Paket (Sudah Jadi)</div>
+                    <div style="font-size:12px;color:#777;margin-top:2px;">Pilih 1 paket trip yang sudah lengkap</div>
+                </div>
+                <div class="mode-card" data-mode="ecer" onclick="selectMode('ecer')" style="flex:1;min-width:200px;padding:16px;text-align:center;border:2px solid #C2410C;background:#FFF7ED;border-radius:8px;cursor:pointer;">
+                    <div style="font-size:30px;">🧩</div>
+                    <div style="font-weight:700;margin-top:6px;color:#7C2D12;">Ecer (Custom)</div>
+                    <div style="font-size:12px;color:#777;margin-top:2px;">Susun sendiri per komponen (tiket, transport, dll)</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="pkgSection" style="display:none;padding:16px;background:#ffffff;border:1px solid #ddd;border-radius:6px;">
+            <div style="margin-bottom:12px;font-size:16px;font-weight:600;color:#7C2D12;">📦 3. Pilih Paket</div>
+            <select name="package_id" onchange="calculateTotal()" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
+                <option value="">-- Pilih Paket --</option>
+                <?php foreach ($packages as $p): ?>
+                    <option value="<?php echo $p['id']; ?>"><?php echo htmlspecialchars($p['name']) . ' - Rp ' . number_format((float)($p['base_price'] ?? 0), 0, ',', '.'); ?></option>
+                <?php endforeach; ?>
+            </select>
+            <div style="font-size:11px;color:#888;margin-top:4px;">* Harga paket dikalikan jumlah pax. Detail komponen paket bisa diatur di menu Paket Trip.</div>
+        </div>
+
+        <div id="ecerSection" style="padding:16px;background:#ffffff;border:1px solid #ddd;border-radius:6px;">
+            <div style="margin-bottom:12px;font-size:16px;font-weight:600;color:#7C2D12;">🧩 3. Pilih Komponen dari Database</div>
 
             <!-- Tiket -->
             <div style="margin-bottom:12px;padding:12px;background:#f8fbff;border:1px solid #d0e8ff;border-radius:6px;">
-                <label style="display:block;margin-bottom:8px;font-weight:600;color:#7C2D12;"><strong>Tiket</strong></label>
-                <div style="display:grid;grid-template-columns:1fr 120px 120px;gap:8px;align-items:flex-end;">
+                <label style="display:block;margin-bottom:8px;font-weight:600;color:#7C2D12;">🎫 Tiket Kapal</label>
+                <div style="display:grid;grid-template-columns:1fr 130px 90px 120px;gap:8px;align-items:flex-end;">
                     <select name="ticket_id" onchange="loadPrice('ticket', this.value, 'ticketPrice')" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;">
                         <option value="">-- Tidak pilih --</option>
                         <?php foreach ($tickets as $t): ?>
                             <option value="<?php echo $t['id']; ?>"><?php echo htmlspecialchars($t['ticket_name'] . ' (' . $t['ticket_type'] . ')'); ?></option>
                         <?php endforeach; ?>
                     </select>
-                    <input type="number" name="ticket_qty" placeholder="Qty" value="1" min="1" onchange="calculateTotal()" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
+                    <select name="ticket_trip_type" onchange="calculateTotal()" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;">
+                        <option value="sekali">Sekali Jalan</option>
+                        <option value="pp">PP (Pulang-Pergi)</option>
+                    </select>
+                    <input type="number" name="ticket_qty" id="ticketQty" value="1" min="1" readonly title="Otomatis mengikuti jumlah pax" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;background:#f3f4f6;">
                     <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
                         <small style="color:#666;">Harga Jual</small>
                         <strong id="ticketPrice" style="color:#C2410C;font-size:14px;">-</strong>
                     </div>
                 </div>
+                <div style="font-size:11px;color:#888;margin-top:4px;">* Qty tiket otomatis mengikuti jumlah pax. Pilih PP jika tiket pulang-pergi (harga dikali 2).</div>
+            </div>
+
+            <!-- Transportasi -->
+            <div style="margin-bottom:12px;padding:12px;background:#f8fbff;border:1px solid #d0e8ff;border-radius:6px;">
+                <label style="display:block;margin-bottom:8px;font-weight:600;color:#7C2D12;">🚐 Transportasi Karimunjawa</label>
+                <div style="display:grid;grid-template-columns:1fr 120px 120px;gap:8px;align-items:flex-end;">
+                    <select name="transport_id" onchange="loadPrice('transport', this.value, 'transportPrice')" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;">
+                        <option value="">-- Tidak pilih --</option>
+                        <?php foreach ($transportItems as $ti): ?>
+                            <option value="<?php echo $ti['id']; ?>"><?php echo htmlspecialchars($ti['name'] . ' (' . ($ti['transport_type'] === 'laut' ? 'Laut' : 'Darat') . ')'); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <input type="number" name="transport_qty" placeholder="Qty" value="1" min="1" step="0.01" onchange="calculateTotal()" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+                        <small style="color:#666;">Harga Jual</small>
+                        <strong id="transportPrice" style="color:#C2410C;font-size:14px;">-</strong>
+                    </div>
+                </div>
+                <div style="font-size:11px;color:#888;margin-top:4px;">* Penjemputan/pengantaran pelabuhan, trip darat, trip laut. Kelola daftar di menu Database Transportasi.</div>
             </div>
 
             <!-- Penginapan -->
             <div style="margin-bottom:12px;padding:12px;background:#f8fbff;border:1px solid #d0e8ff;border-radius:6px;">
-                <label style="display:block;margin-bottom:8px;font-weight:600;color:#7C2D12;"><strong>Penginapan</strong></label>
+                <label style="display:block;margin-bottom:8px;font-weight:600;color:#7C2D12;">🏨 Penginapan</label>
                 <div style="display:grid;grid-template-columns:1fr 80px 80px 120px;gap:8px;align-items:flex-end;">
                     <select name="room_id" onchange="loadPrice('room', this.value, 'roomPrice')" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;">
                         <option value="">-- Tidak pilih --</option>
@@ -380,7 +477,7 @@ include 'layout-header.php';
 
             <!-- Catering -->
             <div style="margin-bottom:12px;padding:12px;background:#f8fbff;border:1px solid #d0e8ff;border-radius:6px;">
-                <label style="display:block;margin-bottom:8px;font-weight:600;color:#7C2D12;"><strong>Catering</strong></label>
+                <label style="display:block;margin-bottom:8px;font-weight:600;color:#7C2D12;">🍽️ Makan (Catering)</label>
                 <div style="display:grid;grid-template-columns:1fr 120px 120px;gap:8px;align-items:flex-end;">
                     <select name="catering_id" onchange="loadPrice('catering', this.value, 'cateringPrice')" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;">
                         <option value="">-- Tidak pilih --</option>
@@ -398,7 +495,7 @@ include 'layout-header.php';
 
             <!-- Guide Darat -->
             <div style="margin-bottom:12px;padding:12px;background:#f8fbff;border:1px solid #d0e8ff;border-radius:6px;">
-                <label style="display:block;margin-bottom:8px;font-weight:600;color:#7C2D12;"><strong>Guide Darat</strong></label>
+                <label style="display:block;margin-bottom:8px;font-weight:600;color:#7C2D12;">🧭 Guide Darat</label>
                 <div style="display:grid;grid-template-columns:1fr 120px 120px;gap:8px;align-items:flex-end;">
                     <select name="guide_darat_id" onchange="loadPrice('guide', this.value, 'guideDaratPrice')" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;">
                         <option value="">-- Tidak pilih --</option>
@@ -417,7 +514,7 @@ include 'layout-header.php';
 
             <!-- Guide Laut -->
             <div style="margin-bottom:12px;padding:12px;background:#f8fbff;border:1px solid #d0e8ff;border-radius:6px;">
-                <label style="display:block;margin-bottom:8px;font-weight:600;color:#7C2D12;"><strong>Guide Laut</strong></label>
+                <label style="display:block;margin-bottom:8px;font-weight:600;color:#7C2D12;">⛵ Guide Laut</label>
                 <div style="display:grid;grid-template-columns:1fr 120px 120px;gap:8px;align-items:flex-end;">
                     <select name="guide_laut_id" onchange="loadPrice('guide', this.value, 'guideLautPrice')" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;">
                         <option value="">-- Tidak pilih --</option>
@@ -436,22 +533,30 @@ include 'layout-header.php';
 
             <!-- Fasilitas -->
             <div style="margin-bottom:12px;padding:12px;background:#f8fbff;border:1px solid #d0e8ff;border-radius:6px;">
-                <label style="display:block;margin-bottom:8px;font-weight:600;color:#7C2D12;"><strong>Fasilitas Tambahan</strong></label>
+                <label style="display:block;margin-bottom:8px;font-weight:600;color:#7C2D12;">🎒 Fasilitas Tambahan</label>
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:8px;">
                     <?php foreach ($facilities as $f): ?>
                         <label style="display:flex;align-items:center;gap:8px;padding:8px;background:#ffffff;border:1px solid #e0e0e0;border-radius:4px;cursor:pointer;">
                             <input type="checkbox" name="facility_ids[]" value="<?php echo $f['id']; ?>" onchange="calculateTotal()" style="width:16px;height:16px;cursor:pointer;">
                             <span style="flex:1;font-size:13px;"><?php echo htmlspecialchars($f['name'] . ' (' . $f['unit'] . ')'); ?></span>
-                            <span style="color:#C2410C;font-weight:600;min-width:100px;text-align:right;font-size:12px;">Rp <?php echo number_format((float)$f['price_sell'], 0, ',', '.'); ?></span>
+                            <span class="fac-price" style="color:#C2410C;font-weight:600;min-width:100px;text-align:right;font-size:12px;">Rp <?php echo number_format((float)$f['price_sell'], 0, ',', '.'); ?></span>
                             <input type="number" name="facility_qty_<?php echo $f['id']; ?>" placeholder="Qty" value="1" min="0" step="0.01" onchange="calculateTotal()" style="width:60px;padding:4px;border:1px solid #ccc;border-radius:3px;font-family:inherit;font-size:12px;">
                         </label>
                     <?php endforeach; ?>
                 </div>
             </div>
+
+            <!-- Item Manual -->
+            <div style="margin-bottom:0;padding:12px;background:#f8fbff;border:1px solid #d0e8ff;border-radius:6px;">
+                <label style="display:block;margin-bottom:8px;font-weight:600;color:#7C2D12;">➕ Item Tambahan (Manual)</label>
+                <div id="manualItemsBody"></div>
+                <button type="button" onclick="addManualItem()" style="margin-top:6px;padding:8px 12px;background:#FFF7ED;color:#C2410C;border:1px solid #C2410C;border-radius:4px;font-weight:600;cursor:pointer;font-size:13px;">+ Tambah Item Manual</button>
+                <div style="font-size:11px;color:#888;margin-top:4px;">* Untuk biaya lain di luar database (misal: tiket destinasi, tiket masuk kawasan BTN, biaya lain-lain).</div>
+            </div>
         </div>
 
         <div style="padding:16px;background:#ffffff;border:1px solid #ddd;border-radius:6px;">
-            <div style="margin-bottom:12px;font-size:16px;font-weight:600;color:#7C2D12;">3. Estimasi Harga</div>
+            <div style="margin-bottom:12px;font-size:16px;font-weight:600;color:#7C2D12;">💰 4. Estimasi Harga</div>
             <div style="display:grid;grid-template-columns:1fr 280px;gap:18px;">
                 <div></div>
                 <div>
@@ -478,6 +583,35 @@ include 'layout-header.php';
 </div>
 
 <script>
+    function selectMode(mode) {
+        document.getElementById('bookingModeSelect').value = mode;
+        document.querySelectorAll('.mode-card').forEach(card => {
+            const active = card.dataset.mode === mode;
+            card.style.border = active ? '2px solid #C2410C' : '2px solid #ddd';
+            card.style.background = active ? '#FFF7ED' : '#ffffff';
+        });
+        document.getElementById('pkgSection').style.display = mode === 'paket' ? 'block' : 'none';
+        document.getElementById('ecerSection').style.display = mode === 'ecer' ? 'block' : 'none';
+        calculateTotal();
+    }
+
+    function syncTicketQty() {
+        const pax = parseFloat(document.getElementById('paxCount').value) || 1;
+        document.getElementById('ticketQty').value = pax;
+        calculateTotal();
+    }
+
+    function addManualItem() {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:grid;grid-template-columns:1fr 70px 90px 130px 32px;gap:8px;margin-bottom:6px;align-items:center;';
+        row.innerHTML = '<input type="text" name="manual_name[]" placeholder="Nama item" onchange="calculateTotal()" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:13px;box-sizing:border-box;">' +
+            '<input type="number" name="manual_qty[]" placeholder="Qty" value="1" min="0" step="0.01" onchange="calculateTotal()" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:13px;box-sizing:border-box;">' +
+            '<input type="text" name="manual_unit[]" placeholder="Satuan" value="pax" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:13px;box-sizing:border-box;">' +
+            '<input type="text" name="manual_price[]" placeholder="Harga (Rp)" onchange="calculateTotal()" style="padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:13px;box-sizing:border-box;">' +
+            '<button type="button" onclick="this.parentElement.remove(); calculateTotal();" style="background:#fee;color:#c00;border:1px solid #fbb;border-radius:4px;cursor:pointer;padding:8px;">✕</button>';
+        document.getElementById('manualItemsBody').appendChild(row);
+    }
+
     function rupiah(n) {
         return 'Rp ' + new Intl.NumberFormat('id-ID').format(Math.round(n));
     }
@@ -500,12 +634,35 @@ include 'layout-header.php';
     function calculateTotal() {
         let costTotal = 0,
             sellTotal = 0;
+        const mode = document.getElementById('bookingModeSelect').value;
 
-        // Tiket
+        // Paket
+        if (mode === 'paket') {
+            const pkgSelect = document.querySelector('select[name="package_id"]');
+            if (pkgSelect && pkgSelect.value) {
+                const optText = pkgSelect.options[pkgSelect.selectedIndex].text;
+                const priceMatch = optText.match(/Rp\s*([\d.]+)/);
+                const price = priceMatch ? parseFloat(priceMatch[1].replace(/\./g, '')) : 0;
+                const pax = parseFloat(document.getElementById('paxCount').value) || 1;
+                sellTotal += price * pax;
+            }
+        }
+
+        // Tiket (bisa PP / sekali jalan)
         if (document.querySelector('select[name="ticket_id"]').value) {
             const priceText = document.getElementById('ticketPrice').textContent;
             const price = parseFloat(priceText.replace(/[^0-9.-]/g, '')) || 0;
-            const qty = parseFloat(document.querySelector('input[name="ticket_qty"]').value) || 0;
+            const qty = parseFloat(document.getElementById('ticketQty').value) || 0;
+            const tripType = document.querySelector('select[name="ticket_trip_type"]').value;
+            const multiplier = tripType === 'pp' ? 2 : 1;
+            sellTotal += price * qty * multiplier;
+        }
+
+        // Transportasi
+        if (document.querySelector('select[name="transport_id"]').value) {
+            const priceText = document.getElementById('transportPrice').textContent;
+            const price = parseFloat(priceText.replace(/[^0-9.-]/g, '')) || 0;
+            const qty = parseFloat(document.querySelector('input[name="transport_qty"]').value) || 0;
             sellTotal += price * qty;
         }
 
@@ -545,10 +702,21 @@ include 'layout-header.php';
         // Fasilitas
         document.querySelectorAll('input[name="facility_ids[]"]:checked').forEach(checkbox => {
             const facId = checkbox.value;
-            const facPriceText = checkbox.parentElement.querySelector('small').textContent;
+            const facPriceText = checkbox.parentElement.querySelector('.fac-price').textContent;
             const facPrice = parseFloat(facPriceText.replace(/[^0-9.-]/g, '')) || 0;
             const facQty = parseFloat(document.querySelector('input[name="facility_qty_' + facId + '"]').value) || 1;
             sellTotal += facPrice * facQty;
+        });
+
+        // Item Manual
+        const manualNames = document.querySelectorAll('input[name="manual_name[]"]');
+        const manualQtys = document.querySelectorAll('input[name="manual_qty[]"]');
+        const manualPrices = document.querySelectorAll('input[name="manual_price[]"]');
+        manualNames.forEach((nameInput, idx) => {
+            if (!nameInput.value.trim()) return;
+            const qty = parseFloat(manualQtys[idx] ? manualQtys[idx].value : 0) || 0;
+            const price = parseFloat((manualPrices[idx] ? manualPrices[idx].value : '0').replace(/[^0-9.-]/g, '')) || 0;
+            sellTotal += qty * price;
         });
 
         const margin = sellTotal - costTotal;
@@ -556,6 +724,11 @@ include 'layout-header.php';
         document.getElementById('totalSell').textContent = rupiah(sellTotal);
         document.getElementById('totalMargin').textContent = rupiah(margin);
     }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        selectMode('ecer');
+        syncTicketQty();
+    });
 </script>
 
 <?php include 'layout-footer.php';
