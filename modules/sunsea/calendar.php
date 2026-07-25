@@ -43,30 +43,36 @@ include 'layout-header.php';
 ?>
 
 <?php if ($errorMsg): ?>
-    <div style="padding:14px;margin-bottom:14px;border-radius:8px;background:#fee2e2;border:1px solid #fca5a5;color:#c33;">
+    <div style="padding:10px 12px;margin-bottom:10px;border-radius:8px;background:#fee2e2;border:1px solid #fca5a5;color:#c33;font-size:12.5px;">
         ⚠️ <?php echo $errorMsg; ?>
     </div>
 <?php endif; ?>
 
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+<style>
+    .cal-card { padding: 12px 14px !important; }
+    .cal-table th { padding: 6px 10px !important; font-size: 10px !important; }
+    .cal-table td { padding: 6px 10px !important; font-size: 12px !important; }
+</style>
+
+<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
     <div>
-        <h3 style="margin:0;font-size:18px;">Kalender Booking (Balok Reservasi)</h3>
-        <div style="color:var(--ss-muted);font-size:12px;">Menampilkan reservasi tamu dengan status confirmed</div>
+        <h3 style="margin:0;font-size:15px;">📅 Kalender Booking</h3>
+        <div style="color:var(--ss-muted);font-size:11px;">Menampilkan reservasi tamu dengan status confirmed</div>
     </div>
-    <form method="GET" style="display:flex;gap:8px;align-items:center;">
-        <input type="month" name="month" class="ss-input" style="width:180px;" value="<?php echo htmlspecialchars($month); ?>">
-        <button class="ss-btn ss-btn-outline" type="submit"><i data-feather="search"></i> Lihat</button>
+    <form method="GET" style="display:flex;gap:6px;align-items:center;">
+        <input type="month" name="month" class="ss-input" style="width:150px;padding:6px 8px;font-size:12.5px;" value="<?php echo htmlspecialchars($month); ?>">
+        <button class="ss-btn ss-btn-outline ss-btn-sm" type="submit"><i data-feather="search" style="width:14px;height:14px;"></i> Lihat</button>
     </form>
 </div>
 
-<div class="ss-card" style="margin-bottom:16px;">
-    <div class="ss-card-title" style="margin-bottom:12px;">Timeline Reservasi Confirmed - <?php echo date('F Y', strtotime($startMonth)); ?></div>
+<div class="ss-card cal-card" style="margin-bottom:10px;">
+    <div class="ss-card-title" style="margin-bottom:8px;font-size:13px;">Timeline Reservasi Confirmed - <?php echo date('F Y', strtotime($startMonth)); ?></div>
     <div style="overflow:auto;">
-        <div style="min-width:900px;">
-            <div style="display:grid;grid-template-columns:260px repeat(<?php echo $daysInMonth; ?>, 24px);gap:2px;align-items:center;margin-bottom:8px;">
-                <div style="font-size:11px;color:var(--ss-muted);font-weight:700;">Booking</div>
+        <div style="min-width:<?php echo 160 + $daysInMonth * 18; ?>px;">
+            <div style="display:grid;grid-template-columns:160px repeat(<?php echo $daysInMonth; ?>, 18px);gap:1px;align-items:center;margin-bottom:6px;">
+                <div style="font-size:10px;color:var(--ss-muted);font-weight:700;">Booking</div>
                 <?php for ($d = 1; $d <= $daysInMonth; $d++): ?>
-                    <div style="font-size:10px;color:var(--ss-muted);text-align:center;"><?php echo $d; ?></div>
+                    <div style="font-size:9px;color:var(--ss-muted);text-align:center;"><?php echo $d; ?></div>
                 <?php endfor; ?>
             </div>
 
@@ -76,23 +82,23 @@ include 'layout-header.php';
                 $span = max(1, $e - $s + 1);
                 $statusColor = '#3b82f6';
             ?>
-                <div style="display:grid;grid-template-columns:260px repeat(<?php echo $daysInMonth; ?>, 24px);gap:2px;align-items:center;margin-bottom:4px;">
-                    <div style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                <div style="display:grid;grid-template-columns:160px repeat(<?php echo $daysInMonth; ?>, 18px);gap:1px;align-items:center;margin-bottom:3px;">
+                    <div style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
                         <a href="bookings.php?view=<?php echo $b['id']; ?>" style="color:var(--ss-ocean);text-decoration:none;font-weight:600;"><?php echo htmlspecialchars($b['booking_no']); ?></a>
-                        <div style="font-size:10px;color:var(--ss-muted)"><?php echo htmlspecialchars($b['customer_name']); ?> · <?php echo (int)$b['pax_count']; ?> pax · confirmed</div>
+                        <div style="font-size:9px;color:var(--ss-muted)"><?php echo htmlspecialchars($b['customer_name']); ?> · <?php echo (int)$b['pax_count']; ?> pax</div>
                     </div>
                     <?php for ($d = 1; $d <= $daysInMonth; $d++): ?>
                         <?php if ($d >= $s && $d <= $e): ?>
-                            <div style="height:16px;background:<?php echo $statusColor; ?>;border-radius:3px;"></div>
+                            <div style="height:12px;background:<?php echo $statusColor; ?>;border-radius:2px;"></div>
                         <?php else: ?>
-                            <div style="height:16px;background:#F1F5F9;border-radius:3px;"></div>
+                            <div style="height:12px;background:#F1F5F9;border-radius:2px;"></div>
                         <?php endif; ?>
                     <?php endfor; ?>
                 </div>
             <?php endforeach; ?>
 
             <?php if (empty($bookings)): ?>
-                <div style="padding:14px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:8px;color:#64748b;font-size:13px;">
+                <div style="padding:10px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:8px;color:#64748b;font-size:12px;">
                     Tidak ada reservasi confirmed pada bulan ini.
                 </div>
             <?php endif; ?>
@@ -100,10 +106,10 @@ include 'layout-header.php';
     </div>
 </div>
 
-<div class="ss-card">
-    <div class="ss-card-title" style="margin-bottom:8px;">Daftar Reservasi Confirmed Bulan Ini</div>
+<div class="ss-card cal-card">
+    <div class="ss-card-title" style="margin-bottom:6px;font-size:13px;">Daftar Reservasi Confirmed Bulan Ini</div>
     <div class="ss-table-wrap">
-        <table class="ss-table">
+        <table class="ss-table cal-table">
             <thead>
                 <tr>
                     <th>Booking</th>
