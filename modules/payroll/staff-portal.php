@@ -2843,15 +2843,14 @@ header('Expires: 0');
             <!-- Scan Wajah -->
             <div class="absen-link" onclick="openFaceScan()">
                 <div class="al-icon"><svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <rect x="4" y="8" width="56" height="48" rx="10" stroke="rgba(255,255,255,.25)" stroke-width="2" />
-                        <rect x="4" y="8" width="18" height="14" rx="4" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none" style="clip-path:inset(0 50% 50% 0)" />
-                        <rect x="42" y="8" width="18" height="14" rx="4" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none" style="clip-path:inset(0 0 50% 50%)" />
-                        <rect x="4" y="42" width="18" height="14" rx="4" stroke="white" stroke-width="2.5" fill="none" style="clip-path:inset(50% 50% 0 0)" />
-                        <rect x="42" y="42" width="18" height="14" rx="4" stroke="white" stroke-width="2.5" fill="none" style="clip-path:inset(50% 0 0 50%)" />
-                        <circle cx="32" cy="28" r="8" stroke="white" stroke-width="2" />
-                        <path d="M22 46c0-5.523 4.477-10 10-10s10 4.477 10 10" stroke="white" stroke-width="2" stroke-linecap="round" />
-                        <line x1="4" y1="32" x2="12" y2="32" stroke="rgba(255,255,255,.4)" stroke-width="1.5" stroke-dasharray="2 2" />
-                        <line x1="52" y1="32" x2="60" y2="32" stroke="rgba(255,255,255,.4)" stroke-width="1.5" stroke-dasharray="2 2" />
+                        <path d="M6 20v-7a7 7 0 0 1 7-7h7" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+                        <path d="M58 20v-7a7 7 0 0 0-7-7h-7" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+                        <path d="M6 44v7a7 7 0 0 0 7 7h7" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+                        <path d="M58 44v7a7 7 0 0 1-7 7h-7" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+                        <circle cx="24" cy="28" r="2.8" fill="white" />
+                        <circle cx="40" cy="28" r="2.8" fill="white" />
+                        <path d="M32 25v7.5a2 2 0 0 1-2 2" stroke="white" stroke-width="2.2" stroke-linecap="round" />
+                        <path d="M22.5 40.5c2.6 2.3 5.9 3.5 9.5 3.5s6.9-1.2 9.5-3.5" stroke="white" stroke-width="2.4" stroke-linecap="round" />
                     </svg></div>
                 <div class="al-title">Face Scan — Absen Sekarang</div>
                 <div class="al-sub">Tap untuk verifikasi wajah otomatis</div>
@@ -2860,13 +2859,18 @@ header('Expires: 0');
             <!-- Absen Manual (fallback jika Face ID lambat/gagal) -->
             <button type="button" class="absen-link-manual" onclick="openManualAttendance()">
                 <span class="alm-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 21s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"></path>
+                        <path d="M9.25 11.75l1.9 1.9 3.6-3.9"></path>
+                    </svg>
                 </span>
                 <span class="alm-body">
                     <span class="alm-title">Absen Manual</span>
                     <span class="alm-sub">Jika Face ID lambat/gagal — tetap wajib dalam radius lokasi</span>
                 </span>
-                <svg class="alm-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"></path></svg>
+                <svg class="alm-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 18l6-6-6-6"></path>
+                </svg>
             </button>
 
             <!-- Status Hari Ini -->
