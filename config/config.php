@@ -57,11 +57,20 @@ if (!defined('DEVELOPER_LOGO')) define('DEVELOPER_LOGO', 'assets/img/developer-l
 // DATABASE CONFIGURATION
 // ============================================
 // Local config (override for production in separate file if needed)
-$isProduction = (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') === false &&
-    strpos($_SERVER['HTTP_HOST'] ?? '', '127.0.0.1') === false);
+$httpHostForDb = $_SERVER['HTTP_HOST'] ?? '';
+$isProduction = (strpos($httpHostForDb, 'localhost') === false &&
+    strpos($httpHostForDb, '127.0.0.1') === false);
 
-if ($isProduction) {
-    // Production (Hosting) - uses adf_system database prefixed
+if ($isProduction && strpos($httpHostForDb, 'karimunjawaexplore.com') !== false) {
+    // Explore Karimunjawa - standalone hosting (separate cPanel account/domain)
+    // TODO: ganti 3 nilai di bawah dengan kredensial cPanel hosting BARU setelah
+    // database master + adf_sunsea dibuat di sana (lihat panduan migrasi Sunsea).
+    if (!defined('DB_HOST')) define('DB_HOST', 'localhost');
+    if (!defined('DB_NAME')) define('DB_NAME', 'GANTI_nama_db_master');
+    if (!defined('DB_USER')) define('DB_USER', 'GANTI_user_cpanel_db');
+    if (!defined('DB_PASS')) define('DB_PASS', 'GANTI_password_db');
+} else if ($isProduction) {
+    // Production (Hosting) - adfsystem.online, uses adf_system database prefixed
     if (!defined('DB_HOST')) define('DB_HOST', 'localhost');
     if (!defined('DB_NAME')) define('DB_NAME', 'adfb2574_adf');
     if (!defined('DB_USER')) define('DB_USER', 'adfb2574_adfsystem');
@@ -185,8 +194,11 @@ function getDbName($localDbName)
     return $localDbName;
 }
 
-// Also make it available as constant for master DB
-if (!defined('MASTER_DB_NAME')) define('MASTER_DB_NAME', getDbName('adf_system'));
+// Also make it available as constant for master DB.
+// NOTE: uses DB_NAME directly (not getDbName('adf_system')) so it stays correct
+// per-domain — DB_NAME above is already the right master DB name for whichever
+// domain/hosting account is currently running this request.
+if (!defined('MASTER_DB_NAME')) define('MASTER_DB_NAME', DB_NAME);
 
 // ============================================
 // PAGINATION

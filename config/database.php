@@ -42,14 +42,24 @@ class Database
                     'adf_benscafe' => 'adfb2574_Adf_Bens',
                     'adf_demo' => 'adfb2574_demo',
                     'adf_cqc' => 'adfb2574_cqc',
-                    'adf_sunsea' => 'adfb2574_sunsea'
                 ];
 
                 if (isset($dbMapping[$dbName])) {
                     $dbName = $dbMapping[$dbName];
                 } else if (strpos($dbName, 'adf_') === 0) {
-                    // Auto-map any adf_* database to adfb2574_* format
-                    $dbName = 'adfb2574_' . str_replace('adf_', '', $dbName);
+                    // Auto-map adf_* -> {cpanel_prefix}_* using the CURRENT hosting
+                    // account's DB_USER (e.g. 'adfb2574_adfsystem' -> 'adfb2574_'),
+                    // so this resolves correctly on ANY cPanel account/domain, not
+                    // just the original adfsystem.online one (needed for Sunsea /
+                    // Explore Karimunjawa standalone hosting).
+                    $hostingPrefix = 'adfb2574_';
+                    if (defined('DB_USER')) {
+                        $userParts = explode('_', DB_USER);
+                        if (count($userParts) >= 2) {
+                            $hostingPrefix = $userParts[0] . '_';
+                        }
+                    }
+                    $dbName = $hostingPrefix . substr($dbName, 4);
                 }
             }
 
@@ -96,7 +106,7 @@ class Database
     private function autoSyncSchema($dbName)
     {
         // Skip for master database — handle it separately
-        $masterNames = ['adf_system', 'adfb2574_adf'];
+        $masterNames = ['adf_system', 'adfb2574_adf', defined('MASTER_DB_NAME') ? MASTER_DB_NAME : ''];
         $isMaster = in_array($dbName, $masterNames);
 
         // Only run once per session per database (version bump forces re-check)
