@@ -36,6 +36,10 @@ foreach ($attendance as $a) {
 
 $daysInMonth = cal_days_in_month(CAL_GREGORIAN, $m, $y);
 
+// Batas jam masuk: check-in setelah jam ini dianggap Terlambat,
+// terlepas dari status yang tersimpan di database.
+$lateThreshold = '08:15:00';
+
 $totalDays = 0;
 $totalHours = 0.0;
 $lateCount = 0;
@@ -45,18 +49,23 @@ $rows = [];
 for ($d = 1; $d <= $daysInMonth; $d++) {
     $dateStr = sprintf('%04d-%02d-%02d', $y, $m, $d);
     $a = $byDate[$dateStr] ?? null;
+    $effectiveStatus = $a['status'] ?? null;
     if ($a) {
         $totalDays++;
         $totalHours += (float)($a['work_hours'] ?? 0);
-        if ($a['status'] === 'late') $lateCount++;
-        if ($a['status'] === 'absent') $absentCount++;
+        if (!empty($a['check_in_time']) && $a['check_in_time'] > $lateThreshold
+            && !in_array($effectiveStatus, ['absent', 'leave', 'holiday'], true)) {
+            $effectiveStatus = 'late';
+        }
+        if ($effectiveStatus === 'late') $lateCount++;
+        if ($effectiveStatus === 'absent') $absentCount++;
     }
-    $rows[] = ['date' => $dateStr, 'day' => $d, 'attendance' => $a];
+    $rows[] = ['date' => $dateStr, 'day' => $d, 'attendance' => $a, 'effective_status' => $effectiveStatus];
 }
 
 $statusLabels = [
     'present' => 'Hadir',
-    'late' => 'Telat',
+    'late' => 'Terlambat',
     'absent' => 'Absen',
     'leave' => 'Cuti',
     'holiday' => 'Libur',
@@ -220,7 +229,7 @@ foreach (['invoice_logo_' . $businessId, 'invoice_logo', 'company_logo'] as $key
                     $dayOfWeek = (int)date('N', strtotime($row['date']));
                     $isWeekend = $dayOfWeek >= 6;
                     $dayName = date('D', strtotime($row['date']));
-                    $status = $a['status'] ?? ($isWeekend ? 'holiday' : '');
+                    $status = $row['effective_status'] ?? ($isWeekend ? 'holiday' : '');
                     $rowClass = $isWeekend ? 'weekend' : ($status === 'late' ? 'st-late' : ($status === 'absent' ? 'st-absent' : ''));
                     $ci = $a && $a['check_in_time'] ? substr($a['check_in_time'], 0, 5) : '--:--';
                     $co = $a && $a['check_out_time'] ? substr($a['check_out_time'], 0, 5) : '--:--';
