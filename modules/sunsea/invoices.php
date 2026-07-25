@@ -246,9 +246,6 @@ if ($action === 'print' && $invoice):
     $companyName    = sunseaSetting($pdo, 'company_name', 'Explore Karimunjawa');
     $companyAddress = sunseaSetting($pdo, 'company_address', '');
     $companyPhone   = sunseaSetting($pdo, 'company_phone', '');
-    $companyEmail   = sunseaSetting($pdo, 'company_email', '');
-    $companyLogo    = sunseaSetting($pdo, 'invoice_logo', sunseaSetting($pdo, 'company_logo', ''));
-    $companyTagline = sunseaSetting($pdo, 'company_tagline', 'Travel Bureau');
     $bankName       = sunseaSetting($pdo, 'bank_name', '');
     $bankAccount    = sunseaSetting($pdo, 'bank_account', '');
     $bankHolder     = sunseaSetting($pdo, 'bank_holder', '');
@@ -257,35 +254,19 @@ if ($action === 'print' && $invoice):
     $bankHolder2    = sunseaSetting($pdo, 'bank_holder2', '');
     $invoiceNotes   = sunseaSetting($pdo, 'invoice_notes', '');
     $footer         = sunseaSetting($pdo, 'invoice_footer', '');
-    $logoUrl        = $companyLogo ? ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . '/' . ltrim($companyLogo, '/')) : '';
 
-    $issuedDate = $invoice['issued_at'] ? strtotime($invoice['issued_at']) : time();
-    $dueDateTs  = $invoice['due_date'] ? strtotime($invoice['due_date']) : $issuedDate;
-    $termsLabel = ($dueDateTs <= $issuedDate) ? 'On Receipt' : (string) max(0, (int) ceil(($dueDateTs - $issuedDate) / 86400));
-    if ($termsLabel !== 'On Receipt') {
-        $termsLabel .= ' Days';
-    }
-
-    $lastPayment = null;
-    if (!empty($payments)) {
-        $lastPayment = end($payments);
-    }
-
-    $dpPayment = null;
-    if (!empty($payments)) {
-        $dpPayment = $payments[0];
-    }
-
-    $watermarkText = '';
+    $statusLabel = 'BELUM LUNAS';
+    $statusBg    = '#FEE2E2';
+    $statusColor = '#B91C1C';
     if ((float)$invoice['remaining_amount'] <= 0 || $invoice['status'] === 'paid') {
-        $watermarkText = 'LUNAS';
+        $statusLabel = 'LUNAS';
+        $statusBg    = '#DCFCE7';
+        $statusColor = '#15803D';
     } elseif ((float)$invoice['paid_amount'] > 0 || $invoice['status'] === 'partial') {
-        $watermarkText = 'DP';
+        $statusLabel = 'DP / PARTIAL';
+        $statusBg    = '#FEF3C7';
+        $statusColor = '#B45309';
     }
-
-    $fmtMoney = function ($amount, $prefix = 'Rp') {
-        return $prefix . number_format((float) $amount, 2, '.', ',');
-    };
 ?>
     <!DOCTYPE html>
     <html lang="id">
@@ -293,504 +274,164 @@ if ($action === 'print' && $invoice):
     <head>
         <meta charset="UTF-8">
         <title>Invoice <?php echo htmlspecialchars($invoice['invoice_no']); ?></title>
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
         <style>
-            * {
-                margin: 0;
-                padding: 0;
-                box-sizing: border-box;
-            }
-
-            @page {
-                size: A4;
-                margin: 0;
-            }
-
             body {
-                font-family: "Inter", "Segoe UI", Arial, sans-serif;
+                font-family: 'Segoe UI', sans-serif;
                 font-size: 12px;
-                color: #13253b;
-                background: #eef3f8;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
+                padding: 24px;
+                color: #0f172a
             }
 
-            .sheet {
-                width: 210mm;
-                min-height: 297mm;
-                margin: 0 auto;
-                padding: 14mm 12mm 12mm;
-                position: relative;
-                background: #ffffff;
-            }
-
-            .watermark {
-                position: absolute;
-                top: 49%;
-                left: 50%;
-                transform: translate(-50%, -50%) rotate(-20deg);
-                font-size: 104px;
-                font-weight: 900;
-                letter-spacing: 12px;
-                opacity: .06;
-                pointer-events: none;
-                z-index: 1;
-                text-transform: uppercase;
-                white-space: nowrap;
-            }
-
-            .watermark.dp {
-                color: #C2410C;
-            }
-
-            .watermark.paid {
-                color: #7C2D12;
-            }
-
-            .top-accent {
-                position: absolute;
-                left: 0;
-                top: 0;
-                right: 0;
-                height: 12mm;
-                background: linear-gradient(100deg, #7C2D12 0%, #9A3412 55%, #C2410C 100%);
-                opacity: .98;
-            }
-
-            .bottom-accent {
-                position: absolute;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                height: 5mm;
-                background: linear-gradient(90deg, #7C2D12 0%, #C2410C 100%);
-            }
-
-            .header {
-                display: flex;
-                justify-content: space-between;
-                align-items: flex-start;
-                margin-bottom: 16px;
-                margin-top: 6.5mm;
-                position: relative;
-                z-index: 2;
-                padding: 12px 12px 11px;
-                border: 1px solid #E7D5C6;
-                border-radius: 12px;
-                background: linear-gradient(165deg, #ffffff 0%, #FDF4E9 100%);
-                box-shadow: 0 10px 30px rgba(124, 45, 18, .06);
-            }
-
-            .company {
-                display: flex;
-                gap: 14px;
-                align-items: center;
-                width: 63%;
-            }
-
-            .logo {
-                width: 32mm;
-                height: 22mm;
-                flex-shrink: 0;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                border-radius: 10px;
-                background: #ffffff;
-                border: 1px solid #F0DCC5;
-                padding: 4px;
-                box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .55);
-            }
-
-            .logo img {
-                max-width: 100%;
-                max-height: 100%;
-                object-fit: contain;
-            }
-
-            .logo-fallback {
-                font-size: 30px;
-                color: #C2410C;
-            }
-
-            .company-name {
+            h1 {
                 font-size: 22px;
-                font-weight: 800;
-                color: #7C2D12;
-                line-height: 1.1;
-                margin-bottom: 4px;
-                letter-spacing: .5px;
-                font-family: "Cormorant Garamond", "Georgia", serif;
+                margin: 0;
+                color: #7C2D12
             }
 
-            .company-line {
-                font-size: 10.5px;
-                color: #78716C;
-                line-height: 1.45;
+            h2 {
+                font-size: 14px;
+                margin: 2px 0 16px;
+                color: #64748B
             }
 
-            .invoice-meta {
-                width: 35%;
-                text-align: left;
-                font-size: 11px;
-                color: #7C4A2D;
-                border-radius: 12px;
-                background: linear-gradient(180deg, #FFFBF5 0%, #FFFBF5 100%);
-                border: 1px solid #E7D5C6;
-                padding: 10px 12px;
-                box-shadow: inset 0 1px 0 rgba(255, 255, 255, .7);
-            }
-
-            .meta-title {
-                font-size: 9px;
-                font-weight: 700;
-                text-transform: uppercase;
-                color: #92702B;
-                margin-bottom: 1px;
-                letter-spacing: .7px;
-            }
-
-            .meta-value {
-                margin-bottom: 6px;
-                color: #0e3760;
-                font-weight: 600;
-                font-variant-numeric: tabular-nums;
-                font-feature-settings: "tnum";
-            }
-
-            .balance-title {
-                font-size: 9px;
-                font-weight: 800;
-                text-transform: uppercase;
-                margin-top: 7px;
-                color: #0e4f83;
-                letter-spacing: .7px;
-            }
-
-            .balance-value {
-                font-size: 17px;
-                font-weight: 800;
-                color: #0a3a68;
-                line-height: 1.1;
-                letter-spacing: .15px;
-                font-variant-numeric: tabular-nums;
-                font-feature-settings: "tnum";
-            }
-
-            .bill-to-label {
-                font-size: 9px;
-                font-weight: 800;
-                text-transform: uppercase;
-                color: #5f7d97;
-                margin-bottom: 5px;
-                position: relative;
-                z-index: 2;
-                letter-spacing: .7px;
-            }
-
-            .bill-to-name {
-                font-size: 20px;
-                font-weight: 700;
-                color: #123f67;
-                margin-bottom: 4px;
-                position: relative;
-                z-index: 2;
-                font-family: "Cormorant Garamond", "Georgia", serif;
-            }
-
-            .bill-to-phone {
-                font-size: 10.5px;
-                color: #5b7590;
-                margin-bottom: 14px;
-                position: relative;
-                z-index: 2;
-            }
-
-            .item-table {
+            table {
                 width: 100%;
                 border-collapse: collapse;
-                margin-top: 7px;
-                position: relative;
-                z-index: 2;
-                border: 1px solid #E7D5C6;
-                border-radius: 12px;
-                overflow: hidden;
-                box-shadow: 0 6px 16px rgba(124, 45, 18, .04);
+                margin-top: 12px
             }
 
-            .item-table thead th {
-                background: linear-gradient(90deg, #0f406c 0%, #165d92 100%);
-                color: #fff;
-                font-size: 9px;
-                text-transform: uppercase;
-                letter-spacing: .7px;
-                font-weight: 700;
-                padding: 8px 9px;
-                text-align: left;
-                font-family: "Inter", "Segoe UI", Arial, sans-serif;
+            th,
+            td {
+                border: 1px solid #E2E8F0;
+                padding: 8px;
+                text-align: left
             }
 
-            .item-table thead th.r,
-            .item-table tbody td.r {
-                text-align: right;
-                font-variant-numeric: tabular-nums;
-                font-feature-settings: "tnum";
-            }
-
-            .item-table tbody td {
-                padding: 8px 8px 9px;
+            th {
+                background: #FFF7ED;
                 font-size: 11px;
-                border-bottom: 1px solid #e1ebf5;
-                vertical-align: top;
-                color: #264865;
-                background: #ffffff;
-                font-family: "Inter", "Segoe UI", Arial, sans-serif;
+                color: #64748B
             }
 
-            .item-table tbody tr:nth-child(even) td {
-                background: #FFFBF5;
-            }
-
-            .desc-main {
-                font-weight: 700;
-                margin-bottom: 2px;
-                color: #103c66;
-                font-family: "Cormorant Garamond", "Georgia", serif;
-                font-size: 14px;
-            }
-
-            .desc-sub {
-                font-size: 9.5px;
-                color: #62819b;
-            }
-
-            .payment-wrap {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 16px;
+            .total {
                 margin-top: 16px;
-                border-top: 1px solid #E7D5C6;
-                padding-top: 13px;
-                position: relative;
-                z-index: 2;
+                max-width: 360px;
+                float: right
             }
 
-            .payment-left-title {
-                font-size: 19px;
-                font-weight: 700;
-                color: #0e4473;
-                margin-bottom: 8px;
-                font-family: "Cormorant Garamond", "Georgia", serif;
-            }
-
-            .payment-block-title {
-                font-size: 9px;
-                font-weight: 800;
-                text-transform: uppercase;
-                color: #5b7891;
-                margin-bottom: 4px;
-                letter-spacing: .7px;
-            }
-
-            .payment-line {
-                font-size: 10.5px;
-                color: #315470;
-                line-height: 1.4;
-                font-family: "Inter", "Segoe UI", Arial, sans-serif;
-            }
-
-            .payment-right {
-                font-size: 10.5px;
-                border-left: 1px solid #d4e3ef;
-                padding-left: 12px;
-                background: linear-gradient(180deg, #f8fbfe 0%, #f1f6fb 100%);
-                border-radius: 12px;
-                border: 1px solid #E7D5C6;
-                padding: 11px 12px;
-                font-family: "Inter", "Segoe UI", Arial, sans-serif;
-                box-shadow: inset 0 1px 0 rgba(255, 255, 255, .7);
-            }
-
-            .sum-row {
+            .row {
                 display: flex;
                 justify-content: space-between;
-                margin-bottom: 6px;
-                color: #274867;
-                align-items: baseline;
-                gap: 12px;
-                font-variant-numeric: tabular-nums;
-                font-feature-settings: "tnum";
+                padding: 4px 0
             }
 
-            .sum-row .v {
-                min-width: 155px;
-                text-align: right;
+            .final {
+                font-size: 16px;
                 font-weight: 700;
-            }
-
-            .sum-row.total {
-                margin-top: 8px;
-                border-top: 1px solid #afcfe6;
+                border-top: 2px solid #C2410C;
                 padding-top: 8px;
-                font-weight: 800;
-                text-transform: uppercase;
-                color: #0f416f;
+                color: #C2410C
             }
 
-            .sum-row.total .v {
-                font-size: 18px;
-                text-transform: none;
-                letter-spacing: .2px;
-                color: #0b3f72;
-                font-weight: 800;
+            .status-badge {
+                display: inline-block;
+                font-size: 11px;
+                font-weight: 700;
+                padding: 4px 12px;
+                border-radius: 20px;
+                margin-left: 10px;
+                vertical-align: middle;
             }
 
-            .invoice-note {
-                margin-top: 16px;
-                max-width: 78%;
-                border-top: 1px solid #bfd6e8;
-                padding-top: 10px;
-                font-size: 10.5px;
-                color: #355572;
-                line-height: 1.4;
-                position: relative;
-                z-index: 2;
-                font-family: "Segoe UI", Arial, sans-serif;
-            }
-
-            .lux-rule {
-                height: 1px;
-                margin: 10px 0 12px;
-                background: linear-gradient(90deg, rgba(194, 65, 12, .0), rgba(194, 65, 12, .6), rgba(194, 65, 12, .0));
-            }
-
-            .compact-note {
-                font-size: 10px;
-                letter-spacing: .2px;
-                color: #5f748b;
+            .bank-box {
+                clear: both;
+                margin-top: 70px;
+                padding-top: 12px;
+                border-top: 1px solid #E2E8F0;
+                font-size: 11px;
+                color: #475569;
+                max-width: 55%;
             }
 
             @media print {
-                .sheet {
-                    margin: 0;
+                body {
+                    padding: 8px
                 }
             }
         </style>
     </head>
 
     <body onload="window.print()">
-        <div class="sheet">
-            <?php if ($watermarkText): ?>
-                <div class="watermark <?php echo $watermarkText === 'LUNAS' ? 'paid' : 'dp'; ?>"><?php echo $watermarkText; ?></div>
-            <?php endif; ?>
-            <div class="top-accent"></div>
-
-            <div class="header">
-                <div class="company">
-                    <div class="logo">
-                        <?php if ($logoUrl): ?>
-                            <img src="<?php echo htmlspecialchars($logoUrl); ?>" alt="Logo">
-                        <?php else: ?>
-                            <div class="logo-fallback">🌊</div>
-                        <?php endif; ?>
-                    </div>
-                    <div>
-                        <div class="company-name"><?php echo htmlspecialchars($companyName); ?></div>
-                        <div class="company-line"><?php echo htmlspecialchars($companyTagline); ?></div>
-                        <?php if ($companyAddress): ?><div class="company-line"><?php echo nl2br(htmlspecialchars($companyAddress)); ?></div><?php endif; ?>
-                        <?php if ($companyPhone): ?><div class="company-line"><?php echo htmlspecialchars($companyPhone); ?></div><?php endif; ?>
-                        <?php if ($companyEmail): ?><div class="company-line"><?php echo htmlspecialchars($companyEmail); ?></div><?php endif; ?>
-                    </div>
-                </div>
-
-                <div class="invoice-meta">
-                    <div class="meta-title">Invoice</div>
-                    <div class="meta-value"><?php echo htmlspecialchars($invoice['invoice_no']); ?></div>
-                    <div class="meta-title">Date</div>
-                    <div class="meta-value"><?php echo date('d/m/Y', $issuedDate); ?></div>
-                    <div class="meta-title">Due Date</div>
-                    <div class="meta-value"><?php echo date('d/m/Y', $dueDateTs); ?></div>
-                    <div class="meta-title">Terms</div>
-                    <div class="meta-value"><?php echo htmlspecialchars($termsLabel); ?></div>
-                    <div class="balance-title">Balance Due</div>
-                    <div class="balance-value"><?php echo $fmtMoney((float)$invoice['remaining_amount'] > 0 ? (float)$invoice['remaining_amount'] : (float)$invoice['total_amount'], 'Rp'); ?></div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div>
+                <h1><?php echo htmlspecialchars($companyName); ?></h1>
+                <div style="font-size:11px;color:#64748B;margin-top:2px;">
+                    <?php echo htmlspecialchars($companyAddress); ?><?php echo ($companyAddress && $companyPhone) ? ' &middot; ' : ''; ?><?php echo htmlspecialchars($companyPhone); ?>
                 </div>
             </div>
-
-            <div class="bill-to-label">Bill To</div>
-            <div class="bill-to-name"><?php echo htmlspecialchars($invoice['customer_name']); ?></div>
-            <?php if ($invoice['customer_phone']): ?><div class="bill-to-phone"><?php echo htmlspecialchars($invoice['customer_phone']); ?></div><?php endif; ?>
-
-            <div class="lux-rule"></div>
-
-            <table class="item-table">
-                <thead>
+            <div style="text-align:right;">
+                <h1 style="font-size:20px;">INVOICE</h1>
+                <div style="font-size:11px;color:#64748B;margin-top:2px;"><?php echo htmlspecialchars($invoice['invoice_no']); ?></div>
+            </div>
+        </div>
+        <h2>
+            <?php echo htmlspecialchars($invoice['customer_name']); ?>
+            <span class="status-badge" style="background:<?php echo $statusBg; ?>;color:<?php echo $statusColor; ?>;"><?php echo $statusLabel; ?></span>
+        </h2>
+        <div>
+            Tanggal: <?php echo date('d M Y', strtotime($invoice['issued_at'] ?: $invoice['created_at'])); ?>
+            | Jatuh Tempo: <?php echo $invoice['due_date'] ? date('d M Y', strtotime($invoice['due_date'])) : '-'; ?>
+            | Pax: <?php echo (int)$invoice['pax_count']; ?>
+            <?php if ($invoice['trip_date']): ?> | Trip: <?php echo date('d M Y', strtotime($invoice['trip_date'])); ?><?php echo $invoice['trip_end_date'] ? ' - ' . date('d M Y', strtotime($invoice['trip_end_date'])) : ''; ?><?php endif; ?>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Keterangan</th>
+                    <th>Qty</th>
+                    <th>Harga</th>
+                    <th>Subtotal</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($invItems as $item): ?>
                     <tr>
-                        <th>Description</th>
-                        <th class="r">Rate</th>
-                        <th class="r">Qty</th>
-                        <th class="r">Amount</th>
+                        <td><?php echo htmlspecialchars($item['description']); ?></td>
+                        <td><?php echo $item['qty'] == (int)$item['qty'] ? (int)$item['qty'] : (float)$item['qty']; ?> <?php echo htmlspecialchars($item['unit']); ?></td>
+                        <td><?php echo sunseaRupiah((float)$item['unit_price']); ?></td>
+                        <td><?php echo sunseaRupiah((float)$item['subtotal']); ?></td>
                     </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($invItems as $item): ?>
-                        <tr>
-                            <td>
-                                <div class="desc-main"><?php echo htmlspecialchars($item['description']); ?></div>
-                                <div class="desc-sub"><?php echo htmlspecialchars(($invoice['trip_date'] ? date('d/m/Y', strtotime($invoice['trip_date'])) : '-') . ($invoice['trip_end_date'] ? ' - ' . date('d/m/Y', strtotime($invoice['trip_end_date'])) : '')); ?><?php echo $invoice['pax_count'] ? ' | ' . (int)$invoice['pax_count'] . ' pax' : ''; ?></div>
-                            </td>
-                            <td class="r"><?php echo $fmtMoney((float)$item['unit_price']); ?></td>
-                            <td class="r"><?php echo $item['qty'] == (int)$item['qty'] ? (int)$item['qty'] : (float)$item['qty']; ?></td>
-                            <td class="r"><?php echo $fmtMoney((float)$item['subtotal']); ?></td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-
-            <div class="payment-wrap">
-                <div>
-                    <div class="payment-left-title">Payment Info</div>
-                    <div class="payment-block-title">Payment Instructions</div>
-                    <div class="compact-note" style="margin-bottom:8px;">Silakan gunakan referensi invoice ini saat transfer atau pelunasan.</div>
-                    <?php if ($bankName || $bankAccount): ?>
-                        <div class="payment-line"><?php echo htmlspecialchars($bankName ?: '-'); ?></div>
-                        <div class="payment-line">Account Number: <?php echo htmlspecialchars($bankAccount ?: '-'); ?></div>
-                        <div class="payment-line">Account Holder: <?php echo htmlspecialchars($bankHolder ?: '-'); ?></div>
-                    <?php endif; ?>
-                    <?php if ($bankName2 || $bankAccount2): ?>
-                        <div class="payment-line" style="margin-top:8px;"><?php echo htmlspecialchars($bankName2 ?: '-'); ?></div>
-                        <div class="payment-line">Account Number: <?php echo htmlspecialchars($bankAccount2 ?: '-'); ?></div>
-                        <div class="payment-line">Account Holder: <?php echo htmlspecialchars($bankHolder2 ?: '-'); ?></div>
-                    <?php endif; ?>
-                </div>
-
-                <div class="payment-right">
-                    <div class="sum-row"><span>Total</span><span class="v"><?php echo $fmtMoney((float)$invoice['total_amount']); ?></span></div>
-                    <?php if ($invoice['paid_amount'] > 0): ?>
-                        <div class="sum-row"><span>Down Payment</span><span class="v">-<?php echo $fmtMoney((float)$invoice['paid_amount']); ?></span></div>
-                    <?php endif; ?>
-                    <div class="sum-row"><span>Tanggal DP</span><span class="v"><?php echo $dpPayment && !empty($dpPayment['payment_date']) ? date('d/m/Y', strtotime($dpPayment['payment_date'])) : '-'; ?></span></div>
-                    <div class="sum-row"><span>Pembayaran Terakhir</span><span class="v"><?php echo $lastPayment && !empty($lastPayment['payment_date']) ? date('d/m/Y', strtotime($lastPayment['payment_date'])) : '-'; ?></span></div>
-                    <div class="sum-row total"><span>Balance Due</span><span class="v"><?php echo $fmtMoney((float)$invoice['remaining_amount'] > 0 ? (float)$invoice['remaining_amount'] : 0, 'Rp'); ?></span></div>
-                </div>
-            </div>
-
-            <?php if ($invoiceNotes || $invoice['notes'] || $footer): ?>
-                <div class="invoice-note">
-                    <?php if ($invoiceNotes): ?><div><?php echo nl2br(htmlspecialchars($invoiceNotes)); ?></div><?php endif; ?>
-                    <?php if ($invoice['notes']): ?><div style="margin-top:8px;"><strong>Catatan:</strong> <?php echo nl2br(htmlspecialchars($invoice['notes'])); ?></div><?php endif; ?>
-                    <?php if ($footer): ?><div style="margin-top:8px;"><?php echo nl2br(htmlspecialchars($footer)); ?></div><?php endif; ?>
-                </div>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+        <div class="total">
+            <div class="row"><span>Subtotal</span><strong><?php echo sunseaRupiah((float)$invoice['subtotal']); ?></strong></div>
+            <?php if ($invoice['discount_amount'] > 0): ?>
+                <div class="row"><span>Diskon</span><strong>-<?php echo sunseaRupiah((float)$invoice['discount_amount']); ?></strong></div>
             <?php endif; ?>
-
-            <div class="bottom-accent"></div>
+            <div class="row"><span>PPN <?php echo (float)$invoice['tax_pct']; ?>%</span><strong><?php echo sunseaRupiah((float)$invoice['tax_amount']); ?></strong></div>
+            <div class="row final"><span>TOTAL</span><strong><?php echo sunseaRupiah((float)$invoice['total_amount']); ?></strong></div>
+            <?php if ($invoice['paid_amount'] > 0): ?>
+                <div class="row" style="margin-top:8px;"><span>Terbayar</span><strong style="color:#15803D;"><?php echo sunseaRupiah((float)$invoice['paid_amount']); ?></strong></div>
+                <div class="row"><span><?php echo $invoice['remaining_amount'] > 0 ? 'Sisa Tagihan' : '&check; Lunas'; ?></span><strong style="color:<?php echo $invoice['remaining_amount'] > 0 ? '#B91C1C' : '#15803D'; ?>;"><?php echo sunseaRupiah((float)$invoice['remaining_amount']); ?></strong></div>
+            <?php endif; ?>
+        </div>
+        <div class="bank-box">
+            <?php if ($bankName || $bankAccount): ?>
+                <div><strong>Transfer ke:</strong> <?php echo htmlspecialchars($bankName ?: '-'); ?> &mdash; <?php echo htmlspecialchars($bankAccount ?: '-'); ?> a.n. <?php echo htmlspecialchars($bankHolder ?: '-'); ?></div>
+            <?php endif; ?>
+            <?php if ($bankName2 || $bankAccount2): ?>
+                <div><strong>Transfer ke:</strong> <?php echo htmlspecialchars($bankName2 ?: '-'); ?> &mdash; <?php echo htmlspecialchars($bankAccount2 ?: '-'); ?> a.n. <?php echo htmlspecialchars($bankHolder2 ?: '-'); ?></div>
+            <?php endif; ?>
+            <?php if ($invoiceNotes): ?><div style="margin-top:6px;"><?php echo nl2br(htmlspecialchars($invoiceNotes)); ?></div><?php endif; ?>
+            <?php if ($invoice['notes']): ?><div style="margin-top:6px;"><strong>Catatan:</strong> <?php echo nl2br(htmlspecialchars($invoice['notes'])); ?></div><?php endif; ?>
+            <?php if ($footer): ?><div style="margin-top:6px;"><?php echo nl2br(htmlspecialchars($footer)); ?></div><?php endif; ?>
         </div>
     </body>
 
     </html>
-<?php exit;
+<?php
+    exit;
 endif;
 
 include 'layout-header.php';
@@ -822,108 +463,59 @@ $prefillPaxCount = max(1, (int)($_GET['pax_count'] ?? 1));
         <?php endif; ?>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 300px;gap:20px;">
-        <div>
-            <div class="ss-card" style="margin-bottom:16px;">
-                <div style="display:flex;justify-content:space-between;margin-bottom:16px;">
-                    <div>
-                        <div style="font-size:22px;font-weight:800;color:var(--ss-ocean);"><?php echo htmlspecialchars($invoice['invoice_no']); ?></div>
-                        <div style="color:var(--ss-muted);">untuk <?php echo htmlspecialchars($invoice['customer_name']); ?></div>
-                    </div>
-                    <span class="ss-status ss-status-<?php echo $invoice['status']; ?>" style="font-size:13px;padding:5px 14px;"><?php echo ucfirst($invoice['status']); ?></span>
-                </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;padding:14px;background:var(--ss-sky);border-radius:8px;margin-bottom:16px;">
-                    <div>
-                        <div style="font-size:10px;color:var(--ss-muted);">Tanggal Trip</div>
-                        <div style="font-weight:600;"><?php echo $invoice['trip_date'] ? date('d M Y', strtotime($invoice['trip_date'])) : '-'; ?></div>
-                    </div>
-                    <div>
-                        <div style="font-size:10px;color:var(--ss-muted);">Peserta</div>
-                        <div style="font-weight:600;"><?php echo $invoice['pax_count']; ?> orang</div>
-                    </div>
-                    <div>
-                        <div style="font-size:10px;color:var(--ss-muted);">Jatuh Tempo</div>
-                        <div style="font-weight:600;"><?php echo $invoice['due_date'] ? date('d M Y', strtotime($invoice['due_date'])) : '-'; ?></div>
-                    </div>
-                </div>
-                <div class="ss-table-wrap">
-                    <table class="ss-table">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Keterangan</th>
-                                <th>Qty</th>
-                                <th>Sat.</th>
-                                <th>Harga</th>
-                                <th>Subtotal</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($invItems as $i => $item): ?>
-                                <tr>
-                                    <td><?php echo $i + 1; ?></td>
-                                    <td><?php echo htmlspecialchars($item['description']); ?></td>
-                                    <td><?php echo $item['qty'] == intval($item['qty']) ? (int)$item['qty'] : $item['qty']; ?></td>
-                                    <td><?php echo htmlspecialchars($item['unit']); ?></td>
-                                    <td><?php echo sunseaRupiah((float)$item['unit_price']); ?></td>
-                                    <td style="font-weight:600;"><?php echo sunseaRupiah((float)$item['subtotal']); ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+    <!-- Card style modelled directly after rab.php's "Cetak RAB" on-screen layout -->
+    <div class="ss-card" style="max-width:900px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
+            <div>
+                <div class="ss-card-title">Invoice - <?php echo htmlspecialchars($invoice['invoice_no']); ?></div>
+                <div class="ss-card-sub">
+                    <?php echo htmlspecialchars($invoice['customer_name']); ?>
+                    &middot; <?php echo $invoice['trip_date'] ? date('d M Y', strtotime($invoice['trip_date'])) : '-'; ?><?php echo $invoice['trip_end_date'] ? ' - ' . date('d M Y', strtotime($invoice['trip_end_date'])) : ''; ?>
+                    &middot; <?php echo (int)$invoice['pax_count']; ?> pax
+                    &middot; Jatuh Tempo <?php echo $invoice['due_date'] ? date('d M Y', strtotime($invoice['due_date'])) : '-'; ?>
                 </div>
             </div>
-
-            <?php if (!empty($payments)): ?>
-                <div class="ss-card">
-                    <div class="ss-card-title" style="margin-bottom:14px;">Riwayat Pembayaran</div>
-                    <div class="ss-table-wrap">
-                        <table class="ss-table">
-                            <thead>
-                                <tr>
-                                    <th>Tanggal</th>
-                                    <th>Jumlah</th>
-                                    <th>Metode</th>
-                                    <th>Referensi</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($payments as $p): ?>
-                                    <tr>
-                                        <td><?php echo date('d M Y', strtotime($p['payment_date'])); ?></td>
-                                        <td style="font-weight:600;color:var(--ss-success);"><?php echo sunseaRupiah((float)$p['amount']); ?></td>
-                                        <td><?php echo ucfirst($p['method']); ?></td>
-                                        <td><?php echo htmlspecialchars($p['reference'] ?: '-'); ?></td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            <?php endif; ?>
+            <span class="ss-status ss-status-<?php echo $invoice['status']; ?>" style="font-size:13px;padding:5px 14px;"><?php echo ucfirst($invoice['status']); ?></span>
         </div>
 
-        <div>
-            <div class="ss-card">
-                <div class="ss-card-title" style="margin-bottom:14px;">Ringkasan</div>
-                <?php
-                $rows = [['Subtotal', $invoice['subtotal'], '']];
-                if ($invoice['discount_amount'] > 0) $rows[] = ['Diskon', -$invoice['discount_amount'], 'color:var(--ss-success)'];
-                $rows[] = ['PPN ' . $invoice['tax_pct'] . '%', $invoice['tax_amount'], ''];
-                foreach ($rows as [$lbl, $val, $style]): ?>
-                    <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--ss-gray-2);">
-                        <span style="color:var(--ss-muted);"><?php echo $lbl; ?></span>
-                        <span style="font-weight:600;<?php echo $style; ?>"><?php echo sunseaRupiah((float)$val); ?></span>
-                    </div>
-                <?php endforeach; ?>
-                <div style="display:flex;justify-content:space-between;padding:12px 0 0;font-size:18px;font-weight:800;color:var(--ss-ocean);">
-                    <span>TOTAL</span><span><?php echo sunseaRupiah((float)$invoice['total_amount']); ?></span>
-                </div>
+        <div class="ss-table-wrap">
+            <table class="ss-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Keterangan</th>
+                        <th>Qty</th>
+                        <th>Sat.</th>
+                        <th>Harga</th>
+                        <th>Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($invItems as $i => $item): ?>
+                        <tr>
+                            <td><?php echo $i + 1; ?></td>
+                            <td><?php echo htmlspecialchars($item['description']); ?></td>
+                            <td><?php echo $item['qty'] == intval($item['qty']) ? (int)$item['qty'] : $item['qty']; ?></td>
+                            <td><?php echo htmlspecialchars($item['unit']); ?></td>
+                            <td><?php echo sunseaRupiah((float)$item['unit_price']); ?></td>
+                            <td style="font-weight:600;"><?php echo sunseaRupiah((float)$item['subtotal']); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;margin-top:14px;">
+            <div style="width:320px;">
+                <div style="display:flex;justify-content:space-between;padding:6px 0;"><span style="color:var(--ss-muted)">Subtotal</span><strong><?php echo sunseaRupiah((float)$invoice['subtotal']); ?></strong></div>
+                <?php if ($invoice['discount_amount'] > 0): ?>
+                    <div style="display:flex;justify-content:space-between;padding:6px 0;"><span style="color:var(--ss-muted)">Diskon</span><strong style="color:var(--ss-success)">-<?php echo sunseaRupiah((float)$invoice['discount_amount']); ?></strong></div>
+                <?php endif; ?>
+                <div style="display:flex;justify-content:space-between;padding:6px 0;"><span style="color:var(--ss-muted)">PPN <?php echo (float)$invoice['tax_pct']; ?>%</span><strong><?php echo sunseaRupiah((float)$invoice['tax_amount']); ?></strong></div>
+                <div style="display:flex;justify-content:space-between;padding:8px 0;border-top:2px solid var(--ss-ocean);font-size:16px;"><span>TOTAL</span><strong style="color:var(--ss-ocean)"><?php echo sunseaRupiah((float)$invoice['total_amount']); ?></strong></div>
                 <?php if ($invoice['paid_amount'] > 0): ?>
-                    <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;color:var(--ss-success);font-weight:600;">
-                        <span>Terbayar</span><span><?php echo sunseaRupiah((float)$invoice['paid_amount']); ?></span>
-                    </div>
-                    <div style="display:flex;justify-content:space-between;padding:8px 14px;background:<?php echo $invoice['remaining_amount'] > 0 ? '#FEE2E2' : '#D1FAE5'; ?>;border-radius:8px;font-weight:800;color:<?php echo $invoice['remaining_amount'] > 0 ? 'var(--ss-danger)' : 'var(--ss-success)'; ?>;">
+                    <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;"><span style="color:var(--ss-muted)">Terbayar</span><strong style="color:var(--ss-success)"><?php echo sunseaRupiah((float)$invoice['paid_amount']); ?></strong></div>
+                    <div style="display:flex;justify-content:space-between;padding:8px 14px;margin-top:4px;background:<?php echo $invoice['remaining_amount'] > 0 ? '#FEE2E2' : '#D1FAE5'; ?>;border-radius:8px;font-weight:800;color:<?php echo $invoice['remaining_amount'] > 0 ? 'var(--ss-danger)' : 'var(--ss-success)'; ?>;">
                         <span><?php echo $invoice['remaining_amount'] > 0 ? 'Sisa Tagihan' : '✓ Lunas'; ?></span>
                         <span><?php echo sunseaRupiah((float)$invoice['remaining_amount']); ?></span>
                     </div>
@@ -931,6 +523,34 @@ $prefillPaxCount = max(1, (int)($_GET['pax_count'] ?? 1));
             </div>
         </div>
     </div>
+
+    <?php if (!empty($payments)): ?>
+        <div class="ss-card" style="max-width:900px;">
+            <div class="ss-card-title" style="margin-bottom:14px;">Riwayat Pembayaran</div>
+            <div class="ss-table-wrap">
+                <table class="ss-table">
+                    <thead>
+                        <tr>
+                            <th>Tanggal</th>
+                            <th>Jumlah</th>
+                            <th>Metode</th>
+                            <th>Referensi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($payments as $p): ?>
+                            <tr>
+                                <td><?php echo date('d M Y', strtotime($p['payment_date'])); ?></td>
+                                <td style="font-weight:600;color:var(--ss-success);"><?php echo sunseaRupiah((float)$p['amount']); ?></td>
+                                <td><?php echo ucfirst($p['method']); ?></td>
+                                <td><?php echo htmlspecialchars($p['reference'] ?: '-'); ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    <?php endif; ?>
 
     <!-- Payment Modal -->
     <div id="paymentModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;align-items:center;justify-content:center;">
@@ -992,7 +612,7 @@ $prefillPaxCount = max(1, (int)($_GET['pax_count'] ?? 1));
     <!-- Add/Edit: same pattern as quotations form (simplified) -->
     <div style="max-width:900px;">
         <a href="invoices.php" class="ss-btn ss-btn-outline ss-btn-sm" style="margin-bottom:16px;display:inline-flex;"><i data-feather="arrow-left"></i> Kembali</a>
-        <form method="POST">
+        <form method="POST" onsubmit="return prepareInvoiceSubmit()">
             <input type="hidden" name="action" value="save">
             <input type="hidden" name="id" value="<?php echo $editInvoice['id'] ?? 0; ?>">
             <div class="ss-card" style="margin-bottom:16px;">
@@ -1022,30 +642,59 @@ $prefillPaxCount = max(1, (int)($_GET['pax_count'] ?? 1));
             <div class="ss-card" style="margin-bottom:16px;">
                 <div class="ss-card-header">
                     <div class="ss-card-title">Item Invoice</div>
-                    <button type="button" onclick="addItem2()" class="ss-btn ss-btn-outline ss-btn-sm"><i data-feather="plus"></i> Tambah Baris</button>
                 </div>
-                <div class="ss-table-wrap">
-                    <table class="ss-table">
-                        <thead>
-                            <tr>
-                                <th style="width:120px;">Kategori</th>
-                                <th>Keterangan</th>
-                                <th style="width:60px;">Qty</th>
-                                <th style="width:60px;">Sat.</th>
-                                <th style="width:130px;">Harga</th>
-                                <th style="width:130px;">Subtotal</th>
-                                <th style="width:40px;"></th>
-                            </tr>
-                        </thead>
-                        <tbody id="itemsBody2">
-                            <?php if (!empty($invItems)): ?>
-                                <?php foreach ($invItems as $item): echo '<tr>' . invItemRow($item['item_type'], $item['description'], $item['qty'], $item['unit'], $item['unit_price']) . '</tr>';
-                                endforeach; ?>
-                            <?php else: echo '<tr>' . invItemRow() . '</tr><tr>' . invItemRow() . '</tr>';
-                            endif; ?>
-                        </tbody>
-                    </table>
+                <div style="display:flex;gap:16px;margin-bottom:14px;">
+                    <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+                        <input type="radio" name="invoice_mode" value="items" id="modeItems" onchange="switchInvoiceMode('items')" <?php echo (empty($invItems) || count($invItems) !== 1) ? 'checked' : ''; ?>>
+                        Rincian per Item
+                    </label>
+                    <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+                        <input type="radio" name="invoice_mode" value="simple" id="modeSimple" onchange="switchInvoiceMode('simple')" <?php echo (!empty($invItems) && count($invItems) === 1) ? 'checked' : ''; ?>>
+                        Nominal Langsung (1 Total)
+                    </label>
                 </div>
+
+                <div id="itemsModeBlock">
+                    <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+                        <button type="button" onclick="addItem2()" class="ss-btn ss-btn-outline ss-btn-sm"><i data-feather="plus"></i> Tambah Baris</button>
+                    </div>
+                    <div class="ss-table-wrap">
+                        <table class="ss-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:120px;">Kategori</th>
+                                    <th>Keterangan</th>
+                                    <th style="width:60px;">Qty</th>
+                                    <th style="width:60px;">Sat.</th>
+                                    <th style="width:130px;">Harga</th>
+                                    <th style="width:130px;">Subtotal</th>
+                                    <th style="width:40px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="itemsBody2">
+                                <?php if (!empty($invItems)): ?>
+                                    <?php foreach ($invItems as $item): echo '<tr>' . invItemRow($item['item_type'], $item['description'], $item['qty'], $item['unit'], $item['unit_price']) . '</tr>';
+                                    endforeach; ?>
+                                <?php else: echo '<tr>' . invItemRow() . '</tr><tr>' . invItemRow() . '</tr>';
+                                endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="simpleModeBlock" style="display:none;">
+                    <div class="ss-form-grid cols-2">
+                        <div class="ss-form-group" style="grid-column:1/-1;">
+                            <label class="ss-label">Keterangan</label>
+                            <input type="text" id="simpleDesc" class="ss-input" placeholder="Contoh: Paket Trip Karimunjawa 3D2N" value="<?php echo (!empty($invItems) && count($invItems) === 1) ? htmlspecialchars($invItems[0]['description']) : ''; ?>">
+                        </div>
+                        <div class="ss-form-group" style="grid-column:1/-1;">
+                            <label class="ss-label">Nominal (Rp) *</label>
+                            <input type="text" id="simpleNominal" class="ss-input" style="font-size:18px;font-weight:700;" placeholder="0" value="<?php echo (!empty($invItems) && count($invItems) === 1) ? number_format((float)$invItems[0]['unit_price'], 0, ',', '.') : ''; ?>">
+                        </div>
+                    </div>
+                </div>
+
                 <div style="text-align:right;margin-top:12px;font-size:15px;font-weight:800;color:var(--ss-ocean);">
                     TOTAL: <span id="calcTotal2">Rp 0</span>
                 </div>
@@ -1146,19 +795,50 @@ function invItemRow($type = '', $desc = '', $qty = 1, $unit = 'pax', $price = 0)
 
     function calcTotals2() {
         var sub = 0;
-        document.querySelectorAll('#itemsBody2 tr').forEach(function(row) {
-            var q = parseFloat(row.querySelector('.item-qty2')?.value) || 0;
-            var p = unFmt(row.querySelector('.item-price2')?.value || '0');
-            var s = q * p;
-            var sf = row.querySelector('.item-sub2');
-            if (sf) sf.value = s ? Math.round(s).toLocaleString('id-ID') : '';
-            sub += s;
-        });
+        var simpleMode = document.getElementById('modeSimple') && document.getElementById('modeSimple').checked;
+        if (simpleMode) {
+            sub = unFmt(document.getElementById('simpleNominal')?.value || '0');
+        } else {
+            document.querySelectorAll('#itemsBody2 tr').forEach(function(row) {
+                var q = parseFloat(row.querySelector('.item-qty2')?.value) || 0;
+                var p = unFmt(row.querySelector('.item-price2')?.value || '0');
+                var s = q * p;
+                var sf = row.querySelector('.item-sub2');
+                if (sf) sf.value = s ? Math.round(s).toLocaleString('id-ID') : '';
+                sub += s;
+            });
+        }
         var disc = unFmt(document.getElementById('discountInput2')?.value || '0');
         var taxP = parseFloat(document.getElementById('taxInput2')?.value) || 0;
         var tax = (sub - disc) * taxP / 100;
         var tot = sub + tax - disc;
         document.getElementById('calcTotal2').textContent = fmt(tot);
+    }
+
+    function switchInvoiceMode(mode) {
+        var itemsBlock = document.getElementById('itemsModeBlock');
+        var simpleBlock = document.getElementById('simpleModeBlock');
+        if (itemsBlock) itemsBlock.style.display = mode === 'simple' ? 'none' : '';
+        if (simpleBlock) simpleBlock.style.display = mode === 'simple' ? '' : 'none';
+        calcTotals2();
+    }
+
+    function prepareInvoiceSubmit() {
+        if (document.getElementById('modeSimple') && document.getElementById('modeSimple').checked) {
+            var desc = (document.getElementById('simpleDesc')?.value || '').trim() || 'Invoice';
+            var nominal = unFmt(document.getElementById('simpleNominal')?.value || '0');
+            var tbody = document.getElementById('itemsBody2');
+            tbody.innerHTML = '';
+            var tr = document.createElement('tr');
+            var escDesc = desc.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+            tr.innerHTML = '<td><input type="hidden" name="item_type[]" value="other"></td>' +
+                '<td><input type="hidden" name="item_description[]" value="' + escDesc + '"></td>' +
+                '<td><input type="hidden" name="item_qty[]" value="1"></td>' +
+                '<td><input type="hidden" name="item_unit[]" value="paket"></td>' +
+                '<td><input type="hidden" name="item_price[]" value="' + nominal + '"></td>';
+            tbody.appendChild(tr);
+        }
+        return true;
     }
 
     function addItem2() {
@@ -1190,9 +870,12 @@ function invItemRow($type = '', $desc = '', $qty = 1, $unit = 'pax', $price = 0)
         });
     }
     document.querySelectorAll('#itemsBody2 tr').forEach(setupRowListeners2);
-    ['discountInput2', 'taxInput2'].forEach(function(id) {
+    ['discountInput2', 'taxInput2', 'simpleNominal'].forEach(function(id) {
         document.getElementById(id)?.addEventListener('input', calcTotals2);
     });
+    if (document.getElementById('modeSimple')) {
+        switchInvoiceMode(document.getElementById('modeSimple').checked ? 'simple' : 'items');
+    }
     calcTotals2();
 </script>
 
