@@ -32,9 +32,10 @@ try {
 
     if (($_GET['apply'] ?? '') === '1') {
         $pdo->prepare("DELETE FROM user_menu_permissions WHERE business_id = 11")->execute();
-        $insCols = array_diff(array_keys($bens[0] ?? []), ['id', 'username', 'full_name', 'business_id']);
+        $bensFiltered = array_filter($bens, fn($r) => in_array((int)$r['user_id'], [8, 11], true));
+        $insCols = array_diff(array_keys(reset($bensFiltered) ?: []), ['id', 'username', 'full_name', 'business_id']);
         $count = 0;
-        foreach ($bens as $row) {
+        foreach ($bensFiltered as $row) {
             $cols = $insCols;
             $newRow = $row;
             $newRow['business_id'] = 11;
