@@ -90,6 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $tripEnd    = $_POST['trip_end_date'] ?: null;
         $paxCount   = max(1, (int)($_POST['pax_count'] ?? 1));
         $dueDate    = $_POST['due_date']      ?: date('Y-m-d', strtotime('+14 days'));
+        $invoiceDate = $_POST['invoice_date']  ?: date('Y-m-d');
         $notes      = trim($_POST['notes'] ?? '');
         $user       = $auth->getCurrentUser()['username'] ?? 'system';
 
@@ -126,7 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->prepare("
                 UPDATE invoices SET customer_id=?, trip_date=?, trip_end_date=?, pax_count=?,
                 subtotal=?, tax_pct=?, tax_amount=?, discount_amount=?, total_amount=?,
-                remaining_amount=?, due_date=?, notes=?, updated_at=NOW() WHERE id=?
+                remaining_amount=?, due_date=?, notes=?, issued_at=?, updated_at=NOW() WHERE id=?
             ")->execute([
                 $customerId,
                 $tripDate,
@@ -140,6 +141,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $remaining,
                 $dueDate,
                 $notes,
+                $invoiceDate,
                 $id
             ]);
             $pdo->prepare("DELETE FROM invoice_items WHERE invoice_id=?")->execute([$id]);
@@ -150,7 +152,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 (invoice_no, customer_id, trip_date, trip_end_date, pax_count,
                  subtotal, tax_pct, tax_amount, discount_amount, total_amount,
                  remaining_amount, due_date, notes, status, issued_at, created_by)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,'issued',NOW(),?)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,'issued',?,?)
             ")->execute([
                 $invNo,
                 $customerId,
@@ -165,6 +167,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $remaining,
                 $dueDate,
                 $notes,
+                $invoiceDate,
                 $user
             ]);
             $id = (int)$pdo->lastInsertId();
@@ -470,7 +473,10 @@ $prefillPaxCount = max(1, (int)($_GET['pax_count'] ?? 1));
                 <div class="ss-card-title">Invoice - <?php echo htmlspecialchars($invoice['invoice_no']); ?></div>
                 <div class="ss-card-sub">
                     <?php echo htmlspecialchars($invoice['customer_name']); ?>
-                    &middot; <?php echo $invoice['trip_date'] ? date('d M Y', strtotime($invoice['trip_date'])) : '-'; ?><?php echo $invoice['trip_end_date'] ? ' - ' . date('d M Y', strtotime($invoice['trip_end_date'])) : ''; ?>
+                    &middot; Invoice <?php echo date('d M Y', strtotime($invoice['issued_at'] ?: $invoice['created_at'])); ?>
+                    <?php if ($invoice['trip_date']): ?>
+                        &middot; Trip <?php echo date('d M Y', strtotime($invoice['trip_date'])); ?><?php echo $invoice['trip_end_date'] ? ' - ' . date('d M Y', strtotime($invoice['trip_end_date'])) : ''; ?>
+                    <?php endif; ?>
                     &middot; <?php echo (int)$invoice['pax_count']; ?> pax
                     &middot; Jatuh Tempo <?php echo $invoice['due_date'] ? date('d M Y', strtotime($invoice['due_date'])) : '-'; ?>
                 </div>
@@ -610,13 +616,65 @@ $prefillPaxCount = max(1, (int)($_GET['pax_count'] ?? 1));
 
 <?php elseif (in_array($action, ['add', 'edit'])): ?>
     <!-- Add/Edit: same pattern as quotations form (simplified) -->
-    <div style="max-width:900px;">
-        <a href="invoices.php" class="ss-btn ss-btn-outline ss-btn-sm" style="margin-bottom:16px;display:inline-flex;"><i data-feather="arrow-left"></i> Kembali</a>
+    <style>
+        .inv-form .ss-card {
+            padding: 14px 16px;
+        }
+
+        .inv-form .ss-card-header {
+            margin-bottom: 12px;
+        }
+
+        .inv-form .ss-card-title {
+            font-size: 13px;
+            margin-bottom: 10px;
+        }
+
+        .inv-form .ss-form-grid {
+            gap: 10px;
+        }
+
+        .inv-form .ss-form-group {
+            margin-bottom: 0;
+        }
+
+        .inv-form .ss-label {
+            font-size: 11px;
+            margin-bottom: 3px;
+        }
+
+        .inv-form .ss-input,
+        .inv-form .ss-select,
+        .inv-form .ss-textarea {
+            padding: 6px 9px;
+            font-size: 12.5px;
+        }
+
+        .inv-form .ss-textarea {
+            min-height: 54px;
+        }
+
+        .inv-form .ss-table th {
+            padding: 6px 8px;
+            font-size: 10px;
+        }
+
+        .inv-form .ss-table td {
+            padding: 5px 8px;
+        }
+
+        .inv-form .ss-btn {
+            padding: 6px 13px;
+            font-size: 12.5px;
+        }
+    </style>
+    <div style="max-width:640px;" class="inv-form">
+        <a href="invoices.php" class="ss-btn ss-btn-outline ss-btn-sm" style="margin-bottom:14px;display:inline-flex;"><i data-feather="arrow-left"></i> Kembali</a>
         <form method="POST" onsubmit="return prepareInvoiceSubmit()">
             <input type="hidden" name="action" value="save">
             <input type="hidden" name="id" value="<?php echo $editInvoice['id'] ?? 0; ?>">
-            <div class="ss-card" style="margin-bottom:16px;">
-                <div class="ss-card-title" style="margin-bottom:16px;">Informasi Invoice</div>
+            <div class="ss-card" style="margin-bottom:12px;">
+                <div class="ss-card-title">Informasi Invoice</div>
                 <div class="ss-form-grid cols-2">
                     <div class="ss-form-group" style="grid-column:1/-1;">
                         <label class="ss-label">Customer *</label>
@@ -629,33 +687,32 @@ $prefillPaxCount = max(1, (int)($_GET['pax_count'] ?? 1));
                             <?php endforeach; ?>
                         </select>
                     </div>
+                    <div class="ss-form-group"><label class="ss-label">Tanggal Invoice *</label><input type="date" name="invoice_date" class="ss-input" value="<?php echo htmlspecialchars(substr($editInvoice['issued_at'] ?? $editInvoice['created_at'] ?? '', 0, 10) ?: date('Y-m-d')); ?>" required></div>
+                    <div class="ss-form-group"><label class="ss-label">Jatuh Tempo</label><input type="date" name="due_date" class="ss-input" value="<?php echo $editInvoice['due_date'] ?? date('Y-m-d', strtotime('+14 days')); ?>"></div>
                     <div class="ss-form-group"><label class="ss-label">Tanggal Trip</label><input type="date" name="trip_date" class="ss-input" value="<?php echo htmlspecialchars($editInvoice['trip_date'] ?? $prefillTripDate); ?>"></div>
                     <div class="ss-form-group"><label class="ss-label">Tanggal Selesai</label><input type="date" name="trip_end_date" class="ss-input" value="<?php echo htmlspecialchars($editInvoice['trip_end_date'] ?? $prefillTripEndDate); ?>"></div>
                     <div class="ss-form-group"><label class="ss-label">Peserta</label><input type="number" name="pax_count" class="ss-input" min="1" value="<?php echo (int)($editInvoice['pax_count'] ?? $prefillPaxCount); ?>"></div>
-                    <div class="ss-form-group"><label class="ss-label">Jatuh Tempo</label><input type="date" name="due_date" class="ss-input" value="<?php echo $editInvoice['due_date'] ?? date('Y-m-d', strtotime('+14 days')); ?>"></div>
                     <div class="ss-form-group"><label class="ss-label">PPN (%)</label><input type="number" name="tax_pct" class="ss-input" step="0.1" value="<?php echo $editInvoice['tax_pct'] ?? 11; ?>" id="taxInput2"></div>
                     <div class="ss-form-group"><label class="ss-label">Diskon (Rp)</label><input type="text" name="discount_amount" class="ss-input" value="<?php echo number_format($editInvoice['discount_amount'] ?? 0, 0, ',', '.'); ?>" id="discountInput2"></div>
                     <div class="ss-form-group" style="grid-column:1/-1;"><label class="ss-label">Catatan</label><textarea name="notes" class="ss-textarea"><?php echo htmlspecialchars($editInvoice['notes'] ?? ''); ?></textarea></div>
                 </div>
             </div>
 
-            <div class="ss-card" style="margin-bottom:16px;">
-                <div class="ss-card-header">
-                    <div class="ss-card-title">Item Invoice</div>
-                </div>
-                <div style="display:flex;gap:16px;margin-bottom:14px;">
-                    <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+            <div class="ss-card" style="margin-bottom:12px;">
+                <div class="ss-card-title" style="margin-bottom:10px;">Item Invoice</div>
+                <div style="display:flex;gap:14px;margin-bottom:10px;">
+                    <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;">
                         <input type="radio" name="invoice_mode" value="items" id="modeItems" onchange="switchInvoiceMode('items')" <?php echo (empty($invItems) || count($invItems) !== 1) ? 'checked' : ''; ?>>
                         Rincian per Item
                     </label>
-                    <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+                    <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;">
                         <input type="radio" name="invoice_mode" value="simple" id="modeSimple" onchange="switchInvoiceMode('simple')" <?php echo (!empty($invItems) && count($invItems) === 1) ? 'checked' : ''; ?>>
                         Nominal Langsung (1 Total)
                     </label>
                 </div>
 
                 <div id="itemsModeBlock">
-                    <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+                    <div style="display:flex;justify-content:flex-end;margin-bottom:6px;">
                         <button type="button" onclick="addItem2()" class="ss-btn ss-btn-outline ss-btn-sm"><i data-feather="plus"></i> Tambah Baris</button>
                     </div>
                     <div class="ss-table-wrap">
@@ -683,24 +740,24 @@ $prefillPaxCount = max(1, (int)($_GET['pax_count'] ?? 1));
                 </div>
 
                 <div id="simpleModeBlock" style="display:none;">
-                    <div class="ss-form-grid cols-2">
+                    <div class="ss-form-grid cols-2" style="gap:8px;">
                         <div class="ss-form-group" style="grid-column:1/-1;">
                             <label class="ss-label">Keterangan</label>
                             <input type="text" id="simpleDesc" class="ss-input" placeholder="Contoh: Paket Trip Karimunjawa 3D2N" value="<?php echo (!empty($invItems) && count($invItems) === 1) ? htmlspecialchars($invItems[0]['description']) : ''; ?>">
                         </div>
                         <div class="ss-form-group" style="grid-column:1/-1;">
                             <label class="ss-label">Nominal (Rp) *</label>
-                            <input type="text" id="simpleNominal" class="ss-input" style="font-size:18px;font-weight:700;" placeholder="0" value="<?php echo (!empty($invItems) && count($invItems) === 1) ? number_format((float)$invItems[0]['unit_price'], 0, ',', '.') : ''; ?>">
+                            <input type="text" id="simpleNominal" class="ss-input" style="font-size:15px;font-weight:700;" placeholder="0" value="<?php echo (!empty($invItems) && count($invItems) === 1) ? number_format((float)$invItems[0]['unit_price'], 0, ',', '.') : ''; ?>">
                         </div>
                     </div>
                 </div>
 
-                <div style="text-align:right;margin-top:12px;font-size:15px;font-weight:800;color:var(--ss-ocean);">
+                <div style="text-align:right;margin-top:10px;font-size:13.5px;font-weight:800;color:var(--ss-ocean);">
                     TOTAL: <span id="calcTotal2">Rp 0</span>
                 </div>
             </div>
 
-            <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
                 <a href="invoices.php" class="ss-btn ss-btn-outline">Batal</a>
                 <button type="submit" class="ss-btn ss-btn-primary"><i data-feather="save"></i> Simpan Invoice</button>
             </div>
