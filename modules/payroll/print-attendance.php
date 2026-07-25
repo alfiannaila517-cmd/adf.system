@@ -4,6 +4,7 @@ define('APP_ACCESS', true);
 require_once '../../config/config.php';
 require_once '../../config/database.php';
 require_once '../../includes/auth.php';
+require_once '../../includes/functions.php';
 
 $auth = new Auth();
 $auth->requireLogin();
@@ -36,10 +37,6 @@ foreach ($attendance as $a) {
 
 $daysInMonth = cal_days_in_month(CAL_GREGORIAN, $m, $y);
 
-// Batas jam masuk: check-in setelah jam ini dianggap Terlambat,
-// terlepas dari status yang tersimpan di database.
-$lateThreshold = '08:15:00';
-
 $totalDays = 0;
 $totalHours = 0.0;
 $lateCount = 0;
@@ -53,10 +50,7 @@ for ($d = 1; $d <= $daysInMonth; $d++) {
     if ($a) {
         $totalDays++;
         $totalHours += (float)($a['work_hours'] ?? 0);
-        if (!empty($a['check_in_time']) && $a['check_in_time'] > $lateThreshold
-            && !in_array($effectiveStatus, ['absent', 'leave', 'holiday'], true)) {
-            $effectiveStatus = 'late';
-        }
+        $effectiveStatus = payrollDetectLateArrival($effectiveStatus, $a['check_in_time'] ?? null);
         if ($effectiveStatus === 'late') $lateCount++;
         if ($effectiveStatus === 'absent') $absentCount++;
     }

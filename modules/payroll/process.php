@@ -58,12 +58,17 @@ if (isset($_GET['ajax_attendance']) && isset($_GET['emp_id'])) {
         $absentCount = 0;
         $presentCount = 0;
 
+        foreach ($attendance as &$a) {
+            $a['effective_status'] = payrollDetectLateArrival($a['status'], $a['check_in_time']);
+        }
+        unset($a);
+
         foreach ($attendance as $a) {
             $totalDays++;
             $totalHours += (float)($a['work_hours'] ?? 0);
-            if ($a['status'] === 'late') $lateCount++;
-            if ($a['status'] === 'absent') $absentCount++;
-            if ($a['status'] === 'present' || $a['status'] === 'late') $presentCount++;
+            if ($a['effective_status'] === 'late') $lateCount++;
+            if ($a['effective_status'] === 'absent') $absentCount++;
+            if ($a['effective_status'] === 'present' || $a['effective_status'] === 'late') $presentCount++;
         }
 
         // Get days in month
@@ -3200,7 +3205,7 @@ include '../../includes/header.php';
             let statusClass = '';
             let hoursText = '';
             if (att) {
-                statusClass = att.status || 'present';
+                statusClass = att.effective_status || att.status || 'present';
                 if (att.work_hours) hoursText = `${parseFloat(att.work_hours).toFixed(1)}h`;
             } else if (day.is_weekend) {
                 statusClass = 'weekend';
@@ -3245,7 +3250,7 @@ include '../../includes/header.php';
             const sh1 = att?.shift_1_hours ? parseFloat(att.shift_1_hours).toFixed(1) : '0.0';
             const sh2 = att?.shift_2_hours ? parseFloat(att.shift_2_hours).toFixed(1) : '0.0';
             const tot = att?.work_hours ? parseFloat(att.work_hours).toFixed(1) : '0.0';
-            const sts = att?.status || (day.is_weekend ? 'holiday' : '');
+            const sts = att?.effective_status || att?.status || (day.is_weekend ? 'holiday' : '');
             const rowClass = isFuture ? 'opacity:0.4;' : (att ? '' : (day.is_weekend ? 'opacity:0.5;' : ''));
             const dayLabel = day.day + ' ' + day.day_name;
 

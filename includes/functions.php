@@ -29,6 +29,38 @@ function roundOT45($hours)
     return (float) intdiv($minutes, 45); // 45→1, 89→1, 90→2, 134→2, 135→3
 }
 
+/**
+ * Deteksi status "Terlambat" berdasarkan jam scan masuk (check-in), terlepas
+ * dari status yang tersimpan di database (yang seringkali masih 'present'
+ * karena threshold jadwal per-staff tidak pernah di-setup — jadwal staff
+ * sering berubah-ubah sehingga tidak praktis untuk di-setup per orang).
+ *
+ * Aturan:
+ *   - Check-in setelah jam 08:15 dianggap Terlambat.
+ *   - KECUALI check-in setelah jam 12:00 siang — ini dianggap masuk shift
+ *     split/siang, BUKAN terlambat.
+ *   - Status yang sudah absent/leave/holiday tetap diprioritaskan (tidak
+ *     ditimpa jadi 'late').
+ *
+ * @param string|null $status Status tersimpan di DB (present/late/absent/leave/holiday/half_day)
+ * @param string|null $checkInTime Jam check-in dalam format H:i atau H:i:s
+ * @return string Status efektif untuk ditampilkan
+ */
+function payrollDetectLateArrival(?string $status, ?string $checkInTime): string
+{
+    $lateStart = '08:15:00';
+    $splitShiftCutoff = '12:00:00';
+    $ci = $checkInTime ? substr($checkInTime, 0, 8) : '';
+    // Normalize "H:i" -> "H:i:s" for consistent string comparison.
+    if ($ci && strlen($ci) === 5) $ci .= ':00';
+
+    if ($ci && $ci > $lateStart && $ci <= $splitShiftCutoff
+        && !in_array($status, ['absent', 'leave', 'holiday'], true)) {
+        return 'late';
+    }
+    return $status ?? '';
+}
+
 if (!function_exists('payrollAttendanceHours')) {
     /**
      * Hitung jam absensi bulanan utk payroll. Sama persis dgn aturan di
