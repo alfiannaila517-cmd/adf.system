@@ -3141,6 +3141,8 @@ include '../../includes/header.php';
     // ═══ Attendance Detail Functions ═══
     let currentAttView = 'table'; // default to table for editing
     let currentAttEmpId = null;
+    let currentAttMonth = null;
+    let currentAttYear = null;
 
     function showAttendanceDetail(empId, empName) {
         currentAttEmpId = empId;
@@ -3149,6 +3151,8 @@ include '../../includes/header.php';
 
         const month = <?php echo $month; ?>;
         const year = <?php echo $year; ?>;
+        currentAttMonth = month;
+        currentAttYear = year;
 
         fetch(`process.php?ajax_attendance=1&emp_id=${empId}&m=${month}&y=${year}`)
             .then(res => res.json())
@@ -3307,6 +3311,7 @@ include '../../includes/header.php';
         <div class="att-view-toggle">
             <button class="att-view-btn ${currentAttView === 'calendar' ? 'active' : ''}" onclick="toggleAttView('calendar')">📅 Kalender</button>
             <button class="att-view-btn ${currentAttView === 'table' ? 'active' : ''}" onclick="toggleAttView('table')">✏️ Edit Harian</button>
+            <button class="att-view-btn" onclick="printAttendanceDetail()">🖨️ Print</button>
         </div>
 
         <!-- Calendar View -->
@@ -3337,6 +3342,13 @@ include '../../includes/header.php';
 
     function closeAttendanceModal() {
         document.getElementById('attendanceModal').classList.remove('active');
+    }
+
+    function printAttendanceDetail() {
+        if (!currentAttEmpId) return;
+        const m = currentAttMonth || <?php echo $month; ?>;
+        const y = currentAttYear || <?php echo $year; ?>;
+        window.open(`print-attendance.php?emp_id=${currentAttEmpId}&m=${m}&y=${y}`, '_blank');
     }
 
     function toggleAttView(view) {
