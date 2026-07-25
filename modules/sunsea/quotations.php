@@ -326,14 +326,14 @@ if ($action === 'print' && $quotation):
                 justify-content: space-between;
                 align-items: flex-start;
                 margin-bottom: 28px;
-                border-bottom: 2px solid #0EA5E9;
+                border-bottom: 2px solid #C2410C;
                 padding-bottom: 16px;
             }
 
             .brand {
                 font-size: 24px;
                 font-weight: 800;
-                color: #0C4A6E;
+                color: #7C2D12;
             }
 
             .brand-sub {
@@ -348,7 +348,7 @@ if ($action === 'print' && $quotation):
             .doc-no {
                 font-size: 18px;
                 font-weight: 800;
-                color: #0EA5E9;
+                color: #C2410C;
             }
 
             .section-title {
@@ -374,7 +374,7 @@ if ($action === 'print' && $quotation):
             }
 
             th {
-                background: #F0F9FF;
+                background: #FFF7ED;
                 padding: 8px 10px;
                 text-align: left;
                 font-size: 11px;
@@ -402,8 +402,8 @@ if ($action === 'print' && $quotation):
             .total-row.final {
                 font-size: 14px;
                 font-weight: 800;
-                color: #0EA5E9;
-                border-top: 2px solid #0EA5E9;
+                color: #C2410C;
+                border-top: 2px solid #C2410C;
                 padding-top: 8px;
                 margin-top: 4px;
             }
@@ -418,7 +418,7 @@ if ($action === 'print' && $quotation):
             }
 
             .bank-info {
-                background: #F0F9FF;
+                background: #FFF7ED;
                 padding: 12px;
                 border-radius: 8px;
                 margin-top: 20px;

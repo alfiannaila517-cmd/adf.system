@@ -181,7 +181,7 @@ include 'layout-header.php';
                 </label>
             </div>
 
-            <button class="ss-btn ss-btn-primary" type="submit" style="padding:10px 16px;background:#0EA5E9;color:white;border:none;border-radius:4px;font-weight:600;cursor:pointer;font-size:14px;">💾 Simpan Tiket</button>
+            <button class="ss-btn ss-btn-primary" type="submit" style="padding:10px 16px;background:#C2410C;color:white;border:none;border-radius:4px;font-weight:600;cursor:pointer;font-size:14px;">💾 Simpan Tiket</button>
         </form>
     </div>
 
@@ -213,8 +213,8 @@ include 'layout-header.php';
                                 <td style="padding:10px;border:1px solid #ddd;"><strong><?php echo htmlspecialchars($r['ticket_name']); ?></strong><br><small style="color:#999;"><?php echo htmlspecialchars($r['description'] ?: '-'); ?></small></td>
                                 <td style="padding:10px;border:1px solid #ddd;font-size:12px;color:#666;"><?php echo htmlspecialchars($r['description'] ?: '-'); ?></td>
                                 <td style="padding:10px;border:1px solid #ddd;text-align:right;">Rp <?php echo number_format((float)($r['price_cost'] ?? 0), 0, ',', '.'); ?></td>
-                                <td style="padding:10px;border:1px solid #ddd;text-align:right;font-weight:600;color:#0EA5E9;">Rp <?php echo number_format((float)($r['price_sell'] ?? 0), 0, ',', '.'); ?></td>
-                                <td style="padding:10px;border:1px solid #ddd;text-align:center;"><?php echo $r['is_active'] ? '<span style="background:#e6f7ff;color:#0EA5E9;padding:4px 8px;border-radius:3px;font-size:12px;font-weight:600;">Aktif</span>' : '<span style="background:#f5f5f5;color:#666;padding:4px 8px;border-radius:3px;font-size:12px;font-weight:600;">Nonaktif</span>'; ?></td>
+                                <td style="padding:10px;border:1px solid #ddd;text-align:right;font-weight:600;color:#C2410C;">Rp <?php echo number_format((float)($r['price_sell'] ?? 0), 0, ',', '.'); ?></td>
+                                <td style="padding:10px;border:1px solid #ddd;text-align:center;"><?php echo $r['is_active'] ? '<span style="background:#e6f7ff;color:#C2410C;padding:4px 8px;border-radius:3px;font-size:12px;font-weight:600;">Aktif</span>' : '<span style="background:#f5f5f5;color:#666;padding:4px 8px;border-radius:3px;font-size:12px;font-weight:600;">Nonaktif</span>'; ?></td>
                             </tr>
                         <?php endforeach; ?>
                     <?php endif; ?>

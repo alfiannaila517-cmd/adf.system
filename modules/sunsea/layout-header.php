@@ -92,12 +92,12 @@ if (empty($sunseaNavItemsVisible)) {
 
     <style>
         /* ================================================
-           SUNSEA DESIGN SYSTEM — Ocean Theme
+           SUNSEA DESIGN SYSTEM — Elegant Orange Theme
            Colors:
-             --ss-ocean   : #0EA5E9  (sky/ocean blue)
-             --ss-deep    : #0C4A6E  (deep ocean)
-             --ss-cyan    : #06B6D4  (cyan wave)
-             --ss-sky     : #F0F9FF  (light sky bg)
+             --ss-ocean   : #C2410C  (primary terracotta/burnt orange)
+             --ss-deep    : #7C2D12  (deep chestnut, sidebar bg)
+             --ss-cyan    : #F59E0B  (warm gold accent)
+             --ss-sky     : #FFF7ED  (light warm cream bg)
              --ss-white   : #FFFFFF
              --ss-gray-1  : #F8FAFC
              --ss-gray-2  : #E2E8F0
@@ -108,10 +108,10 @@ if (empty($sunseaNavItemsVisible)) {
              --ss-danger  : #EF4444
         ================================================ */
         :root {
-            --ss-ocean: #0EA5E9;
-            --ss-deep: #0C4A6E;
-            --ss-cyan: #06B6D4;
-            --ss-sky: #F0F9FF;
+            --ss-ocean: #C2410C;
+            --ss-deep: #7C2D12;
+            --ss-cyan: #F59E0B;
+            --ss-sky: #FFF7ED;
             --ss-white: #FFFFFF;
             --ss-gray-1: #F8FAFC;
             --ss-gray-2: #E2E8F0;
@@ -122,8 +122,8 @@ if (empty($sunseaNavItemsVisible)) {
             --ss-warning: #F59E0B;
             --ss-danger: #EF4444;
             --ss-radius: 12px;
-            --ss-shadow: 0 1px 3px rgba(14, 165, 233, .08), 0 4px 16px rgba(14, 165, 233, .06);
-            --ss-shadow-md: 0 4px 24px rgba(14, 165, 233, .12), 0 1px 4px rgba(0, 0, 0, .04);
+            --ss-shadow: 0 1px 3px rgba(194, 65, 12, .08), 0 4px 16px rgba(194, 65, 12, .06);
+            --ss-shadow-md: 0 4px 24px rgba(194, 65, 12, .12), 0 1px 4px rgba(0, 0, 0, .04);
             --sidebar-w: 240px;
         }
 
@@ -248,7 +248,7 @@ if (empty($sunseaNavItemsVisible)) {
         .ss-nav-item.active {
             background: linear-gradient(135deg, var(--ss-ocean), var(--ss-cyan));
             color: var(--ss-white);
-            box-shadow: 0 4px 12px rgba(14, 165, 233, .35);
+            box-shadow: 0 4px 12px rgba(194, 65, 12, .35);
         }
 
         .ss-nav-item svg {
@@ -531,7 +531,7 @@ if (empty($sunseaNavItemsVisible)) {
         .ss-btn-primary {
             background: linear-gradient(135deg, var(--ss-ocean), var(--ss-cyan));
             color: white;
-            box-shadow: 0 4px 12px rgba(14, 165, 233, .3);
+            box-shadow: 0 4px 12px rgba(194, 65, 12, .3);
         }
 
         .ss-btn-primary:hover {
@@ -594,19 +594,19 @@ if (empty($sunseaNavItemsVisible)) {
             border-color: var(--ss-ocean);
             background: var(--ss-sky);
             transform: translateY(-2px);
-            box-shadow: 0 8px 16px rgba(14, 165, 233, .15);
+            box-shadow: 0 8px 16px rgba(194, 65, 12, .15);
         }
 
         .ss-quick-action-btn.ss-qa-primary {
             background: linear-gradient(135deg, var(--ss-ocean), var(--ss-cyan));
             border-color: transparent;
             color: white;
-            box-shadow: 0 4px 12px rgba(14, 165, 233, .25);
+            box-shadow: 0 4px 12px rgba(194, 65, 12, .25);
         }
 
         .ss-quick-action-btn.ss-qa-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(14, 165, 233, .35);
+            box-shadow: 0 8px 20px rgba(194, 65, 12, .35);
         }
 
         .ss-qa-icon {
@@ -757,7 +757,7 @@ if (empty($sunseaNavItemsVisible)) {
         .ss-textarea:focus {
             outline: none;
             border-color: var(--ss-ocean);
-            box-shadow: 0 0 0 3px rgba(14, 165, 233, .12);
+            box-shadow: 0 0 0 3px rgba(194, 65, 12, .12);
         }
 
         .ss-textarea {
@@ -808,7 +808,7 @@ if (empty($sunseaNavItemsVisible)) {
 
         .ss-alert-info {
             background: #E0F2FE;
-            color: #0C4A6E;
+            color: #7C2D12;
         }
 
         /* ---- EMPTY STATE ---- */

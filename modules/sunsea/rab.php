@@ -56,7 +56,7 @@ if ($print):
             h1 {
                 font-size: 22px;
                 margin: 0;
-                color: #0C4A6E
+                color: #7C2D12
             }
 
             h2 {
@@ -79,7 +79,7 @@ if ($print):
             }
 
             th {
-                background: #F0F9FF;
+                background: #FFF7ED;
                 font-size: 11px;
                 color: #64748B
             }
@@ -99,9 +99,9 @@ if ($print):
             .final {
                 font-size: 16px;
                 font-weight: 700;
-                border-top: 2px solid #0EA5E9;
+                border-top: 2px solid #C2410C;
                 padding-top: 8px;
-                color: #0EA5E9
+                color: #C2410C
             }
 
             @media print {

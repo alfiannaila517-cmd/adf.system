@@ -223,15 +223,15 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
 <!-- Tab Navigation -->
 <div style="display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid #e0e7ef;">
     <a href="?tab=company" style="padding:10px 24px;font-weight:600;text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-2px;
-        <?php echo $tab === 'company' ? 'border-bottom-color:#0EA5E9;color:#0EA5E9;' : 'color:#666;'; ?>">
+        <?php echo $tab === 'company' ? 'border-bottom-color:#C2410C;color:#C2410C;' : 'color:#666;'; ?>">
         🏢 Perusahaan
     </a>
     <a href="?tab=invoice" style="padding:10px 24px;font-weight:600;text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-2px;
-        <?php echo $tab === 'invoice' ? 'border-bottom-color:#0EA5E9;color:#0EA5E9;' : 'color:#666;'; ?>">
+        <?php echo $tab === 'invoice' ? 'border-bottom-color:#C2410C;color:#C2410C;' : 'color:#666;'; ?>">
         🧾 Invoice & Pembayaran
     </a>
     <a href="?tab=sidebar" style="padding:10px 24px;font-weight:600;text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-2px;
-        <?php echo $tab === 'sidebar' ? 'border-bottom-color:#0EA5E9;color:#0EA5E9;' : 'color:#666;'; ?>">
+        <?php echo $tab === 'sidebar' ? 'border-bottom-color:#C2410C;color:#C2410C;' : 'color:#666;'; ?>">
         🧭 Setup Sidebar
     </a>
 </div>
@@ -240,7 +240,7 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
 <?php if ($tab === 'company'): ?>
     <div style="display:grid;grid-template-columns:1fr 320px;gap:18px;align-items:start;">
         <div style="background:#fff;border:1px solid #dde5ef;border-radius:8px;padding:20px;">
-            <div style="font-size:16px;font-weight:700;color:#0c4a6e;margin-bottom:16px;">⚙️ Pengaturan Perusahaan</div>
+            <div style="font-size:16px;font-weight:700;color:#7C2D12;margin-bottom:16px;">⚙️ Pengaturan Perusahaan</div>
             <form method="POST" enctype="multipart/form-data" style="display:flex;flex-direction:column;gap:14px;">
                 <input type="hidden" name="tab" value="company">
 
@@ -296,7 +296,7 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
                 </div>
 
                 <div style="padding-top:6px;">
-                    <button type="submit" style="padding:10px 24px;background:#0EA5E9;color:white;border:none;border-radius:5px;font-weight:700;cursor:pointer;font-size:14px;">
+                    <button type="submit" style="padding:10px 24px;background:#C2410C;color:white;border:none;border-radius:5px;font-weight:700;cursor:pointer;font-size:14px;">
                         💾 Simpan Pengaturan Perusahaan
                     </button>
                 </div>
@@ -305,7 +305,7 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
 
         <!-- Preview -->
         <div style="background:#fff;border:1px solid #dde5ef;border-radius:8px;padding:20px;">
-            <div style="font-size:14px;font-weight:700;color:#0c4a6e;margin-bottom:12px;">👁️ Preview</div>
+            <div style="font-size:14px;font-weight:700;color:#7C2D12;margin-bottom:12px;">👁️ Preview</div>
             <?php if ($cfg['company_logo']): ?>
                 <div style="text-align:center;margin-bottom:12px;padding:12px;background:#f8fbff;border-radius:6px;">
                     <img src="<?php echo htmlspecialchars($baseUrl . '/' . trim($cfg['company_logo'], '/')); ?>"
@@ -317,7 +317,7 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
                     <small>Logo belum diupload</small>
                 </div>
             <?php endif; ?>
-            <div style="font-size:18px;font-weight:700;color:#0c4a6e;"><?php echo htmlspecialchars($cfg['company_name']); ?></div>
+            <div style="font-size:18px;font-weight:700;color:#7C2D12;"><?php echo htmlspecialchars($cfg['company_name']); ?></div>
             <div style="font-size:12px;color:#666;margin-top:4px;"><?php echo htmlspecialchars($cfg['company_tagline']); ?></div>
             <?php if ($cfg['company_address']): ?>
                 <div style="font-size:12px;color:#888;margin-top:8px;border-top:1px solid #eee;padding-top:8px;"><?php echo nl2br(htmlspecialchars($cfg['company_address'])); ?></div>
@@ -339,7 +339,7 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
 
             <!-- Logo & Identitas Invoice -->
             <div style="background:#fff;border:1px solid #dde5ef;border-radius:8px;padding:20px;">
-                <div style="font-size:15px;font-weight:700;color:#0c4a6e;margin-bottom:14px;">🧾 Identitas Invoice</div>
+                <div style="font-size:15px;font-weight:700;color:#7C2D12;margin-bottom:14px;">🧾 Identitas Invoice</div>
                 <div style="display:flex;flex-direction:column;gap:12px;">
 
                     <div>
@@ -400,7 +400,7 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
             <!-- Rekening Pembayaran -->
             <div>
                 <div style="background:#fff;border:1px solid #dde5ef;border-radius:8px;padding:20px;margin-bottom:16px;">
-                    <div style="font-size:15px;font-weight:700;color:#0c4a6e;margin-bottom:14px;">🏦 Rekening Pembayaran Utama</div>
+                    <div style="font-size:15px;font-weight:700;color:#7C2D12;margin-bottom:14px;">🏦 Rekening Pembayaran Utama</div>
                     <div style="display:flex;flex-direction:column;gap:10px;">
                         <div>
                             <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Nama Bank</label>
@@ -424,7 +424,7 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
                 </div>
 
                 <div style="background:#fff;border:1px solid #dde5ef;border-radius:8px;padding:20px;margin-bottom:16px;">
-                    <div style="font-size:15px;font-weight:700;color:#0c4a6e;margin-bottom:14px;">🏦 Rekening Pembayaran Kedua (opsional)</div>
+                    <div style="font-size:15px;font-weight:700;color:#7C2D12;margin-bottom:14px;">🏦 Rekening Pembayaran Kedua (opsional)</div>
                     <div style="display:flex;flex-direction:column;gap:10px;">
                         <div>
                             <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Nama Bank</label>
@@ -449,9 +449,9 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
 
                 <!-- Preview rekening -->
                 <?php if ($cfg['bank_name'] || $cfg['bank_account']): ?>
-                    <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:14px;">
+                    <div style="background:#FFF7ED;border:1px solid #bae6fd;border-radius:8px;padding:14px;">
                         <div style="font-size:13px;font-weight:700;color:#0369a1;margin-bottom:8px;">Preview di Invoice:</div>
-                        <div style="font-size:13px;color:#0c4a6e;">
+                        <div style="font-size:13px;color:#7C2D12;">
                             <strong><?php echo htmlspecialchars($cfg['bank_name']); ?></strong><br>
                             <?php echo htmlspecialchars($cfg['bank_account']); ?><br>
                             a.n. <?php echo htmlspecialchars($cfg['bank_holder']); ?>
@@ -468,10 +468,10 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
         </div>
 
         <div style="margin-top:16px;padding:16px;background:#fff;border:1px solid #dde5ef;border-radius:8px;display:flex;justify-content:flex-end;gap:10px;">
-            <a href="invoices.php" style="padding:10px 20px;background:#f0f9ff;color:#0EA5E9;border:1px solid #0EA5E9;border-radius:5px;text-decoration:none;font-weight:600;font-size:14px;">
+            <a href="invoices.php" style="padding:10px 20px;background:#FFF7ED;color:#C2410C;border:1px solid #C2410C;border-radius:5px;text-decoration:none;font-weight:600;font-size:14px;">
                 📄 Lihat Invoice
             </a>
-            <button type="submit" style="padding:10px 24px;background:#0EA5E9;color:white;border:none;border-radius:5px;font-weight:700;cursor:pointer;font-size:14px;">
+            <button type="submit" style="padding:10px 24px;background:#C2410C;color:white;border:none;border-radius:5px;font-weight:700;cursor:pointer;font-size:14px;">
                 💾 Simpan Pengaturan Invoice
             </button>
         </div>
@@ -483,7 +483,7 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
         <input type="hidden" name="tab" value="sidebar">
         <div style="display:grid;grid-template-columns:1fr 320px;gap:18px;align-items:start;">
             <div style="background:#fff;border:1px solid #dde5ef;border-radius:8px;padding:20px;">
-                <div style="font-size:16px;font-weight:700;color:#0c4a6e;margin-bottom:8px;">🧭 Setup Sidebar</div>
+                <div style="font-size:16px;font-weight:700;color:#7C2D12;margin-bottom:8px;">🧭 Setup Sidebar</div>
                 <div style="font-size:13px;color:#666;margin-bottom:16px;">Centang menu yang ingin ditampilkan di sidebar Sunsea.</div>
 
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
@@ -501,14 +501,14 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
                 </div>
 
                 <div style="padding-top:14px;">
-                    <button type="submit" style="padding:10px 24px;background:#0EA5E9;color:white;border:none;border-radius:5px;font-weight:700;cursor:pointer;font-size:14px;">
+                    <button type="submit" style="padding:10px 24px;background:#C2410C;color:white;border:none;border-radius:5px;font-weight:700;cursor:pointer;font-size:14px;">
                         💾 Simpan Setup Sidebar
                     </button>
                 </div>
             </div>
 
             <div style="background:#fff;border:1px solid #dde5ef;border-radius:8px;padding:20px;">
-                <div style="font-size:14px;font-weight:700;color:#0c4a6e;margin-bottom:12px;">👁️ Preview Menu Aktif</div>
+                <div style="font-size:14px;font-weight:700;color:#7C2D12;margin-bottom:12px;">👁️ Preview Menu Aktif</div>
                 <div style="display:flex;flex-direction:column;gap:8px;">
                     <?php foreach ($visibleSidebarMenus as $mKey): ?>
                         <div style="padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;color:#334155;background:#f8fafc;">

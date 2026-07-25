@@ -342,11 +342,11 @@ if ($action === 'print' && $invoice):
             }
 
             .watermark.dp {
-                color: #0ea5e9;
+                color: #C2410C;
             }
 
             .watermark.paid {
-                color: #0284c7;
+                color: #7C2D12;
             }
 
             .top-accent {
@@ -355,7 +355,7 @@ if ($action === 'print' && $invoice):
                 top: 0;
                 right: 0;
                 height: 12mm;
-                background: linear-gradient(100deg, #0b3158 0%, #124978 55%, #1c74ab 100%);
+                background: linear-gradient(100deg, #7C2D12 0%, #9A3412 55%, #C2410C 100%);
                 opacity: .98;
             }
 
@@ -365,7 +365,7 @@ if ($action === 'print' && $invoice):
                 right: 0;
                 bottom: 0;
                 height: 5mm;
-                background: linear-gradient(90deg, #0b3158 0%, #1d6ea7 100%);
+                background: linear-gradient(90deg, #7C2D12 0%, #C2410C 100%);
             }
 
             .header {
@@ -377,29 +377,30 @@ if ($action === 'print' && $invoice):
                 position: relative;
                 z-index: 2;
                 padding: 12px 12px 11px;
-                border: 1px solid #c7d8e8;
+                border: 1px solid #E7D5C6;
                 border-radius: 12px;
-                background: linear-gradient(165deg, #ffffff 0%, #f4f8fc 100%);
-                box-shadow: 0 10px 30px rgba(12, 74, 110, .06);
+                background: linear-gradient(165deg, #ffffff 0%, #FDF4E9 100%);
+                box-shadow: 0 10px 30px rgba(124, 45, 18, .06);
             }
 
             .company {
                 display: flex;
-                gap: 12px;
-                align-items: flex-start;
+                gap: 14px;
+                align-items: center;
                 width: 63%;
             }
 
             .logo {
-                width: 44mm;
-                height: 26mm;
+                width: 32mm;
+                height: 22mm;
+                flex-shrink: 0;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 border-radius: 10px;
                 background: #ffffff;
-                border: 1px solid #d4e4f2;
-                padding: 5px;
+                border: 1px solid #F0DCC5;
+                padding: 4px;
                 box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .55);
             }
 
@@ -411,13 +412,13 @@ if ($action === 'print' && $invoice):
 
             .logo-fallback {
                 font-size: 30px;
-                color: #0e76b2;
+                color: #C2410C;
             }
 
             .company-name {
                 font-size: 22px;
                 font-weight: 800;
-                color: #103b67;
+                color: #7C2D12;
                 line-height: 1.1;
                 margin-bottom: 4px;
                 letter-spacing: .5px;
@@ -426,7 +427,7 @@ if ($action === 'print' && $invoice):
 
             .company-line {
                 font-size: 10.5px;
-                color: #46627a;
+                color: #78716C;
                 line-height: 1.45;
             }
 
@@ -434,10 +435,10 @@ if ($action === 'print' && $invoice):
                 width: 35%;
                 text-align: left;
                 font-size: 11px;
-                color: #3c5b77;
+                color: #7C4A2D;
                 border-radius: 12px;
-                background: linear-gradient(180deg, #f7fbff 0%, #edf4fb 100%);
-                border: 1px solid #c8d9ea;
+                background: linear-gradient(180deg, #FFFBF5 0%, #FFFBF5 100%);
+                border: 1px solid #E7D5C6;
                 padding: 10px 12px;
                 box-shadow: inset 0 1px 0 rgba(255, 255, 255, .7);
             }
@@ -446,7 +447,7 @@ if ($action === 'print' && $invoice):
                 font-size: 9px;
                 font-weight: 700;
                 text-transform: uppercase;
-                color: #5b7892;
+                color: #92702B;
                 margin-bottom: 1px;
                 letter-spacing: .7px;
             }
@@ -513,10 +514,10 @@ if ($action === 'print' && $invoice):
                 margin-top: 7px;
                 position: relative;
                 z-index: 2;
-                border: 1px solid #c7d8e8;
+                border: 1px solid #E7D5C6;
                 border-radius: 12px;
                 overflow: hidden;
-                box-shadow: 0 6px 16px rgba(12, 74, 110, .04);
+                box-shadow: 0 6px 16px rgba(124, 45, 18, .04);
             }
 
             .item-table thead th {
@@ -549,7 +550,7 @@ if ($action === 'print' && $invoice):
             }
 
             .item-table tbody tr:nth-child(even) td {
-                background: #f7fbff;
+                background: #FFFBF5;
             }
 
             .desc-main {
@@ -570,7 +571,7 @@ if ($action === 'print' && $invoice):
                 grid-template-columns: 1fr 1fr;
                 gap: 16px;
                 margin-top: 16px;
-                border-top: 1px solid #c8d9ea;
+                border-top: 1px solid #E7D5C6;
                 padding-top: 13px;
                 position: relative;
                 z-index: 2;
@@ -606,7 +607,7 @@ if ($action === 'print' && $invoice):
                 padding-left: 12px;
                 background: linear-gradient(180deg, #f8fbfe 0%, #f1f6fb 100%);
                 border-radius: 12px;
-                border: 1px solid #c8d9ea;
+                border: 1px solid #E7D5C6;
                 padding: 11px 12px;
                 font-family: "Inter", "Segoe UI", Arial, sans-serif;
                 box-shadow: inset 0 1px 0 rgba(255, 255, 255, .7);
@@ -662,7 +663,7 @@ if ($action === 'print' && $invoice):
             .lux-rule {
                 height: 1px;
                 margin: 10px 0 12px;
-                background: linear-gradient(90deg, rgba(13, 63, 115, .0), rgba(13, 63, 115, .6), rgba(13, 63, 115, .0));
+                background: linear-gradient(90deg, rgba(194, 65, 12, .0), rgba(194, 65, 12, .6), rgba(194, 65, 12, .0));
             }
 
             .compact-note {

@@ -26,12 +26,12 @@ return [
         'reports',
     ],
 
-    // Custom design - ocean / teal theme, completely different from other businesses
+    // Custom design - elegant orange theme, completely different from other businesses
     'theme' => [
-        'color_primary'   => '#0EA5E9',   // Sky blue ocean
-        'color_secondary' => '#0C4A6E',   // Deep ocean blue
-        'color_accent'    => '#06B6D4',   // Cyan wave
-        'color_bg'        => '#F0F9FF',   // Light sky
+        'color_primary'   => '#C2410C',   // Terracotta / burnt orange
+        'color_secondary' => '#7C2D12',   // Deep chestnut
+        'color_accent'    => '#F59E0B',   // Warm gold accent
+        'color_bg'        => '#FFF7ED',   // Light warm cream
         'icon'            => '🌊',
         'design_variant'  => 'sunsea',    // Triggers custom layout in modules
     ],

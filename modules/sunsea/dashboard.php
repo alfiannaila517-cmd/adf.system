@@ -459,7 +459,7 @@ if (isset($dbError)): ?>
     // Ocean theme colors
     const oceanColors = {
         primary: '#0369a1', // Ocean blue
-        secondary: '#06b6d4', // Cyan
+        secondary: '#F59E0B', // Cyan
         success: '#10b981', // Green
         warning: '#f59e0b', // Amber
         danger: '#ef4444' // Red
@@ -715,7 +715,7 @@ if (isset($dbError)): ?>
     }
 
     #qaSettingsModal input[type="checkbox"] {
-        accent-color: #0EA5E9;
+        accent-color: #C2410C;
     }
 </style>
 

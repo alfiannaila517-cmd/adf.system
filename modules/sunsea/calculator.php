@@ -287,7 +287,7 @@ include 'layout-header.php';
     .calc-section-title {
         font-size: 14px;
         font-weight: 700;
-        color: #0c4a6e;
+        color: #7C2D12;
         margin-bottom: 14px;
         display: flex;
         align-items: center;
@@ -312,14 +312,14 @@ include 'layout-header.php';
 
     .pkg-card:hover,
     .pkg-card.active {
-        border-color: #0EA5E9;
-        background: #f0f9ff;
+        border-color: #C2410C;
+        background: #FFF7ED;
     }
 
     .pkg-card .pkg-duration {
         font-size: 20px;
         font-weight: 800;
-        color: #0c4a6e;
+        color: #7C2D12;
     }
 
     .pkg-card .pkg-label {
@@ -331,7 +331,7 @@ include 'layout-header.php';
     .pkg-card .pkg-price {
         font-size: 11px;
         font-weight: 700;
-        color: #0EA5E9;
+        color: #C2410C;
         margin-top: 6px;
     }
 
@@ -368,7 +368,7 @@ include 'layout-header.php';
 
     .calc-input:focus {
         outline: none;
-        border-color: #0EA5E9;
+        border-color: #C2410C;
     }
 
     .calc-select {
@@ -404,8 +404,8 @@ include 'layout-header.php';
         justify-content: space-between;
         font-size: 18px;
         font-weight: 800;
-        color: #0EA5E9;
-        border-top: 2px solid #0EA5E9;
+        color: #C2410C;
+        border-top: 2px solid #C2410C;
         padding-top: 10px;
         margin-top: 6px;
     }
@@ -415,7 +415,7 @@ include 'layout-header.php';
         align-items: center;
         gap: 5px;
         padding: 6px 12px;
-        background: #f0f9ff;
+        background: #FFF7ED;
         border: 1px solid #bae6fd;
         border-radius: 5px;
         font-size: 12px;
@@ -448,7 +448,7 @@ endif; ?>
         <div class="calc-section">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;">
                 <div class="calc-section-title" style="margin-bottom:0;">📦 Pilihan Paket</div>
-                <button type="button" onclick="togglePkgSetup()" class="calc-btn-sm" style="font-weight:700;color:#0c4a6e;">⚙️ Setup Harga Paket</button>
+                <button type="button" onclick="togglePkgSetup()" class="calc-btn-sm" style="font-weight:700;color:#7C2D12;">⚙️ Setup Harga Paket</button>
             </div>
 
             <div id="pkgSetupPanel" style="display:none;padding:12px;background:#f8fbff;border:1px solid #dbeafe;border-radius:8px;margin-bottom:12px;">
@@ -470,7 +470,7 @@ endif; ?>
                         <label style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:4px;">5D4N</label>
                         <input type="text" name="pkg_price_5d4n" class="calc-input" value="<?php echo number_format((float)$pkgPresetPrices['5d4n'], 0, ',', '.'); ?>" placeholder="0">
                     </div>
-                    <button type="submit" style="padding:8px 12px;background:#0EA5E9;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">💾 Simpan</button>
+                    <button type="submit" style="padding:8px 12px;background:#C2410C;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">💾 Simpan</button>
                 </form>
                 <div style="margin-top:8px;font-size:11px;color:#64748b;">Harga di atas dipakai otomatis saat paket dipilih, untuk mempercepat pembuatan invoice.</div>
             </div>
@@ -518,7 +518,7 @@ endif; ?>
                         <input type="number" id="customNights" class="calc-input" value="2" min="0">
                     </div>
                 </div>
-                <button onclick="applyCustomPkg()" style="margin-top:8px;padding:6px 14px;background:#0EA5E9;color:#fff;border:none;border-radius:4px;font-weight:600;cursor:pointer;font-size:12px;">Terapkan</button>
+                <button onclick="applyCustomPkg()" style="margin-top:8px;padding:6px 14px;background:#C2410C;color:#fff;border:none;border-radius:4px;font-weight:600;cursor:pointer;font-size:12px;">Terapkan</button>
             </div>
 
             <div style="border-top:1px solid #eef2f7;padding-top:12px;margin-top:4px;">
@@ -566,12 +566,12 @@ endif; ?>
         <div class="calc-section">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
                 <div class="calc-section-title" style="margin-bottom:0;">🧾 Komponen Biaya</div>
-                <button onclick="addManualRow()" style="padding:7px 12px;background:#0EA5E9;color:#fff;border:none;border-radius:5px;font-weight:600;font-size:12px;cursor:pointer;">+ Baris Manual</button>
+                <button onclick="addManualRow()" style="padding:7px 12px;background:#C2410C;color:#fff;border:none;border-radius:5px;font-weight:600;font-size:12px;cursor:pointer;">+ Baris Manual</button>
             </div>
 
             <!-- Quick add dari database -->
             <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;padding:10px;background:#f8fbff;border:1px solid #dde5ef;border-radius:6px;">
-                <span style="font-size:11px;font-weight:700;color:#0c4a6e;align-self:center;">Tambah dari Database:</span>
+                <span style="font-size:11px;font-weight:700;color:#7C2D12;align-self:center;">Tambah dari Database:</span>
                 <button class="add-db-btn" onclick="openDbPicker('ticket')">🎫 Tiket</button>
                 <button class="add-db-btn" onclick="openDbPicker('hotel')">🏨 Hotel/Penginapan</button>
                 <button class="add-db-btn" onclick="openDbPicker('catering')">🍽️ Catering</button>
@@ -632,11 +632,11 @@ endif; ?>
         <div class="calc-section" style="position:sticky;top:72px;">
             <div class="calc-section-title" style="margin-bottom:14px;">📊 Ringkasan</div>
 
-            <div style="background:#f0f9ff;border-radius:8px;padding:14px;margin-bottom:14px;">
+            <div style="background:#FFF7ED;border-radius:8px;padding:14px;margin-bottom:14px;">
                 <div class="summary-row"><span style="color:#666;">Total Biaya</span><strong id="sumCost">Rp 0</strong></div>
                 <div class="summary-row"><span style="color:#666;">Biaya / Pax</span><strong id="sumCostPerPax">Rp 0</strong></div>
                 <div class="summary-row"><span style="color:#666;">Margin (<span id="marginLabel">15</span>%)</span><strong style="color:#f59e0b;" id="sumMargin">Rp 0</strong></div>
-                <div class="summary-row"><span style="color:#666;">Harga Jual / Pax</span><strong style="font-size:15px;color:#0EA5E9;" id="sumSellPerPax">Rp 0</strong></div>
+                <div class="summary-row"><span style="color:#666;">Harga Jual / Pax</span><strong style="font-size:15px;color:#C2410C;" id="sumSellPerPax">Rp 0</strong></div>
             </div>
 
             <div style="margin-bottom:12px;">
@@ -644,7 +644,7 @@ endif; ?>
                 <input type="number" id="taxCalc" class="calc-input" value="11" step="0.1" min="0" oninput="recalc()">
             </div>
 
-            <div style="border-top:2px solid #0EA5E9;padding-top:12px;margin-bottom:14px;">
+            <div style="border-top:2px solid #C2410C;padding-top:12px;margin-bottom:14px;">
                 <div class="summary-row"><span style="color:#666;">Subtotal</span><span id="sumSubtotal">Rp 0</span></div>
                 <div class="summary-row"><span style="color:#666;">PPN</span><span id="sumTax">Rp 0</span></div>
                 <div class="summary-total"><span>TOTAL</span><span id="sumTotal">Rp 0</span></div>
@@ -671,16 +671,16 @@ endif; ?>
                 </div>
             </div>
 
-            <button onclick="recalc()" style="width:100%;padding:9px;background:#fff;color:#0EA5E9;border:1px solid #0EA5E9;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer;margin-bottom:8px;">
+            <button onclick="recalc()" style="width:100%;padding:9px;background:#fff;color:#C2410C;border:1px solid #C2410C;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer;margin-bottom:8px;">
                 🧮 Hitung Kalkulasi Ecer
             </button>
-            <button onclick="saveTempBooking()" style="width:100%;padding:9px;background:#fff;color:#0c4a6e;border:1px solid #93c5fd;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer;margin-bottom:8px;">
+            <button onclick="saveTempBooking()" style="width:100%;padding:9px;background:#fff;color:#7C2D12;border:1px solid #93c5fd;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer;margin-bottom:8px;">
                 💾 Save Sementara
             </button>
-            <button onclick="sendToQuotation()" style="width:100%;padding:11px;background:#0EA5E9;color:#fff;border:none;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:8px;">
+            <button onclick="sendToQuotation()" style="width:100%;padding:11px;background:#C2410C;color:#fff;border:none;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:8px;">
                 📄 Buat Penawaran dari Booking
             </button>
-            <button onclick="printInvoiceFromCalculator()" style="width:100%;padding:9px;background:#fff;color:#0EA5E9;border:1px solid #0EA5E9;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;margin-bottom:8px;">
+            <button onclick="printInvoiceFromCalculator()" style="width:100%;padding:9px;background:#fff;color:#C2410C;border:1px solid #C2410C;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;margin-bottom:8px;">
                 🖨️ Cetak Invoice
             </button>
             <button onclick="clearAll()" style="width:100%;padding:8px;background:#fff;color:#ef4444;border:1px solid #fca5a5;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;">
