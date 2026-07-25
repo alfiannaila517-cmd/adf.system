@@ -307,6 +307,34 @@ function getAttendanceHours($db, $empId, $month, $year)
     ];
 }
 
+// ── Helper: Add any active employees not yet in this period's slips ──
+// Fixes "staff baru tidak muncul di Process Salary" — sebelumnya staff baru
+// hanya ditambahkan kalau admin klik tombol "Refresh" secara manual.
+function autoAddMissingPayrollEmployees($db, $periodId, $month, $year)
+{
+    $employees = $db->fetchAll("SELECT * FROM payroll_employees WHERE is_active = 1");
+    $existingEmpIds = array_column(
+        $db->fetchAll("SELECT employee_id FROM payroll_slips WHERE period_id = ?", [$periodId]),
+        'employee_id'
+    );
+    $added = 0;
+    foreach ($employees as $emp) {
+        if (in_array($emp['id'], $existingEmpIds, true)) continue;
+        $att = getAttendanceHours($db, $emp['id'], $month, $year);
+        $workH = $att['work_hours'] > 0 ? $att['work_hours'] : 0;
+        $baseSalary = (float)$emp['base_salary'];
+        $hourlyRate = $baseSalary / 200;
+        $actualBase = $baseSalary; // gaji pokok penuh, tidak diprorata
+        dbExec(
+            $db,
+            "INSERT INTO payroll_slips (period_id, employee_id, employee_name, position, base_salary, work_hours, actual_base, overtime_hours, overtime_rate, overtime_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [$periodId, $emp['id'], $emp['full_name'], $emp['position'], $baseSalary, $workH, $actualBase, $att['overtime_hours'], $hourlyRate, round($att['overtime_hours'] * $hourlyRate, 2)]
+        );
+        $added++;
+    }
+    return $added;
+}
+
 // ── Helper: Sync all slips with attendance data ──
 function syncSlipsWithAttendance($db, $periodId, $month, $year)
 {
@@ -654,6 +682,8 @@ if ($period) {
         try {
             // Step 1: Recalculate ALL work_hours from scan timestamps (fix any stale data)
             recalcAttendanceHours($db, $month, $year);
+            // Step 1b: Auto-add any newly active employees not yet in this period
+            autoAddMissingPayrollEmployees($db, $period['id'], $month, $year);
             // Step 2: Sync attendance totals into salary slips (skips manually-edited slips where hours_locked=1)
             syncSlipsWithAttendance($db, $period['id'], $month, $year);
             // Refresh period data after sync
