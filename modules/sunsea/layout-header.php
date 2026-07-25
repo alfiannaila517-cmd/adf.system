@@ -32,7 +32,7 @@ $visibleMenuKeys = array_keys($sunseaNavItems);
 
 // Load company settings for sidebar
 $_sidebarLogoSrc = '';
-$_sidebarCompanyName = 'Sunsea';
+$_sidebarCompanyName = 'Explore Karimunjawa';
 if (isset($pdo)) {
     try {
         $__s = $pdo->query("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('company_logo','company_name')");
@@ -84,7 +84,7 @@ if (empty($sunseaNavItemsVisible)) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo htmlspecialchars($pageTitle ?? 'Sunsea'); ?> — Sunsea</title>
+    <title><?php echo htmlspecialchars($pageTitle ?? 'Explore Karimunjawa'); ?> — Explore Karimunjawa</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -145,7 +145,9 @@ if (empty($sunseaNavItemsVisible)) {
         .ss-sidebar {
             width: var(--sidebar-w);
             min-height: 100vh;
-            background: linear-gradient(180deg, var(--ss-deep) 0%, #083452 100%);
+            background: var(--ss-white);
+            border-right: 1px solid var(--ss-gray-2);
+            box-shadow: var(--ss-shadow);
             display: flex;
             flex-direction: column;
             position: fixed;
@@ -158,7 +160,7 @@ if (empty($sunseaNavItemsVisible)) {
 
         .ss-brand {
             padding: 24px 20px 20px;
-            border-bottom: 1px solid rgba(255, 255, 255, .08);
+            border-bottom: 1px solid var(--ss-gray-2);
         }
 
         .ss-brand-logo {
@@ -199,13 +201,13 @@ if (empty($sunseaNavItemsVisible)) {
         .ss-brand-name {
             font-size: 20px;
             font-weight: 800;
-            color: var(--ss-white);
+            color: var(--ss-text);
             letter-spacing: -0.5px;
         }
 
         .ss-brand-sub {
             font-size: 10px;
-            color: rgba(255, 255, 255, .45);
+            color: var(--ss-muted);
             letter-spacing: 1.5px;
             text-transform: uppercase;
             margin-top: 1px;
@@ -221,7 +223,7 @@ if (empty($sunseaNavItemsVisible)) {
             font-weight: 700;
             letter-spacing: 1.5px;
             text-transform: uppercase;
-            color: rgba(255, 255, 255, .3);
+            color: var(--ss-gray-3);
             padding: 8px 8px 4px;
             margin-bottom: 4px;
         }
@@ -233,7 +235,7 @@ if (empty($sunseaNavItemsVisible)) {
             padding: 10px 12px;
             border-radius: 8px;
             text-decoration: none;
-            color: rgba(255, 255, 255, .65);
+            color: var(--ss-muted);
             font-size: 14px;
             font-weight: 500;
             margin-bottom: 2px;
@@ -241,8 +243,8 @@ if (empty($sunseaNavItemsVisible)) {
         }
 
         .ss-nav-item:hover {
-            background: rgba(255, 255, 255, .08);
-            color: var(--ss-white);
+            background: var(--ss-sky);
+            color: var(--ss-ocean);
         }
 
         .ss-nav-item.active {
@@ -259,7 +261,7 @@ if (empty($sunseaNavItemsVisible)) {
 
         .ss-sidebar-footer {
             padding: 16px;
-            border-top: 1px solid rgba(255, 255, 255, .08);
+            border-top: 1px solid var(--ss-gray-2);
         }
 
         .ss-user-block {
@@ -268,7 +270,7 @@ if (empty($sunseaNavItemsVisible)) {
             gap: 10px;
             padding: 8px 10px;
             border-radius: 8px;
-            background: rgba(255, 255, 255, .05);
+            background: var(--ss-gray-1);
         }
 
         .ss-user-avatar {
@@ -288,12 +290,12 @@ if (empty($sunseaNavItemsVisible)) {
         .ss-user-name {
             font-size: 12px;
             font-weight: 600;
-            color: rgba(255, 255, 255, .8);
+            color: var(--ss-text);
         }
 
         .ss-user-role {
             font-size: 10px;
-            color: rgba(255, 255, 255, .35);
+            color: var(--ss-muted);
         }
 
         .ss-logout-btn {
@@ -304,7 +306,7 @@ if (empty($sunseaNavItemsVisible)) {
             padding: 8px 10px;
             border-radius: 8px;
             text-decoration: none;
-            color: rgba(255, 255, 255, .4);
+            color: var(--ss-muted);
             font-size: 12px;
             transition: .2s;
         }
@@ -878,7 +880,7 @@ if (empty($sunseaNavItemsVisible)) {
                     <div class="ss-brand-icon">🌊</div>
                     <div>
                         <div class="ss-brand-name"><?php echo htmlspecialchars($_sidebarCompanyName); ?></div>
-                        <div class="ss-brand-sub">Travel Bureau</div>
+                        <div class="ss-brand-sub">Explore Karimunjawa</div>
                     </div>
                 </a>
             <?php endif; ?>
@@ -901,7 +903,7 @@ if (empty($sunseaNavItemsVisible)) {
                 <div class="ss-user-avatar"><?php echo strtoupper(substr($userName, 0, 1)); ?></div>
                 <div>
                     <div class="ss-user-name"><?php echo htmlspecialchars($userName); ?></div>
-                    <div class="ss-user-role">Sunsea</div>
+                    <div class="ss-user-role">Explore Karimunjawa</div>
                 </div>
             </div>
             <a href="<?php echo BASE_URL; ?>/logout.php" class="ss-logout-btn">
@@ -919,10 +921,10 @@ if (empty($sunseaNavItemsVisible)) {
                     id="sidebarToggle">
                     <i data-feather="menu" style="width:20px;height:20px;"></i>
                 </button>
-                <span class="ss-page-title"><?php echo htmlspecialchars($pageTitle ?? 'Sunsea'); ?></span>
+                <span class="ss-page-title"><?php echo htmlspecialchars($pageTitle ?? 'Explore Karimunjawa'); ?></span>
             </div>
             <div class="ss-topbar-actions">
-                <span class="ss-badge ss-badge-ocean">🌊 Sunsea Travel</span>
+                <span class="ss-badge ss-badge-ocean">🌊 Explore Karimunjawa</span>
                 <a href="<?php echo BASE_URL; ?>/logout.php" style="color:var(--ss-muted);text-decoration:none;font-size:12px;">
                     <i data-feather="log-out" style="width:15px;height:15px;vertical-align:middle;"></i>
                 </a>

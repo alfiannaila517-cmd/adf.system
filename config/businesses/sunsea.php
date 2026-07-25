@@ -12,7 +12,7 @@
  */
 return [
     'business_id'   => 'sunsea',
-    'name'          => 'Sunsea',
+    'name'          => 'Explore Karimunjawa',
     'business_type' => 'travel_bureau',
     'database'      => 'adf_sunsea',
     'logo'          => '', // Place logo in uploads/logos/sunsea.png
@@ -43,7 +43,7 @@ return [
         'default_tax_pct'    => 11,       // PPN 11%
         'invoice_prefix'     => 'SS-INV',
         'quotation_prefix'   => 'SS-QUO',
-        'company_name'       => 'Sunsea',
+        'company_name'       => 'Explore Karimunjawa',
         'tagline'            => 'Your Trusted Travel Partner in Karimunjawa',
         'address'            => '', // filled in Settings
         'phone'              => '',

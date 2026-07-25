@@ -293,7 +293,7 @@ $activePage = 'quotations';
 
 // ---- PRINT VIEW ----
 if ($action === 'print' && $quotation):
-    $companyName    = sunseaSetting($pdo, 'company_name', 'Sunsea');
+    $companyName    = sunseaSetting($pdo, 'company_name', 'Explore Karimunjawa');
     $companyAddress = sunseaSetting($pdo, 'company_address', '');
     $companyPhone   = sunseaSetting($pdo, 'company_phone', '');
     $bankName       = sunseaSetting($pdo, 'bank_name', '');

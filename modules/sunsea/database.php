@@ -53,7 +53,7 @@ include 'layout-header.php';
 <div class="ss-card" style="margin-bottom:16px;">
     <div class="ss-card-header">
         <div>
-            <div class="ss-card-title">Database Master Sunsea</div>
+            <div class="ss-card-title">Database Master Explore Karimunjawa</div>
             <div class="ss-card-sub">Pusat data referensi untuk operasional booking, quotation, dan invoice</div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">

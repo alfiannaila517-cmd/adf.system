@@ -243,7 +243,7 @@ $activePage = 'invoices';
 
 // ---- PRINT ----
 if ($action === 'print' && $invoice):
-    $companyName    = sunseaSetting($pdo, 'company_name', 'Sunsea');
+    $companyName    = sunseaSetting($pdo, 'company_name', 'Explore Karimunjawa');
     $companyAddress = sunseaSetting($pdo, 'company_address', '');
     $companyPhone   = sunseaSetting($pdo, 'company_phone', '');
     $companyEmail   = sunseaSetting($pdo, 'company_email', '');

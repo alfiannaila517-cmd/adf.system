@@ -90,7 +90,7 @@ $rows = [];
 try {
     $rows = $pdo->query("SELECT * FROM caterings ORDER BY is_active DESC, vendor_name, menu_name")->fetchAll();
 } catch (Exception $e) {
-    $_SESSION['flash_message'] = 'Tabel caterings belum ada. Jalankan update database Sunsea terbaru terlebih dahulu.';
+    $_SESSION['flash_message'] = 'Tabel caterings belum ada. Jalankan update database Explore Karimunjawa terbaru terlebih dahulu.';
     $_SESSION['flash_type'] = 'error';
 }
 

@@ -192,7 +192,7 @@ foreach ($keys as $k) {
 $cfg['invoice_prefix']     = $cfg['invoice_prefix']     ?: 'SS-INV';
 $cfg['default_tax_pct']    = $cfg['default_tax_pct']    ?: '11';
 $cfg['invoice_valid_days'] = $cfg['invoice_valid_days'] ?: '7';
-$cfg['company_name']       = $cfg['company_name']       ?: 'Sunsea Travel';
+$cfg['company_name']       = $cfg['company_name']       ?: 'Explore Karimunjawa';
 $cfg['company_tagline']    = $cfg['company_tagline']    ?: 'Your Trusted Travel Partner in Karimunjawa';
 
 $visibleSidebarMenus = json_decode($cfg['sidebar_visible_menu_keys'] ?? '[]', true);
@@ -484,7 +484,7 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
         <div style="display:grid;grid-template-columns:1fr 320px;gap:18px;align-items:start;">
             <div style="background:#fff;border:1px solid #dde5ef;border-radius:8px;padding:20px;">
                 <div style="font-size:16px;font-weight:700;color:#7C2D12;margin-bottom:8px;">🧭 Setup Sidebar</div>
-                <div style="font-size:13px;color:#666;margin-bottom:16px;">Centang menu yang ingin ditampilkan di sidebar Sunsea.</div>
+                <div style="font-size:13px;color:#666;margin-bottom:16px;">Centang menu yang ingin ditampilkan di sidebar Explore Karimunjawa.</div>
 
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                     <?php foreach ($sidebarMenuOptions as $key => $label): ?>
