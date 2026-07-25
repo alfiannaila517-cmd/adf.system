@@ -156,6 +156,83 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $flashType = 'success';
         $tab = 'sidebar';
     }
+
+    if ($postTab === 'reset') {
+        $confirmText = trim($_POST['confirm_text'] ?? '');
+        $categories = $_POST['reset_categories'] ?? [];
+        if (!is_array($categories)) {
+            $categories = [];
+        }
+        $categories = array_values(array_intersect(['guests', 'bookings', 'finance'], $categories));
+
+        if ($confirmText !== 'RESET') {
+            $flashMsg = 'Konfirmasi gagal. Ketik RESET untuk melanjutkan.';
+            $flashType = 'error';
+        } elseif (empty($categories)) {
+            $flashMsg = 'Pilih minimal satu jenis data yang ingin direset.';
+            $flashType = 'error';
+        } else {
+            $categoryTables = [
+                'guests'   => ['customers'],
+                'bookings' => ['quotation_items', 'quotations', 'booking_order_items', 'booking_orders', 'booking_schedule'],
+                'finance'  => ['payments', 'invoice_items', 'invoices', 'cash_book', 'bill_payments', 'bills'],
+            ];
+            $categorySequences = [
+                'bookings' => ['quotation', 'booking'],
+                'finance'  => ['invoice'],
+            ];
+            $categoryLabels = [
+                'guests'   => 'Data Tamu',
+                'bookings' => 'Data Booking',
+                'finance'  => 'Data Keuangan',
+            ];
+
+            $truncated = [];
+            try {
+                $pdo->exec("SET FOREIGN_KEY_CHECKS=0");
+
+                foreach ($categories as $cat) {
+                    foreach (($categoryTables[$cat] ?? []) as $t) {
+                        try {
+                            $check = $pdo->query("SHOW TABLES LIKE '$t'");
+                            if ($check && $check->rowCount() > 0) {
+                                $pdo->exec("TRUNCATE TABLE `$t`");
+                                $truncated[] = $t;
+                            }
+                        } catch (Exception $e) {
+                            @error_log("Sunsea reset: could not truncate $t - " . $e->getMessage());
+                        }
+                    }
+                    foreach (($categorySequences[$cat] ?? []) as $seq) {
+                        try {
+                            $pdo->prepare("UPDATE sequences SET last_value = 0 WHERE seq_name = ?")->execute([$seq]);
+                        } catch (Exception $e) {
+                        }
+                    }
+                }
+
+                if (in_array('finance', $categories, true)) {
+                    try {
+                        $pdo->exec("UPDATE cash_accounts SET current_balance = 0");
+                    } catch (Exception $e) {
+                    }
+                }
+
+                $pdo->exec("SET FOREIGN_KEY_CHECKS=1");
+
+                $doneLabels = [];
+                foreach ($categories as $cat) {
+                    $doneLabels[] = $categoryLabels[$cat] ?? $cat;
+                }
+                $flashMsg = 'Berhasil reset: ' . implode(', ', $doneLabels) . ' (' . count($truncated) . ' tabel dikosongkan).';
+                $flashType = 'success';
+            } catch (Exception $e) {
+                $flashMsg = 'Terjadi error saat reset: ' . htmlspecialchars($e->getMessage());
+                $flashType = 'error';
+            }
+        }
+        $tab = 'reset';
+    }
 }
 
 // Load semua settings
@@ -233,6 +310,10 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
     <a href="?tab=sidebar" style="padding:10px 24px;font-weight:600;text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-2px;
         <?php echo $tab === 'sidebar' ? 'border-bottom-color:#C2410C;color:#C2410C;' : 'color:#666;'; ?>">
         🧭 Setup Sidebar
+    </a>
+    <a href="?tab=reset" style="padding:10px 24px;font-weight:600;text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-2px;
+        <?php echo $tab === 'reset' ? 'border-bottom-color:#b91c1c;color:#b91c1c;' : 'color:#666;'; ?>">
+        🗑️ Reset Data
     </a>
 </div>
 
@@ -519,6 +600,67 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
             </div>
         </div>
     </form>
+
+    <!-- TAB: RESET DATA -->
+<?php elseif ($tab === 'reset'): ?>
+    <form method="POST" onsubmit="return confirmSunseaReset(this)">
+        <input type="hidden" name="tab" value="reset">
+        <div style="background:#fff;border:1px solid #fecaca;border-radius:8px;padding:20px;max-width:640px;">
+            <div style="font-size:16px;font-weight:700;color:#b91c1c;margin-bottom:6px;">🗑️ Reset Data</div>
+            <div style="font-size:13px;color:#666;margin-bottom:16px;">Pilih jenis data yang ingin dikosongkan. Tindakan ini <strong>tidak bisa dibatalkan</strong>.</div>
+
+            <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
+                <label style="display:flex;align-items:flex-start;gap:10px;padding:12px;border:1px solid #fecaca;border-radius:6px;cursor:pointer;background:#fff5f5;">
+                    <input type="checkbox" name="reset_categories[]" value="guests" style="margin-top:3px;">
+                    <span>
+                        <span style="display:block;font-weight:700;font-size:13px;color:#334155;">👤 Data Tamu</span>
+                        <span style="display:block;font-size:12px;color:#888;">Menghapus semua data pelanggan (customers).</span>
+                    </span>
+                </label>
+                <label style="display:flex;align-items:flex-start;gap:10px;padding:12px;border:1px solid #fecaca;border-radius:6px;cursor:pointer;background:#fff5f5;">
+                    <input type="checkbox" name="reset_categories[]" value="bookings" style="margin-top:3px;">
+                    <span>
+                        <span style="display:block;font-weight:700;font-size:13px;color:#334155;">🗓️ Data Booking</span>
+                        <span style="display:block;font-size:12px;color:#888;">Menghapus semua penawaran (quotation) &amp; pemesanan (booking), termasuk item &amp; jadwalnya. Nomor urut penawaran/booking direset.</span>
+                    </span>
+                </label>
+                <label style="display:flex;align-items:flex-start;gap:10px;padding:12px;border:1px solid #fecaca;border-radius:6px;cursor:pointer;background:#fff5f5;">
+                    <input type="checkbox" name="reset_categories[]" value="finance" style="margin-top:3px;">
+                    <span>
+                        <span style="display:block;font-weight:700;font-size:13px;color:#334155;">💰 Data Keuangan</span>
+                        <span style="display:block;font-size:12px;color:#888;">Menghapus semua invoice, pembayaran, kas harian, dan tagihan rutin. Saldo kas direset ke 0. Nomor urut invoice direset.</span>
+                    </span>
+                </label>
+            </div>
+
+            <div style="margin-bottom:14px;">
+                <label style="display:block;font-size:12px;color:#888;margin-bottom:6px;">Ketik <strong>RESET</strong> untuk konfirmasi:</label>
+                <input type="text" name="confirm_text" placeholder="RESET"
+                    style="width:100%;max-width:220px;padding:9px 12px;border:1px solid #fca5a5;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;">
+            </div>
+
+            <button type="submit" style="padding:10px 24px;background:#b91c1c;color:white;border:none;border-radius:5px;font-weight:700;cursor:pointer;font-size:14px;">
+                🗑️ Reset Data Terpilih
+            </button>
+        </div>
+    </form>
+    <script>
+        function confirmSunseaReset(form) {
+            var checked = form.querySelectorAll('input[name="reset_categories[]"]:checked');
+            if (checked.length === 0) {
+                alert('Pilih minimal satu jenis data yang ingin direset.');
+                return false;
+            }
+            var confirmInput = form.querySelector('input[name="confirm_text"]');
+            if ((confirmInput.value || '').trim() !== 'RESET') {
+                alert('Ketik RESET pada kolom konfirmasi untuk melanjutkan.');
+                return false;
+            }
+            var labels = [];
+            checked.forEach(function(c) { labels.push(c.value); });
+            return confirm('Anda yakin ingin menghapus data: ' + labels.join(', ') + '?\n\nTindakan ini TIDAK BISA DIBATALKAN!');
+        }
+    </script>
 <?php endif; ?>
 
 <?php include 'layout-footer.php'; ?>
