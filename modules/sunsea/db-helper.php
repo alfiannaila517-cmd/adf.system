@@ -242,6 +242,26 @@ function sunseaEnsureMasterDataSchema(PDO $pdo): void
     } catch (Exception $e) {
         error_log('sunseaEnsureMasterDataSchema (caterings) error: ' . $e->getMessage());
     }
+
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS `transport_items` (
+            `id`              INT AUTO_INCREMENT PRIMARY KEY,
+            `transport_code`  VARCHAR(20) UNIQUE,
+            `transport_type`  ENUM('darat','laut') NOT NULL,
+            `name`            VARCHAR(150) NOT NULL,
+            `unit`            VARCHAR(30) DEFAULT 'trip',
+            `price_cost`      DECIMAL(15,2) DEFAULT 0.00,
+            `price_sell`      DECIMAL(15,2) DEFAULT 0.00,
+            `notes`           TEXT,
+            `is_active`       TINYINT(1) DEFAULT 1,
+            `created_at`      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            `updated_at`      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_transport_type (`transport_type`),
+            INDEX idx_transport_active (`is_active`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    } catch (Exception $e) {
+        error_log('sunseaEnsureMasterDataSchema (transport_items) error: ' . $e->getMessage());
+    }
 }
 
 /**

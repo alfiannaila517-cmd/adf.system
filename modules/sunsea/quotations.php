@@ -15,6 +15,8 @@ $auth = new Auth();
 $auth->requireLogin();
 
 $pdo    = getSunseaConnection();
+sunseaEnsureMasterDataSchema($pdo);
+sunseaEnsureAccommodationSchema($pdo);
 $action = $_GET['action'] ?? 'list';
 $qId    = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
@@ -264,6 +266,21 @@ if (in_array($action, ['view', 'edit', 'print']) && $qId > 0) {
 // Customers & packages for form
 $customers = $pdo->query("SELECT id, name, phone FROM customers WHERE is_active=1 ORDER BY name")->fetchAll();
 $packages  = $pdo->query("SELECT id, name, base_price, duration_days, duration_nights FROM trip_packages WHERE is_active=1 ORDER BY name")->fetchAll();
+
+// Master data untuk quick-add item penawaran (Tiket, Transportasi, Penginapan, Makanan, Fasilitas)
+function qSafeAll(PDO $pdo, string $sql): array
+{
+    try {
+        return $pdo->query($sql)->fetchAll();
+    } catch (Exception $e) {
+        return [];
+    }
+}
+$mdTickets    = qSafeAll($pdo, "SELECT id, ticket_name, ticket_type, price_sell, unit FROM tickets WHERE is_active=1 ORDER BY ticket_type, ticket_name");
+$mdTransport  = qSafeAll($pdo, "SELECT id, name, transport_type, price_sell, unit FROM transport_items WHERE is_active=1 ORDER BY transport_type, name");
+$mdRooms      = qSafeAll($pdo, "SELECT r.id, r.room_type, r.price_sell, p.name as partner_name FROM accommodation_rooms r JOIN accommodation_partners p ON p.id=r.partner_id WHERE r.is_active=1 AND p.is_active=1 ORDER BY p.name, r.room_type");
+$mdCaterings  = qSafeAll($pdo, "SELECT id, menu_name, vendor_name, price_sell, portion_unit FROM caterings WHERE is_active=1 ORDER BY vendor_name, menu_name");
+$mdFacilities = qSafeAll($pdo, "SELECT id, name, price_sell, unit FROM facilities WHERE is_active=1 ORDER BY name");
 
 // List
 $filter = $_GET['status'] ?? '';
@@ -711,9 +728,57 @@ include 'layout-header.php';
                         <div class="ss-card-header">
                             <div class="ss-card-title">Item Penawaran</div>
                             <button type="button" onclick="addItem()" class="ss-btn ss-btn-outline ss-btn-sm">
-                                <i data-feather="plus"></i> Tambah Baris
+                                <i data-feather="plus"></i> Tambah Baris Manual
                             </button>
                         </div>
+
+                        <!-- Quick-add dari Database (urutan sesuai alur trip) -->
+                        <div style="background:var(--ss-gray-1);border:1px solid var(--ss-gray-2);border-radius:8px;padding:12px;margin-bottom:14px;">
+                            <div style="font-size:12px;font-weight:700;color:var(--ss-muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.03em;">Tambah dari Database</div>
+
+                            <?php
+                            $quickAddGroups = [
+                                ['id' => 'qaTicket', 'type' => 'other', 'label' => '1. Tiket &amp; Retribusi (kapal/ferry/tiket masuk destinasi/BTN)', 'options' => $mdTickets, 'nameField' => 'ticket_name', 'extra' => 'ticket_type', 'unitField' => 'unit'],
+                                ['id' => 'qaTransport', 'type' => 'transport', 'label' => '2. Transportasi Karimunjawa (jemput/antar pelabuhan, trip darat/laut)', 'options' => $mdTransport, 'nameField' => 'name', 'extra' => 'transport_type', 'unitField' => 'unit'],
+                                ['id' => 'qaRoom', 'type' => 'accommodation', 'label' => '3. Penginapan', 'options' => $mdRooms, 'nameField' => 'room_type', 'extra' => 'partner_name', 'unitField' => null],
+                                ['id' => 'qaCatering', 'type' => 'meal', 'label' => '4. Makanan / Catering', 'options' => $mdCaterings, 'nameField' => 'menu_name', 'extra' => 'vendor_name', 'unitField' => 'portion_unit'],
+                                ['id' => 'qaFacility', 'type' => 'equipment', 'label' => '5. Fasilitas Tambahan (open trip/private trip/dll)', 'options' => $mdFacilities, 'nameField' => 'name', 'extra' => null, 'unitField' => 'unit'],
+                            ];
+                            foreach ($quickAddGroups as $g):
+                            ?>
+                                <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:8px;flex-wrap:wrap;">
+                                    <div style="flex:1;min-width:220px;">
+                                        <label class="ss-label" style="font-size:11px;margin-bottom:3px;"><?php echo $g['label']; ?></label>
+                                        <select class="ss-select" id="<?php echo $g['id']; ?>" style="font-size:12px;padding:6px 8px;">
+                                            <option value="">-- Pilih dari database --</option>
+                                            <?php foreach ($g['options'] as $o):
+                                                $name  = $o[$g['nameField']];
+                                                $extra = $g['extra'] ? ' — ' . $o[$g['extra']] : '';
+                                                $unit  = $g['unitField'] ? ($o[$g['unitField']] ?: 'pax') : 'pax';
+                                            ?>
+                                                <option value="<?php echo $o['id']; ?>"
+                                                    data-name="<?php echo htmlspecialchars($name . $extra); ?>"
+                                                    data-price="<?php echo (float)$o['price_sell']; ?>"
+                                                    data-unit="<?php echo htmlspecialchars($unit); ?>">
+                                                    <?php echo htmlspecialchars($name . $extra); ?> (<?php echo sunseaRupiah((float)$o['price_sell']); ?>)
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                    <div style="width:70px;">
+                                        <label class="ss-label" style="font-size:11px;margin-bottom:3px;">Qty</label>
+                                        <input type="number" class="ss-input" id="<?php echo $g['id']; ?>Qty" value="1" min="0" step="0.5" style="font-size:12px;padding:6px 8px;">
+                                    </div>
+                                    <button type="button" class="ss-btn ss-btn-primary ss-btn-sm" onclick="quickAddItem('<?php echo $g['id']; ?>','<?php echo $g['type']; ?>')">
+                                        <i data-feather="plus"></i> Tambah
+                                    </button>
+                                </div>
+                            <?php endforeach; ?>
+                            <?php if (empty($mdTickets) && empty($mdTransport) && empty($mdRooms) && empty($mdCaterings) && empty($mdFacilities)): ?>
+                                <div style="font-size:12px;color:var(--ss-muted);">Belum ada data master. Isi dulu di menu <a href="database.php" style="color:var(--ss-ocean);">Database</a> (Tiket, Transportasi, Hotel/Homestay, Catering, Fasilitas).</div>
+                            <?php endif; ?>
+                        </div>
+
                         <div class="ss-table-wrap">
                             <table class="ss-table" id="itemsTable">
                                 <thead>
@@ -893,6 +958,45 @@ HTML;
 
     function unFmt(s) {
         return parseFloat(String(s).replace(/\./g, '').replace(',', '.')) || 0;
+    }
+
+    function quickAddItem(selectId, itemType) {
+        var sel = document.getElementById(selectId);
+        var opt = sel.options[sel.selectedIndex];
+        if (!sel.value) {
+            alert('Pilih item dari database terlebih dahulu.');
+            return;
+        }
+        var qtyInput = document.getElementById(selectId + 'Qty');
+        var qty = parseFloat(qtyInput?.value) || 1;
+        var name = opt.getAttribute('data-name') || '';
+        var price = parseFloat(opt.getAttribute('data-price')) || 0;
+        var unit = opt.getAttribute('data-unit') || 'pax';
+
+        var typeOpts = [
+            ['accommodation', 'Penginapan'], ['transport', 'Transport'], ['meal', 'Makan'],
+            ['activity', 'Aktivitas'], ['guide', 'Guide'], ['equipment', 'Perlengkapan'], ['other', 'Lainnya']
+        ];
+        var selHtml = typeOpts.map(function(t) {
+            return '<option value="' + t[0] + '"' + (t[0] === itemType ? ' selected' : '') + '>' + t[1] + '</option>';
+        }).join('');
+
+        var tbody = document.getElementById('itemsBody');
+        var tr = document.createElement('tr');
+        tr.innerHTML = `<td><select name="item_type[]" class="ss-select" style="font-size:12px;padding:6px 8px;">${selHtml}</select></td>
+        <td><input type="text" name="item_description[]" class="ss-input" style="font-size:12px;padding:6px 8px;" value="${name.replace(/"/g, '&quot;')}"></td>
+        <td><input type="number" name="item_qty[]" class="ss-input item-qty" style="font-size:12px;padding:6px 8px;" value="${qty}" min="0" step="0.5"></td>
+        <td><input type="text" name="item_unit[]" class="ss-input" style="font-size:12px;padding:6px 8px;" value="${unit}"></td>
+        <td><input type="text" name="item_price[]" class="ss-input item-price" style="font-size:12px;padding:6px 8px;" value="${Math.round(price).toLocaleString('id-ID')}"></td>
+        <td><input type="text" class="ss-input item-sub" style="font-size:12px;padding:6px 8px;font-weight:600;" readonly placeholder="0"></td>
+        <td><button type="button" onclick="removeRow(this)" style="background:none;border:none;cursor:pointer;color:var(--ss-danger);"><i data-feather="x" style="width:14px;height:14px;"></i></button></td>`;
+        tbody.appendChild(tr);
+        feather.replace();
+        setupRowListeners(tr);
+        calcTotals();
+
+        sel.value = '';
+        if (qtyInput) qtyInput.value = 1;
     }
 
     function calcTotals() {

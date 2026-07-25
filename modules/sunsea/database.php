@@ -36,6 +36,7 @@ $stats = [
     'tickets' => 0,
     'caterings' => 0,
     'facilities' => 0,
+    'transport' => 0,
 ];
 
 $stats['customers'] = safeCountTable($pdo, 'customers', 'is_active=1');
@@ -44,6 +45,7 @@ $stats['guides'] = safeCountTable($pdo, 'guides', 'is_active=1');
 $stats['tickets'] = safeCountTable($pdo, 'tickets', 'is_active=1');
 $stats['caterings'] = safeCountTable($pdo, 'caterings', 'is_active=1');
 $stats['facilities'] = safeCountTable($pdo, 'facilities', 'is_active=1');
+$stats['transport'] = safeCountTable($pdo, 'transport_items', 'is_active=1');
 
 $pageTitle = 'Database';
 $activePage = 'database';
@@ -104,6 +106,13 @@ include 'layout-header.php';
                 <div class="ss-stat-label">Fasilitas Tambahan Aktif</div>
             </div>
         </div>
+        <div class="ss-stat-card">
+            <div class="ss-stat-icon ocean"><i data-feather="truck"></i></div>
+            <div>
+                <div class="ss-stat-value"><?php echo $stats['transport']; ?></div>
+                <div class="ss-stat-label">Transportasi Aktif</div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -159,6 +168,15 @@ include 'layout-header.php';
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <a href="facilities.php" class="ss-btn ss-btn-primary"><i data-feather="tool"></i> Kelola Fasilitas</a>
             <a href="facilities.php" class="ss-btn ss-btn-outline"><i data-feather="plus"></i> Tambah Fasilitas</a>
+        </div>
+    </div>
+
+    <div class="ss-card">
+        <div class="ss-card-title" style="margin-bottom:6px;">Database Transportasi Karimunjawa</div>
+        <div class="ss-card-sub" style="margin-bottom:12px;">Mobil/motor jemput-antar pelabuhan, trip darat, dan trip laut. Harga bisa diubah manual.</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <a href="transport.php" class="ss-btn ss-btn-primary"><i data-feather="truck"></i> Kelola Transportasi</a>
+            <a href="transport.php" class="ss-btn ss-btn-outline"><i data-feather="plus"></i> Tambah Transportasi</a>
         </div>
     </div>
 </div>
