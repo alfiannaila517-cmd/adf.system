@@ -1896,17 +1896,30 @@ header('Expires: 0');
             background: #9ca3af;
         }
 
-        /* Absen button */
+        /* Absen buttons — Face Scan & Absen Manual side by side, same size */
+        .absen-btns-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
         .absen-link {
-            display: block;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            min-height: 128px;
             background: linear-gradient(135deg, var(--navy), var(--navy2));
             color: #fff;
             text-decoration: none;
+            border: none;
             border-radius: 16px;
-            padding: 20px 16px;
+            padding: 18px 10px;
             text-align: center;
-            margin-bottom: 14px;
             cursor: pointer;
+            font-family: inherit;
             position: relative;
             overflow: hidden;
             transition: transform .15s;
@@ -1923,7 +1936,7 @@ header('Expires: 0');
             right: -30%;
             width: 150px;
             height: 150px;
-            background: radial-gradient(circle, rgba(255, 255, 255, .06), transparent 70%);
+            background: radial-gradient(circle, rgba(255, 255, 255, .1), transparent 70%);
             border-radius: 50%;
             pointer-events: none;
         }
@@ -1933,94 +1946,27 @@ header('Expires: 0');
         }
 
         .absen-link .al-icon svg {
-            width: 44px;
-            height: 44px;
+            width: 38px;
+            height: 38px;
         }
 
         .absen-link .al-title {
-            font-size: 15px;
+            font-size: 13px;
             font-weight: 700;
-            letter-spacing: .3px;
+            letter-spacing: .2px;
         }
 
         .absen-link .al-sub {
-            font-size: 11px;
-            color: rgba(255, 255, 255, .6);
+            font-size: 10px;
+            color: rgba(255, 255, 255, .7);
             margin-top: 4px;
+            line-height: 1.3;
         }
 
-        /* Absen Manual — clearly visible secondary button */
+        /* Absen Manual — same size as Face Scan, distinct accent color so staff
+           immediately see this is also an attendance action */
         .absen-link-manual {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            width: 100%;
-            background: linear-gradient(135deg, #f8fafc 0%, #eef1f6 100%);
-            border: 1px solid var(--border);
-            color: var(--navy);
-            border-radius: 16px;
-            padding: 12px 14px;
-            text-align: left;
-            margin-bottom: 14px;
-            cursor: pointer;
-            font-family: inherit;
-            position: relative;
-            overflow: hidden;
-            box-shadow: 0 2px 10px rgba(15, 23, 42, .05);
-            transition: all .18s;
-        }
-
-        .absen-link-manual:active {
-            transform: scale(.98);
-            box-shadow: none;
-            background: linear-gradient(135deg, #f1f5f9 0%, #e8ecf2 100%);
-        }
-
-        .absen-link-manual .alm-icon {
-            width: 40px;
-            height: 40px;
-            flex-shrink: 0;
-            border-radius: 12px;
-            background: linear-gradient(135deg, var(--navy), var(--navy2));
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 4px 10px rgba(15, 23, 42, .18);
-        }
-
-        .absen-link-manual .alm-icon svg {
-            width: 20px;
-            height: 20px;
-            color: #fff;
-        }
-
-        .absen-link-manual .alm-body {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .absen-link-manual .alm-title {
-            font-size: 13.5px;
-            font-weight: 800;
-            letter-spacing: .2px;
-            color: var(--navy);
-        }
-
-        .absen-link-manual .alm-sub {
-            display: block;
-            font-weight: 500;
-            color: var(--muted);
-            font-size: 10.5px;
-            margin-top: 2px;
-            line-height: 1.35;
-        }
-
-        .absen-link-manual .alm-chevron {
-            width: 18px;
-            height: 18px;
-            flex-shrink: 0;
-            color: var(--muted);
-            opacity: .55;
+            background: linear-gradient(135deg, var(--orange), #f97316);
         }
 
         /* Manual Attendance popup */
@@ -2840,38 +2786,36 @@ header('Expires: 0');
                 </div>
             </div>
 
-            <!-- Scan Wajah -->
-            <div class="absen-link" onclick="openFaceScan()">
-                <div class="al-icon"><svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M6 20v-7a7 7 0 0 1 7-7h7" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
-                        <path d="M58 20v-7a7 7 0 0 0-7-7h-7" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
-                        <path d="M6 44v7a7 7 0 0 0 7 7h7" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
-                        <path d="M58 44v7a7 7 0 0 1-7 7h-7" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
-                        <circle cx="24" cy="28" r="2.8" fill="white" />
-                        <circle cx="40" cy="28" r="2.8" fill="white" />
-                        <path d="M32 25v7.5a2 2 0 0 1-2 2" stroke="white" stroke-width="2.2" stroke-linecap="round" />
-                        <path d="M22.5 40.5c2.6 2.3 5.9 3.5 9.5 3.5s6.9-1.2 9.5-3.5" stroke="white" stroke-width="2.4" stroke-linecap="round" />
-                    </svg></div>
-                <div class="al-title">Face Scan — Absen Sekarang</div>
-                <div class="al-sub">Tap untuk verifikasi wajah otomatis</div>
-            </div>
+            <!-- Absen: Face Scan & Absen Manual side by side, same size, different colors -->
+            <div class="absen-btns-row">
+                <!-- Scan Wajah -->
+                <div class="absen-link" onclick="openFaceScan()">
+                    <div class="al-icon"><svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M6 20v-7a7 7 0 0 1 7-7h7" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+                            <path d="M58 20v-7a7 7 0 0 0-7-7h-7" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+                            <path d="M6 44v7a7 7 0 0 0 7 7h7" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+                            <path d="M58 44v7a7 7 0 0 1-7 7h-7" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+                            <circle cx="24" cy="28" r="2.8" fill="white" />
+                            <circle cx="40" cy="28" r="2.8" fill="white" />
+                            <path d="M32 25v7.5a2 2 0 0 1-2 2" stroke="white" stroke-width="2.2" stroke-linecap="round" />
+                            <path d="M22.5 40.5c2.6 2.3 5.9 3.5 9.5 3.5s6.9-1.2 9.5-3.5" stroke="white" stroke-width="2.4" stroke-linecap="round" />
+                        </svg></div>
+                    <div class="al-title">Face Scan</div>
+                    <div class="al-sub">Absen otomatis</div>
+                </div>
 
-            <!-- Absen Manual (fallback jika Face ID lambat/gagal) -->
-            <button type="button" class="absen-link-manual" onclick="openManualAttendance()">
-                <span class="alm-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 21s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"></path>
-                        <path d="M9.25 11.75l1.9 1.9 3.6-3.9"></path>
-                    </svg>
-                </span>
-                <span class="alm-body">
-                    <span class="alm-title">Absen Manual</span>
-                    <span class="alm-sub">Jika Face ID lambat/gagal — tetap wajib dalam radius lokasi</span>
-                </span>
-                <svg class="alm-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M9 18l6-6-6-6"></path>
-                </svg>
-            </button>
+                <!-- Absen Manual (fallback jika Face ID lambat/gagal) -->
+                <button type="button" class="absen-link absen-link-manual" onclick="openManualAttendance()">
+                    <div class="al-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="38" height="38">
+                            <path d="M12 21s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"></path>
+                            <path d="M9.25 11.75l1.9 1.9 3.6-3.9"></path>
+                        </svg>
+                    </div>
+                    <div class="al-title">Absen Manual</div>
+                    <div class="al-sub">Fallback / GPS</div>
+                </button>
+            </div>
 
             <!-- Status Hari Ini -->
             <div class="card">
