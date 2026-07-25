@@ -24,7 +24,8 @@ $errorMsg = '';
 
 try {
     $rows = $pdo->prepare("SELECT b.id, b.booking_no, b.start_date, b.end_date, b.pax_count, b.status,
-        c.name as customer_name
+        c.name as customer_name,
+        (SELECT COUNT(*) FROM booking_order_items i WHERE i.booking_id=b.id AND i.is_done=0) as pending_count
         FROM booking_orders b
         JOIN customers c ON c.id=b.customer_id
         WHERE b.end_date >= ? AND b.start_date <= ?
@@ -83,9 +84,15 @@ include 'layout-header.php';
                 $statusColor = '#3b82f6';
             ?>
                 <div style="display:grid;grid-template-columns:160px repeat(<?php echo $daysInMonth; ?>, 18px);gap:1px;align-items:center;margin-bottom:3px;">
-                    <div style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                        <a href="bookings.php?view=<?php echo $b['id']; ?>" style="color:var(--ss-ocean);text-decoration:none;font-weight:600;"><?php echo htmlspecialchars($b['booking_no']); ?></a>
-                        <div style="font-size:9px;color:var(--ss-muted)"><?php echo htmlspecialchars($b['customer_name']); ?> · <?php echo (int)$b['pax_count']; ?> pax</div>
+                    <div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                        <?php if ((int)$b['pending_count'] > 0): ?>
+                            <span title="Ada layanan belum selesai" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#dc2626;margin-right:3px;"></span>
+                        <?php endif; ?>
+                        <a href="bookings.php?view=<?php echo $b['id']; ?>" style="color:var(--ss-text);text-decoration:none;"><?php echo htmlspecialchars($b['customer_name']); ?></a>
+                        <div style="font-size:9px;font-weight:400;color:var(--ss-muted);">
+                            <a href="bookings.php?view=<?php echo $b['id']; ?>" style="color:var(--ss-ocean);text-decoration:none;"><?php echo htmlspecialchars($b['booking_no']); ?></a>
+                            · <?php echo (int)$b['pax_count']; ?> pax
+                        </div>
                     </div>
                     <?php for ($d = 1; $d <= $daysInMonth; $d++): ?>
                         <?php if ($d >= $s && $d <= $e): ?>
@@ -123,7 +130,12 @@ include 'layout-header.php';
                 <?php foreach ($bookings as $b): ?>
                     <tr>
                         <td><a href="bookings.php?view=<?php echo $b['id']; ?>" style="color:var(--ss-ocean);font-weight:600;text-decoration:none;"><?php echo htmlspecialchars($b['booking_no']); ?></a></td>
-                        <td><?php echo htmlspecialchars($b['customer_name']); ?></td>
+                        <td>
+                            <?php if ((int)$b['pending_count'] > 0): ?>
+                                <span title="Ada layanan belum selesai" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#dc2626;margin-right:4px;"></span>
+                            <?php endif; ?>
+                            <?php echo htmlspecialchars($b['customer_name']); ?>
+                        </td>
                         <td><?php echo date('d M Y', strtotime($b['start_date'])); ?> - <?php echo date('d M Y', strtotime($b['end_date'])); ?></td>
                         <td><?php echo (int)$b['pax_count']; ?></td>
                         <td><span class="ss-status ss-status-sent"><?php echo ucfirst($b['status']); ?></span></td>

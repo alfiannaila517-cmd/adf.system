@@ -407,19 +407,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'updat
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'update_ops') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'update_checklist') {
     $bookingId = (int)($_POST['booking_id'] ?? 0);
-    $ticketBooked = !empty($_POST['ticket_kapal_booked']) ? 1 : 0;
-    $driverName = trim($_POST['driver_name'] ?? '');
+    $doneIds = array_map('intval', $_POST['done_items'] ?? []);
 
     if ($bookingId > 0) {
         try {
-            $pdo->prepare("UPDATE booking_orders SET ticket_kapal_booked=?, driver_name=?, updated_at=NOW() WHERE id=?")
-                ->execute([$ticketBooked, $driverName, $bookingId]);
-            $_SESSION['flash_message'] = 'Status operasional berhasil diperbarui.';
+            $itemsStmt = $pdo->prepare("SELECT id FROM booking_order_items WHERE booking_id=?");
+            $itemsStmt->execute([$bookingId]);
+            $allIds = $itemsStmt->fetchAll(PDO::FETCH_COLUMN);
+            $upd = $pdo->prepare("UPDATE booking_order_items SET is_done=? WHERE id=?");
+            foreach ($allIds as $iid) {
+                $upd->execute([in_array((int)$iid, $doneIds, true) ? 1 : 0, (int)$iid]);
+            }
+            $_SESSION['flash_message'] = 'Checklist koordinator berhasil disimpan.';
             $_SESSION['flash_type'] = 'success';
         } catch (Exception $e) {
-            $_SESSION['flash_message'] = 'Gagal update status operasional: ' . $e->getMessage();
+            $_SESSION['flash_message'] = 'Gagal simpan checklist: ' . $e->getMessage();
             $_SESSION['flash_type'] = 'error';
         }
     }
@@ -559,46 +563,42 @@ include 'layout-header.php';
         </div>
         <div>
             <?php
-                $gdInfo = bookingItemsByCode($detailItems, 'guide_darat');
-                $glInfo = bookingItemsByCode($detailItems, 'guide_laut');
-                if ($gdInfo !== '-' && $glInfo !== '-') {
-                    $tripInfo = $gdInfo . ' | ' . $glInfo;
-                } else {
-                    $tripInfo = ($gdInfo !== '-') ? $gdInfo : $glInfo;
+                $pendingCount = 0;
+                foreach ($detailItems as $it) {
+                    if (empty($it['is_done'])) $pendingCount++;
                 }
-                $ticketBooked = !empty($detail['ticket_kapal_booked']);
             ?>
             <div class="ss-card" style="margin-bottom:12px;">
-                <div class="ss-card-title" style="margin-bottom:10px;">Aksi &amp; Status Operasional</div>
-                <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;">
-                    <span style="font-size:13px;color:var(--ss-muted)">Tiket Kapal</span>
-                    <span class="ss-status <?php echo $ticketBooked ? 'ss-status-approved' : 'ss-status-rejected'; ?>">
-                        <?php echo $ticketBooked ? 'Sudah Dipesan' : 'Belum Dipesan'; ?>
-                    </span>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                    <div class="ss-card-title" style="margin:0;">Koordinator</div>
+                    <?php if ($pendingCount > 0): ?>
+                        <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#dc2626;font-weight:700;"><span style="width:8px;height:8px;border-radius:50%;background:#dc2626;display:inline-block;"></span> <?php echo $pendingCount; ?> belum selesai</span>
+                    <?php else: ?>
+                        <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#16a34a;font-weight:700;"><span style="width:8px;height:8px;border-radius:50%;background:#16a34a;display:inline-block;"></span> Semua selesai</span>
+                    <?php endif; ?>
                 </div>
-                <div style="padding:6px 0;font-size:13px;">
-                    <span style="color:var(--ss-muted)">Penginapan:</span><br>
-                    <strong style="color:var(--ss-text)"><?php echo htmlspecialchars(bookingItemsByCode($detailItems, 'penginapan')); ?></strong>
-                </div>
-                <div style="padding:6px 0;font-size:13px;">
-                    <span style="color:var(--ss-muted)">Trip / Biro (Open Trip / Private Trip):</span><br>
-                    <strong style="color:var(--ss-text)"><?php echo htmlspecialchars($tripInfo); ?></strong>
-                </div>
-                <div style="padding:6px 0;font-size:13px;">
-                    <span style="color:var(--ss-muted)">Catering:</span><br>
-                    <strong style="color:var(--ss-text)"><?php echo htmlspecialchars(bookingItemsByCode($detailItems, 'catering')); ?></strong>
-                </div>
-                <form method="POST" style="margin-top:8px;border-top:1px solid var(--ss-gray-2);padding-top:10px;">
-                    <input type="hidden" name="action" value="update_ops">
-                    <input type="hidden" name="booking_id" value="<?php echo (int)$detail['id']; ?>">
-                    <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ss-muted);margin-bottom:8px;">
-                        <input type="checkbox" name="ticket_kapal_booked" value="1" <?php echo $ticketBooked ? 'checked' : ''; ?>>
-                        Tiket kapal sudah dipesankan
-                    </label>
-                    <label style="display:block;font-size:12.5px;color:var(--ss-muted);margin-bottom:4px;">Nama Driver Penjemputan</label>
-                    <input type="text" name="driver_name" class="ss-input" style="width:100%;box-sizing:border-box;margin-bottom:8px;" placeholder="Nama driver..." value="<?php echo htmlspecialchars($detail['driver_name'] ?? ''); ?>">
-                    <button class="ss-btn ss-btn-outline ss-btn-sm" type="submit"><i data-feather="save"></i> Simpan Status</button>
-                </form>
+
+                <?php if ($detail['status'] !== 'confirmed'): ?>
+                    <div style="font-size:12px;color:var(--ss-muted);">Checklist koordinator tersedia setelah booking berstatus Confirmed.</div>
+                <?php else: ?>
+                    <button type="button" class="ss-btn ss-btn-outline ss-btn-sm" onclick="var p=document.getElementById('koordinatorPanel');p.style.display=(p.style.display==='none'?'block':'none');"><i data-feather="check-square"></i> Koordinator</button>
+                    <div id="koordinatorPanel" style="display:none;margin-top:10px;">
+                        <form method="POST">
+                            <input type="hidden" name="action" value="update_checklist">
+                            <input type="hidden" name="booking_id" value="<?php echo (int)$detail['id']; ?>">
+                            <?php foreach ($detailItems as $it): ?>
+                                <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:6px 0;border-bottom:1px solid var(--ss-gray-2);">
+                                    <input type="checkbox" name="done_items[]" value="<?php echo (int)$it['id']; ?>" <?php echo !empty($it['is_done']) ? 'checked' : ''; ?>>
+                                    <span style="<?php echo !empty($it['is_done']) ? 'text-decoration:line-through;color:var(--ss-muted);' : ''; ?>"><?php echo htmlspecialchars($it['component_name']); ?></span>
+                                </label>
+                            <?php endforeach; ?>
+                            <?php if (empty($detailItems)): ?>
+                                <div style="font-size:12px;color:var(--ss-muted);padding:6px 0;">Belum ada item / layanan pada reservasi ini.</div>
+                            <?php endif; ?>
+                            <button class="ss-btn ss-btn-primary ss-btn-sm" type="submit" style="margin-top:10px;"><i data-feather="save"></i> Simpan Checklist</button>
+                        </form>
+                    </div>
+                <?php endif; ?>
             </div>
             <div class="ss-card" style="margin-bottom:12px;">
                 <div class="ss-card-title" style="margin-bottom:8px;">Ringkasan Biaya</div>

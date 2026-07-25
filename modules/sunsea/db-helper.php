@@ -131,9 +131,16 @@ function sunseaEnsureBookingSchema(PDO $pdo): void
             total_sell DECIMAL(15,2) DEFAULT 0,
             details_json TEXT NULL,
             sort_order INT DEFAULT 0,
+            is_done TINYINT(1) DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             INDEX idx_booking_items_booking (booking_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $itemColumnCheck = $pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'booking_order_items' AND COLUMN_NAME = ?");
+        $itemColumnCheck->execute(['is_done']);
+        if ((int)$itemColumnCheck->fetchColumn() === 0) {
+            $pdo->exec("ALTER TABLE booking_order_items ADD COLUMN is_done TINYINT(1) DEFAULT 0 AFTER sort_order");
+        }
 
         $pdo->exec("CREATE TABLE IF NOT EXISTS booking_schedule (
             id INT AUTO_INCREMENT PRIMARY KEY,
