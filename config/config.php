@@ -61,15 +61,7 @@ $httpHostForDb = $_SERVER['HTTP_HOST'] ?? '';
 $isProduction = (strpos($httpHostForDb, 'localhost') === false &&
     strpos($httpHostForDb, '127.0.0.1') === false);
 
-if ($isProduction && strpos($httpHostForDb, 'karimunjawaexplore.com') !== false) {
-    // Explore Karimunjawa - standalone hosting (separate cPanel account/domain)
-    // TODO: ganti 3 nilai di bawah dengan kredensial cPanel hosting BARU setelah
-    // database master + adf_sunsea dibuat di sana (lihat panduan migrasi Sunsea).
-    if (!defined('DB_HOST')) define('DB_HOST', 'localhost');
-    if (!defined('DB_NAME')) define('DB_NAME', 'GANTI_nama_db_master');
-    if (!defined('DB_USER')) define('DB_USER', 'GANTI_user_cpanel_db');
-    if (!defined('DB_PASS')) define('DB_PASS', 'GANTI_password_db');
-} else if ($isProduction) {
+if ($isProduction) {
     // Production (Hosting) - adfsystem.online, uses adf_system database prefixed
     if (!defined('DB_HOST')) define('DB_HOST', 'localhost');
     if (!defined('DB_NAME')) define('DB_NAME', 'adfb2574_adf');
@@ -257,6 +249,7 @@ if (php_sapi_name() !== 'cli') {
                 // Map: business slug → landing file at project root
                 $__landingMap = [
                     'pwf-furniture' => '/pwf-login.php',
+                    'sunsea'        => '/login.php?biz=sunsea',
                     // add more: 'cqc-construction' => '/cqc.php', etc.
                 ];
                 $__landing = $__landingMap[$__domainBiz['slug']] ?? null;
