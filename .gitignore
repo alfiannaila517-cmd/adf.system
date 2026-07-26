@@ -149,3 +149,8 @@ sync.php
 # Backup automation secrets (Backblaze B2 keys)
 # =============================================
 config/backup-secrets.php
+
+# =============================================
+# Per-hosting DB override (standalone deployments, e.g. Sunsea)
+# =============================================
+config/local-db-config.php

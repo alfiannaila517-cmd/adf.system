@@ -62,6 +62,19 @@ $isProduction = (strpos($httpHostForDb, 'localhost') === false &&
     strpos($httpHostForDb, '127.0.0.1') === false);
 
 if ($isProduction) {
+    // Allow a per-hosting-account override BEFORE the hardcoded defaults below.
+    // Used when this SAME codebase is deployed standalone on a DIFFERENT cPanel
+    // account/server (e.g. Sunsea / Explore Karimunjawa on its own hosting).
+    // This file is NEVER committed to git (see .gitignore) - each server keeps
+    // its own copy with its own DB credentials. Copy
+    // config/local-db-config.example.php -> config/local-db-config.php on that
+    // server and fill in its real MySQL host/db/user/pass.
+    $__localDbConfig = __DIR__ . '/local-db-config.php';
+    if (file_exists($__localDbConfig)) {
+        require $__localDbConfig;
+    }
+    unset($__localDbConfig);
+
     // Production (Hosting) - adfsystem.online, uses adf_system database prefixed
     if (!defined('DB_HOST')) define('DB_HOST', 'localhost');
     if (!defined('DB_NAME')) define('DB_NAME', 'adfb2574_adf');
