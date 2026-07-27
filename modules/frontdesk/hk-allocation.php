@@ -456,7 +456,7 @@ include '../../includes/header.php';
 
 <style>
     .hk-wrap {
-        max-width: 1300px;
+        max-width: 1240px;
         margin: 0 auto;
     }
 
@@ -464,22 +464,23 @@ include '../../includes/header.php';
         display: flex;
         justify-content: space-between;
         align-items: center;
-        gap: 0.75rem;
+        gap: 0.6rem;
         flex-wrap: wrap;
-        margin-bottom: 1rem;
+        margin-bottom: 0.75rem;
     }
 
     .hk-title {
         margin: 0;
-        font-size: 1.32rem;
+        font-size: 1.12rem;
         font-weight: 800;
         color: var(--text-primary);
+        line-height: 1.2;
     }
 
     .hk-sub {
-        font-size: 0.75rem;
+        font-size: 0.68rem;
         color: var(--text-muted);
-        margin-top: 0.2rem;
+        margin-top: 0.12rem;
     }
 
     .hk-grid {
@@ -489,20 +490,20 @@ include '../../includes/header.php';
     .hk-top-row {
         display: grid;
         grid-template-columns: 1.25fr 1fr 1fr;
-        gap: 0.75rem;
-        margin-bottom: 0.85rem;
+        gap: 0.55rem;
+        margin-bottom: 0.6rem;
     }
 
     .hk-card {
         background: var(--bg-secondary);
         border: 1px solid var(--bg-tertiary);
-        border-radius: 12px;
-        padding: 0.85rem;
+        border-radius: 10px;
+        padding: 0.62rem;
     }
 
     .hk-card h3 {
-        margin: 0 0 0.75rem 0;
-        font-size: 0.88rem;
+        margin: 0 0 0.5rem 0;
+        font-size: 0.78rem;
     }
 
     .hk-card-compact {
@@ -518,37 +519,39 @@ include '../../includes/header.php';
     .hk-date {
         width: 100%;
         border: 1px solid var(--bg-tertiary);
-        border-radius: 8px;
-        padding: 0.55rem 0.65rem;
+        border-radius: 7px;
+        padding: 0.4rem 0.52rem;
         background: var(--bg-primary);
         color: var(--text-primary);
     }
 
     .hk-input {
-        min-height: 95px;
+        min-height: 72px;
         resize: vertical;
-        font-size: 0.82rem;
-        line-height: 1.25;
+        font-size: 0.72rem;
+        line-height: 1.2;
     }
 
     .hk-select,
     .hk-date {
-        font-size: 0.8rem;
+        font-size: 0.72rem;
+        min-height: 32px;
     }
 
     .hk-actions {
         display: flex;
-        gap: 0.5rem;
+        gap: 0.4rem;
         flex-wrap: wrap;
-        margin-top: 0.75rem;
+        margin-top: 0.5rem;
     }
 
     .hk-btn {
         border: none;
-        border-radius: 8px;
-        padding: 0.42rem 0.66rem;
+        border-radius: 7px;
+        padding: 0.34rem 0.54rem;
         font-weight: 700;
-        font-size: 0.74rem;
+        font-size: 0.68rem;
+        line-height: 1.2;
         cursor: pointer;
     }
 
@@ -565,12 +568,12 @@ include '../../includes/header.php';
     .hk-badges {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.55rem;
+        gap: 0.42rem;
     }
 
     .hk-badge {
-        border-radius: 10px;
-        padding: 0.65rem;
+        border-radius: 8px;
+        padding: 0.42rem;
         text-align: center;
         border: 1px solid transparent;
     }
@@ -600,26 +603,26 @@ include '../../includes/header.php';
     }
 
     .hk-badge .n {
-        font-size: 1.08rem;
+        font-size: 0.9rem;
         font-weight: 900;
         line-height: 1;
     }
 
     .hk-badge .l {
-        font-size: 0.66rem;
+        font-size: 0.58rem;
         font-weight: 700;
-        margin-top: 0.2rem;
+        margin-top: 0.12rem;
     }
 
     .hk-staff-board {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.75rem;
+        gap: 0.55rem;
     }
 
     .hk-staff-card {
         border: 1px solid var(--bg-tertiary);
-        border-radius: 10px;
+        border-radius: 9px;
         background: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(241, 245, 249, 0.4));
         overflow: hidden;
     }
@@ -628,14 +631,14 @@ include '../../includes/header.php';
         display: flex;
         justify-content: space-between;
         align-items: center;
-        gap: 0.5rem;
-        padding: 0.75rem 0.85rem;
+        gap: 0.38rem;
+        padding: 0.48rem 0.58rem;
         border-bottom: 1px solid var(--bg-tertiary);
         background: rgba(226, 232, 240, 0.55);
     }
 
     .hk-staff-name {
-        font-size: 0.86rem;
+        font-size: 0.76rem;
         font-weight: 800;
         color: #0f172a;
         letter-spacing: 0.02em;
@@ -643,24 +646,24 @@ include '../../includes/header.php';
 
     .hk-staff-count {
         display: inline-block;
-        font-size: 0.64rem;
+        font-size: 0.58rem;
         font-weight: 800;
         border-radius: 20px;
-        padding: 0.2rem 0.55rem;
+        padding: 0.14rem 0.42rem;
         background: #dbeafe;
         color: #1d4ed8;
     }
 
     .hk-staff-body {
-        padding: 0.7rem;
+        padding: 0.5rem;
     }
 
     .hk-task-item {
         border: 1px solid #e2e8f0;
-        border-left: 4px solid #64748b;
-        border-radius: 9px;
-        padding: 0.46rem 0.5rem;
-        margin-bottom: 0.45rem;
+        border-left: 3px solid #64748b;
+        border-radius: 8px;
+        padding: 0.38rem 0.42rem;
+        margin-bottom: 0.36rem;
         background: #ffffff;
     }
 
@@ -684,45 +687,45 @@ include '../../includes/header.php';
         display: flex;
         justify-content: space-between;
         align-items: center;
-        gap: 0.5rem;
-        margin-bottom: 0.25rem;
+        gap: 0.35rem;
+        margin-bottom: 0.18rem;
     }
 
     .hk-task-room {
-        font-size: 0.78rem;
+        font-size: 0.7rem;
         font-weight: 800;
         color: #0f172a;
     }
 
     .hk-task-prio {
-        font-size: 0.62rem;
+        font-size: 0.56rem;
         font-weight: 800;
         color: #475569;
         background: #f1f5f9;
         border: 1px solid #cbd5e1;
-        padding: 0.12rem 0.48rem;
+        padding: 0.1rem 0.36rem;
         border-radius: 999px;
     }
 
     .hk-task-context {
-        font-size: 0.66rem;
+        font-size: 0.6rem;
         color: var(--text-muted);
-        margin-bottom: 0.45rem;
+        margin-bottom: 0.34rem;
     }
 
     .hk-task-footer {
         display: grid;
         grid-template-columns: 1fr auto;
-        gap: 0.45rem;
+        gap: 0.3rem;
         align-items: center;
     }
 
     .hk-pill {
         display: inline-block;
-        font-size: 0.58rem;
+        font-size: 0.52rem;
         font-weight: 800;
         border-radius: 20px;
-        padding: 0.15rem 0.5rem;
+        padding: 0.12rem 0.36rem;
     }
 
     .hk-pill.manual {
@@ -737,9 +740,9 @@ include '../../includes/header.php';
 
     .hk-empty-staff {
         text-align: center;
-        font-size: 0.74rem;
+        font-size: 0.66rem;
         color: var(--text-muted);
-        padding: 0.75rem;
+        padding: 0.55rem;
         border: 1px dashed #cbd5e1;
         border-radius: 8px;
         background: #f8fafc;
@@ -751,27 +754,27 @@ include '../../includes/header.php';
     }
 
     .hk-guest {
-        font-size: 0.72rem;
+        font-size: 0.62rem;
         color: var(--text-muted);
-        margin-top: 0.15rem;
+        margin-top: 0.1rem;
     }
 
     .hk-staff-load {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 0.45rem;
-        margin-top: 0.7rem;
+        gap: 0.34rem;
+        margin-top: 0.46rem;
     }
 
     .hk-load-item {
         border: 1px solid var(--bg-tertiary);
-        border-radius: 8px;
-        padding: 0.45rem;
+        border-radius: 7px;
+        padding: 0.32rem;
         text-align: center;
     }
 
     .hk-load-item .name {
-        font-size: 0.66rem;
+        font-size: 0.58rem;
         color: var(--text-muted);
         white-space: nowrap;
         overflow: hidden;
@@ -779,17 +782,17 @@ include '../../includes/header.php';
     }
 
     .hk-load-item .num {
-        font-size: 0.95rem;
+        font-size: 0.82rem;
         font-weight: 900;
         color: #0f172a;
         line-height: 1.1;
     }
 
     .alert {
-        margin-bottom: 0.8rem;
+        margin-bottom: 0.55rem;
         border-radius: 9px;
-        padding: 0.65rem 0.8rem;
-        font-size: 0.82rem;
+        padding: 0.48rem 0.6rem;
+        font-size: 0.72rem;
         font-weight: 600;
     }
 
@@ -842,7 +845,7 @@ include '../../includes/header.php';
                 <form method="post">
                     <input type="hidden" name="action" value="save_staff">
                     <input type="hidden" name="work_date" value="<?php echo htmlspecialchars($workDate); ?>">
-                    <label style="font-size:0.74rem;color:var(--text-muted);font-weight:700;display:block;margin-bottom:0.35rem;">Nama staff (satu baris satu nama)</label>
+                    <label style="font-size:0.66rem;color:var(--text-muted);font-weight:700;display:block;margin-bottom:0.25rem;">Nama staff (satu baris satu nama)</label>
                     <textarea class="hk-input" name="staff_names" placeholder="Contoh:
 HK Sinta
 HK Dita
@@ -908,7 +911,7 @@ HK Wawan"><?php echo htmlspecialchars($staffText); ?></textarea>
                     <input type="hidden" name="work_date" value="<?php echo htmlspecialchars($workDate); ?>">
 
                     <?php if (!empty($unassignedTaskKeys)): ?>
-                        <div style="margin-bottom:0.75rem;font-size:0.75rem;color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:0.55rem 0.65rem;">
+                        <div style="margin-bottom:0.5rem;font-size:0.67rem;color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:0.42rem 0.52rem;">
                             Ada <?php echo count($unassignedTaskKeys); ?> task belum ter-assign. Pilih staff pada kartu task di bawah, lalu klik simpan.
                         </div>
                     <?php endif; ?>
@@ -934,7 +937,7 @@ HK Wawan"><?php echo htmlspecialchars($staffText); ?></textarea>
                                         ?>
                                             <div class="hk-task-item <?php echo htmlspecialchars($cls); ?>">
                                                 <div class="hk-task-top">
-                                                    <div class="hk-task-room">Room <?php echo htmlspecialchars($task['room_number']); ?> <span style="font-size:0.7rem;color:#64748b;font-weight:600;">(<?php echo htmlspecialchars($task['room_type']); ?>)</span></div>
+                                                    <div class="hk-task-room">Room <?php echo htmlspecialchars($task['room_number']); ?> <span style="font-size:0.6rem;color:#64748b;font-weight:600;">(<?php echo htmlspecialchars($task['room_type']); ?>)</span></div>
                                                     <div class="hk-task-prio"><?php echo htmlspecialchars($task['task_code']); ?> • P<?php echo (int)$task['priority_order']; ?></div>
                                                 </div>
                                                 <div class="hk-task-context">
