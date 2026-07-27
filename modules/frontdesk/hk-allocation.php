@@ -73,35 +73,87 @@ function parseStaffNames($raw)
 
 function buildHkTasks($db, $workDate)
 {
-    $nextDate = date('Y-m-d', strtotime($workDate . ' +1 day'));
+        $prevDate = date('Y-m-d', strtotime($workDate . ' -1 day'));
 
     $rows = $db->fetchAll("SELECT
             r.id,
             r.room_number,
             r.status,
             COALESCE(rt.type_name, 'Standard') as room_type,
-            g.guest_name as inhouse_guest,
             (
-                SELECT g2.guest_name
-                FROM bookings b2
-                LEFT JOIN guests g2 ON b2.guest_id = g2.id
-                WHERE b2.room_id = r.id
-                  AND DATE(b2.check_in_date) = ?
-                  AND b2.status IN ('confirmed','pending')
+                                SELECT g1.guest_name
+                                FROM bookings b1
+                                LEFT JOIN guests g1 ON b1.guest_id = g1.id
+                                WHERE b1.room_id = r.id
+                                    AND b1.status = 'checked_in'
+                                ORDER BY b1.id DESC
                 LIMIT 1
-            ) as next_guest,
-            b.id as checked_in_booking_id
+                        ) as inhouse_guest,
+                        (
+                                SELECT DATE(b1.check_in_date)
+                                FROM bookings b1
+                                WHERE b1.room_id = r.id
+                                    AND b1.status = 'checked_in'
+                                ORDER BY b1.id DESC
+                                LIMIT 1
+                        ) as checked_in_date,
+                        (
+                                SELECT g2.guest_name
+                                FROM bookings b2
+                                LEFT JOIN guests g2 ON b2.guest_id = g2.id
+                                WHERE b2.room_id = r.id
+                                    AND DATE(b2.check_out_date) = ?
+                                    AND b2.status IN ('checked_in','checked_out')
+                                ORDER BY b2.id DESC
+                                LIMIT 1
+                        ) as departure_guest,
+                        (
+                                SELECT g3.guest_name
+                                FROM bookings b3
+                                LEFT JOIN guests g3 ON b3.guest_id = g3.id
+                                WHERE b3.room_id = r.id
+                                    AND DATE(b3.check_in_date) = ?
+                                    AND b3.status IN ('pending','confirmed','checked_in')
+                                ORDER BY b3.id DESC
+                                LIMIT 1
+                        ) as arrival_guest,
+                        (
+                                SELECT COUNT(*)
+                                FROM bookings bd
+                                WHERE bd.room_id = r.id
+                                    AND DATE(bd.check_out_date) = ?
+                                    AND bd.status IN ('checked_in','checked_out')
+                        ) as departures_today,
+                        (
+                                SELECT COUNT(*)
+                                FROM bookings ba
+                                WHERE ba.room_id = r.id
+                                    AND DATE(ba.check_in_date) = ?
+                                    AND ba.status IN ('pending','confirmed','checked_in')
+                        ) as arrivals_today,
+                        (
+                                SELECT COUNT(*)
+                                FROM bookings bp
+                                WHERE bp.room_id = r.id
+                                    AND bp.status IN ('pending','confirmed','checked_in','checked_out')
+                                    AND DATE(bp.check_in_date) <= ?
+                                    AND DATE(bp.check_out_date) > ?
+                        ) as occupied_prev_night
         FROM rooms r
         LEFT JOIN room_types rt ON r.room_type_id = rt.id
-        LEFT JOIN bookings b ON b.room_id = r.id AND b.status = 'checked_in'
-        LEFT JOIN guests g ON b.guest_id = g.id
-        ORDER BY r.room_number ASC", [$nextDate]) ?: [];
+                ORDER BY r.room_number ASC", [$workDate, $workDate, $workDate, $workDate, $prevDate, $prevDate]) ?: [];
 
     $tasks = [];
     foreach ($rows as $r) {
         $status = (string)($r['status'] ?? '');
-        $hasCheckedIn = !empty($r['checked_in_booking_id']);
-        $hasNextGuest = !empty($r['next_guest']);
+        $arrivalsToday = (int)($r['arrivals_today'] ?? 0) > 0;
+        $departuresToday = (int)($r['departures_today'] ?? 0) > 0;
+        $occupiedPrevNight = (int)($r['occupied_prev_night'] ?? 0) > 0;
+
+        $checkedInDate = (string)($r['checked_in_date'] ?? '');
+        $isCheckedInNow = !empty($r['inhouse_guest']) || $status === 'occupied';
+        $isCheckInTodayNow = $isCheckedInNow && $checkedInDate === $workDate;
+        $isOngoingInHouse = $isCheckedInNow && !$isCheckInTodayNow;
 
         if ($status === 'maintenance' || $status === 'blocked') {
             continue;
@@ -111,15 +163,19 @@ function buildHkTasks($db, $workDate)
         $priority = 99;
         $label = '';
 
-        if ($hasCheckedIn && $hasNextGuest) {
+        if ($departuresToday && $arrivalsToday) {
             $taskCode = 'B2B';
             $priority = 1;
-            $label = 'Back to Back';
-        } elseif ($hasCheckedIn) {
+            $label = 'Back to Back (CO + CI hari ini)';
+        } elseif ($arrivalsToday && !$occupiedPrevNight) {
+            $taskCode = 'VC';
+            $priority = 4;
+            $label = 'Vacant Clean (CI hari ini, kemarin kosong)';
+        } elseif ($isOngoingInHouse) {
             $taskCode = 'OD';
             $priority = 2;
             $label = 'Occupied / In-House';
-        } elseif ($status === 'cleaning') {
+        } elseif ($status === 'cleaning' || ($departuresToday && !$arrivalsToday)) {
             $taskCode = 'VD';
             $priority = 3;
             $label = 'Vacant Dirty';
@@ -133,6 +189,13 @@ function buildHkTasks($db, $workDate)
             continue;
         }
 
+        $inhouseContextGuest = '';
+        if (!empty($r['departure_guest'])) {
+            $inhouseContextGuest = (string)$r['departure_guest'];
+        } elseif (!empty($r['inhouse_guest'])) {
+            $inhouseContextGuest = (string)$r['inhouse_guest'];
+        }
+
         $tasks[] = [
             'key' => (int)$r['id'] . '|' . $taskCode,
             'room_id' => (int)$r['id'],
@@ -141,8 +204,8 @@ function buildHkTasks($db, $workDate)
             'task_code' => $taskCode,
             'task_label' => $label,
             'priority_order' => $priority,
-            'inhouse_guest' => (string)($r['inhouse_guest'] ?? ''),
-            'next_guest' => (string)($r['next_guest'] ?? ''),
+            'inhouse_guest' => $inhouseContextGuest,
+            'next_guest' => (string)($r['arrival_guest'] ?? ''),
             'room_status' => $status
         ];
     }
@@ -745,6 +808,9 @@ HK Wawan"><?php echo htmlspecialchars($staffText); ?></textarea>
                                                 <div class="hk-guest">Next guest: <?php echo htmlspecialchars($task['next_guest'] ?: '-'); ?></div>
                                             <?php elseif ($task['task_code'] === 'OD'): ?>
                                                 <div class="hk-guest">Tamu in-house: <?php echo htmlspecialchars($task['inhouse_guest'] ?: '-'); ?></div>
+                                            <?php elseif ($task['task_code'] === 'VC' && !empty($task['next_guest'])): ?>
+                                                <div class="hk-guest">Arrival hari ini: <?php echo htmlspecialchars($task['next_guest']); ?></div>
+                                                <div class="hk-guest">Status room: <?php echo htmlspecialchars(strtoupper($task['room_status'])); ?></div>
                                             <?php else: ?>
                                                 <div class="hk-guest">Status room: <?php echo htmlspecialchars(strtoupper($task['room_status'])); ?></div>
                                             <?php endif; ?>
