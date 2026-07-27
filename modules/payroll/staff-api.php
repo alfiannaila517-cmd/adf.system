@@ -499,6 +499,7 @@ if ($action === 'hk_tasks') {
     }
 
     $staffName = trim((string)($_SESSION['staff_name'] ?? ''));
+    $requestedHkName = trim((string)($_GET['hk_name'] ?? $_POST['hk_name'] ?? ''));
     if ($staffName === '') {
         echo json_encode(['success' => true, 'data' => ['date' => $date, 'tasks' => [], 'summary' => [], 'team_load' => []]]);
         exit;
@@ -547,10 +548,22 @@ if ($action === 'hk_tasks') {
             [$date]
         ) ?: [];
 
-        $staffNorm = $normalizeHkName($staffName);
+        $availableHkStaff = [];
+        foreach ($allTasks as $t) {
+            $n = trim((string)($t['assigned_staff'] ?? ''));
+            if ($n !== '') {
+                $availableHkStaff[$n] = true;
+            }
+        }
+        $availableHkStaff = array_keys($availableHkStaff);
+        sort($availableHkStaff, SORT_NATURAL | SORT_FLAG_CASE);
+
+        $targetHkName = $requestedHkName !== '' ? $requestedHkName : $staffName;
+
+        $staffNorm = $normalizeHkName($targetHkName);
         $aliases = [];
         $aliases[] = $staffNorm;
-        foreach (preg_split('/\s+/', strtolower($staffName)) as $part) {
+        foreach (preg_split('/\s+/', strtolower($targetHkName)) as $part) {
             $p = $normalizeHkName($part);
             if (strlen($p) >= 4) {
                 $aliases[] = $p;
@@ -565,7 +578,7 @@ if ($action === 'hk_tasks') {
             $matched = false;
 
             // 1) match exact (case-insensitive) nama display
-            if (strcasecmp(trim($assignedRaw), $staffName) === 0) {
+            if (strcasecmp(trim($assignedRaw), $targetHkName) === 0) {
                 $matched = true;
             }
 
@@ -587,13 +600,6 @@ if ($action === 'hk_tasks') {
             }
         }
 
-        $fallbackAll = false;
-        if (empty($tasks) && !empty($allTasks)) {
-            // Fallback: tampilkan semua jatah tim agar halaman staff portal tidak kosong.
-            $tasks = $allTasks;
-            $fallbackAll = true;
-        }
-
         $teamLoad = $db->fetchAll(
             "SELECT assigned_staff, COUNT(*) as total
              FROM frontdesk_hk_assignments
@@ -612,8 +618,12 @@ if ($action === 'hk_tasks') {
         }
 
         $mappingMessage = null;
-        if ($fallbackAll) {
-            $mappingMessage = 'Nama akun belum cocok dengan assignment HK. Menampilkan pembagian seluruh tim.';
+        if (empty($tasks) && !empty($allTasks)) {
+            if ($requestedHkName === '') {
+                $mappingMessage = 'Pilih nama HK agar tampil tugas personal per orang.';
+            } else {
+                $mappingMessage = 'Tidak ada tugas untuk ' . $requestedHkName . ' pada tanggal ini.';
+            }
         }
 
         echo json_encode([
@@ -621,11 +631,13 @@ if ($action === 'hk_tasks') {
             'data' => [
                 'date' => $date,
                 'staff_name' => $staffName,
+                'target_hk_name' => $targetHkName,
+                'available_hk_staff' => $availableHkStaff,
                 'tasks' => $tasks,
                 'summary' => $summary,
                 'team_load' => $teamLoad,
                 'message' => $mappingMessage,
-                'fallback_all' => $fallbackAll
+                'fallback_all' => false
             ]
         ]);
     } catch (Exception $e) {

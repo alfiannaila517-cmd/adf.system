@@ -2988,9 +2988,11 @@ header('Expires: 0');
                         <button onclick="loadHkTasks()" style="background:none;border:none;font-size:14px;cursor:pointer;" title="Refresh">🔄</button>
                     </div>
                     <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+                        <select id="hkStaffSelect" class="fi" style="padding:6px 8px;font-size:11px;border-radius:8px;max-width:180px;"></select>
                         <input type="date" id="hkDate" class="fi" style="padding:6px 8px;font-size:11px;border-radius:8px;max-width:150px;">
                         <button onclick="loadHkTasks()" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border:none;padding:7px 12px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;">Muat</button>
                     </div>
+                    <div id="hkSelectedLabel" style="margin-top:6px;font-size:11px;color:var(--muted);"></div>
                     <div id="hkStats" style="margin-top:10px;">
                         <div class="loading"><span class="spin"></span> Memuat...</div>
                     </div>
@@ -4249,12 +4251,14 @@ header('Expires: 0');
         async function loadHkTasks() {
             try {
                 const dateEl = document.getElementById('hkDate');
+                const hkSelectEl = document.getElementById('hkStaffSelect');
                 if (dateEl && !dateEl.value) {
                     dateEl.value = new Date().toISOString().split('T')[0];
                 }
                 const selDate = dateEl && dateEl.value ? dateEl.value : new Date().toISOString().split('T')[0];
+                const selectedHk = hkSelectEl && hkSelectEl.value ? hkSelectEl.value : '';
 
-                const res = await fetch(API + '&action=hk_tasks&date=' + encodeURIComponent(selDate));
+                const res = await fetch(API + '&action=hk_tasks&date=' + encodeURIComponent(selDate) + '&hk_name=' + encodeURIComponent(selectedHk));
                 const data = await res.json();
 
                 if (!data.success) {
@@ -4266,6 +4270,41 @@ header('Expires: 0');
                 const tasks = d.tasks || [];
                 const team = d.team_load || [];
                 const isFallbackAll = !!d.fallback_all;
+                const availableHk = d.available_hk_staff || [];
+
+                // Populate HK selector once data is known
+                if (hkSelectEl) {
+                    const preferred = localStorage.getItem('hkPreferredName') || '';
+                    const prevVal = hkSelectEl.value || '';
+                    let chosen = selectedHk || prevVal || preferred || '';
+
+                    hkSelectEl.innerHTML = '<option value="">Pilih Nama HK</option>' +
+                        availableHk.map(n => `<option value="${String(n).replace(/"/g, '&quot;')}">${n}</option>`).join('');
+
+                    if (chosen && availableHk.includes(chosen)) {
+                        hkSelectEl.value = chosen;
+                    } else if (d.target_hk_name && availableHk.includes(d.target_hk_name)) {
+                        hkSelectEl.value = d.target_hk_name;
+                    } else {
+                        hkSelectEl.value = '';
+                    }
+
+                    if (hkSelectEl.value) {
+                        localStorage.setItem('hkPreferredName', hkSelectEl.value);
+                    }
+
+                    // Jika awalnya belum kirim hk_name tapi selector berhasil memilih nama,
+                    // reload sekali agar data langsung personal sesuai HK terpilih.
+                    if (!selectedHk && hkSelectEl.value) {
+                        return loadHkTasks();
+                    }
+                }
+
+                const labelEl = document.getElementById('hkSelectedLabel');
+                if (labelEl) {
+                    const activeName = hkSelectEl && hkSelectEl.value ? hkSelectEl.value : '';
+                    labelEl.textContent = activeName ? ('Tugas HK: ' + activeName) : 'Pilih nama HK untuk melihat tugas personal';
+                }
 
                 document.getElementById('hkStats').innerHTML = `
             <div class="stat-row" style="margin-bottom:8px;">
@@ -4317,6 +4356,17 @@ header('Expires: 0');
                 document.getElementById('hkTaskList').innerHTML = '<div style="font-size:11px;color:var(--red);padding:10px;">' + (e.message || 'Gagal memuat tugas HK') + '</div>';
             }
         }
+
+        (function initHkSelectorListener() {
+            const hkSelectEl = document.getElementById('hkStaffSelect');
+            if (!hkSelectEl) return;
+            hkSelectEl.addEventListener('change', () => {
+                if (hkSelectEl.value) {
+                    localStorage.setItem('hkPreferredName', hkSelectEl.value);
+                }
+                loadHkTasks();
+            });
+        })();
 
         // ═══ BREAKFAST PAGE ═══
         async function loadBreakfast() {
