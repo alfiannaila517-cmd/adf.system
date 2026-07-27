@@ -2980,6 +2980,29 @@ header('Expires: 0');
                     </div>
                 </div>
             </div>
+
+            <div class="page" id="page-hk">
+                <div class="card">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                        <div class="card-title" style="margin:0;">🧹 Tugas HK Saya</div>
+                        <button onclick="loadHkTasks()" style="background:none;border:none;font-size:14px;cursor:pointer;" title="Refresh">🔄</button>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+                        <input type="date" id="hkDate" class="fi" style="padding:6px 8px;font-size:11px;border-radius:8px;max-width:150px;">
+                        <button onclick="loadHkTasks()" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border:none;padding:7px 12px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;">Muat</button>
+                    </div>
+                    <div id="hkStats" style="margin-top:10px;">
+                        <div class="loading"><span class="spin"></span> Memuat...</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-title">📋 Detail Kamar</div>
+                    <div id="hkTaskList" style="margin-top:8px;">
+                        <div class="loading"><span class="spin"></span> Memuat...</div>
+                    </div>
+                </div>
+            </div>
+
             <div id="calPopupOverlay" class="cal-popup-overlay" style="display:none;" onclick="closeCalPopup()"></div>
             <div id="calPopup" class="cal-popup" style="display:none;"></div>
 
@@ -3040,6 +3063,7 @@ header('Expires: 0');
             <div class="nav-item active" data-page="home"><span class="nav-icon">🏠</span><span class="nav-label">Home</span></div>
             <?php if ($isHotel): ?>
                 <div class="nav-item" data-page="occupancy"><span class="nav-icon">🏨</span><span class="nav-label">Room Monitor</span></div>
+                <div class="nav-item" data-page="hk"><span class="nav-icon">🧹</span><span class="nav-label">Tugas HK</span></div>
                 <div class="nav-item" data-page="breakfast"><span class="nav-icon">☕</span><span class="nav-label">Breakfast</span></div>
             <?php elseif ($isCafe): ?>
                 <div class="nav-item" data-page="schedule"><span class="nav-icon">⏰</span><span class="nav-label">Jadwal</span></div>
@@ -3442,6 +3466,7 @@ header('Expires: 0');
                 if (page === 'home') loadHome();
                 if (page === 'slipgaji') loadSlipGaji();
                 if (page === 'occupancy' && IS_HOTEL) loadOccupancy();
+                if (page === 'hk' && IS_HOTEL) loadHkTasks();
                 if (page === 'breakfast' && IS_HOTEL) loadBreakfast();
                 if (page === 'schedule' && IS_CAFE) loadSchedule();
             });
@@ -4217,6 +4242,77 @@ header('Expires: 0');
             } catch (e) {
                 console.error(e);
                 document.getElementById('roomGrid').innerHTML = '<div style="color:var(--red);font-size:11px;">Gagal memuat</div>';
+            }
+        }
+
+        // ═══ HK TASKS PAGE ═══
+        async function loadHkTasks() {
+            try {
+                const dateEl = document.getElementById('hkDate');
+                if (dateEl && !dateEl.value) {
+                    dateEl.value = new Date().toISOString().split('T')[0];
+                }
+                const selDate = dateEl && dateEl.value ? dateEl.value : new Date().toISOString().split('T')[0];
+
+                const res = await fetch(API + '&action=hk_tasks&date=' + encodeURIComponent(selDate));
+                const data = await res.json();
+
+                if (!data.success) {
+                    throw new Error(data.message || 'Gagal memuat tugas HK');
+                }
+
+                const d = data.data || {};
+                const s = d.summary || {};
+                const tasks = d.tasks || [];
+                const team = d.team_load || [];
+
+                document.getElementById('hkStats').innerHTML = `
+            <div class="stat-row" style="margin-bottom:8px;">
+                <div class="stat-card"><div class="sl">B2B</div><div class="sv" style="color:#16a34a;">${s.B2B||0}</div></div>
+                <div class="stat-card"><div class="sl">OD</div><div class="sv" style="color:#2563eb;">${s.OD||0}</div></div>
+                <div class="stat-card"><div class="sl">VD</div><div class="sv" style="color:#d97706;">${s.VD||0}</div></div>
+                <div class="stat-card"><div class="sl">VC</div><div class="sv" style="color:#64748b;">${s.VC||0}</div></div>
+            </div>
+            <div style="font-size:11px;color:var(--muted);">Tanggal kerja: <b>${d.date||selDate}</b></div>
+            ${d.message ? `<div style="margin-top:6px;font-size:11px;color:#b45309;background:#fffbeb;border:1px solid #fcd34d;padding:6px 8px;border-radius:8px;">${d.message}</div>` : ''}
+            ${team.length ? `<div style="margin-top:8px;font-size:11px;color:var(--muted);">Team Load: ${team.map(t => `${t.assigned_staff} (${t.total})`).join(' • ')}</div>` : ''}`;
+
+                if (!tasks.length) {
+                    document.getElementById('hkTaskList').innerHTML = '<div style="text-align:center;padding:16px;color:var(--muted);font-size:12px;">Belum ada tugas HK untuk nama akun ini.</div>';
+                    return;
+                }
+
+                const prColor = {
+                    B2B: '#16a34a',
+                    OD: '#2563eb',
+                    VD: '#d97706',
+                    VC: '#64748b'
+                };
+
+                let html = '';
+                tasks.forEach((t, i) => {
+                    const c = prColor[t.task_code] || '#64748b';
+                    const sourceTag = parseInt(t.is_manual || 0, 10) === 1 ?
+                        '<span style="background:#fee2e2;color:#b91c1c;padding:2px 6px;border-radius:999px;font-size:10px;font-weight:700;">Manual</span>' :
+                        '<span style="background:#e0e7ff;color:#3730a3;padding:2px 6px;border-radius:999px;font-size:10px;font-weight:700;">Auto</span>';
+
+                    html += `
+                <div style="border:1px solid var(--border);border-left:4px solid ${c};border-radius:10px;padding:10px 12px;margin-bottom:8px;background:#fff;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                        <div style="font-size:14px;font-weight:800;color:var(--navy);">Room ${t.room_number}</div>
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <span style="background:${c}15;color:${c};padding:2px 8px;border-radius:999px;font-size:10px;font-weight:800;">${t.task_code}</span>
+                            ${sourceTag}
+                        </div>
+                    </div>
+                    <div style="margin-top:4px;font-size:11px;color:var(--muted);">Prioritas #${t.priority_order} • Tugas ke-${i + 1}</div>
+                </div>`;
+                });
+
+                document.getElementById('hkTaskList').innerHTML = html;
+            } catch (e) {
+                document.getElementById('hkStats').innerHTML = '<div style="font-size:11px;color:var(--red);">Gagal memuat statistik HK</div>';
+                document.getElementById('hkTaskList').innerHTML = '<div style="font-size:11px;color:var(--red);padding:10px;">' + (e.message || 'Gagal memuat tugas HK') + '</div>';
             }
         }
 

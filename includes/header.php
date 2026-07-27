@@ -323,6 +323,12 @@ if (isset($_SESSION['user_id'])) {
                                     </a>
                                 </li>
                                 <li class="submenu-item">
+                                    <a href="<?php echo BASE_URL; ?>/modules/frontdesk/hk-allocation.php" class="submenu-link <?php echo activeMenu('hk-allocation.php'); ?>">
+                                        <i data-feather="check-square" class="submenu-icon"></i>
+                                        <span>Pembagian HK</span>
+                                    </a>
+                                </li>
+                                <li class="submenu-item">
                                     <a href="<?php echo BASE_URL; ?>/modules/frontdesk/breakfast.php"
                                         class="submenu-link <?php echo activeMenu('breakfast.php'); ?>"
                                         onclick="console.log('Breakfast link clicked!'); return true;">

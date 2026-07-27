@@ -491,6 +491,93 @@ if ($action === 'mark_room_clean') {
     exit;
 }
 
+// ── HK TASKS (sync dari Frontdesk pembagian HK) ──
+if ($action === 'hk_tasks') {
+    $date = $_GET['date'] ?? $_POST['date'] ?? date('Y-m-d');
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+        $date = date('Y-m-d');
+    }
+
+    $staffName = trim((string)($_SESSION['staff_name'] ?? ''));
+    if ($staffName === '') {
+        echo json_encode(['success' => true, 'data' => ['date' => $date, 'tasks' => [], 'summary' => [], 'team_load' => []]]);
+        exit;
+    }
+
+    try {
+        $tableExists = false;
+        try {
+            $t = $db->fetchOne("SHOW TABLES LIKE 'frontdesk_hk_assignments'");
+            $tableExists = !empty($t);
+        } catch (Exception $e) {
+            $tableExists = false;
+        }
+
+        if (!$tableExists) {
+            echo json_encode([
+                'success' => true,
+                'data' => [
+                    'date' => $date,
+                    'tasks' => [],
+                    'summary' => [],
+                    'team_load' => [],
+                    'message' => 'Pembagian HK belum dibuat dari Frontdesk.'
+                ]
+            ]);
+            exit;
+        }
+
+        $tasks = $db->fetchAll(
+            "SELECT room_id, room_number, task_code, priority_order, assigned_staff, is_manual
+             FROM frontdesk_hk_assignments
+             WHERE assignment_date = ?
+               AND LOWER(TRIM(assigned_staff)) = LOWER(TRIM(?))
+             ORDER BY priority_order ASC, room_number ASC",
+            [$date, $staffName]
+        ) ?: [];
+
+        $summaryRows = $db->fetchAll(
+            "SELECT task_code, COUNT(*) as total
+             FROM frontdesk_hk_assignments
+             WHERE assignment_date = ?
+               AND LOWER(TRIM(assigned_staff)) = LOWER(TRIM(?))
+             GROUP BY task_code",
+            [$date, $staffName]
+        ) ?: [];
+
+        $teamLoad = $db->fetchAll(
+            "SELECT assigned_staff, COUNT(*) as total
+             FROM frontdesk_hk_assignments
+             WHERE assignment_date = ?
+             GROUP BY assigned_staff
+             ORDER BY assigned_staff ASC",
+            [$date]
+        ) ?: [];
+
+        $summary = ['B2B' => 0, 'OD' => 0, 'VD' => 0, 'VC' => 0];
+        foreach ($summaryRows as $sr) {
+            $code = (string)($sr['task_code'] ?? '');
+            if (isset($summary[$code])) {
+                $summary[$code] = (int)$sr['total'];
+            }
+        }
+
+        echo json_encode([
+            'success' => true,
+            'data' => [
+                'date' => $date,
+                'staff_name' => $staffName,
+                'tasks' => $tasks,
+                'summary' => $summary,
+                'team_load' => $teamLoad
+            ]
+        ]);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Gagal memuat tugas HK: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
 // ── BREAKFAST REQUEST ──
 if ($action === 'breakfast_menu') {
     try {
