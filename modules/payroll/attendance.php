@@ -38,6 +38,20 @@
                     $pageTitle = 'Absensi Karyawan';
                     $baseUrl = defined('BASE_URL') ? BASE_URL : '';
 
+                    function isSplitShiftCheckInTime($timeStr)
+                    {
+                        $t = trim((string)$timeStr);
+                        return $t !== '' && substr($t, 0, 8) >= '12:00:00';
+                    }
+
+                    function normalizeLateStatusBySplitShift($status, $checkInTime)
+                    {
+                        if ($status === 'late' && isSplitShiftCheckInTime($checkInTime)) {
+                            return 'present';
+                        }
+                        return $status;
+                    }
+
                     // ═══ AJAX: Get employee schedule ═══
                     if (isset($_GET['ajax_schedule']) && isset($_GET['emp_id'])) {
                         header('Content-Type: application/json');
@@ -380,7 +394,8 @@
 
                                         // Get checkin_end config for late detection
                                         $checkinEnd = $config['checkin_end'] ?? '10:00:00';
-                                        $isLate = ($scanTimeOnly > $checkinEnd);
+                                        $isSplitShift = isSplitShiftCheckInTime($scanTimeOnly);
+                                        $isLate = !$isSplitShift && ($scanTimeOnly > $checkinEnd);
 
                                         try {
                                             if (!$existing) {
@@ -782,6 +797,8 @@
                             $overtimeHours = trim($_POST['overtime_hours'] ?? '');
                             // Rule: OT dibulatkan ke kelipatan 45 menit (di bawah 45 menit tidak terhitung).
                             $otHours = $overtimeHours === '' ? null : roundOT45($overtimeHours);
+                            $status = normalizeLateStatusBySplitShift($status, $s1);
+
                             $sh1 = null;
                             $sh2 = null;
                             if ($s1 && $s2) {
@@ -823,6 +840,8 @@
                             $s3 = !empty($_POST['scan_3']) ? $_POST['scan_3'] . ':00' : null;
                             $s4 = !empty($_POST['scan_4']) ? $_POST['scan_4'] . ':00' : null;
                             $notes = trim($_POST['notes'] ?? '');
+                            $status = normalizeLateStatusBySplitShift($status, $s1);
+
                             $sh1 = null;
                             $sh2 = null;
                             if ($s1 && $s2) {
@@ -1140,7 +1159,8 @@
 
                                         if (!$att) {
                                             // Scan 1 — create new record
-                                            $status = ($scanTime > $checkinEnd) ? 'late' : 'present';
+                                            $isSplitShift = isSplitShiftCheckInTime($scanTime);
+                                            $status = $isSplitShift ? 'present' : (($scanTime > $checkinEnd) ? 'late' : 'present');
                                             $_pdo->prepare("INSERT INTO payroll_attendance (employee_id, attendance_date, check_in_time, status, check_in_device, notes) VALUES (?,?,?,?,?,?)")
                                                 ->execute([$empId, $scanDate, $scanTime, $status, 'fingerprint:batch', 'Batch proses fingerprint']);
                                             $scanLabel = 'Scan 1 Masuk';
@@ -1253,7 +1273,7 @@
                     $todayStats = ['total' => count($employees), 'present' => 0, 'late' => 0, 'total_hours' => 0, 'regular_hours' => 0, 'overtime_hours' => 0, 'ot_count' => 0];
                     foreach ($dailyAtt as $a) {
                         if ($a['check_in_time']) $todayStats['present']++;
-                        if ($a['status'] === 'late') $todayStats['late']++;
+                        if (($a['status'] ?? '') === 'late' && !isSplitShiftCheckInTime($a['check_in_time'] ?? null)) $todayStats['late']++;
                         $wh = (float)($a['work_hours'] ?? 0);
                         $manualOT = (float)($a['overtime_hours'] ?? 0);
                         $todayStats['total_hours'] += $wh;
@@ -2064,8 +2084,10 @@
 
                                         foreach ($employees as $emp):
                                             $a = $attById[$emp['id']] ?? null;
-                                            $status = $a ? $a['status'] : 'notyet';
-                                            $statusLabels = ['present' => 'Hadir', 'late' => 'Terlambat', 'absent' => 'Absen', 'leave' => 'Izin', 'holiday' => 'Libur', 'half_day' => '½ Hari', 'notyet' => 'Belum'];
+                                            $rawStatus = $a ? $a['status'] : 'notyet';
+                                            $status = ($a && isSplitShiftCheckInTime($a['check_in_time'] ?? null) && $rawStatus === 'late') ? 'split_shift' : $rawStatus;
+                                            $statusLabels = ['present' => 'Hadir', 'late' => 'Terlambat', 'split_shift' => 'Split Shift', 'absent' => 'Absen', 'leave' => 'Izin', 'holiday' => 'Libur', 'half_day' => '½ Hari', 'notyet' => 'Belum'];
+                                            $statusClass = ($status === 'split_shift') ? 'present' : $status;
                                             $s1 = $a && $a['check_in_time'] ? substr($a['check_in_time'], 0, 5) : null;
                                             $s2 = $a && $a['check_out_time'] ? substr($a['check_out_time'], 0, 5) : null;
                                             $s3 = $a && !empty($a['scan_3']) ? substr($a['scan_3'], 0, 5) : null;
@@ -2100,7 +2122,7 @@
                                                     <?php else: echo $dash;
                                                     endif; ?>
                                                 </td>
-                                                <td><span class="badge b-<?php echo $status; ?>"><?php echo $statusLabels[$status] ?? $status; ?></span></td>
+                                                <td><span class="badge b-<?php echo $statusClass; ?>"><?php echo $statusLabels[$status] ?? $status; ?></span></td>
                                                 <td style="white-space:nowrap;">
                                                     <?php if ($a): ?>
                                                         <button class="btn btn-edit btn-sm" onclick='openEditModal(<?php echo json_encode($a); ?>)'>✏️</button>
