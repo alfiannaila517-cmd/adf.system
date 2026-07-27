@@ -435,6 +435,22 @@ foreach ($tasks as $task) {
     }
 }
 
+$tasksByStaff = [];
+foreach ($staffNames as $sn) {
+    $tasksByStaff[$sn] = [];
+}
+
+$unassignedTaskKeys = [];
+foreach ($tasks as $task) {
+    $taskKey = $task['key'];
+    $assigned = $assignmentMap[$taskKey] ?? '';
+    if ($assigned !== '' && isset($tasksByStaff[$assigned])) {
+        $tasksByStaff[$assigned][] = $task;
+    } else {
+        $unassignedTaskKeys[] = $taskKey;
+    }
+}
+
 include '../../includes/header.php';
 ?>
 
@@ -575,37 +591,118 @@ include '../../includes/header.php';
         margin-top: 0.2rem;
     }
 
-    .hk-table-wrap {
-        overflow-x: auto;
+    .hk-staff-board {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.75rem;
     }
 
-    .hk-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.82rem;
+    .hk-staff-card {
+        border: 1px solid var(--bg-tertiary);
+        border-radius: 12px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(241, 245, 249, 0.4));
+        overflow: hidden;
     }
 
-    .hk-table th,
-    .hk-table td {
+    .hk-staff-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 0.85rem;
         border-bottom: 1px solid var(--bg-tertiary);
-        padding: 0.55rem 0.5rem;
-        text-align: left;
-        vertical-align: middle;
+        background: rgba(226, 232, 240, 0.55);
     }
 
-    .hk-table th {
+    .hk-staff-name {
+        font-size: 0.95rem;
+        font-weight: 800;
+        color: #0f172a;
+        letter-spacing: 0.02em;
+    }
+
+    .hk-staff-count {
+        display: inline-block;
+        font-size: 0.7rem;
+        font-weight: 800;
+        border-radius: 20px;
+        padding: 0.2rem 0.55rem;
+        background: #dbeafe;
+        color: #1d4ed8;
+    }
+
+    .hk-staff-body {
+        padding: 0.7rem;
+    }
+
+    .hk-task-item {
+        border: 1px solid #e2e8f0;
+        border-left: 4px solid #64748b;
+        border-radius: 10px;
+        padding: 0.55rem 0.6rem;
+        margin-bottom: 0.55rem;
+        background: #ffffff;
+    }
+
+    .hk-task-item.b2b {
+        border-left-color: #16a34a;
+    }
+
+    .hk-task-item.od {
+        border-left-color: #2563eb;
+    }
+
+    .hk-task-item.vd {
+        border-left-color: #d97706;
+    }
+
+    .hk-task-item.vc {
+        border-left-color: #64748b;
+    }
+
+    .hk-task-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .hk-task-room {
+        font-size: 0.86rem;
+        font-weight: 800;
+        color: #0f172a;
+    }
+
+    .hk-task-prio {
+        font-size: 0.68rem;
+        font-weight: 800;
+        color: #475569;
+        background: #f1f5f9;
+        border: 1px solid #cbd5e1;
+        padding: 0.12rem 0.48rem;
+        border-radius: 999px;
+    }
+
+    .hk-task-context {
         font-size: 0.72rem;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
         color: var(--text-muted);
+        margin-bottom: 0.45rem;
+    }
+
+    .hk-task-footer {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 0.45rem;
+        align-items: center;
     }
 
     .hk-pill {
         display: inline-block;
-        font-size: 0.68rem;
+        font-size: 0.66rem;
         font-weight: 800;
         border-radius: 20px;
-        padding: 0.15rem 0.55rem;
+        padding: 0.15rem 0.5rem;
     }
 
     .hk-pill.manual {
@@ -616,6 +713,16 @@ include '../../includes/header.php';
     .hk-pill.auto {
         background: #e0e7ff;
         color: #3730a3;
+    }
+
+    .hk-empty-staff {
+        text-align: center;
+        font-size: 0.74rem;
+        color: var(--text-muted);
+        padding: 0.75rem;
+        border: 1px dashed #cbd5e1;
+        border-radius: 8px;
+        background: #f8fafc;
     }
 
     .hk-room {
@@ -680,6 +787,10 @@ include '../../includes/header.php';
 
     @media (max-width: 980px) {
         .hk-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .hk-staff-board {
             grid-template-columns: 1fr;
         }
 
@@ -776,66 +887,68 @@ HK Wawan"><?php echo htmlspecialchars($staffText); ?></textarea>
                     <input type="hidden" name="action" value="save_plan">
                     <input type="hidden" name="work_date" value="<?php echo htmlspecialchars($workDate); ?>">
 
-                    <div class="hk-table-wrap">
-                        <table class="hk-table">
-                            <thead>
-                                <tr>
-                                    <th>Prioritas</th>
-                                    <th>Kamar</th>
-                                    <th>Konteks</th>
-                                    <th>Assigned HK</th>
-                                    <th>Sumber</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($tasks as $task):
-                                    $key = $task['key'];
-                                    $assigned = $assignmentMap[$key] ?? '';
-                                    $isManual = (bool)($manualMap[$key] ?? false);
-                                ?>
-                                    <tr>
-                                        <td>
-                                            <strong><?php echo htmlspecialchars($task['task_code']); ?></strong>
-                                            <div style="font-size:0.7rem;color:var(--text-muted);">#<?php echo (int)$task['priority_order']; ?> <?php echo htmlspecialchars($task['task_label']); ?></div>
-                                        </td>
-                                        <td>
-                                            <div class="hk-room">Room <?php echo htmlspecialchars($task['room_number']); ?></div>
-                                            <div style="font-size:0.7rem;color:var(--text-muted);"><?php echo htmlspecialchars($task['room_type']); ?></div>
-                                        </td>
-                                        <td>
-                                            <?php if ($task['task_code'] === 'B2B'): ?>
-                                                <div class="hk-guest">In-house: <?php echo htmlspecialchars($task['inhouse_guest'] ?: '-'); ?></div>
-                                                <div class="hk-guest">Next guest: <?php echo htmlspecialchars($task['next_guest'] ?: '-'); ?></div>
-                                            <?php elseif ($task['task_code'] === 'OD'): ?>
-                                                <div class="hk-guest">Tamu in-house: <?php echo htmlspecialchars($task['inhouse_guest'] ?: '-'); ?></div>
-                                            <?php elseif ($task['task_code'] === 'VC' && !empty($task['next_guest'])): ?>
-                                                <div class="hk-guest">Arrival hari ini: <?php echo htmlspecialchars($task['next_guest']); ?></div>
-                                                <div class="hk-guest">Status room: <?php echo htmlspecialchars(strtoupper($task['room_status'])); ?></div>
-                                            <?php else: ?>
-                                                <div class="hk-guest">Status room: <?php echo htmlspecialchars(strtoupper($task['room_status'])); ?></div>
-                                            <?php endif; ?>
-                                        </td>
-                                        <td>
-                                            <select class="hk-select" name="assigned[<?php echo htmlspecialchars($key); ?>]">
-                                                <option value="">- Pilih Staff -</option>
-                                                <?php foreach ($staffNames as $sn): ?>
-                                                    <option value="<?php echo htmlspecialchars($sn); ?>" <?php echo $assigned === $sn ? 'selected' : ''; ?>>
-                                                        <?php echo htmlspecialchars($sn); ?>
-                                                    </option>
-                                                <?php endforeach; ?>
-                                            </select>
-                                        </td>
-                                        <td>
-                                            <?php if ($isManual): ?>
-                                                <span class="hk-pill manual">Manual</span>
-                                            <?php else: ?>
-                                                <span class="hk-pill auto">Auto</span>
-                                            <?php endif; ?>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
+                    <?php if (!empty($unassignedTaskKeys)): ?>
+                        <div style="margin-bottom:0.75rem;font-size:0.75rem;color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:0.55rem 0.65rem;">
+                            Ada <?php echo count($unassignedTaskKeys); ?> task belum ter-assign. Pilih staff pada kartu task di bawah, lalu klik simpan.
+                        </div>
+                    <?php endif; ?>
+
+                    <div class="hk-staff-board">
+                        <?php foreach ($staffNames as $sn):
+                            $staffTasks = $tasksByStaff[$sn] ?? [];
+                        ?>
+                            <div class="hk-staff-card">
+                                <div class="hk-staff-head">
+                                    <div class="hk-staff-name"><?php echo htmlspecialchars($sn); ?></div>
+                                    <div class="hk-staff-count"><?php echo count($staffTasks); ?> Kamar</div>
+                                </div>
+                                <div class="hk-staff-body">
+                                    <?php if (empty($staffTasks)): ?>
+                                        <div class="hk-empty-staff">Belum ada jatah kamar.</div>
+                                    <?php else: ?>
+                                        <?php foreach ($staffTasks as $task):
+                                            $key = $task['key'];
+                                            $assigned = $assignmentMap[$key] ?? '';
+                                            $isManual = (bool)($manualMap[$key] ?? false);
+                                            $cls = strtolower($task['task_code']);
+                                        ?>
+                                            <div class="hk-task-item <?php echo htmlspecialchars($cls); ?>">
+                                                <div class="hk-task-top">
+                                                    <div class="hk-task-room">Room <?php echo htmlspecialchars($task['room_number']); ?> <span style="font-size:0.7rem;color:#64748b;font-weight:600;">(<?php echo htmlspecialchars($task['room_type']); ?>)</span></div>
+                                                    <div class="hk-task-prio"><?php echo htmlspecialchars($task['task_code']); ?> • P<?php echo (int)$task['priority_order']; ?></div>
+                                                </div>
+                                                <div class="hk-task-context">
+                                                    <?php if ($task['task_code'] === 'B2B'): ?>
+                                                        In-house: <?php echo htmlspecialchars($task['inhouse_guest'] ?: '-'); ?> | Next: <?php echo htmlspecialchars($task['next_guest'] ?: '-'); ?>
+                                                    <?php elseif ($task['task_code'] === 'OD'): ?>
+                                                        Tamu in-house: <?php echo htmlspecialchars($task['inhouse_guest'] ?: '-'); ?>
+                                                    <?php elseif ($task['task_code'] === 'VC' && !empty($task['next_guest'])): ?>
+                                                        Arrival hari ini: <?php echo htmlspecialchars($task['next_guest']); ?> | Status: <?php echo htmlspecialchars(strtoupper($task['room_status'])); ?>
+                                                    <?php else: ?>
+                                                        Status room: <?php echo htmlspecialchars(strtoupper($task['room_status'])); ?>
+                                                    <?php endif; ?>
+                                                </div>
+                                                <div class="hk-task-footer">
+                                                    <select class="hk-select" name="assigned[<?php echo htmlspecialchars($key); ?>]">
+                                                        <option value="">- Pilih Staff -</option>
+                                                        <?php foreach ($staffNames as $snOption): ?>
+                                                            <option value="<?php echo htmlspecialchars($snOption); ?>" <?php echo $assigned === $snOption ? 'selected' : ''; ?>>
+                                                                <?php echo htmlspecialchars($snOption); ?>
+                                                            </option>
+                                                        <?php endforeach; ?>
+                                                    </select>
+                                                    <?php if ($isManual): ?>
+                                                        <span class="hk-pill manual">Manual</span>
+                                                    <?php else: ?>
+                                                        <span class="hk-pill auto">Auto</span>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
                     </div>
 
                     <div class="hk-actions" style="margin-top:1rem;justify-content:flex-end;">

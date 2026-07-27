@@ -4278,7 +4278,8 @@ header('Expires: 0');
             ${team.length ? `<div style="margin-top:8px;font-size:11px;color:var(--muted);">Team Load: ${team.map(t => `${t.assigned_staff} (${t.total})`).join(' • ')}</div>` : ''}`;
 
                 if (!tasks.length) {
-                    document.getElementById('hkTaskList').innerHTML = '<div style="text-align:center;padding:16px;color:var(--muted);font-size:12px;">Belum ada tugas HK untuk nama akun ini.</div>';
+                    const msg = d.message || 'Belum ada tugas HK untuk nama akun ini.';
+                    document.getElementById('hkTaskList').innerHTML = '<div style="text-align:center;padding:16px;color:var(--muted);font-size:12px;">' + msg + '</div>';
                     return;
                 }
 

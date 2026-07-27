@@ -504,6 +504,18 @@ if ($action === 'hk_tasks') {
         exit;
     }
 
+    $normalizeHkName = function ($name) {
+        $v = strtolower(trim((string)$name));
+        $v = preg_replace('/\s+/', ' ', $v);
+        // Buang kata umum prefix housekeeping agar "HK DINI" match ke "DINI"
+        $v = preg_replace('/\b(hk|house ?keeping|housekeeper)\b/', '', $v);
+        $v = preg_replace('/\s+/', ' ', $v);
+        $v = trim($v);
+        // Simpan hanya alnum untuk comparison yang konsisten
+        $v = preg_replace('/[^a-z0-9]/', '', $v);
+        return $v;
+    };
+
     try {
         $tableExists = false;
         try {
@@ -527,23 +539,53 @@ if ($action === 'hk_tasks') {
             exit;
         }
 
-        $tasks = $db->fetchAll(
+        $allTasks = $db->fetchAll(
             "SELECT room_id, room_number, task_code, priority_order, assigned_staff, is_manual
              FROM frontdesk_hk_assignments
              WHERE assignment_date = ?
-               AND LOWER(TRIM(assigned_staff)) = LOWER(TRIM(?))
              ORDER BY priority_order ASC, room_number ASC",
-            [$date, $staffName]
+            [$date]
         ) ?: [];
 
-        $summaryRows = $db->fetchAll(
-            "SELECT task_code, COUNT(*) as total
-             FROM frontdesk_hk_assignments
-             WHERE assignment_date = ?
-               AND LOWER(TRIM(assigned_staff)) = LOWER(TRIM(?))
-             GROUP BY task_code",
-            [$date, $staffName]
-        ) ?: [];
+        $staffNorm = $normalizeHkName($staffName);
+        $aliases = [];
+        $aliases[] = $staffNorm;
+        foreach (preg_split('/\s+/', strtolower($staffName)) as $part) {
+            $p = $normalizeHkName($part);
+            if (strlen($p) >= 4) {
+                $aliases[] = $p;
+            }
+        }
+        $aliases = array_values(array_unique(array_filter($aliases)));
+
+        $tasks = [];
+        foreach ($allTasks as $t) {
+            $assignedRaw = (string)($t['assigned_staff'] ?? '');
+            $assignedNorm = $normalizeHkName($assignedRaw);
+            $matched = false;
+
+            // 1) match exact (case-insensitive) nama display
+            if (strcasecmp(trim($assignedRaw), $staffName) === 0) {
+                $matched = true;
+            }
+
+            // 2) match normalized alias (HK DINI <-> Dini)
+            if (!$matched && $assignedNorm !== '') {
+                foreach ($aliases as $alias) {
+                    if ($alias === '') {
+                        continue;
+                    }
+                    if ($assignedNorm === $alias || strpos($assignedNorm, $alias) !== false || strpos($alias, $assignedNorm) !== false) {
+                        $matched = true;
+                        break;
+                    }
+                }
+            }
+
+            if ($matched) {
+                $tasks[] = $t;
+            }
+        }
 
         $teamLoad = $db->fetchAll(
             "SELECT assigned_staff, COUNT(*) as total
@@ -555,11 +597,16 @@ if ($action === 'hk_tasks') {
         ) ?: [];
 
         $summary = ['B2B' => 0, 'OD' => 0, 'VD' => 0, 'VC' => 0];
-        foreach ($summaryRows as $sr) {
+        foreach ($tasks as $sr) {
             $code = (string)($sr['task_code'] ?? '');
             if (isset($summary[$code])) {
-                $summary[$code] = (int)$sr['total'];
+                $summary[$code]++;
             }
+        }
+
+        $mappingMessage = null;
+        if (!empty($allTasks) && empty($tasks)) {
+            $mappingMessage = 'Tugas HK ada, tetapi nama akun staff belum cocok dengan nama assignment di Frontdesk.';
         }
 
         echo json_encode([
@@ -569,7 +616,8 @@ if ($action === 'hk_tasks') {
                 'staff_name' => $staffName,
                 'tasks' => $tasks,
                 'summary' => $summary,
-                'team_load' => $teamLoad
+                'team_load' => $teamLoad,
+                'message' => $mappingMessage
             ]
         ]);
     } catch (Exception $e) {
