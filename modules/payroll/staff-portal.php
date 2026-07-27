@@ -3546,9 +3546,13 @@ header('Expires: 0');
                 </div>`;
                     }
 
-                    // Jam Kerja: tampilkan 8 jam (standar harian) jika sudah hadir; OT hanya jika sudah di-approve
-                    const baseHourTxt = (wh > 0 || a.status === 'present' || a.status === 'late') ? '8 jam' : '';
-                    const otTxt = ot > 0 ? `<span style="color:var(--orange);font-weight:700;">· OT ${ot.toFixed(1)} jam</span>` : (baseHourTxt ? '<span style="color:var(--muted);">· tanpa OT</span>' : '');
+                    // Jam kerja harian:
+                    // - Jika < 8 jam: tampilkan aktual
+                    // - Jika > 8 jam tanpa lembur approved: tetap 8 jam
+                    // - Jika ada lembur: jam lembur ditampilkan terpisah
+                    const regularHours = wh > 0 ? Math.min(wh, 8) : 0;
+                    const baseHourTxt = regularHours > 0 ? `${regularHours.toFixed(1).replace(/\.0$/, '')} jam` : '';
+                    const otTxt = ot > 0 ? `<span style="color:var(--orange);font-weight:700;">· OT ${ot.toFixed(1).replace(/\.0$/, '')} jam</span>` : (baseHourTxt ? '<span style="color:var(--muted);">· tanpa OT</span>' : '');
                     document.getElementById('todayStatus').innerHTML = `
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
                     <span class="badge ${a.status==='present'?'b-hadir':a.status==='late'?'b-late':'b-absent'}">${statusMap[a.status]||a.status}</span>
@@ -3696,11 +3700,14 @@ header('Expires: 0');
                     const otColor = isOver200 ? 'var(--red,#dc2626)' : 'var(--orange)';
                     const bc = r.status === 'present' ? 'b-hadir' : r.status === 'late' ? 'b-late' : 'b-absent';
 
-                    // Jam Kerja: tampilkan 8 jam (standar harian) jika hadir/terlambat; OT hanya bila sudah di-approve
+                    // Jam kerja harian:
+                    // - tampilkan aktual saat < 8 jam
+                    // - cap 8 jam jika > 8 dan tanpa lembur approved
                     const hadir = (wh > 0) || r.status === 'present' || r.status === 'late';
-                    const whTxt = hadir ? '8j' : '—';
+                    const regularHours = wh > 0 ? Math.min(wh, 8) : 0;
+                    const whTxt = regularHours > 0 ? `${regularHours.toFixed(1).replace(/\.0$/, '')}j` : (hadir ? '0j' : '—');
                     const otBlock = ot > 0 ?
-                        `<div style="font-size:10px;color:${otColor};font-weight:700;">${otLabel} +${ot.toFixed(1)}j</div>` :
+                        `<div style="font-size:10px;color:${otColor};font-weight:700;">${otLabel} +${ot.toFixed(1).replace(/\.0$/, '')}j</div>` :
                         (hadir ? `<div style="font-size:9px;color:var(--muted);">tanpa OT</div>` : '');
 
                     if (IS_CAFE) {
