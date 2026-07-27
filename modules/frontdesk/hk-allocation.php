@@ -220,13 +220,17 @@ function buildHkTasks($db, $workDate)
     return $tasks;
 }
 
-function autoAssignFair($tasks, $staffNames, $seedCounts = [])
+function autoAssignFair($tasks, $staffNames, $seedCounts = [], $maxPerStaff = null, $overflowAssignee = '')
 {
     $result = [];
     $counts = [];
 
     foreach ($staffNames as $name) {
         $counts[$name] = (int)($seedCounts[$name] ?? 0);
+    }
+
+    if ($overflowAssignee !== '' && !isset($counts[$overflowAssignee])) {
+        $counts[$overflowAssignee] = (int)($seedCounts[$overflowAssignee] ?? 0);
     }
 
     if (empty($staffNames)) {
@@ -237,10 +241,28 @@ function autoAssignFair($tasks, $staffNames, $seedCounts = [])
     $cursor = 0;
 
     foreach ($tasks as $task) {
-        $minCount = min($counts);
+        $eligibleCounts = [];
+        foreach ($staffIndex as $name) {
+            if ($maxPerStaff === null || $counts[$name] < $maxPerStaff) {
+                $eligibleCounts[$name] = $counts[$name];
+            }
+        }
+
+        if (empty($eligibleCounts)) {
+            if ($overflowAssignee !== '') {
+                $result[$task['key']] = $overflowAssignee;
+                if (!isset($counts[$overflowAssignee])) {
+                    $counts[$overflowAssignee] = 0;
+                }
+                $counts[$overflowAssignee]++;
+            }
+            continue;
+        }
+
+        $minCount = min($eligibleCounts);
         $candidateIndexes = [];
         foreach ($staffIndex as $idx => $name) {
-            if ($counts[$name] === $minCount) {
+            if (isset($eligibleCounts[$name]) && $counts[$name] === $minCount) {
                 $candidateIndexes[] = $idx;
             }
         }
@@ -310,6 +332,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $tasksNow = buildHkTasks($db, $workDate);
             $staffRowsNow = $db->fetchAll("SELECT staff_name FROM frontdesk_hk_staff WHERE is_active = 1 ORDER BY staff_name ASC") ?: [];
             $staffNamesNow = array_map(fn($r) => $r['staff_name'], $staffRowsNow);
+            $teamAssigneeNow = 'TEAM';
+            $assigneeOptionsNow = $staffNamesNow;
+            if (!in_array($teamAssigneeNow, $assigneeOptionsNow, true)) {
+                $assigneeOptionsNow[] = $teamAssigneeNow;
+            }
 
             if (empty($staffNamesNow)) {
                 throw new Exception('Daftar staff HK kosong. Simpan nama staff dulu.');
@@ -321,12 +348,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 foreach ($tasksNow as $task) {
                     $key = $task['key'];
                     $assigned = trim((string)($incoming[$key] ?? ''));
-                    if ($assigned !== '' && in_array($assigned, $staffNamesNow, true)) {
+                    if ($assigned !== '' && in_array($assigned, $assigneeOptionsNow, true)) {
                         $assignMap[$key] = $assigned;
                     }
                 }
             } else {
-                $auto = autoAssignFair($tasksNow, $staffNamesNow);
+                $maxPerStaff = null;
+                if (count($staffNamesNow) > 0 && count($tasksNow) >= count($staffNamesNow)) {
+                    $maxPerStaff = intdiv(count($tasksNow), count($staffNamesNow));
+                }
+                $auto = autoAssignFair($tasksNow, $staffNamesNow, [], $maxPerStaff, $teamAssigneeNow);
                 $assignMap = $auto['assignments'];
             }
 
@@ -371,6 +402,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $staffRows = $db->fetchAll("SELECT staff_name FROM frontdesk_hk_staff WHERE is_active = 1 ORDER BY staff_name ASC") ?: [];
 $staffNames = array_map(fn($r) => $r['staff_name'], $staffRows);
+$teamAssignee = 'TEAM';
+$displayAssignees = $staffNames;
+if (!empty($staffNames) && !in_array($teamAssignee, $displayAssignees, true)) {
+    $displayAssignees[] = $teamAssignee;
+}
 $staffText = implode("\n", $staffNames);
 
 $tasks = buildHkTasks($db, $workDate);
@@ -392,7 +428,7 @@ foreach ($savedRows as $row) {
 
 $assignmentMap = [];
 $manualMap = [];
-$seedCounts = array_fill_keys($staffNames, 0);
+$seedCounts = array_fill_keys($displayAssignees, 0);
 
 foreach ($tasks as $task) {
     $k = $task['key'];
@@ -400,7 +436,7 @@ foreach ($tasks as $task) {
         continue;
     }
     $assigned = $savedMap[$k]['assigned_staff'];
-    if (!in_array($assigned, $staffNames, true)) {
+    if (!in_array($assigned, $displayAssignees, true)) {
         continue;
     }
     $assignmentMap[$k] = $assigned;
@@ -414,13 +450,17 @@ $unassignedTasks = array_values(array_filter($tasks, function ($t) use ($assignm
     return !isset($assignmentMap[$t['key']]);
 }));
 
-$autoResult = autoAssignFair($unassignedTasks, $staffNames, $seedCounts);
+$maxPerStaff = null;
+if (count($staffNames) > 0 && count($tasks) >= count($staffNames)) {
+    $maxPerStaff = intdiv(count($tasks), count($staffNames));
+}
+$autoResult = autoAssignFair($unassignedTasks, $staffNames, $seedCounts, $maxPerStaff, $teamAssignee);
 foreach ($autoResult['assignments'] as $key => $staffName) {
     $assignmentMap[$key] = $staffName;
     $manualMap[$key] = false;
 }
 
-$staffLoad = array_fill_keys($staffNames, 0);
+$staffLoad = array_fill_keys($displayAssignees, 0);
 foreach ($tasks as $task) {
     $assigned = $assignmentMap[$task['key']] ?? '';
     if ($assigned !== '' && isset($staffLoad[$assigned])) {
@@ -436,7 +476,7 @@ foreach ($tasks as $task) {
 }
 
 $tasksByStaff = [];
-foreach ($staffNames as $sn) {
+foreach ($displayAssignees as $sn) {
     $tasksByStaff[$sn] = [];
 }
 
@@ -827,7 +867,7 @@ include '../../includes/header.php';
     <div class="hk-head">
         <div>
             <h1 class="hk-title">Pembagian Pembersihan Room HK</h1>
-            <div class="hk-sub">Prioritas: B2B -> OD (In-House) -> VD -> VC. Sistem bagi otomatis adil, lalu bisa override manual dari Frontdesk.</div>
+            <div class="hk-sub">Prioritas: B2B -> OD (In-House) -> VD -> VC. Sistem bagi rata per HK aktif, sisa kamar otomatis masuk TEAM, lalu bisa override manual dari Frontdesk.</div>
         </div>
     </div>
 
@@ -887,7 +927,7 @@ HK Wawan"><?php echo htmlspecialchars($staffText); ?></textarea>
 
                 <?php if (!empty($staffNames)): ?>
                     <div class="hk-staff-load">
-                        <?php foreach ($staffNames as $sn): ?>
+                        <?php foreach ($displayAssignees as $sn): ?>
                             <div class="hk-load-item">
                                 <div class="name"><?php echo htmlspecialchars($sn); ?></div>
                                 <div class="num"><?php echo (int)($staffLoad[$sn] ?? 0); ?></div>
@@ -917,7 +957,7 @@ HK Wawan"><?php echo htmlspecialchars($staffText); ?></textarea>
                     <?php endif; ?>
 
                     <div class="hk-staff-board">
-                        <?php foreach ($staffNames as $sn):
+                        <?php foreach ($displayAssignees as $sn):
                             $staffTasks = $tasksByStaff[$sn] ?? [];
                         ?>
                             <div class="hk-staff-card">
@@ -954,7 +994,7 @@ HK Wawan"><?php echo htmlspecialchars($staffText); ?></textarea>
                                                 <div class="hk-task-footer">
                                                     <select class="hk-select" name="assigned[<?php echo htmlspecialchars($key); ?>]">
                                                         <option value="">- Pilih Staff -</option>
-                                                        <?php foreach ($staffNames as $snOption): ?>
+                                                        <?php foreach ($displayAssignees as $snOption): ?>
                                                             <option value="<?php echo htmlspecialchars($snOption); ?>" <?php echo $assigned === $snOption ? 'selected' : ''; ?>>
                                                                 <?php echo htmlspecialchars($snOption); ?>
                                                             </option>
