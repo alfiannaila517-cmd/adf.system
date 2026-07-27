@@ -234,6 +234,15 @@ function autoAssignFair($tasks, $staffNames, $seedCounts = [], $maxPerStaff = nu
     }
 
     if (empty($staffNames)) {
+        if ($overflowAssignee !== '') {
+            foreach ($tasks as $task) {
+                $result[$task['key']] = $overflowAssignee;
+                if (!isset($counts[$overflowAssignee])) {
+                    $counts[$overflowAssignee] = 0;
+                }
+                $counts[$overflowAssignee]++;
+            }
+        }
         return ['assignments' => $result, 'counts' => $counts];
     }
 
@@ -284,6 +293,112 @@ function autoAssignFair($tasks, $staffNames, $seedCounts = [], $maxPerStaff = nu
     return ['assignments' => $result, 'counts' => $counts];
 }
 
+function syncHkStaffFromPayroll($db)
+{
+    $rows = $db->fetchAll(
+        "SELECT full_name
+         FROM payroll_employees
+         WHERE is_active = 1
+           AND (
+                LOWER(COALESCE(department, '')) LIKE '%housekeeping%'
+                OR LOWER(COALESCE(department, '')) = 'hk'
+                OR LOWER(COALESCE(position, '')) LIKE '%housekeeping%'
+                OR LOWER(COALESCE(position, '')) LIKE 'hk%'
+           )
+         ORDER BY full_name ASC"
+    ) ?: [];
+
+    $names = [];
+    foreach ($rows as $r) {
+        $n = trim((string)($r['full_name'] ?? ''));
+        if ($n !== '') {
+            $names[$n] = true;
+        }
+    }
+    $names = array_keys($names);
+
+    $db->beginTransaction();
+    $db->query("UPDATE frontdesk_hk_staff SET is_active = 0");
+    foreach ($names as $name) {
+        $db->query(
+            "INSERT INTO frontdesk_hk_staff (staff_name, is_active) VALUES (?, 1)
+             ON DUPLICATE KEY UPDATE is_active = 1, updated_at = NOW()",
+            [$name]
+        );
+    }
+    $db->commit();
+
+    return $names;
+}
+
+function getAttendanceEligibleHkStaff($db, $staffNames, $workDate, $cutoffTime = '09:00:00')
+{
+    $result = [
+        'enforced' => false,
+        'eligible_staff' => $staffNames,
+        'absent_staff' => [],
+        'cutoff_time' => $cutoffTime,
+        'reason' => ''
+    ];
+
+    if (empty($staffNames)) {
+        return $result;
+    }
+
+    $today = date('Y-m-d');
+    $nowTime = date('H:i:s');
+    if (!($workDate === $today && $nowTime >= $cutoffTime)) {
+        return $result;
+    }
+
+    $result['enforced'] = true;
+
+    $placeholders = implode(',', array_fill(0, count($staffNames), '?'));
+    $params = array_merge([$workDate], $staffNames);
+    try {
+        $rows = $db->fetchAll(
+            "SELECT e.full_name, a.check_in_time
+             FROM payroll_employees e
+             LEFT JOIN payroll_attendance a
+                ON a.employee_id = e.id
+               AND a.attendance_date = ?
+             WHERE e.full_name IN ($placeholders)",
+            $params
+        ) ?: [];
+    } catch (Exception $e) {
+        // Fail-safe: jika tabel absensi belum tersedia, jangan blokir operasional pembagian.
+        $result['enforced'] = false;
+        $result['reason'] = 'Data absensi belum tersedia';
+        return $result;
+    }
+
+    $checkInByName = [];
+    foreach ($rows as $r) {
+        $nm = trim((string)($r['full_name'] ?? ''));
+        if ($nm === '') {
+            continue;
+        }
+        $checkInByName[$nm] = $r['check_in_time'] ?? null;
+    }
+
+    $eligible = [];
+    $absent = [];
+    foreach ($staffNames as $name) {
+        $checkIn = $checkInByName[$name] ?? null;
+        $time = $checkIn ? date('H:i:s', strtotime((string)$checkIn)) : null;
+        if ($time !== null && $time <= $cutoffTime) {
+            $eligible[] = $name;
+        } else {
+            $absent[] = $name;
+        }
+    }
+
+    $result['eligible_staff'] = $eligible;
+    $result['absent_staff'] = $absent;
+    $result['reason'] = 'Cutoff absensi ' . $cutoffTime;
+    return $result;
+}
+
 ensureHkTables($db);
 
 $workDate = $_POST['work_date'] ?? $_GET['date'] ?? date('Y-m-d');
@@ -295,26 +410,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
     if ($action === 'save_staff') {
-        $names = parseStaffNames($_POST['staff_names'] ?? '');
-        if (empty($names)) {
-            $error = 'Nama staff HK belum diisi.';
-        } else {
-            try {
-                $db->beginTransaction();
-                $db->query("UPDATE frontdesk_hk_staff SET is_active = 0");
-                foreach ($names as $name) {
-                    $db->query(
-                        "INSERT INTO frontdesk_hk_staff (staff_name, is_active) VALUES (?, 1)
-                         ON DUPLICATE KEY UPDATE is_active = 1, updated_at = NOW()",
-                        [$name]
-                    );
-                }
-                $db->commit();
-                $message = 'Daftar staff HK berhasil disimpan.';
-            } catch (Exception $e) {
+        try {
+            $synced = syncHkStaffFromPayroll($db);
+            $message = 'Sinkron staff HK dari data payroll berhasil: ' . count($synced) . ' staff aktif.';
+        } catch (Exception $e) {
+            if (method_exists($db, 'rollback')) {
                 $db->rollback();
-                $error = 'Gagal menyimpan staff HK: ' . $e->getMessage();
             }
+            $error = 'Gagal sinkron staff HK dari payroll: ' . $e->getMessage();
         }
     }
 
@@ -329,9 +432,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'save_plan' || $action === 'generate_auto') {
         try {
+            syncHkStaffFromPayroll($db);
             $tasksNow = buildHkTasks($db, $workDate);
             $staffRowsNow = $db->fetchAll("SELECT staff_name FROM frontdesk_hk_staff WHERE is_active = 1 ORDER BY staff_name ASC") ?: [];
             $staffNamesNow = array_map(fn($r) => $r['staff_name'], $staffRowsNow);
+            $attendanceNow = getAttendanceEligibleHkStaff($db, $staffNamesNow, $workDate, '09:00:00');
+            $effectiveStaffNow = $attendanceNow['eligible_staff'];
             $teamAssigneeNow = 'TEAM';
             $assigneeOptionsNow = $staffNamesNow;
             if (!in_array($teamAssigneeNow, $assigneeOptionsNow, true)) {
@@ -339,7 +445,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             if (empty($staffNamesNow)) {
-                throw new Exception('Daftar staff HK kosong. Simpan nama staff dulu.');
+                throw new Exception('Staff HK dari payroll kosong. Pastikan data payroll_employees (Housekeeping) sudah ada.');
             }
 
             $assignMap = [];
@@ -354,10 +460,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             } else {
                 $maxPerStaff = null;
-                if (count($staffNamesNow) > 0 && count($tasksNow) >= count($staffNamesNow)) {
-                    $maxPerStaff = intdiv(count($tasksNow), count($staffNamesNow));
+                if (count($effectiveStaffNow) > 0 && count($tasksNow) >= count($effectiveStaffNow)) {
+                    $maxPerStaff = intdiv(count($tasksNow), count($effectiveStaffNow));
                 }
-                $auto = autoAssignFair($tasksNow, $staffNamesNow, [], $maxPerStaff, $teamAssigneeNow);
+                $auto = autoAssignFair($tasksNow, $effectiveStaffNow, [], $maxPerStaff, $teamAssigneeNow);
                 $assignMap = $auto['assignments'];
             }
 
@@ -400,11 +506,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+try {
+    syncHkStaffFromPayroll($db);
+} catch (Exception $e) {
+    if ($error === '') {
+        $error = 'Gagal sinkron staff HK payroll: ' . $e->getMessage();
+    }
+}
+
 $staffRows = $db->fetchAll("SELECT staff_name FROM frontdesk_hk_staff WHERE is_active = 1 ORDER BY staff_name ASC") ?: [];
 $staffNames = array_map(fn($r) => $r['staff_name'], $staffRows);
+$attendanceGate = getAttendanceEligibleHkStaff($db, $staffNames, $workDate, '09:00:00');
+$effectiveStaffNames = $attendanceGate['eligible_staff'];
+$absentStaffNames = $attendanceGate['absent_staff'];
+$attendanceEnforced = (bool)($attendanceGate['enforced'] ?? false);
 $teamAssignee = 'TEAM';
-$displayAssignees = $staffNames;
-if (!empty($staffNames) && !in_array($teamAssignee, $displayAssignees, true)) {
+$displayAssignees = $effectiveStaffNames;
+if (!in_array($teamAssignee, $displayAssignees, true)) {
     $displayAssignees[] = $teamAssignee;
 }
 $staffText = implode("\n", $staffNames);
@@ -439,8 +557,15 @@ foreach ($tasks as $task) {
     if (!in_array($assigned, $displayAssignees, true)) {
         continue;
     }
+
+    $isManualSaved = (int)$savedMap[$k]['is_manual'] === 1;
+    if ($attendanceEnforced && !$isManualSaved && in_array($assigned, $absentStaffNames, true)) {
+        // Auto assignment milik staff tidak hadir harus dialihkan ulang otomatis.
+        continue;
+    }
+
     $assignmentMap[$k] = $assigned;
-    $manualMap[$k] = $savedMap[$k]['is_manual'];
+    $manualMap[$k] = $isManualSaved;
     if (isset($seedCounts[$assigned])) {
         $seedCounts[$assigned]++;
     }
@@ -451,10 +576,10 @@ $unassignedTasks = array_values(array_filter($tasks, function ($t) use ($assignm
 }));
 
 $maxPerStaff = null;
-if (count($staffNames) > 0 && count($tasks) >= count($staffNames)) {
-    $maxPerStaff = intdiv(count($tasks), count($staffNames));
+if (count($effectiveStaffNames) > 0 && count($tasks) >= count($effectiveStaffNames)) {
+    $maxPerStaff = intdiv(count($tasks), count($effectiveStaffNames));
 }
-$autoResult = autoAssignFair($unassignedTasks, $staffNames, $seedCounts, $maxPerStaff, $teamAssignee);
+$autoResult = autoAssignFair($unassignedTasks, $effectiveStaffNames, $seedCounts, $maxPerStaff, $teamAssignee);
 foreach ($autoResult['assignments'] as $key => $staffName) {
     $assignmentMap[$key] = $staffName;
     $manualMap[$key] = false;
@@ -867,7 +992,7 @@ include '../../includes/header.php';
     <div class="hk-head">
         <div>
             <h1 class="hk-title">Pembagian Pembersihan Room HK</h1>
-            <div class="hk-sub">Prioritas: B2B -> OD (In-House) -> VD -> VC. Sistem bagi rata per HK aktif, sisa kamar otomatis masuk TEAM, lalu bisa override manual dari Frontdesk.</div>
+            <div class="hk-sub">Prioritas: B2B -> OD (In-House) -> VD -> VC. Staff HK sinkron dari Payroll, cutoff absensi 09:00 (hari ini) untuk redistribusi otomatis, sisa kamar masuk TEAM, lalu tetap bisa override manual.</div>
         </div>
     </div>
 
@@ -885,13 +1010,10 @@ include '../../includes/header.php';
                 <form method="post">
                     <input type="hidden" name="action" value="save_staff">
                     <input type="hidden" name="work_date" value="<?php echo htmlspecialchars($workDate); ?>">
-                    <label style="font-size:0.66rem;color:var(--text-muted);font-weight:700;display:block;margin-bottom:0.25rem;">Nama staff (satu baris satu nama)</label>
-                    <textarea class="hk-input" name="staff_names" placeholder="Contoh:
-HK Sinta
-HK Dita
-HK Wawan"><?php echo htmlspecialchars($staffText); ?></textarea>
+                    <label style="font-size:0.66rem;color:var(--text-muted);font-weight:700;display:block;margin-bottom:0.25rem;">Sumber nama: Payroll Employees (Department/Position Housekeeping)</label>
+                    <textarea class="hk-input" name="staff_names" readonly><?php echo htmlspecialchars($staffText); ?></textarea>
                     <div class="hk-actions">
-                        <button class="hk-btn hk-btn-primary" type="submit">Simpan Staff</button>
+                        <button class="hk-btn hk-btn-primary" type="submit">Sinkron Ulang dari Payroll</button>
                     </div>
                 </form>
             </div>
@@ -914,6 +1036,16 @@ HK Wawan"><?php echo htmlspecialchars($staffText); ?></textarea>
                         <button class="hk-btn hk-btn-secondary" type="submit">Reset ke Auto</button>
                     </form>
                 </div>
+                <?php if ($attendanceEnforced): ?>
+                    <div style="margin-top:0.5rem;font-size:0.64rem;color:#b45309;background:#fffbeb;border:1px solid #fcd34d;border-radius:7px;padding:0.38rem 0.46rem;">
+                        Cutoff absensi 09:00 aktif untuk hari ini. Belum check-in sampai jam 09:00 dianggap tidak berangkat dan jatahnya dibagi ulang.<br>
+                        <?php if (!empty($absentStaffNames)): ?>
+                            Tidak hadir: <?php echo htmlspecialchars(implode(', ', $absentStaffNames)); ?>
+                        <?php else: ?>
+                            Semua staff HK hadir sebelum cutoff.
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
             </div>
 
             <div class="hk-card hk-card-compact">
