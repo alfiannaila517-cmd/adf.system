@@ -353,8 +353,17 @@ function getAttendanceEligibleHkStaff($db, $staffNames, $workDate, $cutoffTime =
 
     $result['enforced'] = true;
 
-    $placeholders = implode(',', array_fill(0, count($staffNames), '?'));
-    $params = array_merge([$workDate], $staffNames);
+    $normalizeName = function ($name) {
+        $s = trim((string)$name);
+        $s = preg_replace('/\s+/', ' ', $s);
+        return function_exists('mb_strtolower') ? mb_strtolower($s) : strtolower($s);
+    };
+
+    $wantedByNorm = [];
+    foreach ($staffNames as $sn) {
+        $wantedByNorm[$normalizeName($sn)] = $sn;
+    }
+
     try {
         $rows = $db->fetchAll(
             "SELECT e.full_name, a.check_in_time
@@ -362,8 +371,8 @@ function getAttendanceEligibleHkStaff($db, $staffNames, $workDate, $cutoffTime =
              LEFT JOIN payroll_attendance a
                 ON a.employee_id = e.id
                AND a.attendance_date = ?
-             WHERE e.full_name IN ($placeholders)",
-            $params
+             WHERE e.is_active = 1",
+            [$workDate]
         ) ?: [];
     } catch (Exception $e) {
         // Fail-safe: jika tabel absensi belum tersedia, jangan blokir operasional pembagian.
@@ -378,13 +387,21 @@ function getAttendanceEligibleHkStaff($db, $staffNames, $workDate, $cutoffTime =
         if ($nm === '') {
             continue;
         }
-        $checkInByName[$nm] = $r['check_in_time'] ?? null;
+        $norm = $normalizeName($nm);
+        if (!isset($wantedByNorm[$norm])) {
+            continue;
+        }
+        // Keep first non-null check-in if duplicates exist.
+        if (!array_key_exists($norm, $checkInByName) || $checkInByName[$norm] === null) {
+            $checkInByName[$norm] = $r['check_in_time'] ?? null;
+        }
     }
 
     $eligible = [];
     $absent = [];
     foreach ($staffNames as $name) {
-        $checkIn = $checkInByName[$name] ?? null;
+        $normName = $normalizeName($name);
+        $checkIn = $checkInByName[$normName] ?? null;
         $time = $checkIn ? date('H:i:s', strtotime((string)$checkIn)) : null;
         if ($time !== null && $time <= $cutoffTime) {
             $eligible[] = $name;
@@ -1038,7 +1055,7 @@ include '../../includes/header.php';
                 </div>
                 <?php if ($attendanceEnforced): ?>
                     <div style="margin-top:0.5rem;font-size:0.64rem;color:#b45309;background:#fffbeb;border:1px solid #fcd34d;border-radius:7px;padding:0.38rem 0.46rem;">
-                        Cutoff absensi 09:00 aktif untuk hari ini. Belum check-in sampai jam 09:00 dianggap tidak berangkat dan jatahnya dibagi ulang.<br>
+                        Cutoff absensi 09:00 aktif untuk hari ini. Belum check-in sampai jam 09:00 dianggap tidak berangkat dan jatahnya dibagi ulang (pencocokan nama tidak sensitif huruf besar/kecil/spasi).<br>
                         <?php if (!empty($absentStaffNames)): ?>
                             Tidak hadir: <?php echo htmlspecialchars(implode(', ', $absentStaffNames)); ?>
                         <?php else: ?>
