@@ -43,13 +43,27 @@ if (isset($_GET['ajax_attendance']) && isset($_GET['emp_id'])) {
         // Get all attendance for this month
         $attendance = $db->fetchAll(
             "SELECT attendance_date, check_in_time, check_out_time, scan_3, scan_4, 
-                    work_hours, shift_1_hours, shift_2_hours, status, notes,
+                    work_hours, overtime_hours, shift_1_hours, shift_2_hours, status, notes,
                     check_in_distance_m, is_outside_radius
              FROM payroll_attendance 
              WHERE employee_id = ? AND DATE_FORMAT(attendance_date, '%Y-%m') = ?
              ORDER BY attendance_date ASC",
             [$empId, $monthStr]
         );
+
+        // Approved OT dates for this employee in selected month
+        $approvedOTDates = [];
+        try {
+            $otRows = $db->fetchAll(
+                "SELECT overtime_date FROM overtime_requests WHERE employee_id = ? AND status = 'approved' AND DATE_FORMAT(overtime_date, '%Y-%m') = ?",
+                [$empId, $monthStr]
+            ) ?: [];
+            foreach ($otRows as $otRow) {
+                $approvedOTDates[(string)($otRow['overtime_date'] ?? '')] = true;
+            }
+        } catch (Exception $e) {
+            $approvedOTDates = [];
+        }
 
         // Calculate summary
         $totalDays = 0;
@@ -60,12 +74,28 @@ if (isset($_GET['ajax_attendance']) && isset($_GET['emp_id'])) {
 
         foreach ($attendance as &$a) {
             $a['effective_status'] = payrollDetectLateArrival($a['status'], $a['check_in_time']);
+
+            $rawHours = (float)($a['work_hours'] ?? 0);
+            $regularHours = min(max(0, $rawHours), 8);
+            $manualOT = roundOT45((float)($a['overtime_hours'] ?? 0));
+            $hasApprovedOT = !empty($approvedOTDates[(string)($a['attendance_date'] ?? '')]);
+            $approvedOT = $hasApprovedOT ? roundOT45(max(0, $rawHours - 8)) : 0.0;
+            $effectiveOT = $manualOT > 0 ? $manualOT : $approvedOT;
+
+            // Rule detail modal:
+            // - <8 jam tampil aktual
+            // - >8 tanpa OT approved / OT<45m tetap 8
+            // - >8 dengan OT approved >=45m tampil 8 + OT
+            $a['effective_regular_hours'] = round($regularHours, 2);
+            $a['effective_overtime_hours'] = round($effectiveOT, 2);
+            $a['effective_work_hours'] = round($regularHours + $effectiveOT, 2);
+            $a['has_approved_overtime'] = $hasApprovedOT;
         }
         unset($a);
 
         foreach ($attendance as $a) {
             $totalDays++;
-            $totalHours += (float)($a['work_hours'] ?? 0);
+            $totalHours += (float)($a['effective_work_hours'] ?? 0);
             if ($a['effective_status'] === 'late') $lateCount++;
             if ($a['effective_status'] === 'absent') $absentCount++;
             if ($a['effective_status'] === 'present' || $a['effective_status'] === 'late') $presentCount++;
@@ -3236,7 +3266,7 @@ include '../../includes/header.php';
             let hoursText = '';
             if (att) {
                 statusClass = att.effective_status || att.status || 'present';
-                if (att.work_hours) hoursText = `${parseFloat(att.work_hours).toFixed(1)}h`;
+                if (att.effective_work_hours || att.work_hours) hoursText = `${parseFloat(att.effective_work_hours ?? att.work_hours).toFixed(1)}h`;
             } else if (day.is_weekend) {
                 statusClass = 'weekend';
             }
@@ -3279,13 +3309,15 @@ include '../../includes/header.php';
             const s4 = att?.scan_4 ? att.scan_4.substring(0, 5) : '';
             const sh1 = att?.shift_1_hours ? parseFloat(att.shift_1_hours).toFixed(1) : '0.0';
             const sh2 = att?.shift_2_hours ? parseFloat(att.shift_2_hours).toFixed(1) : '0.0';
-            const tot = att?.work_hours ? parseFloat(att.work_hours).toFixed(1) : '0.0';
+            const tot = (att?.effective_work_hours ?? att?.work_hours) ? parseFloat(att?.effective_work_hours ?? att?.work_hours).toFixed(1) : '0.0';
             const sts = att?.effective_status || att?.status || (day.is_weekend ? 'holiday' : '');
             const rowClass = isFuture ? 'opacity:0.4;' : (att ? '' : (day.is_weekend ? 'opacity:0.5;' : ''));
             const dayLabel = day.day + ' ' + day.day_name;
+            const hasApprovedOT = att?.has_approved_overtime ? '1' : '0';
+            const manualOT = att?.overtime_hours ? parseFloat(att.overtime_hours) : 0;
 
             tableHtml += `
-            <tr data-date="${d}" style="${rowClass}">
+            <tr data-date="${d}" data-approved-ot="${hasApprovedOT}" data-manual-ot="${manualOT}" style="${rowClass}">
                 <td style="font-weight:600;font-size:0.72rem;white-space:nowrap;">${dayLabel}</td>
                 <td><input type="time" class="att-edit-time" value="${ci}" data-col="check_in" ${isFuture?'disabled':''}></td>
                 <td><input type="time" class="att-edit-time" value="${co}" data-col="check_out" ${isFuture?'disabled':''}></td>
@@ -3413,7 +3445,23 @@ include '../../includes/header.php';
             const [h4, m4] = s4.split(':').map(Number);
             sh2 = Math.max(0, (h4 * 60 + m4 - h3 * 60 - m3) / 60);
         }
-        const total = sh1 + sh2;
+        const rawTotal = sh1 + sh2;
+
+        // Sama dgn rule backend: OT dibulatkan threshold 45 menit.
+        const roundOT45 = (hours) => {
+            const h = parseFloat(hours) || 0;
+            if (h <= 0) return 0;
+            const minutes = Math.floor(h * 60 + 0.5);
+            if (minutes < 45) return 0;
+            return Math.floor(minutes / 45);
+        };
+
+        const regular = Math.min(Math.max(0, rawTotal), 8);
+        const hasApprovedOT = tr.getAttribute('data-approved-ot') === '1';
+        const manualOT = parseFloat(tr.getAttribute('data-manual-ot') || '0') || 0;
+        const effectiveOT = manualOT > 0 ? roundOT45(manualOT) : (hasApprovedOT ? roundOT45(Math.max(0, rawTotal - 8)) : 0);
+        const total = regular + effectiveOT;
+
         tr.querySelector('.att-calc-sh1').textContent = sh1.toFixed(1);
         tr.querySelector('.att-calc-sh2').textContent = sh2.toFixed(1);
         tr.querySelector('.att-calc-total').textContent = total.toFixed(1);
