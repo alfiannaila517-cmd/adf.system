@@ -4265,6 +4265,7 @@ header('Expires: 0');
                 const s = d.summary || {};
                 const tasks = d.tasks || [];
                 const team = d.team_load || [];
+                const isFallbackAll = !!d.fallback_all;
 
                 document.getElementById('hkStats').innerHTML = `
             <div class="stat-row" style="margin-bottom:8px;">
@@ -4306,7 +4307,7 @@ header('Expires: 0');
                             ${sourceTag}
                         </div>
                     </div>
-                    <div style="margin-top:4px;font-size:11px;color:var(--muted);">Prioritas #${t.priority_order} • Tugas ke-${i + 1}</div>
+                    <div style="margin-top:4px;font-size:11px;color:var(--muted);">Prioritas #${t.priority_order} • Tugas ke-${i + 1}${isFallbackAll ? ' • Mode Tim' : ''}</div>
                 </div>`;
                 });
 

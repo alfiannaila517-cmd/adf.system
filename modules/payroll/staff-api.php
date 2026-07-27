@@ -587,6 +587,13 @@ if ($action === 'hk_tasks') {
             }
         }
 
+        $fallbackAll = false;
+        if (empty($tasks) && !empty($allTasks)) {
+            // Fallback: tampilkan semua jatah tim agar halaman staff portal tidak kosong.
+            $tasks = $allTasks;
+            $fallbackAll = true;
+        }
+
         $teamLoad = $db->fetchAll(
             "SELECT assigned_staff, COUNT(*) as total
              FROM frontdesk_hk_assignments
@@ -605,8 +612,8 @@ if ($action === 'hk_tasks') {
         }
 
         $mappingMessage = null;
-        if (!empty($allTasks) && empty($tasks)) {
-            $mappingMessage = 'Tugas HK ada, tetapi nama akun staff belum cocok dengan nama assignment di Frontdesk.';
+        if ($fallbackAll) {
+            $mappingMessage = 'Nama akun belum cocok dengan assignment HK. Menampilkan pembagian seluruh tim.';
         }
 
         echo json_encode([
@@ -617,7 +624,8 @@ if ($action === 'hk_tasks') {
                 'tasks' => $tasks,
                 'summary' => $summary,
                 'team_load' => $teamLoad,
-                'message' => $mappingMessage
+                'message' => $mappingMessage,
+                'fallback_all' => $fallbackAll
             ]
         ]);
     } catch (Exception $e) {

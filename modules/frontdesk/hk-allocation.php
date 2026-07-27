@@ -471,33 +471,46 @@ include '../../includes/header.php';
 
     .hk-title {
         margin: 0;
-        font-size: 1.5rem;
+        font-size: 1.32rem;
         font-weight: 800;
         color: var(--text-primary);
     }
 
     .hk-sub {
-        font-size: 0.82rem;
+        font-size: 0.75rem;
         color: var(--text-muted);
         margin-top: 0.2rem;
     }
 
     .hk-grid {
+        display: block;
+    }
+
+    .hk-top-row {
         display: grid;
-        grid-template-columns: 340px 1fr;
-        gap: 1rem;
+        grid-template-columns: 1.25fr 1fr 1fr;
+        gap: 0.75rem;
+        margin-bottom: 0.85rem;
     }
 
     .hk-card {
         background: var(--bg-secondary);
         border: 1px solid var(--bg-tertiary);
         border-radius: 12px;
-        padding: 1rem;
+        padding: 0.85rem;
     }
 
     .hk-card h3 {
         margin: 0 0 0.75rem 0;
-        font-size: 0.95rem;
+        font-size: 0.88rem;
+    }
+
+    .hk-card-compact {
+        min-height: 100%;
+    }
+
+    .hk-allocation-card {
+        margin-top: 0;
     }
 
     .hk-input,
@@ -512,8 +525,15 @@ include '../../includes/header.php';
     }
 
     .hk-input {
-        min-height: 140px;
+        min-height: 95px;
         resize: vertical;
+        font-size: 0.82rem;
+        line-height: 1.25;
+    }
+
+    .hk-select,
+    .hk-date {
+        font-size: 0.8rem;
     }
 
     .hk-actions {
@@ -526,9 +546,9 @@ include '../../includes/header.php';
     .hk-btn {
         border: none;
         border-radius: 8px;
-        padding: 0.5rem 0.8rem;
+        padding: 0.42rem 0.66rem;
         font-weight: 700;
-        font-size: 0.8rem;
+        font-size: 0.74rem;
         cursor: pointer;
     }
 
@@ -580,13 +600,13 @@ include '../../includes/header.php';
     }
 
     .hk-badge .n {
-        font-size: 1.3rem;
+        font-size: 1.08rem;
         font-weight: 900;
         line-height: 1;
     }
 
     .hk-badge .l {
-        font-size: 0.72rem;
+        font-size: 0.66rem;
         font-weight: 700;
         margin-top: 0.2rem;
     }
@@ -599,7 +619,7 @@ include '../../includes/header.php';
 
     .hk-staff-card {
         border: 1px solid var(--bg-tertiary);
-        border-radius: 12px;
+        border-radius: 10px;
         background: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(241, 245, 249, 0.4));
         overflow: hidden;
     }
@@ -615,7 +635,7 @@ include '../../includes/header.php';
     }
 
     .hk-staff-name {
-        font-size: 0.95rem;
+        font-size: 0.86rem;
         font-weight: 800;
         color: #0f172a;
         letter-spacing: 0.02em;
@@ -623,7 +643,7 @@ include '../../includes/header.php';
 
     .hk-staff-count {
         display: inline-block;
-        font-size: 0.7rem;
+        font-size: 0.64rem;
         font-weight: 800;
         border-radius: 20px;
         padding: 0.2rem 0.55rem;
@@ -638,9 +658,9 @@ include '../../includes/header.php';
     .hk-task-item {
         border: 1px solid #e2e8f0;
         border-left: 4px solid #64748b;
-        border-radius: 10px;
-        padding: 0.55rem 0.6rem;
-        margin-bottom: 0.55rem;
+        border-radius: 9px;
+        padding: 0.46rem 0.5rem;
+        margin-bottom: 0.45rem;
         background: #ffffff;
     }
 
@@ -669,13 +689,13 @@ include '../../includes/header.php';
     }
 
     .hk-task-room {
-        font-size: 0.86rem;
+        font-size: 0.78rem;
         font-weight: 800;
         color: #0f172a;
     }
 
     .hk-task-prio {
-        font-size: 0.68rem;
+        font-size: 0.62rem;
         font-weight: 800;
         color: #475569;
         background: #f1f5f9;
@@ -685,7 +705,7 @@ include '../../includes/header.php';
     }
 
     .hk-task-context {
-        font-size: 0.72rem;
+        font-size: 0.66rem;
         color: var(--text-muted);
         margin-bottom: 0.45rem;
     }
@@ -699,7 +719,7 @@ include '../../includes/header.php';
 
     .hk-pill {
         display: inline-block;
-        font-size: 0.66rem;
+        font-size: 0.58rem;
         font-weight: 800;
         border-radius: 20px;
         padding: 0.15rem 0.5rem;
@@ -751,7 +771,7 @@ include '../../includes/header.php';
     }
 
     .hk-load-item .name {
-        font-size: 0.72rem;
+        font-size: 0.66rem;
         color: var(--text-muted);
         white-space: nowrap;
         overflow: hidden;
@@ -759,7 +779,7 @@ include '../../includes/header.php';
     }
 
     .hk-load-item .num {
-        font-size: 1.1rem;
+        font-size: 0.95rem;
         font-weight: 900;
         color: #0f172a;
         line-height: 1.1;
@@ -786,7 +806,7 @@ include '../../includes/header.php';
     }
 
     @media (max-width: 980px) {
-        .hk-grid {
+        .hk-top-row {
             grid-template-columns: 1fr;
         }
 
@@ -816,8 +836,8 @@ include '../../includes/header.php';
     <?php endif; ?>
 
     <div class="hk-grid">
-        <div>
-            <div class="hk-card">
+        <div class="hk-top-row">
+            <div class="hk-card hk-card-compact">
                 <h3>Staff HK Aktif</h3>
                 <form method="post">
                     <input type="hidden" name="action" value="save_staff">
@@ -833,7 +853,7 @@ HK Wawan"><?php echo htmlspecialchars($staffText); ?></textarea>
                 </form>
             </div>
 
-            <div class="hk-card" style="margin-top:1rem;">
+            <div class="hk-card hk-card-compact">
                 <h3>Filter Tanggal Kerja</h3>
                 <form method="get" class="hk-actions" style="margin-top:0;">
                     <input class="hk-date" type="date" name="date" value="<?php echo htmlspecialchars($workDate); ?>">
@@ -853,7 +873,7 @@ HK Wawan"><?php echo htmlspecialchars($staffText); ?></textarea>
                 </div>
             </div>
 
-            <div class="hk-card" style="margin-top:1rem;">
+            <div class="hk-card hk-card-compact">
                 <h3>Ringkasan Prioritas</h3>
                 <div class="hk-badges">
                     <div class="hk-badge b-b2b"><div class="n"><?php echo (int)$categoryCount['B2B']; ?></div><div class="l">B2B</div></div>
@@ -875,7 +895,7 @@ HK Wawan"><?php echo htmlspecialchars($staffText); ?></textarea>
             </div>
         </div>
 
-        <div class="hk-card">
+        <div class="hk-card hk-allocation-card">
             <h3>Daftar Pembagian Kamar</h3>
 
             <?php if (empty($tasks)): ?>
