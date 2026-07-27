@@ -521,7 +521,7 @@ $effectiveStaffNames = $attendanceGate['eligible_staff'];
 $absentStaffNames = $attendanceGate['absent_staff'];
 $attendanceEnforced = (bool)($attendanceGate['enforced'] ?? false);
 $teamAssignee = 'TEAM';
-$displayAssignees = $effectiveStaffNames;
+$displayAssignees = $staffNames;
 if (!in_array($teamAssignee, $displayAssignees, true)) {
     $displayAssignees[] = $teamAssignee;
 }
@@ -1091,10 +1091,17 @@ include '../../includes/header.php';
                     <div class="hk-staff-board">
                         <?php foreach ($displayAssignees as $sn):
                             $staffTasks = $tasksByStaff[$sn] ?? [];
+                            $isTeamCard = ($sn === $teamAssignee);
+                            $isAbsentByCutoff = (!$isTeamCard && $attendanceEnforced && in_array($sn, $absentStaffNames, true));
                         ?>
                             <div class="hk-staff-card">
                                 <div class="hk-staff-head">
-                                    <div class="hk-staff-name"><?php echo htmlspecialchars($sn); ?></div>
+                                    <div class="hk-staff-name">
+                                        <?php echo htmlspecialchars($sn); ?>
+                                        <?php if ($isAbsentByCutoff): ?>
+                                            <span style="margin-left:6px;font-size:0.55rem;background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;padding:0.1rem 0.28rem;border-radius:999px;vertical-align:middle;">Belum Absen 09:00</span>
+                                        <?php endif; ?>
+                                    </div>
                                     <div class="hk-staff-count"><?php echo count($staffTasks); ?> Kamar</div>
                                 </div>
                                 <div class="hk-staff-body">
