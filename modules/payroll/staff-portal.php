@@ -3490,9 +3490,11 @@ header('Expires: 0');
                     const s2 = a.check_out_time ? a.check_out_time.substring(0, 5) : '—';
                     const wh = parseFloat(a.work_hours) || 0;
                     const ot = parseFloat(a.overtime_hours) || 0;
+                    const statusKey = a.status_display || (a.is_split_shift ? 'split_shift' : a.status);
                     const statusMap = {
                         present: '✅ Hadir',
                         late: '⏰ Terlambat',
+                        split_shift: '🌗 Split Shift',
                         absent: '❌ Absen',
                         leave: '📝 Izin'
                     };
@@ -3555,7 +3557,7 @@ header('Expires: 0');
                     const otTxt = ot > 0 ? `<span style="color:var(--orange);font-weight:700;">· OT ${ot.toFixed(1).replace(/\.0$/, '')} jam</span>` : (baseHourTxt ? '<span style="color:var(--muted);">· tanpa OT</span>' : '');
                     document.getElementById('todayStatus').innerHTML = `
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
-                    <span class="badge ${a.status==='present'?'b-hadir':a.status==='late'?'b-late':'b-absent'}">${statusMap[a.status]||a.status}</span>
+                    <span class="badge ${statusKey==='present' || statusKey==='split_shift' ? 'b-hadir' : statusKey==='late' ? 'b-late' : 'b-absent'}">${statusMap[statusKey]||statusKey}</span>
                     <span style="font-size:11px;color:var(--muted);display:inline-flex;gap:6px;align-items:center;">${baseHourTxt}${otTxt}</span>
                 </div>
                 ${scanGrid}`;
@@ -3679,6 +3681,7 @@ header('Expires: 0');
                 const statusMap = {
                     present: 'Hadir',
                     late: 'Terlambat',
+                    split_shift: 'Split Shift',
                     absent: 'Absen',
                     leave: 'Izin',
                     holiday: 'Libur',
@@ -3698,7 +3701,8 @@ header('Expires: 0');
                     const isOver200 = r.is_over_200 || (parseFloat(r.auto_overtime_over_200) || 0) > 0;
                     const otLabel = isOver200 ? 'OT&gt;200j' : 'OT';
                     const otColor = isOver200 ? 'var(--red,#dc2626)' : 'var(--orange)';
-                    const bc = r.status === 'present' ? 'b-hadir' : r.status === 'late' ? 'b-late' : 'b-absent';
+                    const statusKey = r.status_display || (r.is_split_shift ? 'split_shift' : r.status);
+                    const bc = (statusKey === 'present' || statusKey === 'split_shift') ? 'b-hadir' : statusKey === 'late' ? 'b-late' : 'b-absent';
 
                     // Jam kerja harian:
                     // - tampilkan aktual saat < 8 jam
@@ -3711,11 +3715,11 @@ header('Expires: 0');
                         (hadir ? `<div style="font-size:9px;color:var(--muted);">tanpa OT</div>` : '');
 
                     if (IS_CAFE) {
-                        html += `<tr><td style="white-space:nowrap;">${day}</td><td style="font-weight:600;color:var(--green);">${s1}</td><td style="font-weight:600;color:var(--navy);">${s2}</td><td style="font-weight:700;">${whTxt}${otBlock}</td><td><span class="badge ${bc}">${statusMap[r.status]||r.status}</span></td></tr>`;
+                        html += `<tr><td style="white-space:nowrap;">${day}</td><td style="font-weight:600;color:var(--green);">${s1}</td><td style="font-weight:600;color:var(--navy);">${s2}</td><td style="font-weight:700;">${whTxt}${otBlock}</td><td><span class="badge ${bc}">${statusMap[statusKey]||statusKey}</span></td></tr>`;
                     } else {
                         const s3 = r.scan_3 ? r.scan_3.substring(0, 5) : '—';
                         const s4 = r.scan_4 ? r.scan_4.substring(0, 5) : '—';
-                        html += `<tr><td style="white-space:nowrap;">${day}</td><td style="font-weight:600;color:var(--green);">${s1}</td><td>${s2}</td><td style="color:var(--green);">${s3}</td><td>${s4}</td><td style="font-weight:700;">${whTxt}${otBlock}</td><td><span class="badge ${bc}">${statusMap[r.status]||r.status}</span></td></tr>`;
+                        html += `<tr><td style="white-space:nowrap;">${day}</td><td style="font-weight:600;color:var(--green);">${s1}</td><td>${s2}</td><td style="color:var(--green);">${s3}</td><td>${s4}</td><td style="font-weight:700;">${whTxt}${otBlock}</td><td><span class="badge ${bc}">${statusMap[statusKey]||statusKey}</span></td></tr>`;
                     }
                 });
                 html += '</tbody></table></div>';

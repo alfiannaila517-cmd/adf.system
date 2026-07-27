@@ -239,8 +239,9 @@ if ($action === 'checkin') {
         exit;
     }
 
-    // Determine status: late if after checkin_end
-    $status = ($now > $checkinEnd) ? 'late' : 'present';
+    // Split-shift rule: check-in >= 12:00 is treated as split shift (not late).
+    $isSplitShift = ($now >= '12:00:00');
+    $status = $isSplitShift ? 'present' : (($now > $checkinEnd) ? 'late' : 'present');
 
     try {
         $pdo = $db->getConnection();
@@ -253,9 +254,10 @@ if ($action === 'checkin') {
         }
         echo json_encode([
             'success' => true,
-            'message' => 'Check-in berhasil! ' . ($status === 'late' ? '⚠️ Terlambat' : '✅ Tepat Waktu'),
+            'message' => 'Check-in berhasil! ' . ($isSplitShift ? '🌗 Split Shift' : ($status === 'late' ? '⚠️ Terlambat' : '✅ Tepat Waktu')),
             'time' => date('H:i'),
             'status' => $status,
+            'is_split_shift' => $isSplitShift,
             'distance' => $distance,
             'is_outside' => $isOutside
         ]);

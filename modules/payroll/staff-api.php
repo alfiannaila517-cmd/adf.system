@@ -266,6 +266,15 @@ if (empty($_SESSION['staff_logged_in'])) {
 
 $empId = (int)$_SESSION['employee_id'];
 
+function isSplitShiftCheckIn($checkInTime)
+{
+    $t = trim((string)$checkInTime);
+    if ($t === '') {
+        return false;
+    }
+    return substr($t, 0, 8) >= '12:00:00';
+}
+
 // ── GET PROFILE ──
 if ($action === 'profile') {
     $emp = $db->fetchOne("SELECT id, employee_code, full_name, position, department, phone, join_date FROM payroll_employees WHERE id = ?", [$empId]);
@@ -294,6 +303,9 @@ if ($action === 'attendance_today') {
                 // ignore and keep overtime_hours at 0
             }
         }
+
+        $att['is_split_shift'] = isSplitShiftCheckIn($att['check_in_time'] ?? null);
+        $att['status_display'] = $att['is_split_shift'] ? 'split_shift' : ($att['status'] ?? 'present');
     }
     echo json_encode(['success' => true, 'data' => $att]);
     exit;
@@ -363,7 +375,7 @@ if ($action === 'attendance_history') {
         }
 
         if ($r['status'] === 'present' || $r['status'] === 'late') $present++;
-        if ($r['status'] === 'late') $late++;
+        if ($r['status'] === 'late' && !isSplitShiftCheckIn($r['check_in_time'] ?? null)) $late++;
     }
 
     // Build display rows (DESC order seperti sebelumnya)
@@ -387,6 +399,9 @@ if ($action === 'attendance_history') {
             $rr['overtime_hours'] = 0;
             if ($orig > 8) $rr['work_hours'] = 8; // tampilkan 8 jam saat tidak ada OT
         }
+
+        $rr['is_split_shift'] = isSplitShiftCheckIn($rr['check_in_time'] ?? null);
+        $rr['status_display'] = $rr['is_split_shift'] ? 'split_shift' : ($rr['status'] ?? 'present');
     }
     unset($rr);
 
@@ -1187,10 +1202,12 @@ if ($action === 'face_clock') {
         try {
             if (!$att) {
                 // Scan 1 — new record
-                $status = ($now > $checkinEnd) ? 'late' : 'present';
+                $isSplitShift = isSplitShiftCheckIn($now);
+                $status = $isSplitShift ? 'present' : (($now > $checkinEnd) ? 'late' : 'present');
                 $pdo->prepare("INSERT INTO payroll_attendance (employee_id, attendance_date, check_in_time, check_in_lat, check_in_lng, check_in_distance_m, check_in_address, check_in_device, status, is_outside_radius, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?)")
                     ->execute([$empId, $today, $now, $lat ?: null, $lng ?: null, $distance, $address, $device, $status, $isOutside ? 1 : 0, $modeLabel . ' 1/4' . $radiusNote]);
-                echo json_encode(['success' => true, 'message' => '✅ ' . $scanLabels[0] . ' — ' . date('H:i') . ($status === 'late' ? ' ⚠️ Terlambat' : '') . $radiusMsg, 'scan_num' => 1]);
+                $statusNote = $isSplitShift ? ' 🌗 Split Shift' : (($status === 'late') ? ' ⚠️ Terlambat' : '');
+                echo json_encode(['success' => true, 'message' => '✅ ' . $scanLabels[0] . ' — ' . date('H:i') . $statusNote . $radiusMsg, 'scan_num' => 1]);
                 exit;
             }
 
