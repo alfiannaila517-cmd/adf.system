@@ -2102,15 +2102,15 @@ echo getPrintCSS();
                 </div>
             </div>
             <div class="table-actions" style="display: flex; gap: 0.5rem;">
-                <a href="cash-transfers.php" class="btn btn-secondary btn-white-text cashbook-action-btn cashbook-btn-reset" style="display: flex; align-items: center; gap: 0.5rem; background: linear-gradient(135deg, #0284c7, #0369a1); color: white;" title="Lihat ringkasan setor tunai antar rekening">
+                <a href="cash-transfers.php" class="btn btn-secondary btn-white-text cashbook-action-btn cashbook-btn-reset" style="display: flex; align-items: center; gap: 0.5rem; background: linear-gradient(135deg, #1e40af, #1d4ed8) !important; border: 1px solid #1d4ed8 !important; color: #eff6ff !important;" title="Lihat ringkasan setor tunai antar rekening">
                     <i data-feather="send" style="width: 16px; height: 16px;"></i>
                     <span>🏦 Ringkasan Setor Tunai</span>
                 </a>
-                <a href="logs.php" class="btn btn-secondary btn-white-text cashbook-action-btn cashbook-btn-reset" style="display: flex; align-items: center; gap: 0.5rem;">
+                <a href="logs.php" class="btn btn-secondary btn-white-text cashbook-action-btn cashbook-btn-reset" style="display: flex; align-items: center; gap: 0.5rem; background: linear-gradient(135deg, #1e40af, #1d4ed8) !important; border: 1px solid #1d4ed8 !important; color: #eff6ff !important;">
                     <i data-feather="activity" style="width: 16px; height: 16px;"></i>
                     <span>Audit Log</span>
                 </a>
-                <a href="add.php" class="btn btn-primary btn-white-text cashbook-action-btn cashbook-btn-filter">
+                <a href="add.php" class="btn btn-primary btn-white-text cashbook-action-btn cashbook-btn-filter" style="background: linear-gradient(135deg, #1e40af, #1d4ed8) !important; border: 1px solid #1d4ed8 !important; color: #eff6ff !important;">
                     <i data-feather="plus" style="width: 16px; height: 16px;"></i> Tambah Transaksi
                 </a>
             </div>
@@ -2180,23 +2180,23 @@ echo getPrintCSS();
                     </div>
 
                     <div class="cqc-filter-actions">
-                        <button type="submit" class="cqc-btn-filter cashbook-action-btn cashbook-btn-filter btn-white-text">
+                        <button type="submit" class="cqc-btn-filter cashbook-action-btn cashbook-btn-filter btn-white-text" style="background: linear-gradient(135deg, #1e40af, #1d4ed8) !important; border: 1px solid #1d4ed8 !important; color: #eff6ff !important;">
                             <i data-feather="filter" style="width: 16px; height: 16px;"></i>
                             <span>Filter Data</span>
                         </button>
-                        <a href="index.php" class="cqc-btn-reset cashbook-action-btn cashbook-btn-reset btn-white-text">
+                        <a href="index.php" class="cqc-btn-reset cashbook-action-btn cashbook-btn-reset btn-white-text" style="background: linear-gradient(135deg, #1e40af, #1d4ed8) !important; border: 1px solid #1d4ed8 !important; color: #eff6ff !important;">
                             <i data-feather="x" style="width: 16px; height: 16px;"></i>
                             <span>Reset</span>
                         </a>
-                        <button type="button" onclick="cetakPDF()" class="cqc-btn-filter cashbook-action-btn cashbook-btn-pdf btn-white-text" style="flex: 0 0 auto; padding: 0 1.25rem;">
+                        <button type="button" onclick="cetakPDF()" class="cqc-btn-filter cashbook-action-btn cashbook-btn-pdf btn-white-text" style="flex: 0 0 auto; padding: 0 1.25rem; background: linear-gradient(135deg, #1e40af, #1d4ed8) !important; border: 1px solid #1d4ed8 !important; color: #eff6ff !important;">
                             <i data-feather="printer" style="width: 16px; height: 16px;"></i>
                             <span>Cetak PDF</span>
                         </button>
-                        <button type="button" onclick="exportExcel()" class="cqc-btn-filter cashbook-action-btn cashbook-btn-excel btn-white-text" style="flex: 0 0 auto; padding: 0 1.25rem;">
+                        <button type="button" onclick="exportExcel()" class="cqc-btn-filter cashbook-action-btn cashbook-btn-excel btn-white-text" style="flex: 0 0 auto; padding: 0 1.25rem; background: linear-gradient(135deg, #1e40af, #1d4ed8) !important; border: 1px solid #1d4ed8 !important; color: #eff6ff !important;">
                             <i data-feather="file-text" style="width: 16px; height: 16px;"></i>
                             <span>Export Excel</span>
                         </button>
-                        <button type="button" onclick="sendWhatsApp(event)" class="cqc-btn-filter cashbook-action-btn cashbook-btn-wa btn-white-text" style="flex: 0 0 auto; padding: 0 1.25rem;">
+                        <button type="button" onclick="sendWhatsApp(event)" class="cqc-btn-filter cashbook-action-btn cashbook-btn-wa btn-white-text" style="flex: 0 0 auto; padding: 0 1.25rem; background: linear-gradient(135deg, #1e40af, #1d4ed8) !important; border: 1px solid #1d4ed8 !important; color: #eff6ff !important;">
                             <i data-feather="message-circle" style="width: 16px; height: 16px;"></i>
                             <span>Send WhatsApp</span>
                         </button>
@@ -2279,23 +2279,23 @@ echo getPrintCSS();
                 </div>
 
                 <div style="display: flex; align-items: flex-end; gap: 0.625rem; grid-column: span 7;">
-                    <button type="submit" class="btn btn-primary btn-white-text cashbook-action-btn cashbook-btn-filter" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 40px;">
+                    <button type="submit" class="btn btn-primary btn-white-text cashbook-action-btn cashbook-btn-filter" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 40px; background: linear-gradient(135deg, #1e40af, #1d4ed8) !important; border: 1px solid #1d4ed8 !important; color: #eff6ff !important;">
                         <i data-feather="filter" style="width: 16px; height: 16px;"></i>
                         <span>Filter</span>
                     </button>
-                    <a href="index.php" class="btn btn-secondary btn-white-text cashbook-action-btn cashbook-btn-reset" style="flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 40px; padding: 0 1.25rem;">
+                    <a href="index.php" class="btn btn-secondary btn-white-text cashbook-action-btn cashbook-btn-reset" style="flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 40px; padding: 0 1.25rem; background: linear-gradient(135deg, #1e40af, #1d4ed8) !important; border: 1px solid #1d4ed8 !important; color: #eff6ff !important;">
                         <i data-feather="x" style="width: 16px; height: 16px;"></i>
                         <span>Reset</span>
                     </a>
-                    <button type="button" onclick="cetakPDF()" class="btn btn-primary btn-white-text cashbook-action-btn cashbook-btn-pdf" style="flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 40px; padding: 0 1.25rem;">
+                    <button type="button" onclick="cetakPDF()" class="btn btn-primary btn-white-text cashbook-action-btn cashbook-btn-pdf" style="flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 40px; padding: 0 1.25rem; background: linear-gradient(135deg, #1e40af, #1d4ed8) !important; border: 1px solid #1d4ed8 !important; color: #eff6ff !important;">
                         <i data-feather="printer" style="width: 16px; height: 16px;"></i>
                         <span>Cetak PDF</span>
                     </button>
-                    <button type="button" onclick="exportExcel()" class="btn btn-primary btn-white-text cashbook-action-btn cashbook-btn-excel" style="flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 40px; padding: 0 1.25rem;">
+                    <button type="button" onclick="exportExcel()" class="btn btn-primary btn-white-text cashbook-action-btn cashbook-btn-excel" style="flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 40px; padding: 0 1.25rem; background: linear-gradient(135deg, #1e40af, #1d4ed8) !important; border: 1px solid #1d4ed8 !important; color: #eff6ff !important;">
                         <i data-feather="file-text" style="width: 16px; height: 16px;"></i>
                         <span>Export Excel</span>
                     </button>
-                    <button type="button" onclick="sendWhatsApp(event)" class="btn btn-primary btn-white-text cashbook-action-btn cashbook-btn-wa" style="flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 40px; padding: 0 1.25rem;">
+                    <button type="button" onclick="sendWhatsApp(event)" class="btn btn-primary btn-white-text cashbook-action-btn cashbook-btn-wa" style="flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 40px; padding: 0 1.25rem; background: linear-gradient(135deg, #1e40af, #1d4ed8) !important; border: 1px solid #1d4ed8 !important; color: #eff6ff !important;">
                         <i data-feather="message-circle" style="width: 16px; height: 16px;"></i>
                         <span>Send WhatsApp</span>
                     </button>
