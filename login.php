@@ -68,6 +68,10 @@ $cookiePath = parse_url(BASE_URL, PHP_URL_PATH) ?: '/';
 $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
 $rememberSecret = hash('sha256', DB_PASS . DB_NAME . '__adf_remember_salt__');
 
+// Safety switch: disable cookie-based auto-login while troubleshooting hosting/session issues.
+// Manual login (username/password) stays active.
+$allowRememberTokenAutoLogin = false;
+
 function generateRememberToken($userId, $secret)
 {
     $expiry = time() + (30 * 24 * 60 * 60); // 30 days
@@ -93,7 +97,7 @@ function validateRememberToken($token, $secret)
 // Check auto-login token BEFORE showing login form
 $savedUser = '';
 $isRemembered = false;
-if (!empty($_COOKIE['adf_remember_token']) && !$auth->isLoggedIn() && !isPost()) {
+if ($allowRememberTokenAutoLogin && !empty($_COOKIE['adf_remember_token']) && !$auth->isLoggedIn() && !isPost()) {
     $tokenUserId = validateRememberToken($_COOKIE['adf_remember_token'], $rememberSecret);
     if ($tokenUserId) {
         // Valid token - auto-login this user
@@ -175,6 +179,11 @@ if (!empty($_COOKIE['adf_remember_token']) && !$auth->isLoggedIn() && !isPost())
         // Invalid/expired token - clear cookie
         setcookie('adf_remember_token', '', time() - 3600, $cookiePath, '', $isSecure, true);
     }
+}
+
+// If auto-login is disabled, force-clear old remember token cookie to stop password-less login.
+if (!$allowRememberTokenAutoLogin && !empty($_COOKIE['adf_remember_token'])) {
+    setcookie('adf_remember_token', '', time() - 3600, $cookiePath, '', $isSecure, true);
 }
 
 // Pre-fill username from cookie (for display only)
