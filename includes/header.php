@@ -697,7 +697,7 @@ if (isset($_SESSION['user_id'])) {
                 <div style="display: flex; align-items: center; gap: 1.5rem;">
                     <!-- End Shift Button -->
                     <a id="endShiftButton" href="<?php echo BASE_URL; ?>/print-end-shift-report.php" target="_blank" rel="noopener"
-                        style="padding: 0.5rem 1rem; background: #334155; color: white; border: 1px solid #475569; border-radius: 6px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; transition: all 0.2s; text-decoration: none;">
+                        style="padding: 0.5rem 1rem; background: #1e3a8a; color: #eff6ff; border: 1px solid #1e40af; border-radius: 6px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; transition: all 0.2s; text-decoration: none;">
                         <i data-feather="power" style="width: 18px; height: 18px;"></i>
                         <span>End Shift</span>
                     </a>
