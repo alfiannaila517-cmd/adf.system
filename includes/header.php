@@ -216,9 +216,9 @@ if (isset($_SESSION['user_id'])) {
                 <?php endif; ?>
 
                 <!-- Database Indicator -->
-                <div style="margin-top: 0.75rem; padding: 0.625rem; background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: var(--radius-md);">
+                <div style="margin-top: 0.75rem; padding: 0.625rem; background: #f8fafc; border: 1px solid #dbe4ee; border-radius: var(--radius-md);">
                     <div style="font-size: 0.7rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.25rem;">Database</div>
-                    <div style="font-size: 0.75rem; color: var(--primary-color); font-weight: 600; word-break: break-all;">
+                    <div style="font-size: 0.75rem; color: #334155; font-weight: 600; word-break: break-all;">
                         <?php
                         require_once __DIR__ . '/../config/database.php';
                         $currentDb = Database::getCurrentDatabase();
@@ -675,27 +675,10 @@ if (isset($_SESSION['user_id'])) {
             $footerVersionSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'footer_version'");
             $sidebarFooterVersion = $footerVersionSetting['setting_value'] ?? ('Version ' . APP_VERSION);
             ?>
-            <div class="sidebar-footer" style="padding: 1rem; border-top: 1px solid var(--bg-tertiary); margin-top: auto;">
-                <div style="display: flex; align-items: center; gap: 0.875rem; margin-bottom: 0.75rem;">
-                    <?php
-                    $devLogoPath = BASE_PATH . '/' . DEVELOPER_LOGO;
-                    if (file_exists($devLogoPath)):
-                    ?>
-                        <div style="width: 52px; height: 52px; border-radius: 8px; background: #0f172a; padding: 4px; display: flex; align-items: center; justify-content: center; border: 2px solid #1e293b;">
-                            <img src="<?php echo BASE_URL . '/' . DEVELOPER_LOGO; ?>?v=<?php echo filemtime($devLogoPath); ?>" alt="Developer Logo" style="width: 100%; height: 100%; object-fit: contain;">
-                        </div>
-                    <?php else: ?>
-                        <div style="width: 52px; height: 52px; border-radius: 8px; background: var(--primary-color); display: flex; align-items: center; justify-content: center; border: 2px solid #1e293b;">
-                            <span style="font-size: 1.5rem; font-weight: 700; color: white;">&lt;/&gt;</span>
-                        </div>
-                    <?php endif; ?>
-                    <div style="flex: 1;">
-                        <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-primary);"><?php echo DEVELOPER_NAME; ?></div>
-                        <div style="font-size: 0.7rem; color: var(--text-muted);">Developer</div>
-                    </div>
-                </div>
-                <div style="font-size: 0.7rem; color: var(--text-muted); text-align: center; padding-top: 0.5rem; border-top: 1px solid var(--bg-tertiary);">
-                    <?php echo htmlspecialchars($sidebarFooterVersion); ?> • <?php echo APP_YEAR; ?>
+            <div class="sidebar-footer" style="padding: 0.5rem 0.9rem; border-top: 1px solid var(--bg-tertiary); margin-top: auto; text-align: center;">
+                <div style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.6;">
+                    <span style="font-weight: 600; color: var(--text-primary); font-size: 0.75rem;"><?php echo DEVELOPER_NAME; ?></span><br>
+                    <?php echo htmlspecialchars($sidebarFooterVersion); ?> &bull; <?php echo APP_YEAR; ?>
                 </div>
             </div>
         </aside>
@@ -714,7 +697,7 @@ if (isset($_SESSION['user_id'])) {
                 <div style="display: flex; align-items: center; gap: 1.5rem;">
                     <!-- End Shift Button -->
                     <a id="endShiftButton" href="<?php echo BASE_URL; ?>/print-end-shift-report.php" target="_blank" rel="noopener"
-                        style="padding: 0.5rem 1rem; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; transition: all 0.3s; text-decoration: none;">
+                        style="padding: 0.5rem 1rem; background: #334155; color: white; border: 1px solid #475569; border-radius: 6px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; transition: all 0.2s; text-decoration: none;">
                         <i data-feather="power" style="width: 18px; height: 18px;"></i>
                         <span>End Shift</span>
                     </a>
