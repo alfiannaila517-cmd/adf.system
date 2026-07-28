@@ -2687,9 +2687,12 @@ include '../../includes/header.php';
             `<td style="font-weight:700;color:#4338ca;text-align:right;white-space:nowrap" class="iTotal">Rp 0</td>` +
             `<td><button type="button" class="btn-del-row" onclick="delRow('${id}')">✕</button></td>`;
         document.getElementById('itemsBody').appendChild(tr);
-        // If no price given and catalog has entries for this service type, auto-fill
-        if (!price) onSvcChange(id, true);
-        else rcalc(id);
+        // Only auto-populate if service type was provided
+        if (svc) {
+            onSvcChange(id, true);
+        } else {
+            rcalc(id);
+        }
     }
 
     function onDaysChange(id) {
@@ -3338,8 +3341,10 @@ include '../../includes/header.php';
             }
             tr3.querySelector('.iAsset').innerHTML = buildRentalAssetOpts(carOpts, item.car_id);
         }
-        // Pass true so existing price/desc are never overwritten by catalog defaults when loading
-        eOnSvcChange(id2, true);
+        // Only trigger onSvcChange for existing rows (loaded from API), not for new empty rows
+        if (item.service_type) {
+            eOnSvcChange(id2, true);
+        }
         ercalc(id2);
     }
 
