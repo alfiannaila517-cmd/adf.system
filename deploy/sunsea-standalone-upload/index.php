@@ -874,7 +874,7 @@ if ($trialStatus) {
         </div>
     </div>
 
-    <!-- Chart Canvas Area with Pie Charts -->
+    <!-- Chart Canvas Area with Pie Chart -->
     <div class="chart-main-container">
         <!-- Line Chart Section (Left Side) -->
         <div class="chart-canvas-wrap chart-canvas-left">
@@ -883,27 +883,27 @@ if ($trialStatus) {
             </div>
         </div>
 
-        <!-- Pie Charts Section (Right Side) -->
+        <!-- Pie Chart Section (Right Side) -->
         <div class="chart-pie-section">
-            <!-- Income Pie Chart -->
             <div class="chart-pie-card">
                 <div class="chart-pie-header">
-                    <h3 style="margin: 0; font-size: 0.9rem; color: #1e293b; font-weight: 600;">Pemasukan Kategori</h3>
-                    <span style="font-size: 0.75rem; color: #64748b;">Breakdown per kategori</span>
+                    <h3 style="margin: 0; font-size: 0.95rem; color: #1e293b; font-weight: 700;">Ringkasan Bulan Ini</h3>
+                    <span style="font-size: 0.8rem; color: #64748b;">Perbandingan pemasukan & pengeluaran</span>
                 </div>
                 <div class="chart-pie-container">
-                    <canvas id="incomePieChart"></canvas>
+                    <canvas id="summaryPieChart"></canvas>
                 </div>
-            </div>
-
-            <!-- Expense Pie Chart -->
-            <div class="chart-pie-card">
-                <div class="chart-pie-header">
-                    <h3 style="margin: 0; font-size: 0.9rem; color: #1e293b; font-weight: 600;">Pengeluaran Kategori</h3>
-                    <span style="font-size: 0.75rem; color: #64748b;">Breakdown per kategori</span>
-                </div>
-                <div class="chart-pie-container">
-                    <canvas id="expensePieChart"></canvas>
+                <div class="chart-pie-legend">
+                    <div class="chart-pie-legend-item">
+                        <span class="chart-pie-legend-dot" style="background: #10b981;"></span>
+                        <span class="chart-pie-legend-label">Pemasukan</span>
+                        <span class="chart-pie-legend-value" id="pieIncomeValue">Rp 0</span>
+                    </div>
+                    <div class="chart-pie-legend-item">
+                        <span class="chart-pie-legend-dot" style="background: #f97316;"></span>
+                        <span class="chart-pie-legend-label">Pengeluaran</span>
+                        <span class="chart-pie-legend-value" id="pieExpenseValue">Rp 0</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1269,12 +1269,11 @@ if ($trialStatus) {
         margin: 0;
     }
 
-    /* Right side - pie charts */
+    /* Right side - pie chart */
     .chart-pie-section {
         flex: 1;
         display: flex;
         flex-direction: column;
-        gap: 0.8rem;
     }
 
     /* Individual pie chart card */
@@ -1282,18 +1281,18 @@ if ($trialStatus) {
         background: var(--chart-wrap-bg);
         border-radius: 12px;
         border: 1px solid var(--chart-wrap-border);
-        padding: 1rem;
-        flex: 1;
+        padding: 1.2rem;
         display: flex;
         flex-direction: column;
+        height: 100%;
     }
 
     .chart-pie-header {
         display: flex;
         flex-direction: column;
-        gap: 0.3rem;
-        margin-bottom: 0.8rem;
-        padding-bottom: 0.8rem;
+        gap: 0.25rem;
+        margin-bottom: 1.2rem;
+        padding-bottom: 1rem;
         border-bottom: 1px solid var(--chart-wrap-border);
     }
 
@@ -1305,11 +1304,48 @@ if ($trialStatus) {
         display: flex;
         align-items: center;
         justify-content: center;
+        margin-bottom: 1rem;
     }
 
     .chart-pie-container canvas {
-        max-width: 100%;
-        max-height: 180px;
+        max-width: 160px;
+        max-height: 160px;
+    }
+
+    /* Pie chart legend */
+    .chart-pie-legend {
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+        padding-top: 0.8rem;
+        border-top: 1px solid var(--chart-wrap-border);
+    }
+
+    .chart-pie-legend-item {
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+        font-size: 0.875rem;
+    }
+
+    .chart-pie-legend-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+
+    .chart-pie-legend-label {
+        flex: 1;
+        color: var(--text-secondary);
+        font-weight: 500;
+    }
+
+    .chart-pie-legend-value {
+        color: var(--text-primary);
+        font-weight: 700;
+        font-size: 0.9rem;
+        text-align: right;
     }
 
     /* Footer bar */
@@ -1391,12 +1427,16 @@ if ($trialStatus) {
         }
 
         .chart-pie-section {
-            flex-direction: row;
-            gap: 0.8rem;
+            flex-direction: column;
         }
 
-        .chart-pie-card {
-            flex: 1;
+        .chart-pie-container {
+            min-height: 150px;
+        }
+
+        .chart-pie-container canvas {
+            max-width: 120px;
+            max-height: 120px;
         }
 
         .chart-filter-input {
@@ -2919,143 +2959,59 @@ if ($trialStatus) {
             });
 
             // ============================================
-            // PIE CHARTS - Income & Expense Categories
+            // SUMMARY PIE CHART - Income vs Expense
             // ============================================
-            const incomeCategories = <?php
-                $incomeByCategory = [];
-                foreach ($topCategories as $cat) {
-                    if ($cat['transaction_type'] === 'income') {
-                        $incomeByCategory[$cat['category_name']] = (float)$cat['total'];
-                    }
-                }
-                echo json_encode($incomeByCategory);
-            ?>;
-
-            const expenseCategories = <?php
-                $expenseByCategory = [];
-                foreach ($topCategories as $cat) {
-                    if ($cat['transaction_type'] === 'expense') {
-                        $expenseByCategory[$cat['category_name']] = (float)$cat['total'];
-                    }
-                }
-                echo json_encode($expenseByCategory);
-            ?>;
-
-            // Colors palette for pie charts
-            const pieColors = [
-                '#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6',
-                '#ec4899', '#06b6d4', '#14b8a6', '#f97316', '#6366f1'
-            ];
-
-            // Render Income Pie Chart
-            if (Object.keys(incomeCategories).length > 0) {
-                const incomeCtx = document.getElementById('incomePieChart').getContext('2d');
-                new Chart(incomeCtx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: Object.keys(incomeCategories),
-                        datasets: [{
-                            data: Object.values(incomeCategories),
-                            backgroundColor: pieColors,
-                            borderColor: getComputedStyle(document.documentElement).getPropertyValue('--chart-wrap-bg').trim() || '#f8fafc',
-                            borderWidth: 2,
+            const totalIncome = <?php echo array_sum(array_column($dailyData, 'income')); ?>;
+            const totalExpense = <?php echo array_sum(array_column($dailyData, 'expense')); ?>;
+            
+            const summaryCtx = document.getElementById('summaryPieChart').getContext('2d');
+            new Chart(summaryCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Pemasukan', 'Pengeluaran'],
+                    datasets: [{
+                        data: [totalIncome, totalExpense],
+                        backgroundColor: ['#10b981', '#f97316'],
+                        borderColor: getComputedStyle(document.documentElement).getPropertyValue('--chart-wrap-bg').trim() || '#f8fafc',
+                        borderWidth: 3,
+                        borderRadius: 6,
+                        hoverOffset: 8,
+                        spacing: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(30, 41, 59, 0.9)',
+                            padding: 12,
+                            titleFont: { size: 12, weight: '600', family: "'Inter', sans-serif" },
+                            bodyFont: { size: 11, weight: '500', family: "'Inter', sans-serif" },
                             borderRadius: 8,
-                            hoverOffset: 8
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: true,
-                        plugins: {
-                            legend: {
-                                position: 'bottom',
-                                labels: {
-                                    font: {
-                                        size: 11,
-                                        weight: '500',
-                                        family: "'Inter', sans-serif"
-                                    },
-                                    padding: 10,
-                                    color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#1e293b',
-                                    usePointStyle: true,
-                                    pointStyle: 'circle'
-                                }
-                            },
-                            tooltip: {
-                                backgroundColor: 'rgba(30, 41, 59, 0.8)',
-                                padding: 10,
-                                titleFont: { size: 11, weight: '600' },
-                                bodyFont: { size: 10, weight: '500' },
-                                borderRadius: 8,
-                                displayColors: false,
-                                callbacks: {
-                                    label: function(context) {
-                                        const value = context.parsed;
-                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                        const percent = ((value / total) * 100).toFixed(1);
-                                        return 'Rp ' + value.toLocaleString('id-ID') + ' (' + percent + '%)';
-                                    }
+                            displayColors: true,
+                            boxWidth: 8,
+                            boxHeight: 8,
+                            boxPadding: 8,
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.parsed;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percent = ((value / total) * 100).toFixed(1);
+                                    return 'Rp ' + value.toLocaleString('id-ID') + ' (' + percent + '%)';
                                 }
                             }
                         }
                     }
-                });
-            }
+                }
+            });
 
-            // Render Expense Pie Chart
-            if (Object.keys(expenseCategories).length > 0) {
-                const expenseCtx = document.getElementById('expensePieChart').getContext('2d');
-                new Chart(expenseCtx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: Object.keys(expenseCategories),
-                        datasets: [{
-                            data: Object.values(expenseCategories),
-                            backgroundColor: pieColors,
-                            borderColor: getComputedStyle(document.documentElement).getPropertyValue('--chart-wrap-bg').trim() || '#f8fafc',
-                            borderWidth: 2,
-                            borderRadius: 8,
-                            hoverOffset: 8
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: true,
-                        plugins: {
-                            legend: {
-                                position: 'bottom',
-                                labels: {
-                                    font: {
-                                        size: 11,
-                                        weight: '500',
-                                        family: "'Inter', sans-serif"
-                                    },
-                                    padding: 10,
-                                    color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#1e293b',
-                                    usePointStyle: true,
-                                    pointStyle: 'circle'
-                                }
-                            },
-                            tooltip: {
-                                backgroundColor: 'rgba(30, 41, 59, 0.8)',
-                                padding: 10,
-                                titleFont: { size: 11, weight: '600' },
-                                bodyFont: { size: 10, weight: '500' },
-                                borderRadius: 8,
-                                displayColors: false,
-                                callbacks: {
-                                    label: function(context) {
-                                        const value = context.parsed;
-                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                        const percent = ((value / total) * 100).toFixed(1);
-                                        return 'Rp ' + value.toLocaleString('id-ID') + ' (' + percent + '%)';
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-            }
+            // Update legend values
+            document.getElementById('pieIncomeValue').textContent = 'Rp ' + totalIncome.toLocaleString('id-ID');
+            document.getElementById('pieExpenseValue').textContent = 'Rp ' + totalExpense.toLocaleString('id-ID');
 
             // ============================================
             // LIVE UPDATE - Auto refresh every 30 seconds
