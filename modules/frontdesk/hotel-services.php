@@ -3342,8 +3342,9 @@ include '../../includes/header.php';
             tr3.querySelector('.iAsset').innerHTML = buildRentalAssetOpts(carOpts, item.car_id);
         }
         // Only trigger onSvcChange for existing rows (loaded from API), not for new empty rows
+        // Pass false to indicate we're loading from API, not creating new
         if (item.service_type) {
-            eOnSvcChange(id2, true);
+            eOnSvcChange(id2, false);
         }
         ercalc(id2);
     }
@@ -3358,22 +3359,36 @@ include '../../includes/header.php';
         const assetSelect = tr3.querySelector('.iAsset');
         const destInput = tr3.querySelector('.iDest');
         const items = CATALOG_DATA[svc];
-        const rentalItems = svc === 'motor_rental' ? RENTAL_MOTORS : (svc === 'car_rental' ? RENTAL_CARS : []);
-
-        if (isRentalService(svc)) {
-            rentalWrap.classList.add('open');
-            assetSelect.innerHTML = buildRentalAssetOpts(rentalItems, assetSelect.value);
-            destInput.style.display = svc === 'car_rental' ? '' : 'none';
-            // Set default 1 day if not already set
-            if (!tr3.querySelector('.iDays').value) tr3.querySelector('.iDays').value = 1;
+        
+        // Only rebuild asset dropdown if THIS IS A NEW ROW (not loading from API)
+        if (isNew) {
+            const rentalItems = svc === 'motor_rental' ? RENTAL_MOTORS : (svc === 'car_rental' ? RENTAL_CARS : []);
+            if (isRentalService(svc)) {
+                rentalWrap.classList.add('open');
+                assetSelect.innerHTML = buildRentalAssetOpts(rentalItems, assetSelect.value);
+                destInput.style.display = svc === 'car_rental' ? '' : 'none';
+                if (!tr3.querySelector('.iDays').value) tr3.querySelector('.iDays').value = 1;
+            } else {
+                rentalWrap.classList.remove('open');
+                assetSelect.innerHTML = '<option value="">Pilih armada...</option>';
+                tr3.querySelector('.iDays').value = 1;
+                tr3.querySelector('.iDeposit').value = 0;
+                tr3.querySelector('.iDest').value = '';
+            }
         } else {
-            rentalWrap.classList.remove('open');
-            assetSelect.innerHTML = '<option value="">Pilih armada...</option>';
-            tr3.querySelector('.iDays').value = 1;
-            tr3.querySelector('.iDeposit').value = 0;
-            tr3.querySelector('.iDest').value = '';
+            // Loading from API - just show/hide rental fields, don't rebuild dropdown
+            if (isRentalService(svc)) {
+                rentalWrap.classList.add('open');
+                destInput.style.display = svc === 'car_rental' ? '' : 'none';
+            } else {
+                rentalWrap.classList.remove('open');
+                assetSelect.innerHTML = '<option value="">Pilih armada...</option>';
+                tr3.querySelector('.iDays').value = 1;
+                tr3.querySelector('.iDeposit').value = 0;
+                tr3.querySelector('.iDest').value = '';
+            }
         }
-
+        
         if (items && items.length > 0) {
             if (isNew) {
                 if (parseFloat(priceInput.value) === 0) priceInput.value = items[0].price;
@@ -3385,20 +3400,7 @@ include '../../includes/header.php';
         } else if (!isNew) {
             priceInput.value = 0;
         }
-
-        if (isRentalService(svc)) {
-            eOnRentalAssetChange(id2, !!isNew);
-        }
-        ercalc(id2);
-    }
-
-    function eOnRentalAssetChange(id2, keepManualDesc) {
-        const tr3 = document.getElementById(id2);
-        if (!tr3) return;
-        const svc = tr3.querySelector('.iSvc').value;
-        const assetSelect = tr3.querySelector('.iAsset');
-        const selectedId = assetSelect.value;
-        const source = svc === 'motor_rental' ? RENTAL_MOTORS : RENTAL_CARS;
+        
         const chosen = source.find(item => String(item.id) === String(selectedId));
         if (!chosen) return;
         const priceInput = tr3.querySelector('.iPrice');
