@@ -22,6 +22,131 @@ if (defined('ACTIVE_BUSINESS_ID') && ACTIVE_BUSINESS_ID === 'sunsea') {
     }
 }
 
+/**
+ * Get relative avatar path for a user if one exists.
+ */
+if (!function_exists('adfGetUserAvatarRelativePath')) {
+    function adfGetUserAvatarRelativePath($userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return null;
+        }
+
+        $avatarDir = (defined('BASE_PATH') ? BASE_PATH : dirname(__DIR__)) . '/uploads/avatars';
+        $patterns = [
+            $avatarDir . '/user_' . $userId . '.jpg',
+            $avatarDir . '/user_' . $userId . '.jpeg',
+            $avatarDir . '/user_' . $userId . '.png',
+            $avatarDir . '/user_' . $userId . '.webp',
+            $avatarDir . '/user_' . $userId . '.gif',
+        ];
+
+        foreach ($patterns as $candidate) {
+            if (is_file($candidate)) {
+                return 'uploads/avatars/' . basename($candidate);
+            }
+        }
+
+        return null;
+    }
+}
+
+/**
+ * Build avatar URL with cache busting.
+ */
+if (!function_exists('adfGetUserAvatarUrl')) {
+    function adfGetUserAvatarUrl($userId)
+    {
+        $relative = adfGetUserAvatarRelativePath($userId);
+        if (!$relative) {
+            return null;
+        }
+
+        $absolute = (defined('BASE_PATH') ? BASE_PATH : dirname(__DIR__)) . '/' . $relative;
+        $version = is_file($absolute) ? filemtime($absolute) : time();
+        return BASE_URL . '/' . $relative . '?v=' . $version;
+    }
+}
+
+// Handle topbar avatar upload before any HTML output.
+if (isset($_POST['__upload_topbar_avatar']) && $_POST['__upload_topbar_avatar'] === '1' && isset($_SESSION['user_id'])) {
+    $redirectBack = $_SERVER['REQUEST_URI'] ?? (BASE_URL . '/index.php');
+
+    try {
+        if (!isset($_FILES['avatar_file']) || !is_array($_FILES['avatar_file'])) {
+            throw new Exception('File avatar tidak ditemukan.');
+        }
+
+        $file = $_FILES['avatar_file'];
+        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            throw new Exception('Upload gagal. Silakan pilih file gambar yang valid.');
+        }
+
+        $tmpPath = $file['tmp_name'] ?? '';
+        if ($tmpPath === '' || !is_uploaded_file($tmpPath)) {
+            throw new Exception('File upload tidak valid.');
+        }
+
+        $maxSize = 3 * 1024 * 1024;
+        if (($file['size'] ?? 0) > $maxSize) {
+            throw new Exception('Ukuran foto maksimal 3MB.');
+        }
+
+        $mimeType = function_exists('mime_content_type') ? mime_content_type($tmpPath) : null;
+        if (!$mimeType && function_exists('finfo_open')) {
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            if ($finfo) {
+                $mimeType = finfo_file($finfo, $tmpPath) ?: null;
+                finfo_close($finfo);
+            }
+        }
+        $allowed = [
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+            'image/webp' => 'webp',
+            'image/gif' => 'gif',
+        ];
+
+        if (!isset($allowed[$mimeType])) {
+            throw new Exception('Format foto harus JPG, PNG, WEBP, atau GIF.');
+        }
+
+        if (!@getimagesize($tmpPath)) {
+            throw new Exception('File bukan gambar yang valid.');
+        }
+
+        $userId = (int)$_SESSION['user_id'];
+        $avatarDir = (defined('BASE_PATH') ? BASE_PATH : dirname(__DIR__)) . '/uploads/avatars';
+        if (!is_dir($avatarDir) && !@mkdir($avatarDir, 0775, true)) {
+            throw new Exception('Folder avatar tidak bisa dibuat.');
+        }
+
+        foreach (glob($avatarDir . '/user_' . $userId . '.*') ?: [] as $oldAvatar) {
+            @unlink($oldAvatar);
+        }
+
+        $targetName = 'user_' . $userId . '.' . $allowed[$mimeType];
+        $targetPath = $avatarDir . '/' . $targetName;
+
+        if (!move_uploaded_file($tmpPath, $targetPath)) {
+            throw new Exception('Gagal menyimpan foto profil.');
+        }
+
+        @chmod($targetPath, 0644);
+        if (function_exists('setFlash')) {
+            setFlash('success', 'Foto profil berhasil diperbarui.');
+        }
+    } catch (Exception $e) {
+        if (function_exists('setFlash')) {
+            setFlash('error', $e->getMessage());
+        }
+    }
+
+    header('Location: ' . $redirectBack);
+    exit;
+}
+
 // Get favicon from settings
 $faviconUrl = null;
 try {
@@ -83,7 +208,80 @@ try {
 
     <!-- Business Theme CSS -->
     <style>
-        <?php echo getBusinessThemeCSS(); ?>@keyframes bellShake {
+        <?php echo getBusinessThemeCSS(); ?>
+
+        .user-avatar-wrap {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .user-avatar-button {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            border: 2px solid #bfdbfe;
+            box-shadow: 0 4px 12px rgba(30, 58, 138, 0.25);
+            overflow: hidden;
+            background: linear-gradient(135deg, #1e3a8a, #2563eb);
+            color: #ffffff;
+            font-weight: 700;
+            font-size: 0.95rem;
+            line-height: 1;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .user-avatar-button:hover {
+            transform: translateY(-1px) scale(1.02);
+            box-shadow: 0 6px 16px rgba(30, 58, 138, 0.32);
+        }
+
+        .user-avatar-button:focus {
+            outline: 2px solid #60a5fa;
+            outline-offset: 2px;
+        }
+
+        .user-avatar-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .user-avatar-edit-indicator {
+            position: absolute;
+            right: -2px;
+            bottom: -2px;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #1d4ed8;
+            color: #ffffff;
+            border: 2px solid #ffffff;
+            font-size: 0.72rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+
+        body[data-theme="dark"] .user-avatar-button {
+            border-color: #1e40af;
+            box-shadow: 0 5px 14px rgba(15, 23, 42, 0.45);
+        }
+
+        body[data-theme="dark"] .user-avatar-edit-indicator {
+            border-color: #0f172a;
+        }
+
+        @keyframes bellShake {
             0% {
                 transform: rotate(0)
             }
@@ -320,6 +518,12 @@ if (isset($_SESSION['user_id'])) {
                                     <a href="<?php echo BASE_URL; ?>/modules/frontdesk/in-house.php" class="submenu-link <?php echo activeMenu('in-house.php'); ?>">
                                         <i data-feather="users" class="submenu-icon"></i>
                                         <span><?php echo __('menu.in_house'); ?></span>
+                                    </a>
+                                </li>
+                                <li class="submenu-item">
+                                    <a href="<?php echo BASE_URL; ?>/modules/frontdesk/hk-allocation.php" class="submenu-link <?php echo activeMenu('hk-allocation.php'); ?>">
+                                        <i data-feather="check-square" class="submenu-icon"></i>
+                                        <span>Pembagian HK</span>
                                     </a>
                                 </li>
                                 <li class="submenu-item">
@@ -733,8 +937,23 @@ if (isset($_SESSION['user_id'])) {
                                 <?php echo ucfirst($_SESSION['role'] ?? 'staff'); ?>
                             </div>
                         </div>
-                        <div class="user-avatar">
-                            <?php echo strtoupper(substr($_SESSION['full_name'] ?? 'U', 0, 1)); ?>
+                        <?php
+                        $avatarUrl = isset($_SESSION['user_id']) ? adfGetUserAvatarUrl((int)$_SESSION['user_id']) : null;
+                        $userInitial = strtoupper(substr($_SESSION['full_name'] ?? 'U', 0, 1));
+                        ?>
+                        <div class="user-avatar-wrap" title="Klik untuk ganti foto profil">
+                            <form id="topbarAvatarUploadForm" method="post" enctype="multipart/form-data" style="display:none;">
+                                <input type="hidden" name="__upload_topbar_avatar" value="1">
+                                <input id="topbarAvatarInput" type="file" name="avatar_file" accept="image/png,image/jpeg,image/webp,image/gif" onchange="document.getElementById('topbarAvatarUploadForm').submit();">
+                            </form>
+                            <button type="button" class="user-avatar user-avatar-button" onclick="document.getElementById('topbarAvatarInput').click();" aria-label="Upload foto profil">
+                                <?php if ($avatarUrl): ?>
+                                    <img src="<?php echo htmlspecialchars($avatarUrl); ?>" alt="Foto Profil" class="user-avatar-image">
+                                <?php else: ?>
+                                    <?php echo $userInitial; ?>
+                                <?php endif; ?>
+                            </button>
+                            <span class="user-avatar-edit-indicator">+</span>
                         </div>
                     </div>
                 </div>
