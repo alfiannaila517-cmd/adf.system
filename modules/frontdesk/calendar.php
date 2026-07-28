@@ -261,8 +261,8 @@ foreach ($dates as $date) {
 // ============================================
 // BOOKING COLORS - SIMPLE: Default vs Checked-In vs Checked-Out
 // ============================================
-$defaultColor = ['bg' => '#1e2a5a', 'text' => 'white'];        // Dark navy for pending/confirmed bookings
-$checkedInColor = ['bg' => '#10b981', 'text' => 'white'];      // Green for checked-in guests (active)
+$defaultColor = ['bg' => '#2a3552', 'text' => 'white'];        // Muted navy for pending/confirmed bookings
+$checkedInColor = ['bg' => '#0f8a65', 'text' => 'white'];      // Darker green for checked-in guests (active)
 $checkedOutColor = ['bg' => '#9ca3af', 'text' => '#6b7280'];   // Gray transparent for checked-out (history)
 
 include '../../includes/header.php';
@@ -1208,24 +1208,24 @@ include '../../includes/header.php';
         text-align: center;
         transition: all 0.2s ease;
         box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08);
-        font-weight: 500;
-        font-size: 0.72rem;
+        font-weight: 400;
+        font-size: 0.66rem;
         line-height: 1;
         position: relative;
         pointer-events: auto;
         border-radius: 3px;
         white-space: nowrap;
         transform: skewX(-20deg);
-        background: linear-gradient(135deg, #1e2a5a, #1e3a8a) !important;
+        background: linear-gradient(135deg, #2a3552, #37476b) !important;
         color: #ffffff !important;
     }
 
     .booking-bar>span {
         transform: skewX(20deg);
         color: #ffffff !important;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-        font-weight: 500;
-        font-size: 0.7rem;
+        text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+        font-weight: 400;
+        font-size: 0.62rem;
         display: block;
     }
 
@@ -1289,21 +1289,21 @@ include '../../includes/header.php';
 
     /* Status specific bars */
     .booking-confirmed {
-        background: linear-gradient(135deg, #1e2a5a, #1e3a8a) !important;
-        border-right-color: #1e2a5a;
-        border-left-color: #1e3a8a;
+        background: linear-gradient(135deg, #2a3552, #37476b) !important;
+        border-right-color: #2a3552;
+        border-left-color: #37476b;
     }
 
     .booking-pending {
-        background: linear-gradient(135deg, #1d356f, #1e40af) !important;
-        border-right-color: #1d356f;
-        border-left-color: #1e40af;
+        background: linear-gradient(135deg, #314166, #415787) !important;
+        border-right-color: #314166;
+        border-left-color: #415787;
     }
 
     .booking-checked-in {
-        background: linear-gradient(135deg, #10b981, #059669) !important;
-        border-right-color: #10b981;
-        border-left-color: #059669;
+        background: linear-gradient(135deg, #0f8a65, #0b6b4e) !important;
+        border-right-color: #0f8a65;
+        border-left-color: #0b6b4e;
     }
 
     .booking-blocked {
@@ -1316,8 +1316,8 @@ include '../../includes/header.php';
     .booking-bar-code,
     .booking-bar-status {
         color: #ffffff !important;
-        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
-        font-weight: 500;
+        text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+        font-weight: 400;
     }
 
     /* Action buttons on booking bars */
@@ -2626,7 +2626,7 @@ include '../../includes/header.php';
                                                     <?php endif; ?>
                                                 </div>
                                             </div>
-                                <?php
+                                        <?php
                                         }
                                     }
                                 }
@@ -2675,7 +2675,7 @@ include '../../includes/header.php';
                                             $bookingCode = htmlspecialchars($booking['booking_code']);
                                             $shortCode = substr($bookingCode, 0, 8); // Show first 8 chars
                                             $statusText = ucfirst(str_replace('_', ' ', $booking['status']));
-                                ?>
+                                        ?>
                                             <div class="booking-bar-container" style="left: 50%; width: <?php echo $barWidth; ?>px;"
                                                 data-booking-id="<?php echo $booking['id']; ?>"
                                                 data-room-id="<?php echo $booking['room_id']; ?>"
