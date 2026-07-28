@@ -510,13 +510,31 @@ if (isPost()) {
                         $selectedAccount = $stmt->fetch(PDO::FETCH_ASSOC);
 
                         if ($selectedAccount) {
-                            // Determine fund source tag based on account type
                             if ($selectedAccount['account_type'] === 'cash') {
                                 $fundTag = '[Petty Cash]';
                                 error_log("EXPENSE: User selected Petty Cash ({$selectedAccount['account_name']})");
+                            } elseif ($selectedAccount['account_type'] === 'bank') {
+                                // Check if this bank account is a Setor Tunai destination (Rekening Operasional)
+                                // vs a regular Kas Besar bank account
+                                $bizIdForCheck = getMasterBusinessId();
+                                $opChk = $masterDb->prepare("
+                                    SELECT COUNT(*) FROM cash_transfers
+                                    WHERE business_id = ? AND bank_account_id = ?
+                                    LIMIT 1
+                                ");
+                                $opChk->execute([$bizIdForCheck, $cashAccountId]);
+                                $isOperational = (int)$opChk->fetchColumn() > 0;
+
+                                if ($isOperational) {
+                                    $fundTag = '[Rekening Operasional]';
+                                    error_log("EXPENSE: User selected Rekening Operasional ({$selectedAccount['account_name']})");
+                                } else {
+                                    $fundTag = '[Kas Besar]';
+                                    error_log("EXPENSE: User selected Kas Besar ({$selectedAccount['account_name']})");
+                                }
                             } else {
                                 $fundTag = '[Kas Besar]';
-                                error_log("EXPENSE: User selected Kas Besar ({$selectedAccount['account_name']})");
+                                error_log("EXPENSE: User selected other account ({$selectedAccount['account_name']})");
                             }
                         }
                     } catch (Exception $e) {
@@ -525,8 +543,12 @@ if (isPost()) {
                 }
 
                 // Add fund source tag to description for tracking
-                if (strpos($data['description'] ?? '', '[Petty Cash]') === false && strpos($data['description'] ?? '', '[Kas Besar]') === false) {
-                    $data['description'] = trim(($data['description'] ?? '') . ' ' . $fundTag);
+                $existingDesc = $data['description'] ?? '';
+                $tagAlreadyPresent = strpos($existingDesc, '[Petty Cash]') !== false
+                    || strpos($existingDesc, '[Kas Besar]') !== false
+                    || strpos($existingDesc, '[Rekening Operasional]') !== false;
+                if (!$tagAlreadyPresent) {
+                    $data['description'] = trim($existingDesc . ' ' . $fundTag);
                     $description = $data['description'];
                 }
             }
@@ -1882,261 +1904,261 @@ include '../../includes/header.php';
     };
 
     window.refreshBankAccountDropdown = function() {
-            const bizId = '<?php echo getMasterBusinessId(); ?>';
-            const select = document.getElementById('setorBankAccount');
+        const bizId = '<?php echo getMasterBusinessId(); ?>';
+        const select = document.getElementById('setorBankAccount');
 
-            fetch(window.location.pathname + '?action=get_bank_accounts&biz_id=' + bizId)
-                .then(response => response.json())
-                .then(data => {
-                    console.log('Bank accounts refreshed:', data);
-                    // Keep the placeholder option
-                    select.innerHTML = '<option value="">-- Pilih Rekening Bank --</option>';
-                    // Add new options
-                    if (data.accounts && data.accounts.length > 0) {
-                        data.accounts.forEach(acc => {
-                            const option = document.createElement('option');
-                            option.value = acc.id;
-                            option.textContent = '🏛️ ' + acc.account_name;
-                            select.appendChild(option);
-                        });
-                    }
-                })
-                .catch(error => console.error('Refresh error:', error));
+        fetch(window.location.pathname + '?action=get_bank_accounts&biz_id=' + bizId)
+            .then(response => response.json())
+            .then(data => {
+                console.log('Bank accounts refreshed:', data);
+                // Keep the placeholder option
+                select.innerHTML = '<option value="">-- Pilih Rekening Bank --</option>';
+                // Add new options
+                if (data.accounts && data.accounts.length > 0) {
+                    data.accounts.forEach(acc => {
+                        const option = document.createElement('option');
+                        option.value = acc.id;
+                        option.textContent = '🏛️ ' + acc.account_name;
+                        select.appendChild(option);
+                    });
+                }
+            })
+            .catch(error => console.error('Refresh error:', error));
     };
 
     // Close modal when clicking outside - ensure DOM is ready
     function initSetorTunaiModal() {
-                const modal = document.getElementById('setorTunaiModal');
-                if (modal) {
-                    modal.addEventListener('click', function(e) {
-                        if (e.target === this) {
-                            window.closeSetorTunaiModal();
-                        }
-                    });
-                    console.log('Setor Tunai modal initialized successfully');
-                } else {
-                    console.warn('setorTunaiModal element not found during init');
+        const modal = document.getElementById('setorTunaiModal');
+        if (modal) {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    window.closeSetorTunaiModal();
                 }
-            }
+            });
+            console.log('Setor Tunai modal initialized successfully');
+        } else {
+            console.warn('setorTunaiModal element not found during init');
+        }
+    }
 
-            // Initialize when DOM is ready
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', initSetorTunaiModal);
+    // Initialize when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initSetorTunaiModal);
+    } else {
+        initSetorTunaiModal();
+    }
+
+    window.submitSetorTunai = function(event) {
+        event.preventDefault();
+        console.log('submitSetorTunai called');
+
+        const form = document.getElementById('setorTunaiForm');
+        if (!form) {
+            console.error('setorTunaiForm not found');
+            alert('❌ Form tidak ditemukan!');
+            return;
+        }
+
+        // NOTE: #setorTunaiForm is a <div>, not a <form>, so named-property
+        // access (form.setor_cash_account) never works - HTMLFormElement is
+        // the only element type that supports that. Must use getElementById
+        // (or querySelector) on the actual input/select IDs instead.
+        const cashAccountId = document.getElementById('setorCashAccount')?.value;
+        const bankAccountId = document.getElementById('setorBankAccount')?.value;
+        const amount = document.getElementById('setorAmount')?.value;
+        const penyetor = document.getElementById('setorPenyetor')?.value;
+        const notes = document.getElementById('setorNotes')?.value || '';
+
+        console.log('Form values:', {
+            cashAccountId,
+            bankAccountId,
+            amount,
+            penyetor
+        });
+
+        if (!cashAccountId || !bankAccountId || !amount || !penyetor) {
+            alert('❌ Silakan isi semua field yang wajib diisi!');
+            return;
+        }
+
+        if (parseFloat(amount) < 1000) {
+            alert('❌ Nominal minimal Rp 1.000,-');
+            return;
+        }
+
+        // Get the main form
+        const mainForm = document.querySelector('form');
+        if (!mainForm) {
+            console.error('Main form not found');
+            alert('❌ Form utama tidak ditemukan!');
+            return;
+        }
+
+        // Create/update hidden fields for source_type and accounts
+        const ensureHiddenField = (name, value) => {
+            let field = mainForm.querySelector(`input[name="${name}"]`);
+            if (!field) {
+                field = document.createElement('input');
+                field.type = 'hidden';
+                field.name = name;
+                mainForm.appendChild(field);
+            }
+            field.value = value;
+        };
+
+        ensureHiddenField('source_type', 'cash_transfer');
+        ensureHiddenField('cash_account_id', cashAccountId);
+        ensureHiddenField('bank_account_id', bankAccountId);
+        ensureHiddenField('amount', amount);
+        ensureHiddenField('transaction_type', 'income');
+        ensureHiddenField('setor_penyetor', penyetor);
+
+        // Set date/time
+        mainForm.transaction_date.value = '<?php echo date("Y-m-d"); ?>';
+        mainForm.transaction_time.value = '<?php echo date("H:i"); ?>';
+
+        // Clear division - don't set it for cash_transfer
+        if (mainForm.division_id) {
+            mainForm.division_id.value = '';
+        }
+
+        // Set description with penyetor name
+        mainForm.description.value = `[${penyetor}] ${notes || 'Setor tunai dari kas cabang ke rekening operasional'}`;
+
+        // Skip native HTML5 validation - other required fields on the main form
+        // (Kategori/Nama, dropdown "Pilih Akun", etc.) are intentionally left
+        // empty for a cash transfer and would otherwise silently block submit /
+        // re-highlight as "still empty" even though the Setor Tunai popup was
+        // fully filled. Already validated the popup's own fields above; server
+        // (add.php cash_transfer branch) re-validates too.
+        mainForm.noValidate = true;
+
+        // Close modal
+        window.closeSetorTunaiModal();
+
+        // Submit the main form
+        console.log('Submitting main form with hidden fields');
+        mainForm.submit();
+    };
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            // Close quick-add first if open
+            const quickAdd = document.getElementById('quickAddAccountSection');
+            if (quickAdd && quickAdd.style.display !== 'none') {
+                window.cancelQuickAccount();
             } else {
-                initSetorTunaiModal();
-            }
-
-            window.submitSetorTunai = function(event) {
-                event.preventDefault();
-                console.log('submitSetorTunai called');
-
-                const form = document.getElementById('setorTunaiForm');
-                if (!form) {
-                    console.error('setorTunaiForm not found');
-                    alert('❌ Form tidak ditemukan!');
-                    return;
-                }
-
-                // NOTE: #setorTunaiForm is a <div>, not a <form>, so named-property
-                // access (form.setor_cash_account) never works - HTMLFormElement is
-                // the only element type that supports that. Must use getElementById
-                // (or querySelector) on the actual input/select IDs instead.
-                const cashAccountId = document.getElementById('setorCashAccount')?.value;
-                const bankAccountId = document.getElementById('setorBankAccount')?.value;
-                const amount = document.getElementById('setorAmount')?.value;
-                const penyetor = document.getElementById('setorPenyetor')?.value;
-                const notes = document.getElementById('setorNotes')?.value || '';
-
-                console.log('Form values:', {
-                    cashAccountId,
-                    bankAccountId,
-                    amount,
-                    penyetor
-                });
-
-                if (!cashAccountId || !bankAccountId || !amount || !penyetor) {
-                    alert('❌ Silakan isi semua field yang wajib diisi!');
-                    return;
-                }
-
-                if (parseFloat(amount) < 1000) {
-                    alert('❌ Nominal minimal Rp 1.000,-');
-                    return;
-                }
-
-                // Get the main form
-                const mainForm = document.querySelector('form');
-                if (!mainForm) {
-                    console.error('Main form not found');
-                    alert('❌ Form utama tidak ditemukan!');
-                    return;
-                }
-
-                // Create/update hidden fields for source_type and accounts
-                const ensureHiddenField = (name, value) => {
-                    let field = mainForm.querySelector(`input[name="${name}"]`);
-                    if (!field) {
-                        field = document.createElement('input');
-                        field.type = 'hidden';
-                        field.name = name;
-                        mainForm.appendChild(field);
-                    }
-                    field.value = value;
-                };
-
-                ensureHiddenField('source_type', 'cash_transfer');
-                ensureHiddenField('cash_account_id', cashAccountId);
-                ensureHiddenField('bank_account_id', bankAccountId);
-                ensureHiddenField('amount', amount);
-                ensureHiddenField('transaction_type', 'income');
-                ensureHiddenField('setor_penyetor', penyetor);
-
-                // Set date/time
-                mainForm.transaction_date.value = '<?php echo date("Y-m-d"); ?>';
-                mainForm.transaction_time.value = '<?php echo date("H:i"); ?>';
-
-                // Clear division - don't set it for cash_transfer
-                if (mainForm.division_id) {
-                    mainForm.division_id.value = '';
-                }
-
-                // Set description with penyetor name
-                mainForm.description.value = `[${penyetor}] ${notes || 'Setor tunai dari kas cabang ke rekening operasional'}`;
-
-                // Skip native HTML5 validation - other required fields on the main form
-                // (Kategori/Nama, dropdown "Pilih Akun", etc.) are intentionally left
-                // empty for a cash transfer and would otherwise silently block submit /
-                // re-highlight as "still empty" even though the Setor Tunai popup was
-                // fully filled. Already validated the popup's own fields above; server
-                // (add.php cash_transfer branch) re-validates too.
-                mainForm.noValidate = true;
-
-                // Close modal
                 window.closeSetorTunaiModal();
-
-                // Submit the main form
-                console.log('Submitting main form with hidden fields');
-                mainForm.submit();
-            };
-
-            // Close modal on Escape key
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape') {
-                    // Close quick-add first if open
-                    const quickAdd = document.getElementById('quickAddAccountSection');
-                    if (quickAdd && quickAdd.style.display !== 'none') {
-                        window.cancelQuickAccount();
-                    } else {
-                        window.closeSetorTunaiModal();
-                    }
-                }
-            });
-
-            // Allow Enter key in quick-add name field to save
-            document.addEventListener('keypress', function(e) {
-                if (e.target.id === 'quickAccountName' && e.key === 'Enter') {
-                    e.preventDefault();
-                    window.saveQuickAccount();
-                }
-            });
-
-            // Owner Fund - Input dari Bu Sita
-            function fillOwnerFund() {
-                // Set transaction type to income
-                const incomeRadio = document.querySelector('input[name="transaction_type"][value="income"]');
-                if (incomeRadio) {
-                    incomeRadio.checked = true;
-                    incomeRadio.dispatchEvent(new Event('change', {
-                        bubbles: true
-                    }));
-                }
-
-                // Set date to today
-                document.querySelector('input[name="transaction_date"]').value = '<?php echo date("Y-m-d"); ?>';
-                document.querySelector('input[name="transaction_time"]').value = '<?php echo date("H:i"); ?>';
-
-                // Set division - try to find "Kas", "Modal", "Owner", "Finance" division
-                // If not found, use Hotel or first available (will be excluded from pie chart anyway)
-                const divisionSelect = document.querySelector('select[name="division_id"]');
-                if (divisionSelect) {
-                    let foundKasDiv = false;
-                    const keywords = ['kas', 'modal', 'owner', 'finance', 'keuangan', 'petty'];
-                    for (let opt of divisionSelect.options) {
-                        const text = opt.text.toLowerCase();
-                        if (keywords.some(kw => text.includes(kw))) {
-                            divisionSelect.value = opt.value;
-                            foundKasDiv = true;
-                            break;
-                        }
-                    }
-                    // If no special division found, look for Hotel
-                    if (!foundKasDiv) {
-                        for (let opt of divisionSelect.options) {
-                            if (opt.text.toLowerCase().includes('hotel')) {
-                                divisionSelect.value = opt.value;
-                                foundKasDiv = true;
-                                break;
-                            }
-                        }
-                    }
-                    // Still not found, use first non-placeholder
-                    if (!foundKasDiv && divisionSelect.options.length > 1) {
-                        divisionSelect.selectedIndex = 1;
-                    }
-                }
-
-                // Set category to "Modal Operasional"
-                document.querySelector('input[name="category_name"]').value = 'Modal Operasional dari Bu Sita';
-
-                // Set cash account to Petty Cash (Kas Operasional)
-                const cashAccountSelect = document.querySelector('select[name="cash_account_id"]');
-                if (cashAccountSelect) {
-                    // Find Kas Operasional option
-                    for (let opt of cashAccountSelect.options) {
-                        if (opt.text.toLowerCase().includes('kas operasional') || opt.text.toLowerCase().includes('petty cash')) {
-                            cashAccountSelect.value = opt.value;
-                            break;
-                        }
-                    }
-                }
-
-                // Set payment method to cash (default)
-                const cashPayment = document.querySelector('input[name="payment_method"][value="cash"]');
-                if (cashPayment) cashPayment.checked = true;
-
-                // Set source_type hidden field to owner_fund
-                let sourceTypeField = document.querySelector('input[name="source_type"]');
-                if (!sourceTypeField) {
-                    sourceTypeField = document.createElement('input');
-                    sourceTypeField.type = 'hidden';
-                    sourceTypeField.name = 'source_type';
-                    document.querySelector('form').appendChild(sourceTypeField);
-                }
-                sourceTypeField.value = 'owner_fund';
-
-                // Set description
-                document.querySelector('textarea[name="description"]').value = 'Transfer dana operasional dari Bu Sita';
-
-                // Focus on amount field
-                const amountField = document.querySelector('input[name="amount"]');
-                if (amountField) {
-                    amountField.value = '';
-                    amountField.focus();
-                }
-
-                // Show notification
-                showOwnerFundNotice();
             }
+        }
+    });
 
-            function showOwnerFundNotice() {
-                // Remove existing notice
-                const existing = document.getElementById('ownerFundNotice');
-                if (existing) existing.remove();
+    // Allow Enter key in quick-add name field to save
+    document.addEventListener('keypress', function(e) {
+        if (e.target.id === 'quickAccountName' && e.key === 'Enter') {
+            e.preventDefault();
+            window.saveQuickAccount();
+        }
+    });
 
-                // Create notice
-                const notice = document.createElement('div');
-                notice.id = 'ownerFundNotice';
-                notice.innerHTML = `
+    // Owner Fund - Input dari Bu Sita
+    function fillOwnerFund() {
+        // Set transaction type to income
+        const incomeRadio = document.querySelector('input[name="transaction_type"][value="income"]');
+        if (incomeRadio) {
+            incomeRadio.checked = true;
+            incomeRadio.dispatchEvent(new Event('change', {
+                bubbles: true
+            }));
+        }
+
+        // Set date to today
+        document.querySelector('input[name="transaction_date"]').value = '<?php echo date("Y-m-d"); ?>';
+        document.querySelector('input[name="transaction_time"]').value = '<?php echo date("H:i"); ?>';
+
+        // Set division - try to find "Kas", "Modal", "Owner", "Finance" division
+        // If not found, use Hotel or first available (will be excluded from pie chart anyway)
+        const divisionSelect = document.querySelector('select[name="division_id"]');
+        if (divisionSelect) {
+            let foundKasDiv = false;
+            const keywords = ['kas', 'modal', 'owner', 'finance', 'keuangan', 'petty'];
+            for (let opt of divisionSelect.options) {
+                const text = opt.text.toLowerCase();
+                if (keywords.some(kw => text.includes(kw))) {
+                    divisionSelect.value = opt.value;
+                    foundKasDiv = true;
+                    break;
+                }
+            }
+            // If no special division found, look for Hotel
+            if (!foundKasDiv) {
+                for (let opt of divisionSelect.options) {
+                    if (opt.text.toLowerCase().includes('hotel')) {
+                        divisionSelect.value = opt.value;
+                        foundKasDiv = true;
+                        break;
+                    }
+                }
+            }
+            // Still not found, use first non-placeholder
+            if (!foundKasDiv && divisionSelect.options.length > 1) {
+                divisionSelect.selectedIndex = 1;
+            }
+        }
+
+        // Set category to "Modal Operasional"
+        document.querySelector('input[name="category_name"]').value = 'Modal Operasional dari Bu Sita';
+
+        // Set cash account to Petty Cash (Kas Operasional)
+        const cashAccountSelect = document.querySelector('select[name="cash_account_id"]');
+        if (cashAccountSelect) {
+            // Find Kas Operasional option
+            for (let opt of cashAccountSelect.options) {
+                if (opt.text.toLowerCase().includes('kas operasional') || opt.text.toLowerCase().includes('petty cash')) {
+                    cashAccountSelect.value = opt.value;
+                    break;
+                }
+            }
+        }
+
+        // Set payment method to cash (default)
+        const cashPayment = document.querySelector('input[name="payment_method"][value="cash"]');
+        if (cashPayment) cashPayment.checked = true;
+
+        // Set source_type hidden field to owner_fund
+        let sourceTypeField = document.querySelector('input[name="source_type"]');
+        if (!sourceTypeField) {
+            sourceTypeField = document.createElement('input');
+            sourceTypeField.type = 'hidden';
+            sourceTypeField.name = 'source_type';
+            document.querySelector('form').appendChild(sourceTypeField);
+        }
+        sourceTypeField.value = 'owner_fund';
+
+        // Set description
+        document.querySelector('textarea[name="description"]').value = 'Transfer dana operasional dari Bu Sita';
+
+        // Focus on amount field
+        const amountField = document.querySelector('input[name="amount"]');
+        if (amountField) {
+            amountField.value = '';
+            amountField.focus();
+        }
+
+        // Show notification
+        showOwnerFundNotice();
+    }
+
+    function showOwnerFundNotice() {
+        // Remove existing notice
+        const existing = document.getElementById('ownerFundNotice');
+        if (existing) existing.remove();
+
+        // Create notice
+        const notice = document.createElement('div');
+        notice.id = 'ownerFundNotice';
+        notice.innerHTML = `
         <div style="position: fixed; top: 80px; right: 20px; padding: 1rem 1.25rem; background: linear-gradient(135deg, #fef3c7, #fde68a); border: 1px solid #f59e0b; border-radius: 12px; box-shadow: 0 4px 20px rgba(245, 158, 11, 0.3); z-index: 9999; max-width: 320px; animation: slideIn 0.3s ease;">
             <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
                 <span style="font-size: 1.5rem;">💰</span>
@@ -2148,70 +2170,70 @@ include '../../includes/header.php';
             </div>
         </div>
     `;
-                document.body.appendChild(notice);
+        document.body.appendChild(notice);
 
-                // Auto-remove after 5 seconds
-                setTimeout(() => {
-                    const el = document.getElementById('ownerFundNotice');
-                    if (el) el.style.opacity = '0';
-                    setTimeout(() => {
-                        if (el) el.remove();
-                    }, 300);
-                }, 5000);
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            const el = document.getElementById('ownerFundNotice');
+            if (el) el.style.opacity = '0';
+            setTimeout(() => {
+                if (el) el.remove();
+            }, 300);
+        }, 5000);
+    }
+
+    // Setor Tunai ke Rekening Operasional
+    // Pure internal transfer - NOT entered in cash_book, only balance updates
+    function fillSetorTunai() {
+        // Set date to today
+        document.querySelector('input[name="transaction_date"]').value = '<?php echo date("Y-m-d"); ?>';
+        document.querySelector('input[name="transaction_time"]').value = '<?php echo date("H:i"); ?>';
+
+        // Set cash account to Kas Tunai (source account to be debited)
+        const cashAccountSelect = document.querySelector('select[name="cash_account_id"]');
+        if (cashAccountSelect) {
+            // Find cash/tunai account
+            for (let opt of cashAccountSelect.options) {
+                if (opt.text.toLowerCase().includes('tunai') || opt.text.toLowerCase().includes('cash')) {
+                    cashAccountSelect.value = opt.value;
+                    break;
+                }
             }
+        }
 
-            // Setor Tunai ke Rekening Operasional
-            // Pure internal transfer - NOT entered in cash_book, only balance updates
-            function fillSetorTunai() {
-                // Set date to today
-                document.querySelector('input[name="transaction_date"]').value = '<?php echo date("Y-m-d"); ?>';
-                document.querySelector('input[name="transaction_time"]').value = '<?php echo date("H:i"); ?>';
+        // Set description (optional)
+        document.querySelector('textarea[name="description"]').value = '';
 
-                // Set cash account to Kas Tunai (source account to be debited)
-                const cashAccountSelect = document.querySelector('select[name="cash_account_id"]');
-                if (cashAccountSelect) {
-                    // Find cash/tunai account
-                    for (let opt of cashAccountSelect.options) {
-                        if (opt.text.toLowerCase().includes('tunai') || opt.text.toLowerCase().includes('cash')) {
-                            cashAccountSelect.value = opt.value;
-                            break;
-                        }
-                    }
-                }
+        // Create hidden source_type field if not exists
+        let sourceTypeField = document.querySelector('input[name="source_type"]');
+        if (!sourceTypeField) {
+            sourceTypeField = document.createElement('input');
+            sourceTypeField.type = 'hidden';
+            sourceTypeField.name = 'source_type';
+            document.querySelector('form').appendChild(sourceTypeField);
+        }
+        sourceTypeField.value = 'cash_transfer';
 
-                // Set description (optional)
-                document.querySelector('textarea[name="description"]').value = '';
+        // Focus on amount field for user to input nominal
+        const amountField = document.querySelector('input[name="amount"]');
+        if (amountField) {
+            amountField.value = '';
+            amountField.focus();
+        }
 
-                // Create hidden source_type field if not exists
-                let sourceTypeField = document.querySelector('input[name="source_type"]');
-                if (!sourceTypeField) {
-                    sourceTypeField = document.createElement('input');
-                    sourceTypeField.type = 'hidden';
-                    sourceTypeField.name = 'source_type';
-                    document.querySelector('form').appendChild(sourceTypeField);
-                }
-                sourceTypeField.value = 'cash_transfer';
+        // Show notification
+        showSetorTunaiNotice();
+    }
 
-                // Focus on amount field for user to input nominal
-                const amountField = document.querySelector('input[name="amount"]');
-                if (amountField) {
-                    amountField.value = '';
-                    amountField.focus();
-                }
+    function showSetorTunaiNotice() {
+        // Remove existing notice
+        const existing = document.getElementById('setorTunaiNotice');
+        if (existing) existing.remove();
 
-                // Show notification
-                showSetorTunaiNotice();
-            }
-
-            function showSetorTunaiNotice() {
-                // Remove existing notice
-                const existing = document.getElementById('setorTunaiNotice');
-                if (existing) existing.remove();
-
-                // Create notice
-                const notice = document.createElement('div');
-                notice.id = 'setorTunaiNotice';
-                notice.innerHTML = `
+        // Create notice
+        const notice = document.createElement('div');
+        notice.id = 'setorTunaiNotice';
+        notice.innerHTML = `
         <div style="position: fixed; top: 80px; right: 20px; padding: 1rem 1.25rem; background: linear-gradient(135deg, #dbeafe, #bfdbfe); border: 1px solid #0284c7; border-radius: 12px; box-shadow: 0 4px 20px rgba(2, 132, 199, 0.3); z-index: 9999; max-width: 380px; animation: slideIn 0.3s ease;">
             <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
                 <span style="font-size: 1.5rem;">🏦</span>
@@ -2229,107 +2251,107 @@ include '../../includes/header.php';
             </div>
         </div>
     `;
-                document.body.appendChild(notice);
+        document.body.appendChild(notice);
 
-                // Auto-remove after 8 seconds
-                setTimeout(() => {
-                    const el = document.getElementById('setorTunaiNotice');
-                    if (el) el.style.opacity = '0';
-                    setTimeout(() => {
-                        if (el) el.remove();
-                    }, 300);
-                }, 8000);
+        // Auto-remove after 8 seconds
+        setTimeout(() => {
+            const el = document.getElementById('setorTunaiNotice');
+            if (el) el.style.opacity = '0';
+            setTimeout(() => {
+                if (el) el.remove();
+            }, 300);
+        }, 8000);
+    }
+    <?php if ($isCQC): ?>
+        // CQC: Transfer to Petty Cash
+        function fillTransferPettyCash() {
+            // Set transaction type to income (uang masuk ke Petty Cash)
+            const incomeRadio = document.querySelector('input[name="transaction_type"][value="income"]');
+            if (incomeRadio) {
+                incomeRadio.checked = true;
+                incomeRadio.dispatchEvent(new Event('change', {
+                    bubbles: true
+                }));
             }
-            <?php if ($isCQC): ?>
-                // CQC: Transfer to Petty Cash
-                function fillTransferPettyCash() {
-                    // Set transaction type to income (uang masuk ke Petty Cash)
-                    const incomeRadio = document.querySelector('input[name="transaction_type"][value="income"]');
-                    if (incomeRadio) {
-                        incomeRadio.checked = true;
-                        incomeRadio.dispatchEvent(new Event('change', {
-                            bubbles: true
-                        }));
-                    }
 
-                    // Wait for income section to show, then fill
-                    setTimeout(() => {
-                        // Set income type to topup_owner
-                        const incomeTypeSelect = document.getElementById('cqc_income_type');
-                        if (incomeTypeSelect) {
-                            incomeTypeSelect.value = 'topup_owner';
-                            incomeTypeSelect.dispatchEvent(new Event('change', {
-                                bubbles: true
-                            }));
-                        }
-
-                        // Set project to Operational Office
-                        const projectSelect = document.getElementById('cqc_project_id');
-                        if (projectSelect) {
-                            projectSelect.value = 'operational';
-                            projectSelect.dispatchEvent(new Event('change', {
-                                bubbles: true
-                            }));
-                        }
-
-                        // Set cash account to Petty Cash
-                        const cashAccountSelect = document.querySelector('select[name="cash_account_id"]');
-                        if (cashAccountSelect) {
-                            for (let opt of cashAccountSelect.options) {
-                                if (opt.text.toLowerCase().includes('petty') || opt.text.toLowerCase().includes('kas operasional')) {
-                                    cashAccountSelect.value = opt.value;
-                                    break;
-                                }
-                            }
-                        }
-
-                        // Set payment method to cash
-                        const cashPayment = document.querySelector('input[name="payment_method"][value="cash"]');
-                        if (cashPayment) cashPayment.checked = true;
-
-                        // Set source_type hidden field to owner_fund
-                        let sourceTypeField = document.querySelector('input[name="source_type"]');
-                        if (!sourceTypeField) {
-                            sourceTypeField = document.createElement('input');
-                            sourceTypeField.type = 'hidden';
-                            sourceTypeField.name = 'source_type';
-                            document.querySelector('form').appendChild(sourceTypeField);
-                        }
-                        sourceTypeField.value = 'owner_fund';
-
-                        // Set description
-                        const descField = document.querySelector('textarea[name="description"]');
-                        if (descField) {
-                            descField.value = 'Transfer Petty Cash - Operasional Office & Proyek';
-                        }
-
-                        // Update income desc field
-                        const incomeDescField = document.getElementById('cqc_income_desc');
-                        if (incomeDescField) {
-                            incomeDescField.value = 'Operasional Office & Proyek';
-                        }
-
-                        // Focus on amount field
-                        const amountField = document.querySelector('input[name="amount"]');
-                        if (amountField) {
-                            amountField.value = '';
-                            amountField.focus();
-                        }
-
-                        // Show notification
-                        showPettyCashNotice();
-                    }, 100);
+            // Wait for income section to show, then fill
+            setTimeout(() => {
+                // Set income type to topup_owner
+                const incomeTypeSelect = document.getElementById('cqc_income_type');
+                if (incomeTypeSelect) {
+                    incomeTypeSelect.value = 'topup_owner';
+                    incomeTypeSelect.dispatchEvent(new Event('change', {
+                        bubbles: true
+                    }));
                 }
 
-                function showPettyCashNotice() {
-                    // Remove existing notice
-                    const existing = document.getElementById('pettyCashNotice');
-                    if (existing) existing.remove();
+                // Set project to Operational Office
+                const projectSelect = document.getElementById('cqc_project_id');
+                if (projectSelect) {
+                    projectSelect.value = 'operational';
+                    projectSelect.dispatchEvent(new Event('change', {
+                        bubbles: true
+                    }));
+                }
 
-                    // Create notice
-                    const notice = document.createElement('div');
-                    notice.id = 'pettyCashNotice';
-                    notice.innerHTML = `
+                // Set cash account to Petty Cash
+                const cashAccountSelect = document.querySelector('select[name="cash_account_id"]');
+                if (cashAccountSelect) {
+                    for (let opt of cashAccountSelect.options) {
+                        if (opt.text.toLowerCase().includes('petty') || opt.text.toLowerCase().includes('kas operasional')) {
+                            cashAccountSelect.value = opt.value;
+                            break;
+                        }
+                    }
+                }
+
+                // Set payment method to cash
+                const cashPayment = document.querySelector('input[name="payment_method"][value="cash"]');
+                if (cashPayment) cashPayment.checked = true;
+
+                // Set source_type hidden field to owner_fund
+                let sourceTypeField = document.querySelector('input[name="source_type"]');
+                if (!sourceTypeField) {
+                    sourceTypeField = document.createElement('input');
+                    sourceTypeField.type = 'hidden';
+                    sourceTypeField.name = 'source_type';
+                    document.querySelector('form').appendChild(sourceTypeField);
+                }
+                sourceTypeField.value = 'owner_fund';
+
+                // Set description
+                const descField = document.querySelector('textarea[name="description"]');
+                if (descField) {
+                    descField.value = 'Transfer Petty Cash - Operasional Office & Proyek';
+                }
+
+                // Update income desc field
+                const incomeDescField = document.getElementById('cqc_income_desc');
+                if (incomeDescField) {
+                    incomeDescField.value = 'Operasional Office & Proyek';
+                }
+
+                // Focus on amount field
+                const amountField = document.querySelector('input[name="amount"]');
+                if (amountField) {
+                    amountField.value = '';
+                    amountField.focus();
+                }
+
+                // Show notification
+                showPettyCashNotice();
+            }, 100);
+        }
+
+        function showPettyCashNotice() {
+            // Remove existing notice
+            const existing = document.getElementById('pettyCashNotice');
+            if (existing) existing.remove();
+
+            // Create notice
+            const notice = document.createElement('div');
+            notice.id = 'pettyCashNotice';
+            notice.innerHTML = `
         <div style="position: fixed; top: 80px; right: 20px; padding: 1rem 1.25rem; background: linear-gradient(135deg, #f0fdf4, #dcfce7); border: 2px solid #22c55e; border-radius: 12px; box-shadow: 0 4px 20px rgba(34, 197, 94, 0.25); z-index: 9999; max-width: 350px; animation: slideIn 0.3s ease;">
             <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
                 <span style="font-size: 1.5rem;">💸</span>
@@ -2342,269 +2364,269 @@ include '../../includes/header.php';
             </div>
         </div>
     `;
-                    document.body.appendChild(notice);
+            document.body.appendChild(notice);
 
-                    // Auto-remove after 6 seconds
-                    setTimeout(() => {
-                        const el = document.getElementById('pettyCashNotice');
-                        if (el) el.style.opacity = '0';
-                        setTimeout(() => {
-                            if (el) el.remove();
-                        }, 300);
-                    }, 6000);
-                }
+            // Auto-remove after 6 seconds
+            setTimeout(() => {
+                const el = document.getElementById('pettyCashNotice');
+                if (el) el.style.opacity = '0';
+                setTimeout(() => {
+                    if (el) el.remove();
+                }, 300);
+            }, 6000);
+        }
 
-                // CQC Project Info Display
-                function updateCQCProjectInfo(select) {
-                    const opt = select.options[select.selectedIndex];
-                    const info = document.getElementById('cqcProjectInfo');
-                    if (!opt.value) {
-                        info.style.display = 'none';
-                        return;
-                    }
-
-                    // Handle Operational Office selection
-                    if (opt.value === 'operational') {
-                        info.innerHTML = '<div style="display: flex; gap: 1rem; font-size: 0.75rem; color: #0d1f3c;"><span>💼 <strong>Operasional Office & Proyek</strong> - Untuk kebutuhan kantor dan proyek</span></div>';
-                        info.style.display = 'block';
-                        info.style.background = 'linear-gradient(135deg, rgba(59,130,246,0.08), rgba(59,130,246,0.03))';
-                        info.style.borderLeftColor = '#3b82f6';
-                        return;
-                    }
-
-                    // Reset styling for regular projects
-                    info.style.background = 'linear-gradient(135deg, rgba(13,31,60,0.05), rgba(240,180,41,0.08))';
-                    info.style.borderLeftColor = '#f0b429';
-                    info.innerHTML = '<div style="display: flex; gap: 1rem; font-size: 0.7rem;"><span>💰 Budget: <strong id="cqcBudgetDisplay">-</strong></span><span>📤 Terpakai: <strong id="cqcSpentDisplay" style="color: #ef4444;">-</strong></span><span>💵 Sisa: <strong id="cqcRemainingDisplay" style="color: #10b981;">-</strong></span></div>';
-
-                    const budget = parseFloat(opt.dataset.budget || 0);
-                    const spent = parseFloat(opt.dataset.spent || 0);
-                    const remaining = parseFloat(opt.dataset.remaining || 0);
-
-                    document.getElementById('cqcBudgetDisplay').textContent = 'Rp ' + budget.toLocaleString('id-ID');
-                    document.getElementById('cqcSpentDisplay').textContent = 'Rp ' + spent.toLocaleString('id-ID');
-                    document.getElementById('cqcRemainingDisplay').textContent = 'Rp ' + remaining.toLocaleString('id-ID');
-                    document.getElementById('cqcRemainingDisplay').style.color = remaining >= 0 ? '#10b981' : '#ef4444';
-                    info.style.display = 'block';
-
-                    // Update income description if income is selected
-                    updateCQCIncomeCategory(document.getElementById('cqc_income_type'));
-                }
-
-                // Toggle expense/income sections based on transaction type
-                function toggleCQCSections() {
-                    const type = document.querySelector('input[name="transaction_type"]:checked')?.value;
-                    const expSection = document.getElementById('cqcExpenseSection');
-                    const incSection = document.getElementById('cqcIncomeSection');
-                    const catInput = document.querySelector('[name=category_name]');
-
-                    if (type === 'expense') {
-                        expSection.style.display = 'block';
-                        incSection.style.display = 'none';
-                        catInput.setAttribute('required', 'required');
-                        catInput.value = '';
-                    } else {
-                        expSection.style.display = 'none';
-                        incSection.style.display = 'block';
-                        catInput.removeAttribute('required');
-                        // Reset income type
-                        document.getElementById('cqc_income_type').value = '';
-                        document.getElementById('cqc_income_desc').value = '';
-                    }
-                }
-
-                // Update category_name based on income type + selected project
-                function updateCQCIncomeCategory(select) {
-                    if (!select) return;
-                    const type = select.value;
-                    const projSelect = document.getElementById('cqc_project_id');
-                    const projOpt = projSelect.options[projSelect.selectedIndex];
-                    const projName = projOpt && projOpt.value ? projOpt.textContent.trim().split(' [')[0] : '';
-                    const descInput = document.getElementById('cqc_income_desc');
-                    const catInput = document.querySelector('[name=category_name]');
-                    const noteDiv = document.getElementById('cqcIncomeNote');
-
-                    const labels = {
-                        'topup_owner': 'Transfer Petty Cash',
-                        'dp': 'DP Masuk',
-                        'termin': 'Pembayaran Termin',
-                        'pelunasan': 'Pelunasan',
-                        'retensi': 'Retensi / Garansi'
-                    };
-
-                    // Show/hide note
-                    if (type === 'topup_owner') {
-                        noteDiv.style.display = 'block';
-                        noteDiv.style.background = '#fef3c7';
-                        noteDiv.style.color = '#92400e';
-                        noteDiv.innerHTML = '⚠️ <strong>Ini BUKAN pendapatan perusahaan.</strong> Transfer ke Petty Cash untuk operasional proyek. Tidak masuk ke laporan income.';
-                    } else if (['dp', 'termin', 'pelunasan'].includes(type)) {
-                        noteDiv.style.display = 'block';
-                        noteDiv.style.background = '#dcfce7';
-                        noteDiv.style.color = '#166534';
-                        noteDiv.innerHTML = '✅ Ini adalah <strong>pendapatan dari invoice</strong>. Masuk ke laporan income.';
-                    } else {
-                        noteDiv.style.display = 'none';
-                    }
-
-                    if (type === 'manual') {
-                        descInput.removeAttribute('readonly');
-                        descInput.placeholder = 'Tulis keterangan...';
-                        descInput.value = '';
-                        descInput.focus();
-                    } else if (type === 'topup_owner') {
-                        descInput.setAttribute('readonly', 'readonly');
-                        descInput.value = 'Transfer Petty Cash dari Owner';
-                        catInput.value = 'Transfer Petty Cash';
-                    } else if (type && labels[type]) {
-                        descInput.setAttribute('readonly', 'readonly');
-                        const desc = projName ? labels[type] + ' - ' + projName : labels[type];
-                        descInput.value = desc;
-                        catInput.value = desc;
-                    } else {
-                        descInput.setAttribute('readonly', 'readonly');
-                        descInput.value = '';
-                        catInput.value = '';
-                        noteDiv.style.display = 'none';
-                    }
-                }
-
-                // Listen for transaction type changes
-                document.querySelectorAll('input[name="transaction_type"]').forEach(radio => {
-                    radio.addEventListener('change', toggleCQCSections);
-                });
-
-                // Handle form submit - sync income desc to category_name
-                document.getElementById('transactionForm').addEventListener('submit', function() {
-                    const type = document.querySelector('input[name="transaction_type"]:checked')?.value;
-                    if (type === 'income') {
-                        const desc = document.getElementById('cqc_income_desc').value;
-                        if (desc) {
-                            document.querySelector('[name=category_name]').value = desc;
-                        }
-                    }
-                });
-
-                // Initialize on load
-                toggleCQCSections();
-            <?php endif; ?>
-
-            // ============================================
-            // PROJECT EXPENSE TOGGLE (NON-HOTEL EXPENSE)
-            // ============================================
-            <?php if ($isHotel): ?>
-                const projectDivisionKeywords = ['proyek', 'projek', 'project', 'konstruksi', 'renovasi', 'pembangunan', 'bangunan'];
-
-                function toggleProjectExpense() {
-                    const checked = document.getElementById('isProjectExpense').checked;
-                    const wrapper = document.getElementById('projectSelectWrapper');
-                    const label = document.getElementById('projectToggleLabel');
-                    const sourceField = document.getElementById('sourceTypeHidden');
-                    const note = document.getElementById('projectExpenseNote');
-                    const projectSelect = document.getElementById('projectSelect');
-
-                    if (wrapper) wrapper.style.display = checked ? 'block' : 'none';
-                    if (note) note.style.display = checked ? 'block' : 'none';
-                    label.style.background = checked ? 'rgba(245,158,11,0.25)' : 'rgba(245,158,11,0.1)';
-                    label.style.borderColor = checked ? '#f59e0b' : 'rgba(245,158,11,0.3)';
-                    sourceField.value = checked ? 'owner_project' : '';
-
-                    if (projectSelect) {
-                        projectSelect.required = checked;
-                        if (!checked) projectSelect.value = '';
-                    }
-                }
-
-                // Auto-detect project division
-                const divisionSelect = document.getElementById('division_id');
-                if (divisionSelect) {
-                    divisionSelect.addEventListener('change', function() {
-                        const text = this.options[this.selectedIndex]?.text?.toLowerCase() || '';
-                        const isProjectDiv = projectDivisionKeywords.some(kw => text.includes(kw));
-                        const checkbox = document.getElementById('isProjectExpense');
-                        if (checkbox && isProjectDiv && !checkbox.checked) {
-                            checkbox.checked = true;
-                            toggleProjectExpense();
-                        }
-                    });
-                }
-            <?php endif; ?>
-
-            // ============================================
-            // DUPLICATE TRANSACTION CHECK
-            // ============================================
-            let dupCheckBypassed = false;
-
-            function handleFormSubmit(e) {
-                e.preventDefault();
-
-                if (!validateForm('transactionForm')) return false;
-                if (dupCheckBypassed) {
-                    dupCheckBypassed = false;
-                    document.getElementById('transactionForm').submit();
-                    return true;
-                }
-
-                const form = document.getElementById('transactionForm');
-                const date = form.querySelector('[name=transaction_date]').value;
-                const rawAmount = form.querySelector('[name=amount]').value;
-                const amount = rawAmount.replace(/[.,]/g, '');
-                const category = form.querySelector('[name=category_name]').value;
-                const description = form.querySelector('[name=description]')?.value || '';
-                const type = form.querySelector('input[name=transaction_type]:checked')?.value || '';
-
-                if (!amount || parseFloat(amount) <= 0 || !category) {
-                    form.submit();
-                    return true;
-                }
-
-                const params = new URLSearchParams({
-                    date,
-                    amount,
-                    category,
-                    description,
-                    type
-                });
-
-                fetch('../../api/check-duplicate-transaction.php?' + params)
-                    .then(r => r.json())
-                    .then(data => {
-                        if (data.success && data.count > 0) {
-                            showDuplicateWarning(data.duplicates, rawAmount, category);
-                        } else {
-                            form.submit();
-                        }
-                    })
-                    .catch(() => {
-                        // If check fails, allow submit anyway
-                        form.submit();
-                    });
-
-                return false;
+        // CQC Project Info Display
+        function updateCQCProjectInfo(select) {
+            const opt = select.options[select.selectedIndex];
+            const info = document.getElementById('cqcProjectInfo');
+            if (!opt.value) {
+                info.style.display = 'none';
+                return;
             }
 
-            function showDuplicateWarning(duplicates, amount, category) {
-                // Remove existing modal if any
-                const existing = document.getElementById('dupWarningModal');
-                if (existing) existing.remove();
+            // Handle Operational Office selection
+            if (opt.value === 'operational') {
+                info.innerHTML = '<div style="display: flex; gap: 1rem; font-size: 0.75rem; color: #0d1f3c;"><span>💼 <strong>Operasional Office & Proyek</strong> - Untuk kebutuhan kantor dan proyek</span></div>';
+                info.style.display = 'block';
+                info.style.background = 'linear-gradient(135deg, rgba(59,130,246,0.08), rgba(59,130,246,0.03))';
+                info.style.borderLeftColor = '#3b82f6';
+                return;
+            }
 
-                let rows = '';
-                duplicates.forEach(d => {
-                    const time = d.transaction_time ? d.transaction_time.substring(0, 5) : '-';
-                    const amt = parseInt(d.amount).toLocaleString('id-ID');
-                    const cat = d.category_name || '-';
-                    const desc = d.description ? (d.description.length > 40 ? d.description.substring(0, 40) + '...' : d.description) : '-';
-                    rows += `<tr>
+            // Reset styling for regular projects
+            info.style.background = 'linear-gradient(135deg, rgba(13,31,60,0.05), rgba(240,180,41,0.08))';
+            info.style.borderLeftColor = '#f0b429';
+            info.innerHTML = '<div style="display: flex; gap: 1rem; font-size: 0.7rem;"><span>💰 Budget: <strong id="cqcBudgetDisplay">-</strong></span><span>📤 Terpakai: <strong id="cqcSpentDisplay" style="color: #ef4444;">-</strong></span><span>💵 Sisa: <strong id="cqcRemainingDisplay" style="color: #10b981;">-</strong></span></div>';
+
+            const budget = parseFloat(opt.dataset.budget || 0);
+            const spent = parseFloat(opt.dataset.spent || 0);
+            const remaining = parseFloat(opt.dataset.remaining || 0);
+
+            document.getElementById('cqcBudgetDisplay').textContent = 'Rp ' + budget.toLocaleString('id-ID');
+            document.getElementById('cqcSpentDisplay').textContent = 'Rp ' + spent.toLocaleString('id-ID');
+            document.getElementById('cqcRemainingDisplay').textContent = 'Rp ' + remaining.toLocaleString('id-ID');
+            document.getElementById('cqcRemainingDisplay').style.color = remaining >= 0 ? '#10b981' : '#ef4444';
+            info.style.display = 'block';
+
+            // Update income description if income is selected
+            updateCQCIncomeCategory(document.getElementById('cqc_income_type'));
+        }
+
+        // Toggle expense/income sections based on transaction type
+        function toggleCQCSections() {
+            const type = document.querySelector('input[name="transaction_type"]:checked')?.value;
+            const expSection = document.getElementById('cqcExpenseSection');
+            const incSection = document.getElementById('cqcIncomeSection');
+            const catInput = document.querySelector('[name=category_name]');
+
+            if (type === 'expense') {
+                expSection.style.display = 'block';
+                incSection.style.display = 'none';
+                catInput.setAttribute('required', 'required');
+                catInput.value = '';
+            } else {
+                expSection.style.display = 'none';
+                incSection.style.display = 'block';
+                catInput.removeAttribute('required');
+                // Reset income type
+                document.getElementById('cqc_income_type').value = '';
+                document.getElementById('cqc_income_desc').value = '';
+            }
+        }
+
+        // Update category_name based on income type + selected project
+        function updateCQCIncomeCategory(select) {
+            if (!select) return;
+            const type = select.value;
+            const projSelect = document.getElementById('cqc_project_id');
+            const projOpt = projSelect.options[projSelect.selectedIndex];
+            const projName = projOpt && projOpt.value ? projOpt.textContent.trim().split(' [')[0] : '';
+            const descInput = document.getElementById('cqc_income_desc');
+            const catInput = document.querySelector('[name=category_name]');
+            const noteDiv = document.getElementById('cqcIncomeNote');
+
+            const labels = {
+                'topup_owner': 'Transfer Petty Cash',
+                'dp': 'DP Masuk',
+                'termin': 'Pembayaran Termin',
+                'pelunasan': 'Pelunasan',
+                'retensi': 'Retensi / Garansi'
+            };
+
+            // Show/hide note
+            if (type === 'topup_owner') {
+                noteDiv.style.display = 'block';
+                noteDiv.style.background = '#fef3c7';
+                noteDiv.style.color = '#92400e';
+                noteDiv.innerHTML = '⚠️ <strong>Ini BUKAN pendapatan perusahaan.</strong> Transfer ke Petty Cash untuk operasional proyek. Tidak masuk ke laporan income.';
+            } else if (['dp', 'termin', 'pelunasan'].includes(type)) {
+                noteDiv.style.display = 'block';
+                noteDiv.style.background = '#dcfce7';
+                noteDiv.style.color = '#166534';
+                noteDiv.innerHTML = '✅ Ini adalah <strong>pendapatan dari invoice</strong>. Masuk ke laporan income.';
+            } else {
+                noteDiv.style.display = 'none';
+            }
+
+            if (type === 'manual') {
+                descInput.removeAttribute('readonly');
+                descInput.placeholder = 'Tulis keterangan...';
+                descInput.value = '';
+                descInput.focus();
+            } else if (type === 'topup_owner') {
+                descInput.setAttribute('readonly', 'readonly');
+                descInput.value = 'Transfer Petty Cash dari Owner';
+                catInput.value = 'Transfer Petty Cash';
+            } else if (type && labels[type]) {
+                descInput.setAttribute('readonly', 'readonly');
+                const desc = projName ? labels[type] + ' - ' + projName : labels[type];
+                descInput.value = desc;
+                catInput.value = desc;
+            } else {
+                descInput.setAttribute('readonly', 'readonly');
+                descInput.value = '';
+                catInput.value = '';
+                noteDiv.style.display = 'none';
+            }
+        }
+
+        // Listen for transaction type changes
+        document.querySelectorAll('input[name="transaction_type"]').forEach(radio => {
+            radio.addEventListener('change', toggleCQCSections);
+        });
+
+        // Handle form submit - sync income desc to category_name
+        document.getElementById('transactionForm').addEventListener('submit', function() {
+            const type = document.querySelector('input[name="transaction_type"]:checked')?.value;
+            if (type === 'income') {
+                const desc = document.getElementById('cqc_income_desc').value;
+                if (desc) {
+                    document.querySelector('[name=category_name]').value = desc;
+                }
+            }
+        });
+
+        // Initialize on load
+        toggleCQCSections();
+    <?php endif; ?>
+
+    // ============================================
+    // PROJECT EXPENSE TOGGLE (NON-HOTEL EXPENSE)
+    // ============================================
+    <?php if ($isHotel): ?>
+        const projectDivisionKeywords = ['proyek', 'projek', 'project', 'konstruksi', 'renovasi', 'pembangunan', 'bangunan'];
+
+        function toggleProjectExpense() {
+            const checked = document.getElementById('isProjectExpense').checked;
+            const wrapper = document.getElementById('projectSelectWrapper');
+            const label = document.getElementById('projectToggleLabel');
+            const sourceField = document.getElementById('sourceTypeHidden');
+            const note = document.getElementById('projectExpenseNote');
+            const projectSelect = document.getElementById('projectSelect');
+
+            if (wrapper) wrapper.style.display = checked ? 'block' : 'none';
+            if (note) note.style.display = checked ? 'block' : 'none';
+            label.style.background = checked ? 'rgba(245,158,11,0.25)' : 'rgba(245,158,11,0.1)';
+            label.style.borderColor = checked ? '#f59e0b' : 'rgba(245,158,11,0.3)';
+            sourceField.value = checked ? 'owner_project' : '';
+
+            if (projectSelect) {
+                projectSelect.required = checked;
+                if (!checked) projectSelect.value = '';
+            }
+        }
+
+        // Auto-detect project division
+        const divisionSelect = document.getElementById('division_id');
+        if (divisionSelect) {
+            divisionSelect.addEventListener('change', function() {
+                const text = this.options[this.selectedIndex]?.text?.toLowerCase() || '';
+                const isProjectDiv = projectDivisionKeywords.some(kw => text.includes(kw));
+                const checkbox = document.getElementById('isProjectExpense');
+                if (checkbox && isProjectDiv && !checkbox.checked) {
+                    checkbox.checked = true;
+                    toggleProjectExpense();
+                }
+            });
+        }
+    <?php endif; ?>
+
+    // ============================================
+    // DUPLICATE TRANSACTION CHECK
+    // ============================================
+    let dupCheckBypassed = false;
+
+    function handleFormSubmit(e) {
+        e.preventDefault();
+
+        if (!validateForm('transactionForm')) return false;
+        if (dupCheckBypassed) {
+            dupCheckBypassed = false;
+            document.getElementById('transactionForm').submit();
+            return true;
+        }
+
+        const form = document.getElementById('transactionForm');
+        const date = form.querySelector('[name=transaction_date]').value;
+        const rawAmount = form.querySelector('[name=amount]').value;
+        const amount = rawAmount.replace(/[.,]/g, '');
+        const category = form.querySelector('[name=category_name]').value;
+        const description = form.querySelector('[name=description]')?.value || '';
+        const type = form.querySelector('input[name=transaction_type]:checked')?.value || '';
+
+        if (!amount || parseFloat(amount) <= 0 || !category) {
+            form.submit();
+            return true;
+        }
+
+        const params = new URLSearchParams({
+            date,
+            amount,
+            category,
+            description,
+            type
+        });
+
+        fetch('../../api/check-duplicate-transaction.php?' + params)
+            .then(r => r.json())
+            .then(data => {
+                if (data.success && data.count > 0) {
+                    showDuplicateWarning(data.duplicates, rawAmount, category);
+                } else {
+                    form.submit();
+                }
+            })
+            .catch(() => {
+                // If check fails, allow submit anyway
+                form.submit();
+            });
+
+        return false;
+    }
+
+    function showDuplicateWarning(duplicates, amount, category) {
+        // Remove existing modal if any
+        const existing = document.getElementById('dupWarningModal');
+        if (existing) existing.remove();
+
+        let rows = '';
+        duplicates.forEach(d => {
+            const time = d.transaction_time ? d.transaction_time.substring(0, 5) : '-';
+            const amt = parseInt(d.amount).toLocaleString('id-ID');
+            const cat = d.category_name || '-';
+            const desc = d.description ? (d.description.length > 40 ? d.description.substring(0, 40) + '...' : d.description) : '-';
+            rows += `<tr>
             <td style="padding:8px; border-bottom:1px solid #333;">${time}</td>
             <td style="padding:8px; border-bottom:1px solid #333;">${cat}</td>
             <td style="padding:8px; border-bottom:1px solid #333; text-align:right; font-weight:700;">Rp ${amt}</td>
             <td style="padding:8px; border-bottom:1px solid #333; font-size:0.8rem;">${desc}</td>
         </tr>`;
-                });
+        });
 
-                const modal = document.createElement('div');
-                modal.id = 'dupWarningModal';
-                modal.innerHTML = `
+        const modal = document.createElement('div');
+        modal.id = 'dupWarningModal';
+        modal.innerHTML = `
     <div style="position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:9999; display:flex; align-items:center; justify-content:center; padding:1rem;">
         <div style="background:#1e1e2e; border:2px solid #f59e0b; border-radius:16px; max-width:560px; width:100%; box-shadow:0 20px 60px rgba(0,0,0,0.5);">
             <div style="padding:1.25rem; border-bottom:1px solid #333; display:flex; align-items:center; gap:0.75rem;">
@@ -2641,15 +2663,15 @@ include '../../includes/header.php';
             </div>
         </div>
     </div>`;
-                document.body.appendChild(modal);
-            }
+        document.body.appendChild(modal);
+    }
 
-            function submitDespiteDuplicate() {
-                const modal = document.getElementById('dupWarningModal');
-                if (modal) modal.remove();
-                dupCheckBypassed = true;
-                document.getElementById('transactionForm').dispatchEvent(new Event('submit'));
-            }
+    function submitDespiteDuplicate() {
+        const modal = document.getElementById('dupWarningModal');
+        if (modal) modal.remove();
+        dupCheckBypassed = true;
+        document.getElementById('transactionForm').dispatchEvent(new Event('submit'));
+    }
 </script>
 
 <?php include '../../includes/footer.php'; ?>
