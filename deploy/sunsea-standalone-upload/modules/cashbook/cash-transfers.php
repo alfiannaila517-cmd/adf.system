@@ -323,21 +323,25 @@ try {
         $accountNameById[(int)$acc['id']] = $acc['account_name'];
     }
 
-    // Get ALL bank-type operational accounts for this business (NOT just from filtered transfers).
-    // This is the correct approach: the list of "operational bank accounts" is fixed per business.
-    // Filtering it through $transfers would cause it to be empty whenever the date filter has no
-    // matching Setor Tunai records (e.g. default "today" but last transfer was days ago).
+    // Get ONLY the bank accounts that are DESTINATION of Setor Tunai transfers (rekening operasional).
+    // DO NOT use all account_type='bank' — that would include Rekening Kas Besar which is NOT
+    // the same as Rekening Operasional. Only accounts that appear in cash_transfers.bank_account_id
+    // are the true "operational bank accounts" targeted by Setor Tunai.
+    // We query without date filter so this list is always populated regardless of the list's date range.
     $bankAccountIds = [];
-    $allBankStmt = $masterDb->prepare("
-        SELECT id, account_name FROM cash_accounts
-        WHERE business_id = ? AND account_type = 'bank' AND is_active = 1
+    $opBankStmt = $masterDb->prepare("
+        SELECT DISTINCT ct.bank_account_id, ca.account_name
+        FROM cash_transfers ct
+        JOIN cash_accounts ca ON ct.bank_account_id = ca.id
+        WHERE ct.business_id = ? AND ct.bank_account_id IS NOT NULL
     ");
-    $allBankStmt->execute([$businessId]);
-    foreach ($allBankStmt->fetchAll(PDO::FETCH_ASSOC) as $ba) {
-        $bankAccountIds[] = (int)$ba['id'];
-        // Also ensure bank accounts are in the name map even if not in $accounts
-        $accountNameById[(int)$ba['id']] = $ba['account_name'];
+    $opBankStmt->execute([$businessId]);
+    foreach ($opBankStmt->fetchAll(PDO::FETCH_ASSOC) as $ba) {
+        $bankAccountIds[] = (int)$ba['bank_account_id'];
+        // Ensure these accounts are in the name map
+        $accountNameById[(int)$ba['bank_account_id']] = $ba['account_name'];
     }
+    $bankAccountIds = array_values(array_unique($bankAccountIds));
 
     // Calculate expense usage from those operational bank accounts
     if (!empty($bankAccountIds)) {
