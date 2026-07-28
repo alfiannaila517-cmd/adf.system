@@ -39,6 +39,8 @@ $db = Database::getInstance();
 $currentUser = $auth->getCurrentUser();
 
 try {
+    $db->beginTransaction();
+
     // Validate
     $billId = (int)$_POST['bill_id'];
     $amount = (float)$_POST['amount'];
@@ -163,6 +165,57 @@ try {
         [$cashbookId, $paymentId]
     );
 
+    // ======================================
+    // SYNC TO MASTER CASH ACCOUNT LEDGER
+    // Ensure operational account mutasi + balance move together with expense record
+    // ======================================
+    $masterDb = null;
+    try {
+        $businessId = getMasterBusinessId();
+        $masterDb = new PDO(
+            "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4",
+            DB_USER,
+            DB_PASS,
+            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+        );
+
+        $masterDb->beginTransaction();
+
+        $accStmt = $masterDb->prepare("SELECT id FROM cash_accounts WHERE id = ? AND business_id = ? AND is_active = 1 LIMIT 1");
+        $accStmt->execute([$accountId, $businessId]);
+        $account = $accStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$account) {
+            throw new Exception('Rekening operasional tidak valid untuk bisnis ini');
+        }
+
+        $trxStmt = $masterDb->prepare("
+            INSERT INTO cash_account_transactions
+            (cash_account_id, transaction_id, transaction_date, description, amount, transaction_type, reference_number, created_by, created_at)
+            VALUES (?, ?, DATE(NOW()), ?, ?, 'expense', ?, ?, NOW())
+        ");
+        $trxStmt->execute([
+            $accountId,
+            $cashbookId,
+            $cbDescription,
+            $amount,
+            $referenceNumber ?: $billCode,
+            $currentUser['id']
+        ]);
+
+        $balStmt = $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance - ? WHERE id = ?");
+        $balStmt->execute([$amount, $accountId]);
+
+        $masterDb->commit();
+    } catch (Exception $masterEx) {
+        if ($masterDb instanceof PDO && $masterDb->inTransaction()) {
+            $masterDb->rollBack();
+        }
+        throw $masterEx;
+    }
+
+    $db->commit();
+
     echo json_encode([
         'success' => true,
         'message' => "Pembayaran Rp " . number_format($amount, 0, ',', '.') . " berhasil dicatat",
@@ -173,6 +226,11 @@ try {
     ]);
 
 } catch (Exception $e) {
+    try {
+        $db->rollBack();
+    } catch (Exception $ignore) {
+    }
+
     echo json_encode([
         'success' => false,
         'message' => $e->getMessage()
