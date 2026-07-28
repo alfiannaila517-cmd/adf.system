@@ -18,18 +18,13 @@ if (!defined('SESSION_LIFETIME')) define('SESSION_LIFETIME', 3600 * 8);
 if (session_status() === PHP_SESSION_NONE) {
     session_name(SESSION_NAME);
 
-    // Some shared-hosting environments point to a missing/unwritable default
-    // session.save_path. When that happens, login/session will always fail.
-    $currentSessionPath = trim((string)session_save_path());
-    $sessionPathOk = ($currentSessionPath !== '' && is_dir($currentSessionPath) && is_writable($currentSessionPath));
-    if (!$sessionPathOk) {
-        $fallbackSessionPath = dirname(__DIR__) . '/tmp_sessions';
-        if (!is_dir($fallbackSessionPath)) {
-            @mkdir($fallbackSessionPath, 0700, true);
-        }
-        if (is_dir($fallbackSessionPath) && is_writable($fallbackSessionPath)) {
-            session_save_path($fallbackSessionPath);
-        }
+    // Force app-owned session directory to avoid shared-host path issues.
+    $appSessionPath = dirname(__DIR__) . '/tmp_sessions';
+    if (!is_dir($appSessionPath)) {
+        @mkdir($appSessionPath, 0700, true);
+    }
+    if (is_dir($appSessionPath) && is_writable($appSessionPath)) {
+        session_save_path($appSessionPath);
     }
 
     // Secure session cookie settings
@@ -52,7 +47,7 @@ if (session_status() === PHP_SESSION_NONE) {
         'samesite' => 'Lax'
     ]);
 
-    session_start();
+    @session_start();
 }
 
 // Prevent direct access
