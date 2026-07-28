@@ -79,12 +79,22 @@ if (isset($_POST['__upload_topbar_avatar']) && $_POST['__upload_topbar_avatar'] 
         }
 
         $file = $_FILES['avatar_file'];
-        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-            throw new Exception('Upload gagal. Silakan pilih file gambar yang valid.');
+        $uploadError = (int)($file['error'] ?? UPLOAD_ERR_NO_FILE);
+        if ($uploadError !== UPLOAD_ERR_OK) {
+            $errorMap = [
+                UPLOAD_ERR_INI_SIZE => 'Ukuran foto melebihi batas server. Coba file lebih kecil (disarankan <= 2MB).',
+                UPLOAD_ERR_FORM_SIZE => 'Ukuran foto terlalu besar untuk form upload.',
+                UPLOAD_ERR_PARTIAL => 'Upload terputus. Silakan ulangi upload.',
+                UPLOAD_ERR_NO_FILE => 'Belum ada file yang dipilih.',
+                UPLOAD_ERR_NO_TMP_DIR => 'Server upload error: folder sementara tidak tersedia.',
+                UPLOAD_ERR_CANT_WRITE => 'Server upload error: gagal menulis file.',
+                UPLOAD_ERR_EXTENSION => 'Upload diblokir oleh ekstensi server.',
+            ];
+            throw new Exception($errorMap[$uploadError] ?? ('Upload gagal (kode: ' . $uploadError . ').'));
         }
 
         $tmpPath = $file['tmp_name'] ?? '';
-        if ($tmpPath === '' || !is_uploaded_file($tmpPath)) {
+        if ($tmpPath === '' || (!is_uploaded_file($tmpPath) && !is_file($tmpPath))) {
             throw new Exception('File upload tidak valid.');
         }
 
@@ -222,9 +232,7 @@ try {
 
     <!-- Business Theme CSS -->
     <style>
-        <?php echo getBusinessThemeCSS(); ?>
-
-        .user-avatar-wrap {
+        <?php echo getBusinessThemeCSS(); ?>.user-avatar-wrap {
             position: relative;
             display: inline-flex;
             align-items: center;
@@ -238,8 +246,8 @@ try {
             border: 2px solid #bfdbfe;
             box-shadow: 0 4px 12px rgba(30, 58, 138, 0.25);
             overflow: hidden;
-            background: linear-gradient(135deg, #1e3a8a, #2563eb);
-            color: #ffffff;
+            background: linear-gradient(135deg, #eff6ff, #dbeafe);
+            color: #1e3a8a;
             font-weight: 700;
             font-size: 0.95rem;
             line-height: 1;
@@ -944,10 +952,10 @@ if (isset($_SESSION['user_id'])) {
                     <!-- User Info -->
                     <div class="user-info">
                         <div style="text-align: right; margin-right: 1rem;">
-                            <div style="font-weight: 600; color: #ffffff; -webkit-text-fill-color: #ffffff;">
+                            <div style="font-weight: 600; color: #1e3a8a; -webkit-text-fill-color: #1e3a8a;">
                                 <?php echo $_SESSION['full_name'] ?? 'User'; ?>
                             </div>
-                            <div style="font-size: 0.875rem; color: #ffffff; -webkit-text-fill-color: #ffffff; opacity: 0.95;">
+                            <div style="font-size: 0.875rem; color: #2563eb; -webkit-text-fill-color: #2563eb; opacity: 0.95;">
                                 <?php echo ucfirst($_SESSION['role'] ?? 'staff'); ?>
                             </div>
                         </div>
