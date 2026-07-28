@@ -108,12 +108,26 @@ if (isset($_POST['__upload_topbar_avatar']) && $_POST['__upload_topbar_avatar'] 
             'image/gif' => 'gif',
         ];
 
-        if (!isset($allowed[$mimeType])) {
-            throw new Exception('Format foto harus JPG, PNG, WEBP, atau GIF.');
+        $imageInfo = @getimagesize($tmpPath);
+        if (!$imageInfo) {
+            throw new Exception('File bukan gambar yang valid.');
         }
 
-        if (!@getimagesize($tmpPath)) {
-            throw new Exception('File bukan gambar yang valid.');
+        $imageType = $imageInfo[2] ?? null;
+        $imageTypeToExt = [
+            IMAGETYPE_JPEG => 'jpg',
+            IMAGETYPE_PNG => 'png',
+            IMAGETYPE_WEBP => 'webp',
+            IMAGETYPE_GIF => 'gif',
+        ];
+
+        $detectedExt = $imageType !== null && isset($imageTypeToExt[$imageType])
+            ? $imageTypeToExt[$imageType]
+            : null;
+
+        $finalExt = $allowed[$mimeType] ?? $detectedExt;
+        if (!$finalExt) {
+            throw new Exception('Format foto harus JPG, PNG, WEBP, atau GIF.');
         }
 
         $userId = (int)$_SESSION['user_id'];
@@ -126,7 +140,7 @@ if (isset($_POST['__upload_topbar_avatar']) && $_POST['__upload_topbar_avatar'] 
             @unlink($oldAvatar);
         }
 
-        $targetName = 'user_' . $userId . '.' . $allowed[$mimeType];
+        $targetName = 'user_' . $userId . '.' . $finalExt;
         $targetPath = $avatarDir . '/' . $targetName;
 
         if (!move_uploaded_file($tmpPath, $targetPath)) {
@@ -930,10 +944,10 @@ if (isset($_SESSION['user_id'])) {
                     <!-- User Info -->
                     <div class="user-info">
                         <div style="text-align: right; margin-right: 1rem;">
-                            <div style="font-weight: 600; color: var(--text-primary);">
+                            <div style="font-weight: 600; color: #ffffff; -webkit-text-fill-color: #ffffff;">
                                 <?php echo $_SESSION['full_name'] ?? 'User'; ?>
                             </div>
-                            <div style="font-size: 0.875rem; color: var(--text-muted);">
+                            <div style="font-size: 0.875rem; color: #ffffff; -webkit-text-fill-color: #ffffff; opacity: 0.95;">
                                 <?php echo ucfirst($_SESSION['role'] ?? 'staff'); ?>
                             </div>
                         </div>
