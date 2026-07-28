@@ -113,13 +113,13 @@ try {
     // ======================================
     // AUTO-SYNC TO CASHBOOK
     // ======================================
-    
+
     $cbHelper = new CashbookHelper($db, $currentUser['id']);
-    
+
     // Get division & category
     $divisionId = $bill['division_id'];
     $categoryId = $bill['category_id'];
-    
+
     if (!$divisionId) {
         $divisionId = $cbHelper->getDivisionId('Biaya Operasional');
     }
@@ -136,7 +136,7 @@ try {
 
     // Create cashbook entry
     $cbDescription = "{$billName} ({$billCode}) - " . ($newStatus === 'paid' ? '[LUNAS]' : '[CICILAN]');
-    
+
     $cbResult = $db->query(
         "INSERT INTO cash_book 
         (division_id, category_id, transaction_type, transaction_date, transaction_time, amount, description, payment_method, cash_account_id, is_editable, created_by)
@@ -224,7 +224,6 @@ try {
         'remaining' => $finalAmount - $newTotal,
         'cashbook_id' => $cashbookId
     ]);
-
 } catch (Exception $e) {
     try {
         $db->rollBack();
@@ -237,4 +236,3 @@ try {
     ]);
     exit;
 }
-?>

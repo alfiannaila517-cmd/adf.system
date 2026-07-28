@@ -563,10 +563,10 @@ include 'layout-header.php';
         </div>
         <div>
             <?php
-                $pendingCount = 0;
-                foreach ($detailItems as $it) {
-                    if (empty($it['is_done'])) $pendingCount++;
-                }
+            $pendingCount = 0;
+            foreach ($detailItems as $it) {
+                if (empty($it['is_done'])) $pendingCount++;
+            }
             ?>
             <div class="ss-card" style="margin-bottom:12px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">

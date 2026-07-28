@@ -1387,11 +1387,11 @@ require_once __DIR__ . '/includes/header.php';
                             <?php if (!empty($businessMenuMap)): ?>
                                 <script>
                                     const businessMenuMap = <?php echo json_encode($businessMenuMap); ?>;
-                                    document.getElementById('applyCopyMenuBtn')?.addEventListener('click', function () {
+                                    document.getElementById('applyCopyMenuBtn')?.addEventListener('click', function() {
                                         const bizId = document.getElementById('copyMenuFromBiz').value;
                                         if (!bizId) return;
                                         const enabledMenuIds = (businessMenuMap[bizId] || []).map(String);
-                                        document.querySelectorAll('.menu-checkbox').forEach(function (cb) {
+                                        document.querySelectorAll('.menu-checkbox').forEach(function(cb) {
                                             cb.checked = enabledMenuIds.includes(cb.value);
                                         });
                                     });

@@ -2656,12 +2656,12 @@ include '../../includes/header.php';
         tr.innerHTML =
             `<td><select class="iSvc" onchange="onSvcChange('${id}')">${buildSvcOpts(svc||'')}</select></td>` +
             `<td>` +
-            `<input type="text" class="iDesc" placeholder="e.g. Honda Beat 2 days" value="${(desc||'').replace(/"/g,'&quot;')}">` +
+            `<input type="text" class="iDesc" placeholder="e.g. Honda Beat" value="${(desc||'').replace(/"/g,'&quot;')}">` +
             `<div class="hs-rental-extra">` +
-            `<select class="iAsset" onchange="onRentalAssetChange('${id}')"></select>` +
+            `<select class="iAsset" onchange="onRentalAssetChange('${id}')"><option value="">Pilih armada...</option></select>` +
             `<div class="hs-rental-grid">` +
-            `<input type="datetime-local" class="iStart" onchange="syncRentalDuration('${id}')">` +
-            `<input type="datetime-local" class="iEnd" onchange="syncRentalDuration('${id}')">` +
+            `<label>Hari Sewa:</label>` +
+            `<input type="number" class="iDays" value="1" min="1" max="365" step="1" placeholder="Jumlah hari" onchange="onDaysChange('${id}')">` +
             `</div>` +
             `<div class="hs-rental-grid">` +
             `<input type="number" class="iDeposit" value="0" min="0" placeholder="Deposit (Rp)">` +
@@ -2679,6 +2679,15 @@ include '../../includes/header.php';
         else rcalc(id);
     }
 
+    function onDaysChange(id) {
+        const tr = document.getElementById(id);
+        if (!tr) return;
+        const daysInput = tr.querySelector('.iDays');
+        const days = parseFloat(daysInput.value) || 1;
+        tr.querySelector('.iQty').value = Math.max(1, days);
+        rcalc(id);
+    }
+
     function onSvcChange(id, isNew) {
         const tr = document.getElementById(id);
         if (!tr) return;
@@ -2690,38 +2699,37 @@ include '../../includes/header.php';
         const destInput = tr.querySelector('.iDest');
         const items = CATALOG_DATA[svc];
         const rentalItems = svc === 'motor_rental' ? RENTAL_MOTORS : (svc === 'car_rental' ? RENTAL_CARS : []);
+        
         if (isRentalService(svc)) {
+            // Show rental fields for motor_rental and car_rental
             rentalWrap.classList.add('open');
             assetSelect.innerHTML = buildRentalAssetOpts(rentalItems, assetSelect.value);
             destInput.style.display = svc === 'car_rental' ? '' : 'none';
-            if (!tr.querySelector('.iStart').value) tr.querySelector('.iStart').value = rentalDefaultDate(0);
-            if (!tr.querySelector('.iEnd').value) tr.querySelector('.iEnd').value = rentalDefaultDate(1);
+            // Set default 1 day
+            if (!tr.querySelector('.iDays').value) tr.querySelector('.iDays').value = 1;
         } else {
+            // Hide rental fields for other services
             rentalWrap.classList.remove('open');
             assetSelect.innerHTML = '<option value="">Pilih armada...</option>';
-            tr.querySelector('.iStart').value = '';
-            tr.querySelector('.iEnd').value = '';
+            tr.querySelector('.iDays').value = 1;
             tr.querySelector('.iDeposit').value = 0;
             tr.querySelector('.iDest').value = '';
         }
+        
         if (items && items.length > 0) {
-            // On new row: fill only if still empty/zero
-            // On manual service-type change: always sync from catalog
             if (isNew) {
                 if (parseFloat(priceInput.value) === 0) priceInput.value = items[0].price;
                 if (!descInput.value.trim()) descInput.value = items[0].name;
             } else {
-                // User switched type → always update price & description from catalog
                 priceInput.value = items[0].price;
                 descInput.value = items[0].name;
             }
         } else if (!isNew) {
-            // Switched to a type with no catalog entry — clear price so user must enter manually
             priceInput.value = 0;
         }
+        
         if (isRentalService(svc)) {
             onRentalAssetChange(id, !!isNew);
-            syncRentalDuration(id);
         }
         rcalc(id);
     }
@@ -2744,7 +2752,6 @@ include '../../includes/header.php';
             descInput.value = chosen.label;
             descInput.dataset.autoFilled = '1';
         }
-        syncRentalDuration(id);
         rcalc(id);
     }
 
@@ -3258,8 +3265,7 @@ include '../../includes/header.php';
             unit_price: price,
             motor_id: null,
             car_id: null,
-            start_dt: null,
-            end_dt: null,
+            rental_days: 1,
             deposit: 0,
             trip_destination: null
         };
@@ -3274,8 +3280,8 @@ include '../../includes/header.php';
             `<div class="hs-rental-extra">` +
             `<select class="iAsset" onchange="eOnRentalAssetChange('${id2}')"></select>` +
             `<div class="hs-rental-grid">` +
-            `<input type="datetime-local" class="iStart" value="${item.start_dt ? String(item.start_dt).replace(' ', 'T').slice(0,16) : ''}" onchange="eSyncRentalDuration('${id2}')">` +
-            `<input type="datetime-local" class="iEnd" value="${item.end_dt ? String(item.end_dt).replace(' ', 'T').slice(0,16) : ''}" onchange="eSyncRentalDuration('${id2}')">` +
+            `<label>Hari Sewa:</label>` +
+            `<input type="number" class="iDays" value="${item.rental_days||1}" min="1" max="365" step="1" placeholder="Jumlah hari" onchange="eOnDaysChange('${id2}')">` +
             `</div>` +
             `<div class="hs-rental-grid">` +
             `<input type="number" class="iDeposit" value="${item.deposit||0}" min="0" placeholder="Deposit (Rp)">` +
@@ -3327,18 +3333,21 @@ include '../../includes/header.php';
         const destInput = tr3.querySelector('.iDest');
         const items = CATALOG_DATA[svc];
         const rentalItems = svc === 'motor_rental' ? RENTAL_MOTORS : (svc === 'car_rental' ? RENTAL_CARS : []);
+        
         if (isRentalService(svc)) {
             rentalWrap.classList.add('open');
             assetSelect.innerHTML = buildRentalAssetOpts(rentalItems, assetSelect.value);
             destInput.style.display = svc === 'car_rental' ? '' : 'none';
+            // Set default 1 day if not already set
+            if (!tr3.querySelector('.iDays').value) tr3.querySelector('.iDays').value = 1;
         } else {
             rentalWrap.classList.remove('open');
             assetSelect.innerHTML = '<option value="">Pilih armada...</option>';
-            tr3.querySelector('.iStart').value = '';
-            tr3.querySelector('.iEnd').value = '';
+            tr3.querySelector('.iDays').value = 1;
             tr3.querySelector('.iDeposit').value = 0;
             tr3.querySelector('.iDest').value = '';
         }
+        
         if (items && items.length > 0) {
             if (isNew) {
                 if (parseFloat(priceInput.value) === 0) priceInput.value = items[0].price;
@@ -3350,9 +3359,9 @@ include '../../includes/header.php';
         } else if (!isNew) {
             priceInput.value = 0;
         }
+        
         if (isRentalService(svc)) {
             eOnRentalAssetChange(id2, !!isNew);
-            eSyncRentalDuration(id2);
         }
         ercalc(id2);
     }
@@ -3375,25 +3384,16 @@ include '../../includes/header.php';
             descInput.value = chosen.label;
             descInput.dataset.autoFilled = '1';
         }
-        eSyncRentalDuration(id2);
         ercalc(id2);
     }
 
-    function eSyncRentalDuration(id2) {
+    function eOnDaysChange(id2) {
         const tr3 = document.getElementById(id2);
         if (!tr3) return;
-        const svc = tr3.querySelector('.iSvc').value;
-        if (!isRentalService(svc)) return;
-        const startVal = tr3.querySelector('.iStart').value;
-        const endVal = tr3.querySelector('.iEnd').value;
-        if (!startVal || !endVal) return;
-        const start = new Date(startVal);
-        const end = new Date(endVal);
-        const diffHours = (end - start) / (1000 * 60 * 60);
-        if (Number.isFinite(diffHours) && diffHours > 0) {
-            tr3.querySelector('.iQty').value = Math.max(1, Math.ceil(diffHours / 24));
-            ercalc(id2);
-        }
+        const daysInput = tr3.querySelector('.iDays');
+        const days = parseFloat(daysInput.value) || 1;
+        tr3.querySelector('.iQty').value = Math.max(1, days);
+        ercalc(id2);
     }
 
     function eDelRow(id) {

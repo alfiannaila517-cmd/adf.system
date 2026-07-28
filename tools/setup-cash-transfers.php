@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Setup Cash Transfers Table
  * Untuk tracking & arsip setor tunai antar rekening kas
@@ -50,11 +51,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
           FOREIGN KEY (`bank_account_id`) REFERENCES `cash_accounts` (`id`) ON DELETE RESTRICT
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         ";
-        
+
         $db->getConnection()->exec($sql);
-        
+
         $success = '✅ Tabel cash_transfers berhasil dibuat! Sekarang admin bisa gunakan tombol "Setor Tunai" di buku kas.';
-        
     } catch (Exception $e) {
         $error = '❌ Error: ' . $e->getMessage();
     }
@@ -63,12 +63,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 ?>
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Setup Cash Transfers - ADF System</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
             background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
             min-height: 100vh;
@@ -78,6 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             padding: 20px;
         }
+
         .container {
             background: white;
             border-radius: 12px;
@@ -86,23 +93,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             width: 100%;
             overflow: hidden;
         }
+
         .header {
             background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
             color: white;
             padding: 30px;
             text-align: center;
         }
+
         .header h1 {
             font-size: 28px;
             margin-bottom: 10px;
         }
+
         .header p {
             opacity: 0.9;
             font-size: 14px;
         }
+
         .content {
             padding: 40px;
         }
+
         .alert {
             padding: 15px;
             border-radius: 8px;
@@ -110,16 +122,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             font-size: 14px;
             line-height: 1.6;
         }
+
         .alert-success {
             background: #dcfce7;
             border: 1px solid #86efac;
             color: #166534;
         }
+
         .alert-error {
             background: #fee2e2;
             border: 1px solid #fca5a5;
             color: #991b1b;
         }
+
         .info-box {
             background: #dbeafe;
             border: 1px solid #7dd3fc;
@@ -130,10 +145,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             color: #0c4a6e;
             line-height: 1.6;
         }
+
         .info-box strong {
             display: block;
             margin-bottom: 8px;
         }
+
         button {
             background: linear-gradient(135deg, #0284c7, #0369a1);
             color: white;
@@ -145,10 +162,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             cursor: pointer;
             transition: all 0.2s;
         }
+
         button:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
         }
+
         .back-link {
             display: inline-block;
             margin-top: 20px;
@@ -157,40 +176,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             font-weight: 600;
             font-size: 14px;
         }
+
         .back-link:hover {
             color: #0369a1;
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <div class="header">
             <h1>🏦 Setup Setor Tunai</h1>
             <p>Persiapan fitur setor tunai ke rekening operasional</p>
         </div>
-        
+
         <div class="content">
             <?php if ($success): ?>
                 <div class="alert alert-success"><?php echo $success; ?></div>
             <?php endif; ?>
-            
+
             <?php if ($error): ?>
                 <div class="alert alert-error"><?php echo $error; ?></div>
             <?php endif; ?>
-            
+
             <div class="info-box">
                 <strong>Fitur: Setor Tunai ke Rekening Operasional</strong>
                 Tombol ini memungkinkan admin untuk mencatat transfer uang tunai dari kas cabang ke rekening bank operasional, dengan otomatis tracking jam, tanggal, nominal, siapa yang input, dan dapat diarsipkan.
             </div>
-            
+
             <div class="info-box">
                 <strong>✅ Apa yang akan dilakukan:</strong>
-                • Membuat tabel <code>cash_transfers</code> untuk tracking transfer<br/>
-                • Menyimpan data: jam, tanggal, nominal, created_by, status arsip<br/>
-                • Halaman ringkasan dengan filter & opsi arsip<br/>
+                • Membuat tabel <code>cash_transfers</code> untuk tracking transfer<br />
+                • Menyimpan data: jam, tanggal, nominal, created_by, status arsip<br />
+                • Halaman ringkasan dengan filter & opsi arsip<br />
                 • Mengurangi saldo akun cash, menambah saldo akun bank
             </div>
-            
+
             <?php if (!$success && !$error): ?>
                 <form method="POST" style="text-align: center;">
                     <input type="hidden" name="action" value="create_table">
@@ -202,4 +223,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         </div>
     </div>
 </body>
+
 </html>

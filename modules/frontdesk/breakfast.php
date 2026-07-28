@@ -1306,20 +1306,20 @@ include '../../includes/header.php';
         <!-- SIDEBAR: Today's Orders -->
         <div class="bf-side">
             <?php if (!empty($menuRecap)): ?>
-            <div class="bf-recap-card">
-                <div class="bf-recap-head">
-                    <span>📋 Rekap Total per Menu <span style="font-weight:400;color:var(--text-muted);font-size:.7rem">(untuk kitchen)</span></span>
-                    <button type="button" class="bf-recap-print" onclick="cetakRekap()" title="Cetak Rekap PDF">🖨️ PDF</button>
+                <div class="bf-recap-card">
+                    <div class="bf-recap-head">
+                        <span>📋 Rekap Total per Menu <span style="font-weight:400;color:var(--text-muted);font-size:.7rem">(untuk kitchen)</span></span>
+                        <button type="button" class="bf-recap-print" onclick="cetakRekap()" title="Cetak Rekap PDF">🖨️ PDF</button>
+                    </div>
+                    <table class="bf-recap-table">
+                        <?php foreach ($menuRecap as $menuName => $qty): ?>
+                            <tr>
+                                <td class="bf-recap-name"><?php echo htmlspecialchars($menuName); ?></td>
+                                <td class="bf-recap-qty">×<?php echo $qty; ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </table>
                 </div>
-                <table class="bf-recap-table">
-                    <?php foreach ($menuRecap as $menuName => $qty): ?>
-                        <tr>
-                            <td class="bf-recap-name"><?php echo htmlspecialchars($menuName); ?></td>
-                            <td class="bf-recap-qty">×<?php echo $qty; ?></td>
-                        </tr>
-                    <?php endforeach; ?>
-                </table>
-            </div>
             <?php endif; ?>
 
             <div class="bf-side-title">

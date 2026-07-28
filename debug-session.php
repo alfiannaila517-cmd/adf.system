@@ -1,4 +1,5 @@
 <?php
+
 /**
  * DEBUG: Session health check (uses real app bootstrap)
  */
@@ -43,4 +44,3 @@ echo "   adf_remember_token: " . (isset($_COOKIE['adf_remember_token']) ? 'FOUND
 echo "   adf_saved_user: " . (isset($_COOKIE['adf_saved_user']) ? 'FOUND' : 'NOT FOUND') . "\n\n";
 
 echo "=== END DEBUG ===\n";
-?>

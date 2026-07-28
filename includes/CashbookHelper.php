@@ -1,47 +1,52 @@
 <?php
+
 /**
  * CashbookHelper - Handles automatic sync of payments to cashbook
  * Centralizes all cashbook sync logic for reliability
  */
 
-class CashbookHelper {
+class CashbookHelper
+{
     private $db;
     private $masterDb;
     private $businessId;
     private $userId;
-    
+
     // Cached values
     private $divisionId = null;
     private $categoryId = null;
     private $hasCashAccountId = null;
     private $allowedPaymentMethods = null;
     private $hasTransactionIdCol = null;
-    
-    public function __construct($db, $businessId = null, $userId = null) {
+
+    public function __construct($db, $businessId = null, $userId = null)
+    {
         $this->db = $db;
         $this->businessId = $businessId ?? ($_SESSION['business_id'] ?? 1);
         $this->userId = $userId ?? ($_SESSION['user_id'] ?? 1);
-        
+
         // Log for debugging
         error_log("CashbookHelper: Init with businessId={$this->businessId}, userId={$this->userId}");
-        
+
         $this->initMasterDb();
         $this->validateUserId();
     }
-    
+
     /**
      * Initialize master database connection
      */
-    private function initMasterDb() {
+    private function initMasterDb()
+    {
         $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : 'adf_system';
-        
+
         // Log for debugging
         error_log("CashbookHelper: Connecting to master DB: {$masterDbName}");
-        
+
         try {
             $this->masterDb = new PDO(
                 "mysql:host=" . DB_HOST . ";dbname=" . $masterDbName . ";charset=" . DB_CHARSET,
-                DB_USER, DB_PASS,
+                DB_USER,
+                DB_PASS,
                 [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
             );
             error_log("CashbookHelper: Master DB connected successfully");
@@ -52,7 +57,8 @@ class CashbookHelper {
                 try {
                     $this->masterDb = new PDO(
                         "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET,
-                        DB_USER, DB_PASS,
+                        DB_USER,
+                        DB_PASS,
                         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
                     );
                     error_log("CashbookHelper: Fallback to DB_NAME: " . DB_NAME);
@@ -66,11 +72,12 @@ class CashbookHelper {
             }
         }
     }
-    
+
     /**
      * Validate user ID exists in business DB
      */
-    private function validateUserId() {
+    private function validateUserId()
+    {
         try {
             $userExists = $this->db->fetchOne("SELECT id FROM users WHERE id = ? LIMIT 1", [$this->userId]);
             if (!$userExists) {
@@ -81,15 +88,16 @@ class CashbookHelper {
             $this->userId = 1;
         }
     }
-    
+
     /**
      * Get or create cash account for the business
      */
-    public function getCashAccount($paymentMethod = 'cash') {
+    public function getCashAccount($paymentMethod = 'cash')
+    {
         $accountType = ($paymentMethod === 'cash') ? 'cash' : 'bank';
-        
+
         error_log("CashbookHelper::getCashAccount: Looking for {$accountType} account for business_id={$this->businessId}");
-        
+
         // Try to get existing account
         $stmt = $this->masterDb->prepare("
             SELECT id, account_name, current_balance 
@@ -101,7 +109,7 @@ class CashbookHelper {
         ");
         $stmt->execute([$this->businessId, $accountType]);
         $account = $stmt->fetch(PDO::FETCH_ASSOC);
-        
+
         if (!$account) {
             error_log("CashbookHelper::getCashAccount: No {$accountType} account found, trying any account");
             // Fallback to any account
@@ -115,7 +123,7 @@ class CashbookHelper {
             $stmt->execute([$this->businessId]);
             $account = $stmt->fetch(PDO::FETCH_ASSOC);
         }
-        
+
         // Create default account if none exists
         if (!$account) {
             error_log("CashbookHelper::getCashAccount: No account found at all, creating default");
@@ -123,16 +131,17 @@ class CashbookHelper {
         } else {
             error_log("CashbookHelper::getCashAccount: Found account ID={$account['id']}, name={$account['account_name']}");
         }
-        
+
         return $account;
     }
-    
+
     /**
      * Create default cash account if missing
      */
-    private function createDefaultCashAccount($accountType = 'cash') {
+    private function createDefaultCashAccount($accountType = 'cash')
+    {
         $accountName = ($accountType === 'cash') ? 'KAS TUNAI (AUTO)' : 'REKENING BANK (AUTO)';
-        
+
         try {
             $stmt = $this->masterDb->prepare("
                 INSERT INTO cash_accounts (
@@ -141,9 +150,9 @@ class CashbookHelper {
                 ) VALUES (?, ?, ?, 'IDR', 0, NOW())
             ");
             $stmt->execute([$this->businessId, $accountName, $accountType]);
-            
+
             $accountId = $this->masterDb->lastInsertId();
-            
+
             return [
                 'id' => $accountId,
                 'account_name' => $accountName,
@@ -154,15 +163,16 @@ class CashbookHelper {
             return null;
         }
     }
-    
+
     /**
      * Get division ID for hotel/frontdesk transactions
      */
-    public function getDivisionId() {
+    public function getDivisionId()
+    {
         if ($this->divisionId !== null) {
             return $this->divisionId;
         }
-        
+
         $division = $this->db->fetchOne("
             SELECT id FROM divisions 
             WHERE LOWER(division_name) LIKE '%hotel%' 
@@ -171,11 +181,11 @@ class CashbookHelper {
                OR LOWER(division_name) LIKE '%kamar%' 
             ORDER BY id ASC LIMIT 1
         ");
-        
+
         if (!$division) {
             $division = $this->db->fetchOne("SELECT id FROM divisions ORDER BY id ASC LIMIT 1");
         }
-        
+
         // Create default division if none exists
         if (!$division) {
             try {
@@ -185,19 +195,20 @@ class CashbookHelper {
                 $division = ['id' => 1];
             }
         }
-        
+
         $this->divisionId = $division['id'] ?? 1;
         return $this->divisionId;
     }
-    
+
     /**
      * Get category ID for room sales income
      */
-    public function getCategoryId() {
+    public function getCategoryId()
+    {
         if ($this->categoryId !== null) {
             return $this->categoryId;
         }
-        
+
         // Priority 1: Exact match for room sales/rental categories
         $category = $this->db->fetchOne("
             SELECT id FROM categories 
@@ -213,7 +224,7 @@ class CashbookHelper {
             )
             ORDER BY id ASC LIMIT 1
         ");
-        
+
         // Priority 2: Contains 'kamar' but exclude 'service'
         if (!$category) {
             $category = $this->db->fetchOne("
@@ -227,12 +238,12 @@ class CashbookHelper {
                 ORDER BY id ASC LIMIT 1
             ");
         }
-        
+
         // Priority 3: Any income category
         if (!$category) {
             $category = $this->db->fetchOne("SELECT id FROM categories WHERE category_type = 'income' ORDER BY id ASC LIMIT 1");
         }
-        
+
         // Create default category if none exists
         if (!$category) {
             try {
@@ -242,37 +253,39 @@ class CashbookHelper {
                 $category = ['id' => 1];
             }
         }
-        
+
         $this->categoryId = $category['id'] ?? 1;
         return $this->categoryId;
     }
-    
+
     /**
      * Check if cash_book has cash_account_id column
      */
-    public function hasCashAccountIdColumn() {
+    public function hasCashAccountIdColumn()
+    {
         if ($this->hasCashAccountId !== null) {
             return $this->hasCashAccountId;
         }
-        
+
         try {
             $colChk = $this->db->getConnection()->query("SHOW COLUMNS FROM cash_book LIKE 'cash_account_id'");
             $this->hasCashAccountId = $colChk && $colChk->rowCount() > 0;
         } catch (\Throwable $e) {
             $this->hasCashAccountId = false;
         }
-        
+
         return $this->hasCashAccountId;
     }
-    
+
     /**
      * Get allowed payment methods from cash_book ENUM
      */
-    public function getAllowedPaymentMethods() {
+    public function getAllowedPaymentMethods()
+    {
         if ($this->allowedPaymentMethods !== null) {
             return $this->allowedPaymentMethods;
         }
-        
+
         try {
             $pmColInfo = $this->db->getConnection()->query("SHOW COLUMNS FROM cash_book LIKE 'payment_method'")->fetch(PDO::FETCH_ASSOC);
             if ($pmColInfo && strpos($pmColInfo['Type'], 'enum') === 0) {
@@ -282,17 +295,18 @@ class CashbookHelper {
         } catch (\Throwable $e) {
             $this->allowedPaymentMethods = null;
         }
-        
+
         return $this->allowedPaymentMethods;
     }
-    
+
     /**
      * Map and validate payment method for cash_book
      */
-    public function mapPaymentMethod($paymentMethod) {
+    public function mapPaymentMethod($paymentMethod)
+    {
         $pmMap = ['bank_transfer' => 'transfer', 'credit_card' => 'debit', 'credit' => 'debit', 'card' => 'debit', 'qris' => 'qr'];
         $cbMethod = $paymentMethod ?? 'cash';
-        
+
         // OTA payments come via bank transfer from OTA platform → map to 'transfer'
         // OTA source label is stored in description instead
         if (stripos($cbMethod, 'OTA ') === 0 || stripos($cbMethod, 'ota_') === 0) {
@@ -301,26 +315,25 @@ class CashbookHelper {
             $cbMethod = strtolower($cbMethod);
             $cbMethod = $pmMap[$cbMethod] ?? $cbMethod;
         }
-        
+
         $allowedMethods = $this->getAllowedPaymentMethods();
         if ($allowedMethods !== null && !in_array($cbMethod, $allowedMethods)) {
-            $cbMethod = in_array('transfer', $allowedMethods) ? 'transfer' :
-                       (in_array('other', $allowedMethods) ? 'other' :
-                       (in_array('cash', $allowedMethods) ? 'cash' : $allowedMethods[0]));
+            $cbMethod = in_array('transfer', $allowedMethods) ? 'transfer' : (in_array('other', $allowedMethods) ? 'other' : (in_array('cash', $allowedMethods) ? 'cash' : $allowedMethods[0]));
         } elseif ($allowedMethods === null) {
             $validMethods = ['cash', 'debit', 'transfer', 'qr', 'card', 'qris', 'bank_transfer', 'ota', 'agoda', 'booking', 'other'];
             if (!in_array($cbMethod, $validMethods)) {
                 $cbMethod = 'transfer';
             }
         }
-        
+
         return $cbMethod;
     }
-    
+
     /**
      * Normalize OTA source name for consistent matching
      */
-    private function normalizeOtaSource($bookingSource) {
+    private function normalizeOtaSource($bookingSource)
+    {
         $source = strtolower(trim($bookingSource ?? ''));
         // Remove common suffixes
         $source = str_replace(['.com', '.co.id', '.id'], '', $source);
@@ -328,26 +341,29 @@ class CashbookHelper {
         $source = preg_replace('/[^a-z0-9]/', '', $source);
         return $source;
     }
-    
+
     /**
      * Calculate OTA fee based on booking source
      */
-    public function calculateOtaFee($amount, $bookingSource) {
+    public function calculateOtaFee($amount, $bookingSource)
+    {
         // Normalize source name (tiket.com -> tiket, Booking.com -> booking, etc)
         $normalizedSource = $this->normalizeOtaSource($bookingSource);
-        
+
         // All recognized OTA sources
         $otaSources = [
-            'agoda', 
-            'booking', 'bookingcom',
-            'tiket', 'tiketcom',
-            'airbnb', 
+            'agoda',
+            'booking',
+            'bookingcom',
+            'tiket',
+            'tiketcom',
+            'airbnb',
             'traveloka',
             'expedia',
             'pegipegi',
             'ota'
         ];
-        
+
         // Check if this is an OTA
         $isOta = false;
         $matchedSource = 'ota';  // default fallback
@@ -358,11 +374,11 @@ class CashbookHelper {
                 break;
             }
         }
-        
+
         if (!$isOta) {
             return ['gross' => $amount, 'fee_percent' => 0, 'fee_amount' => 0, 'net' => $amount];
         }
-        
+
         // Map normalized source to setting key
         $settingKeyMap = [
             'agoda' => 'ota_fee_agoda',
@@ -376,12 +392,12 @@ class CashbookHelper {
             'pegipegi' => 'ota_fee_pegipegi',
             'ota' => 'ota_fee_other_ota'
         ];
-        
+
         // Use matched source (normalized) for lookup
         $settingKey = $settingKeyMap[$matchedSource] ?? 'ota_fee_other_ota';
-        
+
         error_log("CashbookHelper::calculateOtaFee: source='{$bookingSource}' normalized='{$normalizedSource}' matched='{$matchedSource}'");
-        
+
         try {
             // Primary: read fee directly from booking_sources table in BUSINESS DB (single source of truth)
             $feeQuery = null;
@@ -392,7 +408,7 @@ class CashbookHelper {
             } catch (\Throwable $e) {
                 error_log("CashbookHelper::calculateOtaFee: booking_sources not in business DB: " . $e->getMessage());
             }
-            
+
             // Fallback 1: try booking_sources in master DB
             if (!$feeQuery) {
                 try {
@@ -403,7 +419,7 @@ class CashbookHelper {
                     // Table might not exist in master DB either
                 }
             }
-            
+
             if (!$feeQuery) {
                 // Fallback 2: read from settings table
                 $settingKey = $settingKeyMap[$matchedSource] ?? 'ota_fee_other_ota';
@@ -412,7 +428,7 @@ class CashbookHelper {
                 $feeStmt->execute([$settingKey]);
                 $feeQuery = $feeStmt->fetch(PDO::FETCH_ASSOC);
             }
-            
+
             if ($feeQuery) {
                 $feePercent = (float)($feeQuery['fee_percent'] ?? 0);
                 error_log("CashbookHelper::calculateOtaFee: feePercent={$feePercent}% amount={$amount}");
@@ -432,28 +448,29 @@ class CashbookHelper {
         } catch (\Throwable $e) {
             error_log("CashbookHelper: OTA fee calculation error - " . $e->getMessage());
         }
-        
+
         return ['gross' => $amount, 'fee_percent' => 0, 'fee_amount' => 0, 'net' => $amount];
     }
-    
+
     /**
      * Check if cash_account_transactions has transaction_id column
      */
-    public function hasTransactionIdColumn() {
+    public function hasTransactionIdColumn()
+    {
         if ($this->hasTransactionIdCol !== null) {
             return $this->hasTransactionIdCol;
         }
-        
+
         try {
             $chk = $this->masterDb->query("SHOW COLUMNS FROM cash_account_transactions LIKE 'transaction_id'");
             $this->hasTransactionIdCol = $chk && $chk->rowCount() > 0;
         } catch (\Throwable $e) {
             $this->hasTransactionIdCol = false;
         }
-        
+
         return $this->hasTransactionIdCol;
     }
-    
+
     /**
      * Main method: Sync booking payment to cashbook
      * 
@@ -473,9 +490,10 @@ class CashbookHelper {
      * 
      * @return array Result with keys: success, transaction_id, account_name, message, ota_fee
      */
-    public function syncPaymentToCashbook($paymentData) {
+    public function syncPaymentToCashbook($paymentData)
+    {
         error_log("CashbookHelper::syncPaymentToCashbook: START - businessId={$this->businessId}, data=" . json_encode($paymentData));
-        
+
         $result = [
             'success' => false,
             'transaction_id' => null,
@@ -483,7 +501,7 @@ class CashbookHelper {
             'message' => '',
             'ota_fee' => null
         ];
-        
+
         try {
             // Validate required data
             if (empty($paymentData['amount']) || $paymentData['amount'] <= 0) {
@@ -491,7 +509,7 @@ class CashbookHelper {
                 error_log("CashbookHelper::syncPaymentToCashbook: FAILED - Amount not valid");
                 return $result;
             }
-            
+
             // Get cash account
             $account = $this->getCashAccount($paymentData['payment_method'] ?? 'cash');
             if (!$account) {
@@ -499,15 +517,15 @@ class CashbookHelper {
                 error_log("CashbookHelper::syncPaymentToCashbook: FAILED - Cannot get cash account");
                 return $result;
             }
-            
+
             $result['account_name'] = $account['account_name'];
-            
+
             $bookingCode = $paymentData['booking_code'] ?? '';
             $isOtaCheckin = $paymentData['is_ota_checkin'] ?? false;
-            
+
             // Calculate OTA fee if applicable
             $bookingSource = $paymentData['booking_source'] ?? '';
-            
+
             if ($isOtaCheckin) {
                 // OTA check-in: calculate NET amount (gross - OTA commission)
                 // final_price is GROSS (room_price * nights - discount), OTA fee not yet deducted
@@ -520,7 +538,7 @@ class CashbookHelper {
                 $amountToRecord = $otaCalc['net'];
             }
             $result['ota_fee'] = $otaCalc;
-            
+
             // ---- DEDUP CHECK: only block a TRUE duplicate submit (same booking,
             // same amount, within a short time window - e.g. double-click or a
             // network retry resubmitting the exact same payment). Must NOT block
@@ -544,17 +562,17 @@ class CashbookHelper {
                 }
             }
             // ---- END DEDUP CHECK ----
-            
+
             // Get division and category
             $divisionId = $this->getDivisionId();
             $categoryId = $this->getCategoryId();
-            
+
             // Build description
             $guestName = $paymentData['guest_name'] ?? 'Guest';
             $bookingCode = $paymentData['booking_code'] ?? '';
             $roomNumber = $paymentData['room_number'] ?? '';
             $bookingNotes = trim($paymentData['booking_notes'] ?? '');
-            
+
             $description = "{$guestName}";
             if ($roomNumber) {
                 $description .= " - Room {$roomNumber}";
@@ -562,12 +580,12 @@ class CashbookHelper {
             if ($bookingCode) {
                 $description .= " ({$bookingCode})";
             }
-            
+
             // Determine payment status label
             $isNewReservation = $paymentData['is_new_reservation'] ?? false;
             $finalPrice = (float)($paymentData['final_price'] ?? 0);
             $totalPaid = (float)($paymentData['total_paid'] ?? $paymentData['amount']);
-            
+
             if ($isNewReservation) {
                 // New reservation: LUNAS or DP
                 if ($totalPaid >= $finalPrice && $finalPrice > 0) {
@@ -583,12 +601,12 @@ class CashbookHelper {
                     $description .= ' [CICILAN]';
                 }
             }
-            
+
             // Add booking notes if available
             if ($bookingNotes) {
                 $description .= ' - ' . $bookingNotes;
             }
-            
+
             // Add OTA source label to description (since payment_method is mapped to 'transfer')
             if ($isOtaCheckin && !empty($bookingSource)) {
                 $sourceLabel = ucfirst($bookingSource);
@@ -597,19 +615,19 @@ class CashbookHelper {
                     $description .= " (fee {$otaCalc['fee_percent']}%)";
                 }
             }
-            
+
             // Check if this is OTA check-in (should be editable for reconciliation)
             $isOtaCheckin = $paymentData['is_ota_checkin'] ?? false;
-            
+
             // Map payment method
             $cbMethod = $this->mapPaymentMethod($paymentData['payment_method'] ?? 'cash');
-            
+
             // Get payment date
             $paymentDate = $paymentData['payment_date'] ?? date('Y-m-d H:i:s');
-            
+
             // Set is_editable: 1 for OTA (reconciliation needed), 0 for direct
             $isEditable = $isOtaCheckin ? 1 : 1;  // Default all editable, but OTA marked specially
-            
+
             // Insert into cash_book with is_editable flag
             if ($this->hasCashAccountIdColumn()) {
                 $stmt = $this->db->getConnection()->prepare("
@@ -620,8 +638,16 @@ class CashbookHelper {
                     ) VALUES (DATE(?), TIME(?), ?, ?, ?, 'income', ?, ?, ?, ?, ?, NOW())
                 ");
                 $stmt->execute([
-                    $paymentDate, $paymentDate, $divisionId, $categoryId,
-                    $description, $amountToRecord, $cbMethod, $account['id'], $isEditable, $this->userId
+                    $paymentDate,
+                    $paymentDate,
+                    $divisionId,
+                    $categoryId,
+                    $description,
+                    $amountToRecord,
+                    $cbMethod,
+                    $account['id'],
+                    $isEditable,
+                    $this->userId
                 ]);
             } else {
                 $stmt = $this->db->getConnection()->prepare("
@@ -632,14 +658,21 @@ class CashbookHelper {
                     ) VALUES (DATE(?), TIME(?), ?, ?, ?, 'income', ?, ?, ?, ?, NOW())
                 ");
                 $stmt->execute([
-                    $paymentDate, $paymentDate, $divisionId, $categoryId,
-                    $description, $amountToRecord, $cbMethod, $isEditable, $this->userId
+                    $paymentDate,
+                    $paymentDate,
+                    $divisionId,
+                    $categoryId,
+                    $description,
+                    $amountToRecord,
+                    $cbMethod,
+                    $isEditable,
+                    $this->userId
                 ]);
             }
-            
+
             $transactionId = $this->db->getConnection()->lastInsertId();
             $result['transaction_id'] = $transactionId;
-            
+
             // Insert into master cash_account_transactions
             if ($this->hasTransactionIdColumn()) {
                 $masterStmt = $this->masterDb->prepare("
@@ -650,8 +683,13 @@ class CashbookHelper {
                     ) VALUES (?, ?, DATE(?), ?, ?, 'income', ?, ?, NOW())
                 ");
                 $masterStmt->execute([
-                    $account['id'], $transactionId, $paymentDate,
-                    $description, $amountToRecord, $bookingCode, $this->userId
+                    $account['id'],
+                    $transactionId,
+                    $paymentDate,
+                    $description,
+                    $amountToRecord,
+                    $bookingCode,
+                    $this->userId
                 ]);
             } else {
                 $masterStmt = $this->masterDb->prepare("
@@ -662,16 +700,20 @@ class CashbookHelper {
                     ) VALUES (?, DATE(?), ?, ?, 'income', ?, ?, NOW())
                 ");
                 $masterStmt->execute([
-                    $account['id'], $paymentDate,
-                    $description, $amountToRecord, $bookingCode, $this->userId
+                    $account['id'],
+                    $paymentDate,
+                    $description,
+                    $amountToRecord,
+                    $bookingCode,
+                    $this->userId
                 ]);
             }
-            
+
             // Update cash account balance
             $newBalance = $account['current_balance'] + $amountToRecord;
             $updateStmt = $this->masterDb->prepare("UPDATE cash_accounts SET current_balance = ? WHERE id = ?");
             $updateStmt->execute([$newBalance, $account['id']]);
-            
+
             // Mark booking_payment as synced (if payment_id provided)
             if (!empty($paymentData['payment_id'])) {
                 try {
@@ -683,29 +725,29 @@ class CashbookHelper {
                     error_log("CashbookHelper: Failed to mark payment synced - " . $e->getMessage());
                 }
             }
-            
+
             $result['success'] = true;
             $result['message'] = "Tercatat di Buku Kas - {$account['account_name']}";
-            
+
             // Log success
             error_log("CashbookHelper::syncPaymentToCashbook: SUCCESS - transactionId={$transactionId}, accountId={$account['id']}, accountName={$account['account_name']}, amount=" . number_format($amountToRecord) . ", bookingCode={$bookingCode}");
-            
         } catch (\Throwable $e) {
             $result['message'] = "Error: " . $e->getMessage();
             error_log("CashbookHelper::syncPaymentToCashbook: EXCEPTION - " . $e->getMessage() . " | Trace: " . $e->getTraceAsString());
         }
-        
+
         return $result;
     }
-    
+
     /**
      * Sync all unsynced payments in batch
      * 
      * @return array Result with count of synced payments
      */
-    public function syncAllUnsynced() {
+    public function syncAllUnsynced()
+    {
         $result = ['synced' => 0, 'errors' => 0, 'details' => []];
-        
+
         try {
             // Get unsynced payments (OTA only when checked_in/checked_out)
             $otaSources = ['agoda', 'booking', 'bookingcom', 'tiket', 'tiketcom', 'airbnb', 'traveloka', 'expedia', 'pegipegi', 'ota'];
@@ -729,14 +771,14 @@ class CashbookHelper {
                 )
                 ORDER BY bp.id ASC
             ", $otaSources);
-            
+
             foreach ($unsyncedPayments as $payment) {
                 // Get total paid for this booking
                 $totalPaid = $this->db->fetchOne(
                     "SELECT COALESCE(SUM(amount), 0) as total FROM booking_payments WHERE booking_id = ?",
                     [$payment['booking_id']]
                 );
-                
+
                 $syncResult = $this->syncPaymentToCashbook([
                     'payment_id' => $payment['payment_id'],
                     'booking_id' => $payment['booking_id'],
@@ -751,13 +793,13 @@ class CashbookHelper {
                     'payment_date' => $payment['payment_date'],
                     'is_new_reservation' => false
                 ]);
-                
+
                 if ($syncResult['success']) {
                     $result['synced']++;
                 } else {
                     $result['errors']++;
                 }
-                
+
                 $result['details'][] = [
                     'payment_id' => $payment['payment_id'],
                     'booking_code' => $payment['booking_code'],
@@ -765,11 +807,10 @@ class CashbookHelper {
                     'message' => $syncResult['message']
                 ];
             }
-            
         } catch (\Throwable $e) {
             error_log("CashbookHelper: Batch sync error - " . $e->getMessage());
         }
-        
+
         return $result;
     }
 }

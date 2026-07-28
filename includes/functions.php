@@ -54,8 +54,10 @@ function payrollDetectLateArrival(?string $status, ?string $checkInTime): string
     // Normalize "H:i" -> "H:i:s" for consistent string comparison.
     if ($ci && strlen($ci) === 5) $ci .= ':00';
 
-    if ($ci && $ci > $lateStart && $ci <= $splitShiftCutoff
-        && !in_array($status, ['absent', 'leave', 'holiday'], true)) {
+    if (
+        $ci && $ci > $lateStart && $ci <= $splitShiftCutoff
+        && !in_array($status, ['absent', 'leave', 'holiday'], true)
+    ) {
         return 'late';
     }
     return $status ?? '';

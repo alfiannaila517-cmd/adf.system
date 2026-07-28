@@ -577,12 +577,12 @@ include 'layout-header.php';
                     <div>
                         <small style="display:block;color:#888;font-size:10px;margin-bottom:1px;">Pilih Guide</small>
                         <select name="guide_laut_id" onchange="loadPrice('guide', this.value, 'guideLautPrice')" style="width:100%;padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
-                        <option value="">-- Tidak pilih --</option>
-                        <?php foreach ($guides as $g): if ($g['guide_type'] === 'laut'): ?>
-                                <option value="<?php echo $g['id']; ?>"><?php echo htmlspecialchars($g['name']); ?></option>
-                        <?php endif;
-                        endforeach; ?>
-                    </select>
+                            <option value="">-- Tidak pilih --</option>
+                            <?php foreach ($guides as $g): if ($g['guide_type'] === 'laut'): ?>
+                                    <option value="<?php echo $g['id']; ?>"><?php echo htmlspecialchars($g['name']); ?></option>
+                            <?php endif;
+                            endforeach; ?>
+                        </select>
                     </div>
                     <div>
                         <small style="display:block;color:#888;font-size:10px;margin-bottom:1px;">Tipe Trip</small>
@@ -846,7 +846,7 @@ include 'layout-header.php';
         document.getElementById('totalMargin').textContent = rupiah(margin);
     }
 
-    document.addEventListener('DOMContentLoaded', function () {
+    document.addEventListener('DOMContentLoaded', function() {
         selectMode('ecer');
         syncTicketQty();
         syncStayNights();

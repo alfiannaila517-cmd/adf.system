@@ -423,7 +423,6 @@ try {
     usort($allTransactions, function ($a, $b) {
         return strcmp($b['sort_key'], $a['sort_key']);
     });
-
 } catch (Exception $e) {
     error_log("cash-transfers.php: fatal query error: " . $e->getMessage());
     $pageError = 'Terjadi error saat memuat data setor tunai: ' . $e->getMessage();
@@ -447,41 +446,91 @@ include '../../includes/header.php';
         border-radius: 8px;
         transition: box-shadow 0.15s;
     }
+
     .tx-row:hover {
-        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
     }
-    .tx-row.setor  { border-left: 3px solid #0284c7; }
-    .tx-row.expense{ border-left: 3px solid #dc2626; }
+
+    .tx-row.setor {
+        border-left: 3px solid #0284c7;
+    }
+
+    .tx-row.expense {
+        border-left: 3px solid #dc2626;
+    }
+
     .tx-icon {
-        width: 34px; height: 34px; border-radius: 7px;
-        display: flex; align-items: center; justify-content: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 7px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         font-size: 1.05rem;
     }
-    .tx-icon.setor  { background: rgba(2,132,199,0.12); }
-    .tx-icon.expense{ background: rgba(220,38,38,0.09); }
+
+    .tx-icon.setor {
+        background: rgba(2, 132, 199, 0.12);
+    }
+
+    .tx-icon.expense {
+        background: rgba(220, 38, 38, 0.09);
+    }
+
     .tx-title {
-        font-size: 0.82rem; font-weight: 600;
+        font-size: 0.82rem;
+        font-weight: 600;
         color: var(--text-primary);
-        display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        flex-wrap: wrap;
     }
+
     .tx-meta {
-        font-size: 0.71rem; color: var(--text-muted); margin-top: 0.15rem;
+        font-size: 0.71rem;
+        color: var(--text-muted);
+        margin-top: 0.15rem;
     }
-    .tx-amount-setor  { font-size: 0.88rem; font-weight: 700; color: #0284c7; white-space: nowrap; }
-    .tx-amount-expense{ font-size: 0.88rem; font-weight: 700; color: #b91c1c; white-space: nowrap; }
+
+    .tx-amount-setor {
+        font-size: 0.88rem;
+        font-weight: 700;
+        color: #0284c7;
+        white-space: nowrap;
+    }
+
+    .tx-amount-expense {
+        font-size: 0.88rem;
+        font-weight: 700;
+        color: #b91c1c;
+        white-space: nowrap;
+    }
+
     .tx-actions {
-        display: flex; gap: 0.3rem; justify-content: flex-end; margin-top: 0.35rem;
+        display: flex;
+        gap: 0.3rem;
+        justify-content: flex-end;
+        margin-top: 0.35rem;
     }
+
     .tx-btn {
-        padding: 0.2rem 0.45rem; font-size: 0.68rem;
+        padding: 0.2rem 0.45rem;
+        font-size: 0.68rem;
         border: 1px solid var(--bg-tertiary);
-        border-radius: 4px; cursor: pointer;
+        border-radius: 4px;
+        cursor: pointer;
         background: var(--bg-secondary);
     }
+
     .tx-btn-del {
-        padding: 0.2rem 0.45rem; font-size: 0.68rem;
-        border: 1px solid #fca5a5; border-radius: 4px; cursor: pointer;
-        background: #fee2e2; color: #b91c1c;
+        padding: 0.2rem 0.45rem;
+        font-size: 0.68rem;
+        border: 1px solid #fca5a5;
+        border-radius: 4px;
+        cursor: pointer;
+        background: #fee2e2;
+        color: #b91c1c;
     }
 
     .filter-card {
@@ -703,139 +752,139 @@ include '../../includes/header.php';
             </div>
         <?php else: ?>
             <div style="display:flex;flex-direction:column;gap:0.4rem;">
-            <?php foreach ($allTransactions as $tx):
-                $isSetor = $tx['type'] === 'setor';
-                $t       = $tx['data'];
-                $txDate  = $isSetor ? $t['transfer_date'] : $t['date'];
-                $txTime  = $isSetor ? $t['transfer_time'] : $t['time'];
-                $cleanDesc = $t['description'] ?? '';
-                if (!$isSetor) {
-                    $cleanDesc = trim(str_replace(['[Rekening Operasional]','[Kas Besar]','[Petty Cash]'], '', $cleanDesc));
-                }
-            ?>
-            <div class="tx-row <?php echo $isSetor ? 'setor' : 'expense'; ?>"
-                 id="transfer-<?php echo $isSetor ? $t['id'] : ('e'.$t['id']); ?>">
+                <?php foreach ($allTransactions as $tx):
+                    $isSetor = $tx['type'] === 'setor';
+                    $t       = $tx['data'];
+                    $txDate  = $isSetor ? $t['transfer_date'] : $t['date'];
+                    $txTime  = $isSetor ? $t['transfer_time'] : $t['time'];
+                    $cleanDesc = $t['description'] ?? '';
+                    if (!$isSetor) {
+                        $cleanDesc = trim(str_replace(['[Rekening Operasional]', '[Kas Besar]', '[Petty Cash]'], '', $cleanDesc));
+                    }
+                ?>
+                    <div class="tx-row <?php echo $isSetor ? 'setor' : 'expense'; ?>"
+                        id="transfer-<?php echo $isSetor ? $t['id'] : ('e' . $t['id']); ?>">
 
-                <!-- Ikon -->
-                <div class="tx-icon <?php echo $isSetor ? 'setor' : 'expense'; ?>">
-                    <?php echo $isSetor ? '💰' : '📤'; ?>
-                </div>
+                        <!-- Ikon -->
+                        <div class="tx-icon <?php echo $isSetor ? 'setor' : 'expense'; ?>">
+                            <?php echo $isSetor ? '💰' : '📤'; ?>
+                        </div>
 
-                <!-- Keterangan -->
-                <div>
-                    <div class="tx-title">
-                    <?php if ($isSetor): ?>
-                        <span>Setor Tunai</span>
-                        <span style="font-weight:400;color:var(--text-secondary);">
-                            <?php echo htmlspecialchars($t['cash_account_name']); ?>
-                            → <?php echo htmlspecialchars($t['bank_account_name']); ?>
-                        </span>
-                        <?php if ($t['is_archived']): ?>
-                            <span style="font-size:0.6rem;background:#fef3c7;color:#92400e;padding:0.1rem 0.35rem;border-radius:3px;font-weight:700;">ARSIP</span>
-                        <?php endif; ?>
-                    <?php else: ?>
-                        <span><?php echo htmlspecialchars($cleanDesc ?: '-'); ?></span>
-                        <span style="font-size:0.62rem;background:#fef3c7;color:#b45309;border:1px solid #fcd34d;border-radius:3px;padding:0.1rem 0.35rem;font-weight:700;">🏦 REK. OPS</span>
-                    <?php endif; ?>
-                    </div>
-                    <div class="tx-meta">
-                        📅 <?php echo date('d M Y', strtotime($txDate)); ?>
-                        &nbsp;🕒 <?php echo date('H:i', strtotime($txTime)); ?>
-                        <?php if ($isSetor): ?>
-                            &nbsp;|&nbsp;👤 <?php echo htmlspecialchars($t['created_user'] ?? 'Sistem'); ?>
-                            <?php if (!empty($t['description'])): ?>
-                                &nbsp;| <i style="color:var(--text-secondary);">&ldquo;<?php echo htmlspecialchars($t['description']); ?>&rdquo;</i>
+                        <!-- Keterangan -->
+                        <div>
+                            <div class="tx-title">
+                                <?php if ($isSetor): ?>
+                                    <span>Setor Tunai</span>
+                                    <span style="font-weight:400;color:var(--text-secondary);">
+                                        <?php echo htmlspecialchars($t['cash_account_name']); ?>
+                                        → <?php echo htmlspecialchars($t['bank_account_name']); ?>
+                                    </span>
+                                    <?php if ($t['is_archived']): ?>
+                                        <span style="font-size:0.6rem;background:#fef3c7;color:#92400e;padding:0.1rem 0.35rem;border-radius:3px;font-weight:700;">ARSIP</span>
+                                    <?php endif; ?>
+                                <?php else: ?>
+                                    <span><?php echo htmlspecialchars($cleanDesc ?: '-'); ?></span>
+                                    <span style="font-size:0.62rem;background:#fef3c7;color:#b45309;border:1px solid #fcd34d;border-radius:3px;padding:0.1rem 0.35rem;font-weight:700;">🏦 REK. OPS</span>
+                                <?php endif; ?>
+                            </div>
+                            <div class="tx-meta">
+                                📅 <?php echo date('d M Y', strtotime($txDate)); ?>
+                                &nbsp;🕒 <?php echo date('H:i', strtotime($txTime)); ?>
+                                <?php if ($isSetor): ?>
+                                    &nbsp;|&nbsp;👤 <?php echo htmlspecialchars($t['created_user'] ?? 'Sistem'); ?>
+                                    <?php if (!empty($t['description'])): ?>
+                                        &nbsp;| <i style="color:var(--text-secondary);">&ldquo;<?php echo htmlspecialchars($t['description']); ?>&rdquo;</i>
+                                    <?php endif; ?>
+                                    <?php if ($t['is_archived'] && !empty($t['archived_user'])): ?>
+                                        &nbsp;| Arsip: <?php echo htmlspecialchars($t['archived_user']); ?> <?php echo date('d/m/y H:i', strtotime($t['archived_at'])); ?>
+                                    <?php endif; ?>
+                                <?php else: ?>
+                                    &nbsp;|&nbsp;🏦 <?php echo htmlspecialchars($t['account_name']); ?>
+                                    &nbsp;|&nbsp;👤 <?php echo htmlspecialchars($t['input_by']); ?>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+
+                        <!-- Nominal + Aksi -->
+                        <div style="text-align:right;min-width:105px;">
+                            <div class="<?php echo $isSetor ? 'tx-amount-setor' : 'tx-amount-expense'; ?>">
+                                <?php echo $isSetor ? '+' : '&minus;'; ?>Rp <?php echo number_format($t['amount'], 0, ',', '.'); ?>
+                            </div>
+                            <?php if ($isSetor): ?>
+                                <div class="tx-actions">
+                                    <button class="tx-btn"
+                                        onclick="toggleArchive(<?php echo $t['id']; ?>, <?php echo $t['is_archived'] ? '0' : '1'; ?>)"
+                                        style="color:<?php echo $t['is_archived'] ? '#059669' : '#0284c7'; ?>"
+                                        title="<?php echo $t['is_archived'] ? 'Batalkan arsip' : 'Arsipkan'; ?>">
+                                        <?php echo $t['is_archived'] ? '↩' : '📦'; ?>
+                                    </button>
+                                    <?php if ($auth->canDelete('cashbook')): ?>
+                                        <button class="tx-btn-del" onclick="deleteTransfer(<?php echo $t['id']; ?>)" title="Hapus">🗑</button>
+                                    <?php endif; ?>
+                                </div>
                             <?php endif; ?>
-                            <?php if ($t['is_archived'] && !empty($t['archived_user'])): ?>
-                                &nbsp;| Arsip: <?php echo htmlspecialchars($t['archived_user']); ?> <?php echo date('d/m/y H:i', strtotime($t['archived_at'])); ?>
-                            <?php endif; ?>
-                        <?php else: ?>
-                            &nbsp;|&nbsp;🏦 <?php echo htmlspecialchars($t['account_name']); ?>
-                            &nbsp;|&nbsp;👤 <?php echo htmlspecialchars($t['input_by']); ?>
-                        <?php endif; ?>
+                        </div>
                     </div>
-                </div>
-
-                <!-- Nominal + Aksi -->
-                <div style="text-align:right;min-width:105px;">
-                    <div class="<?php echo $isSetor ? 'tx-amount-setor' : 'tx-amount-expense'; ?>">
-                        <?php echo $isSetor ? '+' : '&minus;'; ?>Rp <?php echo number_format($t['amount'], 0, ',', '.'); ?>
-                    </div>
-                    <?php if ($isSetor): ?>
-                    <div class="tx-actions">
-                        <button class="tx-btn"
-                            onclick="toggleArchive(<?php echo $t['id']; ?>, <?php echo $t['is_archived'] ? '0' : '1'; ?>)"
-                            style="color:<?php echo $t['is_archived'] ? '#059669' : '#0284c7'; ?>"
-                            title="<?php echo $t['is_archived'] ? 'Batalkan arsip' : 'Arsipkan'; ?>">
-                            <?php echo $t['is_archived'] ? '↩' : '📦'; ?>
-                        </button>
-                        <?php if ($auth->canDelete('cashbook')): ?>
-                        <button class="tx-btn-del" onclick="deleteTransfer(<?php echo $t['id']; ?>)" title="Hapus">🗑</button>
-                        <?php endif; ?>
-                    </div>
-                    <?php endif; ?>
-                </div>
-            </div>
-            <?php endforeach; ?>
+                <?php endforeach; ?>
             </div>
         <?php endif; ?>
 
-    <a href="index.php" class="btn btn-secondary" style="margin-top: 1.5rem; text-decoration: none; display: inline-block; padding: 0.625rem 1.25rem; font-size: 0.875rem;">
-        ← Kembali ke Buku Kas
-    </a>
-</div>
+        <a href="index.php" class="btn btn-secondary" style="margin-top: 1.5rem; text-decoration: none; display: inline-block; padding: 0.625rem 1.25rem; font-size: 0.875rem;">
+            ← Kembali ke Buku Kas
+        </a>
+    </div>
 
-<script>
-    feather.replace();
+    <script>
+        feather.replace();
 
-    function toggleArchive(id, isArchive) {
-        const action = isArchive ? 'Arsipkan' : 'Batalkan arsip';
+        function toggleArchive(id, isArchive) {
+            const action = isArchive ? 'Arsipkan' : 'Batalkan arsip';
 
-        if (!confirm(`${action} setor tunai ini?` + (isArchive ? '\n\n(Data TIDAK dihapus - hanya disembunyikan dari daftar "Aktif". Bisa dilihat lagi lewat filter "Arsipan" di atas.)' : ''))) return;
+            if (!confirm(`${action} setor tunai ini?` + (isArchive ? '\n\n(Data TIDAK dihapus - hanya disembunyikan dari daftar "Aktif". Bisa dilihat lagi lewat filter "Arsipan" di atas.)' : ''))) return;
 
-        const formData = new FormData();
-        formData.append('id', id);
-        formData.append('is_archived', isArchive);
+            const formData = new FormData();
+            formData.append('id', id);
+            formData.append('is_archived', isArchive);
 
-        fetch('cash-transfers.php?ajax=archive', {
-                method: 'POST',
-                body: formData
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    if (isArchive) {
-                        alert('✅ Berhasil diarsipkan.\n\nData TIDAK hilang - ganti filter status di atas ke "Arsipan" untuk melihatnya kembali, atau gunakan tombol Hapus jika memang ingin menghapus permanen.');
+            fetch('cash-transfers.php?ajax=archive', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        if (isArchive) {
+                            alert('✅ Berhasil diarsipkan.\n\nData TIDAK hilang - ganti filter status di atas ke "Arsipan" untuk melihatnya kembali, atau gunakan tombol Hapus jika memang ingin menghapus permanen.');
+                        }
+                        // Reload page
+                        location.reload();
+                    } else {
+                        alert('Error: ' + data.message);
                     }
-                    // Reload page
-                    location.reload();
-                } else {
-                    alert('Error: ' + data.message);
-                }
-            })
-            .catch(err => alert('Error: ' + err.message));
-    }
+                })
+                .catch(err => alert('Error: ' + err.message));
+        }
 
-    function deleteTransfer(id) {
-        if (!confirm('Hapus setor tunai ini? Saldo kas & bank akan dikembalikan seperti semula. Tindakan ini tidak bisa dibatalkan.')) return;
+        function deleteTransfer(id) {
+            if (!confirm('Hapus setor tunai ini? Saldo kas & bank akan dikembalikan seperti semula. Tindakan ini tidak bisa dibatalkan.')) return;
 
-        const formData = new FormData();
-        formData.append('id', id);
+            const formData = new FormData();
+            formData.append('id', id);
 
-        fetch('cash-transfers.php?ajax=delete', {
-                method: 'POST',
-                body: formData
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    location.reload();
-                } else {
-                    alert('Error: ' + data.message);
-                }
-            })
-            .catch(err => alert('Error: ' + err.message));
-    }
-</script>
+            fetch('cash-transfers.php?ajax=delete', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                })
+                .catch(err => alert('Error: ' + err.message));
+        }
+    </script>
 
-<?php include '../../includes/footer.php'; ?>
+    <?php include '../../includes/footer.php'; ?>

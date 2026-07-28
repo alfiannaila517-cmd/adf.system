@@ -149,11 +149,13 @@ try {
 if (($_GET['fix'] ?? '') === '1' && isset($bizDb)) {
     echo "\n=== RUNNING FIX ===\n";
 
-    foreach ([
-        "ALTER TABLE `cash_book` DROP FOREIGN KEY `cash_book_ibfk_3`" => 'Drop FK cash_book_ibfk_3',
-        "ALTER TABLE `cash_book` MODIFY COLUMN `division_id` INT NULL" => 'Make division_id nullable',
-        "ALTER TABLE `cash_book` MODIFY COLUMN `category_id` INT NULL" => 'Make category_id nullable',
-    ] as $sql => $label) {
+    foreach (
+        [
+            "ALTER TABLE `cash_book` DROP FOREIGN KEY `cash_book_ibfk_3`" => 'Drop FK cash_book_ibfk_3',
+            "ALTER TABLE `cash_book` MODIFY COLUMN `division_id` INT NULL" => 'Make division_id nullable',
+            "ALTER TABLE `cash_book` MODIFY COLUMN `category_id` INT NULL" => 'Make category_id nullable',
+        ] as $sql => $label
+    ) {
         try {
             $bizDb->exec($sql);
             echo "OK: {$label}\n";
@@ -200,4 +202,3 @@ if (($_GET['fix'] ?? '') === '1' && isset($bizDb)) {
         echo "ERROR during fix/backfill: " . $e->getMessage() . "\n";
     }
 }
-

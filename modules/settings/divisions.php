@@ -56,9 +56,9 @@ if ($action === 'delete' && $id > 0) {
     try {
         $result = $db->delete('divisions', 'id = :id', ['id' => $id]);
         if ($result !== false) {
-             setFlashMessage('success', 'Divisi berhasil dihapus!');
+            setFlashMessage('success', 'Divisi berhasil dihapus!');
         } else {
-             setFlashMessage('error', 'Tidak berhasil menghapus divisi. Kemungkinan masih ada transaksi terkait.');
+            setFlashMessage('error', 'Tidak berhasil menghapus divisi. Kemungkinan masih ada transaksi terkait.');
         }
         header('Location: divisions.php');
         exit;
@@ -120,15 +120,15 @@ include '../../includes/header.php';
             <div style="display: grid; grid-template-columns: 1fr 3fr 1fr; gap: 1rem;">
                 <div class="form-group" style="margin: 0;">
                     <label class="form-label">Kode *</label>
-                    <input type="text" name="division_code" class="form-control" 
-                           value="<?php echo htmlspecialchars($editDivision['division_code'] ?? ''); ?>" 
-                           placeholder="FO" maxlength="20" style="text-transform: uppercase;" required>
+                    <input type="text" name="division_code" class="form-control"
+                        value="<?php echo htmlspecialchars($editDivision['division_code'] ?? ''); ?>"
+                        placeholder="FO" maxlength="20" style="text-transform: uppercase;" required>
                 </div>
                 <div class="form-group" style="margin: 0;">
                     <label class="form-label">Nama Divisi *</label>
-                    <input type="text" name="division_name" class="form-control" 
-                           value="<?php echo htmlspecialchars($editDivision['division_name'] ?? ''); ?>" 
-                           placeholder="Front Office" required>
+                    <input type="text" name="division_name" class="form-control"
+                        value="<?php echo htmlspecialchars($editDivision['division_name'] ?? ''); ?>"
+                        placeholder="Front Office" required>
                 </div>
                 <div class="form-group" style="margin: 0;">
                     <label class="form-label">Tipe</label>
@@ -144,10 +144,10 @@ include '../../includes/header.php';
                 <textarea name="description" class="form-control" rows="2" placeholder="Deskripsi divisi..."><?php echo $editDivision['description'] ?? ''; ?></textarea>
             </div>
             <?php if ($action === 'edit'): ?>
-            <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem;">
-                <input type="checkbox" name="is_active" id="is_active" value="1" <?php echo !empty($editDivision['is_active']) ? 'checked' : ''; ?> style="width: 16px; height: 16px;">
-                <label for="is_active" class="form-label" style="margin: 0;">Divisi Aktif</label>
-            </div>
+                <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem;">
+                    <input type="checkbox" name="is_active" id="is_active" value="1" <?php echo !empty($editDivision['is_active']) ? 'checked' : ''; ?> style="width: 16px; height: 16px;">
+                    <label for="is_active" class="form-label" style="margin: 0;">Divisi Aktif</label>
+                </div>
             <?php endif; ?>
             <div style="display: flex; gap: 0.5rem; padding-top: 0.75rem; border-top: 1px solid var(--bg-tertiary);">
                 <button type="submit" class="btn btn-primary btn-sm">
@@ -184,14 +184,14 @@ include '../../includes/header.php';
                             <td style="font-weight: 600;"><?php echo htmlspecialchars($div['division_name']); ?></td>
                             <td>
                                 <?php $dt = $div['division_type'] ?? 'both'; ?>
-                                <span class="badge" style="background:<?php echo $dt==='income'?'rgba(16,185,129,.15)':($dt==='expense'?'rgba(239,68,68,.15)':'rgba(99,102,241,.15)'); ?>;color:<?php echo $dt==='income'?'#10b981':($dt==='expense'?'#ef4444':'#6366f1'); ?>;font-size:.7rem">
+                                <span class="badge" style="background:<?php echo $dt === 'income' ? 'rgba(16,185,129,.15)' : ($dt === 'expense' ? 'rgba(239,68,68,.15)' : 'rgba(99,102,241,.15)'); ?>;color:<?php echo $dt === 'income' ? '#10b981' : ($dt === 'expense' ? '#ef4444' : '#6366f1'); ?>;font-size:.7rem">
                                     <?php echo $dt === 'both' ? 'Income & Expense' : ucfirst($dt); ?>
                                 </span>
                             </td>
                             <td style="font-size: 0.875rem; color: var(--text-muted);"><?php echo htmlspecialchars($div['description'] ?: '-'); ?></td>
                             <td>
                                 <button type="button" onclick="confirmToggle(<?php echo $div['id']; ?>, '<?php echo addslashes($div['division_name']); ?>', <?php echo $div['is_active'] ? 'true' : 'false'; ?>)"
-                                        class="badge" style="cursor: pointer; border: none; background: <?php echo $div['is_active'] ? 'rgba(16, 185, 129, 0.15)' : 'rgba(148, 163, 184, 0.15)'; ?>; color: <?php echo $div['is_active'] ? 'var(--success)' : 'var(--text-muted)'; ?>;">
+                                    class="badge" style="cursor: pointer; border: none; background: <?php echo $div['is_active'] ? 'rgba(16, 185, 129, 0.15)' : 'rgba(148, 163, 184, 0.15)'; ?>; color: <?php echo $div['is_active'] ? 'var(--success)' : 'var(--text-muted)'; ?>;">
                                     <?php echo $div['is_active'] ? 'Active' : 'Inactive'; ?>
                                 </button>
                             </td>
@@ -200,8 +200,8 @@ include '../../includes/header.php';
                                     <a href="?action=edit&id=<?php echo $div['id']; ?>" class="btn btn-sm" style="padding: 0.35rem 0.6rem; background: var(--bg-tertiary);">
                                         <i data-feather="edit-2" style="width: 14px; height: 14px;"></i>
                                     </a>
-                                    <button onclick="confirmDelete(<?php echo $div['id']; ?>, '<?php echo addslashes($div['division_name']); ?>')" 
-                                            class="btn btn-sm" style="padding: 0.35rem 0.6rem; background: rgba(239, 68, 68, 0.15); color: var(--danger);">
+                                    <button onclick="confirmDelete(<?php echo $div['id']; ?>, '<?php echo addslashes($div['division_name']); ?>')"
+                                        class="btn btn-sm" style="padding: 0.35rem 0.6rem; background: rgba(239, 68, 68, 0.15); color: var(--danger);">
                                         <i data-feather="trash-2" style="width: 14px; height: 14px;"></i>
                                     </button>
                                 </div>
@@ -223,7 +223,7 @@ include '../../includes/header.php';
 
 <script>
     feather.replace();
-    
+
     function toggleForm() {
         const form = document.getElementById('divisionForm');
         const btn = document.getElementById('addBtn');
@@ -236,7 +236,7 @@ include '../../includes/header.php';
             window.location.href = 'divisions.php';
         }
     }
-    
+
     function confirmDelete(id, name) {
         if (confirm(`Hapus divisi "${name}"?\n\nPeringatan: Divisi yang memiliki transaksi tidak dapat dihapus!`)) {
             window.location.href = `?action=delete&id=${id}`;

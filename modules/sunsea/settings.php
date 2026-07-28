@@ -657,7 +657,9 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
                 return false;
             }
             var labels = [];
-            checked.forEach(function(c) { labels.push(c.value); });
+            checked.forEach(function(c) {
+                labels.push(c.value);
+            });
             return confirm('Anda yakin ingin menghapus data: ' + labels.join(', ') + '?\n\nTindakan ini TIDAK BISA DIBATALKAN!');
         }
     </script>

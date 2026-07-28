@@ -31,90 +31,90 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $msgType = 'warning';
             $msg = 'Anda tidak memiliki akses untuk menambah stock.';
         } else {
-        $productName = trim($_POST['product_name'] ?? '');
-        $quantity    = (float)($_POST['quantity']     ?? 0);
-        if ($productName !== '' && $quantity > 0) {
-            try {
-                $code = genPwfCode($pdo, 'STK');
-                $pdo->prepare(
-                    'INSERT INTO pwf_warehouse_stock
+            $productName = trim($_POST['product_name'] ?? '');
+            $quantity    = (float)($_POST['quantity']     ?? 0);
+            if ($productName !== '' && $quantity > 0) {
+                try {
+                    $code = genPwfCode($pdo, 'STK');
+                    $pdo->prepare(
+                        'INSERT INTO pwf_warehouse_stock
                         (stock_code, product_name, quantity, unit, finish, wood_color,
                          dimensions, specification, notes, source, order_id, created_by)
                      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)'
-                )->execute([
-                    $code,
-                    $productName,
-                    $quantity,
-                    trim($_POST['unit']         ?? 'pcs'),
-                    trim($_POST['finish']        ?? ''),
-                    trim($_POST['wood_color']    ?? ''),
-                    trim($_POST['dimensions']    ?? ''),
-                    trim($_POST['specification'] ?? ''),
-                    trim($_POST['notes']         ?? ''),
-                    $orderId ? 'from_order' : 'manual',
-                    $orderId,
-                    $_SESSION['user_id'] ?? null,
-                ]);
-                $msg = 'Stock added successfully.';
-            } catch (\Throwable $e) {
-                error_log('PWF warehouse create: ' . $e->getMessage());
+                    )->execute([
+                        $code,
+                        $productName,
+                        $quantity,
+                        trim($_POST['unit']         ?? 'pcs'),
+                        trim($_POST['finish']        ?? ''),
+                        trim($_POST['wood_color']    ?? ''),
+                        trim($_POST['dimensions']    ?? ''),
+                        trim($_POST['specification'] ?? ''),
+                        trim($_POST['notes']         ?? ''),
+                        $orderId ? 'from_order' : 'manual',
+                        $orderId,
+                        $_SESSION['user_id'] ?? null,
+                    ]);
+                    $msg = 'Stock added successfully.';
+                } catch (\Throwable $e) {
+                    error_log('PWF warehouse create: ' . $e->getMessage());
+                    $msgType = 'warning';
+                    $msg = 'Failed to add: ' . $e->getMessage();
+                }
+            } else {
                 $msgType = 'warning';
-                $msg = 'Failed to add: ' . $e->getMessage();
+                $msg = 'Product name and quantity are required.';
             }
-        } else {
-            $msgType = 'warning';
-            $msg = 'Product name and quantity are required.';
-        }
         }
     } elseif ($action === 'update') {
         if (!pwfUserHasAccess('pwf_warehouse', 'edit')) {
             $msgType = 'warning';
             $msg = 'Anda tidak memiliki akses untuk mengubah stock.';
         } else {
-        $id = (int)($_POST['stock_id'] ?? 0);
-        if ($id > 0) {
-            try {
-                $pdo->prepare(
-                    'UPDATE pwf_warehouse_stock SET
+            $id = (int)($_POST['stock_id'] ?? 0);
+            if ($id > 0) {
+                try {
+                    $pdo->prepare(
+                        'UPDATE pwf_warehouse_stock SET
                         product_name=?, quantity=?, unit=?, finish=?, wood_color=?,
                         dimensions=?, specification=?, notes=?, order_id=?, updated_at=NOW()
                      WHERE id=?'
-                )->execute([
-                    trim($_POST['product_name']  ?? ''),
-                    (float)($_POST['quantity']    ?? 0),
-                    trim($_POST['unit']           ?? 'pcs'),
-                    trim($_POST['finish']         ?? ''),
-                    trim($_POST['wood_color']     ?? ''),
-                    trim($_POST['dimensions']     ?? ''),
-                    trim($_POST['specification']  ?? ''),
-                    trim($_POST['notes']          ?? ''),
-                    $orderId,
-                    $id,
-                ]);
-                $msg = 'Stock updated.';
-            } catch (\Throwable $e) {
-                error_log('PWF warehouse update: ' . $e->getMessage());
-                $msgType = 'warning';
-                $msg = 'Failed to update: ' . $e->getMessage();
+                    )->execute([
+                        trim($_POST['product_name']  ?? ''),
+                        (float)($_POST['quantity']    ?? 0),
+                        trim($_POST['unit']           ?? 'pcs'),
+                        trim($_POST['finish']         ?? ''),
+                        trim($_POST['wood_color']     ?? ''),
+                        trim($_POST['dimensions']     ?? ''),
+                        trim($_POST['specification']  ?? ''),
+                        trim($_POST['notes']          ?? ''),
+                        $orderId,
+                        $id,
+                    ]);
+                    $msg = 'Stock updated.';
+                } catch (\Throwable $e) {
+                    error_log('PWF warehouse update: ' . $e->getMessage());
+                    $msgType = 'warning';
+                    $msg = 'Failed to update: ' . $e->getMessage();
+                }
             }
-        }
         }
     } elseif ($action === 'delete') {
         if (!pwfUserHasAccess('pwf_warehouse', 'delete')) {
             $msgType = 'warning';
             $msg = 'Anda tidak memiliki akses untuk menghapus stock.';
         } else {
-        $id = (int)($_POST['stock_id'] ?? 0);
-        if ($id > 0) {
-            try {
-                $pdo->prepare('DELETE FROM pwf_warehouse_stock WHERE id=?')->execute([$id]);
-                $msg = 'Stock deleted.';
-            } catch (\Throwable $e) {
-                error_log('PWF warehouse delete: ' . $e->getMessage());
-                $msgType = 'warning';
-                $msg = 'Failed to delete: ' . $e->getMessage();
+            $id = (int)($_POST['stock_id'] ?? 0);
+            if ($id > 0) {
+                try {
+                    $pdo->prepare('DELETE FROM pwf_warehouse_stock WHERE id=?')->execute([$id]);
+                    $msg = 'Stock deleted.';
+                } catch (\Throwable $e) {
+                    error_log('PWF warehouse delete: ' . $e->getMessage());
+                    $msgType = 'warning';
+                    $msg = 'Failed to delete: ' . $e->getMessage();
+                }
             }
-        }
         }
     }
 }
@@ -544,9 +544,9 @@ pwfOfficeHeader('Warehouse / Stock', 'warehouse');
         </div>
         <div style="margin-left:auto">
             <?php if ($canCreateStock): ?>
-            <button class="btn btn-sm" id="btnAddStock" style="gap:6px">
-                <i class="bi bi-plus-lg"></i> Add Stock
-            </button>
+                <button class="btn btn-sm" id="btnAddStock" style="gap:6px">
+                    <i class="bi bi-plus-lg"></i> Add Stock
+                </button>
             <?php endif; ?>
         </div>
     </div>
@@ -664,14 +664,14 @@ pwfOfficeHeader('Warehouse / Stock', 'warehouse');
                             </button>
                         <?php endif; ?>
                         <?php if ($canEditStock): ?>
-                        <button class="btn btn-sm btn-outline-secondary" onclick="openEditModal(<?= (int)$s['id'] ?>)" style="gap:4px">
-                            <i class="bi bi-pencil"></i> Edit
-                        </button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="openEditModal(<?= (int)$s['id'] ?>)" style="gap:4px">
+                                <i class="bi bi-pencil"></i> Edit
+                            </button>
                         <?php endif; ?>
                         <?php if ($canDeleteStock): ?>
-                        <button class="btn btn-sm btn-outline-danger" onclick="confirmDelete(<?= (int)$s['id'] ?>)" style="gap:4px">
-                            <i class="bi bi-trash"></i>
-                        </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="confirmDelete(<?= (int)$s['id'] ?>)" style="gap:4px">
+                                <i class="bi bi-trash"></i>
+                            </button>
                         <?php endif; ?>
                     </div>
                 </div>

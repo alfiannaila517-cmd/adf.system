@@ -1,4 +1,5 @@
 <?php
+
 /**
  * API: GET AVAILABLE ROOMS
  * Returns list of rooms that are NOT booked for the specified date range
@@ -12,11 +13,11 @@ header('Content-Type: application/json');
 
 try {
     $db = Database::getInstance();
-    
+
     // Get date range from query params
     $checkIn = $_GET['check_in'] ?? '';
     $checkOut = $_GET['check_out'] ?? '';
-    
+
     if (empty($checkIn) || empty($checkOut)) {
         echo json_encode([
             'success' => false,
@@ -24,11 +25,11 @@ try {
         ]);
         exit;
     }
-    
+
     // Validate dates
     $checkInDate = new DateTime($checkIn);
     $checkOutDate = new DateTime($checkOut);
-    
+
     if ($checkOutDate <= $checkInDate) {
         echo json_encode([
             'success' => false,
@@ -36,7 +37,7 @@ try {
         ]);
         exit;
     }
-    
+
     // Get ALL rooms
     $allRooms = $db->fetchAll("
         SELECT r.id, r.room_number, r.floor_number, r.status, 
@@ -46,7 +47,7 @@ try {
         WHERE r.status != 'maintenance'
         ORDER BY rt.type_name ASC, r.floor_number ASC, r.room_number ASC
     ", []);
-    
+
     // Get rooms that are BOOKED during this date range
     // A room is booked if there's an OVERLAP:
     // Booking overlaps if: booking.check_in < our_check_out AND booking.check_out > our_check_in
@@ -73,20 +74,20 @@ try {
         // Table may not exist yet in old environments; treat as no blocks.
         $blockedRooms = [];
     }
-    
+
     // Create array of booked room IDs
     $bookedRoomIds = array_column($bookedRooms, 'room_id');
     $blockedRoomIds = array_column($blockedRooms, 'room_id');
     $unavailableRoomIds = array_values(array_unique(array_merge($bookedRoomIds, $blockedRoomIds)));
-    
+
     // Filter: only return rooms that are NOT in booked list
-    $availableRooms = array_filter($allRooms, function($room) use ($unavailableRoomIds) {
+    $availableRooms = array_filter($allRooms, function ($room) use ($unavailableRoomIds) {
         return !in_array($room['id'], $unavailableRoomIds);
     });
-    
+
     // Re-index array (remove gaps)
     $availableRooms = array_values($availableRooms);
-    
+
     echo json_encode([
         'success' => true,
         'check_in' => $checkIn,
@@ -97,7 +98,6 @@ try {
         'blocked_rooms' => count($blockedRoomIds),
         'rooms' => $availableRooms
     ]);
-    
 } catch (Exception $e) {
     error_log("Get Available Rooms Error: " . $e->getMessage());
     echo json_encode([

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Fix: Migrate [Kas Besar] → [Rekening Operasional] for operational bank account entries
  *
@@ -25,37 +26,77 @@ $dryRun = !isset($_GET['execute']);
 ?>
 <!DOCTYPE html>
 <html>
+
 <head>
-<meta charset="UTF-8">
-<title>Fix Rekening Operasional Tags</title>
-<style>
-body { font-family: monospace; padding: 20px; background: #1e1e1e; color: #d4d4d4; }
-h2 { color: #4fc1ff; }
-.ok { color: #4ec9b0; }
-.warn { color: #ce9178; }
-.err { color: #f48771; }
-.info { color: #9cdcfe; }
-pre { background: #252526; padding: 12px; border-radius: 4px; }
-.btn { display: inline-block; padding: 10px 20px; background: #0e639c; color: white;
-       text-decoration: none; border-radius: 4px; margin-top: 16px; font-size: 14px; }
-.btn.danger { background: #c9291e; }
-</style>
+    <meta charset="UTF-8">
+    <title>Fix Rekening Operasional Tags</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+        }
+
+        h2 {
+            color: #4fc1ff;
+        }
+
+        .ok {
+            color: #4ec9b0;
+        }
+
+        .warn {
+            color: #ce9178;
+        }
+
+        .err {
+            color: #f48771;
+        }
+
+        .info {
+            color: #9cdcfe;
+        }
+
+        pre {
+            background: #252526;
+            padding: 12px;
+            border-radius: 4px;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #0e639c;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            margin-top: 16px;
+            font-size: 14px;
+        }
+
+        .btn.danger {
+            background: #c9291e;
+        }
+    </style>
 </head>
+
 <body>
-<h2>Fix: [Kas Besar] → [Rekening Operasional]</h2>
-<?php if ($dryRun): ?>
-<p class="warn">⚠️ Mode DRY RUN — tidak ada perubahan nyata. <a class="btn danger" href="?execute=1" onclick="return confirm('Yakin jalankan update sungguhan?')">Jalankan SUNGGUHAN</a></p>
-<?php else: ?>
-<p class="ok">✅ Mode EXECUTE — perubahan disimpan ke database.</p>
-<?php endif; ?>
-<pre>
+    <h2>Fix: [Kas Besar] → [Rekening Operasional]</h2>
+    <?php if ($dryRun): ?>
+        <p class="warn">⚠️ Mode DRY RUN — tidak ada perubahan nyata. <a class="btn danger" href="?execute=1" onclick="return confirm('Yakin jalankan update sungguhan?')">Jalankan SUNGGUHAN</a></p>
+    <?php else: ?>
+        <p class="ok">✅ Mode EXECUTE — perubahan disimpan ke database.</p>
+    <?php endif; ?>
+    <pre>
 <?php
 
 try {
     // Master DB
     $masterDb = new PDO(
         "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4",
-        DB_USER, DB_PASS,
+        DB_USER,
+        DB_PASS,
         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
     );
 
@@ -105,7 +146,7 @@ try {
         // Connect to business DB
         // Production: remap adf_* → adfb2574_*
         $isProduction = (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') === false &&
-                         strpos($_SERVER['HTTP_HOST'] ?? '', '127.0.0.1') === false);
+            strpos($_SERVER['HTTP_HOST'] ?? '', '127.0.0.1') === false);
         $dbMapping = [
             'adf_system'          => 'adfb2574_adf',
             'adf_narayana_hotel'  => 'adfb2574_narayana_hotel',
@@ -120,7 +161,8 @@ try {
         try {
             $bizPdo = new PDO(
                 "mysql:host=" . DB_HOST . ";dbname={$actualDb};charset=utf8mb4",
-                DB_USER, DB_PASS,
+                DB_USER,
+                DB_PASS,
                 [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
             );
         } catch (PDOException $e) {
@@ -170,7 +212,6 @@ try {
     } else {
         echo "\n<span class='warn'>══ DRY RUN selesai. Klik tombol di atas untuk eksekusi sungguhan. ══</span>\n";
     }
-
 } catch (Throwable $e) {
     echo "<span class='err'>FATAL ERROR: " . htmlspecialchars($e->getMessage()) . "</span>\n";
 }
@@ -178,4 +219,5 @@ try {
 ?>
 </pre>
 </body>
+
 </html>

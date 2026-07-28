@@ -1,4 +1,5 @@
 <?php
+
 /**
  * NARAYANA HOTEL MANAGEMENT SYSTEM
  * Delete Cash Book Transaction with Audit Log
@@ -63,23 +64,23 @@ if (isset($transaction['source_type']) && $transaction['source_type'] === 'cash_
 
 try {
     $db->beginTransaction();
-    
+
     // Check if transaction is from Purchase Order
     $isPurchaseOrder = false;
     $poNumber = '';
     $poId = null;
-    
+
     if (isset($transaction['source_type']) && $transaction['source_type'] === 'purchase_order' && !empty($transaction['source_id'])) {
         $isPurchaseOrder = true;
         $poId = $transaction['source_id'];
-        
+
         // Get PO number
         $po = $db->fetchOne("SELECT po_number FROM purchase_orders_header WHERE id = ?", [$poId]);
         if ($po) {
             $poNumber = $po['po_number'];
         }
     }
-    
+
     // Create audit log
     $oldData = json_encode([
         'id' => $transaction['id'],
@@ -95,11 +96,11 @@ try {
         'source_type' => $transaction['source_type'] ?? 'manual',
         'source_id' => $transaction['source_id'] ?? null
     ], JSON_UNESCAPED_UNICODE);
-    
+
     // Get user IP and browser info
     $ipAddress = $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
     $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown';
-    
+
     // Insert audit log (wrapped in try-catch so it doesn't block delete)
     try {
         $db->insert('audit_logs', [
@@ -115,7 +116,7 @@ try {
     } catch (Exception $auditEx) {
         // Audit log failed, continue with delete anyway
     }
-    
+
     // If from PO, update PO status back to submitted and remove attachment
     if ($isPurchaseOrder && $poId) {
         $db->update('purchase_orders_header', [
@@ -125,19 +126,19 @@ try {
             'attachment_path' => null
         ], 'id = :id', ['id' => $poId]);
     }
-    
+
     // ============================================
     // FIX: Reverse balance in cash_accounts when deleting
     // ============================================
     $cashAccountId = $transaction['cash_account_id'] ?? null;
     $amount = floatval($transaction['amount'] ?? 0);
     $transactionType = $transaction['transaction_type'] ?? '';
-    
+
     if (!empty($cashAccountId) && $amount > 0) {
         try {
             $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
             $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-            
+
             if ($transactionType === 'income') {
                 // Was income: subtract from balance (reverse the add)
                 $stmt = $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance - ? WHERE id = ?");
@@ -147,29 +148,28 @@ try {
                 $stmt = $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance + ? WHERE id = ?");
                 $stmt->execute([$amount, $cashAccountId]);
             }
-            
+
             // Delete related cash_account_transactions record
             $stmt = $masterDb->prepare("DELETE FROM cash_account_transactions WHERE cash_account_id = ? AND ABS(amount - ?) < 1 AND transaction_type = ? ORDER BY id DESC LIMIT 1");
             $stmt->execute([$cashAccountId, $amount, $transactionType]);
-            
+
             error_log("DELETE REVERSE: Account #{$cashAccountId}, Type: {$transactionType}, Amount: {$amount} - Balance restored");
         } catch (Exception $balanceErr) {
             error_log("Delete balance reverse error: " . $balanceErr->getMessage());
             // Don't fail the delete, just log the error
         }
     }
-    
+
     // Delete the transaction
     $db->delete('cash_book', 'id = :id', ['id' => $id]);
-    
+
     $db->commit();
-    
+
     if ($isPurchaseOrder) {
         $_SESSION['success'] = '✅ Transaksi pembayaran <strong>PO ' . $poNumber . '</strong> berhasil dihapus dari Buku Kas Besar.<br>⚠️ Status PO dikembalikan ke <strong>"Menunggu Approve"</strong>. Silakan approve ulang jika diperlukan.';
     } else {
         $_SESSION['success'] = '✅ Transaksi berhasil dihapus. Log penghapusan telah dicatat.';
     }
-    
 } catch (Exception $e) {
     $db->rollBack();
     $_SESSION['error'] = '❌ Gagal menghapus transaksi: ' . $e->getMessage();

@@ -974,8 +974,13 @@ HTML;
         var unit = opt.getAttribute('data-unit') || 'pax';
 
         var typeOpts = [
-            ['accommodation', 'Penginapan'], ['transport', 'Transport'], ['meal', 'Makan'],
-            ['activity', 'Aktivitas'], ['guide', 'Guide'], ['equipment', 'Perlengkapan'], ['other', 'Lainnya']
+            ['accommodation', 'Penginapan'],
+            ['transport', 'Transport'],
+            ['meal', 'Makan'],
+            ['activity', 'Aktivitas'],
+            ['guide', 'Guide'],
+            ['equipment', 'Perlengkapan'],
+            ['other', 'Lainnya']
         ];
         var selHtml = typeOpts.map(function(t) {
             return '<option value="' + t[0] + '"' + (t[0] === itemType ? ' selected' : '') + '>' + t[1] + '</option>';

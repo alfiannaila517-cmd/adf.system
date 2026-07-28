@@ -50,9 +50,19 @@ include 'layout-header.php';
 <?php endif; ?>
 
 <style>
-    .cal-card { padding: 12px 14px !important; }
-    .cal-table th { padding: 6px 10px !important; font-size: 10px !important; }
-    .cal-table td { padding: 6px 10px !important; font-size: 12px !important; }
+    .cal-card {
+        padding: 12px 14px !important;
+    }
+
+    .cal-table th {
+        padding: 6px 10px !important;
+        font-size: 10px !important;
+    }
+
+    .cal-table td {
+        padding: 6px 10px !important;
+        font-size: 12px !important;
+    }
 </style>
 
 <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
