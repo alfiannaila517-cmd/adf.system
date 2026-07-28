@@ -302,10 +302,20 @@ try {
     $accStmt->execute([$businessId]);
     $accounts = $accStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Summary
+    // Summary (list total - date-filtered)
     foreach ($transfers as $t) {
         $totalAmount += floatval($t['amount']);
     }
+
+    // All-time total setor (not affected by date filter) - used for summary card
+    $totalSetorAllTime = 0;
+    $stmtAll = $masterDb->prepare("
+        SELECT COALESCE(SUM(amount), 0) as total
+        FROM cash_transfers
+        WHERE business_id = ? AND is_archived = 0
+    ");
+    $stmtAll->execute([$businessId]);
+    $totalSetorAllTime = (float)$stmtAll->fetchColumn();
 
     // Build account map for readable expense details
     $accountNameById = [];
@@ -313,14 +323,21 @@ try {
         $accountNameById[(int)$acc['id']] = $acc['account_name'];
     }
 
-    // Gather destination bank accounts from Setor Tunai records
+    // Get ALL bank-type operational accounts for this business (NOT just from filtered transfers).
+    // This is the correct approach: the list of "operational bank accounts" is fixed per business.
+    // Filtering it through $transfers would cause it to be empty whenever the date filter has no
+    // matching Setor Tunai records (e.g. default "today" but last transfer was days ago).
     $bankAccountIds = [];
-    foreach ($transfers as $t) {
-        if (!empty($t['bank_account_id'])) {
-            $bankAccountIds[] = (int)$t['bank_account_id'];
-        }
+    $allBankStmt = $masterDb->prepare("
+        SELECT id, account_name FROM cash_accounts
+        WHERE business_id = ? AND account_type = 'bank' AND is_active = 1
+    ");
+    $allBankStmt->execute([$businessId]);
+    foreach ($allBankStmt->fetchAll(PDO::FETCH_ASSOC) as $ba) {
+        $bankAccountIds[] = (int)$ba['id'];
+        // Also ensure bank accounts are in the name map even if not in $accounts
+        $accountNameById[(int)$ba['id']] = $ba['account_name'];
     }
-    $bankAccountIds = array_values(array_unique($bankAccountIds));
 
     // Calculate expense usage from those operational bank accounts
     if (!empty($bankAccountIds)) {
@@ -633,34 +650,35 @@ include '../../includes/header.php';
         </div>
     <?php endif; ?>
 
-    <!-- Summary -->
-    <?php if (!empty($transfers)): ?>
-        <div class="summary-box">
-            <div class="summary-item">
-                <div class="summary-label">Total Setor</div>
-                <div class="summary-value">Rp <?php echo number_format($totalAmount, 0, ',', '.'); ?></div>
-            </div>
-            <div class="summary-item">
-                <div class="summary-label">Pengeluaran Rek. Operasional</div>
-                <div class="summary-value" style="color:#b91c1c;">Rp <?php echo number_format($totalOperationalExpense, 0, ',', '.'); ?></div>
-            </div>
-            <div class="summary-item">
-                <div class="summary-label">Saldo Setor Bersih</div>
-                <div class="summary-value" style="color:<?php echo $netSetorAmount < 0 ? '#b91c1c' : '#0f766e'; ?>;">Rp <?php echo number_format($netSetorAmount, 0, ',', '.'); ?></div>
-            </div>
-            <div class="summary-item">
-                <div class="summary-label">Jumlah Transaksi</div>
-                <div class="summary-value"><?php echo count($transfers); ?></div>
-            </div>
-            <div class="summary-item">
-                <div class="summary-label">Status</div>
-                <div class="summary-value"><?php echo $showArchived ? 'Arsipan' : 'Aktif'; ?></div>
-            </div>
+    <!-- Summary: always show, uses all-time totals so filter does not hide the balance -->
+    <?php
+    $netAllTime = $totalSetorAllTime - $totalOperationalExpense;
+    ?>
+    <div class="summary-box">
+        <div class="summary-item">
+            <div class="summary-label">Total Setor (Semua)</div>
+            <div class="summary-value">Rp <?php echo number_format($totalSetorAllTime, 0, ',', '.'); ?></div>
         </div>
-        <div class="expense-summary-note">
-            Ringkasan ini memperhitungkan pengeluaran dari rekening bank operasional hasil setoran tunai (tidak termasuk transaksi internal Setor Tunai itu sendiri).
+        <div class="summary-item">
+            <div class="summary-label">Pengeluaran Rek. Operasional</div>
+            <div class="summary-value" style="color:#b91c1c;">Rp <?php echo number_format($totalOperationalExpense, 0, ',', '.'); ?></div>
         </div>
-    <?php endif; ?>
+        <div class="summary-item">
+            <div class="summary-label">Saldo Setor Bersih</div>
+            <div class="summary-value" style="color:<?php echo $netAllTime < 0 ? '#b91c1c' : '#0f766e'; ?>;">Rp <?php echo number_format($netAllTime, 0, ',', '.'); ?></div>
+        </div>
+        <div class="summary-item">
+            <div class="summary-label">Transaksi Setor (Perioda)</div>
+            <div class="summary-value"><?php echo count($transfers); ?></div>
+        </div>
+        <div class="summary-item">
+            <div class="summary-label">Status</div>
+            <div class="summary-value"><?php echo $showArchived ? 'Arsipan' : 'Aktif'; ?></div>
+        </div>
+    </div>
+    <div class="expense-summary-note">
+        Ringkasan ini memperhitungkan semua pengeluaran dari rekening bank operasional hasil setoran tunai (tidak termasuk transaksi internal Setor Tunai). Detail di bawah mengikuti filter tanggal.
+    </div>
 
     <!-- Filters -->
     <div class="filter-card">
