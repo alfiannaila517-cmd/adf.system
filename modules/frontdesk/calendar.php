@@ -261,7 +261,7 @@ foreach ($dates as $date) {
 // ============================================
 // BOOKING COLORS - SIMPLE: Default vs Checked-In vs Checked-Out
 // ============================================
-$defaultColor = ['bg' => '#3b82f6', 'text' => 'white'];        // Blue for pending/confirmed bookings
+$defaultColor = ['bg' => '#1e2a5a', 'text' => 'white'];        // Dark navy for pending/confirmed bookings
 $checkedInColor = ['bg' => '#10b981', 'text' => 'white'];      // Green for checked-in guests (active)
 $checkedOutColor = ['bg' => '#9ca3af', 'text' => '#6b7280'];   // Gray transparent for checked-out (history)
 
@@ -2686,7 +2686,6 @@ include '../../includes/header.php';
                                                 data-guest="<?php echo $guestName; ?>"
                                                 <?php if (!$isPastBooking && !$isCheckedOut): ?>draggable="true" <?php endif; ?>>
                                                 <div class="booking-bar <?php echo $statusClass; ?>"
-                                                    style="background: linear-gradient(135deg, <?php echo $bookingColor['bg']; ?>, <?php echo $bookingColor['bg']; ?>dd) !important; border-right-color: <?php echo $bookingColor['bg']; ?>; border-left-color: <?php echo $bookingColor['bg']; ?>dd;"
                                                     onclick="event.stopPropagation(); viewBooking(<?php echo $booking['id']; ?>, event);"
                                                     title="<?php echo $statusIcon . $guestName; ?> (<?php echo $bookingCode; ?>) - <?php echo $statusText; ?><?php echo $isPastBooking ? ' [PAST]' : ''; ?>">
                                                     <span><?php echo $statusIcon . $guestName; ?> • <?php echo $shortCode; ?></span>
@@ -2732,7 +2731,7 @@ include '../../includes/header.php';
     <!-- Legend -->
     <div class="legend">
         <div class="legend-item">
-            <div class="legend-color" style="background: linear-gradient(135deg, #3b82f6, #60a5fa);"></div>
+            <div class="legend-color" style="background: linear-gradient(135deg, #1e2a5a, #1e3a8a);"></div>
             <span class="legend-label">📋 Booking (Confirmed/Pending)</span>
         </div>
         <div class="legend-item">
