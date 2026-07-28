@@ -2963,7 +2963,7 @@ if ($trialStatus) {
             // ============================================
             const totalIncome = <?php echo array_sum(array_column($dailyData, 'income')); ?>;
             const totalExpense = <?php echo array_sum(array_column($dailyData, 'expense')); ?>;
-            
+
             const summaryCtx = document.getElementById('summaryPieChart').getContext('2d');
             new Chart(summaryCtx, {
                 type: 'doughnut',
@@ -2989,8 +2989,16 @@ if ($trialStatus) {
                         tooltip: {
                             backgroundColor: 'rgba(30, 41, 59, 0.9)',
                             padding: 12,
-                            titleFont: { size: 12, weight: '600', family: "'Inter', sans-serif" },
-                            bodyFont: { size: 11, weight: '500', family: "'Inter', sans-serif" },
+                            titleFont: {
+                                size: 12,
+                                weight: '600',
+                                family: "'Inter', sans-serif"
+                            },
+                            bodyFont: {
+                                size: 11,
+                                weight: '500',
+                                family: "'Inter', sans-serif"
+                            },
                             borderRadius: 8,
                             displayColors: true,
                             boxWidth: 8,

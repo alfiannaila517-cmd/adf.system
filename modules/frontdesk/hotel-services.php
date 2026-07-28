@@ -1449,9 +1449,17 @@ if (isset($_GET['get_invoice']) && isset($_GET['id'])) {
                 foreach ($motorRentals as $mr) {
                     if (strpos((string)($gItem['description'] ?? ''), (string)$mr['plate_number']) !== false) {
                         $gItem['motor_id'] = (int)$mr['motor_id'];
+                        $gItem['motor_name'] = $mr['motor_name'];
+                        $gItem['plate_number'] = $mr['plate_number'];
+                        $gItem['daily_rate'] = (float)$mr['daily_rate'];
                         $gItem['start_dt'] = $mr['start_datetime'];
                         $gItem['end_dt'] = $mr['end_datetime'];
                         $gItem['deposit'] = (float)$mr['deposit'];
+                        // Calculate rental days
+                        $start = new DateTime($mr['start_datetime']);
+                        $end = new DateTime($mr['end_datetime']);
+                        $interval = $start->diff($end);
+                        $gItem['rental_days'] = max(1, (int)$interval->days) ?: 1;
                         break;
                     }
                 }
@@ -1468,6 +1476,11 @@ if (isset($_GET['get_invoice']) && isset($_GET['id'])) {
                         $gItem['end_dt'] = $cr['end_datetime'];
                         $gItem['deposit'] = (float)$cr['deposit'];
                         $gItem['trip_destination'] = $cr['trip_destination'];
+                        // Calculate rental days
+                        $start = new DateTime($cr['start_datetime']);
+                        $end = new DateTime($cr['end_datetime']);
+                        $interval = $start->diff($end);
+                        $gItem['rental_days'] = max(1, (int)$interval->days) ?: 1;
                         break;
                     }
                 }
@@ -2699,7 +2712,7 @@ include '../../includes/header.php';
         const destInput = tr.querySelector('.iDest');
         const items = CATALOG_DATA[svc];
         const rentalItems = svc === 'motor_rental' ? RENTAL_MOTORS : (svc === 'car_rental' ? RENTAL_CARS : []);
-        
+
         if (isRentalService(svc)) {
             // Show rental fields for motor_rental and car_rental
             rentalWrap.classList.add('open');
@@ -2715,7 +2728,7 @@ include '../../includes/header.php';
             tr.querySelector('.iDeposit').value = 0;
             tr.querySelector('.iDest').value = '';
         }
-        
+
         if (items && items.length > 0) {
             if (isNew) {
                 if (parseFloat(priceInput.value) === 0) priceInput.value = items[0].price;
@@ -2727,7 +2740,7 @@ include '../../includes/header.php';
         } else if (!isNew) {
             priceInput.value = 0;
         }
-        
+
         if (isRentalService(svc)) {
             onRentalAssetChange(id, !!isNew);
         }
@@ -2920,10 +2933,18 @@ include '../../includes/header.php';
             }
             const motorId = svc === 'motor_rental' ? parseInt(tr.querySelector('.iAsset').value || '0', 10) : 0;
             const carId = svc === 'car_rental' ? parseInt(tr.querySelector('.iAsset').value || '0', 10) : 0;
-            const startDt = tr.querySelector('.iStart').value || '';
-            const endDt = tr.querySelector('.iEnd').value || '';
-            if ((svc === 'motor_rental' || svc === 'car_rental') && (!startDt || !endDt || (!motorId && !carId))) {
-                alert('Item rental motor/mobil wajib pilih armada dan periode sewa');
+            const daysInput = tr.querySelector('.iDays');
+            const days = daysInput ? parseFloat(daysInput.value) || 1 : 1;
+            
+            // Generate start and end dates from days
+            const today = new Date();
+            const startDt = today.toISOString().slice(0, 19).replace('T', ' ');
+            const endDate = new Date(today);
+            endDate.setDate(endDate.getDate() + days);
+            const endDt = endDate.toISOString().slice(0, 19).replace('T', ' ');
+            
+            if ((svc === 'motor_rental' || svc === 'car_rental') && (!motorId && !carId)) {
+                alert('Item rental motor/mobil wajib pilih armada');
                 return;
             }
             items.push({
@@ -2933,8 +2954,8 @@ include '../../includes/header.php';
                 unit_price: parseFloat(tr.querySelector('.iPrice').value) || 0,
                 motor_id: motorId || null,
                 car_id: carId || null,
-                start_dt: startDt || null,
-                end_dt: endDt || null,
+                start_dt: (svc === 'motor_rental' || svc === 'car_rental') ? startDt : null,
+                end_dt: (svc === 'motor_rental' || svc === 'car_rental') ? endDt : null,
                 deposit: parseFloat(tr.querySelector('.iDeposit').value) || 0,
                 trip_destination: tr.querySelector('.iDest').value.trim() || null
             });
@@ -3333,7 +3354,7 @@ include '../../includes/header.php';
         const destInput = tr3.querySelector('.iDest');
         const items = CATALOG_DATA[svc];
         const rentalItems = svc === 'motor_rental' ? RENTAL_MOTORS : (svc === 'car_rental' ? RENTAL_CARS : []);
-        
+
         if (isRentalService(svc)) {
             rentalWrap.classList.add('open');
             assetSelect.innerHTML = buildRentalAssetOpts(rentalItems, assetSelect.value);
@@ -3347,7 +3368,7 @@ include '../../includes/header.php';
             tr3.querySelector('.iDeposit').value = 0;
             tr3.querySelector('.iDest').value = '';
         }
-        
+
         if (items && items.length > 0) {
             if (isNew) {
                 if (parseFloat(priceInput.value) === 0) priceInput.value = items[0].price;
@@ -3359,7 +3380,7 @@ include '../../includes/header.php';
         } else if (!isNew) {
             priceInput.value = 0;
         }
-        
+
         if (isRentalService(svc)) {
             eOnRentalAssetChange(id2, !!isNew);
         }
@@ -3458,10 +3479,18 @@ include '../../includes/header.php';
             const svc = tr.querySelector('.iSvc').value;
             const motorId = svc === 'motor_rental' ? parseInt(tr.querySelector('.iAsset').value || '0', 10) : 0;
             const carId = svc === 'car_rental' ? parseInt(tr.querySelector('.iAsset').value || '0', 10) : 0;
-            const startDt = tr.querySelector('.iStart').value || '';
-            const endDt = tr.querySelector('.iEnd').value || '';
-            if ((svc === 'motor_rental' || svc === 'car_rental') && (!startDt || !endDt || (!motorId && !carId))) {
-                alert('Item rental motor/mobil wajib pilih armada dan periode sewa');
+            const daysInput = tr.querySelector('.iDays');
+            const days = daysInput ? parseFloat(daysInput.value) || 1 : 1;
+            
+            // Generate start and end dates from days
+            const today = new Date();
+            const startDt = today.toISOString().slice(0, 19).replace('T', ' ');
+            const endDate = new Date(today);
+            endDate.setDate(endDate.getDate() + days);
+            const endDt = endDate.toISOString().slice(0, 19).replace('T', ' ');
+            
+            if ((svc === 'motor_rental' || svc === 'car_rental') && (!motorId && !carId)) {
+                alert('Item rental motor/mobil wajib pilih armada');
                 return;
             }
             items.push({
@@ -3471,8 +3500,8 @@ include '../../includes/header.php';
                 unit_price: parseFloat(tr.querySelector('.iPrice').value) || 0,
                 motor_id: motorId || null,
                 car_id: carId || null,
-                start_dt: startDt || null,
-                end_dt: endDt || null,
+                start_dt: (svc === 'motor_rental' || svc === 'car_rental') ? startDt : null,
+                end_dt: (svc === 'motor_rental' || svc === 'car_rental') ? endDt : null,
                 deposit: parseFloat(tr.querySelector('.iDeposit').value) || 0,
                 trip_destination: tr.querySelector('.iDest').value.trim() || null
             });
