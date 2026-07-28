@@ -2759,7 +2759,7 @@ include '../../includes/header.php';
                 <?php else: ?>
                     <?php
                     $displayBookings = array_slice($recentBookings, 0, 5); // Limit 5 items
-                    $statsTagBlue = '#2563eb';
+                    $statsTagBlue = '#1e3a8a';
                     foreach ($displayBookings as $rb):
                         $bName = $rb['guest_name'] ?? 'Guest';
                         $bStats = str_replace('_', ' ', $rb['status']);
@@ -2792,7 +2792,7 @@ include '../../includes/header.php';
                                 <span class="stat-name"><?php echo htmlspecialchars(substr($rc['guest_name'] ?? '', 0, 18)); ?></span>
                                 <span class="stat-meta">Room <?php echo $rc['room_number']; ?> • <?php echo date('d M', strtotime($rc['check_in_date'])); ?></span>
                             </div>
-                            <span class="stat-tag" style="background:#2563eb">Active</span>
+                            <span class="stat-tag" style="background:#1e3a8a">Active</span>
                         </li>
                     <?php endforeach; ?>
                 <?php endif; ?>
@@ -2814,7 +2814,7 @@ include '../../includes/header.php';
                                 <span class="stat-name"><?php echo htmlspecialchars(substr($rco['guest_name'] ?? '', 0, 18)); ?></span>
                                 <span class="stat-meta">Room <?php echo $rco['room_number']; ?> • <?php echo date('d M', strtotime($rco['check_out_date'])); ?></span>
                             </div>
-                            <span class="stat-tag" style="background:#2563eb">Done</span>
+                            <span class="stat-tag" style="background:#1e3a8a">Done</span>
                         </li>
                     <?php endforeach; ?>
                 <?php endif; ?>
