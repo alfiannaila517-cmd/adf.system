@@ -1,4 +1,5 @@
 <?php
+
 /**
  * FRONT DESK - HK ROOM ALLOCATION
  * Prioritas otomatis: B2B -> OD -> VD -> VC
@@ -73,7 +74,7 @@ function parseStaffNames($raw)
 
 function buildHkTasks($db, $workDate)
 {
-        $prevDate = date('Y-m-d', strtotime($workDate . ' -1 day'));
+    $prevDate = date('Y-m-d', strtotime($workDate . ' -1 day'));
 
     $rows = $db->fetchAll("SELECT
             r.id,
@@ -153,7 +154,9 @@ function buildHkTasks($db, $workDate)
         $checkedInDate = (string)($r['checked_in_date'] ?? '');
         $isCheckedInNow = !empty($r['inhouse_guest']) || $status === 'occupied';
         $isCheckInTodayNow = $isCheckedInNow && $checkedInDate === $workDate;
-        $isOngoingInHouse = $isCheckedInNow && !$isCheckInTodayNow;
+        // Jika kamar checkout hari ini, prioritas status HK bukan OD lagi.
+        // Setelah lewat 00:00 kamar tersebut harus terbaca sebagai pekerjaan departure (VD/B2B).
+        $isOngoingInHouse = $isCheckedInNow && !$isCheckInTodayNow && !$departuresToday;
 
         if ($status === 'maintenance' || $status === 'blocked') {
             continue;
@@ -171,11 +174,15 @@ function buildHkTasks($db, $workDate)
             $taskCode = 'VC';
             $priority = 4;
             $label = 'Vacant Clean (CI hari ini, kemarin kosong)';
+        } elseif ($departuresToday && !$arrivalsToday) {
+            $taskCode = 'VD';
+            $priority = 3;
+            $label = 'Vacant Dirty (CO hari ini)';
         } elseif ($isOngoingInHouse) {
             $taskCode = 'OD';
             $priority = 2;
             $label = 'Occupied / In-House';
-        } elseif ($status === 'cleaning' || ($departuresToday && !$arrivalsToday)) {
+        } elseif ($status === 'cleaning') {
             $taskCode = 'VD';
             $priority = 3;
             $label = 'Vacant Dirty';
@@ -1068,10 +1075,22 @@ include '../../includes/header.php';
             <div class="hk-card hk-card-compact">
                 <h3>Ringkasan Prioritas</h3>
                 <div class="hk-badges">
-                    <div class="hk-badge b-b2b"><div class="n"><?php echo (int)$categoryCount['B2B']; ?></div><div class="l">B2B</div></div>
-                    <div class="hk-badge b-od"><div class="n"><?php echo (int)$categoryCount['OD']; ?></div><div class="l">OD</div></div>
-                    <div class="hk-badge b-vd"><div class="n"><?php echo (int)$categoryCount['VD']; ?></div><div class="l">VD</div></div>
-                    <div class="hk-badge b-vc"><div class="n"><?php echo (int)$categoryCount['VC']; ?></div><div class="l">VC</div></div>
+                    <div class="hk-badge b-b2b">
+                        <div class="n"><?php echo (int)$categoryCount['B2B']; ?></div>
+                        <div class="l">B2B</div>
+                    </div>
+                    <div class="hk-badge b-od">
+                        <div class="n"><?php echo (int)$categoryCount['OD']; ?></div>
+                        <div class="l">OD</div>
+                    </div>
+                    <div class="hk-badge b-vd">
+                        <div class="n"><?php echo (int)$categoryCount['VD']; ?></div>
+                        <div class="l">VD</div>
+                    </div>
+                    <div class="hk-badge b-vc">
+                        <div class="n"><?php echo (int)$categoryCount['VC']; ?></div>
+                        <div class="l">VC</div>
+                    </div>
                 </div>
 
                 <?php if (!empty($staffNames)): ?>
