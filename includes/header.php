@@ -71,6 +71,7 @@ if (!function_exists('adfGetUserAvatarUrl')) {
 
 // Handle topbar avatar upload before any HTML output.
 if (isset($_POST['__upload_topbar_avatar']) && $_POST['__upload_topbar_avatar'] === '1' && isset($_SESSION['user_id'])) {
+    error_log('AVATAR_UPLOAD_START: User=' . $_SESSION['user_id'] . ' POST keys=' . json_encode(array_keys($_POST)) . ' FILES keys=' . json_encode(array_keys($_FILES)));
     $redirectBack = $_SERVER['REQUEST_URI'] ?? (BASE_URL . '/index.php');
 
     try {
@@ -1002,9 +1003,9 @@ if (isset($_SESSION['user_id'])) {
                         <div class="user-avatar-wrap" title="Klik untuk ganti foto profil">
                             <form id="topbarAvatarUploadForm" method="post" enctype="multipart/form-data" style="display:none;">
                                 <input type="hidden" name="__upload_topbar_avatar" value="1">
-                                <input id="topbarAvatarInput" type="file" name="avatar_file" accept="image/png,image/jpeg,image/webp,image/gif" onchange="document.getElementById('topbarAvatarUploadForm').submit();">
+                                <input id="topbarAvatarInput" type="file" name="avatar_file" accept="image/png,image/jpeg,image/webp,image/gif" onchange="console.log('Avatar file selected, submitting form...'); document.getElementById('topbarAvatarUploadForm').submit();">
                             </form>
-                            <button type="button" class="user-avatar user-avatar-button" onclick="document.getElementById('topbarAvatarInput').click();" aria-label="Upload foto profil">
+                            <button type="button" class="user-avatar user-avatar-button" onclick="console.log('Avatar button clicked'); document.getElementById('topbarAvatarInput').click();" aria-label="Upload foto profil">
                                 <?php if ($avatarUrl): ?>
                                     <img src="<?php echo htmlspecialchars($avatarUrl); ?>" alt="Foto Profil" class="user-avatar-image">
                                 <?php else: ?>
