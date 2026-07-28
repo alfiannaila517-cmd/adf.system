@@ -408,9 +408,9 @@ include '../../includes/header.php';
     }
 
     .nav-btn {
-        background: rgba(30, 58, 138, 0.16);
-        color: #1e3a8a;
-        border: 1px solid rgba(30, 58, 138, 0.35);
+        background: linear-gradient(135deg, #1e3a8a, #1d4ed8);
+        color: #ffffff !important;
+        border: 1px solid #1e40af;
         padding: 0.4rem 0.6rem;
         border-radius: 6px;
         cursor: pointer;
@@ -434,9 +434,9 @@ include '../../includes/header.php';
     }
 
     .nav-btn:hover {
-        background: rgba(30, 58, 138, 0.3);
-        border-color: rgba(30, 58, 138, 0.6);
-        color: white;
+        background: linear-gradient(135deg, #1e40af, #2563eb);
+        border-color: #1e40af;
+        color: #ffffff !important;
     }
 
     .today-btn {
@@ -2369,8 +2369,29 @@ include '../../includes/header.php';
         padding: 3px 8px;
         border-radius: 4px;
         font-weight: 600;
-        color: white;
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
+        text-shadow: none !important;
+        opacity: 1 !important;
         white-space: nowrap;
+    }
+
+    /* Hard lock white text on all calendar button-like elements */
+    .calendar-container .btn-nav,
+    .calendar-container .btn-nav *,
+    .calendar-container .nav-btn,
+    .calendar-container .nav-btn *,
+    .calendar-container .today-btn,
+    .calendar-container .today-btn *,
+    .calendar-container #newReservationBtn,
+    .calendar-container #newReservationBtn *,
+    .calendar-container .stat-tag,
+    .calendar-container .stat-tag *,
+    .calendar-container .status-badge,
+    .calendar-container .status-badge * {
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
+        opacity: 1 !important;
     }
 
     @media (max-width: 1024px) {
@@ -2770,7 +2791,7 @@ include '../../includes/header.php';
                                 <span class="stat-name"><?php echo htmlspecialchars(substr($bName, 0, 18)); ?></span>
                                 <span class="stat-meta"><?php echo htmlspecialchars($rb['booking_code']); ?></span>
                             </div>
-                            <span class="stat-tag" style="background:<?php echo $bColor; ?>"><?php echo ucfirst($bStats); ?></span>
+                            <span class="stat-tag" style="background:<?php echo $bColor; ?>; color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important;"><?php echo ucfirst($bStats); ?></span>
                         </li>
                     <?php endforeach; ?>
                 <?php endif; ?>
@@ -2792,7 +2813,7 @@ include '../../includes/header.php';
                                 <span class="stat-name"><?php echo htmlspecialchars(substr($rc['guest_name'] ?? '', 0, 18)); ?></span>
                                 <span class="stat-meta">Room <?php echo $rc['room_number']; ?> • <?php echo date('d M', strtotime($rc['check_in_date'])); ?></span>
                             </div>
-                            <span class="stat-tag" style="background:#1e3a8a">Active</span>
+                            <span class="stat-tag" style="background:#1e3a8a; color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important;">Active</span>
                         </li>
                     <?php endforeach; ?>
                 <?php endif; ?>
@@ -2814,7 +2835,7 @@ include '../../includes/header.php';
                                 <span class="stat-name"><?php echo htmlspecialchars(substr($rco['guest_name'] ?? '', 0, 18)); ?></span>
                                 <span class="stat-meta">Room <?php echo $rco['room_number']; ?> • <?php echo date('d M', strtotime($rco['check_out_date'])); ?></span>
                             </div>
-                            <span class="stat-tag" style="background:#1e3a8a">Done</span>
+                            <span class="stat-tag" style="background:#1e3a8a; color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important;">Done</span>
                         </li>
                     <?php endforeach; ?>
                 <?php endif; ?>
