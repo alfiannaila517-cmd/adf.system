@@ -1,10 +1,10 @@
 :root {
   /* Modern Color Palette 2028 - Dark Theme (Default) */
-  --primary-color: #6366f1;
-  --primary-dark: #4f46e5;
-  --primary-light: #818cf8;
+  --primary-color: #2563eb;
+  --primary-dark: #1d4ed8;
+  --primary-light: #60a5fa;
   --secondary-color: #1e40af;
-  --accent-color: #ec4899;
+  --accent-color: #2563eb;
 
   /* Neutral Colors - Dark (Elegant soft white-gray) */
   --bg-primary: #0f172a;

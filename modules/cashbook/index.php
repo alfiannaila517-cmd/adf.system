@@ -1029,19 +1029,19 @@ echo getPrintCSS();
         }
 
         .cashbook-btn-reset {
-            background: linear-gradient(135deg, #334155, #1e3a8a) !important;
+            background: linear-gradient(135deg, #1e40af, #1d4ed8) !important;
         }
 
         .cashbook-btn-pdf {
-            background: linear-gradient(135deg, #1d4ed8, #2563eb) !important;
+            background: linear-gradient(135deg, #1e40af, #1d4ed8) !important;
         }
 
         .cashbook-btn-excel {
-            background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+            background: linear-gradient(135deg, #1e40af, #1d4ed8) !important;
         }
 
         .cashbook-btn-wa {
-            background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
+            background: linear-gradient(135deg, #1e40af, #1d4ed8) !important;
         }
 
         /* Table Styling */
