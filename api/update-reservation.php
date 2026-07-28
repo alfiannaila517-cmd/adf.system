@@ -49,6 +49,23 @@ try {
     error_log("Database instance obtained");
     $conn = $db->getConnection();
 
+    $hasRoomBlockConflict = function ($roomId, $checkInDate, $checkOutDate) use ($conn) {
+        try {
+            $st = $conn->prepare(" 
+                SELECT COUNT(*) FROM room_blocks
+                WHERE room_id = ?
+                  AND status = 'active'
+                  AND block_start_date < ?
+                  AND block_end_date > ?
+            ");
+            $st->execute([$roomId, $checkOutDate, $checkInDate]);
+            return ((int)$st->fetchColumn()) > 0;
+        } catch (Exception $e) {
+            // room_blocks table might not exist in older environments.
+            return false;
+        }
+    };
+
     $bookingId = intval($_POST['booking_id'] ?? 0);
     if (!$bookingId) {
         throw new Exception('Booking ID is required');
@@ -167,6 +184,9 @@ try {
             $stmt->execute([$roomId, $bookingId, $checkOut, $checkIn]);
             if ($stmt->fetchColumn() > 0) {
                 throw new Exception('Room is not available for selected dates');
+            }
+            if ($hasRoomBlockConflict($roomId, $checkIn, $checkOut)) {
+                throw new Exception('Room diblok pada rentang tanggal yang dipilih');
             }
         }
 
@@ -381,6 +401,10 @@ try {
                         $groupUpdated[] = ['booking_id' => $rdBookingId, 'status' => 'skipped', 'reason' => 'room not available'];
                         continue;
                     }
+                    if ($hasRoomBlockConflict($rdRoomId, $checkIn, $checkOut)) {
+                        $groupUpdated[] = ['booking_id' => $rdBookingId, 'status' => 'skipped', 'reason' => 'room blocked'];
+                        continue;
+                    }
                 }
 
                 // Update this booking (room fields + shared fields)
@@ -448,6 +472,10 @@ try {
                 $avStmt->execute([$nrRoomId, $checkOut, $checkIn]);
                 if ($avStmt->fetchColumn() > 0) {
                     $newRoomsAdded[] = ['room_id' => $nrRoomId, 'status' => 'skipped', 'reason' => 'room not available'];
+                    continue;
+                }
+                if ($hasRoomBlockConflict($nrRoomId, $checkIn, $checkOut)) {
+                    $newRoomsAdded[] = ['room_id' => $nrRoomId, 'status' => 'skipped', 'reason' => 'room blocked'];
                     continue;
                 }
 

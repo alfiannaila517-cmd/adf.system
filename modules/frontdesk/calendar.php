@@ -26,6 +26,27 @@ if (!$auth->hasPermission('frontdesk')) {
     exit;
 }
 
+function ensureRoomBlocksTable($db)
+{
+    $db->query("CREATE TABLE IF NOT EXISTS room_blocks (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        block_code VARCHAR(40) NULL,
+        room_id INT NOT NULL,
+        block_start_date DATE NOT NULL,
+        block_end_date DATE NOT NULL,
+        block_reason VARCHAR(50) NOT NULL DEFAULT 'maintenance',
+        notes TEXT NULL,
+        status ENUM('active','cancelled') NOT NULL DEFAULT 'active',
+        created_by INT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_room_dates (room_id, block_start_date, block_end_date),
+        INDEX idx_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+
+ensureRoomBlocksTable($db);
+
 $pageTitle = 'Calendar Booking';
 $isStaffView = isset($_GET['staff_view']) && $_GET['staff_view'] === '1';
 
@@ -136,6 +157,26 @@ try {
 }
 
 // ============================================
+// GET ROOM BLOCKS FOR DATE RANGE
+// ============================================
+$roomBlocks = [];
+try {
+    $roomBlocks = $db->fetchAll(" 
+        SELECT rb.id, rb.block_code, rb.room_id, rb.block_start_date, rb.block_end_date,
+               rb.block_reason, rb.notes, rb.status,
+               r.room_number
+        FROM room_blocks rb
+        JOIN rooms r ON r.id = rb.room_id
+        WHERE rb.status = 'active'
+          AND rb.block_start_date < ?
+          AND rb.block_end_date > ?
+        ORDER BY rb.block_start_date ASC, rb.room_id ASC
+    ", [$actualEndDate, $actualStartDate]) ?: [];
+} catch (Exception $e) {
+    $roomBlocks = [];
+}
+
+// ============================================
 // BUILD BOOKING MATRIX
 // ============================================
 $bookingMatrix = [];
@@ -145,6 +186,15 @@ foreach ($bookings as $booking) {
         $bookingMatrix[$roomId] = [];
     }
     $bookingMatrix[$roomId][$booking['booking_code']] = $booking;
+}
+
+$roomBlockMatrix = [];
+foreach ($roomBlocks as $block) {
+    $roomId = (int)$block['room_id'];
+    if (!isset($roomBlockMatrix[$roomId])) {
+        $roomBlockMatrix[$roomId] = [];
+    }
+    $roomBlockMatrix[$roomId][] = $block;
 }
 
 // ============================================
@@ -160,7 +210,9 @@ foreach ($rooms as $room) {
 }
 foreach ($dates as $date) {
     $bookedCount = 0;
+    $blockedCount = 0;
     $bookedPerType = [];
+    $blockedPerType = [];
     $dt = strtotime($date);
     foreach ($bookingMatrix as $roomId => $roomBookings) {
         foreach ($roomBookings as $bk) {
@@ -181,9 +233,28 @@ foreach ($dates as $date) {
             }
         }
     }
-    $availPerDate[$date] = $totalRoomCount - $bookedCount;
+
+    foreach ($roomBlockMatrix as $roomId => $blocks) {
+        foreach ($blocks as $bl) {
+            $bs = strtotime((string)$bl['block_start_date']);
+            $be = strtotime((string)$bl['block_end_date']);
+            if ($dt >= $bs && $dt < $be) {
+                $blockedCount++;
+                foreach ($rooms as $rm) {
+                    if ((int)$rm['id'] === (int)$roomId) {
+                        $tn = $rm['type_name'];
+                        $blockedPerType[$tn] = ($blockedPerType[$tn] ?? 0) + 1;
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+    }
+
+    $availPerDate[$date] = $totalRoomCount - $bookedCount - $blockedCount;
     foreach ($roomCountPerType as $tn => $cnt) {
-        $availPerTypeDate[$tn][$date] = $cnt - ($bookedPerType[$tn] ?? 0);
+        $availPerTypeDate[$tn][$date] = $cnt - ($bookedPerType[$tn] ?? 0) - ($blockedPerType[$tn] ?? 0);
     }
 }
 
@@ -1235,6 +1306,12 @@ include '../../includes/header.php';
         border-left-color: #0ea5e9;
     }
 
+    .booking-blocked {
+        background: linear-gradient(135deg, #ef4444, #f97316) !important;
+        border-right-color: #ef4444;
+        border-left-color: #f97316;
+    }
+
     .booking-bar-guest,
     .booking-bar-code,
     .booking-bar-status {
@@ -1286,6 +1363,11 @@ include '../../includes/header.php';
     .bar-edit-btn {
         background: rgba(99, 102, 241, 0.5);
         border-color: rgba(255, 255, 255, 0.8);
+    }
+
+    .bar-delete-btn {
+        background: rgba(239, 68, 68, 0.75);
+        border-color: rgba(255, 255, 255, 0.9);
     }
 
     /* Drag & Drop Styles */
@@ -2503,6 +2585,52 @@ include '../../includes/header.php';
                                 title="<?php echo htmlspecialchars($room['room_number']); ?> - <?php echo date('d M Y', strtotime($date)); ?><?php echo $hasTurnover ? ' (Turnover: CO + CI)' : ''; ?>"
                                 onclick="openCellReservation(this)">
                                 <?php
+                                // Render room block bars (maintenance/out of order/etc)
+                                if (isset($roomBlockMatrix[$room['id']])) {
+                                    foreach ($roomBlockMatrix[$room['id']] as $block) {
+                                        $blockStart = strtotime((string)$block['block_start_date']);
+                                        $blockEnd = strtotime((string)$block['block_end_date']);
+                                        $currentDate = strtotime($date);
+
+                                        if ($currentDate === $blockStart) {
+                                            $blockNights = max(1, (int)ceil(($blockEnd - $blockStart) / 86400));
+                                            $barWidth = ($blockNights * 110) - 6;
+                                            $reasonRaw = (string)($block['block_reason'] ?? 'maintenance');
+                                            $reasonMap = [
+                                                'maintenance' => 'Maintenance',
+                                                'deep_cleaning' => 'Deep Cleaning',
+                                                'owner_use' => 'Owner Use',
+                                                'out_of_order' => 'Out of Order',
+                                                'event_setup' => 'Event Setup',
+                                                'other' => 'Block Room'
+                                            ];
+                                            $reasonText = $reasonMap[$reasonRaw] ?? ucfirst(str_replace('_', ' ', $reasonRaw));
+                                            $notesText = trim((string)($block['notes'] ?? ''));
+                                            $notesSuffix = $notesText !== '' ? ' • ' . $notesText : '';
+                                            $blockLabel = '⛔ ' . $reasonText;
+                                ?>
+                                            <div class="booking-bar-container" style="left: 50%; width: <?php echo $barWidth; ?>px; z-index: 5;"
+                                                data-block-id="<?php echo (int)$block['id']; ?>"
+                                                data-room-id="<?php echo (int)$block['room_id']; ?>"
+                                                data-block-start="<?php echo htmlspecialchars($block['block_start_date']); ?>"
+                                                data-block-end="<?php echo htmlspecialchars($block['block_end_date']); ?>"
+                                                data-block-reason="<?php echo htmlspecialchars($reasonRaw); ?>"
+                                                data-block-notes="<?php echo htmlspecialchars($notesText); ?>">
+                                                <div class="booking-bar booking-blocked"
+                                                    style="background: linear-gradient(135deg, #ef4444, #f97316) !important; border-right-color: #ef4444; border-left-color: #f97316;"
+                                                    onclick="event.stopPropagation();"
+                                                    title="<?php echo htmlspecialchars($blockLabel . $notesSuffix); ?>">
+                                                    <span><?php echo htmlspecialchars($blockLabel); ?></span>
+                                                    <?php if (!$isStaffView): ?>
+                                                        <button class="bar-action-btn bar-delete-btn" onclick="event.stopPropagation(); removeRoomBlock(<?php echo (int)$block['id']; ?>, '<?php echo htmlspecialchars($room['room_number'], ENT_QUOTES); ?>')" title="Batalkan Block">✕</button>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </div>
+                                <?php
+                                        }
+                                    }
+                                }
+
                                 // Find bookings for this room and date - CLOUDBED STYLE (bar from noon to noon)
                                 if (isset($bookingMatrix[$room['id']])) {
                                     foreach ($bookingMatrix[$room['id']] as $booking) {
@@ -2606,6 +2734,10 @@ include '../../includes/header.php';
         <div class="legend-item">
             <div class="legend-color" style="background: linear-gradient(135deg, #3b82f6, #60a5fa);"></div>
             <span class="legend-label">📋 Booking (Confirmed/Pending)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: linear-gradient(135deg, #ef4444, #f97316);"></div>
+            <span class="legend-label">⛔ Block Room (Maintenance/dll)</span>
         </div>
         <div class="legend-item">
             <div class="legend-color" style="background: linear-gradient(135deg, #10b981, #34d399);"></div>
@@ -2712,6 +2844,63 @@ include '../../includes/header.php';
     // Global variables for reservation form (used across multiple functions)
     var currentSource = '';
     var currentFees = OTA_FEES;
+    var reservationMode = 'reservation';
+
+    window.setReservationMode = function setReservationMode(mode) {
+        reservationMode = mode === 'block_room' ? 'block_room' : 'reservation';
+
+        const guestInfoSection = document.getElementById('guestInfoSection');
+        const guestCountSection = document.getElementById('guestCountSection');
+        const sourcePaymentSection = document.getElementById('sourcePaymentSection');
+        const priceSummarySection = document.getElementById('priceSummarySection');
+        const paymentSection = document.getElementById('paymentSection');
+        const blockInfoSection = document.getElementById('blockInfoSection');
+        const submitBtn = document.getElementById('reservationSubmitBtn');
+        const title = document.querySelector('#reservationModal .modal-header-compact h2');
+        const guestNameInput = document.getElementById('guestName');
+        const bookingSourceInput = document.getElementById('bookingSource');
+
+        const isBlock = reservationMode === 'block_room';
+
+        if (guestInfoSection) guestInfoSection.style.display = isBlock ? 'none' : 'grid';
+        if (guestCountSection) guestCountSection.style.display = isBlock ? 'none' : 'flex';
+        if (sourcePaymentSection) sourcePaymentSection.style.display = isBlock ? 'none' : 'grid';
+        if (priceSummarySection) priceSummarySection.style.display = isBlock ? 'none' : 'block';
+        if (paymentSection) paymentSection.style.display = isBlock ? 'none' : 'flex';
+        if (blockInfoSection) blockInfoSection.style.display = isBlock ? 'block' : 'none';
+
+        if (guestNameInput) guestNameInput.required = !isBlock;
+        if (bookingSourceInput) bookingSourceInput.required = !isBlock;
+
+        if (title) title.textContent = isBlock ? 'Block Room' : 'New Reservation';
+        if (submitBtn) submitBtn.textContent = isBlock ? 'Save Block Room' : 'Save Reservation';
+
+        calculateMultiRoomTotalCalendar();
+    }
+
+    window.removeRoomBlock = async function removeRoomBlock(blockId, roomNumber) {
+        const ok = confirm(`Batalkan block room ${roomNumber || ''}?`);
+        if (!ok) return;
+
+        try {
+            const fd = new FormData();
+            fd.append('block_id', blockId);
+            const res = await fetch('<?php echo BASE_URL; ?>/api/delete-room-block.php', {
+                method: 'POST',
+                body: fd,
+                credentials: 'same-origin'
+            });
+            const data = await res.json();
+            if (data && data.success) {
+                alert(data.message || 'Block room dibatalkan');
+                location.reload();
+            } else {
+                alert(data && data.message ? data.message : 'Gagal membatalkan block');
+            }
+        } catch (e) {
+            alert('Gagal menghubungi server');
+        }
+    }
 
     window.viewBooking = function viewBooking(id, event) {
         event.preventDefault();
@@ -3671,6 +3860,10 @@ include '../../includes/header.php';
         if (checkInInput) checkInInput.value = today.toISOString().split('T')[0];
         if (checkOutInput) checkOutInput.value = tomorrow.toISOString().split('T')[0];
 
+        const modeEl = document.getElementById('reservationMode');
+        if (modeEl) modeEl.value = 'reservation';
+        setReservationMode('reservation');
+
         // Load available rooms for default dates
         loadAvailableRoomsCalendar();
 
@@ -3750,6 +3943,10 @@ include '../../includes/header.php';
             const checkOutInput = document.getElementById('checkOutDate');
             if (checkInInput) checkInInput.value = checkInDate;
             if (checkOutInput) checkOutInput.value = checkOutDate;
+
+            const modeEl = document.getElementById('reservationMode');
+            if (modeEl) modeEl.value = 'reservation';
+            setReservationMode('reservation');
 
             loadAvailableRoomsCalendar();
             if (typeof updateSourceDetails === 'function') updateSourceDetails();
@@ -4115,7 +4312,8 @@ include '../../includes/header.php';
         document.getElementById('roomsChecklistCalendar').innerHTML = '<div style="text-align:center; padding: 20px;"><em>Loading available rooms...</em></div>';
 
         try {
-            const response = await fetch(`../../api/get-available-rooms.php?check_in=${checkIn}&check_out=${checkOut}`);
+            const mode = document.getElementById('reservationMode')?.value || 'reservation';
+            const response = await fetch(`../../api/get-available-rooms.php?check_in=${checkIn}&check_out=${checkOut}&mode=${encodeURIComponent(mode)}`);
 
             // Check if response is OK
             if (!response.ok) {
@@ -4144,7 +4342,8 @@ include '../../includes/header.php';
                 `;
                 });
                 document.getElementById('roomsChecklistCalendar').innerHTML = html;
-                document.getElementById('availabilityInfoCalendar').innerHTML = `<small style="color: #10b981;">✅ ${result.available_rooms} room(s) available (${result.booked_rooms} booked)</small>`;
+                const blockedRooms = parseInt(result.blocked_rooms || 0, 10);
+                document.getElementById('availabilityInfoCalendar').innerHTML = `<small style="color: #10b981;">✅ ${result.available_rooms} room(s) available (${result.booked_rooms} booked${blockedRooms > 0 ? `, ${blockedRooms} blocked` : ''})</small>`;
 
                 // Auto-select room if clicked from calendar cell
                 if (pendingRoomSelection) {
@@ -4157,8 +4356,9 @@ include '../../includes/header.php';
                     calculateMultiRoomTotalCalendar(); // Update totals
                 }
             } else if (result.success && result.rooms.length === 0) {
-                document.getElementById('roomsChecklistCalendar').innerHTML = '<em style="color: #ef4444;">❌ Tidak ada room yang tersedia untuk tanggal ini (semua sudah di-booking)</em>';
-                document.getElementById('availabilityInfoCalendar').innerHTML = `<small style="color: #ef4444;">0 rooms available (all ${result.booked_rooms} rooms booked)</small>`;
+                document.getElementById('roomsChecklistCalendar').innerHTML = '<em style="color: #ef4444;">❌ Tidak ada room yang tersedia untuk tanggal ini (sudah ter-booking atau sedang diblok)</em>';
+                const blockedRooms = parseInt(result.blocked_rooms || 0, 10);
+                document.getElementById('availabilityInfoCalendar').innerHTML = `<small style="color: #ef4444;">0 rooms available (${result.booked_rooms} booked${blockedRooms > 0 ? `, ${blockedRooms} blocked` : ''})</small>`;
             } else {
                 document.getElementById('roomsChecklistCalendar').innerHTML = '<em style="color: #ef4444;">Error loading rooms: ' + (result.message || 'Unknown error') + '</em>';
             }
@@ -4222,9 +4422,27 @@ include '../../includes/header.php';
             return;
         }
 
+        const mode = document.getElementById('reservationMode')?.value || 'reservation';
+
         // Get all checked rooms
         const checkedRooms = document.querySelectorAll('input[name="rooms[]"]:checked');
         const totalRooms = checkedRooms.length;
+
+        if (mode === 'block_room') {
+            document.getElementById('totalRoomsDisplayCalendar').textContent = totalRooms + ' room' + (totalRooms !== 1 ? 's' : '');
+            document.getElementById('displayNights').textContent = nights + ' night' + (nights !== 1 ? 's' : '');
+            document.getElementById('subtotalDisplayCalendar').textContent = '-';
+            document.getElementById('grandTotalDisplayCalendar').textContent = '-';
+            const otaFeeRow = document.getElementById('otaFeeRow');
+            if (otaFeeRow) otaFeeRow.style.display = 'none';
+            if (totalRooms > 0) {
+                document.getElementById('selectedRoomsSummaryCalendar').innerHTML =
+                    '<strong>Selected for Block:</strong> ' + totalRooms + ' room(s) × ' + nights + ' night(s)';
+            } else {
+                document.getElementById('selectedRoomsSummaryCalendar').innerHTML = '<em style="color: #ef4444;">Belum ada room yang dipilih</em>';
+            }
+            return;
+        }
 
         let subtotal = 0;
         let roomDetails = [];
@@ -4306,6 +4524,8 @@ include '../../includes/header.php';
     window.submitReservation = async function(event) {
         event.preventDefault();
 
+        const mode = document.getElementById('reservationMode')?.value || 'reservation';
+
         // Validate room selection
         const checkedRooms = document.querySelectorAll('input[name="rooms[]"]:checked');
         if (checkedRooms.length === 0) {
@@ -4322,6 +4542,69 @@ include '../../includes/header.php';
         const form = event.target;
         const submitBtn = form.querySelector('button[type="submit"]');
         const originalText = submitBtn.innerText;
+
+        if (mode === 'block_room') {
+            const checkIn = document.getElementById('checkInDate').value;
+            const checkOut = document.getElementById('checkOutDate').value;
+            const blockReason = document.getElementById('blockReason')?.value || 'maintenance';
+            const blockNotes = document.getElementById('blockNotes')?.value || '';
+
+            if (!checkIn || !checkOut) {
+                alert('Tanggal block wajib diisi');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Saving blocks...';
+
+            let successCount = 0;
+            const failed = [];
+
+            for (const checkbox of checkedRooms) {
+                const roomId = checkbox.value;
+                const roomNumber = checkbox.dataset.room;
+                const fd = new FormData();
+                fd.append('room_id', roomId);
+                fd.append('block_start_date', checkIn);
+                fd.append('block_end_date', checkOut);
+                fd.append('block_reason', blockReason);
+                fd.append('block_notes', blockNotes);
+
+                try {
+                    const response = await fetch('<?php echo BASE_URL; ?>/api/create-room-block.php', {
+                        method: 'POST',
+                        body: fd
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        successCount++;
+                    } else {
+                        failed.push(`Room ${roomNumber}: ${result.message || 'Gagal block'}`);
+                    }
+                } catch (err) {
+                    failed.push(`Room ${roomNumber}: Network error`);
+                }
+            }
+
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
+
+            if (successCount > 0) {
+                const failText = failed.length ? `\n\n${failed.join('\n')}` : '';
+                alert(`✅ ${successCount} room berhasil diblok.${failText}`);
+                closeReservationModal();
+                const ciDate = document.getElementById('checkInDate')?.value;
+                if (ciDate) {
+                    sessionStorage.setItem('calendarScrollToDate', ciDate);
+                    location.reload();
+                } else {
+                    saveScrollAndReload();
+                }
+            } else {
+                alert('❌ Gagal membuat block room.\n' + failed.join('\n'));
+            }
+            return;
+        }
 
         // Get form data
         const guestName = document.getElementById('guestName').value;
@@ -5204,8 +5487,23 @@ include '../../includes/header.php';
             <input type="hidden" id="hiddenFinalPrice" name="final_price" value="0">
 
             <div class="form-compact">
-                <!-- GUEST INFO -->
+                <!-- MODE -->
                 <div class="form-row-2col">
+                    <div class="input-compact">
+                        <label>Mode*</label>
+                        <select id="reservationMode" name="reservation_mode" onchange="setReservationMode(this.value)">
+                            <option value="reservation" selected>Reservasi</option>
+                            <option value="block_room">Block Room</option>
+                        </select>
+                    </div>
+                    <div class="input-compact" id="blockHintWrap" style="justify-content:flex-end;">
+                        <label style="opacity:0;">Info</label>
+                        <small style="color:#b45309;background:#fffbeb;border:1px solid #fde68a;padding:8px 10px;border-radius:8px;display:block;">Mode Block Room dipakai untuk maintenance, deep cleaning, owner use, dll.</small>
+                    </div>
+                </div>
+
+                <!-- GUEST INFO -->
+                <div id="guestInfoSection" class="form-row-2col">
                     <div class="input-compact">
                         <label>Guest Name*</label>
                         <input type="text" id="guestName" name="guest_name" required placeholder="Full name">
@@ -5228,6 +5526,27 @@ include '../../includes/header.php';
                     </div>
                 </div>
 
+                <!-- BLOCK ROOM INFO -->
+                <div id="blockInfoSection" style="display:none;">
+                    <div class="form-row-2col">
+                        <div class="input-compact">
+                            <label>Alasan Block*</label>
+                            <select id="blockReason" name="block_reason">
+                                <option value="maintenance">Maintenance</option>
+                                <option value="deep_cleaning">Deep Cleaning</option>
+                                <option value="out_of_order">Out of Order</option>
+                                <option value="owner_use">Owner Use</option>
+                                <option value="event_setup">Event Setup</option>
+                                <option value="other">Lainnya</option>
+                            </select>
+                        </div>
+                        <div class="input-compact">
+                            <label>Keterangan Tambahan</label>
+                            <input type="text" id="blockNotes" name="block_notes" placeholder="Contoh: AC rusak, renovasi, pipa bocor">
+                        </div>
+                    </div>
+                </div>
+
                 <!-- ROOMS SELECTION (MULTI SELECT) -->
                 <div class="input-compact">
                     <label>Select Rooms* (dapat pilih lebih dari 1)</label>
@@ -5239,7 +5558,7 @@ include '../../includes/header.php';
                 </div>
 
                 <!-- GUESTS -->
-                <div class="input-compact">
+                <div class="input-compact" id="guestCountSection">
                     <label>Guests</label>
                     <div class="guest-inputs">
                         <input type="number" id="adultCount" name="adult_count" value="1" min="1" style="flex:1;">
@@ -5248,7 +5567,7 @@ include '../../includes/header.php';
                 </div>
 
                 <!-- SOURCE & PAYMENT METHOD -->
-                <div class="form-row-2col">
+                <div class="form-row-2col" id="sourcePaymentSection">
                     <div class="input-compact">
                         <label>Booking Source <span style="color: red;">*</span></label>
                         <select id="bookingSource" name="booking_source" onchange="updateSourceDetails()" required>
@@ -5290,7 +5609,7 @@ include '../../includes/header.php';
                 </div>
 
                 <!-- PRICE SUMMARY -->
-                <div class="price-summary-compact">
+                <div class="price-summary-compact" id="priceSummarySection">
                     <div class="price-line">
                         <span>Total Rooms:</span>
                         <strong id="totalRoomsDisplayCalendar">0 rooms</strong>
@@ -5330,7 +5649,7 @@ include '../../includes/header.php';
                 </div>
 
                 <!-- PAYMENT -->
-                <div class="input-compact">
+                <div class="input-compact" id="paymentSection">
                     <label>Initial Payment (DP) - Rp</label>
                     <div style="display: flex; gap: 0.5rem; align-items: center;">
                         <input type="number" id="paidAmount" name="paid_amount" value="0" placeholder="0" style="flex: 1;">
@@ -5341,7 +5660,7 @@ include '../../includes/header.php';
 
             <div class="modal-footer-compact">
                 <button type="button" class="btn-cancel" onclick="closeReservationModal()">Cancel</button>
-                <button type="submit" class="btn-save">Save Reservation</button>
+                <button type="submit" class="btn-save" id="reservationSubmitBtn">Save Reservation</button>
             </div>
         </form>
     </div>

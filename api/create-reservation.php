@@ -139,6 +139,30 @@ try {
         throw new Exception("Room is not available for selected dates");
     }
 
+    // Check active room blocks conflict
+    $roomBlocksTableExists = false;
+    try {
+        $tb = $db->fetchOne("SHOW TABLES LIKE 'room_blocks'");
+        $roomBlocksTableExists = !empty($tb);
+    } catch (Exception $e) {
+        $roomBlocksTableExists = false;
+    }
+
+    if ($roomBlocksTableExists) {
+        $blockConflicts = $db->fetchAll(" 
+            SELECT id FROM room_blocks
+            WHERE room_id = ?
+            AND status = 'active'
+            AND block_start_date < ?
+            AND block_end_date > ?
+            LIMIT 1
+        ", [$roomId, $checkOutDate, $checkInDate]);
+
+        if (!empty($blockConflicts)) {
+            throw new Exception("Room diblok pada rentang tanggal yang dipilih");
+        }
+    }
+
     $db->beginTransaction();
 
     // Auto-create group_id column if not exists

@@ -57,13 +57,31 @@ try {
         AND check_out_date > ?
         AND status IN ('pending', 'confirmed', 'checked_in')
     ", [$checkOut, $checkIn]);
+
+    // Get rooms that are BLOCKED during this date range
+    // Overlap rule: block_start < check_out AND block_end > check_in
+    $blockedRooms = [];
+    try {
+        $blockedRooms = $db->fetchAll(" 
+            SELECT DISTINCT room_id
+            FROM room_blocks
+            WHERE status = 'active'
+            AND block_start_date < ?
+            AND block_end_date > ?
+        ", [$checkOut, $checkIn]);
+    } catch (Exception $e) {
+        // Table may not exist yet in old environments; treat as no blocks.
+        $blockedRooms = [];
+    }
     
     // Create array of booked room IDs
     $bookedRoomIds = array_column($bookedRooms, 'room_id');
+    $blockedRoomIds = array_column($blockedRooms, 'room_id');
+    $unavailableRoomIds = array_values(array_unique(array_merge($bookedRoomIds, $blockedRoomIds)));
     
     // Filter: only return rooms that are NOT in booked list
-    $availableRooms = array_filter($allRooms, function($room) use ($bookedRoomIds) {
-        return !in_array($room['id'], $bookedRoomIds);
+    $availableRooms = array_filter($allRooms, function($room) use ($unavailableRoomIds) {
+        return !in_array($room['id'], $unavailableRoomIds);
     });
     
     // Re-index array (remove gaps)
@@ -76,6 +94,7 @@ try {
         'total_rooms' => count($allRooms),
         'available_rooms' => count($availableRooms),
         'booked_rooms' => count($bookedRoomIds),
+        'blocked_rooms' => count($blockedRoomIds),
         'rooms' => $availableRooms
     ]);
     
