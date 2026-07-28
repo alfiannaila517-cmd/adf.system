@@ -1025,23 +1025,23 @@ echo getPrintCSS();
 
         /* Cashbook action button color variants */
         .cashbook-btn-filter {
-            background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
+            background: linear-gradient(135deg, #1e40af, #1d4ed8) !important;
         }
 
         .cashbook-btn-reset {
-            background: linear-gradient(135deg, #64748b, #475569) !important;
+            background: linear-gradient(135deg, #334155, #1e3a8a) !important;
         }
 
         .cashbook-btn-pdf {
-            background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
+            background: linear-gradient(135deg, #1d4ed8, #2563eb) !important;
         }
 
         .cashbook-btn-excel {
-            background: linear-gradient(135deg, #16a34a, #15803d) !important;
+            background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
         }
 
         .cashbook-btn-wa {
-            background: linear-gradient(135deg, #25d366, #16a34a) !important;
+            background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
         }
 
         /* Table Styling */
