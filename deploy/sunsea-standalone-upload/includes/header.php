@@ -323,12 +323,6 @@ if (isset($_SESSION['user_id'])) {
                                     </a>
                                 </li>
                                 <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/frontdesk/hk-allocation.php" class="submenu-link <?php echo activeMenu('hk-allocation.php'); ?>">
-                                        <i data-feather="check-square" class="submenu-icon"></i>
-                                        <span>Pembagian HK</span>
-                                    </a>
-                                </li>
-                                <li class="submenu-item">
                                     <a href="<?php echo BASE_URL; ?>/modules/frontdesk/breakfast.php"
                                         class="submenu-link <?php echo activeMenu('breakfast.php'); ?>"
                                         onclick="console.log('Breakfast link clicked!'); return true;">
@@ -675,27 +669,10 @@ if (isset($_SESSION['user_id'])) {
             $footerVersionSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'footer_version'");
             $sidebarFooterVersion = $footerVersionSetting['setting_value'] ?? ('Version ' . APP_VERSION);
             ?>
-            <div class="sidebar-footer" style="padding: 1rem; border-top: 1px solid var(--bg-tertiary); margin-top: auto;">
-                <div style="display: flex; align-items: center; gap: 0.875rem; margin-bottom: 0.75rem;">
-                    <?php
-                    $devLogoPath = BASE_PATH . '/' . DEVELOPER_LOGO;
-                    if (file_exists($devLogoPath)):
-                    ?>
-                        <div style="width: 52px; height: 52px; border-radius: 8px; background: #0f172a; padding: 4px; display: flex; align-items: center; justify-content: center; border: 2px solid #1e293b;">
-                            <img src="<?php echo BASE_URL . '/' . DEVELOPER_LOGO; ?>?v=<?php echo filemtime($devLogoPath); ?>" alt="Developer Logo" style="width: 100%; height: 100%; object-fit: contain;">
-                        </div>
-                    <?php else: ?>
-                        <div style="width: 52px; height: 52px; border-radius: 8px; background: var(--primary-color); display: flex; align-items: center; justify-content: center; border: 2px solid #1e293b;">
-                            <span style="font-size: 1.5rem; font-weight: 700; color: white;">&lt;/&gt;</span>
-                        </div>
-                    <?php endif; ?>
-                    <div style="flex: 1;">
-                        <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-primary);"><?php echo DEVELOPER_NAME; ?></div>
-                        <div style="font-size: 0.7rem; color: var(--text-muted);">Developer</div>
-                    </div>
-                </div>
-                <div style="font-size: 0.7rem; color: var(--text-muted); text-align: center; padding-top: 0.5rem; border-top: 1px solid var(--bg-tertiary);">
-                    <?php echo htmlspecialchars($sidebarFooterVersion); ?> • <?php echo APP_YEAR; ?>
+            <div class="sidebar-footer" style="padding: 0.5rem 0.9rem; border-top: 1px solid var(--bg-tertiary); margin-top: auto; text-align: center;">
+                <div style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.6;">
+                    <span style="font-weight: 600; color: var(--text-primary); font-size: 0.75rem;"><?php echo DEVELOPER_NAME; ?></span><br>
+                    <?php echo htmlspecialchars($sidebarFooterVersion); ?> &bull; <?php echo APP_YEAR; ?>
                 </div>
             </div>
         </aside>
