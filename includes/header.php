@@ -142,8 +142,14 @@ if (isset($_POST['__upload_topbar_avatar']) && $_POST['__upload_topbar_avatar'] 
 
         $userId = (int)$_SESSION['user_id'];
         $avatarDir = (defined('BASE_PATH') ? BASE_PATH : dirname(__DIR__)) . '/uploads/avatars';
-        if (!is_dir($avatarDir) && !@mkdir($avatarDir, 0775, true)) {
-            throw new Exception('Folder avatar tidak bisa dibuat.');
+        if (!is_dir($avatarDir)) {
+            if (!@mkdir($avatarDir, 0777, true)) {
+                throw new Exception('Server tidak bisa membuat folder avatar. Hubungi admin server.');
+            }
+            @chmod($avatarDir, 0777);
+        }
+        if (!is_writable($avatarDir)) {
+            throw new Exception('Folder avatar tidak bisa ditulis. Hubungi admin server untuk fix permission.');
         }
 
         foreach (glob($avatarDir . '/user_' . $userId . '.*') ?: [] as $oldAvatar) {
