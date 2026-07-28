@@ -8,6 +8,8 @@ deployment:
     - /bin/mkdir -p $DEPLOYPATH
     - /bin/cp -R $(pwd)/* $DEPLOYPATH/
     - /bin/cp -R $(pwd)/.[^.]* $DEPLOYPATH/ 2>/dev/null || true
+    # Run composer install to restore vendor dependencies
+    - cd $DEPLOYPATH && /usr/local/bin/composer install --no-dev --optimize-autoloader --no-interaction 2>/dev/null || php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');" && php composer-setup.php --quiet && /bin/rm composer-setup.php && php composer.phar install --no-dev --optimize-autoloader --no-interaction 2>/dev/null || true
     # ==========================================
     # 2. DEPLOY WEBSITE → narayanakarimunjawa.com
     # ==========================================
