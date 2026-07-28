@@ -160,12 +160,40 @@ if (isset($_POST['__upload_topbar_avatar']) && $_POST['__upload_topbar_avatar'] 
 
         $targetName = 'user_' . $userId . '.' . $finalExt;
         $targetPath = $avatarDir . '/' . $targetName;
+        $fileRelativePath = '/uploads/avatars/' . $targetName;
 
         if (!move_uploaded_file($tmpPath, $targetPath)) {
             throw new Exception('Gagal menyimpan foto profil.');
         }
 
         @chmod($targetPath, 0644);
+
+        // Simpan metadata avatar ke database jika tersedia
+        if (function_exists('getDBConnection')) {
+            try {
+                $db = getDBConnection();
+                $fileSize = filesize($targetPath);
+                $stmt = $db->prepare('
+                    INSERT INTO user_avatars (user_id, file_name, file_type, file_size, file_path)
+                    VALUES (?, ?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE
+                        file_name = VALUES(file_name),
+                        file_type = VALUES(file_type),
+                        file_size = VALUES(file_size),
+                        file_path = VALUES(file_path),
+                        updated_at = CURRENT_TIMESTAMP
+                ');
+                if ($stmt) {
+                    $stmt->bind_param('issss', $userId, $targetName, $finalExt, $fileSize, $fileRelativePath);
+                    $stmt->execute();
+                    $stmt->close();
+                }
+            } catch (Exception $dbEx) {
+                error_log('AVATAR_DB_INSERT: ' . $dbEx->getMessage());
+                // Tidak critical jika database insert gagal, file sudah tersimpan
+            }
+        }
+
         if (function_exists('setFlash')) {
             setFlash('success', 'Foto profil berhasil diperbarui.');
         }
