@@ -682,7 +682,7 @@ if (isset($_SESSION['user_id'])) {
             <!-- Top Bar -->
             <div class="top-bar">
                 <div>
-                    <h1 class="page-title"><?php echo $pageTitle ?? 'Dashboard'; ?></h1>
+                    <h1 class="page-title" style="color:#1e3a8a;-webkit-text-fill-color:#1e3a8a;background:none;"><?php echo $pageTitle ?? 'Dashboard'; ?></h1>
                     <?php if (isset($pageSubtitle)): ?>
                         <p style="color: var(--text-muted); margin-top: 0.5rem;"><?php echo $pageSubtitle; ?></p>
                     <?php endif; ?>

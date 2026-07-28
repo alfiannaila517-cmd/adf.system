@@ -1334,6 +1334,42 @@ echo getPrintCSS();
 <?php endif; ?>
 
 <style>
+    /* Global override: keep all cashbook action buttons uniform blue (CQC & non-CQC) */
+    .cashbook-action-btn,
+    .cashbook-btn-filter,
+    .cashbook-btn-reset,
+    .cashbook-btn-pdf,
+    .cashbook-btn-excel,
+    .cashbook-btn-wa,
+    .cqc-btn-filter,
+    .cqc-btn-reset {
+        background: linear-gradient(135deg, #1e40af, #1d4ed8) !important;
+        border: 1px solid #1d4ed8 !important;
+        color: #eff6ff !important;
+    }
+
+    .cashbook-action-btn:hover,
+    .cashbook-btn-filter:hover,
+    .cashbook-btn-reset:hover,
+    .cashbook-btn-pdf:hover,
+    .cashbook-btn-excel:hover,
+    .cashbook-btn-wa:hover,
+    .cqc-btn-filter:hover,
+    .cqc-btn-reset:hover {
+        background: linear-gradient(135deg, #1d4ed8, #1e3a8a) !important;
+        border-color: #1e3a8a !important;
+    }
+
+    .cashbook-action-btn,
+    .cashbook-action-btn *,
+    .cqc-btn-filter,
+    .cqc-btn-filter *,
+    .cqc-btn-reset,
+    .cqc-btn-reset * {
+        color: #eff6ff !important;
+        stroke: #eff6ff !important;
+    }
+
     /* ===== COMPACT CASHBOOK TABLE STYLES ===== */
     .cb-table {
         width: 100%;
