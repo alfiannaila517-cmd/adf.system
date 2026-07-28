@@ -86,11 +86,13 @@ if (isset($_POST['__upload_topbar_avatar']) && $_POST['__upload_topbar_avatar'] 
                 UPLOAD_ERR_FORM_SIZE => 'Ukuran foto terlalu besar untuk form upload.',
                 UPLOAD_ERR_PARTIAL => 'Upload terputus. Silakan ulangi upload.',
                 UPLOAD_ERR_NO_FILE => 'Belum ada file yang dipilih.',
-                UPLOAD_ERR_NO_TMP_DIR => 'Server upload error: folder sementara tidak tersedia.',
+                UPLOAD_ERR_NO_TMP_DIR => 'Server upload error: folder sementara tidak tersedia. Debug: tmp_name=' . ($file['tmp_name'] ?? 'NONE'),
                 UPLOAD_ERR_CANT_WRITE => 'Server upload error: gagal menulis file.',
                 UPLOAD_ERR_EXTENSION => 'Upload diblokir oleh ekstensi server.',
             ];
-            throw new Exception($errorMap[$uploadError] ?? ('Upload gagal (kode: ' . $uploadError . ').'));
+            $msg = $errorMap[$uploadError] ?? ('Upload gagal (kode: ' . $uploadError . ').');
+            error_log('AVATAR_UPLOAD_ERR: ' . $msg . ' | FILES: ' . json_encode($file));
+            throw new Exception($msg);
         }
 
         $tmpPath = $file['tmp_name'] ?? '';
