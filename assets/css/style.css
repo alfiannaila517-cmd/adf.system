@@ -87,13 +87,13 @@ body[data-theme="light"] .sidebar .nav-link {
 }
 
 body[data-theme="light"] .sidebar .nav-link:hover {
-  background: #e9eef5 !important;
-  color: #1e40af !important;
+  background: #dbeafe !important;
+  color: #1e3a8a !important;
 }
 
 body[data-theme="light"] .sidebar .nav-link.active {
-  background: #334155 !important;
-  color: #ffffff !important;
+  background: #1e3a8a !important;
+  color: #eff6ff !important;
 }
 
 body[data-theme="light"] .sidebar .nav-link span,
@@ -106,15 +106,15 @@ body[data-theme="light"] .sidebar .nav-link svg {
 body[data-theme="light"] .sidebar .nav-link:hover span,
 body[data-theme="light"] .sidebar .nav-link:hover .nav-icon,
 body[data-theme="light"] .sidebar .nav-link:hover svg {
-  color: #1e40af !important;
-  stroke: #1e40af !important;
+  color: #1e3a8a !important;
+  stroke: #1e3a8a !important;
 }
 
 body[data-theme="light"] .sidebar .nav-link.active span,
 body[data-theme="light"] .sidebar .nav-link.active .nav-icon,
 body[data-theme="light"] .sidebar .nav-link.active svg {
-  color: #ffffff !important;
-  stroke: #ffffff !important;
+  color: #eff6ff !important;
+  stroke: #eff6ff !important;
 }
 
 body[data-theme="light"] .sidebar .submenu {
@@ -126,8 +126,8 @@ body[data-theme="light"] .sidebar .submenu-link {
 }
 
 body[data-theme="light"] .sidebar .submenu-link:hover {
-  background: #dde5ef !important;
-  color: #0f172a !important;
+  background: #dbeafe !important;
+  color: #1e3a8a !important;
 }
 
 body[data-theme="light"] #endShiftButton,
