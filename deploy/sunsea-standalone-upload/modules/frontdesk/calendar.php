@@ -1208,7 +1208,7 @@ include '../../includes/header.php';
         text-align: center;
         transition: all 0.2s ease;
         box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08);
-        font-weight: 700;
+        font-weight: 500;
         font-size: 0.72rem;
         line-height: 1;
         position: relative;
@@ -1216,7 +1216,7 @@ include '../../includes/header.php';
         border-radius: 3px;
         white-space: nowrap;
         transform: skewX(-20deg);
-        background: linear-gradient(135deg, #1e3a8a, #1d4ed8) !important;
+        background: linear-gradient(135deg, #1e2a5a, #1e3a8a) !important;
         color: #ffffff !important;
     }
 
@@ -1224,7 +1224,7 @@ include '../../includes/header.php';
         transform: skewX(20deg);
         color: #ffffff !important;
         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-        font-weight: 800;
+        font-weight: 500;
         font-size: 0.7rem;
         display: block;
     }
@@ -1289,15 +1289,15 @@ include '../../includes/header.php';
 
     /* Status specific bars */
     .booking-confirmed {
-        background: linear-gradient(135deg, #1e3a8a, #1d4ed8) !important;
-        border-right-color: #1e3a8a;
-        border-left-color: #1d4ed8;
+        background: linear-gradient(135deg, #1e2a5a, #1e3a8a) !important;
+        border-right-color: #1e2a5a;
+        border-left-color: #1e3a8a;
     }
 
     .booking-pending {
-        background: linear-gradient(135deg, #1e40af, #2563eb) !important;
-        border-right-color: #1e40af;
-        border-left-color: #2563eb;
+        background: linear-gradient(135deg, #1d356f, #1e40af) !important;
+        border-right-color: #1d356f;
+        border-left-color: #1e40af;
     }
 
     .booking-checked-in {
@@ -1317,7 +1317,7 @@ include '../../includes/header.php';
     .booking-bar-status {
         color: #ffffff !important;
         text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
-        font-weight: 800;
+        font-weight: 500;
     }
 
     /* Action buttons on booking bars */
