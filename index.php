@@ -874,10 +874,38 @@ if ($trialStatus) {
         </div>
     </div>
 
-    <!-- Chart Canvas Area -->
-    <div class="chart-canvas-wrap">
-        <div class="chart-canvas-inner">
-            <canvas id="tradingChart"></canvas>
+    <!-- Chart Canvas Area with Pie Charts -->
+    <div class="chart-main-container">
+        <!-- Line Chart Section (Left Side) -->
+        <div class="chart-canvas-wrap chart-canvas-left">
+            <div class="chart-canvas-inner">
+                <canvas id="tradingChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Pie Charts Section (Right Side) -->
+        <div class="chart-pie-section">
+            <!-- Income Pie Chart -->
+            <div class="chart-pie-card">
+                <div class="chart-pie-header">
+                    <h3 style="margin: 0; font-size: 0.9rem; color: #1e293b; font-weight: 600;">Pemasukan Kategori</h3>
+                    <span style="font-size: 0.75rem; color: #64748b;">Breakdown per kategori</span>
+                </div>
+                <div class="chart-pie-container">
+                    <canvas id="incomePieChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Expense Pie Chart -->
+            <div class="chart-pie-card">
+                <div class="chart-pie-header">
+                    <h3 style="margin: 0; font-size: 0.9rem; color: #1e293b; font-weight: 600;">Pengeluaran Kategori</h3>
+                    <span style="font-size: 0.75rem; color: #64748b;">Breakdown per kategori</span>
+                </div>
+                <div class="chart-pie-container">
+                    <canvas id="expensePieChart"></canvas>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1227,6 +1255,63 @@ if ($trialStatus) {
         z-index: 1;
     }
 
+    /* Main container for chart and pie charts */
+    .chart-main-container {
+        display: flex;
+        gap: 1rem;
+        margin: 0 0.7rem;
+        padding: 0;
+    }
+
+    /* Left side - line chart */
+    .chart-canvas-left {
+        flex: 0 0 56%;
+        margin: 0;
+    }
+
+    /* Right side - pie charts */
+    .chart-pie-section {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 0.8rem;
+    }
+
+    /* Individual pie chart card */
+    .chart-pie-card {
+        background: var(--chart-wrap-bg);
+        border-radius: 12px;
+        border: 1px solid var(--chart-wrap-border);
+        padding: 1rem;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .chart-pie-header {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+        margin-bottom: 0.8rem;
+        padding-bottom: 0.8rem;
+        border-bottom: 1px solid var(--chart-wrap-border);
+    }
+
+    /* Pie chart canvas container */
+    .chart-pie-container {
+        flex: 1;
+        position: relative;
+        min-height: 200px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .chart-pie-container canvas {
+        max-width: 100%;
+        max-height: 180px;
+    }
+
     /* Footer bar */
     .chart-footer-bar {
         padding: 0.75rem 1.1rem 0.95rem;
@@ -1294,6 +1379,24 @@ if ($trialStatus) {
         .chart-canvas-inner {
             height: 250px;
             padding: 0.45rem 0.5rem 0.2rem;
+        }
+
+        .chart-main-container {
+            flex-direction: column;
+            margin: 0 0.7rem;
+        }
+
+        .chart-canvas-left {
+            flex: 0 0 auto;
+        }
+
+        .chart-pie-section {
+            flex-direction: row;
+            gap: 0.8rem;
+        }
+
+        .chart-pie-card {
+            flex: 1;
         }
 
         .chart-filter-input {
@@ -2814,6 +2917,145 @@ if ($trialStatus) {
                     }
                 }
             });
+
+            // ============================================
+            // PIE CHARTS - Income & Expense Categories
+            // ============================================
+            const incomeCategories = <?php
+                $incomeByCategory = [];
+                foreach ($topCategories as $cat) {
+                    if ($cat['transaction_type'] === 'income') {
+                        $incomeByCategory[$cat['category_name']] = (float)$cat['total'];
+                    }
+                }
+                echo json_encode($incomeByCategory);
+            ?>;
+
+            const expenseCategories = <?php
+                $expenseByCategory = [];
+                foreach ($topCategories as $cat) {
+                    if ($cat['transaction_type'] === 'expense') {
+                        $expenseByCategory[$cat['category_name']] = (float)$cat['total'];
+                    }
+                }
+                echo json_encode($expenseByCategory);
+            ?>;
+
+            // Colors palette for pie charts
+            const pieColors = [
+                '#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6',
+                '#ec4899', '#06b6d4', '#14b8a6', '#f97316', '#6366f1'
+            ];
+
+            // Render Income Pie Chart
+            if (Object.keys(incomeCategories).length > 0) {
+                const incomeCtx = document.getElementById('incomePieChart').getContext('2d');
+                new Chart(incomeCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: Object.keys(incomeCategories),
+                        datasets: [{
+                            data: Object.values(incomeCategories),
+                            backgroundColor: pieColors,
+                            borderColor: getComputedStyle(document.documentElement).getPropertyValue('--chart-wrap-bg').trim() || '#f8fafc',
+                            borderWidth: 2,
+                            borderRadius: 8,
+                            hoverOffset: 8
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    font: {
+                                        size: 11,
+                                        weight: '500',
+                                        family: "'Inter', sans-serif"
+                                    },
+                                    padding: 10,
+                                    color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#1e293b',
+                                    usePointStyle: true,
+                                    pointStyle: 'circle'
+                                }
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(30, 41, 59, 0.8)',
+                                padding: 10,
+                                titleFont: { size: 11, weight: '600' },
+                                bodyFont: { size: 10, weight: '500' },
+                                borderRadius: 8,
+                                displayColors: false,
+                                callbacks: {
+                                    label: function(context) {
+                                        const value = context.parsed;
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const percent = ((value / total) * 100).toFixed(1);
+                                        return 'Rp ' + value.toLocaleString('id-ID') + ' (' + percent + '%)';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Render Expense Pie Chart
+            if (Object.keys(expenseCategories).length > 0) {
+                const expenseCtx = document.getElementById('expensePieChart').getContext('2d');
+                new Chart(expenseCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: Object.keys(expenseCategories),
+                        datasets: [{
+                            data: Object.values(expenseCategories),
+                            backgroundColor: pieColors,
+                            borderColor: getComputedStyle(document.documentElement).getPropertyValue('--chart-wrap-bg').trim() || '#f8fafc',
+                            borderWidth: 2,
+                            borderRadius: 8,
+                            hoverOffset: 8
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    font: {
+                                        size: 11,
+                                        weight: '500',
+                                        family: "'Inter', sans-serif"
+                                    },
+                                    padding: 10,
+                                    color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#1e293b',
+                                    usePointStyle: true,
+                                    pointStyle: 'circle'
+                                }
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(30, 41, 59, 0.8)',
+                                padding: 10,
+                                titleFont: { size: 11, weight: '600' },
+                                bodyFont: { size: 10, weight: '500' },
+                                borderRadius: 8,
+                                displayColors: false,
+                                callbacks: {
+                                    label: function(context) {
+                                        const value = context.parsed;
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const percent = ((value / total) * 100).toFixed(1);
+                                        return 'Rp ' + value.toLocaleString('id-ID') + ' (' + percent + '%)';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
 
             // ============================================
             // LIVE UPDATE - Auto refresh every 30 seconds
