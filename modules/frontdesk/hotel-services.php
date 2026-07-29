@@ -2632,7 +2632,8 @@ include '../../includes/header.php';
 </script>
 <script>
     // Block 2: All function definitions — no PHP output, always safe to parse
-    console.log('[hotel-services] script block starting...');
+    console.error('[hotel-services] BLOCK2 RUNNING - v20260729');
+    window._hsBlock2Loaded = true;
     const SVC_KEYS     = window.SVC_KEYS    || [];
     const SVC_LABELS   = window.SVC_LABELS  || [];
     const CATALOG_DATA = window.CATALOG_DATA|| {};
