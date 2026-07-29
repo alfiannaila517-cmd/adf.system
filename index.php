@@ -1638,10 +1638,13 @@ if ($trialStatus) {
                         </svg>
                     </div>
                     <div>
-                        <div style="font-size: 0.6rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;">Expense</div>
+                        <div style="font-size: 0.6rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;">Expense (Cash &amp; Modal)</div>
                         <div style="font-size: 1rem; font-weight: 700; color: #1e293b; font-family: 'Monaco', monospace;"><?php echo formatCurrency($totalOperationalExpense); ?></div>
                     </div>
                 </div>
+            </div>
+            <div style="margin-top: 0.5rem; font-size: 0.65rem; color: #94a3b8;">
+                * Angka di atas hanya kas fisik (Petty Cash + Modal Owner), tidak termasuk transaksi Rekening Bank. Total pengeluaran seluruh akun ada di Buku Kas.
             </div>
 
             <?php if ($dashCashAvailable < 0): ?>
