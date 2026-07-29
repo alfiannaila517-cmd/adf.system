@@ -74,6 +74,24 @@ try {
 } catch (Exception $e) {
 }
 
+// Login screen background — per-business, configurable via developer/developer-settings.php
+$authBgUrl = null;
+try {
+    $staffBgRow = $settingsDb->fetchOne("SELECT setting_value FROM settings WHERE setting_key = ?", ['staff_login_bg_' . $bizSlug]);
+    $staffBgVal = $staffBgRow['setting_value'] ?? null;
+    if ($staffBgVal) {
+        if (strpos($staffBgVal, 'http') === 0) {
+            $authBgUrl = $staffBgVal;
+        } else {
+            $localPath = __DIR__ . '/../../uploads/backgrounds/' . $staffBgVal;
+            if (file_exists($localPath)) {
+                $authBgUrl = $baseUrl . '/uploads/backgrounds/' . $staffBgVal;
+            }
+        }
+    }
+} catch (Exception $e) {
+}
+
 // ── Cegah browser/PWA cache HTML staff portal (selalu fetch latest) ──
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
@@ -124,14 +142,18 @@ header('Expires: 0');
             -webkit-font-smoothing: antialiased;
         }
 
-        /* ── Auth Screen — Ocean Blue ── */
+        /* ── Auth Screen — Ocean Blue (or per-business background image) ── */
         .auth-wrap {
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
             padding: 20px;
+            <?php if ($authBgUrl): ?>
+            background: linear-gradient(160deg, rgba(10, 22, 40, .78) 0%, rgba(12, 45, 72, .68) 40%, rgba(20, 83, 116, .55) 100%), url('<?php echo htmlspecialchars($authBgUrl); ?>') center/cover no-repeat;
+            <?php else: ?>
             background: linear-gradient(160deg, #0a1628 0%, #0c2d48 30%, #145374 60%, #1a7fa0 100%);
+            <?php endif; ?>
             position: relative;
             overflow: hidden;
         }
@@ -1896,12 +1918,21 @@ header('Expires: 0');
             background: #9ca3af;
         }
 
-        /* Absen buttons — Face Scan & Absen Manual side by side, same size */
+        /* Absen buttons — Face Scan (primary) & Absen Manual (secondary fallback) */
+        .absen-section-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            margin: 2px 2px 8px;
+        }
+
         .absen-btns-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 10px;
-            margin-bottom: 14px;
+            margin-bottom: 16px;
         }
 
         .absen-link {
@@ -1910,23 +1941,24 @@ header('Expires: 0');
             align-items: center;
             justify-content: center;
             width: 100%;
-            min-height: 128px;
-            background: linear-gradient(135deg, var(--navy), var(--navy2));
+            min-height: 132px;
+            background: linear-gradient(150deg, var(--navy) 0%, var(--navy2) 100%);
             color: #fff;
             text-decoration: none;
             border: none;
-            border-radius: 16px;
-            padding: 18px 10px;
+            border-radius: 18px;
+            padding: 20px 12px;
             text-align: center;
             cursor: pointer;
             font-family: inherit;
             position: relative;
             overflow: hidden;
-            transition: transform .15s;
+            transition: transform .15s, box-shadow .15s;
+            box-shadow: 0 10px 24px rgba(13, 31, 60, .28);
         }
 
         .absen-link:active {
-            transform: scale(.98);
+            transform: scale(.97);
         }
 
         .absen-link::before {
@@ -1936,37 +1968,65 @@ header('Expires: 0');
             right: -30%;
             width: 150px;
             height: 150px;
-            background: radial-gradient(circle, rgba(255, 255, 255, .1), transparent 70%);
+            background: radial-gradient(circle, rgba(255, 255, 255, .12), transparent 70%);
             border-radius: 50%;
             pointer-events: none;
         }
 
         .absen-link .al-icon {
-            margin-bottom: 8px;
+            margin-bottom: 10px;
+            width: 52px;
+            height: 52px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, .14);
+            position: relative;
+            z-index: 1;
         }
 
         .absen-link .al-icon svg {
-            width: 38px;
-            height: 38px;
+            width: 28px;
+            height: 28px;
         }
 
         .absen-link .al-title {
             font-size: 13px;
             font-weight: 700;
             letter-spacing: .2px;
+            position: relative;
+            z-index: 1;
         }
 
         .absen-link .al-sub {
             font-size: 10px;
-            color: rgba(255, 255, 255, .7);
-            margin-top: 4px;
+            color: rgba(255, 255, 255, .68);
+            margin-top: 3px;
             line-height: 1.3;
+            position: relative;
+            z-index: 1;
         }
 
-        /* Absen Manual — same size as Face Scan, distinct accent color so staff
-           immediately see this is also an attendance action */
+        /* Absen Manual — secondary/fallback: subtle outline style so Face Scan
+           clearly reads as the primary action, keeping the UI calm & elegant */
         .absen-link-manual {
-            background: linear-gradient(135deg, var(--orange), #f97316);
+            background: #fff;
+            color: var(--navy);
+            border: 1.5px solid var(--border);
+            box-shadow: 0 4px 14px rgba(15, 23, 42, .06);
+        }
+
+        .absen-link-manual .al-icon {
+            background: rgba(234, 88, 12, .1);
+        }
+
+        .absen-link-manual .al-icon svg {
+            stroke: var(--orange);
+        }
+
+        .absen-link-manual .al-sub {
+            color: var(--muted);
         }
 
         /* Manual Attendance popup */
@@ -1985,19 +2045,25 @@ header('Expires: 0');
             left: 50%;
             transform: translate(-50%, -50%);
             background: #fff;
-            border-radius: 16px;
-            padding: 20px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, .3);
+            border-radius: 20px;
+            padding: 0 20px 20px;
+            box-shadow: 0 24px 60px rgba(13, 31, 60, .35);
             z-index: 1000;
             width: 300px;
             max-width: 90vw;
             text-align: center;
+            overflow: hidden;
         }
 
         .manual-popup h3 {
-            margin: 0 0 6px;
-            font-size: 15px;
-            color: var(--navy);
+            margin: 0;
+            font-size: 14px;
+            font-weight: 700;
+            color: #fff;
+            background: linear-gradient(135deg, var(--navy), var(--navy2));
+            padding: 16px 20px 14px;
+            margin: 0 -20px 16px;
+            letter-spacing: .2px;
         }
 
         .manual-popup p {
@@ -2031,8 +2097,8 @@ header('Expires: 0');
 
         .manual-popup .mp-actions button {
             flex: 1;
-            padding: 10px;
-            border-radius: 10px;
+            padding: 11px;
+            border-radius: 12px;
             border: none;
             font-weight: 700;
             font-size: 12.5px;
@@ -2786,7 +2852,8 @@ header('Expires: 0');
                 </div>
             </div>
 
-            <!-- Absen: Face Scan & Absen Manual side by side, same size, different colors -->
+            <!-- Absen: Face Scan (primary) & Absen Manual (secondary fallback) -->
+            <div class="absen-section-label">⏱️ Absensi Hari Ini</div>
             <div class="absen-btns-row">
                 <!-- Scan Wajah -->
                 <div class="absen-link" onclick="openFaceScan()">

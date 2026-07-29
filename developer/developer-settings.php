@@ -33,6 +33,23 @@ $currentFavicon = $faviconSetting['setting_value'] ?? null;
 $pwaIconSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'pwa_app_icon'");
 $currentPwaIcon = $pwaIconSetting['setting_value'] ?? null;
 
+// Per-business Staff Portal login background (used by modules/payroll/staff-portal.php)
+$staffBusinesses = [];
+foreach (glob(BASE_PATH . '/config/businesses/*.php') ?: [] as $bizFilePath) {
+    $bizCfg = require $bizFilePath;
+    if (!empty($bizCfg['business_id'])) {
+        $staffBusinesses[$bizCfg['business_id']] = $bizCfg['name'] ?? $bizCfg['business_id'];
+    }
+}
+$staffLoginBgSettings = [];
+if ($staffBusinesses) {
+    $staffBgRows = $db->fetchAll("SELECT setting_key, setting_value FROM settings WHERE setting_key LIKE 'staff_login_bg_%'");
+    foreach ($staffBgRows as $row) {
+        $bizIdFromKey = substr($row['setting_key'], strlen('staff_login_bg_'));
+        $staffLoginBgSettings[$bizIdFromKey] = $row['setting_value'];
+    }
+}
+
 $waSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'developer_whatsapp'");
 $currentWA = $waSetting['setting_value'] ?? '';
 
@@ -242,6 +259,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_pwa_icon'])) {
     $db->query("DELETE FROM settings WHERE setting_key = 'pwa_app_icon'");
     $success = 'App icon PWA berhasil dihapus! (akan kembali ke icon default)';
     $currentPwaIcon = null;
+}
+
+// Handle Staff Portal login background upload (per business)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['staff_login_bg']) && $_FILES['staff_login_bg']['error'] === UPLOAD_ERR_OK) {
+    $staffBizId = trim($_POST['staff_biz_id'] ?? '');
+    if (!isset($staffBusinesses[$staffBizId])) {
+        $error = 'Bisnis tidak valid.';
+    } else {
+        $file = $_FILES['staff_login_bg'];
+        $allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+        $maxSize = 3 * 1024 * 1024;
+
+        if (!in_array($file['type'], $allowedTypes)) {
+            $error = 'Tipe file tidak diizinkan. Gunakan JPG, PNG, atau WEBP.';
+        } elseif ($file['size'] > $maxSize) {
+            $error = 'Ukuran file terlalu besar. Maksimal 3MB.';
+        } else {
+            $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+            $localFilename = 'staff-login-bg-' . $staffBizId . '.' . $extension;
+            $settingKey = 'staff_login_bg_' . $staffBizId;
+
+            $cloudinary = CloudinaryHelper::getInstance();
+            $uploadResult = $cloudinary->smartUpload($file, 'uploads/backgrounds', $localFilename, 'backgrounds', $settingKey);
+
+            if ($uploadResult['success']) {
+                $storedValue = $uploadResult['path'];
+                $db->query("INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?", [$settingKey, $storedValue, $storedValue]);
+                $success = 'Background login staff portal (' . htmlspecialchars($staffBusinesses[$staffBizId]) . ') berhasil diupload!' . ($uploadResult['is_cloud'] ? ' (Cloudinary)' : '');
+                $staffLoginBgSettings[$staffBizId] = $storedValue;
+            } else {
+                $error = 'Gagal upload file.';
+            }
+        }
+    }
+}
+
+// Handle delete Staff Portal login background (per business)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_staff_login_bg'])) {
+    $staffBizId = trim($_POST['delete_staff_login_bg']);
+    if (isset($staffBusinesses[$staffBizId])) {
+        $existingVal = $staffLoginBgSettings[$staffBizId] ?? null;
+        if ($existingVal && strpos($existingVal, 'http') === 0) {
+            $cl = CloudinaryHelper::getInstance();
+            $cl->delete('adf_system/backgrounds/staff_login_bg_' . $staffBizId);
+        }
+        $uploadDir = BASE_PATH . '/uploads/backgrounds/';
+        foreach (glob($uploadDir . 'staff-login-bg-' . $staffBizId . '.*') as $oldFile) {
+            @unlink($oldFile);
+        }
+        $db->query("DELETE FROM settings WHERE setting_key = ?", ['staff_login_bg_' . $staffBizId]);
+        $success = 'Background login staff portal (' . htmlspecialchars($staffBusinesses[$staffBizId]) . ') berhasil dihapus!';
+        unset($staffLoginBgSettings[$staffBizId]);
+    }
 }
 
 // Handle WhatsApp number update
@@ -779,6 +849,69 @@ require_once __DIR__ . '/includes/header.php';
                             <i class="bi bi-upload me-1"></i>Upload Background
                         </button>
                     </form>
+                </div>
+            </div>
+
+            <!-- Login Background per Bisnis (Staff Portal) -->
+            <div class="settings-card">
+                <div class="settings-card-header">
+                    <div class="icon" style="background: rgba(13,31,60,0.15); color: var(--dev-primary, #0d1f3c);">
+                        <i class="bi bi-images"></i>
+                    </div>
+                    <div>
+                        <h5>Background Login Staff Portal (Per Bisnis)</h5>
+                        <small>Background berbeda untuk tiap bisnis di halaman login Staff Portal</small>
+                    </div>
+                </div>
+                <div class="settings-card-body">
+                    <?php if (!$staffBusinesses): ?>
+                        <div class="text-muted" style="font-size:0.85rem;">Belum ada bisnis terdaftar di <code>config/businesses/</code>.</div>
+                    <?php else: ?>
+                        <?php foreach ($staffBusinesses as $bizId => $bizName): ?>
+                            <?php
+                            $bizBgStored = $staffLoginBgSettings[$bizId] ?? null;
+                            $bizBgUrl = null;
+                            if ($bizBgStored) {
+                                $cl = CloudinaryHelper::getInstance();
+                                $bizBgUrl = $cl->getDisplayUrl($bizBgStored, 'uploads/backgrounds/');
+                            }
+                            ?>
+                            <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(0,0,0,.06);">
+                                <div style="width:64px;height:44px;border-radius:8px;overflow:hidden;flex-shrink:0;background:var(--dev-primary,#0d1f3c);display:flex;align-items:center;justify-content:center;">
+                                    <?php if ($bizBgUrl): ?>
+                                        <img src="<?php echo htmlspecialchars($bizBgUrl); ?>&v=<?php echo time(); ?>" alt="" style="width:100%;height:100%;object-fit:cover;">
+                                    <?php else: ?>
+                                        <i class="bi bi-image text-white-50"></i>
+                                    <?php endif; ?>
+                                </div>
+                                <div style="flex:1;min-width:0;">
+                                    <div style="font-size:12.5px;font-weight:600;" class="text-truncate"><?php echo htmlspecialchars($bizName); ?></div>
+                                    <div style="font-size:10.5px;color:var(--dev-muted,#94a3b8);"><?php echo $bizBgUrl ? 'Custom background aktif' : 'Pakai gradient default'; ?></div>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#staffBg_<?php echo htmlspecialchars($bizId); ?>">
+                                    <i class="bi bi-upload"></i>
+                                </button>
+                                <?php if ($bizBgUrl): ?>
+                                <form method="POST" onsubmit="return confirm('Hapus background staff portal untuk <?php echo htmlspecialchars(addslashes($bizName)); ?>?');" style="margin:0;">
+                                    <input type="hidden" name="delete_staff_login_bg" value="<?php echo htmlspecialchars($bizId); ?>">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                                </form>
+                                <?php endif; ?>
+                            </div>
+                            <div class="collapse" id="staffBg_<?php echo htmlspecialchars($bizId); ?>">
+                                <form method="POST" enctype="multipart/form-data" style="padding:10px 0 4px;">
+                                    <input type="hidden" name="staff_biz_id" value="<?php echo htmlspecialchars($bizId); ?>">
+                                    <div class="mb-2">
+                                        <input type="file" name="staff_login_bg" class="form-control form-control-sm" accept="image/*" required>
+                                        <div class="form-text">JPG/PNG/WEBP • Maksimal 3MB • Rekomendasi: 1080x1920px (potrait/mobile)</div>
+                                    </div>
+                                    <button type="submit" class="btn btn-sm btn-primary w-100">
+                                        <i class="bi bi-upload me-1"></i>Upload untuk <?php echo htmlspecialchars($bizName); ?>
+                                    </button>
+                                </form>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
                 </div>
             </div>
             
