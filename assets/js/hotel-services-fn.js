@@ -561,7 +561,7 @@
 
     // ── CATALOG ───────────────────────────────────────────────────────────────────
     let catRowCnt = 0;
-    const SVC_OPTIONS = <?php echo json_encode(array_map(fn($k, $v) => ['val' => $k, 'lbl' => $v['icon'] . ' ' . $v['label']], array_keys($serviceTypes), $serviceTypes)); ?>;
+    const SVC_OPTIONS = window.SVC_OPTIONS || [];
 
     function buildSvcOptsFor(selected = '') {
         return SVC_OPTIONS.map(o => `<option value="${o.val}" ${o.val===selected?'selected':''}>${o.lbl}</option>`).join('');
@@ -634,12 +634,12 @@
             });
     }
 
-    const CATALOG = <?php echo json_encode(array_map(fn($r) => ['stype' => $r['service_type'], 'name' => $r['item_name'], 'price' => (float)$r['default_price'], 'unit' => $r['unit']], $catalogRows)); ?>;
+    const CATALOG = window.CATALOG_LIST || [];
 
     // ── EDIT INVOICE ──────────────────────────────────────────────────────────────
     let eRowCnt = 0;
 
-    const ACTIVE_BIZ_ID = <?php echo (int)$businessId; ?>;
+    const ACTIVE_BIZ_ID = window.ACTIVE_BIZ_ID || 0;
 
     function openEditModal(id) {
         fetch('hotel-services.php?get_invoice=1&id=' + id + '&business_id=' + encodeURIComponent(ACTIVE_BIZ_ID), {
@@ -1030,4 +1030,3 @@
     window.openEditModal    = openEditModal;
     window.closeEditModal   = closeEditModal;
     console.log('[hotel-services] loaded OK, openCreateModal:', typeof openCreateModal);
-</script>
