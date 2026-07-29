@@ -2069,9 +2069,32 @@ include '../../includes/header.php';
         </div>
         <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
             <button class="btn-hs btn-hs-secondary" onclick="openSettingsModal()">⚙️ Pengaturan</button>
-            <button class="btn-hs btn-hs-primary" onclick="openCreateModal()">+ New Invoice</button>
+            <button class="btn-hs btn-hs-primary" id="btnNewInvoice">+ New Invoice</button>
         </div>
     </div>
+    <script>
+    // Fallback: attach button directly in case main script block fails to execute
+    (function() {
+        function tryAttach() {
+            var btn = document.getElementById('btnNewInvoice');
+            var modal = document.getElementById('createModal');
+            if (btn && modal) {
+                btn.onclick = function() {
+                    if (typeof openCreateModal === 'function') {
+                        openCreateModal();
+                    } else {
+                        modal.classList.add('open');
+                    }
+                };
+            }
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', tryAttach);
+        } else {
+            tryAttach();
+        }
+    })();
+    </script>
 
     <!-- Stats -->
     <div class="hs-stats">
