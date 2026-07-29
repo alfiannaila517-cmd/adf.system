@@ -183,9 +183,9 @@ header('Expires: 0');
         }
 
         .auth-card {
-            background: rgba(30, 41, 59, .62);
-            backdrop-filter: blur(18px) saturate(1.1);
-            -webkit-backdrop-filter: blur(18px) saturate(1.1);
+            background: rgba(30, 41, 59, .38);
+            backdrop-filter: blur(14px) saturate(1.1);
+            -webkit-backdrop-filter: blur(14px) saturate(1.1);
             border: 1px solid rgba(255, 255, 255, .22);
             border-radius: 18px;
             padding: 22px 20px 18px;
