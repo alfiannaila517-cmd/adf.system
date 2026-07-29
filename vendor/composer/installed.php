@@ -3,7 +3,7 @@
         'name' => 'adf/system',
         'pretty_version' => 'dev-main',
         'version' => 'dev-main',
-        'reference' => 'a689c3214b3340771226b6530b59f8a3c0f18cd7',
+        'reference' => '2218251061b43045ffc48635564e5067047308b5',
         'type' => 'library',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -13,7 +13,7 @@
         'adf/system' => array(
             'pretty_version' => 'dev-main',
             'version' => 'dev-main',
-            'reference' => 'a689c3214b3340771226b6530b59f8a3c0f18cd7',
+            'reference' => '2218251061b43045ffc48635564e5067047308b5',
             'type' => 'library',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

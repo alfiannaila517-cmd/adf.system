@@ -15,8 +15,9 @@ error.log
 # Dependencies & Virtual Environments
 # =============================================
 node_modules/
-vendor/
+# vendor/ is committed to git for reliable deployment on shared hosting
 .venv/
+composer.phar
 
 # =============================================
 # OS / IDE / Editor
