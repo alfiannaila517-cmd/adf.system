@@ -804,6 +804,19 @@
             priceInput.value = 0;
         }
 
+        if (isRentalService(svc)) {
+            eOnRentalAssetChange(id2, !!isNew);
+        }
+        ercalc(id2);
+    }
+
+    function eOnRentalAssetChange(id2, keepManualDesc) {
+        const tr3 = document.getElementById(id2);
+        if (!tr3) return;
+        const svc = tr3.querySelector('.iSvc').value;
+        const assetSelect = tr3.querySelector('.iAsset');
+        const selectedId = assetSelect.value;
+        const source = svc === 'motor_rental' ? RENTAL_MOTORS : RENTAL_CARS;
         const chosen = source.find(item => String(item.id) === String(selectedId));
         if (!chosen) return;
         const priceInput = tr3.querySelector('.iPrice');
