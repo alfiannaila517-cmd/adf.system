@@ -1425,8 +1425,8 @@
                             --grad-orange: linear-gradient(135deg, #ea580c, #fb923c);
                             --grad-purple: linear-gradient(135deg, #7c3aed, #a78bfa);
                             --grad-gray: linear-gradient(135deg, #94a3b8, #cbd5e1);
-                            --pr-radius: 18px;
-                            --pr-shadow: 0 10px 30px rgba(13, 31, 60, .07);
+                            --pr-radius: 12px;
+                            --pr-shadow: 0 1px 4px rgba(13, 31, 60, .06);
                         }
 
                         .att-wrap {
@@ -1437,9 +1437,9 @@
                         /* Header */
                         .att-head {
                             background: #fff;
-                            padding: 16px 20px;
+                            padding: 13px 16px;
                             border-radius: var(--pr-radius);
-                            margin-bottom: 14px;
+                            margin-bottom: 12px;
                             display: flex;
                             justify-content: space-between;
                             align-items: center;
@@ -1457,8 +1457,8 @@
                             top: 0;
                             left: 0;
                             right: 0;
-                            height: 4px;
-                            background: var(--grad-gold);
+                            height: 3px;
+                            background: var(--navy);
                         }
 
                         .att-head-title {
@@ -1507,13 +1507,13 @@
                         .st-row {
                             display: grid;
                             grid-template-columns: repeat(5, 1fr);
-                            gap: 12px;
-                            margin-bottom: 14px;
+                            gap: 10px;
+                            margin-bottom: 12px;
                         }
 
                         .st-card {
                             background: #fff;
-                            padding: 16px;
+                            padding: 13px;
                             border-radius: var(--pr-radius);
                             border: 1px solid var(--border);
                             position: relative;
@@ -1527,25 +1527,25 @@
                             top: 0;
                             left: 0;
                             right: 0;
-                            height: 4px;
-                            background: var(--st-accent, var(--grad-gold));
+                            height: 3px;
+                            background: var(--navy);
                         }
 
                         .st-card:hover {
-                            transform: translateY(-3px);
+                            transform: translateY(-2px);
                             box-shadow: var(--pr-shadow);
                         }
 
                         .st-icon {
-                            width: 32px;
-                            height: 32px;
-                            border-radius: 10px;
+                            width: 28px;
+                            height: 28px;
+                            border-radius: 8px;
                             display: flex;
                             align-items: center;
                             justify-content: center;
-                            margin-bottom: 8px;
-                            background: var(--st-accent-soft, rgba(240, 180, 41, .12));
-                            color: var(--st-accent-color, var(--gold));
+                            margin-bottom: 7px;
+                            background: rgba(13, 31, 60, .08);
+                            color: var(--navy);
                         }
 
                         .st-icon svg {
@@ -1562,10 +1562,10 @@
                         }
 
                         .st-card .vl {
-                            font-size: 26px;
+                            font-size: 21px;
                             font-weight: 800;
                             color: var(--navy);
-                            margin-top: 4px;
+                            margin-top: 3px;
                             line-height: 1;
                         }
 
@@ -1622,10 +1622,10 @@
                         }
 
                         .att-tab.active {
-                            background: var(--grad-gold);
-                            color: var(--navy);
+                            background: var(--navy);
+                            color: #fff;
                             font-weight: 800;
-                            box-shadow: 0 4px 12px rgba(240, 180, 41, .35);
+                            box-shadow: 0 4px 12px rgba(13, 31, 60, .25);
                         }
 
                         /* Table */
@@ -1648,13 +1648,13 @@
                         .tbl th {
                             background: #f8fafc;
                             color: #475569;
-                            padding: 12px 14px;
+                            padding: 10px 14px;
                             text-align: left;
                             font-weight: 700;
-                            font-size: 13px;
+                            font-size: 12px;
                             text-transform: uppercase;
                             letter-spacing: .5px;
-                            border-bottom: 2px solid var(--gold);
+                            border-bottom: 2px solid var(--navy);
                             white-space: nowrap;
                         }
 
@@ -1743,8 +1743,8 @@
                         }
 
                         .btn-gold {
-                            background: var(--gold);
-                            color: var(--navy);
+                            background: var(--navy);
+                            color: #fff;
                         }
 
                         .btn-edit {
@@ -1841,7 +1841,7 @@
                         }
 
                         .fi:focus {
-                            border-color: var(--gold);
+                            border-color: var(--navy);
                             outline: none;
                         }
 
@@ -1930,12 +1930,12 @@
 
                         .modal-box {
                             background: #fff;
-                            border-radius: 14px;
-                            padding: 22px;
+                            border-radius: 12px;
+                            padding: 20px;
                             max-width: 440px;
                             width: 92%;
-                            box-shadow: 0 20px 60px rgba(0, 0, 0, .25);
-                            border-top: 4px solid var(--gold);
+                            box-shadow: 0 10px 30px rgba(0, 0, 0, .18);
+                            border-top: 3px solid var(--navy);
                             max-height: 90vh;
                             overflow-y: auto;
                         }
@@ -2005,34 +2005,34 @@
 
                         <!-- Stats -->
                         <div class="st-row">
-                            <div class="st-card" style="--st-accent:var(--grad-green); --st-accent-soft:rgba(5,150,105,.12); --st-accent-color:var(--green);">
+                            <div class="st-card">
                                 <div class="st-icon"><i data-feather="user-check"></i></div>
                                 <div class="lb">Hadir</div>
-                                <div class="vl" style="color:var(--green);"><?php echo $todayStats['present']; ?>/<?php echo $todayStats['total']; ?></div>
+                                <div class="vl"><?php echo $todayStats['present']; ?>/<?php echo $todayStats['total']; ?></div>
                                 <div class="sb"><?php echo $todayStats['total'] > 0 ? round($todayStats['present'] / $todayStats['total'] * 100) : 0; ?>% kehadiran</div>
                             </div>
-                            <div class="st-card" style="--st-accent:var(--grad-orange); --st-accent-soft:rgba(234,88,12,.12); --st-accent-color:var(--orange);">
+                            <div class="st-card">
                                 <div class="st-icon"><i data-feather="clock"></i></div>
                                 <div class="lb">Terlambat</div>
-                                <div class="vl" style="color:var(--orange);"><?php echo $todayStats['late']; ?></div>
+                                <div class="vl"><?php echo $todayStats['late']; ?></div>
                                 <div class="sb">dari yang hadir</div>
                             </div>
-                            <div class="st-card" style="--st-accent:var(--grad-navy); --st-accent-soft:rgba(13,31,60,.1); --st-accent-color:var(--navy);">
+                            <div class="st-card">
                                 <div class="st-icon"><i data-feather="bar-chart-2"></i></div>
                                 <div class="lb">Total Jam</div>
                                 <div class="vl"><?php echo number_format($todayStats['total_hours'], 1); ?></div>
                                 <div class="sb"><?php echo number_format($todayStats['regular_hours'], 1); ?>j reguler</div>
                             </div>
-                            <div class="st-card" style="--st-accent:var(--grad-purple); --st-accent-soft:rgba(124,58,237,.12); --st-accent-color:var(--purple);">
+                            <div class="st-card">
                                 <div class="st-icon"><i data-feather="zap"></i></div>
                                 <div class="lb">Lembur</div>
-                                <div class="vl" style="color:var(--purple);"><?php echo number_format($todayStats['overtime_hours'], 1); ?>j</div>
+                                <div class="vl"><?php echo number_format($todayStats['overtime_hours'], 1); ?>j</div>
                                 <div class="sb"><?php echo $todayStats['ot_count']; ?> staff lembur</div>
                             </div>
-                            <div class="st-card" style="--st-accent:var(--grad-gray); --st-accent-soft:rgba(148,163,184,.15); --st-accent-color:#94a3b8;">
+                            <div class="st-card">
                                 <div class="st-icon"><i data-feather="user-x"></i></div>
                                 <div class="lb">Belum Absen</div>
-                                <div class="vl" style="color:#94a3b8;"><?php echo max(0, $todayStats['total'] - $todayStats['present']); ?></div>
+                                <div class="vl"><?php echo max(0, $todayStats['total'] - $todayStats['present']); ?></div>
                                 <div class="sb">perlu perhatian</div>
                             </div>
                         </div>
