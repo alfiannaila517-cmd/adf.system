@@ -2938,34 +2938,6 @@ header('Expires: 0');
                 </div>
             </div>
 
-            <!-- Monitoring Detail -->
-            <div class="card" style="border-color:#dbeafe;">
-                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
-                    <div style="display:flex;align-items:center;gap:9px;">
-                        <div style="width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#2563eb,#1d4ed8);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;box-shadow:0 4px 12px rgba(37,99,235,.3);">📅</div>
-                        <div class="card-title" style="margin:0;color:#1d4ed8;">Detail Absensi &amp; Lembur</div>
-                    </div>
-                    <input type="month" id="monitorMonth" class="fi" style="width:140px;padding:6px 10px;font-size:11px;border-radius:10px;border-color:#bfdbfe;" value="<?php echo date('Y-m'); ?>" onchange="onMonitorMonthChange()">
-                </div>
-                <div style="display:flex; gap:6px; margin-bottom:14px; flex-wrap:wrap;">
-                    <button type="button" onclick="shiftMonitorMonth(-1)" style="flex:1;min-width:90px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border:none;padding:9px 10px;border-radius:10px;font-size:11px;font-weight:600;cursor:pointer;box-shadow:0 3px 10px rgba(37,99,235,.25);">← Bulan Lalu</button>
-                    <button type="button" onclick="shiftMonitorMonth(0)" style="background:#eff6ff;color:#1d4ed8;border:1.5px solid #bfdbfe;padding:9px 14px;border-radius:10px;font-size:11px;font-weight:700;cursor:pointer;">Bulan Ini</button>
-                    <button type="button" onclick="shiftMonitorMonth(1)" style="flex:1;min-width:90px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border:none;padding:9px 10px;border-radius:10px;font-size:11px;font-weight:600;cursor:pointer;box-shadow:0 3px 10px rgba(37,99,235,.25);">Bulan Depan →</button>
-                </div>
-                <div id="monitorStats"></div>
-                <div id="monitorTable">
-                    <div class="loading"><span class="spin"></span> Memuat...</div>
-                </div>
-                <div style="margin-top:10px; padding-top:10px; border-top:1px dashed #dbeafe;">
-                    <div style="font-size:11px; color:#1d4ed8; font-weight:700; margin-bottom:6px; display:flex; align-items:center; gap:5px;">📋 Pengajuan Lembur Bulan Ini</div>
-                    <div id="monitorLemburStats" style="margin-bottom:8px;"></div>
-                    <div id="monitorLemburHistory">
-                        <div class="loading"><span class="spin"></span> Memuat...</div>
-                    </div>
-                </div>
-                <button type="button" onclick="openSlipForMonitorMonth()" style="margin-top:10px;width:100%;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border:none;padding:10px 12px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;">💰 Lihat Slip Gaji Bulan Ini</button>
-            </div>
-
             <!-- Ajukan Cuti -->
             <div class="card">
                 <div class="card-title">🏖️ Ajukan Cuti / Izin</div>
@@ -3017,6 +2989,34 @@ header('Expires: 0');
                         <div class="loading"><span class="spin"></span> Memuat...</div>
                     </div>
                 </div>
+            </div>
+
+            <!-- Monitoring Detail -->
+            <div class="card" style="border-color:#1e3a5c;padding:12px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; flex-wrap:wrap; gap:6px;">
+                    <div style="display:flex;align-items:center;gap:7px;">
+                        <div style="width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#0c2d48,#145374);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;box-shadow:0 3px 8px rgba(12,45,72,.35);">📅</div>
+                        <div class="card-title" style="margin:0;font-size:13px;color:#0c2d48;">Detail Absensi &amp; Lembur</div>
+                    </div>
+                    <input type="month" id="monitorMonth" class="fi" style="width:126px;padding:5px 8px;font-size:10.5px;border-radius:8px;border-color:#9fb8cc;" value="<?php echo date('Y-m'); ?>" onchange="onMonitorMonthChange()">
+                </div>
+                <div style="display:flex; gap:5px; margin-bottom:10px; flex-wrap:wrap;">
+                    <button type="button" onclick="shiftMonitorMonth(-1)" style="flex:1;min-width:82px;background:linear-gradient(135deg,#0c2d48,#145374);color:#fff;border:none;padding:7px 8px;border-radius:8px;font-size:10.5px;font-weight:600;cursor:pointer;box-shadow:0 3px 8px rgba(12,45,72,.25);">← Bulan Lalu</button>
+                    <button type="button" onclick="shiftMonitorMonth(0)" style="background:#eef4f9;color:#0c2d48;border:1.5px solid #9fb8cc;padding:7px 12px;border-radius:8px;font-size:10.5px;font-weight:700;cursor:pointer;">Bulan Ini</button>
+                    <button type="button" onclick="shiftMonitorMonth(1)" style="flex:1;min-width:82px;background:linear-gradient(135deg,#0c2d48,#145374);color:#fff;border:none;padding:7px 8px;border-radius:8px;font-size:10.5px;font-weight:600;cursor:pointer;box-shadow:0 3px 8px rgba(12,45,72,.25);">Bulan Depan →</button>
+                </div>
+                <div id="monitorStats"></div>
+                <div id="monitorTable">
+                    <div class="loading"><span class="spin"></span> Memuat...</div>
+                </div>
+                <div style="margin-top:8px; padding-top:8px; border-top:1px dashed #9fb8cc;">
+                    <div style="font-size:10.5px; color:#0c2d48; font-weight:700; margin-bottom:5px; display:flex; align-items:center; gap:4px;">📋 Pengajuan Lembur Bulan Ini</div>
+                    <div id="monitorLemburStats" style="margin-bottom:8px;"></div>
+                    <div id="monitorLemburHistory">
+                        <div class="loading"><span class="spin"></span> Memuat...</div>
+                    </div>
+                </div>
+                <button type="button" onclick="openSlipForMonitorMonth()" style="margin-top:8px;width:100%;background:linear-gradient(135deg,#0c2d48,#145374);color:#fff;border:none;padding:9px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">💰 Lihat Slip Gaji Bulan Ini</button>
             </div>
 
         </div>
@@ -3735,24 +3735,24 @@ header('Expires: 0');
                 const barColor = pct >= 90 ? 'var(--green)' : pct >= 60 ? 'var(--orange)' : 'var(--red)';
 
                 document.getElementById('monitorStats').innerHTML = `
-            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px;">
-                <div style="background:#eff6ff;border:1px solid #dbeafe;border-radius:14px;padding:14px;text-align:center;">
-                    <div style="font-size:20px;margin-bottom:4px;">✅</div>
-                    <div style="font-size:10px;font-weight:700;color:#1d4ed8;text-transform:uppercase;letter-spacing:.4px;">Hadir</div>
-                    <div style="font-size:22px;font-weight:800;color:var(--green);margin-top:2px;">${s.days_present||0}</div>
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:10px;">
+                <div style="background:#eef4f9;border:1px solid #9fb8cc;border-radius:10px;padding:10px;text-align:center;">
+                    <div style="font-size:16px;margin-bottom:2px;">✅</div>
+                    <div style="font-size:9px;font-weight:700;color:#0c2d48;text-transform:uppercase;letter-spacing:.4px;">Hadir</div>
+                    <div style="font-size:18px;font-weight:800;color:var(--green);margin-top:1px;">${s.days_present||0}</div>
                 </div>
-                <div style="background:#eff6ff;border:1px solid #dbeafe;border-radius:14px;padding:14px;text-align:center;">
-                    <div style="font-size:20px;margin-bottom:4px;">⏰</div>
-                    <div style="font-size:10px;font-weight:700;color:#1d4ed8;text-transform:uppercase;letter-spacing:.4px;">Terlambat</div>
-                    <div style="font-size:22px;font-weight:800;color:var(--orange);margin-top:2px;">${s.days_late||0}</div>
+                <div style="background:#eef4f9;border:1px solid #9fb8cc;border-radius:10px;padding:10px;text-align:center;">
+                    <div style="font-size:16px;margin-bottom:2px;">⏰</div>
+                    <div style="font-size:9px;font-weight:700;color:#0c2d48;text-transform:uppercase;letter-spacing:.4px;">Terlambat</div>
+                    <div style="font-size:18px;font-weight:800;color:var(--orange);margin-top:1px;">${s.days_late||0}</div>
                 </div>
             </div>
-            <div style="background:#fff;border:1px solid #dbeafe;border-radius:14px;padding:14px;margin-bottom:12px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;margin-bottom:6px;">
-                    <span style="color:#1d4ed8;font-weight:600;">🎯 Target ${s.target||200} jam</span>
+            <div style="background:#fff;border:1px solid #9fb8cc;border-radius:10px;padding:10px;margin-bottom:10px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;font-size:10.5px;margin-bottom:5px;">
+                    <span style="color:#0c2d48;font-weight:600;">🎯 Target ${s.target||200} jam</span>
                     <span style="font-weight:800;color:${barColor};">${pct}%</span>
                 </div>
-                <div class="progress" style="background:#dbeafe;"><div class="progress-bar" style="width:${pct}%;background:${barColor};"></div></div>
+                <div class="progress" style="background:#c8d8e4;"><div class="progress-bar" style="width:${pct}%;background:${barColor};"></div></div>
             </div>`;
 
                 const rows = data.data || [];
