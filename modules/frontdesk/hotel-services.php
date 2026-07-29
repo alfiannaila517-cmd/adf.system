@@ -2610,11 +2610,11 @@ include '../../includes/header.php';
 </div>
 
 <script>
-    console.log('[hotel-services] script block starting...');
-    const SVC_KEYS = <?php echo json_encode(array_keys($serviceTypes), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
-    const SVC_LABELS = <?php echo json_encode(array_values(array_map(fn($v) => ($v['icon'] ?? '') . ' ' . ($v['label'] ?? ''), $serviceTypes)), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
-    // Catalog data grouped by service_type: { motor_rental: [{name,price,unit}, ...], ... }
-    const CATALOG_DATA = <?php
+    // Block 1: PHP-generated data only (isolated so any error here doesn't break functions)
+    try {
+    window.SVC_KEYS    = <?php echo json_encode(array_keys($serviceTypes), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
+    window.SVC_LABELS  = <?php echo json_encode(array_values(array_map(fn($v) => ($v['icon'] ?? '') . ' ' . ($v['label'] ?? ''), $serviceTypes)), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
+    window.CATALOG_DATA = <?php
                             $catalogByType = [];
                             foreach ($catalogRows as $cr) {
                                 $catalogByType[$cr['service_type']][] = [
@@ -2625,8 +2625,18 @@ include '../../includes/header.php';
                             }
                             echo json_encode($catalogByType, JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '{}';
                             ?>;
-    const RENTAL_MOTORS = <?php echo json_encode(array_map(fn($m) => ['id' => (int)$m['id'], 'label' => ($m['motor_name'] ?? '') . ' (' . ($m['plate_number'] ?? '') . ')', 'daily_rate' => (float)$m['daily_rate']], $availableMotors), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
-    const RENTAL_CARS = <?php echo json_encode(array_map(fn($c) => ['id' => (int)$c['id'], 'label' => ($c['car_name'] ?? '') . ' (' . ($c['plate_number'] ?? '') . ')' . (!empty($c['car_type']) ? ' - ' . $c['car_type'] : ''), 'daily_rate' => (float)$c['daily_rate']], $availableCars), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
+    window.RENTAL_MOTORS = <?php echo json_encode(array_map(fn($m) => ['id' => (int)$m['id'], 'label' => ($m['motor_name'] ?? '') . ' (' . ($m['plate_number'] ?? '') . ')', 'daily_rate' => (float)$m['daily_rate']], $availableMotors), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
+    window.RENTAL_CARS   = <?php echo json_encode(array_map(fn($c) => ['id' => (int)$c['id'], 'label' => ($c['car_name'] ?? '') . ' (' . ($c['plate_number'] ?? '') . ')' . (!empty($c['car_type']) ? ' - ' . $c['car_type'] : ''), 'daily_rate' => (float)$c['daily_rate']], $availableCars), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
+    } catch(e) { console.error('[hs-data] failed:', e); }
+</script>
+<script>
+    // Block 2: All function definitions — no PHP output, always safe to parse
+    console.log('[hotel-services] script block starting...');
+    const SVC_KEYS     = window.SVC_KEYS    || [];
+    const SVC_LABELS   = window.SVC_LABELS  || [];
+    const CATALOG_DATA = window.CATALOG_DATA|| {};
+    const RENTAL_MOTORS= window.RENTAL_MOTORS|| [];
+    const RENTAL_CARS  = window.RENTAL_CARS  || [];
 
     // ── Guest mode ────────────────────────────────────────────────────────────────
     function setGuestMode(mode) {
