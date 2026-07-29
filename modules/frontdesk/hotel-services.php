@@ -2611,8 +2611,8 @@ include '../../includes/header.php';
 
 <script>
     console.log('[hotel-services] script block starting...');
-    const SVC_KEYS = <?php echo json_encode(array_keys($serviceTypes)); ?>;
-    const SVC_LABELS = <?php echo json_encode(array_values(array_map(fn($v) => $v['icon'] . ' ' . $v['label'], $serviceTypes))); ?>;
+    const SVC_KEYS = <?php echo json_encode(array_keys($serviceTypes), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
+    const SVC_LABELS = <?php echo json_encode(array_values(array_map(fn($v) => ($v['icon'] ?? '') . ' ' . ($v['label'] ?? ''), $serviceTypes)), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
     // Catalog data grouped by service_type: { motor_rental: [{name,price,unit}, ...], ... }
     const CATALOG_DATA = <?php
                             $catalogByType = [];
@@ -2623,10 +2623,10 @@ include '../../includes/header.php';
                                     'unit'  => $cr['unit'] ?? 'unit',
                                 ];
                             }
-                            echo json_encode($catalogByType);
+                            echo json_encode($catalogByType, JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '{}';
                             ?>;
-    const RENTAL_MOTORS = <?php echo json_encode(array_map(fn($m) => ['id' => (int)$m['id'], 'label' => $m['motor_name'] . ' (' . $m['plate_number'] . ')', 'daily_rate' => (float)$m['daily_rate']], $availableMotors)); ?>;
-    const RENTAL_CARS = <?php echo json_encode(array_map(fn($c) => ['id' => (int)$c['id'], 'label' => $c['car_name'] . ' (' . $c['plate_number'] . ')' . (!empty($c['car_type']) ? ' - ' . $c['car_type'] : ''), 'daily_rate' => (float)$c['daily_rate']], $availableCars)); ?>;
+    const RENTAL_MOTORS = <?php echo json_encode(array_map(fn($m) => ['id' => (int)$m['id'], 'label' => ($m['motor_name'] ?? '') . ' (' . ($m['plate_number'] ?? '') . ')', 'daily_rate' => (float)$m['daily_rate']], $availableMotors), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
+    const RENTAL_CARS = <?php echo json_encode(array_map(fn($c) => ['id' => (int)$c['id'], 'label' => ($c['car_name'] ?? '') . ' (' . ($c['plate_number'] ?? '') . ')' . (!empty($c['car_type']) ? ' - ' . $c['car_type'] : ''), 'daily_rate' => (float)$c['daily_rate']], $availableCars), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
 
     // ── Guest mode ────────────────────────────────────────────────────────────────
     function setGuestMode(mode) {
