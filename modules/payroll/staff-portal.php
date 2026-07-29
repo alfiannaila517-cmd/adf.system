@@ -183,15 +183,15 @@ header('Expires: 0');
         }
 
         .auth-card {
-            background: rgba(148, 163, 184, .28);
-            backdrop-filter: blur(22px) saturate(1.1);
-            -webkit-backdrop-filter: blur(22px) saturate(1.1);
-            border: 1px solid rgba(255, 255, 255, .25);
-            border-radius: 20px;
-            padding: 26px 22px 20px;
+            background: rgba(30, 41, 59, .62);
+            backdrop-filter: blur(18px) saturate(1.1);
+            -webkit-backdrop-filter: blur(18px) saturate(1.1);
+            border: 1px solid rgba(255, 255, 255, .22);
+            border-radius: 22px;
+            padding: 32px 26px 24px;
             width: 100%;
-            max-width: 320px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, .4), 0 0 0 1px rgba(255, 255, 255, .08);
+            max-width: 360px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, .45), 0 0 0 1px rgba(255, 255, 255, .08);
             position: relative;
             z-index: 1;
         }
@@ -210,15 +210,16 @@ header('Expires: 0');
 
         .auth-logo h1 {
             font-size: 19px;
-            color: #0c2d48;
+            color: #fff;
             margin-top: 10px;
             font-weight: 800;
             letter-spacing: .3px;
+            text-shadow: 0 1px 6px rgba(0, 0, 0, .4);
         }
 
         .auth-logo p {
             font-size: 11px;
-            color: #64748b;
+            color: rgba(255, 255, 255, .8);
             margin-top: 4px;
             letter-spacing: .2px;
         }
@@ -276,6 +277,10 @@ header('Expires: 0');
             letter-spacing: .4px;
             margin-bottom: 4px;
             display: block;
+        }
+
+        .auth-card .fl {
+            color: rgba(255, 255, 255, .85);
         }
 
         .fi {
@@ -398,6 +403,10 @@ header('Expires: 0');
             color: var(--muted);
             cursor: pointer;
             user-select: none;
+        }
+
+        .auth-card .remember-row label {
+            color: rgba(255, 255, 255, .8);
         }
 
         /* ── App Shell ── */
