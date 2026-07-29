@@ -183,13 +183,15 @@ header('Expires: 0');
         }
 
         .auth-card {
-            background: rgba(255, 255, 255, .97);
-            backdrop-filter: blur(20px);
-            border-radius: 24px;
-            padding: 36px 28px 28px;
+            background: rgba(148, 163, 184, .28);
+            backdrop-filter: blur(22px) saturate(1.1);
+            -webkit-backdrop-filter: blur(22px) saturate(1.1);
+            border: 1px solid rgba(255, 255, 255, .25);
+            border-radius: 20px;
+            padding: 26px 22px 20px;
             width: 100%;
-            max-width: 380px;
-            box-shadow: 0 24px 80px rgba(0, 0, 0, .35), 0 0 0 1px rgba(255, 255, 255, .1);
+            max-width: 320px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, .4), 0 0 0 1px rgba(255, 255, 255, .08);
             position: relative;
             z-index: 1;
         }
