@@ -512,24 +512,24 @@ include '../../includes/header.php';
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-    color: #ffffff !important;
+    background: #1e3a8a;
+    color: #eff6ff !important;
     padding: 0.65rem 1rem;
-    border-radius: 12px;
+    border-radius: 6px;
     text-decoration: none;
     font-weight: 700;
     font-size: 0.75rem;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    border: none;
+    border: 1px solid #1e40af;
     cursor: pointer;
-    box-shadow: 0 4px 16px rgba(99, 102, 241, 0.25);
+    box-shadow: 0 4px 16px rgba(30, 58, 138, 0.25);
     white-space: nowrap;
     position: relative;
     overflow: hidden;
 }
 
 .btn-premium span {
-    color: #ffffff !important;
+    color: #eff6ff !important;
 }
 
 .btn-premium::before {
@@ -549,7 +549,7 @@ include '../../includes/header.php';
 
 .btn-premium:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(99, 102, 241, 0.3);
+    box-shadow: 0 8px 20px rgba(30, 58, 138, 0.35);
 }
 
 /* ============================================
@@ -1558,15 +1558,15 @@ include '../../includes/header.php';
                     <span>📋</span>
                     <span>Reservations</span>
                 </a>
-                <a href="in-house.php" class="btn-premium" style="background: linear-gradient(135deg, #f59e0b, #fbbf24);">
+                <a href="in-house.php" class="btn-premium">
                     <span>🏨</span>
                     <span>In-House Guests</span>
                 </a>
-                <a href="calendar.php" class="btn-premium" style="background: linear-gradient(135deg, #10b981, #34d399);">
+                <a href="calendar.php" class="btn-premium">
                     <span>📆</span>
                     <span>Calendar View</span>
                 </a>
-                <a href="settings.php" class="btn-premium" style="background: linear-gradient(135deg, #8b5cf6, #a855f7);">
+                <a href="settings.php" class="btn-premium">
                     <span>⚙️</span>
                     <span>Settings</span>
                 </a>
