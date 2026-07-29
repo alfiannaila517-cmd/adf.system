@@ -407,34 +407,13 @@ include '../../includes/header.php';
 .dashboard-container {
     max-width: 1800px;
     margin: 0 auto;
-    padding: 1.25rem 1rem;
-    background: linear-gradient(135deg, 
-        rgba(99, 102, 241, 0.03) 0%, 
-        rgba(139, 92, 246, 0.03) 50%,
-        rgba(236, 72, 153, 0.03) 100%);
+    padding: 1.1rem 1rem;
     position: relative;
     min-height: 100vh;
 }
 
 .dashboard-container::before {
-    content: '';
-    position: fixed;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: 
-        radial-gradient(circle at 20% 30%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
-        radial-gradient(circle at 80% 70%, rgba(139, 92, 246, 0.08) 0%, transparent 50%),
-        radial-gradient(circle at 50% 50%, rgba(236, 72, 153, 0.05) 0%, transparent 50%);
-    pointer-events: none;
-    z-index: 0;
-    animation: gradientShift 15s ease-in-out infinite;
-}
-
-@keyframes gradientShift {
-    0%, 100% { transform: translate(0, 0) rotate(0deg); }
-    50% { transform: translate(5%, 5%) rotate(5deg); }
+    display: none;
 }
 
 .dashboard-container > * {
@@ -447,57 +426,50 @@ include '../../includes/header.php';
    ============================================ */
 
 .dashboard-header {
-    margin-bottom: 2rem;
+    margin-bottom: 1.1rem;
     position: relative;
     z-index: 1;
 }
 
 .dashboard-header::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, var(--glass-border), transparent);
-    margin-bottom: 1rem;
+    display: none;
 }
 
 .dashboard-header-content {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    gap: 2rem;
+    gap: 1.5rem;
 }
 
 .dashboard-header h1 {
-    font-size: 2.5rem;
-    font-weight: 900;
+    font-size: 1.6rem;
+    font-weight: 800;
     color: #1e3a8a;
     -webkit-text-fill-color: #1e3a8a;
     background: none;
     margin: 0;
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.5rem;
     line-height: 1.2;
-    filter: drop-shadow(0 2px 8px rgba(30, 58, 138, 0.15));
+    filter: none;
 }
 
 .dashboard-header h1::before {
     content: '📊';
-    font-size: 2.5rem;
+    font-size: 1.4rem;
     -webkit-text-fill-color: initial;
     background: none;
-    filter: drop-shadow(0 4px 12px rgba(30, 58, 138, 0.3));
+    filter: none;
 }
 
 .dashboard-header .subtitle {
     color: var(--text-secondary);
-    margin-top: 0.5rem;
-    font-size: 0.875rem;
+    margin-top: 0.3rem;
+    font-size: 0.8rem;
     font-weight: 500;
-    letter-spacing: 0.3px;
+    letter-spacing: 0.2px;
 }
 
 .header-actions {
@@ -510,48 +482,30 @@ include '../../includes/header.php';
 .btn-premium {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.4rem;
     background: #1e3a8a;
-    color: #ffffff !important;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
-    padding: 0.65rem 1rem;
-    border-radius: 6px;
+    padding: 0.55rem 0.9rem;
+    border-radius: 8px;
     text-decoration: none;
-    font-weight: 700;
+    font-weight: 600;
     font-size: 0.75rem;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: background 0.2s ease, transform 0.15s ease;
     border: 1px solid #1e40af;
     cursor: pointer;
-    box-shadow: 0 4px 16px rgba(30, 58, 138, 0.25);
+    box-shadow: none;
     white-space: nowrap;
-    position: relative;
-    overflow: hidden;
 }
 
+body[data-theme="light"] .btn-premium,
+body[data-theme="light"] .btn-premium span,
+.btn-premium,
 .btn-premium span {
     color: #ffffff !important;
-    position: relative;
-    z-index: 1;
-}
-
-.btn-premium::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-    transition: left 0.6s;
-}
-
-.btn-premium:hover::before {
-    left: 100%;
 }
 
 .btn-premium:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(30, 58, 138, 0.35);
+    background: #1e40af;
+    transform: translateY(-1px);
 }
 
 /* ============================================
@@ -560,99 +514,69 @@ include '../../includes/header.php';
 
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 0.75rem;
-    margin-bottom: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 0.6rem;
+    margin-bottom: 0.85rem;
 }
 
 .stat-card {
-    background: var(--glass-bg);
-    backdrop-filter: blur(var(--glass-blur));
-    -webkit-backdrop-filter: blur(var(--glass-blur));
-    border: 1.5px solid transparent;
-    background-image: 
-        linear-gradient(var(--glass-bg), var(--glass-bg)),
-        linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(139, 92, 246, 0.3));
-    background-origin: border-box;
-    background-clip: padding-box, border-box;
-    border-radius: 12px;
-    padding: 1rem;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 0.75rem;
     position: relative;
     overflow: hidden;
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 
-        0 2px 12px rgba(0, 0, 0, 0.06),
-        0 4px 20px rgba(99, 102, 241, 0.08),
-        inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .stat-card::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    right: -50%;
-    width: 300px;
-    height: 300px;
-    background: radial-gradient(circle, currentColor, transparent);
-    opacity: 0.03;
-    border-radius: 50%;
-    pointer-events: none;
-    transition: all 0.4s ease;
+    display: none;
 }
 
 .stat-card:hover {
-    transform: translateY(-6px) scale(1.02);
-    box-shadow: 
-        0 12px 32px rgba(0, 0, 0, 0.12),
-        0 16px 48px rgba(99, 102, 241, 0.2),
-        inset 0 1px 0 rgba(255, 255, 255, 0.3);
-    background-image: 
-        linear-gradient(var(--glass-bg), var(--glass-bg)),
-        linear-gradient(135deg, rgba(99, 102, 241, 0.5), rgba(139, 92, 246, 0.5));
+    transform: none;
+    border-color: #1e3a8a;
+    box-shadow: 0 2px 8px rgba(30, 58, 138, 0.1);
+    background-image: none;
 }
 
 .stat-card:hover::before {
-    top: 0;
-    right: 0;
+    display: none;
 }
 
 .stat-icon-wrapper {
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.35rem;
-    margin-bottom: 0.5rem;
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
+    font-size: 1.1rem;
+    margin-bottom: 0.4rem;
+    background: #eff6ff;
+    border: 1px solid #dbeafe;
     position: relative;
     overflow: hidden;
 }
 
 .stat-icon-wrapper::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(135deg, transparent, rgba(255, 255, 255, 0.2));
-    pointer-events: none;
+    display: none;
 }
 
 .stat-value {
-    font-size: 1.75rem;
-    font-weight: 900;
-    color: var(--text-primary);
-    font-family: 'Courier New', monospace;
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #1e293b;
     line-height: 1;
-    margin-bottom: 0.35rem;
+    margin-bottom: 0.3rem;
     letter-spacing: -0.3px;
 }
 
 .stat-label {
-    color: var(--text-secondary);
-    font-size: 0.75rem;
+    color: #64748b;
+    font-size: 0.68rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.3px;
@@ -1169,49 +1093,26 @@ include '../../includes/header.php';
 }
 
 /* ============================================
-   GUESTS TABLE - PREMIUM STYLE
+   GUESTS TABLE - CLEAN MODERN STYLE
    ============================================ */
 
 .guests-card {
-    background: var(--glass-bg);
-    backdrop-filter: blur(var(--glass-blur));
-    -webkit-backdrop-filter: blur(var(--glass-blur));
-    border: 2px solid transparent;
-    background-image: 
-        linear-gradient(var(--glass-bg), var(--glass-bg)),
-        linear-gradient(135deg, rgba(99, 102, 241, 0.4), rgba(139, 92, 246, 0.4));
-    background-origin: border-box;
-    background-clip: padding-box, border-box;
-    border-radius: 20px;
-    padding: 1.75rem;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1.1rem;
     overflow: hidden;
-    box-shadow: 
-        0 8px 32px rgba(0, 0, 0, 0.1),
-        0 12px 48px rgba(99, 102, 241, 0.15),
-        inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .guests-card h3 {
-    font-size: 1.05rem;
-    font-weight: 800;
-    color: var(--text-primary);
-    margin: 0 0 1rem 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0 0 0.75rem 0;
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-}
-
-.guests-card h3::before {
-    font-size: 1.3rem;
-    filter: drop-shadow(0 2px 8px rgba(99, 102, 241, 0.3));
-}
-}
-
-.guests-card h3 {
-    font-size: 1rem;
-    font-weight: 800;
-    color: var(--text-primary);
-    margin: 0 0 0.75rem 0;
+    gap: 0.6rem;
 }
 
 .guests-table {
@@ -1224,40 +1125,40 @@ include '../../includes/header.php';
 }
 
 .guests-table th {
-    padding: 0.75rem;
+    padding: 0.6rem 0.65rem;
     text-align: left;
     font-weight: 700;
-    color: var(--text-primary);
-    font-size: 0.9rem;
+    color: #64748b;
+    font-size: 0.68rem;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 0.5px;
 }
 
 .guests-table td {
-    padding: 0.75rem;
-    border-bottom: 1px solid var(--glass-border);
-    color: var(--text-secondary);
-    font-size: 0.85rem;
+    padding: 0.6rem 0.65rem;
+    border-bottom: 1px solid #f1f5f9;
+    color: #475569;
+    font-size: 0.82rem;
 }
 
 .guests-table tbody tr {
-    transition: all 0.3s ease;
+    transition: background 0.15s ease;
 }
 
 .guests-table tbody tr:hover {
-    background: rgba(99, 102, 241, 0.08);
+    background: #f8fafc;
 }
 
 .room-badge {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    background: #1e3a8a;
     color: white;
-    padding: 0.4rem 0.8rem;
-    border-radius: 8px;
+    padding: 0.3rem 0.65rem;
+    border-radius: 6px;
     font-weight: 700;
-    font-size: 0.75rem;
+    font-size: 0.72rem;
 }
 
 .status-badge {
@@ -1576,80 +1477,77 @@ include '../../includes/header.php';
         </div>
     </div>
 
-    <!-- Compact Dashboard Grid - Clean Layout -->
-    <div style="display: grid; grid-template-columns: 220px 1fr; gap: 0.75rem; margin-bottom: 1rem; align-items: stretch;">
-        
+    <!-- Compact Dashboard Grid - Clean Modern Layout -->
+    <div style="display: grid; grid-template-columns: 200px 1fr; gap: 0.65rem; margin-bottom: 0.85rem; align-items: stretch;">
+
         <!-- LEFT: Occupancy Pie Chart - Compact -->
-        <div style="background: var(--glass-bg); backdrop-filter: blur(16px); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 12px; padding: 0.75rem; display: flex; flex-direction: column;">
-            <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem; display: flex; align-items: center; justify-content: space-between;">
-                <span>🥧 Occupancy</span>
-                <span style="font-size: 0.7rem; color: var(--text-secondary); background: var(--bg-tertiary); padding: 0.2rem 0.4rem; border-radius: 10px;"><?php echo $stats['total_rooms']; ?> Rooms</span>
+        <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 0.65rem; display: flex; flex-direction: column; box-shadow: 0 1px 2px rgba(0,0,0,0.04);">
+            <div style="font-size: 0.78rem; font-weight: 700; color: #1e293b; margin-bottom: 0.4rem; display: flex; align-items: center; justify-content: space-between;">
+                <span>Occupancy</span>
+                <span style="font-size: 0.65rem; color: #64748b; background: #f1f5f9; padding: 0.15rem 0.4rem; border-radius: 10px;"><?php echo $stats['total_rooms']; ?> Rooms</span>
             </div>
-            
+
             <!-- Pie Chart Container -->
-            <div style="position: relative; width: 130px; height: 130px; margin: 0 auto;">
+            <div style="position: relative; width: 110px; height: 110px; margin: 0 auto;">
                 <canvas id="occupancyChart"></canvas>
                 <!-- Center Percentage -->
                 <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
-                    <div style="font-size: 1.4rem; font-weight: 900; background: linear-gradient(135deg, #6366f1, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; line-height: 1;">
+                    <div style="font-size: 1.15rem; font-weight: 800; color: #1e3a8a; line-height: 1;">
                         <?php echo $stats['occupancy_rate']; ?>%
                     </div>
-                    <div style="font-size: 0.65rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Occupied</div>
+                    <div style="font-size: 0.58rem; font-weight: 600; color: #64748b; text-transform: uppercase;">Occupied</div>
                 </div>
             </div>
-            
+
             <!-- Legend -->
-            <div style="display: flex; justify-content: center; gap: 1rem; margin-top: 0.5rem; font-size: 0.7rem;">
-                <span style="display: flex; align-items: center; gap: 0.3rem;">
-                    <span style="width: 8px; height: 8px; background: #10b981; border-radius: 50%;"></span>
+            <div style="display: flex; justify-content: center; gap: 0.85rem; margin-top: 0.45rem; font-size: 0.65rem; color: #475569;">
+                <span style="display: flex; align-items: center; gap: 0.25rem;">
+                    <span style="width: 7px; height: 7px; background: #1e3a8a; border-radius: 50%;"></span>
                     OCCUPIED (<?php echo $stats['occupied_rooms']; ?>)
                 </span>
-                <span style="display: flex; align-items: center; gap: 0.3rem;">
-                    <span style="width: 8px; height: 8px; background: #818cf8; border-radius: 50%;"></span>
+                <span style="display: flex; align-items: center; gap: 0.25rem;">
+                    <span style="width: 7px; height: 7px; background: #cbd5e1; border-radius: 50%;"></span>
                     VACANT (<?php echo $stats['available_rooms']; ?>)
                 </span>
             </div>
         </div>
-        
+
         <!-- RIGHT: Revenue Overview - Compact Grid -->
-        <div style="background: var(--glass-bg); backdrop-filter: blur(16px); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 12px; padding: 0.75rem;">
-            <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
-                💎 Revenue Overview
+        <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 0.65rem; box-shadow: 0 1px 2px rgba(0,0,0,0.04);">
+            <div style="font-size: 0.78rem; font-weight: 700; color: #1e293b; margin-bottom: 0.4rem;">
+                Revenue Overview
             </div>
-            
+
             <!-- Revenue Cards - 2x2 Grid -->
             <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem;">
-                
+
                 <!-- Actual Revenue (Today) -->
-                <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(52, 211, 153, 0.08)); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 10px; padding: 0.6rem;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
-                        <span style="font-size: 1.05rem;">💰</span>
-                        <span style="font-size: 0.6rem; background: rgba(16, 185, 129, 0.2); color: #059669; padding: 0.15rem 0.35rem; border-radius: 8px; font-weight: 600;">TODAY</span>
+                <div style="background: #f8fafc; border: 1px solid #e5e7eb; border-left: 3px solid #1e3a8a; border-radius: 8px; padding: 0.55rem 0.6rem;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.3rem;">
+                        <span style="font-size: 0.65rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Today</span>
                     </div>
-                    <div style="font-size: 0.7rem; color: #059669; font-weight: 600; margin-bottom: 0.2rem;">Today Revenue</div>
-                    <div style="font-size: 0.95rem; font-weight: 800; color: #047857;">Rp <?php echo number_format($stats['revenue_today'], 0, ',', '.'); ?></div>
+                    <div style="font-size: 0.68rem; color: #64748b; font-weight: 600; margin-bottom: 0.2rem;">Today Revenue</div>
+                    <div style="font-size: 0.9rem; font-weight: 800; color: #1e293b;">Rp <?php echo number_format($stats['revenue_today'], 0, ',', '.'); ?></div>
                 </div>
-                
+
                 <!-- Monthly Revenue -->
-                <div style="background: linear-gradient(135deg, rgba(236, 72, 153, 0.12), rgba(219, 39, 119, 0.08)); border: 1px solid rgba(236, 72, 153, 0.3); border-radius: 10px; padding: 0.6rem;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
-                        <span style="font-size: 1.05rem;">📅</span>
-                        <span style="font-size: 0.6rem; background: rgba(236, 72, 153, 0.2); color: #db2777; padding: 0.15rem 0.35rem; border-radius: 8px; font-weight: 600;">MONTH</span>
+                <div style="background: #f8fafc; border: 1px solid #e5e7eb; border-left: 3px solid #1e3a8a; border-radius: 8px; padding: 0.55rem 0.6rem;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.3rem;">
+                        <span style="font-size: 0.65rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Month</span>
                     </div>
-                    <div style="font-size: 0.7rem; color: #db2777; font-weight: 600; margin-bottom: 0.2rem;">Paid This Month</div>
-                    <div style="font-size: 0.95rem; font-weight: 800; color: #be185d;">Rp <?php echo number_format($stats['month_revenue'], 0, ',', '.'); ?></div>
-                    <div style="font-size: 0.6rem; color: #f472b6; margin-top: 3px;">Direct bookings only (excl. OTA)</div>
+                    <div style="font-size: 0.68rem; color: #64748b; font-weight: 600; margin-bottom: 0.2rem;">Paid This Month</div>
+                    <div style="font-size: 0.9rem; font-weight: 800; color: #1e293b;">Rp <?php echo number_format($stats['month_revenue'], 0, ',', '.'); ?></div>
+                    <div style="font-size: 0.58rem; color: #94a3b8; margin-top: 3px;">Direct bookings only (excl. OTA)</div>
                 </div>
-                
+
                 <!-- Expected Revenue -->
-                <div style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(251, 191, 36, 0.08)); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 10px; padding: 0.6rem;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
-                        <span style="font-size: 1.05rem;">📊</span>
-                        <span style="font-size: 0.6rem; background: rgba(245, 158, 11, 0.2); color: #d97706; padding: 0.15rem 0.35rem; border-radius: 8px; font-weight: 600;">TARGET</span>
+                <div style="background: #f8fafc; border: 1px solid #e5e7eb; border-left: 3px solid #1e3a8a; border-radius: 8px; padding: 0.55rem 0.6rem;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.3rem;">
+                        <span style="font-size: 0.65rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Target</span>
                     </div>
-                    <div style="font-size: 0.7rem; color: #d97706; font-weight: 600; margin-bottom: 0.2rem;">Expected Revenue</div>
-                    <div style="font-size: 0.95rem; font-weight: 800; color: #b45309;">Rp <?php echo number_format($stats['expected_revenue'], 0, ',', '.'); ?></div>
-                    <div style="font-size: 0.6rem; color: #fbbf24; margin-top: 3px;">All reservations this month (excl. cancelled)</div>
+                    <div style="font-size: 0.68rem; color: #64748b; font-weight: 600; margin-bottom: 0.2rem;">Expected Revenue</div>
+                    <div style="font-size: 0.9rem; font-weight: 800; color: #1e293b;">Rp <?php echo number_format($stats['expected_revenue'], 0, ',', '.'); ?></div>
+                    <div style="font-size: 0.58rem; color: #94a3b8; margin-top: 3px;">All reservations this month (excl. cancelled)</div>
                 </div>
             </div>
         </div>
@@ -1658,10 +1556,10 @@ include '../../includes/header.php';
 
     <!-- Checkout Guests Today - Detail Section -->
     <?php if (!empty($stats['checkout_guests'])): ?>
-    <div class="checkout-section" style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(251, 191, 36, 0.05)); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 14px; padding: 1rem; margin-bottom: 1rem;">
-        <h3 style="font-size: 0.9rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem; color: #b45309;">
-            👋 Check-out Today
-            <span style="font-size: 0.65rem; background: rgba(245, 158, 11, 0.15); color: #d97706; padding: 0.2rem 0.6rem; border-radius: 20px; font-weight: 600;">
+    <div class="checkout-section" style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 0.85rem; margin-bottom: 0.85rem;">
+        <h3 style="font-size: 0.85rem; margin-bottom: 0.65rem; display: flex; align-items: center; gap: 0.5rem; color: #92400e; font-weight: 700;">
+            Check-out Today
+            <span style="font-size: 0.62rem; background: #fef3c7; color: #92400e; padding: 0.15rem 0.55rem; border-radius: 20px; font-weight: 600;">
                 <?php echo count($stats['checkout_guests']); ?> Guests
             </span>
         </h3>
@@ -1689,7 +1587,7 @@ include '../../includes/header.php';
                             <div style="font-size: 0.7rem; color: var(--text-secondary);"><?php echo htmlspecialchars($guest['phone'] ?? '-'); ?></div>
                         </td>
                         <td style="padding: 0.6rem 0.75rem; text-align: center;">
-                            <span style="background: linear-gradient(135deg, #f59e0b, #fbbf24); color: white; padding: 0.25rem 0.6rem; border-radius: 6px; font-weight: 700; font-size: 0.75rem;">
+                            <span style="background: #1e3a8a; color: white; padding: 0.25rem 0.6rem; border-radius: 6px; font-weight: 700; font-size: 0.75rem;">
                                 <?php echo htmlspecialchars($guest['room_number']); ?>
                             </span>
                         </td>
@@ -1895,8 +1793,8 @@ if (occupancyCtx) {
     gradient1.addColorStop(1, 'rgba(5, 150, 105, 0.95)');
     
     const gradient2 = ctx.createLinearGradient(0, 0, 0, 200);
-    gradient2.addColorStop(0, 'rgba(129, 140, 248, 0.95)');
-    gradient2.addColorStop(1, 'rgba(99, 102, 241, 0.95)');
+    gradient2.addColorStop(0, 'rgba(203, 213, 225, 0.95)');
+    gradient2.addColorStop(1, 'rgba(148, 163, 184, 0.95)');
     
     const occupancyChart = new Chart(occupancyCtx, {
         type: 'doughnut',
