@@ -28,6 +28,22 @@ if (!$auth->hasPermission('frontdesk')) {
 $pageTitle = 'Front Desk Dashboard - Occupancy & Analytics';
 
 // ============================================
+// HELPER: Build WhatsApp chat link from a guest phone number
+// ============================================
+function dashboard_wa_link($phone) {
+    $digits = preg_replace('/\D+/', '', (string) $phone);
+    if ($digits === '') {
+        return null;
+    }
+    if (substr($digits, 0, 1) === '0') {
+        $digits = '62' . substr($digits, 1);
+    } elseif (substr($digits, 0, 2) !== '62') {
+        $digits = '62' . $digits;
+    }
+    return 'https://wa.me/' . $digits;
+}
+
+// ============================================
 // GET COMPREHENSIVE STATISTICS
 // ============================================
 try {
@@ -305,6 +321,7 @@ try {
         SELECT 
             b.id,
             g.guest_name,
+            g.phone,
             b.room_id,
             r.room_number,
             b.check_in_date,
@@ -1152,13 +1169,31 @@ body[data-theme="light"] .btn-premium span,
 .room-badge {
     display: inline-flex;
     align-items: center;
-    gap: 0.35rem;
-    background: #1e3a8a;
-    color: white;
-    padding: 0.3rem 0.65rem;
-    border-radius: 6px;
-    font-weight: 700;
-    font-size: 0.72rem;
+    color: #1e3a8a;
+    font-weight: 800;
+    font-size: 0.85rem;
+}
+
+.wa-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #25D366;
+    color: #ffffff !important;
+    font-size: 0.75rem;
+    text-decoration: none;
+    margin-left: 0.4rem;
+    vertical-align: middle;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.wa-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 2px 6px rgba(37, 211, 102, 0.4);
 }
 
 .status-badge {
@@ -1683,12 +1718,21 @@ body[data-theme="light"] .btn-premium span,
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($stats['guests_today'] as $guest): ?>
+                    <?php foreach ($stats['guests_today'] as $guest): 
+                        $waLink = dashboard_wa_link($guest['phone'] ?? '');
+                    ?>
                     <tr>
-                        <td><strong><?php echo htmlspecialchars($guest['guest_name']); ?></strong></td>
+                        <td>
+                            <strong><?php echo htmlspecialchars($guest['guest_name']); ?></strong>
+                            <?php if ($waLink): ?>
+                            <a href="<?php echo htmlspecialchars($waLink); ?>" class="wa-btn" target="_blank" rel="noopener" title="Chat WhatsApp <?php echo htmlspecialchars($guest['guest_name']); ?>">
+                                <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.29.173-1.414-.074-.124-.272-.198-.57-.347z"/><path d="M12.001 2C6.478 2 2 6.477 2 12c0 1.94.556 3.752 1.518 5.286L2.06 22l4.86-1.44A9.94 9.94 0 0012.001 22C17.523 22 22 17.523 22 12S17.523 2 12.001 2zm0 18.2c-1.72 0-3.35-.47-4.75-1.29l-.34-.2-2.88.85.86-2.81-.22-.35A8.18 8.18 0 013.8 12c0-4.53 3.68-8.2 8.2-8.2 4.52 0 8.2 3.67 8.2 8.2 0 4.52-3.68 8.2-8.199 8.2z"/></svg>
+                            </a>
+                            <?php endif; ?>
+                        </td>
                         <td>
                             <span class="room-badge">
-                                🚪 <?php echo htmlspecialchars($guest['room_number']); ?>
+                                <?php echo htmlspecialchars($guest['room_number']); ?>
                             </span>
                         </td>
                         <td><?php echo date('d M, H:i', strtotime($guest['check_in_date'])); ?></td>
@@ -1743,7 +1787,7 @@ body[data-theme="light"] .btn-premium span,
                             <?php endif; ?>
                         </td>
                         <td>
-                            <span class="room-badge">🚪 <?php echo htmlspecialchars($res['room_number']); ?></span>
+                            <span class="room-badge"><?php echo htmlspecialchars($res['room_number']); ?></span>
                         </td>
                         <td>
                             <div><?php echo date('d M', strtotime($res['check_in_date'])); ?></div>
