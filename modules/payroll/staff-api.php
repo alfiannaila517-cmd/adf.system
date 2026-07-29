@@ -570,6 +570,16 @@ if ($action === 'hk_tasks') {
                 $availableHkStaff[$n] = true;
             }
         }
+        // If no assignments exist for this date, fall back to all active HK staff
+        if (empty($availableHkStaff)) {
+            try {
+                $hkStaffRows = $db->fetchAll("SELECT staff_name FROM frontdesk_hk_staff WHERE is_active = 1 ORDER BY staff_name ASC") ?: [];
+                foreach ($hkStaffRows as $row) {
+                    $n = trim((string)($row['staff_name'] ?? ''));
+                    if ($n !== '') $availableHkStaff[$n] = true;
+                }
+            } catch (Exception $e) { /* table may not exist yet */ }
+        }
         $availableHkStaff = array_keys($availableHkStaff);
         sort($availableHkStaff, SORT_NATURAL | SORT_FLAG_CASE);
 
