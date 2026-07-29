@@ -5,6 +5,12 @@ if (!isset($_GET['key']) || $_GET['key'] !== 'adf2024diag') {
     exit('Forbidden');
 }
 
+// Show full phpinfo if requested
+if (isset($_GET['info'])) {
+    phpinfo();
+    exit;
+}
+
 echo "<h2>PHP Diagnostic</h2>";
 echo "<b>PHP Version:</b> " . PHP_VERSION . "<br>";
 echo "<b>PHP Version ID:</b> " . PHP_VERSION_ID . "<br>";
