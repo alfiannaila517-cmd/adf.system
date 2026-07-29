@@ -187,59 +187,59 @@ header('Expires: 0');
             backdrop-filter: blur(18px) saturate(1.1);
             -webkit-backdrop-filter: blur(18px) saturate(1.1);
             border: 1px solid rgba(255, 255, 255, .22);
-            border-radius: 22px;
-            padding: 32px 26px 24px;
+            border-radius: 18px;
+            padding: 22px 20px 18px;
             width: 100%;
-            max-width: 360px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, .45), 0 0 0 1px rgba(255, 255, 255, .08);
+            max-width: 288px;
+            box-shadow: 0 16px 44px rgba(0, 0, 0, .4), 0 0 0 1px rgba(255, 255, 255, .08);
             position: relative;
             z-index: 1;
         }
 
         .auth-logo {
             text-align: center;
-            margin-bottom: 22px;
+            margin-bottom: 16px;
         }
 
         .auth-logo img {
-            height: 56px;
-            max-width: 180px;
+            height: 44px;
+            max-width: 140px;
             object-fit: contain;
             filter: drop-shadow(0 2px 8px rgba(0, 0, 0, .1));
         }
 
         .auth-logo h1 {
-            font-size: 19px;
+            font-size: 15px;
             color: #fff;
-            margin-top: 10px;
-            font-weight: 800;
-            letter-spacing: .3px;
+            margin-top: 8px;
+            font-weight: 700;
+            letter-spacing: .2px;
             text-shadow: 0 1px 6px rgba(0, 0, 0, .4);
         }
 
         .auth-logo p {
-            font-size: 11px;
-            color: rgba(255, 255, 255, .8);
-            margin-top: 4px;
+            font-size: 10px;
+            color: rgba(255, 255, 255, .75);
+            margin-top: 2px;
             letter-spacing: .2px;
         }
 
         .auth-tabs {
             display: flex;
             background: #f0f7ff;
-            border-radius: 12px;
+            border-radius: 10px;
             padding: 3px;
-            margin-bottom: 20px;
+            margin-bottom: 14px;
             gap: 2px;
         }
 
         .auth-tab {
             flex: 1;
-            padding: 9px 6px;
+            padding: 7px 5px;
             border: none;
             background: transparent;
-            border-radius: 10px;
-            font-size: 12px;
+            border-radius: 8px;
+            font-size: 11px;
             font-weight: 600;
             color: #64748b;
             cursor: pointer;
@@ -266,16 +266,16 @@ header('Expires: 0');
         }
 
         .fg {
-            margin-bottom: 14px;
+            margin-bottom: 10px;
         }
 
         .fl {
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 600;
             color: var(--muted);
             text-transform: uppercase;
             letter-spacing: .4px;
-            margin-bottom: 4px;
+            margin-bottom: 3px;
             display: block;
         }
 
@@ -285,10 +285,10 @@ header('Expires: 0');
 
         .fi {
             width: 100%;
-            padding: 10px 12px;
+            padding: 8px 10px;
             border: 1.5px solid var(--border);
             border-radius: 8px;
-            font-size: 13px;
+            font-size: 12.5px;
             color: var(--text);
             background: #fff;
             transition: .15s;
@@ -302,12 +302,12 @@ header('Expires: 0');
 
         .btn-auth {
             width: 100%;
-            padding: 13px;
+            padding: 11px;
             background: linear-gradient(135deg, #0c2d48, #145374);
             color: #fff;
             border: none;
-            border-radius: 12px;
-            font-size: 14px;
+            border-radius: 10px;
+            font-size: 13px;
             font-weight: 700;
             cursor: pointer;
             transition: all .2s;
@@ -387,7 +387,7 @@ header('Expires: 0');
             display: flex;
             align-items: center;
             gap: 6px;
-            margin-bottom: 14px;
+            margin-bottom: 10px;
             margin-top: -4px;
         }
 
