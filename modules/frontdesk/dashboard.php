@@ -473,16 +473,15 @@ include '../../includes/header.php';
 .dashboard-header h1 {
     font-size: 2.5rem;
     font-weight: 900;
-    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: #1e3a8a;
+    -webkit-text-fill-color: #1e3a8a;
+    background: none;
     margin: 0;
     display: flex;
     align-items: center;
     gap: 0.75rem;
     line-height: 1.2;
-    filter: drop-shadow(0 2px 8px rgba(99, 102, 241, 0.2));
+    filter: drop-shadow(0 2px 8px rgba(30, 58, 138, 0.15));
 }
 
 .dashboard-header h1::before {
@@ -490,7 +489,7 @@ include '../../includes/header.php';
     font-size: 2.5rem;
     -webkit-text-fill-color: initial;
     background: none;
-    filter: drop-shadow(0 4px 12px rgba(99, 102, 241, 0.4));
+    filter: drop-shadow(0 4px 12px rgba(30, 58, 138, 0.3));
 }
 
 .dashboard-header .subtitle {
