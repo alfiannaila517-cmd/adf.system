@@ -513,7 +513,8 @@ include '../../includes/header.php';
     align-items: center;
     gap: 0.5rem;
     background: #1e3a8a;
-    color: #eff6ff !important;
+    color: #ffffff !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
     padding: 0.65rem 1rem;
     border-radius: 6px;
     text-decoration: none;
@@ -529,7 +530,9 @@ include '../../includes/header.php';
 }
 
 .btn-premium span {
-    color: #eff6ff !important;
+    color: #ffffff !important;
+    position: relative;
+    z-index: 1;
 }
 
 .btn-premium::before {
@@ -1575,79 +1578,79 @@ include '../../includes/header.php';
     </div>
 
     <!-- Compact Dashboard Grid - Clean Layout -->
-    <div style="display: grid; grid-template-columns: 300px 1fr; gap: 1rem; margin-bottom: 1rem; align-items: stretch;">
+    <div style="display: grid; grid-template-columns: 220px 1fr; gap: 0.75rem; margin-bottom: 1rem; align-items: stretch;">
         
         <!-- LEFT: Occupancy Pie Chart - Compact -->
-        <div style="background: var(--glass-bg); backdrop-filter: blur(16px); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 12px; padding: 1rem; display: flex; flex-direction: column;">
-            <div style="font-size: 1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between;">
+        <div style="background: var(--glass-bg); backdrop-filter: blur(16px); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 12px; padding: 0.75rem; display: flex; flex-direction: column;">
+            <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem; display: flex; align-items: center; justify-content: space-between;">
                 <span>🥧 Occupancy</span>
-                <span style="font-size: 0.8rem; color: var(--text-secondary); background: var(--bg-tertiary); padding: 0.25rem 0.5rem; border-radius: 10px;"><?php echo $stats['total_rooms']; ?> Rooms</span>
+                <span style="font-size: 0.7rem; color: var(--text-secondary); background: var(--bg-tertiary); padding: 0.2rem 0.4rem; border-radius: 10px;"><?php echo $stats['total_rooms']; ?> Rooms</span>
             </div>
             
             <!-- Pie Chart Container -->
-            <div style="position: relative; width: 180px; height: 180px; margin: 0 auto;">
+            <div style="position: relative; width: 130px; height: 130px; margin: 0 auto;">
                 <canvas id="occupancyChart"></canvas>
                 <!-- Center Percentage -->
                 <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
-                    <div style="font-size: 2rem; font-weight: 900; background: linear-gradient(135deg, #6366f1, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; line-height: 1;">
+                    <div style="font-size: 1.4rem; font-weight: 900; background: linear-gradient(135deg, #6366f1, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; line-height: 1;">
                         <?php echo $stats['occupancy_rate']; ?>%
                     </div>
-                    <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Occupied</div>
+                    <div style="font-size: 0.65rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Occupied</div>
                 </div>
             </div>
             
             <!-- Legend -->
-            <div style="display: flex; justify-content: center; gap: 1.25rem; margin-top: 0.75rem; font-size: 0.85rem;">
-                <span style="display: flex; align-items: center; gap: 0.35rem;">
-                    <span style="width: 10px; height: 10px; background: #10b981; border-radius: 50%;"></span>
+            <div style="display: flex; justify-content: center; gap: 1rem; margin-top: 0.5rem; font-size: 0.7rem;">
+                <span style="display: flex; align-items: center; gap: 0.3rem;">
+                    <span style="width: 8px; height: 8px; background: #10b981; border-radius: 50%;"></span>
                     OCCUPIED (<?php echo $stats['occupied_rooms']; ?>)
                 </span>
-                <span style="display: flex; align-items: center; gap: 0.35rem;">
-                    <span style="width: 10px; height: 10px; background: #818cf8; border-radius: 50%;"></span>
+                <span style="display: flex; align-items: center; gap: 0.3rem;">
+                    <span style="width: 8px; height: 8px; background: #818cf8; border-radius: 50%;"></span>
                     VACANT (<?php echo $stats['available_rooms']; ?>)
                 </span>
             </div>
         </div>
         
         <!-- RIGHT: Revenue Overview - Compact Grid -->
-        <div style="background: var(--glass-bg); backdrop-filter: blur(16px); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 12px; padding: 1rem;">
-            <div style="font-size: 1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+        <div style="background: var(--glass-bg); backdrop-filter: blur(16px); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 12px; padding: 0.75rem;">
+            <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
                 💎 Revenue Overview
             </div>
             
             <!-- Revenue Cards - 2x2 Grid -->
-            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem;">
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem;">
                 
                 <!-- Actual Revenue (Today) -->
-                <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(52, 211, 153, 0.08)); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 10px; padding: 0.75rem;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
-                        <span style="font-size: 1.25rem;">💰</span>
-                        <span style="font-size: 0.65rem; background: rgba(16, 185, 129, 0.2); color: #059669; padding: 0.2rem 0.4rem; border-radius: 8px; font-weight: 600;">TODAY</span>
+                <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(52, 211, 153, 0.08)); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 10px; padding: 0.6rem;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
+                        <span style="font-size: 1.05rem;">💰</span>
+                        <span style="font-size: 0.6rem; background: rgba(16, 185, 129, 0.2); color: #059669; padding: 0.15rem 0.35rem; border-radius: 8px; font-weight: 600;">TODAY</span>
                     </div>
-                    <div style="font-size: 0.75rem; color: #059669; font-weight: 600; margin-bottom: 0.25rem;">Today Revenue</div>
-                    <div style="font-size: 1.1rem; font-weight: 800; color: #047857;">Rp <?php echo number_format($stats['revenue_today'], 0, ',', '.'); ?></div>
+                    <div style="font-size: 0.7rem; color: #059669; font-weight: 600; margin-bottom: 0.2rem;">Today Revenue</div>
+                    <div style="font-size: 0.95rem; font-weight: 800; color: #047857;">Rp <?php echo number_format($stats['revenue_today'], 0, ',', '.'); ?></div>
                 </div>
                 
                 <!-- Monthly Revenue -->
-                <div style="background: linear-gradient(135deg, rgba(236, 72, 153, 0.12), rgba(219, 39, 119, 0.08)); border: 1px solid rgba(236, 72, 153, 0.3); border-radius: 10px; padding: 0.75rem;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
-                        <span style="font-size: 1.25rem;">📅</span>
-                        <span style="font-size: 0.65rem; background: rgba(236, 72, 153, 0.2); color: #db2777; padding: 0.2rem 0.4rem; border-radius: 8px; font-weight: 600;">MONTH</span>
+                <div style="background: linear-gradient(135deg, rgba(236, 72, 153, 0.12), rgba(219, 39, 119, 0.08)); border: 1px solid rgba(236, 72, 153, 0.3); border-radius: 10px; padding: 0.6rem;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
+                        <span style="font-size: 1.05rem;">📅</span>
+                        <span style="font-size: 0.6rem; background: rgba(236, 72, 153, 0.2); color: #db2777; padding: 0.15rem 0.35rem; border-radius: 8px; font-weight: 600;">MONTH</span>
                     </div>
-                    <div style="font-size: 0.75rem; color: #db2777; font-weight: 600; margin-bottom: 0.25rem;">Paid This Month</div>
-                    <div style="font-size: 1.1rem; font-weight: 800; color: #be185d;">Rp <?php echo number_format($stats['month_revenue'], 0, ',', '.'); ?></div>
-                    <div style="font-size: 0.65rem; color: #f472b6; margin-top: 3px;">Direct bookings only (excl. OTA)</div>
+                    <div style="font-size: 0.7rem; color: #db2777; font-weight: 600; margin-bottom: 0.2rem;">Paid This Month</div>
+                    <div style="font-size: 0.95rem; font-weight: 800; color: #be185d;">Rp <?php echo number_format($stats['month_revenue'], 0, ',', '.'); ?></div>
+                    <div style="font-size: 0.6rem; color: #f472b6; margin-top: 3px;">Direct bookings only (excl. OTA)</div>
                 </div>
                 
                 <!-- Expected Revenue -->
-                <div style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(251, 191, 36, 0.08)); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 10px; padding: 0.75rem;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
-                        <span style="font-size: 1.25rem;">📊</span>
-                        <span style="font-size: 0.65rem; background: rgba(245, 158, 11, 0.2); color: #d97706; padding: 0.2rem 0.4rem; border-radius: 8px; font-weight: 600;">TARGET</span>
+                <div style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(251, 191, 36, 0.08)); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 10px; padding: 0.6rem;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
+                        <span style="font-size: 1.05rem;">📊</span>
+                        <span style="font-size: 0.6rem; background: rgba(245, 158, 11, 0.2); color: #d97706; padding: 0.15rem 0.35rem; border-radius: 8px; font-weight: 600;">TARGET</span>
                     </div>
-                    <div style="font-size: 0.75rem; color: #d97706; font-weight: 600; margin-bottom: 0.25rem;">Expected Revenue</div>
-                    <div style="font-size: 1.1rem; font-weight: 800; color: #b45309;">Rp <?php echo number_format($stats['expected_revenue'], 0, ',', '.'); ?></div>
-                    <div style="font-size: 0.65rem; color: #fbbf24; margin-top: 3px;">All reservations this month (excl. cancelled)</div>
+                    <div style="font-size: 0.7rem; color: #d97706; font-weight: 600; margin-bottom: 0.2rem;">Expected Revenue</div>
+                    <div style="font-size: 0.95rem; font-weight: 800; color: #b45309;">Rp <?php echo number_format($stats['expected_revenue'], 0, ',', '.'); ?></div>
+                    <div style="font-size: 0.6rem; color: #fbbf24; margin-top: 3px;">All reservations this month (excl. cancelled)</div>
                 </div>
             </div>
         </div>
