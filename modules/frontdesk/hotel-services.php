@@ -2587,6 +2587,7 @@ include '../../includes/header.php';
 </div>
 
 <script>
+    console.log('[hotel-services] script block starting...');
     const SVC_KEYS = <?php echo json_encode(array_keys($serviceTypes)); ?>;
     const SVC_LABELS = <?php echo json_encode(array_values(array_map(fn($v) => $v['icon'] . ' ' . $v['label'], $serviceTypes))); ?>;
     // Catalog data grouped by service_type: { motor_rental: [{name,price,unit}, ...], ... }
@@ -2938,14 +2939,14 @@ include '../../includes/header.php';
             const carId = svc === 'car_rental' ? parseInt(tr.querySelector('.iAsset').value || '0', 10) : 0;
             const daysInput = tr.querySelector('.iDays');
             const days = daysInput ? parseFloat(daysInput.value) || 1 : 1;
-            
+
             // Generate start and end dates from days
             const today = new Date();
             const startDt = today.toISOString().slice(0, 19).replace('T', ' ');
             const endDate = new Date(today);
             endDate.setDate(endDate.getDate() + days);
             const endDt = endDate.toISOString().slice(0, 19).replace('T', ' ');
-            
+
             if ((svc === 'motor_rental' || svc === 'car_rental') && (!motorId && !carId)) {
                 alert('Item rental motor/mobil wajib pilih armada');
                 return;
@@ -3359,7 +3360,7 @@ include '../../includes/header.php';
         const assetSelect = tr3.querySelector('.iAsset');
         const destInput = tr3.querySelector('.iDest');
         const items = CATALOG_DATA[svc];
-        
+
         // Only rebuild asset dropdown if THIS IS A NEW ROW (not loading from API)
         if (isNew) {
             const rentalItems = svc === 'motor_rental' ? RENTAL_MOTORS : (svc === 'car_rental' ? RENTAL_CARS : []);
@@ -3388,7 +3389,7 @@ include '../../includes/header.php';
                 tr3.querySelector('.iDest').value = '';
             }
         }
-        
+
         if (items && items.length > 0) {
             if (isNew) {
                 if (parseFloat(priceInput.value) === 0) priceInput.value = items[0].price;
@@ -3400,7 +3401,7 @@ include '../../includes/header.php';
         } else if (!isNew) {
             priceInput.value = 0;
         }
-        
+
         const chosen = source.find(item => String(item.id) === String(selectedId));
         if (!chosen) return;
         const priceInput = tr3.querySelector('.iPrice');
@@ -3488,14 +3489,14 @@ include '../../includes/header.php';
             const carId = svc === 'car_rental' ? parseInt(tr.querySelector('.iAsset').value || '0', 10) : 0;
             const daysInput = tr.querySelector('.iDays');
             const days = daysInput ? parseFloat(daysInput.value) || 1 : 1;
-            
+
             // Generate start and end dates from days
             const today = new Date();
             const startDt = today.toISOString().slice(0, 19).replace('T', ' ');
             const endDate = new Date(today);
             endDate.setDate(endDate.getDate() + days);
             const endDt = endDate.toISOString().slice(0, 19).replace('T', ' ');
-            
+
             if ((svc === 'motor_rental' || svc === 'car_rental') && (!motorId && !carId)) {
                 alert('Item rental motor/mobil wajib pilih armada');
                 return;
@@ -3621,6 +3622,12 @@ include '../../includes/header.php';
                 } else alert('Error: ' + (res.message || 'Cannot delete'));
             });
     }
+    // Expose key functions globally
+    window.openCreateModal  = openCreateModal;
+    window.closeCreateModal = closeCreateModal;
+    window.openEditModal    = openEditModal;
+    window.closeEditModal   = closeEditModal;
+    console.log('[hotel-services] loaded OK, openCreateModal:', typeof openCreateModal);
 </script>
 
 <?php include '../../includes/footer.php'; ?>
