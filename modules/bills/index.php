@@ -36,6 +36,24 @@ try {
     $cashAccounts = [];
 }
 
+// Divisions & categories for the "Tambah Tagihan Manual" form - so the cashbook entry
+// gets the correct division/category instead of always defaulting to "Biaya Operasional"
+$billDivisions = [];
+$billCategories = [];
+try {
+    $bizDb = Database::getInstance();
+    $billDivisions = $bizDb->fetchAll(
+        "SELECT id, division_name FROM divisions WHERE is_active = 1 AND division_type IN ('expense', 'both') ORDER BY division_name"
+    );
+    $billCategories = $bizDb->fetchAll(
+        "SELECT id, category_name, division_id FROM categories WHERE category_type = 'expense' ORDER BY category_name"
+    );
+} catch (Exception $e) {
+    error_log("Error fetching divisions/categories for bills page: " . $e->getMessage());
+    $billDivisions = [];
+    $billCategories = [];
+}
+
 include '../../includes/header.php';
 ?>
 
@@ -727,16 +745,24 @@ include '../../includes/header.php';
                             name="due_date">
                     </div>
                     <div class="form-group">
-                        <label for="category">Kategori</label>
-                        <select id="category" name="category_id">
-                            <option value="">-- Pilih Kategori --</option>
-                            <option value="1">Biaya Utilitas</option>
-                            <option value="2">Biaya Gaji</option>
-                            <option value="3">Biaya Sewa</option>
-                            <option value="4">Biaya Operasional</option>
-                            <option value="5">Lainnya</option>
+                        <label for="divisionId">Divisi</label>
+                        <select id="divisionId" name="division_id" onchange="filterBillCategories()">
+                            <option value="">-- Pilih Divisi --</option>
+                            <?php foreach ($billDivisions as $div): ?>
+                            <option value="<?php echo (int)$div['id']; ?>"><?php echo htmlspecialchars($div['division_name']); ?></option>
+                            <?php endforeach; ?>
                         </select>
                     </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="category">Kategori</label>
+                    <select id="category" name="category_id">
+                        <option value="">-- Pilih Kategori --</option>
+                        <?php foreach ($billCategories as $cat): ?>
+                        <option value="<?php echo (int)$cat['id']; ?>" data-division="<?php echo (int)($cat['division_id'] ?? 0); ?>"><?php echo htmlspecialchars($cat['category_name']); ?></option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
 
                 <div class="form-group">
@@ -875,13 +901,30 @@ include '../../includes/header.php';
         }
     }
 
+    // SHOW ONLY CATEGORIES BELONGING TO THE SELECTED DIVISION
+    function filterBillCategories() {
+        const divisionId = document.getElementById('divisionId').value;
+        const categorySelect = document.getElementById('category');
+        const options = categorySelect.querySelectorAll('option[data-division]');
+
+        options.forEach(opt => {
+            const matches = !divisionId || opt.getAttribute('data-division') === divisionId;
+            opt.hidden = !matches;
+        });
+
+        // Reset selected category if it no longer belongs to the chosen division
+        const selectedOpt = categorySelect.selectedOptions[0];
+        if (selectedOpt && selectedOpt.hidden) {
+            categorySelect.value = '';
+        }
+    }
+
     // SUBMIT FORM
     async function submitBill(e) {
         e.preventDefault();
 
         const formData = new FormData(document.getElementById('billForm'));
         formData.append('business', ACTIVE_BUSINESS);
-
         try {
             const response = await fetch(BASE_URL + '/api/add-monthly-bill.php', {
                 method: 'POST',
@@ -896,6 +939,7 @@ include '../../includes/header.php';
                 msgEl.innerHTML = `<div class="alert alert-success">✅ ${result.message} (${result.bill_code})</div>`;
                 document.getElementById('billForm').reset();
                 document.getElementById('billMonth').valueAsDate = new Date();
+                filterBillCategories();
 
                 setTimeout(() => loadBills(), 1000);
             } else {
