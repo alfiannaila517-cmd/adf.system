@@ -433,6 +433,24 @@ include '../../includes/header.php';
                 <button class="tab-btn" onclick="switchTab('paid', event)">Lunas</button>
             </div>
 
+            <div id="driverProfitSummary" style="display:none; margin: 15px 0; padding: 14px 16px; background: linear-gradient(135deg,#1a2540,#101a30); border-radius: 10px; color: #fff;">
+                <div style="font-size: 13px; opacity:.85; margin-bottom: 8px;">🚗 Ringkasan Keuntungan Driver/Mitra (Bulan Ini)</div>
+                <div style="display:flex; gap: 18px; flex-wrap: wrap;">
+                    <div>
+                        <div style="font-size: 11px; opacity:.7;">Total Sewa</div>
+                        <div id="dpTripTotal" style="font-size: 16px; font-weight: 700;">Rp 0</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 11px; opacity:.7;">Dibayar ke Mitra</div>
+                        <div id="dpDriverTotal" style="font-size: 16px; font-weight: 700; color:#ffb84d;">Rp 0</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 11px; opacity:.7;">Keuntungan Hotel</div>
+                        <div id="dpProfitTotal" style="font-size: 16px; font-weight: 700; color:#5dd97a;">Rp 0</div>
+                    </div>
+                </div>
+            </div>
+
             <div id="billsList" class="bill-list">
                 <p style="color: #999; text-align: center; padding: 40px 20px;">Loading...</p>
             </div>
@@ -489,6 +507,7 @@ include '../../includes/header.php';
 
         if (!month) {
             listEl.innerHTML = '<p style="color: #999; text-align: center; padding: 40px;">Pilih bulan terlebih dahulu</p>';
+            document.getElementById('driverProfitSummary').style.display = 'none';
             return;
         }
 
@@ -516,13 +535,17 @@ include '../../includes/header.php';
 
             if (!result.success) {
                 listEl.innerHTML = `<p style="color: #d32f2f; text-align: center; padding: 20px;">Error: ${result.message}</p>`;
+                document.getElementById('driverProfitSummary').style.display = 'none';
                 return;
             }
 
             if (!result.bills || result.bills.length === 0) {
                 listEl.innerHTML = '<p style="color: #999; text-align: center; padding: 40px;">Tidak ada tagihan bulan ini</p>';
+                document.getElementById('driverProfitSummary').style.display = 'none';
                 return;
             }
+
+            updateDriverProfitSummary(result.bills);
 
             // Filter by current tab
             let filtered = result.bills;
@@ -539,6 +562,13 @@ include '../../includes/header.php';
             filtered.forEach(bill => {
                 const statusClass = `status-${bill.status}`;
                 const progress = bill.amount > 0 ? Math.round((bill.paid_amount / bill.amount) * 100) : 0;
+                const isDriverTrip = bill.source_type === 'driver_trip' && bill.trip_total !== null;
+                const driverBreakdown = isDriverTrip ? `
+                        <p style="font-size: 12px; color: #555; margin-top: 4px;">
+                            Sewa: <strong>Rp ${formatNumber(bill.trip_total)}</strong>
+                            &middot; Bayar Mitra: <strong>Rp ${formatNumber(bill.amount)}</strong>
+                            &middot; Untung Hotel: <strong style="color:#2e7d32;">Rp ${formatNumber(bill.hotel_profit || 0)}</strong>
+                        </p>` : '';
 
                 html += `
                 <div class="bill-row">
@@ -546,6 +576,7 @@ include '../../includes/header.php';
                         <h4>${bill.bill_name} <small>(${bill.bill_code})</small></h4>
                         <p><strong>${bill.category_name || 'Umum'}</strong></p>
                         <p>Rp ${formatNumber(bill.paid_amount)} / Rp ${formatNumber(bill.amount)}</p>
+                        ${driverBreakdown}
                         <div style="margin-top: 5px; background: #eee; height: 6px; border-radius: 3px; overflow: hidden; width: 100%;">
                             <div style="background: var(--navy); height: 100%; width: ${progress}%;"></div>
                         </div>
@@ -568,7 +599,31 @@ include '../../includes/header.php';
         } catch (error) {
             console.error('[Bills] Error:', error);
             listEl.innerHTML = `<p style="color: #d32f2f; text-align: center; padding: 20px;">❌ Error: ${error.message}</p>`;
+            document.getElementById('driverProfitSummary').style.display = 'none';
         }
+    }
+
+    // DRIVER/MITRA PROFIT SUMMARY (dari tagihan auto-generate Hotel Service)
+    function updateDriverProfitSummary(bills) {
+        const box = document.getElementById('driverProfitSummary');
+        const driverBills = (bills || []).filter(b => b.source_type === 'driver_trip' && b.trip_total !== null);
+
+        if (driverBills.length === 0) {
+            box.style.display = 'none';
+            return;
+        }
+
+        let tripTotal = 0, driverTotal = 0, profitTotal = 0;
+        driverBills.forEach(b => {
+            tripTotal += Number(b.trip_total) || 0;
+            driverTotal += Number(b.amount) || 0;
+            profitTotal += Number(b.hotel_profit) || 0;
+        });
+
+        document.getElementById('dpTripTotal').textContent = 'Rp ' + formatNumber(tripTotal);
+        document.getElementById('dpDriverTotal').textContent = 'Rp ' + formatNumber(driverTotal);
+        document.getElementById('dpProfitTotal').textContent = 'Rp ' + formatNumber(profitTotal);
+        box.style.display = 'block';
     }
 
     // SWITCH TABS
