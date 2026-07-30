@@ -28,7 +28,7 @@ try {
     }
 
     $auth = new Auth();
-    if (!$auth->isLoggedIn() || !$auth->hasPermission('finance')) {
+    if (!$auth->isLoggedIn()) {
         http_response_code(401);
         echo json_encode(['success' => false, 'message' => 'Unauthorized']);
         exit;

@@ -19,7 +19,7 @@ while (ob_get_level()) ob_end_clean();
 header('Content-Type: application/json; charset=utf-8');
 
 $auth = new Auth();
-if (!$auth->isLoggedIn() || !$auth->hasPermission('finance')) {
+if (!$auth->isLoggedIn()) {
     echo json_encode(['success' => false, 'message' => 'Unauthorized']);
     exit;
 }
