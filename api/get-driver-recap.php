@@ -52,7 +52,7 @@ try {
         throw new Exception('rental_car_bookings table does not exist yet.');
     }
 
-    // ── Owner recap (car rental trips) ──────────────────────────────────
+    // ── Owner recap (car rental + airport/harbor drop trips with a linked driver car) ──
     $ownerStmt = $pdo->prepare("SELECT
         rc.partner_owner, rc.owner_phone,
         COUNT(*) as total_trips,
@@ -60,10 +60,14 @@ try {
         COALESCE(SUM(cb.owner_amount),0) as owner_total,
         COALESCE(SUM(cb.hotel_commission),0) as hotel_total,
         AVG(rc.owner_commission_pct) as avg_comm_pct,
-        GROUP_CONCAT(DISTINCT rc.car_name ORDER BY rc.car_name SEPARATOR ', ') as cars
+        GROUP_CONCAT(DISTINCT rc.car_name ORDER BY rc.car_name SEPARATOR ', ') as cars,
+        SUM(cb.service_type = 'car_rental') as rental_trips,
+        SUM(cb.service_type = 'airport_drop') as airport_trips,
+        SUM(cb.service_type = 'harbor_drop') as harbor_trips
         FROM rental_car_bookings cb
         JOIN rental_cars rc ON cb.car_id = rc.id
-        WHERE cb.business_id=? AND cb.status='returned' AND DATE(cb.actual_return) BETWEEN ? AND ?
+        WHERE cb.business_id=? AND cb.status='returned'
+          AND DATE(COALESCE(cb.actual_return, cb.end_datetime, cb.created_at)) BETWEEN ? AND ?
           AND rc.partner_owner IS NOT NULL AND rc.partner_owner != ''
         GROUP BY rc.partner_owner, rc.owner_phone
         ORDER BY total_revenue DESC");
@@ -81,9 +85,9 @@ try {
         $or['owner_total'] = (float)$or['owner_total'];
         $or['hotel_total'] = (float)$or['hotel_total'];
         $or['avg_comm_pct'] = (float)$or['avg_comm_pct'];
-        $or['rental_trips'] = $or['total_trips'];
-        $or['airport_trips'] = 0;
-        $or['harbor_trips'] = 0;
+        $or['rental_trips'] = (int)$or['rental_trips'];
+        $or['airport_trips'] = (int)$or['airport_trips'];
+        $or['harbor_trips'] = (int)$or['harbor_trips'];
         $or['airport_total'] = 0.0;
         $or['harbor_total'] = 0.0;
         $or['paid_total'] = 0.0;
@@ -99,26 +103,32 @@ try {
         $indexMap[$ownerKey($or['partner_owner'] ?? '')] = $idx;
     }
 
-    // ── Detail rows: car rental trips ───────────────────────────────────
+    // ── Detail rows: car rental + airport/harbor drop trips (linked driver car) ──
     $detailMap = [];
     $detailStmt = $pdo->prepare("SELECT
-        rc.partner_owner, cb.id as trip_id, cb.actual_return as trx_date, cb.guest_name, cb.room_number,
+        rc.partner_owner, cb.id as trip_id, cb.service_type,
+        COALESCE(cb.actual_return, cb.end_datetime, cb.created_at) as trx_date,
+        cb.guest_name, cb.room_number, cb.trip_destination,
         cb.total_price, cb.owner_amount, cb.driver_paid, rc.car_name, rc.plate_number
         FROM rental_car_bookings cb
         JOIN rental_cars rc ON cb.car_id = rc.id
-        WHERE cb.business_id=? AND cb.status='returned' AND DATE(cb.actual_return) BETWEEN ? AND ?
+        WHERE cb.business_id=? AND cb.status='returned'
+          AND DATE(COALESCE(cb.actual_return, cb.end_datetime, cb.created_at)) BETWEEN ? AND ?
           AND rc.partner_owner IS NOT NULL AND rc.partner_owner != ''
-        ORDER BY cb.actual_return DESC, cb.id DESC");
+        ORDER BY trx_date DESC, cb.id DESC");
     $detailStmt->execute([$businessId, $monthStart, $monthEnd]);
     foreach ($detailStmt->fetchAll(PDO::FETCH_ASSOC) as $detail) {
         $key = $ownerKey($detail['partner_owner'] ?? '');
+        $carLabel = trim(($detail['car_name'] ?? '') . ' (' . ($detail['plate_number'] ?? '') . ')');
+        $label = $detail['service_type'] === 'car_rental' ? $carLabel : ($detail['trip_destination'] ?: $carLabel);
         $detailMap[$key][] = [
             'trip_id' => (int)$detail['trip_id'],
             'trx_date' => $detail['trx_date'],
             'guest_name' => $detail['guest_name'],
             'room_number' => $detail['room_number'],
-            'label' => trim(($detail['car_name'] ?? '') . ' (' . ($detail['plate_number'] ?? '') . ')'),
-            'service_type' => 'car_rental',
+            'label' => $label,
+            'service_type' => $detail['service_type'],
+            'source' => 'trip',
             'total_price' => (float)$detail['total_price'],
             'owner_amount' => (float)$detail['owner_amount'],
             'paid' => (bool)$detail['driver_paid'],
@@ -140,6 +150,10 @@ try {
             WHERE hi.business_id=? AND hii.service_type IN ('airport_drop','harbor_drop')
               AND hi.status NOT IN ('cancelled')
               AND DATE(hi.created_at) BETWEEN ? AND ?
+              AND NOT EXISTS (
+                  SELECT 1 FROM rental_car_bookings cb2
+                  WHERE cb2.invoice_id = hii.invoice_id AND cb2.service_type = hii.service_type
+              )
             ORDER BY hi.created_at DESC, hii.id DESC");
         $dropStmt->execute([$businessId, $monthStart, $monthEnd]);
         $dropDetails = $dropStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -187,6 +201,7 @@ try {
                 'room_number' => $detail['room_number'],
                 'label' => $detail['description'] ?: $detail['service_type'],
                 'service_type' => $detail['service_type'],
+                'source' => 'legacy',
                 'total_price' => $amount,
                 'owner_amount' => $amount,
                 'paid' => (bool)$detail['driver_paid'],

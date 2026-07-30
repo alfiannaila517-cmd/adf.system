@@ -340,6 +340,27 @@ include '../../includes/header.php';
         font-weight: 700;
         color: #1a2540;
         margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+    }
+
+    .btn-print-recap {
+        flex-shrink: 0;
+        padding: 4px 10px;
+        font-size: 10.5px;
+        font-weight: 700;
+        border: 1px solid #cbd5f5;
+        border-radius: 5px;
+        background: #eef2ff;
+        color: #3546a3;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+
+    .btn-print-recap:hover {
+        background: #dfe5fb;
     }
 
     .driver-recap-card .dr-stats {
@@ -853,7 +874,7 @@ include '../../includes/header.php';
             </div>
         `;
 
-        lastDriverRecap.forEach(dr => {
+        lastDriverRecap.forEach((dr, idx) => {
             const rows = (dr.detail_rows || []).filter(d => {
                 if (driverPayFilter === 'unpaid') return !d.paid;
                 if (driverPayFilter === 'paid') return d.paid;
@@ -873,13 +894,16 @@ include '../../includes/header.php';
                     <td style="text-align:right;font-weight:700;color:#16794d;">Rp ${formatNumber(d.owner_amount)}</td>
                     <td style="text-align:right;">${d.paid
                         ? '<span class="btn-trip-paid">✅ Lunas</span>'
-                        : `<button class="btn-trip-pay" onclick="payDriverTrip(${d.trip_id}, '${d.service_type}', ${d.owner_amount}, '${driverNameSafe}')">Bayar</button>`
+                        : `<button class="btn-trip-pay" onclick="payDriverTrip(${d.trip_id}, '${d.service_type}', ${d.owner_amount}, '${driverNameSafe}', '${d.source || 'trip'}')">Bayar</button>`
                     }</td>
                 </tr>`).join('');
 
             html += `
                 <div class="driver-recap-card">
-                    <div class="dr-name">🤝 ${dr.partner_owner || 'Tanpa Pemilik'}${dr.owner_phone ? ' <span style="font-weight:400;color:#6b7690;font-size:11px;">&middot; ' + dr.owner_phone + '</span>' : ''}</div>
+                    <div class="dr-name">
+                        <span>🤝 ${dr.partner_owner || 'Tanpa Pemilik'}${dr.owner_phone ? ' <span style="font-weight:400;color:#6b7690;font-size:11px;">&middot; ' + dr.owner_phone + '</span>' : ''}</span>
+                        <button class="btn-print-recap" onclick="printDriverRecap(${idx})">🖨️ Cetak Rekap</button>
+                    </div>
                     <div class="dr-stats">
                         <div class="dr-stat"><div class="v">${dr.total_trips}</div><div class="l">Trip</div></div>
                         <div class="dr-stat"><div class="v">Rp ${formatNumber(dr.total_revenue)}</div><div class="l">Total Revenue</div></div>
@@ -907,8 +931,83 @@ include '../../includes/header.php';
         recapEl.innerHTML = html;
     }
 
+    // PRINT A DRIVER'S FULL TRIP RECAP (so the driver can carry a physical copy)
+    function printDriverRecap(idx) {
+        const dr = lastDriverRecap[idx];
+        if (!dr) return;
+
+        const typeLabel = { car_rental: 'Rental Mobil', airport_drop: 'Airport Drop', harbor_drop: 'Harbor Drop' };
+        const monthVal = document.getElementById('filterMonth').value;
+        const monthLabel = monthVal
+            ? new Date(monthVal + '-01').toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })
+            : '';
+        const rows = dr.detail_rows || [];
+
+        const rowsHtml = rows.map((d, i) => `
+            <tr>
+                <td>${i + 1}</td>
+                <td>${new Date(d.trx_date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                <td>${typeLabel[d.service_type] || d.service_type}<br><small>${d.label || ''}</small></td>
+                <td>${d.guest_name || '—'}${d.room_number ? ' (Kamar ' + d.room_number + ')' : ''}</td>
+                <td style="text-align:right;">Rp ${formatNumber(d.total_price)}</td>
+                <td style="text-align:right;">Rp ${formatNumber(d.owner_amount)}</td>
+                <td style="text-align:center;">${d.paid ? 'Lunas' : 'Belum'}</td>
+            </tr>`).join('');
+
+        const printWindow = window.open('', '_blank', 'width=900,height=700');
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <title>Rekap Trip - ${dr.partner_owner || 'Tanpa Pemilik'}</title>
+                <style>
+                    body { font-family: Arial, sans-serif; padding: 24px; color: #1a2540; }
+                    h1 { font-size: 18px; margin-bottom: 2px; }
+                    .sub { color: #6b7690; font-size: 12px; margin-bottom: 16px; }
+                    .summary { display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+                    .summary div { border: 1px solid #e2e6ee; border-radius: 6px; padding: 8px 14px; font-size: 12px; }
+                    .summary b { display: block; font-size: 15px; }
+                    table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+                    th, td { border: 1px solid #d8dee8; padding: 5px 6px; }
+                    th { background: #f3f5fb; text-align: left; }
+                    small { color: #6b7690; }
+                    .footer { margin-top: 28px; display: flex; justify-content: space-between; font-size: 12px; }
+                    .footer div { text-align: center; width: 200px; }
+                    .footer .line { margin-top: 48px; border-top: 1px solid #333; padding-top: 4px; }
+                    @media print { .no-print { display: none; } }
+                </style>
+            </head>
+            <body>
+                <button class="no-print" onclick="window.print()" style="float:right;padding:6px 14px;">Cetak</button>
+                <h1>Rekap Trip Driver / Mitra</h1>
+                <div class="sub">${dr.partner_owner || 'Tanpa Pemilik'}${dr.owner_phone ? ' · ' + dr.owner_phone : ''} &mdash; Periode ${monthLabel}</div>
+                <div class="summary">
+                    <div><b>${dr.total_trips}</b>Total Trip</div>
+                    <div><b>Rp ${formatNumber(dr.total_revenue)}</b>Total Revenue</div>
+                    <div><b>Rp ${formatNumber(dr.owner_total)}</b>Bagian Pemilik</div>
+                    <div><b>Rp ${formatNumber(dr.paid_total || 0)}</b>Sudah Dibayar</div>
+                    <div><b>Rp ${formatNumber(dr.unpaid_total || 0)}</b>Belum Dibayar</div>
+                </div>
+                <table>
+                    <thead>
+                        <tr><th>#</th><th>Tanggal</th><th>Jenis</th><th>Tamu</th><th style="text-align:right;">Total</th><th style="text-align:right;">Bagian Pemilik</th><th style="text-align:center;">Status</th></tr>
+                    </thead>
+                    <tbody>${rowsHtml || '<tr><td colspan="7" style="text-align:center;color:#999;">Tidak ada trip bulan ini</td></tr>'}</tbody>
+                </table>
+                <div class="footer">
+                    <div>Driver / Mitra<div class="line">${dr.partner_owner || ''}</div></div>
+                    <div>Hotel<div class="line">Frontdesk</div></div>
+                </div>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.focus();
+    }
+
     // PAY A SINGLE DRIVER TRIP (marks trip as paid + auto-syncs to buku kas)
-    async function payDriverTrip(tripId, sourceType, amount, driverName) {
+    async function payDriverTrip(tripId, sourceType, amount, driverName, source = 'trip') {
         const confirmMsg = `Bayar ke ${driverName}\nJumlah: Rp ${formatNumber(amount)}\n\nLanjutkan pembayaran?`;
         if (!confirm(confirmMsg)) return;
 
@@ -921,6 +1020,7 @@ include '../../includes/header.php';
         const formData = new FormData();
         formData.append('trip_id', tripId);
         formData.append('source_type', sourceType);
+        formData.append('source', source);
         formData.append('payment_method', paymentMethod);
         formData.append('cash_account_id', cashAccountId || '1');
         formData.append('driver_name', driverName);

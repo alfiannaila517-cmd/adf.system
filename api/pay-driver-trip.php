@@ -51,6 +51,7 @@ try {
 
     $tripId = (int)($_POST['trip_id'] ?? 0);
     $sourceType = trim($_POST['source_type'] ?? '');
+    $source = trim($_POST['source'] ?? 'trip'); // 'trip' = rental_car_bookings, 'legacy' = hotel_invoice_items (no linked driver car)
     $paymentMethod = trim($_POST['payment_method'] ?? 'cash');
     $cashAccountId = (int)($_POST['cash_account_id'] ?? 0);
     $driverName = trim($_POST['driver_name'] ?? 'Driver');
@@ -59,24 +60,28 @@ try {
         throw new Exception('Data trip tidak valid');
     }
 
-    if ($sourceType === 'car_rental') {
+    if ($source !== 'legacy') {
+        // car_rental, or airport_drop/harbor_drop with a linked driver car - all live in rental_car_bookings
         $trip = $db->fetchOne(
-            "SELECT cb.id, cb.business_id, cb.owner_amount, cb.guest_name, cb.driver_paid,
+            "SELECT cb.id, cb.business_id, cb.owner_amount, cb.guest_name, cb.driver_paid, cb.trip_destination,
                     rc.car_name, rc.plate_number
              FROM rental_car_bookings cb
              JOIN rental_cars rc ON cb.car_id = rc.id
-             WHERE cb.id = ? LIMIT 1",
-            [$tripId]
+             WHERE cb.id = ? AND cb.service_type = ? LIMIT 1",
+            [$tripId, $sourceType]
         );
-        if (!$trip) throw new Exception('Trip rental mobil tidak ditemukan');
+        if (!$trip) throw new Exception('Trip tidak ditemukan');
         if ((int)$trip['business_id'] !== (int)$businessId) throw new Exception('Trip tidak ditemukan untuk bisnis ini');
         if ((int)$trip['driver_paid'] === 1) throw new Exception('Trip ini sudah dibayar sebelumnya');
 
         $amount = (float)$trip['owner_amount'];
-        $label = trim('Rental Mobil ' . ($trip['car_name'] ?? '') . ' (' . ($trip['plate_number'] ?? '') . ')');
+        $carLabel = trim(($trip['car_name'] ?? '') . ' (' . ($trip['plate_number'] ?? '') . ')');
+        $serviceLabel = $sourceType === 'car_rental' ? 'Rental Mobil' : ($sourceType === 'airport_drop' ? 'Airport Drop' : 'Harbor Drop');
+        $label = $sourceType === 'car_rental' ? "{$serviceLabel} {$carLabel}" : "{$serviceLabel}" . ($trip['trip_destination'] ? " - {$trip['trip_destination']}" : " - {$carLabel}");
         $guestLabel = $trip['guest_name'] ? " - {$trip['guest_name']}" : '';
         $updateSql = "UPDATE rental_car_bookings SET driver_paid = 1, driver_paid_at = NOW(), driver_paid_cashbook_id = ? WHERE id = ?";
     } else {
+        // Legacy airport/harbor drop trips logged before a driver car was linked - live in hotel_invoice_items
         $trip = $db->fetchOne(
             "SELECT hii.id, hi.business_id, hii.total_price, hii.description, hii.service_type, hii.driver_paid,
                     hi.guest_name
