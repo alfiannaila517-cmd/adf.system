@@ -8,6 +8,7 @@ define('APP_ACCESS', true);
 require_once '../../config/config.php';
 require_once '../../config/database.php';
 require_once '../../includes/auth.php';
+require_once '../../includes/business_helper.php';
 
 $auth = new Auth();
 if (!$auth->isLoggedIn()) {
@@ -15,10 +16,19 @@ if (!$auth->isLoggedIn()) {
     exit;
 }
 
+$bizConfig = getActiveBusinessConfig();
+$themeColor = $bizConfig['theme']['color_primary'] ?? '#0d1f3c';
+$themeSecondary = $bizConfig['theme']['color_secondary'] ?? '#1e3a5c';
+
 include '../../includes/header.php';
 ?>
 
 <style>
+    :root {
+        --navy: <?php echo htmlspecialchars($themeColor); ?>;
+        --navy2: <?php echo htmlspecialchars($themeSecondary); ?>;
+    }
+
     * {
         margin: 0;
         padding: 0;
@@ -33,17 +43,33 @@ include '../../includes/header.php';
 
     .page-header {
         margin-bottom: 30px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+    }
+
+    .page-icon {
+        width: 46px;
+        height: 46px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, var(--navy), var(--navy2));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        flex-shrink: 0;
+        box-shadow: 0 6px 16px rgba(13, 31, 60, 0.3);
     }
 
     .page-header h1 {
-        font-size: 28px;
-        color: #333;
-        margin-bottom: 5px;
+        font-size: 24px;
+        color: #1e293b;
+        margin-bottom: 3px;
     }
 
     .page-header p {
         color: #666;
-        font-size: 14px;
+        font-size: 13px;
     }
 
     .content-grid {
@@ -60,11 +86,14 @@ include '../../includes/header.php';
     }
 
     .card h2 {
-        font-size: 18px;
+        font-size: 16px;
         color: #333;
         margin-bottom: 20px;
-        border-bottom: 2px solid #667eea;
+        border-bottom: 2px solid var(--navy);
         padding-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
     }
 
     .form-group {
@@ -94,8 +123,8 @@ include '../../includes/header.php';
     .form-group select:focus,
     .form-group textarea:focus {
         outline: none;
-        border-color: #667eea;
-        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        border-color: var(--navy);
+        box-shadow: 0 0 0 3px rgba(13, 31, 60, 0.1);
     }
 
     .form-row {
@@ -107,10 +136,10 @@ include '../../includes/header.php';
     .btn-submit {
         width: 100%;
         padding: 12px;
-        background: linear-gradient(135deg, #667eea, #764ba2);
+        background: linear-gradient(135deg, var(--navy), var(--navy2));
         color: white;
         border: none;
-        border-radius: 5px;
+        border-radius: 8px;
         font-weight: 600;
         cursor: pointer;
         margin-top: 10px;
@@ -119,7 +148,7 @@ include '../../includes/header.php';
 
     .btn-submit:hover {
         transform: translateY(-2px);
-        box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
+        box-shadow: 0 6px 14px rgba(13, 31, 60, 0.35);
     }
 
     .alert {
@@ -144,12 +173,17 @@ include '../../includes/header.php';
     .bill-row {
         background: #f8f9fa;
         padding: 15px;
-        border-radius: 5px;
+        border-radius: 10px;
         margin-bottom: 10px;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        border-left: 4px solid #667eea;
+        border-left: 4px solid var(--navy);
+        transition: box-shadow .2s;
+    }
+
+    .bill-row:hover {
+        box-shadow: 0 4px 12px rgba(13, 31, 60, 0.1);
     }
 
     .bill-info h4 {
@@ -217,12 +251,12 @@ include '../../includes/header.php';
     }
 
     .btn-edit {
-        background: #007bff;
+        background: var(--navy);
         color: white;
     }
 
     .btn-edit:hover {
-        background: #0056b3;
+        background: var(--navy2);
     }
 
     .tabs {
@@ -245,8 +279,8 @@ include '../../includes/header.php';
     }
 
     .tab-btn.active {
-        color: #667eea;
-        border-bottom-color: #667eea;
+        color: var(--navy);
+        border-bottom-color: var(--navy);
     }
 
     .bill-list {
@@ -286,8 +320,11 @@ include '../../includes/header.php';
 <div class="main-container">
     <!-- PAGE HEADER -->
     <div class="page-header">
-        <h1>📊 Menu Tagihan Bulanan</h1>
-        <p>Kelola tagihan bulanan hotel secara otomatis tanpa template</p>
+        <div class="page-icon">📊</div>
+        <div>
+            <h1>Menu Tagihan Bulanan</h1>
+            <p>Kelola tagihan bulanan hotel secara otomatis tanpa template</p>
+        </div>
     </div>
 
     <!-- CONTENT GRID -->
@@ -456,7 +493,7 @@ include '../../includes/header.php';
         }
 
         try {
-            const url = BASE_URL + `/api/get-monthly-bills-simple.php?month=${month}&business=${ACTIVE_BUSINESS}&limit=50`;
+            const url = BASE_URL + `/api/get-monthly-bills.php?month=${month}&limit=50`;
             console.log('[Bills] Fetching from:', url);
             console.log('[Bills] Active business:', ACTIVE_BUSINESS);
 
@@ -510,7 +547,7 @@ include '../../includes/header.php';
                         <p><strong>${bill.category_name || 'Umum'}</strong></p>
                         <p>Rp ${formatNumber(bill.paid_amount)} / Rp ${formatNumber(bill.amount)}</p>
                         <div style="margin-top: 5px; background: #eee; height: 6px; border-radius: 3px; overflow: hidden; width: 100%;">
-                            <div style="background: #667eea; height: 100%; width: ${progress}%;"></div>
+                            <div style="background: var(--navy); height: 100%; width: ${progress}%;"></div>
                         </div>
                     </div>
                     <div style="text-align: right; white-space: nowrap;">
