@@ -20,6 +20,22 @@ $bizConfig = getActiveBusinessConfig();
 $themeColor = $bizConfig['theme']['color_primary'] ?? '#0d1f3c';
 $themeSecondary = $bizConfig['theme']['color_secondary'] ?? '#1e3a5c';
 
+// Cash accounts for the "Bayar" (pay driver trip) modal - same source used by modules/cashbook/add.php
+$cashAccounts = [];
+try {
+    $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
+    $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $masterBusinessId = getMasterBusinessId();
+    if ($masterBusinessId) {
+        $stmt = $masterDb->prepare("SELECT id, account_name, account_type FROM cash_accounts WHERE business_id = ? AND is_active = 1 AND account_type IN ('cash', 'bank', 'e-wallet', 'credit_card') ORDER BY account_type = 'cash' DESC, account_type = 'bank' DESC, account_name");
+        $stmt->execute([$masterBusinessId]);
+        $cashAccounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+} catch (Exception $e) {
+    error_log("Error fetching cash accounts for bills page: " . $e->getMessage());
+    $cashAccounts = [];
+}
+
 include '../../includes/header.php';
 ?>
 
@@ -490,6 +506,138 @@ include '../../includes/header.php';
         background: #16a34a;
     }
 
+    /* PAY DRIVER TRIP MODAL */
+    .dp-modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(10, 15, 30, 0.55);
+        z-index: 99999;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+
+    .dp-modal-overlay.open {
+        display: flex;
+    }
+
+    .dp-modal {
+        background: #fff;
+        border-radius: 12px;
+        padding: 20px 22px;
+        width: 100%;
+        max-width: 380px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+
+    .dp-modal h3 {
+        margin: 0 0 14px;
+        font-size: 15px;
+        font-weight: 700;
+        color: #1a2540;
+    }
+
+    .dp-summary {
+        background: #f3f5fb;
+        border-radius: 8px;
+        padding: 10px 12px;
+        margin-bottom: 14px;
+    }
+
+    .dp-summary div {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12.5px;
+        color: #4b5568;
+        padding: 3px 0;
+    }
+
+    .dp-summary strong {
+        color: #1a2540;
+    }
+
+    .dp-field {
+        margin-bottom: 14px;
+    }
+
+    .dp-field label {
+        display: block;
+        font-size: 11.5px;
+        font-weight: 700;
+        color: #6b7690;
+        margin-bottom: 6px;
+    }
+
+    .dp-field select {
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid #dfe3ee;
+        border-radius: 7px;
+        font-size: 13px;
+        color: #1a2540;
+        background: #fff;
+    }
+
+    .dp-method-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+
+    .dp-method-btn {
+        padding: 9px 6px;
+        font-size: 12.5px;
+        font-weight: 600;
+        border: 1.5px solid #dfe3ee;
+        border-radius: 8px;
+        background: #fff;
+        color: #4b5568;
+        cursor: pointer;
+    }
+
+    .dp-method-btn.active {
+        border-color: var(--navy);
+        background: var(--navy);
+        color: #fff;
+    }
+
+    .dp-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 6px;
+    }
+
+    .dp-btn-cancel,
+    .dp-btn-confirm {
+        flex: 1;
+        padding: 10px;
+        border: none;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .dp-btn-cancel {
+        background: #eef0f5;
+        color: #4b5568;
+    }
+
+    .dp-btn-confirm {
+        background: #22c55e;
+        color: #fff;
+    }
+
+    .dp-btn-confirm:hover {
+        background: #16a34a;
+    }
+
+    .dp-btn-confirm:disabled {
+        background: #9ad6b3;
+        cursor: not-allowed;
+    }
+
     .checkbox-group {
         display: flex;
         gap: 20px;
@@ -650,6 +798,41 @@ include '../../includes/header.php';
             <div id="driverRecapSection" class="bill-list" style="display:none;">
                 <p style="color: #999; text-align: center; padding: 40px 20px;">Loading...</p>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- PAY DRIVER TRIP MODAL -->
+<div id="payTripModalOverlay" class="dp-modal-overlay" onclick="if(event.target===this)closePayTripModal()">
+    <div class="dp-modal">
+        <h3>💸 Bayar Trip Driver</h3>
+        <div class="dp-summary">
+            <div><span>Driver / Mitra</span><strong id="ptDriverName">-</strong></div>
+            <div><span>Jumlah</span><strong id="ptAmount">Rp 0</strong></div>
+        </div>
+        <div class="dp-field">
+            <label>Metode Pembayaran</label>
+            <div class="dp-method-grid">
+                <button type="button" class="dp-method-btn active" data-method="cash" onclick="selectPayMethod('cash')">💵 Cash</button>
+                <button type="button" class="dp-method-btn" data-method="transfer" onclick="selectPayMethod('transfer')">🏦 Transfer</button>
+                <button type="button" class="dp-method-btn" data-method="card" onclick="selectPayMethod('card')">💳 Kartu</button>
+                <button type="button" class="dp-method-btn" data-method="other" onclick="selectPayMethod('other')">⚙️ Lainnya</button>
+            </div>
+        </div>
+        <div class="dp-field">
+            <label>Sumber Dana / Rekening</label>
+            <select id="ptCashAccount">
+                <?php foreach ($cashAccounts as $acc): ?>
+                    <option value="<?php echo (int)$acc['id']; ?>"><?php echo htmlspecialchars($acc['account_name']); ?> (<?php echo htmlspecialchars($acc['account_type']); ?>)</option>
+                <?php endforeach; ?>
+                <?php if (empty($cashAccounts)): ?>
+                    <option value="1">Kas Tunai (default)</option>
+                <?php endif; ?>
+            </select>
+        </div>
+        <div class="dp-actions">
+            <button type="button" class="dp-btn-cancel" onclick="closePayTripModal()">Batal</button>
+            <button type="button" class="dp-btn-confirm" id="ptConfirmBtn" onclick="confirmPayDriverTrip()">✅ Bayar & Catat ke Kas</button>
         </div>
     </div>
 </div>
@@ -1007,22 +1190,46 @@ include '../../includes/header.php';
     }
 
     // PAY A SINGLE DRIVER TRIP (marks trip as paid + auto-syncs to buku kas)
-    async function payDriverTrip(tripId, sourceType, amount, driverName, source = 'trip') {
-        const confirmMsg = `Bayar ke ${driverName}\nJumlah: Rp ${formatNumber(amount)}\n\nLanjutkan pembayaran?`;
-        if (!confirm(confirmMsg)) return;
+    let pendingPayTrip = null;
+    let pendingPayMethod = 'cash';
 
-        const paymentMethod = prompt('Metode pembayaran? (cash, transfer, card, other)', 'cash');
-        if (!paymentMethod) return;
+    function payDriverTrip(tripId, sourceType, amount, driverName, source = 'trip') {
+        pendingPayTrip = { tripId, sourceType, amount, driverName, source };
+        pendingPayMethod = 'cash';
 
-        const cashAccountId = prompt('Dari rekening mana? (1=Kas Tunai, 2=Bank Utama, dst)\nBiarkan kosong jika default', '1');
-        if (cashAccountId === null) return;
+        document.getElementById('ptDriverName').textContent = driverName;
+        document.getElementById('ptAmount').textContent = 'Rp ' + formatNumber(amount);
+        document.querySelectorAll('.dp-method-btn').forEach(b => b.classList.toggle('active', b.dataset.method === 'cash'));
+        document.getElementById('ptConfirmBtn').disabled = false;
+
+        document.getElementById('payTripModalOverlay').classList.add('open');
+    }
+
+    function selectPayMethod(method) {
+        pendingPayMethod = method;
+        document.querySelectorAll('.dp-method-btn').forEach(b => b.classList.toggle('active', b.dataset.method === method));
+    }
+
+    function closePayTripModal() {
+        document.getElementById('payTripModalOverlay').classList.remove('open');
+        pendingPayTrip = null;
+    }
+
+    async function confirmPayDriverTrip() {
+        if (!pendingPayTrip) return;
+        const { tripId, sourceType, driverName, source } = pendingPayTrip;
+        const cashAccountId = document.getElementById('ptCashAccount').value || '1';
+
+        const confirmBtn = document.getElementById('ptConfirmBtn');
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = 'Memproses...';
 
         const formData = new FormData();
         formData.append('trip_id', tripId);
         formData.append('source_type', sourceType);
         formData.append('source', source);
-        formData.append('payment_method', paymentMethod);
-        formData.append('cash_account_id', cashAccountId || '1');
+        formData.append('payment_method', pendingPayMethod);
+        formData.append('cash_account_id', cashAccountId);
         formData.append('driver_name', driverName);
         formData.append('business', ACTIVE_BUSINESS);
 
@@ -1036,13 +1243,17 @@ include '../../includes/header.php';
             const result = await response.json();
 
             if (result.success) {
-                alert(`✅ ${result.message}`);
+                closePayTripModal();
                 loadDriverRecap();
             } else {
                 alert(`❌ ${result.message}`);
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = '✅ Bayar & Catat ke Kas';
             }
         } catch (error) {
             alert(`❌ Error: ${error.message}`);
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = '✅ Bayar & Catat ke Kas';
         }
     }
 
