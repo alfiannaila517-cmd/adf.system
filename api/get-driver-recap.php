@@ -24,6 +24,7 @@ try {
     require_once '../config/config.php';
     require_once '../config/database.php';
     require_once '../includes/auth.php';
+    require_once '../includes/DriverPaymentHelper.php';
 
     $auth = new Auth();
     if (!$auth->isLoggedIn()) {
@@ -35,6 +36,8 @@ try {
     $db = Database::getInstance();
     $pdo = $db->getConnection();
     $businessId = $_SESSION['business_id'] ?? 1;
+
+    ensureDriverTripPaymentColumns($pdo);
 
     $month = $_GET['month'] ?? date('Y-m');
     if (!preg_match('/^\d{4}-\d{2}$/', $month)) {
@@ -83,6 +86,10 @@ try {
         $or['harbor_trips'] = 0;
         $or['airport_total'] = 0.0;
         $or['harbor_total'] = 0.0;
+        $or['paid_total'] = 0.0;
+        $or['unpaid_total'] = 0.0;
+        $or['paid_trips'] = 0;
+        $or['unpaid_trips'] = 0;
         $or['detail_rows'] = [];
     }
     unset($or);
@@ -95,8 +102,8 @@ try {
     // ── Detail rows: car rental trips ───────────────────────────────────
     $detailMap = [];
     $detailStmt = $pdo->prepare("SELECT
-        rc.partner_owner, cb.actual_return as trx_date, cb.guest_name, cb.room_number,
-        cb.total_price, cb.owner_amount, rc.car_name, rc.plate_number
+        rc.partner_owner, cb.id as trip_id, cb.actual_return as trx_date, cb.guest_name, cb.room_number,
+        cb.total_price, cb.owner_amount, cb.driver_paid, rc.car_name, rc.plate_number
         FROM rental_car_bookings cb
         JOIN rental_cars rc ON cb.car_id = rc.id
         WHERE cb.business_id=? AND cb.status='returned' AND DATE(cb.actual_return) BETWEEN ? AND ?
@@ -106,6 +113,7 @@ try {
     foreach ($detailStmt->fetchAll(PDO::FETCH_ASSOC) as $detail) {
         $key = $ownerKey($detail['partner_owner'] ?? '');
         $detailMap[$key][] = [
+            'trip_id' => (int)$detail['trip_id'],
             'trx_date' => $detail['trx_date'],
             'guest_name' => $detail['guest_name'],
             'room_number' => $detail['room_number'],
@@ -113,6 +121,7 @@ try {
             'service_type' => 'car_rental',
             'total_price' => (float)$detail['total_price'],
             'owner_amount' => (float)$detail['owner_amount'],
+            'paid' => (bool)$detail['driver_paid'],
         ];
     }
 
@@ -125,7 +134,7 @@ try {
 
         $dropStmt = $pdo->prepare("SELECT
             hi.guest_name, hi.room_number, hi.created_at as trx_date,
-            hii.service_type, hii.description, hii.total_price
+            hii.id as trip_id, hii.service_type, hii.description, hii.total_price, hii.driver_paid
             FROM hotel_invoice_items hii
             JOIN hotel_invoices hi ON hii.invoice_id = hi.id
             WHERE hi.business_id=? AND hii.service_type IN ('airport_drop','harbor_drop')
@@ -172,6 +181,7 @@ try {
                 $recap[$idx]['harbor_total'] += $amount;
             }
             $detailMap[$dropKey][] = [
+                'trip_id' => (int)$detail['trip_id'],
                 'trx_date' => $detail['trx_date'],
                 'guest_name' => $detail['guest_name'],
                 'room_number' => $detail['room_number'],
@@ -179,20 +189,33 @@ try {
                 'service_type' => $detail['service_type'],
                 'total_price' => $amount,
                 'owner_amount' => $amount,
+                'paid' => (bool)$detail['driver_paid'],
             ];
         }
     } catch (Exception $dropError) {
         // hotel_invoice_items table not available - skip drop trips silently
     }
 
-    $totals = ['trips' => 0, 'revenue' => 0.0, 'owner_total' => 0.0, 'hotel_total' => 0.0];
+    $totals = ['trips' => 0, 'revenue' => 0.0, 'owner_total' => 0.0, 'hotel_total' => 0.0, 'paid_total' => 0.0, 'unpaid_total' => 0.0];
     foreach ($recap as &$or) {
         $key = $ownerKey($or['partner_owner'] ?? '');
-        $or['detail_rows'] = $detailMap[$key] ?? [];
+        $rows = $detailMap[$key] ?? [];
+        $or['detail_rows'] = $rows;
+        foreach ($rows as $row) {
+            if ($row['paid']) {
+                $or['paid_total'] += $row['owner_amount'];
+                $or['paid_trips']++;
+            } else {
+                $or['unpaid_total'] += $row['owner_amount'];
+                $or['unpaid_trips']++;
+            }
+        }
         $totals['trips'] += $or['total_trips'];
         $totals['revenue'] += $or['total_revenue'];
         $totals['owner_total'] += $or['owner_total'];
         $totals['hotel_total'] += $or['hotel_total'];
+        $totals['paid_total'] += $or['paid_total'];
+        $totals['unpaid_total'] += $or['unpaid_total'];
     }
     unset($or);
 

@@ -176,3 +176,39 @@ function createDriverPayableBill(PDO $pdo, ?int $userId, array $booking, string 
     $pdo->prepare("UPDATE rental_car_bookings SET billed_to_tagihan=1 WHERE id=?")->execute([$booking['id']]);
     return true;
 }
+
+/**
+ * Ensure the DB columns needed for PER-TRIP driver payment tracking exist
+ * (used by the "Tagihan Driver" tab / api/pay-driver-trip.php). Independent
+ * of the monthly_bills-based auto-billing flow above - this tracks payment
+ * status directly on the trip row (rental_car_bookings / hotel_invoice_items).
+ * Safe to call on every request (checks column existence before altering).
+ */
+function ensureDriverTripPaymentColumns(PDO $pdo): void
+{
+    try {
+        $pdo->query("SELECT driver_paid FROM rental_car_bookings LIMIT 1");
+    } catch (Exception $e) {
+        try {
+            $pdo->exec("ALTER TABLE rental_car_bookings
+                ADD COLUMN driver_paid TINYINT(1) NOT NULL DEFAULT 0,
+                ADD COLUMN driver_paid_at DATETIME DEFAULT NULL,
+                ADD COLUMN driver_paid_cashbook_id INT DEFAULT NULL");
+        } catch (Exception $e2) {
+            error_log('ensureDriverTripPaymentColumns rental_car_bookings: ' . $e2->getMessage());
+        }
+    }
+
+    try {
+        $pdo->query("SELECT driver_paid FROM hotel_invoice_items LIMIT 1");
+    } catch (Exception $e) {
+        try {
+            $pdo->exec("ALTER TABLE hotel_invoice_items
+                ADD COLUMN driver_paid TINYINT(1) NOT NULL DEFAULT 0,
+                ADD COLUMN driver_paid_at DATETIME DEFAULT NULL,
+                ADD COLUMN driver_paid_cashbook_id INT DEFAULT NULL");
+        } catch (Exception $e2) {
+            error_log('ensureDriverTripPaymentColumns hotel_invoice_items: ' . $e2->getMessage());
+        }
+    }
+}

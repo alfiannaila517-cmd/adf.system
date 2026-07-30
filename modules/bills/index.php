@@ -407,6 +407,68 @@ include '../../includes/header.php';
         color: #333;
     }
 
+    .pay-filter-bar {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 10px;
+    }
+
+    .pay-filter-btn {
+        flex: 1;
+        padding: 6px 8px;
+        border: 1px solid #e2e6ee;
+        background: #f7f8fb;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 11px;
+        font-weight: 600;
+        color: #555;
+        transition: all .15s;
+        text-align: center;
+    }
+
+    .pay-filter-btn:hover {
+        background: #eef1f8;
+    }
+
+    .pay-filter-btn.active {
+        background: var(--navy);
+        border-color: var(--navy);
+        color: #fff;
+    }
+
+    .driver-recap-card .dr-paid-summary {
+        display: flex;
+        justify-content: space-between;
+        font-size: 10.5px;
+        color: #6b7690;
+        margin: -2px 0 8px;
+        padding: 0 2px;
+    }
+
+    .btn-trip-paid {
+        color: #16794d;
+        font-weight: 700;
+        font-size: 10px;
+        white-space: nowrap;
+    }
+
+    .btn-trip-pay {
+        padding: 3px 8px;
+        font-size: 10px;
+        font-weight: 700;
+        border: none;
+        border-radius: 4px;
+        background: #22c55e;
+        color: #fff;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+
+    .btn-trip-pay:hover {
+        background: #16a34a;
+    }
+
     .checkbox-group {
         display: flex;
         gap: 20px;
@@ -733,6 +795,9 @@ include '../../includes/header.php';
     }
 
     // LOAD DRIVER/MITRA RECAP (Tagihan Driver tab)
+    let lastDriverRecap = [];
+    let driverPayFilter = 'all'; // all | unpaid | paid
+
     async function loadDriverRecap() {
         const month = document.getElementById('filterMonth').value;
         const recapEl = document.getElementById('driverRecapSection');
@@ -761,25 +826,58 @@ include '../../includes/header.php';
                 return;
             }
 
-            if (!result.recap || result.recap.length === 0) {
-                recapEl.innerHTML = '<p style="color: #999; text-align: center; padding: 40px;">Belum ada tagihan driver/mitra bulan ini</p>';
-                return;
-            }
+            lastDriverRecap = result.recap || [];
+            renderDriverRecap();
+        } catch (error) {
+            console.error('[DriverRecap] Error:', error);
+            recapEl.innerHTML = `<p style="color: #d32f2f; text-align: center; padding: 20px;">❌ Error: ${error.message}</p>`;
+        }
+    }
 
-            const typeLabel = { car_rental: 'Rental Mobil', airport_drop: 'Airport Drop', harbor_drop: 'Harbor Drop' };
+    // RENDER DRIVER/MITRA RECAP (uses lastDriverRecap + driverPayFilter, no re-fetch)
+    function renderDriverRecap() {
+        const recapEl = document.getElementById('driverRecapSection');
 
-            let html = '';
-            result.recap.forEach(dr => {
-                const detailRows = (dr.detail_rows || []).slice(0, 15).map(d => `
-                    <tr>
-                        <td>${new Date(d.trx_date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
-                        <td>${typeLabel[d.service_type] || d.service_type}<br><span style="color:#94a0b8;">${d.label || ''}</span></td>
-                        <td>${d.guest_name || '—'}${d.room_number ? '<br><span style="color:#94a0b8;">Kamar ' + d.room_number + '</span>' : ''}</td>
-                        <td style="text-align:right;font-weight:700;">Rp ${formatNumber(d.total_price)}</td>
-                        <td style="text-align:right;font-weight:700;color:#16794d;">Rp ${formatNumber(d.owner_amount)}</td>
-                    </tr>`).join('');
+        if (!lastDriverRecap || lastDriverRecap.length === 0) {
+            recapEl.innerHTML = '<p style="color: #999; text-align: center; padding: 40px;">Belum ada tagihan driver/mitra bulan ini</p>';
+            return;
+        }
 
-                html += `
+        const typeLabel = { car_rental: 'Rental Mobil', airport_drop: 'Airport Drop', harbor_drop: 'Harbor Drop' };
+
+        let html = `
+            <div class="pay-filter-bar">
+                <button class="pay-filter-btn ${driverPayFilter === 'all' ? 'active' : ''}" onclick="setDriverPayFilter('all')">Semua Trip</button>
+                <button class="pay-filter-btn ${driverPayFilter === 'unpaid' ? 'active' : ''}" onclick="setDriverPayFilter('unpaid')">Belum Dibayar</button>
+                <button class="pay-filter-btn ${driverPayFilter === 'paid' ? 'active' : ''}" onclick="setDriverPayFilter('paid')">Sudah Dibayar</button>
+            </div>
+        `;
+
+        lastDriverRecap.forEach(dr => {
+            const rows = (dr.detail_rows || []).filter(d => {
+                if (driverPayFilter === 'unpaid') return !d.paid;
+                if (driverPayFilter === 'paid') return d.paid;
+                return true;
+            });
+
+            if (rows.length === 0 && driverPayFilter !== 'all') return;
+
+            const driverNameSafe = (dr.partner_owner || 'Tanpa Pemilik').replace(/'/g, "\\'");
+
+            const detailRows = rows.slice(0, 15).map(d => `
+                <tr>
+                    <td>${new Date(d.trx_date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                    <td>${typeLabel[d.service_type] || d.service_type}<br><span style="color:#94a0b8;">${d.label || ''}</span></td>
+                    <td>${d.guest_name || '—'}${d.room_number ? '<br><span style="color:#94a0b8;">Kamar ' + d.room_number + '</span>' : ''}</td>
+                    <td style="text-align:right;font-weight:700;">Rp ${formatNumber(d.total_price)}</td>
+                    <td style="text-align:right;font-weight:700;color:#16794d;">Rp ${formatNumber(d.owner_amount)}</td>
+                    <td style="text-align:right;">${d.paid
+                        ? '<span class="btn-trip-paid">✅ Lunas</span>'
+                        : `<button class="btn-trip-pay" onclick="payDriverTrip(${d.trip_id}, '${d.service_type}', ${d.owner_amount}, '${driverNameSafe}')">Bayar</button>`
+                    }</td>
+                </tr>`).join('');
+
+            html += `
                 <div class="driver-recap-card">
                     <div class="dr-name">🤝 ${dr.partner_owner || 'Tanpa Pemilik'}${dr.owner_phone ? ' <span style="font-weight:400;color:#6b7690;font-size:11px;">&middot; ' + dr.owner_phone + '</span>' : ''}</div>
                     <div class="dr-stats">
@@ -787,6 +885,10 @@ include '../../includes/header.php';
                         <div class="dr-stat"><div class="v">Rp ${formatNumber(dr.total_revenue)}</div><div class="l">Total Revenue</div></div>
                         <div class="dr-stat"><div class="v">Rp ${formatNumber(dr.owner_total)}</div><div class="l">Bagian Pemilik (${Math.round(dr.avg_comm_pct)}%)</div></div>
                         <div class="dr-stat"><div class="v">Rp ${formatNumber(dr.hotel_total)}</div><div class="l">Komisi Hotel</div></div>
+                    </div>
+                    <div class="dr-paid-summary">
+                        <span>✅ Sudah Dibayar: <strong style="color:#16794d;">Rp ${formatNumber(dr.paid_total || 0)}</strong> (${dr.paid_trips || 0} trip)</span>
+                        <span>⏳ Belum Dibayar: <strong style="color:#d97706;">Rp ${formatNumber(dr.unpaid_total || 0)}</strong> (${dr.unpaid_trips || 0} trip)</span>
                     </div>
                     <div class="dr-breakdown">
                         <div class="dr-stat"><div class="v">${dr.rental_trips}</div><div class="l">Rental Mobil</div></div>
@@ -796,17 +898,58 @@ include '../../includes/header.php';
                     ${detailRows ? `
                     <div style="font-size:11px;font-weight:700;color:#475569;margin-top:8px;">Detail Transaksi</div>
                     <table>
-                        <thead><tr><th>Tanggal</th><th>Jenis</th><th>Tamu</th><th style="text-align:right;">Total</th><th style="text-align:right;">Pemilik</th></tr></thead>
+                        <thead><tr><th>Tanggal</th><th>Jenis</th><th>Tamu</th><th style="text-align:right;">Total</th><th style="text-align:right;">Pemilik</th><th style="text-align:right;">Aksi</th></tr></thead>
                         <tbody>${detailRows}</tbody>
-                    </table>` : ''}
+                    </table>` : '<p style="color:#999;font-size:11px;text-align:center;padding:8px;">Tidak ada trip dengan filter ini</p>'}
                 </div>`;
+        });
+
+        recapEl.innerHTML = html;
+    }
+
+    // PAY A SINGLE DRIVER TRIP (marks trip as paid + auto-syncs to buku kas)
+    async function payDriverTrip(tripId, sourceType, amount, driverName) {
+        const confirmMsg = `Bayar ke ${driverName}\nJumlah: Rp ${formatNumber(amount)}\n\nLanjutkan pembayaran?`;
+        if (!confirm(confirmMsg)) return;
+
+        const paymentMethod = prompt('Metode pembayaran? (cash, transfer, card, other)', 'cash');
+        if (!paymentMethod) return;
+
+        const cashAccountId = prompt('Dari rekening mana? (1=Kas Tunai, 2=Bank Utama, dst)\nBiarkan kosong jika default', '1');
+        if (cashAccountId === null) return;
+
+        const formData = new FormData();
+        formData.append('trip_id', tripId);
+        formData.append('source_type', sourceType);
+        formData.append('payment_method', paymentMethod);
+        formData.append('cash_account_id', cashAccountId || '1');
+        formData.append('driver_name', driverName);
+        formData.append('business', ACTIVE_BUSINESS);
+
+        try {
+            const response = await fetch(BASE_URL + '/api/pay-driver-trip.php', {
+                method: 'POST',
+                body: formData,
+                credentials: 'include'
             });
 
-            recapEl.innerHTML = html;
+            const result = await response.json();
+
+            if (result.success) {
+                alert(`✅ ${result.message}`);
+                loadDriverRecap();
+            } else {
+                alert(`❌ ${result.message}`);
+            }
         } catch (error) {
-            console.error('[DriverRecap] Error:', error);
-            recapEl.innerHTML = `<p style="color: #d32f2f; text-align: center; padding: 20px;">❌ Error: ${error.message}</p>`;
+            alert(`❌ Error: ${error.message}`);
         }
+    }
+
+    // SWITCH PAY FILTER (Semua / Belum Dibayar / Sudah Dibayar)
+    function setDriverPayFilter(status) {
+        driverPayFilter = status;
+        renderDriverRecap();
     }
 
     // SWITCH TABS
