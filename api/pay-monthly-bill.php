@@ -20,6 +20,7 @@ require_once '../config/config.php';
 require_once '../config/database.php';
 require_once '../includes/auth.php';
 require_once '../includes/CashbookHelper.php';
+require_once '../includes/DriverPaymentHelper.php';
 
 ob_start();
 error_reporting(0);
@@ -180,6 +181,8 @@ try {
         );
 
         $masterDb->beginTransaction();
+
+        ensureCashAccountTransactionsSchema($masterDb);
 
         $accStmt = $masterDb->prepare("SELECT id FROM cash_accounts WHERE id = ? AND business_id = ? AND is_active = 1 LIMIT 1");
         $accStmt->execute([$accountId, $businessId]);

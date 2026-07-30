@@ -212,3 +212,24 @@ function ensureDriverTripPaymentColumns(PDO $pdo): void
         }
     }
 }
+
+/**
+ * Ensure the MASTER database's cash_account_transactions table has the
+ * transaction_id column (links a ledger row back to its cash_book entry).
+ * Some hosting environments' tables were created before this column existed
+ * (schema drift between local dev DB and production DB) - safe to call on
+ * every request (checks column existence before altering).
+ */
+function ensureCashAccountTransactionsSchema(PDO $masterPdo): void
+{
+    try {
+        $masterPdo->query("SELECT transaction_id FROM cash_account_transactions LIMIT 1");
+    } catch (Exception $e) {
+        try {
+            $masterPdo->exec("ALTER TABLE cash_account_transactions
+                ADD COLUMN transaction_id INT DEFAULT NULL AFTER cash_account_id");
+        } catch (Exception $e2) {
+            error_log('ensureCashAccountTransactionsSchema: ' . $e2->getMessage());
+        }
+    }
+}

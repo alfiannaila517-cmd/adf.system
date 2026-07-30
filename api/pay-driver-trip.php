@@ -159,6 +159,8 @@ try {
 
         $masterDb->beginTransaction();
 
+        ensureCashAccountTransactionsSchema($masterDb);
+
         $accStmt = $masterDb->prepare("SELECT id FROM cash_accounts WHERE id = ? AND business_id = ? AND is_active = 1 LIMIT 1");
         $accStmt->execute([$accountId, $masterBusinessId]);
         $account = $accStmt->fetch(PDO::FETCH_ASSOC);
