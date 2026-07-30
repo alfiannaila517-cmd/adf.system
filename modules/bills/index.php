@@ -86,11 +86,11 @@ include '../../includes/header.php';
     }
 
     .card h2 {
-        font-size: 16px;
+        font-size: 15px;
         color: #333;
-        margin-bottom: 20px;
+        margin-bottom: 14px;
         border-bottom: 2px solid var(--navy);
-        padding-bottom: 10px;
+        padding-bottom: 8px;
         display: flex;
         align-items: center;
         gap: 8px;
@@ -171,30 +171,38 @@ include '../../includes/header.php';
     }
 
     .bill-row {
-        background: #f8f9fa;
-        padding: 15px;
-        border-radius: 10px;
-        margin-bottom: 10px;
+        background: linear-gradient(135deg, var(--navy), var(--navy2));
+        padding: 11px 14px;
+        border-radius: 8px;
+        margin-bottom: 8px;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        border-left: 4px solid var(--navy);
-        transition: box-shadow .2s;
+        gap: 10px;
+        box-shadow: 0 2px 6px rgba(13, 31, 60, 0.18);
+        transition: box-shadow .2s, transform .2s;
     }
 
     .bill-row:hover {
-        box-shadow: 0 4px 12px rgba(13, 31, 60, 0.1);
+        box-shadow: 0 6px 16px rgba(13, 31, 60, 0.3);
+        transform: translateY(-1px);
     }
 
     .bill-info h4 {
-        font-size: 14px;
-        color: #333;
-        margin-bottom: 5px;
+        font-size: 13px;
+        color: #fff;
+        margin-bottom: 4px;
+        font-weight: 600;
+    }
+
+    .bill-info h4 small {
+        color: rgba(255, 255, 255, 0.6);
+        font-weight: 400;
     }
 
     .bill-info p {
-        font-size: 12px;
-        color: #666;
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.75);
         margin: 2px 0;
     }
 
@@ -203,9 +211,9 @@ include '../../includes/header.php';
     }
 
     .bill-amount .total {
-        font-size: 16px;
+        font-size: 14px;
         font-weight: 700;
-        color: #333;
+        color: #fff;
     }
 
     .bill-amount .status {
@@ -232,31 +240,32 @@ include '../../includes/header.php';
     }
 
     .btn-action {
-        padding: 6px 12px;
+        padding: 5px 10px;
         margin-left: 5px;
         border: none;
-        border-radius: 3px;
+        border-radius: 4px;
         cursor: pointer;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 600;
     }
 
     .btn-pay {
-        background: #28a745;
+        background: #22c55e;
         color: white;
     }
 
     .btn-pay:hover {
-        background: #218838;
+        background: #16a34a;
     }
 
     .btn-edit {
-        background: var(--navy);
-        color: white;
+        background: rgba(255, 255, 255, 0.14);
+        color: #fff;
+        border: 1px solid rgba(255, 255, 255, 0.28);
     }
 
     .btn-edit:hover {
-        background: var(--navy2);
+        background: rgba(255, 255, 255, 0.24);
     }
 
     .tabs {
@@ -433,20 +442,20 @@ include '../../includes/header.php';
                 <button class="tab-btn" onclick="switchTab('paid', event)">Lunas</button>
             </div>
 
-            <div id="driverProfitSummary" style="display:none; margin: 15px 0; padding: 14px 16px; background: linear-gradient(135deg,#1a2540,#101a30); border-radius: 10px; color: #fff;">
-                <div style="font-size: 13px; opacity:.85; margin-bottom: 8px;">🚗 Ringkasan Keuntungan Driver/Mitra (Bulan Ini)</div>
+            <div id="driverProfitSummary" style="display:none; margin: 12px 0; padding: 12px 14px; background: linear-gradient(135deg,#0d1f3c,#101a30); border-radius: 8px; color: #fff;">
+                <div style="font-size: 12px; color:#fff; font-weight:600; margin-bottom: 8px;">🚗 Ringkasan Keuntungan Driver/Mitra (Bulan Ini)</div>
                 <div style="display:flex; gap: 18px; flex-wrap: wrap;">
                     <div>
-                        <div style="font-size: 11px; opacity:.7;">Total Sewa</div>
-                        <div id="dpTripTotal" style="font-size: 16px; font-weight: 700;">Rp 0</div>
+                        <div style="font-size: 10.5px; color:#fff;">Total Sewa</div>
+                        <div id="dpTripTotal" style="font-size: 15px; font-weight: 700; color:#fff;">Rp 0</div>
                     </div>
                     <div>
-                        <div style="font-size: 11px; opacity:.7;">Dibayar ke Mitra</div>
-                        <div id="dpDriverTotal" style="font-size: 16px; font-weight: 700; color:#ffb84d;">Rp 0</div>
+                        <div style="font-size: 10.5px; color:#fff;">Dibayar ke Mitra</div>
+                        <div id="dpDriverTotal" style="font-size: 15px; font-weight: 700; color:#fff;">Rp 0</div>
                     </div>
                     <div>
-                        <div style="font-size: 11px; opacity:.7;">Keuntungan Hotel</div>
-                        <div id="dpProfitTotal" style="font-size: 16px; font-weight: 700; color:#5dd97a;">Rp 0</div>
+                        <div style="font-size: 10.5px; color:#fff;">Keuntungan Hotel</div>
+                        <div id="dpProfitTotal" style="font-size: 15px; font-weight: 700; color:#fff;">Rp 0</div>
                     </div>
                 </div>
             </div>
@@ -564,10 +573,10 @@ include '../../includes/header.php';
                 const progress = bill.amount > 0 ? Math.round((bill.paid_amount / bill.amount) * 100) : 0;
                 const isDriverTrip = bill.source_type === 'driver_trip' && bill.trip_total !== null;
                 const driverBreakdown = isDriverTrip ? `
-                        <p style="font-size: 12px; color: #555; margin-top: 4px;">
-                            Sewa: <strong>Rp ${formatNumber(bill.trip_total)}</strong>
-                            &middot; Bayar Mitra: <strong>Rp ${formatNumber(bill.amount)}</strong>
-                            &middot; Untung Hotel: <strong style="color:#2e7d32;">Rp ${formatNumber(bill.hotel_profit || 0)}</strong>
+                        <p style="font-size: 11px; color: rgba(255,255,255,0.85); margin-top: 4px;">
+                            Sewa: <strong style="color:#fff;">Rp ${formatNumber(bill.trip_total)}</strong>
+                            &middot; Bayar Mitra: <strong style="color:#fff;">Rp ${formatNumber(bill.amount)}</strong>
+                            &middot; Untung Hotel: <strong style="color:#fff;">Rp ${formatNumber(bill.hotel_profit || 0)}</strong>
                         </p>` : '';
 
                 html += `
@@ -577,8 +586,8 @@ include '../../includes/header.php';
                         <p><strong>${bill.category_name || 'Umum'}</strong></p>
                         <p>Rp ${formatNumber(bill.paid_amount)} / Rp ${formatNumber(bill.amount)}</p>
                         ${driverBreakdown}
-                        <div style="margin-top: 5px; background: #eee; height: 6px; border-radius: 3px; overflow: hidden; width: 100%;">
-                            <div style="background: var(--navy); height: 100%; width: ${progress}%;"></div>
+                        <div style="margin-top: 5px; background: rgba(255,255,255,0.18); height: 5px; border-radius: 3px; overflow: hidden; width: 100%;">
+                            <div style="background: #fff; height: 100%; width: ${progress}%;"></div>
                         </div>
                     </div>
                     <div style="text-align: right; white-space: nowrap;">
@@ -586,7 +595,7 @@ include '../../includes/header.php';
                             <div class="total">Rp ${formatNumber(bill.amount)}</div>
                             <span class="status ${statusClass}">${bill.status.toUpperCase()}</span>
                         </div>
-                        <div style="margin-top: 10px;">
+                        <div style="margin-top: 8px;">
                             <button onclick="editBill(${bill.id})" class="btn-action btn-edit">Edit</button>
                             <button onclick="openPayment(${bill.id}, '${bill.bill_name}', ${bill.amount}, ${bill.paid_amount})" class="btn-action btn-pay">Bayar</button>
                         </div>
