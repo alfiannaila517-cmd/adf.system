@@ -171,38 +171,37 @@ include '../../includes/header.php';
     }
 
     .bill-row {
-        background: linear-gradient(135deg, var(--navy), var(--navy2));
+        background: #f3f5fb;
         padding: 9px 12px;
-        border-radius: 7px;
+        border-radius: 6px;
         margin-bottom: 6px;
         display: flex;
         justify-content: space-between;
         align-items: center;
         gap: 8px;
-        box-shadow: 0 2px 5px rgba(13, 31, 60, 0.18);
-        transition: box-shadow .2s, transform .2s;
+        border-left: 3px solid var(--navy);
+        transition: background .15s;
     }
 
     .bill-row:hover {
-        box-shadow: 0 5px 14px rgba(13, 31, 60, 0.3);
-        transform: translateY(-1px);
+        background: #e9edf7;
     }
 
     .bill-info h4 {
         font-size: 12.5px;
-        color: #fff;
+        color: #1a2540;
         margin-bottom: 3px;
         font-weight: 700;
     }
 
     .bill-info h4 small {
-        color: #aebbd6;
+        color: #6b7690;
         font-weight: 500;
     }
 
     .bill-info p {
         font-size: 11px;
-        color: #cbd5e8;
+        color: #5a6478;
         font-weight: 500;
         margin: 1px 0;
     }
@@ -214,7 +213,7 @@ include '../../includes/header.php';
     .bill-amount .total {
         font-size: 13px;
         font-weight: 700;
-        color: #fff;
+        color: #1a2540;
     }
 
     .bill-amount .status {
@@ -261,13 +260,12 @@ include '../../includes/header.php';
     }
 
     .btn-edit {
-        background: rgba(255, 255, 255, 0.14);
+        background: var(--navy);
         color: #fff;
-        border: 1px solid rgba(255, 255, 255, 0.28);
     }
 
     .btn-edit:hover {
-        background: rgba(255, 255, 255, 0.24);
+        background: var(--navy2);
     }
 
     .tabs {
@@ -445,19 +443,19 @@ include '../../includes/header.php';
             </div>
 
             <div id="driverProfitSummary" style="display:none; margin: 10px 0; padding: 10px 12px; background: linear-gradient(135deg,#0d1f3c,#101a30); border-radius: 8px; color: #fff;">
-                <div style="font-size: 11px; color:#fff; font-weight:700; margin-bottom: 6px;">🚗 Untung Driver/Mitra (Bulan Ini)</div>
+                <div style="font-size: 11.5px; color:#ffffff; font-weight:700; margin-bottom: 6px;">🚗 Untung Driver/Mitra (Bulan Ini)</div>
                 <div style="display:flex; gap: 16px; flex-wrap: wrap;">
                     <div>
-                        <div style="font-size: 10px; color:#b9c6e0; font-weight:600;">Total Sewa</div>
-                        <div id="dpTripTotal" style="font-size: 13.5px; font-weight: 800; color:#fff;">Rp 0</div>
+                        <div style="font-size: 10.5px; color:#ffffff; font-weight:700;">Total Sewa</div>
+                        <div id="dpTripTotal" style="font-size: 14px; font-weight: 800; color:#ffffff;">Rp 0</div>
                     </div>
                     <div>
-                        <div style="font-size: 10px; color:#b9c6e0; font-weight:600;">Dibayar ke Mitra</div>
-                        <div id="dpDriverTotal" style="font-size: 13.5px; font-weight: 800; color:#fff;">Rp 0</div>
+                        <div style="font-size: 10.5px; color:#ffffff; font-weight:700;">Dibayar ke Mitra</div>
+                        <div id="dpDriverTotal" style="font-size: 14px; font-weight: 800; color:#ffffff;">Rp 0</div>
                     </div>
                     <div>
-                        <div style="font-size: 10px; color:#b9c6e0; font-weight:600;">Keuntungan Hotel</div>
-                        <div id="dpProfitTotal" style="font-size: 13.5px; font-weight: 800; color:#fff;">Rp 0</div>
+                        <div style="font-size: 10.5px; color:#ffffff; font-weight:700;">Keuntungan Hotel</div>
+                        <div id="dpProfitTotal" style="font-size: 14px; font-weight: 800; color:#ffffff;">Rp 0</div>
                     </div>
                 </div>
             </div>
@@ -575,10 +573,10 @@ include '../../includes/header.php';
                 const progress = bill.amount > 0 ? Math.round((bill.paid_amount / bill.amount) * 100) : 0;
                 const isDriverTrip = bill.source_type === 'driver_trip' && bill.trip_total !== null;
                 const driverBreakdown = isDriverTrip ? `
-                        <p style="font-size: 10.5px; color: #cbd5e8; font-weight: 500; margin-top: 2px;">
-                            Sewa <strong style="color:#fff;">Rp ${formatNumber(bill.trip_total)}</strong>
-                            &middot; Mitra <strong style="color:#fff;">Rp ${formatNumber(bill.amount)}</strong>
-                            &middot; Untung <strong style="color:#fff;">Rp ${formatNumber(bill.hotel_profit || 0)}</strong>
+                        <p style="font-size: 10.5px; color: #5a6478; font-weight: 500; margin-top: 2px;">
+                            Sewa <strong style="color:#1a2540;">Rp ${formatNumber(bill.trip_total)}</strong>
+                            &middot; Mitra <strong style="color:#1a2540;">Rp ${formatNumber(bill.amount)}</strong>
+                            &middot; Untung <strong style="color:#1a2540;">Rp ${formatNumber(bill.hotel_profit || 0)}</strong>
                         </p>` : '';
 
                 html += `
@@ -587,8 +585,8 @@ include '../../includes/header.php';
                         <h4>${bill.bill_name} <small>(${bill.bill_code})</small></h4>
                         <p>${bill.category_name || 'Umum'} &middot; Rp ${formatNumber(bill.paid_amount)} / Rp ${formatNumber(bill.amount)}</p>
                         ${driverBreakdown}
-                        <div style="margin-top: 4px; background: rgba(255,255,255,0.2); height: 4px; border-radius: 3px; overflow: hidden; width: 100%;">
-                            <div style="background: #fff; height: 100%; width: ${progress}%;"></div>
+                        <div style="margin-top: 4px; background: #dfe4f0; height: 4px; border-radius: 3px; overflow: hidden; width: 100%;">
+                            <div style="background: var(--navy); height: 100%; width: ${progress}%;"></div>
                         </div>
                     </div>
                     <div style="text-align: right; white-space: nowrap;">
