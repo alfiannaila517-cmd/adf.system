@@ -684,9 +684,9 @@ if (isset($_SESSION['user_id'])) {
                                     </a>
                                 </li>
                                 <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/bills/create.php" class="submenu-link <?php echo activeMenu('create.php'); ?>">
-                                        <i data-feather="plus-circle" class="submenu-icon"></i>
-                                        <span>Tambah Tagihan</span>
+                                    <a href="<?php echo BASE_URL; ?>/modules/bills/index.php?cat=driver" class="submenu-link <?php echo (($_GET['cat'] ?? '') === 'driver') ? 'active' : ''; ?>">
+                                        <i data-feather="truck" class="submenu-icon"></i>
+                                        <span>Tagihan Driver</span>
                                     </a>
                                 </li>
                                 <li class="submenu-item">

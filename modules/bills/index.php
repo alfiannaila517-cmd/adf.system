@@ -297,6 +297,116 @@ include '../../includes/header.php';
         overflow-y: auto;
     }
 
+    .category-tabs {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 12px;
+    }
+
+    .category-btn {
+        flex: 1;
+        padding: 7px 8px;
+        border: 1px solid #e2e6ee;
+        background: #f7f8fb;
+        border-radius: 7px;
+        cursor: pointer;
+        font-size: 11.5px;
+        font-weight: 600;
+        color: #555;
+        transition: all .15s;
+        text-align: center;
+    }
+
+    .category-btn:hover {
+        background: #eef1f8;
+    }
+
+    .category-btn.active {
+        background: linear-gradient(135deg, var(--navy), var(--navy2));
+        border-color: var(--navy);
+        color: #fff;
+    }
+
+    .driver-recap-card {
+        background: #fff;
+        border: 1px solid #e2e6ee;
+        border-radius: 8px;
+        padding: 12px 14px;
+        margin-bottom: 10px;
+    }
+
+    .driver-recap-card .dr-name {
+        font-size: 13px;
+        font-weight: 700;
+        color: #1a2540;
+        margin-bottom: 8px;
+    }
+
+    .driver-recap-card .dr-stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+        font-size: 11.5px;
+        margin-bottom: 6px;
+    }
+
+    .driver-recap-card .dr-stat {
+        background: #f7f8fb;
+        border-radius: 6px;
+        padding: 6px;
+        text-align: center;
+    }
+
+    .driver-recap-card .dr-stat .v {
+        font-size: 13px;
+        font-weight: 800;
+        color: #1a2540;
+    }
+
+    .driver-recap-card .dr-stat .l {
+        color: #6b7690;
+        font-size: 10px;
+    }
+
+    .driver-recap-card .dr-breakdown {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
+        margin-bottom: 6px;
+    }
+
+    .driver-recap-card .dr-breakdown .v {
+        font-size: 12px;
+        font-weight: 700;
+        color: #1a2540;
+    }
+
+    .driver-recap-card .dr-breakdown .l {
+        color: #6b7690;
+        font-size: 9.5px;
+    }
+
+    .driver-recap-card table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 10.5px;
+        margin-top: 6px;
+    }
+
+    .driver-recap-card th {
+        text-align: left;
+        color: #6b7690;
+        font-weight: 600;
+        padding: 4px 3px;
+        border-bottom: 1px solid #eef0f5;
+    }
+
+    .driver-recap-card td {
+        padding: 4px 3px;
+        border-bottom: 1px solid #f4f6fa;
+        color: #333;
+    }
+
     .checkbox-group {
         display: flex;
         gap: 20px;
@@ -431,36 +541,30 @@ include '../../includes/header.php';
                 <input
                     type="month"
                     id="filterMonth"
-                    onchange="loadBills()"
+                    onchange="onMonthChange()"
                     style="width: 150px; padding: 8px; border: 1px solid #ddd; border-radius: 5px; margin-top: 5px;">
             </div>
 
-            <div class="tabs">
-                <button class="tab-btn active" onclick="switchTab('all', event)">Semua</button>
-                <button class="tab-btn" onclick="switchTab('pending', event)">Pending</button>
-                <button class="tab-btn" onclick="switchTab('partial', event)">Cicilan</button>
-                <button class="tab-btn" onclick="switchTab('paid', event)">Lunas</button>
+            <div class="category-tabs">
+                <button class="category-btn" data-cat="driver" onclick="switchCategory('driver')">🚗 Tagihan Driver</button>
+                <button class="category-btn active" data-cat="manual" onclick="switchCategory('manual')">📝 Tagihan Manual</button>
+                <button class="category-btn" data-cat="bulanan" onclick="switchCategory('bulanan')">🔁 Tagihan Bulanan</button>
             </div>
 
-            <div id="driverProfitSummary" style="display:none; margin: 10px 0; padding: 10px 14px; background: #fff; border: 1px solid #e2e6ee; border-radius: 6px;">
-                <div style="font-size: 12px; font-weight:700; color:#1a2540; margin-bottom: 6px;">🚗 Rekap Untung Driver/Mitra (Bulan Ini)</div>
-                <table style="width:100%; border-collapse:collapse; font-size:12px;">
-                    <tr style="border-bottom:1px solid #eef0f5;">
-                        <td style="padding:6px 4px; color:#5a6478;">Total Sewa</td>
-                        <td id="dpTripTotal" style="padding:6px 4px; text-align:right; font-weight:700; color:#1a2540;">Rp 0</td>
-                    </tr>
-                    <tr style="border-bottom:1px solid #eef0f5;">
-                        <td style="padding:6px 4px; color:#5a6478;">Dibayar ke Mitra</td>
-                        <td id="dpDriverTotal" style="padding:6px 4px; text-align:right; font-weight:700; color:#1a2540;">Rp 0</td>
-                    </tr>
-                    <tr>
-                        <td style="padding:6px 4px; color:#1a2540; font-weight:700;">Keuntungan Hotel</td>
-                        <td id="dpProfitTotal" style="padding:6px 4px; text-align:right; font-weight:800; color:#16794d;">Rp 0</td>
-                    </tr>
-                </table>
+            <div id="manualBillsWrap">
+                <div class="tabs">
+                    <button class="tab-btn active" onclick="switchTab('all', event)">Semua</button>
+                    <button class="tab-btn" onclick="switchTab('pending', event)">Pending</button>
+                    <button class="tab-btn" onclick="switchTab('partial', event)">Cicilan</button>
+                    <button class="tab-btn" onclick="switchTab('paid', event)">Lunas</button>
+                </div>
+
+                <div id="billsList" class="bill-list">
+                    <p style="color: #999; text-align: center; padding: 40px 20px;">Loading...</p>
+                </div>
             </div>
 
-            <div id="billsList" class="bill-list">
+            <div id="driverRecapSection" class="bill-list" style="display:none;">
                 <p style="color: #999; text-align: center; padding: 40px 20px;">Loading...</p>
             </div>
         </div>
@@ -476,6 +580,34 @@ include '../../includes/header.php';
     document.getElementById('filterMonth').valueAsDate = new Date();
 
     let currentTab = 'all';
+    let currentCategory = 'manual';
+
+    // Reload whichever category is currently active when the month filter changes
+    function onMonthChange() {
+        if (currentCategory === 'driver') {
+            loadDriverRecap();
+        } else {
+            loadBills();
+        }
+    }
+
+    // SWITCH CATEGORY (Driver / Manual / Bulanan)
+    function switchCategory(cat) {
+        currentCategory = cat;
+        document.querySelectorAll('.category-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.cat === cat);
+        });
+
+        const isDriver = cat === 'driver';
+        document.getElementById('manualBillsWrap').style.display = isDriver ? 'none' : 'block';
+        document.getElementById('driverRecapSection').style.display = isDriver ? 'block' : 'none';
+
+        if (isDriver) {
+            loadDriverRecap();
+        } else {
+            loadBills();
+        }
+    }
 
     // SUBMIT FORM
     async function submitBill(e) {
@@ -516,7 +648,6 @@ include '../../includes/header.php';
 
         if (!month) {
             listEl.innerHTML = '<p style="color: #999; text-align: center; padding: 40px;">Pilih bulan terlebih dahulu</p>';
-            document.getElementById('driverProfitSummary').style.display = 'none';
             return;
         }
 
@@ -544,22 +675,21 @@ include '../../includes/header.php';
 
             if (!result.success) {
                 listEl.innerHTML = `<p style="color: #d32f2f; text-align: center; padding: 20px;">Error: ${result.message}</p>`;
-                document.getElementById('driverProfitSummary').style.display = 'none';
                 return;
             }
 
             if (!result.bills || result.bills.length === 0) {
                 listEl.innerHTML = '<p style="color: #999; text-align: center; padding: 40px;">Tidak ada tagihan bulan ini</p>';
-                document.getElementById('driverProfitSummary').style.display = 'none';
                 return;
             }
 
-            updateDriverProfitSummary(result.bills);
-
-            // Filter by current tab
-            let filtered = result.bills;
+            // Filter by category (manual = one-time entries, bulanan = recurring), then by status tab
+            let filtered = result.bills.filter(b => {
+                if (currentCategory === 'bulanan') return b.is_recurring === 1;
+                return b.source_type !== 'driver_trip' && b.is_recurring !== 1;
+            });
             if (currentTab !== 'all') {
-                filtered = result.bills.filter(b => b.status === currentTab);
+                filtered = filtered.filter(b => b.status === currentTab);
             }
 
             if (filtered.length === 0) {
@@ -571,20 +701,12 @@ include '../../includes/header.php';
             filtered.forEach(bill => {
                 const statusClass = `status-${bill.status}`;
                 const progress = bill.amount > 0 ? Math.round((bill.paid_amount / bill.amount) * 100) : 0;
-                const isDriverTrip = bill.source_type === 'driver_trip' && bill.trip_total !== null;
-                const driverBreakdown = isDriverTrip ? `
-                        <p style="font-size: 10.5px; color: #5a6478; font-weight: 500; margin-top: 2px;">
-                            Sewa <strong style="color:#1a2540;">Rp ${formatNumber(bill.trip_total)}</strong>
-                            &middot; Mitra <strong style="color:#1a2540;">Rp ${formatNumber(bill.amount)}</strong>
-                            &middot; Untung <strong style="color:#1a2540;">Rp ${formatNumber(bill.hotel_profit || 0)}</strong>
-                        </p>` : '';
 
                 html += `
                 <div class="bill-row">
                     <div class="bill-info">
                         <h4>${bill.bill_name} <small>(${bill.bill_code})</small></h4>
                         <p>${bill.category_name || 'Umum'} &middot; Rp ${formatNumber(bill.paid_amount)} / Rp ${formatNumber(bill.amount)}</p>
-                        ${driverBreakdown}
                         <div style="margin-top: 4px; background: #dfe4f0; height: 4px; border-radius: 3px; overflow: hidden; width: 100%;">
                             <div style="background: var(--navy); height: 100%; width: ${progress}%;"></div>
                         </div>
@@ -607,31 +729,84 @@ include '../../includes/header.php';
         } catch (error) {
             console.error('[Bills] Error:', error);
             listEl.innerHTML = `<p style="color: #d32f2f; text-align: center; padding: 20px;">❌ Error: ${error.message}</p>`;
-            document.getElementById('driverProfitSummary').style.display = 'none';
         }
     }
 
-    // DRIVER/MITRA PROFIT SUMMARY (dari tagihan auto-generate Hotel Service)
-    function updateDriverProfitSummary(bills) {
-        const box = document.getElementById('driverProfitSummary');
-        const driverBills = (bills || []).filter(b => b.source_type === 'driver_trip' && b.trip_total !== null);
+    // LOAD DRIVER/MITRA RECAP (Tagihan Driver tab)
+    async function loadDriverRecap() {
+        const month = document.getElementById('filterMonth').value;
+        const recapEl = document.getElementById('driverRecapSection');
 
-        if (driverBills.length === 0) {
-            box.style.display = 'none';
+        if (!month) {
+            recapEl.innerHTML = '<p style="color: #999; text-align: center; padding: 40px;">Pilih bulan terlebih dahulu</p>';
             return;
         }
 
-        let tripTotal = 0, driverTotal = 0, profitTotal = 0;
-        driverBills.forEach(b => {
-            tripTotal += Number(b.trip_total) || 0;
-            driverTotal += Number(b.amount) || 0;
-            profitTotal += Number(b.hotel_profit) || 0;
-        });
+        recapEl.innerHTML = '<p style="color: #999; text-align: center; padding: 40px 20px;">Loading...</p>';
 
-        document.getElementById('dpTripTotal').textContent = 'Rp ' + formatNumber(tripTotal);
-        document.getElementById('dpDriverTotal').textContent = 'Rp ' + formatNumber(driverTotal);
-        document.getElementById('dpProfitTotal').textContent = 'Rp ' + formatNumber(profitTotal);
-        box.style.display = 'block';
+        try {
+            const response = await fetch(BASE_URL + `/api/get-driver-recap.php?month=${month}`, {
+                method: 'GET',
+                credentials: 'include'
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+
+            if (!result.success) {
+                recapEl.innerHTML = `<p style="color: #d32f2f; text-align: center; padding: 20px;">Error: ${result.message}</p>`;
+                return;
+            }
+
+            if (!result.recap || result.recap.length === 0) {
+                recapEl.innerHTML = '<p style="color: #999; text-align: center; padding: 40px;">Belum ada tagihan driver/mitra bulan ini</p>';
+                return;
+            }
+
+            const typeLabel = { car_rental: 'Rental Mobil', airport_drop: 'Airport Drop', harbor_drop: 'Harbor Drop' };
+
+            let html = '';
+            result.recap.forEach(dr => {
+                const detailRows = (dr.detail_rows || []).slice(0, 15).map(d => `
+                    <tr>
+                        <td>${new Date(d.trx_date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                        <td>${typeLabel[d.service_type] || d.service_type}<br><span style="color:#94a0b8;">${d.label || ''}</span></td>
+                        <td>${d.guest_name || '—'}${d.room_number ? '<br><span style="color:#94a0b8;">Kamar ' + d.room_number + '</span>' : ''}</td>
+                        <td style="text-align:right;font-weight:700;">Rp ${formatNumber(d.total_price)}</td>
+                        <td style="text-align:right;font-weight:700;color:#16794d;">Rp ${formatNumber(d.owner_amount)}</td>
+                    </tr>`).join('');
+
+                html += `
+                <div class="driver-recap-card">
+                    <div class="dr-name">🤝 ${dr.partner_owner || 'Tanpa Pemilik'}${dr.owner_phone ? ' <span style="font-weight:400;color:#6b7690;font-size:11px;">&middot; ' + dr.owner_phone + '</span>' : ''}</div>
+                    <div class="dr-stats">
+                        <div class="dr-stat"><div class="v">${dr.total_trips}</div><div class="l">Trip</div></div>
+                        <div class="dr-stat"><div class="v">Rp ${formatNumber(dr.total_revenue)}</div><div class="l">Total Revenue</div></div>
+                        <div class="dr-stat"><div class="v">Rp ${formatNumber(dr.owner_total)}</div><div class="l">Bagian Pemilik (${Math.round(dr.avg_comm_pct)}%)</div></div>
+                        <div class="dr-stat"><div class="v">Rp ${formatNumber(dr.hotel_total)}</div><div class="l">Komisi Hotel</div></div>
+                    </div>
+                    <div class="dr-breakdown">
+                        <div class="dr-stat"><div class="v">${dr.rental_trips}</div><div class="l">Rental Mobil</div></div>
+                        <div class="dr-stat"><div class="v">${dr.airport_trips}</div><div class="l">Airport Drop</div></div>
+                        <div class="dr-stat"><div class="v">${dr.harbor_trips}</div><div class="l">Harbor Drop</div></div>
+                    </div>
+                    ${detailRows ? `
+                    <div style="font-size:11px;font-weight:700;color:#475569;margin-top:8px;">Detail Transaksi</div>
+                    <table>
+                        <thead><tr><th>Tanggal</th><th>Jenis</th><th>Tamu</th><th style="text-align:right;">Total</th><th style="text-align:right;">Pemilik</th></tr></thead>
+                        <tbody>${detailRows}</tbody>
+                    </table>` : ''}
+                </div>`;
+            });
+
+            recapEl.innerHTML = html;
+        } catch (error) {
+            console.error('[DriverRecap] Error:', error);
+            recapEl.innerHTML = `<p style="color: #d32f2f; text-align: center; padding: 20px;">❌ Error: ${error.message}</p>`;
+        }
     }
 
     // SWITCH TABS
@@ -714,7 +889,12 @@ include '../../includes/header.php';
 
     // Load on page load
     window.addEventListener('load', () => {
-        loadBills();
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('cat') === 'driver') {
+            switchCategory('driver');
+        } else {
+            loadBills();
+        }
     });
 </script>
 
