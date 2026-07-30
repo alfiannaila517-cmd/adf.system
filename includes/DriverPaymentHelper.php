@@ -178,35 +178,70 @@ function createDriverPayableBill(PDO $pdo, ?int $userId, array $booking, string 
 }
 
 /**
+ * Get (or create) the "Rent Car" division used for driver/partner trip
+ * payments in the cashbook. Can be renamed anytime via Settings > Kelola
+ * Divisi (modules/settings/divisions.php) - no code change needed for that.
+ */
+function getRentCarDivisionId(PDO $pdo): int
+{
+    $division = $pdo->query("SELECT id FROM divisions WHERE LOWER(division_name) LIKE '%rent car%' ORDER BY id ASC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+    if ($division) {
+        return (int)$division['id'];
+    }
+
+    try {
+        $pdo->exec("INSERT INTO divisions (division_code, division_name, division_type, is_active) VALUES ('RENTCAR', 'Rent Car', 'both', 1)");
+        return (int)$pdo->lastInsertId();
+    } catch (Exception $e) {
+        error_log('getRentCarDivisionId: failed to create Rent Car division: ' . $e->getMessage());
+        $fallbackDivision = $pdo->query("SELECT id FROM divisions ORDER BY id ASC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+        return (int)($fallbackDivision['id'] ?? 1);
+    }
+}
+
+/**
  * Get (or create) the expense category used for driver/partner trip payments
- * in the cashbook ("Rent Car"). CashbookHelper::getCategoryId() always
- * resolves to a 'Room Sell'-style INCOME category (built for guest payments),
- * which is wrong for this expense - so driver payments need their own
- * category lookup instead of reusing that helper.
+ * in the cashbook ("Hotel Service" category under the "Rent Car" division).
+ * CashbookHelper::getCategoryId() always resolves to a 'Room Sell'-style
+ * INCOME category (built for guest payments), which is wrong for this
+ * expense - so driver payments need their own category/division lookup.
+ *
+ * NOTE: categories.division_id is NOT NULL (FK to divisions), so a division
+ * must be resolved/created first before the category can be inserted.
+ *
+ * Both the division name and category name can be renamed anytime by the
+ * user via Settings > Kelola Divisi / Kelola Kategori (modules/settings/
+ * divisions.php and categories.php) - no code change needed for that.
  */
 function getDriverPaymentCategoryId(PDO $pdo): int
 {
-    $category = $pdo->query("
+    $divisionId = getRentCarDivisionId($pdo);
+
+    // Resolve an existing expense category for driver/rent-car payments
+    $category = $pdo->prepare("
         SELECT id FROM categories
         WHERE category_type = 'expense'
           AND (
-              LOWER(category_name) = 'rent car'
+              LOWER(category_name) LIKE '%hotel service%'
               OR LOWER(category_name) LIKE '%rent car%'
               OR LOWER(category_name) LIKE '%rental mobil%'
               OR LOWER(category_name) LIKE '%sewa mobil%'
           )
-        ORDER BY id ASC LIMIT 1
-    ")->fetch(PDO::FETCH_ASSOC);
+        ORDER BY (division_id = ?) DESC, id ASC LIMIT 1
+    ");
+    $category->execute([$divisionId]);
+    $category = $category->fetch(PDO::FETCH_ASSOC);
 
     if ($category) {
         return (int)$category['id'];
     }
 
     try {
-        $pdo->exec("INSERT INTO categories (category_name, category_type, created_at) VALUES ('Rent Car', 'expense', NOW())");
+        $stmt = $pdo->prepare("INSERT INTO categories (category_name, category_type, division_id, created_at) VALUES ('Hotel Service', 'expense', ?, NOW())");
+        $stmt->execute([$divisionId]);
         return (int)$pdo->lastInsertId();
     } catch (Exception $e) {
-        error_log('getDriverPaymentCategoryId: failed to create Rent Car category: ' . $e->getMessage());
+        error_log('getDriverPaymentCategoryId: failed to create Hotel Service category: ' . $e->getMessage());
         // Last resort: any expense category so the insert doesn't hard-fail
         $fallback = $pdo->query("SELECT id FROM categories WHERE category_type = 'expense' ORDER BY id ASC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
         return (int)($fallback['id'] ?? 1);

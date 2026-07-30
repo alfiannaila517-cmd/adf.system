@@ -109,7 +109,7 @@ try {
     // ======================================
     $cbHelper = new CashbookHelper($db, $currentUser['id']);
 
-    $divisionId = $cbHelper->getDivisionId();
+    $divisionId = getRentCarDivisionId($pdo);
     $categoryId = getDriverPaymentCategoryId($pdo);
 
     $accountId = $cashAccountId;
