@@ -70,6 +70,26 @@ function ensureDriverPaymentSchema(PDO $pdo): void
         KEY idx_status (status)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
+    // bill_payments must also exist — monthly_bills listing/report queries LEFT JOIN it,
+    // so creating monthly_bills alone (without this) would break the Tagihan list.
+    $pdo->exec("CREATE TABLE IF NOT EXISTS bill_payments (
+        id int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        bill_id int(11) NOT NULL,
+        payment_date datetime NOT NULL,
+        amount decimal(12,2) NOT NULL,
+        payment_method varchar(50) DEFAULT NULL,
+        cash_account_id int(11) DEFAULT NULL,
+        reference_number varchar(50) DEFAULT NULL,
+        synced_to_cashbook tinyint(1) DEFAULT 0,
+        cashbook_id int(11) DEFAULT NULL,
+        notes text,
+        created_by int(11),
+        created_at timestamp DEFAULT CURRENT_TIMESTAMP,
+        KEY idx_bill_id (bill_id),
+        KEY idx_synced_to_cashbook (synced_to_cashbook),
+        KEY idx_payment_date (payment_date)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
     try {
         $pdo->query("SELECT source_type FROM monthly_bills LIMIT 1");
     } catch (Exception $e) {
