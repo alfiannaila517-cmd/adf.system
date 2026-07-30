@@ -1193,8 +1193,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $existingCarRows->execute([$id, $businessId]);
             $existingCarBookings = $existingCarRows->fetchAll(PDO::FETCH_ASSOC);
             $existingCarByAssetId = [];
+            $existingDriverTripByKey = [];
             foreach ($existingCarBookings as $row) {
-                $existingCarByAssetId[(int)$row['car_id']] = $row;
+                $svcType = $row['service_type'] ?: 'car_rental';
+                if ($svcType === 'car_rental') {
+                    $existingCarByAssetId[(int)$row['car_id']] = $row;
+                } else {
+                    $existingDriverTripByKey[$svcType . '_' . (int)$row['car_id']] = $row;
+                }
             }
 
             $subtotal = 0;
@@ -1243,6 +1249,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                         $item['commission_value'] = $item['commission_type'] === 'nominal' ? (float)$carRow['commission_nominal'] : (float)$carRow['owner_commission_pct'];
                     }
                     $carRentalItems[] = ['item' => $item, 'row' => $carRow];
+                }
+
+                if (in_array($item['service_type'] ?? '', ['airport_drop', 'harbor_drop'], true) && $item['car_id']) {
+                    $carStmt = $pdo->prepare("SELECT * FROM rental_cars WHERE id=? AND business_id=?");
+                    $carStmt->execute([$item['car_id'], $businessId]);
+                    $carRow = $carStmt->fetch(PDO::FETCH_ASSOC);
+                    if (!$carRow) throw new Exception('Mobil/driver tidak ditemukan');
+                    $item['start_dt'] = $item['start_dt'] ?: date('Y-m-d H:i:s');
+                    $item['end_dt']   = $item['end_dt'] ?: $item['start_dt'];
+                    if ($item['needs_driver_payment'] && $item['commission_value'] <= 0) {
+                        $item['commission_type']  = $carRow['commission_type'] ?: 'percent';
+                        $item['commission_value'] = $item['commission_type'] === 'nominal' ? (float)$carRow['commission_nominal'] : (float)$carRow['owner_commission_pct'];
+                    }
+                    $driverTripItems[] = ['item' => $item, 'row' => $carRow];
                 }
             }
             unset($item);
@@ -1413,6 +1433,78 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 }
                 $pdo->prepare("UPDATE rental_cars SET status='rented', updated_at=NOW() WHERE id=?")
                     ->execute([(int)$carRow['id']]);
+            }
+
+            // Airport Drop / Harbor Drop driver-trip items (update existing or insert new)
+            foreach ($driverTripItems as $driverTrip) {
+                $item = $driverTrip['item'];
+                $carRow = $driverTrip['row'];
+                $key = ($item['service_type'] ?? '') . '_' . (int)$carRow['id'];
+                $existingTrip = $existingDriverTripByKey[$key] ?? null;
+                [$ownerAmount, $hotelCommission] = $item['needs_driver_payment']
+                    ? calcDriverSplit((float)$item['total'], $item['commission_type'], $item['commission_value'])
+                    : [0, 0];
+                if ($existingTrip) {
+                    $matchedCarBookingIds[] = (int)$existingTrip['id'];
+                    $pdo->prepare("UPDATE rental_car_bookings
+                        SET invoice_id=?, guest_name=?, guest_phone=?, room_number=?, booking_id=?,
+                            start_datetime=?, end_datetime=?, daily_rate=?, total_price=?,
+                            trip_destination=?, notes=?, owner_amount=?, hotel_commission=?,
+                            needs_driver_payment=?, commission_type=?, commission_value=?, updated_at=NOW()
+                        WHERE id=? AND business_id=?")
+                        ->execute([
+                            $id,
+                            $guestName,
+                            $guestPhone ?: null,
+                            $roomNumber ?: null,
+                            $invoiceBookingId,
+                            $item['start_dt'],
+                            $item['end_dt'],
+                            $item['unit_price'],
+                            $item['total'],
+                            $item['trip_destination'],
+                            $notes ?: null,
+                            $ownerAmount,
+                            $hotelCommission,
+                            $item['needs_driver_payment'],
+                            $item['commission_type'],
+                            $item['commission_value'],
+                            $existingTrip['id'],
+                            $businessId
+                        ]);
+                } else {
+                    $pdo->prepare("INSERT INTO rental_car_bookings
+                        (business_id, car_id, invoice_id, guest_name, guest_phone, room_number, booking_id,
+                         start_datetime, end_datetime, daily_rate, total_price, owner_amount, hotel_commission,
+                         deposit, trip_destination, status, notes, created_by,
+                         service_type, needs_driver_payment, commission_type, commission_value)
+                        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+                        ->execute([
+                            $businessId,
+                            (int)$carRow['id'],
+                            $id,
+                            $guestName,
+                            $guestPhone ?: null,
+                            $roomNumber ?: null,
+                            $invoiceBookingId,
+                            $item['start_dt'],
+                            $item['end_dt'],
+                            $item['unit_price'],
+                            $item['total'],
+                            $ownerAmount,
+                            $hotelCommission,
+                            0,
+                            $item['trip_destination'],
+                            'returned',
+                            $notes ?: null,
+                            $currentUser['id'] ?? null,
+                            $item['service_type'],
+                            $item['needs_driver_payment'],
+                            $item['commission_type'],
+                            $item['commission_value'],
+                        ]);
+                    $matchedCarBookingIds[] = (int)$pdo->lastInsertId();
+                }
             }
 
             foreach ($existingCarBookings as $booking) {
