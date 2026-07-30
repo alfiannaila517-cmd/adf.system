@@ -442,22 +442,22 @@ include '../../includes/header.php';
                 <button class="tab-btn" onclick="switchTab('paid', event)">Lunas</button>
             </div>
 
-            <div id="driverProfitSummary" style="display:none; margin: 10px 0; padding: 10px 12px; background: linear-gradient(135deg,#0d1f3c,#101a30); border-radius: 8px; color: #fff;">
-                <div style="font-size: 11.5px; color:#ffffff; font-weight:700; margin-bottom: 6px;">🚗 Untung Driver/Mitra (Bulan Ini)</div>
-                <div style="display:flex; gap: 16px; flex-wrap: wrap;">
-                    <div>
-                        <div style="font-size: 10.5px; color:#ffffff; font-weight:700;">Total Sewa</div>
-                        <div id="dpTripTotal" style="font-size: 14px; font-weight: 800; color:#ffffff;">Rp 0</div>
-                    </div>
-                    <div>
-                        <div style="font-size: 10.5px; color:#ffffff; font-weight:700;">Dibayar ke Mitra</div>
-                        <div id="dpDriverTotal" style="font-size: 14px; font-weight: 800; color:#ffffff;">Rp 0</div>
-                    </div>
-                    <div>
-                        <div style="font-size: 10.5px; color:#ffffff; font-weight:700;">Keuntungan Hotel</div>
-                        <div id="dpProfitTotal" style="font-size: 14px; font-weight: 800; color:#ffffff;">Rp 0</div>
-                    </div>
-                </div>
+            <div id="driverProfitSummary" style="display:none; margin: 10px 0; padding: 10px 14px; background: #fff; border: 1px solid #e2e6ee; border-radius: 6px;">
+                <div style="font-size: 12px; font-weight:700; color:#1a2540; margin-bottom: 6px;">🚗 Rekap Untung Driver/Mitra (Bulan Ini)</div>
+                <table style="width:100%; border-collapse:collapse; font-size:12px;">
+                    <tr style="border-bottom:1px solid #eef0f5;">
+                        <td style="padding:6px 4px; color:#5a6478;">Total Sewa</td>
+                        <td id="dpTripTotal" style="padding:6px 4px; text-align:right; font-weight:700; color:#1a2540;">Rp 0</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #eef0f5;">
+                        <td style="padding:6px 4px; color:#5a6478;">Dibayar ke Mitra</td>
+                        <td id="dpDriverTotal" style="padding:6px 4px; text-align:right; font-weight:700; color:#1a2540;">Rp 0</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:6px 4px; color:#1a2540; font-weight:700;">Keuntungan Hotel</td>
+                        <td id="dpProfitTotal" style="padding:6px 4px; text-align:right; font-weight:800; color:#16794d;">Rp 0</td>
+                    </tr>
+                </table>
             </div>
 
             <div id="billsList" class="bill-list">
