@@ -11,6 +11,7 @@ require_once '../../config/config.php';
 require_once '../../config/database.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/InvoiceHelper.php';
+require_once '../../includes/DriverPaymentHelper.php';
 
 $auth = new Auth();
 $auth->requireLogin();
@@ -81,6 +82,9 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS rental_car_bookings (
     KEY idx_booking (booking_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+// Driver/partner vehicle payment tracking (commission mode, driver-payment flag, Tagihan traceability)
+ensureDriverPaymentSchema($pdo);
+
 // ── Auto-update overdue ────────────────────────────────────────────────────────
 $pdo->exec("UPDATE rental_car_bookings SET status='overdue'
     WHERE status='active' AND end_datetime < NOW() AND business_id={$businessId}");
@@ -107,6 +111,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $ownerCommPct = max(0, min(100, (float)($_POST['owner_commission_pct'] ?? 0)));
             $carStatus    = $_POST['car_status'] ?? 'available';
             $notes        = trim($_POST['notes'] ?? '');
+            $commType     = ($_POST['commission_type'] ?? 'percent') === 'nominal' ? 'nominal' : 'percent';
+            $commNominal  = max(0, (float)($_POST['commission_nominal'] ?? 0));
 
             if (!$plate || !$carName) throw new Exception('Plat nomor dan nama kendaraan wajib diisi');
             $validTypes = ['sedan', 'mpv', 'minibus', 'pickup', 'suv', 'van', 'other'];
@@ -116,7 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             if ($cid) {
                 $pdo->prepare("UPDATE rental_cars SET plate_number=?,car_name=?,car_type=?,color=?,year=?,
                     capacity=?,daily_rate=?,partner_owner=?,owner_phone=?,owner_commission_pct=?,
-                    status=?,notes=?,updated_at=NOW() WHERE id=? AND business_id=?")
+                    status=?,notes=?,commission_type=?,commission_nominal=?,updated_at=NOW() WHERE id=? AND business_id=?")
                     ->execute([
                         $plate,
                         $carName,
@@ -130,14 +136,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                         $ownerCommPct,
                         $carStatus,
                         $notes ?: null,
+                        $commType,
+                        $commNominal,
                         $cid,
                         $businessId
                     ]);
             } else {
                 $pdo->prepare("INSERT INTO rental_cars
                     (business_id,plate_number,car_name,car_type,color,year,capacity,daily_rate,
-                     partner_owner,owner_phone,owner_commission_pct,status,notes)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")
+                     partner_owner,owner_phone,owner_commission_pct,status,notes,commission_type,commission_nominal)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
                     ->execute([
                         $businessId,
                         $plate,
@@ -151,7 +159,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                         $ownerPhone ?: null,
                         $ownerCommPct,
                         $carStatus,
-                        $notes ?: null
+                        $notes ?: null,
+                        $commType,
+                        $commNominal
                     ]);
                 $cid = (int)$pdo->lastInsertId();
             }
@@ -204,9 +214,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $plannedSeconds = max(0, $end->getTimestamp() - $start->getTimestamp());
             $plannedDays    = max(1, (int)ceil($plannedSeconds / 86400));
             $plannedTotal   = max(0, round($plannedDays * $dailyRate2, 2));
-            $ownerPct       = (float)($carRow['owner_commission_pct'] ?? 0);
-            $plannedOwner   = round($plannedTotal * ($ownerPct / 100), 2);
-            $plannedHotel   = $plannedTotal - $plannedOwner;
+            $commType       = $carRow['commission_type'] ?? 'percent';
+            $commValue      = $commType === 'nominal' ? (float)($carRow['commission_nominal'] ?? 0) : (float)($carRow['owner_commission_pct'] ?? 0);
+            [$plannedOwner, $plannedHotel] = calcDriverSplit($plannedTotal, $commType, $commValue);
 
             $pdo->beginTransaction();
 
@@ -1055,7 +1065,9 @@ include '../../includes/header.php';
                         </div>
                         <?php if ($c['partner_owner']): ?>
                             <div class="mc-owner">👤 <?php echo htmlspecialchars($c['partner_owner']); ?>
-                                <?php if ((float)$c['owner_commission_pct'] > 0): ?>
+                                <?php if (($c['commission_type'] ?? 'percent') === 'nominal' && (float)($c['commission_nominal'] ?? 0) > 0): ?>
+                                    <span style="color:#059669"> (Hotel: Rp <?php echo number_format($c['commission_nominal'], 0, ',', '.'); ?>/trip)</span>
+                                <?php elseif ((float)$c['owner_commission_pct'] > 0): ?>
                                     <span style="color:#059669"> (<?php echo $c['owner_commission_pct']; ?>%)</span>
                                 <?php endif; ?>
                             </div>
@@ -1203,9 +1215,22 @@ include '../../includes/header.php';
         </div>
         <div class="rm-form-row">
             <div class="rm-field">
+                <label>Mode Bagi Hasil</label>
+                <select id="fc_comm_type" onchange="toggleCommMode()">
+                    <option value="percent">% Bagian Pemilik</option>
+                    <option value="nominal">Potongan Nominal (Rp) ke Hotel</option>
+                </select>
+            </div>
+            <div class="rm-field" id="fc_comm_pct_wrap">
                 <label>% Bagian Pemilik</label>
                 <input type="number" id="fc_comm_pct" placeholder="80" min="0" max="100" step="1" oninput="updateOwnerPreview()">
             </div>
+            <div class="rm-field" id="fc_comm_nominal_wrap" style="display:none">
+                <label>Potongan Hotel / Trip (Rp)</label>
+                <input type="number" id="fc_comm_nominal" placeholder="50000" min="0" oninput="updateOwnerPreview()">
+            </div>
+        </div>
+        <div class="rm-form-row">
             <div class="rm-field" style="display:flex;align-items:flex-end">
                 <div id="ownerPreview" class="owner-info-box" style="width:100%">
                     <strong>Pemilik: 0%</strong> · Hotel: 0%
@@ -1221,6 +1246,7 @@ include '../../includes/header.php';
         </div>
     </div>
 </div>
+
 
 <!-- ═══ MODAL: Create Rental ═══ -->
 <div class="rm-modal-overlay" id="rentalModal" onclick="if(event.target===this)closeRentalModal()">
@@ -1269,7 +1295,9 @@ include '../../includes/header.php';
                     <option value="<?php echo $c['id']; ?>"
                         data-rate="<?php echo $c['daily_rate']; ?>"
                         data-owner="<?php echo htmlspecialchars($c['partner_owner'] ?? ''); ?>"
-                        data-comm="<?php echo $c['owner_commission_pct']; ?>">
+                        data-comm="<?php echo $c['owner_commission_pct']; ?>"
+                        data-comm-type="<?php echo htmlspecialchars($c['commission_type'] ?? 'percent'); ?>"
+                        data-comm-nominal="<?php echo $c['commission_nominal'] ?? 0; ?>">
                         <?php echo htmlspecialchars($c['plate_number'] . ' — ' . $c['car_name'] . ' (' . $c['car_type'] . ')'); ?>
                     </option>
                 <?php endforeach; ?>
@@ -1320,10 +1348,25 @@ include '../../includes/header.php';
     }
 
     // ── Owner preview in car form ───────────────────────────────────────────────
+    function toggleCommMode() {
+        const isNominal = document.getElementById('fc_comm_type').value === 'nominal';
+        document.getElementById('fc_comm_pct_wrap').style.display = isNominal ? 'none' : '';
+        document.getElementById('fc_comm_nominal_wrap').style.display = isNominal ? '' : 'none';
+        updateOwnerPreview();
+    }
+
     function updateOwnerPreview() {
-        const pct = parseFloat(document.getElementById('fc_comm_pct').value) || 0;
-        document.getElementById('ownerPreview').innerHTML =
-            `<strong>Pemilik: ${pct}%</strong> · Hotel: ${(100 - pct).toFixed(0)}%`;
+        const isNominal = document.getElementById('fc_comm_type').value === 'nominal';
+        const rate = parseFloat(document.getElementById('fc_rate').value) || 0;
+        if (isNominal) {
+            const nominal = parseFloat(document.getElementById('fc_comm_nominal').value) || 0;
+            document.getElementById('ownerPreview').innerHTML =
+                `<strong>Hotel: Rp ${nominal.toLocaleString('id-ID')}/trip</strong> · Sisanya untuk Pemilik`;
+        } else {
+            const pct = parseFloat(document.getElementById('fc_comm_pct').value) || 0;
+            document.getElementById('ownerPreview').innerHTML =
+                `<strong>Pemilik: ${pct}%</strong> · Hotel: ${(100 - pct).toFixed(0)}%`;
+        }
     }
 
     // ── Car Modal ───────────────────────────────────────────────────────────────
@@ -1332,8 +1375,10 @@ include '../../includes/header.php';
         ['fc_plate', 'fc_name', 'fc_color', 'fc_year', 'fc_capacity', 'fc_rate', 'fc_owner', 'fc_owner_phone', 'fc_notes'].forEach(id => document.getElementById(id).value = '');
         document.getElementById('fc_type').value = 'mpv';
         document.getElementById('fc_status').value = 'available';
+        document.getElementById('fc_comm_type').value = 'percent';
         document.getElementById('fc_comm_pct').value = 0;
-        updateOwnerPreview();
+        document.getElementById('fc_comm_nominal').value = 0;
+        toggleCommMode();
         document.getElementById('carModalTitle').textContent = 'Tambah Kendaraan';
         document.getElementById('carModal').classList.add('open');
     }
@@ -1349,10 +1394,12 @@ include '../../includes/header.php';
         document.getElementById('fc_rate').value = c.daily_rate;
         document.getElementById('fc_owner').value = c.partner_owner || '';
         document.getElementById('fc_owner_phone').value = c.owner_phone || '';
+        document.getElementById('fc_comm_type').value = c.commission_type === 'nominal' ? 'nominal' : 'percent';
         document.getElementById('fc_comm_pct').value = c.owner_commission_pct;
+        document.getElementById('fc_comm_nominal').value = c.commission_nominal || 0;
         document.getElementById('fc_status').value = c.status;
         document.getElementById('fc_notes').value = c.notes || '';
-        updateOwnerPreview();
+        toggleCommMode();
         document.getElementById('carModalTitle').textContent = 'Edit Kendaraan';
         document.getElementById('carModal').classList.add('open');
     }
@@ -1367,6 +1414,7 @@ include '../../includes/header.php';
         ['fc_id:car_id', 'fc_plate:plate_number', 'fc_name:car_name', 'fc_type:car_type',
             'fc_color:color', 'fc_year:year', 'fc_capacity:capacity', 'fc_rate:daily_rate',
             'fc_owner:partner_owner', 'fc_owner_phone:owner_phone', 'fc_comm_pct:owner_commission_pct',
+            'fc_comm_type:commission_type', 'fc_comm_nominal:commission_nominal',
             'fc_status:car_status', 'fc_notes:notes'
         ].forEach(pair => {
             const [id, key] = pair.split(':');
@@ -1452,11 +1500,15 @@ include '../../includes/header.php';
         if (opt && opt.value) {
             document.getElementById('fr_rate').value = opt.dataset.rate || 0;
             const owner = opt.dataset.owner || '';
+            const commType = opt.dataset.commType || 'percent';
             const comm = parseFloat(opt.dataset.comm || 0);
+            const commNominal = parseFloat(opt.dataset.commNominal || 0);
             const infoBox = document.getElementById('carOwnerInfo');
             if (owner) {
                 infoBox.style.display = 'block';
-                infoBox.innerHTML = `<strong>👤 Pemilik: ${owner}</strong> · Bagian pemilik: <strong>${comm}%</strong> · Hotel: <strong>${(100-comm).toFixed(0)}%</strong>`;
+                infoBox.innerHTML = commType === 'nominal'
+                    ? `<strong>👤 Pemilik: ${owner}</strong> · Potongan Hotel: <strong>Rp ${commNominal.toLocaleString('id-ID')}/trip</strong> · Sisanya untuk Pemilik`
+                    : `<strong>👤 Pemilik: ${owner}</strong> · Bagian pemilik: <strong>${comm}%</strong> · Hotel: <strong>${(100-comm).toFixed(0)}%</strong>`;
             } else {
                 infoBox.style.display = 'none';
             }

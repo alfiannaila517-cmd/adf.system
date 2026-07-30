@@ -16,6 +16,7 @@ require_once '../../config/database.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/CloudinaryHelper.php';
 require_once '../../includes/InvoiceHelper.php';
+require_once '../../includes/DriverPaymentHelper.php';
 
 $auth = new Auth();
 $auth->requireLogin();
@@ -107,6 +108,10 @@ try {
     }
 } catch (\Throwable $e) {
 }
+
+// Driver/partner vehicle payment tracking (rental_cars commission mode, rental_car_bookings
+// driver-payment flag, monthly_bills traceability columns)
+ensureDriverPaymentSchema($pdo);
 
 $pdo->exec("CREATE TABLE IF NOT EXISTS hotel_invoice_items (
     id              INT AUTO_INCREMENT PRIMARY KEY,
@@ -467,6 +472,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $subtotal = 0;
             $motorRentalItems = [];
             $carRentalItems   = [];
+            $driverTripItems  = [];
             foreach ($items as &$item) {
                 $item['qty']        = max(0.5, (float)($item['qty']        ?? 1));
                 $item['unit_price'] = max(0,   (float)($item['unit_price'] ?? 0));
@@ -475,6 +481,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 $item['deposit']    = max(0, (float)($item['deposit'] ?? 0));
                 $item['trip_destination'] = trim((string)($item['trip_destination'] ?? '')) ?: null;
                 $item['total']      = round($item['qty'] * $item['unit_price'], 2);
+                $item['car_id']              = (int)($item['car_id'] ?? 0);
+                $item['needs_driver_payment'] = !empty($item['needs_driver_payment']) ? 1 : 0;
+                $item['commission_type']     = in_array($item['commission_type'] ?? '', ['percent', 'nominal'], true) ? $item['commission_type'] : 'percent';
+                $item['commission_value']    = max(0, (float)($item['commission_value'] ?? 0));
                 $subtotal += $item['total'];
                 if (!isset($serviceTypes[$item['service_type'] ?? ''])) {
                     throw new Exception('Invalid service type: ' . ($item['service_type'] ?? ''));
@@ -509,7 +519,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                         $baseDesc .= ' — Tujuan: ' . $item['trip_destination'];
                     }
                     $item['description'] = trim((string)($item['description'] ?? '')) ?: $baseDesc;
+                    if ($item['needs_driver_payment'] && $item['commission_value'] <= 0) {
+                        $item['commission_type']  = $carRow['commission_type'] ?: 'percent';
+                        $item['commission_value'] = $item['commission_type'] === 'nominal' ? (float)$carRow['commission_nominal'] : (float)$carRow['owner_commission_pct'];
+                    }
                     $carRentalItems[] = ['item' => $item, 'row' => $carRow];
+                }
+
+                if (in_array($item['service_type'] ?? '', ['airport_drop', 'harbor_drop'], true) && $item['car_id']) {
+                    $carStmt = $pdo->prepare("SELECT * FROM rental_cars WHERE id=? AND business_id=?");
+                    $carStmt->execute([$item['car_id'], $businessId]);
+                    $carRow = $carStmt->fetch(PDO::FETCH_ASSOC);
+                    if (!$carRow) throw new Exception('Mobil/driver tidak ditemukan');
+                    $item['start_dt'] = $item['start_dt'] ?: date('Y-m-d H:i:s');
+                    $item['end_dt']   = $item['end_dt'] ?: $item['start_dt'];
+                    if ($item['needs_driver_payment'] && $item['commission_value'] <= 0) {
+                        $item['commission_type']  = $carRow['commission_type'] ?: 'percent';
+                        $item['commission_value'] = $item['commission_type'] === 'nominal' ? (float)$carRow['commission_nominal'] : (float)$carRow['owner_commission_pct'];
+                    }
+                    $driverTripItems[] = ['item' => $item, 'row' => $carRow];
                 }
             }
             unset($item);
@@ -688,11 +716,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             foreach ($carRentalItems as $carRental) {
                 $item = $carRental['item'];
                 $carRow = $carRental['row'];
+                [$ownerAmount, $hotelCommission] = $item['needs_driver_payment']
+                    ? calcDriverSplit((float)$item['total'], $item['commission_type'], $item['commission_value'])
+                    : [0, 0];
                 $pdo->prepare("INSERT INTO rental_car_bookings
                     (business_id, car_id, invoice_id, guest_name, guest_phone, room_number, booking_id,
                      start_datetime, end_datetime, daily_rate, total_price, owner_amount, hotel_commission,
-                     deposit, trip_destination, status, notes, created_by)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+                     deposit, trip_destination, status, notes, created_by,
+                     service_type, needs_driver_payment, commission_type, commission_value)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
                     ->execute([
                         $businessId,
                         (int)$carRow['id'],
@@ -705,16 +737,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                         $item['end_dt'],
                         $item['unit_price'],
                         $item['total'],
-                        0,
-                        0,
+                        $ownerAmount,
+                        $hotelCommission,
                         $item['deposit'],
                         $item['trip_destination'],
                         'active',
                         $notes ?: null,
-                        $currentUser['id'] ?? null
+                        $currentUser['id'] ?? null,
+                        'car_rental',
+                        $item['needs_driver_payment'],
+                        $item['commission_type'],
+                        $item['commission_value'],
                     ]);
                 $pdo->prepare("UPDATE rental_cars SET status='rented', updated_at=NOW() WHERE id=?")
                     ->execute([(int)$carRow['id']]);
+            }
+
+            foreach ($driverTripItems as $driverTrip) {
+                $item = $driverTrip['item'];
+                $carRow = $driverTrip['row'];
+                [$ownerAmount, $hotelCommission] = $item['needs_driver_payment']
+                    ? calcDriverSplit((float)$item['total'], $item['commission_type'], $item['commission_value'])
+                    : [0, 0];
+                $pdo->prepare("INSERT INTO rental_car_bookings
+                    (business_id, car_id, invoice_id, guest_name, guest_phone, room_number, booking_id,
+                     start_datetime, end_datetime, daily_rate, total_price, owner_amount, hotel_commission,
+                     deposit, trip_destination, status, notes, created_by,
+                     service_type, needs_driver_payment, commission_type, commission_value)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+                    ->execute([
+                        $businessId,
+                        (int)$carRow['id'],
+                        $invId,
+                        $guestName,
+                        $guestPhone ?: null,
+                        $roomNumber ?: null,
+                        $bookingId,
+                        $item['start_dt'],
+                        $item['end_dt'],
+                        $item['unit_price'],
+                        $item['total'],
+                        $ownerAmount,
+                        $hotelCommission,
+                        0,
+                        $item['trip_destination'],
+                        'returned',
+                        $notes ?: null,
+                        $currentUser['id'] ?? null,
+                        $item['service_type'],
+                        $item['needs_driver_payment'],
+                        $item['commission_type'],
+                        $item['commission_value'],
+                    ]);
             }
             $pdo->commit();
 
@@ -883,8 +957,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 $pdo->prepare("UPDATE hotel_invoices SET cashbook_synced=1, updated_at=NOW() WHERE id=?")->execute([$id]);
             }
 
+            // Auto-generate Tagihan (Bills) entries for any driver/partner payments owed on this trip
+            $driverBillsCreated = 0;
+            try {
+                $driverBookingsStmt = $pdo->prepare("SELECT * FROM rental_car_bookings WHERE invoice_id=? AND business_id=? AND needs_driver_payment=1 AND billed_to_tagihan=0");
+                $driverBookingsStmt->execute([$id, $businessId]);
+                foreach ($driverBookingsStmt->fetchAll(PDO::FETCH_ASSOC) as $driverBooking) {
+                    $svcLabel = $serviceTypes[$driverBooking['service_type']]['label'] ?? ucfirst(str_replace('_', ' ', $driverBooking['service_type']));
+                    if (createDriverPayableBill($pdo, $currentUser['id'] ?? null, $driverBooking, $svcLabel)) {
+                        $driverBillsCreated++;
+                    }
+                }
+            } catch (\Throwable $e) {
+                error_log('createDriverPayableBill: ' . $e->getMessage());
+            }
+
             ob_clean();
-            echo json_encode(['success' => true, 'cashbook' => $cbOk, 'paid_amount' => $invRow['paid_amount']]);
+            echo json_encode(['success' => true, 'cashbook' => $cbOk, 'paid_amount' => $invRow['paid_amount'], 'driver_bills_created' => $driverBillsCreated]);
             exit;
         }
 
@@ -1119,6 +1208,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 $item['deposit']    = max(0, (float)($item['deposit'] ?? 0));
                 $item['trip_destination'] = trim((string)($item['trip_destination'] ?? '')) ?: null;
                 $item['total']      = round($item['qty'] * $item['unit_price'], 2);
+                $item['car_id']              = (int)($item['car_id'] ?? 0);
+                $item['needs_driver_payment'] = !empty($item['needs_driver_payment']) ? 1 : 0;
+                $item['commission_type']     = in_array($item['commission_type'] ?? '', ['percent', 'nominal'], true) ? $item['commission_type'] : 'percent';
+                $item['commission_value']    = max(0, (float)($item['commission_value'] ?? 0));
                 $subtotal += $item['total'];
                 if (!isset($serviceTypes[$item['service_type'] ?? ''])) throw new Exception('Invalid service type');
 
@@ -1145,6 +1238,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                     $baseDesc = $carRow['car_name'] . ' (' . $carRow['plate_number'] . ')';
                     if ($item['trip_destination']) $baseDesc .= ' — Tujuan: ' . $item['trip_destination'];
                     $item['description'] = trim((string)($item['description'] ?? '')) ?: $baseDesc;
+                    if ($item['needs_driver_payment'] && $item['commission_value'] <= 0) {
+                        $item['commission_type']  = $carRow['commission_type'] ?: 'percent';
+                        $item['commission_value'] = $item['commission_type'] === 'nominal' ? (float)$carRow['commission_nominal'] : (float)$carRow['owner_commission_pct'];
+                    }
                     $carRentalItems[] = ['item' => $item, 'row' => $carRow];
                 }
             }
@@ -1247,13 +1344,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 $item = $carRental['item'];
                 $carRow = $carRental['row'];
                 $existingBooking = $existingCarByAssetId[(int)$item['car_id']] ?? null;
+                [$ownerAmount, $hotelCommission] = $item['needs_driver_payment']
+                    ? calcDriverSplit((float)$item['total'], $item['commission_type'], $item['commission_value'])
+                    : [0, 0];
                 if ($existingBooking) {
                     $matchedCarBookingIds[] = (int)$existingBooking['id'];
                     $newStatus = in_array($existingBooking['status'], ['returned', 'cancelled'], true) ? 'active' : $existingBooking['status'];
                     $pdo->prepare("UPDATE rental_car_bookings
                         SET invoice_id=?, guest_name=?, guest_phone=?, room_number=?, booking_id=?,
                             start_datetime=?, end_datetime=?, daily_rate=?, total_price=?, deposit=?,
-                            trip_destination=?, status=?, notes=?, updated_at=NOW()
+                            trip_destination=?, status=?, notes=?, owner_amount=?, hotel_commission=?,
+                            needs_driver_payment=?, commission_type=?, commission_value=?, updated_at=NOW()
                         WHERE id=? AND business_id=?")
                         ->execute([
                             $id,
@@ -1269,6 +1370,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                             $item['trip_destination'],
                             $newStatus,
                             $notes ?: null,
+                            $ownerAmount,
+                            $hotelCommission,
+                            $item['needs_driver_payment'],
+                            $item['commission_type'],
+                            $item['commission_value'],
                             $existingBooking['id'],
                             $businessId
                         ]);
@@ -1276,8 +1382,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                     $pdo->prepare("INSERT INTO rental_car_bookings
                         (business_id, car_id, invoice_id, guest_name, guest_phone, room_number, booking_id,
                          start_datetime, end_datetime, daily_rate, total_price, owner_amount, hotel_commission,
-                         deposit, trip_destination, status, notes, created_by)
-                        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+                         deposit, trip_destination, status, notes, created_by,
+                         service_type, needs_driver_payment, commission_type, commission_value)
+                        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
                         ->execute([
                             $businessId,
                             (int)$carRow['id'],
@@ -1290,13 +1397,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                             $item['end_dt'],
                             $item['unit_price'],
                             $item['total'],
-                            0,
-                            0,
+                            $ownerAmount,
+                            $hotelCommission,
                             $item['deposit'],
                             $item['trip_destination'],
                             'active',
                             $notes ?: null,
-                            $currentUser['id'] ?? null
+                            $currentUser['id'] ?? null,
+                            'car_rental',
+                            $item['needs_driver_payment'],
+                            $item['commission_type'],
+                            $item['commission_value'],
                         ]);
                     $matchedCarBookingIds[] = (int)$pdo->lastInsertId();
                 }
@@ -1415,7 +1526,7 @@ try {
 }
 
 try {
-    $carStmt = $pdo->prepare("SELECT id, plate_number, car_name, car_type, daily_rate FROM rental_cars WHERE business_id=? AND status='available' ORDER BY car_name ASC, plate_number ASC");
+    $carStmt = $pdo->prepare("SELECT id, plate_number, car_name, car_type, daily_rate, partner_owner, owner_commission_pct, commission_type, commission_nominal FROM rental_cars WHERE business_id=? AND status='available' ORDER BY car_name ASC, plate_number ASC");
     $carStmt->execute([$businessId]);
     $availableCars = $carStmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (\Throwable $e) {
@@ -1480,11 +1591,28 @@ if (isset($_GET['get_invoice']) && isset($_GET['id'])) {
                         $gItem['end_dt'] = $cr['end_datetime'];
                         $gItem['deposit'] = (float)$cr['deposit'];
                         $gItem['trip_destination'] = $cr['trip_destination'];
+                        $gItem['needs_driver_payment'] = (int)($cr['needs_driver_payment'] ?? 0);
+                        $gItem['commission_type'] = $cr['commission_type'] ?? 'percent';
+                        $gItem['commission_value'] = (float)($cr['commission_value'] ?? 0);
                         // Calculate rental days
                         $start = new DateTime($cr['start_datetime']);
                         $end = new DateTime($cr['end_datetime']);
                         $interval = $start->diff($end);
                         $gItem['rental_days'] = max(1, (int)$interval->days) ?: 1;
+                        break;
+                    }
+                }
+            }
+            if (in_array($gItem['service_type'] ?? '', ['airport_drop', 'harbor_drop'], true)) {
+                foreach ($carRentals as $cr) {
+                    if ($cr['plate_number'] && strpos((string)($gItem['description'] ?? ''), (string)$cr['plate_number']) !== false) {
+                        $gItem['car_id'] = (int)$cr['car_id'];
+                        $gItem['car_name'] = $cr['car_name'];
+                        $gItem['plate_number'] = $cr['plate_number'];
+                        $gItem['trip_destination'] = $cr['trip_destination'];
+                        $gItem['needs_driver_payment'] = (int)($cr['needs_driver_payment'] ?? 0);
+                        $gItem['commission_type'] = $cr['commission_type'] ?? 'percent';
+                        $gItem['commission_value'] = (float)($cr['commission_value'] ?? 0);
                         break;
                     }
                 }
@@ -2631,7 +2759,7 @@ include '../../includes/header.php';
                             echo json_encode($catalogByType, JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '{}';
                             ?>;
     window.RENTAL_MOTORS = <?php echo json_encode(array_map(fn($m) => ['id' => (int)$m['id'], 'label' => ($m['motor_name'] ?? '') . ' (' . ($m['plate_number'] ?? '') . ')', 'daily_rate' => (float)$m['daily_rate']], $availableMotors), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
-    window.RENTAL_CARS   = <?php echo json_encode(array_map(fn($c) => ['id' => (int)$c['id'], 'label' => ($c['car_name'] ?? '') . ' (' . ($c['plate_number'] ?? '') . ')' . (!empty($c['car_type']) ? ' - ' . $c['car_type'] : ''), 'daily_rate' => (float)$c['daily_rate']], $availableCars), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
+    window.RENTAL_CARS   = <?php echo json_encode(array_map(fn($c) => ['id' => (int)$c['id'], 'label' => ($c['car_name'] ?? '') . ' (' . ($c['plate_number'] ?? '') . ')' . (!empty($c['car_type']) ? ' - ' . $c['car_type'] : ''), 'daily_rate' => (float)$c['daily_rate'], 'partner_owner' => $c['partner_owner'] ?? '', 'commission_type' => $c['commission_type'] ?? 'percent', 'commission_pct' => (float)($c['owner_commission_pct'] ?? 0), 'commission_nominal' => (float)($c['commission_nominal'] ?? 0)], $availableCars), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
     window.SVC_OPTIONS   = <?php echo json_encode(array_map(fn($k, $v) => ['val' => $k, 'lbl' => ($v['icon'] ?? '') . ' ' . ($v['label'] ?? '')], array_keys($serviceTypes), $serviceTypes), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
     window.CATALOG_LIST  = <?php echo json_encode(array_map(fn($r) => ['stype' => $r['service_type'], 'name' => $r['item_name'], 'price' => (float)$r['default_price'], 'unit' => $r['unit'] ?? 'unit'], $catalogRows), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
     window.ACTIVE_BIZ_ID = <?php echo (int)$businessId; ?>;

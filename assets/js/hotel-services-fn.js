@@ -57,6 +57,69 @@
         return svc === 'motor_rental' || svc === 'car_rental';
     }
 
+    // ── Driver / partner vehicle payment (car_rental, airport_drop, harbor_drop) ──
+    function usesDriverPayment(svc) {
+        return svc === 'car_rental' || svc === 'airport_drop' || svc === 'harbor_drop';
+    }
+
+    function getDriverCarId(tr, svc) {
+        if (svc === 'car_rental') return parseInt(tr.querySelector('.iAsset')?.value || '0', 10);
+        if (svc === 'airport_drop' || svc === 'harbor_drop') return parseInt(tr.querySelector('.iDriverCar')?.value || '0', 10);
+        return 0;
+    }
+
+    function updateDriverExtra(tr) {
+        const svc = tr.querySelector('.iSvc').value;
+        const wrap = tr.querySelector('.hs-driver-extra');
+        if (!wrap) return;
+        const show = usesDriverPayment(svc);
+        wrap.style.display = show ? '' : 'none';
+        const carRow = tr.querySelector('.iDriverCarRow');
+        if (carRow) {
+            const showCarPicker = svc === 'airport_drop' || svc === 'harbor_drop';
+            carRow.style.display = showCarPicker ? '' : 'none';
+            const driverCarSelect = tr.querySelector('.iDriverCar');
+            if (driverCarSelect && showCarPicker) {
+                driverCarSelect.innerHTML = buildRentalAssetOpts(RENTAL_CARS, driverCarSelect.value);
+            }
+        }
+        if (!show) {
+            const chk = tr.querySelector('.iNeedsDriver');
+            if (chk) chk.checked = false;
+            const commWrap = tr.querySelector('.iCommWrap');
+            if (commWrap) commWrap.style.display = 'none';
+        }
+    }
+
+    function prefillDriverCommission(tr) {
+        const svc = tr.querySelector('.iSvc').value;
+        const carId = getDriverCarId(tr, svc);
+        const car = RENTAL_CARS.find(c => String(c.id) === String(carId));
+        const typeSel = tr.querySelector('.iCommType');
+        const valInput = tr.querySelector('.iCommValue');
+        if (!car || !typeSel || !valInput) return;
+        if (!valInput.value || parseFloat(valInput.value) === 0) {
+            typeSel.value = car.commission_type || 'percent';
+            valInput.value = car.commission_type === 'nominal' ? (car.commission_nominal || 0) : (car.commission_pct || 0);
+        }
+    }
+
+    function onDriverCarChange(id) {
+        const tr = document.getElementById(id);
+        if (!tr) return;
+        const chk = tr.querySelector('.iNeedsDriver');
+        if (chk && chk.checked) prefillDriverCommission(tr);
+    }
+
+    function onNeedsDriverChange(id) {
+        const tr = document.getElementById(id);
+        if (!tr) return;
+        const checked = tr.querySelector('.iNeedsDriver').checked;
+        const commWrap = tr.querySelector('.iCommWrap');
+        if (commWrap) commWrap.style.display = checked ? 'flex' : 'none';
+        if (checked) prefillDriverCommission(tr);
+    }
+
     function rentalDefaultDate(offsetDays) {
         const dt = new Date();
         dt.setDate(dt.getDate() + offsetDays);
@@ -82,6 +145,22 @@
             `<div class="hs-rental-grid">` +
             `<input type="number" class="iDeposit" value="0" min="0" placeholder="Deposit (Rp)">` +
             `<input type="text" class="iDest" placeholder="Tujuan / catatan mobil">` +
+            `</div>` +
+            `</div>` +
+            `<div class="hs-driver-extra" style="display:none;margin-top:6px;padding:8px 10px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:6px">` +
+            `<div class="iDriverCarRow" style="display:none;margin-bottom:6px">` +
+            `<select class="iDriverCar" onchange="onDriverCarChange('${id}')" style="width:100%;font-size:12px;padding:4px"><option value="">🚗 Pilih mobil/driver (opsional)...</option></select>` +
+            `</div>` +
+            `<label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:#334155;cursor:pointer">` +
+            `<input type="checkbox" class="iNeedsDriver" onchange="onNeedsDriverChange('${id}')">` +
+            `🧾 Butuh bayar driver (masuk Tagihan setelah invoice diproses)` +
+            `</label>` +
+            `<div class="iCommWrap" style="display:none;gap:6px;margin-top:6px">` +
+            `<select class="iCommType" style="flex:1;font-size:12px;padding:4px">` +
+            `<option value="percent">Bagian Driver: %</option>` +
+            `<option value="nominal">Potongan Hotel: Rp</option>` +
+            `</select>` +
+            `<input type="number" class="iCommValue" style="flex:1;font-size:12px;padding:4px" placeholder="Nilai" min="0">` +
             `</div>` +
             `</div>` +
             `</td>` +
@@ -150,6 +229,7 @@
         if (isRentalService(svc)) {
             onRentalAssetChange(id, !!isNew);
         }
+        updateDriverExtra(tr);
         rcalc(id);
     }
 
@@ -171,6 +251,7 @@
             descInput.value = chosen.label;
             descInput.dataset.autoFilled = '1';
         }
+        if (tr.querySelector('.iNeedsDriver')?.checked) prefillDriverCommission(tr);
         rcalc(id);
     }
 
@@ -339,6 +420,10 @@
             }
             const motorId = svc === 'motor_rental' ? parseInt(tr.querySelector('.iAsset').value || '0', 10) : 0;
             const carId = svc === 'car_rental' ? parseInt(tr.querySelector('.iAsset').value || '0', 10) : 0;
+            const driverCarId = getDriverCarId(tr, svc);
+            const needsDriver = usesDriverPayment(svc) && !!tr.querySelector('.iNeedsDriver')?.checked && driverCarId > 0;
+            const commType = tr.querySelector('.iCommType')?.value || 'percent';
+            const commValue = parseFloat(tr.querySelector('.iCommValue')?.value) || 0;
             const daysInput = tr.querySelector('.iDays');
             const days = daysInput ? parseFloat(daysInput.value) || 1 : 1;
 
@@ -359,7 +444,10 @@
                 qty: parseFloat(tr.querySelector('.iQty').value) || 1,
                 unit_price: parseFloat(tr.querySelector('.iPrice').value) || 0,
                 motor_id: motorId || null,
-                car_id: carId || null,
+                car_id: (svc === 'car_rental' ? carId : driverCarId) || null,
+                needs_driver_payment: needsDriver ? 1 : 0,
+                commission_type: commType,
+                commission_value: commValue,
                 start_dt: (svc === 'motor_rental' || svc === 'car_rental') ? startDt : null,
                 end_dt: (svc === 'motor_rental' || svc === 'car_rental') ? endDt : null,
                 deposit: parseFloat(tr.querySelector('.iDeposit').value) || 0,
@@ -715,6 +803,22 @@
             `<input type="text" class="iDest" value="${(item.trip_destination||'').replace(/"/g,'&quot;')}" placeholder="Tujuan / catatan mobil">` +
             `</div>` +
             `</div>` +
+            `<div class="hs-driver-extra" style="display:none;margin-top:6px;padding:8px 10px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:6px">` +
+            `<div class="iDriverCarRow" style="display:none;margin-bottom:6px">` +
+            `<select class="iDriverCar" onchange="onDriverCarChange('${id2}')" style="width:100%;font-size:12px;padding:4px"><option value="">🚗 Pilih mobil/driver (opsional)...</option></select>` +
+            `</div>` +
+            `<label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:#334155;cursor:pointer">` +
+            `<input type="checkbox" class="iNeedsDriver" ${item.needs_driver_payment?'checked':''} onchange="onNeedsDriverChange('${id2}')">` +
+            `🧾 Butuh bayar driver (masuk Tagihan setelah invoice diproses)` +
+            `</label>` +
+            `<div class="iCommWrap" style="display:${item.needs_driver_payment?'flex':'none'};gap:6px;margin-top:6px">` +
+            `<select class="iCommType" style="flex:1;font-size:12px;padding:4px">` +
+            `<option value="percent" ${(item.commission_type||'percent')==='percent'?'selected':''}>Bagian Driver: %</option>` +
+            `<option value="nominal" ${item.commission_type==='nominal'?'selected':''}>Potongan Hotel: Rp</option>` +
+            `</select>` +
+            `<input type="number" class="iCommValue" value="${item.commission_value||0}" style="flex:1;font-size:12px;padding:4px" placeholder="Nilai" min="0">` +
+            `</div>` +
+            `</div>` +
             `</td>` +
             `<td><input type="number" class="iQty" value="${item.quantity||1}" min="0.5" step="0.5" style="width:60px" oninput="ercalc('${id2}')"></td>` +
             `<td><input type="number" class="iPrice" value="${item.unit_price||0}" min="0" style="width:105px" oninput="ercalc('${id2}')"></td>` +
@@ -744,11 +848,25 @@
             }
             tr3.querySelector('.iAsset').innerHTML = buildRentalAssetOpts(carOpts, item.car_id);
         }
+        if ((item.service_type === 'airport_drop' || item.service_type === 'harbor_drop') && item.car_id) {
+            let carOpts = [...RENTAL_CARS];
+            if (!carOpts.find(c => c.id === item.car_id)) {
+                const label = (item.car_name || 'Mobil') + (item.plate_number ? ' (' + item.plate_number + ')' : '');
+                carOpts = [{
+                    id: item.car_id,
+                    label: label,
+                    daily_rate: item.daily_rate || 0
+                }, ...carOpts];
+            }
+            const driverCarSelect = tr3.querySelector('.iDriverCar');
+            if (driverCarSelect) driverCarSelect.innerHTML = buildRentalAssetOpts(carOpts, item.car_id);
+        }
         // Only trigger onSvcChange for existing rows (loaded from API), not for new empty rows
         // Pass false to indicate we're loading from API, not creating new
         if (item.service_type) {
             eOnSvcChange(id2, false);
         }
+        updateDriverExtra(tr3);
         ercalc(id2);
     }
 
@@ -807,6 +925,7 @@
         if (isRentalService(svc)) {
             eOnRentalAssetChange(id2, !!isNew);
         }
+        updateDriverExtra(tr3);
         ercalc(id2);
     }
 
@@ -828,6 +947,7 @@
             descInput.value = chosen.label;
             descInput.dataset.autoFilled = '1';
         }
+        if (tr3.querySelector('.iNeedsDriver')?.checked) prefillDriverCommission(tr3);
         ercalc(id2);
     }
 
@@ -902,6 +1022,10 @@
             const svc = tr.querySelector('.iSvc').value;
             const motorId = svc === 'motor_rental' ? parseInt(tr.querySelector('.iAsset').value || '0', 10) : 0;
             const carId = svc === 'car_rental' ? parseInt(tr.querySelector('.iAsset').value || '0', 10) : 0;
+            const driverCarId = getDriverCarId(tr, svc);
+            const needsDriver = usesDriverPayment(svc) && !!tr.querySelector('.iNeedsDriver')?.checked && driverCarId > 0;
+            const commType = tr.querySelector('.iCommType')?.value || 'percent';
+            const commValue = parseFloat(tr.querySelector('.iCommValue')?.value) || 0;
             const daysInput = tr.querySelector('.iDays');
             const days = daysInput ? parseFloat(daysInput.value) || 1 : 1;
 
@@ -922,7 +1046,10 @@
                 qty: parseFloat(tr.querySelector('.iQty').value) || 1,
                 unit_price: parseFloat(tr.querySelector('.iPrice').value) || 0,
                 motor_id: motorId || null,
-                car_id: carId || null,
+                car_id: (svc === 'car_rental' ? carId : driverCarId) || null,
+                needs_driver_payment: needsDriver ? 1 : 0,
+                commission_type: commType,
+                commission_value: commValue,
                 start_dt: (svc === 'motor_rental' || svc === 'car_rental') ? startDt : null,
                 end_dt: (svc === 'motor_rental' || svc === 'car_rental') ? endDt : null,
                 deposit: parseFloat(tr.querySelector('.iDeposit').value) || 0,
