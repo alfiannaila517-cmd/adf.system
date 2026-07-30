@@ -178,6 +178,42 @@ function createDriverPayableBill(PDO $pdo, ?int $userId, array $booking, string 
 }
 
 /**
+ * Get (or create) the expense category used for driver/partner trip payments
+ * in the cashbook ("Rent Car"). CashbookHelper::getCategoryId() always
+ * resolves to a 'Room Sell'-style INCOME category (built for guest payments),
+ * which is wrong for this expense - so driver payments need their own
+ * category lookup instead of reusing that helper.
+ */
+function getDriverPaymentCategoryId(PDO $pdo): int
+{
+    $category = $pdo->query("
+        SELECT id FROM categories
+        WHERE category_type = 'expense'
+          AND (
+              LOWER(category_name) = 'rent car'
+              OR LOWER(category_name) LIKE '%rent car%'
+              OR LOWER(category_name) LIKE '%rental mobil%'
+              OR LOWER(category_name) LIKE '%sewa mobil%'
+          )
+        ORDER BY id ASC LIMIT 1
+    ")->fetch(PDO::FETCH_ASSOC);
+
+    if ($category) {
+        return (int)$category['id'];
+    }
+
+    try {
+        $pdo->exec("INSERT INTO categories (category_name, category_type, created_at) VALUES ('Rent Car', 'expense', NOW())");
+        return (int)$pdo->lastInsertId();
+    } catch (Exception $e) {
+        error_log('getDriverPaymentCategoryId: failed to create Rent Car category: ' . $e->getMessage());
+        // Last resort: any expense category so the insert doesn't hard-fail
+        $fallback = $pdo->query("SELECT id FROM categories WHERE category_type = 'expense' ORDER BY id ASC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+        return (int)($fallback['id'] ?? 1);
+    }
+}
+
+/**
  * Ensure the DB columns needed for PER-TRIP driver payment tracking exist
  * (used by the "Tagihan Driver" tab / api/pay-driver-trip.php). Independent
  * of the monthly_bills-based auto-billing flow above - this tracks payment

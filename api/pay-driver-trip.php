@@ -110,7 +110,7 @@ try {
     $cbHelper = new CashbookHelper($db, $currentUser['id']);
 
     $divisionId = $cbHelper->getDivisionId();
-    $categoryId = $cbHelper->getCategoryId();
+    $categoryId = getDriverPaymentCategoryId($pdo);
 
     $accountId = $cashAccountId;
     if (!$accountId) {
