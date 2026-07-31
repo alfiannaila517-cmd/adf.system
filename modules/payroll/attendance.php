@@ -2059,6 +2059,144 @@
                             flex-shrink: 0;
                         }
 
+                        /* ═══ Elegant Schedule Calendar (shared: Jadwal Kerja per-karyawan & kalender gabungan) ═══ */
+                        .sc-cal-nav {
+                            display: flex;
+                            align-items: center;
+                            justify-content: space-between;
+                            background: var(--bg);
+                            border: 1px solid var(--border);
+                            border-radius: 10px;
+                            padding: 8px 10px;
+                            margin-bottom: 10px;
+                        }
+
+                        .sc-cal-nav-btn {
+                            border: none;
+                            border-radius: 8px;
+                            padding: 7px 14px;
+                            font-size: 11px;
+                            font-weight: 700;
+                            cursor: pointer;
+                            background: var(--navy);
+                            color: #fff;
+                            transition: background .15s ease, transform .1s ease;
+                        }
+
+                        .sc-cal-nav-btn:hover {
+                            background: var(--blue);
+                        }
+
+                        .sc-cal-nav-btn:active {
+                            transform: scale(0.96);
+                        }
+
+                        .sc-cal-title {
+                            font-weight: 800;
+                            font-size: 13px;
+                            color: var(--navy);
+                            letter-spacing: .2px;
+                        }
+
+                        .sc-cal-dow {
+                            text-align: center;
+                            font-size: 10px;
+                            font-weight: 800;
+                            color: var(--muted);
+                            text-transform: uppercase;
+                            letter-spacing: .4px;
+                            padding: 4px 0 8px;
+                        }
+
+                        .sc-cal-cell {
+                            border: 1px solid var(--border);
+                            border-radius: 10px;
+                            padding: 7px 5px;
+                            min-height: 58px;
+                            cursor: pointer;
+                            background: #fff;
+                            display: flex;
+                            flex-direction: column;
+                            gap: 3px;
+                            transition: box-shadow .15s ease, transform .1s ease, border-color .15s ease;
+                        }
+
+                        .sc-cal-cell:hover {
+                            box-shadow: 0 4px 14px rgba(13, 31, 60, .12);
+                            border-color: #93c5fd;
+                            transform: translateY(-1px);
+                        }
+
+                        .sc-cal-cell.today {
+                            border-color: var(--blue);
+                            background: #eff6ff;
+                            box-shadow: 0 0 0 1px var(--blue) inset;
+                        }
+
+                        .sc-cal-cell.is-off {
+                            background: #fef7f7;
+                        }
+
+                        .sc-cal-cell.override {
+                            border-style: dashed;
+                            border-color: var(--purple);
+                            border-width: 2px;
+                        }
+
+                        .sc-cal-daynum {
+                            font-weight: 800;
+                            font-size: 13px;
+                            color: var(--navy);
+                            line-height: 1;
+                            display: flex;
+                            align-items: center;
+                            gap: 3px;
+                        }
+
+                        .sc-cal-cell.today .sc-cal-daynum {
+                            color: var(--blue);
+                        }
+
+                        .sc-cal-badge {
+                            display: inline-flex;
+                            align-items: center;
+                            gap: 3px;
+                            font-size: 9px;
+                            font-weight: 700;
+                            padding: 2px 6px;
+                            border-radius: 20px;
+                            width: fit-content;
+                            max-width: 100%;
+                            overflow: hidden;
+                            text-overflow: ellipsis;
+                            white-space: nowrap;
+                        }
+
+                        .sc-cal-badge-in {
+                            background: #d1fae5;
+                            color: #065f46;
+                        }
+
+                        .sc-cal-badge-off {
+                            background: #fee2e2;
+                            color: #991b1b;
+                        }
+
+                        .sc-cal-badge-uniform {
+                            background: #dbeafe;
+                            color: #1e40af;
+                        }
+
+                        .sc-cal-legend {
+                            display: flex;
+                            flex-wrap: wrap;
+                            gap: 14px;
+                            margin-top: 10px;
+                            font-size: 10px;
+                            color: var(--muted);
+                            align-items: center;
+                        }
+
                         /* Alert */
                         .att-alert {
                             padding: 10px 14px;
@@ -3071,29 +3209,37 @@
                                                 </div>
                                             </div>
 
-                                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-                                                <button type="button" class="btn btn-sm" style="background:var(--blue);color:#fff;" onclick="changeSchedMonth(-1)">◀ Bulan Lalu</button>
-                                                <div id="schedCalTitle" style="font-weight:700;font-size:13px;color:var(--navy);"></div>
-                                                <button type="button" class="btn btn-sm" style="background:var(--blue);color:#fff;" onclick="changeSchedMonth(1)">Bulan Depan ▶</button>
+                                            <div class="sc-cal-nav">
+                                                <button type="button" class="sc-cal-nav-btn" onclick="changeSchedMonth(-1)">◀ Bulan Lalu</button>
+                                                <div id="schedCalTitle" class="sc-cal-title"></div>
+                                                <button type="button" class="sc-cal-nav-btn" onclick="changeSchedMonth(1)">Bulan Depan ▶</button>
                                             </div>
 
-                                            <div id="schedCalGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;"></div>
+                                            <div id="schedCalGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;"></div>
 
-                                            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;">
-                                                <span style="font-size:10px;color:var(--muted);">🟢 Jam kerja &nbsp; 🔴 Libur &nbsp; 📌 Tanggal khusus &nbsp; — klik tanggal untuk mengubah</span>
+                                            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-top:12px;">
+                                                <div class="sc-cal-legend">
+                                                    <span><span class="sc-cal-badge sc-cal-badge-in">🟢 Jam kerja</span></span>
+                                                    <span><span class="sc-cal-badge sc-cal-badge-off">🔴 Libur</span></span>
+                                                    <span>📌 Tanggal khusus &nbsp;—&nbsp; klik tanggal untuk mengubah</span>
+                                                </div>
                                                 <button type="submit" class="btn btn-primary">💾 Simpan Jadwal</button>
                                             </div>
                                         </form>
 
                                         <!-- All-Staff Combined Calendar view -->
                                         <div id="schedAllStaffView" style="display:none;">
-                                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-                                                <button type="button" class="btn btn-sm" style="background:var(--blue);color:#fff;" onclick="changeSchedAllMonth(-1)">◀ Bulan Lalu</button>
-                                                <div id="schedAllCalTitle" style="font-weight:700;font-size:13px;color:var(--navy);"></div>
-                                                <button type="button" class="btn btn-sm" style="background:var(--blue);color:#fff;" onclick="changeSchedAllMonth(1)">Bulan Depan ▶</button>
+                                            <div class="sc-cal-nav">
+                                                <button type="button" class="sc-cal-nav-btn" onclick="changeSchedAllMonth(-1)">◀ Bulan Lalu</button>
+                                                <div id="schedAllCalTitle" class="sc-cal-title"></div>
+                                                <button type="button" class="sc-cal-nav-btn" onclick="changeSchedAllMonth(1)">Bulan Depan ▶</button>
                                             </div>
-                                            <div id="schedAllCalGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;"></div>
-                                            <div style="margin-top:10px;font-size:10px;color:var(--muted);">🟢 Jumlah staf yang masuk kerja &nbsp; 🔴 Jumlah staf libur (hover untuk lihat nama) &nbsp; — klik tanggal untuk lihat detail siapa saja yang masuk &amp; libur</div>
+                                            <div id="schedAllCalGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;"></div>
+                                            <div class="sc-cal-legend">
+                                                <span><span class="sc-cal-badge sc-cal-badge-in">🟢 Jumlah staf masuk kerja</span></span>
+                                                <span><span class="sc-cal-badge sc-cal-badge-off">🔴 Jumlah staf libur</span></span>
+                                                <span>hover untuk lihat nama &nbsp;—&nbsp; klik tanggal untuk detail</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -3852,16 +3998,21 @@
                             if (!grid || !title) return;
                             title.textContent = SCHED_MONTH_NAMES[schedCalMonth] + ' ' + schedCalYear;
                             grid.innerHTML = '';
+                            const today = new Date();
+                            const todayStr = schedDateStr(today.getFullYear(), today.getMonth(), today.getDate());
                             SCHED_DAY_SHORT.forEach(d => {
                                 const h = document.createElement('div');
                                 h.textContent = d;
-                                h.style.cssText = 'text-align:center;font-size:10px;font-weight:700;color:var(--muted);padding:4px 0;';
+                                h.className = 'sc-cal-dow';
                                 grid.appendChild(h);
                             });
                             const firstDay = new Date(schedCalYear, schedCalMonth, 1).getDay();
                             const daysInMonth = new Date(schedCalYear, schedCalMonth + 1, 0).getDate();
                             for (let i = 0; i < firstDay; i++) {
-                                grid.appendChild(document.createElement('div'));
+                                const empty = document.createElement('div');
+                                empty.className = 'sc-cal-cell';
+                                empty.style.visibility = 'hidden';
+                                grid.appendChild(empty);
                             }
                             for (let day = 1; day <= daysInMonth; day++) {
                                 const dow = new Date(schedCalYear, schedCalMonth, day).getDay();
@@ -3883,11 +4034,10 @@
                                 }
                                 const cell = document.createElement('div');
                                 cell.onclick = () => openSchedDayEditor(dateStr);
-                                const borderStyle = override ? 'border:2px solid var(--purple);' : 'border:1px solid var(--border);';
-                                cell.style.cssText = borderStyle + 'border-radius:6px;padding:4px;min-height:52px;cursor:pointer;font-size:10px;' + (isOff ? 'background:#fef2f2;' : 'background:#f0fdf4;');
-                                const uniformBadge = (!isOff && uniform) ? '<div style="color:#059669;font-weight:600;font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + uniform.replace(/"/g, '&quot;') + '">\uD83D\uDC54 ' + uniform + '</div>' : '';
-                                cell.innerHTML = '<div style="font-weight:700;font-size:11px;">' + day + (override ? ' <span title="Tanggal khusus">\uD83D\uDCCC</span>' : '') + '</div>' +
-                                    (isOff ? '<div style="color:#dc2626;font-weight:600;">LIBUR</div>' : '<div style="color:#065f46;">' + start + '-' + end + '</div>') + uniformBadge;
+                                cell.className = 'sc-cal-cell' + (isOff ? ' is-off' : '') + (override ? ' override' : '') + (dateStr === todayStr ? ' today' : '');
+                                const uniformBadge = (!isOff && uniform) ? '<span class="sc-cal-badge sc-cal-badge-uniform" title="' + uniform.replace(/"/g, '&quot;') + '">👔 ' + uniform + '</span>' : '';
+                                const statusBadge = isOff ? '<span class="sc-cal-badge sc-cal-badge-off">🔴 Libur</span>' : '<span class="sc-cal-badge sc-cal-badge-in">🟢 ' + start + '-' + end + '</span>';
+                                cell.innerHTML = '<div class="sc-cal-daynum">' + day + (override ? ' <span title="Tanggal khusus">📌</span>' : '') + '</div>' + statusBadge + uniformBadge;
                                 grid.appendChild(cell);
                             }
                         }
@@ -4157,7 +4307,10 @@
                         // ─ JADWAL SERAGAM (bulk setup for all staff at once) ─
                         const UNI_DAY_FULL = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
                         let uniAllLoaded = false;
-                        let uniAllCache = { employees: [], byEmpDay: {} };
+                        let uniAllCache = {
+                            employees: [],
+                            byEmpDay: {}
+                        };
 
                         (function renderUniQuickRow() {
                             const wrap = document.getElementById('uniQuickRow');
@@ -4216,7 +4369,10 @@
                                     (data.weekly || []).forEach(row => {
                                         byEmpDay[row.employee_id + '_' + parseInt(row.day_of_week)] = row;
                                     });
-                                    uniAllCache = { employees: emps, byEmpDay };
+                                    uniAllCache = {
+                                        employees: emps,
+                                        byEmpDay
+                                    };
                                     if (!emps.length) {
                                         wrap.innerHTML = '<div style="padding:20px;color:var(--muted);font-size:11px;">Belum ada karyawan aktif.</div>';
                                         return;
@@ -4371,17 +4527,22 @@
                             if (!grid || !title) return;
                             title.textContent = SCHED_MONTH_NAMES[schedAllCalMonth] + ' ' + schedAllCalYear;
                             grid.innerHTML = '';
+                            const today = new Date();
+                            const todayStr = schedDateStr(today.getFullYear(), today.getMonth(), today.getDate());
                             SCHED_DAY_SHORT.forEach(d => {
                                 const h = document.createElement('div');
                                 h.textContent = d;
-                                h.style.cssText = 'text-align:center;font-size:10px;font-weight:700;color:var(--muted);padding:4px 0;';
+                                h.className = 'sc-cal-dow';
                                 grid.appendChild(h);
                             });
                             if (!schedAllData) return;
                             const firstDay = new Date(schedAllCalYear, schedAllCalMonth, 1).getDay();
                             const daysInMonth = new Date(schedAllCalYear, schedAllCalMonth + 1, 0).getDate();
                             for (let i = 0; i < firstDay; i++) {
-                                grid.appendChild(document.createElement('div'));
+                                const empty = document.createElement('div');
+                                empty.className = 'sc-cal-cell';
+                                empty.style.visibility = 'hidden';
+                                grid.appendChild(empty);
                             }
                             for (let day = 1; day <= daysInMonth; day++) {
                                 const dow = new Date(schedAllCalYear, schedAllCalMonth, day).getDay();
@@ -4397,14 +4558,14 @@
                                 });
                                 const cell = document.createElement('div');
                                 cell.onclick = () => openAllStaffDayModal(dateStr);
-                                cell.style.cssText = 'border:1px solid var(--border);border-radius:6px;padding:4px;min-height:52px;cursor:pointer;font-size:10px;background:#f8fafc;';
+                                cell.className = 'sc-cal-cell' + (dateStr === todayStr ? ' today' : '');
                                 let offHtml = '';
                                 if (offNames.length) {
                                     const offTitle = offNames.join(', ').replace(/"/g, '&quot;');
-                                    offHtml = '<div style="color:#dc2626;font-weight:600;" title="' + offTitle + '">\uD83D\uDD34 ' + offNames.length + ' libur</div>';
+                                    offHtml = '<span class="sc-cal-badge sc-cal-badge-off" title="' + offTitle + '">🔴 ' + offNames.length + ' libur</span>';
                                 }
-                                cell.innerHTML = '<div style="font-weight:700;font-size:11px;">' + day + '</div>' +
-                                    '<div style="color:#065f46;font-weight:600;">\uD83D\uDFE2 ' + workingCount + ' masuk</div>' + offHtml;
+                                cell.innerHTML = '<div class="sc-cal-daynum">' + day + '</div>' +
+                                    '<span class="sc-cal-badge sc-cal-badge-in">🟢 ' + workingCount + ' masuk</span>' + offHtml;
                                 grid.appendChild(cell);
                             }
                         }

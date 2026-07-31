@@ -1013,6 +1013,118 @@ header('Expires: 0');
             margin-bottom: 10px;
         }
 
+        /* ═══ Elegant Schedule Calendar (matches admin system design) ═══ */
+        .sc-cal-nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 8px 10px;
+            margin-bottom: 10px;
+        }
+
+        .sc-cal-nav-btn {
+            border: none;
+            border-radius: 8px;
+            padding: 7px 14px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            background: var(--navy);
+            color: #fff;
+            transition: background .15s ease, transform .1s ease;
+        }
+
+        .sc-cal-nav-btn:active {
+            transform: scale(0.96);
+        }
+
+        .sc-cal-title {
+            font-weight: 800;
+            font-size: 13px;
+            color: var(--navy);
+            letter-spacing: .2px;
+        }
+
+        .sc-cal-dow {
+            text-align: center;
+            font-size: 10px;
+            font-weight: 800;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: .4px;
+            padding: 4px 0 8px;
+        }
+
+        .sc-cal-cell {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 7px 5px;
+            min-height: 64px;
+            cursor: pointer;
+            background: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            transition: box-shadow .15s ease, transform .1s ease, border-color .15s ease;
+        }
+
+        .sc-cal-cell.today {
+            border-color: var(--blue);
+            background: #eff6ff;
+            box-shadow: 0 0 0 1px var(--blue) inset;
+        }
+
+        .sc-cal-daynum {
+            font-weight: 800;
+            font-size: 17px;
+            color: var(--navy);
+            line-height: 1;
+        }
+
+        .sc-cal-cell.today .sc-cal-daynum {
+            color: var(--blue);
+        }
+
+        .sc-cal-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 9px;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 20px;
+            width: fit-content;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .sc-cal-badge-in {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .sc-cal-badge-off {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .sc-cal-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px;
+            margin-top: 10px;
+            font-size: 10px;
+            color: var(--muted);
+            align-items: center;
+        }
+
         /* Slip Gaji rows */
         .slip-row {
             display: flex;
@@ -3036,9 +3148,9 @@ header('Expires: 0');
                         <button type="button" id="teamSchedModeAllBtn" onclick="setTeamSchedViewMode('all')" style="flex:1;border:none;border-radius:8px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;background:#e2e8f0;color:var(--navy);">👥 Semua Staff</button>
                     </div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-                        <button type="button" style="border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;background:var(--blue);color:#fff;" onclick="changeTeamSchedMonth(-1)">◀ Bulan Lalu</button>
-                        <div id="teamSchedCalTitle" style="font-weight:700;font-size:13px;color:var(--navy);"></div>
-                        <button type="button" style="border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;background:var(--blue);color:#fff;" onclick="changeTeamSchedMonth(1)">Bulan Depan ▶</button>
+                        <button type="button" class="sc-cal-nav-btn" onclick="changeTeamSchedMonth(-1)">◀ Bulan Lalu</button>
+                        <div id="teamSchedCalTitle" class="sc-cal-title"></div>
+                        <button type="button" class="sc-cal-nav-btn" onclick="changeTeamSchedMonth(1)">Bulan Depan ▶</button>
                     </div>
                     <div id="teamSchedDowHeader" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:4px;"></div>
                     <div id="teamSchedCalGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;touch-action:pan-y;"></div>
@@ -3047,7 +3159,11 @@ header('Expires: 0');
                         <div id="teamSchedPageDots" style="display:flex;align-items:center;gap:6px;"></div>
                         <button type="button" id="teamSchedPageNext" onclick="changeTeamSchedWeekPage(1)" style="border:none;background:none;font-size:18px;font-weight:700;color:var(--blue);cursor:pointer;padding:2px 8px;">›</button>
                     </div>
-                    <div id="teamSchedLegend" style="margin-top:8px;font-size:10px;color:var(--muted);">🟢 Masuk &nbsp; 🔴 Libur &nbsp; — geser kiri/kanan untuk minggu lain, tap tanggal untuk detail</div>
+                    <div id="teamSchedLegend" class="sc-cal-legend">
+                        <span><span class="sc-cal-badge sc-cal-badge-in">🟢 Masuk</span></span>
+                        <span><span class="sc-cal-badge sc-cal-badge-off">🔴 Libur</span></span>
+                        <span>geser kiri/kanan untuk minggu lain, tap tanggal untuk detail</span>
+                    </div>
                 </div>
                 <div id="teamSchedPopupOverlay" class="cal-popup-overlay" style="display:none;" onclick="closeTeamSchedPopup()"></div>
                 <div id="teamSchedPopup" class="cal-popup" style="display:none;max-height:70vh;overflow-y:auto;"></div>
@@ -3776,7 +3892,7 @@ header('Expires: 0');
                 TEAM_SCHED_DAY_SHORT.forEach(d => {
                     const h = document.createElement('div');
                     h.textContent = d;
-                    h.style.cssText = 'text-align:center;font-size:11px;font-weight:700;color:var(--muted);padding:2px 0;';
+                    h.className = 'sc-cal-dow';
                     dowHeader.appendChild(h);
                 });
                 dowHeader.dataset.rendered = '1';
@@ -3793,29 +3909,34 @@ header('Expires: 0');
             const pageWeeks = weeks.slice(startRow, startRow + TEAM_SCHED_ROWS_PER_PAGE);
 
             const myEmp = teamSchedViewMode === 'mine' ? teamSchedGetMyEmp() : null;
+            const today = new Date();
+            const todayStr = teamSchedDateStr(today.getFullYear(), today.getMonth(), today.getDate());
 
             pageWeeks.forEach(week => {
                 week.forEach(day => {
                     if (day === null) {
-                        grid.appendChild(document.createElement('div'));
+                        const empty = document.createElement('div');
+                        empty.className = 'sc-cal-cell';
+                        empty.style.visibility = 'hidden';
+                        grid.appendChild(empty);
                         return;
                     }
                     const dow = new Date(teamSchedYear, teamSchedMonth, day).getDay();
                     const dateStr = teamSchedDateStr(teamSchedYear, teamSchedMonth, day);
                     const cell = document.createElement('div');
                     cell.onclick = () => openTeamSchedDayPopup(dateStr);
-                    cell.style.cssText = 'border:1px solid var(--border);border-radius:8px;padding:6px 4px;min-height:68px;cursor:pointer;background:#f8fafc;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;';
+                    cell.className = 'sc-cal-cell' + (dateStr === todayStr ? ' today' : '');
 
                     if (teamSchedViewMode === 'mine') {
                         if (!myEmp) {
-                            cell.innerHTML = '<div style="font-weight:800;font-size:19px;color:var(--navy);line-height:1;">' + day + '</div>' +
-                                '<div style="color:var(--muted);font-size:9px;">-</div>';
+                            cell.innerHTML = '<div class="sc-cal-daynum">' + day + '</div>' +
+                                '<span class="sc-cal-badge" style="background:#f1f5f9;color:var(--muted);">-</span>';
                         } else {
                             const info = teamSchedComputeDay(myEmp, dateStr, dow);
                             const statusHtml = info.isOff ?
-                                '<div style="color:#dc2626;font-weight:700;font-size:10px;">\uD83D\uDD34 Libur</div>' :
-                                '<div style="color:#065f46;font-weight:700;font-size:9px;line-height:1.2;text-align:center;">\uD83D\uDFE2 ' + info.start + '<br>' + info.end + '</div>';
-                            cell.innerHTML = '<div style="font-weight:800;font-size:19px;color:var(--navy);line-height:1;">' + day + '</div>' + statusHtml;
+                                '<span class="sc-cal-badge sc-cal-badge-off">🔴 Libur</span>' :
+                                '<span class="sc-cal-badge sc-cal-badge-in">🟢 ' + info.start + '-' + info.end + '</span>';
+                            cell.innerHTML = '<div class="sc-cal-daynum">' + day + '</div>' + statusHtml;
                         }
                     } else {
                         let workingCount = 0;
@@ -3830,10 +3951,10 @@ header('Expires: 0');
                         let offHtml = '';
                         if (offNames.length) {
                             const offTitle = offNames.join(', ').replace(/"/g, '&quot;');
-                            offHtml = '<div style="color:#dc2626;font-weight:700;font-size:10px;" title="' + offTitle + '">\uD83D\uDD34 ' + offNames.length + '</div>';
+                            offHtml = '<span class="sc-cal-badge sc-cal-badge-off" title="' + offTitle + '">🔴 ' + offNames.length + '</span>';
                         }
-                        cell.innerHTML = '<div style="font-weight:800;font-size:19px;color:var(--navy);line-height:1;">' + day + '</div>' +
-                            '<div style="color:#065f46;font-weight:700;font-size:10px;">\uD83D\uDFE2 ' + workingCount + '</div>' + offHtml;
+                        cell.innerHTML = '<div class="sc-cal-daynum">' + day + '</div>' +
+                            '<span class="sc-cal-badge sc-cal-badge-in">🟢 ' + workingCount + '</span>' + offHtml;
                     }
                     grid.appendChild(cell);
                 });
