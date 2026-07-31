@@ -1506,9 +1506,9 @@ include '../../includes/header.php';
             const infoBox = document.getElementById('carOwnerInfo');
             if (owner) {
                 infoBox.style.display = 'block';
-                infoBox.innerHTML = commType === 'nominal'
-                    ? `<strong>👤 Pemilik: ${owner}</strong> · Potongan Hotel: <strong>Rp ${commNominal.toLocaleString('id-ID')}/trip</strong> · Sisanya untuk Pemilik`
-                    : `<strong>👤 Pemilik: ${owner}</strong> · Bagian pemilik: <strong>${comm}%</strong> · Hotel: <strong>${(100-comm).toFixed(0)}%</strong>`;
+                infoBox.innerHTML = commType === 'nominal' ?
+                    `<strong>👤 Pemilik: ${owner}</strong> · Potongan Hotel: <strong>Rp ${commNominal.toLocaleString('id-ID')}/trip</strong> · Sisanya untuk Pemilik` :
+                    `<strong>👤 Pemilik: ${owner}</strong> · Bagian pemilik: <strong>${comm}%</strong> · Hotel: <strong>${(100-comm).toFixed(0)}%</strong>`;
             } else {
                 infoBox.style.display = 'none';
             }

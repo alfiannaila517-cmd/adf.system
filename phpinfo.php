@@ -7,4 +7,3 @@ echo "<h3>PDO loaded: " . (extension_loaded('pdo') ? 'YES' : 'NO') . "</h3>";
 echo "<h3>PDO_MySQL loaded: " . (extension_loaded('pdo_mysql') ? 'YES' : 'NO') . "</h3>";
 echo "<hr>";
 phpinfo();
-

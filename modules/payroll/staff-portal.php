@@ -149,12 +149,9 @@ header('Expires: 0');
             align-items: center;
             justify-content: center;
             padding: 20px;
-            <?php if ($authBgUrl): ?>
-            background: linear-gradient(160deg, rgba(10, 22, 40, .78) 0%, rgba(12, 45, 72, .68) 40%, rgba(20, 83, 116, .55) 100%), url('<?php echo htmlspecialchars($authBgUrl); ?>') center/cover no-repeat;
-            <?php else: ?>
-            background: linear-gradient(160deg, #0a1628 0%, #0c2d48 30%, #145374 60%, #1a7fa0 100%);
-            <?php endif; ?>
-            position: relative;
+            <?php if ($authBgUrl): ?>background: linear-gradient(160deg, rgba(10, 22, 40, .78) 0%, rgba(12, 45, 72, .68) 40%, rgba(20, 83, 116, .55) 100%), url('<?php echo htmlspecialchars($authBgUrl); ?>') center/cover no-repeat;
+            <?php else: ?>background: linear-gradient(160deg, #0a1628 0%, #0c2d48 30%, #145374 60%, #1a7fa0 100%);
+            <?php endif; ?>position: relative;
             overflow: hidden;
         }
 

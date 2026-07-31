@@ -69,7 +69,7 @@ try {
 
     $params[] = $billId;
     $query = "UPDATE monthly_bills SET " . implode(', ', $updates) . " WHERE id = ?";
-    
+
     $result = $db->query($query, $params);
     if (!$result) {
         throw new Exception('Failed to update bill');
@@ -79,7 +79,6 @@ try {
         'success' => true,
         'message' => 'Tagihan berhasil diperbarui'
     ]);
-
 } catch (Exception $e) {
     echo json_encode([
         'success' => false,
@@ -87,4 +86,3 @@ try {
     ]);
     exit;
 }
-?>

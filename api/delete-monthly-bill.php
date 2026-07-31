@@ -52,7 +52,6 @@ try {
         'success' => true,
         'message' => 'Tagihan berhasil dihapus'
     ]);
-
 } catch (Exception $e) {
     echo json_encode([
         'success' => false,
@@ -60,4 +59,3 @@ try {
     ]);
     exit;
 }
-?>

@@ -2333,27 +2333,27 @@ include '../../includes/header.php';
         </div>
     </div>
     <script>
-    // Fallback: attach button directly in case main script block fails to execute
-    (function() {
-        function tryAttach() {
-            var btn = document.getElementById('btnNewInvoice');
-            var modal = document.getElementById('createModal');
-            if (btn && modal) {
-                btn.onclick = function() {
-                    if (typeof openCreateModal === 'function') {
-                        openCreateModal();
-                    } else {
-                        modal.classList.add('open');
-                    }
-                };
+        // Fallback: attach button directly in case main script block fails to execute
+        (function() {
+            function tryAttach() {
+                var btn = document.getElementById('btnNewInvoice');
+                var modal = document.getElementById('createModal');
+                if (btn && modal) {
+                    btn.onclick = function() {
+                        if (typeof openCreateModal === 'function') {
+                            openCreateModal();
+                        } else {
+                            modal.classList.add('open');
+                        }
+                    };
+                }
             }
-        }
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', tryAttach);
-        } else {
-            tryAttach();
-        }
-    })();
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', tryAttach);
+            } else {
+                tryAttach();
+            }
+        })();
     </script>
 
     <!-- Stats -->
@@ -2872,25 +2872,27 @@ include '../../includes/header.php';
 <script>
     // Block 1: PHP-generated data only (isolated so any error here doesn't break functions)
     try {
-    window.SVC_KEYS    = <?php echo json_encode(array_keys($serviceTypes), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
-    window.SVC_LABELS  = <?php echo json_encode(array_values(array_map(fn($v) => ($v['icon'] ?? '') . ' ' . ($v['label'] ?? ''), $serviceTypes)), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
-    window.CATALOG_DATA = <?php
-                            $catalogByType = [];
-                            foreach ($catalogRows as $cr) {
-                                $catalogByType[$cr['service_type']][] = [
-                                    'name'  => $cr['item_name'],
-                                    'price' => (float)$cr['default_price'],
-                                    'unit'  => $cr['unit'] ?? 'unit',
-                                ];
-                            }
-                            echo json_encode($catalogByType, JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '{}';
-                            ?>;
-    window.RENTAL_MOTORS = <?php echo json_encode(array_map(fn($m) => ['id' => (int)$m['id'], 'label' => ($m['motor_name'] ?? '') . ' (' . ($m['plate_number'] ?? '') . ')', 'daily_rate' => (float)$m['daily_rate']], $availableMotors), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
-    window.RENTAL_CARS   = <?php echo json_encode(array_map(fn($c) => ['id' => (int)$c['id'], 'label' => ($c['car_name'] ?? '') . ' (' . ($c['plate_number'] ?? '') . ')' . (!empty($c['car_type']) ? ' - ' . $c['car_type'] : ''), 'daily_rate' => (float)$c['daily_rate'], 'partner_owner' => $c['partner_owner'] ?? '', 'commission_type' => $c['commission_type'] ?? 'percent', 'commission_pct' => (float)($c['owner_commission_pct'] ?? 0), 'commission_nominal' => (float)($c['commission_nominal'] ?? 0)], $availableCars), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
-    window.SVC_OPTIONS   = <?php echo json_encode(array_map(fn($k, $v) => ['val' => $k, 'lbl' => ($v['icon'] ?? '') . ' ' . ($v['label'] ?? '')], array_keys($serviceTypes), $serviceTypes), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
-    window.CATALOG_LIST  = <?php echo json_encode(array_map(fn($r) => ['stype' => $r['service_type'], 'name' => $r['item_name'], 'price' => (float)$r['default_price'], 'unit' => $r['unit'] ?? 'unit'], $catalogRows), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
-    window.ACTIVE_BIZ_ID = <?php echo (int)$businessId; ?>;
-    } catch(e) { console.error('[hs-data] failed:', e); }
+        window.SVC_KEYS = <?php echo json_encode(array_keys($serviceTypes), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
+        window.SVC_LABELS = <?php echo json_encode(array_values(array_map(fn($v) => ($v['icon'] ?? '') . ' ' . ($v['label'] ?? ''), $serviceTypes)), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
+        window.CATALOG_DATA = <?php
+                                $catalogByType = [];
+                                foreach ($catalogRows as $cr) {
+                                    $catalogByType[$cr['service_type']][] = [
+                                        'name'  => $cr['item_name'],
+                                        'price' => (float)$cr['default_price'],
+                                        'unit'  => $cr['unit'] ?? 'unit',
+                                    ];
+                                }
+                                echo json_encode($catalogByType, JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '{}';
+                                ?>;
+        window.RENTAL_MOTORS = <?php echo json_encode(array_map(fn($m) => ['id' => (int)$m['id'], 'label' => ($m['motor_name'] ?? '') . ' (' . ($m['plate_number'] ?? '') . ')', 'daily_rate' => (float)$m['daily_rate']], $availableMotors), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
+        window.RENTAL_CARS = <?php echo json_encode(array_map(fn($c) => ['id' => (int)$c['id'], 'label' => ($c['car_name'] ?? '') . ' (' . ($c['plate_number'] ?? '') . ')' . (!empty($c['car_type']) ? ' - ' . $c['car_type'] : ''), 'daily_rate' => (float)$c['daily_rate'], 'partner_owner' => $c['partner_owner'] ?? '', 'commission_type' => $c['commission_type'] ?? 'percent', 'commission_pct' => (float)($c['owner_commission_pct'] ?? 0), 'commission_nominal' => (float)($c['commission_nominal'] ?? 0)], $availableCars), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
+        window.SVC_OPTIONS = <?php echo json_encode(array_map(fn($k, $v) => ['val' => $k, 'lbl' => ($v['icon'] ?? '') . ' ' . ($v['label'] ?? '')], array_keys($serviceTypes), $serviceTypes), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
+        window.CATALOG_LIST = <?php echo json_encode(array_map(fn($r) => ['stype' => $r['service_type'], 'name' => $r['item_name'], 'price' => (float)$r['default_price'], 'unit' => $r['unit'] ?? 'unit'], $catalogRows), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
+        window.ACTIVE_BIZ_ID = <?php echo (int)$businessId; ?>;
+    } catch (e) {
+        console.error('[hs-data] failed:', e);
+    }
 </script>
 <script src="../../assets/js/hotel-services-fn.js?v=20260731"></script>
 

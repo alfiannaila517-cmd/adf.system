@@ -1,1179 +1,1406 @@
-    // Block 2: All function definitions — no PHP output, always safe to parse
-    console.error('[hotel-services] BLOCK2 RUNNING - v20260729');
-    window._hsBlock2Loaded = true;
-    const SVC_KEYS     = window.SVC_KEYS    || [];
-    const SVC_LABELS   = window.SVC_LABELS  || [];
-    const CATALOG_DATA = window.CATALOG_DATA|| {};
-    const RENTAL_MOTORS= window.RENTAL_MOTORS|| [];
-    const RENTAL_CARS  = window.RENTAL_CARS  || [];
+// Block 2: All function definitions — no PHP output, always safe to parse
+console.error('[hotel-services] BLOCK2 RUNNING - v20260729')
+window._hsBlock2Loaded = true
+const SVC_KEYS = window.SVC_KEYS || []
+const SVC_LABELS = window.SVC_LABELS || []
+const CATALOG_DATA = window.CATALOG_DATA || {}
+const RENTAL_MOTORS = window.RENTAL_MOTORS || []
+const RENTAL_CARS = window.RENTAL_CARS || []
 
-    // ── Guest mode ────────────────────────────────────────────────────────────────
-    function setGuestMode(mode) {
-        const ih = mode === 'inhouse';
-        document.getElementById('inhouseSection').style.display = ih ? '' : 'none';
-        document.getElementById('manualSection').style.display = ih ? 'none' : '';
-        document.getElementById('btnInhouse').classList.toggle('active', ih);
-        document.getElementById('btnManual').classList.toggle('active', !ih);
-        if (!ih) {
-            document.getElementById('fBookingId').value = '';
+// ── Guest mode ────────────────────────────────────────────────────────────────
+function setGuestMode (mode) {
+  const ih = mode === 'inhouse'
+  document.getElementById('inhouseSection').style.display = ih ? '' : 'none'
+  document.getElementById('manualSection').style.display = ih ? 'none' : ''
+  document.getElementById('btnInhouse').classList.toggle('active', ih)
+  document.getElementById('btnManual').classList.toggle('active', !ih)
+  if (!ih) {
+    document.getElementById('fBookingId').value = ''
+  }
+}
+
+function fillFromInhouse () {
+  const sel = document.getElementById('fGuestSelect')
+  const opt = sel.options[sel.selectedIndex]
+  document.getElementById('fBookingId').value = opt.value || ''
+  document.getElementById('fPhone').value = opt.dataset.phone || ''
+  document.getElementById('fRoom').value = opt.dataset.room || ''
+}
+
+function getGuestName () {
+  const ih = document.getElementById('inhouseSection').style.display !== 'none'
+  if (ih) {
+    const sel = document.getElementById('fGuestSelect')
+    return sel.options[sel.selectedIndex].dataset.name || ''
+  }
+  return document.getElementById('fGuestName').value.trim()
+}
+
+// ── Items ─────────────────────────────────────────────────────────────────────
+let rowCnt = 0
+
+function buildSvcOpts (selected) {
+  return SVC_KEYS.map(
+    (k, i) =>
+      `<option value="${k}" ${k === selected ? 'selected' : ''}>${
+        SVC_LABELS[i]
+      }</option>`
+  ).join('')
+}
+
+function buildRentalAssetOpts (items, selected) {
+  let html = '<option value="">Pilih armada...</option>'
+  items.forEach(item => {
+    html += `<option value="${item.id}" data-rate="${item.daily_rate}" ${
+      String(item.id) === String(selected || '') ? 'selected' : ''
+    }>${item.label}</option>`
+  })
+  return html
+}
+
+function isRentalService (svc) {
+  return svc === 'motor_rental' || svc === 'car_rental'
+}
+
+// ── Driver / partner vehicle payment (car_rental, airport_drop, harbor_drop) ──
+function usesDriverPayment (svc) {
+  return svc === 'car_rental' || svc === 'airport_drop' || svc === 'harbor_drop'
+}
+
+function getDriverCarId (tr, svc) {
+  if (svc === 'car_rental')
+    return parseInt(tr.querySelector('.iAsset')?.value || '0', 10)
+  if (svc === 'airport_drop' || svc === 'harbor_drop')
+    return parseInt(tr.querySelector('.iDriverCar')?.value || '0', 10)
+  return 0
+}
+
+function updateDriverExtra (tr) {
+  const svc = tr.querySelector('.iSvc').value
+  const wrap = tr.querySelector('.hs-driver-extra')
+  if (!wrap) return
+  const show = usesDriverPayment(svc)
+  wrap.style.display = show ? '' : 'none'
+  const carRow = tr.querySelector('.iDriverCarRow')
+  if (carRow) {
+    const showCarPicker = svc === 'airport_drop' || svc === 'harbor_drop'
+    carRow.style.display = showCarPicker ? '' : 'none'
+    const driverCarSelect = tr.querySelector('.iDriverCar')
+    if (driverCarSelect && showCarPicker) {
+      driverCarSelect.innerHTML = buildRentalAssetOpts(
+        RENTAL_CARS,
+        driverCarSelect.value
+      )
+    }
+  }
+  if (!show) {
+    const chk = tr.querySelector('.iNeedsDriver')
+    if (chk) chk.checked = false
+    const commWrap = tr.querySelector('.iCommWrap')
+    if (commWrap) commWrap.style.display = 'none'
+  }
+}
+
+function prefillDriverCommission (tr) {
+  const svc = tr.querySelector('.iSvc').value
+  const carId = getDriverCarId(tr, svc)
+  const car = RENTAL_CARS.find(c => String(c.id) === String(carId))
+  const typeSel = tr.querySelector('.iCommType')
+  const valInput = tr.querySelector('.iCommValue')
+  if (!car || !typeSel || !valInput) return
+  if (!valInput.value || parseFloat(valInput.value) === 0) {
+    typeSel.value = car.commission_type || 'percent'
+    valInput.value =
+      car.commission_type === 'nominal'
+        ? car.commission_nominal || 0
+        : car.commission_pct || 0
+  }
+}
+
+function onDriverCarChange (id) {
+  const tr = document.getElementById(id)
+  if (!tr) return
+  const chk = tr.querySelector('.iNeedsDriver')
+  if (chk && chk.checked) prefillDriverCommission(tr)
+}
+
+function onNeedsDriverChange (id) {
+  const tr = document.getElementById(id)
+  if (!tr) return
+  const checked = tr.querySelector('.iNeedsDriver').checked
+  const commWrap = tr.querySelector('.iCommWrap')
+  if (commWrap) commWrap.style.display = checked ? 'flex' : 'none'
+  if (checked) prefillDriverCommission(tr)
+}
+
+function rentalDefaultDate (offsetDays) {
+  const dt = new Date()
+  dt.setDate(dt.getDate() + offsetDays)
+  dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset())
+  return dt.toISOString().slice(0, 16)
+}
+
+function addItemRow (svc, desc, qty, price) {
+  rowCnt++
+  const id = 'r' + rowCnt
+  const tr = document.createElement('tr')
+  tr.id = id
+  tr.innerHTML =
+    `<td><select class="iSvc" onchange="onSvcChange('${id}')">${buildSvcOpts(
+      svc || ''
+    )}</select></td>` +
+    `<td>` +
+    `<input type="text" class="iDesc" placeholder="e.g. Honda Beat" value="${(
+      desc || ''
+    ).replace(/"/g, '&quot;')}">` +
+    `<div class="hs-rental-extra">` +
+    `<select class="iAsset" onchange="onRentalAssetChange('${id}')"><option value="">Pilih armada...</option></select>` +
+    `<div class="hs-rental-grid">` +
+    `<label>Hari Sewa:</label>` +
+    `<input type="number" class="iDays" value="1" min="1" max="365" step="1" placeholder="Jumlah hari" onchange="onDaysChange('${id}')">` +
+    `</div>` +
+    `<div class="hs-rental-grid">` +
+    `<input type="number" class="iDeposit" value="0" min="0" placeholder="Deposit (Rp)">` +
+    `<input type="text" class="iDest" placeholder="Tujuan / catatan mobil">` +
+    `</div>` +
+    `</div>` +
+    `<div class="hs-driver-extra" style="display:none;margin-top:6px;padding:8px 10px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:6px">` +
+    `<div class="iDriverCarRow" style="display:none;margin-bottom:6px">` +
+    `<select class="iDriverCar" onchange="onDriverCarChange('${id}')" style="width:100%;font-size:12px;padding:4px"><option value="">🚗 Pilih mobil/driver (opsional)...</option></select>` +
+    `</div>` +
+    `<label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:#334155;cursor:pointer">` +
+    `<input type="checkbox" class="iNeedsDriver" onchange="onNeedsDriverChange('${id}')">` +
+    `🧾 Butuh bayar driver (masuk Tagihan setelah invoice diproses)` +
+    `</label>` +
+    `<div class="iCommWrap" style="display:none;gap:6px;margin-top:6px">` +
+    `<select class="iCommType" style="flex:1;font-size:12px;padding:4px">` +
+    `<option value="percent">Bagian Driver: %</option>` +
+    `<option value="nominal">Potongan Hotel: Rp</option>` +
+    `</select>` +
+    `<input type="number" class="iCommValue" style="flex:1;font-size:12px;padding:4px" placeholder="Nilai" min="0">` +
+    `</div>` +
+    `</div>` +
+    `</td>` +
+    `<td><input type="number" class="iQty" value="${
+      qty || 1
+    }" min="0.5" step="0.5" style="width:60px" oninput="rcalc('${id}')"></td>` +
+    `<td><input type="number" class="iPrice" value="${
+      price || 0
+    }" min="0" style="width:105px" oninput="rcalc('${id}')"></td>` +
+    `<td style="font-weight:700;color:#4338ca;text-align:right;white-space:nowrap" class="iTotal">Rp 0</td>` +
+    `<td><button type="button" class="btn-del-row" onclick="delRow('${id}')">✕</button></td>`
+  document.getElementById('itemsBody').appendChild(tr)
+  // Only auto-populate if service type was provided
+  if (svc) {
+    onSvcChange(id, true)
+  } else {
+    rcalc(id)
+  }
+}
+
+function onDaysChange (id) {
+  const tr = document.getElementById(id)
+  if (!tr) return
+  const daysInput = tr.querySelector('.iDays')
+  const days = parseFloat(daysInput.value) || 1
+  tr.querySelector('.iQty').value = Math.max(1, days)
+  rcalc(id)
+}
+
+function onSvcChange (id, isNew) {
+  const tr = document.getElementById(id)
+  if (!tr) return
+  const svc = tr.querySelector('.iSvc').value
+  const priceInput = tr.querySelector('.iPrice')
+  const descInput = tr.querySelector('.iDesc')
+  const rentalWrap = tr.querySelector('.hs-rental-extra')
+  const assetSelect = tr.querySelector('.iAsset')
+  const destInput = tr.querySelector('.iDest')
+  const items = CATALOG_DATA[svc]
+  const rentalItems =
+    svc === 'motor_rental'
+      ? RENTAL_MOTORS
+      : svc === 'car_rental'
+      ? RENTAL_CARS
+      : []
+
+  if (isRentalService(svc)) {
+    // Show rental fields for motor_rental and car_rental
+    rentalWrap.classList.add('open')
+    assetSelect.innerHTML = buildRentalAssetOpts(rentalItems, assetSelect.value)
+    destInput.style.display = svc === 'car_rental' ? '' : 'none'
+    // Set default 1 day
+    if (!tr.querySelector('.iDays').value) tr.querySelector('.iDays').value = 1
+  } else {
+    // Hide rental fields for other services
+    rentalWrap.classList.remove('open')
+    assetSelect.innerHTML = '<option value="">Pilih armada...</option>'
+    tr.querySelector('.iDays').value = 1
+    tr.querySelector('.iDeposit').value = 0
+    tr.querySelector('.iDest').value = ''
+  }
+
+  if (items && items.length > 0) {
+    if (isNew) {
+      if (parseFloat(priceInput.value) === 0) priceInput.value = items[0].price
+      if (!descInput.value.trim()) descInput.value = items[0].name
+    } else {
+      priceInput.value = items[0].price
+      descInput.value = items[0].name
+    }
+  } else if (!isNew) {
+    priceInput.value = 0
+  }
+
+  if (isRentalService(svc)) {
+    onRentalAssetChange(id, !!isNew)
+  }
+  updateDriverExtra(tr)
+  rcalc(id)
+}
+
+function onRentalAssetChange (id, keepManualDesc) {
+  const tr = document.getElementById(id)
+  if (!tr) return
+  const svc = tr.querySelector('.iSvc').value
+  const assetSelect = tr.querySelector('.iAsset')
+  const selectedId = assetSelect.value
+  const source = svc === 'motor_rental' ? RENTAL_MOTORS : RENTAL_CARS
+  const chosen = source.find(item => String(item.id) === String(selectedId))
+  if (!chosen) return
+  const priceInput = tr.querySelector('.iPrice')
+  const descInput = tr.querySelector('.iDesc')
+  if (
+    !priceInput.value ||
+    parseFloat(priceInput.value) === 0 ||
+    !keepManualDesc
+  ) {
+    priceInput.value = chosen.daily_rate
+  }
+  if (
+    !descInput.value.trim() ||
+    descInput.dataset.autoFilled === '1' ||
+    !keepManualDesc
+  ) {
+    descInput.value = chosen.label
+    descInput.dataset.autoFilled = '1'
+  }
+  if (tr.querySelector('.iNeedsDriver')?.checked) prefillDriverCommission(tr)
+  rcalc(id)
+}
+
+function syncRentalDuration (id) {
+  const tr = document.getElementById(id)
+  if (!tr) return
+  const svc = tr.querySelector('.iSvc').value
+  if (!isRentalService(svc)) return
+  const startVal = tr.querySelector('.iStart').value
+  const endVal = tr.querySelector('.iEnd').value
+  if (!startVal || !endVal) return
+  const start = new Date(startVal)
+  const end = new Date(endVal)
+  const diffHours = (end - start) / (1000 * 60 * 60)
+  if (Number.isFinite(diffHours) && diffHours > 0) {
+    tr.querySelector('.iQty').value = Math.max(1, Math.ceil(diffHours / 24))
+    rcalc(id)
+  }
+}
+
+function delRow (id) {
+  const el = document.getElementById(id)
+  if (el) el.remove()
+  refreshTotal()
+}
+
+function rcalc (id) {
+  const tr = document.getElementById(id)
+  if (!tr) return
+  const t =
+    (parseFloat(tr.querySelector('.iQty').value) || 0) *
+    (parseFloat(tr.querySelector('.iPrice').value) || 0)
+  tr.querySelector('.iTotal').textContent =
+    'Rp ' + Math.round(t).toLocaleString('id-ID')
+  refreshTotal()
+}
+
+function subtotal () {
+  let t = 0
+  document.querySelectorAll('#itemsBody tr').forEach(tr => {
+    t +=
+      (parseFloat(tr.querySelector('.iQty')?.value) || 0) *
+      (parseFloat(tr.querySelector('.iPrice')?.value) || 0)
+  })
+  return t
+}
+
+function getTaxRate () {
+  const sel = document.getElementById('fTaxRate')
+  if (!sel) return 0
+  if (sel.value === 'custom')
+    return parseFloat(document.getElementById('fTaxCustom')?.value) || 0
+  return parseFloat(sel.value) || 0
+}
+
+function grandTotal () {
+  const sub = subtotal()
+  const scRate =
+    parseFloat(document.getElementById('fServiceCharge')?.value) || 0
+  const discRate = parseFloat(document.getElementById('fDiscount')?.value) || 0
+  const sc = sub * (scRate / 100)
+  const disc = sub * (discRate / 100)
+  const afterCD = sub + sc - disc
+  const rate = getTaxRate()
+  return afterCD + afterCD * (rate / 100)
+}
+
+function onTaxRateChange () {
+  const sel = document.getElementById('fTaxRate')
+  document.getElementById('customTaxWrap').style.display =
+    sel.value === 'custom' ? '' : 'none'
+  refreshTotal()
+}
+
+function refreshTotal () {
+  const sub = subtotal()
+  const rate = getTaxRate()
+  const scRate =
+    parseFloat(document.getElementById('fServiceCharge')?.value) || 0
+  const discRate = parseFloat(document.getElementById('fDiscount')?.value) || 0
+  const sc = sub * (scRate / 100)
+  const disc = sub * (discRate / 100)
+  const afterCD = sub + sc - disc
+  const tax = afterCD * (rate / 100)
+  const tot = afterCD + tax
+  const dp = parseFloat(document.getElementById('fPaid')?.value) || 0
+  const sisa = Math.max(0, tot - dp)
+  const fmt = v => 'Rp ' + Math.round(v).toLocaleString('id-ID')
+
+  document.getElementById('tpSubtotal').textContent = fmt(sub)
+  document.getElementById('tpGrand').textContent = fmt(tot)
+
+  const scRow = document.getElementById('tpScRow')
+  scRow.style.display = scRate > 0 ? '' : 'none'
+  document.getElementById('tpSc').textContent = `${fmt(sc)} (${scRate}%)`
+
+  const discRow = document.getElementById('tpDiscRow')
+  discRow.style.display = discRate > 0 ? '' : 'none'
+  document.getElementById('tpDisc').textContent = `- ${fmt(
+    disc
+  )} (${discRate}%)`
+
+  const taxRow = document.getElementById('tpTaxRow')
+  taxRow.style.display = rate > 0 ? '' : 'none'
+  document.getElementById('tpTax').textContent = `${fmt(tax)} (${rate}%)`
+
+  const dpEl = document.getElementById('fPaid')
+  const hasDp = dpEl && parseFloat(dpEl.value) > 0
+  document.getElementById('tpDpRow').style.display = hasDp ? '' : 'none'
+  document.getElementById('tpSisaRow').style.display =
+    hasDp && sisa > 0 ? '' : 'none'
+  document.getElementById('tpDp').textContent = fmt(dp)
+  document.getElementById('tpSisa').textContent = fmt(sisa)
+
+  enforceMaxPaid()
+  if (document.getElementById('fFullPay').checked)
+    document.getElementById('fPaid').value = Math.round(tot)
+}
+
+function enforceMaxPaid () {
+  const mx = grandTotal(),
+    inp = document.getElementById('fPaid')
+  if (parseFloat(inp.value) > mx) inp.value = Math.round(mx)
+}
+
+function toggleFullPay (checked) {
+  document.getElementById('fPaid').value = checked
+    ? Math.round(grandTotal())
+    : 0
+  refreshTotal()
+}
+
+// ── Open/Close ────────────────────────────────────────────────────────────────
+function openCreateModal () {
+  document.getElementById('createModal').classList.add('open')
+  ;['fGuestName', 'fPhone', 'fRoom', 'fNotes'].forEach(id => {
+    const e = document.getElementById(id)
+    if (e) e.value = ''
+  })
+  document.getElementById('fGuestSelect').value = ''
+  document.getElementById('fBookingId').value = ''
+  document.getElementById('fPaid').value = 0
+  document.getElementById('fFullPay').checked = false
+  document.getElementById('fTaxRate').value = '0'
+  document.getElementById('customTaxWrap').style.display = 'none'
+  if (document.getElementById('fTaxCustom'))
+    document.getElementById('fTaxCustom').value = 0
+  document.getElementById('fServiceCharge').value = 0
+  document.getElementById('fDiscount').value = 0
+  document.getElementById('itemsBody').innerHTML = ''
+  rowCnt = 0
+  setGuestMode('inhouse')
+  addItemRow()
+  refreshTotal()
+}
+
+function closeCreateModal () {
+  document.getElementById('createModal').classList.remove('open')
+}
+
+// ── Submit create ─────────────────────────────────────────────────────────────
+function submitCreate () {
+  const guestName = getGuestName()
+  if (!guestName) {
+    alert('Please select or enter a guest name')
+    return
+  }
+
+  const rows = document.querySelectorAll('#itemsBody tr')
+  if (!rows.length) {
+    alert('Add at least one service item')
+    return
+  }
+
+  const items = []
+  for (const tr of rows) {
+    const svc = tr.querySelector('.iSvc').value
+    if (!svc) {
+      alert('Select service type for all rows')
+      return
+    }
+    const motorId =
+      svc === 'motor_rental'
+        ? parseInt(tr.querySelector('.iAsset').value || '0', 10)
+        : 0
+    const carId =
+      svc === 'car_rental'
+        ? parseInt(tr.querySelector('.iAsset').value || '0', 10)
+        : 0
+    const driverCarId = getDriverCarId(tr, svc)
+    const needsDriver =
+      usesDriverPayment(svc) &&
+      !!tr.querySelector('.iNeedsDriver')?.checked &&
+      driverCarId > 0
+    const commType = tr.querySelector('.iCommType')?.value || 'percent'
+    const commValue = parseFloat(tr.querySelector('.iCommValue')?.value) || 0
+    const daysInput = tr.querySelector('.iDays')
+    const days = daysInput ? parseFloat(daysInput.value) || 1 : 1
+
+    // Generate start and end dates from days
+    const today = new Date()
+    const startDt = today.toISOString().slice(0, 19).replace('T', ' ')
+    const endDate = new Date(today)
+    endDate.setDate(endDate.getDate() + days)
+    const endDt = endDate.toISOString().slice(0, 19).replace('T', ' ')
+
+    if (
+      (svc === 'motor_rental' || svc === 'car_rental') &&
+      !motorId &&
+      !carId
+    ) {
+      alert('Item rental motor/mobil wajib pilih armada')
+      return
+    }
+    items.push({
+      service_type: svc,
+      description: tr.querySelector('.iDesc').value.trim(),
+      qty: parseFloat(tr.querySelector('.iQty').value) || 1,
+      unit_price: parseFloat(tr.querySelector('.iPrice').value) || 0,
+      motor_id: motorId || null,
+      car_id: (svc === 'car_rental' ? carId : driverCarId) || null,
+      needs_driver_payment: needsDriver ? 1 : 0,
+      commission_type: commType,
+      commission_value: commValue,
+      start_dt: svc === 'motor_rental' || svc === 'car_rental' ? startDt : null,
+      end_dt: svc === 'motor_rental' || svc === 'car_rental' ? endDt : null,
+      deposit: parseFloat(tr.querySelector('.iDeposit').value) || 0,
+      trip_destination: tr.querySelector('.iDest').value.trim() || null
+    })
+  }
+
+  const btn = document.getElementById('createBtn')
+  btn.disabled = true
+  btn.textContent = 'Creating...'
+
+  const fd = new FormData()
+  fd.append('action', 'create')
+  fd.append('guest_name', guestName)
+  fd.append('guest_phone', document.getElementById('fPhone').value.trim())
+  fd.append('room_number', document.getElementById('fRoom').value.trim())
+  fd.append('booking_id', document.getElementById('fBookingId').value || '')
+  fd.append('items', JSON.stringify(items))
+  fd.append('payment_method', document.getElementById('fPayMethod').value)
+  fd.append('paid_amount', document.getElementById('fPaid').value || 0)
+  fd.append('tax_rate', getTaxRate())
+  fd.append(
+    'service_charge_rate',
+    document.getElementById('fServiceCharge').value || 0
+  )
+  fd.append('discount_rate', document.getElementById('fDiscount').value || 0)
+  fd.append('notes', document.getElementById('fNotes').value.trim())
+
+  fetch('hotel-services.php', {
+    method: 'POST',
+    body: fd,
+    credentials: 'include'
+  })
+    .then(r => r.json())
+    .then(res => {
+      if (res.success) {
+        closeCreateModal()
+        const cbMsg = res.cashbook ? '\n✅ Tercatat di Buku Kas' : ''
+        alert('Invoice ' + res.invoice_number + ' created!' + cbMsg)
+        location.reload()
+      } else {
+        alert('Error: ' + (res.message || 'Unknown'))
+        btn.disabled = false
+        btn.textContent = '✅ Create Invoice'
+      }
+    })
+    .catch(() => {
+      alert('Network error')
+      btn.disabled = false
+      btn.textContent = '✅ Create Invoice'
+    })
+}
+
+// ── Status ────────────────────────────────────────────────────────────────────
+function updateStatus (id, status) {
+  const fd = new FormData()
+  fd.append('action', 'update_status')
+  fd.append('id', id)
+  fd.append('status', status)
+  fetch('hotel-services.php', {
+    method: 'POST',
+    body: fd,
+    credentials: 'include'
+  })
+    .then(r => r.json())
+    .then(res => {
+      if (!res.success) alert('Failed to update status')
+    })
+}
+
+// ── Delete ────────────────────────────────────────────────────────────────────
+function deleteInvoice (id, code) {
+  if (!confirm('Delete invoice ' + code + '? Cannot be undone.')) return
+  const fd = new FormData()
+  fd.append('action', 'delete')
+  fd.append('id', id)
+  fetch('hotel-services.php', {
+    method: 'POST',
+    body: fd,
+    credentials: 'include'
+  })
+    .then(r => r.json())
+    .then(res => {
+      if (res.success) location.reload()
+      else alert('Delete failed')
+    })
+}
+
+// ── Pay modal ─────────────────────────────────────────────────────────────────
+function openPayModal (id, remaining, invNo) {
+  document.getElementById('pInvId').value = id
+  document.getElementById('pInvNo').textContent = 'Invoice: ' + invNo
+  document.getElementById('pRemaining').textContent =
+    'Rp ' + Math.round(remaining).toLocaleString('id-ID')
+  document.getElementById('pAmount').value = Math.round(remaining)
+  document.getElementById('payModal').classList.add('open')
+}
+
+function closePayModal () {
+  document.getElementById('payModal').classList.remove('open')
+}
+
+function submitPay () {
+  const id = document.getElementById('pInvId').value
+  const amount = document.getElementById('pAmount').value
+  if (!amount || parseFloat(amount) <= 0) {
+    alert('Enter valid amount')
+    return
+  }
+  const btn = document.getElementById('payBtn')
+  btn.disabled = true
+  btn.textContent = 'Saving...'
+  const fd = new FormData()
+  fd.append('action', 'add_payment')
+  fd.append('id', id)
+  fd.append('amount', amount)
+  fd.append('method', document.getElementById('pMethod').value)
+  fetch('hotel-services.php', {
+    method: 'POST',
+    body: fd,
+    credentials: 'include'
+  })
+    .then(r => r.json())
+    .then(res => {
+      if (res.success) {
+        closePayModal()
+        let msg =
+          'Payment saved! ' +
+          (res.cashbook
+            ? '✅ Tercatat di Buku Kas'
+            : '⚠️ Gagal sync ke Buku Kas')
+        if (res.motors_auto_returned && res.motors_auto_returned.length > 0) {
+          msg +=
+            '\n🏍️ ' +
+            res.motors_auto_returned.length +
+            ' motor otomatis ditandai sudah kembali (invoice lunas)'
         }
-    }
-
-    function fillFromInhouse() {
-        const sel = document.getElementById('fGuestSelect');
-        const opt = sel.options[sel.selectedIndex];
-        document.getElementById('fBookingId').value = opt.value || '';
-        document.getElementById('fPhone').value = opt.dataset.phone || '';
-        document.getElementById('fRoom').value = opt.dataset.room || '';
-    }
-
-    function getGuestName() {
-        const ih = document.getElementById('inhouseSection').style.display !== 'none';
-        if (ih) {
-            const sel = document.getElementById('fGuestSelect');
-            return sel.options[sel.selectedIndex].dataset.name || '';
+        if (res.cars_auto_returned && res.cars_auto_returned.length > 0) {
+          msg +=
+            '\n🚗 ' +
+            res.cars_auto_returned.length +
+            ' mobil otomatis ditandai sudah kembali (invoice lunas, tagihan driver otomatis update)'
         }
-        return document.getElementById('fGuestName').value.trim();
+        alert(msg)
+        location.reload()
+      } else {
+        alert('Error: ' + (res.message || 'Unknown'))
+        btn.disabled = false
+        btn.textContent = '💾 Save & Sync to Cashbook'
+      }
+    })
+}
+
+// ── SETTINGS ─────────────────────────────────────────────────────────────────
+function openSettingsModal () {
+  document.getElementById('settingsModal').classList.add('open')
+  switchTab('inv')
+}
+
+function closeSettingsModal () {
+  document.getElementById('settingsModal').classList.remove('open')
+}
+
+function switchTab (t) {
+  ;['inv', 'catalog', 'svctype'].forEach(id => {
+    document.getElementById('tab-' + id).classList.toggle('active', id === t)
+    document.getElementById('pane-' + id).classList.toggle('active', id === t)
+  })
+}
+
+function previewLogo (inp) {
+  const prev = document.getElementById('logoPreview')
+  if (inp.files && inp.files[0]) {
+    const reader = new FileReader()
+    reader.onload = e => {
+      prev.src = e.target.result
+      prev.style.display = 'block'
     }
+    reader.readAsDataURL(inp.files[0])
+  }
+}
 
-    // ── Items ─────────────────────────────────────────────────────────────────────
-    let rowCnt = 0;
+function saveSettings () {
+  const btn = document.getElementById('btnSaveSettings')
+  btn.disabled = true
+  btn.textContent = 'Saving...'
+  const fd = new FormData()
+  fd.append('action', 'save_hs_settings')
+  fd.append('company_name', document.getElementById('sCmpName').value.trim())
+  fd.append('company_website', document.getElementById('sCmpWeb').value.trim())
+  fd.append('company_phone', document.getElementById('sCmpPhone').value.trim())
+  fd.append('company_email', document.getElementById('sCmpEmail').value.trim())
+  fd.append('company_address', document.getElementById('sCmpAddr').value.trim())
+  fd.append(
+    'payment_info_bank',
+    document.getElementById('sPayBank').value.trim()
+  )
+  fd.append(
+    'payment_info_account',
+    document.getElementById('sPayAccount').value.trim()
+  )
+  fd.append(
+    'payment_info_name',
+    document.getElementById('sPayName').value.trim()
+  )
+  fd.append(
+    'payment_info_note',
+    document.getElementById('sPayNote').value.trim()
+  )
+  const logoFile = document.getElementById('sLogoFile').files[0]
+  if (logoFile) fd.append('logo_file', logoFile)
+  fetch('hotel-services.php', {
+    method: 'POST',
+    body: fd,
+    credentials: 'include'
+  })
+    .then(r => r.json())
+    .then(res => {
+      if (res.success) {
+        alert('✅ Settings saved!')
+        closeSettingsModal()
+        location.reload()
+      } else {
+        alert('Error: ' + (res.message || 'unknown'))
+      }
+      btn.disabled = false
+      btn.textContent = '💾 Save Settings'
+    })
+    .catch(() => {
+      alert('Network error')
+      btn.disabled = false
+      btn.textContent = '💾 Save Settings'
+    })
+}
 
-    function buildSvcOpts(selected) {
-        return SVC_KEYS.map((k, i) =>
-            `<option value="${k}" ${k===selected?'selected':''}>${SVC_LABELS[i]}</option>`
-        ).join('');
+// ── CATALOG ───────────────────────────────────────────────────────────────────
+let catRowCnt = 0
+const SVC_OPTIONS = window.SVC_OPTIONS || []
+
+function buildSvcOptsFor (selected = '') {
+  return SVC_OPTIONS.map(
+    o =>
+      `<option value="${o.val}" ${o.val === selected ? 'selected' : ''}>${
+        o.lbl
+      }</option>`
+  ).join('')
+}
+
+function addCatalogRow () {
+  catRowCnt++
+  const id = 'new_' + catRowCnt
+  const tr = document.createElement('tr')
+  tr.id = 'ctr' + id
+  tr.innerHTML =
+    `<td><select class="cSType">${buildSvcOptsFor()}</select></td>` +
+    `<td><input type="text" class="cName" placeholder="ex: Honda Beat 1 Hari"></td>` +
+    `<td><input type="number" class="cPrice" value="0" min="0"></td>` +
+    `<td><input type="text" class="cUnit" value="unit"></td>` +
+    `<td><input type="number" class="cSort" value="0" style="width:45px"></td>` +
+    `<td style="display:flex;gap:3px">` +
+    `<button class="btn-cat-save" onclick="saveCatalogRow('${id}')">💾</button>` +
+    `<button class="btn-cat-del" onclick="document.getElementById('ctr${id}').remove()">✕</button>` +
+    `</td>`
+  document.getElementById('catalogBody').prepend(tr)
+}
+
+function saveCatalogRow (cid) {
+  const tr = document.getElementById('ctr' + cid)
+  if (!tr) return
+  const fd = new FormData()
+  fd.append('action', 'save_catalog_item')
+  fd.append('cid', isNaN(cid) ? 0 : cid)
+  fd.append('service_type', tr.querySelector('.cSType').value)
+  fd.append('item_name', tr.querySelector('.cName').value.trim())
+  fd.append('default_price', tr.querySelector('.cPrice').value)
+  fd.append('unit', tr.querySelector('.cUnit').value.trim() || 'unit')
+  fd.append('sort_order', tr.querySelector('.cSort').value)
+  fetch('hotel-services.php', {
+    method: 'POST',
+    body: fd,
+    credentials: 'include'
+  })
+    .then(r => r.json())
+    .then(res => {
+      if (res.success) {
+        tr.id = 'ctr' + res.id
+        tr.querySelectorAll('button')[0].setAttribute(
+          'onclick',
+          'saveCatalogRow(' + res.id + ')'
+        )
+        tr.querySelectorAll('button')[1].setAttribute(
+          'onclick',
+          'deleteCatalogRow(' + res.id + ')'
+        )
+        tr.style.background = '#f0fdf4'
+        setTimeout(() => (tr.style.background = ''), 1500)
+      } else {
+        alert('Error: ' + (res.message || 'failed'))
+      }
+    })
+}
+
+function deleteCatalogRow (cid) {
+  if (!confirm('Hapus item ini dari katalog?')) return
+  const fd = new FormData()
+  fd.append('action', 'delete_catalog_item')
+  fd.append('cid', cid)
+  fetch('hotel-services.php', {
+    method: 'POST',
+    body: fd,
+    credentials: 'include'
+  })
+    .then(r => r.json())
+    .then(res => {
+      if (res.success) {
+        const el = document.getElementById('ctr' + cid)
+        if (el) el.remove()
+      } else alert('Error')
+    })
+}
+
+const CATALOG = window.CATALOG_LIST || []
+
+// ── EDIT INVOICE ──────────────────────────────────────────────────────────────
+let eRowCnt = 0
+
+const ACTIVE_BIZ_ID = window.ACTIVE_BIZ_ID || 0
+
+function openEditModal (id) {
+  fetch(
+    'hotel-services.php?get_invoice=1&id=' +
+      id +
+      '&business_id=' +
+      encodeURIComponent(ACTIVE_BIZ_ID),
+    {
+      credentials: 'include'
     }
+  )
+    .then(r => r.json())
+    .then(inv => {
+      if (!inv.success) {
+        alert(inv.message || 'Cannot load invoice')
+        return
+      }
+      document.getElementById('eInvId').value = inv.id
+      document.getElementById('eInvNo').textContent =
+        'Invoice: ' + inv.invoice_number
+      document.getElementById('eGuestName').value = inv.guest_name || ''
+      document.getElementById('ePhone').value = inv.guest_phone || ''
+      document.getElementById('eRoom').value = inv.room_number || ''
+      document.getElementById('ePayMethod').value = inv.payment_method || 'cash'
+      document.getElementById('ePaid').value = inv.paid_amount || 0
+      document.getElementById('eNotes').value = inv.notes || ''
+      const tr2 = parseFloat(inv.tax_rate) || 0
+      const taxSel = document.getElementById('eTaxRate')
+      if (['0', '5', '10', '11'].includes(String(tr2))) {
+        taxSel.value = String(tr2)
+        document.getElementById('eCustomTaxWrap').style.display = 'none'
+      } else {
+        taxSel.value = 'custom'
+        document.getElementById('eCustomTaxWrap').style.display = ''
+        document.getElementById('eTaxCustom').value = tr2
+      }
+      document.getElementById('eServiceCharge').value =
+        parseFloat(inv.service_charge_rate) || 0
+      document.getElementById('eDiscount').value =
+        parseFloat(inv.discount_rate) || 0
+      document.getElementById('eItemsBody').innerHTML = ''
+      eRowCnt = 0
+      ;(inv.items || []).forEach(it => eAddItemRow(it))
+      eRefreshTotal()
+      document.getElementById('editModal').classList.add('open')
+    })
+    .catch(() => alert('Network error loading invoice'))
+}
 
-    function buildRentalAssetOpts(items, selected) {
-        let html = '<option value="">Pilih armada...</option>';
-        items.forEach(item => {
-            html += `<option value="${item.id}" data-rate="${item.daily_rate}" ${String(item.id)===String(selected||'')?'selected':''}>${item.label}</option>`;
-        });
-        return html;
-    }
+function closeEditModal () {
+  document.getElementById('editModal').classList.remove('open')
+}
 
-    function isRentalService(svc) {
-        return svc === 'motor_rental' || svc === 'car_rental';
-    }
-
-    // ── Driver / partner vehicle payment (car_rental, airport_drop, harbor_drop) ──
-    function usesDriverPayment(svc) {
-        return svc === 'car_rental' || svc === 'airport_drop' || svc === 'harbor_drop';
-    }
-
-    function getDriverCarId(tr, svc) {
-        if (svc === 'car_rental') return parseInt(tr.querySelector('.iAsset')?.value || '0', 10);
-        if (svc === 'airport_drop' || svc === 'harbor_drop') return parseInt(tr.querySelector('.iDriverCar')?.value || '0', 10);
-        return 0;
-    }
-
-    function updateDriverExtra(tr) {
-        const svc = tr.querySelector('.iSvc').value;
-        const wrap = tr.querySelector('.hs-driver-extra');
-        if (!wrap) return;
-        const show = usesDriverPayment(svc);
-        wrap.style.display = show ? '' : 'none';
-        const carRow = tr.querySelector('.iDriverCarRow');
-        if (carRow) {
-            const showCarPicker = svc === 'airport_drop' || svc === 'harbor_drop';
-            carRow.style.display = showCarPicker ? '' : 'none';
-            const driverCarSelect = tr.querySelector('.iDriverCar');
-            if (driverCarSelect && showCarPicker) {
-                driverCarSelect.innerHTML = buildRentalAssetOpts(RENTAL_CARS, driverCarSelect.value);
-            }
+function eAddItemRow (itemOrSvc, desc, qty, price) {
+  const item =
+    typeof itemOrSvc === 'object' && itemOrSvc !== null
+      ? itemOrSvc
+      : {
+          service_type: itemOrSvc,
+          description: desc,
+          quantity: qty,
+          unit_price: price,
+          motor_id: null,
+          car_id: null,
+          rental_days: 1,
+          deposit: 0,
+          trip_destination: null
         }
-        if (!show) {
-            const chk = tr.querySelector('.iNeedsDriver');
-            if (chk) chk.checked = false;
-            const commWrap = tr.querySelector('.iCommWrap');
-            if (commWrap) commWrap.style.display = 'none';
-        }
+  eRowCnt++
+  const id2 = 'er' + eRowCnt
+  const tr3 = document.createElement('tr')
+  tr3.id = id2
+  tr3.innerHTML =
+    `<td><select class="iSvc" onchange="eOnSvcChange('${id2}')">${buildSvcOpts(
+      item.service_type || ''
+    )}</select></td>` +
+    `<td>` +
+    `<input type="text" class="iDesc" value="${(item.description || '').replace(
+      /"/g,
+      '&quot;'
+    )}" placeholder="Description">` +
+    `<div class="hs-rental-extra">` +
+    `<select class="iAsset" onchange="eOnRentalAssetChange('${id2}')"></select>` +
+    `<div class="hs-rental-grid">` +
+    `<label>Hari Sewa:</label>` +
+    `<input type="number" class="iDays" value="${
+      item.rental_days || 1
+    }" min="1" max="365" step="1" placeholder="Jumlah hari" onchange="eOnDaysChange('${id2}')">` +
+    `</div>` +
+    `<div class="hs-rental-grid">` +
+    `<input type="number" class="iDeposit" value="${
+      item.deposit || 0
+    }" min="0" placeholder="Deposit (Rp)">` +
+    `<input type="text" class="iDest" value="${(
+      item.trip_destination || ''
+    ).replace(/"/g, '&quot;')}" placeholder="Tujuan / catatan mobil">` +
+    `</div>` +
+    `</div>` +
+    `<div class="hs-driver-extra" style="display:none;margin-top:6px;padding:8px 10px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:6px">` +
+    `<div class="iDriverCarRow" style="display:none;margin-bottom:6px">` +
+    `<select class="iDriverCar" onchange="onDriverCarChange('${id2}')" style="width:100%;font-size:12px;padding:4px"><option value="">🚗 Pilih mobil/driver (opsional)...</option></select>` +
+    `</div>` +
+    `<label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:#334155;cursor:pointer">` +
+    `<input type="checkbox" class="iNeedsDriver" ${
+      item.needs_driver_payment ? 'checked' : ''
+    } onchange="onNeedsDriverChange('${id2}')">` +
+    `🧾 Butuh bayar driver (masuk Tagihan setelah invoice diproses)` +
+    `</label>` +
+    `<div class="iCommWrap" style="display:${
+      item.needs_driver_payment ? 'flex' : 'none'
+    };gap:6px;margin-top:6px">` +
+    `<select class="iCommType" style="flex:1;font-size:12px;padding:4px">` +
+    `<option value="percent" ${
+      (item.commission_type || 'percent') === 'percent' ? 'selected' : ''
+    }>Bagian Driver: %</option>` +
+    `<option value="nominal" ${
+      item.commission_type === 'nominal' ? 'selected' : ''
+    }>Potongan Hotel: Rp</option>` +
+    `</select>` +
+    `<input type="number" class="iCommValue" value="${
+      item.commission_value || 0
+    }" style="flex:1;font-size:12px;padding:4px" placeholder="Nilai" min="0">` +
+    `</div>` +
+    `</div>` +
+    `</td>` +
+    `<td><input type="number" class="iQty" value="${
+      item.quantity || 1
+    }" min="0.5" step="0.5" style="width:60px" oninput="ercalc('${id2}')"></td>` +
+    `<td><input type="number" class="iPrice" value="${
+      item.unit_price || 0
+    }" min="0" style="width:105px" oninput="ercalc('${id2}')"></td>` +
+    `<td style="font-weight:700;color:#4338ca;text-align:right;white-space:nowrap" class="iTotal">Rp 0</td>` +
+    `<td><button type="button" class="btn-del-row" onclick="eDelRow('${id2}')">✕</button></td>`
+  document.getElementById('eItemsBody').appendChild(tr3)
+  if (item.service_type === 'motor_rental') {
+    let motorOpts = [...RENTAL_MOTORS]
+    if (item.motor_id && !motorOpts.find(m => m.id === item.motor_id)) {
+      motorOpts = [
+        {
+          id: item.motor_id,
+          label:
+            (item.motor_name || 'Motor') +
+            (item.plate_number ? ' (' + item.plate_number + ')' : ''),
+          daily_rate: item.daily_rate || 0
+        },
+        ...motorOpts
+      ]
     }
-
-    function prefillDriverCommission(tr) {
-        const svc = tr.querySelector('.iSvc').value;
-        const carId = getDriverCarId(tr, svc);
-        const car = RENTAL_CARS.find(c => String(c.id) === String(carId));
-        const typeSel = tr.querySelector('.iCommType');
-        const valInput = tr.querySelector('.iCommValue');
-        if (!car || !typeSel || !valInput) return;
-        if (!valInput.value || parseFloat(valInput.value) === 0) {
-            typeSel.value = car.commission_type || 'percent';
-            valInput.value = car.commission_type === 'nominal' ? (car.commission_nominal || 0) : (car.commission_pct || 0);
-        }
+    tr3.querySelector('.iAsset').innerHTML = buildRentalAssetOpts(
+      motorOpts,
+      item.motor_id
+    )
+  }
+  if (item.service_type === 'car_rental') {
+    let carOpts = [...RENTAL_CARS]
+    if (item.car_id && !carOpts.find(c => c.id === item.car_id)) {
+      const label =
+        (item.car_name || 'Mobil') +
+        (item.plate_number ? ' (' + item.plate_number + ')' : '') +
+        (item.car_type ? ' - ' + item.car_type : '')
+      carOpts = [
+        {
+          id: item.car_id,
+          label: label,
+          daily_rate: item.daily_rate || 0
+        },
+        ...carOpts
+      ]
     }
-
-    function onDriverCarChange(id) {
-        const tr = document.getElementById(id);
-        if (!tr) return;
-        const chk = tr.querySelector('.iNeedsDriver');
-        if (chk && chk.checked) prefillDriverCommission(tr);
+    tr3.querySelector('.iAsset').innerHTML = buildRentalAssetOpts(
+      carOpts,
+      item.car_id
+    )
+  }
+  if (
+    (item.service_type === 'airport_drop' ||
+      item.service_type === 'harbor_drop') &&
+    item.car_id
+  ) {
+    let carOpts = [...RENTAL_CARS]
+    if (!carOpts.find(c => c.id === item.car_id)) {
+      const label =
+        (item.car_name || 'Mobil') +
+        (item.plate_number ? ' (' + item.plate_number + ')' : '')
+      carOpts = [
+        {
+          id: item.car_id,
+          label: label,
+          daily_rate: item.daily_rate || 0
+        },
+        ...carOpts
+      ]
     }
+    const driverCarSelect = tr3.querySelector('.iDriverCar')
+    if (driverCarSelect)
+      driverCarSelect.innerHTML = buildRentalAssetOpts(carOpts, item.car_id)
+  }
+  // Only trigger onSvcChange for existing rows (loaded from API), not for new empty rows
+  // Pass false to indicate we're loading from API, not creating new
+  if (item.service_type) {
+    eOnSvcChange(id2, false)
+  }
+  updateDriverExtra(tr3)
+  ercalc(id2)
+}
 
-    function onNeedsDriverChange(id) {
-        const tr = document.getElementById(id);
-        if (!tr) return;
-        const checked = tr.querySelector('.iNeedsDriver').checked;
-        const commWrap = tr.querySelector('.iCommWrap');
-        if (commWrap) commWrap.style.display = checked ? 'flex' : 'none';
-        if (checked) prefillDriverCommission(tr);
+function eOnSvcChange (id2, isNew) {
+  const tr3 = document.getElementById(id2)
+  if (!tr3) return
+  const svc = tr3.querySelector('.iSvc').value
+  const priceInput = tr3.querySelector('.iPrice')
+  const descInput = tr3.querySelector('.iDesc')
+  const rentalWrap = tr3.querySelector('.hs-rental-extra')
+  const assetSelect = tr3.querySelector('.iAsset')
+  const destInput = tr3.querySelector('.iDest')
+  const items = CATALOG_DATA[svc]
+
+  // Only rebuild asset dropdown if THIS IS A NEW ROW (not loading from API)
+  if (isNew) {
+    const rentalItems =
+      svc === 'motor_rental'
+        ? RENTAL_MOTORS
+        : svc === 'car_rental'
+        ? RENTAL_CARS
+        : []
+    if (isRentalService(svc)) {
+      rentalWrap.classList.add('open')
+      assetSelect.innerHTML = buildRentalAssetOpts(
+        rentalItems,
+        assetSelect.value
+      )
+      destInput.style.display = svc === 'car_rental' ? '' : 'none'
+      if (!tr3.querySelector('.iDays').value)
+        tr3.querySelector('.iDays').value = 1
+    } else {
+      rentalWrap.classList.remove('open')
+      assetSelect.innerHTML = '<option value="">Pilih armada...</option>'
+      tr3.querySelector('.iDays').value = 1
+      tr3.querySelector('.iDeposit').value = 0
+      tr3.querySelector('.iDest').value = ''
     }
-
-    function rentalDefaultDate(offsetDays) {
-        const dt = new Date();
-        dt.setDate(dt.getDate() + offsetDays);
-        dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
-        return dt.toISOString().slice(0, 16);
+  } else {
+    // Loading from API - just show/hide rental fields, don't rebuild dropdown
+    if (isRentalService(svc)) {
+      rentalWrap.classList.add('open')
+      destInput.style.display = svc === 'car_rental' ? '' : 'none'
+    } else {
+      rentalWrap.classList.remove('open')
+      assetSelect.innerHTML = '<option value="">Pilih armada...</option>'
+      tr3.querySelector('.iDays').value = 1
+      tr3.querySelector('.iDeposit').value = 0
+      tr3.querySelector('.iDest').value = ''
     }
+  }
 
-    function addItemRow(svc, desc, qty, price) {
-        rowCnt++;
-        const id = 'r' + rowCnt;
-        const tr = document.createElement('tr');
-        tr.id = id;
-        tr.innerHTML =
-            `<td><select class="iSvc" onchange="onSvcChange('${id}')">${buildSvcOpts(svc||'')}</select></td>` +
-            `<td>` +
-            `<input type="text" class="iDesc" placeholder="e.g. Honda Beat" value="${(desc||'').replace(/"/g,'&quot;')}">` +
-            `<div class="hs-rental-extra">` +
-            `<select class="iAsset" onchange="onRentalAssetChange('${id}')"><option value="">Pilih armada...</option></select>` +
-            `<div class="hs-rental-grid">` +
-            `<label>Hari Sewa:</label>` +
-            `<input type="number" class="iDays" value="1" min="1" max="365" step="1" placeholder="Jumlah hari" onchange="onDaysChange('${id}')">` +
-            `</div>` +
-            `<div class="hs-rental-grid">` +
-            `<input type="number" class="iDeposit" value="0" min="0" placeholder="Deposit (Rp)">` +
-            `<input type="text" class="iDest" placeholder="Tujuan / catatan mobil">` +
-            `</div>` +
-            `</div>` +
-            `<div class="hs-driver-extra" style="display:none;margin-top:6px;padding:8px 10px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:6px">` +
-            `<div class="iDriverCarRow" style="display:none;margin-bottom:6px">` +
-            `<select class="iDriverCar" onchange="onDriverCarChange('${id}')" style="width:100%;font-size:12px;padding:4px"><option value="">🚗 Pilih mobil/driver (opsional)...</option></select>` +
-            `</div>` +
-            `<label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:#334155;cursor:pointer">` +
-            `<input type="checkbox" class="iNeedsDriver" onchange="onNeedsDriverChange('${id}')">` +
-            `🧾 Butuh bayar driver (masuk Tagihan setelah invoice diproses)` +
-            `</label>` +
-            `<div class="iCommWrap" style="display:none;gap:6px;margin-top:6px">` +
-            `<select class="iCommType" style="flex:1;font-size:12px;padding:4px">` +
-            `<option value="percent">Bagian Driver: %</option>` +
-            `<option value="nominal">Potongan Hotel: Rp</option>` +
-            `</select>` +
-            `<input type="number" class="iCommValue" style="flex:1;font-size:12px;padding:4px" placeholder="Nilai" min="0">` +
-            `</div>` +
-            `</div>` +
-            `</td>` +
-            `<td><input type="number" class="iQty" value="${qty||1}" min="0.5" step="0.5" style="width:60px" oninput="rcalc('${id}')"></td>` +
-            `<td><input type="number" class="iPrice" value="${price||0}" min="0" style="width:105px" oninput="rcalc('${id}')"></td>` +
-            `<td style="font-weight:700;color:#4338ca;text-align:right;white-space:nowrap" class="iTotal">Rp 0</td>` +
-            `<td><button type="button" class="btn-del-row" onclick="delRow('${id}')">✕</button></td>`;
-        document.getElementById('itemsBody').appendChild(tr);
-        // Only auto-populate if service type was provided
-        if (svc) {
-            onSvcChange(id, true);
-        } else {
-            rcalc(id);
-        }
+  if (items && items.length > 0) {
+    if (isNew) {
+      if (parseFloat(priceInput.value) === 0) priceInput.value = items[0].price
+      if (!descInput.value.trim()) descInput.value = items[0].name
+    } else {
+      priceInput.value = items[0].price
+      descInput.value = items[0].name
     }
+  } else if (!isNew) {
+    priceInput.value = 0
+  }
 
-    function onDaysChange(id) {
-        const tr = document.getElementById(id);
-        if (!tr) return;
-        const daysInput = tr.querySelector('.iDays');
-        const days = parseFloat(daysInput.value) || 1;
-        tr.querySelector('.iQty').value = Math.max(1, days);
-        rcalc(id);
+  if (isRentalService(svc)) {
+    eOnRentalAssetChange(id2, !!isNew)
+  }
+  updateDriverExtra(tr3)
+  ercalc(id2)
+}
+
+function eOnRentalAssetChange (id2, keepManualDesc) {
+  const tr3 = document.getElementById(id2)
+  if (!tr3) return
+  const svc = tr3.querySelector('.iSvc').value
+  const assetSelect = tr3.querySelector('.iAsset')
+  const selectedId = assetSelect.value
+  const source = svc === 'motor_rental' ? RENTAL_MOTORS : RENTAL_CARS
+  const chosen = source.find(item => String(item.id) === String(selectedId))
+  if (!chosen) return
+  const priceInput = tr3.querySelector('.iPrice')
+  const descInput = tr3.querySelector('.iDesc')
+  if (
+    !priceInput.value ||
+    parseFloat(priceInput.value) === 0 ||
+    !keepManualDesc
+  ) {
+    priceInput.value = chosen.daily_rate
+  }
+  if (
+    !descInput.value.trim() ||
+    descInput.dataset.autoFilled === '1' ||
+    !keepManualDesc
+  ) {
+    descInput.value = chosen.label
+    descInput.dataset.autoFilled = '1'
+  }
+  if (tr3.querySelector('.iNeedsDriver')?.checked) prefillDriverCommission(tr3)
+  ercalc(id2)
+}
+
+function eOnDaysChange (id2) {
+  const tr3 = document.getElementById(id2)
+  if (!tr3) return
+  const daysInput = tr3.querySelector('.iDays')
+  const days = parseFloat(daysInput.value) || 1
+  tr3.querySelector('.iQty').value = Math.max(1, days)
+  ercalc(id2)
+}
+
+function eDelRow (id) {
+  const el = document.getElementById(id)
+  if (el) el.remove()
+  eRefreshTotal()
+}
+
+function ercalc (id) {
+  const tr = document.getElementById(id)
+  if (!tr) return
+  const t =
+    (parseFloat(tr.querySelector('.iQty').value) || 0) *
+    (parseFloat(tr.querySelector('.iPrice').value) || 0)
+  tr.querySelector('.iTotal').textContent =
+    'Rp ' + Math.round(t).toLocaleString('id-ID')
+  eRefreshTotal()
+}
+
+function eOnTaxRateChange () {
+  const sel = document.getElementById('eTaxRate')
+  document.getElementById('eCustomTaxWrap').style.display =
+    sel.value === 'custom' ? '' : 'none'
+  eRefreshTotal()
+}
+
+function eRefreshTotal () {
+  let s = 0
+  document.querySelectorAll('#eItemsBody tr').forEach(tr => {
+    s +=
+      (parseFloat(tr.querySelector('.iQty')?.value) || 0) *
+      (parseFloat(tr.querySelector('.iPrice')?.value) || 0)
+  })
+  const sel = document.getElementById('eTaxRate')
+  let r = sel
+    ? sel.value === 'custom'
+      ? parseFloat(document.getElementById('eTaxCustom')?.value) || 0
+      : parseFloat(sel.value) || 0
+    : 0
+  const scRate =
+    parseFloat(document.getElementById('eServiceCharge')?.value) || 0
+  const discRate = parseFloat(document.getElementById('eDiscount')?.value) || 0
+  const sc = s * (scRate / 100),
+    disc = s * (discRate / 100)
+  const afterCD = s + sc - disc
+  const tax = afterCD * (r / 100),
+    tot = afterCD + tax
+  const fmt = v => 'Rp ' + Math.round(v).toLocaleString('id-ID')
+  document.getElementById('etpSub').textContent = fmt(s)
+  document.getElementById('etpGrand').textContent = fmt(tot)
+  document.getElementById('etpScRow').style.display = scRate > 0 ? '' : 'none'
+  document.getElementById('etpSc').textContent = fmt(sc) + ' (' + scRate + '%)'
+  document.getElementById('etpDiscRow').style.display =
+    discRate > 0 ? '' : 'none'
+  document.getElementById('etpDisc').textContent =
+    '- ' + fmt(disc) + ' (' + discRate + '%)'
+  document.getElementById('etpTaxRow').style.display = r > 0 ? '' : 'none'
+  document.getElementById('etpTax').textContent = fmt(tax) + ' (' + r + '%)'
+}
+
+function submitEdit () {
+  const id = document.getElementById('eInvId').value
+  const guestName = document.getElementById('eGuestName').value.trim()
+  if (!guestName) {
+    alert('Nama tamu wajib diisi')
+    return
+  }
+  const rows = document.querySelectorAll('#eItemsBody tr')
+  if (!rows.length) {
+    alert('Minimal 1 item layanan')
+    return
+  }
+  const items = []
+  for (const tr of rows) {
+    const svc = tr.querySelector('.iSvc').value
+    const motorId =
+      svc === 'motor_rental'
+        ? parseInt(tr.querySelector('.iAsset').value || '0', 10)
+        : 0
+    const carId =
+      svc === 'car_rental'
+        ? parseInt(tr.querySelector('.iAsset').value || '0', 10)
+        : 0
+    const driverCarId = getDriverCarId(tr, svc)
+    const needsDriver =
+      usesDriverPayment(svc) &&
+      !!tr.querySelector('.iNeedsDriver')?.checked &&
+      driverCarId > 0
+    const commType = tr.querySelector('.iCommType')?.value || 'percent'
+    const commValue = parseFloat(tr.querySelector('.iCommValue')?.value) || 0
+    const daysInput = tr.querySelector('.iDays')
+    const days = daysInput ? parseFloat(daysInput.value) || 1 : 1
+
+    // Generate start and end dates from days
+    const today = new Date()
+    const startDt = today.toISOString().slice(0, 19).replace('T', ' ')
+    const endDate = new Date(today)
+    endDate.setDate(endDate.getDate() + days)
+    const endDt = endDate.toISOString().slice(0, 19).replace('T', ' ')
+
+    if (
+      (svc === 'motor_rental' || svc === 'car_rental') &&
+      !motorId &&
+      !carId
+    ) {
+      alert('Item rental motor/mobil wajib pilih armada')
+      return
     }
-
-    function onSvcChange(id, isNew) {
-        const tr = document.getElementById(id);
-        if (!tr) return;
-        const svc = tr.querySelector('.iSvc').value;
-        const priceInput = tr.querySelector('.iPrice');
-        const descInput = tr.querySelector('.iDesc');
-        const rentalWrap = tr.querySelector('.hs-rental-extra');
-        const assetSelect = tr.querySelector('.iAsset');
-        const destInput = tr.querySelector('.iDest');
-        const items = CATALOG_DATA[svc];
-        const rentalItems = svc === 'motor_rental' ? RENTAL_MOTORS : (svc === 'car_rental' ? RENTAL_CARS : []);
-
-        if (isRentalService(svc)) {
-            // Show rental fields for motor_rental and car_rental
-            rentalWrap.classList.add('open');
-            assetSelect.innerHTML = buildRentalAssetOpts(rentalItems, assetSelect.value);
-            destInput.style.display = svc === 'car_rental' ? '' : 'none';
-            // Set default 1 day
-            if (!tr.querySelector('.iDays').value) tr.querySelector('.iDays').value = 1;
-        } else {
-            // Hide rental fields for other services
-            rentalWrap.classList.remove('open');
-            assetSelect.innerHTML = '<option value="">Pilih armada...</option>';
-            tr.querySelector('.iDays').value = 1;
-            tr.querySelector('.iDeposit').value = 0;
-            tr.querySelector('.iDest').value = '';
-        }
-
-        if (items && items.length > 0) {
-            if (isNew) {
-                if (parseFloat(priceInput.value) === 0) priceInput.value = items[0].price;
-                if (!descInput.value.trim()) descInput.value = items[0].name;
-            } else {
-                priceInput.value = items[0].price;
-                descInput.value = items[0].name;
-            }
-        } else if (!isNew) {
-            priceInput.value = 0;
-        }
-
-        if (isRentalService(svc)) {
-            onRentalAssetChange(id, !!isNew);
-        }
-        updateDriverExtra(tr);
-        rcalc(id);
-    }
-
-    function onRentalAssetChange(id, keepManualDesc) {
-        const tr = document.getElementById(id);
-        if (!tr) return;
-        const svc = tr.querySelector('.iSvc').value;
-        const assetSelect = tr.querySelector('.iAsset');
-        const selectedId = assetSelect.value;
-        const source = svc === 'motor_rental' ? RENTAL_MOTORS : RENTAL_CARS;
-        const chosen = source.find(item => String(item.id) === String(selectedId));
-        if (!chosen) return;
-        const priceInput = tr.querySelector('.iPrice');
-        const descInput = tr.querySelector('.iDesc');
-        if (!priceInput.value || parseFloat(priceInput.value) === 0 || !keepManualDesc) {
-            priceInput.value = chosen.daily_rate;
-        }
-        if (!descInput.value.trim() || descInput.dataset.autoFilled === '1' || !keepManualDesc) {
-            descInput.value = chosen.label;
-            descInput.dataset.autoFilled = '1';
-        }
-        if (tr.querySelector('.iNeedsDriver')?.checked) prefillDriverCommission(tr);
-        rcalc(id);
-    }
-
-    function syncRentalDuration(id) {
-        const tr = document.getElementById(id);
-        if (!tr) return;
-        const svc = tr.querySelector('.iSvc').value;
-        if (!isRentalService(svc)) return;
-        const startVal = tr.querySelector('.iStart').value;
-        const endVal = tr.querySelector('.iEnd').value;
-        if (!startVal || !endVal) return;
-        const start = new Date(startVal);
-        const end = new Date(endVal);
-        const diffHours = (end - start) / (1000 * 60 * 60);
-        if (Number.isFinite(diffHours) && diffHours > 0) {
-            tr.querySelector('.iQty').value = Math.max(1, Math.ceil(diffHours / 24));
-            rcalc(id);
-        }
-    }
-
-    function delRow(id) {
-        const el = document.getElementById(id);
-        if (el) el.remove();
-        refreshTotal();
-    }
-
-    function rcalc(id) {
-        const tr = document.getElementById(id);
-        if (!tr) return;
-        const t = (parseFloat(tr.querySelector('.iQty').value) || 0) * (parseFloat(tr.querySelector('.iPrice').value) || 0);
-        tr.querySelector('.iTotal').textContent = 'Rp ' + Math.round(t).toLocaleString('id-ID');
-        refreshTotal();
-    }
-
-    function subtotal() {
-        let t = 0;
-        document.querySelectorAll('#itemsBody tr').forEach(tr => {
-            t += (parseFloat(tr.querySelector('.iQty')?.value) || 0) * (parseFloat(tr.querySelector('.iPrice')?.value) || 0);
-        });
-        return t;
-    }
-
-    function getTaxRate() {
-        const sel = document.getElementById('fTaxRate');
-        if (!sel) return 0;
-        if (sel.value === 'custom') return parseFloat(document.getElementById('fTaxCustom')?.value) || 0;
-        return parseFloat(sel.value) || 0;
-    }
-
-    function grandTotal() {
-        const sub = subtotal();
-        const scRate = parseFloat(document.getElementById('fServiceCharge')?.value) || 0;
-        const discRate = parseFloat(document.getElementById('fDiscount')?.value) || 0;
-        const sc = sub * (scRate / 100);
-        const disc = sub * (discRate / 100);
-        const afterCD = sub + sc - disc;
-        const rate = getTaxRate();
-        return afterCD + afterCD * (rate / 100);
-    }
-
-    function onTaxRateChange() {
-        const sel = document.getElementById('fTaxRate');
-        document.getElementById('customTaxWrap').style.display = sel.value === 'custom' ? '' : 'none';
-        refreshTotal();
-    }
-
-    function refreshTotal() {
-        const sub = subtotal();
-        const rate = getTaxRate();
-        const scRate = parseFloat(document.getElementById('fServiceCharge')?.value) || 0;
-        const discRate = parseFloat(document.getElementById('fDiscount')?.value) || 0;
-        const sc = sub * (scRate / 100);
-        const disc = sub * (discRate / 100);
-        const afterCD = sub + sc - disc;
-        const tax = afterCD * (rate / 100);
-        const tot = afterCD + tax;
-        const dp = parseFloat(document.getElementById('fPaid')?.value) || 0;
-        const sisa = Math.max(0, tot - dp);
-        const fmt = v => 'Rp ' + Math.round(v).toLocaleString('id-ID');
-
-        document.getElementById('tpSubtotal').textContent = fmt(sub);
-        document.getElementById('tpGrand').textContent = fmt(tot);
-
-        const scRow = document.getElementById('tpScRow');
-        scRow.style.display = scRate > 0 ? '' : 'none';
-        document.getElementById('tpSc').textContent = `${fmt(sc)} (${scRate}%)`;
-
-        const discRow = document.getElementById('tpDiscRow');
-        discRow.style.display = discRate > 0 ? '' : 'none';
-        document.getElementById('tpDisc').textContent = `- ${fmt(disc)} (${discRate}%)`;
-
-        const taxRow = document.getElementById('tpTaxRow');
-        taxRow.style.display = rate > 0 ? '' : 'none';
-        document.getElementById('tpTax').textContent = `${fmt(tax)} (${rate}%)`;
-
-        const dpEl = document.getElementById('fPaid');
-        const hasDp = dpEl && parseFloat(dpEl.value) > 0;
-        document.getElementById('tpDpRow').style.display = hasDp ? '' : 'none';
-        document.getElementById('tpSisaRow').style.display = (hasDp && sisa > 0) ? '' : 'none';
-        document.getElementById('tpDp').textContent = fmt(dp);
-        document.getElementById('tpSisa').textContent = fmt(sisa);
-
-        enforceMaxPaid();
-        if (document.getElementById('fFullPay').checked)
-            document.getElementById('fPaid').value = Math.round(tot);
-    }
-
-    function enforceMaxPaid() {
-        const mx = grandTotal(),
-            inp = document.getElementById('fPaid');
-        if (parseFloat(inp.value) > mx) inp.value = Math.round(mx);
-    }
-
-    function toggleFullPay(checked) {
-        document.getElementById('fPaid').value = checked ? Math.round(grandTotal()) : 0;
-        refreshTotal();
-    }
-
-    // ── Open/Close ────────────────────────────────────────────────────────────────
-    function openCreateModal() {
-        document.getElementById('createModal').classList.add('open');
-        ['fGuestName', 'fPhone', 'fRoom', 'fNotes'].forEach(id => {
-            const e = document.getElementById(id);
-            if (e) e.value = '';
-        });
-        document.getElementById('fGuestSelect').value = '';
-        document.getElementById('fBookingId').value = '';
-        document.getElementById('fPaid').value = 0;
-        document.getElementById('fFullPay').checked = false;
-        document.getElementById('fTaxRate').value = '0';
-        document.getElementById('customTaxWrap').style.display = 'none';
-        if (document.getElementById('fTaxCustom')) document.getElementById('fTaxCustom').value = 0;
-        document.getElementById('fServiceCharge').value = 0;
-        document.getElementById('fDiscount').value = 0;
-        document.getElementById('itemsBody').innerHTML = '';
-        rowCnt = 0;
-        setGuestMode('inhouse');
-        addItemRow();
-        refreshTotal();
-    }
-
-    function closeCreateModal() {
-        document.getElementById('createModal').classList.remove('open');
-    }
-
-    // ── Submit create ─────────────────────────────────────────────────────────────
-    function submitCreate() {
-        const guestName = getGuestName();
-        if (!guestName) {
-            alert('Please select or enter a guest name');
-            return;
-        }
-
-        const rows = document.querySelectorAll('#itemsBody tr');
-        if (!rows.length) {
-            alert('Add at least one service item');
-            return;
-        }
-
-        const items = [];
-        for (const tr of rows) {
-            const svc = tr.querySelector('.iSvc').value;
-            if (!svc) {
-                alert('Select service type for all rows');
-                return;
-            }
-            const motorId = svc === 'motor_rental' ? parseInt(tr.querySelector('.iAsset').value || '0', 10) : 0;
-            const carId = svc === 'car_rental' ? parseInt(tr.querySelector('.iAsset').value || '0', 10) : 0;
-            const driverCarId = getDriverCarId(tr, svc);
-            const needsDriver = usesDriverPayment(svc) && !!tr.querySelector('.iNeedsDriver')?.checked && driverCarId > 0;
-            const commType = tr.querySelector('.iCommType')?.value || 'percent';
-            const commValue = parseFloat(tr.querySelector('.iCommValue')?.value) || 0;
-            const daysInput = tr.querySelector('.iDays');
-            const days = daysInput ? parseFloat(daysInput.value) || 1 : 1;
-
-            // Generate start and end dates from days
-            const today = new Date();
-            const startDt = today.toISOString().slice(0, 19).replace('T', ' ');
-            const endDate = new Date(today);
-            endDate.setDate(endDate.getDate() + days);
-            const endDt = endDate.toISOString().slice(0, 19).replace('T', ' ');
-
-            if ((svc === 'motor_rental' || svc === 'car_rental') && (!motorId && !carId)) {
-                alert('Item rental motor/mobil wajib pilih armada');
-                return;
-            }
-            items.push({
-                service_type: svc,
-                description: tr.querySelector('.iDesc').value.trim(),
-                qty: parseFloat(tr.querySelector('.iQty').value) || 1,
-                unit_price: parseFloat(tr.querySelector('.iPrice').value) || 0,
-                motor_id: motorId || null,
-                car_id: (svc === 'car_rental' ? carId : driverCarId) || null,
-                needs_driver_payment: needsDriver ? 1 : 0,
-                commission_type: commType,
-                commission_value: commValue,
-                start_dt: (svc === 'motor_rental' || svc === 'car_rental') ? startDt : null,
-                end_dt: (svc === 'motor_rental' || svc === 'car_rental') ? endDt : null,
-                deposit: parseFloat(tr.querySelector('.iDeposit').value) || 0,
-                trip_destination: tr.querySelector('.iDest').value.trim() || null
-            });
-        }
-
-        const btn = document.getElementById('createBtn');
-        btn.disabled = true;
-        btn.textContent = 'Creating...';
-
-        const fd = new FormData();
-        fd.append('action', 'create');
-        fd.append('guest_name', guestName);
-        fd.append('guest_phone', document.getElementById('fPhone').value.trim());
-        fd.append('room_number', document.getElementById('fRoom').value.trim());
-        fd.append('booking_id', document.getElementById('fBookingId').value || '');
-        fd.append('items', JSON.stringify(items));
-        fd.append('payment_method', document.getElementById('fPayMethod').value);
-        fd.append('paid_amount', document.getElementById('fPaid').value || 0);
-        fd.append('tax_rate', getTaxRate());
-        fd.append('service_charge_rate', document.getElementById('fServiceCharge').value || 0);
-        fd.append('discount_rate', document.getElementById('fDiscount').value || 0);
-        fd.append('notes', document.getElementById('fNotes').value.trim());
-
-        fetch('hotel-services.php', {
-                method: 'POST',
-                body: fd,
-                credentials: 'include'
-            })
-            .then(r => r.json())
-            .then(res => {
-                if (res.success) {
-                    closeCreateModal();
-                    const cbMsg = res.cashbook ? '\n✅ Tercatat di Buku Kas' : '';
-                    alert('Invoice ' + res.invoice_number + ' created!' + cbMsg);
-                    location.reload();
-                } else {
-                    alert('Error: ' + (res.message || 'Unknown'));
-                    btn.disabled = false;
-                    btn.textContent = '✅ Create Invoice';
-                }
-            })
-            .catch(() => {
-                alert('Network error');
-                btn.disabled = false;
-                btn.textContent = '✅ Create Invoice';
-            });
-    }
-
-    // ── Status ────────────────────────────────────────────────────────────────────
-    function updateStatus(id, status) {
-        const fd = new FormData();
-        fd.append('action', 'update_status');
-        fd.append('id', id);
-        fd.append('status', status);
-        fetch('hotel-services.php', {
-                method: 'POST',
-                body: fd,
-                credentials: 'include'
-            })
-            .then(r => r.json()).then(res => {
-                if (!res.success) alert('Failed to update status');
-            });
-    }
-
-    // ── Delete ────────────────────────────────────────────────────────────────────
-    function deleteInvoice(id, code) {
-        if (!confirm('Delete invoice ' + code + '? Cannot be undone.')) return;
-        const fd = new FormData();
-        fd.append('action', 'delete');
-        fd.append('id', id);
-        fetch('hotel-services.php', {
-                method: 'POST',
-                body: fd,
-                credentials: 'include'
-            })
-            .then(r => r.json()).then(res => {
-                if (res.success) location.reload();
-                else alert('Delete failed');
-            });
-    }
-
-    // ── Pay modal ─────────────────────────────────────────────────────────────────
-    function openPayModal(id, remaining, invNo) {
-        document.getElementById('pInvId').value = id;
-        document.getElementById('pInvNo').textContent = 'Invoice: ' + invNo;
-        document.getElementById('pRemaining').textContent = 'Rp ' + Math.round(remaining).toLocaleString('id-ID');
-        document.getElementById('pAmount').value = Math.round(remaining);
-        document.getElementById('payModal').classList.add('open');
-    }
-
-    function closePayModal() {
-        document.getElementById('payModal').classList.remove('open');
-    }
-
-    function submitPay() {
-        const id = document.getElementById('pInvId').value;
-        const amount = document.getElementById('pAmount').value;
-        if (!amount || parseFloat(amount) <= 0) {
-            alert('Enter valid amount');
-            return;
-        }
-        const btn = document.getElementById('payBtn');
-        btn.disabled = true;
-        btn.textContent = 'Saving...';
-        const fd = new FormData();
-        fd.append('action', 'add_payment');
-        fd.append('id', id);
-        fd.append('amount', amount);
-        fd.append('method', document.getElementById('pMethod').value);
-        fetch('hotel-services.php', {
-                method: 'POST',
-                body: fd,
-                credentials: 'include'
-            })
-            .then(r => r.json())
-            .then(res => {
-                if (res.success) {
-                    closePayModal();
-                    let msg = 'Payment saved! ' + (res.cashbook ? '✅ Tercatat di Buku Kas' : '⚠️ Gagal sync ke Buku Kas');
-                    if (res.motors_auto_returned && res.motors_auto_returned.length > 0) {
-                        msg += '\n🏍️ ' + res.motors_auto_returned.length + ' motor otomatis ditandai sudah kembali (invoice lunas)';
-                    }
-                    if (res.cars_auto_returned && res.cars_auto_returned.length > 0) {
-                        msg += '\n🚗 ' + res.cars_auto_returned.length + ' mobil otomatis ditandai sudah kembali (invoice lunas, tagihan driver otomatis update)';
-                    }
-                    alert(msg);
-                    location.reload();
-                } else {
-                    alert('Error: ' + (res.message || 'Unknown'));
-                    btn.disabled = false;
-                    btn.textContent = '💾 Save & Sync to Cashbook';
-                }
-            });
-    }
-
-    // ── SETTINGS ─────────────────────────────────────────────────────────────────
-    function openSettingsModal() {
-        document.getElementById('settingsModal').classList.add('open');
-        switchTab('inv');
-    }
-
-    function closeSettingsModal() {
-        document.getElementById('settingsModal').classList.remove('open');
-    }
-
-    function switchTab(t) {
-        ['inv', 'catalog', 'svctype'].forEach(id => {
-            document.getElementById('tab-' + id).classList.toggle('active', id === t);
-            document.getElementById('pane-' + id).classList.toggle('active', id === t);
-        });
-    }
-
-    function previewLogo(inp) {
-        const prev = document.getElementById('logoPreview');
-        if (inp.files && inp.files[0]) {
-            const reader = new FileReader();
-            reader.onload = e => {
-                prev.src = e.target.result;
-                prev.style.display = 'block';
-            };
-            reader.readAsDataURL(inp.files[0]);
-        }
-    }
-
-    function saveSettings() {
-        const btn = document.getElementById('btnSaveSettings');
-        btn.disabled = true;
-        btn.textContent = 'Saving...';
-        const fd = new FormData();
-        fd.append('action', 'save_hs_settings');
-        fd.append('company_name', document.getElementById('sCmpName').value.trim());
-        fd.append('company_website', document.getElementById('sCmpWeb').value.trim());
-        fd.append('company_phone', document.getElementById('sCmpPhone').value.trim());
-        fd.append('company_email', document.getElementById('sCmpEmail').value.trim());
-        fd.append('company_address', document.getElementById('sCmpAddr').value.trim());
-        fd.append('payment_info_bank', document.getElementById('sPayBank').value.trim());
-        fd.append('payment_info_account', document.getElementById('sPayAccount').value.trim());
-        fd.append('payment_info_name', document.getElementById('sPayName').value.trim());
-        fd.append('payment_info_note', document.getElementById('sPayNote').value.trim());
-        const logoFile = document.getElementById('sLogoFile').files[0];
-        if (logoFile) fd.append('logo_file', logoFile);
-        fetch('hotel-services.php', {
-                method: 'POST',
-                body: fd,
-                credentials: 'include'
-            })
-            .then(r => r.json())
-            .then(res => {
-                if (res.success) {
-                    alert('✅ Settings saved!');
-                    closeSettingsModal();
-                    location.reload();
-                } else {
-                    alert('Error: ' + (res.message || 'unknown'));
-                }
-                btn.disabled = false;
-                btn.textContent = '💾 Save Settings';
-            }).catch(() => {
-                alert('Network error');
-                btn.disabled = false;
-                btn.textContent = '💾 Save Settings';
-            });
-    }
-
-    // ── CATALOG ───────────────────────────────────────────────────────────────────
-    let catRowCnt = 0;
-    const SVC_OPTIONS = window.SVC_OPTIONS || [];
-
-    function buildSvcOptsFor(selected = '') {
-        return SVC_OPTIONS.map(o => `<option value="${o.val}" ${o.val===selected?'selected':''}>${o.lbl}</option>`).join('');
-    }
-
-    function addCatalogRow() {
-        catRowCnt++;
-        const id = 'new_' + catRowCnt;
-        const tr = document.createElement('tr');
-        tr.id = 'ctr' + id;
-        tr.innerHTML =
-            `<td><select class="cSType">${buildSvcOptsFor()}</select></td>` +
-            `<td><input type="text" class="cName" placeholder="ex: Honda Beat 1 Hari"></td>` +
-            `<td><input type="number" class="cPrice" value="0" min="0"></td>` +
-            `<td><input type="text" class="cUnit" value="unit"></td>` +
-            `<td><input type="number" class="cSort" value="0" style="width:45px"></td>` +
-            `<td style="display:flex;gap:3px">` +
-            `<button class="btn-cat-save" onclick="saveCatalogRow('${id}')">💾</button>` +
-            `<button class="btn-cat-del" onclick="document.getElementById('ctr${id}').remove()">✕</button>` +
-            `</td>`;
-        document.getElementById('catalogBody').prepend(tr);
-    }
-
-    function saveCatalogRow(cid) {
-        const tr = document.getElementById('ctr' + cid);
-        if (!tr) return;
-        const fd = new FormData();
-        fd.append('action', 'save_catalog_item');
-        fd.append('cid', isNaN(cid) ? 0 : cid);
-        fd.append('service_type', tr.querySelector('.cSType').value);
-        fd.append('item_name', tr.querySelector('.cName').value.trim());
-        fd.append('default_price', tr.querySelector('.cPrice').value);
-        fd.append('unit', tr.querySelector('.cUnit').value.trim() || 'unit');
-        fd.append('sort_order', tr.querySelector('.cSort').value);
-        fetch('hotel-services.php', {
-                method: 'POST',
-                body: fd,
-                credentials: 'include'
-            })
-            .then(r => r.json())
-            .then(res => {
-                if (res.success) {
-                    tr.id = 'ctr' + res.id;
-                    tr.querySelectorAll('button')[0].setAttribute('onclick', 'saveCatalogRow(' + res.id + ')');
-                    tr.querySelectorAll('button')[1].setAttribute('onclick', 'deleteCatalogRow(' + res.id + ')');
-                    tr.style.background = '#f0fdf4';
-                    setTimeout(() => tr.style.background = '', 1500);
-                } else {
-                    alert('Error: ' + (res.message || 'failed'));
-                }
-            });
-    }
-
-    function deleteCatalogRow(cid) {
-        if (!confirm('Hapus item ini dari katalog?')) return;
-        const fd = new FormData();
-        fd.append('action', 'delete_catalog_item');
-        fd.append('cid', cid);
-        fetch('hotel-services.php', {
-                method: 'POST',
-                body: fd,
-                credentials: 'include'
-            })
-            .then(r => r.json())
-            .then(res => {
-                if (res.success) {
-                    const el = document.getElementById('ctr' + cid);
-                    if (el) el.remove();
-                } else alert('Error');
-            });
-    }
-
-    const CATALOG = window.CATALOG_LIST || [];
-
-    // ── EDIT INVOICE ──────────────────────────────────────────────────────────────
-    let eRowCnt = 0;
-
-    const ACTIVE_BIZ_ID = window.ACTIVE_BIZ_ID || 0;
-
-    function openEditModal(id) {
-        fetch('hotel-services.php?get_invoice=1&id=' + id + '&business_id=' + encodeURIComponent(ACTIVE_BIZ_ID), {
-                credentials: 'include'
-            })
-            .then(r => r.json())
-            .then(inv => {
-                if (!inv.success) {
-                    alert(inv.message || 'Cannot load invoice');
-                    return;
-                }
-                document.getElementById('eInvId').value = inv.id;
-                document.getElementById('eInvNo').textContent = 'Invoice: ' + inv.invoice_number;
-                document.getElementById('eGuestName').value = inv.guest_name || '';
-                document.getElementById('ePhone').value = inv.guest_phone || '';
-                document.getElementById('eRoom').value = inv.room_number || '';
-                document.getElementById('ePayMethod').value = inv.payment_method || 'cash';
-                document.getElementById('ePaid').value = inv.paid_amount || 0;
-                document.getElementById('eNotes').value = inv.notes || '';
-                const tr2 = parseFloat(inv.tax_rate) || 0;
-                const taxSel = document.getElementById('eTaxRate');
-                if (['0', '5', '10', '11'].includes(String(tr2))) {
-                    taxSel.value = String(tr2);
-                    document.getElementById('eCustomTaxWrap').style.display = 'none';
-                } else {
-                    taxSel.value = 'custom';
-                    document.getElementById('eCustomTaxWrap').style.display = '';
-                    document.getElementById('eTaxCustom').value = tr2;
-                }
-                document.getElementById('eServiceCharge').value = parseFloat(inv.service_charge_rate) || 0;
-                document.getElementById('eDiscount').value = parseFloat(inv.discount_rate) || 0;
-                document.getElementById('eItemsBody').innerHTML = '';
-                eRowCnt = 0;
-                (inv.items || []).forEach(it => eAddItemRow(it));
-                eRefreshTotal();
-                document.getElementById('editModal').classList.add('open');
-            })
-            .catch(() => alert('Network error loading invoice'));
-    }
-
-    function closeEditModal() {
-        document.getElementById('editModal').classList.remove('open');
-    }
-
-    function eAddItemRow(itemOrSvc, desc, qty, price) {
-        const item = typeof itemOrSvc === 'object' && itemOrSvc !== null ? itemOrSvc : {
-            service_type: itemOrSvc,
-            description: desc,
-            quantity: qty,
-            unit_price: price,
-            motor_id: null,
-            car_id: null,
-            rental_days: 1,
-            deposit: 0,
-            trip_destination: null
-        };
-        eRowCnt++;
-        const id2 = 'er' + eRowCnt;
-        const tr3 = document.createElement('tr');
-        tr3.id = id2;
-        tr3.innerHTML =
-            `<td><select class="iSvc" onchange="eOnSvcChange('${id2}')">${buildSvcOpts(item.service_type||'')}</select></td>` +
-            `<td>` +
-            `<input type="text" class="iDesc" value="${(item.description||'').replace(/"/g,'&quot;')}" placeholder="Description">` +
-            `<div class="hs-rental-extra">` +
-            `<select class="iAsset" onchange="eOnRentalAssetChange('${id2}')"></select>` +
-            `<div class="hs-rental-grid">` +
-            `<label>Hari Sewa:</label>` +
-            `<input type="number" class="iDays" value="${item.rental_days||1}" min="1" max="365" step="1" placeholder="Jumlah hari" onchange="eOnDaysChange('${id2}')">` +
-            `</div>` +
-            `<div class="hs-rental-grid">` +
-            `<input type="number" class="iDeposit" value="${item.deposit||0}" min="0" placeholder="Deposit (Rp)">` +
-            `<input type="text" class="iDest" value="${(item.trip_destination||'').replace(/"/g,'&quot;')}" placeholder="Tujuan / catatan mobil">` +
-            `</div>` +
-            `</div>` +
-            `<div class="hs-driver-extra" style="display:none;margin-top:6px;padding:8px 10px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:6px">` +
-            `<div class="iDriverCarRow" style="display:none;margin-bottom:6px">` +
-            `<select class="iDriverCar" onchange="onDriverCarChange('${id2}')" style="width:100%;font-size:12px;padding:4px"><option value="">🚗 Pilih mobil/driver (opsional)...</option></select>` +
-            `</div>` +
-            `<label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:#334155;cursor:pointer">` +
-            `<input type="checkbox" class="iNeedsDriver" ${item.needs_driver_payment?'checked':''} onchange="onNeedsDriverChange('${id2}')">` +
-            `🧾 Butuh bayar driver (masuk Tagihan setelah invoice diproses)` +
-            `</label>` +
-            `<div class="iCommWrap" style="display:${item.needs_driver_payment?'flex':'none'};gap:6px;margin-top:6px">` +
-            `<select class="iCommType" style="flex:1;font-size:12px;padding:4px">` +
-            `<option value="percent" ${(item.commission_type||'percent')==='percent'?'selected':''}>Bagian Driver: %</option>` +
-            `<option value="nominal" ${item.commission_type==='nominal'?'selected':''}>Potongan Hotel: Rp</option>` +
-            `</select>` +
-            `<input type="number" class="iCommValue" value="${item.commission_value||0}" style="flex:1;font-size:12px;padding:4px" placeholder="Nilai" min="0">` +
-            `</div>` +
-            `</div>` +
-            `</td>` +
-            `<td><input type="number" class="iQty" value="${item.quantity||1}" min="0.5" step="0.5" style="width:60px" oninput="ercalc('${id2}')"></td>` +
-            `<td><input type="number" class="iPrice" value="${item.unit_price||0}" min="0" style="width:105px" oninput="ercalc('${id2}')"></td>` +
-            `<td style="font-weight:700;color:#4338ca;text-align:right;white-space:nowrap" class="iTotal">Rp 0</td>` +
-            `<td><button type="button" class="btn-del-row" onclick="eDelRow('${id2}')">✕</button></td>`;
-        document.getElementById('eItemsBody').appendChild(tr3);
-        if (item.service_type === 'motor_rental') {
-            let motorOpts = [...RENTAL_MOTORS];
-            if (item.motor_id && !motorOpts.find(m => m.id === item.motor_id)) {
-                motorOpts = [{
-                    id: item.motor_id,
-                    label: (item.motor_name || 'Motor') + (item.plate_number ? ' (' + item.plate_number + ')' : ''),
-                    daily_rate: item.daily_rate || 0
-                }, ...motorOpts];
-            }
-            tr3.querySelector('.iAsset').innerHTML = buildRentalAssetOpts(motorOpts, item.motor_id);
-        }
-        if (item.service_type === 'car_rental') {
-            let carOpts = [...RENTAL_CARS];
-            if (item.car_id && !carOpts.find(c => c.id === item.car_id)) {
-                const label = (item.car_name || 'Mobil') + (item.plate_number ? ' (' + item.plate_number + ')' : '') + (item.car_type ? ' - ' + item.car_type : '');
-                carOpts = [{
-                    id: item.car_id,
-                    label: label,
-                    daily_rate: item.daily_rate || 0
-                }, ...carOpts];
-            }
-            tr3.querySelector('.iAsset').innerHTML = buildRentalAssetOpts(carOpts, item.car_id);
-        }
-        if ((item.service_type === 'airport_drop' || item.service_type === 'harbor_drop') && item.car_id) {
-            let carOpts = [...RENTAL_CARS];
-            if (!carOpts.find(c => c.id === item.car_id)) {
-                const label = (item.car_name || 'Mobil') + (item.plate_number ? ' (' + item.plate_number + ')' : '');
-                carOpts = [{
-                    id: item.car_id,
-                    label: label,
-                    daily_rate: item.daily_rate || 0
-                }, ...carOpts];
-            }
-            const driverCarSelect = tr3.querySelector('.iDriverCar');
-            if (driverCarSelect) driverCarSelect.innerHTML = buildRentalAssetOpts(carOpts, item.car_id);
-        }
-        // Only trigger onSvcChange for existing rows (loaded from API), not for new empty rows
-        // Pass false to indicate we're loading from API, not creating new
-        if (item.service_type) {
-            eOnSvcChange(id2, false);
-        }
-        updateDriverExtra(tr3);
-        ercalc(id2);
-    }
-
-    function eOnSvcChange(id2, isNew) {
-        const tr3 = document.getElementById(id2);
-        if (!tr3) return;
-        const svc = tr3.querySelector('.iSvc').value;
-        const priceInput = tr3.querySelector('.iPrice');
-        const descInput = tr3.querySelector('.iDesc');
-        const rentalWrap = tr3.querySelector('.hs-rental-extra');
-        const assetSelect = tr3.querySelector('.iAsset');
-        const destInput = tr3.querySelector('.iDest');
-        const items = CATALOG_DATA[svc];
-
-        // Only rebuild asset dropdown if THIS IS A NEW ROW (not loading from API)
-        if (isNew) {
-            const rentalItems = svc === 'motor_rental' ? RENTAL_MOTORS : (svc === 'car_rental' ? RENTAL_CARS : []);
-            if (isRentalService(svc)) {
-                rentalWrap.classList.add('open');
-                assetSelect.innerHTML = buildRentalAssetOpts(rentalItems, assetSelect.value);
-                destInput.style.display = svc === 'car_rental' ? '' : 'none';
-                if (!tr3.querySelector('.iDays').value) tr3.querySelector('.iDays').value = 1;
-            } else {
-                rentalWrap.classList.remove('open');
-                assetSelect.innerHTML = '<option value="">Pilih armada...</option>';
-                tr3.querySelector('.iDays').value = 1;
-                tr3.querySelector('.iDeposit').value = 0;
-                tr3.querySelector('.iDest').value = '';
-            }
-        } else {
-            // Loading from API - just show/hide rental fields, don't rebuild dropdown
-            if (isRentalService(svc)) {
-                rentalWrap.classList.add('open');
-                destInput.style.display = svc === 'car_rental' ? '' : 'none';
-            } else {
-                rentalWrap.classList.remove('open');
-                assetSelect.innerHTML = '<option value="">Pilih armada...</option>';
-                tr3.querySelector('.iDays').value = 1;
-                tr3.querySelector('.iDeposit').value = 0;
-                tr3.querySelector('.iDest').value = '';
-            }
-        }
-
-        if (items && items.length > 0) {
-            if (isNew) {
-                if (parseFloat(priceInput.value) === 0) priceInput.value = items[0].price;
-                if (!descInput.value.trim()) descInput.value = items[0].name;
-            } else {
-                priceInput.value = items[0].price;
-                descInput.value = items[0].name;
-            }
-        } else if (!isNew) {
-            priceInput.value = 0;
-        }
-
-        if (isRentalService(svc)) {
-            eOnRentalAssetChange(id2, !!isNew);
-        }
-        updateDriverExtra(tr3);
-        ercalc(id2);
-    }
-
-    function eOnRentalAssetChange(id2, keepManualDesc) {
-        const tr3 = document.getElementById(id2);
-        if (!tr3) return;
-        const svc = tr3.querySelector('.iSvc').value;
-        const assetSelect = tr3.querySelector('.iAsset');
-        const selectedId = assetSelect.value;
-        const source = svc === 'motor_rental' ? RENTAL_MOTORS : RENTAL_CARS;
-        const chosen = source.find(item => String(item.id) === String(selectedId));
-        if (!chosen) return;
-        const priceInput = tr3.querySelector('.iPrice');
-        const descInput = tr3.querySelector('.iDesc');
-        if (!priceInput.value || parseFloat(priceInput.value) === 0 || !keepManualDesc) {
-            priceInput.value = chosen.daily_rate;
-        }
-        if (!descInput.value.trim() || descInput.dataset.autoFilled === '1' || !keepManualDesc) {
-            descInput.value = chosen.label;
-            descInput.dataset.autoFilled = '1';
-        }
-        if (tr3.querySelector('.iNeedsDriver')?.checked) prefillDriverCommission(tr3);
-        ercalc(id2);
-    }
-
-    function eOnDaysChange(id2) {
-        const tr3 = document.getElementById(id2);
-        if (!tr3) return;
-        const daysInput = tr3.querySelector('.iDays');
-        const days = parseFloat(daysInput.value) || 1;
-        tr3.querySelector('.iQty').value = Math.max(1, days);
-        ercalc(id2);
-    }
-
-    function eDelRow(id) {
-        const el = document.getElementById(id);
-        if (el) el.remove();
-        eRefreshTotal();
-    }
-
-    function ercalc(id) {
-        const tr = document.getElementById(id);
-        if (!tr) return;
-        const t = (parseFloat(tr.querySelector('.iQty').value) || 0) * (parseFloat(tr.querySelector('.iPrice').value) || 0);
-        tr.querySelector('.iTotal').textContent = 'Rp ' + Math.round(t).toLocaleString('id-ID');
-        eRefreshTotal();
-    }
-
-    function eOnTaxRateChange() {
-        const sel = document.getElementById('eTaxRate');
-        document.getElementById('eCustomTaxWrap').style.display = sel.value === 'custom' ? '' : 'none';
-        eRefreshTotal();
-    }
-
-    function eRefreshTotal() {
-        let s = 0;
-        document.querySelectorAll('#eItemsBody tr').forEach(tr => {
-            s += (parseFloat(tr.querySelector('.iQty')?.value) || 0) * (parseFloat(tr.querySelector('.iPrice')?.value) || 0);
-        });
-        const sel = document.getElementById('eTaxRate');
-        let r = sel ? ((sel.value === 'custom' ? (parseFloat(document.getElementById('eTaxCustom')?.value) || 0) : (parseFloat(sel.value) || 0))) : 0;
-        const scRate = parseFloat(document.getElementById('eServiceCharge')?.value) || 0;
-        const discRate = parseFloat(document.getElementById('eDiscount')?.value) || 0;
-        const sc = s * (scRate / 100),
-            disc = s * (discRate / 100);
-        const afterCD = s + sc - disc;
-        const tax = afterCD * (r / 100),
-            tot = afterCD + tax;
-        const fmt = v => 'Rp ' + Math.round(v).toLocaleString('id-ID');
-        document.getElementById('etpSub').textContent = fmt(s);
-        document.getElementById('etpGrand').textContent = fmt(tot);
-        document.getElementById('etpScRow').style.display = scRate > 0 ? '' : 'none';
-        document.getElementById('etpSc').textContent = fmt(sc) + ' (' + scRate + '%)';
-        document.getElementById('etpDiscRow').style.display = discRate > 0 ? '' : 'none';
-        document.getElementById('etpDisc').textContent = '- ' + fmt(disc) + ' (' + discRate + '%)';
-        document.getElementById('etpTaxRow').style.display = r > 0 ? '' : 'none';
-        document.getElementById('etpTax').textContent = fmt(tax) + ' (' + r + '%)';
-    }
-
-    function submitEdit() {
-        const id = document.getElementById('eInvId').value;
-        const guestName = document.getElementById('eGuestName').value.trim();
-        if (!guestName) {
-            alert('Nama tamu wajib diisi');
-            return;
-        }
-        const rows = document.querySelectorAll('#eItemsBody tr');
-        if (!rows.length) {
-            alert('Minimal 1 item layanan');
-            return;
-        }
-        const items = [];
-        for (const tr of rows) {
-            const svc = tr.querySelector('.iSvc').value;
-            const motorId = svc === 'motor_rental' ? parseInt(tr.querySelector('.iAsset').value || '0', 10) : 0;
-            const carId = svc === 'car_rental' ? parseInt(tr.querySelector('.iAsset').value || '0', 10) : 0;
-            const driverCarId = getDriverCarId(tr, svc);
-            const needsDriver = usesDriverPayment(svc) && !!tr.querySelector('.iNeedsDriver')?.checked && driverCarId > 0;
-            const commType = tr.querySelector('.iCommType')?.value || 'percent';
-            const commValue = parseFloat(tr.querySelector('.iCommValue')?.value) || 0;
-            const daysInput = tr.querySelector('.iDays');
-            const days = daysInput ? parseFloat(daysInput.value) || 1 : 1;
-
-            // Generate start and end dates from days
-            const today = new Date();
-            const startDt = today.toISOString().slice(0, 19).replace('T', ' ');
-            const endDate = new Date(today);
-            endDate.setDate(endDate.getDate() + days);
-            const endDt = endDate.toISOString().slice(0, 19).replace('T', ' ');
-
-            if ((svc === 'motor_rental' || svc === 'car_rental') && (!motorId && !carId)) {
-                alert('Item rental motor/mobil wajib pilih armada');
-                return;
-            }
-            items.push({
-                service_type: svc,
-                description: tr.querySelector('.iDesc').value.trim(),
-                qty: parseFloat(tr.querySelector('.iQty').value) || 1,
-                unit_price: parseFloat(tr.querySelector('.iPrice').value) || 0,
-                motor_id: motorId || null,
-                car_id: (svc === 'car_rental' ? carId : driverCarId) || null,
-                needs_driver_payment: needsDriver ? 1 : 0,
-                commission_type: commType,
-                commission_value: commValue,
-                start_dt: (svc === 'motor_rental' || svc === 'car_rental') ? startDt : null,
-                end_dt: (svc === 'motor_rental' || svc === 'car_rental') ? endDt : null,
-                deposit: parseFloat(tr.querySelector('.iDeposit').value) || 0,
-                trip_destination: tr.querySelector('.iDest').value.trim() || null
-            });
-        }
-        const sel = document.getElementById('eTaxRate');
-        const taxR = sel.value === 'custom' ? (parseFloat(document.getElementById('eTaxCustom')?.value) || 0) : (parseFloat(sel.value) || 0);
-        const btn = document.getElementById('editBtn');
-        btn.disabled = true;
-        btn.textContent = 'Menyimpan...';
-        const fd = new FormData();
-        fd.append('action', 'update_invoice');
-        fd.append('id', id);
-        fd.append('guest_name', guestName);
-        fd.append('guest_phone', document.getElementById('ePhone').value.trim());
-        fd.append('room_number', document.getElementById('eRoom').value.trim());
-        fd.append('payment_method', document.getElementById('ePayMethod').value);
-        fd.append('paid_amount', document.getElementById('ePaid').value || 0);
-        fd.append('tax_rate', taxR);
-        fd.append('service_charge_rate', document.getElementById('eServiceCharge').value || 0);
-        fd.append('discount_rate', document.getElementById('eDiscount').value || 0);
-        fd.append('notes', document.getElementById('eNotes').value.trim());
-        fd.append('items', JSON.stringify(items));
-        fetch('hotel-services.php', {
-                method: 'POST',
-                body: fd,
-                credentials: 'include'
-            })
-            .then(r => r.json())
-            .then(res => {
-                if (res.success) {
-                    closeEditModal();
-                    location.reload();
-                } else {
-                    alert('Error: ' + (res.message || 'Unknown'));
-                    btn.disabled = false;
-                    btn.textContent = '💾 Simpan Perubahan';
-                }
-            }).catch(() => {
-                alert('Network error');
-                btn.disabled = false;
-                btn.textContent = '💾 Simpan Perubahan';
-            });
-    }
-
-    // ── SERVICE TYPE MANAGEMENT ──────────────────────────────────────────────────
-    let stRowCnt = 0;
-
-    function addSvcTypeRow() {
-        stRowCnt++;
-        const id = 'new_' + stRowCnt;
-        const tr = document.createElement('tr');
-        tr.id = 'str' + id;
-        tr.innerHTML =
-            `<td><input type="text" class="stIcon" value="🔹" style="width:40px;text-align:center"></td>` +
-            `<td><input type="text" class="stKey" placeholder="e.g. spa_treatment"></td>` +
-            `<td><input type="text" class="stLabel" placeholder="e.g. Spa Treatment"></td>` +
-            `<td><input type="number" class="stSort" value="0" style="width:45px"></td>` +
-            `<td style="display:flex;gap:3px">` +
-            `<button class="btn-cat-save" onclick="saveSvcType('${id}')">💾</button>` +
-            `<button class="btn-cat-del" onclick="document.getElementById('str${id}').remove()">✕</button>` +
-            `</td>`;
-        document.getElementById('svcTypeBody').prepend(tr);
-    }
-
-    function saveSvcType(stId) {
-        const tr = document.getElementById('str' + stId);
-        if (!tr) return;
-        const fd = new FormData();
-        fd.append('action', 'save_service_type');
-        fd.append('st_id', isNaN(stId) ? 0 : stId);
-        fd.append('type_icon', tr.querySelector('.stIcon').value.trim() || '🔹');
-        fd.append('type_key', tr.querySelector('.stKey').value.trim());
-        fd.append('type_label', tr.querySelector('.stLabel').value.trim());
-        fd.append('sort_order', tr.querySelector('.stSort').value || 0);
-        fetch('hotel-services.php', {
-                method: 'POST',
-                body: fd,
-                credentials: 'include'
-            })
-            .then(r => r.json())
-            .then(res => {
-                if (res.success) {
-                    tr.id = 'str' + res.id;
-                    tr.querySelectorAll('button')[0].setAttribute('onclick', 'saveSvcType(' + res.id + ')');
-                    tr.querySelectorAll('button')[1].setAttribute('onclick', 'deleteSvcType(' + res.id + ')');
-                    tr.style.background = '#f0fdf4';
-                    setTimeout(() => tr.style.background = '', 1500);
-                    alert('✅ Tipe layanan tersimpan! Refresh halaman untuk melihat perubahan di dropdown.');
-                } else {
-                    alert('Error: ' + (res.message || 'failed'));
-                }
-            });
-    }
-
-    function deleteSvcType(stId) {
-        if (!confirm('Hapus tipe layanan ini?')) return;
-        const fd = new FormData();
-        fd.append('action', 'delete_service_type');
-        fd.append('st_id', stId);
-        fetch('hotel-services.php', {
-                method: 'POST',
-                body: fd,
-                credentials: 'include'
-            })
-            .then(r => r.json())
-            .then(res => {
-                if (res.success) {
-                    const el = document.getElementById('str' + stId);
-                    if (el) el.remove();
-                } else alert('Error: ' + (res.message || 'Cannot delete'));
-            });
-    }
-    // Expose key functions globally
-    window.openCreateModal  = openCreateModal;
-    window.closeCreateModal = closeCreateModal;
-    window.openEditModal    = openEditModal;
-    window.closeEditModal   = closeEditModal;
-    console.log('[hotel-services] loaded OK, openCreateModal:', typeof openCreateModal);
+    items.push({
+      service_type: svc,
+      description: tr.querySelector('.iDesc').value.trim(),
+      qty: parseFloat(tr.querySelector('.iQty').value) || 1,
+      unit_price: parseFloat(tr.querySelector('.iPrice').value) || 0,
+      motor_id: motorId || null,
+      car_id: (svc === 'car_rental' ? carId : driverCarId) || null,
+      needs_driver_payment: needsDriver ? 1 : 0,
+      commission_type: commType,
+      commission_value: commValue,
+      start_dt: svc === 'motor_rental' || svc === 'car_rental' ? startDt : null,
+      end_dt: svc === 'motor_rental' || svc === 'car_rental' ? endDt : null,
+      deposit: parseFloat(tr.querySelector('.iDeposit').value) || 0,
+      trip_destination: tr.querySelector('.iDest').value.trim() || null
+    })
+  }
+  const sel = document.getElementById('eTaxRate')
+  const taxR =
+    sel.value === 'custom'
+      ? parseFloat(document.getElementById('eTaxCustom')?.value) || 0
+      : parseFloat(sel.value) || 0
+  const btn = document.getElementById('editBtn')
+  btn.disabled = true
+  btn.textContent = 'Menyimpan...'
+  const fd = new FormData()
+  fd.append('action', 'update_invoice')
+  fd.append('id', id)
+  fd.append('guest_name', guestName)
+  fd.append('guest_phone', document.getElementById('ePhone').value.trim())
+  fd.append('room_number', document.getElementById('eRoom').value.trim())
+  fd.append('payment_method', document.getElementById('ePayMethod').value)
+  fd.append('paid_amount', document.getElementById('ePaid').value || 0)
+  fd.append('tax_rate', taxR)
+  fd.append(
+    'service_charge_rate',
+    document.getElementById('eServiceCharge').value || 0
+  )
+  fd.append('discount_rate', document.getElementById('eDiscount').value || 0)
+  fd.append('notes', document.getElementById('eNotes').value.trim())
+  fd.append('items', JSON.stringify(items))
+  fetch('hotel-services.php', {
+    method: 'POST',
+    body: fd,
+    credentials: 'include'
+  })
+    .then(r => r.json())
+    .then(res => {
+      if (res.success) {
+        closeEditModal()
+        location.reload()
+      } else {
+        alert('Error: ' + (res.message || 'Unknown'))
+        btn.disabled = false
+        btn.textContent = '💾 Simpan Perubahan'
+      }
+    })
+    .catch(() => {
+      alert('Network error')
+      btn.disabled = false
+      btn.textContent = '💾 Simpan Perubahan'
+    })
+}
+
+// ── SERVICE TYPE MANAGEMENT ──────────────────────────────────────────────────
+let stRowCnt = 0
+
+function addSvcTypeRow () {
+  stRowCnt++
+  const id = 'new_' + stRowCnt
+  const tr = document.createElement('tr')
+  tr.id = 'str' + id
+  tr.innerHTML =
+    `<td><input type="text" class="stIcon" value="🔹" style="width:40px;text-align:center"></td>` +
+    `<td><input type="text" class="stKey" placeholder="e.g. spa_treatment"></td>` +
+    `<td><input type="text" class="stLabel" placeholder="e.g. Spa Treatment"></td>` +
+    `<td><input type="number" class="stSort" value="0" style="width:45px"></td>` +
+    `<td style="display:flex;gap:3px">` +
+    `<button class="btn-cat-save" onclick="saveSvcType('${id}')">💾</button>` +
+    `<button class="btn-cat-del" onclick="document.getElementById('str${id}').remove()">✕</button>` +
+    `</td>`
+  document.getElementById('svcTypeBody').prepend(tr)
+}
+
+function saveSvcType (stId) {
+  const tr = document.getElementById('str' + stId)
+  if (!tr) return
+  const fd = new FormData()
+  fd.append('action', 'save_service_type')
+  fd.append('st_id', isNaN(stId) ? 0 : stId)
+  fd.append('type_icon', tr.querySelector('.stIcon').value.trim() || '🔹')
+  fd.append('type_key', tr.querySelector('.stKey').value.trim())
+  fd.append('type_label', tr.querySelector('.stLabel').value.trim())
+  fd.append('sort_order', tr.querySelector('.stSort').value || 0)
+  fetch('hotel-services.php', {
+    method: 'POST',
+    body: fd,
+    credentials: 'include'
+  })
+    .then(r => r.json())
+    .then(res => {
+      if (res.success) {
+        tr.id = 'str' + res.id
+        tr.querySelectorAll('button')[0].setAttribute(
+          'onclick',
+          'saveSvcType(' + res.id + ')'
+        )
+        tr.querySelectorAll('button')[1].setAttribute(
+          'onclick',
+          'deleteSvcType(' + res.id + ')'
+        )
+        tr.style.background = '#f0fdf4'
+        setTimeout(() => (tr.style.background = ''), 1500)
+        alert(
+          '✅ Tipe layanan tersimpan! Refresh halaman untuk melihat perubahan di dropdown.'
+        )
+      } else {
+        alert('Error: ' + (res.message || 'failed'))
+      }
+    })
+}
+
+function deleteSvcType (stId) {
+  if (!confirm('Hapus tipe layanan ini?')) return
+  const fd = new FormData()
+  fd.append('action', 'delete_service_type')
+  fd.append('st_id', stId)
+  fetch('hotel-services.php', {
+    method: 'POST',
+    body: fd,
+    credentials: 'include'
+  })
+    .then(r => r.json())
+    .then(res => {
+      if (res.success) {
+        const el = document.getElementById('str' + stId)
+        if (el) el.remove()
+      } else alert('Error: ' + (res.message || 'Cannot delete'))
+    })
+}
+// Expose key functions globally
+window.openCreateModal = openCreateModal
+window.closeCreateModal = closeCreateModal
+window.openEditModal = openEditModal
+window.closeEditModal = closeEditModal
+console.log(
+  '[hotel-services] loaded OK, openCreateModal:',
+  typeof openCreateModal
+)

@@ -19,7 +19,7 @@ if (ob_get_level()) ob_end_clean();
 // Set error handling BEFORE includes
 error_reporting(E_ALL);
 ini_set('display_errors', '0');  // Don't display, we'll catch and return as JSON
-set_error_handler(function($errno, $errstr, $errfile, $errline) {
+set_error_handler(function ($errno, $errstr, $errfile, $errline) {
     throw new ErrorException($errstr, 0, $errno, $errfile, $errline);
 });
 
@@ -31,7 +31,7 @@ try {
     require_once '../config/config.php';
     require_once '../config/database.php';
     require_once '../includes/auth.php';
-    
+
     $auth = new Auth();
     if (!$auth->isLoggedIn()) {
         http_response_code(401);
@@ -138,7 +138,6 @@ try {
         'total' => $total,
         'month' => $month
     ]);
-
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode([

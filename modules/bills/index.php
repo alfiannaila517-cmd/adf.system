@@ -749,7 +749,7 @@ include '../../includes/header.php';
                         <select id="divisionId" name="division_id" onchange="filterBillCategories()">
                             <option value="">-- Pilih Divisi --</option>
                             <?php foreach ($billDivisions as $div): ?>
-                            <option value="<?php echo (int)$div['id']; ?>"><?php echo htmlspecialchars($div['division_name']); ?></option>
+                                <option value="<?php echo (int)$div['id']; ?>"><?php echo htmlspecialchars($div['division_name']); ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
@@ -760,7 +760,7 @@ include '../../includes/header.php';
                     <select id="category" name="category_id">
                         <option value="">-- Pilih Kategori --</option>
                         <?php foreach ($billCategories as $cat): ?>
-                        <option value="<?php echo (int)$cat['id']; ?>" data-division="<?php echo (int)($cat['division_id'] ?? 0); ?>"><?php echo htmlspecialchars($cat['category_name']); ?></option>
+                            <option value="<?php echo (int)$cat['id']; ?>" data-division="<?php echo (int)($cat['division_id'] ?? 0); ?>"><?php echo htmlspecialchars($cat['category_name']); ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -968,7 +968,7 @@ include '../../includes/header.php';
 
             const response = await fetch(url, {
                 method: 'GET',
-                credentials: 'include'  // Include cookies for session
+                credentials: 'include' // Include cookies for session
             });
 
             console.log('[Bills] Response status:', response.status);
@@ -1091,7 +1091,11 @@ include '../../includes/header.php';
             return;
         }
 
-        const typeLabel = { car_rental: 'Rental Mobil', airport_drop: 'Airport Drop', harbor_drop: 'Harbor Drop' };
+        const typeLabel = {
+            car_rental: 'Rental Mobil',
+            airport_drop: 'Airport Drop',
+            harbor_drop: 'Harbor Drop'
+        };
 
         let html = `
             <div class="pay-filter-bar">
@@ -1163,11 +1167,18 @@ include '../../includes/header.php';
         const dr = lastDriverRecap[idx];
         if (!dr) return;
 
-        const typeLabel = { car_rental: 'Rental Mobil', airport_drop: 'Airport Drop', harbor_drop: 'Harbor Drop' };
+        const typeLabel = {
+            car_rental: 'Rental Mobil',
+            airport_drop: 'Airport Drop',
+            harbor_drop: 'Harbor Drop'
+        };
         const monthVal = document.getElementById('filterMonth').value;
-        const monthLabel = monthVal
-            ? new Date(monthVal + '-01').toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })
-            : '';
+        const monthLabel = monthVal ?
+            new Date(monthVal + '-01').toLocaleDateString('id-ID', {
+                month: 'long',
+                year: 'numeric'
+            }) :
+            '';
         const rows = dr.detail_rows || [];
 
         const rowsHtml = rows.map((d, i) => `
@@ -1238,7 +1249,13 @@ include '../../includes/header.php';
     let pendingPayMethod = 'cash';
 
     function payDriverTrip(tripId, sourceType, amount, driverName, source = 'trip') {
-        pendingPayTrip = { tripId, sourceType, amount, driverName, source };
+        pendingPayTrip = {
+            tripId,
+            sourceType,
+            amount,
+            driverName,
+            source
+        };
         pendingPayMethod = 'cash';
 
         document.getElementById('ptDriverName').textContent = driverName;
@@ -1261,7 +1278,12 @@ include '../../includes/header.php';
 
     async function confirmPayDriverTrip() {
         if (!pendingPayTrip) return;
-        const { tripId, sourceType, driverName, source } = pendingPayTrip;
+        const {
+            tripId,
+            sourceType,
+            driverName,
+            source
+        } = pendingPayTrip;
         const cashAccountId = document.getElementById('ptCashAccount').value || '1';
 
         const confirmBtn = document.getElementById('ptConfirmBtn');

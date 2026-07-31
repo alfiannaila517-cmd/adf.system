@@ -862,7 +862,13 @@ include '../../includes/header.php';
     function fmtMotorDt(s) {
         const dt = new Date(String(s).replace(' ', 'T'));
         if (isNaN(dt)) return s;
-        return dt.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) + ' ' + dt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        return dt.toLocaleDateString('id-ID', {
+            day: '2-digit',
+            month: 'short'
+        }) + ' ' + dt.toLocaleTimeString('id-ID', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
     }
 </script>
 

@@ -45,4 +45,3 @@ echo json_encode([
     'time'      => date('Y-m-d H:i:s'),
     'triggered' => $isManual ? 'manual' : 'github-webhook',
 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-

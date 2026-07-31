@@ -59,11 +59,11 @@ try {
     if (!preg_match('/^\d{4}-\d{2}$/', $billMonth)) {
         throw new Exception('Month format harus YYYY-MM');
     }
-    
+
     // Convert month to date format (first day of month)
     $billMonthDate = $billMonth . '-01';
     DateTime::createFromFormat('Y-m-d', $billMonthDate); // validate
-    
+
     // Generate bill code
     $billCode = 'BL-' . str_replace('-', '', $billMonth) . '-' . str_pad(rand(1, 999), 3, '0', STR_PAD_LEFT);
 
@@ -96,7 +96,6 @@ try {
         'bill_code' => $billCode,
         'bill_id' => $db->getConnection()->lastInsertId()
     ]);
-
 } catch (Exception $e) {
     echo json_encode([
         'success' => false,
@@ -104,4 +103,3 @@ try {
     ]);
     exit;
 }
-?>
