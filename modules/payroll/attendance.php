@@ -3041,7 +3041,7 @@
                                                 <button type="button" class="btn btn-sm" style="background:var(--blue);color:#fff;" onclick="changeSchedAllMonth(1)">Bulan Depan ▶</button>
                                             </div>
                                             <div id="schedAllCalGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;"></div>
-                                            <div style="margin-top:10px;font-size:10px;color:var(--muted);">🟢 Jumlah staf yang masuk kerja pada tanggal itu — klik tanggal untuk lihat detail siapa saja yang masuk &amp; libur</div>
+                                            <div style="margin-top:10px;font-size:10px;color:var(--muted);">🟢 Jumlah staf yang masuk kerja &nbsp; 🔴 Jumlah staf libur (hover untuk lihat nama) &nbsp; — klik tanggal untuk lihat detail siapa saja yang masuk &amp; libur</div>
                                         </div>
                                     </div>
                                 </div>
@@ -4103,14 +4103,24 @@
                                 const dow = new Date(schedAllCalYear, schedAllCalMonth, day).getDay();
                                 const dateStr = schedDateStr(schedAllCalYear, schedAllCalMonth, day);
                                 let workingCount = 0;
+                                const offNames = [];
                                 schedAllData.employees.forEach(emp => {
-                                    if (!schedAllComputeDay(emp, dateStr, dow).isOff) workingCount++;
+                                    if (schedAllComputeDay(emp, dateStr, dow).isOff) {
+                                        offNames.push(emp.full_name);
+                                    } else {
+                                        workingCount++;
+                                    }
                                 });
                                 const cell = document.createElement('div');
                                 cell.onclick = () => openAllStaffDayModal(dateStr);
                                 cell.style.cssText = 'border:1px solid var(--border);border-radius:6px;padding:4px;min-height:52px;cursor:pointer;font-size:10px;background:#f8fafc;';
+                                let offHtml = '';
+                                if (offNames.length) {
+                                    const offTitle = offNames.join(', ').replace(/"/g, '&quot;');
+                                    offHtml = '<div style="color:#dc2626;font-weight:600;" title="' + offTitle + '">\uD83D\uDD34 ' + offNames.length + ' libur</div>';
+                                }
                                 cell.innerHTML = '<div style="font-weight:700;font-size:11px;">' + day + '</div>' +
-                                    '<div style="color:#065f46;font-weight:600;">\uD83D\uDFE2 ' + workingCount + ' masuk</div>';
+                                    '<div style="color:#065f46;font-weight:600;">\uD83D\uDFE2 ' + workingCount + ' masuk</div>' + offHtml;
                                 grid.appendChild(cell);
                             }
                         }
