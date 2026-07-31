@@ -568,7 +568,11 @@
             .then(res => {
                 if (res.success) {
                     closePayModal();
-                    alert('Payment saved! ' + (res.cashbook ? '✅ Tercatat di Buku Kas' : '⚠️ Gagal sync ke Buku Kas'));
+                    let msg = 'Payment saved! ' + (res.cashbook ? '✅ Tercatat di Buku Kas' : '⚠️ Gagal sync ke Buku Kas');
+                    if (res.motors_auto_returned && res.motors_auto_returned.length > 0) {
+                        msg += '\n🏍️ ' + res.motors_auto_returned.length + ' motor otomatis ditandai sudah kembali (invoice lunas)';
+                    }
+                    alert(msg);
                     location.reload();
                 } else {
                     alert('Error: ' + (res.message || 'Unknown'));

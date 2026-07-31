@@ -911,9 +911,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $pdo->prepare("UPDATE hotel_invoices SET paid_amount=?, payment_status=?, payment_method=?, updated_at=NOW() WHERE id=? AND business_id=?")
                 ->execute([$newPaid, $payStatus, $method, $id, $businessId]);
 
+            // Auto-return rental motors once the invoice is fully paid, so staff
+            // no longer need to remember clicking "Kembali" manually.
+            $motorsAutoReturned = [];
+            if ($payStatus === 'paid') {
+                $motorRentals = $pdo->prepare("SELECT rb.id, rb.motor_id FROM rental_motor_bookings rb
+                    WHERE rb.invoice_id=? AND rb.business_id=? AND rb.status IN ('active','overdue')");
+                $motorRentals->execute([$id, $businessId]);
+                foreach ($motorRentals->fetchAll(PDO::FETCH_ASSOC) as $mr) {
+                    $pdo->prepare("UPDATE rental_motor_bookings SET status='returned', actual_return=NOW(), updated_at=NOW() WHERE id=?")
+                        ->execute([$mr['id']]);
+                    $pdo->prepare("UPDATE rental_motors SET status='available', updated_at=NOW() WHERE id=?")
+                        ->execute([$mr['motor_id']]);
+                    $motorsAutoReturned[] = (int)$mr['id'];
+                }
+            }
+
             // Cashbook NOT synced here — must use "Process Invoice" in preview
             ob_clean();
-            echo json_encode(['success' => true, 'payment_status' => $payStatus, 'paid_amount' => $newPaid, 'cashbook' => false]);
+            echo json_encode(['success' => true, 'payment_status' => $payStatus, 'paid_amount' => $newPaid, 'cashbook' => false, 'motors_auto_returned' => $motorsAutoReturned]);
             exit;
         }
 
@@ -2857,6 +2873,6 @@ include '../../includes/header.php';
     window.ACTIVE_BIZ_ID = <?php echo (int)$businessId; ?>;
     } catch(e) { console.error('[hs-data] failed:', e); }
 </script>
-<script src="../../assets/js/hotel-services-fn.js?v=20260729"></script>
+<script src="../../assets/js/hotel-services-fn.js?v=20260731"></script>
 
 <?php include '../../includes/footer.php'; ?>
