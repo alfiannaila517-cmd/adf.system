@@ -533,6 +533,18 @@ if ($action === 'hk_tasks') {
     };
 
     try {
+        // Self-heal: generate today's plan if missing, and auto-redistribute rooms
+        // belonging to staff who haven't checked in past the 09:00 cutoff (e.g. staff
+        // on leave/libur) — triggered here too so it stays fresh even if nobody opens
+        // the Frontdesk admin page and the cPanel cron isn't configured.
+        try {
+            require_once __DIR__ . '/../../includes/HkAllocationHelper.php';
+            ensureHkTables($db);
+            hkSyncDailyState($db, $date, null);
+        } catch (Exception $e) {
+            // Non-fatal: fall back to reading whatever is already in the table.
+        }
+
         $tableExists = false;
         try {
             $t = $db->fetchOne("SHOW TABLES LIKE 'frontdesk_hk_assignments'");
@@ -578,7 +590,8 @@ if ($action === 'hk_tasks') {
                     $n = trim((string)($row['staff_name'] ?? ''));
                     if ($n !== '') $availableHkStaff[$n] = true;
                 }
-            } catch (Exception $e) { /* table may not exist yet */ }
+            } catch (Exception $e) { /* table may not exist yet */
+            }
         }
         $availableHkStaff = array_keys($availableHkStaff);
         sort($availableHkStaff, SORT_NATURAL | SORT_FLAG_CASE);

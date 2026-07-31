@@ -318,6 +318,17 @@ if (!function_exists('syncHkStaffFromPayroll')) {
 }
 
 if (!function_exists('getAttendanceEligibleHkStaff')) {
+    /**
+     * Determine which HK staff should actually receive rooms today.
+     *
+     * Two independent exclusion rules are applied:
+     *   1. Approved leave/day-off ("libur/cuti") covering $workDate - applies
+     *      IMMEDIATELY regardless of time of day, since a scheduled day off
+     *      is known in advance and isn't the same as "hasn't checked in yet".
+     *   2. Attendance cutoff - once $cutoffTime has passed today, anyone who
+     *      hasn't checked in (and isn't already excluded by rule 1) is also
+     *      treated as absent, so their rooms can be redistributed.
+     */
     function getAttendanceEligibleHkStaff($db, $staffNames, $workDate, $cutoffTime = '09:00:00')
     {
         $result = [
@@ -332,14 +343,6 @@ if (!function_exists('getAttendanceEligibleHkStaff')) {
             return $result;
         }
 
-        $today = date('Y-m-d');
-        $nowTime = date('H:i:s');
-        if (!($workDate === $today && $nowTime >= $cutoffTime)) {
-            return $result;
-        }
-
-        $result['enforced'] = true;
-
         $normalizeName = function ($name) {
             $s = trim((string)$name);
             $s = preg_replace('/\s+/', ' ', $s);
@@ -351,6 +354,57 @@ if (!function_exists('getAttendanceEligibleHkStaff')) {
             $wantedByNorm[$normalizeName($sn)] = $sn;
         }
 
+        // Rule 1: approved leave/day-off covering $workDate - known in advance,
+        // so exclude immediately (no need to wait for the attendance cutoff).
+        $onLeaveNorm = [];
+        try {
+            $leaveRows = $db->fetchAll(
+                "SELECT pe.full_name
+                 FROM leave_requests lr
+                 JOIN payroll_employees pe ON pe.id = lr.employee_id
+                 WHERE lr.status = 'approved' AND ? BETWEEN lr.start_date AND lr.end_date",
+                [$workDate]
+            ) ?: [];
+            foreach ($leaveRows as $lr) {
+                $norm = $normalizeName($lr['full_name'] ?? '');
+                if (isset($wantedByNorm[$norm])) {
+                    $onLeaveNorm[$norm] = true;
+                }
+            }
+        } catch (Exception $e) {
+            // leave_requests table may not exist yet in this business's DB - ignore.
+            $onLeaveNorm = [];
+        }
+
+        $today = date('Y-m-d');
+        $nowTime = date('H:i:s');
+        $cutoffPassed = ($workDate === $today && $nowTime >= $cutoffTime);
+
+        if (!$cutoffPassed && empty($onLeaveNorm)) {
+            return $result;
+        }
+
+        $result['enforced'] = true;
+
+        if (!$cutoffPassed) {
+            // Before cutoff: only exclude staff on approved leave. Everyone
+            // else's attendance isn't known/fair to judge yet.
+            $eligible = [];
+            $absent = [];
+            foreach ($staffNames as $name) {
+                if (isset($onLeaveNorm[$normalizeName($name)])) {
+                    $absent[] = $name;
+                } else {
+                    $eligible[] = $name;
+                }
+            }
+            $result['eligible_staff'] = $eligible;
+            $result['absent_staff'] = $absent;
+            $result['reason'] = 'Libur/cuti disetujui';
+            return $result;
+        }
+
+        // Past cutoff: also check attendance, on top of the leave exclusions above.
         try {
             $rows = $db->fetchAll(
                 "SELECT e.full_name, a.check_in_time
@@ -362,9 +416,25 @@ if (!function_exists('getAttendanceEligibleHkStaff')) {
                 [$workDate]
             ) ?: [];
         } catch (Exception $e) {
-            // Fail-safe: jika tabel absensi belum tersedia, jangan blokir operasional pembagian.
-            $result['enforced'] = false;
-            $result['reason'] = 'Data absensi belum tersedia';
+            // Fail-safe: jika tabel absensi belum tersedia, tetap terapkan
+            // pengecualian libur/cuti (jika ada), tapi jangan blokir sisanya.
+            if (empty($onLeaveNorm)) {
+                $result['enforced'] = false;
+                $result['reason'] = 'Data absensi belum tersedia';
+                return $result;
+            }
+            $eligible = [];
+            $absent = [];
+            foreach ($staffNames as $name) {
+                if (isset($onLeaveNorm[$normalizeName($name)])) {
+                    $absent[] = $name;
+                } else {
+                    $eligible[] = $name;
+                }
+            }
+            $result['eligible_staff'] = $eligible;
+            $result['absent_staff'] = $absent;
+            $result['reason'] = 'Libur/cuti disetujui (data absensi belum tersedia)';
             return $result;
         }
 
@@ -388,6 +458,10 @@ if (!function_exists('getAttendanceEligibleHkStaff')) {
         $absent = [];
         foreach ($staffNames as $name) {
             $normName = $normalizeName($name);
+            if (isset($onLeaveNorm[$normName])) {
+                $absent[] = $name;
+                continue;
+            }
             $checkIn = $checkInByName[$normName] ?? null;
             $time = $checkIn ? date('H:i:s', strtotime((string)$checkIn)) : null;
             if ($time !== null && $time <= $cutoffTime) {
@@ -399,7 +473,7 @@ if (!function_exists('getAttendanceEligibleHkStaff')) {
 
         $result['eligible_staff'] = $eligible;
         $result['absent_staff'] = $absent;
-        $result['reason'] = 'Cutoff absensi ' . $cutoffTime;
+        $result['reason'] = 'Cutoff absensi ' . $cutoffTime . (!empty($onLeaveNorm) ? ' + libur/cuti disetujui' : '');
         return $result;
     }
 }
