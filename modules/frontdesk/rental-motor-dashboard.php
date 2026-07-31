@@ -80,6 +80,18 @@ $available = $pdo->prepare("SELECT * FROM rental_motors
 $available->execute([$businessId]);
 $availableList = $available->fetchAll(PDO::FETCH_ASSOC);
 
+// All motors + current renter info (for the color-coded container grid)
+$allMotorsStmt = $pdo->prepare("SELECT
+        rm.id AS motor_id, rm.plate_number, rm.motor_name, rm.color AS motor_color, rm.daily_rate, rm.status AS motor_status,
+        rb.id AS booking_id, rb.guest_name, rb.room_number, rb.start_datetime, rb.end_datetime,
+        rb.total_price, rb.status AS booking_status
+    FROM rental_motors rm
+    LEFT JOIN rental_motor_bookings rb ON rb.motor_id = rm.id AND rb.status IN ('active','overdue')
+    WHERE rm.business_id=?
+    ORDER BY rm.motor_name ASC");
+$allMotorsStmt->execute([$businessId]);
+$allMotorsList = $allMotorsStmt->fetchAll(PDO::FETCH_ASSOC);
+
 // Recent Returned Motors
 $recent = $pdo->prepare("SELECT rb.*, rm.plate_number, rm.motor_name
     FROM rental_motor_bookings rb
@@ -331,6 +343,166 @@ include '../../includes/header.php';
         margin-top: 0.5rem;
     }
 
+    .motor-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
+        gap: 0.6rem;
+    }
+
+    .motor-box {
+        border-radius: 10px;
+        padding: 0.75rem 0.6rem;
+        text-align: center;
+        cursor: pointer;
+        border: 1px solid transparent;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .motor-box:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    }
+
+    .motor-box .mb-icon {
+        font-size: 1.6rem;
+        margin-bottom: 0.3rem;
+    }
+
+    .motor-box .mb-plate {
+        font-family: 'Courier New', monospace;
+        font-weight: 800;
+        font-size: 0.8rem;
+    }
+
+    .motor-box .mb-name {
+        font-size: 0.7rem;
+        font-weight: 600;
+        margin-top: 0.15rem;
+        opacity: 0.9;
+    }
+
+    .motor-box .mb-guest {
+        font-size: 0.68rem;
+        font-weight: 700;
+        margin-top: 0.4rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .motor-box .mb-badge {
+        display: inline-block;
+        margin-top: 0.3rem;
+        font-size: 0.6rem;
+        font-weight: 800;
+        background: rgba(255, 255, 255, 0.7);
+        padding: 0.1rem 0.4rem;
+        border-radius: 20px;
+    }
+
+    .motor-box.available {
+        background: linear-gradient(135deg, #dcfce7, #d1fae5);
+        border-color: #10b981;
+        color: #047857;
+    }
+
+    .motor-box.rented {
+        background: linear-gradient(135deg, #fee2e2, #fecaca);
+        border-color: #ef4444;
+        color: #b91c1c;
+    }
+
+    .motor-box.rented.overdue {
+        animation: motorPulse 1.6s ease-in-out infinite;
+    }
+
+    @keyframes motorPulse {
+
+        0%,
+        100% {
+            box-shadow: 0 0 0 rgba(239, 68, 68, 0.35);
+        }
+
+        50% {
+            box-shadow: 0 0 0 6px rgba(239, 68, 68, 0.12);
+        }
+    }
+
+    .motor-box.maintenance {
+        background: linear-gradient(135deg, #fef3c7, #fde68a);
+        border-color: #f59e0b;
+        color: #92400e;
+    }
+
+    .md-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.55);
+        z-index: 999;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+
+    .md-overlay.open {
+        display: flex;
+    }
+
+    .md-box {
+        background: white;
+        border-radius: 14px;
+        max-width: 380px;
+        width: 100%;
+        padding: 1.1rem 1.2rem 1.3rem;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+    }
+
+    .md-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.7rem;
+    }
+
+    .md-header h3 {
+        margin: 0;
+        font-size: 1rem;
+    }
+
+    .md-header button {
+        border: none;
+        background: #f1f5f9;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 0.9rem;
+    }
+
+    .md-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.82rem;
+        padding: 0.4rem 0;
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    .md-row span:first-child {
+        color: var(--text-secondary);
+    }
+
+    .md-row span:last-child {
+        font-weight: 700;
+        color: var(--text-primary);
+        text-align: right;
+    }
+
+    .md-footer {
+        margin-top: 0.8rem;
+        text-align: center;
+    }
+
     .dashboard-content {
         display: grid;
         grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
@@ -543,95 +715,48 @@ include '../../includes/header.php';
                 <div class="hint"><?php echo count($rentedList); ?> unit aktif</div>
             </div>
 
-            <?php if (!empty($rentedList)): ?>
-                <div class="rented-grid" style="margin-bottom:0;">
-                    <?php foreach ($rentedList as $r):
-                        $now = new DateTime();
-                        $endDt = new DateTime($r['end_datetime']);
-                        $diff = $now->diff($endDt);
-                        $isOverdue = $r['status'] === 'overdue';
+            <?php if (!empty($allMotorsList)): ?>
+                <div class="motor-grid">
+                    <?php foreach ($allMotorsList as $m):
+                        $state = $m['motor_status'];
+                        $isRented = $state === 'rented' && $m['booking_id'];
+                        $isOverdue = $isRented && $m['booking_status'] === 'overdue';
+                        $boxClass = $isRented ? 'rented' . ($isOverdue ? ' overdue' : '') : $state;
+                        $detail = [
+                            'plate' => $m['plate_number'],
+                            'name' => $m['motor_name'],
+                            'color' => $m['motor_color'],
+                            'rate' => (float)$m['daily_rate'],
+                            'status' => $state,
+                            'booking_status' => $m['booking_status'],
+                            'guest' => $m['guest_name'],
+                            'room' => $m['room_number'],
+                            'start' => $m['start_datetime'],
+                            'end' => $m['end_datetime'],
+                            'total' => (float)$m['total_price'],
+                        ];
                     ?>
-                        <div class="rental-card <?php echo $r['status']; ?>">
-                            <div class="rc-header">
-                                <div class="rc-plate"><?php echo htmlspecialchars($r['plate_number']); ?></div>
-                                <span class="rc-status <?php echo $r['status']; ?>">
-                                    <?php echo $isOverdue ? '⚠ OVERDUE' : '✓ AKTIF'; ?>
-                                </span>
-                            </div>
-
-                            <div class="rc-info">
-                                <div style="font-size:0.84rem;font-weight:700;color:var(--text-primary);margin-bottom:0.35rem">
-                                    <?php echo htmlspecialchars($r['motor_name']); ?>
-                                </div>
-                                <div style="font-size:0.75rem;color:var(--text-secondary)">
-                                    <?php if ($r['color']): ?>Warna: <?php echo htmlspecialchars($r['color']); ?><br /><?php endif; ?>
-                                </div>
-                            </div>
-
-                            <div style="border-top:1px solid rgba(0,0,0,0.08);padding-top:0.55rem;margin-top:0.55rem">
-                                <div class="rc-info-row">
-                                    <span class="rc-info-label">👤 Tamu</span>
-                                    <span class="rc-info-value"><?php echo htmlspecialchars(substr($r['guest_name'], 0, 20)); ?></span>
-                                </div>
-                                <?php if ($r['room_number']): ?>
-                                    <div class="rc-info-row">
-                                        <span class="rc-info-label">🚪 Kamar</span>
-                                        <span class="rc-info-value">#<?php echo htmlspecialchars($r['room_number']); ?></span>
-                                    </div>
-                                <?php endif; ?>
-                            </div>
-
-                            <div class="rc-timeline">
-                                <div class="rc-time">🚪 Mulai: <strong><?php echo date('d M H:i', strtotime($r['start_datetime'])); ?></strong></div>
-                                <div class="rc-time">🔑 Kembali: <strong><?php echo date('d M H:i', strtotime($r['end_datetime'])); ?></strong></div>
-                                <div style="margin-top:0.4rem;padding-top:0.4rem;border-top:1px solid rgba(0,0,0,0.08)">
-                                    <div style="font-weight:700;color:<?php echo $isOverdue ? '#ef4444' : '#10b981'; ?>">
-                                        <?php
-                                        if ($isOverdue) {
-                                            echo '⏰ Terlambat: ' . $diff->days . 'h ' . $diff->h . 'j';
-                                        } else {
-                                            echo '⏳ Sisa: ' . $diff->days . 'h ' . $diff->h . 'j ' . $diff->i . 'm';
-                                        }
-                                        ?>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="rc-price">
-                                <div class="amount">
-                                    <?php
-                                    if ((float)$r['total_price'] == 0) {
-                                        $startDt = new DateTime($r['start_datetime']);
-                                        $endDt = new DateTime($r['end_datetime']);
-                                        $estDays = max(1, (int)ceil($startDt->diff($endDt)->days));
-                                        $estPrice = max(100000, round($estDays * (float)$r['daily_rate'], 2));
-                                        echo '~Rp ' . number_format($estPrice, 0, ',', '.');
-                                    } else {
-                                        echo 'Rp ' . number_format($r['total_price'], 0, ',', '.');
-                                    }
-                                    ?>
-                                </div>
-                                <div class="note">
-                                    <?php if ((float)$r['total_price'] == 0): ?>
-                                        estimasi (hitung saat kembali)
-                                    <?php else: ?>
-                                        final
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-
-                            <div style="margin-top:0.6rem">
-                                <a href="rental-motor.php?view=manage" class="action-link" style="display:block;text-align:center;padding:0.35rem">
-                                    → Kelola
-                                </a>
-                            </div>
+                        <div class="motor-box <?php echo $boxClass; ?>"
+                            onclick="showMotorDetail(this)"
+                            data-motor='<?php echo htmlspecialchars(json_encode($detail), ENT_QUOTES); ?>'>
+                            <div class="mb-icon">🏍️</div>
+                            <div class="mb-plate"><?php echo htmlspecialchars($m['plate_number']); ?></div>
+                            <div class="mb-name"><?php echo htmlspecialchars($m['motor_name']); ?></div>
+                            <?php if ($isRented): ?>
+                                <div class="mb-guest"><?php echo htmlspecialchars(mb_strimwidth((string)$m['guest_name'], 0, 16, '…')); ?></div>
+                                <?php if ($isOverdue): ?><div class="mb-badge">⚠ Overdue</div><?php endif; ?>
+                            <?php elseif ($state === 'maintenance'): ?>
+                                <div class="mb-guest">🔧 Maintenance</div>
+                            <?php else: ?>
+                                <div class="mb-guest">Tersedia</div>
+                            <?php endif; ?>
                         </div>
                     <?php endforeach; ?>
                 </div>
             <?php else: ?>
                 <div class="empty-state" style="padding:1.25rem 0 0.5rem">
-                    <div class="icon">😊</div>
-                    <div class="text">Tidak ada rental aktif saat ini</div>
+                    <div class="icon">🏍️</div>
+                    <div class="text">Belum ada motor terdaftar</div>
                 </div>
             <?php endif; ?>
         </div>
@@ -695,5 +820,58 @@ include '../../includes/header.php';
     </div>
 
 </div>
+
+<!-- Motor Detail Modal -->
+<div id="motorDetailModal" class="md-overlay" onclick="if(event.target===this) closeMotorDetail()">
+    <div class="md-box">
+        <div class="md-header">
+            <h3 id="mdTitle">🏍️ Detail Motor</h3>
+            <button type="button" onclick="closeMotorDetail()">✕</button>
+        </div>
+        <div id="mdBody"></div>
+        <div class="md-footer">
+            <a href="rental-motor.php?view=manage" class="action-link">→ Kelola di Rental Motor</a>
+        </div>
+    </div>
+</div>
+
+<script>
+    function showMotorDetail(el) {
+        const d = JSON.parse(el.dataset.motor);
+        document.getElementById('mdTitle').textContent = '🏍️ ' + d.plate;
+
+        let html = '';
+        html += `<div class="md-row"><span>Motor</span><span>${d.name}</span></div>`;
+        if (d.color) html += `<div class="md-row"><span>Warna</span><span>${d.color}</span></div>`;
+        html += `<div class="md-row"><span>Tarif</span><span>Rp ${Math.round(d.rate).toLocaleString('id-ID')}/hari</span></div>`;
+
+        if (d.status === 'rented' && d.guest) {
+            const isOverdue = d.booking_status === 'overdue';
+            html += `<div class="md-row"><span>Status</span><span style="color:${isOverdue ? '#ef4444' : '#10b981'}">${isOverdue ? '⚠ Overdue' : '✓ Aktif'}</span></div>`;
+            html += `<div class="md-row"><span>Tamu</span><span>${d.guest}</span></div>`;
+            if (d.room) html += `<div class="md-row"><span>Kamar</span><span>#${d.room}</span></div>`;
+            if (d.start) html += `<div class="md-row"><span>Mulai</span><span>${fmtMotorDt(d.start)}</span></div>`;
+            if (d.end) html += `<div class="md-row"><span>Kembali</span><span>${fmtMotorDt(d.end)}</span></div>`;
+            html += `<div class="md-row"><span>Total</span><span>Rp ${Math.round(d.total).toLocaleString('id-ID')}</span></div>`;
+        } else if (d.status === 'maintenance') {
+            html += `<div class="md-row"><span>Status</span><span style="color:#f59e0b">🔧 Maintenance</span></div>`;
+        } else {
+            html += `<div class="md-row"><span>Status</span><span style="color:#10b981">✓ Siap Disewa</span></div>`;
+        }
+
+        document.getElementById('mdBody').innerHTML = html;
+        document.getElementById('motorDetailModal').classList.add('open');
+    }
+
+    function closeMotorDetail() {
+        document.getElementById('motorDetailModal').classList.remove('open');
+    }
+
+    function fmtMotorDt(s) {
+        const dt = new Date(String(s).replace(' ', 'T'));
+        if (isNaN(dt)) return s;
+        return dt.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) + ' ' + dt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    }
+</script>
 
 <?php include '../../includes/footer.php'; ?>
