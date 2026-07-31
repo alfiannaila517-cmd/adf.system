@@ -505,7 +505,7 @@ include '../../includes/header.php';
 
     .dashboard-content {
         display: grid;
-        grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+        grid-template-columns: 1fr;
         gap: 0.9rem;
         align-items: start;
         margin-bottom: 0.9rem;
@@ -761,59 +761,51 @@ include '../../includes/header.php';
             <?php endif; ?>
         </div>
 
-        <div class="panel-stack">
-            <div class="dashboard-panel">
-                <div class="panel-head">
-                    <h2>Motor Siap Disewa</h2>
-                    <div class="hint"><?php echo count($availableList); ?> unit ready</div>
-                </div>
-
-                <?php if (!empty($availableList)): ?>
-                    <div class="available-grid">
-                        <?php foreach ($availableList as $m): ?>
-                            <div class="motor-available">
-                                <div class="icon">🏍️</div>
-                                <div class="name"><?php echo htmlspecialchars($m['motor_name']); ?></div>
-                                <div class="plate"><?php echo htmlspecialchars($m['plate_number']); ?></div>
-                                <div class="rate">Rp <?php echo number_format($m['daily_rate'], 0, ',', '.'); ?>/hari</div>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                <?php else: ?>
-                    <div class="empty-state" style="padding:1rem 0 0.25rem">
-                        <div class="icon">🅿️</div>
-                        <div class="text">Semua unit sedang digunakan atau maintenance</div>
-                    </div>
-                <?php endif; ?>
+        <div class="dashboard-panel">
+            <div class="panel-head">
+                <h2>📊 Rekapan Sewa</h2>
+                <div class="hint">10 transaksi terbaru</div>
             </div>
 
             <?php if (!empty($recentReturns)): ?>
-                <div class="dashboard-panel">
-                    <div class="panel-head">
-                        <h2>Transaksi Terakhir</h2>
-                        <div class="hint">10 data terbaru</div>
-                    </div>
-                    <table class="recent-table" style="box-shadow:none;border-radius:10px;overflow:hidden">
+                <div style="overflow-x:auto">
+                    <table class="recent-table" style="box-shadow:none;border-radius:10px">
                         <thead>
                             <tr>
-                                <th style="padding:0.7rem">Motor</th>
-                                <th style="padding:0.7rem">Total</th>
-                                <th style="padding:0.7rem">Status</th>
+                                <th style="padding:0.6rem 0.7rem">Motor</th>
+                                <th style="padding:0.6rem 0.7rem">Tamu</th>
+                                <th style="padding:0.6rem 0.7rem">Kembali</th>
+                                <th style="padding:0.6rem 0.7rem">Total</th>
+                                <th style="padding:0.6rem 0.7rem">Status</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php foreach ($recentReturns as $ret): ?>
                                 <tr>
-                                    <td style="padding:0.7rem">
+                                    <td style="padding:0.6rem 0.7rem">
                                         <strong><?php echo htmlspecialchars($ret['plate_number']); ?></strong>
-                                        <div style="font-size:0.75rem;color:var(--text-secondary)"><?php echo htmlspecialchars($ret['motor_name']); ?></div>
+                                        <div style="font-size:0.72rem;color:var(--text-secondary)"><?php echo htmlspecialchars($ret['motor_name']); ?></div>
                                     </td>
-                                    <td style="padding:0.7rem;font-weight:600">Rp <?php echo number_format($ret['total_price'], 0, ',', '.'); ?></td>
-                                    <td style="padding:0.7rem"><span class="badge badge-success">Kembali</span></td>
+                                    <td style="padding:0.6rem 0.7rem">
+                                        <?php echo htmlspecialchars($ret['guest_name'] ?: '-'); ?>
+                                        <?php if ($ret['room_number']): ?>
+                                            <div style="font-size:0.72rem;color:var(--text-secondary)">Kamar #<?php echo htmlspecialchars($ret['room_number']); ?></div>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td style="padding:0.6rem 0.7rem;font-size:0.8rem;color:var(--text-secondary)">
+                                        <?php echo $ret['actual_return'] ? date('d M H:i', strtotime($ret['actual_return'])) : '-'; ?>
+                                    </td>
+                                    <td style="padding:0.6rem 0.7rem;font-weight:700">Rp <?php echo number_format($ret['total_price'], 0, ',', '.'); ?></td>
+                                    <td style="padding:0.6rem 0.7rem"><span class="badge badge-success">Kembali</span></td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
                     </table>
+                </div>
+            <?php else: ?>
+                <div class="empty-state" style="padding:1.25rem 0 0.5rem">
+                    <div class="icon">📊</div>
+                    <div class="text">Belum ada transaksi sewa</div>
                 </div>
             <?php endif; ?>
         </div>
