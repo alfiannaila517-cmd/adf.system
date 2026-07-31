@@ -3600,7 +3600,10 @@ header('Expires: 0');
             });
             const target = document.getElementById(id);
             if (target) {
-                setTimeout(() => target.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+                setTimeout(() => target.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                }), 50);
             }
         }
 
@@ -3639,9 +3642,9 @@ header('Expires: 0');
                 allBtn.style.color = mode === 'all' ? '#fff' : 'var(--navy)';
             }
             if (cardTitle) cardTitle.textContent = mode === 'mine' ? '📅 Jadwal Kerja Saya' : '📅 Jadwal Kerja Tim (Semua Staff)';
-            if (legend) legend.innerHTML = mode === 'mine'
-                ? '🟢 Masuk &nbsp; 🔴 Libur &nbsp; — geser kiri/kanan untuk minggu lain, tap tanggal untuk detail jam kerja'
-                : '🟢 Masuk &nbsp; 🔴 Libur &nbsp; — geser kiri/kanan untuk minggu lain, tap tanggal untuk detail';
+            if (legend) legend.innerHTML = mode === 'mine' ?
+                '🟢 Masuk &nbsp; 🔴 Libur &nbsp; — geser kiri/kanan untuk minggu lain, tap tanggal untuk detail jam kerja' :
+                '🟢 Masuk &nbsp; 🔴 Libur &nbsp; — geser kiri/kanan untuk minggu lain, tap tanggal untuk detail';
             renderTeamSchedCalendar();
         }
 
@@ -3672,7 +3675,12 @@ header('Expires: 0');
                     uniform: w.uniform || null
                 };
             }
-            return { isOff: dow === 0, start: '09:00', end: '17:00', uniform: null };
+            return {
+                isOff: dow === 0,
+                start: '09:00',
+                end: '17:00',
+                uniform: null
+            };
         }
 
         function loadTeamSchedule() {
@@ -3691,12 +3699,20 @@ header('Expires: 0');
                         if (!overridesByEmp[eid]) overridesByEmp[eid] = {};
                         overridesByEmp[eid][row.override_date] = row;
                     });
-                    teamSchedData = { employees: data.employees || [], weeklyByEmp, overridesByEmp };
+                    teamSchedData = {
+                        employees: data.employees || [],
+                        weeklyByEmp,
+                        overridesByEmp
+                    };
                     renderTeamSchedCalendar();
                     renderUniformCalendar();
                 })
                 .catch(() => {
-                    teamSchedData = { employees: [], weeklyByEmp: {}, overridesByEmp: {} };
+                    teamSchedData = {
+                        employees: [],
+                        weeklyByEmp: {},
+                        overridesByEmp: {}
+                    };
                     renderTeamSchedCalendar();
                     renderUniformCalendar();
                 });
@@ -3774,7 +3790,11 @@ header('Expires: 0');
             const parts = dateStr.split('-').map(Number);
             const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
             const dow = dateObj.getDay();
-            const dateLabel = dateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+            const dateLabel = dateObj.toLocaleDateString('id-ID', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+            });
             const myEmp = teamSchedGetMyEmp();
             let html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">' +
                 '<div style="font-weight:700;font-size:13px;color:var(--navy);">\uD83D\uDC54 ' + dateLabel + '</div>' +
@@ -3860,9 +3880,9 @@ header('Expires: 0');
                                 '<div style="color:var(--muted);font-size:9px;">-</div>';
                         } else {
                             const info = teamSchedComputeDay(myEmp, dateStr, dow);
-                            const statusHtml = info.isOff
-                                ? '<div style="color:#dc2626;font-weight:700;font-size:10px;">\uD83D\uDD34 Libur</div>'
-                                : '<div style="color:#065f46;font-weight:700;font-size:9px;line-height:1.2;text-align:center;">\uD83D\uDFE2 ' + info.start + '<br>' + info.end + '</div>';
+                            const statusHtml = info.isOff ?
+                                '<div style="color:#dc2626;font-weight:700;font-size:10px;">\uD83D\uDD34 Libur</div>' :
+                                '<div style="color:#065f46;font-weight:700;font-size:9px;line-height:1.2;text-align:center;">\uD83D\uDFE2 ' + info.start + '<br>' + info.end + '</div>';
                             cell.innerHTML = '<div style="font-weight:800;font-size:19px;color:var(--navy);line-height:1;">' + day + '</div>' + statusHtml;
                         }
                     } else {
@@ -3932,18 +3952,23 @@ header('Expires: 0');
         (function initTeamSchedSwipe() {
             const grid = document.getElementById('teamSchedCalGrid');
             if (!grid) return;
-            let sx = 0, sy = 0;
+            let sx = 0,
+                sy = 0;
             grid.addEventListener('touchstart', e => {
                 sx = e.changedTouches[0].screenX;
                 sy = e.changedTouches[0].screenY;
-            }, { passive: true });
+            }, {
+                passive: true
+            });
             grid.addEventListener('touchend', e => {
                 const dx = e.changedTouches[0].screenX - sx;
                 const dy = e.changedTouches[0].screenY - sy;
                 if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) {
                     changeTeamSchedWeekPage(dx < 0 ? 1 : -1);
                 }
-            }, { passive: true });
+            }, {
+                passive: true
+            });
         })();
 
         function openTeamSchedDayPopup(dateStr) {
@@ -3951,7 +3976,11 @@ header('Expires: 0');
             const parts = dateStr.split('-').map(Number);
             const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
             const dow = dateObj.getDay();
-            const dateLabel = dateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+            const dateLabel = dateObj.toLocaleDateString('id-ID', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+            });
 
             if (teamSchedViewMode === 'mine') {
                 const myEmp = teamSchedGetMyEmp();
@@ -3962,9 +3991,9 @@ header('Expires: 0');
                     mineHtml += '<div style="color:var(--muted);font-size:12px;">Data jadwal Anda tidak ditemukan.</div>';
                 } else {
                     const info = teamSchedComputeDay(myEmp, dateStr, dow);
-                    mineHtml += info.isOff
-                        ? '<div style="text-align:center;padding:16px 0;"><div style="font-size:32px;">\uD83D\uDD34</div><div style="font-weight:700;color:var(--red);font-size:14px;margin-top:6px;">Anda Libur</div></div>'
-                        : '<div style="text-align:center;padding:16px 0;"><div style="font-size:32px;">\uD83D\uDFE2</div><div style="font-weight:700;color:var(--green);font-size:14px;margin-top:6px;">Anda Masuk Kerja</div>' +
+                    mineHtml += info.isOff ?
+                        '<div style="text-align:center;padding:16px 0;"><div style="font-size:32px;">\uD83D\uDD34</div><div style="font-weight:700;color:var(--red);font-size:14px;margin-top:6px;">Anda Libur</div></div>' :
+                        '<div style="text-align:center;padding:16px 0;"><div style="font-size:32px;">\uD83D\uDFE2</div><div style="font-weight:700;color:var(--green);font-size:14px;margin-top:6px;">Anda Masuk Kerja</div>' +
                         '<div style="color:var(--muted);font-size:12px;margin-top:4px;">' + info.start + ' - ' + info.end + '</div></div>';
                 }
                 document.getElementById('teamSchedPopup').innerHTML = mineHtml;
@@ -3978,10 +4007,17 @@ header('Expires: 0');
             teamSchedData.employees.forEach(emp => {
                 const info = teamSchedComputeDay(emp, dateStr, dow);
                 if (info.isOff) off.push(emp);
-                else working.push({ emp, info });
+                else working.push({
+                    emp,
+                    info
+                });
             });
             let html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">' +
-                '<div style="font-weight:700;font-size:13px;color:var(--navy);">\uD83D\uDDD3\uFE0F ' + dateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) + '</div>' +
+                '<div style="font-weight:700;font-size:13px;color:var(--navy);">\uD83D\uDDD3\uFE0F ' + dateObj.toLocaleDateString('id-ID', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric'
+                }) + '</div>' +
                 '<button onclick="closeTeamSchedPopup()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted);">\u2715</button></div>';
             html += '<div style="font-weight:700;color:var(--green);margin-bottom:6px;font-size:12px;">\uD83D\uDFE2 Masuk Kerja (' + working.length + ')</div>';
             if (working.length) {
