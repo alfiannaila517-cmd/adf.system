@@ -11,6 +11,7 @@ require_once '../../config/config.php';
 require_once '../../config/database.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
+require_once '../../includes/HkAllocationHelper.php';
 
 $auth = new Auth();
 $auth->requireLogin();
@@ -26,35 +27,6 @@ if (!$auth->hasPermission('frontdesk')) {
 $pageTitle = 'Pembagian HK Room';
 $message = '';
 $error = '';
-
-function ensureHkTables($db)
-{
-    $db->query("CREATE TABLE IF NOT EXISTS frontdesk_hk_staff (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        staff_name VARCHAR(100) NOT NULL,
-        is_active TINYINT(1) NOT NULL DEFAULT 1,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        UNIQUE KEY uk_staff_name (staff_name)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
-    $db->query("CREATE TABLE IF NOT EXISTS frontdesk_hk_assignments (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        assignment_date DATE NOT NULL,
-        room_id INT NOT NULL,
-        room_number VARCHAR(30) NOT NULL,
-        task_code ENUM('B2B','OD','VD','VC') NOT NULL,
-        priority_order TINYINT NOT NULL,
-        assigned_staff VARCHAR(100) NOT NULL,
-        is_manual TINYINT(1) NOT NULL DEFAULT 0,
-        created_by INT DEFAULT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        UNIQUE KEY uk_daily_room_task (assignment_date, room_id, task_code),
-        KEY idx_daily (assignment_date),
-        KEY idx_staff (assigned_staff)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-}
 
 function parseStaffNames($raw)
 {
@@ -72,356 +44,10 @@ function parseStaffNames($raw)
     return array_keys($names);
 }
 
-function buildHkTasks($db, $workDate)
-{
-    $prevDate = date('Y-m-d', strtotime($workDate . ' -1 day'));
-
-    $rows = $db->fetchAll("SELECT
-            r.id,
-            r.room_number,
-            r.status,
-            COALESCE(rt.type_name, 'Standard') as room_type,
-            (
-                                SELECT g1.guest_name
-                                FROM bookings b1
-                                LEFT JOIN guests g1 ON b1.guest_id = g1.id
-                                WHERE b1.room_id = r.id
-                                    AND b1.status = 'checked_in'
-                                ORDER BY b1.id DESC
-                LIMIT 1
-                        ) as inhouse_guest,
-                        (
-                                SELECT DATE(b1.check_in_date)
-                                FROM bookings b1
-                                WHERE b1.room_id = r.id
-                                    AND b1.status = 'checked_in'
-                                ORDER BY b1.id DESC
-                                LIMIT 1
-                        ) as checked_in_date,
-                        (
-                                SELECT g2.guest_name
-                                FROM bookings b2
-                                LEFT JOIN guests g2 ON b2.guest_id = g2.id
-                                WHERE b2.room_id = r.id
-                                    AND DATE(b2.check_out_date) = ?
-                                    AND b2.status IN ('checked_in','checked_out')
-                                ORDER BY b2.id DESC
-                                LIMIT 1
-                        ) as departure_guest,
-                        (
-                                SELECT g3.guest_name
-                                FROM bookings b3
-                                LEFT JOIN guests g3 ON b3.guest_id = g3.id
-                                WHERE b3.room_id = r.id
-                                    AND DATE(b3.check_in_date) = ?
-                                    AND b3.status IN ('pending','confirmed','checked_in')
-                                ORDER BY b3.id DESC
-                                LIMIT 1
-                        ) as arrival_guest,
-                        (
-                                SELECT COUNT(*)
-                                FROM bookings bd
-                                WHERE bd.room_id = r.id
-                                    AND DATE(bd.check_out_date) = ?
-                                    AND bd.status IN ('checked_in','checked_out')
-                        ) as departures_today,
-                        (
-                                SELECT COUNT(*)
-                                FROM bookings ba
-                                WHERE ba.room_id = r.id
-                                    AND DATE(ba.check_in_date) = ?
-                                    AND ba.status IN ('pending','confirmed','checked_in')
-                        ) as arrivals_today,
-                        (
-                                SELECT COUNT(*)
-                                FROM bookings bp
-                                WHERE bp.room_id = r.id
-                                    AND bp.status IN ('pending','confirmed','checked_in','checked_out')
-                                    AND DATE(bp.check_in_date) <= ?
-                                    AND DATE(bp.check_out_date) > ?
-                        ) as occupied_prev_night
-        FROM rooms r
-        LEFT JOIN room_types rt ON r.room_type_id = rt.id
-                ORDER BY r.room_number ASC", [$workDate, $workDate, $workDate, $workDate, $prevDate, $prevDate]) ?: [];
-
-    $tasks = [];
-    foreach ($rows as $r) {
-        $status = (string)($r['status'] ?? '');
-        $arrivalsToday = (int)($r['arrivals_today'] ?? 0) > 0;
-        $departuresToday = (int)($r['departures_today'] ?? 0) > 0;
-        $occupiedPrevNight = (int)($r['occupied_prev_night'] ?? 0) > 0;
-
-        $checkedInDate = (string)($r['checked_in_date'] ?? '');
-        $isCheckedInNow = !empty($r['inhouse_guest']) || $status === 'occupied';
-        $isCheckInTodayNow = $isCheckedInNow && $checkedInDate === $workDate;
-        // Jika kamar checkout hari ini, prioritas status HK bukan OD lagi.
-        // Setelah lewat 00:00 kamar tersebut harus terbaca sebagai pekerjaan departure (VD/B2B).
-        $isOngoingInHouse = $isCheckedInNow && !$isCheckInTodayNow && !$departuresToday;
-
-        if ($status === 'maintenance' || $status === 'blocked') {
-            continue;
-        }
-
-        $taskCode = null;
-        $priority = 99;
-        $label = '';
-
-        if ($departuresToday && $arrivalsToday) {
-            $taskCode = 'B2B';
-            $priority = 1;
-            $label = 'Back to Back (CO + CI hari ini)';
-        } elseif ($arrivalsToday && !$occupiedPrevNight) {
-            $taskCode = 'VC';
-            $priority = 4;
-            $label = 'Vacant Clean (CI hari ini, kemarin kosong)';
-        } elseif ($departuresToday && !$arrivalsToday) {
-            $taskCode = 'VD';
-            $priority = 3;
-            $label = 'Vacant Dirty (CO hari ini)';
-        } elseif ($isOngoingInHouse) {
-            $taskCode = 'OD';
-            $priority = 2;
-            $label = 'Occupied / In-House';
-        } elseif ($status === 'cleaning') {
-            $taskCode = 'VD';
-            $priority = 3;
-            $label = 'Vacant Dirty';
-        } elseif ($status === 'available') {
-            $taskCode = 'VC';
-            $priority = 4;
-            $label = 'Vacant Clean';
-        }
-
-        if ($taskCode === null) {
-            continue;
-        }
-
-        $inhouseContextGuest = '';
-        if (!empty($r['departure_guest'])) {
-            $inhouseContextGuest = (string)$r['departure_guest'];
-        } elseif (!empty($r['inhouse_guest'])) {
-            $inhouseContextGuest = (string)$r['inhouse_guest'];
-        }
-
-        $tasks[] = [
-            'key' => (int)$r['id'] . '|' . $taskCode,
-            'room_id' => (int)$r['id'],
-            'room_number' => (string)$r['room_number'],
-            'room_type' => (string)$r['room_type'],
-            'task_code' => $taskCode,
-            'task_label' => $label,
-            'priority_order' => $priority,
-            'inhouse_guest' => $inhouseContextGuest,
-            'next_guest' => (string)($r['arrival_guest'] ?? ''),
-            'room_status' => $status
-        ];
-    }
-
-    usort($tasks, function ($a, $b) {
-        if ($a['priority_order'] !== $b['priority_order']) {
-            return $a['priority_order'] <=> $b['priority_order'];
-        }
-        return strnatcmp($a['room_number'], $b['room_number']);
-    });
-
-    return $tasks;
-}
-
-function autoAssignFair($tasks, $staffNames, $seedCounts = [], $maxPerStaff = null, $overflowAssignee = '')
-{
-    $result = [];
-    $counts = [];
-
-    foreach ($staffNames as $name) {
-        $counts[$name] = (int)($seedCounts[$name] ?? 0);
-    }
-
-    if ($overflowAssignee !== '' && !isset($counts[$overflowAssignee])) {
-        $counts[$overflowAssignee] = (int)($seedCounts[$overflowAssignee] ?? 0);
-    }
-
-    if (empty($staffNames)) {
-        if ($overflowAssignee !== '') {
-            foreach ($tasks as $task) {
-                $result[$task['key']] = $overflowAssignee;
-                if (!isset($counts[$overflowAssignee])) {
-                    $counts[$overflowAssignee] = 0;
-                }
-                $counts[$overflowAssignee]++;
-            }
-        }
-        return ['assignments' => $result, 'counts' => $counts];
-    }
-
-    $staffIndex = array_values($staffNames);
-    $cursor = 0;
-
-    foreach ($tasks as $task) {
-        $eligibleCounts = [];
-        foreach ($staffIndex as $name) {
-            if ($maxPerStaff === null || $counts[$name] < $maxPerStaff) {
-                $eligibleCounts[$name] = $counts[$name];
-            }
-        }
-
-        if (empty($eligibleCounts)) {
-            if ($overflowAssignee !== '') {
-                $result[$task['key']] = $overflowAssignee;
-                if (!isset($counts[$overflowAssignee])) {
-                    $counts[$overflowAssignee] = 0;
-                }
-                $counts[$overflowAssignee]++;
-            }
-            continue;
-        }
-
-        $minCount = min($eligibleCounts);
-        $candidateIndexes = [];
-        foreach ($staffIndex as $idx => $name) {
-            if (isset($eligibleCounts[$name]) && $counts[$name] === $minCount) {
-                $candidateIndexes[] = $idx;
-            }
-        }
-
-        $pickIdx = $candidateIndexes[0];
-        foreach ($candidateIndexes as $ci) {
-            if ($ci >= $cursor) {
-                $pickIdx = $ci;
-                break;
-            }
-        }
-
-        $pickedStaff = $staffIndex[$pickIdx];
-        $result[$task['key']] = $pickedStaff;
-        $counts[$pickedStaff]++;
-        $cursor = ($pickIdx + 1) % count($staffIndex);
-    }
-
-    return ['assignments' => $result, 'counts' => $counts];
-}
-
-function syncHkStaffFromPayroll($db)
-{
-    $rows = $db->fetchAll(
-        "SELECT full_name
-         FROM payroll_employees
-         WHERE is_active = 1
-           AND (
-                LOWER(COALESCE(department, '')) LIKE '%housekeeping%'
-                OR LOWER(COALESCE(department, '')) = 'hk'
-                OR LOWER(COALESCE(position, '')) LIKE '%housekeeping%'
-                OR LOWER(COALESCE(position, '')) LIKE 'hk%'
-           )
-         ORDER BY full_name ASC"
-    ) ?: [];
-
-    $names = [];
-    foreach ($rows as $r) {
-        $n = trim((string)($r['full_name'] ?? ''));
-        if ($n !== '') {
-            $names[$n] = true;
-        }
-    }
-    $names = array_keys($names);
-
-    $db->beginTransaction();
-    $db->query("UPDATE frontdesk_hk_staff SET is_active = 0");
-    foreach ($names as $name) {
-        $db->query(
-            "INSERT INTO frontdesk_hk_staff (staff_name, is_active) VALUES (?, 1)
-             ON DUPLICATE KEY UPDATE is_active = 1, updated_at = NOW()",
-            [$name]
-        );
-    }
-    $db->commit();
-
-    return $names;
-}
-
-function getAttendanceEligibleHkStaff($db, $staffNames, $workDate, $cutoffTime = '09:00:00')
-{
-    $result = [
-        'enforced' => false,
-        'eligible_staff' => $staffNames,
-        'absent_staff' => [],
-        'cutoff_time' => $cutoffTime,
-        'reason' => ''
-    ];
-
-    if (empty($staffNames)) {
-        return $result;
-    }
-
-    $today = date('Y-m-d');
-    $nowTime = date('H:i:s');
-    if (!($workDate === $today && $nowTime >= $cutoffTime)) {
-        return $result;
-    }
-
-    $result['enforced'] = true;
-
-    $normalizeName = function ($name) {
-        $s = trim((string)$name);
-        $s = preg_replace('/\s+/', ' ', $s);
-        return function_exists('mb_strtolower') ? mb_strtolower($s) : strtolower($s);
-    };
-
-    $wantedByNorm = [];
-    foreach ($staffNames as $sn) {
-        $wantedByNorm[$normalizeName($sn)] = $sn;
-    }
-
-    try {
-        $rows = $db->fetchAll(
-            "SELECT e.full_name, a.check_in_time
-             FROM payroll_employees e
-             LEFT JOIN payroll_attendance a
-                ON a.employee_id = e.id
-               AND a.attendance_date = ?
-             WHERE e.is_active = 1",
-            [$workDate]
-        ) ?: [];
-    } catch (Exception $e) {
-        // Fail-safe: jika tabel absensi belum tersedia, jangan blokir operasional pembagian.
-        $result['enforced'] = false;
-        $result['reason'] = 'Data absensi belum tersedia';
-        return $result;
-    }
-
-    $checkInByName = [];
-    foreach ($rows as $r) {
-        $nm = trim((string)($r['full_name'] ?? ''));
-        if ($nm === '') {
-            continue;
-        }
-        $norm = $normalizeName($nm);
-        if (!isset($wantedByNorm[$norm])) {
-            continue;
-        }
-        // Keep first non-null check-in if duplicates exist.
-        if (!array_key_exists($norm, $checkInByName) || $checkInByName[$norm] === null) {
-            $checkInByName[$norm] = $r['check_in_time'] ?? null;
-        }
-    }
-
-    $eligible = [];
-    $absent = [];
-    foreach ($staffNames as $name) {
-        $normName = $normalizeName($name);
-        $checkIn = $checkInByName[$normName] ?? null;
-        $time = $checkIn ? date('H:i:s', strtotime((string)$checkIn)) : null;
-        if ($time !== null && $time <= $cutoffTime) {
-            $eligible[] = $name;
-        } else {
-            $absent[] = $name;
-        }
-    }
-
-    $result['eligible_staff'] = $eligible;
-    $result['absent_staff'] = $absent;
-    $result['reason'] = 'Cutoff absensi ' . $cutoffTime;
-    return $result;
-}
+// Core allocation logic (ensureHkTables, buildHkTasks, autoAssignFair,
+// syncHkStaffFromPayroll, getAttendanceEligibleHkStaff, hkGenerateAssignments,
+// hkSyncDailyState) now lives in includes/HkAllocationHelper.php so the cron
+// (api/hk-allocation-cron.php) can reuse the exact same behaviour.
 
 ensureHkTables($db);
 
@@ -457,23 +83,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'save_plan' || $action === 'generate_auto') {
         try {
             syncHkStaffFromPayroll($db);
-            $tasksNow = buildHkTasks($db, $workDate);
             $staffRowsNow = $db->fetchAll("SELECT staff_name FROM frontdesk_hk_staff WHERE is_active = 1 ORDER BY staff_name ASC") ?: [];
             $staffNamesNow = array_map(fn($r) => $r['staff_name'], $staffRowsNow);
-            $attendanceNow = getAttendanceEligibleHkStaff($db, $staffNamesNow, $workDate, '09:00:00');
-            $effectiveStaffNow = $attendanceNow['eligible_staff'];
-            $teamAssigneeNow = 'TEAM';
-            $assigneeOptionsNow = $staffNamesNow;
-            if (!in_array($teamAssigneeNow, $assigneeOptionsNow, true)) {
-                $assigneeOptionsNow[] = $teamAssigneeNow;
-            }
 
             if (empty($staffNamesNow)) {
                 throw new Exception('Staff HK dari payroll kosong. Pastikan data payroll_employees (Housekeeping) sudah ada.');
             }
 
-            $assignMap = [];
             if ($action === 'save_plan') {
+                $tasksNow = buildHkTasks($db, $workDate);
+                $teamAssigneeNow = 'TEAM';
+                $assigneeOptionsNow = $staffNamesNow;
+                if (!in_array($teamAssigneeNow, $assigneeOptionsNow, true)) {
+                    $assigneeOptionsNow[] = $teamAssigneeNow;
+                }
+
+                $assignMap = [];
                 $incoming = $_POST['assigned'] ?? [];
                 foreach ($tasksNow as $task) {
                     $key = $task['key'];
@@ -482,45 +107,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $assignMap[$key] = $assigned;
                     }
                 }
+
+                $db->beginTransaction();
+                $db->query("DELETE FROM frontdesk_hk_assignments WHERE assignment_date = ?", [$workDate]);
+
+                foreach ($tasksNow as $task) {
+                    $key = $task['key'];
+                    $assigned = $assignMap[$key] ?? '';
+                    if ($assigned === '') {
+                        continue;
+                    }
+                    $db->query(
+                        "INSERT INTO frontdesk_hk_assignments
+                        (assignment_date, room_id, room_number, task_code, priority_order, assigned_staff, is_manual, created_by)
+                        VALUES (?, ?, ?, ?, ?, ?, 1, ?)",
+                        [
+                            $workDate,
+                            $task['room_id'],
+                            $task['room_number'],
+                            $task['task_code'],
+                            $task['priority_order'],
+                            $assigned,
+                            $currentUser['id'] ?? null
+                        ]
+                    );
+                }
+
+                $db->commit();
+                $message = 'Pembagian HK manual berhasil disimpan.';
             } else {
-                $maxPerStaff = null;
-                if (count($effectiveStaffNow) > 0 && count($tasksNow) >= count($effectiveStaffNow)) {
-                    $maxPerStaff = intdiv(count($tasksNow), count($effectiveStaffNow));
-                }
-                $auto = autoAssignFair($tasksNow, $effectiveStaffNow, [], $maxPerStaff, $teamAssigneeNow);
-                $assignMap = $auto['assignments'];
+                // "Generate Ulang Otomatis" button - full regenerate using staff
+                // who have already checked in (if past the 09:00 cutoff today).
+                $attendanceNow = getAttendanceEligibleHkStaff($db, $staffNamesNow, $workDate, '09:00:00');
+                $effectiveStaffNow = $attendanceNow['eligible_staff'];
+                hkGenerateAssignments($db, $workDate, $effectiveStaffNow, $currentUser['id'] ?? null);
+                $message = 'Pembagian HK otomatis berhasil dibuat ulang.';
             }
-
-            $db->beginTransaction();
-            $db->query("DELETE FROM frontdesk_hk_assignments WHERE assignment_date = ?", [$workDate]);
-
-            foreach ($tasksNow as $task) {
-                $key = $task['key'];
-                $assigned = $assignMap[$key] ?? '';
-                if ($assigned === '') {
-                    continue;
-                }
-                $db->query(
-                    "INSERT INTO frontdesk_hk_assignments
-                    (assignment_date, room_id, room_number, task_code, priority_order, assigned_staff, is_manual, created_by)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    [
-                        $workDate,
-                        $task['room_id'],
-                        $task['room_number'],
-                        $task['task_code'],
-                        $task['priority_order'],
-                        $assigned,
-                        $action === 'save_plan' ? 1 : 0,
-                        $currentUser['id'] ?? null
-                    ]
-                );
-            }
-
-            $db->commit();
-            $message = $action === 'save_plan'
-                ? 'Pembagian HK manual berhasil disimpan.'
-                : 'Pembagian HK otomatis berhasil dibuat ulang.';
         } catch (Exception $e) {
             if (method_exists($db, 'rollback')) {
                 $db->rollback();
@@ -531,10 +153,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 try {
-    syncHkStaffFromPayroll($db);
+    // Self-healing daily sync: generates the day's plan right after midnight
+    // (using all staff, since attendance isn't relevant yet) if it hasn't been
+    // generated already, and - once past the 09:00 attendance cutoff - moves
+    // ONLY the rooms belonging to staff who haven't checked in over to staff
+    // who have, leaving everyone else's room numbers untouched. This runs on
+    // every page load AND from the api/hk-allocation-cron.php cron, so the
+    // plan is always correct even if nobody opens this page.
+    hkSyncDailyState($db, $workDate, $currentUser['id'] ?? null);
 } catch (Exception $e) {
     if ($error === '') {
-        $error = 'Gagal sinkron staff HK payroll: ' . $e->getMessage();
+        $error = 'Gagal sinkron pembagian HK otomatis: ' . $e->getMessage();
     }
 }
 
