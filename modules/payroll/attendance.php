@@ -186,6 +186,38 @@
                         exit;
                     }
 
+                    // ═══ AJAX: Save uniform-only weekly schedule (dedicated Jadwal Seragam tab) ═══
+                    if (isset($_POST['ajax_save_uniform_schedule'])) {
+                        header('Content-Type: application/json');
+                        try {
+                            $_pdo->exec("CREATE TABLE IF NOT EXISTS `payroll_work_schedules` (
+            `id` INT AUTO_INCREMENT PRIMARY KEY, `employee_id` INT NOT NULL, `day_of_week` TINYINT NOT NULL DEFAULT 0,
+            `start_time` TIME NOT NULL DEFAULT '09:00:00', `end_time` TIME NOT NULL DEFAULT '17:00:00',
+            `break_minutes` INT DEFAULT 60, `is_off` TINYINT(1) DEFAULT 0,
+            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uk_emp_day (employee_id, day_of_week)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+                            $uEmpId = (int)($_POST['employee_id'] ?? 0);
+                            if ($uEmpId <= 0) {
+                                throw new Exception('Karyawan tidak valid.');
+                            }
+                            $uStmt = $_pdo->prepare("INSERT INTO payroll_work_schedules (employee_id, day_of_week, start_time, end_time, break_minutes, is_off, uniform) VALUES (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE uniform=VALUES(uniform)");
+                            if ($uStmt === false) {
+                                throw new Exception('Prepare gagal: ' . implode(' ', $_pdo->errorInfo()));
+                            }
+                            for ($d = 0; $d <= 6; $d++) {
+                                if (!array_key_exists("uniform_$d", $_POST)) {
+                                    continue;
+                                }
+                                $uVal = trim($_POST["uniform_$d"]) ?: null;
+                                $uStmt->execute([$uEmpId, $d, '09:00', '17:00', 60, $d === 0 ? 1 : 0, $uVal]);
+                            }
+                            echo json_encode(['success' => true]);
+                        } catch (Throwable $e) {
+                            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+                        }
+                        exit;
+                    }
+
                     // ══════════════════════════════════════════════
                     // AUTO-CREATE TABLES & COLUMNS (idempotent)
                     // ══════════════════════════════════════════════
@@ -2177,6 +2209,7 @@
                             <button class="att-tab" data-tab="lembur"><span class="att-tab-icon"><i data-feather="zap"></i></span> Lembur<?php if ($pendingOT > 0): ?> <span style="background:var(--red);color:#fff;padding:1px 6px;border-radius:10px;font-size:9px;font-weight:800;"><?php echo $pendingOT; ?></span><?php endif; ?></button>
                             <button class="att-tab" data-tab="manual"><span class="att-tab-icon"><i data-feather="edit-3"></i></span> Manual</button>
                             <button class="att-tab" data-tab="schedule"><span class="att-tab-icon"><i data-feather="calendar"></i></span> Jadwal Kerja</button>
+                            <button class="att-tab" data-tab="uniform"><span class="att-tab-icon"><i data-feather="shopping-bag"></i></span> Jadwal Seragam</button>
                             <button class="att-tab" data-tab="reset"><span class="att-tab-icon"><i data-feather="refresh-cw"></i></span> Reset</button>
                         </div>
 
@@ -3188,6 +3221,37 @@
                         </div>
 
                         <!-- ═══════════════════════════════════════ -->
+                        <!-- TAB: JADWAL SERAGAM (Uniform Schedule)  -->
+                        <!-- ═══════════════════════════════════════ -->
+                        <div class="tab-panel" id="panel-uniform" style="display:none;">
+                            <div class="reset-card">
+                                <div style="display:flex;gap:12px;align-items:flex-start;">
+                                    <div class="reset-icon" style="background:#d1fae5;color:#059669;">👔</div>
+                                    <div style="flex:1;">
+                                        <h3 style="font-size:13px;font-weight:700;color:var(--navy);margin:0 0 4px;">Setup Jadwal Seragam per Karyawan</h3>
+                                        <p style="font-size:10px;color:var(--muted);margin:0 0 10px;">Atur nama/jenis seragam untuk tiap hari kerja (berlaku berulang tiap minggu sesuai hari). Untuk pengecualian di tanggal tertentu saja, atur lewat kalender di tab Jadwal Kerja (klik tanggal → isi field Seragam).</p>
+
+                                        <div class="fg" style="margin-bottom:12px;">
+                                            <label class="fl">Pilih Karyawan</label>
+                                            <select id="uniEmpSelect" class="fi" onchange="loadEmpUniform(this.value)">
+                                                <option value="">— Pilih Karyawan —</option>
+                                                <?php foreach ($employees as $emp): ?>
+                                                    <option value="<?php echo $emp['id']; ?>"><?php echo htmlspecialchars($emp['employee_code'] . ' — ' . $emp['full_name']); ?></option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </div>
+
+                                        <div id="uniFormWrap" style="display:none;">
+                                            <div id="uniDayList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;"></div>
+                                            <button type="button" class="btn btn-primary" onclick="saveUniformSchedule()">💾 Simpan Jadwal Seragam</button>
+                                            <div id="uniSaveMsg" style="margin-top:8px;font-size:11px;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ═══════════════════════════════════════ -->
                         <!-- TAB: RESET                              -->
                         <!-- ═══════════════════════════════════════ -->
                         <div class="tab-panel" id="panel-reset" style="display:none;">
@@ -3866,7 +3930,11 @@
                             schedEditingDay = dow;
                             schedEditingDate = dateStr;
                             document.getElementById('schedDayModalTitle').textContent = '🗓️ Atur Jadwal — ' + SCHED_DAY_FULL[dow];
-                            document.getElementById('schedDayDateLabel').textContent = dateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+                            document.getElementById('schedDayDateLabel').textContent = dateObj.toLocaleDateString('id-ID', {
+                                day: 'numeric',
+                                month: 'long',
+                                year: 'numeric'
+                            });
 
                             const override = schedOverrides[dateStr];
                             if (override) {
@@ -3914,17 +3982,28 @@
                                 fd.append('end_time', end);
                                 fd.append('break_minutes', brk);
                                 fd.append('uniform', uniform);
-                                fetch(window.location.pathname + '?tab=schedule', { method: 'POST', body: fd })
+                                fetch(window.location.pathname + '?tab=schedule', {
+                                        method: 'POST',
+                                        body: fd
+                                    })
                                     .then(r => r.text().then(txt => {
                                         let res;
-                                        try { res = JSON.parse(txt); } catch (e) {
+                                        try {
+                                            res = JSON.parse(txt);
+                                        } catch (e) {
                                             throw new Error('Respon server tidak valid (HTTP ' + r.status + '): ' + txt.substring(0, 200));
                                         }
                                         return res;
                                     }))
                                     .then(res => {
                                         if (res && res.success) {
-                                            schedOverrides[schedEditingDate] = { is_off: isOff ? 1 : 0, start_time: start, end_time: end, break_minutes: brk, uniform: uniform };
+                                            schedOverrides[schedEditingDate] = {
+                                                is_off: isOff ? 1 : 0,
+                                                start_time: start,
+                                                end_time: end,
+                                                break_minutes: brk,
+                                                uniform: uniform
+                                            };
                                             document.getElementById('schedDayModal').classList.remove('open');
                                             renderScheduleCalendar();
                                         } else {
@@ -3951,10 +4030,15 @@
                             fd.append('ajax_delete_override', '1');
                             fd.append('employee_id', schedCurrentEmpId);
                             fd.append('override_date', schedEditingDate);
-                            fetch(window.location.pathname + '?tab=schedule', { method: 'POST', body: fd })
+                            fetch(window.location.pathname + '?tab=schedule', {
+                                    method: 'POST',
+                                    body: fd
+                                })
                                 .then(r => r.text().then(txt => {
                                     let res;
-                                    try { res = JSON.parse(txt); } catch (e) {
+                                    try {
+                                        res = JSON.parse(txt);
+                                    } catch (e) {
                                         throw new Error('Respon server tidak valid (HTTP ' + r.status + '): ' + txt.substring(0, 200));
                                     }
                                     return res;
@@ -4065,6 +4149,92 @@
                                 .catch(() => {});
                         }
 
+                        // ─ JADWAL SERAGAM (dedicated quick-setup tab) ─
+                        const UNI_DAY_FULL = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+                        let uniCurrentEmpId = null;
+
+                        function loadEmpUniform(empId) {
+                            const wrap = document.getElementById('uniFormWrap');
+                            const msg = document.getElementById('uniSaveMsg');
+                            msg.textContent = '';
+                            if (!empId) {
+                                wrap.style.display = 'none';
+                                uniCurrentEmpId = null;
+                                return;
+                            }
+                            uniCurrentEmpId = empId;
+                            wrap.style.display = 'block';
+                            const list = document.getElementById('uniDayList');
+                            list.innerHTML = '<div class="loading"><span class="spin"></span> Memuat...</div>';
+                            fetch('<?php echo "?tab=uniform&ajax_schedule=1&emp_id="; ?>' + encodeURIComponent(empId))
+                                .then(r => r.json())
+                                .then(data => {
+                                    const byDay = {};
+                                    (data || []).forEach(row => {
+                                        byDay[parseInt(row.day_of_week)] = row;
+                                    });
+                                    list.innerHTML = '';
+                                    for (let d = 0; d <= 6; d++) {
+                                        const row = byDay[d];
+                                        const isOff = row && parseInt(row.is_off) === 1;
+                                        const uniformVal = (row && row.uniform) ? row.uniform : '';
+                                        const item = document.createElement('div');
+                                        item.style.cssText = 'display:flex;align-items:center;gap:8px;';
+                                        if (isOff) {
+                                            item.innerHTML = '<div style="width:70px;font-size:11px;font-weight:700;color:var(--navy);flex-shrink:0;">' + UNI_DAY_FULL[d] + '</div>' +
+                                                '<div style="flex:1;font-size:11px;color:var(--red);font-weight:600;">🔴 Hari Libur (tidak perlu seragam)</div>';
+                                        } else {
+                                            const safeVal = uniformVal.replace(/"/g, '&quot;');
+                                            item.innerHTML = '<div style="width:70px;font-size:11px;font-weight:700;color:var(--navy);flex-shrink:0;">' + UNI_DAY_FULL[d] + '</div>' +
+                                                '<input type="text" class="fi uni-day-input" data-day="' + d + '" value="' + safeVal + '" placeholder="Contoh: Batik, Kemeja Putih, Bebas Rapi" maxlength="100" style="flex:1;">';
+                                        }
+                                        list.appendChild(item);
+                                    }
+                                })
+                                .catch(() => {
+                                    list.innerHTML = '<div style="color:var(--red);font-size:11px;">Gagal memuat jadwal.</div>';
+                                });
+                        }
+
+                        function saveUniformSchedule() {
+                            if (!uniCurrentEmpId) return;
+                            const msg = document.getElementById('uniSaveMsg');
+                            const fd = new FormData();
+                            fd.append('ajax_save_uniform_schedule', '1');
+                            fd.append('employee_id', uniCurrentEmpId);
+                            document.querySelectorAll('.uni-day-input').forEach(inp => {
+                                fd.append('uniform_' + inp.dataset.day, inp.value.trim());
+                            });
+                            msg.style.color = 'var(--muted)';
+                            msg.textContent = 'Menyimpan...';
+                            fetch(window.location.pathname + '?tab=uniform', {
+                                    method: 'POST',
+                                    body: fd
+                                })
+                                .then(r => r.text().then(txt => {
+                                    let res;
+                                    try {
+                                        res = JSON.parse(txt);
+                                    } catch (e) {
+                                        throw new Error('Respon server tidak valid (HTTP ' + r.status + '): ' + txt.substring(0, 200));
+                                    }
+                                    return res;
+                                }))
+                                .then(res => {
+                                    if (res && res.success) {
+                                        msg.style.color = 'var(--green)';
+                                        msg.textContent = '✅ Jadwal seragam berhasil disimpan.';
+                                    } else {
+                                        msg.style.color = 'var(--red)';
+                                        msg.textContent = '❌ Gagal: ' + (res && res.message ? res.message : 'unknown error');
+                                    }
+                                })
+                                .catch(err => {
+                                    msg.style.color = 'var(--red)';
+                                    msg.textContent = '❌ Gagal: ' + err.message;
+                                });
+                        }
+
                         // ─ ALL-STAFF COMBINED CALENDAR ─
                         function schedAllComputeDay(emp, dateStr, dow) {
                             const ov = (schedAllData.overridesByEmp[emp.id] || {})[dateStr];
@@ -4083,7 +4253,11 @@
                                     end: (w.end_time || '17:00').substring(0, 5)
                                 };
                             }
-                            return { isOff: dow === 0, start: '09:00', end: '17:00' };
+                            return {
+                                isOff: dow === 0,
+                                start: '09:00',
+                                end: '17:00'
+                            };
                         }
 
                         function loadAllStaffSchedules() {
@@ -4102,11 +4276,19 @@
                                         if (!overridesByEmp[eid]) overridesByEmp[eid] = {};
                                         overridesByEmp[eid][row.override_date] = row;
                                     });
-                                    schedAllData = { employees: data.employees || [], weeklyByEmp, overridesByEmp };
+                                    schedAllData = {
+                                        employees: data.employees || [],
+                                        weeklyByEmp,
+                                        overridesByEmp
+                                    };
                                     renderAllStaffCalendar();
                                 })
                                 .catch(() => {
-                                    schedAllData = { employees: [], weeklyByEmp: {}, overridesByEmp: {} };
+                                    schedAllData = {
+                                        employees: [],
+                                        weeklyByEmp: {},
+                                        overridesByEmp: {}
+                                    };
                                     renderAllStaffCalendar();
                                 });
                         }
@@ -4172,13 +4354,20 @@
                             const parts = dateStr.split('-').map(Number);
                             const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
                             const dow = dateObj.getDay();
-                            document.getElementById('schedAllDayModalTitle').textContent = '\uD83D\uDDD3\uFE0F ' + dateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+                            document.getElementById('schedAllDayModalTitle').textContent = '\uD83D\uDDD3\uFE0F ' + dateObj.toLocaleDateString('id-ID', {
+                                day: 'numeric',
+                                month: 'long',
+                                year: 'numeric'
+                            });
                             const working = [];
                             const off = [];
                             schedAllData.employees.forEach(emp => {
                                 const info = schedAllComputeDay(emp, dateStr, dow);
                                 if (info.isOff) off.push(emp);
-                                else working.push({ emp, info });
+                                else working.push({
+                                    emp,
+                                    info
+                                });
                             });
                             let html = '<div style="font-weight:700;color:var(--green);margin-bottom:6px;">\uD83D\uDFE2 Masuk Kerja (' + working.length + ')</div>';
                             if (working.length) {
