@@ -2902,7 +2902,11 @@ header('Expires: 0');
 
             <!-- Jadwal Kerja Tim (Semua Staff) - Kalender Gabungan -->
             <div class="card">
-                <div class="card-title">📅 Jadwal Kerja Tim (Semua Staff)</div>
+                <div class="card-title" id="teamSchedCardTitle">📅 Jadwal Kerja Saya</div>
+                <div style="display:flex;gap:6px;margin-bottom:10px;">
+                    <button type="button" id="teamSchedModeMineBtn" onclick="setTeamSchedViewMode('mine')" style="flex:1;border:none;border-radius:8px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;background:var(--blue);color:#fff;">👤 Jadwal Saya</button>
+                    <button type="button" id="teamSchedModeAllBtn" onclick="setTeamSchedViewMode('all')" style="flex:1;border:none;border-radius:8px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;background:#e2e8f0;color:var(--navy);">👥 Semua Staff</button>
+                </div>
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
                     <button type="button" style="border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;background:var(--blue);color:#fff;" onclick="changeTeamSchedMonth(-1)">◀ Bulan Lalu</button>
                     <div id="teamSchedCalTitle" style="font-weight:700;font-size:13px;color:var(--navy);"></div>
@@ -2915,7 +2919,7 @@ header('Expires: 0');
                     <div id="teamSchedPageDots" style="display:flex;align-items:center;gap:6px;"></div>
                     <button type="button" id="teamSchedPageNext" onclick="changeTeamSchedWeekPage(1)" style="border:none;background:none;font-size:18px;font-weight:700;color:var(--blue);cursor:pointer;padding:2px 8px;">›</button>
                 </div>
-                <div style="margin-top:8px;font-size:10px;color:var(--muted);">🟢 Masuk &nbsp; 🔴 Libur &nbsp; — geser kiri/kanan untuk minggu lain, tap tanggal untuk detail</div>
+                <div id="teamSchedLegend" style="margin-top:8px;font-size:10px;color:var(--muted);">🟢 Masuk &nbsp; 🔴 Libur &nbsp; — geser kiri/kanan untuk minggu lain, tap tanggal untuk detail</div>
             </div>
 
             <!-- Target Jam - Donut Chart -->
@@ -3531,6 +3535,33 @@ header('Expires: 0');
         let teamSchedMonth = new Date().getMonth();
         let teamSchedPage = 0;
         let teamSchedData = null;
+        let teamSchedViewMode = 'mine';
+
+        function teamSchedGetMyEmp() {
+            if (!teamSchedData) return null;
+            const myId = parseInt(localStorage.getItem('staff_employee_id') || '0', 10);
+            if (!myId) return null;
+            return teamSchedData.employees.find(e => parseInt(e.id) === myId) || null;
+        }
+
+        function setTeamSchedViewMode(mode) {
+            teamSchedViewMode = mode;
+            const mineBtn = document.getElementById('teamSchedModeMineBtn');
+            const allBtn = document.getElementById('teamSchedModeAllBtn');
+            const cardTitle = document.getElementById('teamSchedCardTitle');
+            const legend = document.getElementById('teamSchedLegend');
+            if (mineBtn && allBtn) {
+                mineBtn.style.background = mode === 'mine' ? 'var(--blue)' : '#e2e8f0';
+                mineBtn.style.color = mode === 'mine' ? '#fff' : 'var(--navy)';
+                allBtn.style.background = mode === 'all' ? 'var(--blue)' : '#e2e8f0';
+                allBtn.style.color = mode === 'all' ? '#fff' : 'var(--navy)';
+            }
+            if (cardTitle) cardTitle.textContent = mode === 'mine' ? '📅 Jadwal Kerja Saya' : '📅 Jadwal Kerja Tim (Semua Staff)';
+            if (legend) legend.innerHTML = mode === 'mine'
+                ? '🟢 Masuk &nbsp; 🔴 Libur &nbsp; — geser kiri/kanan untuk minggu lain, tap tanggal untuk detail jam kerja'
+                : '🟢 Masuk &nbsp; 🔴 Libur &nbsp; — geser kiri/kanan untuk minggu lain, tap tanggal untuk detail';
+            renderTeamSchedCalendar();
+        }
 
         function teamSchedPad(n) {
             return n < 10 ? '0' + n : '' + n;
@@ -3624,6 +3655,8 @@ header('Expires: 0');
             const startRow = teamSchedPage * TEAM_SCHED_ROWS_PER_PAGE;
             const pageWeeks = weeks.slice(startRow, startRow + TEAM_SCHED_ROWS_PER_PAGE);
 
+            const myEmp = teamSchedViewMode === 'mine' ? teamSchedGetMyEmp() : null;
+
             pageWeeks.forEach(week => {
                 week.forEach(day => {
                     if (day === null) {
@@ -3632,25 +3665,39 @@ header('Expires: 0');
                     }
                     const dow = new Date(teamSchedYear, teamSchedMonth, day).getDay();
                     const dateStr = teamSchedDateStr(teamSchedYear, teamSchedMonth, day);
-                    let workingCount = 0;
-                    const offNames = [];
-                    teamSchedData.employees.forEach(emp => {
-                        if (teamSchedComputeDay(emp, dateStr, dow).isOff) {
-                            offNames.push(emp.full_name);
-                        } else {
-                            workingCount++;
-                        }
-                    });
                     const cell = document.createElement('div');
                     cell.onclick = () => openTeamSchedDayPopup(dateStr);
                     cell.style.cssText = 'border:1px solid var(--border);border-radius:8px;padding:6px 4px;min-height:68px;cursor:pointer;background:#f8fafc;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;';
-                    let offHtml = '';
-                    if (offNames.length) {
-                        const offTitle = offNames.join(', ').replace(/"/g, '&quot;');
-                        offHtml = '<div style="color:#dc2626;font-weight:700;font-size:10px;" title="' + offTitle + '">\uD83D\uDD34 ' + offNames.length + '</div>';
+
+                    if (teamSchedViewMode === 'mine') {
+                        if (!myEmp) {
+                            cell.innerHTML = '<div style="font-weight:800;font-size:19px;color:var(--navy);line-height:1;">' + day + '</div>' +
+                                '<div style="color:var(--muted);font-size:9px;">-</div>';
+                        } else {
+                            const info = teamSchedComputeDay(myEmp, dateStr, dow);
+                            const statusHtml = info.isOff
+                                ? '<div style="color:#dc2626;font-weight:700;font-size:10px;">\uD83D\uDD34 Libur</div>'
+                                : '<div style="color:#065f46;font-weight:700;font-size:9px;line-height:1.2;text-align:center;">\uD83D\uDFE2 ' + info.start + '<br>' + info.end + '</div>';
+                            cell.innerHTML = '<div style="font-weight:800;font-size:19px;color:var(--navy);line-height:1;">' + day + '</div>' + statusHtml;
+                        }
+                    } else {
+                        let workingCount = 0;
+                        const offNames = [];
+                        teamSchedData.employees.forEach(emp => {
+                            if (teamSchedComputeDay(emp, dateStr, dow).isOff) {
+                                offNames.push(emp.full_name);
+                            } else {
+                                workingCount++;
+                            }
+                        });
+                        let offHtml = '';
+                        if (offNames.length) {
+                            const offTitle = offNames.join(', ').replace(/"/g, '&quot;');
+                            offHtml = '<div style="color:#dc2626;font-weight:700;font-size:10px;" title="' + offTitle + '">\uD83D\uDD34 ' + offNames.length + '</div>';
+                        }
+                        cell.innerHTML = '<div style="font-weight:800;font-size:19px;color:var(--navy);line-height:1;">' + day + '</div>' +
+                            '<div style="color:#065f46;font-weight:700;font-size:10px;">\uD83D\uDFE2 ' + workingCount + '</div>' + offHtml;
                     }
-                    cell.innerHTML = '<div style="font-weight:800;font-size:19px;color:var(--navy);line-height:1;">' + day + '</div>' +
-                        '<div style="color:#065f46;font-weight:700;font-size:10px;">\uD83D\uDFE2 ' + workingCount + '</div>' + offHtml;
                     grid.appendChild(cell);
                 });
             });
@@ -3719,6 +3766,28 @@ header('Expires: 0');
             const parts = dateStr.split('-').map(Number);
             const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
             const dow = dateObj.getDay();
+            const dateLabel = dateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+
+            if (teamSchedViewMode === 'mine') {
+                const myEmp = teamSchedGetMyEmp();
+                let mineHtml = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">' +
+                    '<div style="font-weight:700;font-size:13px;color:var(--navy);">\uD83D\uDDD3\uFE0F ' + dateLabel + '</div>' +
+                    '<button onclick="closeTeamSchedPopup()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted);">\u2715</button></div>';
+                if (!myEmp) {
+                    mineHtml += '<div style="color:var(--muted);font-size:12px;">Data jadwal Anda tidak ditemukan.</div>';
+                } else {
+                    const info = teamSchedComputeDay(myEmp, dateStr, dow);
+                    mineHtml += info.isOff
+                        ? '<div style="text-align:center;padding:16px 0;"><div style="font-size:32px;">\uD83D\uDD34</div><div style="font-weight:700;color:var(--red);font-size:14px;margin-top:6px;">Anda Libur</div></div>'
+                        : '<div style="text-align:center;padding:16px 0;"><div style="font-size:32px;">\uD83D\uDFE2</div><div style="font-weight:700;color:var(--green);font-size:14px;margin-top:6px;">Anda Masuk Kerja</div>' +
+                        '<div style="color:var(--muted);font-size:12px;margin-top:4px;">' + info.start + ' - ' + info.end + '</div></div>';
+                }
+                document.getElementById('teamSchedPopup').innerHTML = mineHtml;
+                document.getElementById('teamSchedPopup').style.display = 'block';
+                document.getElementById('teamSchedPopupOverlay').style.display = 'block';
+                return;
+            }
+
             const working = [];
             const off = [];
             teamSchedData.employees.forEach(emp => {
