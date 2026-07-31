@@ -71,6 +71,69 @@
                         exit;
                     }
 
+                    // ═══ AJAX: Get employee schedule OVERRIDES (specific-date exceptions, e.g. libur custom di luar pola mingguan) ═══
+                    if (isset($_GET['ajax_overrides']) && isset($_GET['emp_id'])) {
+                        header('Content-Type: application/json');
+                        try {
+                            $_pdo->exec("CREATE TABLE IF NOT EXISTS `payroll_schedule_overrides` (
+            `id` INT AUTO_INCREMENT PRIMARY KEY, `employee_id` INT NOT NULL, `override_date` DATE NOT NULL,
+            `is_off` TINYINT(1) NOT NULL DEFAULT 1, `start_time` TIME DEFAULT NULL, `end_time` TIME DEFAULT NULL,
+            `break_minutes` INT DEFAULT NULL, `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uk_emp_date (employee_id, override_date)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+                            $stmt = $_pdo->prepare("SELECT override_date, is_off, start_time, end_time, break_minutes FROM payroll_schedule_overrides WHERE employee_id = ?");
+                            $stmt->execute([(int)$_GET['emp_id']]);
+                            echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+                        } catch (Exception $e) {
+                            echo json_encode([]);
+                        }
+                        exit;
+                    }
+
+                    // ═══ AJAX: Save a specific-date schedule override ═══
+                    if (isset($_POST['ajax_save_override'])) {
+                        header('Content-Type: application/json');
+                        try {
+                            $_pdo->exec("CREATE TABLE IF NOT EXISTS `payroll_schedule_overrides` (
+            `id` INT AUTO_INCREMENT PRIMARY KEY, `employee_id` INT NOT NULL, `override_date` DATE NOT NULL,
+            `is_off` TINYINT(1) NOT NULL DEFAULT 1, `start_time` TIME DEFAULT NULL, `end_time` TIME DEFAULT NULL,
+            `break_minutes` INT DEFAULT NULL, `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uk_emp_date (employee_id, override_date)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+                            $oEmpId = (int)($_POST['employee_id'] ?? 0);
+                            $oDate = $_POST['override_date'] ?? '';
+                            if ($oEmpId <= 0 || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $oDate)) {
+                                throw new Exception('Data tidak valid.');
+                            }
+                            $oIsOff = (($_POST['is_off'] ?? '0') === '1') ? 1 : 0;
+                            $oStart = $_POST['start_time'] ?? '09:00';
+                            $oEnd = $_POST['end_time'] ?? '17:00';
+                            $oBreak = (int)($_POST['break_minutes'] ?? 60);
+                            $_pdo->prepare("INSERT INTO payroll_schedule_overrides (employee_id, override_date, is_off, start_time, end_time, break_minutes) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE is_off=VALUES(is_off), start_time=VALUES(start_time), end_time=VALUES(end_time), break_minutes=VALUES(break_minutes)")
+                                ->execute([$oEmpId, $oDate, $oIsOff, $oStart, $oEnd, $oBreak]);
+                            echo json_encode(['success' => true]);
+                        } catch (Exception $e) {
+                            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+                        }
+                        exit;
+                    }
+
+                    // ═══ AJAX: Delete a specific-date schedule override (reverts to the weekly pattern) ═══
+                    if (isset($_POST['ajax_delete_override'])) {
+                        header('Content-Type: application/json');
+                        try {
+                            $oEmpId = (int)($_POST['employee_id'] ?? 0);
+                            $oDate = $_POST['override_date'] ?? '';
+                            if ($oEmpId > 0 && preg_match('/^\d{4}-\d{2}-\d{2}$/', $oDate)) {
+                                $_pdo->prepare("DELETE FROM payroll_schedule_overrides WHERE employee_id = ? AND override_date = ?")->execute([$oEmpId, $oDate]);
+                            }
+                            echo json_encode(['success' => true]);
+                        } catch (Exception $e) {
+                            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+                        }
+                        exit;
+                    }
+
                     // ══════════════════════════════════════════════
                     // AUTO-CREATE TABLES & COLUMNS (idempotent)
                     // ══════════════════════════════════════════════
@@ -2925,7 +2988,7 @@
                                             <div id="schedCalGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;"></div>
 
                                             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;">
-                                                <span style="font-size:10px;color:var(--muted);">🟢 Jam kerja &nbsp; 🔴 Libur &nbsp; — klik tanggal untuk mengubah</span>
+                                                <span style="font-size:10px;color:var(--muted);">🟢 Jam kerja &nbsp; 🔴 Libur &nbsp; 📌 Tanggal khusus &nbsp; — klik tanggal untuk mengubah</span>
                                                 <button type="submit" class="btn btn-primary">💾 Simpan Jadwal</button>
                                             </div>
                                         </form>
@@ -2937,6 +3000,14 @@
                             <div class="modal-overlay" id="schedDayModal">
                                 <div class="modal-box">
                                     <div class="modal-title" id="schedDayModalTitle">Atur Hari</div>
+                                    <div id="schedDayDateLabel" style="font-size:11px;color:var(--muted);margin:-8px 0 12px;"></div>
+
+                                    <div style="display:flex;gap:6px;margin-bottom:6px;">
+                                        <button type="button" class="btn btn-sm" id="schedModeWeeklyBtn" style="flex:1;" onclick="setSchedDayMode('weekly')">🔁 Pola Mingguan</button>
+                                        <button type="button" class="btn btn-sm" id="schedModeCustomBtn" style="flex:1;" onclick="setSchedDayMode('custom')">📌 Tanggal Ini Saja</button>
+                                    </div>
+                                    <div id="schedModeHint" style="font-size:10px;color:var(--muted);margin:0 0 12px;"></div>
+
                                     <div class="fg">
                                         <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;cursor:pointer;">
                                             <input type="checkbox" id="schedDayOff" onchange="toggleSchedDayOffUI(this.checked)"> Hari Libur
@@ -2948,6 +3019,7 @@
                                         <div class="fg"><label class="fl">Istirahat (menit)</label><input type="number" class="fi" id="schedDayBreak" value="60" min="0" max="120"></div>
                                     </div>
                                     <div class="modal-actions">
+                                        <button type="button" class="btn btn-del btn-sm" id="schedDayRemoveOverrideBtn" style="display:none;" onclick="removeSchedDateOverride()">🗑️ Hapus Override</button>
                                         <button type="button" class="btn btn-primary" onclick="document.getElementById('schedDayModal').classList.remove('open')">Batal</button>
                                         <button type="button" class="btn btn-gold" onclick="applySchedDayEditor()">✅ Terapkan</button>
                                     </div>
@@ -3609,6 +3681,17 @@
                         let schedCalMonth = new Date().getMonth();
                         let schedCurrentEmpId = null;
                         let schedEditingDay = null;
+                        let schedEditingDate = null;
+                        let schedDayMode = 'weekly';
+                        let schedOverrides = {}; // { 'YYYY-MM-DD': {is_off, start_time, end_time, break_minutes} }
+
+                        function schedPad(n) {
+                            return n < 10 ? '0' + n : '' + n;
+                        }
+
+                        function schedDateStr(y, m, d) {
+                            return y + '-' + schedPad(m + 1) + '-' + schedPad(d);
+                        }
 
                         function renderScheduleCalendar() {
                             const grid = document.getElementById('schedCalGrid');
@@ -3629,14 +3712,24 @@
                             }
                             for (let day = 1; day <= daysInMonth; day++) {
                                 const dow = new Date(schedCalYear, schedCalMonth, day).getDay();
-                                const offEl = document.getElementById('off_' + dow);
-                                const isOff = offEl && offEl.value === '1';
-                                const start = document.getElementById('start_' + dow).value;
-                                const end = document.getElementById('end_' + dow).value;
+                                const dateStr = schedDateStr(schedCalYear, schedCalMonth, day);
+                                const override = schedOverrides[dateStr];
+                                let isOff, start, end;
+                                if (override) {
+                                    isOff = parseInt(override.is_off) === 1;
+                                    start = (override.start_time || '09:00').substring(0, 5);
+                                    end = (override.end_time || '17:00').substring(0, 5);
+                                } else {
+                                    const offEl = document.getElementById('off_' + dow);
+                                    isOff = offEl && offEl.value === '1';
+                                    start = document.getElementById('start_' + dow).value;
+                                    end = document.getElementById('end_' + dow).value;
+                                }
                                 const cell = document.createElement('div');
-                                cell.onclick = () => openSchedDayEditor(dow);
-                                cell.style.cssText = 'border:1px solid var(--border);border-radius:6px;padding:4px;min-height:52px;cursor:pointer;font-size:10px;' + (isOff ? 'background:#fef2f2;' : 'background:#f0fdf4;');
-                                cell.innerHTML = '<div style="font-weight:700;font-size:11px;">' + day + '</div>' +
+                                cell.onclick = () => openSchedDayEditor(dateStr);
+                                const borderStyle = override ? 'border:2px solid var(--purple);' : 'border:1px solid var(--border);';
+                                cell.style.cssText = borderStyle + 'border-radius:6px;padding:4px;min-height:52px;cursor:pointer;font-size:10px;' + (isOff ? 'background:#fef2f2;' : 'background:#f0fdf4;');
+                                cell.innerHTML = '<div style="font-weight:700;font-size:11px;">' + day + (override ? ' <span title="Tanggal khusus">\uD83D\uDCCC</span>' : '') + '</div>' +
                                     (isOff ? '<div style="color:#dc2626;font-weight:600;">LIBUR</div>' : '<div style="color:#065f46;">' + start + '-' + end + '</div>');
                                 grid.appendChild(cell);
                             }
@@ -3654,16 +3747,55 @@
                             renderScheduleCalendar();
                         }
 
-                        function openSchedDayEditor(dow) {
+                        function setSchedDayMode(mode) {
+                            schedDayMode = mode;
+                            const weeklyBtn = document.getElementById('schedModeWeeklyBtn');
+                            const customBtn = document.getElementById('schedModeCustomBtn');
+                            const hint = document.getElementById('schedModeHint');
+                            const removeBtn = document.getElementById('schedDayRemoveOverrideBtn');
+                            if (mode === 'custom') {
+                                weeklyBtn.className = 'btn btn-sm';
+                                weeklyBtn.style.cssText = 'flex:1;background:var(--bg);color:var(--navy);';
+                                customBtn.className = 'btn btn-sm';
+                                customBtn.style.cssText = 'flex:1;background:var(--purple);color:#fff;';
+                                hint.textContent = 'Pengaturan ini hanya berlaku untuk tanggal ini saja (tersimpan otomatis, tidak perlu klik "Simpan Jadwal").';
+                                removeBtn.style.display = schedOverrides[schedEditingDate] ? 'inline-flex' : 'none';
+                            } else {
+                                weeklyBtn.className = 'btn btn-sm';
+                                weeklyBtn.style.cssText = 'flex:1;background:var(--navy);color:#fff;';
+                                customBtn.className = 'btn btn-sm';
+                                customBtn.style.cssText = 'flex:1;background:var(--bg);color:var(--navy);';
+                                hint.textContent = 'Berlaku untuk hari ' + SCHED_DAY_FULL[schedEditingDay] + ' setiap minggu (perlu klik "Simpan Jadwal").';
+                                removeBtn.style.display = 'none';
+                            }
+                        }
+
+                        function openSchedDayEditor(dateStr) {
                             if (!schedCurrentEmpId) return;
+                            const parts = dateStr.split('-').map(Number);
+                            const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+                            const dow = dateObj.getDay();
                             schedEditingDay = dow;
+                            schedEditingDate = dateStr;
                             document.getElementById('schedDayModalTitle').textContent = '🗓️ Atur Jadwal — ' + SCHED_DAY_FULL[dow];
-                            const isOff = document.getElementById('off_' + dow).value === '1';
-                            document.getElementById('schedDayOff').checked = isOff;
-                            document.getElementById('schedDayStart').value = document.getElementById('start_' + dow).value;
-                            document.getElementById('schedDayEnd').value = document.getElementById('end_' + dow).value;
-                            document.getElementById('schedDayBreak').value = document.getElementById('break_' + dow).value;
-                            toggleSchedDayOffUI(isOff);
+                            document.getElementById('schedDayDateLabel').textContent = dateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+
+                            const override = schedOverrides[dateStr];
+                            if (override) {
+                                document.getElementById('schedDayOff').checked = parseInt(override.is_off) === 1;
+                                document.getElementById('schedDayStart').value = (override.start_time || '09:00').substring(0, 5);
+                                document.getElementById('schedDayEnd').value = (override.end_time || '17:00').substring(0, 5);
+                                document.getElementById('schedDayBreak').value = override.break_minutes || 60;
+                                setSchedDayMode('custom');
+                            } else {
+                                const isOff = document.getElementById('off_' + dow).value === '1';
+                                document.getElementById('schedDayOff').checked = isOff;
+                                document.getElementById('schedDayStart').value = document.getElementById('start_' + dow).value;
+                                document.getElementById('schedDayEnd').value = document.getElementById('end_' + dow).value;
+                                document.getElementById('schedDayBreak').value = document.getElementById('break_' + dow).value;
+                                setSchedDayMode('weekly');
+                            }
+                            toggleSchedDayOffUI(document.getElementById('schedDayOff').checked);
                             document.getElementById('schedDayModal').classList.add('open');
                         }
 
@@ -3676,14 +3808,62 @@
 
                         function applySchedDayEditor() {
                             if (schedEditingDay === null) return;
-                            const d = schedEditingDay;
                             const isOff = document.getElementById('schedDayOff').checked;
+                            const start = document.getElementById('schedDayStart').value || '09:00';
+                            const end = document.getElementById('schedDayEnd').value || '17:00';
+                            const brk = document.getElementById('schedDayBreak').value || '60';
+
+                            if (schedDayMode === 'custom') {
+                                const fd = new FormData();
+                                fd.append('ajax_save_override', '1');
+                                fd.append('employee_id', schedCurrentEmpId);
+                                fd.append('override_date', schedEditingDate);
+                                fd.append('is_off', isOff ? '1' : '0');
+                                fd.append('start_time', start);
+                                fd.append('end_time', end);
+                                fd.append('break_minutes', brk);
+                                fetch('?tab=schedule', { method: 'POST', body: fd })
+                                    .then(r => r.json())
+                                    .then(res => {
+                                        if (res && res.success) {
+                                            schedOverrides[schedEditingDate] = { is_off: isOff ? 1 : 0, start_time: start, end_time: end, break_minutes: brk };
+                                            document.getElementById('schedDayModal').classList.remove('open');
+                                            renderScheduleCalendar();
+                                        } else {
+                                            alert('Gagal menyimpan tanggal khusus: ' + (res && res.message ? res.message : 'unknown error'));
+                                        }
+                                    })
+                                    .catch(() => alert('Gagal menyimpan tanggal khusus (koneksi bermasalah).'));
+                                return;
+                            }
+
+                            const d = schedEditingDay;
                             document.getElementById('off_' + d).value = isOff ? '1' : '0';
-                            document.getElementById('start_' + d).value = document.getElementById('schedDayStart').value || '09:00';
-                            document.getElementById('end_' + d).value = document.getElementById('schedDayEnd').value || '17:00';
-                            document.getElementById('break_' + d).value = document.getElementById('schedDayBreak').value || '60';
+                            document.getElementById('start_' + d).value = start;
+                            document.getElementById('end_' + d).value = end;
+                            document.getElementById('break_' + d).value = brk;
                             document.getElementById('schedDayModal').classList.remove('open');
                             renderScheduleCalendar();
+                        }
+
+                        function removeSchedDateOverride() {
+                            if (!schedEditingDate || !schedCurrentEmpId) return;
+                            const fd = new FormData();
+                            fd.append('ajax_delete_override', '1');
+                            fd.append('employee_id', schedCurrentEmpId);
+                            fd.append('override_date', schedEditingDate);
+                            fetch('?tab=schedule', { method: 'POST', body: fd })
+                                .then(r => r.json())
+                                .then(res => {
+                                    if (res && res.success) {
+                                        delete schedOverrides[schedEditingDate];
+                                        document.getElementById('schedDayModal').classList.remove('open');
+                                        renderScheduleCalendar();
+                                    } else {
+                                        alert('Gagal menghapus override: ' + (res && res.message ? res.message : 'unknown error'));
+                                    }
+                                })
+                                .catch(() => alert('Gagal menghapus override (koneksi bermasalah).'));
                         }
 
                         function toggleQuickOffUI(checked) {
@@ -3735,9 +3915,10 @@
                             document.querySelectorAll('.sched-quick-day').forEach(el => el.checked = false);
                             document.getElementById('quickOff').checked = false;
                             toggleQuickOffUI(false);
+                            schedOverrides = {};
                             form.style.display = 'block';
                             renderScheduleCalendar();
-                            // Fetch existing schedule via AJAX
+                            // Fetch existing weekly schedule via AJAX
                             fetch('<?php echo "?tab=schedule&ajax_schedule=1&emp_id="; ?>' + encodeURIComponent(empId))
                                 .then(r => r.json())
                                 .then(data => {
@@ -3753,6 +3934,19 @@
                                     renderScheduleCalendar();
                                 })
                                 .catch(() => {}); // Use defaults on error
+                            // Fetch specific-date overrides via AJAX
+                            fetch('<?php echo "?tab=schedule&ajax_overrides=1&emp_id="; ?>' + encodeURIComponent(empId))
+                                .then(r => r.json())
+                                .then(data => {
+                                    schedOverrides = {};
+                                    if (data && data.length) {
+                                        data.forEach(row => {
+                                            schedOverrides[row.override_date] = row;
+                                        });
+                                    }
+                                    renderScheduleCalendar();
+                                })
+                                .catch(() => {});
                         }
 
                         document.addEventListener('DOMContentLoaded', () => {
