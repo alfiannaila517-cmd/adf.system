@@ -3060,17 +3060,9 @@ header('Expires: 0');
                 </div>
                 <div class="card">
                     <div class="card-title">👔 Jadwal Seragam Saya</div>
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-                        <button type="button" style="border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;background:var(--blue);color:#fff;" onclick="changeUniformMonth(-1)">◀ Bulan Lalu</button>
-                        <div id="uniformCalTitle" style="font-weight:700;font-size:13px;color:var(--navy);"></div>
-                        <button type="button" style="border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;background:var(--blue);color:#fff;" onclick="changeUniformMonth(1)">Bulan Depan ▶</button>
-                    </div>
-                    <div id="uniformDowHeader" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:4px;"></div>
-                    <div id="uniformCalGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;"></div>
-                    <div style="margin-top:8px;font-size:10px;color:var(--muted);">👔 Seragam hari itu &nbsp; 🔴 Libur &nbsp; — tap tanggal untuk detail. Diatur admin dari Jadwal Kalender Kerja.</div>
+                    <div id="uniformTableWrap"></div>
+                    <div style="margin-top:10px;font-size:10px;color:var(--muted);">Berlaku berulang tiap minggu sesuai hari. Diatur admin dari Jadwal Kalender Kerja.</div>
                 </div>
-                <div id="uniformPopupOverlay" class="cal-popup-overlay" style="display:none;" onclick="closeUniformPopup()"></div>
-                <div id="uniformPopup" class="cal-popup" style="display:none;max-height:70vh;overflow-y:auto;"></div>
             </div>
 
             <!-- Detail Absensi & Lembur (Monitoring, toggled via Menu Cepat) -->
@@ -3705,7 +3697,7 @@ header('Expires: 0');
                         overridesByEmp
                     };
                     renderTeamSchedCalendar();
-                    renderUniformCalendar();
+                    renderUniformTable();
                 })
                 .catch(() => {
                     teamSchedData = {
@@ -3714,111 +3706,51 @@ header('Expires: 0');
                         overridesByEmp: {}
                     };
                     renderTeamSchedCalendar();
-                    renderUniformCalendar();
+                    renderUniformTable();
                 });
         }
 
         // ═══ JADWAL SERAGAM (Uniform Schedule) — reuses teamSchedData, diatur admin dari Jadwal Kalender Kerja ═══
-        let uniformYear = new Date().getFullYear();
-        let uniformMonth = new Date().getMonth();
+        // ═══ JADWAL SERAGAM (Uniform Schedule) — simple weekly table, reuses teamSchedData, diatur admin dari Jadwal Kalender Kerja ═══
+        const UNIFORM_DAY_FULL = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 
-        function renderUniformCalendar() {
-            const grid = document.getElementById('uniformCalGrid');
-            const title = document.getElementById('uniformCalTitle');
-            const dowHeader = document.getElementById('uniformDowHeader');
-            if (!grid || !title) return;
-            title.textContent = TEAM_SCHED_MONTH_NAMES[uniformMonth] + ' ' + uniformYear;
-
-            if (dowHeader && !dowHeader.dataset.rendered) {
-                TEAM_SCHED_DAY_SHORT.forEach(d => {
-                    const h = document.createElement('div');
-                    h.textContent = d;
-                    h.style.cssText = 'text-align:center;font-size:11px;font-weight:700;color:var(--muted);padding:2px 0;';
-                    dowHeader.appendChild(h);
-                });
-                dowHeader.dataset.rendered = '1';
+        function renderUniformTable() {
+            const wrap = document.getElementById('uniformTableWrap');
+            if (!wrap) return;
+            if (!teamSchedData) {
+                wrap.innerHTML = '<div style="color:var(--muted);font-size:11px;padding:8px 0;">Memuat...</div>';
+                return;
             }
-
-            grid.innerHTML = '';
-            if (!teamSchedData) return;
             const myEmp = teamSchedGetMyEmp();
-            const weeks = teamSchedBuildWeeks(uniformYear, uniformMonth);
-            weeks.forEach(week => {
-                week.forEach(day => {
-                    if (day === null) {
-                        grid.appendChild(document.createElement('div'));
-                        return;
-                    }
-                    const dow = new Date(uniformYear, uniformMonth, day).getDay();
-                    const dateStr = teamSchedDateStr(uniformYear, uniformMonth, day);
-                    const cell = document.createElement('div');
-                    cell.onclick = () => openUniformDayPopup(dateStr);
-                    cell.style.cssText = 'border:1px solid var(--border);border-radius:8px;padding:6px 4px;min-height:60px;cursor:pointer;background:#f8fafc;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;';
-                    if (!myEmp) {
-                        cell.innerHTML = '<div style="font-weight:800;font-size:16px;color:var(--navy);line-height:1;">' + day + '</div><div style="color:var(--muted);font-size:9px;">-</div>';
-                    } else {
-                        const info = teamSchedComputeDay(myEmp, dateStr, dow);
-                        let bodyHtml;
-                        if (info.isOff) {
-                            bodyHtml = '<div style="color:#dc2626;font-weight:700;font-size:9px;">\uD83D\uDD34 Libur</div>';
-                        } else if (info.uniform) {
-                            bodyHtml = '<div style="color:#059669;font-weight:700;font-size:9px;line-height:1.2;text-align:center;word-break:break-word;">\uD83D\uDC54 ' + info.uniform + '</div>';
-                        } else {
-                            bodyHtml = '<div style="color:var(--muted);font-size:9px;">Belum diatur</div>';
-                        }
-                        cell.innerHTML = '<div style="font-weight:800;font-size:16px;color:var(--navy);line-height:1;">' + day + '</div>' + bodyHtml;
-                    }
-                    grid.appendChild(cell);
-                });
-            });
-        }
-
-        function changeUniformMonth(delta) {
-            uniformMonth += delta;
-            if (uniformMonth < 0) {
-                uniformMonth = 11;
-                uniformYear--;
-            } else if (uniformMonth > 11) {
-                uniformMonth = 0;
-                uniformYear++;
-            }
-            renderUniformCalendar();
-        }
-
-        function openUniformDayPopup(dateStr) {
-            if (!teamSchedData) return;
-            const parts = dateStr.split('-').map(Number);
-            const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
-            const dow = dateObj.getDay();
-            const dateLabel = dateObj.toLocaleDateString('id-ID', {
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric'
-            });
-            const myEmp = teamSchedGetMyEmp();
-            let html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">' +
-                '<div style="font-weight:700;font-size:13px;color:var(--navy);">\uD83D\uDC54 ' + dateLabel + '</div>' +
-                '<button onclick="closeUniformPopup()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted);">\u2715</button></div>';
             if (!myEmp) {
-                html += '<div style="color:var(--muted);font-size:12px;">Data jadwal Anda tidak ditemukan.</div>';
-            } else {
-                const info = teamSchedComputeDay(myEmp, dateStr, dow);
-                if (info.isOff) {
-                    html += '<div style="text-align:center;padding:16px 0;"><div style="font-size:32px;">\uD83D\uDD34</div><div style="font-weight:700;color:var(--red);font-size:14px;margin-top:6px;">Anda Libur</div></div>';
-                } else if (info.uniform) {
-                    html += '<div style="text-align:center;padding:16px 0;"><div style="font-size:32px;">\uD83D\uDC54</div><div style="font-weight:700;color:var(--green);font-size:14px;margin-top:6px;">' + info.uniform + '</div></div>';
-                } else {
-                    html += '<div style="text-align:center;padding:16px 0;"><div style="font-size:32px;">\u2754</div><div style="font-weight:700;color:var(--muted);font-size:13px;margin-top:6px;">Seragam belum diatur admin</div></div>';
-                }
+                wrap.innerHTML = '<div style="color:var(--muted);font-size:11px;padding:8px 0;">Data jadwal Anda tidak ditemukan.</div>';
+                return;
             }
-            document.getElementById('uniformPopup').innerHTML = html;
-            document.getElementById('uniformPopup').style.display = 'block';
-            document.getElementById('uniformPopupOverlay').style.display = 'block';
-        }
-
-        function closeUniformPopup() {
-            document.getElementById('uniformPopup').style.display = 'none';
-            document.getElementById('uniformPopupOverlay').style.display = 'none';
+            const today = new Date();
+            const todayDow = today.getDay();
+            let html = '<div style="display:flex;flex-direction:column;border:1px solid var(--border);border-radius:10px;overflow:hidden;">';
+            for (let d = 0; d <= 6; d++) {
+                const w = (teamSchedData.weeklyByEmp[myEmp.id] || {})[d];
+                const isOff = w ? parseInt(w.is_off) === 1 : d === 0;
+                const uniform = w && w.uniform ? w.uniform : null;
+                const isToday = d === todayDow;
+                let rightHtml;
+                if (isOff) {
+                    rightHtml = '<span style="color:var(--red);font-weight:700;font-size:11px;">🔴 Libur</span>';
+                } else if (uniform) {
+                    rightHtml = '<span style="color:var(--green);font-weight:700;font-size:11px;">👔 ' + uniform + '</span>';
+                } else {
+                    rightHtml = '<span style="color:var(--muted);font-size:11px;">Belum diatur</span>';
+                }
+                html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;' +
+                    (d < 6 ? 'border-bottom:1px solid var(--border);' : '') +
+                    (isToday ? 'background:#eff6ff;' : (d % 2 === 0 ? 'background:#fff;' : 'background:#fafbfc;')) + '">' +
+                    '<span style="font-weight:700;font-size:12px;color:var(--navy);">' + UNIFORM_DAY_FULL[d] + (isToday ? ' <span style="font-weight:600;color:var(--blue);font-size:9px;">(Hari ini)</span>' : '') + '</span>' +
+                    rightHtml +
+                    '</div>';
+            }
+            html += '</div>';
+            wrap.innerHTML = html;
         }
 
         function teamSchedBuildWeeks(year, month) {
