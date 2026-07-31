@@ -2908,8 +2908,14 @@ header('Expires: 0');
                     <div id="teamSchedCalTitle" style="font-weight:700;font-size:13px;color:var(--navy);"></div>
                     <button type="button" style="border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;background:var(--blue);color:#fff;" onclick="changeTeamSchedMonth(1)">Bulan Depan ▶</button>
                 </div>
-                <div id="teamSchedCalGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;"></div>
-                <div style="margin-top:10px;font-size:10px;color:var(--muted);">🟢 Jumlah staf yang masuk kerja &nbsp; 🔴 Jumlah staf libur &nbsp; — tap tanggal untuk lihat detail siapa saja yang masuk &amp; libur</div>
+                <div id="teamSchedDowHeader" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:4px;"></div>
+                <div id="teamSchedCalGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;touch-action:pan-y;"></div>
+                <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-top:8px;">
+                    <button type="button" id="teamSchedPagePrev" onclick="changeTeamSchedWeekPage(-1)" style="border:none;background:none;font-size:18px;font-weight:700;color:var(--blue);cursor:pointer;padding:2px 8px;">‹</button>
+                    <div id="teamSchedPageDots" style="display:flex;align-items:center;gap:6px;"></div>
+                    <button type="button" id="teamSchedPageNext" onclick="changeTeamSchedWeekPage(1)" style="border:none;background:none;font-size:18px;font-weight:700;color:var(--blue);cursor:pointer;padding:2px 8px;">›</button>
+                </div>
+                <div style="margin-top:8px;font-size:10px;color:var(--muted);">🟢 Masuk &nbsp; 🔴 Libur &nbsp; — geser kiri/kanan untuk minggu lain, tap tanggal untuk detail</div>
             </div>
 
             <!-- Target Jam - Donut Chart -->
@@ -3520,8 +3526,10 @@ header('Expires: 0');
         // ═══ TEAM SCHEDULE (All Staff Combined Calendar) ═══
         const TEAM_SCHED_MONTH_NAMES = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
         const TEAM_SCHED_DAY_SHORT = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+        const TEAM_SCHED_ROWS_PER_PAGE = 3;
         let teamSchedYear = new Date().getFullYear();
         let teamSchedMonth = new Date().getMonth();
+        let teamSchedPage = 0;
         let teamSchedData = null;
 
         function teamSchedPad(n) {
@@ -3577,48 +3585,102 @@ header('Expires: 0');
                 });
         }
 
+        function teamSchedBuildWeeks(year, month) {
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const cells = [];
+            for (let i = 0; i < firstDay; i++) cells.push(null);
+            for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+            while (cells.length % 7 !== 0) cells.push(null);
+            const weeks = [];
+            for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+            return weeks;
+        }
+
         function renderTeamSchedCalendar() {
             const grid = document.getElementById('teamSchedCalGrid');
             const title = document.getElementById('teamSchedCalTitle');
+            const dowHeader = document.getElementById('teamSchedDowHeader');
             if (!grid || !title) return;
             title.textContent = TEAM_SCHED_MONTH_NAMES[teamSchedMonth] + ' ' + teamSchedYear;
-            grid.innerHTML = '';
-            TEAM_SCHED_DAY_SHORT.forEach(d => {
-                const h = document.createElement('div');
-                h.textContent = d;
-                h.style.cssText = 'text-align:center;font-size:10px;font-weight:700;color:var(--muted);padding:4px 0;';
-                grid.appendChild(h);
-            });
-            if (!teamSchedData) return;
-            const firstDay = new Date(teamSchedYear, teamSchedMonth, 1).getDay();
-            const daysInMonth = new Date(teamSchedYear, teamSchedMonth + 1, 0).getDate();
-            for (let i = 0; i < firstDay; i++) {
-                grid.appendChild(document.createElement('div'));
-            }
-            for (let day = 1; day <= daysInMonth; day++) {
-                const dow = new Date(teamSchedYear, teamSchedMonth, day).getDay();
-                const dateStr = teamSchedDateStr(teamSchedYear, teamSchedMonth, day);
-                let workingCount = 0;
-                const offNames = [];
-                teamSchedData.employees.forEach(emp => {
-                    if (teamSchedComputeDay(emp, dateStr, dow).isOff) {
-                        offNames.push(emp.full_name);
-                    } else {
-                        workingCount++;
-                    }
+
+            if (dowHeader && !dowHeader.dataset.rendered) {
+                TEAM_SCHED_DAY_SHORT.forEach(d => {
+                    const h = document.createElement('div');
+                    h.textContent = d;
+                    h.style.cssText = 'text-align:center;font-size:11px;font-weight:700;color:var(--muted);padding:2px 0;';
+                    dowHeader.appendChild(h);
                 });
-                const cell = document.createElement('div');
-                cell.onclick = () => openTeamSchedDayPopup(dateStr);
-                cell.style.cssText = 'border:1px solid var(--border);border-radius:6px;padding:4px;min-height:52px;cursor:pointer;font-size:10px;background:#f8fafc;';
-                let offHtml = '';
-                if (offNames.length) {
-                    const offTitle = offNames.join(', ').replace(/"/g, '&quot;');
-                    offHtml = '<div style="color:#dc2626;font-weight:600;" title="' + offTitle + '">\uD83D\uDD34 ' + offNames.length + ' libur</div>';
-                }
-                cell.innerHTML = '<div style="font-weight:700;font-size:11px;">' + day + '</div>' +
-                    '<div style="color:#065f46;font-weight:600;">\uD83D\uDFE2 ' + workingCount + ' masuk</div>' + offHtml;
-                grid.appendChild(cell);
+                dowHeader.dataset.rendered = '1';
             }
+
+            grid.innerHTML = '';
+            if (!teamSchedData) return;
+
+            const weeks = teamSchedBuildWeeks(teamSchedYear, teamSchedMonth);
+            const totalPages = Math.max(1, Math.ceil(weeks.length / TEAM_SCHED_ROWS_PER_PAGE));
+            if (teamSchedPage >= totalPages) teamSchedPage = totalPages - 1;
+            if (teamSchedPage < 0) teamSchedPage = 0;
+            const startRow = teamSchedPage * TEAM_SCHED_ROWS_PER_PAGE;
+            const pageWeeks = weeks.slice(startRow, startRow + TEAM_SCHED_ROWS_PER_PAGE);
+
+            pageWeeks.forEach(week => {
+                week.forEach(day => {
+                    if (day === null) {
+                        grid.appendChild(document.createElement('div'));
+                        return;
+                    }
+                    const dow = new Date(teamSchedYear, teamSchedMonth, day).getDay();
+                    const dateStr = teamSchedDateStr(teamSchedYear, teamSchedMonth, day);
+                    let workingCount = 0;
+                    const offNames = [];
+                    teamSchedData.employees.forEach(emp => {
+                        if (teamSchedComputeDay(emp, dateStr, dow).isOff) {
+                            offNames.push(emp.full_name);
+                        } else {
+                            workingCount++;
+                        }
+                    });
+                    const cell = document.createElement('div');
+                    cell.onclick = () => openTeamSchedDayPopup(dateStr);
+                    cell.style.cssText = 'border:1px solid var(--border);border-radius:8px;padding:6px 4px;min-height:68px;cursor:pointer;background:#f8fafc;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;';
+                    let offHtml = '';
+                    if (offNames.length) {
+                        const offTitle = offNames.join(', ').replace(/"/g, '&quot;');
+                        offHtml = '<div style="color:#dc2626;font-weight:700;font-size:10px;" title="' + offTitle + '">\uD83D\uDD34 ' + offNames.length + '</div>';
+                    }
+                    cell.innerHTML = '<div style="font-weight:800;font-size:19px;color:var(--navy);line-height:1;">' + day + '</div>' +
+                        '<div style="color:#065f46;font-weight:700;font-size:10px;">\uD83D\uDFE2 ' + workingCount + '</div>' + offHtml;
+                    grid.appendChild(cell);
+                });
+            });
+
+            renderTeamSchedPageDots(totalPages);
+        }
+
+        function renderTeamSchedPageDots(totalPages) {
+            const dots = document.getElementById('teamSchedPageDots');
+            const prevBtn = document.getElementById('teamSchedPagePrev');
+            const nextBtn = document.getElementById('teamSchedPageNext');
+            if (dots) {
+                dots.innerHTML = '';
+                for (let i = 0; i < totalPages; i++) {
+                    const dot = document.createElement('span');
+                    dot.style.cssText = 'width:7px;height:7px;border-radius:50%;display:inline-block;cursor:pointer;background:' + (i === teamSchedPage ? 'var(--blue)' : '#cbd5e1') + ';';
+                    dot.onclick = () => {
+                        teamSchedPage = i;
+                        renderTeamSchedCalendar();
+                    };
+                    dots.appendChild(dot);
+                }
+            }
+            if (prevBtn) prevBtn.style.visibility = teamSchedPage <= 0 ? 'hidden' : 'visible';
+            if (nextBtn) nextBtn.style.visibility = teamSchedPage >= totalPages - 1 ? 'hidden' : 'visible';
+        }
+
+        function changeTeamSchedWeekPage(delta) {
+            teamSchedPage += delta;
+            renderTeamSchedCalendar();
         }
 
         function changeTeamSchedMonth(delta) {
@@ -3630,8 +3692,27 @@ header('Expires: 0');
                 teamSchedMonth = 0;
                 teamSchedYear++;
             }
+            teamSchedPage = 0;
             renderTeamSchedCalendar();
         }
+
+        // Swipe (touch) support to slide between week-pages
+        (function initTeamSchedSwipe() {
+            const grid = document.getElementById('teamSchedCalGrid');
+            if (!grid) return;
+            let sx = 0, sy = 0;
+            grid.addEventListener('touchstart', e => {
+                sx = e.changedTouches[0].screenX;
+                sy = e.changedTouches[0].screenY;
+            }, { passive: true });
+            grid.addEventListener('touchend', e => {
+                const dx = e.changedTouches[0].screenX - sx;
+                const dy = e.changedTouches[0].screenY - sy;
+                if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+                    changeTeamSchedWeekPage(dx < 0 ? 1 : -1);
+                }
+            }, { passive: true });
+        })();
 
         function openTeamSchedDayPopup(dateStr) {
             if (!teamSchedData) return;
