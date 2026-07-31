@@ -3233,7 +3233,13 @@
                                     <div class="reset-icon" style="background:#d1fae5;color:#059669;">👔</div>
                                     <div style="flex:1;min-width:0;">
                                         <h3 style="font-size:13px;font-weight:700;color:var(--navy);margin:0 0 4px;">Setup Jadwal Seragam Semua Staff</h3>
-                                        <p style="font-size:10px;color:var(--muted);margin:0 0 10px;">Atur nama/jenis seragam untuk tiap hari kerja, sekaligus untuk semua karyawan (berlaku berulang tiap minggu sesuai hari). Isi tabel di bawah lalu klik Simpan Semua. Untuk pengecualian di tanggal tertentu saja, atur lewat kalender di tab Jadwal Kerja (klik tanggal → isi field Seragam).</p>
+                                        <p style="font-size:10px;color:var(--muted);margin:0 0 10px;">Atur seragam untuk 1 minggu SEKALI SAJA di bawah ini, lalu klik "Terapkan ke Semua Staff" — otomatis dipakai untuk semua karyawan aktif (tidak perlu isi satu-satu). Hari yang dikosongkan tidak akan mengubah data yang sudah ada. Untuk pengecualian per orang/tanggal, edit langsung di tabel bawah atau lewat kalender di tab Jadwal Kerja.</p>
+
+                                        <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:14px;">
+                                            <div style="font-size:11px;font-weight:700;color:var(--navy);margin-bottom:8px;">⚡ Setup Cepat 1 Minggu (Semua Staff)</div>
+                                            <div id="uniQuickRow" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;"></div>
+                                            <button type="button" class="btn btn-primary" onclick="applyQuickToAll()">🚀 Terapkan ke Semua Staff Aktif</button>
+                                        </div>
 
                                         <div style="margin-bottom:10px;">
                                             <button type="button" class="btn btn-primary" onclick="saveUniformAll()">💾 Simpan Semua Jadwal Seragam</button>
@@ -4151,6 +4157,53 @@
                         // ─ JADWAL SERAGAM (bulk setup for all staff at once) ─
                         const UNI_DAY_FULL = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
                         let uniAllLoaded = false;
+                        let uniAllCache = { employees: [], byEmpDay: {} };
+
+                        (function renderUniQuickRow() {
+                            const wrap = document.getElementById('uniQuickRow');
+                            if (!wrap) return;
+                            let html = '';
+                            for (let d = 0; d <= 6; d++) {
+                                html += '<div style="min-width:140px;">' +
+                                    '<label style="display:block;font-size:10px;font-weight:700;color:var(--navy);margin-bottom:3px;">' + UNI_DAY_FULL[d] + '</label>' +
+                                    '<input type="text" class="fi uni-quick-input" data-day="' + d + '" placeholder="Batik / Bebas Rapi" maxlength="100" style="width:100%;">' +
+                                    '</div>';
+                            }
+                            wrap.innerHTML = html;
+                        })();
+
+                        function applyQuickToAll() {
+                            if (!uniAllCache.employees.length) {
+                                alert('Data karyawan belum siap dimuat, tunggu sebentar lalu coba lagi.');
+                                return;
+                            }
+                            const quickVals = {};
+                            let anyFilled = false;
+                            document.querySelectorAll('.uni-quick-input').forEach(inp => {
+                                const v = inp.value.trim();
+                                if (v) anyFilled = true;
+                                quickVals[inp.dataset.day] = v;
+                            });
+                            if (!anyFilled) {
+                                alert('Isi minimal 1 hari di Setup Cepat sebelum menerapkan.');
+                                return;
+                            }
+                            if (!confirm('Terapkan seragam ini ke SEMUA staff aktif untuk hari yang diisi? Nilai lama pada hari tsb akan tertimpa.')) {
+                                return;
+                            }
+                            uniAllCache.employees.forEach(emp => {
+                                for (let d = 0; d <= 6; d++) {
+                                    const qv = quickVals[d];
+                                    if (!qv) continue;
+                                    const row = uniAllCache.byEmpDay[emp.id + '_' + d];
+                                    const isOff = row && parseInt(row.is_off) === 1;
+                                    if (isOff) continue;
+                                    const cell = document.querySelector('.uni-cell[data-emp="' + emp.id + '"][data-day="' + d + '"]');
+                                    if (cell) cell.value = qv;
+                                }
+                            });
+                            saveUniformAll();
+                        }
 
                         function loadUniformAllTable() {
                             const wrap = document.getElementById('uniAllTableWrap');
@@ -4163,6 +4216,7 @@
                                     (data.weekly || []).forEach(row => {
                                         byEmpDay[row.employee_id + '_' + parseInt(row.day_of_week)] = row;
                                     });
+                                    uniAllCache = { employees: emps, byEmpDay };
                                     if (!emps.length) {
                                         wrap.innerHTML = '<div style="padding:20px;color:var(--muted);font-size:11px;">Belum ada karyawan aktif.</div>';
                                         return;
