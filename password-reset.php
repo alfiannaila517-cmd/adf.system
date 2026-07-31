@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * Password Reset Tool - Emergency Access
  * SECURITY: Only accessible from localhost OR authenticated admin/developer

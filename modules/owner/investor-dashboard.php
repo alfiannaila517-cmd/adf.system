@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * Investor Dashboard
  * Shows investment overview and detailed project expenses

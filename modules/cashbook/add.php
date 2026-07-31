@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 /**
  * NARAYANA HOTEL MANAGEMENT SYSTEM
