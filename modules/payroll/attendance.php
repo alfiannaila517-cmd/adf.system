@@ -988,7 +988,7 @@
                                     $st = $_POST["start_$d"] ?? '09:00';
                                     $et = $_POST["end_$d"] ?? '17:00';
                                     $brk = (int)($_POST["break_$d"] ?? 60);
-                                    $off = isset($_POST["off_$d"]) ? 1 : 0;
+                                    $off = (($_POST["off_$d"] ?? '0') === '1') ? 1 : 0;
 
                                     $_pdo->prepare("INSERT INTO payroll_work_schedules (employee_id, day_of_week, start_time, end_time, break_minutes, is_off) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE start_time=VALUES(start_time), end_time=VALUES(end_time), break_minutes=VALUES(break_minutes), is_off=VALUES(is_off)")
                                         ->execute([$schedEmpId, $d, $st, $et, $brk, $off]);
@@ -2863,45 +2863,13 @@
                         <!-- ═══════════════════════════════════════ -->
                         <div class="tab-panel" id="panel-schedule" style="display:none;">
 
-                            <!-- Quick Bulk Schedule -->
-                            <div class="reset-card" style="margin-bottom:16px;">
-                                <div style="display:flex;gap:12px;align-items:flex-start;">
-                                    <div class="reset-icon" style="background:#eff6ff;color:var(--blue);">📅</div>
-                                    <div style="flex:1;">
-                                        <h3 style="font-size:13px;font-weight:700;color:var(--navy);margin:0 0 4px;">Atur Jadwal Semua Karyawan</h3>
-                                        <p style="font-size:10px;color:var(--muted);margin:0 0 10px;">Terapkan jadwal yang sama ke semua karyawan aktif sekaligus.</p>
-                                        <form method="POST" action="?tab=schedule" onsubmit="return confirm('Terapkan jadwal ini ke semua karyawan?')">
-                                            <input type="hidden" name="action" value="save_work_schedule">
-                                            <input type="hidden" name="schedule_mode" value="bulk">
-                                            <div class="fgrid" style="margin-bottom:10px;">
-                                                <div class="fg"><label class="fl">Jam Masuk</label><input type="time" name="bulk_start_time" class="fi" value="09:00" required></div>
-                                                <div class="fg"><label class="fl">Jam Pulang</label><input type="time" name="bulk_end_time" class="fi" value="17:00" required></div>
-                                                <div class="fg"><label class="fl">Istirahat (menit)</label><input type="number" name="bulk_break" class="fi" value="60" min="0" max="120"></div>
-                                            </div>
-                                            <div style="margin-bottom:10px;">
-                                                <label class="fl">Hari Libur</label>
-                                                <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">
-                                                    <?php $dayLabels = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab']; ?>
-                                                    <?php foreach ($dayLabels as $di => $dl): ?>
-                                                        <label style="display:flex;align-items:center;gap:4px;padding:4px 10px;background:var(--bg);border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;<?php echo $di === 0 ? 'border:1px solid var(--red);' : 'border:1px solid var(--border);'; ?>">
-                                                            <input type="checkbox" name="off_days[]" value="<?php echo $di; ?>" <?php echo $di === 0 ? 'checked' : ''; ?> style="accent-color:var(--red);"> <?php echo $dl; ?>
-                                                        </label>
-                                                    <?php endforeach; ?>
-                                                </div>
-                                            </div>
-                                            <button type="submit" class="btn btn-primary">📅 Terapkan ke Semua (<?php echo count($employees); ?> karyawan)</button>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Individual Schedule per Employee -->
+                            <!-- Individual Schedule per Employee (Calendar view) -->
                             <div class="reset-card">
                                 <div style="display:flex;gap:12px;align-items:flex-start;">
-                                    <div class="reset-icon" style="background:#fef3c7;color:var(--orange);">👤</div>
+                                    <div class="reset-icon" style="background:#fef3c7;color:var(--orange);">📅</div>
                                     <div style="flex:1;">
-                                        <h3 style="font-size:13px;font-weight:700;color:var(--navy);margin:0 0 4px;">Jadwal per Karyawan</h3>
-                                        <p style="font-size:10px;color:var(--muted);margin:0 0 10px;">Atur jadwal spesifik per hari untuk karyawan tertentu.</p>
+                                        <h3 style="font-size:13px;font-weight:700;color:var(--navy);margin:0 0 4px;">Jadwal Kerja per Karyawan</h3>
+                                        <p style="font-size:10px;color:var(--muted);margin:0 0 10px;">Pilih karyawan, lalu klik tanggal di kalender untuk atur jam masuk/pulang & hari libur. Jadwal berlaku berulang tiap minggu sesuai hari yang diatur.</p>
 
                                         <div class="fg" style="margin-bottom:12px;">
                                             <label class="fl">Pilih Karyawan</label>
@@ -2917,27 +2885,47 @@
                                             <input type="hidden" name="action" value="save_work_schedule">
                                             <input type="hidden" name="schedule_mode" value="individual">
                                             <input type="hidden" name="schedule_employee_id" id="schedEmpId">
+                                            <?php for ($di = 0; $di <= 6; $di++): ?>
+                                                <input type="hidden" name="start_<?php echo $di; ?>" id="start_<?php echo $di; ?>" value="09:00">
+                                                <input type="hidden" name="end_<?php echo $di; ?>" id="end_<?php echo $di; ?>" value="17:00">
+                                                <input type="hidden" name="break_<?php echo $di; ?>" id="break_<?php echo $di; ?>" value="60">
+                                                <input type="hidden" name="off_<?php echo $di; ?>" id="off_<?php echo $di; ?>" value="<?php echo $di === 0 ? '1' : '0'; ?>">
+                                            <?php endfor; ?>
 
-                                            <div id="schedGrid" style="border:1px solid var(--border);border-radius:8px;overflow:hidden;">
-                                                <?php
-                                                $dayFull = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-                                                foreach ($dayFull as $di => $dn): ?>
-                                                    <div style="display:grid;grid-template-columns:90px 1fr 1fr 70px 50px;gap:8px;align-items:center;padding:8px 12px;<?php echo $di > 0 ? 'border-top:1px solid var(--border);' : ''; ?><?php echo $di === 0 ? 'background:#fef2f2;' : ($di === 6 ? 'background:#fef2f2;' : ''); ?>" id="schedRow<?php echo $di; ?>">
-                                                        <div style="font-weight:600;font-size:12px;"><?php echo $dn; ?></div>
-                                                        <input type="time" name="start_<?php echo $di; ?>" class="fi sched-time" value="09:00" style="padding:5px 6px;font-size:11px;" id="start_<?php echo $di; ?>">
-                                                        <input type="time" name="end_<?php echo $di; ?>" class="fi sched-time" value="17:00" style="padding:5px 6px;font-size:11px;" id="end_<?php echo $di; ?>">
-                                                        <input type="number" name="break_<?php echo $di; ?>" class="fi" value="60" min="0" max="120" style="padding:5px 6px;font-size:11px;" id="break_<?php echo $di; ?>">
-                                                        <label style="display:flex;align-items:center;gap:3px;font-size:10px;cursor:pointer;" title="Libur">
-                                                            <input type="checkbox" name="off_<?php echo $di; ?>" value="1" onchange="toggleDayOff(<?php echo $di; ?>,this.checked)" id="off_<?php echo $di; ?>" <?php echo ($di === 0) ? 'checked' : ''; ?>> Off
-                                                        </label>
-                                                    </div>
-                                                <?php endforeach; ?>
+                                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                                                <button type="button" class="btn btn-edit btn-sm" onclick="changeSchedMonth(-1)">◀ Bulan Lalu</button>
+                                                <div id="schedCalTitle" style="font-weight:700;font-size:13px;color:var(--navy);"></div>
+                                                <button type="button" class="btn btn-edit btn-sm" onclick="changeSchedMonth(1)">Bulan Depan ▶</button>
                                             </div>
-                                            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
-                                                <span style="font-size:10px;color:var(--muted);">Kolom: Hari | Masuk | Pulang | Istirahat(min) | Libur</span>
+
+                                            <div id="schedCalGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;"></div>
+
+                                            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;">
+                                                <span style="font-size:10px;color:var(--muted);">🟢 Jam kerja &nbsp; 🔴 Libur &nbsp; — klik tanggal untuk mengubah</span>
                                                 <button type="submit" class="btn btn-primary">💾 Simpan Jadwal</button>
                                             </div>
                                         </form>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Day Editor Modal (edits the recurring weekly schedule for the clicked date's weekday) -->
+                            <div class="modal-overlay" id="schedDayModal">
+                                <div class="modal-box">
+                                    <div class="modal-title" id="schedDayModalTitle">Atur Hari</div>
+                                    <div class="fg">
+                                        <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;cursor:pointer;">
+                                            <input type="checkbox" id="schedDayOff" onchange="toggleSchedDayOffUI(this.checked)"> Hari Libur
+                                        </label>
+                                    </div>
+                                    <div class="fgrid" id="schedDayTimeFields">
+                                        <div class="fg"><label class="fl">Jam Masuk</label><input type="time" class="fi" id="schedDayStart" value="09:00"></div>
+                                        <div class="fg"><label class="fl">Jam Pulang</label><input type="time" class="fi" id="schedDayEnd" value="17:00"></div>
+                                        <div class="fg"><label class="fl">Istirahat (menit)</label><input type="number" class="fi" id="schedDayBreak" value="60" min="0" max="120"></div>
+                                    </div>
+                                    <div class="modal-actions">
+                                        <button type="button" class="btn btn-primary" onclick="document.getElementById('schedDayModal').classList.remove('open')">Batal</button>
+                                        <button type="button" class="btn btn-gold" onclick="applySchedDayEditor()">✅ Terapkan</button>
                                     </div>
                                 </div>
                             </div>
@@ -3590,22 +3578,108 @@
                         });
 
                         // ─ SCHEDULE MANAGEMENT ─
+                        const SCHED_MONTH_NAMES = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+                        const SCHED_DAY_SHORT = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+                        const SCHED_DAY_FULL = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+                        let schedCalYear = new Date().getFullYear();
+                        let schedCalMonth = new Date().getMonth();
+                        let schedCurrentEmpId = null;
+                        let schedEditingDay = null;
+
+                        function renderScheduleCalendar() {
+                            const grid = document.getElementById('schedCalGrid');
+                            const title = document.getElementById('schedCalTitle');
+                            if (!grid || !title) return;
+                            title.textContent = SCHED_MONTH_NAMES[schedCalMonth] + ' ' + schedCalYear;
+                            grid.innerHTML = '';
+                            SCHED_DAY_SHORT.forEach(d => {
+                                const h = document.createElement('div');
+                                h.textContent = d;
+                                h.style.cssText = 'text-align:center;font-size:10px;font-weight:700;color:var(--muted);padding:4px 0;';
+                                grid.appendChild(h);
+                            });
+                            const firstDay = new Date(schedCalYear, schedCalMonth, 1).getDay();
+                            const daysInMonth = new Date(schedCalYear, schedCalMonth + 1, 0).getDate();
+                            for (let i = 0; i < firstDay; i++) {
+                                grid.appendChild(document.createElement('div'));
+                            }
+                            for (let day = 1; day <= daysInMonth; day++) {
+                                const dow = new Date(schedCalYear, schedCalMonth, day).getDay();
+                                const offEl = document.getElementById('off_' + dow);
+                                const isOff = offEl && offEl.value === '1';
+                                const start = document.getElementById('start_' + dow).value;
+                                const end = document.getElementById('end_' + dow).value;
+                                const cell = document.createElement('div');
+                                cell.onclick = () => openSchedDayEditor(dow);
+                                cell.style.cssText = 'border:1px solid var(--border);border-radius:6px;padding:4px;min-height:52px;cursor:pointer;font-size:10px;' + (isOff ? 'background:#fef2f2;' : 'background:#f0fdf4;');
+                                cell.innerHTML = '<div style="font-weight:700;font-size:11px;">' + day + '</div>' +
+                                    (isOff ? '<div style="color:#dc2626;font-weight:600;">LIBUR</div>' : '<div style="color:#065f46;">' + start + '-' + end + '</div>');
+                                grid.appendChild(cell);
+                            }
+                        }
+
+                        function changeSchedMonth(delta) {
+                            schedCalMonth += delta;
+                            if (schedCalMonth < 0) {
+                                schedCalMonth = 11;
+                                schedCalYear--;
+                            } else if (schedCalMonth > 11) {
+                                schedCalMonth = 0;
+                                schedCalYear++;
+                            }
+                            renderScheduleCalendar();
+                        }
+
+                        function openSchedDayEditor(dow) {
+                            if (!schedCurrentEmpId) return;
+                            schedEditingDay = dow;
+                            document.getElementById('schedDayModalTitle').textContent = '🗓️ Atur Jadwal — ' + SCHED_DAY_FULL[dow];
+                            const isOff = document.getElementById('off_' + dow).value === '1';
+                            document.getElementById('schedDayOff').checked = isOff;
+                            document.getElementById('schedDayStart').value = document.getElementById('start_' + dow).value;
+                            document.getElementById('schedDayEnd').value = document.getElementById('end_' + dow).value;
+                            document.getElementById('schedDayBreak').value = document.getElementById('break_' + dow).value;
+                            toggleSchedDayOffUI(isOff);
+                            document.getElementById('schedDayModal').classList.add('open');
+                        }
+
+                        function toggleSchedDayOffUI(checked) {
+                            document.getElementById('schedDayTimeFields').style.opacity = checked ? '0.4' : '1';
+                            ['schedDayStart', 'schedDayEnd', 'schedDayBreak'].forEach(id => {
+                                document.getElementById(id).disabled = checked;
+                            });
+                        }
+
+                        function applySchedDayEditor() {
+                            if (schedEditingDay === null) return;
+                            const d = schedEditingDay;
+                            const isOff = document.getElementById('schedDayOff').checked;
+                            document.getElementById('off_' + d).value = isOff ? '1' : '0';
+                            document.getElementById('start_' + d).value = document.getElementById('schedDayStart').value || '09:00';
+                            document.getElementById('end_' + d).value = document.getElementById('schedDayEnd').value || '17:00';
+                            document.getElementById('break_' + d).value = document.getElementById('schedDayBreak').value || '60';
+                            document.getElementById('schedDayModal').classList.remove('open');
+                            renderScheduleCalendar();
+                        }
+
                         function loadEmpSchedule(empId) {
                             const form = document.getElementById('schedForm');
                             if (!empId) {
                                 form.style.display = 'none';
+                                schedCurrentEmpId = null;
                                 return;
                             }
+                            schedCurrentEmpId = empId;
                             document.getElementById('schedEmpId').value = empId;
                             // Reset to defaults first
                             for (let d = 0; d < 7; d++) {
                                 document.getElementById('start_' + d).value = '09:00';
                                 document.getElementById('end_' + d).value = '17:00';
                                 document.getElementById('break_' + d).value = '60';
-                                document.getElementById('off_' + d).checked = (d === 0);
-                                toggleDayOff(d, d === 0);
+                                document.getElementById('off_' + d).value = (d === 0) ? '1' : '0';
                             }
                             form.style.display = 'block';
+                            renderScheduleCalendar();
                             // Fetch existing schedule via AJAX
                             fetch('<?php echo "?tab=schedule&ajax_schedule=1&emp_id="; ?>' + encodeURIComponent(empId))
                                 .then(r => r.json())
@@ -3616,30 +3690,16 @@
                                             if (row.start_time) document.getElementById('start_' + d).value = row.start_time.substring(0, 5);
                                             if (row.end_time) document.getElementById('end_' + d).value = row.end_time.substring(0, 5);
                                             document.getElementById('break_' + d).value = row.break_minutes || 60;
-                                            const isOff = parseInt(row.is_off) === 1;
-                                            document.getElementById('off_' + d).checked = isOff;
-                                            toggleDayOff(d, isOff);
+                                            document.getElementById('off_' + d).value = parseInt(row.is_off) === 1 ? '1' : '0';
                                         });
                                     }
+                                    renderScheduleCalendar();
                                 })
                                 .catch(() => {}); // Use defaults on error
                         }
 
-                        function toggleDayOff(dayIndex, isChecked) {
-                            const row = document.getElementById('schedRow' + dayIndex);
-                            const inputs = row.querySelectorAll('input[type="time"], input[type="number"]');
-                            inputs.forEach(inp => {
-                                inp.disabled = isChecked;
-                                inp.style.opacity = isChecked ? '0.3' : '1';
-                            });
-                            row.style.opacity = isChecked ? '0.5' : '1';
-                        }
-
-                        // Init Sunday as off on page load
                         document.addEventListener('DOMContentLoaded', () => {
-                            if (document.getElementById('off_0') && document.getElementById('off_0').checked) {
-                                toggleDayOff(0, true);
-                            }
+                            renderScheduleCalendar();
                         });
                     </script>
 
