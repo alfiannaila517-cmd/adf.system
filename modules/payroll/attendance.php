@@ -1039,6 +1039,21 @@
                             }
                         }
 
+                        // ── Leave / Cuti delete ──
+                        if ($action === 'delete_leave') {
+                            $leaveId = (int)($_POST['leave_id'] ?? 0);
+                            if ($leaveId > 0) {
+                                try {
+                                    $db->query("DELETE FROM leave_requests WHERE id = ?", [$leaveId]);
+                                    $msg = '🗑️ Pengajuan cuti berhasil dihapus.';
+                                    $msgType = 'success';
+                                } catch (Exception $e) {
+                                    $msg = 'Error: ' . $e->getMessage();
+                                    $msgType = 'error';
+                                }
+                            }
+                        }
+
                         // ── Overtime / Lembur approval ──
                         if ($action === 'approve_overtime' || $action === 'reject_overtime') {
                             $otId = (int)($_POST['overtime_id'] ?? 0);
@@ -2657,12 +2672,15 @@
                                                         <?php endif; ?>
                                                     </td>
                                                     <td style="white-space:nowrap;">
+                                                        <?php $lrName = htmlspecialchars(addslashes($lr['full_name'] ?? '')); ?>
+                                                        <?php $lrNotes = htmlspecialchars(addslashes($lr['admin_notes'] ?? '')); ?>
                                                         <?php if ($lr['status'] === 'pending'): ?>
-                                                            <button class="btn btn-green btn-sm" onclick="openLeaveAction(<?php echo $lr['id']; ?>, 'approve', '<?php echo htmlspecialchars(addslashes($lr['full_name'] ?? '')); ?>')">✅</button>
-                                                            <button class="btn btn-del btn-sm" onclick="openLeaveAction(<?php echo $lr['id']; ?>, 'reject', '<?php echo htmlspecialchars(addslashes($lr['full_name'] ?? '')); ?>')">❌</button>
+                                                            <button class="btn btn-green btn-sm" onclick="openLeaveAction(<?php echo $lr['id']; ?>, 'approve', '<?php echo $lrName; ?>', '<?php echo $lrNotes; ?>')">✅</button>
+                                                            <button class="btn btn-del btn-sm" onclick="openLeaveAction(<?php echo $lr['id']; ?>, 'reject', '<?php echo $lrName; ?>', '<?php echo $lrNotes; ?>')">❌</button>
                                                         <?php else: ?>
-                                                            <span class="dash">—</span>
+                                                            <button class="btn btn-gold btn-sm" onclick="openLeaveEdit(<?php echo $lr['id']; ?>, '<?php echo $lrName; ?>', '<?php echo $lr['status']; ?>', '<?php echo $lrNotes; ?>')">✏️ Edit</button>
                                                         <?php endif; ?>
+                                                        <button class="btn btn-del btn-sm" onclick="deleteLeaveRequest(<?php echo $lr['id']; ?>, '<?php echo $lrName; ?>')" title="Hapus pengajuan">🗑️</button>
                                                     </td>
                                                 </tr>
                                             <?php endforeach; ?>
@@ -2672,20 +2690,37 @@
                             <?php endif; ?>
                         </div>
 
-                        <!-- Leave Action Modal -->
+                        <!-- Leave Action Modal (also used to EDIT an already approved/rejected decision) -->
                         <div class="modal-overlay" id="leaveModal">
                             <div class="modal-box">
                                 <div class="modal-title" id="leaveModalTitle">Cuti</div>
-                                <form method="POST" action="?tab=cuti">
+                                <form method="POST" action="?tab=cuti" id="leaveActionForm">
                                     <input type="hidden" name="action" id="leaveAction" value="approve_leave">
                                     <input type="hidden" name="leave_id" id="leaveId">
                                     <div class="fg">
                                         <label class="fl">Catatan (opsional)</label>
-                                        <textarea class="fi" name="admin_notes" rows="2" placeholder="Catatan admin..."></textarea>
+                                        <textarea class="fi" name="admin_notes" id="leaveAdminNotes" rows="2" placeholder="Catatan admin..."></textarea>
                                     </div>
                                     <div class="modal-actions">
                                         <button type="button" class="btn btn-primary" onclick="document.getElementById('leaveModal').classList.remove('open')">Batal</button>
-                                        <button type="submit" class="btn btn-gold" id="leaveSubmitBtn">✅ Setujui</button>
+                                        <button type="button" class="btn btn-danger" onclick="submitLeaveDecision('reject_leave')">❌ Tolak</button>
+                                        <button type="button" class="btn btn-green" onclick="submitLeaveDecision('approve_leave')">✅ Setujui</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Leave Delete Confirm Modal -->
+                        <div class="modal-overlay" id="leaveDeleteModal">
+                            <div class="modal-box">
+                                <div class="modal-title">🗑️ Hapus Pengajuan Cuti</div>
+                                <p style="font-size:13px; color:var(--muted); margin:0 0 16px;">Yakin ingin menghapus pengajuan cuti <strong id="leaveDeleteName"></strong>? Tindakan ini tidak bisa dibatalkan.</p>
+                                <form method="POST" action="?tab=cuti">
+                                    <input type="hidden" name="action" value="delete_leave">
+                                    <input type="hidden" name="leave_id" id="leaveDeleteId">
+                                    <div class="modal-actions">
+                                        <button type="button" class="btn btn-primary" onclick="document.getElementById('leaveDeleteModal').classList.remove('open')">Batal</button>
+                                        <button type="submit" class="btn btn-danger">🗑️ Hapus</button>
                                     </div>
                                 </form>
                             </div>
@@ -3341,13 +3376,32 @@
                         }
 
                         // ─ LEAVE ACTION ─
-                        function openLeaveAction(id, action, name) {
+                        function openLeaveAction(id, action, name, notes) {
                             document.getElementById('leaveId').value = id;
                             document.getElementById('leaveAction').value = action === 'approve' ? 'approve_leave' : 'reject_leave';
                             document.getElementById('leaveModalTitle').textContent = action === 'approve' ? '✅ Setujui Cuti — ' + name : '❌ Tolak Cuti — ' + name;
-                            document.getElementById('leaveSubmitBtn').textContent = action === 'approve' ? '✅ Setujui' : '❌ Tolak';
-                            document.getElementById('leaveSubmitBtn').className = action === 'approve' ? 'btn btn-green' : 'btn btn-danger';
+                            document.getElementById('leaveAdminNotes').value = notes || '';
                             document.getElementById('leaveModal').classList.add('open');
+                        }
+
+                        // ─ EDIT an already approved/rejected leave decision ─
+                        function openLeaveEdit(id, name, currentStatus, notes) {
+                            document.getElementById('leaveId').value = id;
+                            document.getElementById('leaveAction').value = currentStatus === 'approved' ? 'approve_leave' : 'reject_leave';
+                            document.getElementById('leaveModalTitle').textContent = '✏️ Edit Persetujuan Cuti — ' + name;
+                            document.getElementById('leaveAdminNotes').value = notes || '';
+                            document.getElementById('leaveModal').classList.add('open');
+                        }
+
+                        function submitLeaveDecision(actionValue) {
+                            document.getElementById('leaveAction').value = actionValue;
+                            document.getElementById('leaveActionForm').submit();
+                        }
+
+                        function deleteLeaveRequest(id, name) {
+                            document.getElementById('leaveDeleteId').value = id;
+                            document.getElementById('leaveDeleteName').textContent = name;
+                            document.getElementById('leaveDeleteModal').classList.add('open');
                         }
 
                         // ─ OVERTIME ACTION ─
