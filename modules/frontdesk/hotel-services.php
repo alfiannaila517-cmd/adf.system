@@ -914,6 +914,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             // Auto-return rental motors once the invoice is fully paid, so staff
             // no longer need to remember clicking "Kembali" manually.
             $motorsAutoReturned = [];
+            $carsAutoReturned   = [];
             if ($payStatus === 'paid') {
                 $motorRentals = $pdo->prepare("SELECT rb.id, rb.motor_id FROM rental_motor_bookings rb
                     WHERE rb.invoice_id=? AND rb.business_id=? AND rb.status IN ('active','overdue')");
@@ -925,11 +926,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                         ->execute([$mr['motor_id']]);
                     $motorsAutoReturned[] = (int)$mr['id'];
                 }
+
+                // Auto-return rental cars too (mirrors the motor logic above). This also
+                // makes the trip count towards the driver/partner (e.g. Moyong) Tagihan
+                // recap right away, since get-driver-recap.php only picks up trips whose
+                // rental_car_bookings.status = 'returned'. Without this, a combined
+                // invoice (motor + car in one invoice) would return the motor but leave
+                // the car "active" forever unless staff separately clicks "Kembali" on
+                // the Rental Mobil page - so Moyong's bill would never update.
+                $carRentals = $pdo->prepare("SELECT cb.id, cb.car_id FROM rental_car_bookings cb
+                    WHERE cb.invoice_id=? AND cb.business_id=? AND cb.status IN ('active','overdue')");
+                $carRentals->execute([$id, $businessId]);
+                foreach ($carRentals->fetchAll(PDO::FETCH_ASSOC) as $cr) {
+                    $pdo->prepare("UPDATE rental_car_bookings SET status='returned', actual_return=NOW(), updated_at=NOW() WHERE id=?")
+                        ->execute([$cr['id']]);
+                    $pdo->prepare("UPDATE rental_cars SET status='available', updated_at=NOW() WHERE id=?")
+                        ->execute([$cr['car_id']]);
+                    $carsAutoReturned[] = (int)$cr['id'];
+                }
             }
 
             // Cashbook NOT synced here — must use "Process Invoice" in preview
             ob_clean();
-            echo json_encode(['success' => true, 'payment_status' => $payStatus, 'paid_amount' => $newPaid, 'cashbook' => false, 'motors_auto_returned' => $motorsAutoReturned]);
+            echo json_encode(['success' => true, 'payment_status' => $payStatus, 'paid_amount' => $newPaid, 'cashbook' => false, 'motors_auto_returned' => $motorsAutoReturned, 'cars_auto_returned' => $carsAutoReturned]);
             exit;
         }
 

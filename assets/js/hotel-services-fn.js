@@ -572,6 +572,9 @@
                     if (res.motors_auto_returned && res.motors_auto_returned.length > 0) {
                         msg += '\n🏍️ ' + res.motors_auto_returned.length + ' motor otomatis ditandai sudah kembali (invoice lunas)';
                     }
+                    if (res.cars_auto_returned && res.cars_auto_returned.length > 0) {
+                        msg += '\n🚗 ' + res.cars_auto_returned.length + ' mobil otomatis ditandai sudah kembali (invoice lunas, tagihan driver otomatis update)';
+                    }
                     alert(msg);
                     location.reload();
                 } else {
