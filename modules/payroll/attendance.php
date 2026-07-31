@@ -63,9 +63,12 @@
             `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uk_emp_day (employee_id, day_of_week)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
                             $stmt = $_pdo->prepare("SELECT day_of_week, start_time, end_time, break_minutes, is_off FROM payroll_work_schedules WHERE employee_id = ?");
+                            if ($stmt === false) {
+                                throw new Exception('Prepare gagal: ' . implode(' ', $_pdo->errorInfo()));
+                            }
                             $stmt->execute([(int)$_GET['emp_id']]);
                             echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
-                        } catch (Exception $e) {
+                        } catch (Throwable $e) {
                             echo json_encode([]);
                         }
                         exit;
@@ -82,9 +85,12 @@
             UNIQUE KEY uk_emp_date (employee_id, override_date)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
                             $stmt = $_pdo->prepare("SELECT override_date, is_off, start_time, end_time, break_minutes FROM payroll_schedule_overrides WHERE employee_id = ?");
+                            if ($stmt === false) {
+                                throw new Exception('Prepare gagal: ' . implode(' ', $_pdo->errorInfo()));
+                            }
                             $stmt->execute([(int)$_GET['emp_id']]);
                             echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
-                        } catch (Exception $e) {
+                        } catch (Throwable $e) {
                             echo json_encode([]);
                         }
                         exit;
@@ -109,10 +115,13 @@
                             $oStart = $_POST['start_time'] ?? '09:00';
                             $oEnd = $_POST['end_time'] ?? '17:00';
                             $oBreak = (int)($_POST['break_minutes'] ?? 60);
-                            $_pdo->prepare("INSERT INTO payroll_schedule_overrides (employee_id, override_date, is_off, start_time, end_time, break_minutes) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE is_off=VALUES(is_off), start_time=VALUES(start_time), end_time=VALUES(end_time), break_minutes=VALUES(break_minutes)")
-                                ->execute([$oEmpId, $oDate, $oIsOff, $oStart, $oEnd, $oBreak]);
+                            $ovStmt = $_pdo->prepare("INSERT INTO payroll_schedule_overrides (employee_id, override_date, is_off, start_time, end_time, break_minutes) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE is_off=VALUES(is_off), start_time=VALUES(start_time), end_time=VALUES(end_time), break_minutes=VALUES(break_minutes)");
+                            if ($ovStmt === false) {
+                                throw new Exception('Prepare gagal: ' . implode(' ', $_pdo->errorInfo()));
+                            }
+                            $ovStmt->execute([$oEmpId, $oDate, $oIsOff, $oStart, $oEnd, $oBreak]);
                             echo json_encode(['success' => true]);
-                        } catch (Exception $e) {
+                        } catch (Throwable $e) {
                             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
                         }
                         exit;
@@ -125,10 +134,14 @@
                             $oEmpId = (int)($_POST['employee_id'] ?? 0);
                             $oDate = $_POST['override_date'] ?? '';
                             if ($oEmpId > 0 && preg_match('/^\d{4}-\d{2}-\d{2}$/', $oDate)) {
-                                $_pdo->prepare("DELETE FROM payroll_schedule_overrides WHERE employee_id = ? AND override_date = ?")->execute([$oEmpId, $oDate]);
+                                $delStmt = $_pdo->prepare("DELETE FROM payroll_schedule_overrides WHERE employee_id = ? AND override_date = ?");
+                                if ($delStmt === false) {
+                                    throw new Exception('Prepare gagal: ' . implode(' ', $_pdo->errorInfo()));
+                                }
+                                $delStmt->execute([$oEmpId, $oDate]);
                             }
                             echo json_encode(['success' => true]);
-                        } catch (Exception $e) {
+                        } catch (Throwable $e) {
                             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
                         }
                         exit;
@@ -3822,8 +3835,14 @@
                                 fd.append('start_time', start);
                                 fd.append('end_time', end);
                                 fd.append('break_minutes', brk);
-                                fetch('?tab=schedule', { method: 'POST', body: fd })
-                                    .then(r => r.json())
+                                fetch(window.location.pathname + '?tab=schedule', { method: 'POST', body: fd })
+                                    .then(r => r.text().then(txt => {
+                                        let res;
+                                        try { res = JSON.parse(txt); } catch (e) {
+                                            throw new Error('Respon server tidak valid (HTTP ' + r.status + '): ' + txt.substring(0, 200));
+                                        }
+                                        return res;
+                                    }))
                                     .then(res => {
                                         if (res && res.success) {
                                             schedOverrides[schedEditingDate] = { is_off: isOff ? 1 : 0, start_time: start, end_time: end, break_minutes: brk };
@@ -3833,7 +3852,7 @@
                                             alert('Gagal menyimpan tanggal khusus: ' + (res && res.message ? res.message : 'unknown error'));
                                         }
                                     })
-                                    .catch(() => alert('Gagal menyimpan tanggal khusus (koneksi bermasalah).'));
+                                    .catch(err => alert('Gagal menyimpan tanggal khusus: ' + err.message));
                                 return;
                             }
 
@@ -3852,8 +3871,14 @@
                             fd.append('ajax_delete_override', '1');
                             fd.append('employee_id', schedCurrentEmpId);
                             fd.append('override_date', schedEditingDate);
-                            fetch('?tab=schedule', { method: 'POST', body: fd })
-                                .then(r => r.json())
+                            fetch(window.location.pathname + '?tab=schedule', { method: 'POST', body: fd })
+                                .then(r => r.text().then(txt => {
+                                    let res;
+                                    try { res = JSON.parse(txt); } catch (e) {
+                                        throw new Error('Respon server tidak valid (HTTP ' + r.status + '): ' + txt.substring(0, 200));
+                                    }
+                                    return res;
+                                }))
                                 .then(res => {
                                     if (res && res.success) {
                                         delete schedOverrides[schedEditingDate];
@@ -3863,7 +3888,7 @@
                                         alert('Gagal menghapus override: ' + (res && res.message ? res.message : 'unknown error'));
                                     }
                                 })
-                                .catch(() => alert('Gagal menghapus override (koneksi bermasalah).'));
+                                .catch(err => alert('Gagal menghapus override: ' + err.message));
                         }
 
                         function toggleQuickOffUI(checked) {
