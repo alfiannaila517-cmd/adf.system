@@ -2892,10 +2892,34 @@
                                                 <input type="hidden" name="off_<?php echo $di; ?>" id="off_<?php echo $di; ?>" value="<?php echo $di === 0 ? '1' : '0'; ?>">
                                             <?php endfor; ?>
 
+                                            <!-- Quick Edit: check multiple weekdays, set one time range/off, apply to all at once -->
+                                            <div id="schedQuickEdit" style="border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:12px;background:var(--bg);">
+                                                <div style="font-size:11px;font-weight:700;color:var(--navy);margin-bottom:8px;">⚡ Edit Cepat (banyak hari sekaligus)</div>
+                                                <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">
+                                                    <?php $qDayLabels = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab']; ?>
+                                                    <?php foreach ($qDayLabels as $qi => $ql): ?>
+                                                        <label style="display:flex;align-items:center;gap:4px;padding:4px 10px;background:#fff;border:1px solid var(--border);border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">
+                                                            <input type="checkbox" class="sched-quick-day" value="<?php echo $qi; ?>"> <?php echo $ql; ?>
+                                                        </label>
+                                                    <?php endforeach; ?>
+                                                </div>
+                                                <div class="fgrid" style="margin-bottom:8px;">
+                                                    <div class="fg"><label class="fl">Jam Masuk</label><input type="time" class="fi" id="quickStart" value="09:00"></div>
+                                                    <div class="fg"><label class="fl">Jam Pulang</label><input type="time" class="fi" id="quickEnd" value="17:00"></div>
+                                                    <div class="fg"><label class="fl">Istirahat (menit)</label><input type="number" class="fi" id="quickBreak" value="60" min="0" max="120"></div>
+                                                </div>
+                                                <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                                                    <label style="display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;cursor:pointer;">
+                                                        <input type="checkbox" id="quickOff" onchange="toggleQuickOffUI(this.checked)"> Tandai sebagai Libur (bukan jam kerja)
+                                                    </label>
+                                                    <button type="button" class="btn btn-primary btn-sm" onclick="applyQuickEdit()">⚡ Terapkan ke Hari Terpilih</button>
+                                                </div>
+                                            </div>
+
                                             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-                                                <button type="button" class="btn btn-edit btn-sm" onclick="changeSchedMonth(-1)">◀ Bulan Lalu</button>
+                                                <button type="button" class="btn btn-sm" style="background:var(--blue);color:#fff;" onclick="changeSchedMonth(-1)">◀ Bulan Lalu</button>
                                                 <div id="schedCalTitle" style="font-weight:700;font-size:13px;color:var(--navy);"></div>
-                                                <button type="button" class="btn btn-edit btn-sm" onclick="changeSchedMonth(1)">Bulan Depan ▶</button>
+                                                <button type="button" class="btn btn-sm" style="background:var(--blue);color:#fff;" onclick="changeSchedMonth(1)">Bulan Depan ▶</button>
                                             </div>
 
                                             <div id="schedCalGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;"></div>
@@ -3662,6 +3686,35 @@
                             renderScheduleCalendar();
                         }
 
+                        function toggleQuickOffUI(checked) {
+                            document.getElementById('quickStart').disabled = checked;
+                            document.getElementById('quickEnd').disabled = checked;
+                            document.getElementById('quickBreak').disabled = checked;
+                        }
+
+                        function applyQuickEdit() {
+                            if (!schedCurrentEmpId) {
+                                alert('Pilih karyawan terlebih dahulu.');
+                                return;
+                            }
+                            const checkedDays = Array.from(document.querySelectorAll('.sched-quick-day:checked')).map(el => parseInt(el.value));
+                            if (!checkedDays.length) {
+                                alert('Pilih minimal satu hari.');
+                                return;
+                            }
+                            const isOff = document.getElementById('quickOff').checked;
+                            const start = document.getElementById('quickStart').value || '09:00';
+                            const end = document.getElementById('quickEnd').value || '17:00';
+                            const brk = document.getElementById('quickBreak').value || '60';
+                            checkedDays.forEach(d => {
+                                document.getElementById('off_' + d).value = isOff ? '1' : '0';
+                                document.getElementById('start_' + d).value = start;
+                                document.getElementById('end_' + d).value = end;
+                                document.getElementById('break_' + d).value = brk;
+                            });
+                            renderScheduleCalendar();
+                        }
+
                         function loadEmpSchedule(empId) {
                             const form = document.getElementById('schedForm');
                             if (!empId) {
@@ -3678,6 +3731,10 @@
                                 document.getElementById('break_' + d).value = '60';
                                 document.getElementById('off_' + d).value = (d === 0) ? '1' : '0';
                             }
+                            // Reset quick-edit controls
+                            document.querySelectorAll('.sched-quick-day').forEach(el => el.checked = false);
+                            document.getElementById('quickOff').checked = false;
+                            toggleQuickOffUI(false);
                             form.style.display = 'block';
                             renderScheduleCalendar();
                             // Fetch existing schedule via AJAX
