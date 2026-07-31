@@ -1374,6 +1374,49 @@ if ($action === 'work_schedule') {
 }
 
 // ══════════════════════════════════════
+// ALL STAFF WORK SCHEDULE — combined calendar (Dashboard)
+// ══════════════════════════════════════
+if ($action === 'all_staff_schedule') {
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `payroll_work_schedules` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `employee_id` INT NOT NULL,
+        `day_of_week` TINYINT NOT NULL DEFAULT 0,
+        `start_time` TIME NOT NULL DEFAULT '09:00:00',
+        `end_time` TIME NOT NULL DEFAULT '17:00:00',
+        `break_minutes` INT DEFAULT 60,
+        `is_off` TINYINT(1) DEFAULT 0,
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uk_emp_day (employee_id, day_of_week)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `payroll_schedule_overrides` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `employee_id` INT NOT NULL,
+        `override_date` DATE NOT NULL,
+        `is_off` TINYINT(1) NOT NULL DEFAULT 1,
+        `start_time` TIME DEFAULT NULL,
+        `end_time` TIME DEFAULT NULL,
+        `break_minutes` INT DEFAULT NULL,
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uk_emp_date (employee_id, override_date)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    try {
+        $allEmps = $db->fetchAll("SELECT id, employee_code, full_name FROM payroll_employees WHERE is_active = 1 ORDER BY full_name") ?: [];
+        $allWeekly = $db->fetchAll("SELECT employee_id, day_of_week, start_time, end_time, break_minutes, is_off FROM payroll_work_schedules") ?: [];
+        $allOverrides = $db->fetchAll("SELECT employee_id, override_date, is_off, start_time, end_time, break_minutes FROM payroll_schedule_overrides") ?: [];
+        echo json_encode([
+            'success' => true,
+            'employees' => $allEmps,
+            'weekly' => $allWeekly,
+            'overrides' => $allOverrides,
+        ]);
+    } catch (Throwable $e) {
+        echo json_encode(['success' => false, 'employees' => [], 'weekly' => [], 'overrides' => []]);
+    }
+    exit;
+}
+
+// ══════════════════════════════════════
 // SALARY PERIODS — list available payroll periods for this employee
 // ══════════════════════════════════════
 if ($action === 'salary_periods') {

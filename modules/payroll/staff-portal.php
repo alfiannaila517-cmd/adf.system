@@ -2900,6 +2900,18 @@ header('Expires: 0');
                 </div>
             </div>
 
+            <!-- Jadwal Kerja Tim (Semua Staff) - Kalender Gabungan -->
+            <div class="card">
+                <div class="card-title">📅 Jadwal Kerja Tim (Semua Staff)</div>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                    <button type="button" style="border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;background:var(--blue);color:#fff;" onclick="changeTeamSchedMonth(-1)">◀ Bulan Lalu</button>
+                    <div id="teamSchedCalTitle" style="font-weight:700;font-size:13px;color:var(--navy);"></div>
+                    <button type="button" style="border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;background:var(--blue);color:#fff;" onclick="changeTeamSchedMonth(1)">Bulan Depan ▶</button>
+                </div>
+                <div id="teamSchedCalGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;"></div>
+                <div style="margin-top:10px;font-size:10px;color:var(--muted);">🟢 Jumlah staf yang masuk kerja &nbsp; 🔴 Jumlah staf libur &nbsp; — tap tanggal untuk lihat detail siapa saja yang masuk &amp; libur</div>
+            </div>
+
             <!-- Target Jam - Donut Chart -->
             <div class="card">
                 <div class="card-title">📊 Target Jam Bulan Ini</div>
@@ -3085,6 +3097,9 @@ header('Expires: 0');
 
             <div id="calPopupOverlay" class="cal-popup-overlay" style="display:none;" onclick="closeCalPopup()"></div>
             <div id="calPopup" class="cal-popup" style="display:none;"></div>
+
+            <div id="teamSchedPopupOverlay" class="cal-popup-overlay" style="display:none;" onclick="closeTeamSchedPopup()"></div>
+            <div id="teamSchedPopup" class="cal-popup" style="display:none;max-height:70vh;overflow-y:auto;"></div>
 
             <!-- ═══ PAGE: BREAKFAST (Hotel only) ═══ -->
             <div class="page" id="page-breakfast">
@@ -3496,9 +3511,173 @@ header('Expires: 0');
             loadAbsen();
             loadMonitoring();
             loadMonitorLembur();
+            loadTeamSchedule();
             if (IS_CAFE) loadSchedule();
             // Preload face models in background so Face Scan opens instantly
             preloadFaceModels();
+        }
+
+        // ═══ TEAM SCHEDULE (All Staff Combined Calendar) ═══
+        const TEAM_SCHED_MONTH_NAMES = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+        const TEAM_SCHED_DAY_SHORT = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+        let teamSchedYear = new Date().getFullYear();
+        let teamSchedMonth = new Date().getMonth();
+        let teamSchedData = null;
+
+        function teamSchedPad(n) {
+            return n < 10 ? '0' + n : '' + n;
+        }
+
+        function teamSchedDateStr(y, m, d) {
+            return y + '-' + teamSchedPad(m + 1) + '-' + teamSchedPad(d);
+        }
+
+        function teamSchedComputeDay(emp, dateStr, dow) {
+            const ov = (teamSchedData.overridesByEmp[emp.id] || {})[dateStr];
+            if (ov) {
+                return {
+                    isOff: parseInt(ov.is_off) === 1,
+                    start: (ov.start_time || '09:00').substring(0, 5),
+                    end: (ov.end_time || '17:00').substring(0, 5)
+                };
+            }
+            const w = (teamSchedData.weeklyByEmp[emp.id] || {})[dow];
+            if (w) {
+                return {
+                    isOff: parseInt(w.is_off) === 1,
+                    start: (w.start_time || '09:00').substring(0, 5),
+                    end: (w.end_time || '17:00').substring(0, 5)
+                };
+            }
+            return { isOff: dow === 0, start: '09:00', end: '17:00' };
+        }
+
+        function loadTeamSchedule() {
+            fetch(API + '&action=all_staff_schedule')
+                .then(r => r.json())
+                .then(data => {
+                    const weeklyByEmp = {};
+                    (data.weekly || []).forEach(row => {
+                        const eid = row.employee_id;
+                        if (!weeklyByEmp[eid]) weeklyByEmp[eid] = {};
+                        weeklyByEmp[eid][parseInt(row.day_of_week)] = row;
+                    });
+                    const overridesByEmp = {};
+                    (data.overrides || []).forEach(row => {
+                        const eid = row.employee_id;
+                        if (!overridesByEmp[eid]) overridesByEmp[eid] = {};
+                        overridesByEmp[eid][row.override_date] = row;
+                    });
+                    teamSchedData = { employees: data.employees || [], weeklyByEmp, overridesByEmp };
+                    renderTeamSchedCalendar();
+                })
+                .catch(() => {
+                    teamSchedData = { employees: [], weeklyByEmp: {}, overridesByEmp: {} };
+                    renderTeamSchedCalendar();
+                });
+        }
+
+        function renderTeamSchedCalendar() {
+            const grid = document.getElementById('teamSchedCalGrid');
+            const title = document.getElementById('teamSchedCalTitle');
+            if (!grid || !title) return;
+            title.textContent = TEAM_SCHED_MONTH_NAMES[teamSchedMonth] + ' ' + teamSchedYear;
+            grid.innerHTML = '';
+            TEAM_SCHED_DAY_SHORT.forEach(d => {
+                const h = document.createElement('div');
+                h.textContent = d;
+                h.style.cssText = 'text-align:center;font-size:10px;font-weight:700;color:var(--muted);padding:4px 0;';
+                grid.appendChild(h);
+            });
+            if (!teamSchedData) return;
+            const firstDay = new Date(teamSchedYear, teamSchedMonth, 1).getDay();
+            const daysInMonth = new Date(teamSchedYear, teamSchedMonth + 1, 0).getDate();
+            for (let i = 0; i < firstDay; i++) {
+                grid.appendChild(document.createElement('div'));
+            }
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dow = new Date(teamSchedYear, teamSchedMonth, day).getDay();
+                const dateStr = teamSchedDateStr(teamSchedYear, teamSchedMonth, day);
+                let workingCount = 0;
+                const offNames = [];
+                teamSchedData.employees.forEach(emp => {
+                    if (teamSchedComputeDay(emp, dateStr, dow).isOff) {
+                        offNames.push(emp.full_name);
+                    } else {
+                        workingCount++;
+                    }
+                });
+                const cell = document.createElement('div');
+                cell.onclick = () => openTeamSchedDayPopup(dateStr);
+                cell.style.cssText = 'border:1px solid var(--border);border-radius:6px;padding:4px;min-height:52px;cursor:pointer;font-size:10px;background:#f8fafc;';
+                let offHtml = '';
+                if (offNames.length) {
+                    const offTitle = offNames.join(', ').replace(/"/g, '&quot;');
+                    offHtml = '<div style="color:#dc2626;font-weight:600;" title="' + offTitle + '">\uD83D\uDD34 ' + offNames.length + ' libur</div>';
+                }
+                cell.innerHTML = '<div style="font-weight:700;font-size:11px;">' + day + '</div>' +
+                    '<div style="color:#065f46;font-weight:600;">\uD83D\uDFE2 ' + workingCount + ' masuk</div>' + offHtml;
+                grid.appendChild(cell);
+            }
+        }
+
+        function changeTeamSchedMonth(delta) {
+            teamSchedMonth += delta;
+            if (teamSchedMonth < 0) {
+                teamSchedMonth = 11;
+                teamSchedYear--;
+            } else if (teamSchedMonth > 11) {
+                teamSchedMonth = 0;
+                teamSchedYear++;
+            }
+            renderTeamSchedCalendar();
+        }
+
+        function openTeamSchedDayPopup(dateStr) {
+            if (!teamSchedData) return;
+            const parts = dateStr.split('-').map(Number);
+            const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+            const dow = dateObj.getDay();
+            const working = [];
+            const off = [];
+            teamSchedData.employees.forEach(emp => {
+                const info = teamSchedComputeDay(emp, dateStr, dow);
+                if (info.isOff) off.push(emp);
+                else working.push({ emp, info });
+            });
+            let html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">' +
+                '<div style="font-weight:700;font-size:13px;color:var(--navy);">\uD83D\uDDD3\uFE0F ' + dateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) + '</div>' +
+                '<button onclick="closeTeamSchedPopup()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted);">\u2715</button></div>';
+            html += '<div style="font-weight:700;color:var(--green);margin-bottom:6px;font-size:12px;">\uD83D\uDFE2 Masuk Kerja (' + working.length + ')</div>';
+            if (working.length) {
+                html += '<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:12px;">';
+                working.forEach(w => {
+                    html += '<div style="display:flex;justify-content:space-between;gap:8px;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:11px;">' +
+                        '<span style="font-weight:600;">' + (w.emp.employee_code ? w.emp.employee_code + ' \u2014 ' : '') + w.emp.full_name + '</span>' +
+                        '<span style="color:var(--muted);white-space:nowrap;">' + w.info.start + '-' + w.info.end + '</span></div>';
+                });
+                html += '</div>';
+            } else {
+                html += '<div style="color:var(--muted);font-size:11px;margin-bottom:12px;">Tidak ada staf yang masuk.</div>';
+            }
+            html += '<div style="font-weight:700;color:var(--red);margin-bottom:6px;font-size:12px;">\uD83D\uDD34 Libur (' + off.length + ')</div>';
+            if (off.length) {
+                html += '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+                off.forEach(emp => {
+                    html += '<span style="background:#fef2f2;color:#991b1b;font-size:10px;font-weight:600;padding:3px 8px;border-radius:4px;">' + emp.full_name + '</span>';
+                });
+                html += '</div>';
+            } else {
+                html += '<div style="color:var(--muted);font-size:11px;">Tidak ada.</div>';
+            }
+            document.getElementById('teamSchedPopup').innerHTML = html;
+            document.getElementById('teamSchedPopup').style.display = 'block';
+            document.getElementById('teamSchedPopupOverlay').style.display = 'block';
+        }
+
+        function closeTeamSchedPopup() {
+            document.getElementById('teamSchedPopup').style.display = 'none';
+            document.getElementById('teamSchedPopupOverlay').style.display = 'none';
         }
 
         // Background preload — non-blocking, loads AI models silently
