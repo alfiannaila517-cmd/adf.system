@@ -31,6 +31,18 @@ try {
     $pdo->exec("ALTER TABLE payroll_attendance ADD COLUMN overtime_hours DECIMAL(5,2) DEFAULT NULL AFTER work_hours");
 }
 
+// Ensure 'uniform' column exists on schedule tables (Jadwal Seragam feature) — self-healing, safe if tables don't exist yet
+foreach (['payroll_work_schedules', 'payroll_schedule_overrides'] as $__schedTbl) {
+    try {
+        $pdo->query("SELECT uniform FROM `$__schedTbl` LIMIT 0");
+    } catch (PDOException $e) {
+        try {
+            $pdo->exec("ALTER TABLE `$__schedTbl` ADD COLUMN `uniform` VARCHAR(100) DEFAULT NULL");
+        } catch (Throwable $e2) {
+        }
+    }
+}
+
 // Auto-create staff_accounts table
 $pdo->exec("CREATE TABLE IF NOT EXISTS `staff_accounts` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
@@ -1402,8 +1414,8 @@ if ($action === 'all_staff_schedule') {
 
     try {
         $allEmps = $db->fetchAll("SELECT id, employee_code, full_name FROM payroll_employees WHERE is_active = 1 ORDER BY full_name") ?: [];
-        $allWeekly = $db->fetchAll("SELECT employee_id, day_of_week, start_time, end_time, break_minutes, is_off FROM payroll_work_schedules") ?: [];
-        $allOverrides = $db->fetchAll("SELECT employee_id, override_date, is_off, start_time, end_time, break_minutes FROM payroll_schedule_overrides") ?: [];
+        $allWeekly = $db->fetchAll("SELECT employee_id, day_of_week, start_time, end_time, break_minutes, is_off, uniform FROM payroll_work_schedules") ?: [];
+        $allOverrides = $db->fetchAll("SELECT employee_id, override_date, is_off, start_time, end_time, break_minutes, uniform FROM payroll_schedule_overrides") ?: [];
         echo json_encode([
             'success' => true,
             'employees' => $allEmps,

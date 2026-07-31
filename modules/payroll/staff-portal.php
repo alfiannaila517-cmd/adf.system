@@ -2908,20 +2908,28 @@ header('Expires: 0');
                 </button>
             </div>
 
-            <!-- Menu Cepat: Lembur / Cuti / Jadwal Kerja -->
-            <div class="card" style="padding:14px 10px;">
-                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center;">
+            <!-- Menu Cepat: Lembur / Cuti / Jadwal Kerja / Detail Absensi / Jadwal Seragam -->
+            <div class="card" style="padding:14px 8px;">
+                <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;text-align:center;">
                     <div onclick="openStaffSection('lemburSection')" style="cursor:pointer;">
-                        <div style="width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;font-size:20px;margin:0 auto 6px;color:#fff;box-shadow:0 4px 10px rgba(217,119,6,.3);">⏰</div>
-                        <div style="font-size:10.5px;font-weight:600;color:var(--navy);line-height:1.3;">Ajukan<br>Lembur</div>
+                        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;font-size:18px;margin:0 auto 6px;color:#fff;box-shadow:0 4px 10px rgba(217,119,6,.3);">⏰</div>
+                        <div style="font-size:9.5px;font-weight:600;color:var(--navy);line-height:1.3;">Ajukan<br>Lembur</div>
                     </div>
                     <div onclick="openStaffSection('cutiSection')" style="cursor:pointer;">
-                        <div style="width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,#0ea5e9,#0369a1);display:flex;align-items:center;justify-content:center;font-size:20px;margin:0 auto 6px;color:#fff;box-shadow:0 4px 10px rgba(3,105,161,.3);">🏖️</div>
-                        <div style="font-size:10.5px;font-weight:600;color:var(--navy);line-height:1.3;">Ajukan<br>Cuti</div>
+                        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#0ea5e9,#0369a1);display:flex;align-items:center;justify-content:center;font-size:18px;margin:0 auto 6px;color:#fff;box-shadow:0 4px 10px rgba(3,105,161,.3);">🏖️</div>
+                        <div style="font-size:9.5px;font-weight:600;color:var(--navy);line-height:1.3;">Ajukan<br>Cuti</div>
                     </div>
                     <div onclick="openStaffSection('teamSchedSection')" style="cursor:pointer;">
-                        <div style="width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,#7c3aed,#5b21b6);display:flex;align-items:center;justify-content:center;font-size:20px;margin:0 auto 6px;color:#fff;box-shadow:0 4px 10px rgba(91,33,182,.3);">📅</div>
-                        <div style="font-size:10.5px;font-weight:600;color:var(--navy);line-height:1.3;">Jadwal<br>Kerja</div>
+                        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#7c3aed,#5b21b6);display:flex;align-items:center;justify-content:center;font-size:18px;margin:0 auto 6px;color:#fff;box-shadow:0 4px 10px rgba(91,33,182,.3);">📅</div>
+                        <div style="font-size:9.5px;font-weight:600;color:var(--navy);line-height:1.3;">Jadwal<br>Kerja</div>
+                    </div>
+                    <div onclick="openStaffSection('monitorSection')" style="cursor:pointer;">
+                        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#0c2d48,#145374);display:flex;align-items:center;justify-content:center;font-size:18px;margin:0 auto 6px;color:#fff;box-shadow:0 4px 10px rgba(12,45,72,.3);">📊</div>
+                        <div style="font-size:9.5px;font-weight:600;color:var(--navy);line-height:1.3;">Detail<br>Absensi</div>
+                    </div>
+                    <div onclick="openStaffSection('uniformSection')" style="cursor:pointer;">
+                        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#059669,#047857);display:flex;align-items:center;justify-content:center;font-size:18px;margin:0 auto 6px;color:#fff;box-shadow:0 4px 10px rgba(4,120,87,.3);">👔</div>
+                        <div style="font-size:9.5px;font-weight:600;color:var(--navy);line-height:1.3;">Jadwal<br>Seragam</div>
                     </div>
                 </div>
             </div>
@@ -3045,32 +3053,57 @@ header('Expires: 0');
                 <div id="teamSchedPopup" class="cal-popup" style="display:none;max-height:70vh;overflow-y:auto;"></div>
             </div>
 
-            <!-- Monitoring Detail -->
-            <div class="card" style="border-color:#1e3a5c;padding:12px;">
-                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; flex-wrap:wrap; gap:6px;">
-                    <div style="display:flex;align-items:center;gap:7px;">
-                        <div style="width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#0c2d48,#145374);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;box-shadow:0 3px 8px rgba(12,45,72,.35);">📅</div>
-                        <div class="card-title" style="margin:0;font-size:13px;color:#0c2d48;">Detail Absensi &amp; Lembur</div>
+            <!-- Jadwal Seragam Saya (toggled via Menu Cepat) — diatur admin dari Jadwal Kalender Kerja -->
+            <div id="uniformSection" style="display:none;">
+                <div style="text-align:right;margin-bottom:6px;">
+                    <button type="button" onclick="closeStaffSection('uniformSection')" style="background:none;border:none;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;">✕ Tutup</button>
+                </div>
+                <div class="card">
+                    <div class="card-title">👔 Jadwal Seragam Saya</div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                        <button type="button" style="border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;background:var(--blue);color:#fff;" onclick="changeUniformMonth(-1)">◀ Bulan Lalu</button>
+                        <div id="uniformCalTitle" style="font-weight:700;font-size:13px;color:var(--navy);"></div>
+                        <button type="button" style="border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;background:var(--blue);color:#fff;" onclick="changeUniformMonth(1)">Bulan Depan ▶</button>
                     </div>
-                    <input type="month" id="monitorMonth" class="fi" style="width:126px;padding:5px 8px;font-size:10.5px;border-radius:8px;border-color:#9fb8cc;" value="<?php echo date('Y-m'); ?>" onchange="onMonitorMonthChange()">
+                    <div id="uniformDowHeader" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:4px;"></div>
+                    <div id="uniformCalGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;"></div>
+                    <div style="margin-top:8px;font-size:10px;color:var(--muted);">👔 Seragam hari itu &nbsp; 🔴 Libur &nbsp; — tap tanggal untuk detail. Diatur admin dari Jadwal Kalender Kerja.</div>
                 </div>
-                <div style="display:flex; gap:5px; margin-bottom:10px; flex-wrap:wrap;">
-                    <button type="button" onclick="shiftMonitorMonth(-1)" style="flex:1;min-width:82px;background:linear-gradient(135deg,#0c2d48,#145374);color:#fff;border:none;padding:7px 8px;border-radius:8px;font-size:10.5px;font-weight:600;cursor:pointer;box-shadow:0 3px 8px rgba(12,45,72,.25);">← Bulan Lalu</button>
-                    <button type="button" onclick="shiftMonitorMonth(0)" style="background:#eef4f9;color:#0c2d48;border:1.5px solid #9fb8cc;padding:7px 12px;border-radius:8px;font-size:10.5px;font-weight:700;cursor:pointer;">Bulan Ini</button>
-                    <button type="button" onclick="shiftMonitorMonth(1)" style="flex:1;min-width:82px;background:linear-gradient(135deg,#0c2d48,#145374);color:#fff;border:none;padding:7px 8px;border-radius:8px;font-size:10.5px;font-weight:600;cursor:pointer;box-shadow:0 3px 8px rgba(12,45,72,.25);">Bulan Depan →</button>
+                <div id="uniformPopupOverlay" class="cal-popup-overlay" style="display:none;" onclick="closeUniformPopup()"></div>
+                <div id="uniformPopup" class="cal-popup" style="display:none;max-height:70vh;overflow-y:auto;"></div>
+            </div>
+
+            <!-- Detail Absensi & Lembur (Monitoring, toggled via Menu Cepat) -->
+            <div id="monitorSection" style="display:none;">
+                <div style="text-align:right;margin-bottom:6px;">
+                    <button type="button" onclick="closeStaffSection('monitorSection')" style="background:none;border:none;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;">✕ Tutup</button>
                 </div>
-                <div id="monitorStats"></div>
-                <div id="monitorTable">
-                    <div class="loading"><span class="spin"></span> Memuat...</div>
-                </div>
-                <div style="margin-top:8px; padding-top:8px; border-top:1px dashed #9fb8cc;">
-                    <div style="font-size:10.5px; color:#0c2d48; font-weight:700; margin-bottom:5px; display:flex; align-items:center; gap:4px;">📋 Pengajuan Lembur Bulan Ini</div>
-                    <div id="monitorLemburStats" style="margin-bottom:8px;"></div>
-                    <div id="monitorLemburHistory">
+                <div class="card" style="border-color:#1e3a5c;padding:12px;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; flex-wrap:wrap; gap:6px;">
+                        <div style="display:flex;align-items:center;gap:7px;">
+                            <div style="width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#0c2d48,#145374);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;box-shadow:0 3px 8px rgba(12,45,72,.35);">📅</div>
+                            <div class="card-title" style="margin:0;font-size:13px;color:#0c2d48;">Detail Absensi &amp; Lembur</div>
+                        </div>
+                        <input type="month" id="monitorMonth" class="fi" style="width:126px;padding:5px 8px;font-size:10.5px;border-radius:8px;border-color:#9fb8cc;" value="<?php echo date('Y-m'); ?>" onchange="onMonitorMonthChange()">
+                    </div>
+                    <div style="display:flex; gap:5px; margin-bottom:10px; flex-wrap:wrap;">
+                        <button type="button" onclick="shiftMonitorMonth(-1)" style="flex:1;min-width:82px;background:linear-gradient(135deg,#0c2d48,#145374);color:#fff;border:none;padding:7px 8px;border-radius:8px;font-size:10.5px;font-weight:600;cursor:pointer;box-shadow:0 3px 8px rgba(12,45,72,.25);">← Bulan Lalu</button>
+                        <button type="button" onclick="shiftMonitorMonth(0)" style="background:#eef4f9;color:#0c2d48;border:1.5px solid #9fb8cc;padding:7px 12px;border-radius:8px;font-size:10.5px;font-weight:700;cursor:pointer;">Bulan Ini</button>
+                        <button type="button" onclick="shiftMonitorMonth(1)" style="flex:1;min-width:82px;background:linear-gradient(135deg,#0c2d48,#145374);color:#fff;border:none;padding:7px 8px;border-radius:8px;font-size:10.5px;font-weight:600;cursor:pointer;box-shadow:0 3px 8px rgba(12,45,72,.25);">Bulan Depan →</button>
+                    </div>
+                    <div id="monitorStats"></div>
+                    <div id="monitorTable">
                         <div class="loading"><span class="spin"></span> Memuat...</div>
                     </div>
+                    <div style="margin-top:8px; padding-top:8px; border-top:1px dashed #9fb8cc;">
+                        <div style="font-size:10.5px; color:#0c2d48; font-weight:700; margin-bottom:5px; display:flex; align-items:center; gap:4px;">📋 Pengajuan Lembur Bulan Ini</div>
+                        <div id="monitorLemburStats" style="margin-bottom:8px;"></div>
+                        <div id="monitorLemburHistory">
+                            <div class="loading"><span class="spin"></span> Memuat...</div>
+                        </div>
+                    </div>
+                    <button type="button" onclick="openSlipForMonitorMonth()" style="margin-top:8px;width:100%;background:linear-gradient(135deg,#0c2d48,#145374);color:#fff;border:none;padding:9px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">💰 Lihat Slip Gaji Bulan Ini</button>
                 </div>
-                <button type="button" onclick="openSlipForMonitorMonth()" style="margin-top:8px;width:100%;background:linear-gradient(135deg,#0c2d48,#145374);color:#fff;border:none;padding:9px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">💰 Lihat Slip Gaji Bulan Ini</button>
             </div>
 
         </div>
@@ -3559,9 +3592,9 @@ header('Expires: 0');
             preloadFaceModels();
         }
 
-        // ═══ Menu Cepat: toggle Lembur / Cuti / Jadwal Kerja sections ═══
+        // ═══ Menu Cepat: toggle Lembur / Cuti / Jadwal Kerja / Detail Absensi / Jadwal Seragam sections ═══
         function openStaffSection(id) {
-            ['lemburSection', 'cutiSection', 'teamSchedSection'].forEach(sid => {
+            ['lemburSection', 'cutiSection', 'teamSchedSection', 'monitorSection', 'uniformSection'].forEach(sid => {
                 const el = document.getElementById(sid);
                 if (el) el.style.display = (sid === id) ? 'block' : 'none';
             });
@@ -3626,7 +3659,8 @@ header('Expires: 0');
                 return {
                     isOff: parseInt(ov.is_off) === 1,
                     start: (ov.start_time || '09:00').substring(0, 5),
-                    end: (ov.end_time || '17:00').substring(0, 5)
+                    end: (ov.end_time || '17:00').substring(0, 5),
+                    uniform: ov.uniform || null
                 };
             }
             const w = (teamSchedData.weeklyByEmp[emp.id] || {})[dow];
@@ -3634,10 +3668,11 @@ header('Expires: 0');
                 return {
                     isOff: parseInt(w.is_off) === 1,
                     start: (w.start_time || '09:00').substring(0, 5),
-                    end: (w.end_time || '17:00').substring(0, 5)
+                    end: (w.end_time || '17:00').substring(0, 5),
+                    uniform: w.uniform || null
                 };
             }
-            return { isOff: dow === 0, start: '09:00', end: '17:00' };
+            return { isOff: dow === 0, start: '09:00', end: '17:00', uniform: null };
         }
 
         function loadTeamSchedule() {
@@ -3658,11 +3693,112 @@ header('Expires: 0');
                     });
                     teamSchedData = { employees: data.employees || [], weeklyByEmp, overridesByEmp };
                     renderTeamSchedCalendar();
+                    renderUniformCalendar();
                 })
                 .catch(() => {
                     teamSchedData = { employees: [], weeklyByEmp: {}, overridesByEmp: {} };
                     renderTeamSchedCalendar();
+                    renderUniformCalendar();
                 });
+        }
+
+        // ═══ JADWAL SERAGAM (Uniform Schedule) — reuses teamSchedData, diatur admin dari Jadwal Kalender Kerja ═══
+        let uniformYear = new Date().getFullYear();
+        let uniformMonth = new Date().getMonth();
+
+        function renderUniformCalendar() {
+            const grid = document.getElementById('uniformCalGrid');
+            const title = document.getElementById('uniformCalTitle');
+            const dowHeader = document.getElementById('uniformDowHeader');
+            if (!grid || !title) return;
+            title.textContent = TEAM_SCHED_MONTH_NAMES[uniformMonth] + ' ' + uniformYear;
+
+            if (dowHeader && !dowHeader.dataset.rendered) {
+                TEAM_SCHED_DAY_SHORT.forEach(d => {
+                    const h = document.createElement('div');
+                    h.textContent = d;
+                    h.style.cssText = 'text-align:center;font-size:11px;font-weight:700;color:var(--muted);padding:2px 0;';
+                    dowHeader.appendChild(h);
+                });
+                dowHeader.dataset.rendered = '1';
+            }
+
+            grid.innerHTML = '';
+            if (!teamSchedData) return;
+            const myEmp = teamSchedGetMyEmp();
+            const weeks = teamSchedBuildWeeks(uniformYear, uniformMonth);
+            weeks.forEach(week => {
+                week.forEach(day => {
+                    if (day === null) {
+                        grid.appendChild(document.createElement('div'));
+                        return;
+                    }
+                    const dow = new Date(uniformYear, uniformMonth, day).getDay();
+                    const dateStr = teamSchedDateStr(uniformYear, uniformMonth, day);
+                    const cell = document.createElement('div');
+                    cell.onclick = () => openUniformDayPopup(dateStr);
+                    cell.style.cssText = 'border:1px solid var(--border);border-radius:8px;padding:6px 4px;min-height:60px;cursor:pointer;background:#f8fafc;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;';
+                    if (!myEmp) {
+                        cell.innerHTML = '<div style="font-weight:800;font-size:16px;color:var(--navy);line-height:1;">' + day + '</div><div style="color:var(--muted);font-size:9px;">-</div>';
+                    } else {
+                        const info = teamSchedComputeDay(myEmp, dateStr, dow);
+                        let bodyHtml;
+                        if (info.isOff) {
+                            bodyHtml = '<div style="color:#dc2626;font-weight:700;font-size:9px;">\uD83D\uDD34 Libur</div>';
+                        } else if (info.uniform) {
+                            bodyHtml = '<div style="color:#059669;font-weight:700;font-size:9px;line-height:1.2;text-align:center;word-break:break-word;">\uD83D\uDC54 ' + info.uniform + '</div>';
+                        } else {
+                            bodyHtml = '<div style="color:var(--muted);font-size:9px;">Belum diatur</div>';
+                        }
+                        cell.innerHTML = '<div style="font-weight:800;font-size:16px;color:var(--navy);line-height:1;">' + day + '</div>' + bodyHtml;
+                    }
+                    grid.appendChild(cell);
+                });
+            });
+        }
+
+        function changeUniformMonth(delta) {
+            uniformMonth += delta;
+            if (uniformMonth < 0) {
+                uniformMonth = 11;
+                uniformYear--;
+            } else if (uniformMonth > 11) {
+                uniformMonth = 0;
+                uniformYear++;
+            }
+            renderUniformCalendar();
+        }
+
+        function openUniformDayPopup(dateStr) {
+            if (!teamSchedData) return;
+            const parts = dateStr.split('-').map(Number);
+            const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+            const dow = dateObj.getDay();
+            const dateLabel = dateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+            const myEmp = teamSchedGetMyEmp();
+            let html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">' +
+                '<div style="font-weight:700;font-size:13px;color:var(--navy);">\uD83D\uDC54 ' + dateLabel + '</div>' +
+                '<button onclick="closeUniformPopup()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted);">\u2715</button></div>';
+            if (!myEmp) {
+                html += '<div style="color:var(--muted);font-size:12px;">Data jadwal Anda tidak ditemukan.</div>';
+            } else {
+                const info = teamSchedComputeDay(myEmp, dateStr, dow);
+                if (info.isOff) {
+                    html += '<div style="text-align:center;padding:16px 0;"><div style="font-size:32px;">\uD83D\uDD34</div><div style="font-weight:700;color:var(--red);font-size:14px;margin-top:6px;">Anda Libur</div></div>';
+                } else if (info.uniform) {
+                    html += '<div style="text-align:center;padding:16px 0;"><div style="font-size:32px;">\uD83D\uDC54</div><div style="font-weight:700;color:var(--green);font-size:14px;margin-top:6px;">' + info.uniform + '</div></div>';
+                } else {
+                    html += '<div style="text-align:center;padding:16px 0;"><div style="font-size:32px;">\u2754</div><div style="font-weight:700;color:var(--muted);font-size:13px;margin-top:6px;">Seragam belum diatur admin</div></div>';
+                }
+            }
+            document.getElementById('uniformPopup').innerHTML = html;
+            document.getElementById('uniformPopup').style.display = 'block';
+            document.getElementById('uniformPopupOverlay').style.display = 'block';
+        }
+
+        function closeUniformPopup() {
+            document.getElementById('uniformPopup').style.display = 'none';
+            document.getElementById('uniformPopupOverlay').style.display = 'none';
         }
 
         function teamSchedBuildWeeks(year, month) {

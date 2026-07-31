@@ -38,6 +38,18 @@
                     $pageTitle = 'Absensi Karyawan';
                     $baseUrl = defined('BASE_URL') ? BASE_URL : '';
 
+                    // Ensure 'uniform' column exists on schedule tables (Jadwal Seragam feature) — self-healing
+                    foreach (['payroll_work_schedules', 'payroll_schedule_overrides'] as $__schedTbl) {
+                        try {
+                            $_pdo->query("SELECT uniform FROM `$__schedTbl` LIMIT 0");
+                        } catch (PDOException $e) {
+                            try {
+                                $_pdo->exec("ALTER TABLE `$__schedTbl` ADD COLUMN `uniform` VARCHAR(100) DEFAULT NULL");
+                            } catch (Throwable $e2) {
+                            }
+                        }
+                    }
+
                     function isSplitShiftCheckInTime($timeStr)
                     {
                         $t = trim((string)$timeStr);
@@ -62,7 +74,7 @@
             `break_minutes` INT DEFAULT 60, `is_off` TINYINT(1) DEFAULT 0,
             `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uk_emp_day (employee_id, day_of_week)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-                            $stmt = $_pdo->prepare("SELECT day_of_week, start_time, end_time, break_minutes, is_off FROM payroll_work_schedules WHERE employee_id = ?");
+                            $stmt = $_pdo->prepare("SELECT day_of_week, start_time, end_time, break_minutes, is_off, uniform FROM payroll_work_schedules WHERE employee_id = ?");
                             if ($stmt === false) {
                                 throw new Exception('Prepare gagal: ' . implode(' ', $_pdo->errorInfo()));
                             }
@@ -84,7 +96,7 @@
             `break_minutes` INT DEFAULT NULL, `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE KEY uk_emp_date (employee_id, override_date)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-                            $stmt = $_pdo->prepare("SELECT override_date, is_off, start_time, end_time, break_minutes FROM payroll_schedule_overrides WHERE employee_id = ?");
+                            $stmt = $_pdo->prepare("SELECT override_date, is_off, start_time, end_time, break_minutes, uniform FROM payroll_schedule_overrides WHERE employee_id = ?");
                             if ($stmt === false) {
                                 throw new Exception('Prepare gagal: ' . implode(' ', $_pdo->errorInfo()));
                             }
@@ -113,8 +125,8 @@
             UNIQUE KEY uk_emp_date (employee_id, override_date)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
                             $allEmps = $_pdo->query("SELECT id, employee_code, full_name FROM payroll_employees WHERE is_active = 1 ORDER BY full_name")->fetchAll(PDO::FETCH_ASSOC);
-                            $allWeekly = $_pdo->query("SELECT employee_id, day_of_week, start_time, end_time, break_minutes, is_off FROM payroll_work_schedules")->fetchAll(PDO::FETCH_ASSOC);
-                            $allOverrides = $_pdo->query("SELECT employee_id, override_date, is_off, start_time, end_time, break_minutes FROM payroll_schedule_overrides")->fetchAll(PDO::FETCH_ASSOC);
+                            $allWeekly = $_pdo->query("SELECT employee_id, day_of_week, start_time, end_time, break_minutes, is_off, uniform FROM payroll_work_schedules")->fetchAll(PDO::FETCH_ASSOC);
+                            $allOverrides = $_pdo->query("SELECT employee_id, override_date, is_off, start_time, end_time, break_minutes, uniform FROM payroll_schedule_overrides")->fetchAll(PDO::FETCH_ASSOC);
                             echo json_encode(['employees' => $allEmps, 'weekly' => $allWeekly, 'overrides' => $allOverrides]);
                         } catch (Throwable $e) {
                             echo json_encode(['employees' => [], 'weekly' => [], 'overrides' => []]);
@@ -141,11 +153,12 @@
                             $oStart = $_POST['start_time'] ?? '09:00';
                             $oEnd = $_POST['end_time'] ?? '17:00';
                             $oBreak = (int)($_POST['break_minutes'] ?? 60);
-                            $ovStmt = $_pdo->prepare("INSERT INTO payroll_schedule_overrides (employee_id, override_date, is_off, start_time, end_time, break_minutes) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE is_off=VALUES(is_off), start_time=VALUES(start_time), end_time=VALUES(end_time), break_minutes=VALUES(break_minutes)");
+                            $oUniform = trim($_POST['uniform'] ?? '') ?: null;
+                            $ovStmt = $_pdo->prepare("INSERT INTO payroll_schedule_overrides (employee_id, override_date, is_off, start_time, end_time, break_minutes, uniform) VALUES (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE is_off=VALUES(is_off), start_time=VALUES(start_time), end_time=VALUES(end_time), break_minutes=VALUES(break_minutes), uniform=VALUES(uniform)");
                             if ($ovStmt === false) {
                                 throw new Exception('Prepare gagal: ' . implode(' ', $_pdo->errorInfo()));
                             }
-                            $ovStmt->execute([$oEmpId, $oDate, $oIsOff, $oStart, $oEnd, $oBreak]);
+                            $ovStmt->execute([$oEmpId, $oDate, $oIsOff, $oStart, $oEnd, $oBreak, $oUniform]);
                             echo json_encode(['success' => true]);
                         } catch (Throwable $e) {
                             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
@@ -1091,9 +1104,10 @@
                                     $et = $_POST["end_$d"] ?? '17:00';
                                     $brk = (int)($_POST["break_$d"] ?? 60);
                                     $off = (($_POST["off_$d"] ?? '0') === '1') ? 1 : 0;
+                                    $uni = trim($_POST["uniform_$d"] ?? '') ?: null;
 
-                                    $_pdo->prepare("INSERT INTO payroll_work_schedules (employee_id, day_of_week, start_time, end_time, break_minutes, is_off) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE start_time=VALUES(start_time), end_time=VALUES(end_time), break_minutes=VALUES(break_minutes), is_off=VALUES(is_off)")
-                                        ->execute([$schedEmpId, $d, $st, $et, $brk, $off]);
+                                    $_pdo->prepare("INSERT INTO payroll_work_schedules (employee_id, day_of_week, start_time, end_time, break_minutes, is_off, uniform) VALUES (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE start_time=VALUES(start_time), end_time=VALUES(end_time), break_minutes=VALUES(break_minutes), is_off=VALUES(is_off), uniform=VALUES(uniform)")
+                                        ->execute([$schedEmpId, $d, $st, $et, $brk, $off, $uni]);
                                 }
                                 $empName = $db->fetchOne("SELECT full_name FROM payroll_employees WHERE id = ?", [$schedEmpId])['full_name'] ?? '';
                                 $msg = "✅ Jadwal kerja {$empName} berhasil disimpan.";
@@ -2993,6 +3007,7 @@
                                                 <input type="hidden" name="end_<?php echo $di; ?>" id="end_<?php echo $di; ?>" value="17:00">
                                                 <input type="hidden" name="break_<?php echo $di; ?>" id="break_<?php echo $di; ?>" value="60">
                                                 <input type="hidden" name="off_<?php echo $di; ?>" id="off_<?php echo $di; ?>" value="<?php echo $di === 0 ? '1' : '0'; ?>">
+                                                <input type="hidden" name="uniform_<?php echo $di; ?>" id="uniform_<?php echo $di; ?>" value="">
                                             <?php endfor; ?>
 
                                             <!-- Quick Edit: check multiple weekdays, set one time range/off, apply to all at once -->
@@ -3079,6 +3094,10 @@
                                         <div class="fg"><label class="fl">Jam Masuk</label><input type="time" class="fi" id="schedDayStart" value="09:00"></div>
                                         <div class="fg"><label class="fl">Jam Pulang</label><input type="time" class="fi" id="schedDayEnd" value="17:00"></div>
                                         <div class="fg"><label class="fl">Istirahat (menit)</label><input type="number" class="fi" id="schedDayBreak" value="60" min="0" max="120"></div>
+                                    </div>
+                                    <div class="fg">
+                                        <label class="fl">👔 Seragam</label>
+                                        <input type="text" class="fi" id="schedDayUniform" placeholder="Contoh: Batik, Kemeja Putih, Bebas Rapi" maxlength="100">
                                     </div>
                                     <div class="modal-actions">
                                         <button type="button" class="btn btn-del btn-sm" id="schedDayRemoveOverrideBtn" style="display:none;" onclick="removeSchedDateOverride()">🗑️ Hapus Override</button>
@@ -3779,23 +3798,27 @@
                                 const dow = new Date(schedCalYear, schedCalMonth, day).getDay();
                                 const dateStr = schedDateStr(schedCalYear, schedCalMonth, day);
                                 const override = schedOverrides[dateStr];
-                                let isOff, start, end;
+                                let isOff, start, end, uniform;
                                 if (override) {
                                     isOff = parseInt(override.is_off) === 1;
                                     start = (override.start_time || '09:00').substring(0, 5);
                                     end = (override.end_time || '17:00').substring(0, 5);
+                                    uniform = override.uniform || '';
                                 } else {
                                     const offEl = document.getElementById('off_' + dow);
                                     isOff = offEl && offEl.value === '1';
                                     start = document.getElementById('start_' + dow).value;
                                     end = document.getElementById('end_' + dow).value;
+                                    const uniEl = document.getElementById('uniform_' + dow);
+                                    uniform = uniEl ? uniEl.value : '';
                                 }
                                 const cell = document.createElement('div');
                                 cell.onclick = () => openSchedDayEditor(dateStr);
                                 const borderStyle = override ? 'border:2px solid var(--purple);' : 'border:1px solid var(--border);';
                                 cell.style.cssText = borderStyle + 'border-radius:6px;padding:4px;min-height:52px;cursor:pointer;font-size:10px;' + (isOff ? 'background:#fef2f2;' : 'background:#f0fdf4;');
+                                const uniformBadge = (!isOff && uniform) ? '<div style="color:#059669;font-weight:600;font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + uniform.replace(/"/g, '&quot;') + '">\uD83D\uDC54 ' + uniform + '</div>' : '';
                                 cell.innerHTML = '<div style="font-weight:700;font-size:11px;">' + day + (override ? ' <span title="Tanggal khusus">\uD83D\uDCCC</span>' : '') + '</div>' +
-                                    (isOff ? '<div style="color:#dc2626;font-weight:600;">LIBUR</div>' : '<div style="color:#065f46;">' + start + '-' + end + '</div>');
+                                    (isOff ? '<div style="color:#dc2626;font-weight:600;">LIBUR</div>' : '<div style="color:#065f46;">' + start + '-' + end + '</div>') + uniformBadge;
                                 grid.appendChild(cell);
                             }
                         }
@@ -3851,6 +3874,7 @@
                                 document.getElementById('schedDayStart').value = (override.start_time || '09:00').substring(0, 5);
                                 document.getElementById('schedDayEnd').value = (override.end_time || '17:00').substring(0, 5);
                                 document.getElementById('schedDayBreak').value = override.break_minutes || 60;
+                                document.getElementById('schedDayUniform').value = override.uniform || '';
                                 setSchedDayMode('custom');
                             } else {
                                 const isOff = document.getElementById('off_' + dow).value === '1';
@@ -3858,6 +3882,7 @@
                                 document.getElementById('schedDayStart').value = document.getElementById('start_' + dow).value;
                                 document.getElementById('schedDayEnd').value = document.getElementById('end_' + dow).value;
                                 document.getElementById('schedDayBreak').value = document.getElementById('break_' + dow).value;
+                                document.getElementById('schedDayUniform').value = document.getElementById('uniform_' + dow).value || '';
                                 setSchedDayMode('weekly');
                             }
                             toggleSchedDayOffUI(document.getElementById('schedDayOff').checked);
@@ -3877,6 +3902,7 @@
                             const start = document.getElementById('schedDayStart').value || '09:00';
                             const end = document.getElementById('schedDayEnd').value || '17:00';
                             const brk = document.getElementById('schedDayBreak').value || '60';
+                            const uniform = document.getElementById('schedDayUniform').value.trim();
 
                             if (schedDayMode === 'custom') {
                                 const fd = new FormData();
@@ -3887,6 +3913,7 @@
                                 fd.append('start_time', start);
                                 fd.append('end_time', end);
                                 fd.append('break_minutes', brk);
+                                fd.append('uniform', uniform);
                                 fetch(window.location.pathname + '?tab=schedule', { method: 'POST', body: fd })
                                     .then(r => r.text().then(txt => {
                                         let res;
@@ -3897,7 +3924,7 @@
                                     }))
                                     .then(res => {
                                         if (res && res.success) {
-                                            schedOverrides[schedEditingDate] = { is_off: isOff ? 1 : 0, start_time: start, end_time: end, break_minutes: brk };
+                                            schedOverrides[schedEditingDate] = { is_off: isOff ? 1 : 0, start_time: start, end_time: end, break_minutes: brk, uniform: uniform };
                                             document.getElementById('schedDayModal').classList.remove('open');
                                             renderScheduleCalendar();
                                         } else {
@@ -3913,6 +3940,7 @@
                             document.getElementById('start_' + d).value = start;
                             document.getElementById('end_' + d).value = end;
                             document.getElementById('break_' + d).value = brk;
+                            document.getElementById('uniform_' + d).value = uniform;
                             document.getElementById('schedDayModal').classList.remove('open');
                             renderScheduleCalendar();
                         }
@@ -3996,6 +4024,7 @@
                                 document.getElementById('end_' + d).value = '17:00';
                                 document.getElementById('break_' + d).value = '60';
                                 document.getElementById('off_' + d).value = (d === 0) ? '1' : '0';
+                                document.getElementById('uniform_' + d).value = '';
                             }
                             // Reset quick-edit controls
                             document.querySelectorAll('.sched-quick-day').forEach(el => el.checked = false);
@@ -4015,6 +4044,7 @@
                                             if (row.end_time) document.getElementById('end_' + d).value = row.end_time.substring(0, 5);
                                             document.getElementById('break_' + d).value = row.break_minutes || 60;
                                             document.getElementById('off_' + d).value = parseInt(row.is_off) === 1 ? '1' : '0';
+                                            document.getElementById('uniform_' + d).value = row.uniform || '';
                                         });
                                     }
                                     renderScheduleCalendar();
