@@ -96,6 +96,32 @@
                         exit;
                     }
 
+                    // ═══ AJAX: Get weekly patterns + overrides for ALL active employees (combined calendar view) ═══
+                    if (isset($_GET['ajax_all_schedules'])) {
+                        header('Content-Type: application/json');
+                        try {
+                            $_pdo->exec("CREATE TABLE IF NOT EXISTS `payroll_work_schedules` (
+            `id` INT AUTO_INCREMENT PRIMARY KEY, `employee_id` INT NOT NULL, `day_of_week` TINYINT NOT NULL DEFAULT 0,
+            `start_time` TIME NOT NULL DEFAULT '09:00:00', `end_time` TIME NOT NULL DEFAULT '17:00:00',
+            `break_minutes` INT DEFAULT 60, `is_off` TINYINT(1) DEFAULT 0,
+            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uk_emp_day (employee_id, day_of_week)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+                            $_pdo->exec("CREATE TABLE IF NOT EXISTS `payroll_schedule_overrides` (
+            `id` INT AUTO_INCREMENT PRIMARY KEY, `employee_id` INT NOT NULL, `override_date` DATE NOT NULL,
+            `is_off` TINYINT(1) NOT NULL DEFAULT 1, `start_time` TIME DEFAULT NULL, `end_time` TIME DEFAULT NULL,
+            `break_minutes` INT DEFAULT NULL, `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uk_emp_date (employee_id, override_date)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+                            $allEmps = $_pdo->query("SELECT id, employee_code, full_name FROM payroll_employees WHERE is_active = 1 ORDER BY full_name")->fetchAll(PDO::FETCH_ASSOC);
+                            $allWeekly = $_pdo->query("SELECT employee_id, day_of_week, start_time, end_time, break_minutes, is_off FROM payroll_work_schedules")->fetchAll(PDO::FETCH_ASSOC);
+                            $allOverrides = $_pdo->query("SELECT employee_id, override_date, is_off, start_time, end_time, break_minutes FROM payroll_schedule_overrides")->fetchAll(PDO::FETCH_ASSOC);
+                            echo json_encode(['employees' => $allEmps, 'weekly' => $allWeekly, 'overrides' => $allOverrides]);
+                        } catch (Throwable $e) {
+                            echo json_encode(['employees' => [], 'weekly' => [], 'overrides' => []]);
+                        }
+                        exit;
+                    }
+
                     // ═══ AJAX: Save a specific-date schedule override ═══
                     if (isset($_POST['ajax_save_override'])) {
                         header('Content-Type: application/json');
@@ -2951,6 +2977,7 @@
                                             <label class="fl">Pilih Karyawan</label>
                                             <select id="schedEmpSelect" class="fi" onchange="loadEmpSchedule(this.value)">
                                                 <option value="">— Pilih Karyawan —</option>
+                                                <option value="all">👥 Semua Staff (Kalender Gabungan)</option>
                                                 <?php foreach ($employees as $emp): ?>
                                                     <option value="<?php echo $emp['id']; ?>"><?php echo htmlspecialchars($emp['employee_code'] . ' — ' . $emp['full_name']); ?></option>
                                                 <?php endforeach; ?>
@@ -3005,6 +3032,28 @@
                                                 <button type="submit" class="btn btn-primary">💾 Simpan Jadwal</button>
                                             </div>
                                         </form>
+
+                                        <!-- All-Staff Combined Calendar view -->
+                                        <div id="schedAllStaffView" style="display:none;">
+                                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                                                <button type="button" class="btn btn-sm" style="background:var(--blue);color:#fff;" onclick="changeSchedAllMonth(-1)">◀ Bulan Lalu</button>
+                                                <div id="schedAllCalTitle" style="font-weight:700;font-size:13px;color:var(--navy);"></div>
+                                                <button type="button" class="btn btn-sm" style="background:var(--blue);color:#fff;" onclick="changeSchedAllMonth(1)">Bulan Depan ▶</button>
+                                            </div>
+                                            <div id="schedAllCalGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;"></div>
+                                            <div style="margin-top:10px;font-size:10px;color:var(--muted);">🟢 Jumlah staf yang masuk kerja pada tanggal itu — klik tanggal untuk lihat detail siapa saja yang masuk &amp; libur</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- All-Staff Day Detail Modal -->
+                            <div class="modal-overlay" id="schedAllDayModal">
+                                <div class="modal-box">
+                                    <div class="modal-title" id="schedAllDayModalTitle">Staf Bertugas</div>
+                                    <div id="schedAllDayModalBody" style="font-size:12px;max-height:360px;overflow-y:auto;"></div>
+                                    <div class="modal-actions">
+                                        <button type="button" class="btn btn-primary" onclick="document.getElementById('schedAllDayModal').classList.remove('open')">Tutup</button>
                                     </div>
                                 </div>
                             </div>
@@ -3697,6 +3746,9 @@
                         let schedEditingDate = null;
                         let schedDayMode = 'weekly';
                         let schedOverrides = {}; // { 'YYYY-MM-DD': {is_off, start_time, end_time, break_minutes} }
+                        let schedAllCalYear = new Date().getFullYear();
+                        let schedAllCalMonth = new Date().getMonth();
+                        let schedAllData = null; // { employees:[], weeklyByEmp:{empId:{dow:row}}, overridesByEmp:{empId:{dateStr:row}} }
 
                         function schedPad(n) {
                             return n < 10 ? '0' + n : '' + n;
@@ -3922,6 +3974,15 @@
 
                         function loadEmpSchedule(empId) {
                             const form = document.getElementById('schedForm');
+                            const allView = document.getElementById('schedAllStaffView');
+                            if (empId === 'all') {
+                                form.style.display = 'none';
+                                schedCurrentEmpId = null;
+                                allView.style.display = 'block';
+                                loadAllStaffSchedules();
+                                return;
+                            }
+                            allView.style.display = 'none';
                             if (!empId) {
                                 form.style.display = 'none';
                                 schedCurrentEmpId = null;
@@ -3972,6 +4033,137 @@
                                     renderScheduleCalendar();
                                 })
                                 .catch(() => {});
+                        }
+
+                        // ─ ALL-STAFF COMBINED CALENDAR ─
+                        function schedAllComputeDay(emp, dateStr, dow) {
+                            const ov = (schedAllData.overridesByEmp[emp.id] || {})[dateStr];
+                            if (ov) {
+                                return {
+                                    isOff: parseInt(ov.is_off) === 1,
+                                    start: (ov.start_time || '09:00').substring(0, 5),
+                                    end: (ov.end_time || '17:00').substring(0, 5)
+                                };
+                            }
+                            const w = (schedAllData.weeklyByEmp[emp.id] || {})[dow];
+                            if (w) {
+                                return {
+                                    isOff: parseInt(w.is_off) === 1,
+                                    start: (w.start_time || '09:00').substring(0, 5),
+                                    end: (w.end_time || '17:00').substring(0, 5)
+                                };
+                            }
+                            return { isOff: dow === 0, start: '09:00', end: '17:00' };
+                        }
+
+                        function loadAllStaffSchedules() {
+                            fetch(window.location.pathname + '?tab=schedule&ajax_all_schedules=1')
+                                .then(r => r.json())
+                                .then(data => {
+                                    const weeklyByEmp = {};
+                                    (data.weekly || []).forEach(row => {
+                                        const eid = row.employee_id;
+                                        if (!weeklyByEmp[eid]) weeklyByEmp[eid] = {};
+                                        weeklyByEmp[eid][parseInt(row.day_of_week)] = row;
+                                    });
+                                    const overridesByEmp = {};
+                                    (data.overrides || []).forEach(row => {
+                                        const eid = row.employee_id;
+                                        if (!overridesByEmp[eid]) overridesByEmp[eid] = {};
+                                        overridesByEmp[eid][row.override_date] = row;
+                                    });
+                                    schedAllData = { employees: data.employees || [], weeklyByEmp, overridesByEmp };
+                                    renderAllStaffCalendar();
+                                })
+                                .catch(() => {
+                                    schedAllData = { employees: [], weeklyByEmp: {}, overridesByEmp: {} };
+                                    renderAllStaffCalendar();
+                                });
+                        }
+
+                        function renderAllStaffCalendar() {
+                            const grid = document.getElementById('schedAllCalGrid');
+                            const title = document.getElementById('schedAllCalTitle');
+                            if (!grid || !title) return;
+                            title.textContent = SCHED_MONTH_NAMES[schedAllCalMonth] + ' ' + schedAllCalYear;
+                            grid.innerHTML = '';
+                            SCHED_DAY_SHORT.forEach(d => {
+                                const h = document.createElement('div');
+                                h.textContent = d;
+                                h.style.cssText = 'text-align:center;font-size:10px;font-weight:700;color:var(--muted);padding:4px 0;';
+                                grid.appendChild(h);
+                            });
+                            if (!schedAllData) return;
+                            const firstDay = new Date(schedAllCalYear, schedAllCalMonth, 1).getDay();
+                            const daysInMonth = new Date(schedAllCalYear, schedAllCalMonth + 1, 0).getDate();
+                            for (let i = 0; i < firstDay; i++) {
+                                grid.appendChild(document.createElement('div'));
+                            }
+                            for (let day = 1; day <= daysInMonth; day++) {
+                                const dow = new Date(schedAllCalYear, schedAllCalMonth, day).getDay();
+                                const dateStr = schedDateStr(schedAllCalYear, schedAllCalMonth, day);
+                                let workingCount = 0;
+                                schedAllData.employees.forEach(emp => {
+                                    if (!schedAllComputeDay(emp, dateStr, dow).isOff) workingCount++;
+                                });
+                                const cell = document.createElement('div');
+                                cell.onclick = () => openAllStaffDayModal(dateStr);
+                                cell.style.cssText = 'border:1px solid var(--border);border-radius:6px;padding:4px;min-height:52px;cursor:pointer;font-size:10px;background:#f8fafc;';
+                                cell.innerHTML = '<div style="font-weight:700;font-size:11px;">' + day + '</div>' +
+                                    '<div style="color:#065f46;font-weight:600;">\uD83D\uDFE2 ' + workingCount + ' masuk</div>';
+                                grid.appendChild(cell);
+                            }
+                        }
+
+                        function changeSchedAllMonth(delta) {
+                            schedAllCalMonth += delta;
+                            if (schedAllCalMonth < 0) {
+                                schedAllCalMonth = 11;
+                                schedAllCalYear--;
+                            } else if (schedAllCalMonth > 11) {
+                                schedAllCalMonth = 0;
+                                schedAllCalYear++;
+                            }
+                            renderAllStaffCalendar();
+                        }
+
+                        function openAllStaffDayModal(dateStr) {
+                            if (!schedAllData) return;
+                            const parts = dateStr.split('-').map(Number);
+                            const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+                            const dow = dateObj.getDay();
+                            document.getElementById('schedAllDayModalTitle').textContent = '\uD83D\uDDD3\uFE0F ' + dateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+                            const working = [];
+                            const off = [];
+                            schedAllData.employees.forEach(emp => {
+                                const info = schedAllComputeDay(emp, dateStr, dow);
+                                if (info.isOff) off.push(emp);
+                                else working.push({ emp, info });
+                            });
+                            let html = '<div style="font-weight:700;color:var(--green);margin-bottom:6px;">\uD83D\uDFE2 Masuk Kerja (' + working.length + ')</div>';
+                            if (working.length) {
+                                html += '<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:12px;">';
+                                working.forEach(w => {
+                                    html += '<div style="display:flex;justify-content:space-between;gap:8px;border:1px solid var(--border);border-radius:6px;padding:6px 8px;">' +
+                                        '<span style="font-weight:600;">' + (w.emp.employee_code ? w.emp.employee_code + ' \u2014 ' : '') + w.emp.full_name + '</span>' +
+                                        '<span style="color:var(--muted);white-space:nowrap;">' + w.info.start + '-' + w.info.end + '</span></div>';
+                                });
+                                html += '</div>';
+                            } else {
+                                html += '<div style="color:var(--muted);margin-bottom:12px;">Tidak ada staf yang masuk.</div>';
+                            }
+                            html += '<div style="font-weight:700;color:var(--red);margin-bottom:6px;">\uD83D\uDD34 Libur (' + off.length + ')</div>';
+                            if (off.length) {
+                                html += '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+                                off.forEach(emp => {
+                                    html += '<span style="background:#fef2f2;color:#991b1b;font-size:10px;font-weight:600;padding:3px 8px;border-radius:4px;">' + emp.full_name + '</span>';
+                                });
+                                html += '</div>';
+                            } else {
+                                html += '<div style="color:var(--muted);">Tidak ada.</div>';
+                            }
+                            document.getElementById('schedAllDayModalBody').innerHTML = html;
+                            document.getElementById('schedAllDayModal').classList.add('open');
                         }
 
                         document.addEventListener('DOMContentLoaded', () => {
