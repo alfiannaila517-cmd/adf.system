@@ -2860,6 +2860,22 @@ header('Expires: 0');
                 </div>
             </div>
 
+            <!-- Target Jam - Donut Chart -->
+            <div class="card">
+                <div class="card-title">📊 Target Jam Bulan Ini</div>
+                <div id="monthlySummary">
+                    <div class="loading"><span class="spin"></span> Memuat...</div>
+                </div>
+            </div>
+
+            <!-- Status Hari Ini -->
+            <div class="card">
+                <div class="card-title">📋 Status Absen Hari Ini</div>
+                <div id="todayStatus">
+                    <div class="loading"><span class="spin"></span> Memuat...</div>
+                </div>
+            </div>
+
             <!-- Absen: Face Scan (primary) & Absen Manual (secondary fallback) -->
             <div class="absen-section-label">⏱️ Absensi Hari Ini</div>
             <div class="absen-btns-row">
@@ -2892,122 +2908,141 @@ header('Expires: 0');
                 </button>
             </div>
 
-            <!-- Status Hari Ini -->
-            <div class="card">
-                <div class="card-title">📋 Status Absen Hari Ini</div>
-                <div id="todayStatus">
-                    <div class="loading"><span class="spin"></span> Memuat...</div>
-                </div>
-            </div>
-
-            <!-- Jadwal Kerja Tim (Semua Staff) - Kalender Gabungan -->
-            <div class="card">
-                <div class="card-title" id="teamSchedCardTitle">📅 Jadwal Kerja Saya</div>
-                <div style="display:flex;gap:6px;margin-bottom:10px;">
-                    <button type="button" id="teamSchedModeMineBtn" onclick="setTeamSchedViewMode('mine')" style="flex:1;border:none;border-radius:8px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;background:var(--blue);color:#fff;">👤 Jadwal Saya</button>
-                    <button type="button" id="teamSchedModeAllBtn" onclick="setTeamSchedViewMode('all')" style="flex:1;border:none;border-radius:8px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;background:#e2e8f0;color:var(--navy);">👥 Semua Staff</button>
-                </div>
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-                    <button type="button" style="border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;background:var(--blue);color:#fff;" onclick="changeTeamSchedMonth(-1)">◀ Bulan Lalu</button>
-                    <div id="teamSchedCalTitle" style="font-weight:700;font-size:13px;color:var(--navy);"></div>
-                    <button type="button" style="border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;background:var(--blue);color:#fff;" onclick="changeTeamSchedMonth(1)">Bulan Depan ▶</button>
-                </div>
-                <div id="teamSchedDowHeader" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:4px;"></div>
-                <div id="teamSchedCalGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;touch-action:pan-y;"></div>
-                <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-top:8px;">
-                    <button type="button" id="teamSchedPagePrev" onclick="changeTeamSchedWeekPage(-1)" style="border:none;background:none;font-size:18px;font-weight:700;color:var(--blue);cursor:pointer;padding:2px 8px;">‹</button>
-                    <div id="teamSchedPageDots" style="display:flex;align-items:center;gap:6px;"></div>
-                    <button type="button" id="teamSchedPageNext" onclick="changeTeamSchedWeekPage(1)" style="border:none;background:none;font-size:18px;font-weight:700;color:var(--blue);cursor:pointer;padding:2px 8px;">›</button>
-                </div>
-                <div id="teamSchedLegend" style="margin-top:8px;font-size:10px;color:var(--muted);">🟢 Masuk &nbsp; 🔴 Libur &nbsp; — geser kiri/kanan untuk minggu lain, tap tanggal untuk detail</div>
-            </div>
-
-            <!-- Target Jam - Donut Chart -->
-            <div class="card">
-                <div class="card-title">📊 Target Jam Bulan Ini</div>
-                <div id="monthlySummary">
-                    <div class="loading"><span class="spin"></span> Memuat...</div>
-                </div>
-            </div>
-
-            <!-- Ajukan Lembur -->
-            <div class="card">
-                <div class="card-title">⏰ Ajukan Lembur</div>
-                <form id="lemburForm" onsubmit="return submitLembur(event)">
-                    <div style="margin-bottom:10px;">
-                        <label class="fl">Tanggal Lembur</label>
-                        <input type="date" class="fi" name="overtime_date" required id="lemburDate" max="<?php echo date('Y-m-d'); ?>" value="<?php echo date('Y-m-d'); ?>">
+            <!-- Menu Cepat: Lembur / Cuti / Jadwal Kerja -->
+            <div class="card" style="padding:14px 10px;">
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center;">
+                    <div onclick="openStaffSection('lemburSection')" style="cursor:pointer;">
+                        <div style="width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;font-size:20px;margin:0 auto 6px;color:#fff;box-shadow:0 4px 10px rgba(217,119,6,.3);">⏰</div>
+                        <div style="font-size:10.5px;font-weight:600;color:var(--navy);line-height:1.3;">Ajukan<br>Lembur</div>
                     </div>
-                    <div style="margin-bottom:12px;">
-                        <label class="fl">Keterangan (Alasan Lembur)</label>
-                        <textarea class="fi" name="reason" rows="2" placeholder="Jelaskan alasan dan pekerjaan lembur..." required style="resize:vertical;" id="lemburReason"></textarea>
+                    <div onclick="openStaffSection('cutiSection')" style="cursor:pointer;">
+                        <div style="width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,#0ea5e9,#0369a1);display:flex;align-items:center;justify-content:center;font-size:20px;margin:0 auto 6px;color:#fff;box-shadow:0 4px 10px rgba(3,105,161,.3);">🏖️</div>
+                        <div style="font-size:10.5px;font-weight:600;color:var(--navy);line-height:1.3;">Ajukan<br>Cuti</div>
                     </div>
-                    <button type="submit" class="btn-auth" id="lemburBtn" style="border-radius:10px;background:linear-gradient(135deg,#f59e0b,#d97706);">⏰ Ajukan Lembur</button>
-                </form>
-            </div>
-
-            <!-- Riwayat Lembur (collapsed) -->
-            <div style="margin-bottom:12px;">
-                <button onclick="toggleRiwayat('lembur')" class="btn-riwayat" id="btnRiwayatLembur">📋 Riwayat Lembur <span id="lemburBadge" style="display:none;" class="riwayat-badge"></span> <span class="riwayat-arrow" id="arrowLembur">▼</span></button>
-                <div id="panelRiwayatLembur" class="riwayat-panel">
-                    <div id="lemburStats" style="margin-bottom:10px;"></div>
-                    <div id="lemburHistory">
-                        <div class="loading"><span class="spin"></span> Memuat...</div>
+                    <div onclick="openStaffSection('teamSchedSection')" style="cursor:pointer;">
+                        <div style="width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,#7c3aed,#5b21b6);display:flex;align-items:center;justify-content:center;font-size:20px;margin:0 auto 6px;color:#fff;box-shadow:0 4px 10px rgba(91,33,182,.3);">📅</div>
+                        <div style="font-size:10.5px;font-weight:600;color:var(--navy);line-height:1.3;">Jadwal<br>Kerja</div>
                     </div>
                 </div>
             </div>
 
-            <!-- Ajukan Cuti -->
-            <div class="card">
-                <div class="card-title">🏖️ Ajukan Cuti / Izin</div>
-                <form id="cutiForm" onsubmit="return submitCuti(event)">
-                    <div style="margin-bottom:10px;">
-                        <div class="cuti-type-grid">
-                            <div class="cuti-type selected" data-type="cuti" onclick="selectCutiType(this)">
-                                <div class="ct-icon">🏖️</div>
-                                <div class="ct-label">Cuti</div>
-                            </div>
-                            <div class="cuti-type" data-type="sakit" onclick="selectCutiType(this)">
-                                <div class="ct-icon">🩺</div>
-                                <div class="ct-label">Sakit</div>
-                            </div>
-                            <div class="cuti-type" data-type="izin" onclick="selectCutiType(this)">
-                                <div class="ct-icon">📋</div>
-                                <div class="ct-label">Izin</div>
-                            </div>
-                            <div class="cuti-type" data-type="cuti_khusus" onclick="selectCutiType(this)">
-                                <div class="ct-icon">⭐</div>
-                                <div class="ct-label">Khusus</div>
-                            </div>
+            <!-- Ajukan Lembur (toggled via Menu Cepat) -->
+            <div id="lemburSection" style="display:none;">
+                <div style="text-align:right;margin-bottom:6px;">
+                    <button type="button" onclick="closeStaffSection('lemburSection')" style="background:none;border:none;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;">✕ Tutup</button>
+                </div>
+                <div class="card">
+                    <div class="card-title">⏰ Ajukan Lembur</div>
+                    <form id="lemburForm" onsubmit="return submitLembur(event)">
+                        <div style="margin-bottom:10px;">
+                            <label class="fl">Tanggal Lembur</label>
+                            <input type="date" class="fi" name="overtime_date" required id="lemburDate" max="<?php echo date('Y-m-d'); ?>" value="<?php echo date('Y-m-d'); ?>">
+                        </div>
+                        <div style="margin-bottom:12px;">
+                            <label class="fl">Keterangan (Alasan Lembur)</label>
+                            <textarea class="fi" name="reason" rows="2" placeholder="Jelaskan alasan dan pekerjaan lembur..." required style="resize:vertical;" id="lemburReason"></textarea>
+                        </div>
+                        <button type="submit" class="btn-auth" id="lemburBtn" style="border-radius:10px;background:linear-gradient(135deg,#f59e0b,#d97706);">⏰ Ajukan Lembur</button>
+                    </form>
+                </div>
+
+                <!-- Riwayat Lembur (collapsed) -->
+                <div style="margin-bottom:12px;">
+                    <button onclick="toggleRiwayat('lembur')" class="btn-riwayat" id="btnRiwayatLembur">📋 Riwayat Lembur <span id="lemburBadge" style="display:none;" class="riwayat-badge"></span> <span class="riwayat-arrow" id="arrowLembur">▼</span></button>
+                    <div id="panelRiwayatLembur" class="riwayat-panel">
+                        <div id="lemburStats" style="margin-bottom:10px;"></div>
+                        <div id="lemburHistory">
+                            <div class="loading"><span class="spin"></span> Memuat...</div>
                         </div>
                     </div>
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px;">
-                        <div>
-                            <label class="fl">Tanggal Mulai</label>
-                            <input type="date" class="fi" name="start_date" required id="cutiStart" min="<?php echo date('Y-m-d'); ?>">
-                        </div>
-                        <div>
-                            <label class="fl">Tanggal Selesai</label>
-                            <input type="date" class="fi" name="end_date" required id="cutiEnd" min="<?php echo date('Y-m-d'); ?>">
-                        </div>
-                    </div>
-                    <div style="margin-bottom:12px;">
-                        <label class="fl">Alasan</label>
-                        <textarea class="fi" name="reason" rows="2" placeholder="Jelaskan alasan cuti/izin..." required style="resize:vertical;"></textarea>
-                    </div>
-                    <button type="submit" class="btn-auth" id="cutiBtn" style="border-radius:10px;">📨 Kirim Pengajuan</button>
-                </form>
+                </div>
             </div>
 
-            <!-- Riwayat Cuti (collapsed) -->
-            <div style="margin-bottom:12px;">
-                <button onclick="toggleRiwayat('cuti')" class="btn-riwayat" id="btnRiwayatCuti">📅 Riwayat Cuti <span id="cutiBadge" style="display:none;" class="riwayat-badge"></span> <span class="riwayat-arrow" id="arrowCuti">▼</span></button>
-                <div id="panelRiwayatCuti" class="riwayat-panel">
-                    <div id="cutiStats" style="margin-bottom:10px;"></div>
-                    <div id="cutiHistory">
-                        <div class="loading"><span class="spin"></span> Memuat...</div>
+            <!-- Ajukan Cuti (toggled via Menu Cepat) -->
+            <div id="cutiSection" style="display:none;">
+                <div style="text-align:right;margin-bottom:6px;">
+                    <button type="button" onclick="closeStaffSection('cutiSection')" style="background:none;border:none;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;">✕ Tutup</button>
+                </div>
+                <div class="card">
+                    <div class="card-title">🏖️ Ajukan Cuti / Izin</div>
+                    <form id="cutiForm" onsubmit="return submitCuti(event)">
+                        <div style="margin-bottom:10px;">
+                            <div class="cuti-type-grid">
+                                <div class="cuti-type selected" data-type="cuti" onclick="selectCutiType(this)">
+                                    <div class="ct-icon">🏖️</div>
+                                    <div class="ct-label">Cuti</div>
+                                </div>
+                                <div class="cuti-type" data-type="sakit" onclick="selectCutiType(this)">
+                                    <div class="ct-icon">🩺</div>
+                                    <div class="ct-label">Sakit</div>
+                                </div>
+                                <div class="cuti-type" data-type="izin" onclick="selectCutiType(this)">
+                                    <div class="ct-icon">📋</div>
+                                    <div class="ct-label">Izin</div>
+                                </div>
+                                <div class="cuti-type" data-type="cuti_khusus" onclick="selectCutiType(this)">
+                                    <div class="ct-icon">⭐</div>
+                                    <div class="ct-label">Khusus</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px;">
+                            <div>
+                                <label class="fl">Tanggal Mulai</label>
+                                <input type="date" class="fi" name="start_date" required id="cutiStart" min="<?php echo date('Y-m-d'); ?>">
+                            </div>
+                            <div>
+                                <label class="fl">Tanggal Selesai</label>
+                                <input type="date" class="fi" name="end_date" required id="cutiEnd" min="<?php echo date('Y-m-d'); ?>">
+                            </div>
+                        </div>
+                        <div style="margin-bottom:12px;">
+                            <label class="fl">Alasan</label>
+                            <textarea class="fi" name="reason" rows="2" placeholder="Jelaskan alasan cuti/izin..." required style="resize:vertical;"></textarea>
+                        </div>
+                        <button type="submit" class="btn-auth" id="cutiBtn" style="border-radius:10px;">📨 Kirim Pengajuan</button>
+                    </form>
+                </div>
+
+                <!-- Riwayat Cuti (collapsed) -->
+                <div style="margin-bottom:12px;">
+                    <button onclick="toggleRiwayat('cuti')" class="btn-riwayat" id="btnRiwayatCuti">📅 Riwayat Cuti <span id="cutiBadge" style="display:none;" class="riwayat-badge"></span> <span class="riwayat-arrow" id="arrowCuti">▼</span></button>
+                    <div id="panelRiwayatCuti" class="riwayat-panel">
+                        <div id="cutiStats" style="margin-bottom:10px;"></div>
+                        <div id="cutiHistory">
+                            <div class="loading"><span class="spin"></span> Memuat...</div>
+                        </div>
                     </div>
                 </div>
+            </div>
+
+            <!-- Jadwal Kerja Tim (Semua Staff) - Kalender Gabungan (toggled via Menu Cepat) -->
+            <div id="teamSchedSection" style="display:none;">
+                <div style="text-align:right;margin-bottom:6px;">
+                    <button type="button" onclick="closeStaffSection('teamSchedSection')" style="background:none;border:none;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;">✕ Tutup</button>
+                </div>
+                <div class="card">
+                    <div class="card-title" id="teamSchedCardTitle">📅 Jadwal Kerja Saya</div>
+                    <div style="display:flex;gap:6px;margin-bottom:10px;">
+                        <button type="button" id="teamSchedModeMineBtn" onclick="setTeamSchedViewMode('mine')" style="flex:1;border:none;border-radius:8px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;background:var(--blue);color:#fff;">👤 Jadwal Saya</button>
+                        <button type="button" id="teamSchedModeAllBtn" onclick="setTeamSchedViewMode('all')" style="flex:1;border:none;border-radius:8px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;background:#e2e8f0;color:var(--navy);">👥 Semua Staff</button>
+                    </div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                        <button type="button" style="border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;background:var(--blue);color:#fff;" onclick="changeTeamSchedMonth(-1)">◀ Bulan Lalu</button>
+                        <div id="teamSchedCalTitle" style="font-weight:700;font-size:13px;color:var(--navy);"></div>
+                        <button type="button" style="border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;background:var(--blue);color:#fff;" onclick="changeTeamSchedMonth(1)">Bulan Depan ▶</button>
+                    </div>
+                    <div id="teamSchedDowHeader" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:4px;"></div>
+                    <div id="teamSchedCalGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;touch-action:pan-y;"></div>
+                    <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-top:8px;">
+                        <button type="button" id="teamSchedPagePrev" onclick="changeTeamSchedWeekPage(-1)" style="border:none;background:none;font-size:18px;font-weight:700;color:var(--blue);cursor:pointer;padding:2px 8px;">‹</button>
+                        <div id="teamSchedPageDots" style="display:flex;align-items:center;gap:6px;"></div>
+                        <button type="button" id="teamSchedPageNext" onclick="changeTeamSchedWeekPage(1)" style="border:none;background:none;font-size:18px;font-weight:700;color:var(--blue);cursor:pointer;padding:2px 8px;">›</button>
+                    </div>
+                    <div id="teamSchedLegend" style="margin-top:8px;font-size:10px;color:var(--muted);">🟢 Masuk &nbsp; 🔴 Libur &nbsp; — geser kiri/kanan untuk minggu lain, tap tanggal untuk detail</div>
+                </div>
+                <div id="teamSchedPopupOverlay" class="cal-popup-overlay" style="display:none;" onclick="closeTeamSchedPopup()"></div>
+                <div id="teamSchedPopup" class="cal-popup" style="display:none;max-height:70vh;overflow-y:auto;"></div>
             </div>
 
             <!-- Monitoring Detail -->
@@ -3107,9 +3142,6 @@ header('Expires: 0');
 
             <div id="calPopupOverlay" class="cal-popup-overlay" style="display:none;" onclick="closeCalPopup()"></div>
             <div id="calPopup" class="cal-popup" style="display:none;"></div>
-
-            <div id="teamSchedPopupOverlay" class="cal-popup-overlay" style="display:none;" onclick="closeTeamSchedPopup()"></div>
-            <div id="teamSchedPopup" class="cal-popup" style="display:none;max-height:70vh;overflow-y:auto;"></div>
 
             <!-- ═══ PAGE: BREAKFAST (Hotel only) ═══ -->
             <div class="page" id="page-breakfast">
@@ -3525,6 +3557,23 @@ header('Expires: 0');
             if (IS_CAFE) loadSchedule();
             // Preload face models in background so Face Scan opens instantly
             preloadFaceModels();
+        }
+
+        // ═══ Menu Cepat: toggle Lembur / Cuti / Jadwal Kerja sections ═══
+        function openStaffSection(id) {
+            ['lemburSection', 'cutiSection', 'teamSchedSection'].forEach(sid => {
+                const el = document.getElementById(sid);
+                if (el) el.style.display = (sid === id) ? 'block' : 'none';
+            });
+            const target = document.getElementById(id);
+            if (target) {
+                setTimeout(() => target.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+            }
+        }
+
+        function closeStaffSection(id) {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
         }
 
         // ═══ TEAM SCHEDULE (All Staff Combined Calendar) ═══
