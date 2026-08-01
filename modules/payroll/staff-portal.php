@@ -6759,7 +6759,7 @@ header('Expires: 0');
             </div>
             <table style="width:100%;border-collapse:collapse;">
                 ${slipRow('Gaji Pokok (Full)', baseSalary, false, false)}
-                ${slipRow('Gaji Aktual (' + workHours + ' jam / 200 target)', actualBase, false, false)}
+                ${slipRow('Gaji Aktual (' + workHours + ' jam / 208 target)', actualBase, false, false)}
                 ${slipRow('Uang Lembur (' + overtimeHours + ' jam)', overtimeAmount, false, false)}
                 ${slipRow('Service', incentive, false, false)}
                 ${slipRow('Tunjangan', allowance, false, false)}

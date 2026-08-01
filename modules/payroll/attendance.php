@@ -251,7 +251,7 @@
                         ['payroll_attendance_config', 'app_logo', "VARCHAR(255) DEFAULT NULL"],
                         ['payroll_employees', 'attendance_pin', "VARCHAR(6) DEFAULT NULL"],
                         ['payroll_employees', 'finger_id', "VARCHAR(20) DEFAULT NULL"],
-                        ['payroll_employees', 'monthly_target_hours', "INT DEFAULT 200"],
+                        ['payroll_employees', 'monthly_target_hours', "INT DEFAULT 208"],
                         ['payroll_employees', 'face_descriptor', "TEXT DEFAULT NULL"],
                     ];
                     foreach ($autoColumns as [$tbl, $col, $def]) {
@@ -2887,7 +2887,7 @@
                                     <div style="font-size:11px; font-weight:700; color:var(--navy); margin-bottom:8px;">Setelah absensi diproses, lanjut hitung gaji:</div>
                                     <div style="background:#f8fafc; border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:10px; font-size:11px; color:var(--muted);">
                                         💡 <strong>Total jam kerja</strong> dihitung otomatis dari scan masuk–pulang fingerprint.<br>
-                                        Gaji proporsional: <em>jam_kerja ÷ 200 × gaji_pokok</em> · Lembur dihitung per 45 menit
+                                        Gaji proporsional: <em>jam_kerja ÷ 208 × gaji_pokok</em> · Lembur dihitung per 45 menit
                                     </div>
                                     <div style="display:flex; gap:8px;">
                                         <a href="process.php?month=<?= date('n') ?>&year=<?= date('Y') ?>" class="btn btn-primary" style="flex:1; justify-content:center; font-size:12px; padding:10px;">

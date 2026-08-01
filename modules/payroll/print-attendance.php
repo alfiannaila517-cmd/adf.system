@@ -68,7 +68,7 @@ $statusLabels = [
 
 $monthNames = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 $periodLabel = $monthNames[$m] . ' ' . $y;
-$targetHours = (int)($emp['monthly_target_hours'] ?? 200);
+$targetHours = (int)($emp['monthly_target_hours'] ?? 208);
 $progressPct = $targetHours > 0 ? min(round(($totalHours / $targetHours) * 100), 100) : 0;
 
 $businessName = defined('BUSINESS_NAME') ? BUSINESS_NAME : 'Perusahaan';

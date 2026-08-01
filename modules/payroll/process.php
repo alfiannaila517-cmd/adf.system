@@ -133,7 +133,7 @@ if (isset($_GET['ajax_attendance']) && isset($_GET['emp_id'])) {
             'summary' => [
                 'total_days' => $presentCount,
                 'total_hours' => round($totalHours, 1),
-                'target_hours' => (int)($emp['monthly_target_hours'] ?? 200),
+                'target_hours' => (int)($emp['monthly_target_hours'] ?? 208),
                 'late_count' => $lateCount,
                 'absent_count' => $absentCount,
                 'days_in_month' => $daysInMonth
@@ -150,7 +150,7 @@ if (isset($_GET['ajax_attendance']) && isset($_GET['emp_id'])) {
 try {
     $pdo = $db->getConnection();
     $cols = [
-        "ADD COLUMN IF NOT EXISTS work_hours DECIMAL(10,2) NOT NULL DEFAULT 200.00 AFTER position",
+        "ADD COLUMN IF NOT EXISTS work_hours DECIMAL(10,2) NOT NULL DEFAULT 208.00 AFTER position",
         "ADD COLUMN IF NOT EXISTS actual_base DECIMAL(15,2) NOT NULL DEFAULT 0.00 AFTER work_hours",
         "ADD COLUMN IF NOT EXISTS is_paid TINYINT(1) NOT NULL DEFAULT 0",
         "ADD COLUMN IF NOT EXISTS hours_locked TINYINT(1) NOT NULL DEFAULT 0",
@@ -244,7 +244,7 @@ function recalcAttendanceHours($db, $month, $year)
 // ── Helper: Get attendance hours from fingerprint/GPS data for a month ──
 // Overtime (OT)   = HANYA jika ada overtime_request approved (dibulatkan jam penuh).
 // Extra Hari      = jam dari hari kerja ke-27 dan seterusnya (>26 hari/bulan).
-//                    Hari extra dibayar dgn rate jam = base/200, bukan butuh approval.
+//                    Hari extra dibayar dgn rate jam = base/208, bukan butuh approval.
 function getAttendanceHours($db, $empId, $month, $year)
 {
     $monthStr = sprintf('%04d-%02d', $year, $month);
@@ -353,7 +353,7 @@ function autoAddMissingPayrollEmployees($db, $periodId, $month, $year)
         $att = getAttendanceHours($db, $emp['id'], $month, $year);
         $workH = $att['work_hours'] > 0 ? $att['work_hours'] : 0;
         $baseSalary = (float)$emp['base_salary'];
-        $hourlyRate = $baseSalary / 200;
+        $hourlyRate = $baseSalary / 208;
         $actualBase = $baseSalary; // gaji pokok penuh, tidak diprorata
         dbExec(
             $db,
@@ -376,7 +376,7 @@ function syncSlipsWithAttendance($db, $periodId, $month, $year)
         $workH = $att['work_hours'];
         // ONLY update work_hours from attendance — keep all other fields (overtime, incentive, etc.) as-is
         $baseSalary = (float)$slip['base_salary'];
-        $hourlyRate = $baseSalary / 200;
+        $hourlyRate = $baseSalary / 208;
         // Gaji pokok PENUH (gaji bulanan tetap) — tidak diprorata jam kerja.
         $actualBase = $baseSalary;
 
@@ -406,7 +406,7 @@ function syncSlipsWithAttendance($db, $periodId, $month, $year)
 
         // Update via direct PDO to avoid silent error swallowing
         // Sync overtime_hours too so the input field reflects the true total
-        // (manual + approved request + auto-OT >200j), keeping UI consistent
+        // (manual + approved request + auto-OT >208j), keeping UI consistent
         // with the overtime_amount that's actually paid.
         dbExec(
             $db,
@@ -452,7 +452,7 @@ if (!$period && isset($_POST['create_period'])) {
             $workH = $att['work_hours'] > 0 ? $att['work_hours'] : 0;
             $otH = $att['overtime_hours'];
             $baseSalary = (float)$emp['base_salary'];
-            $hourlyRate = $baseSalary / 200;
+            $hourlyRate = $baseSalary / 208;
             // Gaji pokok PENUH (gaji bulanan tetap) — tidak diprorata jam kerja.
             $actualBase = $baseSalary;
             $otRate = $hourlyRate;
@@ -511,7 +511,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_update'])) {
     $ded_other = (float)$_POST['deduction_other'];
 
     // Gaji pokok PENUH (gaji bulanan tetap) — tidak diprorata jam kerja.
-    $hourly_rate = $base_salary / 200;
+    $hourly_rate = $base_salary / 208;
     $actual_base = $base_salary;
 
     // Overtime still uses same rate; Extra Hari pakai rate yg sama
@@ -680,8 +680,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_save_daily_atten
                 $workH = $att['work_hours'];
                 $otH = $att['overtime_hours'];
                 $baseSalary = (float)$slip['base_salary'];
-                $hourlyRate = $baseSalary / 200;
-                $actualBase = ($workH >= 200) ? $baseSalary : round($workH * $hourlyRate, 2);
+                $hourlyRate = $baseSalary / 208;
+                $actualBase = ($workH >= 208) ? $baseSalary : round($workH * $hourlyRate, 2);
                 $otAmount = round($otH * $hourlyRate, 2);
                 $totalEarn = $actualBase + $otAmount + (float)($slip['incentive'] ?? 0) + (float)($slip['allowance'] ?? 0) + (float)($slip['uang_makan'] ?? 0) + (float)($slip['bonus'] ?? 0) + (float)($slip['other_income'] ?? 0);
                 $totalDed = (float)($slip['deduction_loan'] ?? 0) + (float)($slip['deduction_absence'] ?? 0) + (float)($slip['deduction_tax'] ?? 0) + (float)($slip['deduction_bpjs'] ?? 0) + (float)($slip['deduction_other'] ?? 0);
@@ -763,8 +763,8 @@ if ($period) {
         $masterBase = (float)$s['base_salary']; // sudah COALESCE master
         $wh = (float)$s['work_hours'];
         $oh = (float)$s['overtime_hours'];
-        $hourly = $masterBase > 0 ? $masterBase / 200 : 0;
-        $actualBase = ($wh >= 200) ? $masterBase : round($wh * $hourly, 2);
+        $hourly = $masterBase > 0 ? $masterBase / 208 : 0;
+        $actualBase = ($wh >= 208) ? $masterBase : round($wh * $hourly, 2);
         $otAmount   = round($oh * $hourly, 2);
         $autoExtraH  = (float)($extraMap[(int)$s['employee_id']]['hours'] ?? 0);
         $extraLocked = !empty($s['extra_locked']);
@@ -855,8 +855,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_proses'])) {
             $tax = (float)$slip['deduction_tax'];
             $bpjs = (float)$slip['deduction_bpjs'];
             $ded_other = (float)$slip['deduction_other'];
-            $hourly_rate = $base_salary / 200;
-            $actual_base = ($work_hours >= 200) ? $base_salary : $work_hours * $hourly_rate;
+            $hourly_rate = $base_salary / 208;
+            $actual_base = ($work_hours >= 208) ? $base_salary : $work_hours * $hourly_rate;
             $overtime_rate = $hourly_rate;
             $overtime_amount = $overtime_hours * $overtime_rate;
             $total_earnings = $actual_base + $overtime_amount + $incentive + $allowance + $uang_makan + $bonus + $other;
@@ -949,8 +949,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['quick_pay'])) {
         foreach ($allSlips as $sl) {
             $bs = (float)$sl['base_salary'];
             $wh = (float)$sl['work_hours'];
-            $hr = $bs / 200;
-            $ab = ($wh >= 200) ? $bs : round($wh * $hr, 2);
+            $hr = $bs / 208;
+            $ab = ($wh >= 208) ? $bs : round($wh * $hr, 2);
             $oH = (float)$sl['overtime_hours'];
             $oA = round($oH * $hr, 2);
             $tE = $ab + $oA + (float)($sl['incentive'] ?? 0) + (float)($sl['allowance'] ?? 0) + (float)($sl['uang_makan'] ?? 0) + (float)($sl['bonus'] ?? 0) + (float)($sl['other_income'] ?? 0);
@@ -1033,8 +1033,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['quick_pay_selected'])
             if (!$sl) continue;
             $bs = (float)$sl['base_salary'];
             $wh = (float)$sl['work_hours'];
-            $hr = $bs / 200;
-            $ab = ($wh >= 200) ? $bs : round($wh * $hr, 2);
+            $hr = $bs / 208;
+            $ab = ($wh >= 208) ? $bs : round($wh * $hr, 2);
             $oH = (float)$sl['overtime_hours'];
             $oA = round($oH * $hr, 2);
             $tE = $ab + $oA + (float)($sl['incentive'] ?? 0) + (float)($sl['allowance'] ?? 0) + (float)($sl['uang_makan'] ?? 0) + (float)($sl['bonus'] ?? 0) + (float)($sl['other_income'] ?? 0);
@@ -1162,8 +1162,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['refresh_employees']))
             $att = getAttendanceHours($db, $emp['id'], $month, $year);
             $workH = $att['work_hours'] > 0 ? $att['work_hours'] : 0;
             $baseSalary = (float)$emp['base_salary'];
-            $hourlyRate = $baseSalary / 200;
-            $actualBase = ($workH >= 200) ? $baseSalary : round($workH * $hourlyRate, 2);
+            $hourlyRate = $baseSalary / 208;
+            $actualBase = ($workH >= 208) ? $baseSalary : round($workH * $hourlyRate, 2);
             dbExec(
                 $db,
                 "INSERT INTO payroll_slips (period_id, employee_id, employee_name, position, base_salary, work_hours, actual_base, overtime_hours, overtime_rate, overtime_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -2453,7 +2453,7 @@ include '../../includes/header.php';
             </div>
         <?php else: ?>
             <div style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 10px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.8rem; color: #1e40af;">
-                <strong>💾 Auto-Save:</strong> <strong>OT</strong> = lembur dgn approval (dibulatkan jam penuh, threshold 45 menit). <strong style="color:#b91c1c;">Extra (&gt;26hr)</strong> = hari kerja ke-27+ dlm sebulan (auto). <strong>OT Rp</strong> = (OT jam + Extra jam) × (base÷200), keduanya pakai rate yg sama. <strong>Net</strong> = Actual Base + OT Rp + Service + Allowance + Bonus − Deduction.
+                <strong>💾 Auto-Save:</strong> <strong>OT</strong> = lembur dgn approval (dibulatkan jam penuh, threshold 45 menit). <strong style="color:#b91c1c;">Extra (&gt;26hr)</strong> = hari kerja ke-27+ dlm sebulan (auto). <strong>OT Rp</strong> = (OT jam + Extra jam) × (base÷208), keduanya pakai rate yg sama. <strong>Net</strong> = Actual Base + OT Rp + Service + Allowance + Bonus − Deduction.
             </div>
         <?php endif; ?>
 
@@ -2467,14 +2467,14 @@ include '../../includes/header.php';
                             <th class="col-employee">Employee</th>
                             <th style="width: 100px;">Base<div class="ps-info">Full</div>
                             </th>
-                            <th style="width: 110px; background: rgba(245,158,11,0.1); padding: 0.6rem 0.4rem; font-size: 0.82rem;">Hours<div class="ps-info" style="font-size: 0.7rem; margin-top: 2px;">200</div>
+                            <th style="width: 110px; background: rgba(245,158,11,0.1); padding: 0.6rem 0.4rem; font-size: 0.82rem;">Hours<div class="ps-info" style="font-size: 0.7rem; margin-top: 2px;">208</div>
                             </th>
                             <th style="width: 130px; padding: 0.6rem 0.4rem; font-size: 0.82rem;">Actual<div class="ps-info" style="font-size: 0.7rem; margin-top: 2px;">Calc</div>
                             </th>
                             <th style="width: 65px; background: rgba(59,130,246,0.1); padding: 0.6rem 0.4rem; font-size: 0.82rem;">OT</th>
                             <th style="width: 110px; background: rgba(220,38,38,0.08); padding: 0.6rem 0.4rem; font-size: 0.78rem; color:#b91c1c;" title="Tambahan dari hari kerja melebihi 26 hari/bulan (auto, dibayar pakai rate jam-OT)">Extra<div class="ps-info" style="font-size:0.65rem;color:#b91c1c;margin-top:2px;">&gt;26hr</div>
                             </th>
-                            <th style="width: 95px;" title="(OT approved + Extra >26hr) × rate jam (base÷200)">OT Rp</th>
+                            <th style="width: 95px;" title="(OT approved + Extra >26hr) × rate jam (base÷208)">OT Rp</th>
                             <th style="width: 80px;">Service</th>
                             <th style="width: 80px;">Allowc</th>
                             <th style="width: 80px;">Bonus</th>
@@ -2487,8 +2487,8 @@ include '../../includes/header.php';
                         <?php foreach ($slips as $slip):
                             $workHours = round((float)$slip['work_hours'], 1);
                             $baseSalary = (float)$slip['base_salary'];
-                            $hourlyRate = $baseSalary / 200;
-                            $actualBase = ($workHours >= 200) ? $baseSalary : round($workHours * $hourlyRate, 2);
+                            $hourlyRate = $baseSalary / 208;
+                            $actualBase = ($workHours >= 208) ? $baseSalary : round($workHours * $hourlyRate, 2);
                             $isHoursLocked = !empty($slip['hours_locked']);
                         ?>
                             <tr id="row-<?php echo $slip['id']; ?>"
@@ -2783,8 +2783,8 @@ include '../../includes/header.php';
         let workHours = getValByRow(id, 'work_hours');
         let otHours = getValByRow(id, 'overtime_hours');
 
-        // Hourly rate = Base / 200
-        let hourlyRate = base / 200;
+        // Hourly rate = Base / 208
+        let hourlyRate = base / 208;
 
         // Gaji pokok PENUH (gaji bulanan tetap) — tidak diprorata jam kerja.
         let actualBase = base;
@@ -3475,7 +3475,7 @@ include '../../includes/header.php';
         if (thEl) thEl.textContent = grandTotal.toFixed(1);
         const phEl = document.getElementById('attProgressHours');
         if (phEl) phEl.textContent = grandTotal.toFixed(1);
-        const targetH = 200;
+        const targetH = 208;
         const pct = Math.min((grandTotal / targetH) * 100, 100);
         const ppEl = document.getElementById('attProgressPct');
         if (ppEl) ppEl.textContent = pct.toFixed(0);

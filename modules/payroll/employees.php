@@ -1070,7 +1070,7 @@ include '../../includes/header.php';
                     <span class="emp-salary-prefix">Rp</span>
                     <input type="text" name="base_salary" id="baseSalary" required onkeyup="formatCurrency(this)">
                 </div>
-                <p class="emp-form-note">Overtime calculation: Base Salary ÷ 200 = Rate per hour</p>
+                <p class="emp-form-note">Overtime calculation: Base Salary ÷ 208 = Rate per hour</p>
             </div>
 
             <div class="emp-form-row">

@@ -48,8 +48,8 @@ foreach ($slips as $i => $s) {
             // fallback: keep stored value
         }
     }
-    $hourly = $base > 0 ? $base / 200 : 0;
-    $actualBase  = ($wh >= 200) ? $base : round($wh * $hourly, 2);
+    $hourly = $base > 0 ? $base / 208 : 0;
+    $actualBase  = ($wh >= 208) ? $base : round($wh * $hourly, 2);
     $otAmount    = round($oh * $hourly, 2);
     $extraAmount = round($exH * $hourly, 2);
     $loan    = (float)($s['deduction_loan'] ?? 0);
@@ -549,7 +549,7 @@ $periodLabel = $monthNames[$period['period_month']] . ' ' . $period['period_year
         <div class="table-section">
             <div class="table-title" style="display:flex;justify-content:space-between;align-items:center;">
                 <span>Employee Salary Details (sama dengan Process Salary)</span>
-                <span style="font-size:7pt;color:#94a3b8;text-transform:none;font-weight:500;">Hourly rate = Base ÷ 200 · OT/Extra dibayar pakai rate jam yg sama</span>
+                <span style="font-size:7pt;color:#94a3b8;text-transform:none;font-weight:500;">Hourly rate = Base ÷ 208 · OT/Extra dibayar pakai rate jam yg sama</span>
             </div>
             <div style="overflow-x:auto;">
                 <table style="font-size:7.5pt;">
@@ -559,7 +559,7 @@ $periodLabel = $monthNames[$period['period_month']] . ' ' . $period['period_year
                             <th>Employee</th>
                             <th class="text-right">Base</th>
                             <th class="text-center" title="Jam absensi">Hours</th>
-                            <th class="text-right" title="Base proporsional sesuai jam (full bila ≥200)">Actual</th>
+                            <th class="text-right" title="Base proporsional sesuai jam (full bila ≥208)">Actual</th>
                             <th class="text-center" title="OT approved (jam penuh)">OT</th>
                             <th class="text-center" style="color:#b91c1c;" title="Hari kerja ke-27+">Extra</th>
                             <th class="text-right" title="(OT + Extra) × rate jam">OT Rp</th>
