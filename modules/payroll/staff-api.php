@@ -95,6 +95,15 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS `overtime_requests` (
     UNIQUE KEY uk_emp_date (employee_id, overtime_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+// Auto-create staff_chat_messages table (pengumuman/broadcast admin -> staff)
+$pdo->exec("CREATE TABLE IF NOT EXISTS `staff_chat_messages` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `message` TEXT NOT NULL,
+    `created_by_name` VARCHAR(150) DEFAULT NULL,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
 // Session — close any existing session first, then start staff-specific one
 if (session_status() === PHP_SESSION_ACTIVE) {
     session_write_close();
@@ -980,6 +989,12 @@ if ($action === 'notifications') {
 if ($action === 'notif_mark_read') {
     $db->query("UPDATE notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0", [$empId]);
     echo json_encode(['success' => true]);
+    exit;
+}
+
+if ($action === 'chat_list') {
+    $rows = $db->fetchAll("SELECT id, message, created_by_name, created_at FROM staff_chat_messages ORDER BY id DESC LIMIT 50") ?: [];
+    echo json_encode(['success' => true, 'data' => $rows]);
     exit;
 }
 

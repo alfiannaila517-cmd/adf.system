@@ -940,6 +940,129 @@ header('Expires: 0');
             font-size: 12px;
         }
 
+        /* Chat FAB (floating announcement dari admin) */
+        .chat-fab {
+            position: fixed;
+            bottom: 78px;
+            right: 16px;
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--navy), var(--blue));
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, .25);
+            cursor: pointer;
+            z-index: 250;
+            border: none;
+            transition: transform .15s ease;
+        }
+
+        .chat-fab:active {
+            transform: scale(0.92);
+        }
+
+        .chat-fab.shake {
+            animation: bellShake 0.8s ease-in-out;
+        }
+
+        .chat-fab-dot {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 14px;
+            height: 14px;
+            background: var(--red);
+            border-radius: 50%;
+            display: none;
+            border: 2px solid #fff;
+        }
+
+        .chat-fab-dot.show {
+            display: block;
+        }
+
+        .chat-popup {
+            position: fixed;
+            bottom: 140px;
+            right: 16px;
+            left: 16px;
+            max-width: 380px;
+            margin: auto;
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, .22);
+            z-index: 251;
+            display: none;
+            max-height: 65vh;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            flex-direction: column;
+        }
+
+        .chat-popup.open {
+            display: flex;
+        }
+
+        .chat-popup .cp-head {
+            padding: 14px 16px;
+            background: linear-gradient(135deg, var(--navy), var(--blue));
+            color: #fff;
+            font-weight: 700;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+
+        .chat-popup .cp-close {
+            cursor: pointer;
+            font-size: 18px;
+            opacity: .85;
+        }
+
+        .chat-popup .cp-body {
+            padding: 12px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .chat-popup .cp-msg {
+            background: var(--bg);
+            border-radius: 12px;
+            border-top-left-radius: 4px;
+            padding: 10px 12px;
+            margin-bottom: 10px;
+            max-width: 92%;
+        }
+
+        .chat-popup .cp-msg .cp-meta {
+            font-size: 9px;
+            color: var(--muted);
+            margin-bottom: 4px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .3px;
+        }
+
+        .chat-popup .cp-msg .cp-text {
+            font-size: 12.5px;
+            color: var(--text);
+            line-height: 1.5;
+            white-space: pre-wrap;
+        }
+
+        .chat-popup .cp-empty {
+            padding: 30px;
+            text-align: center;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
         /* Pages */
         .page {
             display: none;
@@ -2943,6 +3066,21 @@ header('Expires: 0');
             <div class="np-head">🔔 Notifikasi</div>
             <div id="notifList">
                 <div class="np-empty">Memuat...</div>
+            </div>
+        </div>
+
+        <!-- Chat FAB: pengumuman dari admin -->
+        <div class="chat-fab" id="chatFab" onclick="toggleChat()">
+            💬
+            <div class="chat-fab-dot" id="chatFabDot"></div>
+        </div>
+        <div class="chat-popup" id="chatPopup">
+            <div class="cp-head">
+                <span>💬 Pengumuman</span>
+                <span class="cp-close" onclick="toggleChat()">✕</span>
+            </div>
+            <div class="cp-body" id="chatMsgList">
+                <div class="cp-empty">Memuat...</div>
             </div>
         </div>
 
@@ -5667,6 +5805,103 @@ header('Expires: 0');
             } catch (e) {}
         }
 
+        // ═══ CHAT / PENGUMUMAN (dari admin, broadcast satu arah) ═══
+        let chatOpen = false;
+        let chatMsgsCache = [];
+        let chatLastPolledId = null;
+
+        function toggleChat() {
+            chatOpen = !chatOpen;
+            const popup = document.getElementById('chatPopup');
+            if (chatOpen) {
+                popup.classList.add('open');
+                loadChatMessages();
+            } else {
+                popup.classList.remove('open');
+            }
+        }
+
+        document.addEventListener('click', function(e) {
+            if (chatOpen && !e.target.closest('.chat-fab') && !e.target.closest('.chat-popup')) {
+                chatOpen = false;
+                document.getElementById('chatPopup').classList.remove('open');
+            }
+        });
+
+        function timeAgoChat(dateStr) {
+            const d = new Date(dateStr.replace(' ', 'T'));
+            return d.toLocaleDateString('id-ID', {
+                day: 'numeric',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        async function loadChatMessages() {
+            const listEl = document.getElementById('chatMsgList');
+            try {
+                const res = await fetch(API + '&action=chat_list');
+                const data = await res.json();
+                const msgs = data.data || [];
+                chatMsgsCache = msgs;
+                if (msgs.length === 0) {
+                    listEl.innerHTML = '<div class="cp-empty">📢 Belum ada pengumuman</div>';
+                } else {
+                    listEl.innerHTML = msgs.slice().reverse().map(m => `
+                <div class="cp-msg">
+                    <div class="cp-meta">📢 ${m.created_by_name || 'Admin'} · ${timeAgoChat(m.created_at)}</div>
+                    <div class="cp-text">${(m.message || '').replace(/</g, '&lt;')}</div>
+                </div>`).join('');
+                    listEl.scrollTop = listEl.scrollHeight;
+                }
+                if (msgs.length > 0) {
+                    localStorage.setItem('chat_last_seen_id', msgs[0].id);
+                    document.getElementById('chatFabDot').classList.remove('show');
+                }
+            } catch (e) {
+                listEl.innerHTML = '<div class="cp-empty">Gagal memuat</div>';
+            }
+        }
+
+        function playChatDing() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, ctx.currentTime);
+                osc.frequency.setValueAtTime(1175, ctx.currentTime + 0.12);
+                gain.gain.setValueAtTime(0.15, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+                osc.connect(gain).connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.4);
+            } catch (e) {}
+        }
+
+        async function checkChatNew() {
+            try {
+                const res = await fetch(API + '&action=chat_list');
+                const data = await res.json();
+                const msgs = data.data || [];
+                if (msgs.length === 0) return;
+                const topId = msgs[0].id;
+                const lastSeen = parseInt(localStorage.getItem('chat_last_seen_id') || '0', 10);
+                const hasNew = topId > lastSeen;
+                const dot = document.getElementById('chatFabDot');
+                const fab = document.getElementById('chatFab');
+                dot.classList.toggle('show', hasNew && !chatOpen);
+                if (hasNew && chatLastPolledId !== null && topId > chatLastPolledId) {
+                    fab.classList.add('shake');
+                    setTimeout(() => fab.classList.remove('shake'), 1000);
+                    if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
+                    playChatDing();
+                }
+                chatLastPolledId = topId;
+            } catch (e) {}
+        }
+
         // ═══ FACE SCAN — Full-Screen Responsive (from absen.php) ═══
         let faceModelsLoaded = false;
         let faceStream = null;
@@ -6409,6 +6644,10 @@ header('Expires: 0');
         // Check notifications every 60s
         setInterval(checkNotifs, 60000);
         setTimeout(checkNotifs, 3000);
+
+        // Check chat/pengumuman every 20s
+        setInterval(checkChatNew, 20000);
+        setTimeout(checkChatNew, 4000);
     </script>
 
     <!-- Install Banner — fixed bottom, works on auth + app -->

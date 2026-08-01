@@ -141,6 +141,107 @@
    }
    </script>
    <?php endif; ?>
+
+   <!-- Chat / Pengumuman FAB (admin -> staff broadcast) -->
+   <?php if ($isOwnerAdmin): ?>
+   <style>
+       .admin-chat-fab { position:fixed; bottom:24px; left:24px; z-index:9999; width:56px; height:56px; border-radius:50%; background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:#fff; display:flex; align-items:center; justify-content:center; font-size:24px; box-shadow:0 8px 24px rgba(102,126,234,.4); cursor:pointer; border:none; transition:transform .15s ease; }
+       .admin-chat-fab:active { transform:scale(0.92); }
+       .admin-chat-panel { position:fixed; bottom:92px; left:24px; width:340px; max-width:calc(100vw - 48px); max-height:60vh; background:#fff; border-radius:16px; box-shadow:0 12px 40px rgba(0,0,0,.25); z-index:9999; display:none; flex-direction:column; overflow:hidden; }
+       .admin-chat-panel.open { display:flex; }
+       .admin-chat-panel .acp-head { padding:14px 16px; background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:#fff; font-weight:700; font-size:14px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+       .admin-chat-panel .acp-close { cursor:pointer; opacity:.85; font-size:18px; }
+       .admin-chat-panel .acp-compose { padding:12px; border-bottom:1px solid #eee; flex-shrink:0; }
+       .admin-chat-panel .acp-compose textarea { width:100%; resize:vertical; min-height:60px; border:1px solid #ddd; border-radius:8px; padding:8px 10px; font-size:13px; font-family:inherit; box-sizing:border-box; }
+       .admin-chat-panel .acp-compose button { margin-top:8px; width:100%; padding:8px; border:none; border-radius:8px; background:#667eea; color:#fff; font-weight:700; font-size:13px; cursor:pointer; }
+       .admin-chat-panel .acp-list { padding:10px 12px; overflow-y:auto; flex:1; }
+       .admin-chat-panel .acp-msg { background:#f8f9fb; border-radius:10px; padding:8px 10px; margin-bottom:8px; position:relative; }
+       .admin-chat-panel .acp-msg .acp-meta { font-size:9px; color:#888; font-weight:700; text-transform:uppercase; margin-bottom:3px; }
+       .admin-chat-panel .acp-msg .acp-text { font-size:12.5px; color:#333; white-space:pre-wrap; line-height:1.4; padding-right:18px; }
+       .admin-chat-panel .acp-msg .acp-del { position:absolute; top:6px; right:8px; cursor:pointer; color:#c00; font-size:13px; opacity:.6; }
+       .admin-chat-panel .acp-msg .acp-del:hover { opacity:1; }
+       .admin-chat-panel .acp-empty { padding:20px; text-align:center; color:#999; font-size:12px; }
+   </style>
+   <div class="admin-chat-fab" onclick="toggleAdminChat()">💬</div>
+   <div class="admin-chat-panel" id="adminChatPanel">
+       <div class="acp-head">
+           <span>💬 Pengumuman ke Staff</span>
+           <span class="acp-close" onclick="toggleAdminChat()">✕</span>
+       </div>
+       <div class="acp-compose">
+           <textarea id="adminChatText" placeholder="Tulis pengumuman untuk semua staff..."></textarea>
+           <button onclick="sendAdminChat()">Kirim Pengumuman</button>
+       </div>
+       <div class="acp-list" id="adminChatList">
+           <div class="acp-empty">Memuat...</div>
+       </div>
+   </div>
+   <script>
+   let adminChatOpen = false;
+   function toggleAdminChat() {
+       adminChatOpen = !adminChatOpen;
+       const panel = document.getElementById('adminChatPanel');
+       if (adminChatOpen) {
+           panel.classList.add('open');
+           loadAdminChatList();
+       } else {
+           panel.classList.remove('open');
+       }
+   }
+   async function loadAdminChatList() {
+       const listEl = document.getElementById('adminChatList');
+       try {
+           const res = await fetch('<?php echo BASE_URL; ?>/api/staff-chat.php?action=list');
+           const data = await res.json();
+           const msgs = data.data || [];
+           if (msgs.length === 0) {
+               listEl.innerHTML = '<div class="acp-empty">Belum ada pengumuman</div>';
+           } else {
+               listEl.innerHTML = msgs.map(m => `
+                   <div class="acp-msg">
+                       <span class="acp-del" onclick="deleteAdminChat(${m.id})">✕</span>
+                       <div class="acp-meta">${m.created_by_name || 'Admin'} · ${m.created_at}</div>
+                       <div class="acp-text">${(m.message || '').replace(/</g, '&lt;')}</div>
+                   </div>`).join('');
+           }
+       } catch (e) {
+           listEl.innerHTML = '<div class="acp-empty">Gagal memuat</div>';
+       }
+   }
+   async function sendAdminChat() {
+       const textEl = document.getElementById('adminChatText');
+       const message = textEl.value.trim();
+       if (!message) return;
+       try {
+           const res = await fetch('<?php echo BASE_URL; ?>/api/staff-chat.php?action=send', {
+               method: 'POST',
+               headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+               body: 'message=' + encodeURIComponent(message)
+           });
+           const data = await res.json();
+           if (data.success) {
+               textEl.value = '';
+               loadAdminChatList();
+           } else {
+               alert(data.message || 'Gagal mengirim pengumuman');
+           }
+       } catch (e) {
+           alert('Gagal mengirim pengumuman');
+       }
+   }
+   async function deleteAdminChat(id) {
+       if (!confirm('Hapus pengumuman ini?')) return;
+       try {
+           await fetch('<?php echo BASE_URL; ?>/api/staff-chat.php?action=delete', {
+               method: 'POST',
+               headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+               body: 'id=' + encodeURIComponent(id)
+           });
+           loadAdminChatList();
+       } catch (e) {}
+   }
+   </script>
+   <?php endif; ?>
    
    <!-- End Shift Feature -->
    <script>
