@@ -3688,6 +3688,27 @@ header('Expires: 0');
             document.getElementById('appShell').style.display = 'block';
             document.getElementById('headerName').textContent = name || 'Staff';
             loadHome();
+            startLiveClock();
+        }
+
+        let liveClockTimer = null;
+        function startLiveClock() {
+            if (liveClockTimer) return;
+            const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+            const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+            const tick = () => {
+                const timeEl = document.getElementById('liveClockTime');
+                const dateEl = document.getElementById('liveClockDate');
+                if (!timeEl && !dateEl) return;
+                const now = new Date();
+                const hh = String(now.getHours()).padStart(2, '0');
+                const mm = String(now.getMinutes()).padStart(2, '0');
+                const ss = String(now.getSeconds()).padStart(2, '0');
+                if (timeEl) timeEl.textContent = `${hh}:${mm}:${ss}`;
+                if (dateEl) dateEl.textContent = `${dayNames[now.getDay()]}, ${now.getDate()} ${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+            };
+            tick();
+            liveClockTimer = setInterval(tick, 1000);
         }
 
         function loadHome() {
@@ -4258,7 +4279,6 @@ header('Expires: 0');
                 const totalHours = s.total_hours || 0;
                 const target = s.target || 200;
                 const pct = target > 0 ? Math.min(Math.round(totalHours / target * 100), 100) : 0;
-                const remaining = Math.max(0, target - totalHours);
                 const daysPresent = s.days_present || 0;
                 const daysLate = s.days_late || 0;
 
@@ -4302,9 +4322,9 @@ header('Expires: 0');
                             <div style="width:32px;height:32px;background:#10b981;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;">📅</div>
                             <div><div style="font-size:9px;color:#059669;font-weight:600;text-transform:uppercase;">Hadir</div><div style="font-size:18px;font-weight:800;color:#065f46;">${daysPresent} <span style="font-size:10px;font-weight:400;">hari</span></div></div>
                         </div>
-                        <div style="background:linear-gradient(135deg,#fefce8,#fef9c3);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;">
-                            <div style="width:32px;height:32px;background:#eab308;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;">🎯</div>
-                            <div><div style="font-size:9px;color:#a16207;font-weight:600;text-transform:uppercase;">Sisa Target</div><div style="font-size:18px;font-weight:800;color:#854d0e;">${remaining.toFixed(1)} <span style="font-size:10px;font-weight:400;">jam</span></div></div>
+                        <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;">
+                            <div style="width:32px;height:32px;background:#2563eb;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;">🕐</div>
+                            <div><div style="font-size:9px;color:#1d4ed8;font-weight:600;text-transform:uppercase;">Sekarang</div><div style="font-size:16px;font-weight:800;color:#1e3a8a;" id="liveClockTime">--:--:--</div><div style="font-size:9px;color:var(--muted);" id="liveClockDate"></div></div>
                         </div>
                     </div>
                 </div>
