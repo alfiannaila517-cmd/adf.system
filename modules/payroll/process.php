@@ -177,6 +177,26 @@ try {
         } catch (\Throwable $e) {
         }
     }
+
+    // Ensure payroll_periods has all workflow columns (some older/legacy business
+    // databases were created before these columns existed, e.g. only 'approved_at')
+    $periodCols = [
+        "ADD COLUMN IF NOT EXISTS submitted_at DATETIME DEFAULT NULL",
+        "ADD COLUMN IF NOT EXISTS submitted_by INT DEFAULT NULL",
+        "ADD COLUMN IF NOT EXISTS approved_at DATETIME DEFAULT NULL",
+        "ADD COLUMN IF NOT EXISTS approved_by INT DEFAULT NULL",
+        "ADD COLUMN IF NOT EXISTS paid_at DATETIME DEFAULT NULL",
+        "ADD COLUMN IF NOT EXISTS total_gross DECIMAL(15,2) DEFAULT 0.00",
+        "ADD COLUMN IF NOT EXISTS total_deductions DECIMAL(15,2) DEFAULT 0.00",
+        "ADD COLUMN IF NOT EXISTS total_net DECIMAL(15,2) DEFAULT 0.00",
+        "ADD COLUMN IF NOT EXISTS total_employees INT DEFAULT 0",
+    ];
+    foreach ($periodCols as $c) {
+        try {
+            $pdo->exec("ALTER TABLE payroll_periods $c");
+        } catch (\Throwable $e) {
+        }
+    }
 } catch (\Throwable $e) {
     // Schema migration errors are non-fatal
 }
