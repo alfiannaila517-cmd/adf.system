@@ -969,6 +969,43 @@ header('Expires: 0');
             animation: bellShake 0.8s ease-in-out;
         }
 
+        .chat-fab.has-new {
+            background: linear-gradient(135deg, var(--red), #b91c1c);
+            animation: chatFabWiggle 1.6s ease-in-out infinite;
+        }
+
+        @keyframes chatFabWiggle {
+
+            0%,
+            100% {
+                transform: rotate(0deg);
+            }
+
+            10% {
+                transform: rotate(-16deg);
+            }
+
+            20% {
+                transform: rotate(13deg);
+            }
+
+            30% {
+                transform: rotate(-10deg);
+            }
+
+            40% {
+                transform: rotate(8deg);
+            }
+
+            50% {
+                transform: rotate(-4deg);
+            }
+
+            60% {
+                transform: rotate(0deg);
+            }
+        }
+
         .chat-fab-dot {
             position: absolute;
             top: 2px;
@@ -3071,12 +3108,12 @@ header('Expires: 0');
 
         <!-- Chat FAB: pengumuman dari admin -->
         <div class="chat-fab" id="chatFab" onclick="toggleChat()">
-            💬
+            �
             <div class="chat-fab-dot" id="chatFabDot"></div>
         </div>
         <div class="chat-popup" id="chatPopup">
             <div class="cp-head">
-                <span>💬 Pengumuman</span>
+                <span>📢 Pengumuman</span>
                 <span class="cp-close" onclick="toggleChat()">✕</span>
             </div>
             <div class="cp-body" id="chatMsgList">
