@@ -3692,6 +3692,7 @@ header('Expires: 0');
         }
 
         let liveClockTimer = null;
+
         function startLiveClock() {
             if (liveClockTimer) return;
             const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
@@ -4311,9 +4312,10 @@ header('Expires: 0');
                         </circle>
                     </svg>
                     <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
-                        <div style="font-size:28px;font-weight:800;color:${gradColor1};line-height:1;" id="donutPctNum">0</div>
-                        <div style="font-size:10px;font-weight:700;color:${gradColor1};margin-top:1px;">%</div>
-                        <div style="font-size:9px;color:var(--muted);margin-top:3px;">dari ${target}j</div>
+                        <div style="display:flex;align-items:baseline;gap:2px;">
+                            <div style="font-size:38px;font-weight:800;color:${gradColor1};line-height:1;letter-spacing:-.5px;" id="donutPctNum">0</div>
+                            <div style="font-size:17px;font-weight:700;color:${gradColor1};">%</div>
+                        </div>
                     </div>
                 </div>
                 <div style="flex:1;min-width:0;">
