@@ -374,7 +374,7 @@ function autoAddMissingPayrollEmployees($db, $periodId, $month, $year)
         $workH = $att['work_hours'] > 0 ? $att['work_hours'] : 0;
         $baseSalary = (float)$emp['base_salary'];
         $hourlyRate = $baseSalary / 208;
-        $actualBase = $baseSalary; // gaji pokok penuh, tidak diprorata
+        $actualBase = ($workH >= 208) ? $baseSalary : round($workH * $hourlyRate, 2); // gaji pokok diprorata sesuai jam kerja
         dbExec(
             $db,
             "INSERT INTO payroll_slips (period_id, employee_id, employee_name, position, base_salary, work_hours, actual_base, overtime_hours, overtime_rate, overtime_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -397,8 +397,8 @@ function syncSlipsWithAttendance($db, $periodId, $month, $year)
         // ONLY update work_hours from attendance — keep all other fields (overtime, incentive, etc.) as-is
         $baseSalary = (float)$slip['base_salary'];
         $hourlyRate = $baseSalary / 208;
-        // Gaji pokok PENUH (gaji bulanan tetap) — tidak diprorata jam kerja.
-        $actualBase = $baseSalary;
+        // Gaji pokok diprorata sesuai jam kerja (penuh hanya jika >= 208 jam/bulan)
+        $actualBase = ($workH >= 208) ? $baseSalary : round($workH * $hourlyRate, 2);
 
         // Read current addon values via direct PDO (preserve them, don't overwrite)
         $pdo = $db->getConnection();
@@ -473,8 +473,8 @@ if (!$period && isset($_POST['create_period'])) {
             $otH = $att['overtime_hours'];
             $baseSalary = (float)$emp['base_salary'];
             $hourlyRate = $baseSalary / 208;
-            // Gaji pokok PENUH (gaji bulanan tetap) — tidak diprorata jam kerja.
-            $actualBase = $baseSalary;
+            // Gaji pokok diprorata sesuai jam kerja (penuh hanya jika >= 208 jam/bulan)
+            $actualBase = ($workH >= 208) ? $baseSalary : round($workH * $hourlyRate, 2);
             $otRate = $hourlyRate;
             $otAmount = round($otH * $otRate, 2);
             $totalEarn = $actualBase + $otAmount;
@@ -530,9 +530,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_update'])) {
     $bpjs = (float)$_POST['deduction_bpjs'];
     $ded_other = (float)$_POST['deduction_other'];
 
-    // Gaji pokok PENUH (gaji bulanan tetap) — tidak diprorata jam kerja.
+    // Gaji pokok diprorata sesuai jam kerja (penuh hanya jika >= 208 jam/bulan)
     $hourly_rate = $base_salary / 208;
-    $actual_base = $base_salary;
+    $actual_base = ($work_hours >= 208) ? $base_salary : round($work_hours * $hourly_rate, 2);
 
     // Overtime still uses same rate; Extra Hari pakai rate yg sama
     $overtime_rate = $hourly_rate;
@@ -2806,8 +2806,8 @@ include '../../includes/header.php';
         // Hourly rate = Base / 208
         let hourlyRate = base / 208;
 
-        // Gaji pokok PENUH (gaji bulanan tetap) — tidak diprorata jam kerja.
-        let actualBase = base;
+        // Gaji pokok diprorata sesuai jam kerja (penuh hanya jika >= 208 jam/bulan)
+        let actualBase = (workHours >= 208) ? base : Math.round(workHours * hourlyRate);
 
         // Update Actual Base Display
         document.getElementById(`actual-base-${id}`).innerText = new Intl.NumberFormat('id-ID').format(actualBase);
