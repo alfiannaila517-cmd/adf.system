@@ -3,7 +3,7 @@
  * Handles caching for offline / slow-network support
  */
 
-const CACHE_NAME = "staff-portal-v9";
+const CACHE_NAME = "staff-portal-v10";
 const APP_SHELL = [
   "./staff-portal.php",
   "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css",
