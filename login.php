@@ -527,9 +527,9 @@ if (isset($_GET['biz'])) {
             --ink-600: #9fb1cc;
             --paper: rgba(15, 23, 42, 0.68);
             --line: rgba(148, 163, 184, 0.34);
-            --brand: #0f766e;
-            --brand-2: #0d9488;
-            --accent: #f59e0b;
+            --brand: #1d4ed8;
+            --brand-2: #3b82f6;
+            --accent: #60a5fa;
             --danger: #dc2626;
             --soft: rgba(15, 23, 42, 0.46);
         }
@@ -543,7 +543,7 @@ if (isset($_GET['biz'])) {
         body {
             font-family: 'IBM Plex Sans', sans-serif;
             color: var(--ink-900);
-            background: #0b1220;
+            background: #040d1f;
         }
 
         .login-container {
@@ -555,11 +555,11 @@ if (isset($_GET['biz'])) {
             padding: 1.25rem;
             position: relative;
             overflow: hidden;
-            <?php if ($bgUrl): ?>background-image: linear-gradient(135deg, rgba(6, 12, 26, 0.88), rgba(9, 20, 41, 0.8)), url('<?php echo $bgUrl; ?>?v=<?php echo time(); ?>');
+            <?php if ($bgUrl): ?>background-image: linear-gradient(135deg, rgba(2, 8, 22, 0.9), rgba(4, 14, 38, 0.84)), url('<?php echo $bgUrl; ?>?v=<?php echo time(); ?>');
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
-            <?php else: ?>background: linear-gradient(135deg, #091326, #10223f);
+            <?php else: ?>background: linear-gradient(135deg, #020812, #061228);
             <?php endif; ?>
         }
 
@@ -577,7 +577,7 @@ if (isset($_GET['biz'])) {
             height: 340px;
             top: -120px;
             right: -80px;
-            background: radial-gradient(circle, rgba(251, 191, 36, 0.34), rgba(251, 191, 36, 0));
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.28), rgba(59, 130, 246, 0));
             animation: drift 8s ease-in-out infinite;
         }
 
@@ -586,7 +586,7 @@ if (isset($_GET['biz'])) {
             height: 300px;
             bottom: -130px;
             left: -100px;
-            background: radial-gradient(circle, rgba(20, 184, 166, 0.38), rgba(20, 184, 166, 0));
+            background: radial-gradient(circle, rgba(29, 78, 216, 0.32), rgba(29, 78, 216, 0));
             animation: drift 10s ease-in-out infinite reverse;
         }
 
@@ -603,7 +603,7 @@ if (isset($_GET['biz'])) {
         }
 
         .login-shell {
-            width: min(400px, 90vw);
+            width: min(350px, 88vw);
             border-radius: 18px;
             overflow: hidden;
             box-shadow: 0 26px 70px rgba(2, 6, 23, 0.62);
@@ -624,14 +624,14 @@ if (isset($_GET['biz'])) {
         }
 
         .developer-logo-top img {
-            width: 108px;
+            width: 90px;
             height: auto;
-            opacity: 0.9;
-            filter: drop-shadow(0 8px 18px rgba(2, 6, 23, 0.38));
+            opacity: 0.88;
+            filter: drop-shadow(0 8px 18px rgba(2, 6, 23, 0.42));
         }
 
         .login-hero {
-            background: linear-gradient(160deg, rgba(15, 23, 42, 0.83), rgba(30, 41, 59, 0.72));
+            background: linear-gradient(160deg, rgba(4, 18, 46, 0.88), rgba(7, 26, 58, 0.76));
             color: #f8fafc;
             padding: 1.2rem 1.02rem;
             display: flex;
@@ -653,8 +653,8 @@ if (isset($_GET['biz'])) {
             display: grid;
             place-items: center;
             font-size: 1.85rem;
-            background: linear-gradient(135deg, rgba(20, 184, 166, 0.45), rgba(245, 158, 11, 0.34));
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: linear-gradient(135deg, rgba(37, 99, 235, 0.4), rgba(29, 78, 216, 0.3));
+            border: 1px solid rgba(96, 165, 250, 0.25);
         }
 
         .business-logo-img {
@@ -727,15 +727,15 @@ if (isset($_GET['biz'])) {
         }
 
         .login-box {
-            background: linear-gradient(160deg, rgba(15, 23, 42, 0.6), rgba(15, 23, 42, 0.48));
-            backdrop-filter: blur(16px);
-            padding: 1.1rem 1rem;
+            background: linear-gradient(160deg, rgba(4, 18, 46, 0.72), rgba(6, 22, 52, 0.6));
+            backdrop-filter: blur(18px);
+            padding: 0.9rem 0.88rem;
             display: flex;
             flex-direction: column;
             justify-content: center;
             min-height: 100%;
             color: #f8fafc !important;
-            border: 1px solid rgba(148, 163, 184, 0.3);
+            border: 1px solid rgba(59, 130, 246, 0.28);
         }
 
         .login-box .login-logo {
@@ -748,7 +748,7 @@ if (isset($_GET['biz'])) {
 
         .login-logo {
             font-family: 'Space Grotesk', sans-serif;
-            font-size: 1.3rem;
+            font-size: 1.18rem;
             line-height: 1.25;
             color: var(--ink-900);
             letter-spacing: -0.3px;
@@ -768,8 +768,8 @@ if (isset($_GET['biz'])) {
             display: flex;
             gap: 0.55rem;
             align-items: center;
-            border: 1px solid var(--line);
-            background: var(--soft);
+            border: 1px solid rgba(59, 130, 246, 0.28);
+            background: rgba(4, 18, 46, 0.52);
             border-radius: 12px;
             padding: 0.48rem 0.62rem;
             margin-bottom: 0.74rem;
@@ -805,7 +805,7 @@ if (isset($_GET['biz'])) {
         }
 
         .login-box .db-name {
-            color: #2dd4bf !important;
+            color: #60a5fa !important;
         }
 
         .form-group {
@@ -848,9 +848,9 @@ if (isset($_GET['biz'])) {
 
         .form-control {
             width: 100%;
-            padding: 0.56rem 0.68rem;
-            background: rgba(15, 23, 42, 0.68);
-            border: 1px solid rgba(148, 163, 184, 0.52);
+            padding: 0.52rem 0.64rem;
+            background: rgba(4, 16, 40, 0.72);
+            border: 1px solid rgba(59, 130, 246, 0.36);
             border-radius: 11px;
             color: #f8fafc;
             font-size: 0.9rem;
@@ -860,7 +860,7 @@ if (isset($_GET['biz'])) {
 
         .login-box .form-control {
             color: #f8fafc !important;
-            background: rgba(15, 23, 42, 0.68) !important;
+            background: rgba(4, 16, 40, 0.72) !important;
         }
 
         .form-control::placeholder {
@@ -875,8 +875,8 @@ if (isset($_GET['biz'])) {
 
         .form-control:focus {
             outline: none;
-            border-color: var(--brand-2);
-            box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
         }
 
         .alert-danger,
@@ -976,25 +976,28 @@ if (isset($_GET['biz'])) {
         }
 
         .btn-owner {
-            background: linear-gradient(135deg, #1e293b, #0f172a);
-            color: #f8fafc;
-            box-shadow: 0 6px 16px rgba(30, 41, 59, 0.2);
+            background: linear-gradient(135deg, #0c1d3d, #0a1628);
+            color: #93c5fd;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            box-shadow: 0 6px 16px rgba(4, 12, 30, 0.3);
         }
 
         .btn-owner:hover {
             transform: translateY(-1px);
-            box-shadow: 0 8px 18px rgba(30, 41, 59, 0.28);
+            background: linear-gradient(135deg, #112248, #0d1e38);
+            box-shadow: 0 8px 18px rgba(4, 12, 30, 0.4);
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, var(--brand-2), var(--brand));
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
             color: #fff;
-            box-shadow: 0 6px 16px rgba(13, 148, 136, 0.24);
+            box-shadow: 0 6px 16px rgba(37, 99, 235, 0.32);
         }
 
         .btn-primary:hover {
             transform: translateY(-1px);
-            box-shadow: 0 8px 18px rgba(13, 148, 136, 0.32);
+            background: linear-gradient(135deg, #1d4ed8, #1e40af);
+            box-shadow: 0 8px 18px rgba(37, 99, 235, 0.44);
         }
 
         .login-footer {
@@ -1012,7 +1015,7 @@ if (isset($_GET['biz'])) {
 
         @media (max-width: 860px) {
             .login-shell {
-                width: min(400px, 92vw);
+                width: min(350px, 92vw);
             }
         }
 
