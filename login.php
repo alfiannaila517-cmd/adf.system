@@ -603,8 +603,9 @@ if (isset($_GET['biz'])) {
 
         .login-shell {
             display: grid;
-            grid-template-columns: 1.03fr 0.97fr;
-            border-radius: 22px;
+            grid-template-columns: 1.02fr 0.98fr;
+            width: min(860px, 92vw);
+            border-radius: 20px;
             overflow: hidden;
             box-shadow: 0 22px 60px rgba(2, 6, 23, 0.38);
             border: 1px solid rgba(255, 255, 255, 0.18);
@@ -617,11 +618,11 @@ if (isset($_GET['biz'])) {
         .login-hero {
             background: linear-gradient(160deg, rgba(15, 23, 42, 0.83), rgba(30, 41, 59, 0.72));
             color: #f8fafc;
-            padding: 2rem 1.7rem;
+            padding: 1.7rem 1.45rem;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            gap: 1.5rem;
+            gap: 1.25rem;
         }
 
         .hero-head {
@@ -711,8 +712,9 @@ if (isset($_GET['biz'])) {
         }
 
         .login-box {
-            background: #ffffff;
-            padding: 1.7rem 1.55rem;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(5px);
+            padding: 1.32rem 1.2rem;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -725,7 +727,7 @@ if (isset($_GET['biz'])) {
         }
 
         .login-header {
-            margin-bottom: 1rem;
+            margin-bottom: 0.82rem;
         }
 
         .login-logo {
@@ -753,8 +755,8 @@ if (isset($_GET['biz'])) {
             border: 1px solid var(--line);
             background: var(--soft);
             border-radius: 10px;
-            padding: 0.52rem 0.7rem;
-            margin-bottom: 0.95rem;
+            padding: 0.48rem 0.66rem;
+            margin-bottom: 0.8rem;
         }
 
         .status-indicator {
@@ -995,7 +997,7 @@ if (isset($_GET['biz'])) {
         @media (max-width: 860px) {
             .login-shell {
                 grid-template-columns: 1fr;
-                max-width: 520px;
+                width: min(500px, 94vw);
             }
 
             .login-hero {
