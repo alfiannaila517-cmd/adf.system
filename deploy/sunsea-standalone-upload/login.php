@@ -700,20 +700,25 @@ if (isset($_GET['biz'])) {
             background: rgba(15, 23, 42, 1);
         }
 
-        .alert-danger {
+        .alert-danger,
+        .login-box .alert-danger,
+        .login-box .alert-danger * {
             background: rgba(255, 241, 242, 0.96);
-            border: 1px solid rgba(251, 113, 133, 0.95);
-            color: #b91c1c;
+            border: 1px solid rgba(239, 68, 68, 0.95);
+            color: #991b1b !important;
             padding: 0.68rem 0.78rem;
             border-radius: 8px;
             margin-bottom: 0.85rem;
             text-align: center;
-            font-size: 0.78rem;
-            font-weight: 700;
+            font-size: 0.82rem;
+            font-weight: 800;
             line-height: 1.45;
             backdrop-filter: blur(4px);
             box-shadow: 0 10px 24px rgba(185, 28, 28, 0.12);
             text-shadow: 0 1px 0 rgba(255, 255, 255, 0.72);
+            opacity: 1 !important;
+            letter-spacing: 0.1px;
+            -webkit-text-fill-color: #991b1b !important;
         }
 
         .database-status {
@@ -969,8 +974,8 @@ if (isset($_GET['biz'])) {
             </div>
 
             <?php if (isset($error)): ?>
-                <div class="alert-danger">
-                    <?php echo $error; ?>
+                <div class="alert-danger" role="alert" aria-live="assertive">
+                    <span style="font-weight:800;color:#991b1b !important;opacity:1 !important;-webkit-text-fill-color:#991b1b !important;">&#9888; <?php echo htmlspecialchars($error); ?></span>
                 </div>
             <?php endif; ?>
 

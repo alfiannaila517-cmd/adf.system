@@ -589,17 +589,6 @@ if (isset($_GET['biz'])) {
             animation: drift 10s ease-in-out infinite reverse;
         }
 
-        @keyframes drift {
-            0%,
-            100% {
-                transform: translate(0, 0);
-            }
-
-            50% {
-                transform: translate(10px, -14px);
-            }
-        }
-
         @keyframes riseIn {
             from {
                 opacity: 0;
@@ -613,8 +602,6 @@ if (isset($_GET['biz'])) {
         }
 
         .login-shell {
-            width: 100%;
-            max-width: 940px;
             display: grid;
             grid-template-columns: 1.03fr 0.97fr;
             border-radius: 22px;
@@ -874,19 +861,24 @@ if (isset($_GET['biz'])) {
             box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
         }
 
-        .alert-danger {
+        .alert-danger,
+        .login-box .alert-danger,
+        .login-box .alert-danger * {
             background: #fff1f2;
-            border: 1px solid #fb7185;
-            color: #b91c1c;
+            border: 1px solid #ef4444;
+            color: #991b1b !important;
             padding: 0.68rem 0.78rem;
             border-radius: 9px;
             margin-bottom: 0.82rem;
             text-align: center;
-            font-size: 0.78rem;
-            font-weight: 700;
+            font-size: 0.82rem;
+            font-weight: 800;
             line-height: 1.45;
             box-shadow: 0 10px 24px rgba(185, 28, 28, 0.08);
             text-shadow: 0 1px 0 rgba(255, 255, 255, 0.75);
+            opacity: 1 !important;
+            letter-spacing: 0.1px;
+            -webkit-text-fill-color: #991b1b !important;
         }
 
         .save-pw-row {
@@ -1059,8 +1051,8 @@ if (isset($_GET['biz'])) {
                 </div>
 
                 <?php if (isset($error)): ?>
-                    <div class="alert-danger">
-                        <?php echo $error; ?>
+                    <div class="alert-danger" role="alert" aria-live="assertive">
+                        <span style="font-weight:800;color:#991b1b !important;opacity:1 !important;-webkit-text-fill-color:#991b1b !important;">&#9888; <?php echo htmlspecialchars($error); ?></span>
                     </div>
                 <?php endif; ?>
 
