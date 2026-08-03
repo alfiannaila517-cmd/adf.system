@@ -550,15 +550,15 @@ if (isset($_GET['biz'])) {
         }
 
         .login-box {
-            background: linear-gradient(165deg, rgba(15, 23, 42, 0.64), rgba(15, 23, 42, 0.52));
+            background: linear-gradient(160deg, rgba(15, 23, 42, 0.6), rgba(15, 23, 42, 0.48));
             backdrop-filter: blur(16px);
             border-radius: 18px;
-            padding: 1rem 0.95rem;
+            padding: 1.1rem 1rem;
             box-shadow: 0 18px 44px rgba(2, 6, 23, 0.5),
                 0 0 0 1px rgba(148, 163, 184, 0.22);
             border: 1px solid rgba(148, 163, 184, 0.3);
             width: 100%;
-            max-width: 460px;
+            max-width: 400px;
             position: relative;
             z-index: 1;
             animation: slideUp 0.28s ease-out;
@@ -574,24 +574,10 @@ if (isset($_GET['biz'])) {
         }
 
         .developer-logo-top img {
-            width: 120px;
+            width: 108px;
             height: auto;
-            opacity: 0.92;
-            filter: drop-shadow(0 6px 14px rgba(2, 6, 23, 0.34));
-        }
-
-        .login-top-badge {
-            width: fit-content;
-            margin: 0 auto 0.7rem;
-            padding: 0.34rem 0.7rem;
-            border-radius: 999px;
-            border: 1px solid rgba(148, 163, 184, 0.3);
-            background: rgba(15, 23, 42, 0.48);
-            color: #dbe4f2;
-            font-size: 0.68rem;
-            font-weight: 600;
-            letter-spacing: 0.35px;
-            text-transform: uppercase;
+            opacity: 0.9;
+            filter: drop-shadow(0 8px 18px rgba(2, 6, 23, 0.38));
         }
 
         @keyframes slideUp {
@@ -659,7 +645,7 @@ if (isset($_GET['biz'])) {
         }
 
         .login-logo {
-            font-size: 1.34rem;
+            font-size: 1.28rem;
             font-weight: 700;
             color: #ffffff;
             margin-bottom: 0.15rem;
@@ -939,35 +925,7 @@ if (isset($_GET['biz'])) {
             overflow: hidden;
         }
 
-        .system-actions {
-            margin-top: 0.82rem;
-            padding-top: 0.76rem;
-            border-top: 1px dashed rgba(148, 163, 184, 0.32);
-            display: grid;
-            gap: 0.46rem;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-        }
 
-        .system-action-btn {
-            text-decoration: none;
-            text-align: center;
-            padding: 0.5rem 0.45rem;
-            border-radius: 10px;
-            border: 1px solid rgba(148, 163, 184, 0.4);
-            background: rgba(15, 23, 42, 0.44);
-            color: #dbe4f2;
-            font-size: 0.72rem;
-            font-weight: 600;
-            letter-spacing: 0.1px;
-            transition: all 0.2s ease;
-        }
-
-        .system-action-btn:hover {
-            transform: translateY(-1px);
-            background: rgba(30, 41, 59, 0.66);
-            border-color: rgba(45, 212, 191, 0.5);
-            color: #f8fafc;
-        }
 
         .login-buttons button::after {
             content: '';
@@ -1016,10 +974,6 @@ if (isset($_GET['biz'])) {
             .login-buttons {
                 flex-direction: column;
             }
-
-            .system-actions {
-                grid-template-columns: 1fr;
-            }
         }
     </style>
 </head>
@@ -1030,7 +984,6 @@ if (isset($_GET['biz'])) {
             <img src="<?php echo BASE_URL; ?>/assets/img/developer-logo.png" alt="Developer Logo">
         </div>
         <div class="login-box">
-            <div class="login-top-badge">Professional Access Portal</div>
             <div class="login-header">
                 <?php if ($loginLogoUrl): ?>
                     <img src="<?php echo $loginLogoUrl; ?>?v=<?php echo time(); ?>" alt="Logo" class="business-logo-img">
@@ -1085,12 +1038,6 @@ if (isset($_GET['biz'])) {
                     <button type="submit" name="login_type" value="normal" class="btn-primary">Login System</button>
                 </div>
             </form>
-
-            <div class="system-actions">
-                <a class="system-action-btn" href="<?php echo BASE_URL; ?>/website/public/index.php" target="_blank" rel="noopener">Tentang System</a>
-                <a class="system-action-btn" href="<?php echo BASE_URL; ?>/website/public/contact.php" target="_blank" rel="noopener">Contact Developer</a>
-                <a class="system-action-btn" href="<?php echo BASE_URL; ?>/website/public/contact.php?topic=demo" target="_blank" rel="noopener">Ajukan Demo</a>
-            </div>
 
             <div class="login-footer">
                 &copy; <?php echo APP_YEAR; ?> <?php echo APP_NAME; ?>

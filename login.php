@@ -603,8 +603,8 @@ if (isset($_GET['biz'])) {
         }
 
         .login-shell {
-            width: min(460px, 92vw);
-            border-radius: 20px;
+            width: min(400px, 90vw);
+            border-radius: 18px;
             overflow: hidden;
             box-shadow: 0 26px 70px rgba(2, 6, 23, 0.62);
             border: 1px solid rgba(148, 163, 184, 0.32);
@@ -624,24 +624,10 @@ if (isset($_GET['biz'])) {
         }
 
         .developer-logo-top img {
-            width: 122px;
+            width: 108px;
             height: auto;
-            opacity: 0.92;
-            filter: drop-shadow(0 10px 22px rgba(2, 6, 23, 0.42));
-        }
-
-        .login-top-badge {
-            width: fit-content;
-            margin: 0 auto 0.7rem;
-            padding: 0.34rem 0.7rem;
-            border-radius: 999px;
-            border: 1px solid rgba(148, 163, 184, 0.3);
-            background: rgba(15, 23, 42, 0.48);
-            color: #dbe4f2;
-            font-size: 0.68rem;
-            font-weight: 600;
-            letter-spacing: 0.35px;
-            text-transform: uppercase;
+            opacity: 0.9;
+            filter: drop-shadow(0 8px 18px rgba(2, 6, 23, 0.38));
         }
 
         .login-hero {
@@ -741,9 +727,9 @@ if (isset($_GET['biz'])) {
         }
 
         .login-box {
-            background: linear-gradient(165deg, rgba(15, 23, 42, 0.62), rgba(15, 23, 42, 0.5));
+            background: linear-gradient(160deg, rgba(15, 23, 42, 0.6), rgba(15, 23, 42, 0.48));
             backdrop-filter: blur(16px);
-            padding: 1rem 0.95rem;
+            padding: 1.1rem 1rem;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -762,7 +748,7 @@ if (isset($_GET['biz'])) {
 
         .login-logo {
             font-family: 'Space Grotesk', sans-serif;
-            font-size: 1.42rem;
+            font-size: 1.3rem;
             line-height: 1.25;
             color: var(--ink-900);
             letter-spacing: -0.3px;
@@ -989,36 +975,6 @@ if (isset($_GET['biz'])) {
             letter-spacing: 0.12px;
         }
 
-        .system-actions {
-            margin-top: 0.78rem;
-            padding-top: 0.72rem;
-            border-top: 1px dashed rgba(148, 163, 184, 0.32);
-            display: grid;
-            gap: 0.46rem;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-        }
-
-        .system-action-btn {
-            text-decoration: none;
-            text-align: center;
-            padding: 0.5rem 0.45rem;
-            border-radius: 10px;
-            border: 1px solid rgba(148, 163, 184, 0.4);
-            background: rgba(15, 23, 42, 0.44);
-            color: #dbe4f2;
-            font-size: 0.72rem;
-            font-weight: 600;
-            letter-spacing: 0.1px;
-            transition: all 0.2s ease;
-        }
-
-        .system-action-btn:hover {
-            transform: translateY(-1px);
-            background: rgba(30, 41, 59, 0.66);
-            border-color: rgba(45, 212, 191, 0.5);
-            color: #f8fafc;
-        }
-
         .btn-owner {
             background: linear-gradient(135deg, #1e293b, #0f172a);
             color: #f8fafc;
@@ -1056,7 +1012,7 @@ if (isset($_GET['biz'])) {
 
         @media (max-width: 860px) {
             .login-shell {
-                width: min(460px, 92vw);
+                width: min(400px, 92vw);
             }
         }
 
@@ -1066,14 +1022,10 @@ if (isset($_GET['biz'])) {
             }
 
             .login-box {
-                padding: 0.84rem 0.78rem;
+                padding: 0.88rem 0.82rem;
             }
 
             .login-buttons {
-                grid-template-columns: 1fr;
-            }
-
-            .system-actions {
                 grid-template-columns: 1fr;
             }
         }
@@ -1087,7 +1039,6 @@ if (isset($_GET['biz'])) {
         </div>
         <div class="login-shell">
             <div class="login-box">
-                <div class="login-top-badge">Professional Access Portal</div>
                 <div class="login-header">
                     <h2 class="login-logo">Sign in to Dashboard</h2>
                     <p class="login-subtitle"><?php echo $displayInfo['subtitle']; ?><?php if (isset($_GET['biz'])): ?> • Hotel System<?php endif; ?></p>
@@ -1134,12 +1085,6 @@ if (isset($_GET['biz'])) {
                         <button type="submit" name="login_type" value="normal" class="btn-primary">System Login</button>
                     </div>
                 </form>
-
-                <div class="system-actions">
-                    <a class="system-action-btn" href="<?php echo BASE_URL; ?>/website/public/index.php" target="_blank" rel="noopener">Tentang System</a>
-                    <a class="system-action-btn" href="<?php echo BASE_URL; ?>/website/public/contact.php" target="_blank" rel="noopener">Contact Developer</a>
-                    <a class="system-action-btn" href="<?php echo BASE_URL; ?>/website/public/contact.php?topic=demo" target="_blank" rel="noopener">Ajukan Demo</a>
-                </div>
 
                 <div class="login-footer">
                     &copy; <?php echo APP_YEAR; ?> <?php echo APP_NAME; ?>
