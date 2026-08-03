@@ -543,7 +543,7 @@ if (isset($_GET['biz'])) {
         body {
             font-family: 'IBM Plex Sans', sans-serif;
             color: var(--ink-900);
-            background: #040d1f;
+            background: #020810;
         }
 
         .login-container {
@@ -555,11 +555,11 @@ if (isset($_GET['biz'])) {
             padding: 1.25rem;
             position: relative;
             overflow: hidden;
-            <?php if ($bgUrl): ?>background-image: linear-gradient(135deg, rgba(2, 8, 22, 0.9), rgba(4, 14, 38, 0.84)), url('<?php echo $bgUrl; ?>?v=<?php echo time(); ?>');
+            <?php if ($bgUrl): ?>background-image: linear-gradient(160deg, rgba(1, 5, 16, 0.84), rgba(2, 10, 28, 0.76)), url('<?php echo $bgUrl; ?>?v=<?php echo time(); ?>');
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
-            <?php else: ?>background: linear-gradient(135deg, #020812, #061228);
+            <?php else: ?>background: radial-gradient(ellipse 70% 55% at 68% 12%, rgba(22, 70, 220, 0.2) 0%, transparent 65%), radial-gradient(ellipse 60% 50% at 18% 85%, rgba(10, 44, 190, 0.15) 0%, transparent 65%), #020810;
             <?php endif; ?>
         }
 
@@ -573,21 +573,21 @@ if (isset($_GET['biz'])) {
         }
 
         .login-container::before {
-            width: 340px;
-            height: 340px;
-            top: -120px;
-            right: -80px;
-            background: radial-gradient(circle, rgba(59, 130, 246, 0.28), rgba(59, 130, 246, 0));
-            animation: drift 8s ease-in-out infinite;
+            width: 600px;
+            height: 520px;
+            top: -230px;
+            right: -200px;
+            background: radial-gradient(circle, rgba(22, 80, 235, 0.1), rgba(22, 80, 235, 0));
+            animation: drift 14s ease-in-out infinite;
         }
 
         .login-container::after {
-            width: 300px;
-            height: 300px;
-            bottom: -130px;
-            left: -100px;
-            background: radial-gradient(circle, rgba(29, 78, 216, 0.32), rgba(29, 78, 216, 0));
-            animation: drift 10s ease-in-out infinite reverse;
+            width: 550px;
+            height: 480px;
+            bottom: -230px;
+            left: -210px;
+            background: radial-gradient(circle, rgba(10, 52, 200, 0.13), rgba(10, 52, 200, 0));
+            animation: drift 17s ease-in-out infinite reverse;
         }
 
         @keyframes riseIn {
@@ -603,15 +603,15 @@ if (isset($_GET['biz'])) {
         }
 
         .login-shell {
-            width: min(350px, 88vw);
-            border-radius: 18px;
+            width: min(375px, 90vw);
+            border-radius: 24px;
             overflow: hidden;
-            box-shadow: 0 26px 70px rgba(2, 6, 23, 0.62);
-            border: 1px solid rgba(148, 163, 184, 0.32);
-            backdrop-filter: blur(12px);
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.07), 0 40px 100px rgba(0, 4, 18, 0.82), 0 0 80px rgba(18, 62, 215, 0.1);
+            border: none;
+            backdrop-filter: none;
             position: relative;
             z-index: 1;
-            animation: riseIn 0.42s ease;
+            animation: riseIn 0.4s ease;
         }
 
         .developer-logo-top {
@@ -624,10 +624,10 @@ if (isset($_GET['biz'])) {
         }
 
         .developer-logo-top img {
-            width: 90px;
+            width: 82px;
             height: auto;
-            opacity: 0.88;
-            filter: drop-shadow(0 8px 18px rgba(2, 6, 23, 0.42));
+            opacity: 0.84;
+            filter: drop-shadow(0 6px 24px rgba(0, 6, 24, 0.6));
         }
 
         .login-hero {
@@ -727,15 +727,16 @@ if (isset($_GET['biz'])) {
         }
 
         .login-box {
-            background: linear-gradient(160deg, rgba(4, 18, 46, 0.72), rgba(6, 22, 52, 0.6));
-            backdrop-filter: blur(18px);
-            padding: 0.9rem 0.88rem;
+            background: linear-gradient(160deg, rgba(6, 18, 52, 0.82), rgba(9, 25, 62, 0.74));
+            backdrop-filter: blur(26px) saturate(160%);
+            padding: 1.6rem 1.45rem;
             display: flex;
             flex-direction: column;
             justify-content: center;
             min-height: 100%;
             color: #f8fafc !important;
-            border: 1px solid rgba(59, 130, 246, 0.28);
+            border: none;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.13), inset 0 -1px 0 rgba(255, 255, 255, 0.04);
         }
 
         .login-box .login-logo {
@@ -743,36 +744,36 @@ if (isset($_GET['biz'])) {
         }
 
         .login-header {
-            margin-bottom: 0.78rem;
+            margin-bottom: 1rem;
         }
 
         .login-logo {
             font-family: 'Space Grotesk', sans-serif;
-            font-size: 1.18rem;
-            line-height: 1.25;
+            font-size: 1.45rem;
+            line-height: 1.22;
             color: var(--ink-900);
-            letter-spacing: -0.3px;
+            letter-spacing: -0.5px;
         }
 
         .login-subtitle {
             color: var(--ink-700);
-            font-size: 0.84rem;
-            margin-top: 0.3rem;
+            font-size: 0.81rem;
+            margin-top: 0.32rem;
         }
 
         .login-box .login-subtitle {
-            color: #cbd5e1 !important;
+            color: rgba(148, 178, 220, 0.82) !important;
         }
 
         .database-status {
             display: flex;
             gap: 0.55rem;
             align-items: center;
-            border: 1px solid rgba(59, 130, 246, 0.28);
-            background: rgba(4, 18, 46, 0.52);
-            border-radius: 12px;
-            padding: 0.48rem 0.62rem;
-            margin-bottom: 0.74rem;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 10px;
+            padding: 0.46rem 0.6rem;
+            margin-bottom: 0.9rem;
         }
 
         .status-indicator {
@@ -805,25 +806,25 @@ if (isset($_GET['biz'])) {
         }
 
         .login-box .db-name {
-            color: #60a5fa !important;
+            color: #6aaeff !important;
         }
 
         .form-group {
-            margin-bottom: 0.72rem;
+            margin-bottom: 0.82rem;
         }
 
         .form-label {
             display: block;
-            color: #dbe4f2;
-            font-size: 0.74rem;
+            color: rgba(168, 192, 232, 0.8);
+            font-size: 0.69rem;
             font-weight: 600;
-            margin-bottom: 0.28rem;
+            margin-bottom: 0.3rem;
             text-transform: uppercase;
-            letter-spacing: 0.36px;
+            letter-spacing: 0.55px;
         }
 
         .login-box .form-label {
-            color: #dbe4f2 !important;
+            color: rgba(168, 192, 232, 0.8) !important;
         }
 
         .password-wrapper {
@@ -848,35 +849,36 @@ if (isset($_GET['biz'])) {
 
         .form-control {
             width: 100%;
-            padding: 0.52rem 0.64rem;
-            background: rgba(4, 16, 40, 0.72);
-            border: 1px solid rgba(59, 130, 246, 0.36);
+            padding: 0.62rem 0.76rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.11);
             border-radius: 11px;
-            color: #f8fafc;
+            color: #e8eeff;
             font-size: 0.9rem;
             font-weight: 500;
-            transition: border-color 0.2s, box-shadow 0.2s;
+            transition: border-color 0.22s, box-shadow 0.22s, background 0.22s;
         }
 
         .login-box .form-control {
-            color: #f8fafc !important;
-            background: rgba(4, 16, 40, 0.72) !important;
+            color: #e8eeff !important;
+            background: rgba(255, 255, 255, 0.05) !important;
         }
 
         .form-control::placeholder {
-            color: #9fb1cc;
+            color: rgba(120, 150, 200, 0.6);
             opacity: 1;
         }
 
         .login-box .form-control::placeholder {
-            color: #9fb1cc !important;
+            color: rgba(120, 150, 200, 0.6) !important;
             opacity: 1 !important;
         }
 
         .form-control:focus {
             outline: none;
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+            border-color: rgba(80, 145, 255, 0.6);
+            box-shadow: 0 0 0 3px rgba(28, 98, 240, 0.14);
+            background: rgba(255, 255, 255, 0.08) !important;
         }
 
         .alert-danger,
@@ -959,73 +961,75 @@ if (isset($_GET['biz'])) {
 
         .login-buttons {
             display: grid;
-            gap: 0.52rem;
-            margin-top: 0.15rem;
-            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            margin-top: 0.2rem;
+            grid-template-columns: 1fr 1.45fr;
         }
 
         .login-buttons button {
-            padding: 0.6rem 0.68rem;
-            border-radius: 11px;
-            font-size: 0.82rem;
+            padding: 0.68rem 0.7rem;
+            border-radius: 12px;
+            font-size: 0.83rem;
             font-weight: 700;
             cursor: pointer;
             border: none;
-            transition: transform 0.18s ease, box-shadow 0.18s ease;
-            letter-spacing: 0.12px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+            letter-spacing: 0.15px;
         }
 
         .btn-owner {
-            background: linear-gradient(135deg, #0c1d3d, #0a1628);
-            color: #93c5fd;
-            border: 1px solid rgba(59, 130, 246, 0.3);
-            box-shadow: 0 6px 16px rgba(4, 12, 30, 0.3);
+            background: rgba(255, 255, 255, 0.06);
+            color: rgba(195, 218, 255, 0.88);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            box-shadow: none;
         }
 
         .btn-owner:hover {
             transform: translateY(-1px);
-            background: linear-gradient(135deg, #112248, #0d1e38);
-            box-shadow: 0 8px 18px rgba(4, 12, 30, 0.4);
+            background: rgba(255, 255, 255, 0.11);
+            border-color: rgba(255, 255, 255, 0.24);
+            color: #ffffff;
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            background: linear-gradient(155deg, #1e5cf5, #1340cc);
             color: #fff;
-            box-shadow: 0 6px 16px rgba(37, 99, 235, 0.32);
+            box-shadow: 0 8px 26px rgba(20, 78, 235, 0.4);
         }
 
         .btn-primary:hover {
             transform: translateY(-1px);
-            background: linear-gradient(135deg, #1d4ed8, #1e40af);
-            box-shadow: 0 8px 18px rgba(37, 99, 235, 0.44);
+            background: linear-gradient(155deg, #2568ff, #1848d8);
+            box-shadow: 0 12px 34px rgba(20, 78, 235, 0.55);
         }
 
         .login-footer {
             text-align: center;
-            margin-top: 0.72rem;
-            padding-top: 0.72rem;
-            border-top: 1px dashed var(--line);
-            color: var(--ink-600);
-            font-size: 0.66rem;
+            margin-top: 0.9rem;
+            padding-top: 0.82rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.07);
+            color: rgba(130, 158, 205, 0.65);
+            font-size: 0.62rem;
+            letter-spacing: 0.18px;
         }
 
         .login-box .login-footer {
-            color: #a8bbd6 !important;
+            color: rgba(130, 158, 205, 0.65) !important;
         }
 
         @media (max-width: 860px) {
             .login-shell {
-                width: min(350px, 92vw);
+                width: min(375px, 92vw);
             }
         }
 
         @media (max-width: 420px) {
             .login-container {
-                padding: 0.72rem;
+                padding: 0.75rem;
             }
 
             .login-box {
-                padding: 0.88rem 0.82rem;
+                padding: 1.3rem 1.1rem;
             }
 
             .login-buttons {
