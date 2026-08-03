@@ -555,7 +555,7 @@ if (isset($_GET['biz'])) {
             position: relative;
             overflow: hidden;
             <?php if ($bgUrl): ?>background-image: linear-gradient(125deg, rgba(12, 26, 53, 0.72), rgba(13, 31, 38, 0.67)), url('<?php echo $bgUrl; ?>?v=<?php echo time(); ?>');
-            background-size: cover;
+            background-size: contain;
             background-position: center;
             background-repeat: no-repeat;
             <?php else: ?>background: linear-gradient(125deg, #0f1f38, #16324d);
