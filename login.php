@@ -522,16 +522,16 @@ if (isset($_GET['biz'])) {
 
     <style>
         :root {
-            --ink-900: #0f172a;
-            --ink-700: #334155;
-            --ink-600: #475569;
-            --paper: #ffffff;
-            --line: #d6deea;
+            --ink-900: #f8fafc;
+            --ink-700: #dbe4f2;
+            --ink-600: #9fb1cc;
+            --paper: rgba(15, 23, 42, 0.68);
+            --line: rgba(148, 163, 184, 0.34);
             --brand: #0f766e;
             --brand-2: #0d9488;
             --accent: #f59e0b;
             --danger: #dc2626;
-            --soft: #f8fafc;
+            --soft: rgba(15, 23, 42, 0.46);
         }
 
         * {
@@ -543,7 +543,7 @@ if (isset($_GET['biz'])) {
         body {
             font-family: 'IBM Plex Sans', sans-serif;
             color: var(--ink-900);
-            background: #e2e8f0;
+            background: #0b1220;
         }
 
         .login-container {
@@ -555,11 +555,11 @@ if (isset($_GET['biz'])) {
             padding: 1.25rem;
             position: relative;
             overflow: hidden;
-            <?php if ($bgUrl): ?>background-image: linear-gradient(125deg, rgba(12, 26, 53, 0.72), rgba(13, 31, 38, 0.67)), url('<?php echo $bgUrl; ?>?v=<?php echo time(); ?>');
+            <?php if ($bgUrl): ?>background-image: linear-gradient(135deg, rgba(6, 12, 26, 0.88), rgba(9, 20, 41, 0.8)), url('<?php echo $bgUrl; ?>?v=<?php echo time(); ?>');
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
-            <?php else: ?>background: linear-gradient(125deg, #0f1f38, #16324d);
+            <?php else: ?>background: linear-gradient(135deg, #091326, #10223f);
             <?php endif; ?>
         }
 
@@ -606,9 +606,9 @@ if (isset($_GET['biz'])) {
             width: min(360px, 88vw);
             border-radius: 16px;
             overflow: hidden;
-            box-shadow: 0 22px 60px rgba(2, 6, 23, 0.38);
-            border: 1px solid rgba(255, 255, 255, 0.18);
-            backdrop-filter: blur(7px);
+            box-shadow: 0 26px 60px rgba(2, 6, 23, 0.58);
+            border: 1px solid rgba(148, 163, 184, 0.28);
+            backdrop-filter: blur(10px);
             position: relative;
             z-index: 1;
             animation: riseIn 0.42s ease;
@@ -727,18 +727,19 @@ if (isset($_GET['biz'])) {
         }
 
         .login-box {
-            background: rgba(255, 255, 255, 0.64);
+            background: rgba(15, 23, 42, 0.5);
             backdrop-filter: blur(12px);
             padding: 0.78rem 0.74rem;
             display: flex;
             flex-direction: column;
             justify-content: center;
             min-height: 100%;
-            color: #0f172a !important;
+            color: #f8fafc !important;
+            border: 1px solid rgba(148, 163, 184, 0.2);
         }
 
         .login-box .login-logo {
-            color: #0f172a !important;
+            color: #f8fafc !important;
         }
 
         .login-header {
@@ -760,7 +761,7 @@ if (isset($_GET['biz'])) {
         }
 
         .login-box .login-subtitle {
-            color: #334155 !important;
+            color: #cbd5e1 !important;
         }
 
         .database-status {
@@ -792,7 +793,7 @@ if (isset($_GET['biz'])) {
         }
 
         .login-box .db-label {
-            color: #475569 !important;
+            color: #a8bbd6 !important;
         }
 
         .db-name {
@@ -804,7 +805,7 @@ if (isset($_GET['biz'])) {
         }
 
         .login-box .db-name {
-            color: #0f766e !important;
+            color: #2dd4bf !important;
         }
 
         .form-group {
@@ -813,7 +814,7 @@ if (isset($_GET['biz'])) {
 
         .form-label {
             display: block;
-            color: #0f172a;
+            color: #dbe4f2;
             font-size: 0.72rem;
             font-weight: 600;
             margin-bottom: 0.28rem;
@@ -822,7 +823,7 @@ if (isset($_GET['biz'])) {
         }
 
         .login-box .form-label {
-            color: #1e293b !important;
+            color: #dbe4f2 !important;
         }
 
         .password-wrapper {
@@ -835,40 +836,40 @@ if (isset($_GET['biz'])) {
             top: 50%;
             transform: translateY(-50%);
             cursor: pointer;
-            color: #64748b;
+            color: #cbd5e1;
             font-size: 0.96rem;
             user-select: none;
             transition: color 0.2s;
         }
 
         .password-toggle:hover {
-            color: #0f172a;
+            color: #f8fafc;
         }
 
         .form-control {
             width: 100%;
             padding: 0.46rem 0.56rem;
-            background: #fff;
-            border: 1px solid #94a3b8;
+            background: rgba(15, 23, 42, 0.56);
+            border: 1px solid rgba(148, 163, 184, 0.48);
             border-radius: 9px;
-            color: #0b1220;
+            color: #f8fafc;
             font-size: 0.78rem;
             font-weight: 500;
             transition: border-color 0.2s, box-shadow 0.2s;
         }
 
         .login-box .form-control {
-            color: #0b1220 !important;
-            background: #ffffff !important;
+            color: #f8fafc !important;
+            background: rgba(15, 23, 42, 0.56) !important;
         }
 
         .form-control::placeholder {
-            color: #475569;
+            color: #9fb1cc;
             opacity: 1;
         }
 
         .login-box .form-control::placeholder {
-            color: #475569 !important;
+            color: #9fb1cc !important;
             opacity: 1 !important;
         }
 
@@ -920,7 +921,7 @@ if (isset($_GET['biz'])) {
             display: flex;
             align-items: center;
             gap: 0.45rem;
-            color: #1e293b;
+            color: #dbe4f2;
             font-size: 0.8rem;
             font-weight: 500;
             cursor: pointer;
@@ -929,7 +930,7 @@ if (isset($_GET['biz'])) {
 
         .login-box .save-pw-label,
         .login-box .save-pw-label span {
-            color: #334155 !important;
+            color: #dbe4f2 !important;
         }
 
         .save-pw-label input[type="checkbox"] {
@@ -975,7 +976,7 @@ if (isset($_GET['biz'])) {
         }
 
         .btn-owner {
-            background: #1e293b;
+            background: linear-gradient(135deg, #1e293b, #0f172a);
             color: #f8fafc;
             box-shadow: 0 6px 16px rgba(30, 41, 59, 0.2);
         }
@@ -1006,7 +1007,7 @@ if (isset($_GET['biz'])) {
         }
 
         .login-box .login-footer {
-            color: #64748b !important;
+            color: #a8bbd6 !important;
         }
 
         @media (max-width: 860px) {

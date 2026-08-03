@@ -526,7 +526,7 @@ if (isset($_GET['biz'])) {
             justify-content: center;
             padding: 0.75rem;
             position: relative;
-            <?php if ($bgUrl): ?>background-image: linear-gradient(135deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.9)), url('<?php echo $bgUrl; ?>?v=<?php echo time(); ?>');
+            <?php if ($bgUrl): ?>background-image: linear-gradient(140deg, rgba(6, 12, 26, 0.9), rgba(9, 20, 41, 0.82)), url('<?php echo $bgUrl; ?>?v=<?php echo time(); ?>');
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
@@ -550,7 +550,7 @@ if (isset($_GET['biz'])) {
         }
 
         .login-box {
-            background: rgba(15, 23, 42, 0.36);
+            background: rgba(15, 23, 42, 0.5);
             backdrop-filter: blur(12px);
             border-radius: 14px;
             padding: 0.72rem;
@@ -697,8 +697,8 @@ if (isset($_GET['biz'])) {
         .form-control {
             width: 100%;
             padding: 0.52rem 0.68rem;
-            background: rgba(15, 23, 42, 0.56);
-            border: 1px solid rgba(71, 85, 105, 0.6);
+            background: rgba(15, 23, 42, 0.62);
+            border: 1px solid rgba(148, 163, 184, 0.44);
             border-radius: 8px;
             color: #e2e8f0;
             font-size: 0.82rem;
@@ -706,7 +706,7 @@ if (isset($_GET['biz'])) {
         }
 
         .form-control::placeholder {
-            color: #64748b;
+            color: #9fb1cc;
         }
 
         .form-control:focus {
@@ -749,8 +749,8 @@ if (isset($_GET['biz'])) {
         }
 
         .database-status {
-            background: linear-gradient(135deg, rgba(15, 23, 42, 0.58), rgba(15, 23, 42, 0.42));
-            border: 1px solid rgba(148, 163, 184, 0.2);
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.66), rgba(15, 23, 42, 0.5));
+            border: 1px solid rgba(148, 163, 184, 0.28);
             padding: 0.55rem 0.72rem;
             border-radius: 9px;
             margin-top: 0.75rem;
