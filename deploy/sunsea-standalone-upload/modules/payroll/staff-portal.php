@@ -5829,7 +5829,7 @@ header('Expires: 0');
             const totalDeductions = parseFloat(slip.total_deductions) || 0;
             const netSalary = totalEarnings - totalDeductions;
 
-            const logoHtml = SLIP_LOGO_URL ? `<img src="${SLIP_LOGO_URL}" style="height:52px;object-fit:contain;" crossorigin="anonymous">` : `<span style="font-size:28px;">🏨</span>`;
+            const logoHtml = SLIP_LOGO_URL ? `<img src="${SLIP_LOGO_URL}" style="height:72px;max-width:180px;object-fit:contain;" crossorigin="anonymous">` : `<span style="font-size:34px;">🏨</span>`;
 
             const monthNames = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
             const periodText = monthNames[parseInt(slip.period_month)] + ' ' + slip.period_year;
@@ -5889,20 +5889,20 @@ header('Expires: 0');
         </div>
 
         <!-- Salary Summary -->
-        <div style="padding:12px 16px;display:grid;grid-template-columns:1fr 1fr;gap:8px;border-bottom:1px solid #e2e8f0;">
-            <div style="text-align:center;background:linear-gradient(135deg,#f0fdf4,#bbf7d0);border-radius:10px;padding:12px 8px;">
-                <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Gaji Pokok</div>
-                <div style="font-size:18px;font-weight:800;color:#059669;line-height:1.1;">Rp ${fmt(baseSalary)}</div>
+        <div style="padding:10px 12px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;border-bottom:1px solid #e2e8f0;">
+            <div style="text-align:center;background:linear-gradient(135deg,#f0fdf4,#bbf7d0);border-radius:9px;padding:10px 6px;min-width:0;">
+                <div style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px;">Gaji Pokok</div>
+                <div style="font-size:14px;font-weight:800;color:#059669;line-height:1.05;">Rp ${fmt(baseSalary)}</div>
             </div>
-            <div style="text-align:center;background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:10px;padding:12px 8px;">
-                <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Uang Lembur Overtime</div>
-                <div style="font-size:18px;font-weight:800;color:#b45309;line-height:1.1;">Rp ${fmt(overtimeRegularAmount)}</div>
-                <div style="font-size:8px;color:#92400e;margin-top:3px;">OT harian</div>
+            <div style="text-align:center;background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:9px;padding:10px 6px;min-width:0;">
+                <div style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px;">Lembur OT</div>
+                <div style="font-size:14px;font-weight:800;color:#b45309;line-height:1.05;">Rp ${fmt(overtimeRegularAmount)}</div>
+                <div style="font-size:7px;color:#92400e;margin-top:2px;">OT harian</div>
             </div>
-            <div style="text-align:center;background:linear-gradient(135deg,#fff7ed,#fed7aa);border-radius:10px;padding:12px 8px;border:1px solid rgba(234,88,12,.12);">
-                <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Uang Lembur Extra Time</div>
-                <div style="font-size:18px;font-weight:800;color:#ea580c;line-height:1.1;">Rp ${fmt(overtimeExtraAmount)}</div>
-                <div style="font-size:8px;color:#9a3412;margin-top:3px;">${overtimeExtraHours} jam</div>
+            <div style="text-align:center;background:linear-gradient(135deg,#fff7ed,#fed7aa);border-radius:9px;padding:10px 6px;border:1px solid rgba(234,88,12,.12);min-width:0;">
+                <div style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px;">Lembur Extra</div>
+                <div style="font-size:14px;font-weight:800;color:#ea580c;line-height:1.05;">Rp ${fmt(overtimeExtraAmount)}</div>
+                <div style="font-size:7px;color:#9a3412;margin-top:2px;">${overtimeExtraHours} jam</div>
             </div>
         </div>
 
