@@ -730,6 +730,11 @@ if (isset($_GET['biz'])) {
             flex-direction: column;
             justify-content: center;
             min-height: 100%;
+            color: #0f172a !important;
+        }
+
+        .login-box .login-logo {
+            color: #0f172a !important;
         }
 
         .login-header {
@@ -748,6 +753,10 @@ if (isset($_GET['biz'])) {
             color: var(--ink-700);
             font-size: 0.84rem;
             margin-top: 0.28rem;
+        }
+
+        .login-box .login-subtitle {
+            color: #334155 !important;
         }
 
         .database-status {
@@ -778,12 +787,20 @@ if (isset($_GET['biz'])) {
             font-weight: 600;
         }
 
+        .login-box .db-label {
+            color: #475569 !important;
+        }
+
         .db-name {
             font-family: 'Space Grotesk', sans-serif;
             font-size: 0.84rem;
             color: var(--brand);
             font-weight: 700;
             letter-spacing: 0.15px;
+        }
+
+        .login-box .db-name {
+            color: #0f766e !important;
         }
 
         .form-group {
@@ -798,6 +815,10 @@ if (isset($_GET['biz'])) {
             margin-bottom: 0.28rem;
             text-transform: uppercase;
             letter-spacing: 0.36px;
+        }
+
+        .login-box .form-label {
+            color: #1e293b !important;
         }
 
         .password-wrapper {
@@ -832,9 +853,19 @@ if (isset($_GET['biz'])) {
             transition: border-color 0.2s, box-shadow 0.2s;
         }
 
+        .login-box .form-control {
+            color: #0b1220 !important;
+            background: #ffffff !important;
+        }
+
         .form-control::placeholder {
             color: #475569;
             opacity: 1;
+        }
+
+        .login-box .form-control::placeholder {
+            color: #475569 !important;
+            opacity: 1 !important;
         }
 
         .form-control:focus {
@@ -871,6 +902,11 @@ if (isset($_GET['biz'])) {
             font-weight: 500;
             cursor: pointer;
             user-select: none;
+        }
+
+        .login-box .save-pw-label,
+        .login-box .save-pw-label span {
+            color: #334155 !important;
         }
 
         .save-pw-label input[type="checkbox"] {
@@ -944,6 +980,10 @@ if (isset($_GET['biz'])) {
             border-top: 1px dashed var(--line);
             color: var(--ink-600);
             font-size: 0.68rem;
+        }
+
+        .login-box .login-footer {
+            color: #64748b !important;
         }
 
         @media (max-width: 860px) {
