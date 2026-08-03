@@ -945,20 +945,32 @@ header('Expires: 0');
             position: fixed;
             bottom: 78px;
             right: 16px;
-            width: 52px;
-            height: 52px;
+            width: 56px;
+            height: 56px;
             border-radius: 50%;
-            background: linear-gradient(135deg, var(--navy), var(--blue));
-            color: #fff;
+            background: linear-gradient(145deg, #ffffff, #f8fbff);
+            color: var(--navy);
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 22px;
-            box-shadow: 0 6px 20px rgba(0, 0, 0, .25);
+            box-shadow: 0 10px 22px rgba(15, 23, 42, .22), 0 0 0 1px #dbe3ef inset;
             cursor: pointer;
             z-index: 250;
-            border: none;
-            transition: transform .15s ease;
+            border: 1px solid #dbe3ef;
+            transition: transform .15s ease, box-shadow .15s ease;
+            animation: fabFloat 2.8s ease-in-out infinite;
+        }
+
+        .chat-fab:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 14px 26px rgba(15, 23, 42, .26), 0 0 0 1px #c7d6ea inset;
+        }
+
+        .chat-fab .chat-fab-icon {
+            line-height: 1;
+            font-size: 24px;
+            filter: drop-shadow(0 1px 0 rgba(255, 255, 255, .7));
         }
 
         .chat-fab:active {
@@ -966,60 +978,88 @@ header('Expires: 0');
         }
 
         .chat-fab.shake {
-            animation: bellShake 0.8s ease-in-out;
+            animation: chatShake .9s ease-in-out;
         }
 
-        .chat-fab.has-new {
-            background: linear-gradient(135deg, var(--red), #b91c1c);
-            animation: chatFabWiggle 1.6s ease-in-out infinite;
+        .chat-fab.has-unread {
+            animation: fabFloat 2.8s ease-in-out infinite, chatNudge 1.5s ease-in-out infinite;
         }
 
-        @keyframes chatFabWiggle {
+        .chat-fab-dot {
+            position: absolute;
+            top: 0;
+            right: 0;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 4px;
+            background: var(--red);
+            color: #fff;
+            font-size: 10px;
+            font-weight: 700;
+            line-height: 18px;
+            text-align: center;
+            border-radius: 999px;
+            display: none;
+            border: 2px solid #fff;
+            box-shadow: 0 4px 10px rgba(220, 38, 38, .45);
+        }
 
+        .chat-fab-dot.show {
+            display: block;
+        }
+
+        @keyframes fabFloat {
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-2px);
+            }
+        }
+
+        @keyframes chatShake {
             0%,
             100% {
                 transform: rotate(0deg);
             }
 
-            10% {
-                transform: rotate(-16deg);
-            }
-
             20% {
-                transform: rotate(13deg);
-            }
-
-            30% {
                 transform: rotate(-10deg);
             }
 
             40% {
-                transform: rotate(8deg);
-            }
-
-            50% {
-                transform: rotate(-4deg);
+                transform: rotate(9deg);
             }
 
             60% {
-                transform: rotate(0deg);
+                transform: rotate(-7deg);
+            }
+
+            80% {
+                transform: rotate(6deg);
             }
         }
 
-        .chat-fab-dot {
-            position: absolute;
-            top: 2px;
-            right: 2px;
-            width: 14px;
-            height: 14px;
-            background: var(--red);
-            border-radius: 50%;
-            display: none;
-            border: 2px solid #fff;
-        }
+        @keyframes chatNudge {
+            0%,
+            65%,
+            100% {
+                transform: translateX(0);
+            }
 
-        .chat-fab-dot.show {
-            display: block;
+            72% {
+                transform: translateX(-2px);
+            }
+
+            79% {
+                transform: translateX(2px);
+            }
+
+            86% {
+                transform: translateX(-1px);
+            }
         }
 
         .chat-popup {
@@ -3108,12 +3148,12 @@ header('Expires: 0');
 
         <!-- Chat FAB: pengumuman dari admin -->
         <div class="chat-fab" id="chatFab" onclick="toggleChat()">
-            �
-            <div class="chat-fab-dot" id="chatFabDot"></div>
+            <span class="chat-fab-icon" aria-hidden="true">&#128172;</span>
+            <div class="chat-fab-dot" id="chatFabDot">0</div>
         </div>
         <div class="chat-popup" id="chatPopup">
             <div class="cp-head">
-                <span>📢 Pengumuman</span>
+                <span>💬 Pengumuman</span>
                 <span class="cp-close" onclick="toggleChat()">✕</span>
             </div>
             <div class="cp-body" id="chatMsgList">
@@ -5895,6 +5935,7 @@ header('Expires: 0');
                 if (msgs.length > 0) {
                     localStorage.setItem('chat_last_seen_id', msgs[0].id);
                     document.getElementById('chatFabDot').classList.remove('show');
+                    document.getElementById('chatFab').classList.remove('has-unread');
                 }
             } catch (e) {
                 listEl.innerHTML = '<div class="cp-empty">Gagal memuat</div>';
@@ -5928,7 +5969,15 @@ header('Expires: 0');
                 const hasNew = topId > lastSeen;
                 const dot = document.getElementById('chatFabDot');
                 const fab = document.getElementById('chatFab');
+                const unreadCount = msgs.filter(m => Number(m.id) > lastSeen).length;
+
+                if (hasNew && !chatOpen) {
+                    dot.textContent = unreadCount > 99 ? '99+' : String(unreadCount);
+                }
+
                 dot.classList.toggle('show', hasNew && !chatOpen);
+                fab.classList.toggle('has-unread', hasNew && !chatOpen);
+
                 if (hasNew && chatLastPolledId !== null && topId > chatLastPolledId) {
                     fab.classList.add('shake');
                     setTimeout(() => fab.classList.remove('shake'), 1000);
