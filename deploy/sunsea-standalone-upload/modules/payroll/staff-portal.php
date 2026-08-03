@@ -5889,18 +5889,18 @@ header('Expires: 0');
         </div>
 
         <!-- Salary Summary -->
-        <div style="padding:12px 16px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;border-bottom:1px solid #e2e8f0;">
+        <div style="padding:12px 16px;display:grid;grid-template-columns:1fr 1fr;gap:8px;border-bottom:1px solid #e2e8f0;">
             <div style="text-align:center;background:linear-gradient(135deg,#f0fdf4,#bbf7d0);border-radius:10px;padding:12px 8px;">
                 <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Gaji Pokok</div>
                 <div style="font-size:18px;font-weight:800;color:#059669;line-height:1.1;">Rp ${fmt(baseSalary)}</div>
             </div>
             <div style="text-align:center;background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:10px;padding:12px 8px;">
-                <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Total Lembur</div>
-                <div style="font-size:18px;font-weight:800;color:#b45309;line-height:1.1;">Rp ${fmt(overtimeAmount)}</div>
-                <div style="font-size:8px;color:#92400e;margin-top:3px;">OT harian Rp ${fmt(overtimeRegularAmount)} · Extra Rp ${fmt(overtimeExtraAmount)}</div>
+                <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Uang Lembur Overtime</div>
+                <div style="font-size:18px;font-weight:800;color:#b45309;line-height:1.1;">Rp ${fmt(overtimeRegularAmount)}</div>
+                <div style="font-size:8px;color:#92400e;margin-top:3px;">OT harian</div>
             </div>
             <div style="text-align:center;background:linear-gradient(135deg,#fff7ed,#fed7aa);border-radius:10px;padding:12px 8px;border:1px solid rgba(234,88,12,.12);">
-                <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Extra 26 Hari</div>
+                <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Uang Lembur Extra Time</div>
                 <div style="font-size:18px;font-weight:800;color:#ea580c;line-height:1.1;">Rp ${fmt(overtimeExtraAmount)}</div>
                 <div style="font-size:8px;color:#9a3412;margin-top:3px;">${overtimeExtraHours} jam</div>
             </div>
