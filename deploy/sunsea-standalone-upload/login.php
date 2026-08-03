@@ -701,15 +701,19 @@ if (isset($_GET['biz'])) {
         }
 
         .alert-danger {
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.5);
-            color: #fca5a5;
-            padding: 0.65rem 0.75rem;
+            background: rgba(255, 241, 242, 0.96);
+            border: 1px solid rgba(251, 113, 133, 0.95);
+            color: #b91c1c;
+            padding: 0.68rem 0.78rem;
             border-radius: 8px;
             margin-bottom: 0.85rem;
             text-align: center;
-            font-size: 0.75rem;
+            font-size: 0.78rem;
+            font-weight: 700;
+            line-height: 1.45;
             backdrop-filter: blur(4px);
+            box-shadow: 0 10px 24px rgba(185, 28, 28, 0.12);
+            text-shadow: 0 1px 0 rgba(255, 255, 255, 0.72);
         }
 
         .database-status {

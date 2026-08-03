@@ -876,13 +876,17 @@ if (isset($_GET['biz'])) {
 
         .alert-danger {
             background: #fff1f2;
-            border: 1px solid #fecdd3;
-            color: #be123c;
-            padding: 0.63rem 0.72rem;
+            border: 1px solid #fb7185;
+            color: #b91c1c;
+            padding: 0.68rem 0.78rem;
             border-radius: 9px;
             margin-bottom: 0.82rem;
             text-align: center;
-            font-size: 0.76rem;
+            font-size: 0.78rem;
+            font-weight: 700;
+            line-height: 1.45;
+            box-shadow: 0 10px 24px rgba(185, 28, 28, 0.08);
+            text-shadow: 0 1px 0 rgba(255, 255, 255, 0.75);
         }
 
         .save-pw-row {
