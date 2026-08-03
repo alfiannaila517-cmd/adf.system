@@ -7005,10 +7005,14 @@ header('Expires: 0');
             const content = document.getElementById('slipGajiContent');
             const fmt = (n) => new Intl.NumberFormat('id-ID').format(Math.round(n || 0));
             const workHours = parseFloat(slip.work_hours) || 0;
-            const overtimeHours = parseFloat(slip.overtime_hours) || 0;
+            const overtimeHours = parseFloat(slip.overtime_total_hours ?? slip.overtime_hours) || 0;
             const baseSalary = parseFloat(slip.base_salary) || 0;
             const actualBase = parseFloat(slip.actual_base) || 0;
-            const overtimeAmount = parseFloat(slip.overtime_amount) || 0;
+            const overtimeAmount = parseFloat(slip.overtime_total_amount ?? slip.overtime_amount) || 0;
+            const overtimeRegularHours = parseFloat(slip.overtime_hours) || 0;
+            const overtimeRegularAmount = parseFloat(slip.overtime_amount) || 0;
+            const overtimeExtraHours = parseFloat(slip.extra_hours) || 0;
+            const overtimeExtraAmount = parseFloat(slip.extra_overtime_amount) || 0;
             const incentive = parseFloat(slip.incentive) || 0;
             const allowance = parseFloat(slip.allowance) || 0;
             const uangMakan = parseFloat(slip.uang_makan) || 0;
@@ -7107,7 +7111,9 @@ header('Expires: 0');
             <table style="width:100%;border-collapse:collapse;">
                 ${slipRow('Gaji Pokok (Full)', baseSalary, false, false)}
                 ${slipRow('Gaji Aktual (' + workHours + ' jam / 208 target)', actualBase, false, false)}
-                ${slipRow('Uang Lembur (' + overtimeHours + ' jam)', overtimeAmount, false, false)}
+                ${slipRow('Lembur Reguler (' + overtimeRegularHours + ' jam)', overtimeRegularAmount, false, false)}
+                ${overtimeExtraHours > 0 ? slipRow('Lembur Tambahan (' + overtimeExtraHours + ' jam)', overtimeExtraAmount, false, false) : ''}
+                ${slipRow('Total Uang Lembur (' + overtimeHours + ' jam)', overtimeAmount, false, false)}
                 ${slipRow('Service', incentive, false, false)}
                 ${slipRow('Tunjangan', allowance, false, false)}
                 ${slipRow('Uang Makan', uangMakan, false, false)}

@@ -31,6 +31,16 @@ try {
     $pdo->exec("ALTER TABLE payroll_attendance ADD COLUMN overtime_hours DECIMAL(5,2) DEFAULT NULL AFTER work_hours");
 }
 
+// Ensure extra_hours exists on payroll_slips for consistent overtime display in staff portal.
+try {
+    $pdo->query("SELECT extra_hours FROM payroll_slips LIMIT 0");
+} catch (PDOException $e) {
+    try {
+        $pdo->exec("ALTER TABLE payroll_slips ADD COLUMN extra_hours DECIMAL(10,2) NOT NULL DEFAULT 0.00");
+    } catch (Throwable $e2) {
+    }
+}
+
 // Ensure 'uniform' column exists on schedule tables (Jadwal Seragam feature) — self-healing, safe if tables don't exist yet
 foreach (['payroll_work_schedules', 'payroll_schedule_overrides'] as $__schedTbl) {
     try {
@@ -1508,6 +1518,19 @@ if ($action === 'salary_slip') {
             echo json_encode(['success' => false, 'message' => 'Slip gaji tidak ditemukan untuk Anda di periode ini']);
             exit;
         }
+
+        // Overtime display should include both regular OT + extra OT (> monthly cap)
+        // so staff portal always matches payroll admin totals.
+        $otHours = (float)($slip['overtime_hours'] ?? 0);
+        $otRate = (float)($slip['overtime_rate'] ?? 0);
+        $otAmount = (float)($slip['overtime_amount'] ?? 0);
+        $extraHours = (float)($slip['extra_hours'] ?? 0);
+        $extraAmount = $extraHours * $otRate;
+
+        $slip['extra_hours'] = $extraHours;
+        $slip['extra_overtime_amount'] = round($extraAmount, 2);
+        $slip['overtime_total_hours'] = round($otHours + $extraHours, 2);
+        $slip['overtime_total_amount'] = round($otAmount + $extraAmount, 2);
 
         echo json_encode(['success' => true, 'data' => $slip]);
     } catch (Exception $e) {
