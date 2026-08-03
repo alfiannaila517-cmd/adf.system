@@ -549,15 +549,15 @@ if (isset($_GET['biz'])) {
         }
 
         .login-box {
-            background: rgba(15, 23, 42, 0.44);
-            backdrop-filter: blur(11px);
+            background: rgba(15, 23, 42, 0.36);
+            backdrop-filter: blur(12px);
             border-radius: 14px;
-            padding: 0.8rem;
+            padding: 0.72rem;
             box-shadow: 0 12px 26px -14px rgba(2, 6, 23, 0.8),
                 0 0 0 1px rgba(148, 163, 184, 0.18);
             border: 1px solid rgba(148, 163, 184, 0.22);
             width: 100%;
-            max-width: 248px;
+            max-width: 224px;
             position: relative;
             z-index: 1;
             animation: slideUp 0.28s ease-out;

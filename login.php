@@ -603,9 +603,9 @@ if (isset($_GET['biz'])) {
 
         .login-shell {
             display: grid;
-            grid-template-columns: 1.18fr 0.82fr;
-            width: min(820px, 88vw);
-            border-radius: 18px;
+            grid-template-columns: 1.22fr 0.78fr;
+            width: min(760px, 84vw);
+            border-radius: 16px;
             overflow: hidden;
             box-shadow: 0 22px 60px rgba(2, 6, 23, 0.38);
             border: 1px solid rgba(255, 255, 255, 0.18);
@@ -618,11 +618,11 @@ if (isset($_GET['biz'])) {
         .login-hero {
             background: linear-gradient(160deg, rgba(15, 23, 42, 0.83), rgba(30, 41, 59, 0.72));
             color: #f8fafc;
-            padding: 1.4rem 1.2rem;
+            padding: 1.2rem 1.02rem;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            gap: 0.95rem;
+            gap: 0.78rem;
         }
 
         .hero-head {
@@ -712,9 +712,9 @@ if (isset($_GET['biz'])) {
         }
 
         .login-box {
-            background: rgba(255, 255, 255, 0.74);
-            backdrop-filter: blur(11px);
-            padding: 0.92rem 0.88rem;
+            background: rgba(255, 255, 255, 0.64);
+            backdrop-filter: blur(12px);
+            padding: 0.78rem 0.74rem;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -732,7 +732,7 @@ if (isset($_GET['biz'])) {
 
         .login-logo {
             font-family: 'Space Grotesk', sans-serif;
-            font-size: 1.23rem;
+            font-size: 1.12rem;
             line-height: 1.25;
             color: var(--ink-900);
             letter-spacing: -0.3px;
@@ -740,7 +740,7 @@ if (isset($_GET['biz'])) {
 
         .login-subtitle {
             color: var(--ink-700);
-            font-size: 0.84rem;
+            font-size: 0.78rem;
             margin-top: 0.28rem;
         }
 
@@ -755,8 +755,8 @@ if (isset($_GET['biz'])) {
             border: 1px solid var(--line);
             background: var(--soft);
             border-radius: 10px;
-            padding: 0.42rem 0.58rem;
-            margin-bottom: 0.66rem;
+            padding: 0.36rem 0.52rem;
+            margin-bottom: 0.54rem;
         }
 
         .status-indicator {
@@ -799,7 +799,7 @@ if (isset($_GET['biz'])) {
         .form-label {
             display: block;
             color: #0f172a;
-            font-size: 0.78rem;
+            font-size: 0.72rem;
             font-weight: 600;
             margin-bottom: 0.28rem;
             text-transform: uppercase;
@@ -832,12 +832,12 @@ if (isset($_GET['biz'])) {
 
         .form-control {
             width: 100%;
-            padding: 0.5rem 0.62rem;
+            padding: 0.46rem 0.56rem;
             background: #fff;
             border: 1px solid #94a3b8;
             border-radius: 9px;
             color: #0b1220;
-            font-size: 0.82rem;
+            font-size: 0.78rem;
             font-weight: 500;
             transition: border-color 0.2s, box-shadow 0.2s;
         }
@@ -897,7 +897,7 @@ if (isset($_GET['biz'])) {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin: 0.24rem 0 0.72rem;
+            margin: 0.18rem 0 0.58rem;
             gap: 0.55rem;
         }
 
@@ -949,9 +949,9 @@ if (isset($_GET['biz'])) {
         }
 
         .login-buttons button {
-            padding: 0.52rem 0.6rem;
+            padding: 0.46rem 0.52rem;
             border-radius: 9px;
-            font-size: 0.78rem;
+            font-size: 0.74rem;
             font-weight: 700;
             cursor: pointer;
             border: none;
@@ -983,11 +983,11 @@ if (isset($_GET['biz'])) {
 
         .login-footer {
             text-align: center;
-            margin-top: 0.72rem;
-            padding-top: 0.72rem;
+            margin-top: 0.58rem;
+            padding-top: 0.58rem;
             border-top: 1px dashed var(--line);
             color: var(--ink-600);
-            font-size: 0.68rem;
+            font-size: 0.62rem;
         }
 
         .login-box .login-footer {
@@ -997,7 +997,7 @@ if (isset($_GET['biz'])) {
         @media (max-width: 860px) {
             .login-shell {
                 grid-template-columns: 1fr;
-                width: min(420px, 92vw);
+                width: min(390px, 90vw);
             }
 
             .login-hero {
@@ -1015,7 +1015,7 @@ if (isset($_GET['biz'])) {
             }
 
             .login-box {
-                padding: 0.86rem 0.82rem;
+                padding: 0.72rem 0.68rem;
             }
 
             .login-buttons {
