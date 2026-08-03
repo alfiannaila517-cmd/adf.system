@@ -60,11 +60,6 @@
                                            }
                                        }
 
-                                       // Mainkan suara notifikasi (kecuali saat pertama kali load halaman)
-                                       if (lastNotificationCount > 0) {
-                                           playAdminNotifDing();
-                                       }
-
                                        // Update badge
                                        updateNotificationBadge(data.unread_count);
                                    }
@@ -81,23 +76,6 @@
                                    badge.textContent = count;
                                    badge.style.display = count > 0 ? 'inline-block' : 'none';
                                }
-                           }
-
-                           // Bunyi notifikasi (beep) — dimainkan tiap kali ada notif baru
-                           function playAdminNotifDing() {
-                               try {
-                                   const ctx = new(window.AudioContext || window.webkitAudioContext)();
-                                   const osc = ctx.createOscillator();
-                                   const gain = ctx.createGain();
-                                   osc.type = 'sine';
-                                   osc.frequency.setValueAtTime(880, ctx.currentTime);
-                                   osc.frequency.setValueAtTime(1175, ctx.currentTime + 0.12);
-                                   gain.gain.setValueAtTime(0.15, ctx.currentTime);
-                                   gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-                                   osc.connect(gain).connect(ctx.destination);
-                                   osc.start();
-                                   osc.stop(ctx.currentTime + 0.4);
-                               } catch (e) {}
                            }
 
                            // Check every 30 seconds
@@ -183,22 +161,27 @@
                <style>
                    .admin-chat-fab {
                        position: fixed;
-                       bottom: 96px;
+                       bottom: 24px;
                        right: 24px;
                        z-index: 9999;
-                       width: 56px;
-                       height: 56px;
+                       width: 60px;
+                       height: 60px;
                        border-radius: 50%;
-                       background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
-                       color: #fff;
+                       background: linear-gradient(145deg, #2563eb 0%, #1d4ed8 100%);
+                       color: #ffffff;
                        display: flex;
                        align-items: center;
                        justify-content: center;
-                       font-size: 24px;
-                       box-shadow: 0 8px 24px rgba(15, 23, 42, .5);
+                       font-size: 27px;
+                       box-shadow: 0 12px 26px rgba(37, 99, 235, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.25) inset;
                        cursor: pointer;
                        border: none;
-                       transition: transform .15s ease;
+                       transition: transform .16s ease, box-shadow .16s ease;
+                   }
+
+                   .admin-chat-fab:hover {
+                       transform: translateY(-2px);
+                       box-shadow: 0 16px 32px rgba(37, 99, 235, 0.42), 0 0 0 1px rgba(255, 255, 255, 0.3) inset;
                    }
 
                    .admin-chat-fab:active {
@@ -207,14 +190,15 @@
 
                    .admin-chat-panel {
                        position: fixed;
-                       bottom: 164px;
+                       bottom: 92px;
                        right: 24px;
-                       width: 340px;
+                       width: 356px;
                        max-width: calc(100vw - 48px);
                        max-height: 60vh;
-                       background: #0f172a;
-                       border-radius: 16px;
-                       box-shadow: 0 12px 40px rgba(0, 0, 0, .4);
+                       background: #ffffff;
+                       border-radius: 18px;
+                       border: 1px solid #dbe3f1;
+                       box-shadow: 0 20px 40px rgba(15, 23, 42, 0.22);
                        z-index: 9999;
                        display: none;
                        flex-direction: column;
@@ -227,8 +211,9 @@
 
                    .admin-chat-panel .acp-head {
                        padding: 14px 16px;
-                       background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
-                       color: #fff;
+                       background: #f8fbff;
+                       border-bottom: 1px solid #e2e8f0;
+                       color: #0f172a;
                        font-weight: 700;
                        font-size: 14px;
                        display: flex;
@@ -237,77 +222,118 @@
                        flex-shrink: 0;
                    }
 
+                   .admin-chat-panel .acp-head-title {
+                       display: flex;
+                       align-items: center;
+                       gap: 8px;
+                       color: #0f172a;
+                   }
+
+                   .admin-chat-panel .acp-head-icon {
+                       width: 24px;
+                       height: 24px;
+                       border-radius: 999px;
+                       display: inline-flex;
+                       align-items: center;
+                       justify-content: center;
+                       background: #dbeafe;
+                       color: #1d4ed8;
+                       font-size: 13px;
+                       line-height: 1;
+                   }
+
                    .admin-chat-panel .acp-close {
                        cursor: pointer;
-                       opacity: .85;
+                       opacity: .65;
                        font-size: 18px;
-                       color: #fff;
+                       color: #475569;
+                       transition: opacity .15s ease;
+                   }
+
+                   .admin-chat-panel .acp-close:hover {
+                       opacity: 1;
                    }
 
                    .admin-chat-panel .acp-compose {
                        padding: 12px;
-                       border-bottom: 1px solid #1e293b;
+                       border-bottom: 1px solid #e2e8f0;
+                       background: #ffffff;
                        flex-shrink: 0;
                    }
 
                    .admin-chat-panel .acp-compose textarea {
                        width: 100%;
                        resize: vertical;
-                       min-height: 60px;
-                       border: 1px solid #334155;
-                       border-radius: 8px;
-                       padding: 8px 10px;
-                       font-size: 13px;
+                       min-height: 74px;
+                       border: 1px solid #cbd5e1;
+                       border-radius: 10px;
+                       padding: 10px 12px;
+                       font-size: 14px;
+                       line-height: 1.4;
+                       color: #0f172a;
                        font-family: inherit;
                        box-sizing: border-box;
-                       background: #1e293b;
-                       color: #e2e8f0;
                    }
 
                    .admin-chat-panel .acp-compose textarea::placeholder {
                        color: #64748b;
+                       opacity: 1;
+                   }
+
+                   .admin-chat-panel .acp-compose textarea:focus {
+                       outline: none;
+                       border-color: #60a5fa;
+                       box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16);
                    }
 
                    .admin-chat-panel .acp-compose button {
-                       margin-top: 8px;
+                       margin-top: 10px;
                        width: 100%;
-                       padding: 8px;
+                       padding: 10px;
                        border: none;
-                       border-radius: 8px;
-                       background: #2563eb;
+                       border-radius: 10px;
+                       background: linear-gradient(145deg, #2563eb 0%, #1d4ed8 100%);
                        color: #fff;
                        font-weight: 700;
                        font-size: 13px;
                        cursor: pointer;
+                       transition: transform .16s ease, box-shadow .16s ease;
+                   }
+
+                   .admin-chat-panel .acp-compose button:hover {
+                       transform: translateY(-1px);
+                       box-shadow: 0 10px 20px rgba(37, 99, 235, 0.25);
                    }
 
                    .admin-chat-panel .acp-list {
                        padding: 10px 12px;
                        overflow-y: auto;
                        flex: 1;
+                       background: #f8fafc;
                    }
 
                    .admin-chat-panel .acp-msg {
-                       background: #1e293b;
-                       border-radius: 10px;
-                       padding: 8px 10px;
+                       background: #ffffff;
+                       border: 1px solid #e2e8f0;
+                       border-radius: 12px;
+                       padding: 9px 11px;
                        margin-bottom: 8px;
                        position: relative;
                    }
 
                    .admin-chat-panel .acp-msg .acp-meta {
-                       font-size: 9px;
-                       color: #93c5fd;
+                       font-size: 10px;
+                       color: #64748b;
                        font-weight: 700;
                        text-transform: uppercase;
                        margin-bottom: 3px;
                    }
 
                    .admin-chat-panel .acp-msg .acp-text {
-                       font-size: 12.5px;
-                       color: #e2e8f0;
+                       font-size: 13.5px;
+                       color: #0f172a;
                        white-space: pre-wrap;
-                       line-height: 1.4;
+                       line-height: 1.48;
                        padding-right: 18px;
                    }
 
@@ -316,9 +342,9 @@
                        top: 6px;
                        right: 8px;
                        cursor: pointer;
-                       color: #f87171;
+                       color: #dc2626;
                        font-size: 13px;
-                       opacity: .7;
+                       opacity: .6;
                    }
 
                    .admin-chat-panel .acp-msg .acp-del:hover {
@@ -331,16 +357,34 @@
                        color: #64748b;
                        font-size: 12px;
                    }
+
+                   @media (max-width: 640px) {
+                       .admin-chat-fab {
+                           bottom: 18px;
+                           right: 16px;
+                           width: 56px;
+                           height: 56px;
+                           font-size: 24px;
+                       }
+
+                       .admin-chat-panel {
+                           right: 12px;
+                           left: 12px;
+                           bottom: 82px;
+                           width: auto;
+                           max-width: none;
+                       }
+                   }
                </style>
-               <div class="admin-chat-fab" onclick="toggleAdminChat()">📢</div>
+               <div class="admin-chat-fab" onclick="toggleAdminChat()" title="Staff Messages" aria-label="Open staff messages">&#128172;</div>
                <div class="admin-chat-panel" id="adminChatPanel">
                    <div class="acp-head">
-                       <span>📢 Pengumuman ke Staff</span>
+                       <span class="acp-head-title"><span class="acp-head-icon">&#128172;</span><span>Pesan ke Staff</span></span>
                        <span class="acp-close" onclick="toggleAdminChat()">✕</span>
                    </div>
                    <div class="acp-compose">
-                       <textarea id="adminChatText" placeholder="Tulis pengumuman untuk semua staff..."></textarea>
-                       <button onclick="sendAdminChat()">Kirim Pengumuman</button>
+                       <textarea id="adminChatText" placeholder="Tulis pesan untuk semua staff..."></textarea>
+                       <button onclick="sendAdminChat()">Kirim Pesan</button>
                    </div>
                    <div class="acp-list" id="adminChatList">
                        <div class="acp-empty">Memuat...</div>
