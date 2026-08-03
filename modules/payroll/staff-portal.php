@@ -7004,15 +7004,9 @@ header('Expires: 0');
         function renderSlipGaji(slip) {
             const content = document.getElementById('slipGajiContent');
             const fmt = (n) => new Intl.NumberFormat('id-ID').format(Math.round(n || 0));
-            const workHours = parseFloat(slip.work_hours) || 0;
             const overtimeHours = parseFloat(slip.overtime_total_hours ?? slip.overtime_hours) || 0;
             const baseSalary = parseFloat(slip.base_salary) || 0;
-            const actualBase = parseFloat(slip.actual_base) || 0;
             const overtimeAmount = parseFloat(slip.overtime_total_amount ?? slip.overtime_amount) || 0;
-            const overtimeRegularHours = parseFloat(slip.overtime_hours) || 0;
-            const overtimeRegularAmount = parseFloat(slip.overtime_amount) || 0;
-            const overtimeExtraHours = parseFloat(slip.extra_hours) || 0;
-            const overtimeExtraAmount = parseFloat(slip.extra_overtime_amount) || 0;
             const incentive = parseFloat(slip.incentive) || 0;
             const allowance = parseFloat(slip.allowance) || 0;
             const uangMakan = parseFloat(slip.uang_makan) || 0;
@@ -7086,19 +7080,16 @@ header('Expires: 0');
             </div>
         </div>
 
-        <!-- Work Summary -->
-        <div style="padding:12px 16px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;border-bottom:1px solid #e2e8f0;">
-            <div style="text-align:center;background:linear-gradient(135deg,#eff6ff,#dbeafe);border-radius:10px;padding:10px 6px;">
-                <div style="font-size:18px;font-weight:800;color:#2563eb;">${workHours}</div>
-                <div style="font-size:8px;color:#64748b;margin-top:2px;">Jam Kerja</div>
+        <!-- Salary Summary -->
+        <div style="padding:12px 16px;display:grid;grid-template-columns:1fr 1fr;gap:8px;border-bottom:1px solid #e2e8f0;">
+            <div style="text-align:center;background:linear-gradient(135deg,#f0fdf4,#bbf7d0);border-radius:10px;padding:12px 8px;">
+                <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Gaji Pokok</div>
+                <div style="font-size:18px;font-weight:800;color:#059669;line-height:1.1;">Rp ${fmt(baseSalary)}</div>
             </div>
-            <div style="text-align:center;background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:10px;padding:10px 6px;">
-                <div style="font-size:18px;font-weight:800;color:#b45309;">${overtimeHours}</div>
-                <div style="font-size:8px;color:#64748b;margin-top:2px;">Jam Lembur</div>
-            </div>
-            <div style="text-align:center;background:linear-gradient(135deg,#f0fdf4,#bbf7d0);border-radius:10px;padding:10px 6px;">
-                <div style="font-size:14px;font-weight:800;color:#059669;">Rp ${fmt(baseSalary)}</div>
-                <div style="font-size:8px;color:#64748b;margin-top:2px;">Gaji Pokok</div>
+            <div style="text-align:center;background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:10px;padding:12px 8px;">
+                <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Lembur</div>
+                <div style="font-size:18px;font-weight:800;color:#b45309;line-height:1.1;">Rp ${fmt(overtimeAmount)}</div>
+                <div style="font-size:8px;color:#92400e;margin-top:3px;">${overtimeHours} jam</div>
             </div>
         </div>
 
@@ -7109,11 +7100,8 @@ header('Expires: 0');
                 <div style="font-size:10px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:.8px;">Pendapatan</div>
             </div>
             <table style="width:100%;border-collapse:collapse;">
-                ${slipRow('Gaji Pokok (Full)', baseSalary, false, false)}
-                ${slipRow('Gaji Aktual (' + workHours + ' jam / 208 target)', actualBase, false, false)}
-                ${slipRow('Lembur Reguler (' + overtimeRegularHours + ' jam)', overtimeRegularAmount, false, false)}
-                ${overtimeExtraHours > 0 ? slipRow('Lembur Tambahan (' + overtimeExtraHours + ' jam)', overtimeExtraAmount, false, false) : ''}
-                ${slipRow('Total Uang Lembur (' + overtimeHours + ' jam)', overtimeAmount, false, false)}
+                ${slipRow('Gaji Pokok', baseSalary, false, false)}
+                ${slipRow('Uang Lembur', overtimeAmount, false, false)}
                 ${slipRow('Service', incentive, false, false)}
                 ${slipRow('Tunjangan', allowance, false, false)}
                 ${slipRow('Uang Makan', uangMakan, false, false)}
