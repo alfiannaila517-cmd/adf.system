@@ -179,6 +179,25 @@
                        transition: transform .16s ease, box-shadow .16s ease;
                    }
 
+                   .admin-chat-fab .fab-chat-icon {
+                       width: 34px;
+                       height: 34px;
+                       border-radius: 50%;
+                       background: rgba(255, 255, 255, 0.96);
+                       display: inline-flex;
+                       align-items: center;
+                       justify-content: center;
+                       color: #2563eb;
+                       box-shadow: 0 4px 12px rgba(15, 23, 42, 0.18);
+                   }
+
+                   .admin-chat-fab .fab-chat-icon svg {
+                       width: 18px;
+                       height: 18px;
+                       fill: currentColor;
+                       display: block;
+                   }
+
                    .admin-chat-fab:hover {
                        transform: translateY(-2px);
                        box-shadow: 0 16px 32px rgba(37, 99, 235, 0.42), 0 0 0 1px rgba(255, 255, 255, 0.3) inset;
@@ -376,7 +395,13 @@
                        }
                    }
                </style>
-               <div class="admin-chat-fab" onclick="toggleAdminChat()" title="Staff Messages" aria-label="Open staff messages">&#128172;</div>
+               <div class="admin-chat-fab" onclick="toggleAdminChat()" title="Staff Messages" aria-label="Open staff messages">
+                   <span class="fab-chat-icon" aria-hidden="true">
+                       <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true">
+                           <path d="M4 4.75C4 3.78 4.78 3 5.75 3h12.5C19.22 3 20 3.78 20 4.75v8.5c0 .97-.78 1.75-1.75 1.75H11.8l-3.22 3a.75.75 0 0 1-1.26-.55V15H5.75A1.75 1.75 0 0 1 4 13.25v-8.5z" />
+                       </svg>
+                   </span>
+               </div>
                <div class="admin-chat-panel" id="adminChatPanel">
                    <div class="acp-head">
                        <span class="acp-head-title"><span class="acp-head-icon">&#128172;</span><span>Pesan ke Staff</span></span>
