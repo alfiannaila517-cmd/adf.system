@@ -1489,12 +1489,12 @@ include '../../includes/header.php';
     }
 
     .ps-table th {
-        padding: 0.6rem 0.5rem;
+        padding: 0.52rem 0.32rem;
         text-align: center;
-        font-size: 0.82rem;
+        font-size: 0.74rem;
         font-weight: 800;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
+        letter-spacing: 0.28px;
         color: var(--text-tertiary);
         background: var(--bg-secondary);
         border-bottom: 2px solid var(--border-color);
@@ -1506,8 +1506,8 @@ include '../../includes/header.php';
 
     .ps-table th.col-employee {
         text-align: left;
-        width: 170px;
-        min-width: 170px;
+        width: 156px;
+        min-width: 156px;
         position: sticky;
         left: 0;
         z-index: 15;
@@ -1515,12 +1515,13 @@ include '../../includes/header.php';
     }
 
     .ps-table td {
-        padding: 0.6rem 0.4rem;
+        padding: 0.45rem 0.28rem;
         border-bottom: 1px solid var(--border-light);
         vertical-align: middle;
         text-align: center;
-        font-size: 0.88rem;
+        font-size: 0.8rem;
         font-weight: 500;
+        font-variant-numeric: tabular-nums;
     }
 
     .ps-table td.col-employee {
@@ -1543,14 +1544,14 @@ include '../../includes/header.php';
     .ps-emp-name {
         font-weight: 600;
         color: var(--text-primary);
-        font-size: 0.88rem;
+        font-size: 0.8rem;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
 
     .ps-emp-pos {
-        font-size: 0.75rem;
+        font-size: 0.68rem;
         color: var(--text-tertiary);
         white-space: nowrap;
         overflow: hidden;
@@ -1560,15 +1561,16 @@ include '../../includes/header.php';
     /* Input Styling */
     .ps-input {
         width: 100%;
-        padding: 0.45rem 0.3rem;
+        padding: 0.34rem 0.24rem;
         border: 1px solid transparent;
         border-radius: 4px;
         background: transparent;
-        font-size: 0.88rem;
+        font-size: 0.76rem;
         font-weight: 500;
         text-align: right;
         transition: all 0.2s;
         color: var(--text-primary);
+        font-variant-numeric: tabular-nums;
     }
 
     .ps-input:hover {
@@ -1592,8 +1594,8 @@ include '../../includes/header.php';
         border-color: rgba(245, 158, 11, 0.3);
         text-align: center;
         font-weight: 600;
-        font-size: 0.88rem;
-        padding: 0.45rem 0.3rem;
+        font-size: 0.76rem;
+        padding: 0.34rem 0.24rem;
     }
 
     .ps-input.negative {
@@ -1602,15 +1604,17 @@ include '../../includes/header.php';
 
     .ps-cell-calc {
         font-family: 'SF Mono', Monaco, monospace;
-        font-size: 1rem;
+        font-size: 0.82rem;
         font-weight: 600;
         color: var(--text-secondary);
+        font-variant-numeric: tabular-nums;
     }
 
     .ps-cell-net {
         font-weight: 700;
-        font-size: 0.9rem;
+        font-size: 0.82rem;
         color: #f59e0b;
+        font-variant-numeric: tabular-nums;
     }
 
     /* Save Indicator */
@@ -2485,22 +2489,22 @@ include '../../includes/header.php';
                         <tr>
                             <th style="width:30px;text-align:center;"><input type="checkbox" id="paySelectAll" onchange="togglePaySelectAll(this)" title="Pilih Semua"></th>
                             <th class="col-employee">Employee</th>
-                            <th style="width: 100px;">Base<div class="ps-info">Full</div>
+                            <th style="width: 88px;">Base<div class="ps-info">Full</div>
                             </th>
-                            <th style="width: 110px; background: rgba(245,158,11,0.1); padding: 0.6rem 0.4rem; font-size: 0.82rem;">Hours<div class="ps-info" style="font-size: 0.7rem; margin-top: 2px;">208</div>
+                            <th style="width: 72px; background: rgba(245,158,11,0.1); padding: 0.52rem 0.28rem; font-size: 0.74rem;">Hours<div class="ps-info" style="font-size: 0.62rem; margin-top: 2px;">208</div>
                             </th>
-                            <th style="width: 130px; padding: 0.6rem 0.4rem; font-size: 0.82rem;">Actual<div class="ps-info" style="font-size: 0.7rem; margin-top: 2px;">Calc</div>
+                            <th style="width: 98px; padding: 0.52rem 0.28rem; font-size: 0.74rem;">Actual<div class="ps-info" style="font-size: 0.62rem; margin-top: 2px;">Calc</div>
                             </th>
-                            <th style="width: 65px; background: rgba(59,130,246,0.1); padding: 0.6rem 0.4rem; font-size: 0.82rem;">OT</th>
-                            <th style="width: 110px; background: rgba(220,38,38,0.08); padding: 0.6rem 0.4rem; font-size: 0.78rem; color:#b91c1c;" title="Tambahan dari hari kerja melebihi 26 hari/bulan (auto, dibayar pakai rate jam-OT)">Extra<div class="ps-info" style="font-size:0.65rem;color:#b91c1c;margin-top:2px;">&gt;26hr</div>
+                            <th style="width: 54px; background: rgba(59,130,246,0.1); padding: 0.52rem 0.28rem; font-size: 0.74rem;">OT</th>
+                            <th style="width: 82px; background: rgba(220,38,38,0.08); padding: 0.52rem 0.28rem; font-size: 0.72rem; color:#b91c1c;" title="Tambahan dari hari kerja melebihi 26 hari/bulan (auto, dibayar pakai rate jam-OT)">Extra<div class="ps-info" style="font-size:0.58rem;color:#b91c1c;margin-top:2px;">&gt;26hr</div>
                             </th>
-                            <th style="width: 92px;" title="Uang lembur harian (OT approved) × rate jam (base÷208)">OT Rp Harian</th>
-                            <th style="width: 92px;" title="Uang extra hari kerja ke-27+ × rate jam (base÷208)">Extra Rp</th>
-                            <th style="width: 80px;">Service</th>
-                            <th style="width: 80px;">Allowc</th>
-                            <th style="width: 80px;">Bonus</th>
-                            <th style="width: 85px; color: #ef4444;">Deduct</th>
-                            <th style="width: 100px;">Net</th>
+                            <th style="width: 84px;" title="Uang lembur harian (OT approved) × rate jam (base÷208)">OT Rp Harian</th>
+                            <th style="width: 84px;" title="Uang extra hari kerja ke-27+ × rate jam (base÷208)">Extra Rp</th>
+                            <th style="width: 70px;">Service</th>
+                            <th style="width: 68px;">Allowc</th>
+                            <th style="width: 68px;">Bonus</th>
+                            <th style="width: 74px; color: #ef4444;">Deduct</th>
+                            <th style="width: 88px;">Net</th>
                             <th style="width: 55px;">Save</th>
                         </tr>
                     </thead>
@@ -2597,7 +2601,7 @@ include '../../includes/header.php';
                                         <input type="number" class="ps-input"
                                             value="<?php echo (float)$extraH; ?>" step="1" min="0"
                                             data-field="extra_hours" data-id="<?php echo $slip['id']; ?>"
-                                            style="background:rgba(220,38,38,0.08);color:#b91c1c;font-weight:700;text-align:center;width:60px;"
+                                            style="background:rgba(220,38,38,0.08);color:#b91c1c;font-weight:700;text-align:center;width:52px;"
                                             title="Extra Hari (jam dari hari kerja ke-27+). Auto dari absensi: <?php echo $autoExtraJ; ?>j (<?php echo $extraD; ?> hari). Edit untuk override."
                                             oninput="calculateRow(<?php echo $slip['id']; ?>); saveRow(<?php echo $slip['id']; ?>)">
                                         <?php if ($extraLocked): ?>
