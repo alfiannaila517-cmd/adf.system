@@ -549,6 +549,7 @@ if (isset($_GET['biz'])) {
         .login-container {
             min-height: 100vh;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
             padding: 1.25rem;
@@ -602,9 +603,7 @@ if (isset($_GET['biz'])) {
         }
 
         .login-shell {
-            display: grid;
-            grid-template-columns: 1.22fr 0.78fr;
-            width: min(760px, 84vw);
+            width: min(360px, 88vw);
             border-radius: 16px;
             overflow: hidden;
             box-shadow: 0 22px 60px rgba(2, 6, 23, 0.38);
@@ -613,6 +612,22 @@ if (isset($_GET['biz'])) {
             position: relative;
             z-index: 1;
             animation: riseIn 0.42s ease;
+        }
+
+        .developer-logo-top {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            margin-bottom: 0.56rem;
+            position: relative;
+            z-index: 2;
+        }
+
+        .developer-logo-top img {
+            width: 104px;
+            height: auto;
+            opacity: 0.92;
+            filter: drop-shadow(0 6px 14px rgba(2, 6, 23, 0.32));
         }
 
         .login-hero {
@@ -996,16 +1011,7 @@ if (isset($_GET['biz'])) {
 
         @media (max-width: 860px) {
             .login-shell {
-                grid-template-columns: 1fr;
-                width: min(390px, 90vw);
-            }
-
-            .login-hero {
-                padding: 1.3rem 1.2rem;
-            }
-
-            .hero-footer {
-                display: none;
+                width: min(360px, 90vw);
             }
         }
 
@@ -1027,27 +1033,10 @@ if (isset($_GET['biz'])) {
 
 <body>
     <div class="login-container">
+        <div class="developer-logo-top">
+            <img src="<?php echo BASE_URL; ?>/assets/img/developer-logo.png" alt="Developer Logo">
+        </div>
         <div class="login-shell">
-            <aside class="login-hero">
-                <div class="hero-head">
-                    <span class="hero-badge">ADF SYSTEM • CENTRAL ACCESS</span>
-                    <?php if ($loginLogoUrl): ?>
-                        <img src="<?php echo $loginLogoUrl; ?>?v=<?php echo time(); ?>" alt="Logo" class="business-logo-img">
-                    <?php else: ?>
-                        <span class="business-logo-icon"><?php echo $displayInfo['icon']; ?></span>
-                    <?php endif; ?>
-                    <h1 class="hero-title"><?php echo $displayInfo['name']; ?></h1>
-                    <p class="hero-subtitle">Manage operations, billing, and business reports from one cleaner and faster control panel.</p>
-
-                    <div class="hero-list">
-                        <div class="hero-list-item"><span class="hero-list-dot"></span>Owner login and system login in one page</div>
-                        <div class="hero-list-item"><span class="hero-list-dot"></span>Multi-business mode with role-based access switching</div>
-                        <div class="hero-list-item"><span class="hero-list-dot"></span>Lightweight UI focused on desktop and mobile readability</div>
-                    </div>
-                </div>
-                <div class="hero-footer">Active database: <?php echo $displayInfo['db_name']; ?></div>
-            </aside>
-
             <div class="login-box">
                 <div class="login-header">
                     <h2 class="login-logo">Sign in to Dashboard</h2>

@@ -521,6 +521,7 @@ if (isset($_GET['biz'])) {
         .login-container {
             min-height: 100vh;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
             padding: 0.75rem;
@@ -561,6 +562,22 @@ if (isset($_GET['biz'])) {
             position: relative;
             z-index: 1;
             animation: slideUp 0.28s ease-out;
+        }
+
+        .developer-logo-top {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            margin-bottom: 0.54rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .developer-logo-top img {
+            width: 96px;
+            height: auto;
+            opacity: 0.92;
+            filter: drop-shadow(0 6px 14px rgba(2, 6, 23, 0.34));
         }
 
         @keyframes slideUp {
@@ -961,6 +978,9 @@ if (isset($_GET['biz'])) {
 
 <body>
     <div class="login-container">
+        <div class="developer-logo-top">
+            <img src="<?php echo BASE_URL; ?>/assets/img/developer-logo.png" alt="Developer Logo">
+        </div>
         <div class="login-box">
             <div class="login-header">
                 <?php if ($loginLogoUrl): ?>
