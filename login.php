@@ -862,8 +862,7 @@ if (isset($_GET['biz'])) {
         }
 
         .alert-danger,
-        .login-box .alert-danger,
-        .login-box .alert-danger * {
+        .login-box .alert-danger {
             background: #fff1f2;
             border: 1px solid #ef4444;
             color: #991b1b !important;
@@ -879,6 +878,17 @@ if (isset($_GET['biz'])) {
             opacity: 1 !important;
             letter-spacing: 0.1px;
             -webkit-text-fill-color: #991b1b !important;
+        }
+
+        .login-box .alert-danger * {
+            color: #991b1b !important;
+            opacity: 1 !important;
+            -webkit-text-fill-color: #991b1b !important;
+            background: transparent !important;
+            border: 0 !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
         }
 
         .save-pw-row {

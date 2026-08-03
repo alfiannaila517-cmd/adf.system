@@ -701,8 +701,7 @@ if (isset($_GET['biz'])) {
         }
 
         .alert-danger,
-        .login-box .alert-danger,
-        .login-box .alert-danger * {
+        .login-box .alert-danger {
             background: rgba(255, 241, 242, 0.96);
             border: 1px solid rgba(239, 68, 68, 0.95);
             color: #991b1b !important;
@@ -719,6 +718,17 @@ if (isset($_GET['biz'])) {
             opacity: 1 !important;
             letter-spacing: 0.1px;
             -webkit-text-fill-color: #991b1b !important;
+        }
+
+        .login-box .alert-danger * {
+            color: #991b1b !important;
+            opacity: 1 !important;
+            -webkit-text-fill-color: #991b1b !important;
+            background: transparent !important;
+            border: 0 !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
         }
 
         .database-status {
