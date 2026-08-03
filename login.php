@@ -253,7 +253,7 @@ if (isPost()) {
             $masterUser = $userStmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$masterUser) {
-                $error = 'Pengguna tidak terdaftar di sistem! Hubungi pengembang untuk mengatur akses.';
+                $error = 'User is not registered in the system. Contact developer to set access.';
                 $auth->logout();
             } else {
                 $masterId = $masterUser['id'];
@@ -312,11 +312,11 @@ if (isPost()) {
                             $firstOwnerBiz = getPreferredDefaultBusiness($ownerBizList);
                             setActiveBusinessId($firstOwnerBiz);
                         }
-                        setFlash('success', 'Login Owner berhasil!');
+                        setFlash('success', 'Owner login successful!');
                         header('Location: ' . BASE_URL . '/modules/owner/dashboard-2028.php');
                         exit;
                     } else {
-                        $error = 'Akses ditolak! Hanya Pemilik yang dapat mengakses Dasbor Pemilik.';
+                        $error = 'Access denied. Only Owner role can access the Owner Dashboard.';
                         $auth->logout();
                     }
                 }
@@ -331,7 +331,7 @@ if (isPost()) {
                         $firstBiz = getPreferredDefaultBusiness($allBiz);
                         setActiveBusinessId($firstBiz);
                     }
-                    setFlash('success', 'Login berhasil! Developer mode aktif.');
+                    setFlash('success', 'Login successful. Developer mode is active.');
                     redirect(BASE_URL . '/index.php');
                 }
 
@@ -378,7 +378,7 @@ if (isPost()) {
                 }
 
                 if (empty($userBusinesses)) {
-                    $error = 'Anda tidak memiliki akses ke bisnis manapun! Hubungi pengembang.';
+                    $error = 'You do not have access to any business. Contact developer.';
                     $auth->logout();
                 } elseif ($forcedBusiness) {
                     // Direct link with business parameter - validate access
@@ -401,10 +401,10 @@ if (isPost()) {
                             }
                         }
                         setActiveBusinessId($forcedBusiness);
-                        setFlash('success', 'Login berhasil!');
+                        setFlash('success', 'Login successful!');
                         redirect(BASE_URL . '/index.php');
                     } else {
-                        $error = 'Anda tidak memiliki akses ke bisnis tersebut!';
+                        $error = 'You do not have access to this business.';
                         $auth->logout();
                     }
                 } else {
@@ -415,9 +415,9 @@ if (isPost()) {
                     setActiveBusinessId($businessId);
 
                     if (count($userBusinesses) === 1) {
-                        setFlash('success', 'Login berhasil! Selamat datang ke ' . $userBusinesses[0]['business_name']);
+                        setFlash('success', 'Login successful! Welcome to ' . $userBusinesses[0]['business_name']);
                     } else {
-                        setFlash('success', 'Login berhasil! Anda bisa switch bisnis melalui dropdown di sidebar.');
+                        setFlash('success', 'Login successful! You can switch business using the sidebar dropdown.');
                     }
 
                     redirect(BASE_URL . '/index.php');
@@ -425,17 +425,17 @@ if (isPost()) {
             }
         } catch (PDOException $e) {
             error_log('Login business check error: ' . $e->getMessage());
-            $error = 'Terjadi kesalahan sistem. Silakan coba lagi.';
+            $error = 'A system error occurred. Please try again.';
             $auth->logout();
         }
     } else {
-        $error = 'Nama pengguna atau kata sandi tidak tepat!';
+        $error = 'Invalid username or password.';
     }
 }
 
 // Check if redirected from account removal
 if (isset($_GET['error']) && $_GET['error'] === 'account_removed') {
-    $error = 'Akun Anda telah dihapus atau dinonaktifkan. Hubungi pengembang.';
+    $error = 'Your account has been removed or disabled. Contact developer.';
 }
 
 // Prevent caching
@@ -498,7 +498,7 @@ if (isset($_GET['biz'])) {
 }
 ?>
 <!DOCTYPE html>
-<html lang="id">
+    <html lang="en">
 
 <head>
     <meta charset="UTF-8">
@@ -724,7 +724,7 @@ if (isset($_GET['biz'])) {
         }
 
         .login-box {
-            background: rgba(255, 255, 255, 0.96);
+            background: #ffffff;
             padding: 1.7rem 1.55rem;
             display: flex;
             flex-direction: column;
@@ -745,8 +745,8 @@ if (isset($_GET['biz'])) {
         }
 
         .login-subtitle {
-            color: var(--ink-600);
-            font-size: 0.79rem;
+            color: var(--ink-700);
+            font-size: 0.84rem;
             margin-top: 0.28rem;
         }
 
@@ -771,8 +771,8 @@ if (isset($_GET['biz'])) {
         }
 
         .db-label {
-            font-size: 0.63rem;
-            color: var(--ink-600);
+            font-size: 0.66rem;
+            color: var(--ink-700);
             letter-spacing: 0.35px;
             text-transform: uppercase;
             font-weight: 600;
@@ -780,7 +780,7 @@ if (isset($_GET['biz'])) {
 
         .db-name {
             font-family: 'Space Grotesk', sans-serif;
-            font-size: 0.79rem;
+            font-size: 0.84rem;
             color: var(--brand);
             font-weight: 700;
             letter-spacing: 0.15px;
@@ -792,8 +792,8 @@ if (isset($_GET['biz'])) {
 
         .form-label {
             display: block;
-            color: #1e293b;
-            font-size: 0.72rem;
+            color: #0f172a;
+            font-size: 0.78rem;
             font-weight: 600;
             margin-bottom: 0.28rem;
             text-transform: uppercase;
@@ -822,17 +822,19 @@ if (isset($_GET['biz'])) {
 
         .form-control {
             width: 100%;
-            padding: 0.58rem 0.7rem;
+            padding: 0.62rem 0.72rem;
             background: #fff;
-            border: 1px solid #cbd5e1;
+            border: 1px solid #94a3b8;
             border-radius: 9px;
-            color: #0f172a;
-            font-size: 0.85rem;
+            color: #0b1220;
+            font-size: 0.9rem;
+            font-weight: 500;
             transition: border-color 0.2s, box-shadow 0.2s;
         }
 
         .form-control::placeholder {
-            color: #94a3b8;
+            color: #475569;
+            opacity: 1;
         }
 
         .form-control:focus {
@@ -864,8 +866,9 @@ if (isset($_GET['biz'])) {
             display: flex;
             align-items: center;
             gap: 0.45rem;
-            color: var(--ink-700);
-            font-size: 0.77rem;
+            color: #1e293b;
+            font-size: 0.8rem;
+            font-weight: 500;
             cursor: pointer;
             user-select: none;
         }
@@ -884,7 +887,8 @@ if (isset($_GET['biz'])) {
             border: 1px solid #fecaca;
             border-radius: 7px;
             color: var(--danger);
-            font-size: 0.72rem;
+            font-size: 0.76rem;
+            font-weight: 600;
             cursor: pointer;
             transition: background 0.2s ease;
         }
@@ -903,7 +907,7 @@ if (isset($_GET['biz'])) {
         .login-buttons button {
             padding: 0.58rem 0.62rem;
             border-radius: 9px;
-            font-size: 0.77rem;
+            font-size: 0.82rem;
             font-weight: 700;
             cursor: pointer;
             border: none;
@@ -985,20 +989,20 @@ if (isset($_GET['biz'])) {
                         <span class="business-logo-icon"><?php echo $displayInfo['icon']; ?></span>
                     <?php endif; ?>
                     <h1 class="hero-title"><?php echo $displayInfo['name']; ?></h1>
-                    <p class="hero-subtitle">Kelola operasional, billing, dan laporan bisnis Anda dalam satu panel yang lebih cepat dan rapi.</p>
+                    <p class="hero-subtitle">Manage operations, billing, and business reports from one cleaner and faster control panel.</p>
 
                     <div class="hero-list">
-                        <div class="hero-list-item"><span class="hero-list-dot"></span>Login owner dan login system dalam satu halaman</div>
-                        <div class="hero-list-item"><span class="hero-list-dot"></span>Mode multi-bisnis siap switch sesuai akses pengguna</div>
-                        <div class="hero-list-item"><span class="hero-list-dot"></span>UI ringan, fokus keterbacaan di desktop dan mobile</div>
+                        <div class="hero-list-item"><span class="hero-list-dot"></span>Owner login and system login in one page</div>
+                        <div class="hero-list-item"><span class="hero-list-dot"></span>Multi-business mode with role-based access switching</div>
+                        <div class="hero-list-item"><span class="hero-list-dot"></span>Lightweight UI focused on desktop and mobile readability</div>
                     </div>
                 </div>
-                <div class="hero-footer">Database aktif: <?php echo $displayInfo['db_name']; ?></div>
+                <div class="hero-footer">Active database: <?php echo $displayInfo['db_name']; ?></div>
             </aside>
 
             <div class="login-box">
                 <div class="login-header">
-                    <h2 class="login-logo">Masuk ke Dashboard</h2>
+                    <h2 class="login-logo">Sign in to Dashboard</h2>
                     <p class="login-subtitle"><?php echo $displayInfo['subtitle']; ?><?php if (isset($_GET['biz'])): ?> • Hotel System<?php endif; ?></p>
                 </div>
 
@@ -1019,13 +1023,13 @@ if (isset($_GET['biz'])) {
                 <form method="POST" action="" autocomplete="on">
                     <div class="form-group">
                         <label class="form-label">Username</label>
-                        <input type="text" name="username" autocomplete="username" class="form-control" placeholder="Masukkan username" required autofocus value="<?= htmlspecialchars($savedUser) ?>">
+                        <input type="text" name="username" autocomplete="username" class="form-control" placeholder="Enter username" required autofocus value="<?= htmlspecialchars($savedUser) ?>">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Password</label>
                         <div class="password-wrapper">
-                            <input type="password" name="password" id="loginPassword" autocomplete="current-password" class="form-control" placeholder="Masukkan password" required style="padding-right: 45px;">
+                            <input type="password" name="password" id="loginPassword" autocomplete="current-password" class="form-control" placeholder="Enter password" required style="padding-right: 45px;">
                             <span class="password-toggle" onclick="togglePassword('loginPassword', this)">👁️</span>
                         </div>
                     </div>
@@ -1033,14 +1037,14 @@ if (isset($_GET['biz'])) {
                     <div class="save-pw-row">
                         <label class="save-pw-label">
                             <input type="checkbox" id="savePasswordChk" onchange="toggleSavePassword(this)">
-                            <span>Simpan Password</span>
+                            <span>Remember me</span>
                         </label>
-                        <button type="button" class="btn-clear-saved" id="clearSavedBtn" onclick="clearSavedCredentials()" style="display:none;">Hapus</button>
+                        <button type="button" class="btn-clear-saved" id="clearSavedBtn" onclick="clearSavedCredentials()" style="display:none;">Clear</button>
                     </div>
 
                     <div class="login-buttons">
-                        <button type="submit" name="login_type" value="owner" class="btn-owner">Login Owner</button>
-                        <button type="submit" name="login_type" value="normal" class="btn-primary">Login System</button>
+                        <button type="submit" name="login_type" value="owner" class="btn-owner">Owner Login</button>
+                        <button type="submit" name="login_type" value="normal" class="btn-primary">System Login</button>
                     </div>
                 </form>
 
@@ -1083,7 +1087,7 @@ if (isset($_GET['biz'])) {
 
         // Clear Saved Credentials
         function clearSavedCredentials() {
-            if (confirm('Hapus semua kredensial tersimpan? Anda akan perlu login manual lagi.')) {
+            if (confirm('Clear all saved credentials? You will need to log in manually again.')) {
                 // Clear cookies via server-side (send AJAX request)
                 fetch('<?= BASE_URL ?>/api/clear-login-cookie.php', {
                     method: 'POST',
@@ -1105,10 +1109,10 @@ if (isset($_GET['biz'])) {
                     const rememberInput = document.querySelector('input[name="remember_me"]');
                     if (rememberInput) rememberInput.remove();
 
-                    alert('✅ Kredensial tersimpan berhasil dihapus!');
+                    alert('Saved credentials cleared successfully.');
                     location.reload();
                 }).catch(err => {
-                    alert('❌ Gagal menghapus kredensial. Silakan coba lagi.');
+                    alert('Failed to clear saved credentials. Please try again.');
                 });
             }
         }
