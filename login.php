@@ -555,7 +555,7 @@ if (isset($_GET['biz'])) {
             position: relative;
             overflow: hidden;
             <?php if ($bgUrl): ?>background-image: linear-gradient(125deg, rgba(12, 26, 53, 0.72), rgba(13, 31, 38, 0.67)), url('<?php echo $bgUrl; ?>?v=<?php echo time(); ?>');
-            background-size: contain;
+            background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
             <?php else: ?>background: linear-gradient(125deg, #0f1f38, #16324d);
@@ -603,8 +603,8 @@ if (isset($_GET['biz'])) {
 
         .login-shell {
             display: grid;
-            grid-template-columns: 1.02fr 0.98fr;
-            width: min(860px, 92vw);
+            grid-template-columns: 1.14fr 0.86fr;
+            width: min(980px, 94vw);
             border-radius: 20px;
             overflow: hidden;
             box-shadow: 0 22px 60px rgba(2, 6, 23, 0.38);
@@ -712,9 +712,9 @@ if (isset($_GET['biz'])) {
         }
 
         .login-box {
-            background: rgba(255, 255, 255, 0.9);
-            backdrop-filter: blur(5px);
-            padding: 1.32rem 1.2rem;
+            background: rgba(255, 255, 255, 0.84);
+            backdrop-filter: blur(9px);
+            padding: 1.08rem 1.02rem;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -832,12 +832,12 @@ if (isset($_GET['biz'])) {
 
         .form-control {
             width: 100%;
-            padding: 0.62rem 0.72rem;
+            padding: 0.56rem 0.68rem;
             background: #fff;
             border: 1px solid #94a3b8;
             border-radius: 9px;
             color: #0b1220;
-            font-size: 0.9rem;
+            font-size: 0.86rem;
             font-weight: 500;
             transition: border-color 0.2s, box-shadow 0.2s;
         }
@@ -997,7 +997,7 @@ if (isset($_GET['biz'])) {
         @media (max-width: 860px) {
             .login-shell {
                 grid-template-columns: 1fr;
-                width: min(500px, 94vw);
+                width: min(470px, 93vw);
             }
 
             .login-hero {
@@ -1015,7 +1015,7 @@ if (isset($_GET['biz'])) {
             }
 
             .login-box {
-                padding: 1.15rem 0.98rem;
+                padding: 0.98rem 0.9rem;
             }
 
             .login-buttons {

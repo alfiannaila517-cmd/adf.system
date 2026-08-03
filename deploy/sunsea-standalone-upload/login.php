@@ -526,7 +526,7 @@ if (isset($_GET['biz'])) {
             padding: 0.75rem;
             position: relative;
             <?php if ($bgUrl): ?>background-image: linear-gradient(135deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.9)), url('<?php echo $bgUrl; ?>?v=<?php echo time(); ?>');
-            background-size: contain;
+            background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
             background-color: #0f172a;
@@ -549,15 +549,15 @@ if (isset($_GET['biz'])) {
         }
 
         .login-box {
-            background: rgba(15, 23, 42, 0.62);
-            backdrop-filter: blur(8px);
+            background: rgba(15, 23, 42, 0.52);
+            backdrop-filter: blur(10px);
             border-radius: 14px;
-            padding: 0.95rem;
+            padding: 0.88rem;
             box-shadow: 0 12px 26px -14px rgba(2, 6, 23, 0.8),
                 0 0 0 1px rgba(148, 163, 184, 0.18);
             border: 1px solid rgba(148, 163, 184, 0.22);
             width: 100%;
-            max-width: 280px;
+            max-width: 268px;
             position: relative;
             z-index: 1;
             animation: slideUp 0.28s ease-out;
