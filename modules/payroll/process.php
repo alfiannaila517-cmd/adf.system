@@ -2473,7 +2473,7 @@ include '../../includes/header.php';
             </div>
         <?php else: ?>
             <div style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 10px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.8rem; color: #1e40af;">
-                <strong>💾 Auto-Save:</strong> <strong>OT</strong> = lembur dgn approval (dibulatkan jam penuh, threshold 45 menit). <strong style="color:#b91c1c;">Extra (&gt;26hr)</strong> = hari kerja ke-27+ dlm sebulan (auto). <strong>OT Rp</strong> = (OT jam + Extra jam) × (base÷208), keduanya pakai rate yg sama. <strong>Net</strong> = Actual Base + OT Rp + Service + Allowance + Bonus − Deduction.
+                <strong>💾 Auto-Save:</strong> <strong>OT</strong> = lembur dgn approval (dibulatkan jam penuh, threshold 45 menit). <strong style="color:#b91c1c;">Extra (&gt;26hr)</strong> = hari kerja ke-27+ dlm sebulan (auto). <strong>OT Rp Harian</strong> = OT jam × (base÷208). <strong>Extra Rp</strong> = Extra jam × (base÷208). <strong>Net</strong> = Actual Base + OT Rp Harian + Extra Rp + Service + Allowance + Bonus − Deduction.
             </div>
         <?php endif; ?>
 
@@ -2494,7 +2494,8 @@ include '../../includes/header.php';
                             <th style="width: 65px; background: rgba(59,130,246,0.1); padding: 0.6rem 0.4rem; font-size: 0.82rem;">OT</th>
                             <th style="width: 110px; background: rgba(220,38,38,0.08); padding: 0.6rem 0.4rem; font-size: 0.78rem; color:#b91c1c;" title="Tambahan dari hari kerja melebihi 26 hari/bulan (auto, dibayar pakai rate jam-OT)">Extra<div class="ps-info" style="font-size:0.65rem;color:#b91c1c;margin-top:2px;">&gt;26hr</div>
                             </th>
-                            <th style="width: 95px;" title="(OT approved + Extra >26hr) × rate jam (base÷208)">OT Rp</th>
+                            <th style="width: 92px;" title="Uang lembur harian (OT approved) × rate jam (base÷208)">OT Rp Harian</th>
+                            <th style="width: 92px;" title="Uang extra hari kerja ke-27+ × rate jam (base÷208)">Extra Rp</th>
                             <th style="width: 80px;">Service</th>
                             <th style="width: 80px;">Allowc</th>
                             <th style="width: 80px;">Bonus</th>
@@ -2610,12 +2611,18 @@ include '../../includes/header.php';
                                 </td>
 
                                 <td>
-                                    <?php $otTotalRp = (float)$slip['overtime_amount'] + $extraRp; ?>
                                     <span id="ot-amount-<?php echo $slip['id']; ?>" class="ps-cell-calc"
                                         data-ot-base="<?php echo (float)$slip['overtime_amount']; ?>"
+                                        title="Uang lembur harian (OT approved)">
+                                        <?php echo number_format((float)$slip['overtime_amount'], 0, ',', '.'); ?>
+                                    </span>
+                                </td>
+
+                                <td style="text-align:center;background:rgba(220,38,38,0.04);">
+                                    <span id="extra-amount-<?php echo $slip['id']; ?>" class="ps-cell-calc"
                                         data-extra-amount="<?php echo $extraRp; ?>"
-                                        title="OT approved Rp <?php echo number_format($slip['overtime_amount'], 0, ',', '.'); ?> + Extra >26hr Rp <?php echo number_format($extraRp, 0, ',', '.'); ?>">
-                                        <?php echo number_format($otTotalRp, 0, ',', '.'); ?>
+                                        title="Uang extra hari kerja ke-27+">
+                                        <?php echo number_format($extraRp, 0, ',', '.'); ?>
                                     </span>
                                 </td>
 
@@ -2812,13 +2819,14 @@ include '../../includes/header.php';
         // Update Actual Base Display
         document.getElementById(`actual-base-${id}`).innerText = new Intl.NumberFormat('id-ID').format(actualBase);
 
-        // Overtime Amount = OT approved + Extra Hari (>26hr), keduanya pakai rate yg sama
+        // Overtime Amount = OT harian, Extra Hari (>26hr) ditampilkan terpisah
         let otAmount = Math.round(otHours * hourlyRate);
         let extraHours = getValByRow(id, 'extra_hours');
         let extraAmount = Math.round(extraHours * hourlyRate);
-        let otTotal = otAmount + extraAmount;
         let otCell = document.getElementById(`ot-amount-${id}`);
-        if (otCell) otCell.innerText = new Intl.NumberFormat('id-ID').format(otTotal);
+        if (otCell) otCell.innerText = new Intl.NumberFormat('id-ID').format(otAmount);
+        let extraCell = document.getElementById(`extra-amount-${id}`);
+        if (extraCell) extraCell.innerText = new Intl.NumberFormat('id-ID').format(extraAmount);
 
         // Other incomes
         let incentive = getValByRow(id, 'incentive');
@@ -2839,8 +2847,8 @@ include '../../includes/header.php';
         let dedInput = document.querySelector(`input[data-id="${id}"][data-field="total_deductions"]`);
         if (dedInput) dedInput.value = new Intl.NumberFormat('id-ID').format(totalDed);
 
-        // Calculate Net (uang_makan dihilangkan; OT total sudah termasuk Extra Hari)
-        let totalEarn = actualBase + otTotal + incentive + allowance + bonus;
+        // Calculate Net (uang_makan dihilangkan; OT harian + Extra Hari dihitung terpisah)
+        let totalEarn = actualBase + otAmount + extraAmount + incentive + allowance + bonus;
         let net = totalEarn - totalDed;
         document.getElementById(`net-${id}`).innerText = new Intl.NumberFormat('id-ID').format(net);
 
