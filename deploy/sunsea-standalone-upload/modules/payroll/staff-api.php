@@ -1259,11 +1259,20 @@ if ($action === 'salary_slip') {
         $otAmount = (float)($slip['overtime_amount'] ?? 0);
         $extraHours = (float)($slip['extra_hours'] ?? 0);
         $extraAmount = $extraHours * $otRate;
+        $actualBase = (float)($slip['actual_base'] ?? $slip['base_salary'] ?? 0);
+        $incentive = (float)($slip['incentive'] ?? 0);
+        $allowance = (float)($slip['allowance'] ?? 0);
+        $uangMakan = (float)($slip['uang_makan'] ?? 0);
+        $bonus = (float)($slip['bonus'] ?? 0);
+        $otherIncome = (float)($slip['other_income'] ?? 0);
+        $totalEarnings = $actualBase + $otAmount + $extraAmount + $incentive + $allowance + $uangMakan + $bonus + $otherIncome;
 
+        $slip['overtime_regular_amount'] = round($otAmount, 2);
         $slip['extra_hours'] = $extraHours;
         $slip['extra_overtime_amount'] = round($extraAmount, 2);
         $slip['overtime_total_hours'] = round($otHours + $extraHours, 2);
         $slip['overtime_total_amount'] = round($otAmount + $extraAmount, 2);
+        $slip['total_earnings'] = round($totalEarnings, 2);
 
         echo json_encode(['success' => true, 'data' => $slip]);
     } catch (Exception $e) {

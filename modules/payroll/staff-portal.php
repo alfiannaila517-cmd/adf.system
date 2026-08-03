@@ -7006,9 +7006,10 @@ header('Expires: 0');
             const fmt = (n) => new Intl.NumberFormat('id-ID').format(Math.round(n || 0));
             const overtimeHours = parseFloat(slip.overtime_total_hours ?? slip.overtime_hours) || 0;
             const baseSalary = parseFloat(slip.base_salary) || 0;
-            const overtimeAmount = parseFloat(slip.overtime_total_amount ?? slip.overtime_amount) || 0;
+            const overtimeRegularAmount = parseFloat(slip.overtime_regular_amount ?? slip.overtime_amount) || 0;
             const overtimeExtraHours = parseFloat(slip.extra_hours) || 0;
             const overtimeExtraAmount = parseFloat(slip.extra_overtime_amount) || 0;
+            const overtimeAmount = parseFloat(slip.overtime_total_amount ?? (overtimeRegularAmount + overtimeExtraAmount)) || 0;
             const incentive = parseFloat(slip.incentive) || 0;
             const allowance = parseFloat(slip.allowance) || 0;
             const uangMakan = parseFloat(slip.uang_makan) || 0;
@@ -7089,9 +7090,9 @@ header('Expires: 0');
                 <div style="font-size:18px;font-weight:800;color:#059669;line-height:1.1;">Rp ${fmt(baseSalary)}</div>
             </div>
             <div style="text-align:center;background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:10px;padding:12px 8px;">
-                <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Lembur</div>
+                <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Total Lembur</div>
                 <div style="font-size:18px;font-weight:800;color:#b45309;line-height:1.1;">Rp ${fmt(overtimeAmount)}</div>
-                <div style="font-size:8px;color:#92400e;margin-top:3px;">${overtimeHours} jam${overtimeExtraHours > 0 ? ' · extra ' + overtimeExtraHours + ' jam' : ''}</div>
+                <div style="font-size:8px;color:#92400e;margin-top:3px;">OT harian Rp ${fmt(overtimeRegularAmount)} · Extra Rp ${fmt(overtimeExtraAmount)}</div>
             </div>
         </div>
 
@@ -7103,8 +7104,9 @@ header('Expires: 0');
             </div>
             <table style="width:100%;border-collapse:collapse;">
                 ${slipRow('Gaji Pokok', baseSalary, false, false)}
-                ${slipRow('Uang Lembur', overtimeAmount, false, false)}
-                ${overtimeExtraHours > 0 ? slipRow('Lembur Extra (>26 hari)', overtimeExtraAmount, false, false) : ''}
+                ${slipRow('Uang Lembur Harian', overtimeRegularAmount, false, false)}
+                ${slipRow('Lembur Extra (>26 hari)', overtimeExtraAmount, false, false)}
+                ${slipRow('Total Uang Lembur', overtimeAmount, false, true)}
                 ${slipRow('Service', incentive, false, false)}
                 ${slipRow('Tunjangan', allowance, false, false)}
                 ${slipRow('Uang Makan', uangMakan, false, false)}
