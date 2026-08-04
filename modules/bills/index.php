@@ -1484,190 +1484,194 @@ include '../../includes/header.php';
                         background: #eef3f8;
                         font-family: Georgia, 'Times New Roman', serif;
                         color: var(--ink);
-                        padding: 28px;
+                        padding: 20px;
                     }
                     .sheet {
-                        max-width: 820px;
+                        max-width: 760px;
                         margin: 0 auto;
                         background: #fff;
                         border: 1px solid #d6dee8;
-                        box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+                        box-shadow: 0 14px 32px rgba(15, 23, 42, 0.1);
                     }
                     .toolbar {
-                        padding: 16px 22px 0;
+                        padding: 12px 16px 0;
                         text-align: right;
                     }
                     .print-btn {
-                        padding: 8px 16px;
+                        padding: 7px 14px;
                         border: 0;
                         border-radius: 999px;
                         background: linear-gradient(135deg, #1e293b, #334155);
                         color: #fff;
-                        font: 600 13px Arial, sans-serif;
+                        font: 600 11px Arial, sans-serif;
+                        letter-spacing: 0.03em;
                         cursor: pointer;
                     }
                     .paper {
-                        padding: 28px 34px 36px;
+                        padding: 20px 24px 28px;
                     }
                     .header {
                         display: flex;
                         justify-content: space-between;
-                        gap: 22px;
-                        border-bottom: 3px double var(--accent);
-                        padding-bottom: 18px;
+                        gap: 16px;
+                        border-bottom: 2px double var(--accent);
+                        padding-bottom: 14px;
                     }
                     .brand {
                         display: flex;
-                        gap: 18px;
+                        gap: 14px;
                         align-items: center;
                     }
                     .logo {
-                        width: 74px;
-                        height: 74px;
-                        border-radius: 18px;
+                        width: 58px;
+                        height: 58px;
+                        border-radius: 14px;
                         object-fit: contain;
                         background: #fff;
                         border: 1px solid var(--line);
-                        padding: 8px;
+                        padding: 6px;
                     }
                     .logo-fallback {
-                        width: 74px;
-                        height: 74px;
-                        border-radius: 18px;
+                        width: 58px;
+                        height: 58px;
+                        border-radius: 14px;
                         background: linear-gradient(135deg, #0f172a, #334155);
                         color: #fff;
                         display: flex;
                         align-items: center;
                         justify-content: center;
-                        font: 700 22px Arial, sans-serif;
+                        font: 700 16px Arial, sans-serif;
                     }
                     .brand h1 {
                         margin: 0;
-                        font-size: 26px;
-                        letter-spacing: 0.08em;
+                        font-size: 15px;
+                        letter-spacing: 0.14em;
                         text-transform: uppercase;
                     }
                     .brand p {
-                        margin: 4px 0 0;
+                        margin: 3px 0 0;
                         color: var(--muted);
-                        font: 14px/1.55 Arial, sans-serif;
+                        font: 10px/1.55 Arial, sans-serif;
                     }
                     .doc-meta {
-                        min-width: 245px;
+                        min-width: 220px;
                         background: var(--soft);
                         border: 1px solid var(--line);
-                        border-radius: 16px;
-                        padding: 14px 16px;
+                        border-radius: 14px;
+                        padding: 12px 14px;
                     }
                     .doc-meta .eyebrow {
                         color: var(--muted);
-                        font: 700 11px/1 Arial, sans-serif;
-                        letter-spacing: 0.18em;
+                        font: 700 9px/1 Arial, sans-serif;
+                        letter-spacing: 0.22em;
                         text-transform: uppercase;
-                        margin-bottom: 8px;
+                        margin-bottom: 6px;
                     }
                     .doc-meta h2 {
-                        margin: 0 0 10px;
-                        font-size: 20px;
+                        margin: 0 0 8px;
+                        font-size: 12px;
+                        line-height: 1.35;
+                        letter-spacing: 0.04em;
                     }
                     .meta-row {
                         display: flex;
                         justify-content: space-between;
-                        gap: 10px;
-                        margin-top: 7px;
-                        font: 13px/1.45 Arial, sans-serif;
+                        gap: 8px;
+                        margin-top: 6px;
+                        font: 10px/1.45 Arial, sans-serif;
                     }
+                    .meta-row strong { text-align: right; }
                     .meta-row span:first-child { color: var(--muted); }
                     .section {
-                        margin-top: 24px;
+                        margin-top: 18px;
                     }
                     .section-title {
-                        font: 700 11px/1 Arial, sans-serif;
-                        letter-spacing: 0.18em;
+                        font: 700 9px/1 Arial, sans-serif;
+                        letter-spacing: 0.24em;
                         text-transform: uppercase;
                         color: var(--muted);
-                        margin-bottom: 10px;
+                        margin-bottom: 8px;
                     }
                     .statement {
                         border: 1px solid var(--line);
                         background: linear-gradient(180deg, #fff, #f8fbff);
-                        border-radius: 16px;
-                        padding: 16px 18px;
-                        font: 15px/1.8 Arial, sans-serif;
+                        border-radius: 14px;
+                        padding: 12px 14px;
+                        font: 10px/1.8 Arial, sans-serif;
                     }
                     .grid {
                         display: grid;
                         grid-template-columns: 1fr 1fr;
-                        gap: 12px;
+                        gap: 10px;
                     }
                     .info-box {
                         border: 1px solid var(--line);
-                        border-radius: 14px;
-                        padding: 14px 16px;
+                        border-radius: 13px;
+                        padding: 12px 14px;
                         background: #fff;
                     }
                     .info-box .label {
                         display: block;
                         color: var(--muted);
-                        font: 700 10px/1 Arial, sans-serif;
-                        letter-spacing: 0.14em;
+                        font: 700 8.5px/1 Arial, sans-serif;
+                        letter-spacing: 0.18em;
                         text-transform: uppercase;
-                        margin-bottom: 8px;
+                        margin-bottom: 7px;
                     }
                     .info-box .value {
-                        font: 700 18px/1.35 Arial, sans-serif;
+                        font: 700 11px/1.4 Arial, sans-serif;
                         color: var(--accent);
                     }
                     .info-box .sub {
-                        margin-top: 6px;
+                        margin-top: 4px;
                         color: var(--muted);
-                        font: 12px/1.6 Arial, sans-serif;
+                        font: 9.5px/1.55 Arial, sans-serif;
                     }
                     table {
                         width: 100%;
                         border-collapse: collapse;
-                        margin-top: 8px;
-                        font: 13px/1.55 Arial, sans-serif;
+                        margin-top: 6px;
+                        font: 10px/1.5 Arial, sans-serif;
                     }
                     th, td {
                         border-bottom: 1px solid var(--line);
-                        padding: 10px 8px;
+                        padding: 8px 6px;
                         vertical-align: top;
                     }
                     th {
                         color: var(--muted);
                         text-transform: uppercase;
-                        letter-spacing: 0.08em;
-                        font-size: 11px;
+                        letter-spacing: 0.12em;
+                        font-size: 8.5px;
                         text-align: left;
                     }
                     td:last-child, th:last-child { text-align: right; }
                     .signatures {
                         display: grid;
                         grid-template-columns: 1fr 1fr;
-                        gap: 34px;
-                        margin-top: 38px;
+                        gap: 26px;
+                        margin-top: 28px;
                     }
                     .sign-box {
                         text-align: center;
                     }
                     .sign-title {
-                        font: 700 12px/1 Arial, sans-serif;
+                        font: 700 9px/1 Arial, sans-serif;
                         color: var(--muted);
                         text-transform: uppercase;
-                        letter-spacing: 0.14em;
+                        letter-spacing: 0.16em;
                     }
                     .sign-line {
-                        margin-top: 68px;
+                        margin-top: 48px;
                         border-top: 1px solid #23324d;
-                        padding-top: 8px;
-                        font: 700 14px/1.4 Arial, sans-serif;
+                        padding-top: 6px;
+                        font: 700 10px/1.4 Arial, sans-serif;
                     }
                     .footnote {
-                        margin-top: 22px;
+                        margin-top: 18px;
                         text-align: center;
                         color: var(--muted);
-                        font: italic 11px/1.6 Arial, sans-serif;
+                        font: italic 9px/1.6 Arial, sans-serif;
                     }
                     @media print {
                         body { background: #fff; padding: 0; }
