@@ -6,7 +6,7 @@ const SVC_LABELS = window.SVC_LABELS || []
 const CATALOG_DATA = window.CATALOG_DATA || {}
 const RENTAL_MOTORS = window.RENTAL_MOTORS || []
 const RENTAL_CARS = window.RENTAL_CARS || []
-const TRIP_GUIDES = window.TRIP_GUIDES || []
+let TRIP_GUIDES = window.TRIP_GUIDES || []
 
 // ── Guest mode ────────────────────────────────────────────────────────────────
 function setGuestMode (mode) {
@@ -87,6 +87,9 @@ function isNarayanaTrip (svc) {
 }
 
 function buildGuideOpts (selected) {
+  if ((!TRIP_GUIDES || !TRIP_GUIDES.length) && document.getElementById('guideBody')) {
+    syncTripGuidesFromTable()
+  }
   let html = '<option value="">Pilih guide...</option>'
   TRIP_GUIDES.forEach(g => {
     html += `<option value="${g.id}" ${
@@ -94,6 +97,41 @@ function buildGuideOpts (selected) {
     }>${g.name}</option>`
   })
   return html
+}
+
+function syncTripGuidesFromTable () {
+  const body = document.getElementById('guideBody')
+  if (!body) return
+  const rows = [...body.querySelectorAll('tr[id^="gtr"]')]
+  TRIP_GUIDES = rows
+    .map(row => {
+      const idText = (row.id || '').replace('gtr', '')
+      const id = parseInt(idText, 10)
+      const name = row.querySelector('.gName')?.value?.trim() || ''
+      const phone = row.querySelector('.gPhone')?.value?.trim() || ''
+      const sortOrder = parseInt(row.querySelector('.gSort')?.value || '0', 10)
+      if (!id || !name) return null
+      return {
+        id,
+        name,
+        phone,
+        sort_order: Number.isFinite(sortOrder) ? sortOrder : 0
+      }
+    })
+    .filter(Boolean)
+    .sort((a, b) => {
+      if ((a.sort_order || 0) !== (b.sort_order || 0)) {
+        return (a.sort_order || 0) - (b.sort_order || 0)
+      }
+      return String(a.name || '').localeCompare(String(b.name || ''), 'id')
+    })
+}
+
+function refreshGuideDropdowns () {
+  document.querySelectorAll('.iGuide').forEach(sel => {
+    const current = sel.value
+    sel.innerHTML = buildGuideOpts(current)
+  })
 }
 
 // ── Driver / partner vehicle payment (car_rental, airport_drop, harbor_drop) ──
@@ -1664,6 +1702,8 @@ function saveGuideRow (guideId) {
         )
         tr.style.background = '#f0fdf4'
         setTimeout(() => (tr.style.background = ''), 1500)
+        syncTripGuidesFromTable()
+        refreshGuideDropdowns()
       } else {
         alert('Error: ' + (res.message || 'failed'))
       }
@@ -1685,11 +1725,15 @@ function deleteGuideRow (guideId) {
       if (res.success) {
         const el = document.getElementById('gtr' + guideId)
         if (el) el.remove()
+        syncTripGuidesFromTable()
+        refreshGuideDropdowns()
       } else {
         alert('Error: ' + (res.message || 'Cannot delete'))
       }
     })
 }
+
+syncTripGuidesFromTable()
 // Expose key functions globally
 window.openCreateModal = openCreateModal
 window.closeCreateModal = closeCreateModal
