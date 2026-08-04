@@ -66,7 +66,7 @@ try {
         SUM(cb.service_type = 'harbor_drop') as harbor_trips
         FROM rental_car_bookings cb
         JOIN rental_cars rc ON cb.car_id = rc.id
-        WHERE cb.business_id=? AND cb.status='returned'
+        WHERE cb.business_id=? AND cb.status IN ('active','returned')
           AND DATE(COALESCE(cb.actual_return, cb.end_datetime, cb.created_at)) BETWEEN ? AND ?
           AND rc.partner_owner IS NOT NULL AND rc.partner_owner != ''
         GROUP BY rc.partner_owner, rc.owner_phone
@@ -112,7 +112,7 @@ try {
         cb.total_price, cb.owner_amount, cb.driver_paid, rc.car_name, rc.plate_number
         FROM rental_car_bookings cb
         JOIN rental_cars rc ON cb.car_id = rc.id
-        WHERE cb.business_id=? AND cb.status='returned'
+        WHERE cb.business_id=? AND cb.status IN ('active','returned')
           AND DATE(COALESCE(cb.actual_return, cb.end_datetime, cb.created_at)) BETWEEN ? AND ?
           AND rc.partner_owner IS NOT NULL AND rc.partner_owner != ''
         ORDER BY trx_date DESC, cb.id DESC");
