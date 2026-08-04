@@ -58,6 +58,16 @@ function buildRentalAssetOpts (items, selected) {
   return html
 }
 
+function buildCatalogPaketOpts (svc, selectedIdx) {
+  const items = CATALOG_DATA[svc] || []
+  let html = '<option value="">── Harga dari Armada ──</option>'
+  items.forEach((item, i) => {
+    html += `<option value="${i}"${String(i) === String(selectedIdx) ? ' selected' : ''}>` +
+      `${item.name} – Rp ${Math.round(item.price).toLocaleString('id-ID')}</option>`
+  })
+  return html
+}
+
 function isRentalService (svc) {
   return svc === 'motor_rental' || svc === 'car_rental'
 }
@@ -150,6 +160,30 @@ function onNeedsDriverChange (id) {
   if (checked) prefillDriverCommission(tr)
 }
 
+function onPaketChange (id) {
+  const tr = document.getElementById(id)
+  if (!tr) return
+  const svc = tr.querySelector('.iSvc').value
+  const paketSel = tr.querySelector('.iPaket')
+  const val = paketSel?.value
+  if (val === '' || val === null || val === undefined) return
+  const items = CATALOG_DATA[svc] || []
+  const item = items[parseInt(val)]
+  if (!item) return
+  tr.querySelector('.iPrice').value = item.price
+  if ((item.driver_rate || 0) > 0 && usesDriverPayment(svc)) {
+    tr.dataset.catalogDriverRate = item.driver_rate
+    const chk = tr.querySelector('.iNeedsDriver')
+    const commWrap = tr.querySelector('.iCommWrap')
+    if (chk) chk.checked = true
+    if (commWrap) commWrap.style.display = 'flex'
+    prefillDriverCommission(tr)
+  } else {
+    delete tr.dataset.catalogDriverRate
+  }
+  id.startsWith('er') ? ercalc(id) : rcalc(id)
+}
+
 function rentalDefaultDate (offsetDays) {
   const dt = new Date()
   dt.setDate(dt.getDate() + offsetDays)
@@ -172,6 +206,7 @@ function addItemRow (svc, desc, qty, price) {
     `<div class="hs-rental-extra">` +
     `<div class="hs-rental-row1">` +
     `<div class="hs-ic-labeled"><span>Armada</span><select class="iAsset" onchange="onRentalAssetChange('${id}')"><option value="">Pilih armada...</option></select></div>` +
+    `<div class="hs-ic-labeled hs-paket-wrap" style="display:none"><span>Paket / Jenis</span><select class="iPaket" onchange="onPaketChange('${id}')"><option value="">── Harga dari Armada ──</option></select></div>` +
     `<div class="hs-ic-labeled"><span>Hari Sewa</span><input type="number" class="iDays" value="1" min="1" max="365" step="1" onchange="onDaysChange('${id}')"></div>` +
     `<div class="hs-ic-labeled"><span>Deposit (Rp)</span><input type="number" class="iDeposit" value="0" min="0"></div>` +
     `</div>` +
@@ -236,6 +271,12 @@ function onSvcChange (id, isNew) {
     if (destWrap) destWrap.style.display = svc === 'car_rental' ? '' : 'none'
     // Set default 1 day
     if (!tr.querySelector('.iDays').value) tr.querySelector('.iDays').value = 1
+    // Populate paket picker from catalog
+    const paketWrap = tr.querySelector('.hs-paket-wrap')
+    const paketSel = tr.querySelector('.iPaket')
+    const catItems = CATALOG_DATA[svc] || []
+    if (paketSel) paketSel.innerHTML = buildCatalogPaketOpts(svc, '')
+    if (paketWrap) paketWrap.style.display = catItems.length ? '' : 'none'
   } else {
     // Hide rental fields for other services
     rentalWrap.classList.remove('open')
@@ -280,10 +321,13 @@ function onRentalAssetChange (id, keepManualDesc) {
   if (!chosen) return
   const priceInput = tr.querySelector('.iPrice')
   const descInput = tr.querySelector('.iDesc')
+  // Only fill price from car if no catalog paket is selected
+  const paketSelected = !!tr.querySelector('.iPaket')?.value
   if (
-    !priceInput.value ||
+    !paketSelected &&
+    (!priceInput.value ||
     parseFloat(priceInput.value) === 0 ||
-    !keepManualDesc
+    !keepManualDesc)
   ) {
     priceInput.value = chosen.daily_rate
   }
@@ -939,6 +983,7 @@ function eAddItemRow (itemOrSvc, desc, qty, price) {
     `<div class="hs-rental-extra">` +
     `<div class="hs-rental-row1">` +
     `<div class="hs-ic-labeled"><span>Armada</span><select class="iAsset" onchange="eOnRentalAssetChange('${id2}')"></select></div>` +
+    `<div class="hs-ic-labeled hs-paket-wrap" style="display:none"><span>Paket / Jenis</span><select class="iPaket" onchange="onPaketChange('${id2}')"><option value="">── Harga dari Armada ──</option></select></div>` +
     `<div class="hs-ic-labeled"><span>Hari Sewa</span><input type="number" class="iDays" value="${item.rental_days || 1}" min="1" max="365" step="1" onchange="eOnDaysChange('${id2}')"></div>` +
     `<div class="hs-ic-labeled"><span>Deposit (Rp)</span><input type="number" class="iDeposit" value="${item.deposit || 0}" min="0"></div>` +
     `</div>` +
@@ -1060,6 +1105,12 @@ function eOnSvcChange (id2, isNew) {
       if (destWrap3) destWrap3.style.display = svc === 'car_rental' ? '' : 'none'
       if (!tr3.querySelector('.iDays').value)
         tr3.querySelector('.iDays').value = 1
+      // Populate paket picker from catalog
+      const paketWrap3 = tr3.querySelector('.hs-paket-wrap')
+      const paketSel3 = tr3.querySelector('.iPaket')
+      const catItems3 = CATALOG_DATA[svc] || []
+      if (paketSel3) paketSel3.innerHTML = buildCatalogPaketOpts(svc, '')
+      if (paketWrap3) paketWrap3.style.display = catItems3.length ? '' : 'none'
     } else {
       rentalWrap.classList.remove('open')
       assetSelect.innerHTML = '<option value="">Pilih armada...</option>'
@@ -1117,10 +1168,13 @@ function eOnRentalAssetChange (id2, keepManualDesc) {
   if (!chosen) return
   const priceInput = tr3.querySelector('.iPrice')
   const descInput = tr3.querySelector('.iDesc')
+  // Only fill price from car if no catalog paket is selected
+  const paketSelected3 = !!tr3.querySelector('.iPaket')?.value
   if (
-    !priceInput.value ||
+    !paketSelected3 &&
+    (!priceInput.value ||
     parseFloat(priceInput.value) === 0 ||
-    !keepManualDesc
+    !keepManualDesc)
   ) {
     priceInput.value = chosen.daily_rate
   }
