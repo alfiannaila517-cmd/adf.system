@@ -269,7 +269,96 @@ try {
 
     <!-- Business Theme CSS -->
     <style>
-        <?php echo getBusinessThemeCSS(); ?>.user-avatar-wrap {
+        <?php echo getBusinessThemeCSS(); ?>
+
+        :root {
+            --system-font-base: 0.875rem;
+            --system-font-sm: 0.813rem;
+            --system-font-xs: 0.75rem;
+            --system-heading-lg: 1rem;
+            --system-heading-md: 0.9375rem;
+            --system-heading-sm: 0.875rem;
+        }
+
+        body[data-business] .main-content,
+        body[data-business] .main-content .card,
+        body[data-business] .main-content .top-bar,
+        body[data-business] .main-content .table-container,
+        body[data-business] .main-content .modal-content,
+        body[data-business] .main-content .page-header,
+        body[data-business] .main-content .content-grid {
+            font-size: var(--system-font-base) !important;
+        }
+
+        body[data-business] .main-content :is(
+                p,
+                label,
+                input,
+                select,
+                textarea,
+                button,
+                li,
+                td,
+                th,
+                a,
+                .btn,
+                .form-label,
+                .form-control,
+                .table,
+                .table td,
+                .table th,
+                .alert,
+                .page-subtitle,
+                .empty-state-text,
+                .filter-chip,
+                .stat-lbl
+            ) {
+                font-size: var(--system-font-base) !important;
+        }
+
+        body[data-business] .main-content :is(
+                small,
+                .small,
+                .text-muted,
+                .card-title,
+                .badge,
+                .helper-text,
+                .form-text,
+                .table small,
+                .meta-text,
+                .stat-note
+            ) {
+            font-size: var(--system-font-sm) !important;
+        }
+
+        body[data-business] .main-content :is(h1, .page-title) {
+            font-size: var(--system-heading-lg) !important;
+            line-height: 1.35;
+        }
+
+        body[data-business] .main-content :is(h2, h3, .section-title, .card h2, .card h3) {
+            font-size: var(--system-heading-md) !important;
+            line-height: 1.4;
+        }
+
+        body[data-business] .main-content :is(h4, h5, h6) {
+            font-size: var(--system-heading-sm) !important;
+            line-height: 1.4;
+        }
+
+        body[data-business] .main-content .btn-sm,
+        body[data-business] .main-content .table .btn-sm {
+            font-size: var(--system-font-sm) !important;
+        }
+
+        body[data-business] .main-content input::placeholder,
+        body[data-business] .main-content textarea::placeholder,
+        body[data-business] .main-content select,
+        body[data-business] .main-content option {
+            font-size: var(--system-font-base) !important;
+        }
+
+        .user-avatar-wrap {
             position: relative;
             display: inline-flex;
             align-items: center;
