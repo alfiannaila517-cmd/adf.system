@@ -113,6 +113,13 @@ try {
 // driver-payment flag, monthly_bills traceability columns)
 ensureDriverPaymentSchema($pdo);
 
+// Add driver_rate column to hotel_service_catalog (bayar ke driver per layanan)
+try { $pdo->query("SELECT driver_rate FROM hotel_service_catalog LIMIT 1"); }
+catch (\Exception $e) {
+    try { $pdo->exec("ALTER TABLE hotel_service_catalog ADD COLUMN driver_rate DECIMAL(15,2) NOT NULL DEFAULT 0 COMMENT 'harga bayar ke driver per layanan' AFTER default_price"); }
+    catch (\Exception $e2) { error_log('catalog driver_rate migration: ' . $e2->getMessage()); }
+}
+
 $pdo->exec("CREATE TABLE IF NOT EXISTS hotel_invoice_items (
     id              INT AUTO_INCREMENT PRIMARY KEY,
     invoice_id      INT NOT NULL,
@@ -1107,17 +1114,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $cid   = (int)($_POST['cid'] ?? 0);
             $stype = $_POST['service_type'] ?? '';
             $name  = trim($_POST['item_name'] ?? '');
-            $price = max(0, (float)($_POST['default_price'] ?? 0));
+            $price      = max(0, (float)($_POST['default_price'] ?? 0));
+            $driverRate = max(0, (float)($_POST['driver_rate'] ?? 0));
             $unit  = trim($_POST['unit'] ?? 'unit');
             $sort  = (int)($_POST['sort_order'] ?? 0);
             if (!$name) throw new Exception('Item name is required');
             if (!isset($serviceTypes[$stype])) throw new Exception('Invalid service type');
             if ($cid) {
-                $pdo->prepare("UPDATE hotel_service_catalog SET service_type=?,item_name=?,default_price=?,unit=?,sort_order=? WHERE id=? AND business_id=?")
-                    ->execute([$stype, $name, $price, $unit, $sort, $cid, $businessId]);
+                $pdo->prepare("UPDATE hotel_service_catalog SET service_type=?,item_name=?,default_price=?,driver_rate=?,unit=?,sort_order=? WHERE id=? AND business_id=?")
+                    ->execute([$stype, $name, $price, $driverRate, $unit, $sort, $cid, $businessId]);
             } else {
-                $pdo->prepare("INSERT INTO hotel_service_catalog (business_id,service_type,item_name,default_price,unit,sort_order) VALUES (?,?,?,?,?,?)")
-                    ->execute([$businessId, $stype, $name, $price, $unit, $sort]);
+                $pdo->prepare("INSERT INTO hotel_service_catalog (business_id,service_type,item_name,default_price,driver_rate,unit,sort_order) VALUES (?,?,?,?,?,?,?)")
+                    ->execute([$businessId, $stype, $name, $price, $driverRate, $unit, $sort]);
                 $cid = (int)$pdo->lastInsertId();
             }
             ob_clean();
@@ -2829,6 +2837,7 @@ include '../../includes/header.php';
                             <th style="min-width:130px">Tipe Layanan</th>
                             <th style="min-width:140px">Nama Item</th>
                             <th style="width:110px">Harga Default</th>
+                            <th style="width:110px">🚗 Bayar Driver</th>
                             <th style="width:75px">Satuan</th>
                             <th style="width:50px">Urut</th>
                             <th style="width:80px"></th>
@@ -2844,6 +2853,7 @@ include '../../includes/header.php';
                                     </select></td>
                                 <td><input type="text" class="cName" value="<?php echo htmlspecialchars($cr['item_name'], ENT_QUOTES); ?>"></td>
                                 <td><input type="number" class="cPrice" value="<?php echo $cr['default_price']; ?>" min="0"></td>
+                                <td><input type="number" class="cDriverRate" value="<?php echo (float)($cr['driver_rate'] ?? 0); ?>" min="0" placeholder="0"></td>
                                 <td><input type="text" class="cUnit" value="<?php echo htmlspecialchars($cr['unit'] ?? 'unit', ENT_QUOTES); ?>"></td>
                                 <td><input type="number" class="cSort" value="<?php echo $cr['sort_order']; ?>" style="width:45px"></td>
                                 <td style="display:flex;gap:3px">
@@ -2983,9 +2993,10 @@ include '../../includes/header.php';
                                 $catalogByType = [];
                                 foreach ($catalogRows as $cr) {
                                     $catalogByType[$cr['service_type']][] = [
-                                        'name'  => $cr['item_name'],
-                                        'price' => (float)$cr['default_price'],
-                                        'unit'  => $cr['unit'] ?? 'unit',
+                                        'name'        => $cr['item_name'],
+                                        'price'       => (float)$cr['default_price'],
+                                        'driver_rate' => (float)($cr['driver_rate'] ?? 0),
+                                        'unit'        => $cr['unit'] ?? 'unit',
                                     ];
                                 }
                                 echo json_encode($catalogByType, JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '{}';

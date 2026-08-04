@@ -103,19 +103,28 @@ function updateDriverExtra (tr) {
 
 function prefillDriverCommission (tr) {
   const svc = tr.querySelector('.iSvc').value
-  const carId = getDriverCarId(tr, svc)
-  const car = RENTAL_CARS.find(c => String(c.id) === String(carId))
   const typeSel = tr.querySelector('.iCommType')
   const valInput = tr.querySelector('.iCommValue')
-  if (!car || !typeSel || !valInput) return
-  if (car.driver_daily_rate > 0) {
-    // Auto-derive commission from per-day driver rate setting
-    const qty = parseFloat(tr.querySelector('.iQty')?.value) || 1
-    const unitPrice = parseFloat(tr.querySelector('.iPrice')?.value) || 0
-    const driverTotal = car.driver_daily_rate * qty
-    const invoiceTotal = unitPrice * qty
+  if (!typeSel || !valInput) return
+
+  const qty = parseFloat(tr.querySelector('.iQty')?.value) || 1
+  const unitPrice = parseFloat(tr.querySelector('.iPrice')?.value) || 0
+
+  // Priority 1: catalog-defined driver rate (airport/harbor drop etc.)
+  const catalogDriverRate = parseFloat(tr.dataset.catalogDriverRate || 0)
+  if (catalogDriverRate > 0) {
     typeSel.value = 'nominal'
-    valInput.value = Math.max(0, invoiceTotal - driverTotal) // hotel cut (commission_value)
+    valInput.value = Math.max(0, (unitPrice - catalogDriverRate) * qty)
+    return
+  }
+
+  // Priority 2: per-car driver_daily_rate (car_rental)
+  const carId = getDriverCarId(tr, svc)
+  const car = RENTAL_CARS.find(c => String(c.id) === String(carId))
+  if (!car) return
+  if (car.driver_daily_rate > 0) {
+    typeSel.value = 'nominal'
+    valInput.value = Math.max(0, (unitPrice - car.driver_daily_rate) * qty)
   } else if (!valInput.value || parseFloat(valInput.value) === 0) {
     typeSel.value = car.commission_type || 'percent'
     valInput.value =
@@ -247,6 +256,16 @@ function onSvcChange (id, isNew) {
     onRentalAssetChange(id, !isNew)
   }
   updateDriverExtra(tr)
+
+  // Auto-enable driver split from catalog driver_rate (e.g. airport/harbor drop)
+  if (isNew && items && items.length > 0 && (items[0].driver_rate || 0) > 0 && usesDriverPayment(svc)) {
+    tr.dataset.catalogDriverRate = items[0].driver_rate
+    const chk = tr.querySelector('.iNeedsDriver')
+    const commWrap = tr.querySelector('.iCommWrap')
+    if (chk) chk.checked = true
+    if (commWrap) commWrap.style.display = 'flex'
+    prefillDriverCommission(tr)
+  }
   rcalc(id)
 }
 
@@ -766,6 +785,7 @@ function addCatalogRow () {
     `<td><select class="cSType">${buildSvcOptsFor()}</select></td>` +
     `<td><input type="text" class="cName" placeholder="ex: Honda Beat 1 Hari"></td>` +
     `<td><input type="number" class="cPrice" value="0" min="0"></td>` +
+    `<td><input type="number" class="cDriverRate" value="0" min="0" placeholder="0"></td>` +
     `<td><input type="text" class="cUnit" value="unit"></td>` +
     `<td><input type="number" class="cSort" value="0" style="width:45px"></td>` +
     `<td style="display:flex;gap:3px">` +
@@ -784,6 +804,7 @@ function saveCatalogRow (cid) {
   fd.append('service_type', tr.querySelector('.cSType').value)
   fd.append('item_name', tr.querySelector('.cName').value.trim())
   fd.append('default_price', tr.querySelector('.cPrice').value)
+  fd.append('driver_rate', tr.querySelector('.cDriverRate')?.value || 0)
   fd.append('unit', tr.querySelector('.cUnit').value.trim() || 'unit')
   fd.append('sort_order', tr.querySelector('.cSort').value)
   fetch('hotel-services.php', {
@@ -1072,6 +1093,16 @@ function eOnSvcChange (id2, isNew) {
     eOnRentalAssetChange(id2, !isNew)
   }
   updateDriverExtra(tr3)
+
+  // Auto-enable driver split from catalog driver_rate (e.g. airport/harbor drop)
+  if (isNew && items && items.length > 0 && (items[0].driver_rate || 0) > 0 && usesDriverPayment(svc)) {
+    tr3.dataset.catalogDriverRate = items[0].driver_rate
+    const chk = tr3.querySelector('.iNeedsDriver')
+    const commWrap = tr3.querySelector('.iCommWrap')
+    if (chk) chk.checked = true
+    if (commWrap) commWrap.style.display = 'flex'
+    prefillDriverCommission(tr3)
+  }
   ercalc(id2)
 }
 
