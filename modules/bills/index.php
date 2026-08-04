@@ -962,6 +962,7 @@ include '../../includes/header.php';
 
             <div class="category-tabs">
                 <button class="category-btn" data-cat="driver" onclick="switchCategory('driver')">🚗 Tagihan Driver</button>
+                <button class="category-btn" data-cat="trip" onclick="switchCategory('trip')">🧭 Tagihan Trip</button>
                 <button class="category-btn active" data-cat="manual" onclick="switchCategory('manual')">📝 Tagihan Manual</button>
                 <button class="category-btn" data-cat="bulanan" onclick="switchCategory('bulanan')">🔁 Tagihan Bulanan</button>
             </div>
@@ -1081,25 +1082,25 @@ include '../../includes/header.php';
 
     // Reload whichever category is currently active when the month filter changes
     function onMonthChange() {
-        if (currentCategory === 'driver') {
+        if (currentCategory === 'driver' || currentCategory === 'trip') {
             loadDriverRecap();
         } else {
             loadBills();
         }
     }
 
-    // SWITCH CATEGORY (Driver / Manual / Bulanan)
+    // SWITCH CATEGORY (Driver / Trip / Manual / Bulanan)
     function switchCategory(cat) {
         currentCategory = cat;
         document.querySelectorAll('.category-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.cat === cat);
         });
 
-        const isDriver = cat === 'driver';
-        document.getElementById('manualBillsWrap').style.display = isDriver ? 'none' : 'block';
-        document.getElementById('driverRecapSection').style.display = isDriver ? 'block' : 'none';
+        const isRecap = cat === 'driver' || cat === 'trip';
+        document.getElementById('manualBillsWrap').style.display = isRecap ? 'none' : 'block';
+        document.getElementById('driverRecapSection').style.display = isRecap ? 'block' : 'none';
 
-        if (isDriver) {
+        if (isRecap) {
             loadDriverRecap();
         } else {
             loadBills();
@@ -1290,6 +1291,7 @@ include '../../includes/header.php';
     // RENDER DRIVER/MITRA RECAP (uses lastDriverRecap + driverPayFilter, no re-fetch)
     function renderDriverRecap() {
         const recapEl = document.getElementById('driverRecapSection');
+        const isTripTab = currentCategory === 'trip';
         const safeDriverPartnerName = String(DRIVER_DROP_PARTNER_NAME || 'Bp. Moyong')
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
@@ -1297,7 +1299,7 @@ include '../../includes/header.php';
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#039;');
 
-        const settingsBar = `
+        const settingsBar = isTripTab ? '' : `
             <div class="driver-setting-bar">
                 <div class="driver-setting-field">
                     <label for="driverPartnerNameInput">Nama Mitra Drop Default</label>
@@ -1308,7 +1310,7 @@ include '../../includes/header.php';
             </div>`;
 
         if (!lastDriverRecap || lastDriverRecap.length === 0) {
-            recapEl.innerHTML = settingsBar + '<p style="color: #999; text-align: center; padding: 40px;">Belum ada tagihan driver/mitra bulan ini</p>';
+            recapEl.innerHTML = settingsBar + `<p style="color: #999; text-align: center; padding: 40px;">Belum ada ${isTripTab ? 'tagihan trip' : 'tagihan driver/mitra'} bulan ini</p>`;
             return;
         }
 
@@ -1328,13 +1330,33 @@ include '../../includes/header.php';
         `;
 
         lastDriverRecap.forEach((dr, idx) => {
-            const rows = (dr.detail_rows || []).filter(d => {
+            const baseRows = (dr.detail_rows || []).filter(d => {
+                const isTripService = String(d.service_type || '') === 'narayana_trip';
+                return isTripTab ? isTripService : !isTripService;
+            });
+
+            if (baseRows.length === 0) return;
+
+            const rows = baseRows.filter(d => {
                 if (driverPayFilter === 'unpaid') return !d.paid;
                 if (driverPayFilter === 'paid') return d.paid;
                 return true;
             });
 
             if (rows.length === 0 && driverPayFilter !== 'all') return;
+
+            const scopedTotalRevenue = baseRows.reduce((sum, r) => sum + (parseFloat(r.total_price) || 0), 0);
+            const scopedOwnerTotal = baseRows.reduce((sum, r) => sum + (parseFloat(r.owner_amount) || 0), 0);
+            const scopedPaidTotal = baseRows.filter(r => r.paid).reduce((sum, r) => sum + (parseFloat(r.owner_amount) || 0), 0);
+            const scopedUnpaidTotal = baseRows.filter(r => !r.paid).reduce((sum, r) => sum + (parseFloat(r.owner_amount) || 0), 0);
+            const scopedPaidTrips = baseRows.filter(r => r.paid).length;
+            const scopedUnpaidTrips = baseRows.length - scopedPaidTrips;
+            const scopedHotelTotal = Math.max(0, scopedTotalRevenue - scopedOwnerTotal);
+            const scopedAvgPct = scopedTotalRevenue > 0 ? Math.round((scopedOwnerTotal / scopedTotalRevenue) * 100) : 0;
+            const scopedRentalTrips = baseRows.filter(r => r.service_type === 'car_rental').length;
+            const scopedAirportTrips = baseRows.filter(r => r.service_type === 'airport_drop').length;
+            const scopedHarborTrips = baseRows.filter(r => r.service_type === 'harbor_drop').length;
+            const scopedNarayanaTrips = baseRows.filter(r => r.service_type === 'narayana_trip').length;
 
             const driverNameSafe = (dr.partner_owner || 'Tanpa Pemilik').replace(/'/g, "\\'");
 
@@ -1359,23 +1381,24 @@ include '../../includes/header.php';
             html += `
                 <div class="driver-recap-card">
                     <div class="dr-name">
-                        <span>🤝 ${dr.partner_owner || 'Tanpa Pemilik'}${dr.owner_phone ? ' <span style="font-weight:400;color:#6b7690;font-size:11px;">&middot; ' + dr.owner_phone + '</span>' : ''}</span>
+                        <span>${isTripTab ? '🧭' : '🤝'} ${dr.partner_owner || 'Tanpa Pemilik'}${dr.owner_phone ? ' <span style="font-weight:400;color:#6b7690;font-size:11px;">&middot; ' + dr.owner_phone + '</span>' : ''}</span>
                         <button class="btn-print-recap" onclick="printDriverRecap(${idx})">🖨️ Cetak Rekap</button>
                     </div>
                     <div class="dr-stats">
-                        <div class="dr-stat"><div class="v">${dr.total_trips}</div><div class="l">Trip</div></div>
-                        <div class="dr-stat"><div class="v">Rp ${formatNumber(dr.total_revenue)}</div><div class="l">Total Revenue</div></div>
-                        <div class="dr-stat"><div class="v">Rp ${formatNumber(dr.owner_total)}</div><div class="l">Bagian Pemilik (${Math.round(dr.avg_comm_pct)}%)</div></div>
-                        <div class="dr-stat"><div class="v">Rp ${formatNumber(dr.hotel_total)}</div><div class="l">Komisi Hotel</div></div>
+                        <div class="dr-stat"><div class="v">${baseRows.length}</div><div class="l">Trip</div></div>
+                        <div class="dr-stat"><div class="v">Rp ${formatNumber(scopedTotalRevenue)}</div><div class="l">Total Revenue</div></div>
+                        <div class="dr-stat"><div class="v">Rp ${formatNumber(scopedOwnerTotal)}</div><div class="l">Bagian Pemilik (${scopedAvgPct}%)</div></div>
+                        <div class="dr-stat"><div class="v">Rp ${formatNumber(scopedHotelTotal)}</div><div class="l">Komisi Hotel</div></div>
                     </div>
                     <div class="dr-paid-summary">
-                        <span>✅ Sudah Dibayar: <strong style="color:#16794d;">Rp ${formatNumber(dr.paid_total || 0)}</strong> (${dr.paid_trips || 0} trip)</span>
-                        <span>⏳ Belum Dibayar: <strong style="color:#d97706;">Rp ${formatNumber(dr.unpaid_total || 0)}</strong> (${dr.unpaid_trips || 0} trip)</span>
+                        <span>✅ Sudah Dibayar: <strong style="color:#16794d;">Rp ${formatNumber(scopedPaidTotal)}</strong> (${scopedPaidTrips} trip)</span>
+                        <span>⏳ Belum Dibayar: <strong style="color:#d97706;">Rp ${formatNumber(scopedUnpaidTotal)}</strong> (${scopedUnpaidTrips} trip)</span>
                     </div>
                     <div class="dr-breakdown">
-                        <div class="dr-stat"><div class="v">${dr.rental_trips}</div><div class="l">Rental Mobil</div></div>
-                        <div class="dr-stat"><div class="v">${dr.airport_trips}</div><div class="l">Airport Drop</div></div>
-                        <div class="dr-stat"><div class="v">${dr.harbor_trips}</div><div class="l">Harbor Drop</div></div>
+                        <div class="dr-stat"><div class="v">${scopedRentalTrips}</div><div class="l">Rental Mobil</div></div>
+                        <div class="dr-stat"><div class="v">${scopedAirportTrips}</div><div class="l">Airport Drop</div></div>
+                        <div class="dr-stat"><div class="v">${scopedHarborTrips}</div><div class="l">Harbor Drop</div></div>
+                        ${isTripTab ? `<div class="dr-stat"><div class="v">${scopedNarayanaTrips}</div><div class="l">Narayana Trip</div></div>` : ''}
                     </div>
                     ${detailRows ? `
                     <div style="font-size:11px;font-weight:700;color:#475569;margin-top:8px;">Detail Transaksi</div>
@@ -1436,6 +1459,7 @@ include '../../includes/header.php';
     function printDriverRecap(idx) {
         const dr = lastDriverRecap[idx];
         if (!dr) return;
+        const isTripTab = currentCategory === 'trip';
 
         const typeLabel = {
             car_rental: 'Rental Mobil',
@@ -1450,7 +1474,15 @@ include '../../includes/header.php';
                 year: 'numeric'
             }) :
             '';
-        const rows = dr.detail_rows || [];
+        const rows = (dr.detail_rows || []).filter(d => {
+            const isTripService = String(d.service_type || '') === 'narayana_trip';
+            return isTripTab ? isTripService : !isTripService;
+        });
+
+        const sumRevenue = rows.reduce((sum, r) => sum + (parseFloat(r.total_price) || 0), 0);
+        const sumOwner = rows.reduce((sum, r) => sum + (parseFloat(r.owner_amount) || 0), 0);
+        const sumPaid = rows.filter(r => r.paid).reduce((sum, r) => sum + (parseFloat(r.owner_amount) || 0), 0);
+        const sumUnpaid = rows.filter(r => !r.paid).reduce((sum, r) => sum + (parseFloat(r.owner_amount) || 0), 0);
 
         const rowsHtml = rows.map((d, i) => `
             <tr>
@@ -1489,14 +1521,14 @@ include '../../includes/header.php';
             </head>
             <body>
                 <button class="no-print" onclick="window.print()" style="float:right;padding:6px 14px;">Cetak</button>
-                <h1>Rekap Trip Driver / Mitra</h1>
+                <h1>${isTripTab ? 'Rekap Tagihan Trip (Guide)' : 'Rekap Trip Driver / Mitra'}</h1>
                 <div class="sub">${dr.partner_owner || 'Tanpa Pemilik'}${dr.owner_phone ? ' · ' + dr.owner_phone : ''} &mdash; Periode ${monthLabel}</div>
                 <div class="summary">
-                    <div><b>${dr.total_trips}</b>Total Trip</div>
-                    <div><b>Rp ${formatNumber(dr.total_revenue)}</b>Total Revenue</div>
-                    <div><b>Rp ${formatNumber(dr.owner_total)}</b>Bagian Pemilik</div>
-                    <div><b>Rp ${formatNumber(dr.paid_total || 0)}</b>Sudah Dibayar</div>
-                    <div><b>Rp ${formatNumber(dr.unpaid_total || 0)}</b>Belum Dibayar</div>
+                    <div><b>${rows.length}</b>Total Trip</div>
+                    <div><b>Rp ${formatNumber(sumRevenue)}</b>Total Revenue</div>
+                    <div><b>Rp ${formatNumber(sumOwner)}</b>Bagian Pemilik</div>
+                    <div><b>Rp ${formatNumber(sumPaid)}</b>Sudah Dibayar</div>
+                    <div><b>Rp ${formatNumber(sumUnpaid)}</b>Belum Dibayar</div>
                 </div>
                 <table>
                     <thead>
@@ -2175,8 +2207,8 @@ include '../../includes/header.php';
     // Load on page load
     window.addEventListener('load', () => {
         const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('cat') === 'driver') {
-            switchCategory('driver');
+        if (urlParams.get('cat') === 'driver' || urlParams.get('cat') === 'trip') {
+            switchCategory(urlParams.get('cat'));
         } else {
             loadBills();
         }
