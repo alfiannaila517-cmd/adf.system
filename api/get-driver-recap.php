@@ -105,6 +105,15 @@ try {
                     WHERE cb.business_id=? AND cb.status IN ('active','returned')
                         AND cb.car_id IS NOT NULL
               AND DATE(COALESCE(cb.actual_return, cb.end_datetime, cb.created_at)) BETWEEN ? AND ?
+                            AND (
+                                        cb.invoice_id IS NULL
+                                        OR EXISTS (
+                                                SELECT 1 FROM hotel_invoices hi2
+                                                WHERE hi2.id = cb.invoice_id
+                                                    AND hi2.business_id = cb.business_id
+                                                    AND hi2.status NOT IN ('cancelled')
+                                        )
+                            )
               AND rc.partner_owner IS NOT NULL AND rc.partner_owner != ''
             GROUP BY rc.partner_owner, rc.owner_phone
             ORDER BY total_revenue DESC");
@@ -162,10 +171,25 @@ try {
                 {$detailJoinCashbook}
             WHERE cb.business_id=? AND cb.status IN ('active','returned')
               AND DATE(COALESCE(cb.actual_return, cb.end_datetime, cb.created_at)) BETWEEN ? AND ?
+                            AND (
+                                        cb.invoice_id IS NULL
+                                        OR EXISTS (
+                                                SELECT 1 FROM hotel_invoices hi2
+                                                WHERE hi2.id = cb.invoice_id
+                                                    AND hi2.business_id = cb.business_id
+                                                    AND hi2.status NOT IN ('cancelled')
+                                        )
+                            )
               AND rc.partner_owner IS NOT NULL AND rc.partner_owner != ''
             ORDER BY trx_date DESC, cb.id DESC");
         $detailStmt->execute([$businessId, $monthStart, $monthEnd]);
+        $seenDetailKeys = [];
         foreach ($detailStmt->fetchAll(PDO::FETCH_ASSOC) as $detail) {
+            $rowKey = 'trip:' . (int)$detail['trip_id'] . ':' . (string)($detail['service_type'] ?? '');
+            if (isset($seenDetailKeys[$rowKey])) {
+                continue;
+            }
+            $seenDetailKeys[$rowKey] = true;
             $key = $ownerKey($detail['partner_owner'] ?? '');
             $carLabel = trim(($detail['car_name'] ?? '') . ' (' . ($detail['plate_number'] ?? '') . ')');
             $label = $detail['service_type'] === 'car_rental' ? $carLabel : ($detail['trip_destination'] ?: $carLabel);
@@ -244,7 +268,13 @@ try {
             $indexMap[$dropKey] = count($recap) - 1;
         }
 
+        $seenLegacyKeys = [];
         foreach ($dropDetails as $detail) {
+            $legacyKey = 'legacy:' . (int)$detail['trip_id'] . ':' . (string)($detail['service_type'] ?? '');
+            if (isset($seenLegacyKeys[$legacyKey])) {
+                continue;
+            }
+            $seenLegacyKeys[$legacyKey] = true;
             $idx = $indexMap[$dropKey] ?? null;
             if ($idx === null) continue;
             $amount      = (float)$detail['total_price'];
