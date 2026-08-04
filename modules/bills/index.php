@@ -181,8 +181,8 @@ include '../../includes/header.php';
 
     .content-grid {
         display: grid;
-        grid-template-columns: 1fr 2fr;
-        gap: 30px;
+        grid-template-columns: 1fr;
+        gap: 20px;
     }
 
     .card {
@@ -834,18 +834,23 @@ include '../../includes/header.php';
 
     .bill-form-launch {
         display: flex;
-        flex-direction: column;
+        justify-content: space-between;
+        align-items: flex-end;
         gap: 12px;
+        margin-bottom: 15px;
+        flex-wrap: wrap;
     }
 
     .bill-form-launch p {
         font-size: 13px;
         color: #5a6478;
         line-height: 1.5;
+        margin: 0;
     }
 
     .btn-open-bill-modal {
-        width: 100%;
+        width: auto;
+        min-width: 220px;
         padding: 13px 14px;
         border: none;
         border-radius: 10px;
@@ -913,8 +918,12 @@ include '../../includes/header.php';
     }
 
     @media (max-width: 768px) {
-        .content-grid {
-            grid-template-columns: 1fr;
+        .bill-form-launch {
+            align-items: stretch;
+        }
+
+        .btn-open-bill-modal {
+            width: 100%;
         }
 
         .form-row {
@@ -935,32 +944,30 @@ include '../../includes/header.php';
 
     <!-- CONTENT GRID -->
     <div class="content-grid">
-        <!-- LEFT: FORM TAMBAH TAGIHAN -->
-        <div class="card">
-            <h2>➕ Tambah Tagihan Baru</h2>
-            <div class="bill-form-launch">
-                <p>Klik tombol di bawah ini untuk membuka form input tagihan dalam popup.</p>
-                <button type="button" class="btn-open-bill-modal" onclick="openBillFormModal()">+ Tambah Tagihan Baru</button>
-            </div>
-        </div>
-
-        <!-- RIGHT: LIST TAGIHAN -->
+        <!-- LIST TAGIHAN -->
         <div class="card">
             <h2>📋 Daftar Tagihan</h2>
 
-            <div style="margin-bottom: 15px;">
-                <label style="font-size: 14px; font-weight: 600; color: #333;">Bulan:</label>
-                <input
-                    type="month"
-                    id="filterMonth"
-                    onchange="onMonthChange()"
-                    style="width: 150px; padding: 8px; border: 1px solid #ddd; border-radius: 5px; margin-top: 5px;">
+            <div class="bill-form-launch">
+                <p>Klik tombol untuk tambah tagihan baru. Daftar tagihan sekarang tampil full lebar.</p>
+                <button type="button" class="btn-open-bill-modal" onclick="openBillFormModal()">+ Tambah Tagihan Baru</button>
+            </div>
+
+            <div style="margin-bottom: 15px; display:flex; align-items:flex-end; gap:12px; flex-wrap:wrap;">
+                <div>
+                    <label style="font-size: 14px; font-weight: 600; color: #333;">Bulan:</label>
+                    <input
+                        type="month"
+                        id="filterMonth"
+                        onchange="onMonthChange()"
+                        style="width: 160px; padding: 8px; border: 1px solid #ddd; border-radius: 5px; margin-top: 5px;">
+                </div>
             </div>
 
             <div class="category-tabs">
-                <button class="category-btn" data-cat="driver" onclick="switchCategory('driver')">🚗 Tagihan Driver</button>
+                <button class="category-btn active" data-cat="driver" onclick="switchCategory('driver')">🚗 Tagihan Driver</button>
                 <button class="category-btn" data-cat="trip" onclick="switchCategory('trip')">🧭 Tagihan Trip</button>
-                <button class="category-btn active" data-cat="manual" onclick="switchCategory('manual')">📝 Tagihan Manual</button>
+                <button class="category-btn" data-cat="manual" onclick="switchCategory('manual')">📝 Tagihan Manual</button>
                 <button class="category-btn" data-cat="bulanan" onclick="switchCategory('bulanan')">🔁 Tagihan Bulanan</button>
             </div>
 
@@ -1194,7 +1201,7 @@ include '../../includes/header.php';
     });
 
     let currentTab = 'all';
-    let currentCategory = 'manual';
+    let currentCategory = 'driver';
 
     // Reload whichever category is currently active when the month filter changes
     function onMonthChange() {
@@ -2324,11 +2331,9 @@ include '../../includes/header.php';
     // Load on page load
     window.addEventListener('load', () => {
         const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('cat') === 'driver' || urlParams.get('cat') === 'trip') {
-            switchCategory(urlParams.get('cat'));
-        } else {
-            loadBills();
-        }
+        const reqCat = urlParams.get('cat');
+        const allowed = ['driver', 'trip', 'manual', 'bulanan'];
+        switchCategory(allowed.includes(reqCat) ? reqCat : 'driver');
     });
 </script>
 
