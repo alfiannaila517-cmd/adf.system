@@ -12,7 +12,7 @@
  *
  * POST data:
  * - trip_id: ID of the rental_car_bookings row OR hotel_invoice_items row
- * - source_type: car_rental | airport_drop | harbor_drop
+ * - source_type: car_rental | airport_drop | harbor_drop | narayana_trip
  * - payment_method: cash, transfer, card, other
  * - cash_account_id: Dari rekening mana (FK cash_accounts.id)
  * - driver_name: label used in the cashbook description
@@ -56,7 +56,7 @@ try {
     $cashAccountId = (int)($_POST['cash_account_id'] ?? 0);
     $driverName = trim($_POST['driver_name'] ?? 'Driver');
 
-    if (!$tripId || !in_array($sourceType, ['car_rental', 'airport_drop', 'harbor_drop'], true)) {
+    if (!$tripId || !in_array($sourceType, ['car_rental', 'airport_drop', 'harbor_drop', 'narayana_trip'], true)) {
         throw new Exception('Data trip tidak valid');
     }
 
@@ -100,7 +100,10 @@ try {
         $amount = ($ownerAmount > 0 || $hotelCommission > 0)
             ? $ownerAmount
             : (float)$trip['total_price'];
-        $label = ($sourceType === 'airport_drop' ? 'Airport Drop' : 'Harbor Drop') . ($trip['description'] ? " - {$trip['description']}" : '');
+        $label = ($sourceType === 'airport_drop'
+            ? 'Airport Drop'
+            : ($sourceType === 'harbor_drop' ? 'Harbor Drop' : 'Narayana Trip')) .
+            ($trip['description'] ? " - {$trip['description']}" : '');
         $guestLabel = $trip['guest_name'] ? " - {$trip['guest_name']}" : '';
         $updateSql = "UPDATE hotel_invoice_items SET driver_paid = 1, driver_paid_at = NOW(), driver_paid_cashbook_id = ? WHERE id = ?";
     }

@@ -85,6 +85,8 @@ try {
     $hasCashbookPaymentMethod = $hasCashBookTable && $columnExists($pdo, 'cash_book', 'payment_method');
     $hasCbDriverPaidCashbookId = $columnExists($pdo, 'rental_car_bookings', 'driver_paid_cashbook_id');
     $hasHiiDriverPaidCashbookId = $columnExists($pdo, 'hotel_invoice_items', 'driver_paid_cashbook_id');
+    $hasHiiTripType = $columnExists($pdo, 'hotel_invoice_items', 'trip_type');
+    $hasHiiGuideName = $columnExists($pdo, 'hotel_invoice_items', 'guide_name');
 
     // ── Owner recap (car rental + airport/harbor drop trips with a linked driver car) ──
     $recap = [];
@@ -279,9 +281,12 @@ try {
         $dropSelectPaymentMethod = $hasCashbookPaymentMethod ? 'paycb.payment_method' : 'NULL as payment_method';
         $dropJoinCashbook = ($hasCashBookTable && $hasHiiDriverPaidCashbookId) ? 'LEFT JOIN cash_book paycb ON hii.driver_paid_cashbook_id = paycb.id' : '';
 
+        $dropSelectTripType = $hasHiiTripType ? 'hii.trip_type' : 'NULL as trip_type';
+        $dropSelectGuideName = $hasHiiGuideName ? 'hii.guide_name' : 'NULL as guide_name';
+
         $dropStmt = $pdo->prepare("SELECT
             hi.guest_name, hi.room_number, hi.created_at as trx_date,
-            hii.id as trip_id, hii.service_type, hii.description, hii.total_price,
+            hii.id as trip_id, hii.service_type, {$dropSelectTripType}, {$dropSelectGuideName}, hii.description, hii.total_price,
             IF(hii.owner_amount > 0 OR hii.hotel_commission > 0, hii.owner_amount, hii.total_price) as owner_amount,
             COALESCE(hii.hotel_commission, 0) as hotel_commission,
             hii.driver_paid, hii.driver_paid_at, {$dropSelectCashbookId},
@@ -289,18 +294,29 @@ try {
             FROM hotel_invoice_items hii
             JOIN hotel_invoices hi ON hii.invoice_id = hi.id
             {$dropJoinCashbook}
-            WHERE hi.business_id=? AND hii.service_type IN ('airport_drop','harbor_drop')
+            WHERE hi.business_id=? AND hii.service_type IN ('airport_drop','harbor_drop','narayana_trip')
               AND hi.status NOT IN ('cancelled')
               AND DATE(hi.created_at) BETWEEN ? AND ?
-              AND NOT EXISTS (
-                  SELECT 1 FROM rental_car_bookings cb2
-                  WHERE cb2.invoice_id = hii.invoice_id AND cb2.service_type = hii.service_type
+              AND (
+                  hii.service_type = 'narayana_trip'
+                  OR NOT EXISTS (
+                      SELECT 1 FROM rental_car_bookings cb2
+                      WHERE cb2.invoice_id = hii.invoice_id AND cb2.service_type = hii.service_type
+                  )
               )
             ORDER BY hi.created_at DESC, hii.id DESC");
         $dropStmt->execute([$businessId, $monthStart, $monthEnd]);
         $dropDetails = $dropStmt->fetchAll(PDO::FETCH_ASSOC);
 
-        if (!isset($indexMap[$dropKey]) && !empty($dropDetails)) {
+        $hasClassicDrop = false;
+        foreach ($dropDetails as $d) {
+            if (in_array(($d['service_type'] ?? ''), ['airport_drop', 'harbor_drop'], true)) {
+                $hasClassicDrop = true;
+                break;
+            }
+        }
+
+        if (!isset($indexMap[$dropKey]) && $hasClassicDrop) {
             $recap[] = [
                 'partner_owner' => $dropOwnerName,
                 'owner_phone' => null,
@@ -331,7 +347,39 @@ try {
                 continue;
             }
             $seenLegacyKeys[$legacyKey] = true;
-            $idx = $indexMap[$dropKey] ?? null;
+            $isNarayanaTrip = ($detail['service_type'] ?? '') === 'narayana_trip';
+            $guideOwnerName = trim((string)($detail['guide_name'] ?? ''));
+            if ($isNarayanaTrip && $guideOwnerName === '') {
+                $guideOwnerName = 'Guide Narayana Trip';
+            }
+            $targetOwnerName = $isNarayanaTrip ? $guideOwnerName : $dropOwnerName;
+            $targetKey = $ownerKey($targetOwnerName);
+
+            if (!isset($indexMap[$targetKey])) {
+                $recap[] = [
+                    'partner_owner' => $targetOwnerName,
+                    'owner_phone' => null,
+                    'total_trips' => 0,
+                    'total_revenue' => 0.0,
+                    'owner_total' => 0.0,
+                    'hotel_total' => 0.0,
+                    'avg_comm_pct' => 100,
+                    'cars' => $isNarayanaTrip ? 'Narayana Trip' : 'Airport Drop, Harbor Drop',
+                    'rental_trips' => 0,
+                    'airport_trips' => 0,
+                    'harbor_trips' => 0,
+                    'airport_total' => 0.0,
+                    'harbor_total' => 0.0,
+                    'paid_total' => 0.0,
+                    'unpaid_total' => 0.0,
+                    'paid_trips' => 0,
+                    'unpaid_trips' => 0,
+                    'detail_rows' => [],
+                ];
+                $indexMap[$targetKey] = count($recap) - 1;
+            }
+
+            $idx = $indexMap[$targetKey] ?? null;
             if ($idx === null) continue;
             $amount      = (float)$detail['total_price'];
             $ownerAmt    = (float)$detail['owner_amount'];
@@ -350,12 +398,21 @@ try {
                 $recap[$idx]['harbor_trips'] += 1;
                 $recap[$idx]['harbor_total'] += $amount;
             }
-            $detailMap[$dropKey][] = [
+            $tripTypeLabel = '';
+            if (($detail['service_type'] ?? '') === 'narayana_trip') {
+                $tripType = strtolower(trim((string)($detail['trip_type'] ?? '')));
+                if ($tripType === 'open_trip') {
+                    $tripTypeLabel = 'Open Trip';
+                } elseif ($tripType === 'private_trip') {
+                    $tripTypeLabel = 'Private Trip';
+                }
+            }
+            $detailMap[$targetKey][] = [
                 'trip_id' => (int)$detail['trip_id'],
                 'trx_date' => $detail['trx_date'],
                 'guest_name' => $detail['guest_name'],
                 'room_number' => $detail['room_number'],
-                'label' => $detail['description'] ?: $detail['service_type'],
+                'label' => trim(($tripTypeLabel ? ($tripTypeLabel . ' - ') : '') . ($detail['description'] ?: $detail['service_type'])),
                 'service_type' => $detail['service_type'],
                 'source' => 'legacy',
                 'total_price' => $amount,

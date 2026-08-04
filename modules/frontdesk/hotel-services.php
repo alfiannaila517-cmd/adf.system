@@ -124,6 +124,48 @@ try {
     }
 }
 
+// Narayana Trip guide master
+$pdo->exec("CREATE TABLE IF NOT EXISTS narayana_trip_guides (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    business_id INT NOT NULL DEFAULT 1,
+    guide_name  VARCHAR(120) NOT NULL,
+    phone       VARCHAR(40) DEFAULT NULL,
+    is_active   TINYINT(1) NOT NULL DEFAULT 1,
+    sort_order  INT NOT NULL DEFAULT 0,
+    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_biz_guide (business_id, guide_name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+try {
+    $pdo->query("SELECT trip_type FROM hotel_invoice_items LIMIT 1");
+} catch (\Throwable $e) {
+    try {
+        $pdo->exec("ALTER TABLE hotel_invoice_items ADD COLUMN trip_type VARCHAR(20) DEFAULT NULL AFTER service_type");
+    } catch (\Throwable $e2) {
+        error_log('hotel_invoice_items trip_type migration: ' . $e2->getMessage());
+    }
+}
+
+try {
+    $pdo->query("SELECT guide_id FROM hotel_invoice_items LIMIT 1");
+} catch (\Throwable $e) {
+    try {
+        $pdo->exec("ALTER TABLE hotel_invoice_items ADD COLUMN guide_id INT DEFAULT NULL AFTER trip_type");
+    } catch (\Throwable $e2) {
+        error_log('hotel_invoice_items guide_id migration: ' . $e2->getMessage());
+    }
+}
+
+try {
+    $pdo->query("SELECT guide_name FROM hotel_invoice_items LIMIT 1");
+} catch (\Throwable $e) {
+    try {
+        $pdo->exec("ALTER TABLE hotel_invoice_items ADD COLUMN guide_name VARCHAR(120) DEFAULT NULL AFTER guide_id");
+    } catch (\Throwable $e2) {
+        error_log('hotel_invoice_items guide_name migration: ' . $e2->getMessage());
+    }
+}
+
 $pdo->exec("CREATE TABLE IF NOT EXISTS hotel_invoice_items (
     id              INT AUTO_INCREMENT PRIMARY KEY,
     invoice_id      INT NOT NULL,
@@ -491,6 +533,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 $item['end_dt']     = trim((string)($item['end_dt'] ?? '')) ?: null;
                 $item['deposit']    = max(0, (float)($item['deposit'] ?? 0));
                 $item['trip_destination'] = trim((string)($item['trip_destination'] ?? '')) ?: null;
+                $item['trip_type'] = trim((string)($item['trip_type'] ?? ''));
+                $item['guide_id'] = (int)($item['guide_id'] ?? 0);
+                $item['guide_name'] = trim((string)($item['guide_name'] ?? ''));
                 $item['total']      = round($item['qty'] * $item['unit_price'], 2);
                 $item['car_id']              = (int)($item['car_id'] ?? 0);
                 $item['needs_driver_payment'] = !empty($item['needs_driver_payment']) ? 1 : 0;
@@ -499,6 +544,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 $subtotal += $item['total'];
                 if (!isset($serviceTypes[$item['service_type'] ?? ''])) {
                     throw new Exception('Invalid service type: ' . ($item['service_type'] ?? ''));
+                }
+
+                if (($item['service_type'] ?? '') === 'narayana_trip') {
+                    if (!in_array($item['trip_type'], ['open_trip', 'private_trip'], true)) {
+                        throw new Exception('Narayana Trip wajib pilih tipe Open Trip atau Private Trip');
+                    }
+                    if ($item['guide_id'] <= 0) {
+                        throw new Exception('Narayana Trip wajib pilih nama guide');
+                    }
+                    $guideStmt = $pdo->prepare("SELECT id, guide_name FROM narayana_trip_guides WHERE id=? AND business_id=? AND is_active=1 LIMIT 1");
+                    $guideStmt->execute([$item['guide_id'], $businessId]);
+                    $guideRow = $guideStmt->fetch(PDO::FETCH_ASSOC);
+                    if (!$guideRow) {
+                        throw new Exception('Guide Narayana Trip tidak ditemukan');
+                    }
+                    $item['guide_name'] = trim((string)$guideRow['guide_name']);
+                    if (trim((string)($item['description'] ?? '')) === '') {
+                        $tripTypeLabel = $item['trip_type'] === 'open_trip' ? 'Open Trip' : 'Private Trip';
+                        $item['description'] = "Narayana Trip - {$tripTypeLabel} - Guide: {$item['guide_name']}";
+                    }
                 }
 
                 if (($item['service_type'] ?? '') === 'motor_rental') {
@@ -613,15 +678,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 $existingSubtotal = (float)$sumStmt->fetchColumn();
                 // Update totals based on new items
                 $iStmt = $pdo->prepare("INSERT INTO hotel_invoice_items
-                    (invoice_id, service_type, description, quantity, unit_price, total_price, owner_amount, hotel_commission, start_datetime, end_datetime)
-                    VALUES (?,?,?,?,?,?,?,?,?,?)");
+                    (invoice_id, service_type, trip_type, guide_id, guide_name, description, quantity, unit_price, total_price, owner_amount, hotel_commission, start_datetime, end_datetime)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)");
                 foreach ($items as $item) {
                     [$iOwner, $iHotel] = !empty($item['needs_driver_payment'])
                         ? calcDriverSplit((float)$item['total'], $item['commission_type'] ?? 'percent', (float)($item['commission_value'] ?? 0))
                         : [0.0, 0.0];
+                    if (($item['service_type'] ?? '') === 'narayana_trip') {
+                        // Guide billing defaults to full amount when no explicit split is provided.
+                        if ($iOwner <= 0 && $iHotel <= 0) {
+                            $iOwner = (float)$item['total'];
+                            $iHotel = 0.0;
+                        }
+                    }
                     $iStmt->execute([
                         $invId,
                         $item['service_type'],
+                        $item['trip_type'] ?: null,
+                        $item['guide_id'] ?: null,
+                        $item['guide_name'] ?: null,
                         $item['description'] ?: null,
                         $item['qty'],
                         $item['unit_price'],
@@ -691,15 +766,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 $invId = (int)$pdo->lastInsertId();
 
                 $iStmt = $pdo->prepare("INSERT INTO hotel_invoice_items
-                    (invoice_id, service_type, description, quantity, unit_price, total_price, owner_amount, hotel_commission, start_datetime, end_datetime)
-                    VALUES (?,?,?,?,?,?,?,?,?,?)");
+                    (invoice_id, service_type, trip_type, guide_id, guide_name, description, quantity, unit_price, total_price, owner_amount, hotel_commission, start_datetime, end_datetime)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)");
                 foreach ($items as $item) {
                     [$iOwner, $iHotel] = !empty($item['needs_driver_payment'])
                         ? calcDriverSplit((float)$item['total'], $item['commission_type'] ?? 'percent', (float)($item['commission_value'] ?? 0))
                         : [0.0, 0.0];
+                    if (($item['service_type'] ?? '') === 'narayana_trip') {
+                        if ($iOwner <= 0 && $iHotel <= 0) {
+                            $iOwner = (float)$item['total'];
+                            $iHotel = 0.0;
+                        }
+                    }
                     $iStmt->execute([
                         $invId,
                         $item['service_type'],
+                        $item['trip_type'] ?: null,
+                        $item['guide_id'] ?: null,
+                        $item['guide_name'] ?: null,
                         $item['description'] ?: null,
                         $item['qty'],
                         $item['unit_price'],
@@ -1234,6 +1318,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             exit;
         }
 
+        // ── SAVE / UPDATE NARAYANA TRIP GUIDE ───────────────────────────────────────────
+        if ($action === 'save_trip_guide') {
+            $guideId = (int)($_POST['guide_id'] ?? 0);
+            $guideName = trim($_POST['guide_name'] ?? '');
+            $phone = trim($_POST['phone'] ?? '');
+            $sortOrder = (int)($_POST['sort_order'] ?? 0);
+            if ($guideName === '') {
+                throw new Exception('Nama guide wajib diisi');
+            }
+            if ($guideId > 0) {
+                $pdo->prepare("UPDATE narayana_trip_guides SET guide_name=?, phone=?, sort_order=? WHERE id=? AND business_id=?")
+                    ->execute([$guideName, $phone ?: null, $sortOrder, $guideId, $businessId]);
+            } else {
+                $pdo->prepare("INSERT INTO narayana_trip_guides (business_id, guide_name, phone, sort_order, is_active) VALUES (?,?,?,?,1)")
+                    ->execute([$businessId, $guideName, $phone ?: null, $sortOrder]);
+                $guideId = (int)$pdo->lastInsertId();
+            }
+            ob_clean();
+            echo json_encode(['success' => true, 'id' => $guideId]);
+            exit;
+        }
+
+        // ── DELETE NARAYANA TRIP GUIDE ─────────────────────────────────────────────────
+        if ($action === 'delete_trip_guide') {
+            $guideId = (int)($_POST['guide_id'] ?? 0);
+            if (!$guideId) throw new Exception('Guide ID tidak valid');
+
+            $usedCheck = $pdo->prepare("SELECT COUNT(*) FROM hotel_invoice_items hii
+                JOIN hotel_invoices hi ON hi.id = hii.invoice_id
+                WHERE hi.business_id=? AND hii.guide_id=?");
+            $usedCheck->execute([$businessId, $guideId]);
+            if ((int)$usedCheck->fetchColumn() > 0) {
+                throw new Exception('Guide sudah dipakai pada invoice, tidak bisa dihapus');
+            }
+
+            $pdo->prepare("DELETE FROM narayana_trip_guides WHERE id=? AND business_id=?")
+                ->execute([$guideId, $businessId]);
+            ob_clean();
+            echo json_encode(['success' => true]);
+            exit;
+        }
+
         // ── GET SERVICE TYPES (AJAX) ────────────────────────────────────────────────────────
         if ($action === 'get_service_types') {
             $stRows = $pdo->prepare("SELECT * FROM hotel_service_types WHERE business_id=? ORDER BY sort_order, type_label");
@@ -1305,6 +1431,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 $item['end_dt']     = trim((string)($item['end_dt'] ?? '')) ?: null;
                 $item['deposit']    = max(0, (float)($item['deposit'] ?? 0));
                 $item['trip_destination'] = trim((string)($item['trip_destination'] ?? '')) ?: null;
+                $item['trip_type'] = trim((string)($item['trip_type'] ?? ''));
+                $item['guide_id'] = (int)($item['guide_id'] ?? 0);
+                $item['guide_name'] = trim((string)($item['guide_name'] ?? ''));
                 $item['total']      = round($item['qty'] * $item['unit_price'], 2);
                 $item['car_id']              = (int)($item['car_id'] ?? 0);
                 $item['needs_driver_payment'] = !empty($item['needs_driver_payment']) ? 1 : 0;
@@ -1312,6 +1441,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 $item['commission_value']    = max(0, (float)($item['commission_value'] ?? 0));
                 $subtotal += $item['total'];
                 if (!isset($serviceTypes[$item['service_type'] ?? ''])) throw new Exception('Invalid service type');
+
+                if (($item['service_type'] ?? '') === 'narayana_trip') {
+                    if (!in_array($item['trip_type'], ['open_trip', 'private_trip'], true)) {
+                        throw new Exception('Narayana Trip wajib pilih tipe Open Trip atau Private Trip');
+                    }
+                    if ($item['guide_id'] <= 0) {
+                        throw new Exception('Narayana Trip wajib pilih nama guide');
+                    }
+                    $guideStmt = $pdo->prepare("SELECT id, guide_name FROM narayana_trip_guides WHERE id=? AND business_id=? AND is_active=1 LIMIT 1");
+                    $guideStmt->execute([$item['guide_id'], $businessId]);
+                    $guideRow = $guideStmt->fetch(PDO::FETCH_ASSOC);
+                    if (!$guideRow) {
+                        throw new Exception('Guide Narayana Trip tidak ditemukan');
+                    }
+                    $item['guide_name'] = trim((string)$guideRow['guide_name']);
+                    if (trim((string)($item['description'] ?? '')) === '') {
+                        $tripTypeLabel = $item['trip_type'] === 'open_trip' ? 'Open Trip' : 'Private Trip';
+                        $item['description'] = "Narayana Trip - {$tripTypeLabel} - Guide: {$item['guide_name']}";
+                    }
+                }
 
                 if (($item['service_type'] ?? '') === 'motor_rental') {
                     $item['motor_id'] = (int)($item['motor_id'] ?? 0);
@@ -1378,9 +1527,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $pdo->prepare("UPDATE hotel_invoices SET guest_name=?,guest_phone=?,room_number=?,total=?,paid_amount=?,payment_status=?,payment_method=?,notes=?,tax_rate=?,tax_amount=?,service_charge_rate=?,service_charge_amount=?,discount_rate=?,discount_amount=?,updated_at=NOW() WHERE id=?")
                 ->execute([$guestName, $guestPhone ?: null, $roomNumber ?: null, $total, $paidAmount, $payStatus, $payMethod, $notes ?: null, $taxRate, $taxAmount, $serviceChargeRate, $serviceChargeAmount, $discountRate, $discountAmount, $id]);
             $pdo->prepare("DELETE FROM hotel_invoice_items WHERE invoice_id=?")->execute([$id]);
-            $iStmt = $pdo->prepare("INSERT INTO hotel_invoice_items (invoice_id,service_type,description,quantity,unit_price,total_price,start_datetime,end_datetime) VALUES (?,?,?,?,?,?,?,?)");
+            $iStmt = $pdo->prepare("INSERT INTO hotel_invoice_items
+                (invoice_id,service_type,trip_type,guide_id,guide_name,description,quantity,unit_price,total_price,owner_amount,hotel_commission,start_datetime,end_datetime)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)");
             foreach ($items as $item) {
-                $iStmt->execute([$id, $item['service_type'], $item['description'] ?: null, $item['qty'], $item['unit_price'], $item['total'], $item['start_dt'] ?: null, $item['end_dt'] ?: null]);
+                [$iOwner, $iHotel] = !empty($item['needs_driver_payment'])
+                    ? calcDriverSplit((float)$item['total'], $item['commission_type'] ?? 'percent', (float)($item['commission_value'] ?? 0))
+                    : [0.0, 0.0];
+                if (($item['service_type'] ?? '') === 'narayana_trip') {
+                    if ($iOwner <= 0 && $iHotel <= 0) {
+                        $iOwner = (float)$item['total'];
+                        $iHotel = 0.0;
+                    }
+                }
+                $iStmt->execute([
+                    $id,
+                    $item['service_type'],
+                    $item['trip_type'] ?: null,
+                    $item['guide_id'] ?: null,
+                    $item['guide_name'] ?: null,
+                    $item['description'] ?: null,
+                    $item['qty'],
+                    $item['unit_price'],
+                    $item['total'],
+                    $iOwner,
+                    $iHotel,
+                    $item['start_dt'] ?: null,
+                    $item['end_dt'] ?: null
+                ]);
             }
 
             $matchedMotorBookingIds = [];
@@ -1723,6 +1897,14 @@ try {
     $availableCars = [];
 }
 
+try {
+    $guideStmt = $pdo->prepare("SELECT id, guide_name, phone, sort_order FROM narayana_trip_guides WHERE business_id=? AND is_active=1 ORDER BY sort_order, guide_name");
+    $guideStmt->execute([$businessId]);
+    $tripGuides = $guideStmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (\Throwable $e) {
+    $tripGuides = [];
+}
+
 // ── GET: load invoice for edit modal ─────────────────────────────────────────
 if (isset($_GET['get_invoice']) && isset($_GET['id'])) {
     $gid = (int)$_GET['id'];
@@ -1750,6 +1932,14 @@ if (isset($_GET['get_invoice']) && isset($_GET['id'])) {
         $carRentals = $carMapStmt->fetchAll(PDO::FETCH_ASSOC);
 
         foreach ($gRow['items'] as &$gItem) {
+            if (($gItem['service_type'] ?? '') === 'narayana_trip') {
+                if (!empty($gItem['trip_type'])) {
+                    $gItem['trip_type'] = (string)$gItem['trip_type'];
+                }
+                if (!empty($gItem['guide_id'])) {
+                    $gItem['guide_id'] = (int)$gItem['guide_id'];
+                }
+            }
             if (($gItem['service_type'] ?? '') === 'motor_rental') {
                 foreach ($motorRentals as $mr) {
                     if (strpos((string)($gItem['description'] ?? ''), (string)$mr['plate_number']) !== false) {
@@ -2905,6 +3095,7 @@ include '../../includes/header.php';
             <button class="hs-tab active" id="tab-inv" onclick="switchTab('inv')"> 🏨 Invoice &amp; Perusahaan</button>
             <button class="hs-tab" id="tab-catalog" onclick="switchTab('catalog')">📂 Katalog Harga</button>
             <button class="hs-tab" id="tab-svctype" onclick="switchTab('svctype')">🏷️ Tipe Layanan</button>
+            <button class="hs-tab" id="tab-guide" onclick="switchTab('guide')">🧭 Guide Trip</button>
         </div>
 
         <!-- TAB 1: Invoice & Company -->
@@ -3024,6 +3215,39 @@ include '../../includes/header.php';
             </div>
         </div>
 
+        <!-- TAB 4: Guide Narayana Trip -->
+        <div class="hs-tab-pane" id="pane-guide">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.65rem">
+                <span style="font-size:0.78rem;color:#64748b">Kelola daftar guide untuk layanan Narayana Trip (Open/Private). Nama guide ini akan dipakai di Tagihan.</span>
+                <button class="btn-hs btn-hs-primary" style="font-size:0.78rem;padding:0.35rem 0.85rem" onclick="addGuideRow()">+ Tambah Guide</button>
+            </div>
+            <div style="overflow-x:auto;max-height:55vh;overflow-y:auto">
+                <table class="cat-tbl">
+                    <thead>
+                        <tr>
+                            <th style="min-width:180px">Nama Guide</th>
+                            <th style="min-width:130px">Telepon</th>
+                            <th style="width:60px">Urut</th>
+                            <th style="width:90px"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="guideBody">
+                        <?php foreach ($tripGuides as $g): ?>
+                            <tr id="gtr<?php echo (int)$g['id']; ?>">
+                                <td><input type="text" class="gName" value="<?php echo htmlspecialchars($g['guide_name'], ENT_QUOTES); ?>"></td>
+                                <td><input type="text" class="gPhone" value="<?php echo htmlspecialchars((string)($g['phone'] ?? ''), ENT_QUOTES); ?>"></td>
+                                <td><input type="number" class="gSort" value="<?php echo (int)($g['sort_order'] ?? 0); ?>" style="width:45px"></td>
+                                <td style="display:flex;gap:3px">
+                                    <button class="btn-cat-save" onclick="saveGuideRow(<?php echo (int)$g['id']; ?>)">💾</button>
+                                    <button class="btn-cat-del" onclick="deleteGuideRow(<?php echo (int)$g['id']; ?>)">✕</button>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
     </div>
 </div>
 
@@ -3122,6 +3346,7 @@ include '../../includes/header.php';
                                 ?>;
         window.RENTAL_MOTORS = <?php echo json_encode(array_map(fn($m) => ['id' => (int)$m['id'], 'label' => ($m['motor_name'] ?? '') . ' (' . ($m['plate_number'] ?? '') . ')', 'daily_rate' => (float)$m['daily_rate']], $availableMotors), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
         window.RENTAL_CARS = <?php echo json_encode(array_map(fn($c) => ['id' => (int)$c['id'], 'label' => ($c['car_name'] ?? '') . ' (' . ($c['plate_number'] ?? '') . ')' . (!empty($c['car_type']) ? ' - ' . $c['car_type'] : ''), 'daily_rate' => (float)$c['daily_rate'], 'partner_owner' => $c['partner_owner'] ?? '', 'commission_type' => $c['commission_type'] ?? 'percent', 'commission_pct' => (float)($c['owner_commission_pct'] ?? 0), 'commission_nominal' => (float)($c['commission_nominal'] ?? 0), 'driver_daily_rate' => (float)($c['driver_daily_rate'] ?? 0)], $availableCars), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
+        window.TRIP_GUIDES = <?php echo json_encode(array_map(fn($g) => ['id' => (int)$g['id'], 'name' => $g['guide_name'], 'phone' => $g['phone'] ?? '', 'sort_order' => (int)($g['sort_order'] ?? 0)], $tripGuides), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
         window.SVC_OPTIONS = <?php echo json_encode(array_map(fn($k, $v) => ['val' => $k, 'lbl' => ($v['icon'] ?? '') . ' ' . ($v['label'] ?? '')], array_keys($serviceTypes), $serviceTypes), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
         window.CATALOG_LIST = <?php echo json_encode(array_map(fn($r) => ['stype' => $r['service_type'], 'name' => $r['item_name'], 'price' => (float)$r['default_price'], 'unit' => $r['unit'] ?? 'unit'], $catalogRows), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
         window.ACTIVE_BIZ_ID = <?php echo (int)$businessId; ?>;

@@ -6,6 +6,7 @@ const SVC_LABELS = window.SVC_LABELS || []
 const CATALOG_DATA = window.CATALOG_DATA || {}
 const RENTAL_MOTORS = window.RENTAL_MOTORS || []
 const RENTAL_CARS = window.RENTAL_CARS || []
+const TRIP_GUIDES = window.TRIP_GUIDES || []
 
 // ── Guest mode ────────────────────────────────────────────────────────────────
 function setGuestMode (mode) {
@@ -79,6 +80,20 @@ function buildCatalogPaketOpts (svc, selectedIdx) {
 
 function isRentalService (svc) {
   return svc === 'motor_rental' || svc === 'car_rental'
+}
+
+function isNarayanaTrip (svc) {
+  return svc === 'narayana_trip'
+}
+
+function buildGuideOpts (selected) {
+  let html = '<option value="">Pilih guide...</option>'
+  TRIP_GUIDES.forEach(g => {
+    html += `<option value="${g.id}" ${
+      String(g.id) === String(selected || '') ? 'selected' : ''
+    }>${g.name}</option>`
+  })
+  return html
 }
 
 // ── Driver / partner vehicle payment (car_rental, airport_drop, harbor_drop) ──
@@ -225,6 +240,12 @@ function addItemRow (svc, desc, qty, price) {
     `</div>` +
     `<div class="hs-dest-wrap"><span>Tujuan / Catatan</span><input type="text" class="iDest" placeholder="Tujuan / catatan mobil"></div>` +
     `</div>` +
+    `<div class="hs-trip-extra" style="display:none">` +
+    `<div class="hs-rental-row1">` +
+    `<div class="hs-ic-labeled" style="min-width:180px"><span>Tipe Trip</span><select class="iTripType"><option value="">Pilih tipe...</option><option value="open_trip">Open Trip</option><option value="private_trip">Private Trip</option></select></div>` +
+    `<div class="hs-ic-labeled" style="min-width:220px"><span>Nama Guide</span><select class="iGuide"><option value="">Pilih guide...</option></select></div>` +
+    `</div>` +
+    `</div>` +
     `<div class="hs-driver-extra">` +
     `<div class="iDriverCarRow" style="display:none">` +
     `<div class="hs-ic-labeled" style="flex:1"><span>Mobil Driver</span><select class="iDriverCar" onchange="onDriverCarChange('${id}')"><option value="">🚗 Pilih mobil/driver (opsional)...</option></select></div>` +
@@ -249,6 +270,7 @@ function addItemRow (svc, desc, qty, price) {
   if (svc) {
     onSvcChange(id, true)
   } else {
+    card.querySelector('.iGuide').innerHTML = buildGuideOpts('')
     rcalc(id)
   }
 }
@@ -271,6 +293,7 @@ function onSvcChange (id, isNew) {
   const priceInput = tr.querySelector('.iPrice')
   const descInput = tr.querySelector('.iDesc')
   const rentalWrap = tr.querySelector('.hs-rental-extra')
+  const tripWrap = tr.querySelector('.hs-trip-extra')
   const assetSelect = tr.querySelector('.iAsset')
   const assetWrap = tr.querySelector('.hs-asset-wrap')
   const destWrap = tr.querySelector('.hs-dest-wrap')
@@ -305,6 +328,18 @@ function onSvcChange (id, isNew) {
     tr.querySelector('.iDeposit').value = 0
     const _dest = tr.querySelector('.iDest')
     if (_dest) _dest.value = ''
+  }
+
+  if (isNarayanaTrip(svc)) {
+    if (tripWrap) tripWrap.style.display = ''
+    const guideSelect = tr.querySelector('.iGuide')
+    if (guideSelect) guideSelect.innerHTML = buildGuideOpts(guideSelect.value)
+  } else {
+    if (tripWrap) tripWrap.style.display = 'none'
+    const tripTypeSel = tr.querySelector('.iTripType')
+    const guideSel = tr.querySelector('.iGuide')
+    if (tripTypeSel) tripTypeSel.value = ''
+    if (guideSel) guideSel.value = ''
   }
 
   if (items && items.length > 0) {
@@ -575,6 +610,8 @@ function submitCreate () {
       (driverCarId > 0 || commValue > 0)
     const daysInput = tr.querySelector('.iDays')
     const days = daysInput ? parseFloat(daysInput.value) || 1 : 1
+    const tripType = tr.querySelector('.iTripType')?.value || ''
+    const guideId = parseInt(tr.querySelector('.iGuide')?.value || '0', 10)
 
     // Generate start and end dates from days
     const today = new Date()
@@ -587,6 +624,16 @@ function submitCreate () {
       alert('Item rental motor wajib pilih armada')
       return
     }
+    if (svc === 'narayana_trip') {
+      if (!tripType) {
+        alert('Narayana Trip wajib pilih tipe trip (Open/Private)')
+        return
+      }
+      if (!guideId) {
+        alert('Narayana Trip wajib pilih nama guide')
+        return
+      }
+    }
     items.push({
       service_type: svc,
       description: tr.querySelector('.iDesc').value.trim(),
@@ -597,6 +644,12 @@ function submitCreate () {
       needs_driver_payment: needsDriver ? 1 : 0,
       commission_type: commType,
       commission_value: commValue,
+      trip_type: svc === 'narayana_trip' ? tripType : null,
+      guide_id: svc === 'narayana_trip' ? guideId : null,
+      guide_name:
+        svc === 'narayana_trip'
+          ? tr.querySelector('.iGuide')?.selectedOptions?.[0]?.textContent || ''
+          : null,
       start_dt: svc === 'motor_rental' || svc === 'car_rental' ? startDt : null,
       end_dt: svc === 'motor_rental' || svc === 'car_rental' ? endDt : null,
       deposit: parseFloat(tr.querySelector('.iDeposit').value) || 0,
@@ -761,7 +814,7 @@ function closeSettingsModal () {
 }
 
 function switchTab (t) {
-  ;['inv', 'catalog', 'svctype'].forEach(id => {
+  ;['inv', 'catalog', 'svctype', 'guide'].forEach(id => {
     document.getElementById('tab-' + id).classList.toggle('active', id === t)
     document.getElementById('pane-' + id).classList.toggle('active', id === t)
   })
@@ -1024,6 +1077,16 @@ function eAddItemRow (itemOrSvc, desc, qty, price) {
       item.trip_destination || ''
     ).replace(/"/g, '&quot;')}" placeholder="Tujuan / catatan mobil"></div>` +
     `</div>` +
+    `<div class="hs-trip-extra" style="display:none">` +
+    `<div class="hs-rental-row1">` +
+    `<div class="hs-ic-labeled" style="min-width:180px"><span>Tipe Trip</span><select class="iTripType"><option value="">Pilih tipe...</option><option value="open_trip" ${
+      item.trip_type === 'open_trip' ? 'selected' : ''
+    }>Open Trip</option><option value="private_trip" ${
+      item.trip_type === 'private_trip' ? 'selected' : ''
+    }>Private Trip</option></select></div>` +
+    `<div class="hs-ic-labeled" style="min-width:220px"><span>Nama Guide</span><select class="iGuide"></select></div>` +
+    `</div>` +
+    `</div>` +
     `<div class="hs-driver-extra">` +
     `<div class="iDriverCarRow" style="display:none">` +
     `<div class="hs-ic-labeled" style="flex:1"><span>Mobil Driver</span><select class="iDriverCar" onchange="onDriverCarChange('${id2}')"><option value="">\ud83d\ude97 Pilih mobil/driver (opsional)...</option></select></div>` +
@@ -1117,6 +1180,10 @@ function eAddItemRow (itemOrSvc, desc, qty, price) {
     if (driverCarSelect)
       driverCarSelect.innerHTML = buildRentalAssetOpts(carOpts, item.car_id)
   }
+  const eGuide = card.querySelector('.iGuide')
+  if (eGuide) {
+    eGuide.innerHTML = buildGuideOpts(item.guide_id || '')
+  }
   // Only trigger onSvcChange for existing rows (loaded from API), not for new empty rows
   // Pass false to indicate we're loading from API, not creating new
   if (item.service_type) {
@@ -1133,6 +1200,7 @@ function eOnSvcChange (id2, isNew) {
   const priceInput = tr3.querySelector('.iPrice')
   const descInput = tr3.querySelector('.iDesc')
   const rentalWrap = tr3.querySelector('.hs-rental-extra')
+  const tripWrap = tr3.querySelector('.hs-trip-extra')
   const assetSelect = tr3.querySelector('.iAsset')
   const assetWrap = tr3.querySelector('.hs-asset-wrap')
   const destWrap3 = tr3.querySelector('.hs-dest-wrap')
@@ -1152,7 +1220,8 @@ function eOnSvcChange (id2, isNew) {
         rentalItems,
         assetSelect.value
       )
-      if (assetWrap) assetWrap.style.display = svc === 'car_rental' ? 'none' : ''
+      if (assetWrap)
+        assetWrap.style.display = svc === 'car_rental' ? 'none' : ''
       if (destWrap3)
         destWrap3.style.display = svc === 'car_rental' ? '' : 'none'
       if (!tr3.querySelector('.iDays').value)
@@ -1176,7 +1245,8 @@ function eOnSvcChange (id2, isNew) {
     // Loading from API - just show/hide rental fields, don't rebuild dropdown
     if (isRentalService(svc)) {
       rentalWrap.classList.add('open')
-      if (assetWrap) assetWrap.style.display = svc === 'car_rental' ? 'none' : ''
+      if (assetWrap)
+        assetWrap.style.display = svc === 'car_rental' ? 'none' : ''
       if (destWrap3)
         destWrap3.style.display = svc === 'car_rental' ? '' : 'none'
     } else {
@@ -1188,6 +1258,18 @@ function eOnSvcChange (id2, isNew) {
       const _d = tr3.querySelector('.iDest')
       if (_d) _d.value = ''
     }
+  }
+
+  if (isNarayanaTrip(svc)) {
+    if (tripWrap) tripWrap.style.display = ''
+    const guideSelect = tr3.querySelector('.iGuide')
+    if (guideSelect) guideSelect.innerHTML = buildGuideOpts(guideSelect.value)
+  } else {
+    if (tripWrap) tripWrap.style.display = 'none'
+    const tripTypeSel = tr3.querySelector('.iTripType')
+    const guideSel = tr3.querySelector('.iGuide')
+    if (tripTypeSel) tripTypeSel.value = ''
+    if (guideSel) guideSel.value = ''
   }
 
   if (items && items.length > 0) {
@@ -1365,6 +1447,8 @@ function submitEdit () {
       (driverCarId > 0 || commValue > 0)
     const daysInput = tr.querySelector('.iDays')
     const days = daysInput ? parseFloat(daysInput.value) || 1 : 1
+    const tripType = tr.querySelector('.iTripType')?.value || ''
+    const guideId = parseInt(tr.querySelector('.iGuide')?.value || '0', 10)
 
     // Generate start and end dates from days
     const today = new Date()
@@ -1377,6 +1461,16 @@ function submitEdit () {
       alert('Item rental motor wajib pilih armada')
       return
     }
+    if (svc === 'narayana_trip') {
+      if (!tripType) {
+        alert('Narayana Trip wajib pilih tipe trip (Open/Private)')
+        return
+      }
+      if (!guideId) {
+        alert('Narayana Trip wajib pilih nama guide')
+        return
+      }
+    }
     items.push({
       service_type: svc,
       description: tr.querySelector('.iDesc').value.trim(),
@@ -1387,6 +1481,12 @@ function submitEdit () {
       needs_driver_payment: needsDriver ? 1 : 0,
       commission_type: commType,
       commission_value: commValue,
+      trip_type: svc === 'narayana_trip' ? tripType : null,
+      guide_id: svc === 'narayana_trip' ? guideId : null,
+      guide_name:
+        svc === 'narayana_trip'
+          ? tr.querySelector('.iGuide')?.selectedOptions?.[0]?.textContent || ''
+          : null,
       start_dt: svc === 'motor_rental' || svc === 'car_rental' ? startDt : null,
       end_dt: svc === 'motor_rental' || svc === 'car_rental' ? endDt : null,
       deposit: parseFloat(tr.querySelector('.iDeposit').value) || 0,
@@ -1514,6 +1614,80 @@ function deleteSvcType (stId) {
         const el = document.getElementById('str' + stId)
         if (el) el.remove()
       } else alert('Error: ' + (res.message || 'Cannot delete'))
+    })
+}
+
+// ── NARAYANA TRIP GUIDE MANAGEMENT ──────────────────────────────────────────
+let guideRowCnt = 0
+
+function addGuideRow () {
+  guideRowCnt++
+  const id = 'new_' + guideRowCnt
+  const tr = document.createElement('tr')
+  tr.id = 'gtr' + id
+  tr.innerHTML =
+    `<td><input type="text" class="gName" placeholder="Nama guide"></td>` +
+    `<td><input type="text" class="gPhone" placeholder="08xx..."></td>` +
+    `<td><input type="number" class="gSort" value="0" style="width:45px"></td>` +
+    `<td style="display:flex;gap:3px">` +
+    `<button class="btn-cat-save" onclick="saveGuideRow('${id}')">💾</button>` +
+    `<button class="btn-cat-del" onclick="document.getElementById('gtr${id}').remove()">✕</button>` +
+    `</td>`
+  document.getElementById('guideBody').prepend(tr)
+}
+
+function saveGuideRow (guideId) {
+  const tr = document.getElementById('gtr' + guideId)
+  if (!tr) return
+  const fd = new FormData()
+  fd.append('action', 'save_trip_guide')
+  fd.append('guide_id', isNaN(guideId) ? 0 : guideId)
+  fd.append('guide_name', tr.querySelector('.gName').value.trim())
+  fd.append('phone', tr.querySelector('.gPhone').value.trim())
+  fd.append('sort_order', tr.querySelector('.gSort').value || 0)
+  fetch('hotel-services.php', {
+    method: 'POST',
+    body: fd,
+    credentials: 'include'
+  })
+    .then(r => r.json())
+    .then(res => {
+      if (res.success) {
+        tr.id = 'gtr' + res.id
+        tr.querySelectorAll('button')[0].setAttribute(
+          'onclick',
+          'saveGuideRow(' + res.id + ')'
+        )
+        tr.querySelectorAll('button')[1].setAttribute(
+          'onclick',
+          'deleteGuideRow(' + res.id + ')'
+        )
+        tr.style.background = '#f0fdf4'
+        setTimeout(() => (tr.style.background = ''), 1500)
+      } else {
+        alert('Error: ' + (res.message || 'failed'))
+      }
+    })
+}
+
+function deleteGuideRow (guideId) {
+  if (!confirm('Hapus guide ini?')) return
+  const fd = new FormData()
+  fd.append('action', 'delete_trip_guide')
+  fd.append('guide_id', guideId)
+  fetch('hotel-services.php', {
+    method: 'POST',
+    body: fd,
+    credentials: 'include'
+  })
+    .then(r => r.json())
+    .then(res => {
+      if (res.success) {
+        const el = document.getElementById('gtr' + guideId)
+        if (el) el.remove()
+      } else {
+        alert('Error: ' + (res.message || 'Cannot delete'))
+      }
     })
 }
 // Expose key functions globally

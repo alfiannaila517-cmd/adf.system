@@ -98,12 +98,14 @@ try {
     }
 
     $activeBusinessId = (int)($_SESSION['business_id'] ?? 0);
-    foreach ([
-        'invoice_logo_' . $activeBusinessId,
-        'company_logo_' . $activeBusinessId,
-        'invoice_logo',
-        'company_logo',
-    ] as $logoKey) {
+    foreach (
+        [
+            'invoice_logo_' . $activeBusinessId,
+            'company_logo_' . $activeBusinessId,
+            'invoice_logo',
+            'company_logo',
+        ] as $logoKey
+    ) {
         if (!empty($settingsMap[$logoKey])) {
             $driverReceiptMeta['companyLogo'] = $settingsMap[$logoKey];
             break;
@@ -1313,7 +1315,8 @@ include '../../includes/header.php';
         const typeLabel = {
             car_rental: 'Rental Mobil',
             airport_drop: 'Airport Drop',
-            harbor_drop: 'Harbor Drop'
+            harbor_drop: 'Harbor Drop',
+            narayana_trip: 'Narayana Trip'
         };
 
         let html = settingsBar + `
@@ -1437,7 +1440,8 @@ include '../../includes/header.php';
         const typeLabel = {
             car_rental: 'Rental Mobil',
             airport_drop: 'Airport Drop',
-            harbor_drop: 'Harbor Drop'
+            harbor_drop: 'Harbor Drop',
+            narayana_trip: 'Narayana Trip'
         };
         const monthVal = document.getElementById('filterMonth').value;
         const monthLabel = monthVal ?
@@ -1565,7 +1569,8 @@ include '../../includes/header.php';
         const typeLabel = {
             car_rental: 'Rental Mobil',
             airport_drop: 'Airport Drop',
-            harbor_drop: 'Harbor Drop'
+            harbor_drop: 'Harbor Drop',
+            narayana_trip: 'Narayana Trip'
         };
 
         const companyName = DRIVER_RECEIPT_META.companyName || 'Narayana Hotel';
@@ -1575,9 +1580,9 @@ include '../../includes/header.php';
         const companyEmail = DRIVER_RECEIPT_META.companyEmail || '';
         const companyWebsite = DRIVER_RECEIPT_META.companyWebsite || '';
         const logoUrl = resolveAssetUrl(DRIVER_RECEIPT_META.companyLogo || '');
-        const receiptNo = trip.driver_paid_cashbook_id > 0
-            ? `DRV-${String(trip.driver_paid_cashbook_id).padStart(6, '0')}`
-            : `DRV-TRIP-${trip.trip_id}`;
+        const receiptNo = trip.driver_paid_cashbook_id > 0 ?
+            `DRV-${String(trip.driver_paid_cashbook_id).padStart(6, '0')}` :
+            `DRV-TRIP-${trip.trip_id}`;
         const paymentDate = formatLongDateTime(trip.driver_paid_at || trip.trx_date);
         const serviceName = typeLabel[trip.service_type] || trip.service_type;
         const guestLabel = trip.guest_name || '-';
