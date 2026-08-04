@@ -1511,41 +1511,43 @@ include '../../includes/header.php';
                         padding: 20px 24px 28px;
                     }
                     .header {
-                        display: flex;
-                        justify-content: space-between;
-                        gap: 16px;
-                        border-bottom: 2px double var(--accent);
-                        padding-bottom: 14px;
+                        display: grid;
+                        grid-template-columns: minmax(0, 1fr) 220px;
+                        gap: 14px;
+                        align-items: center;
+                        border-bottom: 1px solid #ccd6e2;
+                        padding-bottom: 12px;
                     }
                     .brand {
-                        display: flex;
-                        gap: 14px;
+                        display: grid;
+                        grid-template-columns: 76px minmax(0, 1fr);
+                        gap: 16px;
                         align-items: center;
                     }
                     .logo {
-                        width: 58px;
-                        height: 58px;
-                        border-radius: 14px;
+                        width: 76px;
+                        height: 76px;
+                        border-radius: 16px;
                         object-fit: contain;
                         background: #fff;
                         border: 1px solid var(--line);
-                        padding: 6px;
+                        padding: 8px;
                     }
                     .logo-fallback {
-                        width: 58px;
-                        height: 58px;
-                        border-radius: 14px;
+                        width: 76px;
+                        height: 76px;
+                        border-radius: 16px;
                         background: linear-gradient(135deg, #0f172a, #334155);
                         color: #fff;
                         display: flex;
                         align-items: center;
                         justify-content: center;
-                        font: 700 16px Arial, sans-serif;
+                        font: 700 20px Arial, sans-serif;
                     }
                     .brand h1 {
                         margin: 0;
-                        font-size: 15px;
-                        letter-spacing: 0.14em;
+                        font-size: 13px;
+                        letter-spacing: 0.16em;
                         text-transform: uppercase;
                     }
                     .brand p {
@@ -1555,29 +1557,30 @@ include '../../includes/header.php';
                     }
                     .doc-meta {
                         min-width: 220px;
-                        background: var(--soft);
-                        border: 1px solid var(--line);
-                        border-radius: 14px;
-                        padding: 12px 14px;
+                        background: transparent;
+                        border: 0;
+                        border-left: 1px solid #d8e1ec;
+                        border-radius: 0;
+                        padding: 4px 0 4px 16px;
                     }
                     .doc-meta .eyebrow {
                         color: var(--muted);
                         font: 700 9px/1 Arial, sans-serif;
                         letter-spacing: 0.22em;
                         text-transform: uppercase;
-                        margin-bottom: 6px;
+                        margin-bottom: 5px;
                     }
                     .doc-meta h2 {
-                        margin: 0 0 8px;
-                        font-size: 12px;
-                        line-height: 1.35;
-                        letter-spacing: 0.04em;
+                        margin: 0 0 7px;
+                        font-size: 10.5px;
+                        line-height: 1.45;
+                        letter-spacing: 0.02em;
                     }
                     .meta-row {
                         display: flex;
                         justify-content: space-between;
                         gap: 8px;
-                        margin-top: 6px;
+                        margin-top: 5px;
                         font: 10px/1.45 Arial, sans-serif;
                     }
                     .meta-row strong { text-align: right; }
@@ -1678,6 +1681,16 @@ include '../../includes/header.php';
                         .sheet { box-shadow: none; border: none; max-width: none; }
                         .toolbar { display: none; }
                         .paper { padding: 0; }
+                    }
+                    @media (max-width: 720px) {
+                        .header {
+                            grid-template-columns: 1fr;
+                        }
+                        .doc-meta {
+                            border-left: 0;
+                            border-top: 1px solid #d8e1ec;
+                            padding: 12px 0 0;
+                        }
                     }
                 </style>
             </head>
