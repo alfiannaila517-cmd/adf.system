@@ -38,14 +38,16 @@ try {
     $businessId = $_SESSION['business_id'] ?? 1;
     $dropOwnerName = 'Bp. Moyong';
 
-    $dbName = (string)$pdo->query('SELECT DATABASE()')->fetchColumn();
-    $columnExists = static function (PDO $pdo, string $dbName, string $table, string $column): bool {
-        if ($dbName === '' || $table === '' || $column === '') {
+    $columnExists = static function (PDO $pdo, string $table, string $column): bool {
+        if ($table === '' || $column === '') {
             return false;
         }
-        $stmt = $pdo->prepare("SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ? LIMIT 1");
-        $stmt->execute([$dbName, $table, $column]);
-        return (bool)$stmt->fetchColumn();
+        try {
+            $pdo->query("SELECT {$column} FROM {$table} LIMIT 1")->fetch();
+            return true;
+        } catch (Exception $e) {
+            return false;
+        }
     };
 
     try {
@@ -80,32 +82,37 @@ try {
         $hasCashBookTable = false;
     }
 
-    $hasCashbookPaymentMethod = $hasCashBookTable && $columnExists($pdo, $dbName, 'cash_book', 'payment_method');
-    $hasCbDriverPaidCashbookId = $columnExists($pdo, $dbName, 'rental_car_bookings', 'driver_paid_cashbook_id');
-    $hasHiiDriverPaidCashbookId = $columnExists($pdo, $dbName, 'hotel_invoice_items', 'driver_paid_cashbook_id');
+    $hasCashbookPaymentMethod = $hasCashBookTable && $columnExists($pdo, 'cash_book', 'payment_method');
+    $hasCbDriverPaidCashbookId = $columnExists($pdo, 'rental_car_bookings', 'driver_paid_cashbook_id');
+    $hasHiiDriverPaidCashbookId = $columnExists($pdo, 'hotel_invoice_items', 'driver_paid_cashbook_id');
 
     // ── Owner recap (car rental + airport/harbor drop trips with a linked driver car) ──
-    $ownerStmt = $pdo->prepare("SELECT
-        rc.partner_owner, rc.owner_phone,
-        COUNT(*) as total_trips,
-        COALESCE(SUM(cb.total_price),0) as total_revenue,
-        COALESCE(SUM(cb.owner_amount),0) as owner_total,
-        COALESCE(SUM(cb.hotel_commission),0) as hotel_total,
-        AVG(rc.owner_commission_pct) as avg_comm_pct,
-        GROUP_CONCAT(DISTINCT rc.car_name ORDER BY rc.car_name SEPARATOR ', ') as cars,
-        SUM(cb.service_type = 'car_rental') as rental_trips,
-        SUM(cb.service_type = 'airport_drop') as airport_trips,
-        SUM(cb.service_type = 'harbor_drop') as harbor_trips
-        FROM rental_car_bookings cb
-        JOIN rental_cars rc ON cb.car_id = rc.id
-                WHERE cb.business_id=? AND cb.status IN ('active','returned')
-                    AND cb.car_id IS NOT NULL
-          AND DATE(COALESCE(cb.actual_return, cb.end_datetime, cb.created_at)) BETWEEN ? AND ?
-          AND rc.partner_owner IS NOT NULL AND rc.partner_owner != ''
-        GROUP BY rc.partner_owner, rc.owner_phone
-        ORDER BY total_revenue DESC");
-    $ownerStmt->execute([$businessId, $monthStart, $monthEnd]);
-    $recap = $ownerStmt->fetchAll(PDO::FETCH_ASSOC);
+    $recap = [];
+    try {
+        $ownerStmt = $pdo->prepare("SELECT
+            rc.partner_owner, rc.owner_phone,
+            COUNT(*) as total_trips,
+            COALESCE(SUM(cb.total_price),0) as total_revenue,
+            COALESCE(SUM(cb.owner_amount),0) as owner_total,
+            COALESCE(SUM(cb.hotel_commission),0) as hotel_total,
+            AVG(rc.owner_commission_pct) as avg_comm_pct,
+            GROUP_CONCAT(DISTINCT rc.car_name ORDER BY rc.car_name SEPARATOR ', ') as cars,
+            SUM(cb.service_type = 'car_rental') as rental_trips,
+            SUM(cb.service_type = 'airport_drop') as airport_trips,
+            SUM(cb.service_type = 'harbor_drop') as harbor_trips
+            FROM rental_car_bookings cb
+            JOIN rental_cars rc ON cb.car_id = rc.id
+                    WHERE cb.business_id=? AND cb.status IN ('active','returned')
+                        AND cb.car_id IS NOT NULL
+              AND DATE(COALESCE(cb.actual_return, cb.end_datetime, cb.created_at)) BETWEEN ? AND ?
+              AND rc.partner_owner IS NOT NULL AND rc.partner_owner != ''
+            GROUP BY rc.partner_owner, rc.owner_phone
+            ORDER BY total_revenue DESC");
+        $ownerStmt->execute([$businessId, $monthStart, $monthEnd]);
+        $recap = $ownerStmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $ownerErr) {
+        error_log('get-driver-recap owner query fallback: ' . $ownerErr->getMessage());
+    }
 
     $ownerKey = static function (?string $name): string {
         $name = trim((string)$name);
@@ -138,44 +145,48 @@ try {
 
     // ── Detail rows: car rental + airport/harbor drop trips (linked driver car) ──
     $detailMap = [];
+    try {
         $detailSelectCashbookId = $hasCbDriverPaidCashbookId ? 'cb.driver_paid_cashbook_id' : '0 as driver_paid_cashbook_id';
         $detailSelectPaymentMethod = $hasCashbookPaymentMethod ? 'paycb.payment_method' : 'NULL as payment_method';
         $detailJoinCashbook = ($hasCashBookTable && $hasCbDriverPaidCashbookId) ? 'LEFT JOIN cash_book paycb ON cb.driver_paid_cashbook_id = paycb.id' : '';
         $detailStmt = $pdo->prepare("SELECT
-            rc.partner_owner, cb.id as trip_id, cb.service_type,
-            COALESCE(cb.actual_return, cb.end_datetime, cb.created_at) as trx_date,
-            cb.guest_name, cb.room_number, cb.trip_destination,
-            cb.total_price, cb.owner_amount, cb.driver_paid,
-            cb.driver_paid_at, {$detailSelectCashbookId},
-            {$detailSelectPaymentMethod},
-            rc.car_name, rc.plate_number
-            FROM rental_car_bookings cb
-            JOIN rental_cars rc ON cb.car_id = rc.id
-            {$detailJoinCashbook}
-        WHERE cb.business_id=? AND cb.status IN ('active','returned')
-          AND DATE(COALESCE(cb.actual_return, cb.end_datetime, cb.created_at)) BETWEEN ? AND ?
-          AND rc.partner_owner IS NOT NULL AND rc.partner_owner != ''
-        ORDER BY trx_date DESC, cb.id DESC");
-    $detailStmt->execute([$businessId, $monthStart, $monthEnd]);
-    foreach ($detailStmt->fetchAll(PDO::FETCH_ASSOC) as $detail) {
-        $key = $ownerKey($detail['partner_owner'] ?? '');
-        $carLabel = trim(($detail['car_name'] ?? '') . ' (' . ($detail['plate_number'] ?? '') . ')');
-        $label = $detail['service_type'] === 'car_rental' ? $carLabel : ($detail['trip_destination'] ?: $carLabel);
-        $detailMap[$key][] = [
-            'trip_id' => (int)$detail['trip_id'],
-            'trx_date' => $detail['trx_date'],
-            'guest_name' => $detail['guest_name'],
-            'room_number' => $detail['room_number'],
-            'label' => $label,
-            'service_type' => $detail['service_type'],
-            'source' => 'trip',
-            'total_price' => (float)$detail['total_price'],
-            'owner_amount' => (float)$detail['owner_amount'],
-            'paid' => (bool)$detail['driver_paid'],
-            'driver_paid_at' => $detail['driver_paid_at'],
-            'driver_paid_cashbook_id' => isset($detail['driver_paid_cashbook_id']) ? (int)$detail['driver_paid_cashbook_id'] : 0,
-            'payment_method' => $detail['payment_method'] ?? null,
-        ];
+                rc.partner_owner, cb.id as trip_id, cb.service_type,
+                COALESCE(cb.actual_return, cb.end_datetime, cb.created_at) as trx_date,
+                cb.guest_name, cb.room_number, cb.trip_destination,
+                cb.total_price, cb.owner_amount, cb.driver_paid,
+                cb.driver_paid_at, {$detailSelectCashbookId},
+                {$detailSelectPaymentMethod},
+                rc.car_name, rc.plate_number
+                FROM rental_car_bookings cb
+                JOIN rental_cars rc ON cb.car_id = rc.id
+                {$detailJoinCashbook}
+            WHERE cb.business_id=? AND cb.status IN ('active','returned')
+              AND DATE(COALESCE(cb.actual_return, cb.end_datetime, cb.created_at)) BETWEEN ? AND ?
+              AND rc.partner_owner IS NOT NULL AND rc.partner_owner != ''
+            ORDER BY trx_date DESC, cb.id DESC");
+        $detailStmt->execute([$businessId, $monthStart, $monthEnd]);
+        foreach ($detailStmt->fetchAll(PDO::FETCH_ASSOC) as $detail) {
+            $key = $ownerKey($detail['partner_owner'] ?? '');
+            $carLabel = trim(($detail['car_name'] ?? '') . ' (' . ($detail['plate_number'] ?? '') . ')');
+            $label = $detail['service_type'] === 'car_rental' ? $carLabel : ($detail['trip_destination'] ?: $carLabel);
+            $detailMap[$key][] = [
+                'trip_id' => (int)$detail['trip_id'],
+                'trx_date' => $detail['trx_date'],
+                'guest_name' => $detail['guest_name'],
+                'room_number' => $detail['room_number'],
+                'label' => $label,
+                'service_type' => $detail['service_type'],
+                'source' => 'trip',
+                'total_price' => (float)$detail['total_price'],
+                'owner_amount' => (float)$detail['owner_amount'],
+                'paid' => (bool)$detail['driver_paid'],
+                'driver_paid_at' => $detail['driver_paid_at'],
+                'driver_paid_cashbook_id' => isset($detail['driver_paid_cashbook_id']) ? (int)$detail['driver_paid_cashbook_id'] : 0,
+                'payment_method' => $detail['payment_method'] ?? null,
+            ];
+        }
+    } catch (Exception $detailErr) {
+        error_log('get-driver-recap detail query fallback: ' . $detailErr->getMessage());
     }
 
     // ── Airport/Harbor Drop trips without explicit linked owner ─────────────────
