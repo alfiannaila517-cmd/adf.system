@@ -54,6 +54,66 @@ try {
     $billCategories = [];
 }
 
+$driverReceiptMeta = [
+    'companyName' => 'Narayana Hotel',
+    'companyTagline' => '',
+    'companyAddress' => '',
+    'companyPhone' => '',
+    'companyEmail' => '',
+    'companyWebsite' => '',
+    'companyLogo' => '',
+];
+
+try {
+    $settingsDb = Database::getInstance();
+    $settingRows = $settingsDb->fetchAll("SELECT setting_key, setting_value FROM settings");
+    $settingsMap = [];
+    foreach ($settingRows as $row) {
+        $settingsMap[$row['setting_key']] = $row['setting_value'];
+    }
+
+    foreach (['company_name', 'company_tagline', 'company_address', 'company_phone', 'company_email', 'company_website'] as $settingKey) {
+        if (!empty($settingsMap[$settingKey])) {
+            $metaKey = [
+                'company_name' => 'companyName',
+                'company_tagline' => 'companyTagline',
+                'company_address' => 'companyAddress',
+                'company_phone' => 'companyPhone',
+                'company_email' => 'companyEmail',
+                'company_website' => 'companyWebsite',
+            ][$settingKey];
+            $driverReceiptMeta[$metaKey] = $settingsMap[$settingKey];
+        }
+    }
+
+    $activeBusinessId = (int)($_SESSION['business_id'] ?? 0);
+    foreach ([
+        'invoice_logo_' . $activeBusinessId,
+        'company_logo_' . $activeBusinessId,
+        'invoice_logo',
+        'company_logo',
+    ] as $logoKey) {
+        if (!empty($settingsMap[$logoKey])) {
+            $driverReceiptMeta['companyLogo'] = $settingsMap[$logoKey];
+            break;
+        }
+    }
+
+    if ($activeBusinessId > 0) {
+        $bizRow = $settingsDb->fetchOne("SELECT business_name, logo FROM businesses WHERE id = ? LIMIT 1", [$activeBusinessId]);
+        if ($bizRow) {
+            if ($driverReceiptMeta['companyName'] === 'Narayana Hotel' && !empty($bizRow['business_name'])) {
+                $driverReceiptMeta['companyName'] = $bizRow['business_name'];
+            }
+            if ($driverReceiptMeta['companyLogo'] === '' && !empty($bizRow['logo'])) {
+                $driverReceiptMeta['companyLogo'] = $bizRow['logo'];
+            }
+        }
+    }
+} catch (Exception $e) {
+    error_log('Error preparing driver receipt metadata: ' . $e->getMessage());
+}
+
 include '../../includes/header.php';
 ?>
 
@@ -540,6 +600,22 @@ include '../../includes/header.php';
         background: #eff6ff;
     }
 
+    .btn-trip-receipt {
+        padding: 3px 7px;
+        font-size: 10px;
+        font-weight: 700;
+        border: 1.5px solid #7c3aed;
+        border-radius: 4px;
+        background: #faf5ff;
+        color: #6d28d9;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+
+    .btn-trip-receipt:hover {
+        background: #f3e8ff;
+    }
+
     /* PAY DRIVER TRIP MODAL */
     .dp-modal-overlay {
         display: none;
@@ -912,19 +988,22 @@ include '../../includes/header.php';
 <script>
     const BASE_URL = '<?php echo BASE_URL; ?>';
     const ACTIVE_BUSINESS = '<?php echo $_SESSION['active_business_id'] ?? 'narayana-hotel'; ?>';
+    const DRIVER_RECEIPT_META = <?php echo json_encode($driverReceiptMeta, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE); ?>;
     // Catalog data for driver split suggestions in edit modal
     window.CATALOG_DATA_BILLS = <?php
-        try {
-            $catStmt = $pdo->prepare("SELECT service_type, item_name, default_price, driver_rate FROM hotel_service_catalog WHERE business_id=? AND is_active=1 ORDER BY sort_order, item_name");
-            $catStmt->execute([$businessId]);
-            $catRows = $catStmt->fetchAll(PDO::FETCH_ASSOC);
-            $catByType = [];
-            foreach ($catRows as $cr) {
-                $catByType[$cr['service_type']][] = ['name' => $cr['item_name'], 'price' => (float)$cr['default_price'], 'driver_rate' => (float)($cr['driver_rate'] ?? 0)];
-            }
-            echo json_encode($catByType, JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '{}';
-        } catch (\Throwable $ex) { echo '{}'; }
-    ?>;
+                                try {
+                                    $catStmt = $pdo->prepare("SELECT service_type, item_name, default_price, driver_rate FROM hotel_service_catalog WHERE business_id=? AND is_active=1 ORDER BY sort_order, item_name");
+                                    $catStmt->execute([$businessId]);
+                                    $catRows = $catStmt->fetchAll(PDO::FETCH_ASSOC);
+                                    $catByType = [];
+                                    foreach ($catRows as $cr) {
+                                        $catByType[$cr['service_type']][] = ['name' => $cr['item_name'], 'price' => (float)$cr['default_price'], 'driver_rate' => (float)($cr['driver_rate'] ?? 0)];
+                                    }
+                                    echo json_encode($catByType, JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '{}';
+                                } catch (\Throwable $ex) {
+                                    echo '{}';
+                                }
+                                ?>;
 
     // Set default month to current month
     document.getElementById('billMonth').valueAsDate = new Date();
@@ -1186,7 +1265,7 @@ include '../../includes/header.php';
                         <div style="display:flex;gap:4px;justify-content:flex-end;align-items:center;flex-wrap:wrap;">
                             <button class="btn-trip-edit" onclick="editDriverTripAmount(${d.trip_id}, '${d.source || 'trip'}', ${d.total_price}, ${d.owner_amount}, '${driverNameSafe}', '${typeLabel[d.service_type] || d.service_type}', '${d.service_type}')">✏️ Edit</button>
                             ${d.paid
-                                ? '<span class="btn-trip-paid">✅ Lunas</span>'
+                                ? `<button class="btn-trip-receipt" onclick="printDriverTripReceipt(${idx}, ${d.trip_id}, '${d.source || 'trip'}')">🖨️ Cetak</button><span class="btn-trip-paid">✅ Lunas</span>`
                                 : `<button class="btn-trip-pay" onclick="payDriverTrip(${d.trip_id}, '${d.service_type}', ${d.owner_amount}, '${driverNameSafe}', '${d.source || 'trip'}')">Bayar</button>`
                             }
                         </div>
@@ -1308,6 +1387,382 @@ include '../../includes/header.php';
         printWindow.focus();
     }
 
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function resolveAssetUrl(path) {
+        if (!path) return '';
+        if (/^(https?:|data:)/i.test(path)) return path;
+        if (path.startsWith('/')) return window.location.origin + path;
+        return window.location.origin + BASE_URL + '/' + path.replace(/^\/+/, '');
+    }
+
+    function formatDriverPaymentMethod(method) {
+        const labels = {
+            cash: 'Tunai',
+            transfer: 'Transfer Bank',
+            card: 'Kartu',
+            other: 'Lainnya',
+            'e-wallet': 'E-Wallet',
+            credit_card: 'Kartu Kredit'
+        };
+        return labels[method] || (method ? method : '-');
+    }
+
+    function formatLongDateTime(value) {
+        if (!value) return '-';
+        const dt = new Date(value);
+        if (Number.isNaN(dt.getTime())) return value;
+        return dt.toLocaleString('id-ID', {
+            day: '2-digit',
+            month: 'long',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
+    function printDriverTripReceipt(driverIdx, tripId, source) {
+        const dr = lastDriverRecap[driverIdx];
+        if (!dr) return;
+
+        const trip = (dr.detail_rows || []).find(row => Number(row.trip_id) === Number(tripId) && String(row.source || 'trip') === String(source || 'trip'));
+        if (!trip || !trip.paid) {
+            alert('Tanda terima hanya tersedia untuk pembayaran driver yang sudah lunas.');
+            return;
+        }
+
+        const typeLabel = {
+            car_rental: 'Rental Mobil',
+            airport_drop: 'Airport Drop',
+            harbor_drop: 'Harbor Drop'
+        };
+
+        const companyName = DRIVER_RECEIPT_META.companyName || 'Narayana Hotel';
+        const companyTagline = DRIVER_RECEIPT_META.companyTagline || '';
+        const companyAddress = DRIVER_RECEIPT_META.companyAddress || '';
+        const companyPhone = DRIVER_RECEIPT_META.companyPhone || '';
+        const companyEmail = DRIVER_RECEIPT_META.companyEmail || '';
+        const companyWebsite = DRIVER_RECEIPT_META.companyWebsite || '';
+        const logoUrl = resolveAssetUrl(DRIVER_RECEIPT_META.companyLogo || '');
+        const receiptNo = trip.driver_paid_cashbook_id > 0
+            ? `DRV-${String(trip.driver_paid_cashbook_id).padStart(6, '0')}`
+            : `DRV-TRIP-${trip.trip_id}`;
+        const paymentDate = formatLongDateTime(trip.driver_paid_at || trip.trx_date);
+        const serviceName = typeLabel[trip.service_type] || trip.service_type;
+        const guestLabel = trip.guest_name || '-';
+        const roomLabel = trip.room_number ? `Kamar ${trip.room_number}` : '-';
+        const printedAt = formatLongDateTime(new Date().toISOString());
+        const paymentMethod = formatDriverPaymentMethod(trip.payment_method);
+        const statement = `Telah dibayarkan kepada driver/mitra sebesar Rp ${formatNumber(trip.owner_amount)} untuk layanan ${serviceName}. Dokumen ini merupakan bukti pembayaran resmi dari hotel.`;
+
+        const printWindow = window.open('', '_blank', 'width=960,height=760');
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <title>Tanda Terima Driver - ${escapeHtml(receiptNo)}</title>
+                <style>
+                    :root {
+                        --ink: #14213d;
+                        --muted: #64748b;
+                        --line: #dbe4f0;
+                        --soft: #f8fafc;
+                        --accent: #0f172a;
+                        --accent2: #334155;
+                    }
+                    * { box-sizing: border-box; }
+                    body {
+                        margin: 0;
+                        background: #eef3f8;
+                        font-family: Georgia, 'Times New Roman', serif;
+                        color: var(--ink);
+                        padding: 28px;
+                    }
+                    .sheet {
+                        max-width: 820px;
+                        margin: 0 auto;
+                        background: #fff;
+                        border: 1px solid #d6dee8;
+                        box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+                    }
+                    .toolbar {
+                        padding: 16px 22px 0;
+                        text-align: right;
+                    }
+                    .print-btn {
+                        padding: 8px 16px;
+                        border: 0;
+                        border-radius: 999px;
+                        background: linear-gradient(135deg, #1e293b, #334155);
+                        color: #fff;
+                        font: 600 13px Arial, sans-serif;
+                        cursor: pointer;
+                    }
+                    .paper {
+                        padding: 28px 34px 36px;
+                    }
+                    .header {
+                        display: flex;
+                        justify-content: space-between;
+                        gap: 22px;
+                        border-bottom: 3px double var(--accent);
+                        padding-bottom: 18px;
+                    }
+                    .brand {
+                        display: flex;
+                        gap: 18px;
+                        align-items: center;
+                    }
+                    .logo {
+                        width: 74px;
+                        height: 74px;
+                        border-radius: 18px;
+                        object-fit: contain;
+                        background: #fff;
+                        border: 1px solid var(--line);
+                        padding: 8px;
+                    }
+                    .logo-fallback {
+                        width: 74px;
+                        height: 74px;
+                        border-radius: 18px;
+                        background: linear-gradient(135deg, #0f172a, #334155);
+                        color: #fff;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font: 700 22px Arial, sans-serif;
+                    }
+                    .brand h1 {
+                        margin: 0;
+                        font-size: 26px;
+                        letter-spacing: 0.08em;
+                        text-transform: uppercase;
+                    }
+                    .brand p {
+                        margin: 4px 0 0;
+                        color: var(--muted);
+                        font: 14px/1.55 Arial, sans-serif;
+                    }
+                    .doc-meta {
+                        min-width: 245px;
+                        background: var(--soft);
+                        border: 1px solid var(--line);
+                        border-radius: 16px;
+                        padding: 14px 16px;
+                    }
+                    .doc-meta .eyebrow {
+                        color: var(--muted);
+                        font: 700 11px/1 Arial, sans-serif;
+                        letter-spacing: 0.18em;
+                        text-transform: uppercase;
+                        margin-bottom: 8px;
+                    }
+                    .doc-meta h2 {
+                        margin: 0 0 10px;
+                        font-size: 20px;
+                    }
+                    .meta-row {
+                        display: flex;
+                        justify-content: space-between;
+                        gap: 10px;
+                        margin-top: 7px;
+                        font: 13px/1.45 Arial, sans-serif;
+                    }
+                    .meta-row span:first-child { color: var(--muted); }
+                    .section {
+                        margin-top: 24px;
+                    }
+                    .section-title {
+                        font: 700 11px/1 Arial, sans-serif;
+                        letter-spacing: 0.18em;
+                        text-transform: uppercase;
+                        color: var(--muted);
+                        margin-bottom: 10px;
+                    }
+                    .statement {
+                        border: 1px solid var(--line);
+                        background: linear-gradient(180deg, #fff, #f8fbff);
+                        border-radius: 16px;
+                        padding: 16px 18px;
+                        font: 15px/1.8 Arial, sans-serif;
+                    }
+                    .grid {
+                        display: grid;
+                        grid-template-columns: 1fr 1fr;
+                        gap: 12px;
+                    }
+                    .info-box {
+                        border: 1px solid var(--line);
+                        border-radius: 14px;
+                        padding: 14px 16px;
+                        background: #fff;
+                    }
+                    .info-box .label {
+                        display: block;
+                        color: var(--muted);
+                        font: 700 10px/1 Arial, sans-serif;
+                        letter-spacing: 0.14em;
+                        text-transform: uppercase;
+                        margin-bottom: 8px;
+                    }
+                    .info-box .value {
+                        font: 700 18px/1.35 Arial, sans-serif;
+                        color: var(--accent);
+                    }
+                    .info-box .sub {
+                        margin-top: 6px;
+                        color: var(--muted);
+                        font: 12px/1.6 Arial, sans-serif;
+                    }
+                    table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-top: 8px;
+                        font: 13px/1.55 Arial, sans-serif;
+                    }
+                    th, td {
+                        border-bottom: 1px solid var(--line);
+                        padding: 10px 8px;
+                        vertical-align: top;
+                    }
+                    th {
+                        color: var(--muted);
+                        text-transform: uppercase;
+                        letter-spacing: 0.08em;
+                        font-size: 11px;
+                        text-align: left;
+                    }
+                    td:last-child, th:last-child { text-align: right; }
+                    .signatures {
+                        display: grid;
+                        grid-template-columns: 1fr 1fr;
+                        gap: 34px;
+                        margin-top: 38px;
+                    }
+                    .sign-box {
+                        text-align: center;
+                    }
+                    .sign-title {
+                        font: 700 12px/1 Arial, sans-serif;
+                        color: var(--muted);
+                        text-transform: uppercase;
+                        letter-spacing: 0.14em;
+                    }
+                    .sign-line {
+                        margin-top: 68px;
+                        border-top: 1px solid #23324d;
+                        padding-top: 8px;
+                        font: 700 14px/1.4 Arial, sans-serif;
+                    }
+                    .footnote {
+                        margin-top: 22px;
+                        text-align: center;
+                        color: var(--muted);
+                        font: italic 11px/1.6 Arial, sans-serif;
+                    }
+                    @media print {
+                        body { background: #fff; padding: 0; }
+                        .sheet { box-shadow: none; border: none; max-width: none; }
+                        .toolbar { display: none; }
+                        .paper { padding: 0; }
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="sheet">
+                    <div class="toolbar"><button class="print-btn" onclick="window.print()">Cetak Dokumen</button></div>
+                    <div class="paper">
+                        <div class="header">
+                            <div class="brand">
+                                ${logoUrl ? `<img src="${escapeHtml(logoUrl)}" alt="Logo" class="logo">` : `<div class="logo-fallback">${escapeHtml((companyName || 'NH').slice(0, 2).toUpperCase())}</div>`}
+                                <div>
+                                    <h1>${escapeHtml(companyName)}</h1>
+                                    ${companyTagline ? `<p>${escapeHtml(companyTagline)}</p>` : ''}
+                                    ${(companyAddress || companyPhone || companyEmail || companyWebsite) ? `<p>${escapeHtml([companyAddress, companyPhone, companyEmail, companyWebsite].filter(Boolean).join(' | '))}</p>` : ''}
+                                </div>
+                            </div>
+                            <div class="doc-meta">
+                                <div class="eyebrow">Dokumen Resmi</div>
+                                <h2>Tanda Terima Driver</h2>
+                                <div class="meta-row"><span>No. Bukti</span><strong>${escapeHtml(receiptNo)}</strong></div>
+                                <div class="meta-row"><span>Tanggal Bayar</span><strong>${escapeHtml(paymentDate)}</strong></div>
+                                <div class="meta-row"><span>Metode</span><strong>${escapeHtml(paymentMethod)}</strong></div>
+                                <div class="meta-row"><span>Dicetak</span><strong>${escapeHtml(printedAt)}</strong></div>
+                            </div>
+                        </div>
+
+                        <div class="section">
+                            <div class="section-title">Pernyataan</div>
+                            <div class="statement">${escapeHtml(statement)}</div>
+                        </div>
+
+                        <div class="section grid">
+                            <div class="info-box">
+                                <span class="label">Dibayarkan Kepada</span>
+                                <div class="value">${escapeHtml(dr.partner_owner || 'Tanpa Pemilik')}</div>
+                                <div class="sub">Driver / Mitra ${dr.owner_phone ? '· ' + escapeHtml(dr.owner_phone) : ''}</div>
+                            </div>
+                            <div class="info-box">
+                                <span class="label">Jumlah Dibayarkan</span>
+                                <div class="value">Rp ${formatNumber(trip.owner_amount)}</div>
+                                <div class="sub">Bagian driver dari trip ini</div>
+                            </div>
+                        </div>
+
+                        <div class="section">
+                            <div class="section-title">Rincian Trip</div>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Layanan</th>
+                                        <th>Tamu</th>
+                                        <th>Keterangan</th>
+                                        <th>Total Trip</th>
+                                        <th>Bagian Driver</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><strong>${escapeHtml(serviceName)}</strong><br><span style="color:#64748b;font-size:12px;">${escapeHtml(trip.label || '-')}</span></td>
+                                        <td>${escapeHtml(guestLabel)}<br><span style="color:#64748b;font-size:12px;">${escapeHtml(roomLabel)}</span></td>
+                                        <td>Tanggal Trip: ${escapeHtml(formatLongDateTime(trip.trx_date))}</td>
+                                        <td>Rp ${formatNumber(trip.total_price)}</td>
+                                        <td>Rp ${formatNumber(trip.owner_amount)}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="signatures">
+                            <div class="sign-box">
+                                <div class="sign-title">Penerima</div>
+                                <div class="sign-line">${escapeHtml(dr.partner_owner || 'Driver / Mitra')}</div>
+                            </div>
+                            <div class="sign-box">
+                                <div class="sign-title">Pembayar</div>
+                                <div class="sign-line">${escapeHtml(companyName)}</div>
+                            </div>
+                        </div>
+
+                        <div class="footnote">Dokumen ini dicetak dari sistem dan sah digunakan sebagai bukti pembayaran driver/mitra.</div>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.focus();
+    }
+
     // PAY A SINGLE DRIVER TRIP (marks trip as paid + auto-syncs to buku kas)
     let pendingPayTrip = null;
     let pendingPayMethod = 'cash';
@@ -1391,7 +1846,10 @@ include '../../includes/header.php';
     let pendingEditTrip = null;
 
     function editDriverTripAmount(tripId, source, totalPrice, ownerAmount, driverName, tripLabel, serviceType) {
-        pendingEditTrip = { tripId, source };
+        pendingEditTrip = {
+            tripId,
+            source
+        };
         document.getElementById('etDriverName').textContent = driverName || '-';
         document.getElementById('etTripLabel').textContent = tripLabel || '-';
         document.getElementById('etTotalPrice').value = totalPrice;
