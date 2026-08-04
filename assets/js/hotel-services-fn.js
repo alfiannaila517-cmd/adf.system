@@ -62,8 +62,13 @@ function buildCatalogPaketOpts (svc, selectedIdx) {
   const items = CATALOG_DATA[svc] || []
   let html = '<option value="">── Harga dari Armada ──</option>'
   items.forEach((item, i) => {
-    html += `<option value="${i}"${String(i) === String(selectedIdx) ? ' selected' : ''}>` +
-      `${item.name} – Rp ${Math.round(item.price).toLocaleString('id-ID')}</option>`
+    html +=
+      `<option value="${i}"${
+        String(i) === String(selectedIdx) ? ' selected' : ''
+      }>` +
+      `${item.name} – Rp ${Math.round(item.price).toLocaleString(
+        'id-ID'
+      )}</option>`
   })
   return html
 }
@@ -199,8 +204,12 @@ function addItemRow (svc, desc, qty, price) {
   card.id = id
   card.innerHTML =
     `<div class="hs-ic-top">` +
-    `<select class="iSvc" onchange="onSvcChange('${id}', true)">${buildSvcOpts(svc || '')}</select>` +
-    `<input type="text" class="iDesc" placeholder="Deskripsi" value="${(desc || '').replace(/"/g, '&quot;')}">` +
+    `<select class="iSvc" onchange="onSvcChange('${id}', true)">${buildSvcOpts(
+      svc || ''
+    )}</select>` +
+    `<input type="text" class="iDesc" placeholder="Deskripsi" value="${(
+      desc || ''
+    ).replace(/"/g, '&quot;')}">` +
     `<button type="button" class="btn-del-row" onclick="delRow('${id}')">✕</button>` +
     `</div>` +
     `<div class="hs-rental-extra">` +
@@ -223,8 +232,12 @@ function addItemRow (svc, desc, qty, price) {
     `</div>` +
     `</div>` +
     `<div class="hs-ic-nums">` +
-    `<div class="hs-ic-labeled"><span>QTY</span><input type="number" class="iQty" value="${qty || 1}" min="0.5" step="0.5" oninput="rcalc('${id}')"></div>` +
-    `<div class="hs-ic-labeled"><span>Harga (Rp)</span><input type="number" class="iPrice" value="${price || 0}" min="0" oninput="rcalc('${id}')"></div>` +
+    `<div class="hs-ic-labeled"><span>QTY</span><input type="number" class="iQty" value="${
+      qty || 1
+    }" min="0.5" step="0.5" oninput="rcalc('${id}')"></div>` +
+    `<div class="hs-ic-labeled"><span>Harga (Rp)</span><input type="number" class="iPrice" value="${
+      price || 0
+    }" min="0" oninput="rcalc('${id}')"></div>` +
     `<div class="hs-ic-subtotal"><span>Subtotal</span><strong class="iTotal">Rp 0</strong></div>` +
     `</div>`
   document.getElementById('itemsBody').appendChild(card)
@@ -283,7 +296,8 @@ function onSvcChange (id, isNew) {
     assetSelect.innerHTML = '<option value="">Pilih armada...</option>'
     tr.querySelector('.iDays').value = 1
     tr.querySelector('.iDeposit').value = 0
-    const _dest = tr.querySelector('.iDest'); if (_dest) _dest.value = ''
+    const _dest = tr.querySelector('.iDest')
+    if (_dest) _dest.value = ''
   }
 
   if (items && items.length > 0) {
@@ -299,7 +313,13 @@ function onSvcChange (id, isNew) {
   updateDriverExtra(tr)
 
   // Auto-enable driver split from catalog driver_rate (e.g. airport/harbor drop)
-  if (isNew && items && items.length > 0 && (items[0].driver_rate || 0) > 0 && usesDriverPayment(svc)) {
+  if (
+    isNew &&
+    items &&
+    items.length > 0 &&
+    (items[0].driver_rate || 0) > 0 &&
+    usesDriverPayment(svc)
+  ) {
     tr.dataset.catalogDriverRate = items[0].driver_rate
     const chk = tr.querySelector('.iNeedsDriver')
     const commWrap = tr.querySelector('.iCommWrap')
@@ -325,9 +345,7 @@ function onRentalAssetChange (id, keepManualDesc) {
   const paketSelected = !!tr.querySelector('.iPaket')?.value
   if (
     !paketSelected &&
-    (!priceInput.value ||
-    parseFloat(priceInput.value) === 0 ||
-    !keepManualDesc)
+    (!priceInput.value || parseFloat(priceInput.value) === 0 || !keepManualDesc)
   ) {
     priceInput.value = chosen.daily_rate
   }
@@ -538,12 +556,13 @@ function submitCreate () {
         ? parseInt(tr.querySelector('.iAsset').value || '0', 10)
         : 0
     const driverCarId = getDriverCarId(tr, svc)
+    const commType = tr.querySelector('.iCommType')?.value || 'percent'
+    const commValue = parseFloat(tr.querySelector('.iCommValue')?.value) || 0
+    // Allow driver split without specific car when catalog commission is set
     const needsDriver =
       usesDriverPayment(svc) &&
       !!tr.querySelector('.iNeedsDriver')?.checked &&
-      driverCarId > 0
-    const commType = tr.querySelector('.iCommType')?.value || 'percent'
-    const commValue = parseFloat(tr.querySelector('.iCommValue')?.value) || 0
+      (driverCarId > 0 || commValue > 0)
     const daysInput = tr.querySelector('.iDays')
     const days = daysInput ? parseFloat(daysInput.value) || 1 : 1
 
@@ -976,32 +995,56 @@ function eAddItemRow (itemOrSvc, desc, qty, price) {
   card.id = id2
   card.innerHTML =
     `<div class="hs-ic-top">` +
-    `<select class="iSvc" onchange="eOnSvcChange('${id2}', true)">${buildSvcOpts(item.service_type || '')}</select>` +
-    `<input type="text" class="iDesc" placeholder="Deskripsi" value="${(item.description || '').replace(/"/g, '&quot;')}">` +
+    `<select class="iSvc" onchange="eOnSvcChange('${id2}', true)">${buildSvcOpts(
+      item.service_type || ''
+    )}</select>` +
+    `<input type="text" class="iDesc" placeholder="Deskripsi" value="${(
+      item.description || ''
+    ).replace(/"/g, '&quot;')}">` +
     `<button type="button" class="btn-del-row" onclick="eDelRow('${id2}')">\u2715</button>` +
     `</div>` +
     `<div class="hs-rental-extra">` +
     `<div class="hs-rental-row1">` +
     `<div class="hs-ic-labeled"><span>Armada</span><select class="iAsset" onchange="eOnRentalAssetChange('${id2}')"></select></div>` +
     `<div class="hs-ic-labeled hs-paket-wrap" style="display:none"><span>Paket / Jenis</span><select class="iPaket" onchange="onPaketChange('${id2}')"><option value="">── Harga dari Armada ──</option></select></div>` +
-    `<div class="hs-ic-labeled"><span>Hari Sewa</span><input type="number" class="iDays" value="${item.rental_days || 1}" min="1" max="365" step="1" onchange="eOnDaysChange('${id2}')"></div>` +
-    `<div class="hs-ic-labeled"><span>Deposit (Rp)</span><input type="number" class="iDeposit" value="${item.deposit || 0}" min="0"></div>` +
+    `<div class="hs-ic-labeled"><span>Hari Sewa</span><input type="number" class="iDays" value="${
+      item.rental_days || 1
+    }" min="1" max="365" step="1" onchange="eOnDaysChange('${id2}')"></div>` +
+    `<div class="hs-ic-labeled"><span>Deposit (Rp)</span><input type="number" class="iDeposit" value="${
+      item.deposit || 0
+    }" min="0"></div>` +
     `</div>` +
-    `<div class="hs-dest-wrap"><span>Tujuan / Catatan</span><input type="text" class="iDest" value="${(item.trip_destination || '').replace(/"/g, '&quot;')}" placeholder="Tujuan / catatan mobil"></div>` +
+    `<div class="hs-dest-wrap"><span>Tujuan / Catatan</span><input type="text" class="iDest" value="${(
+      item.trip_destination || ''
+    ).replace(/"/g, '&quot;')}" placeholder="Tujuan / catatan mobil"></div>` +
     `</div>` +
     `<div class="hs-driver-extra">` +
     `<div class="iDriverCarRow" style="display:none">` +
     `<div class="hs-ic-labeled" style="flex:1"><span>Mobil Driver</span><select class="iDriverCar" onchange="onDriverCarChange('${id2}')"><option value="">\ud83d\ude97 Pilih mobil/driver (opsional)...</option></select></div>` +
     `</div>` +
-    `<label class="hs-driver-chk"><input type="checkbox" class="iNeedsDriver" ${item.needs_driver_payment ? 'checked' : ''} onchange="onNeedsDriverChange('${id2}')"> \ud83e\uddfe Butuh tagihan driver</label>` +
-    `<div class="iCommWrap" style="display:${item.needs_driver_payment ? 'flex' : 'none'}">` +
-    `<select class="iCommType"><option value="percent" ${(item.commission_type || 'percent') === 'percent' ? 'selected' : ''}>Bagian Driver: %</option><option value="nominal" ${item.commission_type === 'nominal' ? 'selected' : ''}>Potongan Hotel: Rp</option></select>` +
-    `<input type="number" class="iCommValue" value="${item.commission_value || 0}" min="0" placeholder="Nilai">` +
+    `<label class="hs-driver-chk"><input type="checkbox" class="iNeedsDriver" ${
+      item.needs_driver_payment ? 'checked' : ''
+    } onchange="onNeedsDriverChange('${id2}')"> \ud83e\uddfe Butuh tagihan driver</label>` +
+    `<div class="iCommWrap" style="display:${
+      item.needs_driver_payment ? 'flex' : 'none'
+    }">` +
+    `<select class="iCommType"><option value="percent" ${
+      (item.commission_type || 'percent') === 'percent' ? 'selected' : ''
+    }>Bagian Driver: %</option><option value="nominal" ${
+      item.commission_type === 'nominal' ? 'selected' : ''
+    }>Potongan Hotel: Rp</option></select>` +
+    `<input type="number" class="iCommValue" value="${
+      item.commission_value || 0
+    }" min="0" placeholder="Nilai">` +
     `</div>` +
     `</div>` +
     `<div class="hs-ic-nums">` +
-    `<div class="hs-ic-labeled"><span>QTY</span><input type="number" class="iQty" value="${item.quantity || 1}" min="0.5" step="0.5" oninput="ercalc('${id2}')"></div>` +
-    `<div class="hs-ic-labeled"><span>Harga (Rp)</span><input type="number" class="iPrice" value="${item.unit_price || 0}" min="0" oninput="ercalc('${id2}')"></div>` +
+    `<div class="hs-ic-labeled"><span>QTY</span><input type="number" class="iQty" value="${
+      item.quantity || 1
+    }" min="0.5" step="0.5" oninput="ercalc('${id2}')"></div>` +
+    `<div class="hs-ic-labeled"><span>Harga (Rp)</span><input type="number" class="iPrice" value="${
+      item.unit_price || 0
+    }" min="0" oninput="ercalc('${id2}')"></div>` +
     `<div class="hs-ic-subtotal"><span>Subtotal</span><strong class="iTotal">Rp 0</strong></div>` +
     `</div>`
   document.getElementById('eItemsBody').appendChild(card)
@@ -1102,7 +1145,8 @@ function eOnSvcChange (id2, isNew) {
         rentalItems,
         assetSelect.value
       )
-      if (destWrap3) destWrap3.style.display = svc === 'car_rental' ? '' : 'none'
+      if (destWrap3)
+        destWrap3.style.display = svc === 'car_rental' ? '' : 'none'
       if (!tr3.querySelector('.iDays').value)
         tr3.querySelector('.iDays').value = 1
       // Populate paket picker from catalog
@@ -1116,19 +1160,22 @@ function eOnSvcChange (id2, isNew) {
       assetSelect.innerHTML = '<option value="">Pilih armada...</option>'
       tr3.querySelector('.iDays').value = 1
       tr3.querySelector('.iDeposit').value = 0
-      const _d = tr3.querySelector('.iDest'); if (_d) _d.value = ''
+      const _d = tr3.querySelector('.iDest')
+      if (_d) _d.value = ''
     }
   } else {
     // Loading from API - just show/hide rental fields, don't rebuild dropdown
     if (isRentalService(svc)) {
       rentalWrap.classList.add('open')
-      if (destWrap3) destWrap3.style.display = svc === 'car_rental' ? '' : 'none'
+      if (destWrap3)
+        destWrap3.style.display = svc === 'car_rental' ? '' : 'none'
     } else {
       rentalWrap.classList.remove('open')
       assetSelect.innerHTML = '<option value="">Pilih armada...</option>'
       tr3.querySelector('.iDays').value = 1
       tr3.querySelector('.iDeposit').value = 0
-      const _d = tr3.querySelector('.iDest'); if (_d) _d.value = ''
+      const _d = tr3.querySelector('.iDest')
+      if (_d) _d.value = ''
     }
   }
 
@@ -1146,7 +1193,13 @@ function eOnSvcChange (id2, isNew) {
   updateDriverExtra(tr3)
 
   // Auto-enable driver split from catalog driver_rate (e.g. airport/harbor drop)
-  if (isNew && items && items.length > 0 && (items[0].driver_rate || 0) > 0 && usesDriverPayment(svc)) {
+  if (
+    isNew &&
+    items &&
+    items.length > 0 &&
+    (items[0].driver_rate || 0) > 0 &&
+    usesDriverPayment(svc)
+  ) {
     tr3.dataset.catalogDriverRate = items[0].driver_rate
     const chk = tr3.querySelector('.iNeedsDriver')
     const commWrap = tr3.querySelector('.iCommWrap')
@@ -1172,9 +1225,7 @@ function eOnRentalAssetChange (id2, keepManualDesc) {
   const paketSelected3 = !!tr3.querySelector('.iPaket')?.value
   if (
     !paketSelected3 &&
-    (!priceInput.value ||
-    parseFloat(priceInput.value) === 0 ||
-    !keepManualDesc)
+    (!priceInput.value || parseFloat(priceInput.value) === 0 || !keepManualDesc)
   ) {
     priceInput.value = chosen.daily_rate
   }
@@ -1291,12 +1342,13 @@ function submitEdit () {
         ? parseInt(tr.querySelector('.iAsset').value || '0', 10)
         : 0
     const driverCarId = getDriverCarId(tr, svc)
+    const commType = tr.querySelector('.iCommType')?.value || 'percent'
+    const commValue = parseFloat(tr.querySelector('.iCommValue')?.value) || 0
+    // Allow driver split without specific car when catalog commission is set
     const needsDriver =
       usesDriverPayment(svc) &&
       !!tr.querySelector('.iNeedsDriver')?.checked &&
-      driverCarId > 0
-    const commType = tr.querySelector('.iCommType')?.value || 'percent'
-    const commValue = parseFloat(tr.querySelector('.iCommValue')?.value) || 0
+      (driverCarId > 0 || commValue > 0)
     const daysInput = tr.querySelector('.iDays')
     const days = daysInput ? parseFloat(daysInput.value) || 1 : 1
 

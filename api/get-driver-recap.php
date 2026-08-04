@@ -145,7 +145,7 @@ try {
         $dropStmt = $pdo->prepare("SELECT
             hi.guest_name, hi.room_number, hi.created_at as trx_date,
             hii.id as trip_id, hii.service_type, hii.description, hii.total_price,
-            COALESCE(hii.owner_amount, hii.total_price) as owner_amount,
+            IF(hii.owner_amount > 0 OR hii.hotel_commission > 0, hii.owner_amount, hii.total_price) as owner_amount,
             COALESCE(hii.hotel_commission, 0) as hotel_commission,
             hii.driver_paid
             FROM hotel_invoice_items hii
