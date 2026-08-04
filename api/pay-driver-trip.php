@@ -83,7 +83,7 @@ try {
     } else {
         // Legacy airport/harbor drop trips logged before a driver car was linked - live in hotel_invoice_items
         $trip = $db->fetchOne(
-            "SELECT hii.id, hi.business_id, hii.total_price, hii.description, hii.service_type, hii.driver_paid,
+            "SELECT hii.id, hi.business_id, hii.total_price, hii.owner_amount, hii.hotel_commission, hii.description, hii.service_type, hii.driver_paid,
                     hi.guest_name
              FROM hotel_invoice_items hii
              JOIN hotel_invoices hi ON hii.invoice_id = hi.id
@@ -94,7 +94,12 @@ try {
         if ((int)$trip['business_id'] !== (int)$businessId) throw new Exception('Trip tidak ditemukan untuk bisnis ini');
         if ((int)$trip['driver_paid'] === 1) throw new Exception('Trip ini sudah dibayar sebelumnya');
 
-        $amount = (float)$trip['total_price'];
+        $ownerAmount = (float)($trip['owner_amount'] ?? 0);
+        $hotelCommission = (float)($trip['hotel_commission'] ?? 0);
+        // Backward-compatible fallback for old rows before owner split existed.
+        $amount = ($ownerAmount > 0 || $hotelCommission > 0)
+            ? $ownerAmount
+            : (float)$trip['total_price'];
         $label = ($sourceType === 'airport_drop' ? 'Airport Drop' : 'Harbor Drop') . ($trip['description'] ? " - {$trip['description']}" : '');
         $guestLabel = $trip['guest_name'] ? " - {$trip['guest_name']}" : '';
         $updateSql = "UPDATE hotel_invoice_items SET driver_paid = 1, driver_paid_at = NOW(), driver_paid_cashbook_id = ? WHERE id = ?";
@@ -147,6 +152,7 @@ try {
     // SYNC TO MASTER CASH ACCOUNT LEDGER
     // Ensure operational account mutasi + balance move together with expense record
     // ======================================
+    $masterSyncWarning = null;
     $masterDb = null;
     try {
         $masterBusinessId = getMasterBusinessId();
@@ -185,13 +191,14 @@ try {
 
         $balStmt = $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance - ? WHERE id = ?");
         $balStmt->execute([$amount, $accountId]);
-
         $masterDb->commit();
     } catch (Exception $masterEx) {
         if ($masterDb instanceof PDO && $masterDb->inTransaction()) {
             $masterDb->rollBack();
         }
-        throw $masterEx;
+        // Do not block trip payment status when optional master-ledger sync fails.
+        $masterSyncWarning = $masterEx->getMessage();
+        error_log('pay-driver-trip master sync warning: ' . $masterSyncWarning);
     }
 
     $db->commit();
@@ -200,7 +207,8 @@ try {
         'success' => true,
         'message' => "Pembayaran Rp " . number_format($amount, 0, ',', '.') . " ke {$driverName} berhasil dicatat",
         'amount' => $amount,
-        'cashbook_id' => $cashbookId
+        'cashbook_id' => $cashbookId,
+        'master_sync_warning' => $masterSyncWarning
     ]);
 } catch (Exception $e) {
     try {
