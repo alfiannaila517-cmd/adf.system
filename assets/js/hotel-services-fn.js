@@ -60,7 +60,11 @@ function buildRentalAssetOpts (items, selected) {
 
 function buildCatalogPaketOpts (svc, selectedIdx) {
   const items = CATALOG_DATA[svc] || []
-  let html = '<option value="">── Harga dari Armada ──</option>'
+  const placeholder =
+    svc === 'car_rental'
+      ? '── Pilih jenis layanan ──'
+      : '── Harga dari Armada ──'
+  let html = `<option value="">${placeholder}</option>`
   items.forEach((item, i) => {
     html +=
       `<option value="${i}"${
@@ -214,7 +218,7 @@ function addItemRow (svc, desc, qty, price) {
     `</div>` +
     `<div class="hs-rental-extra">` +
     `<div class="hs-rental-row1">` +
-    `<div class="hs-ic-labeled"><span>Armada</span><select class="iAsset" onchange="onRentalAssetChange('${id}')"><option value="">Pilih armada...</option></select></div>` +
+    `<div class="hs-ic-labeled hs-asset-wrap"><span>Armada</span><select class="iAsset" onchange="onRentalAssetChange('${id}')"><option value="">Pilih armada...</option></select></div>` +
     `<div class="hs-ic-labeled hs-paket-wrap" style="display:none"><span>Paket / Jenis</span><select class="iPaket" onchange="onPaketChange('${id}')"><option value="">── Harga dari Armada ──</option></select></div>` +
     `<div class="hs-ic-labeled"><span>Hari Sewa</span><input type="number" class="iDays" value="1" min="1" max="365" step="1" onchange="onDaysChange('${id}')"></div>` +
     `<div class="hs-ic-labeled"><span>Deposit (Rp)</span><input type="number" class="iDeposit" value="0" min="0"></div>` +
@@ -268,6 +272,7 @@ function onSvcChange (id, isNew) {
   const descInput = tr.querySelector('.iDesc')
   const rentalWrap = tr.querySelector('.hs-rental-extra')
   const assetSelect = tr.querySelector('.iAsset')
+  const assetWrap = tr.querySelector('.hs-asset-wrap')
   const destWrap = tr.querySelector('.hs-dest-wrap')
   const items = CATALOG_DATA[svc]
   const rentalItems =
@@ -281,6 +286,7 @@ function onSvcChange (id, isNew) {
     // Show rental fields for motor_rental and car_rental
     rentalWrap.classList.add('open')
     assetSelect.innerHTML = buildRentalAssetOpts(rentalItems, assetSelect.value)
+    if (assetWrap) assetWrap.style.display = svc === 'car_rental' ? 'none' : ''
     if (destWrap) destWrap.style.display = svc === 'car_rental' ? '' : 'none'
     // Set default 1 day
     if (!tr.querySelector('.iDays').value) tr.querySelector('.iDays').value = 1
@@ -294,6 +300,7 @@ function onSvcChange (id, isNew) {
     // Hide rental fields for other services
     rentalWrap.classList.remove('open')
     assetSelect.innerHTML = '<option value="">Pilih armada...</option>'
+    if (assetWrap) assetWrap.style.display = ''
     tr.querySelector('.iDays').value = 1
     tr.querySelector('.iDeposit').value = 0
     const _dest = tr.querySelector('.iDest')
@@ -338,7 +345,10 @@ function onRentalAssetChange (id, keepManualDesc) {
   const selectedId = assetSelect.value
   const source = svc === 'motor_rental' ? RENTAL_MOTORS : RENTAL_CARS
   const chosen = source.find(item => String(item.id) === String(selectedId))
-  if (!chosen) return
+  if (!chosen) {
+    rcalc(id)
+    return
+  }
   const priceInput = tr.querySelector('.iPrice')
   const descInput = tr.querySelector('.iDesc')
   // Only fill price from car if no catalog paket is selected
@@ -573,12 +583,8 @@ function submitCreate () {
     endDate.setDate(endDate.getDate() + days)
     const endDt = endDate.toISOString().slice(0, 19).replace('T', ' ')
 
-    if (
-      (svc === 'motor_rental' || svc === 'car_rental') &&
-      !motorId &&
-      !carId
-    ) {
-      alert('Item rental motor/mobil wajib pilih armada')
+    if (svc === 'motor_rental' && !motorId) {
+      alert('Item rental motor wajib pilih armada')
       return
     }
     items.push({
@@ -1005,7 +1011,7 @@ function eAddItemRow (itemOrSvc, desc, qty, price) {
     `</div>` +
     `<div class="hs-rental-extra">` +
     `<div class="hs-rental-row1">` +
-    `<div class="hs-ic-labeled"><span>Armada</span><select class="iAsset" onchange="eOnRentalAssetChange('${id2}')"></select></div>` +
+    `<div class="hs-ic-labeled hs-asset-wrap"><span>Armada</span><select class="iAsset" onchange="eOnRentalAssetChange('${id2}')"></select></div>` +
     `<div class="hs-ic-labeled hs-paket-wrap" style="display:none"><span>Paket / Jenis</span><select class="iPaket" onchange="onPaketChange('${id2}')"><option value="">── Harga dari Armada ──</option></select></div>` +
     `<div class="hs-ic-labeled"><span>Hari Sewa</span><input type="number" class="iDays" value="${
       item.rental_days || 1
@@ -1128,6 +1134,7 @@ function eOnSvcChange (id2, isNew) {
   const descInput = tr3.querySelector('.iDesc')
   const rentalWrap = tr3.querySelector('.hs-rental-extra')
   const assetSelect = tr3.querySelector('.iAsset')
+  const assetWrap = tr3.querySelector('.hs-asset-wrap')
   const destWrap3 = tr3.querySelector('.hs-dest-wrap')
   const items = CATALOG_DATA[svc]
 
@@ -1145,6 +1152,7 @@ function eOnSvcChange (id2, isNew) {
         rentalItems,
         assetSelect.value
       )
+      if (assetWrap) assetWrap.style.display = svc === 'car_rental' ? 'none' : ''
       if (destWrap3)
         destWrap3.style.display = svc === 'car_rental' ? '' : 'none'
       if (!tr3.querySelector('.iDays').value)
@@ -1158,6 +1166,7 @@ function eOnSvcChange (id2, isNew) {
     } else {
       rentalWrap.classList.remove('open')
       assetSelect.innerHTML = '<option value="">Pilih armada...</option>'
+      if (assetWrap) assetWrap.style.display = ''
       tr3.querySelector('.iDays').value = 1
       tr3.querySelector('.iDeposit').value = 0
       const _d = tr3.querySelector('.iDest')
@@ -1167,11 +1176,13 @@ function eOnSvcChange (id2, isNew) {
     // Loading from API - just show/hide rental fields, don't rebuild dropdown
     if (isRentalService(svc)) {
       rentalWrap.classList.add('open')
+      if (assetWrap) assetWrap.style.display = svc === 'car_rental' ? 'none' : ''
       if (destWrap3)
         destWrap3.style.display = svc === 'car_rental' ? '' : 'none'
     } else {
       rentalWrap.classList.remove('open')
       assetSelect.innerHTML = '<option value="">Pilih armada...</option>'
+      if (assetWrap) assetWrap.style.display = ''
       tr3.querySelector('.iDays').value = 1
       tr3.querySelector('.iDeposit').value = 0
       const _d = tr3.querySelector('.iDest')
@@ -1218,7 +1229,10 @@ function eOnRentalAssetChange (id2, keepManualDesc) {
   const selectedId = assetSelect.value
   const source = svc === 'motor_rental' ? RENTAL_MOTORS : RENTAL_CARS
   const chosen = source.find(item => String(item.id) === String(selectedId))
-  if (!chosen) return
+  if (!chosen) {
+    ercalc(id2)
+    return
+  }
   const priceInput = tr3.querySelector('.iPrice')
   const descInput = tr3.querySelector('.iDesc')
   // Only fill price from car if no catalog paket is selected
@@ -1359,12 +1373,8 @@ function submitEdit () {
     endDate.setDate(endDate.getDate() + days)
     const endDt = endDate.toISOString().slice(0, 19).replace('T', ' ')
 
-    if (
-      (svc === 'motor_rental' || svc === 'car_rental') &&
-      !motorId &&
-      !carId
-    ) {
-      alert('Item rental motor/mobil wajib pilih armada')
+    if (svc === 'motor_rental' && !motorId) {
+      alert('Item rental motor wajib pilih armada')
       return
     }
     items.push({

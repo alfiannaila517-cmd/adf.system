@@ -517,24 +517,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
 
                 if (($item['service_type'] ?? '') === 'car_rental') {
                     $item['car_id'] = (int)($item['car_id'] ?? 0);
-                    if (!$item['car_id'] || !$item['start_dt'] || !$item['end_dt']) {
-                        throw new Exception('Rental mobil/taxi wajib pilih armada, mulai, dan selesai');
+                    if (!$item['start_dt'] || !$item['end_dt']) {
+                        throw new Exception('Rental mobil/taxi wajib isi mulai dan selesai');
                     }
-                    $carStmt = $pdo->prepare("SELECT * FROM rental_cars WHERE id=? AND business_id=?");
-                    $carStmt->execute([$item['car_id'], $businessId]);
-                    $carRow = $carStmt->fetch(PDO::FETCH_ASSOC);
-                    if (!$carRow) throw new Exception('Armada mobil tidak ditemukan');
-                    if ($carRow['status'] !== 'available') throw new Exception("Mobil {$carRow['plate_number']} tidak tersedia");
-                    $baseDesc = $carRow['car_name'] . ' (' . $carRow['plate_number'] . ')';
-                    if ($item['trip_destination']) {
-                        $baseDesc .= ' — Tujuan: ' . $item['trip_destination'];
+                    if ($item['car_id']) {
+                        $carStmt = $pdo->prepare("SELECT * FROM rental_cars WHERE id=? AND business_id=?");
+                        $carStmt->execute([$item['car_id'], $businessId]);
+                        $carRow = $carStmt->fetch(PDO::FETCH_ASSOC);
+                        if (!$carRow) throw new Exception('Armada mobil tidak ditemukan');
+                        if ($carRow['status'] !== 'available') throw new Exception("Mobil {$carRow['plate_number']} tidak tersedia");
+                        $baseDesc = $carRow['car_name'] . ' (' . $carRow['plate_number'] . ')';
+                        if ($item['trip_destination']) {
+                            $baseDesc .= ' — Tujuan: ' . $item['trip_destination'];
+                        }
+                        $item['description'] = trim((string)($item['description'] ?? '')) ?: $baseDesc;
+                        if ($item['needs_driver_payment'] && $item['commission_value'] <= 0) {
+                            $item['commission_type']  = $carRow['commission_type'] ?: 'percent';
+                            $item['commission_value'] = $item['commission_type'] === 'nominal' ? (float)$carRow['commission_nominal'] : (float)$carRow['owner_commission_pct'];
+                        }
+                        $carRentalItems[] = ['item' => $item, 'row' => $carRow];
+                    } else {
+                        if (trim((string)($item['description'] ?? '')) === '') {
+                            $item['description'] = 'Rental Mobil / Taxi';
+                        }
                     }
-                    $item['description'] = trim((string)($item['description'] ?? '')) ?: $baseDesc;
-                    if ($item['needs_driver_payment'] && $item['commission_value'] <= 0) {
-                        $item['commission_type']  = $carRow['commission_type'] ?: 'percent';
-                        $item['commission_value'] = $item['commission_type'] === 'nominal' ? (float)$carRow['commission_nominal'] : (float)$carRow['owner_commission_pct'];
-                    }
-                    $carRentalItems[] = ['item' => $item, 'row' => $carRow];
                 }
 
                 if (in_array($item['service_type'] ?? '', ['airport_drop', 'harbor_drop'], true) && $item['car_id']) {
@@ -1321,20 +1327,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
 
                 if (($item['service_type'] ?? '') === 'car_rental') {
                     $item['car_id'] = (int)($item['car_id'] ?? 0);
-                    if (!$item['car_id'] || !$item['start_dt'] || !$item['end_dt']) throw new Exception('Rental mobil/taxi wajib pilih armada, mulai, dan selesai');
-                    $carStmt = $pdo->prepare("SELECT * FROM rental_cars WHERE id=? AND business_id=?");
-                    $carStmt->execute([$item['car_id'], $businessId]);
-                    $carRow = $carStmt->fetch(PDO::FETCH_ASSOC);
-                    if (!$carRow) throw new Exception('Armada mobil tidak ditemukan');
-                    if ($carRow['status'] !== 'available' && !isset($existingCarByAssetId[$item['car_id']])) throw new Exception("Mobil {$carRow['plate_number']} tidak tersedia");
-                    $baseDesc = $carRow['car_name'] . ' (' . $carRow['plate_number'] . ')';
-                    if ($item['trip_destination']) $baseDesc .= ' — Tujuan: ' . $item['trip_destination'];
-                    $item['description'] = trim((string)($item['description'] ?? '')) ?: $baseDesc;
-                    if ($item['needs_driver_payment'] && $item['commission_value'] <= 0) {
-                        $item['commission_type']  = $carRow['commission_type'] ?: 'percent';
-                        $item['commission_value'] = $item['commission_type'] === 'nominal' ? (float)$carRow['commission_nominal'] : (float)$carRow['owner_commission_pct'];
+                    if (!$item['start_dt'] || !$item['end_dt']) throw new Exception('Rental mobil/taxi wajib isi mulai dan selesai');
+                    if ($item['car_id']) {
+                        $carStmt = $pdo->prepare("SELECT * FROM rental_cars WHERE id=? AND business_id=?");
+                        $carStmt->execute([$item['car_id'], $businessId]);
+                        $carRow = $carStmt->fetch(PDO::FETCH_ASSOC);
+                        if (!$carRow) throw new Exception('Armada mobil tidak ditemukan');
+                        if ($carRow['status'] !== 'available' && !isset($existingCarByAssetId[$item['car_id']])) throw new Exception("Mobil {$carRow['plate_number']} tidak tersedia");
+                        $baseDesc = $carRow['car_name'] . ' (' . $carRow['plate_number'] . ')';
+                        if ($item['trip_destination']) $baseDesc .= ' — Tujuan: ' . $item['trip_destination'];
+                        $item['description'] = trim((string)($item['description'] ?? '')) ?: $baseDesc;
+                        if ($item['needs_driver_payment'] && $item['commission_value'] <= 0) {
+                            $item['commission_type']  = $carRow['commission_type'] ?: 'percent';
+                            $item['commission_value'] = $item['commission_type'] === 'nominal' ? (float)$carRow['commission_nominal'] : (float)$carRow['owner_commission_pct'];
+                        }
+                        $carRentalItems[] = ['item' => $item, 'row' => $carRow];
+                    } else {
+                        if (trim((string)($item['description'] ?? '')) === '') {
+                            $item['description'] = 'Rental Mobil / Taxi';
+                        }
                     }
-                    $carRentalItems[] = ['item' => $item, 'row' => $carRow];
                 }
 
                 if (in_array($item['service_type'] ?? '', ['airport_drop', 'harbor_drop'], true) && $item['car_id']) {
