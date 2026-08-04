@@ -524,6 +524,22 @@ include '../../includes/header.php';
         background: #16a34a;
     }
 
+    .btn-trip-edit {
+        padding: 3px 7px;
+        font-size: 10px;
+        font-weight: 700;
+        border: 1.5px solid #3b82f6;
+        border-radius: 4px;
+        background: #fff;
+        color: #1d4ed8;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+
+    .btn-trip-edit:hover {
+        background: #eff6ff;
+    }
+
     /* PAY DRIVER TRIP MODAL */
     .dp-modal-overlay {
         display: none;
@@ -863,6 +879,36 @@ include '../../includes/header.php';
     </div>
 </div>
 
+<!-- EDIT DRIVER TRIP AMOUNT MODAL -->
+<div id="editTripModalOverlay" class="dp-modal-overlay" onclick="if(event.target===this)closeEditTripModal()">
+    <div class="dp-modal">
+        <h3>✏️ Edit Nominal Trip</h3>
+        <div class="dp-summary">
+            <div><span>Driver / Mitra</span><strong id="etDriverName">-</strong></div>
+            <div><span>Trip</span><strong id="etTripLabel" style="font-size:11px;text-align:right;max-width:55%;">-</strong></div>
+        </div>
+        <div class="dp-field">
+            <label>Total Tarif (Rp)</label>
+            <input type="number" id="etTotalPrice" min="0" step="1000"
+                style="width:100%;padding:8px 10px;border:1px solid #dfe3ee;border-radius:7px;font-size:13px;color:#1a2540;box-sizing:border-box;"
+                oninput="updateEditCompanyAmount()">
+        </div>
+        <div class="dp-field">
+            <label>Bagian Driver / Pemilik (Rp)</label>
+            <input type="number" id="etOwnerAmount" min="0" step="1000"
+                style="width:100%;padding:8px 10px;border:1px solid #dfe3ee;border-radius:7px;font-size:13px;color:#1a2540;box-sizing:border-box;"
+                oninput="updateEditCompanyAmount()">
+        </div>
+        <div class="dp-summary">
+            <div><span>Bagian Perusahaan (otomatis)</span><strong id="etCompanyAmount" style="color:#1d4ed8;">Rp 0</strong></div>
+        </div>
+        <div class="dp-actions">
+            <button type="button" class="dp-btn-cancel" onclick="closeEditTripModal()">Batal</button>
+            <button type="button" class="dp-btn-confirm" id="etConfirmBtn" onclick="confirmEditDriverTrip()" style="background:#1d4ed8;">💾 Simpan</button>
+        </div>
+    </div>
+</div>
+
 <script>
     const BASE_URL = '<?php echo BASE_URL; ?>';
     const ACTIVE_BUSINESS = '<?php echo $_SESSION['active_business_id'] ?? 'narayana-hotel'; ?>';
@@ -1123,10 +1169,15 @@ include '../../includes/header.php';
                     <td>${d.guest_name || '—'}${d.room_number ? '<br><span style="color:#94a0b8;">Kamar ' + d.room_number + '</span>' : ''}</td>
                     <td style="text-align:right;font-weight:700;">Rp ${formatNumber(d.total_price)}</td>
                     <td style="text-align:right;font-weight:700;color:#16794d;">Rp ${formatNumber(d.owner_amount)}</td>
-                    <td style="text-align:right;">${d.paid
-                        ? '<span class="btn-trip-paid">✅ Lunas</span>'
-                        : `<button class="btn-trip-pay" onclick="payDriverTrip(${d.trip_id}, '${d.service_type}', ${d.owner_amount}, '${driverNameSafe}', '${d.source || 'trip'}')">Bayar</button>`
-                    }</td>
+                    <td style="text-align:right;">
+                        <div style="display:flex;gap:4px;justify-content:flex-end;align-items:center;flex-wrap:wrap;">
+                            <button class="btn-trip-edit" onclick="editDriverTripAmount(${d.trip_id}, '${d.source || 'trip'}', ${d.total_price}, ${d.owner_amount}, '${driverNameSafe}', '${typeLabel[d.service_type] || d.service_type}')">✏️ Edit</button>
+                            ${d.paid
+                                ? '<span class="btn-trip-paid">✅ Lunas</span>'
+                                : `<button class="btn-trip-pay" onclick="payDriverTrip(${d.trip_id}, '${d.service_type}', ${d.owner_amount}, '${driverNameSafe}', '${d.source || 'trip'}')">Bayar</button>`
+                            }
+                        </div>
+                    </td>
                 </tr>`).join('');
 
             html += `
@@ -1320,6 +1371,69 @@ include '../../includes/header.php';
             alert(`❌ Error: ${error.message}`);
             confirmBtn.disabled = false;
             confirmBtn.textContent = '✅ Bayar & Catat ke Kas';
+        }
+    }
+
+    // EDIT DRIVER TRIP AMOUNT
+    let pendingEditTrip = null;
+
+    function editDriverTripAmount(tripId, source, totalPrice, ownerAmount, driverName, tripLabel) {
+        pendingEditTrip = { tripId, source };
+        document.getElementById('etDriverName').textContent = driverName || '-';
+        document.getElementById('etTripLabel').textContent = tripLabel || '-';
+        document.getElementById('etTotalPrice').value = totalPrice;
+        document.getElementById('etOwnerAmount').value = ownerAmount;
+        document.getElementById('etConfirmBtn').disabled = false;
+        document.getElementById('etConfirmBtn').textContent = '💾 Simpan';
+        updateEditCompanyAmount();
+        document.getElementById('editTripModalOverlay').classList.add('open');
+    }
+
+    function updateEditCompanyAmount() {
+        const total = parseFloat(document.getElementById('etTotalPrice').value) || 0;
+        const owner = parseFloat(document.getElementById('etOwnerAmount').value) || 0;
+        document.getElementById('etCompanyAmount').textContent = 'Rp ' + formatNumber(Math.max(0, total - owner));
+    }
+
+    function closeEditTripModal() {
+        document.getElementById('editTripModalOverlay').classList.remove('open');
+        pendingEditTrip = null;
+    }
+
+    async function confirmEditDriverTrip() {
+        if (!pendingEditTrip) return;
+        const totalPrice = parseFloat(document.getElementById('etTotalPrice').value);
+        const ownerAmount = parseFloat(document.getElementById('etOwnerAmount').value);
+
+        if (isNaN(totalPrice) || totalPrice < 0) { alert('Total tarif tidak valid'); return; }
+        if (isNaN(ownerAmount) || ownerAmount < 0) { alert('Bagian pemilik tidak valid'); return; }
+        if (ownerAmount > totalPrice) { alert('Bagian pemilik tidak boleh melebihi total tarif'); return; }
+
+        const btn = document.getElementById('etConfirmBtn');
+        btn.disabled = true;
+        btn.textContent = 'Menyimpan...';
+
+        const fd = new FormData();
+        fd.append('trip_id', pendingEditTrip.tripId);
+        fd.append('source', pendingEditTrip.source);
+        fd.append('total_price', totalPrice);
+        fd.append('owner_amount', ownerAmount);
+
+        try {
+            const res = await fetch(BASE_URL + '/api/edit-driver-trip-amount.php', { method: 'POST', body: fd, credentials: 'include' });
+            const result = await res.json();
+            if (result.success) {
+                closeEditTripModal();
+                loadDriverRecap();
+            } else {
+                alert('❌ ' + result.message);
+                btn.disabled = false;
+                btn.textContent = '💾 Simpan';
+            }
+        } catch (err) {
+            alert('❌ Error: ' + err.message);
+            btn.disabled = false;
+            btn.textContent = '💾 Simpan';
         }
     }
 
