@@ -546,7 +546,35 @@ include '../../includes/header.php';
         color: #6366f1;
         font-weight: 600;
         margin-top: 0.3rem;
+        line-height: 1.5;
     }
+    .rm-car-card .mc-rate-driver {
+        display: block;
+        font-size: 0.72rem;
+        color: #2563eb;
+        margin-top: 2px;
+    }
+
+    /* Price list table */
+    .rm-pricelist-wrap {
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        padding: 0.85rem 1rem;
+        margin-bottom: 1.25rem;
+    }
+    .rm-price-tbl { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+    .rm-price-tbl th {
+        background: #f3f4f6; padding: 0.5rem 0.75rem;
+        text-align: left; font-weight: 600; color: #374151;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    .rm-price-tbl td {
+        padding: 0.5rem 0.75rem; border-bottom: 1px solid #f3f4f6;
+        vertical-align: middle;
+    }
+    .rm-price-tbl tr:last-child td { border-bottom: none; }
+    .rm-price-tbl tr:hover td { background: #f9fafb; }
 
     .rm-car-card .mc-status {
         position: absolute;
@@ -1053,6 +1081,46 @@ include '../../includes/header.php';
                 <button class="btn-rm btn-rm-primary" onclick="openCarModal()" style="margin-top:0.5rem">+ Tambah Kendaraan</button>
             </div>
         <?php else: ?>
+            <!-- Price List Table -->
+            <div class="rm-pricelist-wrap">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
+                    <strong style="font-size:0.85rem;color:var(--text-primary)">💰 Daftar Harga Kendaraan</strong>
+                    <button class="btn-rm btn-rm-secondary" style="font-size:0.75rem;padding:0.25rem 0.7rem" onclick="togglePriceList()">Tampilkan/Sembunyikan</button>
+                </div>
+                <div id="priceListTable" style="overflow-x:auto">
+                <table class="rm-price-tbl">
+                    <thead><tr>
+                        <th>Kendaraan</th>
+                        <th style="text-align:right">💵 Harga ke Tamu</th>
+                        <th style="text-align:right">🚗 Bayar ke Driver</th>
+                        <th style="text-align:right">🏨 Margin Hotel</th>
+                        <th></th>
+                    </tr></thead>
+                    <tbody>
+                    <?php foreach ($carList as $cl): ?>
+                    <tr>
+                        <td>
+                            <strong><?php echo htmlspecialchars($cl['plate_number']); ?></strong><br>
+                            <span style="font-size:0.8rem;color:var(--text-secondary)"><?php echo htmlspecialchars($cl['car_name']); ?></span>
+                        </td>
+                        <td style="text-align:right;font-weight:600;color:#4f46e5">Rp <?php echo number_format($cl['daily_rate'], 0, ',', '.'); ?></td>
+                        <td style="text-align:right;font-weight:600;color:#2563eb">
+                            <?php if ((float)($cl['driver_daily_rate'] ?? 0) > 0): ?>
+                                Rp <?php echo number_format($cl['driver_daily_rate'], 0, ',', '.'); ?>
+                            <?php else: ?>
+                                <span style="color:#9ca3af">—</span>
+                            <?php endif; ?>
+                        </td>
+                        <td style="text-align:right;font-weight:600;color:#059669">
+                            Rp <?php echo number_format(max(0, $cl['daily_rate'] - (float)($cl['driver_daily_rate'] ?? 0)), 0, ',', '.'); ?>
+                        </td>
+                        <td><button class="mc-btn" style="background:#e0e7ff;color:#4338ca;font-size:0.75rem" onclick="editCar(<?php echo htmlspecialchars(json_encode($cl)); ?>)">✏️ Edit</button></td>
+                    </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+                </div>
+            </div>
             <div class="rm-fleet">
                 <?php
                 $statusColors = ['available' => '#10b981', 'rented' => '#f59e0b', 'maintenance' => '#6b7280'];
@@ -1082,7 +1150,15 @@ include '../../includes/header.php';
                                 <?php endif; ?>
                             </div>
                         <?php endif; ?>
-                        <div class="mc-rate">Rp <?php echo number_format($c['daily_rate'], 0, ',', '.'); ?> / hari</div>
+                        <div class="mc-rate">
+                            💵 Tamu: Rp <?php echo number_format($c['daily_rate'], 0, ',', '.'); ?>/hari
+                            <?php if ((float)($c['driver_daily_rate'] ?? 0) > 0): ?>
+                            <span class="mc-rate-driver">
+                                🚗 Driver: Rp <?php echo number_format($c['driver_daily_rate'], 0, ',', '.'); ?>/trip
+                                <span style="color:#059669">· Hotel: Rp <?php echo number_format(max(0, $c['daily_rate'] - $c['driver_daily_rate']), 0, ',', '.'); ?></span>
+                            </span>
+                            <?php endif; ?>
+                        </div>
                         <div class="mc-actions">
                             <button class="mc-btn" style="background:#e0e7ff;color:#4338ca" onclick="editCar(<?php echo htmlspecialchars(json_encode($c)); ?>)">✏️ Edit</button>
                             <?php if ($c['status'] === 'available'): ?>
@@ -1445,6 +1521,11 @@ include '../../includes/header.php';
                 else alert(d.message);
             })
             .catch(() => alert('Network error'));
+    }
+
+    function togglePriceList() {
+        const el = document.getElementById('priceListTable');
+        if (el) el.style.display = el.style.display === 'none' ? '' : 'none';
     }
 
     // ── Rental Modal ────────────────────────────────────────────────────────────
