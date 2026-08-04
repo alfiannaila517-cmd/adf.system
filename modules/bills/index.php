@@ -1477,9 +1477,6 @@ include '../../includes/header.php';
             const scopedUnpaidTrips = baseRows.length - scopedPaidTrips;
             const scopedHotelTotal = Math.max(0, scopedTotalRevenue - scopedOwnerTotal);
             const scopedAvgPct = scopedTotalRevenue > 0 ? Math.round((scopedOwnerTotal / scopedTotalRevenue) * 100) : 0;
-            const scopedRentalTrips = baseRows.filter(r => r.service_type === 'car_rental').length;
-            const scopedAirportTrips = baseRows.filter(r => r.service_type === 'airport_drop').length;
-            const scopedHarborTrips = baseRows.filter(r => r.service_type === 'harbor_drop').length;
             const scopedNarayanaTrips = baseRows.filter(r => r.service_type === 'narayana_trip').length;
 
             const driverNameSafe = (dr.partner_owner || 'Tanpa Pemilik').replace(/'/g, "\\'");
@@ -1519,10 +1516,13 @@ include '../../includes/header.php';
                         <span>⏳ Belum Dibayar: <strong style="color:#d97706;">Rp ${formatNumber(scopedUnpaidTotal)}</strong> (${scopedUnpaidTrips} trip)</span>
                     </div>
                     <div class="dr-breakdown">
-                        <div class="dr-stat"><div class="v">${scopedRentalTrips}</div><div class="l">Rental Mobil</div></div>
-                        <div class="dr-stat"><div class="v">${scopedAirportTrips}</div><div class="l">Airport Drop</div></div>
-                        <div class="dr-stat"><div class="v">${scopedHarborTrips}</div><div class="l">Harbor Drop</div></div>
-                        ${isTripTab ? `<div class="dr-stat"><div class="v">${scopedNarayanaTrips}</div><div class="l">Narayana Trip</div></div>` : ''}
+                        ${isTripTab
+                            ? `<div class="dr-stat"><div class="v">${scopedNarayanaTrips}</div><div class="l">Narayana Trip</div></div>`
+                            : `
+                                <div class="dr-stat"><div class="v">${baseRows.filter(r => r.service_type === 'car_rental').length}</div><div class="l">Rental Mobil</div></div>
+                                <div class="dr-stat"><div class="v">${baseRows.filter(r => r.service_type === 'airport_drop').length}</div><div class="l">Airport Drop</div></div>
+                                <div class="dr-stat"><div class="v">${baseRows.filter(r => r.service_type === 'harbor_drop').length}</div><div class="l">Harbor Drop</div></div>
+                            `}
                     </div>
                     ${detailRows ? `
                     <div style="font-size:11px;font-weight:700;color:#475569;margin-top:8px;">Detail Transaksi</div>
