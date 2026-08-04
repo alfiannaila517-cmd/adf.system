@@ -123,10 +123,23 @@ try {
         error_log('get-driver-recap owner query fallback: ' . $ownerErr->getMessage());
     }
 
-    $ownerKey = static function (?string $name): string {
-        $name = trim((string)$name);
-        return $name !== '' ? strtolower($name) : '__tanpa_pemilik__';
+    $normalizeOwnerName = static function (?string $name): string {
+        $name = strtolower(trim((string)$name));
+        if ($name === '') {
+            return '';
+        }
+        // Remove common Indonesian honorific prefixes so aliases collapse into one owner key.
+        $name = preg_replace('/^(bp\.?|bpk\.?|bapak|pak|ibu|bu|mr\.?|mrs\.?|ms\.?)\s+/u', '', $name);
+        $name = preg_replace('/[^a-z0-9]+/u', '', $name);
+        return $name;
     };
+
+    $ownerKey = static function (?string $name) use ($normalizeOwnerName): string {
+        $name = $normalizeOwnerName($name);
+        return $name !== '' ? $name : '__tanpa_pemilik__';
+    };
+
+    $dropKeyCanonical = $ownerKey($dropOwnerName);
 
     foreach ($recap as &$or) {
         $or['total_trips'] = (int)$or['total_trips'];
@@ -146,6 +159,49 @@ try {
         $or['detail_rows'] = [];
     }
     unset($or);
+
+    // Merge owner aliases (example: "Moyong" and "Bp. Moyong") into a single recap card.
+    $mergedRecap = [];
+    foreach ($recap as $row) {
+        $key = $ownerKey($row['partner_owner'] ?? '');
+        if (!isset($mergedRecap[$key])) {
+            if ($key === $dropKeyCanonical) {
+                $row['partner_owner'] = $dropOwnerName;
+            }
+            $mergedRecap[$key] = $row;
+            continue;
+        }
+
+        $mergedRecap[$key]['total_trips'] += (int)($row['total_trips'] ?? 0);
+        $mergedRecap[$key]['total_revenue'] += (float)($row['total_revenue'] ?? 0);
+        $mergedRecap[$key]['owner_total'] += (float)($row['owner_total'] ?? 0);
+        $mergedRecap[$key]['hotel_total'] += (float)($row['hotel_total'] ?? 0);
+        $mergedRecap[$key]['rental_trips'] += (int)($row['rental_trips'] ?? 0);
+        $mergedRecap[$key]['airport_trips'] += (int)($row['airport_trips'] ?? 0);
+        $mergedRecap[$key]['harbor_trips'] += (int)($row['harbor_trips'] ?? 0);
+
+        if (!empty($row['owner_phone']) && empty($mergedRecap[$key]['owner_phone'])) {
+            $mergedRecap[$key]['owner_phone'] = $row['owner_phone'];
+        }
+
+        $existingCars = array_filter(array_map('trim', explode(',', (string)($mergedRecap[$key]['cars'] ?? ''))));
+        $newCars = array_filter(array_map('trim', explode(',', (string)($row['cars'] ?? ''))));
+        $cars = array_values(array_unique(array_merge($existingCars, $newCars)));
+        $mergedRecap[$key]['cars'] = implode(', ', $cars);
+
+        if ($key === $dropKeyCanonical) {
+            $mergedRecap[$key]['partner_owner'] = $dropOwnerName;
+        }
+    }
+
+    foreach ($mergedRecap as &$row) {
+        $row['avg_comm_pct'] = $row['total_revenue'] > 0
+            ? ($row['owner_total'] / $row['total_revenue'] * 100)
+            : 0.0;
+    }
+    unset($row);
+
+    $recap = array_values($mergedRecap);
 
     $indexMap = [];
     foreach ($recap as $idx => $or) {
