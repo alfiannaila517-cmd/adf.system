@@ -910,7 +910,7 @@ function eAddItemRow (itemOrSvc, desc, qty, price) {
   const tr3 = document.createElement('tr')
   tr3.id = id2
   tr3.innerHTML =
-    `<td><select class="iSvc" onchange="eOnSvcChange('${id2}')">${buildSvcOpts(
+    `<td><select class="iSvc" onchange="eOnSvcChange('${id2}', true)">${buildSvcOpts(
       item.service_type || ''
     )}</select></td>` +
     `<td>` +
@@ -1096,16 +1096,12 @@ function eOnSvcChange (id2, isNew) {
     if (isNew) {
       if (parseFloat(priceInput.value) === 0) priceInput.value = items[0].price
       if (!descInput.value.trim()) descInput.value = items[0].name
-    } else {
-      priceInput.value = items[0].price
-      descInput.value = items[0].name
     }
-  } else if (!isNew) {
-    priceInput.value = 0
+    // else: loading from API — don't overwrite existing price/desc
   }
 
   if (isRentalService(svc)) {
-    eOnRentalAssetChange(id2, !!isNew)
+    eOnRentalAssetChange(id2, !isNew)
   }
   updateDriverExtra(tr3)
   ercalc(id2)
