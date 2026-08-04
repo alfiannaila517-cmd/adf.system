@@ -1936,33 +1936,45 @@ include '../../includes/header.php';
 
     .hs-rental-extra {
         display: none;
-        margin-top: 0.35rem;
-        padding: 0.45rem;
-        border: 1px dashed #cbd5e1;
-        border-radius: 8px;
-        background: #f8fafc;
-        gap: 0.4rem;
+        flex-direction: column;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+        padding-top: 0.5rem;
+        border-top: 1px dashed #e2e8f0;
     }
 
     .hs-rental-extra.open {
-        display: grid;
+        display: flex;
     }
 
-    .hs-rental-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.35rem;
+    .hs-rental-row1 {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        align-items: flex-end;
     }
 
-    .hs-rental-extra input,
-    .hs-rental-extra select {
+    .hs-dest-wrap {
+        display: none;
+    }
+
+    .hs-dest-wrap span {
+        display: block;
+        font-size: 0.68rem;
+        font-weight: 600;
+        color: #64748b;
+        text-transform: uppercase;
+        margin-bottom: 3px;
+    }
+
+    .hs-dest-wrap input {
         width: 100%;
-        padding: 0.38rem 0.5rem;
-        border: 1px solid #cbd5e1;
+        padding: 0.35rem 0.5rem;
+        border: 1px solid #e2e8f0;
         border-radius: 6px;
-        font-size: 0.76rem;
-        box-sizing: border-box;
+        font-size: 0.8rem;
         background: #fff;
+        box-sizing: border-box;
     }
 
     .hs-action-btn {
@@ -2083,47 +2095,168 @@ include '../../includes/header.php';
         color: #4c1d95;
     }
 
-    /* Items table */
-    .items-tbl {
-        width: 100%;
-        border-collapse: collapse;
+    /* Item cards */
+    .hs-items-wrap {
         margin-bottom: 0.5rem;
-        font-size: 0.8rem;
     }
 
-    .items-tbl th {
-        background: #f8fafc;
-        padding: 0.45rem 0.5rem;
-        font-size: 0.7rem;
-        font-weight: 600;
-        color: var(--text-secondary);
-        text-transform: uppercase;
-        border-bottom: 1px solid #e2e8f0;
-        white-space: nowrap;
-    }
-
-    .items-tbl td {
-        padding: 0.35rem 0.3rem;
-        border-bottom: 1px solid #f1f5f9;
-        vertical-align: middle;
-    }
-
-    .items-tbl td input,
-    .items-tbl td select {
-        padding: 0.35rem 0.4rem;
+    .hs-item-card {
+        background: #fff;
         border: 1px solid #e2e8f0;
-        border-radius: 5px;
-        font-size: 0.78rem;
+        border-radius: 10px;
+        padding: 10px 12px;
+        margin-bottom: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+
+    .hs-ic-top {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        margin-bottom: 6px;
+    }
+
+    .hs-ic-top .iSvc {
+        flex: 0 0 auto;
+        min-width: 145px;
+        max-width: 175px;
+    }
+
+    .hs-ic-top .iDesc {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .hs-ic-top input,
+    .hs-ic-top select {
+        padding: 0.38rem 0.5rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        font-size: 0.8rem;
         background: white;
         box-sizing: border-box;
-        width: 100%;
     }
 
-    .items-tbl td input:focus,
-    .items-tbl td select:focus {
+    .hs-ic-top input:focus,
+    .hs-ic-top select:focus {
         outline: none;
         border-color: #6366f1;
     }
+
+    .hs-ic-labeled {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+
+    .hs-ic-labeled > span {
+        font-size: 0.67rem;
+        font-weight: 600;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+    }
+
+    .hs-ic-labeled input,
+    .hs-ic-labeled select {
+        padding: 0.35rem 0.45rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        background: white;
+        box-sizing: border-box;
+    }
+
+    .hs-ic-labeled input:focus,
+    .hs-ic-labeled select:focus {
+        outline: none;
+        border-color: #6366f1;
+    }
+
+    .hs-rental-row1 .iAsset { min-width: 155px; }
+    .hs-rental-row1 .iDays { width: 65px; }
+    .hs-rental-row1 .iDeposit { width: 105px; }
+
+    .hs-ic-nums {
+        display: flex;
+        gap: 8px;
+        align-items: flex-end;
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px solid #f1f5f9;
+        flex-wrap: wrap;
+    }
+
+    .hs-ic-nums .iQty { width: 65px; }
+    .hs-ic-nums .iPrice { width: 120px; }
+
+    .hs-ic-subtotal {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        margin-left: auto;
+        text-align: right;
+    }
+
+    .hs-ic-subtotal > span {
+        font-size: 0.67rem;
+        font-weight: 600;
+        color: #64748b;
+        text-transform: uppercase;
+    }
+
+    .hs-ic-subtotal .iTotal {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #4338ca;
+        white-space: nowrap;
+    }
+
+    .hs-driver-extra {
+        display: none;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: flex-end;
+        margin-top: 8px;
+        padding: 8px 10px;
+        background: #f8fafc;
+        border: 1px dashed #cbd5e1;
+        border-radius: 6px;
+    }
+
+    .hs-driver-extra .iDriverCarRow {
+        width: 100%;
+        margin-bottom: 2px;
+    }
+
+    .hs-driver-chk {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 11.5px;
+        color: #334155;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+
+    .iCommWrap {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+    }
+
+    .iCommWrap select,
+    .iCommWrap input {
+        padding: 0.32rem 0.45rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        font-size: 0.78rem;
+        background: white;
+    }
+
+    .iCommWrap select { min-width: 150px; }
+    .iCommWrap input { width: 80px; }
 
     .btn-add-item {
         background: #f0f4ff;
@@ -2536,21 +2669,7 @@ include '../../includes/header.php';
 
         <!-- Service items -->
         <span class="sect-label">Service Items *</span>
-        <div style="overflow-x:auto;margin-bottom:0.4rem">
-            <table class="items-tbl">
-                <thead>
-                    <tr>
-                        <th style="min-width:140px">Service Type</th>
-                        <th style="min-width:160px">Description</th>
-                        <th style="width:65px">Qty</th>
-                        <th style="width:115px">Unit Price</th>
-                        <th style="width:105px;text-align:right">Subtotal</th>
-                        <th style="width:34px"></th>
-                    </tr>
-                </thead>
-                <tbody id="itemsBody"></tbody>
-            </table>
-        </div>
+        <div id="itemsBody" class="hs-items-wrap"></div>
         <button type="button" class="btn-add-item" onclick="addItemRow()">+ Add Service Item</button>
 
         <!-- Tax, Service Charge, Discount -->
@@ -2793,21 +2912,7 @@ include '../../includes/header.php';
         <div class="hs-field" style="margin-bottom:0.75rem"><label>Nomor Kamar</label><input type="text" id="eRoom" style="width:200px"></div>
 
         <span class="sect-label">Service Items *</span>
-        <div style="overflow-x:auto;margin-bottom:0.4rem">
-            <table class="items-tbl">
-                <thead>
-                    <tr>
-                        <th style="min-width:140px">Tipe Layanan</th>
-                        <th style="min-width:160px">Deskripsi</th>
-                        <th style="width:65px">Qty</th>
-                        <th style="width:115px">Harga Satuan</th>
-                        <th style="width:105px;text-align:right">Subtotal</th>
-                        <th style="width:34px"></th>
-                    </tr>
-                </thead>
-                <tbody id="eItemsBody"></tbody>
-            </table>
-        </div>
+        <div id="eItemsBody" class="hs-items-wrap"></div>
         <button type="button" class="btn-add-item" onclick="eAddItemRow()">+ Tambah Item</button>
 
         <span class="sect-label">Tax, Service Charge & Discount</span>

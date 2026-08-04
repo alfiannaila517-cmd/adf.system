@@ -143,53 +143,39 @@ function rentalDefaultDate (offsetDays) {
 function addItemRow (svc, desc, qty, price) {
   rowCnt++
   const id = 'r' + rowCnt
-  const tr = document.createElement('tr')
-  tr.id = id
-  tr.innerHTML =
-    `<td><select class="iSvc" onchange="onSvcChange('${id}')">${buildSvcOpts(
-      svc || ''
-    )}</select></td>` +
-    `<td>` +
-    `<input type="text" class="iDesc" placeholder="e.g. Honda Beat" value="${(
-      desc || ''
-    ).replace(/"/g, '&quot;')}">` +
+  const card = document.createElement('div')
+  card.className = 'hs-item-card'
+  card.id = id
+  card.innerHTML =
+    `<div class="hs-ic-top">` +
+    `<select class="iSvc" onchange="onSvcChange('${id}', true)">${buildSvcOpts(svc || '')}</select>` +
+    `<input type="text" class="iDesc" placeholder="Deskripsi" value="${(desc || '').replace(/"/g, '&quot;')}">` +
+    `<button type="button" class="btn-del-row" onclick="delRow('${id}')">✕</button>` +
+    `</div>` +
     `<div class="hs-rental-extra">` +
-    `<select class="iAsset" onchange="onRentalAssetChange('${id}')"><option value="">Pilih armada...</option></select>` +
-    `<div class="hs-rental-grid">` +
-    `<label>Hari Sewa:</label>` +
-    `<input type="number" class="iDays" value="1" min="1" max="365" step="1" placeholder="Jumlah hari" onchange="onDaysChange('${id}')">` +
+    `<div class="hs-rental-row1">` +
+    `<div class="hs-ic-labeled"><span>Armada</span><select class="iAsset" onchange="onRentalAssetChange('${id}')"><option value="">Pilih armada...</option></select></div>` +
+    `<div class="hs-ic-labeled"><span>Hari Sewa</span><input type="number" class="iDays" value="1" min="1" max="365" step="1" onchange="onDaysChange('${id}')"></div>` +
+    `<div class="hs-ic-labeled"><span>Deposit (Rp)</span><input type="number" class="iDeposit" value="0" min="0"></div>` +
     `</div>` +
-    `<div class="hs-rental-grid">` +
-    `<input type="number" class="iDeposit" value="0" min="0" placeholder="Deposit (Rp)">` +
-    `<input type="text" class="iDest" placeholder="Tujuan / catatan mobil">` +
+    `<div class="hs-dest-wrap"><span>Tujuan / Catatan</span><input type="text" class="iDest" placeholder="Tujuan / catatan mobil"></div>` +
     `</div>` +
+    `<div class="hs-driver-extra">` +
+    `<div class="iDriverCarRow" style="display:none">` +
+    `<div class="hs-ic-labeled" style="flex:1"><span>Mobil Driver</span><select class="iDriverCar" onchange="onDriverCarChange('${id}')"><option value="">🚗 Pilih mobil/driver (opsional)...</option></select></div>` +
     `</div>` +
-    `<div class="hs-driver-extra" style="display:none;margin-top:6px;padding:8px 10px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:6px">` +
-    `<div class="iDriverCarRow" style="display:none;margin-bottom:6px">` +
-    `<select class="iDriverCar" onchange="onDriverCarChange('${id}')" style="width:100%;font-size:12px;padding:4px"><option value="">🚗 Pilih mobil/driver (opsional)...</option></select>` +
-    `</div>` +
-    `<label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:#334155;cursor:pointer">` +
-    `<input type="checkbox" class="iNeedsDriver" onchange="onNeedsDriverChange('${id}')">` +
-    `🧾 Butuh bayar driver (masuk Tagihan setelah invoice diproses)` +
-    `</label>` +
-    `<div class="iCommWrap" style="display:none;gap:6px;margin-top:6px">` +
-    `<select class="iCommType" style="flex:1;font-size:12px;padding:4px">` +
-    `<option value="percent">Bagian Driver: %</option>` +
-    `<option value="nominal">Potongan Hotel: Rp</option>` +
-    `</select>` +
-    `<input type="number" class="iCommValue" style="flex:1;font-size:12px;padding:4px" placeholder="Nilai" min="0">` +
+    `<label class="hs-driver-chk"><input type="checkbox" class="iNeedsDriver" onchange="onNeedsDriverChange('${id}')"> 🧾 Butuh tagihan driver</label>` +
+    `<div class="iCommWrap" style="display:none">` +
+    `<select class="iCommType"><option value="percent">Bagian Driver: %</option><option value="nominal">Potongan Hotel: Rp</option></select>` +
+    `<input type="number" class="iCommValue" value="0" min="0" placeholder="Nilai">` +
     `</div>` +
     `</div>` +
-    `</td>` +
-    `<td><input type="number" class="iQty" value="${
-      qty || 1
-    }" min="0.5" step="0.5" style="width:60px" oninput="rcalc('${id}')"></td>` +
-    `<td><input type="number" class="iPrice" value="${
-      price || 0
-    }" min="0" style="width:105px" oninput="rcalc('${id}')"></td>` +
-    `<td style="font-weight:700;color:#4338ca;text-align:right;white-space:nowrap" class="iTotal">Rp 0</td>` +
-    `<td><button type="button" class="btn-del-row" onclick="delRow('${id}')">✕</button></td>`
-  document.getElementById('itemsBody').appendChild(tr)
+    `<div class="hs-ic-nums">` +
+    `<div class="hs-ic-labeled"><span>QTY</span><input type="number" class="iQty" value="${qty || 1}" min="0.5" step="0.5" oninput="rcalc('${id}')"></div>` +
+    `<div class="hs-ic-labeled"><span>Harga (Rp)</span><input type="number" class="iPrice" value="${price || 0}" min="0" oninput="rcalc('${id}')"></div>` +
+    `<div class="hs-ic-subtotal"><span>Subtotal</span><strong class="iTotal">Rp 0</strong></div>` +
+    `</div>`
+  document.getElementById('itemsBody').appendChild(card)
   // Only auto-populate if service type was provided
   if (svc) {
     onSvcChange(id, true)
@@ -215,7 +201,7 @@ function onSvcChange (id, isNew) {
   const descInput = tr.querySelector('.iDesc')
   const rentalWrap = tr.querySelector('.hs-rental-extra')
   const assetSelect = tr.querySelector('.iAsset')
-  const destInput = tr.querySelector('.iDest')
+  const destWrap = tr.querySelector('.hs-dest-wrap')
   const items = CATALOG_DATA[svc]
   const rentalItems =
     svc === 'motor_rental'
@@ -228,7 +214,7 @@ function onSvcChange (id, isNew) {
     // Show rental fields for motor_rental and car_rental
     rentalWrap.classList.add('open')
     assetSelect.innerHTML = buildRentalAssetOpts(rentalItems, assetSelect.value)
-    destInput.style.display = svc === 'car_rental' ? '' : 'none'
+    if (destWrap) destWrap.style.display = svc === 'car_rental' ? '' : 'none'
     // Set default 1 day
     if (!tr.querySelector('.iDays').value) tr.querySelector('.iDays').value = 1
   } else {
@@ -237,23 +223,18 @@ function onSvcChange (id, isNew) {
     assetSelect.innerHTML = '<option value="">Pilih armada...</option>'
     tr.querySelector('.iDays').value = 1
     tr.querySelector('.iDeposit').value = 0
-    tr.querySelector('.iDest').value = ''
+    const _dest = tr.querySelector('.iDest'); if (_dest) _dest.value = ''
   }
 
   if (items && items.length > 0) {
     if (isNew) {
       if (parseFloat(priceInput.value) === 0) priceInput.value = items[0].price
       if (!descInput.value.trim()) descInput.value = items[0].name
-    } else {
-      priceInput.value = items[0].price
-      descInput.value = items[0].name
     }
-  } else if (!isNew) {
-    priceInput.value = 0
   }
 
   if (isRentalService(svc)) {
-    onRentalAssetChange(id, !!isNew)
+    onRentalAssetChange(id, !isNew)
   }
   updateDriverExtra(tr)
   rcalc(id)
@@ -325,7 +306,7 @@ function rcalc (id) {
 
 function subtotal () {
   let t = 0
-  document.querySelectorAll('#itemsBody tr').forEach(tr => {
+  document.querySelectorAll('#itemsBody .hs-item-card').forEach(tr => {
     t +=
       (parseFloat(tr.querySelector('.iQty')?.value) || 0) *
       (parseFloat(tr.querySelector('.iPrice')?.value) || 0)
@@ -454,7 +435,7 @@ function submitCreate () {
     return
   }
 
-  const rows = document.querySelectorAll('#itemsBody tr')
+  const rows = document.querySelectorAll('#itemsBody .hs-item-card')
   if (!rows.length) {
     alert('Add at least one service item')
     return
@@ -907,70 +888,39 @@ function eAddItemRow (itemOrSvc, desc, qty, price) {
         }
   eRowCnt++
   const id2 = 'er' + eRowCnt
-  const tr3 = document.createElement('tr')
-  tr3.id = id2
-  tr3.innerHTML =
-    `<td><select class="iSvc" onchange="eOnSvcChange('${id2}', true)">${buildSvcOpts(
-      item.service_type || ''
-    )}</select></td>` +
-    `<td>` +
-    `<input type="text" class="iDesc" value="${(item.description || '').replace(
-      /"/g,
-      '&quot;'
-    )}" placeholder="Description">` +
+  const card = document.createElement('div')
+  card.className = 'hs-item-card'
+  card.id = id2
+  card.innerHTML =
+    `<div class="hs-ic-top">` +
+    `<select class="iSvc" onchange="eOnSvcChange('${id2}', true)">${buildSvcOpts(item.service_type || '')}</select>` +
+    `<input type="text" class="iDesc" placeholder="Deskripsi" value="${(item.description || '').replace(/"/g, '&quot;')}">` +
+    `<button type="button" class="btn-del-row" onclick="eDelRow('${id2}')">\u2715</button>` +
+    `</div>` +
     `<div class="hs-rental-extra">` +
-    `<select class="iAsset" onchange="eOnRentalAssetChange('${id2}')"></select>` +
-    `<div class="hs-rental-grid">` +
-    `<label>Hari Sewa:</label>` +
-    `<input type="number" class="iDays" value="${
-      item.rental_days || 1
-    }" min="1" max="365" step="1" placeholder="Jumlah hari" onchange="eOnDaysChange('${id2}')">` +
+    `<div class="hs-rental-row1">` +
+    `<div class="hs-ic-labeled"><span>Armada</span><select class="iAsset" onchange="eOnRentalAssetChange('${id2}')"></select></div>` +
+    `<div class="hs-ic-labeled"><span>Hari Sewa</span><input type="number" class="iDays" value="${item.rental_days || 1}" min="1" max="365" step="1" onchange="eOnDaysChange('${id2}')"></div>` +
+    `<div class="hs-ic-labeled"><span>Deposit (Rp)</span><input type="number" class="iDeposit" value="${item.deposit || 0}" min="0"></div>` +
     `</div>` +
-    `<div class="hs-rental-grid">` +
-    `<input type="number" class="iDeposit" value="${
-      item.deposit || 0
-    }" min="0" placeholder="Deposit (Rp)">` +
-    `<input type="text" class="iDest" value="${(
-      item.trip_destination || ''
-    ).replace(/"/g, '&quot;')}" placeholder="Tujuan / catatan mobil">` +
+    `<div class="hs-dest-wrap"><span>Tujuan / Catatan</span><input type="text" class="iDest" value="${(item.trip_destination || '').replace(/"/g, '&quot;')}" placeholder="Tujuan / catatan mobil"></div>` +
     `</div>` +
+    `<div class="hs-driver-extra">` +
+    `<div class="iDriverCarRow" style="display:none">` +
+    `<div class="hs-ic-labeled" style="flex:1"><span>Mobil Driver</span><select class="iDriverCar" onchange="onDriverCarChange('${id2}')"><option value="">\ud83d\ude97 Pilih mobil/driver (opsional)...</option></select></div>` +
     `</div>` +
-    `<div class="hs-driver-extra" style="display:none;margin-top:6px;padding:8px 10px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:6px">` +
-    `<div class="iDriverCarRow" style="display:none;margin-bottom:6px">` +
-    `<select class="iDriverCar" onchange="onDriverCarChange('${id2}')" style="width:100%;font-size:12px;padding:4px"><option value="">🚗 Pilih mobil/driver (opsional)...</option></select>` +
-    `</div>` +
-    `<label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:#334155;cursor:pointer">` +
-    `<input type="checkbox" class="iNeedsDriver" ${
-      item.needs_driver_payment ? 'checked' : ''
-    } onchange="onNeedsDriverChange('${id2}')">` +
-    `🧾 Butuh bayar driver (masuk Tagihan setelah invoice diproses)` +
-    `</label>` +
-    `<div class="iCommWrap" style="display:${
-      item.needs_driver_payment ? 'flex' : 'none'
-    };gap:6px;margin-top:6px">` +
-    `<select class="iCommType" style="flex:1;font-size:12px;padding:4px">` +
-    `<option value="percent" ${
-      (item.commission_type || 'percent') === 'percent' ? 'selected' : ''
-    }>Bagian Driver: %</option>` +
-    `<option value="nominal" ${
-      item.commission_type === 'nominal' ? 'selected' : ''
-    }>Potongan Hotel: Rp</option>` +
-    `</select>` +
-    `<input type="number" class="iCommValue" value="${
-      item.commission_value || 0
-    }" style="flex:1;font-size:12px;padding:4px" placeholder="Nilai" min="0">` +
+    `<label class="hs-driver-chk"><input type="checkbox" class="iNeedsDriver" ${item.needs_driver_payment ? 'checked' : ''} onchange="onNeedsDriverChange('${id2}')"> \ud83e\uddfe Butuh tagihan driver</label>` +
+    `<div class="iCommWrap" style="display:${item.needs_driver_payment ? 'flex' : 'none'}">` +
+    `<select class="iCommType"><option value="percent" ${(item.commission_type || 'percent') === 'percent' ? 'selected' : ''}>Bagian Driver: %</option><option value="nominal" ${item.commission_type === 'nominal' ? 'selected' : ''}>Potongan Hotel: Rp</option></select>` +
+    `<input type="number" class="iCommValue" value="${item.commission_value || 0}" min="0" placeholder="Nilai">` +
     `</div>` +
     `</div>` +
-    `</td>` +
-    `<td><input type="number" class="iQty" value="${
-      item.quantity || 1
-    }" min="0.5" step="0.5" style="width:60px" oninput="ercalc('${id2}')"></td>` +
-    `<td><input type="number" class="iPrice" value="${
-      item.unit_price || 0
-    }" min="0" style="width:105px" oninput="ercalc('${id2}')"></td>` +
-    `<td style="font-weight:700;color:#4338ca;text-align:right;white-space:nowrap" class="iTotal">Rp 0</td>` +
-    `<td><button type="button" class="btn-del-row" onclick="eDelRow('${id2}')">✕</button></td>`
-  document.getElementById('eItemsBody').appendChild(tr3)
+    `<div class="hs-ic-nums">` +
+    `<div class="hs-ic-labeled"><span>QTY</span><input type="number" class="iQty" value="${item.quantity || 1}" min="0.5" step="0.5" oninput="ercalc('${id2}')"></div>` +
+    `<div class="hs-ic-labeled"><span>Harga (Rp)</span><input type="number" class="iPrice" value="${item.unit_price || 0}" min="0" oninput="ercalc('${id2}')"></div>` +
+    `<div class="hs-ic-subtotal"><span>Subtotal</span><strong class="iTotal">Rp 0</strong></div>` +
+    `</div>`
+  document.getElementById('eItemsBody').appendChild(card)
   if (item.service_type === 'motor_rental') {
     let motorOpts = [...RENTAL_MOTORS]
     if (item.motor_id && !motorOpts.find(m => m.id === item.motor_id)) {
@@ -985,7 +935,7 @@ function eAddItemRow (itemOrSvc, desc, qty, price) {
         ...motorOpts
       ]
     }
-    tr3.querySelector('.iAsset').innerHTML = buildRentalAssetOpts(
+    card.querySelector('.iAsset').innerHTML = buildRentalAssetOpts(
       motorOpts,
       item.motor_id
     )
@@ -1006,7 +956,7 @@ function eAddItemRow (itemOrSvc, desc, qty, price) {
         ...carOpts
       ]
     }
-    tr3.querySelector('.iAsset').innerHTML = buildRentalAssetOpts(
+    card.querySelector('.iAsset').innerHTML = buildRentalAssetOpts(
       carOpts,
       item.car_id
     )
@@ -1030,7 +980,7 @@ function eAddItemRow (itemOrSvc, desc, qty, price) {
         ...carOpts
       ]
     }
-    const driverCarSelect = tr3.querySelector('.iDriverCar')
+    const driverCarSelect = card.querySelector('.iDriverCar')
     if (driverCarSelect)
       driverCarSelect.innerHTML = buildRentalAssetOpts(carOpts, item.car_id)
   }
@@ -1039,7 +989,7 @@ function eAddItemRow (itemOrSvc, desc, qty, price) {
   if (item.service_type) {
     eOnSvcChange(id2, false)
   }
-  updateDriverExtra(tr3)
+  updateDriverExtra(card)
   ercalc(id2)
 }
 
@@ -1051,7 +1001,7 @@ function eOnSvcChange (id2, isNew) {
   const descInput = tr3.querySelector('.iDesc')
   const rentalWrap = tr3.querySelector('.hs-rental-extra')
   const assetSelect = tr3.querySelector('.iAsset')
-  const destInput = tr3.querySelector('.iDest')
+  const destWrap3 = tr3.querySelector('.hs-dest-wrap')
   const items = CATALOG_DATA[svc]
 
   // Only rebuild asset dropdown if THIS IS A NEW ROW (not loading from API)
@@ -1068,7 +1018,7 @@ function eOnSvcChange (id2, isNew) {
         rentalItems,
         assetSelect.value
       )
-      destInput.style.display = svc === 'car_rental' ? '' : 'none'
+      if (destWrap3) destWrap3.style.display = svc === 'car_rental' ? '' : 'none'
       if (!tr3.querySelector('.iDays').value)
         tr3.querySelector('.iDays').value = 1
     } else {
@@ -1076,19 +1026,19 @@ function eOnSvcChange (id2, isNew) {
       assetSelect.innerHTML = '<option value="">Pilih armada...</option>'
       tr3.querySelector('.iDays').value = 1
       tr3.querySelector('.iDeposit').value = 0
-      tr3.querySelector('.iDest').value = ''
+      const _d = tr3.querySelector('.iDest'); if (_d) _d.value = ''
     }
   } else {
     // Loading from API - just show/hide rental fields, don't rebuild dropdown
     if (isRentalService(svc)) {
       rentalWrap.classList.add('open')
-      destInput.style.display = svc === 'car_rental' ? '' : 'none'
+      if (destWrap3) destWrap3.style.display = svc === 'car_rental' ? '' : 'none'
     } else {
       rentalWrap.classList.remove('open')
       assetSelect.innerHTML = '<option value="">Pilih armada...</option>'
       tr3.querySelector('.iDays').value = 1
       tr3.querySelector('.iDeposit').value = 0
-      tr3.querySelector('.iDest').value = ''
+      const _d = tr3.querySelector('.iDest'); if (_d) _d.value = ''
     }
   }
 
@@ -1172,7 +1122,7 @@ function eOnTaxRateChange () {
 
 function eRefreshTotal () {
   let s = 0
-  document.querySelectorAll('#eItemsBody tr').forEach(tr => {
+  document.querySelectorAll('#eItemsBody .hs-item-card').forEach(tr => {
     s +=
       (parseFloat(tr.querySelector('.iQty')?.value) || 0) *
       (parseFloat(tr.querySelector('.iPrice')?.value) || 0)
@@ -1211,7 +1161,7 @@ function submitEdit () {
     alert('Nama tamu wajib diisi')
     return
   }
-  const rows = document.querySelectorAll('#eItemsBody tr')
+  const rows = document.querySelectorAll('#eItemsBody .hs-item-card')
   if (!rows.length) {
     alert('Minimal 1 item layanan')
     return
