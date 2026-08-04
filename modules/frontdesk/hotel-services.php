@@ -114,10 +114,14 @@ try {
 ensureDriverPaymentSchema($pdo);
 
 // Add driver_rate column to hotel_service_catalog (bayar ke driver per layanan)
-try { $pdo->query("SELECT driver_rate FROM hotel_service_catalog LIMIT 1"); }
-catch (\Exception $e) {
-    try { $pdo->exec("ALTER TABLE hotel_service_catalog ADD COLUMN driver_rate DECIMAL(15,2) NOT NULL DEFAULT 0 COMMENT 'harga bayar ke driver per layanan' AFTER default_price"); }
-    catch (\Exception $e2) { error_log('catalog driver_rate migration: ' . $e2->getMessage()); }
+try {
+    $pdo->query("SELECT driver_rate FROM hotel_service_catalog LIMIT 1");
+} catch (\Exception $e) {
+    try {
+        $pdo->exec("ALTER TABLE hotel_service_catalog ADD COLUMN driver_rate DECIMAL(15,2) NOT NULL DEFAULT 0 COMMENT 'harga bayar ke driver per layanan' AFTER default_price");
+    } catch (\Exception $e2) {
+        error_log('catalog driver_rate migration: ' . $e2->getMessage());
+    }
 }
 
 $pdo->exec("CREATE TABLE IF NOT EXISTS hotel_invoice_items (
@@ -1059,8 +1063,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
         if ($action === 'delete') {
             $id = (int)($_POST['id'] ?? 0);
             if (!$id) throw new Exception('Invalid ID');
+            $pdo->beginTransaction();
+
+            $motorBookings = $pdo->prepare("SELECT id, motor_id, status FROM rental_motor_bookings WHERE invoice_id=? AND business_id=?");
+            $motorBookings->execute([$id, $businessId]);
+            foreach ($motorBookings->fetchAll(PDO::FETCH_ASSOC) as $booking) {
+                $pdo->prepare("DELETE FROM rental_motor_bookings WHERE id=? AND business_id=?")
+                    ->execute([$booking['id'], $businessId]);
+                $activeCheck = $pdo->prepare("SELECT COUNT(*) FROM rental_motor_bookings WHERE motor_id=? AND status IN ('active','overdue') AND business_id=?");
+                $activeCheck->execute([$booking['motor_id'], $businessId]);
+                if ((int)$activeCheck->fetchColumn() === 0) {
+                    $pdo->prepare("UPDATE rental_motors SET status='available', updated_at=NOW() WHERE id=?")
+                        ->execute([$booking['motor_id']]);
+                }
+            }
+
+            $carBookings = $pdo->prepare("SELECT id, car_id, status FROM rental_car_bookings WHERE invoice_id=? AND business_id=?");
+            $carBookings->execute([$id, $businessId]);
+            foreach ($carBookings->fetchAll(PDO::FETCH_ASSOC) as $booking) {
+                $pdo->prepare("DELETE FROM rental_car_bookings WHERE id=? AND business_id=?")
+                    ->execute([$booking['id'], $businessId]);
+                $activeCheck = $pdo->prepare("SELECT COUNT(*) FROM rental_car_bookings WHERE car_id=? AND status IN ('active','overdue') AND business_id=?");
+                $activeCheck->execute([$booking['car_id'], $businessId]);
+                if ((int)$activeCheck->fetchColumn() === 0) {
+                    $pdo->prepare("UPDATE rental_cars SET status='available', updated_at=NOW() WHERE id=?")
+                        ->execute([$booking['car_id']]);
+                }
+            }
+
             $pdo->prepare("DELETE FROM hotel_invoice_items WHERE invoice_id=?")->execute([$id]);
             $pdo->prepare("DELETE FROM hotel_invoices WHERE id=? AND business_id=?")->execute([$id, $businessId]);
+            $pdo->commit();
             ob_clean();
             echo json_encode(['success' => true]);
             exit;
@@ -2124,7 +2157,7 @@ include '../../includes/header.php';
         border-radius: 10px;
         padding: 10px 12px;
         margin-bottom: 8px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
     }
 
     .hs-ic-top {
@@ -2167,7 +2200,7 @@ include '../../includes/header.php';
         gap: 3px;
     }
 
-    .hs-ic-labeled > span {
+    .hs-ic-labeled>span {
         font-size: 0.67rem;
         font-weight: 600;
         color: #64748b;
@@ -2192,9 +2225,17 @@ include '../../includes/header.php';
         border-color: #6366f1;
     }
 
-    .hs-rental-row1 .iAsset { min-width: 155px; }
-    .hs-rental-row1 .iDays { width: 65px; }
-    .hs-rental-row1 .iDeposit { width: 105px; }
+    .hs-rental-row1 .iAsset {
+        min-width: 155px;
+    }
+
+    .hs-rental-row1 .iDays {
+        width: 65px;
+    }
+
+    .hs-rental-row1 .iDeposit {
+        width: 105px;
+    }
 
     .hs-ic-nums {
         display: flex;
@@ -2206,8 +2247,13 @@ include '../../includes/header.php';
         flex-wrap: wrap;
     }
 
-    .hs-ic-nums .iQty { width: 65px; }
-    .hs-ic-nums .iPrice { width: 120px; }
+    .hs-ic-nums .iQty {
+        width: 65px;
+    }
+
+    .hs-ic-nums .iPrice {
+        width: 120px;
+    }
 
     .hs-ic-subtotal {
         display: flex;
@@ -2217,7 +2263,7 @@ include '../../includes/header.php';
         text-align: right;
     }
 
-    .hs-ic-subtotal > span {
+    .hs-ic-subtotal>span {
         font-size: 0.67rem;
         font-weight: 600;
         color: #64748b;
@@ -2273,8 +2319,13 @@ include '../../includes/header.php';
         background: white;
     }
 
-    .iCommWrap select { min-width: 150px; }
-    .iCommWrap input { width: 80px; }
+    .iCommWrap select {
+        min-width: 150px;
+    }
+
+    .iCommWrap input {
+        width: 80px;
+    }
 
     .btn-add-item {
         background: #f0f4ff;

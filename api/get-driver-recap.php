@@ -36,6 +36,17 @@ try {
     $db = Database::getInstance();
     $pdo = $db->getConnection();
     $businessId = $_SESSION['business_id'] ?? 1;
+    $dropOwnerName = 'Bp. Moyong';
+
+    try {
+        $settingStmt = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = ? LIMIT 1");
+        $settingStmt->execute(['driver_drop_partner_name']);
+        $savedDriverName = trim((string)$settingStmt->fetchColumn());
+        if ($savedDriverName !== '') {
+            $dropOwnerName = $savedDriverName;
+        }
+    } catch (Exception $ignore) {
+    }
 
     ensureDriverTripPaymentColumns($pdo);
 
@@ -142,8 +153,7 @@ try {
         ];
     }
 
-    // ── Airport/Harbor Drop trips (driver: Moyong) ──────────────────────
-    $dropOwnerName = 'Moyong';
+    // ── Airport/Harbor Drop trips without explicit linked owner ─────────────────
     $dropKey = $ownerKey($dropOwnerName);
 
     try {

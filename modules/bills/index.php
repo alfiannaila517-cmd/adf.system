@@ -54,6 +54,17 @@ try {
     $billCategories = [];
 }
 
+$driverDropPartnerName = 'Bp. Moyong';
+try {
+    $settingsDb = Database::getInstance();
+    $savedPartnerName = trim((string)($settingsDb->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'driver_drop_partner_name' LIMIT 1")['setting_value'] ?? ''));
+    if ($savedPartnerName !== '') {
+        $driverDropPartnerName = $savedPartnerName;
+    }
+} catch (Exception $e) {
+    error_log('Error fetching driver partner name setting: ' . $e->getMessage());
+}
+
 $driverReceiptMeta = [
     'companyName' => 'Narayana Hotel',
     'companyTagline' => '',
@@ -528,6 +539,59 @@ include '../../includes/header.php';
         margin-bottom: 10px;
     }
 
+    .driver-setting-bar {
+        display: flex;
+        gap: 8px;
+        align-items: end;
+        margin-bottom: 10px;
+        padding: 10px 12px;
+        border: 1px solid #e2e6ee;
+        border-radius: 8px;
+        background: #fafbfe;
+    }
+
+    .driver-setting-field {
+        flex: 1;
+    }
+
+    .driver-setting-field label {
+        display: block;
+        font-size: 10px;
+        font-weight: 700;
+        color: #6b7280;
+        margin-bottom: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+
+    .driver-setting-field input {
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid #d8dfeb;
+        border-radius: 6px;
+        background: #fff;
+        font-size: 11px;
+        color: #1f2937;
+    }
+
+    .driver-setting-save {
+        border: none;
+        border-radius: 6px;
+        padding: 8px 12px;
+        background: linear-gradient(135deg, var(--navy), var(--navy2));
+        color: #fff;
+        font-size: 11px;
+        font-weight: 700;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+
+    .driver-setting-help {
+        margin-top: 4px;
+        font-size: 10px;
+        color: #64748b;
+    }
+
     .pay-filter-btn {
         flex: 1;
         padding: 6px 8px;
@@ -988,6 +1052,7 @@ include '../../includes/header.php';
 <script>
     const BASE_URL = '<?php echo BASE_URL; ?>';
     const ACTIVE_BUSINESS = '<?php echo $_SESSION['active_business_id'] ?? 'narayana-hotel'; ?>';
+    let DRIVER_DROP_PARTNER_NAME = <?php echo json_encode($driverDropPartnerName, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE); ?>;
     const DRIVER_RECEIPT_META = <?php echo json_encode($driverReceiptMeta, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE); ?>;
     // Catalog data for driver split suggestions in edit modal
     window.CATALOG_DATA_BILLS = <?php
@@ -1223,9 +1288,25 @@ include '../../includes/header.php';
     // RENDER DRIVER/MITRA RECAP (uses lastDriverRecap + driverPayFilter, no re-fetch)
     function renderDriverRecap() {
         const recapEl = document.getElementById('driverRecapSection');
+        const safeDriverPartnerName = String(DRIVER_DROP_PARTNER_NAME || 'Bp. Moyong')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+
+        const settingsBar = `
+            <div class="driver-setting-bar">
+                <div class="driver-setting-field">
+                    <label for="driverPartnerNameInput">Nama Mitra Drop Default</label>
+                    <input type="text" id="driverPartnerNameInput" value="${safeDriverPartnerName}" placeholder="Contoh: Bp. Moyong">
+                    <div class="driver-setting-help">Dipakai untuk Airport/Harbor Drop yang tidak punya nama mitra spesifik.</div>
+                </div>
+                <button type="button" class="driver-setting-save" onclick="saveDriverPartnerName()">Simpan Nama</button>
+            </div>`;
 
         if (!lastDriverRecap || lastDriverRecap.length === 0) {
-            recapEl.innerHTML = '<p style="color: #999; text-align: center; padding: 40px;">Belum ada tagihan driver/mitra bulan ini</p>';
+            recapEl.innerHTML = settingsBar + '<p style="color: #999; text-align: center; padding: 40px;">Belum ada tagihan driver/mitra bulan ini</p>';
             return;
         }
 
@@ -1235,7 +1316,7 @@ include '../../includes/header.php';
             harbor_drop: 'Harbor Drop'
         };
 
-        let html = `
+        let html = settingsBar + `
             <div class="pay-filter-bar">
                 <button class="pay-filter-btn ${driverPayFilter === 'all' ? 'active' : ''}" onclick="setDriverPayFilter('all')">Semua Trip</button>
                 <button class="pay-filter-btn ${driverPayFilter === 'unpaid' ? 'active' : ''}" onclick="setDriverPayFilter('unpaid')">Belum Dibayar</button>
@@ -1303,6 +1384,49 @@ include '../../includes/header.php';
         });
 
         recapEl.innerHTML = html;
+    }
+
+    async function saveDriverPartnerName() {
+        const input = document.getElementById('driverPartnerNameInput');
+        if (!input) return;
+
+        const partnerName = (input.value || '').trim();
+        if (!partnerName) {
+            alert('Nama mitra tidak boleh kosong');
+            input.focus();
+            return;
+        }
+
+        const btn = document.querySelector('.driver-setting-save');
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Menyimpan...';
+        }
+
+        const formData = new FormData();
+        formData.append('partner_name', partnerName);
+
+        try {
+            const response = await fetch(BASE_URL + '/api/save-driver-partner-name.php', {
+                method: 'POST',
+                body: formData,
+                credentials: 'include'
+            });
+            const result = await response.json();
+            if (!result.success) {
+                throw new Error(result.message || 'Gagal menyimpan nama mitra');
+            }
+
+            DRIVER_DROP_PARTNER_NAME = result.partner_name || partnerName;
+            await loadDriverRecap();
+        } catch (error) {
+            alert(`❌ ${error.message}`);
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Simpan Nama';
+            }
+        }
     }
 
     // PRINT A DRIVER'S FULL TRIP RECAP (so the driver can carry a physical copy)
