@@ -109,12 +109,9 @@ try {
                 rc.partner_owner, cb.id as trip_id, cb.service_type,
                 COALESCE(cb.actual_return, cb.end_datetime, cb.created_at) as trx_date,
                 cb.guest_name, cb.room_number, cb.trip_destination,
-                cb.total_price, cb.owner_amount, cb.driver_paid, rc.car_name, rc.plate_number,
-                hi.id as invoice_id, hi.payment_status, hi.paid_amount, hi.total as invoice_total,
-                IF(cb.driver_paid = 1 OR (hi.id IS NOT NULL AND (hi.payment_status = 'paid' OR COALESCE(hi.paid_amount, 0) >= COALESCE(hi.total, 0))), 1, 0) as trip_paid
+                cb.total_price, cb.owner_amount, cb.driver_paid, rc.car_name, rc.plate_number
                 FROM rental_car_bookings cb
                 JOIN rental_cars rc ON cb.car_id = rc.id
-                LEFT JOIN hotel_invoices hi ON cb.invoice_id = hi.id
         WHERE cb.business_id=? AND cb.status IN ('active','returned')
           AND DATE(COALESCE(cb.actual_return, cb.end_datetime, cb.created_at)) BETWEEN ? AND ?
           AND rc.partner_owner IS NOT NULL AND rc.partner_owner != ''
@@ -134,7 +131,7 @@ try {
             'source' => 'trip',
             'total_price' => (float)$detail['total_price'],
             'owner_amount' => (float)$detail['owner_amount'],
-            'paid' => (bool)$detail['trip_paid'],
+            'paid' => (bool)$detail['driver_paid'],
         ];
     }
 
@@ -150,9 +147,7 @@ try {
             hii.id as trip_id, hii.service_type, hii.description, hii.total_price,
             IF(hii.owner_amount > 0 OR hii.hotel_commission > 0, hii.owner_amount, hii.total_price) as owner_amount,
             COALESCE(hii.hotel_commission, 0) as hotel_commission,
-            hii.driver_paid,
-            hi.id as invoice_id, hi.payment_status, hi.paid_amount, hi.total as invoice_total,
-            IF(hii.driver_paid = 1 OR (hi.id IS NOT NULL AND (hi.payment_status = 'paid' OR COALESCE(hi.paid_amount, 0) >= COALESCE(hi.total, 0))), 1, 0) as trip_paid
+            hii.driver_paid
             FROM hotel_invoice_items hii
             JOIN hotel_invoices hi ON hii.invoice_id = hi.id
             WHERE hi.business_id=? AND hii.service_type IN ('airport_drop','harbor_drop')
@@ -216,7 +211,7 @@ try {
                 'source' => 'legacy',
                 'total_price' => $amount,
                 'owner_amount' => (float)$detail['owner_amount'],
-                'paid' => (bool)$detail['trip_paid'],
+                'paid' => (bool)$detail['driver_paid'],
             ];
         }
     } catch (Exception $dropError) {
