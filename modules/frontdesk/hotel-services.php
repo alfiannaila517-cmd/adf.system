@@ -1841,48 +1841,78 @@ include '../../includes/header.php';
 <!-- HS-VERSION:20260729-v3-split -->
 <style>
     .hs-page {
-        padding: 1.25rem;
+        max-width: 1140px;
+        margin: 0 auto;
+        padding: 0.65rem 0.85rem 1rem;
     }
 
     .hs-topbar {
-        display: flex;
-        justify-content: space-between;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
         align-items: center;
-        margin-bottom: 1.25rem;
+        margin-bottom: 0.85rem;
         flex-wrap: wrap;
-        gap: 0.75rem;
+        gap: 0.6rem;
+        background: #ffffff;
+        border: 1px solid #e8edf5;
+        border-radius: 12px;
+        padding: 0.7rem 0.9rem;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+    }
+
+    .hs-head-main {
+        min-width: 0;
     }
 
     .hs-topbar h2 {
-        font-size: 1.2rem;
+        font-size: 0.98rem;
         font-weight: 700;
         color: var(--text-primary);
         margin: 0;
+        letter-spacing: 0.01em;
+    }
+
+    .hs-topmeta {
+        margin-top: 0.2rem;
+        font-size: 0.75rem;
+        color: #64748b;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .hs-top-actions {
+        display: flex;
+        gap: 0.45rem;
+        flex-wrap: wrap;
+        justify-content: flex-end;
     }
 
     .hs-stats {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
         gap: 0.75rem;
-        margin-bottom: 1.25rem;
+        margin-bottom: 0.85rem;
     }
 
     .hs-stat {
         background: white;
         border-radius: 10px;
-        padding: 0.85rem 1rem;
-        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+        padding: 0.7rem 0.85rem;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
         border-top: 3px solid var(--c);
+        border: 1px solid #eef2f7;
     }
 
     .hs-stat .val {
-        font-size: 1.25rem;
+        font-size: 1.02rem;
         font-weight: 800;
         color: var(--c);
+        line-height: 1.25;
     }
 
     .hs-stat .lbl {
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         color: var(--text-secondary);
         margin-top: 0.15rem;
     }
@@ -1890,21 +1920,22 @@ include '../../includes/header.php';
     .hs-filters {
         background: white;
         border-radius: 10px;
-        padding: 0.85rem 1rem;
-        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+        padding: 0.7rem 0.85rem;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
         margin-bottom: 1rem;
         display: flex;
         flex-wrap: wrap;
         gap: 0.6rem;
         align-items: center;
+        border: 1px solid #eef2f7;
     }
 
     .hs-filters input,
     .hs-filters select {
-        padding: 0.4rem 0.6rem;
+        padding: 0.38rem 0.55rem;
         border: 1px solid #e2e8f0;
         border-radius: 6px;
-        font-size: 0.8rem;
+        font-size: 0.875rem;
         background: white;
         color: var(--text-primary);
     }
@@ -1912,30 +1943,31 @@ include '../../includes/header.php';
     .hs-table-wrap {
         background: white;
         border-radius: 10px;
-        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
         overflow: hidden;
+        border: 1px solid #eef2f7;
     }
 
     .hs-table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 0.8rem;
+        font-size: 0.875rem;
     }
 
     .hs-table th {
         background: #f8fafc;
-        padding: 0.65rem 0.85rem;
+        padding: 0.55rem 0.75rem;
         text-align: left;
         font-weight: 600;
         color: var(--text-secondary);
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         text-transform: uppercase;
         letter-spacing: 0.03em;
         border-bottom: 1px solid #e2e8f0;
     }
 
     .hs-table td {
-        padding: 0.65rem 0.85rem;
+        padding: 0.58rem 0.75rem;
         border-bottom: 1px solid #f1f5f9;
         vertical-align: middle;
     }
@@ -1989,7 +2021,7 @@ include '../../includes/header.php';
         display: inline-block;
         padding: 0.15rem 0.45rem;
         border-radius: 12px;
-        font-size: 0.68rem;
+        font-size: 0.75rem;
         font-weight: 600;
         background: #ede9fe;
         color: #5b21b6;
@@ -2045,7 +2077,7 @@ include '../../includes/header.php';
         border: none;
         border-radius: 5px;
         cursor: pointer;
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         font-weight: 600;
         transition: opacity 0.2s;
     }
@@ -2083,7 +2115,7 @@ include '../../includes/header.php';
 
     .hs-modal h3 {
         margin: 0 0 1rem;
-        font-size: 1.05rem;
+        font-size: 0.95rem;
         font-weight: 700;
     }
 
@@ -2100,7 +2132,7 @@ include '../../includes/header.php';
 
     .hs-field label {
         display: block;
-        font-size: 0.75rem;
+        font-size: 0.875rem;
         font-weight: 600;
         color: var(--text-secondary);
         margin-bottom: 0.3rem;
@@ -2113,7 +2145,7 @@ include '../../includes/header.php';
         padding: 0.5rem 0.65rem;
         border: 1px solid #e2e8f0;
         border-radius: 7px;
-        font-size: 0.85rem;
+        font-size: 0.875rem;
         color: var(--text-primary);
         background: white;
         box-sizing: border-box;
@@ -2145,7 +2177,7 @@ include '../../includes/header.php';
         border: 2px solid #e2e8f0;
         border-radius: 7px;
         background: white;
-        font-size: 0.78rem;
+        font-size: 0.875rem;
         font-weight: 600;
         cursor: pointer;
         transition: all 0.15s;
@@ -2195,7 +2227,7 @@ include '../../includes/header.php';
         padding: 0.38rem 0.5rem;
         border: 1px solid #e2e8f0;
         border-radius: 6px;
-        font-size: 0.8rem;
+        font-size: 0.875rem;
         background: white;
         box-sizing: border-box;
     }
@@ -2213,7 +2245,7 @@ include '../../includes/header.php';
     }
 
     .hs-ic-labeled>span {
-        font-size: 0.67rem;
+        font-size: 0.75rem;
         font-weight: 600;
         color: #64748b;
         text-transform: uppercase;
@@ -2226,7 +2258,7 @@ include '../../includes/header.php';
         padding: 0.35rem 0.45rem;
         border: 1px solid #e2e8f0;
         border-radius: 6px;
-        font-size: 0.8rem;
+        font-size: 0.875rem;
         background: white;
         box-sizing: border-box;
     }
@@ -2283,7 +2315,7 @@ include '../../includes/header.php';
     }
 
     .hs-ic-subtotal .iTotal {
-        font-size: 0.95rem;
+        font-size: 0.9rem;
         font-weight: 700;
         color: #4338ca;
         white-space: nowrap;
@@ -2310,7 +2342,7 @@ include '../../includes/header.php';
         display: flex;
         align-items: center;
         gap: 5px;
-        font-size: 11.5px;
+        font-size: 0.875rem;
         color: #334155;
         cursor: pointer;
         white-space: nowrap;
@@ -2327,7 +2359,7 @@ include '../../includes/header.php';
         padding: 0.32rem 0.45rem;
         border: 1px solid #e2e8f0;
         border-radius: 6px;
-        font-size: 0.78rem;
+        font-size: 0.875rem;
         background: white;
     }
 
@@ -2345,7 +2377,7 @@ include '../../includes/header.php';
         border: 1px dashed #6366f1;
         border-radius: 7px;
         padding: 0.4rem 0.8rem;
-        font-size: 0.78rem;
+        font-size: 0.875rem;
         font-weight: 600;
         cursor: pointer;
         width: 100%;
@@ -2363,7 +2395,7 @@ include '../../includes/header.php';
         border-radius: 4px;
         padding: 0.25rem 0.45rem;
         cursor: pointer;
-        font-size: 0.78rem;
+        font-size: 0.875rem;
         font-weight: 700;
     }
 
@@ -2373,7 +2405,7 @@ include '../../includes/header.php';
         padding: 0.75rem 1rem;
         text-align: center;
         margin: 0.75rem 0;
-        font-size: 1.1rem;
+        font-size: 0.95rem;
         font-weight: 700;
         color: #4338ca;
     }
@@ -2391,7 +2423,7 @@ include '../../includes/header.php';
         border-radius: 8px;
         font-weight: 600;
         cursor: pointer;
-        font-size: 0.85rem;
+        font-size: 0.875rem;
     }
 
     .btn-hs-primary {
@@ -2412,12 +2444,12 @@ include '../../includes/header.php';
     }
 
     .hs-empty .em-icon {
-        font-size: 2.5rem;
+        font-size: 2rem;
         margin-bottom: 0.5rem;
     }
 
     .sect-label {
-        font-size: 0.75rem;
+        font-size: 0.875rem;
         font-weight: 700;
         color: var(--text-secondary);
         margin-bottom: 0.4rem;
@@ -2436,7 +2468,7 @@ include '../../includes/header.php';
 
     .hs-tab {
         padding: 0.5rem 1rem;
-        font-size: 0.82rem;
+        font-size: 0.875rem;
         font-weight: 600;
         cursor: pointer;
         color: #64748b;
@@ -2465,13 +2497,13 @@ include '../../includes/header.php';
     .cat-tbl {
         width: 100%;
         border-collapse: collapse;
-        font-size: 0.8rem;
+        font-size: 0.875rem;
     }
 
     .cat-tbl th {
         background: #f8fafc;
         padding: 0.4rem 0.5rem;
-        font-size: 0.7rem;
+        font-size: 0.75rem;
         font-weight: 700;
         color: #64748b;
         text-transform: uppercase;
@@ -2491,7 +2523,7 @@ include '../../includes/header.php';
         padding: 0.3rem 0.4rem;
         border: 1px solid #e2e8f0;
         border-radius: 5px;
-        font-size: 0.78rem;
+        font-size: 0.875rem;
         background: white;
         box-sizing: border-box;
     }
@@ -2503,7 +2535,7 @@ include '../../includes/header.php';
         border-radius: 4px;
         padding: 0.25rem 0.5rem;
         cursor: pointer;
-        font-size: 0.75rem;
+        font-size: 0.875rem;
     }
 
     .cat-tbl .btn-cat-save {
@@ -2513,7 +2545,7 @@ include '../../includes/header.php';
         border-radius: 4px;
         padding: 0.25rem 0.5rem;
         cursor: pointer;
-        font-size: 0.75rem;
+        font-size: 0.875rem;
     }
 
     .logo-preview {
@@ -2524,6 +2556,20 @@ include '../../includes/header.php';
     }
 
     @media(max-width:580px) {
+        .hs-page {
+            padding: 0.5rem 0.55rem 0.85rem;
+        }
+
+        .hs-topbar {
+            grid-template-columns: 1fr;
+            padding: 0.65rem 0.75rem;
+        }
+
+        .hs-top-actions {
+            width: 100%;
+            justify-content: flex-start;
+        }
+
         .hs-form-row {
             grid-template-columns: 1fr;
         }
@@ -2537,11 +2583,11 @@ include '../../includes/header.php';
 <div class="hs-page">
 
     <div class="hs-topbar">
-        <div>
+        <div class="hs-head-main">
             <h2>🛎️ Hotel Services</h2>
-            <div style="font-size:0.75rem;color:var(--text-secondary)">Motor Rental · Laundry · Service · Airport Drop · Harbor Drop · Narayana Trip · Lain-lain</div>
+            <div class="hs-topmeta">Motor Rental · Laundry · Service · Airport Drop · Harbor Drop · Narayana Trip · Lain-lain</div>
         </div>
-        <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+        <div class="hs-top-actions">
             <button class="btn-hs btn-hs-secondary" onclick="openSettingsModal()">⚙️ Pengaturan</button>
             <button class="btn-hs btn-hs-primary" id="btnNewInvoice">+ New Invoice</button>
         </div>

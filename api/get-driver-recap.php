@@ -38,6 +38,16 @@ try {
     $businessId = $_SESSION['business_id'] ?? 1;
     $dropOwnerName = 'Bp. Moyong';
 
+    $dbName = (string)$pdo->query('SELECT DATABASE()')->fetchColumn();
+    $columnExists = static function (PDO $pdo, string $dbName, string $table, string $column): bool {
+        if ($dbName === '' || $table === '' || $column === '') {
+            return false;
+        }
+        $stmt = $pdo->prepare("SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ? LIMIT 1");
+        $stmt->execute([$dbName, $table, $column]);
+        return (bool)$stmt->fetchColumn();
+    };
+
     try {
         $settingStmt = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = ? LIMIT 1");
         $settingStmt->execute(['driver_drop_partner_name']);
@@ -62,6 +72,17 @@ try {
     } catch (Exception $tableError) {
         throw new Exception('rental_car_bookings table does not exist yet.');
     }
+
+    $hasCashBookTable = true;
+    try {
+        $pdo->query("SELECT 1 FROM cash_book LIMIT 1")->fetch();
+    } catch (Exception $e) {
+        $hasCashBookTable = false;
+    }
+
+    $hasCashbookPaymentMethod = $hasCashBookTable && $columnExists($pdo, $dbName, 'cash_book', 'payment_method');
+    $hasCbDriverPaidCashbookId = $columnExists($pdo, $dbName, 'rental_car_bookings', 'driver_paid_cashbook_id');
+    $hasHiiDriverPaidCashbookId = $columnExists($pdo, $dbName, 'hotel_invoice_items', 'driver_paid_cashbook_id');
 
     // ── Owner recap (car rental + airport/harbor drop trips with a linked driver car) ──
     $ownerStmt = $pdo->prepare("SELECT
@@ -117,17 +138,20 @@ try {
 
     // ── Detail rows: car rental + airport/harbor drop trips (linked driver car) ──
     $detailMap = [];
+        $detailSelectCashbookId = $hasCbDriverPaidCashbookId ? 'cb.driver_paid_cashbook_id' : '0 as driver_paid_cashbook_id';
+        $detailSelectPaymentMethod = $hasCashbookPaymentMethod ? 'paycb.payment_method' : 'NULL as payment_method';
+        $detailJoinCashbook = ($hasCashBookTable && $hasCbDriverPaidCashbookId) ? 'LEFT JOIN cash_book paycb ON cb.driver_paid_cashbook_id = paycb.id' : '';
         $detailStmt = $pdo->prepare("SELECT
             rc.partner_owner, cb.id as trip_id, cb.service_type,
             COALESCE(cb.actual_return, cb.end_datetime, cb.created_at) as trx_date,
             cb.guest_name, cb.room_number, cb.trip_destination,
             cb.total_price, cb.owner_amount, cb.driver_paid,
-            cb.driver_paid_at, cb.driver_paid_cashbook_id,
-            paycb.payment_method,
+            cb.driver_paid_at, {$detailSelectCashbookId},
+            {$detailSelectPaymentMethod},
             rc.car_name, rc.plate_number
             FROM rental_car_bookings cb
             JOIN rental_cars rc ON cb.car_id = rc.id
-            LEFT JOIN cash_book paycb ON cb.driver_paid_cashbook_id = paycb.id
+            {$detailJoinCashbook}
         WHERE cb.business_id=? AND cb.status IN ('active','returned')
           AND DATE(COALESCE(cb.actual_return, cb.end_datetime, cb.created_at)) BETWEEN ? AND ?
           AND rc.partner_owner IS NOT NULL AND rc.partner_owner != ''
@@ -160,16 +184,20 @@ try {
     try {
         $pdo->query("SELECT 1 FROM hotel_invoice_items LIMIT 1")->fetch();
 
+        $dropSelectCashbookId = $hasHiiDriverPaidCashbookId ? 'hii.driver_paid_cashbook_id' : '0 as driver_paid_cashbook_id';
+        $dropSelectPaymentMethod = $hasCashbookPaymentMethod ? 'paycb.payment_method' : 'NULL as payment_method';
+        $dropJoinCashbook = ($hasCashBookTable && $hasHiiDriverPaidCashbookId) ? 'LEFT JOIN cash_book paycb ON hii.driver_paid_cashbook_id = paycb.id' : '';
+
         $dropStmt = $pdo->prepare("SELECT
             hi.guest_name, hi.room_number, hi.created_at as trx_date,
             hii.id as trip_id, hii.service_type, hii.description, hii.total_price,
             IF(hii.owner_amount > 0 OR hii.hotel_commission > 0, hii.owner_amount, hii.total_price) as owner_amount,
             COALESCE(hii.hotel_commission, 0) as hotel_commission,
-            hii.driver_paid, hii.driver_paid_at, hii.driver_paid_cashbook_id,
-            paycb.payment_method
+            hii.driver_paid, hii.driver_paid_at, {$dropSelectCashbookId},
+            {$dropSelectPaymentMethod}
             FROM hotel_invoice_items hii
             JOIN hotel_invoices hi ON hii.invoice_id = hi.id
-            LEFT JOIN cash_book paycb ON hii.driver_paid_cashbook_id = paycb.id
+            {$dropJoinCashbook}
             WHERE hi.business_id=? AND hii.service_type IN ('airport_drop','harbor_drop')
               AND hi.status NOT IN ('cancelled')
               AND DATE(hi.created_at) BETWEEN ? AND ?
