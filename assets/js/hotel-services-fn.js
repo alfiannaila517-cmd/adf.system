@@ -108,7 +108,15 @@ function prefillDriverCommission (tr) {
   const typeSel = tr.querySelector('.iCommType')
   const valInput = tr.querySelector('.iCommValue')
   if (!car || !typeSel || !valInput) return
-  if (!valInput.value || parseFloat(valInput.value) === 0) {
+  if (car.driver_daily_rate > 0) {
+    // Auto-derive commission from per-day driver rate setting
+    const qty = parseFloat(tr.querySelector('.iQty')?.value) || 1
+    const unitPrice = parseFloat(tr.querySelector('.iPrice')?.value) || 0
+    const driverTotal = car.driver_daily_rate * qty
+    const invoiceTotal = unitPrice * qty
+    typeSel.value = 'nominal'
+    valInput.value = Math.max(0, invoiceTotal - driverTotal) // hotel cut (commission_value)
+  } else if (!valInput.value || parseFloat(valInput.value) === 0) {
     typeSel.value = car.commission_type || 'percent'
     valInput.value =
       car.commission_type === 'nominal'
@@ -191,6 +199,8 @@ function onDaysChange (id) {
   const days = parseFloat(daysInput.value) || 1
   tr.querySelector('.iQty').value = Math.max(1, days)
   rcalc(id)
+  // Recalculate driver commission when qty changes (driver_daily_rate is per-day)
+  if (tr.querySelector('.iNeedsDriver')?.checked) prefillDriverCommission(tr)
 }
 
 function onSvcChange (id, isNew) {
@@ -267,6 +277,14 @@ function onRentalAssetChange (id, keepManualDesc) {
     descInput.dataset.autoFilled = '1'
   }
   if (tr.querySelector('.iNeedsDriver')?.checked) prefillDriverCommission(tr)
+  // Auto-check driver if this vehicle has a preset driver rate
+  if (chosen.driver_daily_rate > 0) {
+    const chk = tr.querySelector('.iNeedsDriver')
+    const commWrap = tr.querySelector('.iCommWrap')
+    if (chk) chk.checked = true
+    if (commWrap) commWrap.style.display = 'flex'
+    prefillDriverCommission(tr)
+  }
   rcalc(id)
 }
 
@@ -1084,6 +1102,14 @@ function eOnRentalAssetChange (id2, keepManualDesc) {
     descInput.dataset.autoFilled = '1'
   }
   if (tr3.querySelector('.iNeedsDriver')?.checked) prefillDriverCommission(tr3)
+  // Auto-check driver if this vehicle has a preset driver rate
+  if (chosen.driver_daily_rate > 0) {
+    const chk = tr3.querySelector('.iNeedsDriver')
+    const commWrap = tr3.querySelector('.iCommWrap')
+    if (chk) chk.checked = true
+    if (commWrap) commWrap.style.display = 'flex'
+    prefillDriverCommission(tr3)
+  }
   ercalc(id2)
 }
 
@@ -1094,6 +1120,8 @@ function eOnDaysChange (id2) {
   const days = parseFloat(daysInput.value) || 1
   tr3.querySelector('.iQty').value = Math.max(1, days)
   ercalc(id2)
+  // Recalculate driver commission when qty changes (driver_daily_rate is per-day)
+  if (tr3.querySelector('.iNeedsDriver')?.checked) prefillDriverCommission(tr3)
 }
 
 function eDelRow (id) {

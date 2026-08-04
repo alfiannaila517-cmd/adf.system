@@ -31,6 +31,17 @@ function ensureDriverPaymentSchema(PDO $pdo): void
         }
     }
 
+    // rental_cars: driver daily rate (harga bayar ke driver per hari/trip)
+    try {
+        $pdo->query("SELECT driver_daily_rate FROM rental_cars LIMIT 1");
+    } catch (Exception $e) {
+        try {
+            $pdo->exec("ALTER TABLE rental_cars ADD COLUMN driver_daily_rate DECIMAL(15,2) NOT NULL DEFAULT 0 COMMENT 'harga bayar ke driver per hari/trip' AFTER daily_rate");
+        } catch (Exception $e2) {
+            error_log('ensureDriverPaymentSchema driver_daily_rate: ' . $e2->getMessage());
+        }
+    }
+
     // rental_car_bookings: which service produced it + driver-payment flag/snapshot
     try {
         $pdo->query("SELECT needs_driver_payment FROM rental_car_bookings LIMIT 1");
