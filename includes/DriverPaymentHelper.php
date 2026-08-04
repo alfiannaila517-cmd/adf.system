@@ -293,6 +293,19 @@ function ensureDriverTripPaymentColumns(PDO $pdo): void
             error_log('ensureDriverTripPaymentColumns hotel_invoice_items: ' . $e2->getMessage());
         }
     }
+
+    // hotel_invoice_items: store owner_amount and hotel_commission per line
+    try {
+        $pdo->query("SELECT owner_amount FROM hotel_invoice_items LIMIT 1");
+    } catch (Exception $e) {
+        try {
+            $pdo->exec("ALTER TABLE hotel_invoice_items
+                ADD COLUMN owner_amount DECIMAL(15,2) NOT NULL DEFAULT 0 COMMENT 'bagian driver/pemilik',
+                ADD COLUMN hotel_commission DECIMAL(15,2) NOT NULL DEFAULT 0 COMMENT 'potongan hotel'");
+        } catch (Exception $e2) {
+            error_log('ensureDriverTripPaymentColumns hotel_invoice_items owner_amount: ' . $e2->getMessage());
+        }
+    }
 }
 
 /**

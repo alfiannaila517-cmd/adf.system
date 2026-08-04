@@ -603,9 +603,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 $existingSubtotal = (float)$sumStmt->fetchColumn();
                 // Update totals based on new items
                 $iStmt = $pdo->prepare("INSERT INTO hotel_invoice_items
-                    (invoice_id, service_type, description, quantity, unit_price, total_price, start_datetime, end_datetime)
-                    VALUES (?,?,?,?,?,?,?,?)");
+                    (invoice_id, service_type, description, quantity, unit_price, total_price, owner_amount, hotel_commission, start_datetime, end_datetime)
+                    VALUES (?,?,?,?,?,?,?,?,?,?)");
                 foreach ($items as $item) {
+                    [$iOwner, $iHotel] = !empty($item['needs_driver_payment'])
+                        ? calcDriverSplit((float)$item['total'], $item['commission_type'] ?? 'percent', (float)($item['commission_value'] ?? 0))
+                        : [0.0, 0.0];
                     $iStmt->execute([
                         $invId,
                         $item['service_type'],
@@ -613,6 +616,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                         $item['qty'],
                         $item['unit_price'],
                         $item['total'],
+                        $iOwner,
+                        $iHotel,
                         $item['start_dt'] ?: null,
                         $item['end_dt'] ?: null,
                     ]);
@@ -676,9 +681,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 $invId = (int)$pdo->lastInsertId();
 
                 $iStmt = $pdo->prepare("INSERT INTO hotel_invoice_items
-                    (invoice_id, service_type, description, quantity, unit_price, total_price, start_datetime, end_datetime)
-                    VALUES (?,?,?,?,?,?,?,?)");
+                    (invoice_id, service_type, description, quantity, unit_price, total_price, owner_amount, hotel_commission, start_datetime, end_datetime)
+                    VALUES (?,?,?,?,?,?,?,?,?,?)");
                 foreach ($items as $item) {
+                    [$iOwner, $iHotel] = !empty($item['needs_driver_payment'])
+                        ? calcDriverSplit((float)$item['total'], $item['commission_type'] ?? 'percent', (float)($item['commission_value'] ?? 0))
+                        : [0.0, 0.0];
                     $iStmt->execute([
                         $invId,
                         $item['service_type'],
@@ -686,6 +694,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                         $item['qty'],
                         $item['unit_price'],
                         $item['total'],
+                        $iOwner,
+                        $iHotel,
                         $item['start_dt'] ?: null,
                         $item['end_dt'] ?: null,
                     ]);

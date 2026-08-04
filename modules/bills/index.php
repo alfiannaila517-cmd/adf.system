@@ -894,13 +894,13 @@ include '../../includes/header.php';
                 oninput="updateEditCompanyAmount()">
         </div>
         <div class="dp-field">
-            <label>Bagian Driver / Pemilik (Rp)</label>
+            <label>Bagian Driver / Pemilik (Rp) <span id="etSuggestLink" style="display:none;font-size:11px;color:#2563eb;cursor:pointer;font-weight:normal" onclick="applyEtSuggest()"></span></label>
             <input type="number" id="etOwnerAmount" min="0" step="1000"
                 style="width:100%;padding:8px 10px;border:1px solid #dfe3ee;border-radius:7px;font-size:13px;color:#1a2540;box-sizing:border-box;"
                 oninput="updateEditCompanyAmount()">
         </div>
         <div class="dp-summary">
-            <div><span>Bagian Perusahaan (otomatis)</span><strong id="etCompanyAmount" style="color:#1d4ed8;">Rp 0</strong></div>
+            <div><span>Bagian Perusahaan / Hotel (otomatis)</span><strong id="etCompanyAmount" style="color:#1d4ed8;">Rp 0</strong></div>
         </div>
         <div class="dp-actions">
             <button type="button" class="dp-btn-cancel" onclick="closeEditTripModal()">Batal</button>
@@ -912,6 +912,19 @@ include '../../includes/header.php';
 <script>
     const BASE_URL = '<?php echo BASE_URL; ?>';
     const ACTIVE_BUSINESS = '<?php echo $_SESSION['active_business_id'] ?? 'narayana-hotel'; ?>';
+    // Catalog data for driver split suggestions in edit modal
+    window.CATALOG_DATA_BILLS = <?php
+        try {
+            $catStmt = $pdo->prepare("SELECT service_type, item_name, default_price, driver_rate FROM hotel_service_catalog WHERE business_id=? AND is_active=1 ORDER BY sort_order, item_name");
+            $catStmt->execute([$businessId]);
+            $catRows = $catStmt->fetchAll(PDO::FETCH_ASSOC);
+            $catByType = [];
+            foreach ($catRows as $cr) {
+                $catByType[$cr['service_type']][] = ['name' => $cr['item_name'], 'price' => (float)$cr['default_price'], 'driver_rate' => (float)($cr['driver_rate'] ?? 0)];
+            }
+            echo json_encode($catByType, JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '{}';
+        } catch (\Throwable $ex) { echo '{}'; }
+    ?>;
 
     // Set default month to current month
     document.getElementById('billMonth').valueAsDate = new Date();
@@ -1171,7 +1184,7 @@ include '../../includes/header.php';
                     <td style="text-align:right;font-weight:700;color:#16794d;">Rp ${formatNumber(d.owner_amount)}</td>
                     <td style="text-align:right;">
                         <div style="display:flex;gap:4px;justify-content:flex-end;align-items:center;flex-wrap:wrap;">
-                            <button class="btn-trip-edit" onclick="editDriverTripAmount(${d.trip_id}, '${d.source || 'trip'}', ${d.total_price}, ${d.owner_amount}, '${driverNameSafe}', '${typeLabel[d.service_type] || d.service_type}')">✏️ Edit</button>
+                            <button class="btn-trip-edit" onclick="editDriverTripAmount(${d.trip_id}, '${d.source || 'trip'}', ${d.total_price}, ${d.owner_amount}, '${driverNameSafe}', '${typeLabel[d.service_type] || d.service_type}', '${d.service_type}')">✏️ Edit</button>
                             ${d.paid
                                 ? '<span class="btn-trip-paid">✅ Lunas</span>'
                                 : `<button class="btn-trip-pay" onclick="payDriverTrip(${d.trip_id}, '${d.service_type}', ${d.owner_amount}, '${driverNameSafe}', '${d.source || 'trip'}')">Bayar</button>`
@@ -1377,19 +1390,37 @@ include '../../includes/header.php';
     // EDIT DRIVER TRIP AMOUNT
     let pendingEditTrip = null;
 
-    function editDriverTripAmount(tripId, source, totalPrice, ownerAmount, driverName, tripLabel) {
-        pendingEditTrip = {
-            tripId,
-            source
-        };
+    function editDriverTripAmount(tripId, source, totalPrice, ownerAmount, driverName, tripLabel, serviceType) {
+        pendingEditTrip = { tripId, source };
         document.getElementById('etDriverName').textContent = driverName || '-';
         document.getElementById('etTripLabel').textContent = tripLabel || '-';
         document.getElementById('etTotalPrice').value = totalPrice;
         document.getElementById('etOwnerAmount').value = ownerAmount;
         document.getElementById('etConfirmBtn').disabled = false;
         document.getElementById('etConfirmBtn').textContent = '💾 Simpan';
+        // Show catalog-based suggestion if catalog has a driver_rate for this service type
+        const suggestEl = document.getElementById('etSuggestLink');
+        if (suggestEl) {
+            const catItems = (window.CATALOG_DATA_BILLS || {})[serviceType] || [];
+            const catItem = catItems.find(ci => (ci.driver_rate || 0) > 0);
+            if (catItem && catItem.driver_rate > 0) {
+                const suggestOwner = Math.max(0, totalPrice - (totalPrice - catItem.driver_rate));
+                suggestEl.dataset.suggestOwner = catItem.driver_rate;
+                suggestEl.textContent = `↗ Pakai dari katalog: Rp ${formatNumber(catItem.driver_rate)}`;
+                suggestEl.style.display = '';
+            } else {
+                suggestEl.style.display = 'none';
+            }
+        }
         updateEditCompanyAmount();
         document.getElementById('editTripModalOverlay').classList.add('open');
+    }
+
+    function applyEtSuggest() {
+        const el = document.getElementById('etSuggestLink');
+        if (!el || !el.dataset.suggestOwner) return;
+        document.getElementById('etOwnerAmount').value = el.dataset.suggestOwner;
+        updateEditCompanyAmount();
     }
 
     function updateEditCompanyAmount() {

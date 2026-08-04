@@ -144,7 +144,10 @@ try {
 
         $dropStmt = $pdo->prepare("SELECT
             hi.guest_name, hi.room_number, hi.created_at as trx_date,
-            hii.id as trip_id, hii.service_type, hii.description, hii.total_price, hii.driver_paid
+            hii.id as trip_id, hii.service_type, hii.description, hii.total_price,
+            COALESCE(hii.owner_amount, hii.total_price) as owner_amount,
+            COALESCE(hii.hotel_commission, 0) as hotel_commission,
+            hii.driver_paid
             FROM hotel_invoice_items hii
             JOIN hotel_invoices hi ON hii.invoice_id = hi.id
             WHERE hi.business_id=? AND hii.service_type IN ('airport_drop','harbor_drop')
@@ -181,11 +184,15 @@ try {
         foreach ($dropDetails as $detail) {
             $idx = $indexMap[$dropKey] ?? null;
             if ($idx === null) continue;
-            $amount = (float)$detail['total_price'];
-            $recap[$idx]['total_trips'] += 1;
+            $amount      = (float)$detail['total_price'];
+            $ownerAmt    = (float)$detail['owner_amount'];
+            $hotelComm   = (float)$detail['hotel_commission'];
+            $recap[$idx]['total_trips']   += 1;
             $recap[$idx]['total_revenue'] += $amount;
-            $recap[$idx]['owner_total'] += $amount;
-            $recap[$idx]['avg_comm_pct'] = 100;
+            $recap[$idx]['owner_total']   += $ownerAmt;
+            $recap[$idx]['hotel_total']   += $hotelComm;
+            $recap[$idx]['avg_comm_pct']   = $recap[$idx]['total_revenue'] > 0
+                ? round($recap[$idx]['owner_total'] / $recap[$idx]['total_revenue'] * 100, 1) : 100;
             if ($detail['service_type'] === 'airport_drop') {
                 $recap[$idx]['airport_trips'] += 1;
                 $recap[$idx]['airport_total'] += $amount;
@@ -203,7 +210,7 @@ try {
                 'service_type' => $detail['service_type'],
                 'source' => 'legacy',
                 'total_price' => $amount,
-                'owner_amount' => $amount,
+                'owner_amount' => (float)$detail['owner_amount'],
                 'paid' => (bool)$detail['driver_paid'],
             ];
         }

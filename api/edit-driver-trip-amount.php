@@ -61,8 +61,13 @@ try {
         $check->execute([$tripId, $bizId]);
         if (!$check->fetch()) throw new Exception('Trip tidak ditemukan atau bukan milik bisnis ini');
 
-        $stmt = $pdo->prepare("UPDATE hotel_invoice_items SET total_price = ? WHERE id = ?");
-        $stmt->execute([$totalPrice, $tripId]);
+        $hotelCommission = $totalPrice - $ownerAmount;
+        $stmt = $pdo->prepare(
+            "UPDATE hotel_invoice_items
+             SET total_price = ?, owner_amount = ?, hotel_commission = ?
+             WHERE id = ?"
+        );
+        $stmt->execute([$totalPrice, $ownerAmount, $hotelCommission, $tripId]);
     }
 
     echo json_encode(['success' => true, 'message' => 'Nominal berhasil diperbarui']);
