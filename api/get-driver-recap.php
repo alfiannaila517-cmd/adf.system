@@ -235,6 +235,10 @@ try {
                 'harbor_trips' => 0,
                 'airport_total' => 0.0,
                 'harbor_total' => 0.0,
+                'paid_total' => 0.0,
+                'unpaid_total' => 0.0,
+                'paid_trips' => 0,
+                'unpaid_trips' => 0,
                 'detail_rows' => [],
             ];
             $indexMap[$dropKey] = count($recap) - 1;
