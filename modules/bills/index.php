@@ -1378,7 +1378,10 @@ include '../../includes/header.php';
     let pendingEditTrip = null;
 
     function editDriverTripAmount(tripId, source, totalPrice, ownerAmount, driverName, tripLabel) {
-        pendingEditTrip = { tripId, source };
+        pendingEditTrip = {
+            tripId,
+            source
+        };
         document.getElementById('etDriverName').textContent = driverName || '-';
         document.getElementById('etTripLabel').textContent = tripLabel || '-';
         document.getElementById('etTotalPrice').value = totalPrice;
@@ -1405,9 +1408,18 @@ include '../../includes/header.php';
         const totalPrice = parseFloat(document.getElementById('etTotalPrice').value);
         const ownerAmount = parseFloat(document.getElementById('etOwnerAmount').value);
 
-        if (isNaN(totalPrice) || totalPrice < 0) { alert('Total tarif tidak valid'); return; }
-        if (isNaN(ownerAmount) || ownerAmount < 0) { alert('Bagian pemilik tidak valid'); return; }
-        if (ownerAmount > totalPrice) { alert('Bagian pemilik tidak boleh melebihi total tarif'); return; }
+        if (isNaN(totalPrice) || totalPrice < 0) {
+            alert('Total tarif tidak valid');
+            return;
+        }
+        if (isNaN(ownerAmount) || ownerAmount < 0) {
+            alert('Bagian pemilik tidak valid');
+            return;
+        }
+        if (ownerAmount > totalPrice) {
+            alert('Bagian pemilik tidak boleh melebihi total tarif');
+            return;
+        }
 
         const btn = document.getElementById('etConfirmBtn');
         btn.disabled = true;
@@ -1420,7 +1432,11 @@ include '../../includes/header.php';
         fd.append('owner_amount', ownerAmount);
 
         try {
-            const res = await fetch(BASE_URL + '/api/edit-driver-trip-amount.php', { method: 'POST', body: fd, credentials: 'include' });
+            const res = await fetch(BASE_URL + '/api/edit-driver-trip-amount.php', {
+                method: 'POST',
+                body: fd,
+                credentials: 'include'
+            });
             const result = await res.json();
             if (result.success) {
                 closeEditTripModal();

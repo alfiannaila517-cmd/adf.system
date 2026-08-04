@@ -1,4 +1,5 @@
 <?php
+
 /**
  * API: EDIT DRIVER TRIP AMOUNT
  * POST /api/edit-driver-trip-amount.php
@@ -65,7 +66,6 @@ try {
     }
 
     echo json_encode(['success' => true, 'message' => 'Nominal berhasil diperbarui']);
-
 } catch (Exception $e) {
     http_response_code(400);
     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
