@@ -832,6 +832,86 @@ include '../../includes/header.php';
         margin-right: 8px;
     }
 
+    .bill-form-launch {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .bill-form-launch p {
+        font-size: 13px;
+        color: #5a6478;
+        line-height: 1.5;
+    }
+
+    .btn-open-bill-modal {
+        width: 100%;
+        padding: 13px 14px;
+        border: none;
+        border-radius: 10px;
+        background: linear-gradient(135deg, var(--navy), var(--navy2));
+        color: #fff;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 8px 18px rgba(13, 31, 60, 0.28);
+        transition: transform .2s ease, box-shadow .2s ease;
+    }
+
+    .btn-open-bill-modal:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 22px rgba(13, 31, 60, 0.34);
+    }
+
+    .bill-form-modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.45);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1200;
+        padding: 16px;
+    }
+
+    .bill-form-modal {
+        background: #fff;
+        width: min(760px, 100%);
+        max-height: 92vh;
+        overflow-y: auto;
+        border-radius: 14px;
+        box-shadow: 0 22px 48px rgba(15, 23, 42, 0.28);
+        padding: 16px;
+    }
+
+    .bill-form-modal-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+
+    .bill-form-modal-close {
+        width: 34px;
+        height: 34px;
+        border: none;
+        border-radius: 8px;
+        background: #eef2f8;
+        color: #334155;
+        font-size: 20px;
+        line-height: 1;
+        cursor: pointer;
+    }
+
+    .bill-form-modal-close:hover {
+        background: #e2e8f0;
+    }
+
+    body.bill-form-open {
+        overflow: hidden;
+    }
+
     @media (max-width: 768px) {
         .content-grid {
             grid-template-columns: 1fr;
@@ -858,93 +938,10 @@ include '../../includes/header.php';
         <!-- LEFT: FORM TAMBAH TAGIHAN -->
         <div class="card">
             <h2>➕ Tambah Tagihan Baru</h2>
-
-            <div id="formMessage"></div>
-
-            <form id="billForm" onsubmit="submitBill(event)">
-                <div class="form-group">
-                    <label for="billName">Nama Tagihan *</label>
-                    <input
-                        type="text"
-                        id="billName"
-                        name="bill_name"
-                        placeholder="Contoh: Listrik, Air, Gaji, Sewa"
-                        required>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="billMonth">Bulan *</label>
-                        <input
-                            type="month"
-                            id="billMonth"
-                            name="bill_month"
-                            required>
-                    </div>
-                    <div class="form-group">
-                        <label for="amount">Jumlah (Rp) *</label>
-                        <input
-                            type="number"
-                            id="amount"
-                            name="amount"
-                            placeholder="500000"
-                            min="0"
-                            step="1000"
-                            required>
-                    </div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="dueDate">Tanggal Jatuh Tempo</label>
-                        <input
-                            type="date"
-                            id="dueDate"
-                            name="due_date">
-                    </div>
-                    <div class="form-group">
-                        <label for="divisionId">Divisi</label>
-                        <select id="divisionId" name="division_id" onchange="filterBillCategories()">
-                            <option value="">-- Pilih Divisi --</option>
-                            <?php foreach ($billDivisions as $div): ?>
-                                <option value="<?php echo (int)$div['id']; ?>"><?php echo htmlspecialchars($div['division_name']); ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="category">Kategori</label>
-                    <select id="category" name="category_id">
-                        <option value="">-- Pilih Kategori --</option>
-                        <?php foreach ($billCategories as $cat): ?>
-                            <option value="<?php echo (int)$cat['id']; ?>" data-division="<?php echo (int)($cat['division_id'] ?? 0); ?>"><?php echo htmlspecialchars($cat['category_name']); ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="notes">Catatan</label>
-                    <textarea
-                        id="notes"
-                        name="notes"
-                        rows="3"
-                        placeholder="Contoh: Tagihan bulanan dari PLN..."></textarea>
-                </div>
-
-                <div class="checkbox-group">
-                    <label>
-                        <input
-                            type="checkbox"
-                            id="isRecurring"
-                            name="is_recurring"
-                            value="1">
-                        Tagihan Berulang (Bulanan)
-                    </label>
-                </div>
-
-                <button type="submit" class="btn-submit">💾 Simpan Tagihan</button>
-            </form>
+            <div class="bill-form-launch">
+                <p>Klik tombol di bawah ini untuk membuka form input tagihan dalam popup.</p>
+                <button type="button" class="btn-open-bill-modal" onclick="openBillFormModal()">+ Tambah Tagihan Baru</button>
+            </div>
         </div>
 
         <!-- RIGHT: LIST TAGIHAN -->
@@ -984,6 +981,103 @@ include '../../includes/header.php';
                 <p style="color: #999; text-align: center; padding: 40px 20px;">Loading...</p>
             </div>
         </div>
+    </div>
+</div>
+
+<!-- ADD BILL MODAL -->
+<div id="billFormModalOverlay" class="bill-form-modal-overlay" onclick="if(event.target===this)closeBillFormModal()">
+    <div class="bill-form-modal">
+        <div class="bill-form-modal-head">
+            <h2>➕ Tambah Tagihan Baru</h2>
+            <button type="button" class="bill-form-modal-close" onclick="closeBillFormModal()">&times;</button>
+        </div>
+
+        <div id="formMessage"></div>
+
+        <form id="billForm" onsubmit="submitBill(event)">
+            <div class="form-group">
+                <label for="billName">Nama Tagihan *</label>
+                <input
+                    type="text"
+                    id="billName"
+                    name="bill_name"
+                    placeholder="Contoh: Listrik, Air, Gaji, Sewa"
+                    required>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="billMonth">Bulan *</label>
+                    <input
+                        type="month"
+                        id="billMonth"
+                        name="bill_month"
+                        required>
+                </div>
+                <div class="form-group">
+                    <label for="amount">Jumlah (Rp) *</label>
+                    <input
+                        type="number"
+                        id="amount"
+                        name="amount"
+                        placeholder="500000"
+                        min="0"
+                        step="1000"
+                        required>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="dueDate">Tanggal Jatuh Tempo</label>
+                    <input
+                        type="date"
+                        id="dueDate"
+                        name="due_date">
+                </div>
+                <div class="form-group">
+                    <label for="divisionId">Divisi</label>
+                    <select id="divisionId" name="division_id" onchange="filterBillCategories()">
+                        <option value="">-- Pilih Divisi --</option>
+                        <?php foreach ($billDivisions as $div): ?>
+                            <option value="<?php echo (int)$div['id']; ?>"><?php echo htmlspecialchars($div['division_name']); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="category">Kategori</label>
+                <select id="category" name="category_id">
+                    <option value="">-- Pilih Kategori --</option>
+                    <?php foreach ($billCategories as $cat): ?>
+                        <option value="<?php echo (int)$cat['id']; ?>" data-division="<?php echo (int)($cat['division_id'] ?? 0); ?>"><?php echo htmlspecialchars($cat['category_name']); ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="notes">Catatan</label>
+                <textarea
+                    id="notes"
+                    name="notes"
+                    rows="3"
+                    placeholder="Contoh: Tagihan bulanan dari PLN..."></textarea>
+            </div>
+
+            <div class="checkbox-group">
+                <label>
+                    <input
+                        type="checkbox"
+                        id="isRecurring"
+                        name="is_recurring"
+                        value="1">
+                    Tagihan Berulang (Bulanan)
+                </label>
+            </div>
+
+            <button type="submit" class="btn-submit">💾 Simpan Tagihan</button>
+        </form>
     </div>
 </div>
 
@@ -1077,6 +1171,28 @@ include '../../includes/header.php';
     document.getElementById('billMonth').valueAsDate = new Date();
     document.getElementById('filterMonth').valueAsDate = new Date();
 
+    function openBillFormModal() {
+        const overlay = document.getElementById('billFormModalOverlay');
+        if (!overlay) return;
+        overlay.style.display = 'flex';
+        document.body.classList.add('bill-form-open');
+        const firstInput = document.getElementById('billName');
+        if (firstInput) firstInput.focus();
+    }
+
+    function closeBillFormModal() {
+        const overlay = document.getElementById('billFormModalOverlay');
+        if (!overlay) return;
+        overlay.style.display = 'none';
+        document.body.classList.remove('bill-form-open');
+    }
+
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeBillFormModal();
+        }
+    });
+
     let currentTab = 'all';
     let currentCategory = 'manual';
 
@@ -1146,6 +1262,7 @@ include '../../includes/header.php';
                 document.getElementById('billForm').reset();
                 document.getElementById('billMonth').valueAsDate = new Date();
                 filterBillCategories();
+                setTimeout(() => closeBillFormModal(), 900);
 
                 setTimeout(() => loadBills(), 1000);
             } else {
