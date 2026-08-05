@@ -962,9 +962,9 @@ echo getPrintCSS();
         }
 
         .cashbook-action-btn {
-            border-radius: 10px !important;
+            border-radius: 8px !important;
             letter-spacing: 0.01em;
-            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.14);
+            box-shadow: 0 3px 10px rgba(15, 23, 42, 0.12);
             transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
             border: none !important;
             color: #fff !important;
@@ -973,6 +973,8 @@ echo getPrintCSS();
             isolation: isolate !important;
             overflow: hidden !important;
             opacity: 1 !important;
+            min-height: 36px !important;
+            padding: 0.4rem 0.85rem !important;
         }
 
         .cashbook-action-btn::before,
@@ -994,7 +996,7 @@ echo getPrintCSS();
         .cashbook-action-btn:hover {
             transform: translateY(-1px);
             filter: saturate(1.05);
-            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.2);
+            box-shadow: 0 6px 14px rgba(15, 23, 42, 0.16);
         }
 
         .cashbook-action-btn i,
@@ -1011,6 +1013,9 @@ echo getPrintCSS();
             -webkit-text-fill-color: #fff !important;
             text-fill-color: #fff !important;
             text-shadow: 0 1px 1px rgba(0, 0, 0, 0.24) !important;
+            font-size: 0.78rem !important;
+            line-height: 1.1 !important;
+            font-weight: 600 !important;
         }
 
         .cashbook-action-btn svg,
@@ -1021,6 +1026,28 @@ echo getPrintCSS();
             position: relative !important;
             z-index: 9 !important;
             opacity: 1 !important;
+        }
+
+        .cashbook-action-btn i,
+        .cashbook-action-btn svg {
+            width: 14px !important;
+            height: 14px !important;
+            flex-shrink: 0;
+        }
+
+        .table-actions .cashbook-action-btn,
+        .cqc-filter-actions .cashbook-action-btn {
+            min-height: 34px !important;
+            padding: 0.38rem 0.75rem !important;
+            gap: 0.38rem !important;
+        }
+
+        .cqc-btn-filter,
+        .cqc-btn-reset {
+            height: 36px;
+            font-size: 0.78rem;
+            border-radius: 8px;
+            gap: 0.38rem;
         }
 
         /* Cashbook action button color variants */
