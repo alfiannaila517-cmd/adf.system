@@ -1009,6 +1009,7 @@ header('Expires: 0');
         }
 
         @keyframes fabFloat {
+
             0%,
             100% {
                 transform: translateY(0);
@@ -1020,6 +1021,7 @@ header('Expires: 0');
         }
 
         @keyframes chatShake {
+
             0%,
             100% {
                 transform: rotate(0deg);
@@ -1043,6 +1045,7 @@ header('Expires: 0');
         }
 
         @keyframes chatNudge {
+
             0%,
             65%,
             100% {

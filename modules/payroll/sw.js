@@ -3,68 +3,68 @@
  * Handles caching for offline / slow-network support
  */
 
-const CACHE_NAME = "staff-portal-v10";
+const CACHE_NAME = 'staff-portal-v10'
 const APP_SHELL = [
-  "./staff-portal.php",
-  "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css",
-  "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
-];
+  './staff-portal.php',
+  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
+  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+]
 
 // Face-API models to pre-cache for instant Face ID
 const FACE_MODELS = [
-  "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/dist/face-api.min.js",
-  "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/tiny_face_detector_model-weights_manifest.json",
-  "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/tiny_face_detector_model-shard1",
-  "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/face_landmark_68_tiny_model-weights_manifest.json",
-  "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/face_landmark_68_tiny_model-shard1",
-  "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/face_recognition_model-weights_manifest.json",
-  "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/face_recognition_model-shard1",
-  "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/face_recognition_model-shard2",
-];
+  'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/dist/face-api.min.js',
+  'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/tiny_face_detector_model-weights_manifest.json',
+  'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/tiny_face_detector_model-shard1',
+  'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/face_landmark_68_tiny_model-weights_manifest.json',
+  'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/face_landmark_68_tiny_model-shard1',
+  'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/face_recognition_model-weights_manifest.json',
+  'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/face_recognition_model-shard1',
+  'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/face_recognition_model-shard2'
+]
 
 // CDN assets that can be cached on first use (cache-first)
 const CDN_PREFIXES = [
-  "cdn.jsdelivr.net",
-  "unpkg.com",
-  "nominatim.openstreetmap.org", // reverse geocode — cache briefly
-];
+  'cdn.jsdelivr.net',
+  'unpkg.com',
+  'nominatim.openstreetmap.org' // reverse geocode — cache briefly
+]
 
 // ── INSTALL: pre-cache app shell + face models ───────────
-self.addEventListener("install", (event) => {
+self.addEventListener('install', event => {
   event.waitUntil(
     caches
       .open(CACHE_NAME)
-      .then((cache) => {
+      .then(cache => {
         // Cache shell + face models — ignore individual failures
-        const all = [...APP_SHELL, ...FACE_MODELS];
-        return Promise.allSettled(all.map((url) => cache.add(url)));
+        const all = [...APP_SHELL, ...FACE_MODELS]
+        return Promise.allSettled(all.map(url => cache.add(url)))
       })
-      .then(() => self.skipWaiting()),
-  );
-});
+      .then(() => self.skipWaiting())
+  )
+})
 
 // ── ACTIVATE: clean old caches ───────────────────────────
-self.addEventListener("activate", (event) => {
+self.addEventListener('activate', event => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) =>
+      .then(keys =>
         Promise.all(
-          keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)),
-        ),
+          keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
+        )
       )
-      .then(() => self.clients.claim()),
-  );
-});
+      .then(() => self.clients.claim())
+  )
+})
 
 // ── FETCH: routing strategy ───────────────────────────────
-self.addEventListener("fetch", (event) => {
-  const url = new URL(event.request.url);
+self.addEventListener('fetch', event => {
+  const url = new URL(event.request.url)
 
   // 1. API calls → always network-only (data must be fresh)
   if (
-    url.pathname.includes("attendance-clock.php") ||
-    url.pathname.includes("staff-api.php")
+    url.pathname.includes('attendance-clock.php') ||
+    url.pathname.includes('staff-api.php')
   ) {
     event.respondWith(
       fetch(event.request).catch(
@@ -72,155 +72,155 @@ self.addEventListener("fetch", (event) => {
           new Response(
             JSON.stringify({
               success: false,
-              message: "Tidak ada koneksi internet.",
+              message: 'Tidak ada koneksi internet.'
             }),
             {
-              headers: { "Content-Type": "application/json" },
-            },
-          ),
-      ),
-    );
-    return;
+              headers: { 'Content-Type': 'application/json' }
+            }
+          )
+      )
+    )
+    return
   }
 
   // 2. OpenStreetMap tile images → cache-first (tiles don't change often)
-  if (url.hostname.includes("tile.openstreetmap.org")) {
-    event.respondWith(cacheFirst(event.request, "tiles-v1"));
-    return;
+  if (url.hostname.includes('tile.openstreetmap.org')) {
+    event.respondWith(cacheFirst(event.request, 'tiles-v1'))
+    return
   }
 
   // 3. CDN resources (face-api, leaflet) → cache-first
-  if (CDN_PREFIXES.some((p) => url.hostname.includes(p))) {
-    event.respondWith(cacheFirst(event.request, CACHE_NAME));
-    return;
+  if (CDN_PREFIXES.some(p => url.hostname.includes(p))) {
+    event.respondWith(cacheFirst(event.request, CACHE_NAME))
+    return
   }
 
   // 4. App shell (absen/staff-portal) → network-first, fall back to cache
   if (
-    url.pathname.includes("staff-portal.php") ||
-    url.pathname === "/modules/payroll/"
+    url.pathname.includes('staff-portal.php') ||
+    url.pathname === '/modules/payroll/'
   ) {
-    event.respondWith(networkFirst(event.request));
-    return;
+    event.respondWith(networkFirst(event.request))
+    return
   }
 
   // 5. Everything else → network (admin pages, other modules)
-  event.respondWith(fetch(event.request));
-});
+  event.respondWith(fetch(event.request))
+})
 
 // ── PUSH EVENT — real server push for Staff Portal ────────
-self.addEventListener("push", (event) => {
-  console.log("[Staff SW] Push received");
+self.addEventListener('push', event => {
+  console.log('[Staff SW] Push received')
 
   let data = {
-    title: "Staff Portal",
-    body: "Ada notifikasi baru",
-    icon: "/assets/img/logo.png",
-    badge: "/assets/img/badge.png",
-    tag: "staff-notification",
-    data: {},
-  };
+    title: 'Staff Portal',
+    body: 'Ada notifikasi baru',
+    icon: '/assets/img/logo.png',
+    badge: '/assets/img/badge.png',
+    tag: 'staff-notification',
+    data: {}
+  }
 
   if (event.data) {
     try {
-      const payload = event.data.json();
-      data = { ...data, ...payload };
+      const payload = event.data.json()
+      data = { ...data, ...payload }
     } catch (e) {
-      data.body = event.data.text();
+      data.body = event.data.text()
     }
   }
 
   const options = {
     body: data.body,
-    icon: data.icon || "/assets/img/logo.png",
-    badge: data.badge || "/assets/img/badge.png",
-    tag: data.tag || "staff-push-" + Date.now(),
+    icon: data.icon || '/assets/img/logo.png',
+    badge: data.badge || '/assets/img/badge.png',
+    tag: data.tag || 'staff-push-' + Date.now(),
     vibrate: data.vibrate || [200, 100, 200],
     requireInteraction: true,
     data: data.data || {},
     actions: [
-      { action: "view", title: "👁️ Lihat" },
-      { action: "dismiss", title: "✖️ Tutup" },
-    ],
-  };
+      { action: 'view', title: '👁️ Lihat' },
+      { action: 'dismiss', title: '✖️ Tutup' }
+    ]
+  }
 
-  event.waitUntil(self.registration.showNotification(data.title, options));
-});
+  event.waitUntil(self.registration.showNotification(data.title, options))
+})
 
 // ── NOTIFICATION CLICK ────────────────────────────────────
-self.addEventListener("notificationclick", (event) => {
-  event.notification.close();
-  if (event.action === "dismiss") return;
+self.addEventListener('notificationclick', event => {
+  event.notification.close()
+  if (event.action === 'dismiss') return
 
-  const urlToOpen = event.notification.data?.url || "./staff-portal.php";
+  const urlToOpen = event.notification.data?.url || './staff-portal.php'
 
   event.waitUntil(
     clients
-      .matchAll({ type: "window", includeUncontrolled: true })
-      .then((clientList) => {
+      .matchAll({ type: 'window', includeUncontrolled: true })
+      .then(clientList => {
         for (const client of clientList) {
-          if ("focus" in client) {
-            client.navigate(urlToOpen);
-            return client.focus();
+          if ('focus' in client) {
+            client.navigate(urlToOpen)
+            return client.focus()
           }
         }
-        if (clients.openWindow) return clients.openWindow(urlToOpen);
-      }),
-  );
-});
+        if (clients.openWindow) return clients.openWindow(urlToOpen)
+      })
+  )
+})
 
 // ── PUSH SUBSCRIPTION CHANGE ─────────────────────────────
-self.addEventListener("pushsubscriptionchange", (event) => {
+self.addEventListener('pushsubscriptionchange', event => {
   event.waitUntil(
     self.registration.pushManager
       .subscribe(event.oldSubscription.options)
-      .then((newSub) =>
-        fetch("/api/push-subscription.php", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+      .then(newSub =>
+        fetch('/api/push-subscription.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            action: "subscribe",
-            subscription: newSub.toJSON(),
-          }),
-        }),
-      ),
-  );
-});
+            action: 'subscribe',
+            subscription: newSub.toJSON()
+          })
+        })
+      )
+  )
+})
 
 // ── Helper: Cache-First ───────────────────────────────────
-async function cacheFirst(request, cacheName) {
-  const cached = await caches.match(request);
-  if (cached) return cached;
+async function cacheFirst (request, cacheName) {
+  const cached = await caches.match(request)
+  if (cached) return cached
   try {
-    const response = await fetch(request);
+    const response = await fetch(request)
     if (response.ok) {
-      const cache = await caches.open(cacheName);
-      cache.put(request, response.clone());
+      const cache = await caches.open(cacheName)
+      cache.put(request, response.clone())
     }
-    return response;
+    return response
   } catch (_) {
-    return new Response("Offline", { status: 503 });
+    return new Response('Offline', { status: 503 })
   }
 }
 
 // ── Helper: Network-First ─────────────────────────────────
-async function networkFirst(request) {
+async function networkFirst (request) {
   try {
-    const response = await fetch(request);
+    const response = await fetch(request)
     if (response.ok) {
-      const cache = await caches.open(CACHE_NAME);
-      cache.put(request, response.clone());
+      const cache = await caches.open(CACHE_NAME)
+      cache.put(request, response.clone())
     }
-    return response;
+    return response
   } catch (_) {
-    const cached = await caches.match(request);
-    if (cached) return cached;
-    return offlinePage();
+    const cached = await caches.match(request)
+    if (cached) return cached
+    return offlinePage()
   }
 }
 
 // ── Offline fallback page ─────────────────────────────────
-function offlinePage() {
+function offlinePage () {
   return new Response(
     `
 <!DOCTYPE html><html lang="id">
@@ -240,6 +240,6 @@ function offlinePage() {
   <button onclick="location.reload()">🔄 Coba Lagi</button>
 </body></html>
     `,
-    { headers: { "Content-Type": "text/html; charset=utf-8" } },
-  );
+    { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+  )
 }

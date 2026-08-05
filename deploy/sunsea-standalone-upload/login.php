@@ -539,8 +539,10 @@ if (isset($_GET['biz'])) {
         .login-container::before {
             content: '';
             position: absolute;
-            top: -200px; right: -180px;
-            width: 580px; height: 520px;
+            top: -200px;
+            right: -180px;
+            width: 580px;
+            height: 520px;
             border-radius: 50%;
             background: radial-gradient(circle, rgba(22, 80, 235, 0.1), transparent 70%);
             pointer-events: none;

@@ -269,9 +269,7 @@ try {
 
     <!-- Business Theme CSS -->
     <style>
-        <?php echo getBusinessThemeCSS(); ?>
-
-        :root {
+        <?php echo getBusinessThemeCSS(); ?> :root {
             --system-font-base: 0.875rem;
             --system-font-sm: 0.813rem;
             --system-font-xs: 0.75rem;
@@ -290,44 +288,40 @@ try {
             font-size: var(--system-font-base) !important;
         }
 
-        body[data-business] .main-content :is(
-                p,
-                label,
-                input,
-                select,
-                textarea,
-                button,
-                li,
-                td,
-                th,
-                a,
-                .btn,
-                .form-label,
-                .form-control,
-                .table,
-                .table td,
-                .table th,
-                .alert,
-                .page-subtitle,
-                .empty-state-text,
-                .filter-chip,
-                .stat-lbl
-            ) {
-                font-size: var(--system-font-base) !important;
+        body[data-business] .main-content :is(p,
+            label,
+            input,
+            select,
+            textarea,
+            button,
+            li,
+            td,
+            th,
+            a,
+            .btn,
+            .form-label,
+            .form-control,
+            .table,
+            .table td,
+            .table th,
+            .alert,
+            .page-subtitle,
+            .empty-state-text,
+            .filter-chip,
+            .stat-lbl) {
+            font-size: var(--system-font-base) !important;
         }
 
-        body[data-business] .main-content :is(
-                small,
-                .small,
-                .text-muted,
-                .card-title,
-                .badge,
-                .helper-text,
-                .form-text,
-                .table small,
-                .meta-text,
-                .stat-note
-            ) {
+        body[data-business] .main-content :is(small,
+            .small,
+            .text-muted,
+            .card-title,
+            .badge,
+            .helper-text,
+            .form-text,
+            .table small,
+            .meta-text,
+            .stat-note) {
             font-size: var(--system-font-sm) !important;
         }
 
