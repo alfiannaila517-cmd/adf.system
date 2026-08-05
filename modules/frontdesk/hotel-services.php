@@ -272,14 +272,15 @@ function getDivisionForService(PDO $pdo, string $serviceType): int
     if (isset($cache[$serviceType])) return $cache[$serviceType];
 
     // Preferred division names — must match exactly what's in the DB (or close synonyms)
+    // UPDATED: airport_drop & harbor_drop now go to Rent Car, narayana_trip to Narayana Trip division
     $nameMap = [
-        'motor_rental'  => ['Motor Rental',  'MOTOR_RENTAL',  'Motor'],
-        'car_rental'    => ['Car Rental',    'CAR_RENTAL',    'Transport'],
+        'motor_rental'  => ['Motor Rental',  'MOTOR_RENTAL',  'MOTOR'],
+        'car_rental'    => ['Car Rental',    'CAR_RENTAL',    'Car Rental'],
         'laundry'       => ['Laundry',        'LAUNDRY',       'Housekeeping'],
         'service'       => ['General Service', 'GEN_SERVICE',   'Hotel'],
-        'airport_drop'  => ['Airport Drop',   'AIRPORT_DROP',  'Hotel'],
-        'harbor_drop'   => ['Harbor Drop',    'HARBOR_DROP',   'Hotel'],
-        'narayana_trip' => ['Narayana Trip',  'NARAYANA_TRIP', 'Hotel'],
+        'airport_drop'  => ['Rent Car',      'RENTCAR',       'Rent Car'],
+        'harbor_drop'   => ['Rent Car',      'RENTCAR',       'Rent Car'],
+        'narayana_trip' => ['Narayana Trip', 'NARAYANA_TRIP', 'Narayana Trip'],
         'lain_lain'     => ['Lain2',          'OTHERS',        'Hotel'],
     ];
     $entry    = $nameMap[$serviceType] ?? ['Hotel Services', 'HOTEL_SVC', 'Hotel'];
