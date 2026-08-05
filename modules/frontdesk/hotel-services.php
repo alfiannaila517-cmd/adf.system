@@ -585,6 +585,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                     if (!$item['start_dt'] || !$item['end_dt']) {
                         throw new Exception('Rental mobil/taxi wajib isi mulai dan selesai');
                     }
+                    if (!$item['car_id']) {
+                        throw new Exception('Rental mobil/taxi WAJIB pilih armada untuk menghubungkan dengan driver tagihan');
+                    }
                     if ($item['car_id']) {
                         $carStmt = $pdo->prepare("SELECT * FROM rental_cars WHERE id=? AND business_id=?");
                         $carStmt->execute([$item['car_id'], $businessId]);
