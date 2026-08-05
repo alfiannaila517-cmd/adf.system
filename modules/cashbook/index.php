@@ -2146,17 +2146,17 @@ echo getPrintCSS();
                 </div>
             </div>
             <div class="table-actions" style="display: flex; gap: 0.5rem;">
-                <a href="cash-transfers.php" class="btn btn-secondary btn-white-text cashbook-action-btn cashbook-btn-reset" style="display: flex; align-items: center; gap: 0.5rem; background: #1e3a8a !important; border: 1px solid #1e40af !important; color: #ffffff !important; opacity: 1 !important;">
-                    <i data-feather="send" style="width: 16px; height: 16px; color:#ffffff !important; stroke:#ffffff !important; opacity:1 !important;"></i>
-                    <span style="color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important; font-weight:700 !important;">🏦 Ringkasan Setor Tunai</span>
+                <a href="cash-transfers.php" class="btn btn-secondary btn-white-text cashbook-action-btn cashbook-btn-reset" style="display: flex; align-items: center; gap: 0.25rem !important; height: 28px !important; padding: 0 0.5rem !important; background: #1e3a8a !important; border: 1px solid #1e40af !important; color: #ffffff !important; opacity: 1 !important;">
+                    <i data-feather="send" style="width: 12px; height: 12px; color:#ffffff !important; stroke:#ffffff !important; opacity:1 !important;"></i>
+                    <span style="color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important; font-weight:500 !important; font-size: 0.68rem !important;">🏦 Ringkasan Setor Tunai</span>
                 </a>
-                <a href="logs.php" class="btn btn-secondary btn-white-text cashbook-action-btn cashbook-btn-reset" style="display: flex; align-items: center; gap: 0.5rem; background: #1e3a8a !important; border: 1px solid #1e40af !important; color: #ffffff !important; opacity: 1 !important;">
-                    <i data-feather="activity" style="width: 16px; height: 16px; color:#ffffff !important; stroke:#ffffff !important; opacity:1 !important;"></i>
-                    <span style="color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important; font-weight:700 !important;">Audit Log</span>
+                <a href="logs.php" class="btn btn-secondary btn-white-text cashbook-action-btn cashbook-btn-reset" style="display: flex; align-items: center; gap: 0.25rem !important; height: 28px !important; padding: 0 0.5rem !important; background: #1e3a8a !important; border: 1px solid #1e40af !important; color: #ffffff !important; opacity: 1 !important;">
+                    <i data-feather="activity" style="width: 12px; height: 12px; color:#ffffff !important; stroke:#ffffff !important; opacity:1 !important;"></i>
+                    <span style="color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important; font-weight:500 !important; font-size: 0.68rem !important;">Audit Log</span>
                 </a>
-                <a href="add.php" class="btn btn-primary btn-white-text cashbook-action-btn cashbook-btn-filter" style="background: #1e3a8a !important; border: 1px solid #1e40af !important; color: #ffffff !important; opacity: 1 !important;">
-                    <i data-feather="plus" style="width: 16px; height: 16px; color:#ffffff !important; stroke:#ffffff !important; opacity:1 !important;"></i>
-                    <span style="color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important; font-weight:700 !important;">Tambah Transaksi</span>
+                <a href="add.php" class="btn btn-primary btn-white-text cashbook-action-btn cashbook-btn-filter" style="display: flex; align-items: center; gap: 0.25rem !important; height: 28px !important; padding: 0 0.5rem !important; background: #1e3a8a !important; border: 1px solid #1e40af !important; color: #ffffff !important; opacity: 1 !important;">
+                    <i data-feather="plus" style="width: 12px; height: 12px; color:#ffffff !important; stroke:#ffffff !important; opacity:1 !important;"></i>
+                    <span style="color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important; font-weight:500 !important; font-size: 0.68rem !important;">Tambah Transaksi</span>
                 </a>
             </div>
         </div>
@@ -2225,25 +2225,25 @@ echo getPrintCSS();
                     </div>
 
                     <div class="cqc-filter-actions">
-                        <button type="submit" class="cqc-btn-filter cashbook-action-btn cashbook-btn-filter btn-white-text" style="background: #1e3a8a !important; border: 1px solid #1e40af !important; color: #ffffff !important; opacity: 1 !important;">
-                            <i data-feather="filter" style="width: 16px; height: 16px; color:#ffffff !important; stroke:#ffffff !important; opacity:1 !important;"></i>
-                            <span style="color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important; font-weight:700 !important;">Filter Data</span>
+                        <button type="submit" class="cqc-btn-filter cashbook-action-btn cashbook-btn-filter btn-white-text" style="display: flex; align-items: center; justify-content: center; gap: 0.25rem !important; height: 28px !important; background: #1e3a8a !important; border: 1px solid #1e40af !important; color: #ffffff !important; opacity: 1 !important;">
+                            <i data-feather="filter" style="width: 12px; height: 12px; color:#ffffff !important; stroke:#ffffff !important; opacity:1 !important;"></i>
+                            <span style="color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important; font-weight:500 !important; font-size: 0.68rem !important;">Filter Data</span>
                         </button>
-                        <a href="index.php" class="cqc-btn-reset cashbook-action-btn cashbook-btn-reset btn-white-text" style="background: #1e3a8a !important; border: 1px solid #1e40af !important; color: #ffffff !important; opacity: 1 !important;">
-                            <i data-feather="x" style="width: 16px; height: 16px; color:#ffffff !important; stroke:#ffffff !important; opacity:1 !important;"></i>
-                            <span style="color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important; font-weight:700 !important;">Reset</span>
+                        <a href="index.php" class="cqc-btn-reset cashbook-action-btn cashbook-btn-reset btn-white-text" style="display: flex; align-items: center; justify-content: center; gap: 0.25rem !important; height: 28px !important; padding: 0 0.5rem !important; background: #1e3a8a !important; border: 1px solid #1e40af !important; color: #ffffff !important; opacity: 1 !important;">
+                            <i data-feather="x" style="width: 12px; height: 12px; color:#ffffff !important; stroke:#ffffff !important; opacity:1 !important;"></i>
+                            <span style="color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important; font-weight:500 !important; font-size: 0.68rem !important;">Reset</span>
                         </a>
-                        <button type="button" onclick="cetakPDF()" class="cqc-btn-filter cashbook-action-btn cashbook-btn-pdf btn-white-text" style="flex: 0 0 auto; padding: 0 1.25rem; background: #1e3a8a !important; border: 1px solid #1e40af !important; color: #ffffff !important;">
-                            <i data-feather="printer" style="width: 16px; height: 16px;"></i>
-                            <span>Cetak PDF</span>
+                        <button type="button" onclick="cetakPDF()" class="cqc-btn-filter cashbook-action-btn cashbook-btn-pdf btn-white-text" style="flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 0.25rem !important; height: 28px !important; padding: 0 0.5rem !important; background: #1e3a8a !important; border: 1px solid #1e40af !important; color: #ffffff !important;">
+                            <i data-feather="printer" style="width: 12px; height: 12px; color:#ffffff !important; stroke:#ffffff !important; opacity:1 !important;"></i>
+                            <span style="color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important; font-weight:500 !important; font-size: 0.68rem !important;">Cetak PDF</span>
                         </button>
-                        <button type="button" onclick="exportExcel()" class="cqc-btn-filter cashbook-action-btn cashbook-btn-excel btn-white-text" style="flex: 0 0 auto; padding: 0 1.25rem; background: #1e3a8a !important; border: 1px solid #1e40af !important; color: #ffffff !important;">
-                            <i data-feather="file-text" style="width: 16px; height: 16px;"></i>
-                            <span>Export Excel</span>
+                        <button type="button" onclick="exportExcel()" class="cqc-btn-filter cashbook-action-btn cashbook-btn-excel btn-white-text" style="flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 0.25rem !important; height: 28px !important; padding: 0 0.5rem !important; background: #1e3a8a !important; border: 1px solid #1e40af !important; color: #ffffff !important;">
+                            <i data-feather="file-text" style="width: 12px; height: 12px; color:#ffffff !important; stroke:#ffffff !important; opacity:1 !important;"></i>
+                            <span style="color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important; font-weight:500 !important; font-size: 0.68rem !important;">Export Excel</span>
                         </button>
-                        <button type="button" onclick="sendWhatsApp(event)" class="cqc-btn-filter cashbook-action-btn cashbook-btn-wa btn-white-text" style="flex: 0 0 auto; padding: 0 1.25rem; background: #1e3a8a !important; border: 1px solid #1e40af !important; color: #ffffff !important;">
-                            <i data-feather="message-circle" style="width: 16px; height: 16px;"></i>
-                            <span>Send WhatsApp</span>
+                        <button type="button" onclick="sendWhatsApp(event)" class="cqc-btn-filter cashbook-action-btn cashbook-btn-wa btn-white-text" style="flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 0.25rem !important; height: 28px !important; padding: 0 0.5rem !important; background: #1e3a8a !important; border: 1px solid #1e40af !important; color: #ffffff !important;">
+                            <i data-feather="message-circle" style="width: 12px; height: 12px; color:#ffffff !important; stroke:#ffffff !important; opacity:1 !important;"></i>
+                            <span style="color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important; font-weight:500 !important; font-size: 0.68rem !important;">Send WhatsApp</span>
                         </button>
                     </div>
                 </div>
@@ -2324,25 +2324,25 @@ echo getPrintCSS();
                 </div>
 
                 <div style="display: flex; align-items: flex-end; gap: 0.625rem; grid-column: span 7;">
-                    <button type="submit" class="btn btn-primary btn-white-text cashbook-action-btn cashbook-btn-filter" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 40px; background: #1e3a8a !important; border: 1px solid #1e40af !important; color: #ffffff !important; opacity: 1 !important;">
-                        <i data-feather="filter" style="width: 16px; height: 16px; color:#ffffff !important; stroke:#ffffff !important; opacity:1 !important;"></i>
-                        <span style="color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important; font-weight:700 !important;">Filter</span>
+                    <button type="submit" class="btn btn-primary btn-white-text cashbook-action-btn cashbook-btn-filter" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.25rem !important; height: 28px !important; background: #1e3a8a !important; border: 1px solid #1e40af !important; color: #ffffff !important; opacity: 1 !important;">
+                        <i data-feather="filter" style="width: 12px; height: 12px; color:#ffffff !important; stroke:#ffffff !important; opacity:1 !important;"></i>
+                        <span style="color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important; font-weight:500 !important; font-size: 0.68rem !important;">Filter</span>
                     </button>
-                    <a href="index.php" class="btn btn-secondary btn-white-text cashbook-action-btn cashbook-btn-reset" style="flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 40px; padding: 0 1.25rem; background: #1e3a8a !important; border: 1px solid #1e40af !important; color: #ffffff !important; opacity: 1 !important;">
-                        <i data-feather="x" style="width: 16px; height: 16px; color:#ffffff !important; stroke:#ffffff !important; opacity:1 !important;"></i>
-                        <span style="color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important; font-weight:700 !important;">Reset</span>
+                    <a href="index.php" class="btn btn-secondary btn-white-text cashbook-action-btn cashbook-btn-reset" style="flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 0.25rem !important; height: 28px !important; padding: 0 0.5rem !important; background: #1e3a8a !important; border: 1px solid #1e40af !important; color: #ffffff !important; opacity: 1 !important;">
+                        <i data-feather="x" style="width: 12px; height: 12px; color:#ffffff !important; stroke:#ffffff !important; opacity:1 !important;"></i>
+                        <span style="color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important; font-weight:500 !important; font-size: 0.68rem !important;">Reset</span>
                     </a>
-                    <button type="button" onclick="cetakPDF()" class="btn btn-primary btn-white-text cashbook-action-btn cashbook-btn-pdf" style="flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 40px; padding: 0 1.25rem; background: #1e3a8a !important; border: 1px solid #1e40af !important; color: #ffffff !important; opacity: 1 !important;">
-                        <i data-feather="printer" style="width: 16px; height: 16px; color:#ffffff !important; stroke:#ffffff !important; opacity:1 !important;"></i>
-                        <span style="color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important; font-weight:700 !important;">Cetak PDF</span>
+                    <button type="button" onclick="cetakPDF()" class="btn btn-primary btn-white-text cashbook-action-btn cashbook-btn-pdf" style="flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 0.25rem !important; height: 28px !important; padding: 0 0.5rem !important; background: #1e3a8a !important; border: 1px solid #1e40af !important; color: #ffffff !important; opacity: 1 !important;">
+                        <i data-feather="printer" style="width: 12px; height: 12px; color:#ffffff !important; stroke:#ffffff !important; opacity:1 !important;"></i>
+                        <span style="color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important; font-weight:500 !important; font-size: 0.68rem !important;">Cetak PDF</span>
                     </button>
-                    <button type="button" onclick="exportExcel()" class="btn btn-primary btn-white-text cashbook-action-btn cashbook-btn-excel" style="flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 40px; padding: 0 1.25rem; background: #1e3a8a !important; border: 1px solid #1e40af !important; color: #ffffff !important; opacity: 1 !important;">
-                        <i data-feather="file-text" style="width: 16px; height: 16px; color:#ffffff !important; stroke:#ffffff !important; opacity:1 !important;"></i>
-                        <span style="color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important; font-weight:700 !important;">Export Excel</span>
+                    <button type="button" onclick="exportExcel()" class="btn btn-primary btn-white-text cashbook-action-btn cashbook-btn-excel" style="flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 0.25rem !important; height: 28px !important; padding: 0 0.5rem !important; background: #1e3a8a !important; border: 1px solid #1e40af !important; color: #ffffff !important; opacity: 1 !important;">
+                        <i data-feather="file-text" style="width: 12px; height: 12px; color:#ffffff !important; stroke:#ffffff !important; opacity:1 !important;"></i>
+                        <span style="color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important; font-weight:500 !important; font-size: 0.68rem !important;">Export Excel</span>
                     </button>
-                    <button type="button" onclick="sendWhatsApp(event)" class="btn btn-primary btn-white-text cashbook-action-btn cashbook-btn-wa" style="flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 40px; padding: 0 1.25rem; background: #1e3a8a !important; border: 1px solid #1e40af !important; color: #ffffff !important; opacity: 1 !important;">
-                        <i data-feather="message-circle" style="width: 16px; height: 16px; color:#ffffff !important; stroke:#ffffff !important; opacity:1 !important;"></i>
-                        <span style="color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important; font-weight:700 !important;">Send WhatsApp</span>
+                    <button type="button" onclick="sendWhatsApp(event)" class="btn btn-primary btn-white-text cashbook-action-btn cashbook-btn-wa" style="flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 0.25rem !important; height: 28px !important; padding: 0 0.5rem !important; background: #1e3a8a !important; border: 1px solid #1e40af !important; color: #ffffff !important; opacity: 1 !important;">
+                        <i data-feather="message-circle" style="width: 12px; height: 12px; color:#ffffff !important; stroke:#ffffff !important; opacity:1 !important;"></i>
+                        <span style="color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important; font-weight:500 !important; font-size: 0.68rem !important;">Send WhatsApp</span>
                     </button>
                 </div>
             </form>
