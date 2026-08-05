@@ -114,6 +114,7 @@ try {
                                                 WHERE hi2.id = cb.invoice_id
                                                     AND hi2.business_id = cb.business_id
                                                     AND hi2.status NOT IN ('cancelled')
+                                                    AND hi2.payment_status = 'paid'
                                         )
                             )
               AND rc.partner_owner IS NOT NULL AND rc.partner_owner != ''
@@ -236,6 +237,7 @@ try {
                                                 WHERE hi2.id = cb.invoice_id
                                                     AND hi2.business_id = cb.business_id
                                                     AND hi2.status NOT IN ('cancelled')
+                                                    AND hi2.payment_status = 'paid'
                                         )
                             )
               AND rc.partner_owner IS NOT NULL AND rc.partner_owner != ''
@@ -296,6 +298,7 @@ try {
             {$dropJoinCashbook}
             WHERE hi.business_id=? AND hii.service_type IN ('airport_drop','harbor_drop','car_rental','narayana_trip')
               AND hi.status NOT IN ('cancelled')
+              AND hi.payment_status = 'paid'
               AND DATE(hi.created_at) BETWEEN ? AND ?
               AND (
                   hii.service_type = 'narayana_trip'
