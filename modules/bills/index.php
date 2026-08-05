@@ -220,19 +220,19 @@ include '../../includes/header.php';
     .card {
         background: white;
         border-radius: 10px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        padding: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        padding: 10px;
     }
 
     .card h2 {
-        font-size: 14px;
+        font-size: 13px;
         color: #333;
-        margin-bottom: 10px;
-        border-bottom: 2px solid var(--navy);
-        padding-bottom: 6px;
+        margin-bottom: 8px;
+        border-bottom: 1px solid #d7def1;
+        padding-bottom: 5px;
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
     }
 
     .form-group {
@@ -409,18 +409,18 @@ include '../../includes/header.php';
 
     .tabs {
         display: flex;
-        gap: 10px;
-        margin-bottom: 20px;
+        gap: 8px;
+        margin-bottom: 8px;
         border-bottom: 0;
     }
 
     .tab-btn {
-        padding: 9px 14px;
+        padding: 7px 12px;
         border: 1px solid #e3e8f2;
         background: #f8faff;
         border-radius: 999px;
         cursor: pointer;
-        font-size: 12.5px;
+        font-size: 11.5px;
         font-weight: 700;
         color: #5b667c;
         transition: all .2s ease;
@@ -439,7 +439,7 @@ include '../../includes/header.php';
         color: #fff;
         border-color: var(--navy);
         background: linear-gradient(135deg, var(--navy), var(--navy2));
-        box-shadow: 0 6px 14px rgba(25, 57, 120, 0.25);
+        box-shadow: 0 5px 10px rgba(25, 57, 120, 0.22);
     }
 
     .bill-list {
@@ -450,18 +450,18 @@ include '../../includes/header.php';
     .category-tabs {
         display: flex;
         gap: 6px;
-        margin-bottom: 12px;
+        margin-bottom: 8px;
         flex-wrap: wrap;
     }
 
     .category-btn {
         flex: 1 1 160px;
-        padding: 8px 10px;
+        padding: 7px 10px;
         border: 1px solid #e2e6ee;
         background: #f7f8fb;
         border-radius: 999px;
         cursor: pointer;
-        font-size: 12px;
+        font-size: 11.5px;
         font-weight: 700;
         color: #4f5d77;
         transition: all .2s ease;
@@ -481,7 +481,7 @@ include '../../includes/header.php';
         background: linear-gradient(135deg, var(--navy), var(--navy2));
         border-color: var(--navy);
         color: #fff;
-        box-shadow: 0 7px 16px rgba(25, 57, 120, 0.25);
+        box-shadow: 0 5px 11px rgba(25, 57, 120, 0.22);
     }
 
     .category-btn .ico,
@@ -495,15 +495,15 @@ include '../../includes/header.php';
         background: #fff;
         border: 1px solid #e2e6ee;
         border-radius: 8px;
-        padding: 12px 14px;
-        margin-bottom: 10px;
+        padding: 8px 10px;
+        margin-bottom: 8px;
     }
 
     .driver-recap-card .dr-name {
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 700;
         color: #1a2540;
-        margin-bottom: 8px;
+        margin-bottom: 6px;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -512,8 +512,8 @@ include '../../includes/header.php';
 
     .btn-print-recap {
         flex-shrink: 0;
-        padding: 4px 10px;
-        font-size: 10.5px;
+        padding: 3px 8px;
+        font-size: 10px;
         font-weight: 700;
         border: 1px solid #cbd5f5;
         border-radius: 5px;
@@ -530,64 +530,64 @@ include '../../includes/header.php';
     .driver-recap-card .dr-stats {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 6px;
-        font-size: 11.5px;
-        margin-bottom: 6px;
+        gap: 5px;
+        font-size: 10.5px;
+        margin-bottom: 4px;
     }
 
     .driver-recap-card .dr-stat {
         background: #f7f8fb;
         border-radius: 6px;
-        padding: 6px;
+        padding: 4px;
         text-align: center;
     }
 
     .driver-recap-card .dr-stat .v {
-        font-size: 13px;
+        font-size: 11px;
         font-weight: 800;
         color: #1a2540;
     }
 
     .driver-recap-card .dr-stat .l {
         color: #6b7690;
-        font-size: 10px;
+        font-size: 9px;
     }
 
     .driver-recap-card .dr-breakdown {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
-        gap: 6px;
-        margin-bottom: 6px;
+        gap: 5px;
+        margin-bottom: 4px;
     }
 
     .driver-recap-card .dr-breakdown .v {
-        font-size: 12px;
+        font-size: 10.5px;
         font-weight: 700;
         color: #1a2540;
     }
 
     .driver-recap-card .dr-breakdown .l {
         color: #6b7690;
-        font-size: 9.5px;
+        font-size: 8.8px;
     }
 
     .driver-recap-card table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 10.5px;
-        margin-top: 6px;
+        font-size: 10px;
+        margin-top: 4px;
     }
 
     .driver-recap-card th {
         text-align: left;
         color: #6b7690;
         font-weight: 600;
-        padding: 4px 3px;
+        padding: 3px 2px;
         border-bottom: 1px solid #eef0f5;
     }
 
     .driver-recap-card td {
-        padding: 4px 3px;
+        padding: 3px 2px;
         border-bottom: 1px solid #f4f6fa;
         color: #333;
     }
@@ -595,18 +595,18 @@ include '../../includes/header.php';
     .pay-filter-bar {
         display: flex;
         gap: 6px;
-        margin-bottom: 10px;
+        margin-bottom: 8px;
     }
 
     .driver-setting-bar {
         display: flex;
-        gap: 8px;
+        gap: 6px;
         align-items: end;
-        margin-bottom: 10px;
-        padding: 10px 12px;
+        margin-bottom: 8px;
+        padding: 7px 8px;
         border: 1px solid #e2e6ee;
-        border-radius: 8px;
-        background: #fafbfe;
+        border-radius: 7px;
+        background: #fbfcff;
     }
 
     .driver-setting-field {
@@ -615,50 +615,50 @@ include '../../includes/header.php';
 
     .driver-setting-field label {
         display: block;
-        font-size: 10px;
+        font-size: 9px;
         font-weight: 700;
         color: #6b7280;
-        margin-bottom: 4px;
+        margin-bottom: 2px;
         text-transform: uppercase;
         letter-spacing: 0.08em;
     }
 
     .driver-setting-field input {
         width: 100%;
-        padding: 8px 10px;
+        padding: 7px 9px;
         border: 1px solid #d8dfeb;
         border-radius: 6px;
         background: #fff;
-        font-size: 11px;
+        font-size: 10.5px;
         color: #1f2937;
     }
 
     .driver-setting-save {
         border: none;
         border-radius: 6px;
-        padding: 8px 12px;
+        padding: 7px 10px;
         background: linear-gradient(135deg, var(--navy), var(--navy2));
         color: #fff;
-        font-size: 11px;
+        font-size: 10.5px;
         font-weight: 700;
         cursor: pointer;
         white-space: nowrap;
     }
 
     .driver-setting-help {
-        margin-top: 4px;
-        font-size: 10px;
+        margin-top: 2px;
+        font-size: 9px;
         color: #64748b;
     }
 
     .pay-filter-btn {
         flex: 1;
-        padding: 8px 10px;
+        padding: 7px 9px;
         border: 1px solid #e2e6ee;
         background: #f8faff;
         border-radius: 999px;
         cursor: pointer;
-        font-size: 11.5px;
+        font-size: 11px;
         font-weight: 700;
         color: #5b667c;
         transition: all .2s ease;
@@ -678,15 +678,15 @@ include '../../includes/header.php';
         background: linear-gradient(135deg, var(--navy), var(--navy2));
         border-color: var(--navy);
         color: #fff;
-        box-shadow: 0 7px 15px rgba(25, 57, 120, 0.24);
+        box-shadow: 0 5px 10px rgba(25, 57, 120, 0.22);
     }
 
     .driver-recap-card .dr-paid-summary {
         display: flex;
         justify-content: space-between;
-        font-size: 10.5px;
+        font-size: 10px;
         color: #6b7690;
-        margin: -2px 0 8px;
+        margin: -1px 0 6px;
         padding: 0 2px;
     }
 
@@ -899,13 +899,13 @@ include '../../includes/header.php';
         display: flex;
         justify-content: space-between;
         align-items: center;
-        gap: 12px;
-        margin-bottom: 10px;
+        gap: 8px;
+        margin-bottom: 8px;
         flex-wrap: wrap;
     }
 
     .bill-toolbar-info {
-        font-size: 11px;
+        font-size: 10px;
         color: #56627a;
         line-height: 1;
         display: inline-flex;
@@ -917,31 +917,47 @@ include '../../includes/header.php';
 
     .bill-toolbar-controls {
         display: flex;
-        align-items: end;
-        gap: 10px;
+        align-items: center;
+        gap: 8px;
         flex-wrap: wrap;
     }
 
+    .bill-toolbar-month {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
     .bill-toolbar-month label {
-        display: block;
-        font-size: 11px;
+        display: inline-block;
+        font-size: 10.5px;
         font-weight: 700;
         color: #334155;
-        margin-bottom: 4px;
+        margin-bottom: 0;
+    }
+
+    .bill-toolbar-month-input {
+        width: 146px;
+        padding: 6px 8px;
+        border: 1px solid #d7dfef;
+        border-radius: 7px;
+        font-size: 11px;
+        color: #1e293b;
+        background: #fff;
     }
 
     .btn-open-bill-modal {
         width: auto;
-        min-width: 190px;
-        padding: 10px 12px;
+        min-width: 154px;
+        padding: 8px 10px;
         border: none;
-        border-radius: 10px;
+        border-radius: 8px;
         background: linear-gradient(135deg, var(--navy), var(--navy2));
         color: #fff !important;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 700;
         cursor: pointer;
-        box-shadow: 0 8px 18px rgba(13, 31, 60, 0.28);
+        box-shadow: 0 6px 12px rgba(13, 31, 60, 0.24);
         transition: transform .2s ease, box-shadow .2s ease;
         text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
     }
@@ -951,8 +967,8 @@ include '../../includes/header.php';
     }
 
     .btn-open-bill-modal:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 10px 22px rgba(13, 31, 60, 0.34);
+        transform: translateY(-1px);
+        box-shadow: 0 8px 14px rgba(13, 31, 60, 0.26);
     }
 
     .bill-form-modal-overlay {
@@ -1065,15 +1081,15 @@ include '../../includes/header.php';
             <h2>📋 Daftar Tagihan</h2>
 
             <div class="bill-form-launch">
-                <div class="bill-toolbar-info"><span class="ico">⚡</span>Panel ringkas tagihan</div>
+                <div class="bill-toolbar-info"><span class="ico">⚡</span>Ringkasan cepat</div>
                 <div class="bill-toolbar-controls">
                     <div class="bill-toolbar-month">
-                        <label>Bulan</label>
+                        <label>📅 Bulan</label>
                         <input
                             type="month"
                             id="filterMonth"
                             onchange="onMonthChange()"
-                            style="width: 160px; padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
+                            class="bill-toolbar-month-input">
                     </div>
                     <button type="button" class="btn-open-bill-modal" onclick="openBillFormModal()">＋ Tambah Tagihan</button>
                 </div>
