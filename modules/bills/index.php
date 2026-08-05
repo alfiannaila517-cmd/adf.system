@@ -379,24 +379,35 @@ include '../../includes/header.php';
         display: flex;
         gap: 10px;
         margin-bottom: 20px;
-        border-bottom: 2px solid #ddd;
+        border-bottom: 0;
     }
 
     .tab-btn {
-        padding: 10px 20px;
-        border: none;
-        background: none;
+        padding: 9px 14px;
+        border: 1px solid #e3e8f2;
+        background: #f8faff;
+        border-radius: 999px;
         cursor: pointer;
-        font-size: 14px;
-        font-weight: 600;
-        color: #666;
-        border-bottom: 3px solid transparent;
-        transition: all 0.3s;
+        font-size: 12.5px;
+        font-weight: 700;
+        color: #5b667c;
+        transition: all .2s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+    }
+
+    .tab-btn:hover {
+        border-color: #cdd8ee;
+        background: #f1f6ff;
     }
 
     .tab-btn.active {
-        color: var(--navy);
-        border-bottom-color: var(--navy);
+        color: #fff;
+        border-color: var(--navy);
+        background: linear-gradient(135deg, var(--navy), var(--navy2));
+        box-shadow: 0 6px 14px rgba(25, 57, 120, 0.25);
     }
 
     .bill-list {
@@ -408,30 +419,44 @@ include '../../includes/header.php';
         display: flex;
         gap: 6px;
         margin-bottom: 12px;
+        flex-wrap: wrap;
     }
 
     .category-btn {
-        flex: 1;
-        padding: 7px 8px;
+        flex: 1 1 160px;
+        padding: 8px 10px;
         border: 1px solid #e2e6ee;
         background: #f7f8fb;
-        border-radius: 7px;
+        border-radius: 999px;
         cursor: pointer;
-        font-size: 11.5px;
-        font-weight: 600;
-        color: #555;
-        transition: all .15s;
+        font-size: 12px;
+        font-weight: 700;
+        color: #4f5d77;
+        transition: all .2s ease;
         text-align: center;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
     }
 
     .category-btn:hover {
-        background: #eef1f8;
+        background: #eef2fb;
+        border-color: #d5ddee;
     }
 
     .category-btn.active {
         background: linear-gradient(135deg, var(--navy), var(--navy2));
         border-color: var(--navy);
         color: #fff;
+        box-shadow: 0 7px 16px rgba(25, 57, 120, 0.25);
+    }
+
+    .category-btn .ico,
+    .tab-btn .ico,
+    .pay-filter-btn .ico {
+        font-size: 11px;
+        opacity: .92;
     }
 
     .driver-recap-card {
@@ -596,26 +621,32 @@ include '../../includes/header.php';
 
     .pay-filter-btn {
         flex: 1;
-        padding: 6px 8px;
+        padding: 8px 10px;
         border: 1px solid #e2e6ee;
-        background: #f7f8fb;
-        border-radius: 6px;
+        background: #f8faff;
+        border-radius: 999px;
         cursor: pointer;
-        font-size: 11px;
-        font-weight: 600;
-        color: #555;
-        transition: all .15s;
+        font-size: 11.5px;
+        font-weight: 700;
+        color: #5b667c;
+        transition: all .2s ease;
         text-align: center;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
     }
 
     .pay-filter-btn:hover {
-        background: #eef1f8;
+        background: #eef3ff;
+        border-color: #d4ddf1;
     }
 
     .pay-filter-btn.active {
-        background: var(--navy);
+        background: linear-gradient(135deg, var(--navy), var(--navy2));
         border-color: var(--navy);
         color: #fff;
+        box-shadow: 0 7px 15px rgba(25, 57, 120, 0.24);
     }
 
     .driver-recap-card .dr-paid-summary {
@@ -855,12 +886,17 @@ include '../../includes/header.php';
         border: none;
         border-radius: 10px;
         background: linear-gradient(135deg, var(--navy), var(--navy2));
-        color: #fff;
+        color: #fff !important;
         font-size: 14px;
         font-weight: 700;
         cursor: pointer;
         box-shadow: 0 8px 18px rgba(13, 31, 60, 0.28);
         transition: transform .2s ease, box-shadow .2s ease;
+        text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+    }
+
+    .btn-open-bill-modal * {
+        color: #fff !important;
     }
 
     .btn-open-bill-modal:hover {
@@ -965,18 +1001,18 @@ include '../../includes/header.php';
             </div>
 
             <div class="category-tabs">
-                <button class="category-btn active" data-cat="driver" onclick="switchCategory('driver')">🚗 Tagihan Driver</button>
-                <button class="category-btn" data-cat="trip" onclick="switchCategory('trip')">🧭 Tagihan Trip</button>
-                <button class="category-btn" data-cat="manual" onclick="switchCategory('manual')">📝 Tagihan Manual</button>
-                <button class="category-btn" data-cat="bulanan" onclick="switchCategory('bulanan')">🔁 Tagihan Bulanan</button>
+                <button class="category-btn active" data-cat="driver" onclick="switchCategory('driver')"><span class="ico">🚕</span> Driver</button>
+                <button class="category-btn" data-cat="trip" onclick="switchCategory('trip')"><span class="ico">🧭</span> Trip</button>
+                <button class="category-btn" data-cat="manual" onclick="switchCategory('manual')"><span class="ico">🧾</span> Manual</button>
+                <button class="category-btn" data-cat="bulanan" onclick="switchCategory('bulanan')"><span class="ico">🔁</span> Bulanan</button>
             </div>
 
             <div id="manualBillsWrap">
                 <div class="tabs">
-                    <button class="tab-btn active" onclick="switchTab('all', event)">Semua</button>
-                    <button class="tab-btn" onclick="switchTab('pending', event)">Pending</button>
-                    <button class="tab-btn" onclick="switchTab('partial', event)">Cicilan</button>
-                    <button class="tab-btn" onclick="switchTab('paid', event)">Lunas</button>
+                    <button class="tab-btn active" onclick="switchTab('all', event)"><span class="ico">📋</span>Semua</button>
+                    <button class="tab-btn" onclick="switchTab('pending', event)"><span class="ico">⏳</span>Pending</button>
+                    <button class="tab-btn" onclick="switchTab('partial', event)"><span class="ico">🪙</span>Cicilan</button>
+                    <button class="tab-btn" onclick="switchTab('paid', event)"><span class="ico">✅</span>Lunas</button>
                 </div>
 
                 <div id="billsList" class="bill-list">
@@ -1447,9 +1483,9 @@ include '../../includes/header.php';
 
         let html = settingsBar + `
             <div class="pay-filter-bar">
-                <button class="pay-filter-btn ${driverPayFilter === 'all' ? 'active' : ''}" onclick="setDriverPayFilter('all')">Semua Trip</button>
-                <button class="pay-filter-btn ${driverPayFilter === 'unpaid' ? 'active' : ''}" onclick="setDriverPayFilter('unpaid')">Belum Dibayar</button>
-                <button class="pay-filter-btn ${driverPayFilter === 'paid' ? 'active' : ''}" onclick="setDriverPayFilter('paid')">Sudah Dibayar</button>
+                <button class="pay-filter-btn ${driverPayFilter === 'all' ? 'active' : ''}" onclick="setDriverPayFilter('all')"><span class="ico">📋</span>Semua Trip</button>
+                <button class="pay-filter-btn ${driverPayFilter === 'unpaid' ? 'active' : ''}" onclick="setDriverPayFilter('unpaid')"><span class="ico">⏳</span>Belum Dibayar</button>
+                <button class="pay-filter-btn ${driverPayFilter === 'paid' ? 'active' : ''}" onclick="setDriverPayFilter('paid')"><span class="ico">✅</span>Sudah Dibayar</button>
             </div>
         `;
 
