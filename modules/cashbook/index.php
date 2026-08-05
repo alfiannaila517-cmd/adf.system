@@ -973,8 +973,8 @@ echo getPrintCSS();
             isolation: isolate !important;
             overflow: hidden !important;
             opacity: 1 !important;
-            min-height: 36px !important;
-            padding: 0.4rem 0.85rem !important;
+            min-height: 31px !important;
+            padding: 0.3rem 0.62rem !important;
         }
 
         .cashbook-action-btn::before,
@@ -1013,9 +1013,9 @@ echo getPrintCSS();
             -webkit-text-fill-color: #fff !important;
             text-fill-color: #fff !important;
             text-shadow: 0 1px 1px rgba(0, 0, 0, 0.24) !important;
-            font-size: 0.78rem !important;
+            font-size: 0.71rem !important;
             line-height: 1.1 !important;
-            font-weight: 600 !important;
+            font-weight: 500 !important;
         }
 
         .cashbook-action-btn svg,
@@ -1030,24 +1030,24 @@ echo getPrintCSS();
 
         .cashbook-action-btn i,
         .cashbook-action-btn svg {
-            width: 14px !important;
-            height: 14px !important;
+            width: 12px !important;
+            height: 12px !important;
             flex-shrink: 0;
         }
 
         .table-actions .cashbook-action-btn,
         .cqc-filter-actions .cashbook-action-btn {
-            min-height: 34px !important;
-            padding: 0.38rem 0.75rem !important;
-            gap: 0.38rem !important;
+            min-height: 30px !important;
+            padding: 0.28rem 0.56rem !important;
+            gap: 0.28rem !important;
         }
 
         .cqc-btn-filter,
         .cqc-btn-reset {
-            height: 36px;
-            font-size: 0.78rem;
-            border-radius: 8px;
-            gap: 0.38rem;
+            height: 31px;
+            font-size: 0.72rem;
+            border-radius: 7px;
+            gap: 0.28rem;
         }
 
         /* Cashbook action button color variants */
