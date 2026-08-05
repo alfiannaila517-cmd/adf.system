@@ -145,38 +145,70 @@ include '../../includes/header.php';
     .main-container {
         max-width: 1200px;
         margin: 0 auto;
-        padding: 20px;
+        padding: 14px 16px;
     }
 
     .page-header {
-        margin-bottom: 30px;
+        margin-bottom: 12px;
         display: flex;
         align-items: center;
-        gap: 14px;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 12px;
+        border: 1px solid #e3e8f3;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #fbfcff, #f3f7ff);
     }
 
     .page-icon {
-        width: 46px;
-        height: 46px;
-        border-radius: 12px;
+        width: 34px;
+        height: 34px;
+        border-radius: 9px;
         background: linear-gradient(135deg, var(--navy), var(--navy2));
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 22px;
+        font-size: 15px;
         flex-shrink: 0;
-        box-shadow: 0 6px 16px rgba(13, 31, 60, 0.3);
+        box-shadow: 0 5px 10px rgba(13, 31, 60, 0.22);
+    }
+
+    .page-header-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
     }
 
     .page-header h1 {
-        font-size: 24px;
+        font-size: 16px;
         color: #1e293b;
-        margin-bottom: 3px;
+        margin-bottom: 0;
+        line-height: 1.2;
     }
 
     .page-header p {
-        color: #666;
-        font-size: 13px;
+        color: #64748b;
+        font-size: 11px;
+        margin-top: 1px;
+    }
+
+    .page-header-badges {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    .ph-badge {
+        padding: 5px 9px;
+        border-radius: 999px;
+        border: 1px solid #dce4f4;
+        background: #fff;
+        color: #415270;
+        font-size: 10.5px;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
     }
 
     .content-grid {
@@ -189,15 +221,15 @@ include '../../includes/header.php';
         background: white;
         border-radius: 10px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        padding: 16px;
+        padding: 12px;
     }
 
     .card h2 {
-        font-size: 15px;
+        font-size: 14px;
         color: #333;
-        margin-bottom: 14px;
+        margin-bottom: 10px;
         border-bottom: 2px solid var(--navy);
-        padding-bottom: 8px;
+        padding-bottom: 6px;
         display: flex;
         align-items: center;
         gap: 8px;
@@ -866,28 +898,47 @@ include '../../includes/header.php';
     .bill-form-launch {
         display: flex;
         justify-content: space-between;
-        align-items: flex-end;
+        align-items: center;
         gap: 12px;
-        margin-bottom: 15px;
+        margin-bottom: 10px;
         flex-wrap: wrap;
     }
 
-    .bill-form-launch p {
-        font-size: 13px;
-        color: #5a6478;
-        line-height: 1.5;
+    .bill-toolbar-info {
+        font-size: 11px;
+        color: #56627a;
+        line-height: 1;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
         margin: 0;
+        font-weight: 700;
+    }
+
+    .bill-toolbar-controls {
+        display: flex;
+        align-items: end;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .bill-toolbar-month label {
+        display: block;
+        font-size: 11px;
+        font-weight: 700;
+        color: #334155;
+        margin-bottom: 4px;
     }
 
     .btn-open-bill-modal {
         width: auto;
-        min-width: 220px;
-        padding: 13px 14px;
+        min-width: 190px;
+        padding: 10px 12px;
         border: none;
         border-radius: 10px;
         background: linear-gradient(135deg, var(--navy), var(--navy2));
         color: #fff !important;
-        font-size: 14px;
+        font-size: 12px;
         font-weight: 700;
         cursor: pointer;
         box-shadow: 0 8px 18px rgba(13, 31, 60, 0.28);
@@ -954,8 +1005,29 @@ include '../../includes/header.php';
     }
 
     @media (max-width: 768px) {
+        .page-header {
+            padding: 8px 10px;
+        }
+
+        .page-header p {
+            display: none;
+        }
+
+        .page-header-badges {
+            display: none;
+        }
+
         .bill-form-launch {
             align-items: stretch;
+        }
+
+        .bill-toolbar-controls {
+            width: 100%;
+            align-items: stretch;
+        }
+
+        .bill-toolbar-month {
+            flex: 1;
         }
 
         .btn-open-bill-modal {
@@ -971,10 +1043,18 @@ include '../../includes/header.php';
 <div class="main-container">
     <!-- PAGE HEADER -->
     <div class="page-header">
-        <div class="page-icon">📊</div>
-        <div>
-            <h1>Menu Tagihan Bulanan</h1>
-            <p>Kelola tagihan bulanan hotel secara otomatis tanpa template</p>
+        <div class="page-header-left">
+            <div class="page-icon">🧾</div>
+            <div>
+                <h1>Tagihan</h1>
+                <p>Ringkas, cepat, dan mudah dipantau</p>
+            </div>
+        </div>
+        <div class="page-header-badges">
+            <span class="ph-badge">🚕 Driver</span>
+            <span class="ph-badge">🧭 Trip</span>
+            <span class="ph-badge">🧾 Manual</span>
+            <span class="ph-badge">🔁 Bulanan</span>
         </div>
     </div>
 
@@ -985,18 +1065,17 @@ include '../../includes/header.php';
             <h2>📋 Daftar Tagihan</h2>
 
             <div class="bill-form-launch">
-                <p>Klik tombol untuk tambah tagihan baru. Daftar tagihan sekarang tampil full lebar.</p>
-                <button type="button" class="btn-open-bill-modal" onclick="openBillFormModal()">+ Tambah Tagihan Baru</button>
-            </div>
-
-            <div style="margin-bottom: 15px; display:flex; align-items:flex-end; gap:12px; flex-wrap:wrap;">
-                <div>
-                    <label style="font-size: 14px; font-weight: 600; color: #333;">Bulan:</label>
-                    <input
-                        type="month"
-                        id="filterMonth"
-                        onchange="onMonthChange()"
-                        style="width: 160px; padding: 8px; border: 1px solid #ddd; border-radius: 5px; margin-top: 5px;">
+                <div class="bill-toolbar-info"><span class="ico">⚡</span>Panel ringkas tagihan</div>
+                <div class="bill-toolbar-controls">
+                    <div class="bill-toolbar-month">
+                        <label>Bulan</label>
+                        <input
+                            type="month"
+                            id="filterMonth"
+                            onchange="onMonthChange()"
+                            style="width: 160px; padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
+                    </div>
+                    <button type="button" class="btn-open-bill-modal" onclick="openBillFormModal()">＋ Tambah Tagihan</button>
                 </div>
             </div>
 
