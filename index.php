@@ -1601,8 +1601,8 @@ if ($trialStatus) {
                 </div>
             <?php endif; ?>
 
-            <!-- Detail: 3 compact cards -->
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.625rem;">
+            <!-- Detail: 2 compact cards (expense card intentionally hidden) -->
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.625rem;">
                 <!-- Owner Transfer This Month -->
                 <div style="background: #fff; padding: 0.75rem 0.875rem; border-radius: 8px; border: 1px solid #e5e7eb; display: flex; align-items: center; gap: 0.625rem;">
                     <div style="width: 32px; height: 32px; border-radius: 8px; background: #1e3a8a; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
@@ -1627,19 +1627,6 @@ if ($trialStatus) {
                     <div>
                         <div style="font-size: 0.6rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;">Owner + Guest</div>
                         <div style="font-size: 1rem; font-weight: 700; color: #1e293b; font-family: 'Monaco', monospace;"><?php echo formatCurrency($ownerTransferThisMonth + $guestCashIncome); ?></div>
-                    </div>
-                </div>
-                <!-- Expense -->
-                <div style="background: #fff; padding: 0.75rem 0.875rem; border-radius: 8px; border: 1px solid #e5e7eb; display: flex; align-items: center; gap: 0.625rem;">
-                    <div style="width: 32px; height: 32px; border-radius: 8px; background: #1e3a8a; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5">
-                            <polyline points="7 11 12 16 17 11" />
-                            <line x1="12" y1="16" x2="12" y2="4" />
-                        </svg>
-                    </div>
-                    <div>
-                        <div style="font-size: 0.6rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;">Expense (Cash &amp; Modal)</div>
-                        <div style="font-size: 1rem; font-weight: 700; color: #1e293b; font-family: 'Monaco', monospace;"><?php echo formatCurrency($totalOperationalExpense); ?></div>
                     </div>
                 </div>
             </div>
