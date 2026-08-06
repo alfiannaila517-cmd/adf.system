@@ -13,6 +13,9 @@ require_once '../../includes/auth.php';
 $auth = new Auth();
 $auth->requireLogin();
 
+// Get current logged-in user
+$currentUser = $auth->getCurrentUser();
+
 if (!$auth->hasPermission('frontdesk')) {
     header('Location: ' . BASE_URL . '/index.php');
     exit;
@@ -826,10 +829,8 @@ $accountingTitle = $accountingTitleRow['setting_value'] ?? 'Accounting Staff';
         /* QRIS Section */
         .qris-section {
             margin-top: 12px;
-            padding: 10px 14px;
-            background: #f0f5fb;
-            border: 1px solid #0D3B66;
-            border-radius: 4px;
+            margin-bottom: 12px;
+            padding: 8px;
             text-align: center;
         }
 
@@ -1118,6 +1119,16 @@ $accountingTitle = $accountingTitleRow['setting_value'] ?? 'Accounting Staff';
                 </div>
             <?php endif; ?>
 
+            <!-- QRIS Payment Section -->
+            <?php if (!empty($qrisUrl)): ?>
+            <div class="qris-section">
+                <div style="text-align: center;">
+                    <div style="font-size: 0.75rem; font-weight: 600; color: #0D3B66; margin-bottom: 0.5rem; letter-spacing: 1px;">QRIS PAYMENT</div>
+                    <img src="<?php echo htmlspecialchars($qrisUrl); ?>" alt="QRIS" style="width: 80px; height: 80px; border: 1px solid #D4AF37; border-radius: 3px;">
+                </div>
+            </div>
+            <?php endif; ?>
+
             <!-- Bank Account -->
             <div class="bank-info">
                 <div class="bank-icon">
@@ -1135,21 +1146,12 @@ $accountingTitle = $accountingTitleRow['setting_value'] ?? 'Accounting Staff';
 
             </div>
 
-            <!-- QRIS Payment Section -->
-            <?php if (!empty($qrisUrl)): ?>
-            <div class="qris-section">
-                <div class="qris-title">💳 Pembayaran QRIS</div>
-                <img src="<?php echo htmlspecialchars($qrisUrl); ?>" alt="QRIS Payment" class="qris-image">
-                <div class="qris-description">Scan untuk membayar invoice ini</div>
-            </div>
-            <?php endif; ?>
-
             <!-- Signature Section -->
             <div class="signature-section">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; margin-top: 1.5rem;">
                     <!-- Date Column -->
                     <div>
-                        <div style="color: #6b7d94; font-size: 0.8rem; margin-bottom: 0.3rem;">Tanggal / Date</div>
+                        <div style="color: #6b7d94; font-size: 0.8rem; margin-bottom: 0.3rem;">Date</div>
                         <div style="border-top: 1px solid #0D3B66; padding-top: 0.5rem; height: 40px; color: #0D3B66; font-weight: 600; font-size: 0.9rem;">
                             <?php echo date('d F Y'); ?>
                         </div>
@@ -1157,7 +1159,7 @@ $accountingTitle = $accountingTitleRow['setting_value'] ?? 'Accounting Staff';
                     
                     <!-- Signature Column -->
                     <div>
-                        <div style="color: #6b7d94; font-size: 0.8rem; margin-bottom: 0.3rem;">Accounting / Tanda Tangan</div>
+                        <div style="color: #6b7d94; font-size: 0.8rem; margin-bottom: 0.3rem;">Accounting Signature</div>
                         <div style="border-top: 1px solid #0D3B66; padding-top: 3rem; height: 40px; text-align: center;">
                             <div style="font-size: 0.8rem; color: #0D3B66; font-weight: 600;">
                                 <?php echo !empty($accountingName) ? htmlspecialchars($accountingName) : '..........................'; ?>
