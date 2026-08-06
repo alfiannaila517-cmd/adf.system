@@ -450,33 +450,33 @@ $accountingTitle = $accountingTitleRow['setting_value'] ?? 'Accounting Staff';
         .info-cards {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin: 10px 0 16px;
+            gap: 8px;
+            margin: 6px 0 12px;
         }
 
         .info-card {
-            padding: 10px 14px;
+            padding: 7px 10px;
             background: #fafaf8;
             border-radius: 4px;
         }
 
         .info-card .card-title {
             font-family: 'DM Serif Display', serif;
-            font-size: 0.65rem;
+            font-size: 0.58rem;
             font-weight: 400;
             color: #0D3B66;
             text-transform: uppercase;
-            letter-spacing: 2px;
-            margin-bottom: 6px;
-            padding-bottom: 4px;
+            letter-spacing: 1.5px;
+            margin-bottom: 4px;
+            padding-bottom: 3px;
             border-bottom: 1px solid #D4AF37;
         }
 
         .info-card .row {
             display: flex;
             justify-content: space-between;
-            padding: 1.5px 0;
-            font-size: 0.72rem;
+            padding: 1px 0;
+            font-size: 0.66rem;
         }
 
         .info-card .row .lbl {
@@ -1034,57 +1034,43 @@ $accountingTitle = $accountingTitleRow['setting_value'] ?? 'Accounting Staff';
                 </div>
             <?php endif; ?>
 
-            <!-- Payment Methods (Side-by-side) -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin: 0.8rem 0; align-items: start;">
-                <!-- QRIS Payment -->
-                <?php if (!empty($qrisUrl)): ?>
-                <div style="text-align: center; padding: 0.5rem 0;">
-                    <div style="font-size: 0.7rem; font-weight: 600; color: #0D3B66; margin-bottom: 0.3rem; letter-spacing: 1px;">QRIS PAYMENT</div>
-                    <img src="<?php echo htmlspecialchars($qrisUrl); ?>" alt="QRIS" style="width: 70px; height: 70px; border: 1px solid #D4AF37; border-radius: 2px;">
-                </div>
-                <?php else: ?>
-                <div></div>
-                <?php endif; ?>
-
+            <!-- Payment Methods (Vertical Stack) -->
+            <div style="margin: 0.6rem 0;">
                 <!-- Bank Transfer -->
-                <div style="display: flex; align-items: center; gap: 0.8rem; padding: 0.5rem 0;">
-                    <div style="flex-shrink: 0;">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0D3B66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <div style="display: flex; align-items: flex-start; gap: 0.6rem; padding: 0.4rem 0; margin-bottom: 0.5rem;">
+                    <div style="flex-shrink: 0; margin-top: 2px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0D3B66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
                             <line x1="1" y1="10" x2="23" y2="10"/>
                         </svg>
                     </div>
                     <div style="flex: 1; min-width: 0;">
-                        <div style="font-size: 0.65rem; color: #6b7d94; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.2rem;">Transfer</div>
-                        <div style="font-size: 0.85rem; font-weight: 600; color: #0D3B66; word-break: break-all;">1926663992</div>
-                        <div style="font-size: 0.65rem; color: #6b7d94; margin-top: 0.15rem;">BNI Jepara &mdash; Narayana</div>
+                        <div style="font-size: 0.62rem; color: #6b7d94; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.15rem; font-weight: 500;">Transfer</div>
+                        <div style="font-size: 0.8rem; font-weight: 600; color: #0D3B66; word-break: break-all;">1926663992</div>
+                        <div style="font-size: 0.62rem; color: #6b7d94; margin-top: 0.1rem;">BNI Jepara &mdash; Narayana</div>
                     </div>
                 </div>
+                
+                <!-- QRIS Payment -->
+                <?php if (!empty($qrisUrl)): ?>
+                <div style="text-align: center; padding: 0.4rem 0;">
+                    <div style="font-size: 0.65rem; font-weight: 600; color: #0D3B66; margin-bottom: 0.25rem; letter-spacing: 0.8px;">QRIS</div>
+                    <img src="<?php echo htmlspecialchars($qrisUrl); ?>" alt="QRIS" style="width: 65px; height: 65px; border: 1px solid #D4AF37; border-radius: 2px;">
+                </div>
+                <?php endif; ?>
             </div>
 
             </div>
 
             <!-- Signature Section -->
             <div class="signature-section">
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; margin-top: 1.5rem;">
-                    <!-- Date Column -->
-                    <div>
-                        <div style="color: #6b7d94; font-size: 0.8rem; margin-bottom: 0.3rem;">Date</div>
-                        <div style="border-top: 1px solid #0D3B66; padding-top: 0.5rem; height: 40px; color: #0D3B66; font-weight: 600; font-size: 0.9rem;">
-                            <?php echo date('d F Y'); ?>
+                <div style="display: flex; flex-direction: column; align-items: center; margin-top: 1.2rem; max-width: 300px; margin-left: auto; margin-right: auto;">
+                    <div style="border-top: 1px solid #0D3B66; width: 100%; padding-top: 2.5rem; text-align: center; min-height: 30px;">
+                        <div style="font-size: 0.75rem; color: #0D3B66; font-weight: 600;">
+                            <?php echo !empty($accountingName) ? htmlspecialchars($accountingName) : '..........................'; ?>
                         </div>
-                    </div>
-                    
-                    <!-- Signature Column -->
-                    <div>
-                        <div style="color: #6b7d94; font-size: 0.8rem; margin-bottom: 0.3rem;">Accounting Signature</div>
-                        <div style="border-top: 1px solid #0D3B66; padding-top: 3rem; height: 40px; text-align: center;">
-                            <div style="font-size: 0.8rem; color: #0D3B66; font-weight: 600;">
-                                <?php echo !empty($accountingName) ? htmlspecialchars($accountingName) : '..........................'; ?>
-                            </div>
-                            <div style="font-size: 0.7rem; color: #6b7d94; margin-top: 0.2rem;">
-                                <?php echo htmlspecialchars($accountingTitle); ?>
-                            </div>
+                        <div style="font-size: 0.65rem; color: #6b7d94; margin-top: 0.15rem;">
+                            <?php echo htmlspecialchars($accountingTitle); ?>
                         </div>
                     </div>
                 </div>
