@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Motor Return Tracking System
  * Track unpaid motor returns with 24-hour reminder
@@ -24,18 +25,18 @@ $businessId = $_SESSION['business_id'] ?? 1;
 // Handle AJAX requests
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     header('Content-Type: application/json');
-    
+
     try {
         // Confirm motor return status (called when invoice is paid)
         if ($_POST['action'] === 'confirm_return_status') {
             $invoiceId = (int)($_POST['invoice_id'] ?? 0);
             $motorBookingIds = json_decode($_POST['motor_ids'] ?? '[]', true); // array of rental_motor_bookings IDs
             $isReturned = (int)($_POST['is_returned'] ?? 0); // 1 = sudah kembali, 0 = belum kembali
-            
+
             if (!$invoiceId || empty($motorBookingIds)) {
                 throw new Exception('Data tidak lengkap');
             }
-            
+
             $updated = 0;
             foreach ($motorBookingIds as $rbId) {
                 $rbId = (int)$rbId;
@@ -48,13 +49,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     WHERE id = ? AND business_id = ?
                 ")->execute([$isReturned, $rbId, $businessId]);
                 $updated++;
-                
+
                 // If motor returned immediately, update status
                 if ($isReturned) {
                     $motor = $pdo->prepare("SELECT motor_id FROM rental_motor_bookings WHERE id = ?");
                     $motor->execute([$rbId]);
                     $motorId = $motor->fetchColumn();
-                    
+
                     if ($motorId) {
                         $pdo->prepare("UPDATE rental_motors SET status='available', updated_at=NOW() WHERE id=?")->execute([$motorId]);
                         $pdo->prepare("UPDATE rental_motor_bookings SET status='returned', actual_return=NOW() WHERE id=?")->execute([$rbId]);
@@ -62,11 +63,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 }
                 // If motor not returned (return_confirmed=0), status stays 'active' and payment_date is set for 24h tracking
             }
-            
+
             echo json_encode(['success' => true, 'updated' => $updated]);
             exit;
         }
-        
+
         // Get motors not yet returned (24h tracking)
         if ($_POST['action'] === 'get_overdue_motors') {
             $motorsOverdue = $pdo->prepare("
@@ -91,30 +92,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             ");
             $motorsOverdue->execute([$businessId]);
             $overdue = $motorsOverdue->fetchAll(PDO::FETCH_ASSOC);
-            
+
             echo json_encode(['success' => true, 'overdue' => $overdue]);
             exit;
         }
-        
+
         // Manually mark motor as returned (from dashboard notification)
         if ($_POST['action'] === 'mark_motor_returned') {
             $motorBookingId = (int)($_POST['motor_booking_id'] ?? 0);
             if (!$motorBookingId) throw new Exception('Invalid rental ID');
-            
+
             $booking = $pdo->prepare("SELECT motor_id FROM rental_motor_bookings WHERE id = ? AND business_id = ?");
             $booking->execute([$motorBookingId, $businessId]);
             $motorId = $booking->fetchColumn();
-            
+
             if (!$motorId) throw new Exception('Rental tidak ditemukan');
-            
+
             // Mark as returned
             $pdo->prepare("UPDATE rental_motor_bookings SET status='returned', actual_return=NOW(), updated_at=NOW() WHERE id=?")->execute([$motorBookingId]);
             $pdo->prepare("UPDATE rental_motors SET status='available', updated_at=NOW() WHERE id=?")->execute([$motorId]);
-            
+
             echo json_encode(['success' => true, 'message' => 'Motor berhasil diupdate sebagai sudah kembali']);
             exit;
         }
-        
     } catch (\Throwable $e) {
         http_response_code(400);
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
@@ -126,17 +126,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 ?>
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>Motor Return Tracking</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 20px; }
-        .notification { background: #fee2e2; border: 1px solid #fca5a5; padding: 12px; border-radius: 6px; margin: 10px 0; }
-        .notification.overdue { background: #fef2f2; border-left: 4px solid #ef4444; }
-        .motor-item { background: #fff; border: 1px solid #e5e7eb; padding: 12px; margin: 8px 0; border-radius: 4px; }
-        .btn { padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer; }
-        .btn:hover { background: #2563eb; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 20px;
+        }
+
+        .notification {
+            background: #fee2e2;
+            border: 1px solid #fca5a5;
+            padding: 12px;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+
+        .notification.overdue {
+            background: #fef2f2;
+            border-left: 4px solid #ef4444;
+        }
+
+        .motor-item {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 4px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            background: #2563eb;
+        }
     </style>
 </head>
+
 <body>
     <h1>Motor Return Tracking</h1>
     <p>This module tracks motors that haven't been returned within 24 hours after invoice payment.</p>
@@ -147,4 +181,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         <li><code>mark_motor_returned</code> - Manually mark motor as returned (from dashboard)</li>
     </ul>
 </body>
+
 </html>

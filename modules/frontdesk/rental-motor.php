@@ -79,13 +79,16 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS rental_motor_bookings (
 // Add missing columns if table was created before this update
 try {
     $pdo->exec("ALTER TABLE rental_motor_bookings ADD COLUMN payment_date DATETIME DEFAULT NULL COMMENT 'when invoice was paid'");
-} catch (\Throwable $e) { /* column may already exist */ }
+} catch (\Throwable $e) { /* column may already exist */
+}
 try {
     $pdo->exec("ALTER TABLE rental_motor_bookings ADD COLUMN return_confirmed TINYINT DEFAULT NULL COMMENT '1=sudah, 0=belum, NULL=not confirmed'");
-} catch (\Throwable $e) { /* column may already exist */ }
+} catch (\Throwable $e) { /* column may already exist */
+}
 try {
     $pdo->exec("ALTER TABLE rental_motor_bookings ADD COLUMN return_confirmed_at DATETIME DEFAULT NULL COMMENT 'when return status was confirmed'");
-} catch (\Throwable $e) { /* column may already exist */ }
+} catch (\Throwable $e) { /* column may already exist */
+}
 
 
 // ── Auto-update overdue rentals ────────────────────────────────────────────────
