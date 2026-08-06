@@ -201,6 +201,19 @@ if (empty($companySettings['name'])) {
     $companySettings['name'] = $business['business_name'] ?? 'Narayana Hotel';
 }
 
+// Get Bank Transfer Info from settings
+$bankAccNumberRow = $db->fetchOne(
+    "SELECT setting_value FROM settings WHERE setting_key = ?",
+    ['invoice_bank_account_number_' . ACTIVE_BUSINESS_ID]
+);
+$bankAccountNumber = $bankAccNumberRow['setting_value'] ?? '1926663992';
+
+$bankAccNameRow = $db->fetchOne(
+    "SELECT setting_value FROM settings WHERE setting_key = ?",
+    ['invoice_bank_account_name_' . ACTIVE_BUSINESS_ID]
+);
+$bankAccountName = $bankAccNameRow['setting_value'] ?? 'BNI Jepara';
+
 // Get Swift Code from settings
 $swiftRow = $db->fetchOne(
     "SELECT setting_value FROM settings WHERE setting_key = ?",
@@ -1043,8 +1056,8 @@ $accountingTitle = $accountingTitleRow['setting_value'] ?? 'Accounting Staff';
                     </div>
                     <div style="flex: 1; min-width: 0;">
                         <div style="font-size: 0.62rem; color: #6b7d94; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.15rem; font-weight: 500;">Transfer</div>
-                        <div style="font-size: 0.8rem; font-weight: 600; color: #0D3B66; word-break: break-all;">1926663992</div>
-                        <div style="font-size: 0.62rem; color: #6b7d94; margin-top: 0.1rem;">BNI Jepara &mdash; Narayana</div>
+                        <div style="font-size: 0.8rem; font-weight: 600; color: #0D3B66; word-break: break-all;"><?php echo htmlspecialchars($bankAccountNumber); ?></div>
+                        <div style="font-size: 0.62rem; color: #6b7d94; margin-top: 0.1rem;">a.n <?php echo htmlspecialchars($bankAccountName); ?></div>
                         <?php if (!empty($swiftCode)): ?>
                         <div style="font-size: 0.62rem; color: #0D3B66; margin-top: 0.15rem; font-weight: 500;">Swift: <?php echo htmlspecialchars($swiftCode); ?></div>
                         <?php endif; ?>

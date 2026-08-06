@@ -727,16 +727,26 @@ elseif ($activeTab === 'invoice_settings') {
         }
     }
     
-    // Handle save bank info (Swift Code)
+    // Handle save bank info (Account Number, Account Name, Swift Code)
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_bank_info') {
         try {
+            $bankAccNumber = trim($_POST['bank_account_number'] ?? '');
+            $bankAccName = trim($_POST['bank_account_name'] ?? '');
             $swiftCode = trim($_POST['swift_code'] ?? '');
             
-            $stmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value, setting_type) VALUES (?, ?, 'string') 
+            $stmt1 = $pdo->prepare("INSERT INTO settings (setting_key, setting_value, setting_type) VALUES (?, ?, 'string') 
                                   ON DUPLICATE KEY UPDATE setting_value = ?");
-            $stmt->execute(['invoice_swift_code_' . ACTIVE_BUSINESS_ID, $swiftCode, $swiftCode]);
+            $stmt1->execute(['invoice_bank_account_number_' . ACTIVE_BUSINESS_ID, $bankAccNumber, $bankAccNumber]);
             
-            $message = "✓ Swift Code berhasil disimpan!";
+            $stmt2 = $pdo->prepare("INSERT INTO settings (setting_key, setting_value, setting_type) VALUES (?, ?, 'string') 
+                                  ON DUPLICATE KEY UPDATE setting_value = ?");
+            $stmt2->execute(['invoice_bank_account_name_' . ACTIVE_BUSINESS_ID, $bankAccName, $bankAccName]);
+            
+            $stmt3 = $pdo->prepare("INSERT INTO settings (setting_key, setting_value, setting_type) VALUES (?, ?, 'string') 
+                                  ON DUPLICATE KEY UPDATE setting_value = ?");
+            $stmt3->execute(['invoice_swift_code_' . ACTIVE_BUSINESS_ID, $swiftCode, $swiftCode]);
+            
+            $message = "✓ Bank info berhasil disimpan!";
         } catch (Exception $e) {
             $error = "❌ Error: " . $e->getMessage();
         }
@@ -1847,6 +1857,36 @@ include '../../includes/header.php';
         </p>
         
         <form method="POST" style="margin-top: 1.5rem;">
+            <div class="form-group">
+                <label class="form-label">Nomor Rekening</label>
+                <input type="text" name="bank_account_number" class="form-input" 
+                       value="<?php 
+                           $bankAccRow = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = ?");
+                           $bankAccRow->execute(['invoice_bank_account_number_' . ACTIVE_BUSINESS_ID]);
+                           $bankAccData = $bankAccRow->fetch(PDO::FETCH_ASSOC);
+                           echo htmlspecialchars($bankAccData['setting_value'] ?? '');
+                       ?>" 
+                       placeholder="Contoh: 1926663992">
+                <small style="color: var(--text-secondary); display: block; margin-top: 0.3rem;">
+                    Nomor rekening BNI (tanpa spasi)
+                </small>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Atas Nama (a.n)</label>
+                <input type="text" name="bank_account_name" class="form-input" 
+                       value="<?php 
+                           $bankNameRow = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = ?");
+                           $bankNameRow->execute(['invoice_bank_account_name_' . ACTIVE_BUSINESS_ID]);
+                           $bankNameData = $bankNameRow->fetch(PDO::FETCH_ASSOC);
+                           echo htmlspecialchars($bankNameData['setting_value'] ?? '');
+                       ?>" 
+                       placeholder="Contoh: PT. NARAYANA KARIMUNJAWA">
+                <small style="color: var(--text-secondary); display: block; margin-top: 0.3rem;">
+                    Nama pemilik rekening
+                </small>
+            </div>
+            
             <div class="form-group">
                 <label class="form-label">Swift Code (BIC)</label>
                 <input type="text" name="swift_code" class="form-input" 
