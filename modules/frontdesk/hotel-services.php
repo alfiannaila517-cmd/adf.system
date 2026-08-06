@@ -586,9 +586,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                     if (!$item['start_dt'] || !$item['end_dt']) {
                         throw new Exception('Rental mobil/taxi wajib isi mulai dan selesai');
                     }
-                    if (!$item['car_id']) {
-                        throw new Exception('Rental mobil/taxi WAJIB pilih armada untuk menghubungkan dengan driver tagihan');
-                    }
+                    // Car selection is optional - mitra handles vehicle selection
+                    // User can just enter the billing without selecting armada
                     if ($item['car_id']) {
                         $carStmt = $pdo->prepare("SELECT * FROM rental_cars WHERE id=? AND business_id=?");
                         $carStmt->execute([$item['car_id'], $businessId]);
@@ -606,8 +605,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                         }
                         $carRentalItems[] = ['item' => $item, 'row' => $carRow];
                     } else {
+                        // No armada selected - just add generic billing
                         if (trim((string)($item['description'] ?? '')) === '') {
                             $item['description'] = 'Rental Mobil / Taxi';
+                        }
+                        if ($item['trip_destination']) {
+                            $item['description'] .= ' — Tujuan: ' . $item['trip_destination'];
                         }
                     }
                 }
