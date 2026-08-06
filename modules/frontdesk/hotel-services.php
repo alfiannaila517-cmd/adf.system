@@ -1026,29 +1026,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $pdo->prepare("UPDATE hotel_invoices SET paid_amount=?, payment_status=?, payment_method=?, updated_at=NOW() WHERE id=? AND business_id=?")
                 ->execute([$newPaid, $payStatus, $method, $id, $businessId]);
 
-            // Auto-return rental motors once the invoice is fully paid, so staff
-            // no longer need to remember clicking "Kembali" manually.
-            $motorsAutoReturned = [];
+            // Motor Return Tracking: Instead of auto-returning, ask staff to confirm
+            // whether motor is actually back. If not returned within 24h, system will notify.
+            $motorsForConfirmation = [];
             $carsAutoReturned   = [];
             if ($payStatus === 'paid') {
-                $motorRentals = $pdo->prepare("SELECT rb.id, rb.motor_id FROM rental_motor_bookings rb
+                // Get motors that need return confirmation (don't auto-return yet)
+                $motorRentals = $pdo->prepare("SELECT rb.id, rb.motor_id, rm.motor_name, rm.plate_number 
+                    FROM rental_motor_bookings rb
+                    JOIN rental_motors rm ON rb.motor_id = rm.id
                     WHERE rb.invoice_id=? AND rb.business_id=? AND rb.status IN ('active','overdue')");
                 $motorRentals->execute([$id, $businessId]);
                 foreach ($motorRentals->fetchAll(PDO::FETCH_ASSOC) as $mr) {
-                    $pdo->prepare("UPDATE rental_motor_bookings SET status='returned', actual_return=NOW(), updated_at=NOW() WHERE id=?")
-                        ->execute([$mr['id']]);
-                    $pdo->prepare("UPDATE rental_motors SET status='available', updated_at=NOW() WHERE id=?")
-                        ->execute([$mr['motor_id']]);
-                    $motorsAutoReturned[] = (int)$mr['id'];
+                    $motorsForConfirmation[] = [
+                        'id' => (int)$mr['id'],
+                        'motor_name' => $mr['motor_name'],
+                        'plate_number' => $mr['plate_number']
+                    ];
                 }
 
-                // Auto-return rental cars too (mirrors the motor logic above). This also
-                // makes the trip count towards the driver/partner (e.g. Moyong) Tagihan
-                // recap right away, since get-driver-recap.php only picks up trips whose
-                // rental_car_bookings.status = 'returned'. Without this, a combined
-                // invoice (motor + car in one invoice) would return the motor but leave
-                // the car "active" forever unless staff separately clicks "Kembali" on
-                // the Rental Mobil page - so Moyong's bill would never update.
+                // Auto-return rental cars (user doesn't manually return cars via invoice like motors)
                 $carRentals = $pdo->prepare("SELECT cb.id, cb.car_id FROM rental_car_bookings cb
                     WHERE cb.invoice_id=? AND cb.business_id=? AND cb.status IN ('active','overdue')");
                 $carRentals->execute([$id, $businessId]);
@@ -1063,7 +1060,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
 
             // Cashbook NOT synced here — must use "Process Invoice" in preview
             ob_clean();
-            echo json_encode(['success' => true, 'payment_status' => $payStatus, 'paid_amount' => $newPaid, 'cashbook' => false, 'motors_auto_returned' => $motorsAutoReturned, 'cars_auto_returned' => $carsAutoReturned]);
+            echo json_encode(['success' => true, 'payment_status' => $payStatus, 'paid_amount' => $newPaid, 'cashbook' => false, 'motors_for_confirmation' => $motorsForConfirmation, 'cars_auto_returned' => $carsAutoReturned]);
             exit;
         }
 

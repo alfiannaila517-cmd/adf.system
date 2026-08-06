@@ -64,13 +64,29 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS rental_motor_bookings (
     status          ENUM('active','returned','overdue','cancelled') NOT NULL DEFAULT 'active',
     notes           TEXT DEFAULT NULL,
     created_by      INT DEFAULT NULL,
+    payment_date    DATETIME DEFAULT NULL COMMENT 'when invoice was paid',
+    return_confirmed TINYINT DEFAULT NULL COMMENT '1=sudah, 0=belum, NULL=not confirmed',
+    return_confirmed_at DATETIME DEFAULT NULL COMMENT 'when return status was confirmed',
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
     KEY idx_biz (business_id),
     KEY idx_motor (motor_id),
     KEY idx_invoice (invoice_id),
-    KEY idx_status (business_id, status)
+    KEY idx_status (business_id, status),
+    KEY idx_payment (payment_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+// Add missing columns if table was created before this update
+try {
+    $pdo->exec("ALTER TABLE rental_motor_bookings ADD COLUMN payment_date DATETIME DEFAULT NULL COMMENT 'when invoice was paid'");
+} catch (\Throwable $e) { /* column may already exist */ }
+try {
+    $pdo->exec("ALTER TABLE rental_motor_bookings ADD COLUMN return_confirmed TINYINT DEFAULT NULL COMMENT '1=sudah, 0=belum, NULL=not confirmed'");
+} catch (\Throwable $e) { /* column may already exist */ }
+try {
+    $pdo->exec("ALTER TABLE rental_motor_bookings ADD COLUMN return_confirmed_at DATETIME DEFAULT NULL COMMENT 'when return status was confirmed'");
+} catch (\Throwable $e) { /* column may already exist */ }
+
 
 // ── Auto-update overdue rentals ────────────────────────────────────────────────
 $pdo->exec("UPDATE rental_motor_bookings SET status='overdue'
