@@ -266,10 +266,10 @@ if (empty($companySettings['name'])) {
             color: #b8860b;
         }
 
-        /* Top accent line */
+        /* Top accent line - Elegant Blue Gradient */
         .top-border {
-            height: 3px;
-            background: linear-gradient(90deg, #1a2332 0%, #2c3e50 40%, #8b7355 100%);
+            height: 4px;
+            background: linear-gradient(90deg, #0D3B66 0%, #1a4d7d 50%, #D4AF37 100%);
         }
 
         /* Header */
@@ -301,7 +301,7 @@ if (empty($companySettings['name'])) {
             font-family: 'DM Serif Display', serif;
             font-size: 1.3rem;
             font-weight: 400;
-            color: #1a2332;
+            color: #0D3B66;
             letter-spacing: 0.5px;
             line-height: 1.2;
         }
@@ -310,14 +310,14 @@ if (empty($companySettings['name'])) {
             font-size: 0.6rem;
             font-weight: 400;
             font-style: italic;
-            color: #8b7355;
+            color: #D4AF37;
             margin-top: 1px;
             letter-spacing: 0.5px;
         }
 
         .brand-text .hotel-detail {
             font-size: 0.55rem;
-            color: #9a9590;
+            color: #6b7d94;
             margin-top: 3px;
             line-height: 1.4;
         }
@@ -330,7 +330,7 @@ if (empty($companySettings['name'])) {
             font-family: 'DM Serif Display', serif;
             font-size: 1.4rem;
             font-weight: 400;
-            color: #1a2332;
+            color: #0D3B66;
             letter-spacing: 5px;
             line-height: 1;
         }
@@ -343,7 +343,7 @@ if (empty($companySettings['name'])) {
         }
 
         .header-right .inv-meta strong {
-            color: #1a2332;
+            color: #0D3B66;
             font-family: 'Source Code Pro', monospace;
             font-size: 0.7rem;
             font-weight: 600;
@@ -433,12 +433,12 @@ if (empty($companySettings['name'])) {
             font-family: 'DM Serif Display', serif;
             font-size: 0.65rem;
             font-weight: 400;
-            color: #8b7355;
+            color: #0D3B66;
             text-transform: uppercase;
             letter-spacing: 2px;
             margin-bottom: 6px;
             padding-bottom: 4px;
-            border-bottom: 1px solid #e8e6e1;
+            border-bottom: 1px solid #D4AF37;
         }
 
         .info-card .row {
@@ -469,8 +469,8 @@ if (empty($companySettings['name'])) {
         }
 
         .tbl-room thead th {
-            background: #1a2332;
-            color: #d4cfc7;
+            background: #0D3B66;
+            color: #fff;
             padding: 9px 14px;
             font-weight: 500;
             font-size: 0.62rem;
@@ -505,7 +505,7 @@ if (empty($companySettings['name'])) {
             font-weight: 600;
             font-family: 'Source Code Pro', monospace;
             font-size: 0.78rem;
-            color: #1a2332;
+            color: #0D3B66;
         }
 
         .tbl-room tbody td:nth-child(4) {
@@ -514,7 +514,7 @@ if (empty($companySettings['name'])) {
         }
 
         .tbl-room tbody {
-            border-bottom: 2px solid #1a2332;
+            border-bottom: 2px solid #0D3B66;
         }
 
         /* Summary */
@@ -556,21 +556,21 @@ if (empty($companySettings['name'])) {
             justify-content: space-between;
             padding: 10px 0 6px;
             margin-top: 6px;
-            border-top: 2px solid #1a2332;
+            border-top: 2px solid #D4AF37;
             font-size: 0.95rem;
         }
 
         .sum-total .sl {
             font-family: 'DM Serif Display', serif;
             font-weight: 400;
-            color: #1a2332;
+            color: #0D3B66;
             font-size: 0.95rem;
         }
 
         .sum-total .sv {
             font-weight: 700;
             font-family: 'Source Code Pro', monospace;
-            color: #1a2332;
+            color: #0D3B66;
         }
 
         .sum-paid {
@@ -624,12 +624,12 @@ if (empty($companySettings['name'])) {
             font-family: 'DM Serif Display', serif;
             font-size: 0.72rem;
             font-weight: 400;
-            color: #8b7355;
+            color: #0D3B66;
             text-transform: uppercase;
             letter-spacing: 2px;
             margin-bottom: 8px;
             padding-bottom: 5px;
-            border-bottom: 1px solid #e8e6e1;
+            border-bottom: 1px solid #D4AF37;
         }
 
         .tbl-pay {
@@ -660,15 +660,15 @@ if (empty($companySettings['name'])) {
         .note-box {
             margin-top: 10px;
             padding: 8px 12px;
-            background: #fafaf8;
-            border-left: 2px solid #8b7355;
+            background: #f0f5fb;
+            border-left: 3px solid #0D3B66;
             border-radius: 0 3px 3px 0;
             font-size: 0.76rem;
             color: #5a5a5a;
         }
 
         .note-box strong {
-            color: #1a2332;
+            color: #0D3B66;
             font-weight: 600;
         }
 
@@ -687,12 +687,12 @@ if (empty($companySettings['name'])) {
         .bank-info .bank-icon {
             width: 38px;
             height: 38px;
-            background: #1a2332;
+            background: #0D3B66;
             border-radius: 4px;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #d4cfc7;
+            color: #D4AF37;
             font-size: 0.95rem;
             flex-shrink: 0;
         }
@@ -707,7 +707,7 @@ if (empty($companySettings['name'])) {
             font-weight: 500;
             text-transform: uppercase;
             letter-spacing: 2px;
-            color: #8b7355;
+            color: #0D3B66;
             margin-bottom: 2px;
         }
 
@@ -715,7 +715,7 @@ if (empty($companySettings['name'])) {
             font-family: 'Source Code Pro', monospace;
             font-size: 0.95rem;
             font-weight: 700;
-            color: #1a2332;
+            color: #0D3B66;
             letter-spacing: 1.5px;
         }
 
@@ -736,7 +736,7 @@ if (empty($companySettings['name'])) {
             font-family: 'DM Serif Display', serif;
             font-size: 0.82rem;
             font-weight: 400;
-            color: #1a2332;
+            color: #0D3B66;
             margin-bottom: 3px;
         }
 
@@ -748,8 +748,8 @@ if (empty($companySettings['name'])) {
         }
 
         .bottom-border {
-            height: 3px;
-            background: linear-gradient(90deg, #1a2332 0%, #2c3e50 40%, #8b7355 100%);
+            height: 4px;
+            background: linear-gradient(90deg, #0D3B66 0%, #1a4d7d 50%, #D4AF37 100%);
         }
 
         /* Action buttons */
@@ -777,22 +777,22 @@ if (empty($companySettings['name'])) {
         }
 
         .btn-dark {
-            background: #1a2332;
-            color: #d4cfc7;
+            background: #0D3B66;
+            color: #fff;
         }
 
         .btn-dark:hover {
-            background: #2c3e50;
+            background: #1a4d7d;
         }
 
         .btn-light {
-            background: #fafaf8;
-            color: #3d3d3d;
-            border: 1px solid #d4cfc7;
+            background: #f0f5fb;
+            color: #0D3B66;
+            border: 1px solid #0D3B66;
         }
 
         .btn-light:hover {
-            background: #f0eeea;
+            background: #e8f1f8;
         }
 
         @media print {
