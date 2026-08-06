@@ -27,13 +27,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     header('Content-Type: application/json');
 
     try {
-        // Confirm motor return status (called when invoice is paid)
+        // Confirm motor return status (called when invoice is paid or from monitoring dashboard)
         if ($_POST['action'] === 'confirm_return_status') {
             $invoiceId = (int)($_POST['invoice_id'] ?? 0);
+            $rentalId = (int)($_POST['rental_id'] ?? 0); // Support single rental_id from monitoring
             $motorBookingIds = json_decode($_POST['motor_ids'] ?? '[]', true); // array of rental_motor_bookings IDs
             $isReturned = (int)($_POST['is_returned'] ?? 0); // 1 = sudah kembali, 0 = belum kembali
 
-            if (!$invoiceId || empty($motorBookingIds)) {
+            // Build motor IDs array
+            if ($rentalId > 0) {
+                $motorBookingIds = [$rentalId];
+            } elseif (!$invoiceId || empty($motorBookingIds)) {
                 throw new Exception('Data tidak lengkap');
             }
 

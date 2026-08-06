@@ -1080,7 +1080,69 @@ include '../../includes/header.php';
     <div class="rm-tab-pane active" id="pane-monitoring">
         <?php
         $activeRentalsList = array_filter($rentals, fn($r) => in_array($r['status'], ['active', 'overdue']));
+        
+        // Separate rentals into "On Rent" (paid invoice) and "Unpaid"
+        $onRentList = [];
+        $unpaidRentals = [];
+        
+        foreach ($activeRentalsList as $r) {
+            if ($r['inv_pay_status'] === 'paid' && $r['invoice_id']) {
+                $onRentList[] = $r;
+            } else {
+                $unpaidRentals[] = $r;
+            }
+        }
+        
+        // Card view for "On Rent / Masih Desewa"
+        if (!empty($onRentList)):
+        ?>
+            <div style="margin-bottom: 1.5rem">
+                <h3 style="margin: 0 0 0.75rem 0; color: var(--text-primary); font-size: 0.95rem; font-weight: 700;">🏍️ On Rent / Masih Desewa (24-Hour Tracking)</h3>
+                <div class="rm-fleet">
+                    <?php foreach ($onRentList as $r):
+                        $paymentDate = $r['payment_date'] ? strtotime($r['payment_date']) : time();
+                        $hoursElapsed = (time() - $paymentDate) / 3600;
+                        $hoursRemaining = max(0, 24 - $hoursElapsed);
+                        $isOverdue24h = $hoursElapsed >= 24;
+                        
+                        $days = (int)floor($hoursRemaining / 24);
+                        $hours = (int)floor($hoursRemaining % 24);
+                        $mins = (int)floor((($hoursRemaining * 60) % 60));
+                    ?>
+                        <div class="rm-motor-card" style="--mc:<?php echo $isOverdue24h ? '#ef4444' : '#f59e0b'; ?>; border: 2px solid <?php echo $isOverdue24h ? '#ef4444' : '#f59e0b'; ?>">
+                            <span class="mc-status" style="background:<?php echo $isOverdue24h ? '#ef4444' : '#f59e0b'; ?>">
+                                <?php echo $isOverdue24h ? '⚠️ >24h Overdue!' : '🕐 On Rent'; ?>
+                            </span>
+                            <div class="mc-plate"><?php echo htmlspecialchars($r['plate_number']); ?></div>
+                            <div class="mc-name">
+                                <?php echo htmlspecialchars($r['motor_name']); ?> — <?php echo htmlspecialchars($r['guest_name']); ?>
+                            </div>
+                            <div style="margin-top: 0.5rem; padding: 0.5rem; background: <?php echo $isOverdue24h ? '#fef2f2' : '#fffbeb'; ?>; border-radius: 4px; font-weight: 700; color: <?php echo $isOverdue24h ? '#b91c1c' : '#d97706'; ?>">
+                                <?php if ($isOverdue24h): ?>
+                                    ⏰ OVERDUE: <?php echo ceil($hoursElapsed - 24); ?> jam!
+                                <?php else: ?>
+                                    ⏳ Sisa: <?php echo sprintf('%02d:%02d:%02d', $hours, $mins, (int)(($hoursRemaining * 3600) % 60)); ?>
+                                <?php endif; ?>
+                            </div>
+                            <div class="mc-rate">Invoice: <?php echo htmlspecialchars($r['invoice_number']); ?> | Paid: <?php echo date('d M H:i', $paymentDate); ?></div>
+                            <div class="mc-actions">
+                                <button class="mc-btn" style="background:#dcfce7;color:#15803d" onclick="confirmMotorReturn(<?php echo $r['id']; ?>,'<?php echo htmlspecialchars(addslashes($r['motor_name'])); ?>')">
+                                    ✓ Sudah Kembali
+                                </button>
+                                <button class="mc-btn" style="background:#e0e7ff;color:#4338ca" onclick="returnMotor(<?php echo $r['id']; ?>,'<?php echo htmlspecialchars(addslashes($r['motor_name'])); ?>')">
+                                    ↩ Kembali
+                                </button>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        <?php endif; ?>
+        
+        <!-- Regular monitoring table (unpaid or no invoice)
+        <?php
         if (empty($activeRentalsList)):
+        ?>
         ?>
             <div class="rm-empty">
                 <div class="em-icon">🏍️</div>
@@ -1850,6 +1912,33 @@ include '../../includes/header.php';
                 }
             })
             .catch(() => alert('Network error'));
+    }
+
+    // ── Confirm Motor Return Status (From Invoice Payment) ────────────────────
+    function confirmMotorReturn(rentalId, motorName) {
+        const isReturned = confirm('✓ Konfirmasi motor ' + motorName + ' SUDAH dikembalikan?');
+        
+        const fd = new FormData();
+        fd.append('action', 'confirm_return_status');
+        fd.append('rental_id', rentalId);
+        fd.append('is_returned', isReturned ? '1' : '0');
+        
+        fetch('../modules/frontdesk/motor-return-tracking.php', {
+                method: 'POST',
+                body: fd
+            })
+            .then(r => r.json())
+            .then(d => {
+                if (d.success) {
+                    alert(isReturned 
+                        ? '✅ Status motor ' + motorName + ' diperbarui: SUDAH KEMBALI' 
+                        : '⏳ Status motor ' + motorName + ' diperbarui: BELUM KEMBALI (24-jam tracking aktif)');
+                    location.reload();
+                } else {
+                    alert('❌ Gagal: ' + (d.message || 'Terjadi kesalahan'));
+                }
+            })
+            .catch(e => alert('Network error: ' + e.message));
     }
 
     // ── Cancel Rental ───────────────────────────────────────────────────────────
