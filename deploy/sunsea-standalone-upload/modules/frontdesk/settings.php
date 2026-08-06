@@ -727,7 +727,22 @@ elseif ($activeTab === 'invoice_settings') {
         }
     }
     
-    // Handle QRIS upload
+    // Handle save bank info (Swift Code)
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_bank_info') {
+        try {
+            $swiftCode = trim($_POST['swift_code'] ?? '');
+            
+            $stmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value, setting_type) VALUES (?, ?, 'string') 
+                                  ON DUPLICATE KEY UPDATE setting_value = ?");
+            $stmt->execute(['invoice_swift_code_' . ACTIVE_BUSINESS_ID, $swiftCode, $swiftCode]);
+            
+            $message = "✓ Swift Code berhasil disimpan!";
+        } catch (Exception $e) {
+            $error = "❌ Error: " . $e->getMessage();
+        }
+    }
+    
+    // Handle QRIS upload (DEPRECATED - keeping for backward compat but hiding from UI)
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'upload_qris') {
         header('Content-Type: application/json');
         
@@ -1826,48 +1841,29 @@ include '../../includes/header.php';
     <?php if ($activeTab === 'invoice_settings'): ?>
     
     <div class="form-card">
-        <h2 style="margin-top: 0; color: var(--primary);">💳 Setup QRIS Payment</h2>
+        <h2 style="margin-top: 0; color: var(--primary);">🏦 Bank Transfer Info</h2>
         <p style="color: var(--text-secondary); margin-top: 0.5rem;">
-            Upload QRIS QR Code untuk ditampilkan di invoice. Tamu dapat scan untuk membayar.
+            Setup informasi rekening bank untuk ditampilkan di invoice
         </p>
         
-        <div style="margin-top: 1.5rem;">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: start;">
-                <!-- Upload Form -->
-                <div>
-                    <label class="form-label" style="font-weight: 700; margin-bottom: 1rem;">📸 Upload QRIS Image</label>
-                    <form id="qrisUploadForm" method="POST" enctype="multipart/form-data">
-                        <input type="hidden" name="action" value="upload_qris">
-                        <div style="border: 2px dashed #6366f1; border-radius: 8px; padding: 1.5rem; text-align: center; cursor: pointer;" id="dropZone">
-                            <div style="font-size: 2rem; margin-bottom: 0.5rem;">📤</div>
-                            <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem;">Drag & drop or click</div>
-                            <div style="color: var(--text-secondary); font-size: 0.85rem;">JPG, PNG, GIF, WebP (Max 2MB)</div>
-                            <input type="file" id="qrisFile" name="qris_image" accept="image/*" style="display: none;" required onchange="handleFileSelect()">
-                        </div>
-                        <button type="submit" class="btn btn-success" style="width: 100%; margin-top: 1rem;">✓ Upload QRIS</button>
-                    </form>
-                    <div id="uploadStatus" style="margin-top: 1rem; font-size: 0.9rem;"></div>
-                </div>
-                
-                <!-- Current QRIS Preview -->
-                <div>
-                    <label class="form-label" style="font-weight: 700; margin-bottom: 1rem;">✓ Current QRIS</label>
-                    <?php if (!empty($qrisUrl)): ?>
-                        <div style="border: 2px solid #10b981; border-radius: 8px; padding: 1rem; text-align: center; background: rgba(16, 185, 129, 0.05);">
-                            <img src="<?php echo htmlspecialchars($qrisUrl); ?>" alt="Current QRIS" style="max-width: 100%; height: auto; border-radius: 4px; margin-bottom: 1rem;">
-                            <div style="color: #059669; font-weight: 600; margin-bottom: 1rem;">✓ QRIS aktif di invoice</div>
-                            <button type="button" class="btn btn-danger" onclick="deleteQRIS()" style="width: 100%;">🗑️ Hapus QRIS</button>
-                        </div>
-                    <?php else: ?>
-                        <div style="border: 2px dashed #6b7d94; border-radius: 8px; padding: 2rem; text-align: center; color: var(--text-secondary); background: rgba(0, 0, 0, 0.2);">
-                            <div style="font-size: 3rem; margin-bottom: 0.5rem;">❌</div>
-                            <div>Belum ada QRIS di-upload</div>
-                            <div style="font-size: 0.85rem; margin-top: 0.5rem;">Upload QRIS di form sebelah</div>
-                        </div>
-                    <?php endif; ?>
-                </div>
+        <form method="POST" style="margin-top: 1.5rem;">
+            <div class="form-group">
+                <label class="form-label">Swift Code (BIC)</label>
+                <input type="text" name="swift_code" class="form-input" 
+                       value="<?php 
+                           $swiftRow = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = ?");
+                           $swiftRow->execute(['invoice_swift_code_' . ACTIVE_BUSINESS_ID]);
+                           $swiftData = $swiftRow->fetch(PDO::FETCH_ASSOC);
+                           echo htmlspecialchars($swiftData['setting_value'] ?? '');
+                       ?>" 
+                       placeholder="Contoh: BNIAIDJA">
+                <small style="color: var(--text-secondary); display: block; margin-top: 0.3rem;">
+                    Kode Swift untuk transfer internasional (BIC Code)
+                </small>
             </div>
-        </div>
+            
+            <button type="submit" name="action" value="save_bank_info" class="btn btn-success" style="width: 100%;">✓ Simpan Bank Info</button>
+        </form>
     </div>
 
     <div class="form-card">

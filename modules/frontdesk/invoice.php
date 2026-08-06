@@ -201,15 +201,12 @@ if (empty($companySettings['name'])) {
     $companySettings['name'] = $business['business_name'] ?? 'Narayana Hotel';
 }
 
-// Get QRIS image from settings
-$qrisRow = $db->fetchOne(
+// Get Swift Code from settings
+$swiftRow = $db->fetchOne(
     "SELECT setting_value FROM settings WHERE setting_key = ?",
-    ['invoice_qris_' . ACTIVE_BUSINESS_ID]
+    ['invoice_swift_code_' . ACTIVE_BUSINESS_ID]
 );
-$qrisUrl = $qrisRow['setting_value'] ?? null;
-if (!empty($qrisUrl) && strpos($qrisUrl, 'http') !== 0) {
-    $qrisUrl = BASE_URL . '/' . $qrisUrl;
-}
+$swiftCode = $swiftRow['setting_value'] ?? '';
 
 // Get accounting info for signature
 $accountingNameRow = $db->fetchOne(
@@ -1037,7 +1034,7 @@ $accountingTitle = $accountingTitleRow['setting_value'] ?? 'Accounting Staff';
             <!-- Payment Methods (Vertical Stack) -->
             <div style="margin: 0.6rem 0;">
                 <!-- Bank Transfer -->
-                <div style="display: flex; align-items: flex-start; gap: 0.6rem; padding: 0.4rem 0; margin-bottom: 0.5rem;">
+                <div style="display: flex; align-items: flex-start; gap: 0.6rem; padding: 0.4rem 0;">
                     <div style="flex-shrink: 0; margin-top: 2px;">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0D3B66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
@@ -1048,16 +1045,11 @@ $accountingTitle = $accountingTitleRow['setting_value'] ?? 'Accounting Staff';
                         <div style="font-size: 0.62rem; color: #6b7d94; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.15rem; font-weight: 500;">Transfer</div>
                         <div style="font-size: 0.8rem; font-weight: 600; color: #0D3B66; word-break: break-all;">1926663992</div>
                         <div style="font-size: 0.62rem; color: #6b7d94; margin-top: 0.1rem;">BNI Jepara &mdash; Narayana</div>
+                        <?php if (!empty($swiftCode)): ?>
+                        <div style="font-size: 0.62rem; color: #0D3B66; margin-top: 0.15rem; font-weight: 500;">Swift: <?php echo htmlspecialchars($swiftCode); ?></div>
+                        <?php endif; ?>
                     </div>
                 </div>
-                
-                <!-- QRIS Payment -->
-                <?php if (!empty($qrisUrl)): ?>
-                <div style="text-align: center; padding: 0.4rem 0;">
-                    <div style="font-size: 0.65rem; font-weight: 600; color: #0D3B66; margin-bottom: 0.25rem; letter-spacing: 0.8px;">QRIS</div>
-                    <img src="<?php echo htmlspecialchars($qrisUrl); ?>" alt="QRIS" style="width: 65px; height: 65px; border: 1px solid #D4AF37; border-radius: 2px;">
-                </div>
-                <?php endif; ?>
             </div>
 
             </div>
