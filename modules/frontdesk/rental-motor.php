@@ -1081,20 +1081,27 @@ include '../../includes/header.php';
         <?php
         $activeRentalsList = array_filter($rentals, fn($r) => in_array($r['status'], ['active', 'overdue']));
         
-        // Separate rentals into "On Rent" (paid invoice) and "Unpaid"
-        $onRentList = [];
-        $unpaidRentals = [];
-        
-        foreach ($activeRentalsList as $r) {
-            if ($r['inv_pay_status'] === 'paid' && $r['invoice_id']) {
-                $onRentList[] = $r;
-            } else {
-                $unpaidRentals[] = $r;
+        if (empty($activeRentalsList)):
+        ?>
+            <div class="rm-empty">
+                <div class="em-icon">🏍️</div>
+                <p>Tidak ada rental aktif saat ini</p>
+            </div>
+        <?php else:
+            // Separate rentals into "On Rent" (paid invoice) and "Unpaid"
+            $onRentList = [];
+            $unpaidRentals = [];
+            
+            foreach ($activeRentalsList as $r) {
+                if ($r['inv_pay_status'] === 'paid' && $r['invoice_id']) {
+                    $onRentList[] = $r;
+                } else {
+                    $unpaidRentals[] = $r;
+                }
             }
-        }
-        
-        // Card view for "On Rent / Masih Desewa"
-        if (!empty($onRentList)):
+            
+            // Card view for "On Rent / Masih Desewa"
+            if (!empty($onRentList)):
         ?>
             <div style="margin-bottom: 1.5rem">
                 <h3 style="margin: 0 0 0.75rem 0; color: var(--text-primary); font-size: 0.95rem; font-weight: 700;">🏍️ On Rent / Masih Desewa (24-Hour Tracking)</h3>
@@ -1137,116 +1144,112 @@ include '../../includes/header.php';
                     <?php endforeach; ?>
                 </div>
             </div>
-        <?php endif; ?>
-        
-        <!-- Regular monitoring table (unpaid or no invoice)
-        <?php
-        if (empty($activeRentalsList)):
+        <?php endif; 
+            
+            // Table view for unpaid/partial rentals (if any)
+            if (!empty($unpaidRentals)):
         ?>
-        ?>
-            <div class="rm-empty">
-                <div class="em-icon">🏍️</div>
-                <p>Tidak ada rental aktif saat ini</p>
-            </div>
-        <?php else: ?>
-            <div class="rm-table-wrap">
-                <table class="rm-table">
-                    <thead>
-                        <tr>
-                            <th>Motor</th>
-                            <th>Tamu</th>
-                            <th>Kamar</th>
-                            <th>Mulai</th>
-                            <th>Kembali</th>
-                            <th>Sisa Waktu</th>
-                            <th>Harga</th>
-                            <th>Invoice</th>
-                            <th>Status</th>
-                            <th>Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($activeRentalsList as $r):
-                            $now     = new DateTime();
-                            $endDt   = new DateTime($r['end_datetime']);
-                            $isOverdue = $r['status'] === 'overdue';
-                            $diff    = $now->diff($endDt);
-                            if ($isOverdue) {
-                                $remaining = "Terlambat " . $diff->days . "h " . $diff->h . "j";
-                            } else {
-                                $remaining = $diff->days . "h " . $diff->h . "j " . $diff->i . "m";
-                            }
-                        ?>
-                            <tr class="<?php echo $isOverdue ? 'rm-overdue-pulse' : ''; ?>">
-                                <td>
-                                    <div style="font-weight:700;font-size:0.82rem"><?php echo htmlspecialchars($r['plate_number']); ?></div>
-                                    <div style="font-size:0.72rem;color:var(--text-secondary)"><?php echo htmlspecialchars($r['motor_name']); ?></div>
-                                </td>
-                                <td>
-                                    <div style="font-weight:600"><?php echo htmlspecialchars($r['guest_name']); ?></div>
-                                    <?php if ($r['guest_phone']): ?>
-                                        <div style="font-size:0.7rem;color:var(--text-secondary)"><?php echo htmlspecialchars($r['guest_phone']); ?></div>
-                                    <?php endif; ?>
-                                </td>
-                                <td><?php echo htmlspecialchars($r['room_number'] ?? '-'); ?></td>
-                                <td style="font-size:0.75rem"><?php echo date('d M H:i', strtotime($r['start_datetime'])); ?></td>
-                                <td style="font-size:0.75rem"><?php echo date('d M H:i', strtotime($r['end_datetime'])); ?></td>
-                                <td>
-                                    <span style="font-weight:700;color:<?php echo $isOverdue ? '#ef4444' : '#10b981'; ?>;font-size:0.78rem">
-                                        <?php echo $remaining; ?>
-                                    </span>
-                                </td>
-                                <td style="font-weight:600;font-size:0.82rem">
-                                    <?php
-                                    // Show estimated price based on daily rate if total_price is 0 (pending)
-                                    if ((float)$r['total_price'] == 0) {
-                                        $startDt = new DateTime($r['start_datetime']);
-                                        $endDt = new DateTime($r['end_datetime']);
-                                        $estDays = max(1, (int)ceil($startDt->diff($endDt)->days));
-                                        $estPrice = max(100000, round($estDays * (float)$r['daily_rate'], 2));
-                                        echo '💰 ~Rp ' . number_format($estPrice, 0, ',', '.') . '<br><span style="font-size:0.7rem;color:var(--text-secondary)">Hitung saat kembali</span>';
-                                    } else {
-                                        echo 'Rp ' . number_format($r['total_price'], 0, ',', '.');
-                                    }
-                                    ?>
-                                </td>
-                                <td>
-                                    <?php if ($r['invoice_number']): ?>
-                                        <a href="hotel-service-invoice.php?id=<?php echo $r['invoice_id']; ?>" target="_blank"
-                                            style="color:#6366f1;font-weight:600;font-size:0.75rem;text-decoration:none">
-                                            <?php echo htmlspecialchars($r['invoice_number']); ?>
-                                        </a>
-                                        <?php if ($r['inv_pay_status']): ?>
-                                            <span class="rm-badge" style="background:<?php echo ['unpaid' => '#ef4444', 'partial' => '#f59e0b', 'paid' => '#10b981'][$r['inv_pay_status']] ?? '#6b7280'; ?>;font-size:0.62rem">
-                                                <?php echo $r['inv_pay_status']; ?>
-                                            </span>
-                                        <?php endif; ?>
-                                    <?php else: ?>
-                                        <span style="color:var(--text-secondary);font-size:0.72rem">—</span>
-                                    <?php endif; ?>
-                                </td>
-                                <td>
-                                    <span class="rm-badge <?php echo $isOverdue ? 'rm-overdue-pulse' : ''; ?>"
-                                        style="background:<?php echo $isOverdue ? '#ef4444' : '#10b981'; ?>">
-                                        <?php echo $isOverdue ? '⚠ Overdue' : '✓ Aktif'; ?>
-                                    </span>
-                                </td>
-                                <td style="white-space:nowrap">
-                                    <button class="rm-action-btn" style="background:#dcfce7;color:#15803d" onclick="returnMotor(<?php echo $r['id']; ?>,'<?php echo htmlspecialchars(addslashes($r['motor_name'])); ?>')">
-                                        ↩ Kembali
-                                    </button>
-                                    <?php if (!$r['invoice_id']): ?>
-                                        <button class="rm-action-btn" style="background:#e0e7ff;color:#4338ca" onclick="openAddToInvoice(<?php echo $r['id']; ?>)">
-                                            📄 Invoice
-                                        </button>
-                                    <?php endif; ?>
-                                    <button class="rm-action-btn" style="background:#fee2e2;color:#b91c1c" onclick="cancelRental(<?php echo $r['id']; ?>)">✕</button>
-                                </td>
+            <div style="margin-bottom: 1.5rem">
+                <h3 style="margin: 0 0 0.75rem 0; color: var(--text-primary); font-size: 0.95rem; font-weight: 700;">📋 Rental Lainnya (Belum Bayar / Invoice Pending)</h3>
+                <div class="rm-table-wrap">
+                    <table class="rm-table">
+                        <thead>
+                            <tr>
+                                <th>Motor</th>
+                                <th>Tamu</th>
+                                <th>Kamar</th>
+                                <th>Mulai</th>
+                                <th>Kembali</th>
+                                <th>Sisa Waktu</th>
+                                <th>Harga</th>
+                                <th>Invoice</th>
+                                <th>Status</th>
+                                <th>Aksi</th>
                             </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($unpaidRentals as $r):
+                                $now     = new DateTime();
+                                $endDt   = new DateTime($r['end_datetime']);
+                                $isOverdue = $r['status'] === 'overdue';
+                                $diff    = $now->diff($endDt);
+                                if ($isOverdue) {
+                                    $remaining = "Terlambat " . $diff->days . "h " . $diff->h . "j";
+                                } else {
+                                    $remaining = $diff->days . "h " . $diff->h . "j " . $diff->i . "m";
+                                }
+                            ?>
+                                <tr class="<?php echo $isOverdue ? 'rm-overdue-pulse' : ''; ?>">
+                                    <td>
+                                        <div style="font-weight:700;font-size:0.82rem"><?php echo htmlspecialchars($r['plate_number']); ?></div>
+                                        <div style="font-size:0.72rem;color:var(--text-secondary)"><?php echo htmlspecialchars($r['motor_name']); ?></div>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight:600"><?php echo htmlspecialchars($r['guest_name']); ?></div>
+                                        <?php if ($r['guest_phone']): ?>
+                                            <div style="font-size:0.7rem;color:var(--text-secondary)"><?php echo htmlspecialchars($r['guest_phone']); ?></div>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td><?php echo htmlspecialchars($r['room_number'] ?? '-'); ?></td>
+                                    <td style="font-size:0.75rem"><?php echo date('d M H:i', strtotime($r['start_datetime'])); ?></td>
+                                    <td style="font-size:0.75rem"><?php echo date('d M H:i', strtotime($r['end_datetime'])); ?></td>
+                                    <td>
+                                        <span style="font-weight:700;color:<?php echo $isOverdue ? '#ef4444' : '#10b981'; ?>;font-size:0.78rem">
+                                            <?php echo $remaining; ?>
+                                        </span>
+                                    </td>
+                                    <td style="font-weight:600;font-size:0.82rem">
+                                        <?php
+                                        if ((float)$r['total_price'] == 0) {
+                                            $startDt = new DateTime($r['start_datetime']);
+                                            $endDt = new DateTime($r['end_datetime']);
+                                            $estDays = max(1, (int)ceil($startDt->diff($endDt)->days));
+                                            $estPrice = max(100000, round($estDays * (float)$r['daily_rate'], 2));
+                                            echo '💰 ~Rp ' . number_format($estPrice, 0, ',', '.') . '<br><span style="font-size:0.7rem;color:var(--text-secondary)">Hitung saat kembali</span>';
+                                        } else {
+                                            echo 'Rp ' . number_format($r['total_price'], 0, ',', '.');
+                                        }
+                                        ?>
+                                    </td>
+                                    <td>
+                                        <?php if ($r['invoice_number']): ?>
+                                            <a href="hotel-service-invoice.php?id=<?php echo $r['invoice_id']; ?>" target="_blank"
+                                                style="color:#6366f1;font-weight:600;font-size:0.75rem;text-decoration:none">
+                                                <?php echo htmlspecialchars($r['invoice_number']); ?>
+                                            </a>
+                                            <?php if ($r['inv_pay_status']): ?>
+                                                <span class="rm-badge" style="background:<?php echo ['unpaid' => '#ef4444', 'partial' => '#f59e0b', 'paid' => '#10b981'][$r['inv_pay_status']] ?? '#6b7280'; ?>;font-size:0.62rem">
+                                                    <?php echo $r['inv_pay_status']; ?>
+                                                </span>
+                                            <?php endif; ?>
+                                        <?php else: ?>
+                                            <span style="color:var(--text-secondary);font-size:0.72rem">—</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <span class="rm-badge <?php echo $isOverdue ? 'rm-overdue-pulse' : ''; ?>"
+                                            style="background:<?php echo $isOverdue ? '#ef4444' : '#10b981'; ?>">
+                                            <?php echo $isOverdue ? '⚠ Overdue' : '✓ Aktif'; ?>
+                                        </span>
+                                    </td>
+                                    <td style="white-space:nowrap">
+                                        <button class="rm-action-btn" style="background:#dcfce7;color:#15803d" onclick="returnMotor(<?php echo $r['id']; ?>,'<?php echo htmlspecialchars(addslashes($r['motor_name'])); ?>')">
+                                            ↩ Kembali
+                                        </button>
+                                        <?php if (!$r['invoice_id']): ?>
+                                            <button class="rm-action-btn" style="background:#e0e7ff;color:#4338ca" onclick="openAddToInvoice(<?php echo $r['id']; ?>)">
+                                                📄 Invoice
+                                            </button>
+                                        <?php endif; ?>
+                                        <button class="rm-action-btn" style="background:#fee2e2;color:#b91c1c" onclick="cancelRental(<?php echo $r['id']; ?>)">✕</button>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
             </div>
+        <?php endif; ?>
         <?php endif; ?>
     </div>
 
