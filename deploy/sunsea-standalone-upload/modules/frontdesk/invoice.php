@@ -198,59 +198,6 @@ if (empty($companySettings['name'])) {
     $companySettings['name'] = $business['business_name'] ?? 'Narayana Hotel';
 }
 
-// Handle QRIS upload
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'upload_qris') {
-    header('Content-Type: application/json');
-    
-    try {
-        if (!isset($_FILES['qris_image']) || $_FILES['qris_image']['error'] !== UPLOAD_ERR_OK) {
-            throw new Exception('No file uploaded');
-        }
-        
-        $file = $_FILES['qris_image'];
-        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-        
-        if (!in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
-            throw new Exception('Invalid image format. Allowed: JPG, PNG, GIF, WebP');
-        }
-        
-        if ($file['size'] > 2 * 1024 * 1024) {
-            throw new Exception('File too large (max 2MB)');
-        }
-        
-        // Save to uploads folder
-        $uploadDir = __DIR__ . '/../../uploads/qris/';
-        if (!is_dir($uploadDir)) {
-            mkdir($uploadDir, 0755, true);
-        }
-        
-        $filename = 'qris_' . $businessId . '_' . time() . '.' . $ext;
-        $filepath = $uploadDir . $filename;
-        
-        if (move_uploaded_file($file['tmp_name'], $filepath)) {
-            // Save path to settings
-            $settingKey = 'invoice_qris_' . ACTIVE_BUSINESS_ID;
-            $storedPath = 'uploads/qris/' . $filename;
-            
-            $existing = $db->fetchOne("SELECT id FROM settings WHERE setting_key = ?", [$settingKey]);
-            if ($existing) {
-                $db->query("UPDATE settings SET setting_value = ?, updated_at = NOW() WHERE setting_key = ?", [$storedPath, $settingKey]);
-            } else {
-                $db->query("INSERT INTO settings (setting_key, setting_value, created_at) VALUES (?, ?, NOW())", [$settingKey, $storedPath]);
-            }
-            
-            echo json_encode(['success' => true, 'message' => 'QRIS uploaded successfully', 'path' => BASE_URL . '/' . $storedPath]);
-            exit;
-        } else {
-            throw new Exception('Failed to save file');
-        }
-    } catch (Exception $e) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
-        exit;
-    }
-}
-
 // Get QRIS image from settings
 $qrisRow = $db->fetchOne(
     "SELECT setting_value FROM settings WHERE setting_key = ?",
@@ -260,6 +207,19 @@ $qrisUrl = $qrisRow['setting_value'] ?? null;
 if (!empty($qrisUrl) && strpos($qrisUrl, 'http') !== 0) {
     $qrisUrl = BASE_URL . '/' . $qrisUrl;
 }
+
+// Get accounting info for signature
+$accountingNameRow = $db->fetchOne(
+    "SELECT setting_value FROM settings WHERE setting_key = ?",
+    ['invoice_accounting_name_' . ACTIVE_BUSINESS_ID]
+);
+$accountingName = $accountingNameRow['setting_value'] ?? '';
+
+$accountingTitleRow = $db->fetchOne(
+    "SELECT setting_value FROM settings WHERE setting_key = ?",
+    ['invoice_accounting_title_' . ACTIVE_BUSINESS_ID]
+);
+$accountingTitle = $accountingTitleRow['setting_value'] ?? 'Accounting Staff';
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -893,6 +853,15 @@ if (!empty($qrisUrl) && strpos($qrisUrl, 'http') !== 0) {
             font-style: italic;
         }
 
+        /* Signature Section */
+        .signature-section {
+            margin-top: 20px;
+            padding: 15px 14px;
+            border-top: 2px solid #0D3B66;
+            border-bottom: 2px solid #D4AF37;
+            background: rgba(13, 59, 102, 0.03);
+        }
+
         /* Admin Control */
         .admin-control {
             margin-bottom: 20px;
@@ -979,21 +948,6 @@ if (!empty($qrisUrl) && strpos($qrisUrl, 'http') !== 0) {
 </head>
 
 <body>
-    <!-- Admin Control: QRIS Upload -->
-    <div class="admin-control">
-        <div class="control-title">📸 Setup QRIS Payment QR Code</div>
-        <div class="qris-upload-form">
-            <input type="file" id="qrisFile" accept="image/*" placeholder="Choose QRIS image...">
-            <button onclick="uploadQRIS()">Upload QRIS</button>
-        </div>
-        <?php if (!empty($qrisUrl)): ?>
-            <div class="qris-current">
-                ✓ QRIS aktif di invoice
-                <div><img src="<?php echo htmlspecialchars($qrisUrl); ?>" alt="Current QRIS"></div>
-            </div>
-        <?php endif; ?>
-    </div>
-
     <div class="invoice-page" id="invoiceContent">
         <div class="watermark wm-<?php echo $overallStatus; ?>"><?php echo $overallLabel; ?></div>
         <div class="top-border"></div>
@@ -1185,6 +1139,32 @@ if (!empty($qrisUrl) && strpos($qrisUrl, 'http') !== 0) {
             </div>
             <?php endif; ?>
 
+            <!-- Signature Section -->
+            <div class="signature-section">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; margin-top: 1.5rem;">
+                    <!-- Date Column -->
+                    <div>
+                        <div style="color: #6b7d94; font-size: 0.8rem; margin-bottom: 0.3rem;">Tanggal / Date</div>
+                        <div style="border-top: 1px solid #0D3B66; padding-top: 0.5rem; height: 40px; color: #0D3B66; font-weight: 600; font-size: 0.9rem;">
+                            <?php echo date('d F Y'); ?>
+                        </div>
+                    </div>
+                    
+                    <!-- Signature Column -->
+                    <div>
+                        <div style="color: #6b7d94; font-size: 0.8rem; margin-bottom: 0.3rem;">Accounting / Tanda Tangan</div>
+                        <div style="border-top: 1px solid #0D3B66; padding-top: 3rem; height: 40px; text-align: center;">
+                            <div style="font-size: 0.8rem; color: #0D3B66; font-weight: 600;">
+                                <?php echo !empty($accountingName) ? htmlspecialchars($accountingName) : '..........................'; ?>
+                            </div>
+                            <div style="font-size: 0.7rem; color: #6b7d94; margin-top: 0.2rem;">
+                                <?php echo htmlspecialchars($accountingTitle); ?>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Footer -->
             <div class="footer">
                 <div class="ty">Thank you for staying with us</div>
@@ -1209,33 +1189,6 @@ if (!empty($qrisUrl) && strpos($qrisUrl, 'http') !== 0) {
         function savePDF() {
             document.title = 'Invoice_<?php echo $isMultiRoom ? preg_replace('/[^a-zA-Z0-9]/', '_', $booking['guest_name']) : $booking['booking_code']; ?>_<?php echo date('Ymd'); ?>';
             window.print();
-        }
-
-        function uploadQRIS() {
-            const file = document.getElementById('qrisFile').files[0];
-            if (!file) {
-                alert('Please select a file');
-                return;
-            }
-
-            const fd = new FormData();
-            fd.append('action', 'upload_qris');
-            fd.append('qris_image', file);
-
-            fetch(window.location.href, {
-                method: 'POST',
-                body: fd
-            })
-            .then(r => r.json())
-            .then(d => {
-                if (d.success) {
-                    alert('✓ QRIS uploaded successfully!');
-                    location.reload();
-                } else {
-                    alert('Error: ' + (d.message || 'Upload failed'));
-                }
-            })
-            .catch(e => alert('Network error: ' + e.message));
         }
 
         <?php if ($isPdf): ?>

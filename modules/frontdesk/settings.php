@@ -705,6 +705,126 @@ elseif ($activeTab === 'ota_fees') {
     }
 }
 
+// ==================== INVOICE SETTINGS & QRIS MANAGEMENT ====================
+elseif ($activeTab === 'invoice_settings') {
+    // Handle save accounting info
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_accounting') {
+        try {
+            $accName = trim($_POST['accounting_name'] ?? '');
+            $accTitle = trim($_POST['accounting_title'] ?? 'Accounting Staff');
+            
+            $stmt1 = $pdo->prepare("INSERT INTO settings (setting_key, setting_value, setting_type) VALUES (?, ?, 'string') 
+                                  ON DUPLICATE KEY UPDATE setting_value = ?");
+            $stmt1->execute(['invoice_accounting_name_' . ACTIVE_BUSINESS_ID, $accName, $accName]);
+            
+            $stmt2 = $pdo->prepare("INSERT INTO settings (setting_key, setting_value, setting_type) VALUES (?, ?, 'string') 
+                                  ON DUPLICATE KEY UPDATE setting_value = ?");
+            $stmt2->execute(['invoice_accounting_title_' . ACTIVE_BUSINESS_ID, $accTitle, $accTitle]);
+            
+            $message = "✓ Informasi accounting berhasil disimpan!";
+        } catch (Exception $e) {
+            $error = "❌ Error: " . $e->getMessage();
+        }
+    }
+    
+    // Handle QRIS upload
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'upload_qris') {
+        header('Content-Type: application/json');
+        
+        try {
+            if (!isset($_FILES['qris_image']) || $_FILES['qris_image']['error'] !== UPLOAD_ERR_OK) {
+                throw new Exception('File upload failed');
+            }
+            
+            $file = $_FILES['qris_image'];
+            $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            $maxSize = 2 * 1024 * 1024; // 2MB
+            
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mimeType = finfo_file($finfo, $file['tmp_name']);
+            finfo_close($finfo);
+            
+            if (!in_array($mimeType, $allowedMimes)) {
+                throw new Exception('Invalid file type. Only JPG, PNG, GIF, WebP allowed');
+            }
+            
+            if ($file['size'] > $maxSize) {
+                throw new Exception('File too large. Max 2MB');
+            }
+            
+            // Create uploads/qris directory if not exists
+            $qrisDir = '../../uploads/qris';
+            if (!is_dir($qrisDir)) {
+                mkdir($qrisDir, 0755, true);
+            }
+            
+            // Generate filename
+            $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+            $filename = 'qris_' . ACTIVE_BUSINESS_ID . '_' . time() . '.' . $ext;
+            $filepath = $qrisDir . '/' . $filename;
+            
+            if (!move_uploaded_file($file['tmp_name'], $filepath)) {
+                throw new Exception('Failed to save file');
+            }
+            
+            // Save to settings
+            $settingKey = 'invoice_qris_' . ACTIVE_BUSINESS_ID;
+            $settingValue = 'uploads/qris/' . $filename;
+            
+            $stmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value, setting_type) VALUES (?, ?, 'string') 
+                                 ON DUPLICATE KEY UPDATE setting_value = ?");
+            $stmt->execute([$settingKey, $settingValue, $settingValue]);
+            
+            echo json_encode(['success' => true, 'message' => 'QRIS berhasil diupload']);
+        } catch (Exception $e) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+        exit;
+    }
+    
+    // Handle QRIS delete
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_qris') {
+        header('Content-Type: application/json');
+        
+        try {
+            $settingKey = 'invoice_qris_' . ACTIVE_BUSINESS_ID;
+            
+            // Get current file to delete
+            $getStmt = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = ?");
+            $getStmt->execute([$settingKey]);
+            $fileData = $getStmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($fileData && !empty($fileData['setting_value'])) {
+                $filePath = '../../' . $fileData['setting_value'];
+                if (file_exists($filePath)) {
+                    unlink($filePath);
+                }
+            }
+            
+            // Delete from settings
+            $delStmt = $pdo->prepare("DELETE FROM settings WHERE setting_key = ?");
+            $delStmt->execute([$settingKey]);
+            
+            echo json_encode(['success' => true, 'message' => 'QRIS deleted']);
+        } catch (Exception $e) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+        exit;
+    }
+    
+    // Get current QRIS
+    $qrisRow = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = ?");
+    $qrisRow->execute(['invoice_qris_' . ACTIVE_BUSINESS_ID]);
+    $qrisData = $qrisRow->fetch(PDO::FETCH_ASSOC);
+    $qrisUrl = $qrisData['setting_value'] ?? null;
+    
+    if (!empty($qrisUrl) && strpos($qrisUrl, 'http') !== 0) {
+        $qrisUrl = BASE_URL . '/' . $qrisUrl;
+    }
+}
+
 include '../../includes/header.php';
 ?>
 
@@ -1121,6 +1241,10 @@ include '../../includes/header.php';
         <button class="tab-btn <?php echo $activeTab === 'ota_fees' ? 'active' : ''; ?>" 
                 onclick="location.href='?tab=ota_fees'">
             💰 OTA Fees
+        </button>
+        <button class="tab-btn <?php echo $activeTab === 'invoice_settings' ? 'active' : ''; ?>" 
+                onclick="location.href='?tab=invoice_settings'">
+            🧾 Invoice Settings
         </button>
     </div>
 
@@ -1693,6 +1817,146 @@ include '../../includes/header.php';
     function hideEditMode(id) {
         document.getElementById('edit-' + id).style.display = 'none';
         document.getElementById('view-' + id).style.display = 'block';
+    }
+    </script>
+
+    <?php endif; ?>
+
+    <!-- ==================== INVOICE SETTINGS TAB ==================== -->
+    <?php if ($activeTab === 'invoice_settings'): ?>
+    
+    <div class="form-card">
+        <h2 style="margin-top: 0; color: var(--primary);">💳 Setup QRIS Payment</h2>
+        <p style="color: var(--text-secondary); margin-top: 0.5rem;">
+            Upload QRIS QR Code untuk ditampilkan di invoice. Tamu dapat scan untuk membayar.
+        </p>
+        
+        <div style="margin-top: 1.5rem;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: start;">
+                <!-- Upload Form -->
+                <div>
+                    <label class="form-label" style="font-weight: 700; margin-bottom: 1rem;">📸 Upload QRIS Image</label>
+                    <form id="qrisUploadForm" method="POST" enctype="multipart/form-data">
+                        <input type="hidden" name="action" value="upload_qris">
+                        <div style="border: 2px dashed #6366f1; border-radius: 8px; padding: 1.5rem; text-align: center; cursor: pointer;" id="dropZone">
+                            <div style="font-size: 2rem; margin-bottom: 0.5rem;">📤</div>
+                            <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem;">Drag & drop or click</div>
+                            <div style="color: var(--text-secondary); font-size: 0.85rem;">JPG, PNG, GIF, WebP (Max 2MB)</div>
+                            <input type="file" id="qrisFile" name="qris_image" accept="image/*" style="display: none;" required onchange="handleFileSelect()">
+                        </div>
+                        <button type="submit" class="btn btn-success" style="width: 100%; margin-top: 1rem;">✓ Upload QRIS</button>
+                    </form>
+                    <div id="uploadStatus" style="margin-top: 1rem; font-size: 0.9rem;"></div>
+                </div>
+                
+                <!-- Current QRIS Preview -->
+                <div>
+                    <label class="form-label" style="font-weight: 700; margin-bottom: 1rem;">✓ Current QRIS</label>
+                    <?php if (!empty($qrisUrl)): ?>
+                        <div style="border: 2px solid #10b981; border-radius: 8px; padding: 1rem; text-align: center; background: rgba(16, 185, 129, 0.05);">
+                            <img src="<?php echo htmlspecialchars($qrisUrl); ?>" alt="Current QRIS" style="max-width: 100%; height: auto; border-radius: 4px; margin-bottom: 1rem;">
+                            <div style="color: #059669; font-weight: 600; margin-bottom: 1rem;">✓ QRIS aktif di invoice</div>
+                            <button type="button" class="btn btn-danger" onclick="deleteQRIS()" style="width: 100%;">🗑️ Hapus QRIS</button>
+                        </div>
+                    <?php else: ?>
+                        <div style="border: 2px dashed #6b7d94; border-radius: 8px; padding: 2rem; text-align: center; color: var(--text-secondary); background: rgba(0, 0, 0, 0.2);">
+                            <div style="font-size: 3rem; margin-bottom: 0.5rem;">❌</div>
+                            <div>Belum ada QRIS di-upload</div>
+                            <div style="font-size: 0.85rem; margin-top: 0.5rem;">Upload QRIS di form sebelah</div>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-card">
+        <h2 style="margin-top: 0; color: var(--primary);">📝 Invoice Signature</h2>
+        <p style="color: var(--text-secondary); margin-top: 0.5rem;">
+            Setup tanda tangan Accounting yang akan tampil di invoice
+        </p>
+        
+        <form method="POST" style="margin-top: 1.5rem;">
+            <div class="form-group">
+                <label class="form-label">Nama Accounting / Finance Staff</label>
+                <input type="text" name="accounting_name" class="form-input" 
+                       value="<?php 
+                           $accRow = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = ?");
+                           $accRow->execute(['invoice_accounting_name_' . ACTIVE_BUSINESS_ID]);
+                           $accData = $accRow->fetch(PDO::FETCH_ASSOC);
+                           echo htmlspecialchars($accData['setting_value'] ?? '');
+                       ?>" 
+                       placeholder="Contoh: Budi Santoso">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Judul / Posisi</label>
+                <input type="text" name="accounting_title" class="form-input" 
+                       value="<?php 
+                           $titleRow = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = ?");
+                           $titleRow->execute(['invoice_accounting_title_' . ACTIVE_BUSINESS_ID]);
+                           $titleData = $titleRow->fetch(PDO::FETCH_ASSOC);
+                           echo htmlspecialchars($titleData['setting_value'] ?? 'Accounting Staff');
+                       ?>" 
+                       placeholder="Contoh: Accounting Staff">
+            </div>
+            
+            <button type="submit" name="action" value="save_accounting" class="btn btn-success" style="width: 100%;">✓ Simpan Info Accounting</button>
+        </form>
+    </div>
+
+    <script>
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('qrisFile');
+    
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = '#8b5cf6';
+        dropZone.style.background = 'rgba(139, 92, 246, 0.05)';
+    });
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.style.borderColor = '#6366f1';
+        dropZone.style.background = '';
+    });
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = '#6366f1';
+        dropZone.style.background = '';
+        if (e.dataTransfer.files.length) {
+            fileInput.files = e.dataTransfer.files;
+            handleFileSelect();
+        }
+    });
+    
+    function handleFileSelect() {
+        const file = fileInput.files[0];
+        if (!file) return;
+        
+        const status = document.getElementById('uploadStatus');
+        status.innerHTML = '⏳ Uploading: ' + file.name;
+        status.style.color = '#f59e0b';
+        
+        document.getElementById('qrisUploadForm').submit();
+    }
+    
+    function deleteQRIS() {
+        if (!confirm('Hapus QRIS saat ini?')) return;
+        
+        const fd = new FormData();
+        fd.append('action', 'delete_qris');
+        
+        fetch(window.location.href, { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(d => {
+                if (d.success) {
+                    alert('✓ QRIS deleted');
+                    location.reload();
+                } else {
+                    alert('Error: ' + d.message);
+                }
+            })
+            .catch(e => alert('Error: ' + e.message));
     }
     </script>
 
