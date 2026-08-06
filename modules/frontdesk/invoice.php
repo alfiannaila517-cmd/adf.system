@@ -197,6 +197,69 @@ foreach ($settingsResult as $setting) {
 if (empty($companySettings['name'])) {
     $companySettings['name'] = $business['business_name'] ?? 'Narayana Hotel';
 }
+
+// Handle QRIS upload
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'upload_qris') {
+    header('Content-Type: application/json');
+    
+    try {
+        if (!isset($_FILES['qris_image']) || $_FILES['qris_image']['error'] !== UPLOAD_ERR_OK) {
+            throw new Exception('No file uploaded');
+        }
+        
+        $file = $_FILES['qris_image'];
+        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        
+        if (!in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
+            throw new Exception('Invalid image format. Allowed: JPG, PNG, GIF, WebP');
+        }
+        
+        if ($file['size'] > 2 * 1024 * 1024) {
+            throw new Exception('File too large (max 2MB)');
+        }
+        
+        // Save to uploads folder
+        $uploadDir = __DIR__ . '/../../uploads/qris/';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+        
+        $filename = 'qris_' . $businessId . '_' . time() . '.' . $ext;
+        $filepath = $uploadDir . $filename;
+        
+        if (move_uploaded_file($file['tmp_name'], $filepath)) {
+            // Save path to settings
+            $settingKey = 'invoice_qris_' . ACTIVE_BUSINESS_ID;
+            $storedPath = 'uploads/qris/' . $filename;
+            
+            $existing = $db->fetchOne("SELECT id FROM settings WHERE setting_key = ?", [$settingKey]);
+            if ($existing) {
+                $db->query("UPDATE settings SET setting_value = ?, updated_at = NOW() WHERE setting_key = ?", [$storedPath, $settingKey]);
+            } else {
+                $db->query("INSERT INTO settings (setting_key, setting_value, created_at) VALUES (?, ?, NOW())", [$settingKey, $storedPath]);
+            }
+            
+            echo json_encode(['success' => true, 'message' => 'QRIS uploaded successfully', 'path' => BASE_URL . '/' . $storedPath]);
+            exit;
+        } else {
+            throw new Exception('Failed to save file');
+        }
+    } catch (Exception $e) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        exit;
+    }
+}
+
+// Get QRIS image from settings
+$qrisRow = $db->fetchOne(
+    "SELECT setting_value FROM settings WHERE setting_key = ?",
+    ['invoice_qris_' . ACTIVE_BUSINESS_ID]
+);
+$qrisUrl = $qrisRow['setting_value'] ?? null;
+if (!empty($qrisUrl) && strpos($qrisUrl, 'http') !== 0) {
+    $qrisUrl = BASE_URL . '/' . $qrisUrl;
+}
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -795,6 +858,99 @@ if (empty($companySettings['name'])) {
             background: #e8f1f8;
         }
 
+        /* QRIS Section */
+        .qris-section {
+            margin-top: 12px;
+            padding: 10px 14px;
+            background: #f0f5fb;
+            border: 1px solid #0D3B66;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .qris-title {
+            font-family: 'DM Serif Display', serif;
+            font-size: 0.68rem;
+            font-weight: 400;
+            color: #0D3B66;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 8px;
+        }
+
+        .qris-image {
+            max-width: 120px;
+            height: auto;
+            border: 1px solid #D4AF37;
+            border-radius: 3px;
+            display: inline-block;
+        }
+
+        .qris-description {
+            font-size: 0.65rem;
+            color: #6b7d94;
+            margin-top: 6px;
+            font-style: italic;
+        }
+
+        /* Admin Control */
+        .admin-control {
+            margin-bottom: 20px;
+            padding: 12px;
+            background: #f9f9f9;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+        }
+
+        .control-title {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .qris-upload-form {
+            display: flex;
+            gap: 8px;
+            align-items: flex-start;
+        }
+
+        .qris-upload-form input[type="file"] {
+            padding: 6px 8px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            font-size: 0.8rem;
+            flex: 1;
+        }
+
+        .qris-upload-form button {
+            padding: 6px 14px;
+            background: #0D3B66;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .qris-upload-form button:hover {
+            background: #1a4d7d;
+        }
+
+        .qris-current {
+            margin-top: 10px;
+            font-size: 0.75rem;
+            color: #666;
+        }
+
+        .qris-current img {
+            max-width: 80px;
+            margin-top: 6px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+        }
+
         @media print {
             body {
                 padding: 0;
@@ -809,6 +965,10 @@ if (empty($companySettings['name'])) {
             .actions {
                 display: none !important;
             }
+
+            .admin-control {
+                display: none !important;
+            }
         }
 
         @page {
@@ -819,6 +979,21 @@ if (empty($companySettings['name'])) {
 </head>
 
 <body>
+    <!-- Admin Control: QRIS Upload -->
+    <div class="admin-control">
+        <div class="control-title">📸 Setup QRIS Payment QR Code</div>
+        <div class="qris-upload-form">
+            <input type="file" id="qrisFile" accept="image/*" placeholder="Choose QRIS image...">
+            <button onclick="uploadQRIS()">Upload QRIS</button>
+        </div>
+        <?php if (!empty($qrisUrl)): ?>
+            <div class="qris-current">
+                ✓ QRIS aktif di invoice
+                <div><img src="<?php echo htmlspecialchars($qrisUrl); ?>" alt="Current QRIS"></div>
+            </div>
+        <?php endif; ?>
+    </div>
+
     <div class="invoice-page" id="invoiceContent">
         <div class="watermark wm-<?php echo $overallStatus; ?>"><?php echo $overallLabel; ?></div>
         <div class="top-border"></div>
@@ -1001,6 +1176,15 @@ if (empty($companySettings['name'])) {
 
             </div>
 
+            <!-- QRIS Payment Section -->
+            <?php if (!empty($qrisUrl)): ?>
+            <div class="qris-section">
+                <div class="qris-title">💳 Pembayaran QRIS</div>
+                <img src="<?php echo htmlspecialchars($qrisUrl); ?>" alt="QRIS Payment" class="qris-image">
+                <div class="qris-description">Scan untuk membayar invoice ini</div>
+            </div>
+            <?php endif; ?>
+
             <!-- Footer -->
             <div class="footer">
                 <div class="ty">Thank you for staying with us</div>
@@ -1026,6 +1210,34 @@ if (empty($companySettings['name'])) {
             document.title = 'Invoice_<?php echo $isMultiRoom ? preg_replace('/[^a-zA-Z0-9]/', '_', $booking['guest_name']) : $booking['booking_code']; ?>_<?php echo date('Ymd'); ?>';
             window.print();
         }
+
+        function uploadQRIS() {
+            const file = document.getElementById('qrisFile').files[0];
+            if (!file) {
+                alert('Please select a file');
+                return;
+            }
+
+            const fd = new FormData();
+            fd.append('action', 'upload_qris');
+            fd.append('qris_image', file);
+
+            fetch(window.location.href, {
+                method: 'POST',
+                body: fd
+            })
+            .then(r => r.json())
+            .then(d => {
+                if (d.success) {
+                    alert('✓ QRIS uploaded successfully!');
+                    location.reload();
+                } else {
+                    alert('Error: ' + (d.message || 'Upload failed'));
+                }
+            })
+            .catch(e => alert('Network error: ' + e.message));
+        }
+
         <?php if ($isPdf): ?>
             window.onload = function() {
                 setTimeout(function() {
