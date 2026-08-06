@@ -215,6 +215,11 @@ $accountingNameRow = $db->fetchOne(
 );
 $accountingName = $accountingNameRow['setting_value'] ?? '';
 
+// If no saved name, use current logged-in user's name
+if (empty($accountingName)) {
+    $accountingName = $currentUser['full_name'] ?? 'Accounting Staff';
+}
+
 $accountingTitleRow = $db->fetchOne(
     "SELECT setting_value FROM settings WHERE setting_key = ?",
     ['invoice_accounting_title_' . ACTIVE_BUSINESS_ID]

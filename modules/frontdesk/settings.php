@@ -1879,14 +1879,25 @@ include '../../includes/header.php';
         <form method="POST" style="margin-top: 1.5rem;">
             <div class="form-group">
                 <label class="form-label">Nama Accounting / Finance Staff</label>
-                <input type="text" name="accounting_name" class="form-input" 
+                <input type="text" name="accounting_name" class="form-input" readonly
                        value="<?php 
+                           // Try to get saved name first
                            $accRow = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = ?");
                            $accRow->execute(['invoice_accounting_name_' . ACTIVE_BUSINESS_ID]);
                            $accData = $accRow->fetch(PDO::FETCH_ASSOC);
-                           echo htmlspecialchars($accData['setting_value'] ?? '');
+                           $savedName = $accData['setting_value'] ?? '';
+                           
+                           // If no saved name, use current user's full name
+                           if (empty($savedName)) {
+                               $savedName = $currentUser['full_name'] ?? '';
+                           }
+                           
+                           echo htmlspecialchars($savedName);
                        ?>" 
-                       placeholder="Contoh: Budi Santoso">
+                       placeholder="Auto-populated from your login">
+                <small style="color: var(--text-secondary); display: block; margin-top: 0.3rem;">
+                    Auto-filled dengan nama user login Anda
+                </small>
             </div>
             
             <div class="form-group">
