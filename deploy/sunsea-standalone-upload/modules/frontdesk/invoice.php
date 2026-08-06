@@ -703,58 +703,6 @@ $accountingTitle = $accountingTitleRow['setting_value'] ?? 'Accounting Staff';
             font-weight: 600;
         }
 
-        /* Bank info */
-        .bank-info {
-            margin-top: 14px;
-            padding: 10px 14px;
-            background: #fafaf8;
-            border: 1px solid #e8e6e1;
-            border-radius: 4px;
-            display: flex;
-            align-items: center;
-            gap: 14px;
-        }
-
-        .bank-info .bank-icon {
-            width: 38px;
-            height: 38px;
-            background: #0D3B66;
-            border-radius: 4px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #D4AF37;
-            font-size: 0.95rem;
-            flex-shrink: 0;
-        }
-
-        .bank-info .bank-details {
-            font-size: 0.76rem;
-            line-height: 1.6;
-        }
-
-        .bank-info .bank-details .bank-label {
-            font-size: 0.55rem;
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            color: #0D3B66;
-            margin-bottom: 2px;
-        }
-
-        .bank-info .bank-details .bank-number {
-            font-family: 'Source Code Pro', monospace;
-            font-size: 0.95rem;
-            font-weight: 700;
-            color: #0D3B66;
-            letter-spacing: 1.5px;
-        }
-
-        .bank-info .bank-details .bank-holder {
-            color: #8a8a8a;
-            font-size: 0.7rem;
-        }
-
         /* Footer */
         .footer {
             margin-top: auto;
@@ -824,39 +772,6 @@ $accountingTitle = $accountingTitleRow['setting_value'] ?? 'Accounting Staff';
 
         .btn-light:hover {
             background: #e8f1f8;
-        }
-
-        /* QRIS Section */
-        .qris-section {
-            margin-top: 12px;
-            margin-bottom: 12px;
-            padding: 8px;
-            text-align: center;
-        }
-
-        .qris-title {
-            font-family: 'DM Serif Display', serif;
-            font-size: 0.68rem;
-            font-weight: 400;
-            color: #0D3B66;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            margin-bottom: 8px;
-        }
-
-        .qris-image {
-            max-width: 120px;
-            height: auto;
-            border: 1px solid #D4AF37;
-            border-radius: 3px;
-            display: inline-block;
-        }
-
-        .qris-description {
-            font-size: 0.65rem;
-            color: #6b7d94;
-            margin-top: 6px;
-            font-style: italic;
         }
 
         /* Signature Section */
@@ -1119,28 +1034,31 @@ $accountingTitle = $accountingTitleRow['setting_value'] ?? 'Accounting Staff';
                 </div>
             <?php endif; ?>
 
-            <!-- QRIS Payment Section -->
-            <?php if (!empty($qrisUrl)): ?>
-            <div class="qris-section">
-                <div style="text-align: center;">
-                    <div style="font-size: 0.75rem; font-weight: 600; color: #0D3B66; margin-bottom: 0.5rem; letter-spacing: 1px;">QRIS PAYMENT</div>
-                    <img src="<?php echo htmlspecialchars($qrisUrl); ?>" alt="QRIS" style="width: 80px; height: 80px; border: 1px solid #D4AF37; border-radius: 3px;">
+            <!-- Payment Methods (Side-by-side) -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin: 0.8rem 0; align-items: start;">
+                <!-- QRIS Payment -->
+                <?php if (!empty($qrisUrl)): ?>
+                <div style="text-align: center; padding: 0.5rem 0;">
+                    <div style="font-size: 0.7rem; font-weight: 600; color: #0D3B66; margin-bottom: 0.3rem; letter-spacing: 1px;">QRIS PAYMENT</div>
+                    <img src="<?php echo htmlspecialchars($qrisUrl); ?>" alt="QRIS" style="width: 70px; height: 70px; border: 1px solid #D4AF37; border-radius: 2px;">
                 </div>
-            </div>
-            <?php endif; ?>
+                <?php else: ?>
+                <div></div>
+                <?php endif; ?>
 
-            <!-- Bank Account -->
-            <div class="bank-info">
-                <div class="bank-icon">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d4cfc7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
-                        <line x1="1" y1="10" x2="23" y2="10"/>
-                    </svg>
-                </div>
-                <div class="bank-details">
-                    <div class="bank-label">Transfer Payment</div>
-                    <div class="bank-number">1926663992</div>
-                    <div class="bank-holder">a.n. Narayana Hotel Karimunjawa &mdash; BNI Jepara</div>
+                <!-- Bank Transfer -->
+                <div style="display: flex; align-items: center; gap: 0.8rem; padding: 0.5rem 0;">
+                    <div style="flex-shrink: 0;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0D3B66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+                            <line x1="1" y1="10" x2="23" y2="10"/>
+                        </svg>
+                    </div>
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-size: 0.65rem; color: #6b7d94; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.2rem;">Transfer</div>
+                        <div style="font-size: 0.85rem; font-weight: 600; color: #0D3B66; word-break: break-all;">1926663992</div>
+                        <div style="font-size: 0.65rem; color: #6b7d94; margin-top: 0.15rem;">BNI Jepara &mdash; Narayana</div>
+                    </div>
                 </div>
             </div>
 
