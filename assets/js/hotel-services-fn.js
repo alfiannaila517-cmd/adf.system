@@ -49,14 +49,30 @@ function buildSvcOpts (selected) {
   ).join('')
 }
 
-function buildRentalAssetOpts (items, selected) {
+function buildRentalAssetOpts (items, selected, motorSource = '') {
   let html = '<option value="">Pilih armada...</option>'
   items.forEach(item => {
-    html += `<option value="${item.id}" data-rate="${item.daily_rate}" ${
-      String(item.id) === String(selected || '') ? 'selected' : ''
-    }>${item.label}</option>`
+    let include = true
+    if (motorSource === 'hotel') {
+      include = !item.partner_owner || item.partner_owner.trim() === ''
+    } else if (motorSource === 'external') {
+      include = item.partner_owner && item.partner_owner.trim() !== ''
+    }
+    if (include) {
+      html += `<option value="${item.id}" data-rate="${item.daily_rate}" ${
+        String(item.id) === String(selected || '') ? 'selected' : ''
+      }>${item.label}</option>`
+    }
   })
   return html
+}
+
+function buildMotorSourceOpts (selected) {
+  return `
+    <option value="">🏍️ Pilih sumber motor</option>
+    <option value="hotel" ${selected === 'hotel' ? 'selected' : ''}>🏨 Motor Hotel</option>
+    <option value="external" ${selected === 'external' ? 'selected' : ''}>🤝 Motor Luar (Mitra)</option>
+  `
 }
 
 function buildCatalogPaketOpts (svc, selectedIdx) {
@@ -271,6 +287,7 @@ function addItemRow (svc, desc, qty, price) {
     `</div>` +
     `<div class="hs-rental-extra">` +
     `<div class="hs-rental-row1">` +
+    `<div class="iMotorSourceWrap hs-ic-labeled" style="display:none"><span>Sumber Motor</span><select class="iMotorSource" onchange="onMotorSourceChange('${id}')"></select></div>` +
     `<div class="hs-ic-labeled hs-asset-wrap"><span>Armada</span><select class="iAsset" onchange="onRentalAssetChange('${id}')"><option value="">Pilih armada...</option></select></div>` +
     `<div class="hs-ic-labeled hs-paket-wrap" style="display:none"><span>Paket / Jenis</span><select class="iPaket" onchange="onPaketChange('${id}')"><option value="">── Harga dari Armada ──</option></select></div>` +
     `<div class="hs-ic-labeled"><span>Hari Sewa</span><input type="number" class="iDays" value="1" min="1" max="365" step="1" onchange="onDaysChange('${id}')"></div>` +
@@ -349,6 +366,16 @@ function onSvcChange (id, isNew) {
     assetSelect.innerHTML = buildRentalAssetOpts(rentalItems, assetSelect.value)
     if (assetWrap) assetWrap.style.display = svc === 'car_rental' ? 'none' : ''
     if (destWrap) destWrap.style.display = svc === 'car_rental' ? '' : 'none'
+    // Show motor source dropdown for motor_rental
+    const motorSourceWrap = tr.querySelector('.iMotorSourceWrap')
+    const motorSourceSel = tr.querySelector('.iMotorSource')
+    if (svc === 'motor_rental') {
+      if (motorSourceWrap) motorSourceWrap.style.display = ''
+      if (motorSourceSel) motorSourceSel.innerHTML = buildMotorSourceOpts(motorSourceSel.value)
+    } else {
+      if (motorSourceWrap) motorSourceWrap.style.display = 'none'
+      if (motorSourceSel) motorSourceSel.value = ''
+    }
     // Set default 1 day
     if (!tr.querySelector('.iDays').value) tr.querySelector('.iDays').value = 1
     // Populate paket picker from catalog
@@ -441,6 +468,26 @@ function onRentalAssetChange (id, keepManualDesc) {
     descInput.dataset.autoFilled = '1'
   }
   if (tr.querySelector('.iNeedsDriver')?.checked) prefillDriverCommission(tr)
+  // Auto-check driver if this vehicle has a preset driver rate
+  if (chosen.driver_daily_rate > 0) {
+    const chk = tr.querySelector('.iNeedsDriver')
+    const commWrap = tr.querySelector('.iCommWrap')
+    if (chk) chk.checked = true
+    if (commWrap) commWrap.style.display = 'flex'
+    prefillDriverCommission(tr)
+  }
+  rcalc(id)
+}
+
+function onMotorSourceChange (id) {
+  const tr = document.getElementById(id)
+  if (!tr) return
+  const motorSourceSel = tr.querySelector('.iMotorSource')
+  const motorSource = motorSourceSel.value
+  const assetSelect = tr.querySelector('.iAsset')
+  assetSelect.innerHTML = buildRentalAssetOpts(RENTAL_MOTORS, assetSelect.value, motorSource)
+  onRentalAssetChange(id, false)
+}
   // Auto-check driver if this vehicle has a preset driver rate
   if (chosen.driver_daily_rate > 0) {
     const chk = tr.querySelector('.iNeedsDriver')
