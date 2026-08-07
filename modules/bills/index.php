@@ -1097,6 +1097,7 @@ include '../../includes/header.php';
 
             <div class="category-tabs">
                 <button class="category-btn active" data-cat="driver" onclick="switchCategory('driver')"><span class="ico">🚕</span> Driver</button>
+                <button class="category-btn" data-cat="motor" onclick="switchCategory('motor')"><span class="ico">🏍️</span> Motor</button>
                 <button class="category-btn" data-cat="trip" onclick="switchCategory('trip')"><span class="ico">🧭</span> Trip</button>
                 <button class="category-btn" data-cat="manual" onclick="switchCategory('manual')"><span class="ico">🧾</span> Manual</button>
                 <button class="category-btn" data-cat="bulanan" onclick="switchCategory('bulanan')"><span class="ico">🔁</span> Bulanan</button>
@@ -1116,6 +1117,10 @@ include '../../includes/header.php';
             </div>
 
             <div id="driverRecapSection" class="bill-list" style="display:none;">
+                <p style="color: #999; text-align: center; padding: 40px 20px;">Loading...</p>
+            </div>
+
+            <div id="motorRecapSection" class="bill-list" style="display:none;">
                 <p style="color: #999; text-align: center; padding: 40px 20px;">Loading...</p>
             </div>
         </div>
@@ -1338,24 +1343,32 @@ include '../../includes/header.php';
     function onMonthChange() {
         if (currentCategory === 'driver' || currentCategory === 'trip') {
             loadDriverRecap();
+        } else if (currentCategory === 'motor') {
+            loadMotorRecap();
         } else {
             loadBills();
         }
     }
 
-    // SWITCH CATEGORY (Driver / Trip / Manual / Bulanan)
+    // SWITCH CATEGORY (Driver / Motor / Trip / Manual / Bulanan)
     function switchCategory(cat) {
         currentCategory = cat;
         document.querySelectorAll('.category-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.cat === cat);
         });
 
-        const isRecap = cat === 'driver' || cat === 'trip';
+        const isRecap = cat === 'driver' || cat === 'motor' || cat === 'trip';
+        const isMotor = cat === 'motor';
+        const isDriver = cat === 'driver' || cat === 'trip';
+        
         document.getElementById('manualBillsWrap').style.display = isRecap ? 'none' : 'block';
-        document.getElementById('driverRecapSection').style.display = isRecap ? 'block' : 'none';
+        document.getElementById('driverRecapSection').style.display = isDriver ? 'block' : 'none';
+        document.getElementById('motorRecapSection').style.display = isMotor ? 'block' : 'none';
 
-        if (isRecap) {
+        if (isDriver) {
             loadDriverRecap();
+        } else if (isMotor) {
+            loadMotorRecap();
         } else {
             loadBills();
         }
@@ -1658,6 +1671,134 @@ include '../../includes/header.php';
                         <thead><tr><th>Tanggal</th><th>Jenis</th><th>Tamu</th><th style="text-align:right;">Total</th><th style="text-align:right;">Pemilik</th><th style="text-align:right;">Aksi</th></tr></thead>
                         <tbody>${detailRows}</tbody>
                     </table>` : '<p style="color:#999;font-size:11px;text-align:center;padding:8px;">Tidak ada trip dengan filter ini</p>'}
+                </div>`;
+        });
+
+        recapEl.innerHTML = html;
+    }
+
+    let lastMotorRecap = [];
+    let motorPayFilter = 'all';
+
+    function setMotorPayFilter(filter) {
+        motorPayFilter = filter;
+        renderMotorRecap();
+    }
+
+    async function loadMotorRecap() {
+        const month = document.getElementById('filterMonth').value;
+        const recapEl = document.getElementById('motorRecapSection');
+
+        if (!month) {
+            recapEl.innerHTML = '<p style="color: #999; text-align: center; padding: 40px;">Pilih bulan terlebih dahulu</p>';
+            return;
+        }
+
+        recapEl.innerHTML = '<p style="color: #999; text-align: center; padding: 40px 20px;">Loading...</p>';
+
+        try {
+            const response = await fetch(BASE_URL + `/api/get-motor-recap.php?month=${month}`, {
+                method: 'GET',
+                credentials: 'include'
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+
+            if (!result.success) {
+                recapEl.innerHTML = `<p style="color: #d32f2f; text-align: center; padding: 20px;">Error: ${result.message}</p>`;
+                return;
+            }
+
+            lastMotorRecap = result.recap || [];
+            renderMotorRecap();
+        } catch (error) {
+            console.error('[MotorRecap] Error:', error);
+            recapEl.innerHTML = `<p style="color: #d32f2f; text-align: center; padding: 20px;">❌ Error: ${error.message}</p>`;
+        }
+    }
+
+    function renderMotorRecap() {
+        const recapEl = document.getElementById('motorRecapSection');
+
+        if (!lastMotorRecap || lastMotorRecap.length === 0) {
+            recapEl.innerHTML = `<p style="color: #999; text-align: center; padding: 40px;">Belum ada tagihan motor bulan ini</p>`;
+            return;
+        }
+
+        let html = `
+            <div class="pay-filter-bar">
+                <button class="pay-filter-btn ${motorPayFilter === 'all' ? 'active' : ''}" onclick="setMotorPayFilter('all')"><span class="ico">📋</span>Semua Rental</button>
+                <button class="pay-filter-btn ${motorPayFilter === 'unpaid' ? 'active' : ''}" onclick="setMotorPayFilter('unpaid')"><span class="ico">⏳</span>Belum Dibayar</button>
+                <button class="pay-filter-btn ${motorPayFilter === 'paid' ? 'active' : ''}" onclick="setMotorPayFilter('paid')"><span class="ico">✅</span>Sudah Dibayar</button>
+            </div>
+        `;
+
+        lastMotorRecap.forEach((motor, idx) => {
+            const baseRows = motor.detail_rows || [];
+
+            if (baseRows.length === 0) return;
+
+            const rows = baseRows.filter(d => {
+                if (motorPayFilter === 'unpaid') return !d.paid;
+                if (motorPayFilter === 'paid') return d.paid;
+                return true;
+            });
+
+            if (rows.length === 0 && motorPayFilter !== 'all') return;
+
+            const scopedTotalRevenue = baseRows.reduce((sum, r) => sum + (parseFloat(r.total_price) || 0), 0);
+            const scopedOwnerTotal = baseRows.reduce((sum, r) => sum + (parseFloat(r.owner_amount) || 0), 0);
+            const scopedPaidTotal = baseRows.filter(r => r.paid).reduce((sum, r) => sum + (parseFloat(r.owner_amount) || 0), 0);
+            const scopedUnpaidTotal = baseRows.filter(r => !r.paid).reduce((sum, r) => sum + (parseFloat(r.owner_amount) || 0), 0);
+            const scopedPaidTrips = baseRows.filter(r => r.paid).length;
+            const scopedUnpaidTrips = baseRows.length - scopedPaidTrips;
+            const scopedHotelTotal = Math.max(0, scopedTotalRevenue - scopedOwnerTotal);
+            const scopedAvgPct = scopedTotalRevenue > 0 ? Math.round((scopedOwnerTotal / scopedTotalRevenue) * 100) : 0;
+
+            const motorNameSafe = (motor.partner_owner || 'Tanpa Pemilik').replace(/'/g, "\\'");
+
+            const detailRows = rows.slice(0, 15).map(d => `
+                <tr>
+                    <td>${new Date(d.trx_date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                    <td>${d.motor_name || '—'}<br><span style="color:#94a0b8;">${d.plate_number || ''}</span></td>
+                    <td>${d.guest_name || '—'}${d.room_number ? '<br><span style="color:#94a0b8;">Kamar ' + d.room_number + '</span>' : ''}</td>
+                    <td style="text-align:right;font-weight:700;">Rp ${formatNumber(d.total_price)}</td>
+                    <td style="text-align:right;font-weight:700;color:#16794d;">Rp ${formatNumber(d.owner_amount)}</td>
+                    <td style="text-align:right;">
+                        <div style="display:flex;gap:4px;justify-content:flex-end;align-items:center;flex-wrap:wrap;">
+                            ${d.paid
+                                ? `<span class="btn-trip-paid">✅ Lunas</span>`
+                                : `<button class="btn-trip-pay" onclick="payMotorRental(${d.rental_id}, ${d.owner_amount}, '${motorNameSafe}')">Bayar</button>`
+                            }
+                        </div>
+                    </td>
+                </tr>`).join('');
+
+            html += `
+                <div class="driver-recap-card">
+                    <div class="dr-name">
+                        <span>🏍️ ${motor.partner_owner || 'Tanpa Pemilik'}${motor.owner_phone ? ' <span style="font-weight:400;color:#6b7690;font-size:11px;">&middot; ' + motor.owner_phone + '</span>' : ''}</span>
+                    </div>
+                    <div class="dr-stats">
+                        <div class="dr-stat"><div class="v">${baseRows.length}</div><div class="l">🏍️ Total Rental</div></div>
+                        <div class="dr-stat"><div class="v">Rp ${formatNumber(scopedTotalRevenue)}</div><div class="l">Total Revenue</div></div>
+                        <div class="dr-stat"><div class="v">Rp ${formatNumber(scopedOwnerTotal)}</div><div class="l">Bagian Mitra (${scopedAvgPct}%)</div></div>
+                        <div class="dr-stat"><div class="v">Rp ${formatNumber(scopedHotelTotal)}</div><div class="l">Komisi Hotel</div></div>
+                    </div>
+                    <div class="dr-paid-summary">
+                        <span>✅ Sudah Dibayar: <strong style="color:#16794d;">Rp ${formatNumber(scopedPaidTotal)}</strong> (${scopedPaidTrips} rental)</span>
+                        <span>⏳ Belum Dibayar: <strong style="color:#d97706;">Rp ${formatNumber(scopedUnpaidTotal)}</strong> (${scopedUnpaidTrips} rental)</span>
+                    </div>
+                    ${detailRows ? `
+                    <div style="font-size:11px;font-weight:700;color:#475569;margin-top:8px;">Detail Transaksi</div>
+                    <table>
+                        <thead><tr><th>Tanggal</th><th>Motor</th><th>Tamu</th><th style="text-align:right;">Total</th><th style="text-align:right;">Mitra</th><th style="text-align:right;">Aksi</th></tr></thead>
+                        <tbody>${detailRows}</tbody>
+                    </table>` : '<p style="color:#999;font-size:11px;text-align:center;padding:8px;">Tidak ada rental dengan filter ini</p>'}
                 </div>`;
         });
 
