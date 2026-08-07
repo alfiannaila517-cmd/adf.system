@@ -3373,6 +3373,6 @@ include '../../includes/header.php';
         console.error('[hs-data] failed:', e);
     }
 </script>
-<script src="../../assets/js/hotel-services-fn.js?v=20260731"></script>
+<script src="../../assets/js/hotel-services-fn.js?v=20260807"></script>
 
 <?php include '../../includes/footer.php'; ?>
