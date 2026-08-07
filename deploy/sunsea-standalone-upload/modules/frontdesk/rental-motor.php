@@ -110,26 +110,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
 
         // ── SAVE MOTOR (add / edit) ─────────────────────────────────────────
         if ($action === 'save_motor') {
-            $mid         = (int)($_POST['motor_id'] ?? 0);
-            $plateNumber = strtoupper(trim($_POST['plate_number'] ?? ''));
-            $motorName   = trim($_POST['motor_name'] ?? '');
-            $color       = trim($_POST['color'] ?? '');
-            $year        = (int)($_POST['year'] ?? 0) ?: null;
-            $dailyRate   = max(0, (float)($_POST['daily_rate'] ?? 0));
-            $motorStatus = $_POST['motor_status'] ?? 'available';
-            $notes       = trim($_POST['notes'] ?? '');
+            $mid                    = (int)($_POST['motor_id'] ?? 0);
+            $plateNumber            = strtoupper(trim($_POST['plate_number'] ?? ''));
+            $motorName              = trim($_POST['motor_name'] ?? '');
+            $color                  = trim($_POST['color'] ?? '');
+            $year                   = (int)($_POST['year'] ?? 0) ?: null;
+            $dailyRate              = max(0, (float)($_POST['daily_rate'] ?? 0));
+            $motorStatus            = $_POST['motor_status'] ?? 'available';
+            $notes                  = trim($_POST['notes'] ?? '');
+            $partnerOwner           = trim($_POST['partner_owner'] ?? '');
+            $ownerPhone             = trim($_POST['owner_phone'] ?? '');
+            $ownerCommissionPct     = max(0, min(100, (float)($_POST['owner_commission_pct'] ?? 0)));
+            $driverDailyRate        = max(0, (float)($_POST['driver_daily_rate'] ?? 0));
 
             if (!$plateNumber || !$motorName) throw new Exception('Plat nomor dan nama motor wajib diisi');
             if (!in_array($motorStatus, ['available', 'rented', 'maintenance'])) $motorStatus = 'available';
 
             if ($mid) {
-                $pdo->prepare("UPDATE rental_motors SET plate_number=?,motor_name=?,color=?,year=?,daily_rate=?,status=?,notes=?,updated_at=NOW()
+                $pdo->prepare("UPDATE rental_motors SET plate_number=?,motor_name=?,color=?,year=?,daily_rate=?,status=?,notes=?,partner_owner=?,owner_phone=?,owner_commission_pct=?,driver_daily_rate=?,updated_at=NOW()
                     WHERE id=? AND business_id=?")
-                    ->execute([$plateNumber, $motorName, $color ?: null, $year, $dailyRate, $motorStatus, $notes ?: null, $mid, $businessId]);
+                    ->execute([$plateNumber, $motorName, $color ?: null, $year, $dailyRate, $motorStatus, $notes ?: null, $partnerOwner ?: null, $ownerPhone ?: null, $ownerCommissionPct, $driverDailyRate, $mid, $businessId]);
             } else {
-                $pdo->prepare("INSERT INTO rental_motors (business_id,plate_number,motor_name,color,year,daily_rate,status,notes)
-                    VALUES (?,?,?,?,?,?,?,?)")
-                    ->execute([$businessId, $plateNumber, $motorName, $color ?: null, $year, $dailyRate, $motorStatus, $notes ?: null]);
+                $pdo->prepare("INSERT INTO rental_motors (business_id,plate_number,motor_name,color,year,daily_rate,status,notes,partner_owner,owner_phone,owner_commission_pct,driver_daily_rate)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)")
+                    ->execute([$businessId, $plateNumber, $motorName, $color ?: null, $year, $dailyRate, $motorStatus, $notes ?: null, $partnerOwner ?: null, $ownerPhone ?: null, $ownerCommissionPct, $driverDailyRate]);
                 $mid = (int)$pdo->lastInsertId();
             }
             ob_clean();
@@ -1365,6 +1369,28 @@ include '../../includes/header.php';
         </div>
         <div class="rm-form-row full">
             <div class="rm-field">
+                <label>🤝 Nama Mitra Pemilik (Motor Luar)</label>
+                <input type="text" id="fm_partner_owner" placeholder="Nama mitra / pemilik motor">
+            </div>
+        </div>
+        <div class="rm-form-row">
+            <div class="rm-field">
+                <label>📞 No. Telepon Mitra</label>
+                <input type="text" id="fm_owner_phone" placeholder="08xxxxxxxxxx">
+            </div>
+            <div class="rm-field">
+                <label>% Komisi Mitra</label>
+                <input type="number" id="fm_commission_pct" placeholder="0" min="0" max="100" step="0.01">
+            </div>
+        </div>
+        <div class="rm-form-row">
+            <div class="rm-field">
+                <label>💰 Tarif Harian Mitra (Rp)</label>
+                <input type="number" id="fm_driver_daily_rate" placeholder="0" min="0">
+            </div>
+        </div>
+        <div class="rm-form-row full">
+            <div class="rm-field">
                 <label>Catatan</label>
                 <textarea id="fm_notes" placeholder="Catatan tambahan..."></textarea>
             </div>
@@ -1557,6 +1583,10 @@ include '../../includes/header.php';
         document.getElementById('fm_rate').value = m.daily_rate;
         document.getElementById('fm_status').value = m.status;
         document.getElementById('fm_notes').value = m.notes || '';
+        document.getElementById('fm_partner_owner').value = m.partner_owner || '';
+        document.getElementById('fm_owner_phone').value = m.owner_phone || '';
+        document.getElementById('fm_commission_pct').value = m.owner_commission_pct || 0;
+        document.getElementById('fm_driver_daily_rate').value = m.driver_daily_rate || 0;
         document.getElementById('motorModalTitle').textContent = 'Edit Motor';
         document.getElementById('motorModal').classList.add('open');
     }
@@ -1576,6 +1606,10 @@ include '../../includes/header.php';
         fd.append('daily_rate', document.getElementById('fm_rate').value);
         fd.append('motor_status', document.getElementById('fm_status').value);
         fd.append('notes', document.getElementById('fm_notes').value);
+        fd.append('partner_owner', document.getElementById('fm_partner_owner').value);
+        fd.append('owner_phone', document.getElementById('fm_owner_phone').value);
+        fd.append('owner_commission_pct', document.getElementById('fm_commission_pct').value);
+        fd.append('driver_daily_rate', document.getElementById('fm_driver_daily_rate').value);
 
         fetch('rental-motor.php', {
                 method: 'POST',
