@@ -82,10 +82,17 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS rental_motor_bookings (
     KEY idx_payment (payment_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-// Add missing columns if table was created before this update
-try {
-    $pdo->exec("ALTER TABLE rental_motor_bookings ADD COLUMN payment_date DATETIME DEFAULT NULL COMMENT 'when invoice was paid'");
-} catch (\Throwable $e) { /* column may already exist */
+// Add missing columns if table was created before partner system
+foreach ([
+    "ALTER TABLE rental_motors ADD COLUMN partner_owner VARCHAR(120) DEFAULT NULL COMMENT 'nama mitra pemilik motor luar'",
+    "ALTER TABLE rental_motors ADD COLUMN owner_phone VARCHAR(30) DEFAULT NULL",
+    "ALTER TABLE rental_motors ADD COLUMN owner_commission_pct DECIMAL(5,2) NOT NULL DEFAULT 0 COMMENT '% bagian mitra dari total'",
+    "ALTER TABLE rental_motors ADD COLUMN driver_daily_rate DECIMAL(15,2) NOT NULL DEFAULT 0 COMMENT 'tarif harian untuk mitra'",
+    "ALTER TABLE rental_motor_bookings ADD COLUMN owner_amount DECIMAL(15,2) NOT NULL DEFAULT 0 COMMENT 'bagian mitra pemilik motor'",
+    "ALTER TABLE rental_motor_bookings ADD COLUMN hotel_commission DECIMAL(15,2) NOT NULL DEFAULT 0 COMMENT 'bagian hotel dari komisi'",
+    "ALTER TABLE rental_motor_bookings ADD COLUMN payment_date DATETIME DEFAULT NULL COMMENT 'when invoice was paid'",
+] as $_altSql) {
+    try { $pdo->exec($_altSql); } catch (\Throwable $e) { /* column may already exist */ }
 }
 try {
     $pdo->exec("ALTER TABLE rental_motor_bookings ADD COLUMN return_confirmed TINYINT DEFAULT NULL COMMENT '1=sudah, 0=belum, NULL=not confirmed'");
@@ -138,6 +145,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             }
             ob_clean();
             echo json_encode(['success' => true, 'id' => $mid]);
+            exit;
+        }
+
+        // ── BULK ADD MOTORS ─────────────────────────────────────────────────
+        if ($action === 'bulk_add_motors') {
+            $motorName           = trim($_POST['motor_name'] ?? '');
+            $color               = trim($_POST['color'] ?? '');
+            $year                = (int)($_POST['year'] ?? 0) ?: null;
+            $dailyRate           = max(0, (float)($_POST['daily_rate'] ?? 0));
+            $partnerOwner        = trim($_POST['partner_owner'] ?? '');
+            $ownerPhone          = trim($_POST['owner_phone'] ?? '');
+            $ownerCommissionPct  = max(0, min(100, (float)($_POST['owner_commission_pct'] ?? 0)));
+            $driverDailyRate     = max(0, (float)($_POST['driver_daily_rate'] ?? 0));
+            $platesRaw           = trim($_POST['plates'] ?? '');
+            $unitCount           = max(1, min(50, (int)($_POST['unit_count'] ?? 1)));
+
+            if (!$motorName) throw new Exception('Nama motor wajib diisi');
+
+            // Parse plate list or generate sequential placeholders
+            $plates = [];
+            if ($platesRaw !== '') {
+                foreach (preg_split('/[\r\n,]+/', $platesRaw) as $p) {
+                    $p = strtoupper(trim($p));
+                    if ($p !== '') $plates[] = $p;
+                }
+            }
+            // Pad with auto-generated placeholders if fewer plates than units
+            while (count($plates) < $unitCount) {
+                $plates[] = 'UNIT-' . strtoupper(substr(md5(uniqid()), 0, 6));
+            }
+            $plates = array_slice($plates, 0, $unitCount);
+
+            $stmt = $pdo->prepare("INSERT INTO rental_motors (business_id,plate_number,motor_name,color,year,daily_rate,status,partner_owner,owner_phone,owner_commission_pct,driver_daily_rate)
+                VALUES (?,?,?,?,?,?,'available',?,?,?,?)");
+            $added = 0;
+            $skipped = [];
+            foreach ($plates as $plate) {
+                try {
+                    $stmt->execute([$businessId, $plate, $motorName, $color ?: null, $year, $dailyRate, $partnerOwner ?: null, $ownerPhone ?: null, $ownerCommissionPct, $driverDailyRate]);
+                    $added++;
+                } catch (\Throwable $e) {
+                    $skipped[] = $plate; // duplicate plate or other error
+                }
+            }
+            ob_clean();
+            echo json_encode(['success' => true, 'added' => $added, 'skipped' => $skipped]);
             exit;
         }
 
@@ -1047,6 +1100,7 @@ include '../../includes/header.php';
                 ← Hotel Services
             </a>
             <button class="btn-rm btn-rm-secondary" onclick="openMotorModal()" style="font-size:0.8rem;padding:0.4rem 0.8rem">+ Tambah Motor</button>
+            <button class="btn-rm btn-rm-secondary" onclick="openBulkMotorModal()" style="font-size:0.8rem;padding:0.4rem 0.8rem;background:#e0f2fe;color:#0277bd;border-color:#0277bd">🏍️ Tambah Massal</button>
             <button class="btn-rm btn-rm-primary" onclick="openRentalModal()" style="font-size:0.8rem;padding:0.4rem 0.8rem">+ Sewa Baru</button>
         </div>
     </div>
@@ -1663,6 +1717,74 @@ include '../../includes/header.php';
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL: Bulk Add Motors -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="rm-modal-overlay" id="bulkMotorModal" onclick="if(event.target===this)closeBulkMotorModal()">
+    <div class="rm-modal" style="max-width:560px">
+        <h3>🏍️ Tambah Beberapa Motor Sekaligus</h3>
+        <p style="font-size:0.82rem;color:var(--text-secondary);margin:0 0 1rem 0">Isi informasi motor, lalu masukkan plat nomor masing-masing unit (atau kosongkan untuk generate otomatis).</p>
+
+        <div class="rm-form-row">
+            <div class="rm-field">
+                <label>Nama Motor *</label>
+                <input type="text" id="bm_name" placeholder="Honda Vario 125">
+            </div>
+            <div class="rm-field">
+                <label>Jumlah Unit</label>
+                <input type="number" id="bm_unit_count" value="1" min="1" max="50" oninput="updateBulkPlatRows()">
+            </div>
+        </div>
+        <div class="rm-form-row">
+            <div class="rm-field">
+                <label>Warna</label>
+                <input type="text" id="bm_color" placeholder="Hitam">
+            </div>
+            <div class="rm-field">
+                <label>Tahun</label>
+                <input type="number" id="bm_year" placeholder="2024" min="2000" max="2030">
+            </div>
+        </div>
+        <div class="rm-form-row">
+            <div class="rm-field">
+                <label>Tarif per Hari (Rp) *</label>
+                <input type="number" id="bm_rate" placeholder="100000" min="0">
+            </div>
+        </div>
+
+        <div style="margin:0.75rem 0 0.25rem 0;font-size:0.78rem;font-weight:700;color:var(--text-secondary)">🤝 Mitra (kosongkan jika motor hotel)</div>
+        <div class="rm-form-row">
+            <div class="rm-field">
+                <label>Nama Mitra Pemilik</label>
+                <input type="text" id="bm_partner_owner" placeholder="Nama mitra (opsional)">
+            </div>
+            <div class="rm-field">
+                <label>No. Telepon Mitra</label>
+                <input type="text" id="bm_owner_phone" placeholder="08xxxxxxxxxx">
+            </div>
+        </div>
+        <div class="rm-form-row">
+            <div class="rm-field">
+                <label>% Komisi Mitra</label>
+                <input type="number" id="bm_commission_pct" placeholder="0" min="0" max="100" step="0.01">
+            </div>
+            <div class="rm-field">
+                <label>Tarif Harian Mitra (Rp)</label>
+                <input type="number" id="bm_driver_daily_rate" placeholder="0" min="0">
+            </div>
+        </div>
+
+        <div style="margin:0.75rem 0 0.4rem 0;font-size:0.78rem;font-weight:700;color:var(--text-secondary)">🔢 Plat Nomor per Unit <span style="font-weight:400;color:#94a0b8">(kosongkan = generate otomatis, satu per baris atau pisah koma)</span></div>
+        <textarea id="bm_plates" rows="4" placeholder="K 1234 BWC&#10;K 1235 BWC&#10;K 1236 BWC" style="width:100%;padding:0.5rem 0.6rem;border:1px solid #c9d0dc;border-radius:6px;font-size:0.82rem;font-family:monospace;resize:vertical;box-sizing:border-box" oninput="syncBulkUnitCount()"></textarea>
+        <div style="font-size:0.73rem;color:#94a0b8;margin-top:0.2rem" id="bm_plates_hint">0 plat dimasukkan</div>
+
+        <div class="rm-modal-footer" style="margin-top:1.2rem">
+            <button class="btn-rm btn-rm-secondary" onclick="closeBulkMotorModal()">Batal</button>
+            <button class="btn-rm btn-rm-primary" onclick="submitBulkMotors()">➕ Tambah Semua Unit</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
 <!-- MODAL: Add to Existing Invoice -->
 <!-- ═══════════════════════════════════════════════════════════════════════════ -->
 <div class="rm-modal-overlay" id="addToInvModal" onclick="if(event.target===this)closeAddToInvModal()">
@@ -1781,6 +1903,70 @@ include '../../includes/header.php';
             .then(d => {
                 if (d.success) location.reload();
                 else alert(d.message || 'Gagal menghapus');
+            })
+            .catch(() => alert('Network error'));
+    }
+
+    // ── Bulk Motor Modal ────────────────────────────────────────────────────────
+    function openBulkMotorModal() {
+        document.getElementById('bm_name').value = '';
+        document.getElementById('bm_unit_count').value = 1;
+        document.getElementById('bm_color').value = '';
+        document.getElementById('bm_year').value = '';
+        document.getElementById('bm_rate').value = '';
+        document.getElementById('bm_partner_owner').value = '';
+        document.getElementById('bm_owner_phone').value = '';
+        document.getElementById('bm_commission_pct').value = '';
+        document.getElementById('bm_driver_daily_rate').value = '';
+        document.getElementById('bm_plates').value = '';
+        document.getElementById('bm_plates_hint').textContent = '0 plat dimasukkan';
+        document.getElementById('bulkMotorModal').classList.add('open');
+    }
+
+    function closeBulkMotorModal() {
+        document.getElementById('bulkMotorModal').classList.remove('open');
+    }
+
+    function syncBulkUnitCount() {
+        const ta = document.getElementById('bm_plates');
+        const plates = ta.value.split(/[\r\n,]+/).map(p => p.trim()).filter(p => p);
+        document.getElementById('bm_plates_hint').textContent = plates.length + ' plat dimasukkan';
+        if (plates.length > 0) document.getElementById('bm_unit_count').value = plates.length;
+    }
+
+    function updateBulkPlatRows() { /* keep in sync */ }
+
+    function submitBulkMotors() {
+        const name = document.getElementById('bm_name').value.trim();
+        const unitCount = parseInt(document.getElementById('bm_unit_count').value) || 1;
+        if (!name) { alert('Nama motor wajib diisi'); return; }
+        if (!document.getElementById('bm_rate').value) { alert('Tarif per hari wajib diisi'); return; }
+
+        const fd = new FormData();
+        fd.append('action', 'bulk_add_motors');
+        fd.append('motor_name', name);
+        fd.append('unit_count', unitCount);
+        fd.append('color', document.getElementById('bm_color').value);
+        fd.append('year', document.getElementById('bm_year').value);
+        fd.append('daily_rate', document.getElementById('bm_rate').value);
+        fd.append('partner_owner', document.getElementById('bm_partner_owner').value);
+        fd.append('owner_phone', document.getElementById('bm_owner_phone').value);
+        fd.append('owner_commission_pct', document.getElementById('bm_commission_pct').value || 0);
+        fd.append('driver_daily_rate', document.getElementById('bm_driver_daily_rate').value || 0);
+        fd.append('plates', document.getElementById('bm_plates').value);
+
+        fetch('rental-motor.php', { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(d => {
+                if (d.success) {
+                    let msg = '✅ ' + d.added + ' motor berhasil ditambahkan!';
+                    if (d.skipped && d.skipped.length) msg += '\n⚠️ Dilewati (duplikat plat): ' + d.skipped.join(', ');
+                    alert(msg);
+                    closeBulkMotorModal();
+                    location.reload();
+                } else {
+                    alert(d.message || 'Gagal menambahkan');
+                }
             })
             .catch(() => alert('Network error'));
     }

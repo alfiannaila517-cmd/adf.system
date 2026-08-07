@@ -82,10 +82,17 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS rental_motor_bookings (
     KEY idx_payment (payment_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-// Add missing columns if table was created before this update
-try {
-    $pdo->exec("ALTER TABLE rental_motor_bookings ADD COLUMN payment_date DATETIME DEFAULT NULL COMMENT 'when invoice was paid'");
-} catch (\Throwable $e) { /* column may already exist */
+// Add missing columns if table was created before partner system
+foreach ([
+    "ALTER TABLE rental_motors ADD COLUMN partner_owner VARCHAR(120) DEFAULT NULL COMMENT 'nama mitra pemilik motor luar'",
+    "ALTER TABLE rental_motors ADD COLUMN owner_phone VARCHAR(30) DEFAULT NULL",
+    "ALTER TABLE rental_motors ADD COLUMN owner_commission_pct DECIMAL(5,2) NOT NULL DEFAULT 0 COMMENT '% bagian mitra dari total'",
+    "ALTER TABLE rental_motors ADD COLUMN driver_daily_rate DECIMAL(15,2) NOT NULL DEFAULT 0 COMMENT 'tarif harian untuk mitra'",
+    "ALTER TABLE rental_motor_bookings ADD COLUMN owner_amount DECIMAL(15,2) NOT NULL DEFAULT 0 COMMENT 'bagian mitra pemilik motor'",
+    "ALTER TABLE rental_motor_bookings ADD COLUMN hotel_commission DECIMAL(15,2) NOT NULL DEFAULT 0 COMMENT 'bagian hotel dari komisi'",
+    "ALTER TABLE rental_motor_bookings ADD COLUMN payment_date DATETIME DEFAULT NULL COMMENT 'when invoice was paid'",
+] as $_altSql) {
+    try { $pdo->exec($_altSql); } catch (\Throwable $e) { /* column may already exist */ }
 }
 try {
     $pdo->exec("ALTER TABLE rental_motor_bookings ADD COLUMN return_confirmed TINYINT DEFAULT NULL COMMENT '1=sudah, 0=belum, NULL=not confirmed'");
@@ -138,6 +145,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             }
             ob_clean();
             echo json_encode(['success' => true, 'id' => $mid]);
+            exit;
+        }
+
+        // ── BULK ADD MOTORS ─────────────────────────────────────────────────
+        if ($action === 'bulk_add_motors') {
+            $motorName           = trim($_POST['motor_name'] ?? '');
+            $color               = trim($_POST['color'] ?? '');
+            $year                = (int)($_POST['year'] ?? 0) ?: null;
+            $dailyRate           = max(0, (float)($_POST['daily_rate'] ?? 0));
+            $partnerOwner        = trim($_POST['partner_owner'] ?? '');
+            $ownerPhone          = trim($_POST['owner_phone'] ?? '');
+            $ownerCommissionPct  = max(0, min(100, (float)($_POST['owner_commission_pct'] ?? 0)));
+            $driverDailyRate     = max(0, (float)($_POST['driver_daily_rate'] ?? 0));
+            $platesRaw           = trim($_POST['plates'] ?? '');
+            $unitCount           = max(1, min(50, (int)($_POST['unit_count'] ?? 1)));
+
+            if (!$motorName) throw new Exception('Nama motor wajib diisi');
+
+            // Parse plate list or generate sequential placeholders
+            $plates = [];
+            if ($platesRaw !== '') {
+                foreach (preg_split('/[\r\n,]+/', $platesRaw) as $p) {
+                    $p = strtoupper(trim($p));
+                    if ($p !== '') $plates[] = $p;
+                }
+            }
+            // Pad with auto-generated placeholders if fewer plates than units
+            while (count($plates) < $unitCount) {
+                $plates[] = 'UNIT-' . strtoupper(substr(md5(uniqid()), 0, 6));
+            }
+            $plates = array_slice($plates, 0, $unitCount);
+
+            $stmt = $pdo->prepare("INSERT INTO rental_motors (business_id,plate_number,motor_name,color,year,daily_rate,status,partner_owner,owner_phone,owner_commission_pct,driver_daily_rate)
+                VALUES (?,?,?,?,?,?,'available',?,?,?,?)");
+            $added = 0;
+            $skipped = [];
+            foreach ($plates as $plate) {
+                try {
+                    $stmt->execute([$businessId, $plate, $motorName, $color ?: null, $year, $dailyRate, $partnerOwner ?: null, $ownerPhone ?: null, $ownerCommissionPct, $driverDailyRate]);
+                    $added++;
+                } catch (\Throwable $e) {
+                    $skipped[] = $plate; // duplicate plate or other error
+                }
+            }
+            ob_clean();
+            echo json_encode(['success' => true, 'added' => $added, 'skipped' => $skipped]);
             exit;
         }
 
@@ -1047,6 +1100,7 @@ include '../../includes/header.php';
                 ← Hotel Services
             </a>
             <button class="btn-rm btn-rm-secondary" onclick="openMotorModal()" style="font-size:0.8rem;padding:0.4rem 0.8rem">+ Tambah Motor</button>
+            <button class="btn-rm btn-rm-secondary" onclick="openBulkMotorModal()" style="font-size:0.8rem;padding:0.4rem 0.8rem;background:#e0f2fe;color:#0277bd;border-color:#0277bd">🏍️ Tambah Massal</button>
             <button class="btn-rm btn-rm-primary" onclick="openRentalModal()" style="font-size:0.8rem;padding:0.4rem 0.8rem">+ Sewa Baru</button>
         </div>
     </div>
@@ -1091,111 +1145,176 @@ include '../../includes/header.php';
     <div class="rm-tab-pane active" id="pane-monitoring">
         <?php
         $activeRentalsList = array_filter($rentals, fn($r) => in_array($r['status'], ['active', 'overdue']));
+        
         if (empty($activeRentalsList)):
         ?>
             <div class="rm-empty">
                 <div class="em-icon">🏍️</div>
                 <p>Tidak ada rental aktif saat ini</p>
             </div>
-        <?php else: ?>
-            <div class="rm-table-wrap">
-                <table class="rm-table">
-                    <thead>
-                        <tr>
-                            <th>Motor</th>
-                            <th>Tamu</th>
-                            <th>Kamar</th>
-                            <th>Mulai</th>
-                            <th>Kembali</th>
-                            <th>Sisa Waktu</th>
-                            <th>Harga</th>
-                            <th>Invoice</th>
-                            <th>Status</th>
-                            <th>Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($activeRentalsList as $r):
-                            $now     = new DateTime();
-                            $endDt   = new DateTime($r['end_datetime']);
-                            $isOverdue = $r['status'] === 'overdue';
-                            $diff    = $now->diff($endDt);
-                            if ($isOverdue) {
-                                $remaining = "Terlambat " . $diff->days . "h " . $diff->h . "j";
-                            } else {
-                                $remaining = $diff->days . "h " . $diff->h . "j " . $diff->i . "m";
-                            }
-                        ?>
-                            <tr class="<?php echo $isOverdue ? 'rm-overdue-pulse' : ''; ?>">
-                                <td>
-                                    <div style="font-weight:700;font-size:0.82rem"><?php echo htmlspecialchars($r['plate_number']); ?></div>
-                                    <div style="font-size:0.72rem;color:var(--text-secondary)"><?php echo htmlspecialchars($r['motor_name']); ?></div>
-                                </td>
-                                <td>
-                                    <div style="font-weight:600"><?php echo htmlspecialchars($r['guest_name']); ?></div>
-                                    <?php if ($r['guest_phone']): ?>
-                                        <div style="font-size:0.7rem;color:var(--text-secondary)"><?php echo htmlspecialchars($r['guest_phone']); ?></div>
-                                    <?php endif; ?>
-                                </td>
-                                <td><?php echo htmlspecialchars($r['room_number'] ?? '-'); ?></td>
-                                <td style="font-size:0.75rem"><?php echo date('d M H:i', strtotime($r['start_datetime'])); ?></td>
-                                <td style="font-size:0.75rem"><?php echo date('d M H:i', strtotime($r['end_datetime'])); ?></td>
-                                <td>
-                                    <span style="font-weight:700;color:<?php echo $isOverdue ? '#ef4444' : '#10b981'; ?>;font-size:0.78rem">
-                                        <?php echo $remaining; ?>
-                                    </span>
-                                </td>
-                                <td style="font-weight:600;font-size:0.82rem">
-                                    <?php
-                                    // Show estimated price based on daily rate if total_price is 0 (pending)
-                                    if ((float)$r['total_price'] == 0) {
-                                        $startDt = new DateTime($r['start_datetime']);
-                                        $endDt = new DateTime($r['end_datetime']);
-                                        $estDays = max(1, (int)ceil($startDt->diff($endDt)->days));
-                                        $estPrice = max(100000, round($estDays * (float)$r['daily_rate'], 2));
-                                        echo '💰 ~Rp ' . number_format($estPrice, 0, ',', '.') . '<br><span style="font-size:0.7rem;color:var(--text-secondary)">Hitung saat kembali</span>';
-                                    } else {
-                                        echo 'Rp ' . number_format($r['total_price'], 0, ',', '.');
-                                    }
-                                    ?>
-                                </td>
-                                <td>
-                                    <?php if ($r['invoice_number']): ?>
-                                        <a href="hotel-service-invoice.php?id=<?php echo $r['invoice_id']; ?>" target="_blank"
-                                            style="color:#6366f1;font-weight:600;font-size:0.75rem;text-decoration:none">
-                                            <?php echo htmlspecialchars($r['invoice_number']); ?>
-                                        </a>
-                                        <?php if ($r['inv_pay_status']): ?>
-                                            <span class="rm-badge" style="background:<?php echo ['unpaid' => '#ef4444', 'partial' => '#f59e0b', 'paid' => '#10b981'][$r['inv_pay_status']] ?? '#6b7280'; ?>;font-size:0.62rem">
-                                                <?php echo $r['inv_pay_status']; ?>
-                                            </span>
-                                        <?php endif; ?>
-                                    <?php else: ?>
-                                        <span style="color:var(--text-secondary);font-size:0.72rem">—</span>
-                                    <?php endif; ?>
-                                </td>
-                                <td>
-                                    <span class="rm-badge <?php echo $isOverdue ? 'rm-overdue-pulse' : ''; ?>"
-                                        style="background:<?php echo $isOverdue ? '#ef4444' : '#10b981'; ?>">
-                                        <?php echo $isOverdue ? '⚠ Overdue' : '✓ Aktif'; ?>
-                                    </span>
-                                </td>
-                                <td style="white-space:nowrap">
-                                    <button class="rm-action-btn" style="background:#dcfce7;color:#15803d" onclick="returnMotor(<?php echo $r['id']; ?>,'<?php echo htmlspecialchars(addslashes($r['motor_name'])); ?>')">
-                                        ↩ Kembali
-                                    </button>
-                                    <?php if (!$r['invoice_id']): ?>
-                                        <button class="rm-action-btn" style="background:#e0e7ff;color:#4338ca" onclick="openAddToInvoice(<?php echo $r['id']; ?>)">
-                                            📄 Invoice
-                                        </button>
-                                    <?php endif; ?>
-                                    <button class="rm-action-btn" style="background:#fee2e2;color:#b91c1c" onclick="cancelRental(<?php echo $r['id']; ?>)">✕</button>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+        <?php else:
+            // Separate rentals into "On Rent" (paid invoice) and "Unpaid"
+            $onRentList = [];
+            $unpaidRentals = [];
+            
+            foreach ($activeRentalsList as $r) {
+                if ($r['inv_pay_status'] === 'paid' && $r['invoice_id']) {
+                    $onRentList[] = $r;
+                } else {
+                    $unpaidRentals[] = $r;
+                }
+            }
+            
+            // Card view for "On Rent / Masih Desewa"
+            if (!empty($onRentList)):
+        ?>
+            <div style="margin-bottom: 1.5rem">
+                <h3 style="margin: 0 0 0.75rem 0; color: var(--text-primary); font-size: 0.95rem; font-weight: 700;">🏍️ On Rent / Masih Desewa (24-Hour Tracking)</h3>
+                <div class="rm-fleet">
+                    <?php foreach ($onRentList as $r):
+                        $paymentDate = $r['payment_date'] ? strtotime($r['payment_date']) : time();
+                        $hoursElapsed = (time() - $paymentDate) / 3600;
+                        $hoursRemaining = max(0, 24 - $hoursElapsed);
+                        $isOverdue24h = $hoursElapsed >= 24;
+                        
+                        $days = (int)floor($hoursRemaining / 24);
+                        $hours = (int)floor($hoursRemaining % 24);
+                        $mins = (int)floor((($hoursRemaining * 60) % 60));
+                    ?>
+                        <div class="rm-motor-card" style="--mc:<?php echo $isOverdue24h ? '#ef4444' : '#f59e0b'; ?>; border: 2px solid <?php echo $isOverdue24h ? '#ef4444' : '#f59e0b'; ?>">
+                            <span class="mc-status" style="background:<?php echo $isOverdue24h ? '#ef4444' : '#f59e0b'; ?>">
+                                <?php echo $isOverdue24h ? '⚠️ >24h Overdue!' : '🕐 On Rent'; ?>
+                            </span>
+                            <div class="mc-plate"><?php echo htmlspecialchars($r['plate_number']); ?></div>
+                            <div class="mc-name">
+                                <?php echo htmlspecialchars($r['motor_name']); ?> — <?php echo htmlspecialchars($r['guest_name']); ?>
+                            </div>
+                            <div style="margin-top: 0.5rem; padding: 0.5rem; background: <?php echo $isOverdue24h ? '#fef2f2' : '#fffbeb'; ?>; border-radius: 4px; font-weight: 700; color: <?php echo $isOverdue24h ? '#b91c1c' : '#d97706'; ?>">
+                                <?php if ($isOverdue24h): ?>
+                                    ⏰ OVERDUE: <?php echo ceil($hoursElapsed - 24); ?> jam!
+                                <?php else: ?>
+                                    ⏳ Sisa: <?php echo sprintf('%02d:%02d:%02d', $hours, $mins, (int)(($hoursRemaining * 3600) % 60)); ?>
+                                <?php endif; ?>
+                            </div>
+                            <div class="mc-rate">Invoice: <?php echo htmlspecialchars($r['invoice_number']); ?> | Paid: <?php echo date('d M H:i', $paymentDate); ?></div>
+                            <div class="mc-actions">
+                                <button class="mc-btn" style="background:#dcfce7;color:#15803d" onclick="confirmMotorReturn(<?php echo $r['id']; ?>,'<?php echo htmlspecialchars(addslashes($r['motor_name'])); ?>')">
+                                    ✓ Sudah Kembali
+                                </button>
+                                <button class="mc-btn" style="background:#e0e7ff;color:#4338ca" onclick="returnMotor(<?php echo $r['id']; ?>,'<?php echo htmlspecialchars(addslashes($r['motor_name'])); ?>')">
+                                    ↩ Kembali
+                                </button>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
             </div>
+        <?php endif; 
+            
+            // Table view for unpaid/partial rentals (if any)
+            if (!empty($unpaidRentals)):
+        ?>
+            <div style="margin-bottom: 1.5rem">
+                <h3 style="margin: 0 0 0.75rem 0; color: var(--text-primary); font-size: 0.95rem; font-weight: 700;">📋 Rental Lainnya (Belum Bayar / Invoice Pending)</h3>
+                <div class="rm-table-wrap">
+                    <table class="rm-table">
+                        <thead>
+                            <tr>
+                                <th>Motor</th>
+                                <th>Tamu</th>
+                                <th>Kamar</th>
+                                <th>Mulai</th>
+                                <th>Kembali</th>
+                                <th>Sisa Waktu</th>
+                                <th>Harga</th>
+                                <th>Invoice</th>
+                                <th>Status</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($unpaidRentals as $r):
+                                $now     = new DateTime();
+                                $endDt   = new DateTime($r['end_datetime']);
+                                $isOverdue = $r['status'] === 'overdue';
+                                $diff    = $now->diff($endDt);
+                                if ($isOverdue) {
+                                    $remaining = "Terlambat " . $diff->days . "h " . $diff->h . "j";
+                                } else {
+                                    $remaining = $diff->days . "h " . $diff->h . "j " . $diff->i . "m";
+                                }
+                            ?>
+                                <tr class="<?php echo $isOverdue ? 'rm-overdue-pulse' : ''; ?>">
+                                    <td>
+                                        <div style="font-weight:700;font-size:0.82rem"><?php echo htmlspecialchars($r['plate_number']); ?></div>
+                                        <div style="font-size:0.72rem;color:var(--text-secondary)"><?php echo htmlspecialchars($r['motor_name']); ?></div>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight:600"><?php echo htmlspecialchars($r['guest_name']); ?></div>
+                                        <?php if ($r['guest_phone']): ?>
+                                            <div style="font-size:0.7rem;color:var(--text-secondary)"><?php echo htmlspecialchars($r['guest_phone']); ?></div>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td><?php echo htmlspecialchars($r['room_number'] ?? '-'); ?></td>
+                                    <td style="font-size:0.75rem"><?php echo date('d M H:i', strtotime($r['start_datetime'])); ?></td>
+                                    <td style="font-size:0.75rem"><?php echo date('d M H:i', strtotime($r['end_datetime'])); ?></td>
+                                    <td>
+                                        <span style="font-weight:700;color:<?php echo $isOverdue ? '#ef4444' : '#10b981'; ?>;font-size:0.78rem">
+                                            <?php echo $remaining; ?>
+                                        </span>
+                                    </td>
+                                    <td style="font-weight:600;font-size:0.82rem">
+                                        <?php
+                                        if ((float)$r['total_price'] == 0) {
+                                            $startDt = new DateTime($r['start_datetime']);
+                                            $endDt = new DateTime($r['end_datetime']);
+                                            $estDays = max(1, (int)ceil($startDt->diff($endDt)->days));
+                                            $estPrice = max(100000, round($estDays * (float)$r['daily_rate'], 2));
+                                            echo '💰 ~Rp ' . number_format($estPrice, 0, ',', '.') . '<br><span style="font-size:0.7rem;color:var(--text-secondary)">Hitung saat kembali</span>';
+                                        } else {
+                                            echo 'Rp ' . number_format($r['total_price'], 0, ',', '.');
+                                        }
+                                        ?>
+                                    </td>
+                                    <td>
+                                        <?php if ($r['invoice_number']): ?>
+                                            <a href="hotel-service-invoice.php?id=<?php echo $r['invoice_id']; ?>" target="_blank"
+                                                style="color:#6366f1;font-weight:600;font-size:0.75rem;text-decoration:none">
+                                                <?php echo htmlspecialchars($r['invoice_number']); ?>
+                                            </a>
+                                            <?php if ($r['inv_pay_status']): ?>
+                                                <span class="rm-badge" style="background:<?php echo ['unpaid' => '#ef4444', 'partial' => '#f59e0b', 'paid' => '#10b981'][$r['inv_pay_status']] ?? '#6b7280'; ?>;font-size:0.62rem">
+                                                    <?php echo $r['inv_pay_status']; ?>
+                                                </span>
+                                            <?php endif; ?>
+                                        <?php else: ?>
+                                            <span style="color:var(--text-secondary);font-size:0.72rem">—</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <span class="rm-badge <?php echo $isOverdue ? 'rm-overdue-pulse' : ''; ?>"
+                                            style="background:<?php echo $isOverdue ? '#ef4444' : '#10b981'; ?>">
+                                            <?php echo $isOverdue ? '⚠ Overdue' : '✓ Aktif'; ?>
+                                        </span>
+                                    </td>
+                                    <td style="white-space:nowrap">
+                                        <button class="rm-action-btn" style="background:#dcfce7;color:#15803d" onclick="returnMotor(<?php echo $r['id']; ?>,'<?php echo htmlspecialchars(addslashes($r['motor_name'])); ?>')">
+                                            ↩ Kembali
+                                        </button>
+                                        <?php if (!$r['invoice_id']): ?>
+                                            <button class="rm-action-btn" style="background:#e0e7ff;color:#4338ca" onclick="openAddToInvoice(<?php echo $r['id']; ?>)">
+                                                📄 Invoice
+                                            </button>
+                                        <?php endif; ?>
+                                        <button class="rm-action-btn" style="background:#fee2e2;color:#b91c1c" onclick="cancelRental(<?php echo $r['id']; ?>)">✕</button>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        <?php endif; ?>
         <?php endif; ?>
     </div>
 
@@ -1598,6 +1717,74 @@ include '../../includes/header.php';
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL: Bulk Add Motors -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="rm-modal-overlay" id="bulkMotorModal" onclick="if(event.target===this)closeBulkMotorModal()">
+    <div class="rm-modal" style="max-width:560px">
+        <h3>🏍️ Tambah Beberapa Motor Sekaligus</h3>
+        <p style="font-size:0.82rem;color:var(--text-secondary);margin:0 0 1rem 0">Isi informasi motor, lalu masukkan plat nomor masing-masing unit (atau kosongkan untuk generate otomatis).</p>
+
+        <div class="rm-form-row">
+            <div class="rm-field">
+                <label>Nama Motor *</label>
+                <input type="text" id="bm_name" placeholder="Honda Vario 125">
+            </div>
+            <div class="rm-field">
+                <label>Jumlah Unit</label>
+                <input type="number" id="bm_unit_count" value="1" min="1" max="50" oninput="updateBulkPlatRows()">
+            </div>
+        </div>
+        <div class="rm-form-row">
+            <div class="rm-field">
+                <label>Warna</label>
+                <input type="text" id="bm_color" placeholder="Hitam">
+            </div>
+            <div class="rm-field">
+                <label>Tahun</label>
+                <input type="number" id="bm_year" placeholder="2024" min="2000" max="2030">
+            </div>
+        </div>
+        <div class="rm-form-row">
+            <div class="rm-field">
+                <label>Tarif per Hari (Rp) *</label>
+                <input type="number" id="bm_rate" placeholder="100000" min="0">
+            </div>
+        </div>
+
+        <div style="margin:0.75rem 0 0.25rem 0;font-size:0.78rem;font-weight:700;color:var(--text-secondary)">🤝 Mitra (kosongkan jika motor hotel)</div>
+        <div class="rm-form-row">
+            <div class="rm-field">
+                <label>Nama Mitra Pemilik</label>
+                <input type="text" id="bm_partner_owner" placeholder="Nama mitra (opsional)">
+            </div>
+            <div class="rm-field">
+                <label>No. Telepon Mitra</label>
+                <input type="text" id="bm_owner_phone" placeholder="08xxxxxxxxxx">
+            </div>
+        </div>
+        <div class="rm-form-row">
+            <div class="rm-field">
+                <label>% Komisi Mitra</label>
+                <input type="number" id="bm_commission_pct" placeholder="0" min="0" max="100" step="0.01">
+            </div>
+            <div class="rm-field">
+                <label>Tarif Harian Mitra (Rp)</label>
+                <input type="number" id="bm_driver_daily_rate" placeholder="0" min="0">
+            </div>
+        </div>
+
+        <div style="margin:0.75rem 0 0.4rem 0;font-size:0.78rem;font-weight:700;color:var(--text-secondary)">🔢 Plat Nomor per Unit <span style="font-weight:400;color:#94a0b8">(kosongkan = generate otomatis, satu per baris atau pisah koma)</span></div>
+        <textarea id="bm_plates" rows="4" placeholder="K 1234 BWC&#10;K 1235 BWC&#10;K 1236 BWC" style="width:100%;padding:0.5rem 0.6rem;border:1px solid #c9d0dc;border-radius:6px;font-size:0.82rem;font-family:monospace;resize:vertical;box-sizing:border-box" oninput="syncBulkUnitCount()"></textarea>
+        <div style="font-size:0.73rem;color:#94a0b8;margin-top:0.2rem" id="bm_plates_hint">0 plat dimasukkan</div>
+
+        <div class="rm-modal-footer" style="margin-top:1.2rem">
+            <button class="btn-rm btn-rm-secondary" onclick="closeBulkMotorModal()">Batal</button>
+            <button class="btn-rm btn-rm-primary" onclick="submitBulkMotors()">➕ Tambah Semua Unit</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
 <!-- MODAL: Add to Existing Invoice -->
 <!-- ═══════════════════════════════════════════════════════════════════════════ -->
 <div class="rm-modal-overlay" id="addToInvModal" onclick="if(event.target===this)closeAddToInvModal()">
@@ -1716,6 +1903,70 @@ include '../../includes/header.php';
             .then(d => {
                 if (d.success) location.reload();
                 else alert(d.message || 'Gagal menghapus');
+            })
+            .catch(() => alert('Network error'));
+    }
+
+    // ── Bulk Motor Modal ────────────────────────────────────────────────────────
+    function openBulkMotorModal() {
+        document.getElementById('bm_name').value = '';
+        document.getElementById('bm_unit_count').value = 1;
+        document.getElementById('bm_color').value = '';
+        document.getElementById('bm_year').value = '';
+        document.getElementById('bm_rate').value = '';
+        document.getElementById('bm_partner_owner').value = '';
+        document.getElementById('bm_owner_phone').value = '';
+        document.getElementById('bm_commission_pct').value = '';
+        document.getElementById('bm_driver_daily_rate').value = '';
+        document.getElementById('bm_plates').value = '';
+        document.getElementById('bm_plates_hint').textContent = '0 plat dimasukkan';
+        document.getElementById('bulkMotorModal').classList.add('open');
+    }
+
+    function closeBulkMotorModal() {
+        document.getElementById('bulkMotorModal').classList.remove('open');
+    }
+
+    function syncBulkUnitCount() {
+        const ta = document.getElementById('bm_plates');
+        const plates = ta.value.split(/[\r\n,]+/).map(p => p.trim()).filter(p => p);
+        document.getElementById('bm_plates_hint').textContent = plates.length + ' plat dimasukkan';
+        if (plates.length > 0) document.getElementById('bm_unit_count').value = plates.length;
+    }
+
+    function updateBulkPlatRows() { /* keep in sync */ }
+
+    function submitBulkMotors() {
+        const name = document.getElementById('bm_name').value.trim();
+        const unitCount = parseInt(document.getElementById('bm_unit_count').value) || 1;
+        if (!name) { alert('Nama motor wajib diisi'); return; }
+        if (!document.getElementById('bm_rate').value) { alert('Tarif per hari wajib diisi'); return; }
+
+        const fd = new FormData();
+        fd.append('action', 'bulk_add_motors');
+        fd.append('motor_name', name);
+        fd.append('unit_count', unitCount);
+        fd.append('color', document.getElementById('bm_color').value);
+        fd.append('year', document.getElementById('bm_year').value);
+        fd.append('daily_rate', document.getElementById('bm_rate').value);
+        fd.append('partner_owner', document.getElementById('bm_partner_owner').value);
+        fd.append('owner_phone', document.getElementById('bm_owner_phone').value);
+        fd.append('owner_commission_pct', document.getElementById('bm_commission_pct').value || 0);
+        fd.append('driver_daily_rate', document.getElementById('bm_driver_daily_rate').value || 0);
+        fd.append('plates', document.getElementById('bm_plates').value);
+
+        fetch('rental-motor.php', { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(d => {
+                if (d.success) {
+                    let msg = '✅ ' + d.added + ' motor berhasil ditambahkan!';
+                    if (d.skipped && d.skipped.length) msg += '\n⚠️ Dilewati (duplikat plat): ' + d.skipped.join(', ');
+                    alert(msg);
+                    closeBulkMotorModal();
+                    location.reload();
+                } else {
+                    alert(d.message || 'Gagal menambahkan');
+                }
             })
             .catch(() => alert('Network error'));
     }
@@ -1966,6 +2217,33 @@ include '../../includes/header.php';
                 }
             })
             .catch(() => alert('Network error'));
+    }
+
+    // ── Confirm Motor Return Status (From Invoice Payment) ────────────────────
+    function confirmMotorReturn(rentalId, motorName) {
+        const isReturned = confirm('✓ Konfirmasi motor ' + motorName + ' SUDAH dikembalikan?');
+        
+        const fd = new FormData();
+        fd.append('action', 'confirm_return_status');
+        fd.append('rental_id', rentalId);
+        fd.append('is_returned', isReturned ? '1' : '0');
+        
+        fetch('../modules/frontdesk/motor-return-tracking.php', {
+                method: 'POST',
+                body: fd
+            })
+            .then(r => r.json())
+            .then(d => {
+                if (d.success) {
+                    alert(isReturned 
+                        ? '✅ Status motor ' + motorName + ' diperbarui: SUDAH KEMBALI' 
+                        : '⏳ Status motor ' + motorName + ' diperbarui: BELUM KEMBALI (24-jam tracking aktif)');
+                    location.reload();
+                } else {
+                    alert('❌ Gagal: ' + (d.message || 'Terjadi kesalahan'));
+                }
+            })
+            .catch(e => alert('Network error: ' + e.message));
     }
 
     // ── Cancel Rental ───────────────────────────────────────────────────────────
