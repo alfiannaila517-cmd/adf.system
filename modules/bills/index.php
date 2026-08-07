@@ -529,7 +529,7 @@ include '../../includes/header.php';
 
     .driver-recap-card .dr-stats {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: repeat(auto-fit, minmax(95px, 1fr));
         gap: 5px;
         font-size: 10.5px;
         margin-bottom: 4px;
@@ -1637,7 +1637,13 @@ include '../../includes/header.php';
                         <button class="btn-print-recap" onclick="printDriverRecap(${idx})">🖨️ Cetak Rekap</button>
                     </div>
                     <div class="dr-stats">
-                        <div class="dr-stat"><div class="v">${baseRows.length}</div><div class="l">Trip</div></div>
+                        ${isTripTab 
+                            ? `<div class="dr-stat"><div class="v">${baseRows.length}</div><div class="l">Narayana Trip</div></div>`
+                            : `
+                                <div class="dr-stat"><div class="v">${baseRows.filter(r => r.service_type === 'car_rental').length}</div><div class="l">🚗 Rental Mobil</div></div>
+                                <div class="dr-stat"><div class="v">${baseRows.filter(r => r.service_type === 'airport_drop').length}</div><div class="l">✈️ Airport Drop</div></div>
+                                <div class="dr-stat"><div class="v">${baseRows.filter(r => r.service_type === 'harbor_drop').length}</div><div class="l">⚓ Harbor Drop</div></div>
+                            `}
                         <div class="dr-stat"><div class="v">Rp ${formatNumber(scopedTotalRevenue)}</div><div class="l">Total Revenue</div></div>
                         <div class="dr-stat"><div class="v">Rp ${formatNumber(scopedOwnerTotal)}</div><div class="l">Bagian Pemilik (${scopedAvgPct}%)</div></div>
                         <div class="dr-stat"><div class="v">Rp ${formatNumber(scopedHotelTotal)}</div><div class="l">Komisi Hotel</div></div>
@@ -1645,15 +1651,6 @@ include '../../includes/header.php';
                     <div class="dr-paid-summary">
                         <span>✅ Sudah Dibayar: <strong style="color:#16794d;">Rp ${formatNumber(scopedPaidTotal)}</strong> (${scopedPaidTrips} trip)</span>
                         <span>⏳ Belum Dibayar: <strong style="color:#d97706;">Rp ${formatNumber(scopedUnpaidTotal)}</strong> (${scopedUnpaidTrips} trip)</span>
-                    </div>
-                    <div class="dr-breakdown">
-                        ${isTripTab
-                            ? `<div class="dr-stat"><div class="v">${scopedNarayanaTrips}</div><div class="l">Narayana Trip</div></div>`
-                            : `
-                                <div class="dr-stat"><div class="v">${baseRows.filter(r => r.service_type === 'car_rental').length}</div><div class="l">Rental Mobil</div></div>
-                                <div class="dr-stat"><div class="v">${baseRows.filter(r => r.service_type === 'airport_drop').length}</div><div class="l">Airport Drop</div></div>
-                                <div class="dr-stat"><div class="v">${baseRows.filter(r => r.service_type === 'harbor_drop').length}</div><div class="l">Harbor Drop</div></div>
-                            `}
                     </div>
                     ${detailRows ? `
                     <div style="font-size:11px;font-weight:700;color:#475569;margin-top:8px;">Detail Transaksi</div>
