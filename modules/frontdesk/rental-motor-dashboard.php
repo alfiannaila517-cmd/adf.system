@@ -83,6 +83,7 @@ $availableList = $available->fetchAll(PDO::FETCH_ASSOC);
 // All motors + current renter info (for the color-coded container grid)
 $allMotorsStmt = $pdo->prepare("SELECT
         rm.id AS motor_id, rm.plate_number, rm.motor_name, rm.color AS motor_color, rm.daily_rate, rm.status AS motor_status,
+        rm.partner_owner, rm.owner_phone, rm.owner_commission_pct,
         rb.id AS booking_id, rb.guest_name, rb.room_number, rb.start_datetime, rb.end_datetime,
         rb.total_price, rb.status AS booking_status
     FROM rental_motors rm
@@ -91,6 +92,14 @@ $allMotorsStmt = $pdo->prepare("SELECT
     ORDER BY rm.motor_name ASC");
 $allMotorsStmt->execute([$businessId]);
 $allMotorsList = $allMotorsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Split into hotel-owned and partner-owned
+$hotelMotors  = array_filter($allMotorsList, fn($m) => empty($m['partner_owner']));
+$mitraMotors  = array_filter($allMotorsList, fn($m) => !empty($m['partner_owner']));
+
+// Count active partner motors
+$mitraActiveCount = count(array_filter($mitraMotors, fn($m) => $m['booking_id']));
+$hotelActiveCount = count(array_filter($hotelMotors, fn($m) => $m['booking_id']));
 
 // Recent Returned Motors
 $recent = $pdo->prepare("SELECT rb.*, rm.plate_number, rm.motor_name
@@ -709,31 +718,30 @@ include '../../includes/header.php';
     </div>
 
     <div class="dashboard-content">
-        <div class="dashboard-panel">
-            <div class="panel-head">
-                <h2>Rental Aktif Sekarang</h2>
-                <div class="hint"><?php echo count($rentedList); ?> unit aktif</div>
-            </div>
-
-            <?php if (!empty($allMotorsList)): ?>
+        <?php
+        // Reusable motor grid renderer
+        function renderMotorGrid(array $list): void { ?>
+            <?php if (!empty($list)): ?>
                 <div class="motor-grid">
-                    <?php foreach ($allMotorsList as $m):
-                        $state = $m['motor_status'];
+                    <?php foreach ($list as $m):
+                        $state    = $m['motor_status'];
                         $isRented = $state === 'rented' && $m['booking_id'];
                         $isOverdue = $isRented && $m['booking_status'] === 'overdue';
                         $boxClass = $isRented ? 'rented' . ($isOverdue ? ' overdue' : '') : $state;
-                        $detail = [
-                            'plate' => $m['plate_number'],
-                            'name' => $m['motor_name'],
-                            'color' => $m['motor_color'],
-                            'rate' => (float)$m['daily_rate'],
-                            'status' => $state,
+                        $detail   = [
+                            'plate'          => $m['plate_number'],
+                            'name'           => $m['motor_name'],
+                            'color'          => $m['motor_color'],
+                            'rate'           => (float)$m['daily_rate'],
+                            'status'         => $state,
                             'booking_status' => $m['booking_status'],
-                            'guest' => $m['guest_name'],
-                            'room' => $m['room_number'],
-                            'start' => $m['start_datetime'],
-                            'end' => $m['end_datetime'],
-                            'total' => (float)$m['total_price'],
+                            'guest'          => $m['guest_name'],
+                            'room'           => $m['room_number'],
+                            'start'          => $m['start_datetime'],
+                            'end'            => $m['end_datetime'],
+                            'total'          => (float)$m['total_price'],
+                            'partner_owner'  => $m['partner_owner'] ?? '',
+                            'owner_phone'    => $m['owner_phone'] ?? '',
                         ];
                     ?>
                         <div class="motor-box <?php echo $boxClass; ?>"
@@ -754,9 +762,55 @@ include '../../includes/header.php';
                     <?php endforeach; ?>
                 </div>
             <?php else: ?>
-                <div class="empty-state" style="padding:1.25rem 0 0.5rem">
-                    <div class="icon">🏍️</div>
-                    <div class="text">Belum ada motor terdaftar</div>
+                <div class="empty-state" style="padding:1rem 0 0.25rem">
+                    <div class="icon" style="font-size:1.5rem">🏍️</div>
+                    <div class="text" style="font-size:0.8rem">Belum ada motor</div>
+                </div>
+            <?php endif; ?>
+        <?php } ?>
+
+        <!-- Motor Hotel -->
+        <div class="dashboard-panel">
+            <div class="panel-head">
+                <h2>🏨 Motor Hotel</h2>
+                <div class="hint"><?php echo $hotelActiveCount; ?> / <?php echo count($hotelMotors); ?> aktif</div>
+            </div>
+            <?php renderMotorGrid(array_values($hotelMotors)); ?>
+        </div>
+
+        <!-- Motor Mitra -->
+        <div class="dashboard-panel" style="border-top:3px solid #10b981">
+            <div class="panel-head">
+                <h2>🤝 Motor Mitra</h2>
+                <div class="hint"><?php echo $mitraActiveCount; ?> / <?php echo count($mitraMotors); ?> aktif</div>
+            </div>
+            <?php if (!empty($mitraMotors)): ?>
+                <?php
+                // Group by partner_owner
+                $grouped = [];
+                foreach ($mitraMotors as $m) {
+                    $key = $m['partner_owner'];
+                    if (!isset($grouped[$key])) $grouped[$key] = ['owner' => $m['partner_owner'], 'phone' => $m['owner_phone'], 'pct' => $m['owner_commission_pct'], 'motors' => []];
+                    $grouped[$key]['motors'][] = $m;
+                }
+                foreach ($grouped as $g): ?>
+                    <div style="margin-bottom:1rem">
+                        <div style="padding:0.45rem 0.75rem;background:#f0fdf4;border-radius:6px;font-size:0.82rem;font-weight:700;color:#15803d;margin-bottom:0.5rem;display:flex;align-items:center;gap:0.5rem">
+                            🤝 <?php echo htmlspecialchars($g['owner']); ?>
+                            <?php if ($g['phone']): ?>
+                                <span style="font-weight:400;color:#6b7280;font-size:0.75rem">· <?php echo htmlspecialchars($g['phone']); ?></span>
+                            <?php endif; ?>
+                            <?php if ($g['pct'] > 0): ?>
+                                <span style="margin-left:auto;font-size:0.73rem;background:#dcfce7;color:#15803d;padding:0.1rem 0.45rem;border-radius:4px"><?php echo $g['pct']; ?>% komisi</span>
+                            <?php endif; ?>
+                        </div>
+                        <?php renderMotorGrid($g['motors']); ?>
+                    </div>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <div class="empty-state" style="padding:1rem 0 0.25rem">
+                    <div class="icon" style="font-size:1.5rem">🤝</div>
+                    <div class="text" style="font-size:0.8rem">Belum ada motor mitra</div>
                 </div>
             <?php endif; ?>
         </div>
