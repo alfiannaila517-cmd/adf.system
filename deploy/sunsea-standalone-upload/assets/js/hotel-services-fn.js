@@ -312,7 +312,7 @@ function addItemRow (svc, desc, qty, price) {
     `</div>` +
     `</div>` +
     `<div class="hs-ic-nums">` +
-    `<div class="hs-ic-labeled"><span>QTY</span><input type="number" class="iQty" value="${
+    `<div class="hs-ic-labeled"><span class="iQtyLabel">QTY</span><input type="number" class="iQty" value="${
       qty || 1
     }" min="0.5" step="0.5" oninput="rcalc('${id}')"></div>` +
     `<div class="hs-ic-labeled"><span>Harga (Rp)</span><input type="number" class="iPrice" value="${
@@ -333,11 +333,14 @@ function addItemRow (svc, desc, qty, price) {
 function onDaysChange (id) {
   const tr = document.getElementById(id)
   if (!tr) return
+  const svc = tr.querySelector('.iSvc')?.value
   const daysInput = tr.querySelector('.iDays')
   const days = parseFloat(daysInput.value) || 1
-  tr.querySelector('.iQty').value = Math.max(1, days)
+  // For motor_rental: QTY = number of motors (don't overwrite). For others: QTY = days.
+  if (svc !== 'motor_rental') {
+    tr.querySelector('.iQty').value = Math.max(1, days)
+  }
   rcalc(id)
-  // Recalculate driver commission when qty changes (driver_daily_rate is per-day)
   if (tr.querySelector('.iNeedsDriver')?.checked) prefillDriverCommission(tr)
 }
 
@@ -372,9 +375,15 @@ function onSvcChange (id, isNew) {
     if (svc === 'motor_rental') {
       if (motorSourceWrap) motorSourceWrap.style.display = ''
       if (motorSourceSel) motorSourceSel.innerHTML = buildMotorSourceOpts(motorSourceSel.value)
+      // QTY = jumlah motor unit; reset to 1 when switching to motor_rental
+      const qtyLabel = tr.querySelector('.iQtyLabel')
+      if (qtyLabel) qtyLabel.textContent = 'Jml Motor'
+      if (isNew) tr.querySelector('.iQty').value = 1
     } else {
       if (motorSourceWrap) motorSourceWrap.style.display = 'none'
       if (motorSourceSel) motorSourceSel.value = ''
+      const qtyLabel = tr.querySelector('.iQtyLabel')
+      if (qtyLabel) qtyLabel.textContent = 'QTY'
     }
     // Set default 1 day
     if (!tr.querySelector('.iDays').value) tr.querySelector('.iDays').value = 1
@@ -515,9 +524,12 @@ function delRow (id) {
 function rcalc (id) {
   const tr = document.getElementById(id)
   if (!tr) return
-  const t =
-    (parseFloat(tr.querySelector('.iQty').value) || 0) *
-    (parseFloat(tr.querySelector('.iPrice').value) || 0)
+  const svc = tr.querySelector('.iSvc')?.value
+  const qty   = parseFloat(tr.querySelector('.iQty').value) || 0
+  const price = parseFloat(tr.querySelector('.iPrice').value) || 0
+  // For motor_rental: subtotal = motors × days × daily_rate
+  const days  = svc === 'motor_rental' ? (parseFloat(tr.querySelector('.iDays')?.value) || 1) : 1
+  const t = qty * days * price
   tr.querySelector('.iTotal').textContent =
     'Rp ' + Math.round(t).toLocaleString('id-ID')
   refreshTotal()
@@ -526,9 +538,11 @@ function rcalc (id) {
 function subtotal () {
   let t = 0
   document.querySelectorAll('#itemsBody .hs-item-card').forEach(tr => {
-    t +=
-      (parseFloat(tr.querySelector('.iQty')?.value) || 0) *
-      (parseFloat(tr.querySelector('.iPrice')?.value) || 0)
+    const svc   = tr.querySelector('.iSvc')?.value
+    const qty   = parseFloat(tr.querySelector('.iQty')?.value) || 0
+    const price = parseFloat(tr.querySelector('.iPrice')?.value) || 0
+    const days  = svc === 'motor_rental' ? (parseFloat(tr.querySelector('.iDays')?.value) || 1) : 1
+    t += qty * days * price
   })
   return t
 }
@@ -709,10 +723,13 @@ function submitCreate () {
         return
       }
     }
+    const _motorUnits = parseFloat(tr.querySelector('.iQty').value) || 1
+    const _motorDays  = parseFloat(tr.querySelector('.iDays')?.value) || 1
     items.push({
       service_type: svc,
       description: tr.querySelector('.iDesc').value.trim(),
-      qty: parseFloat(tr.querySelector('.iQty').value) || 1,
+      // For motor_rental: send motors×days as qty so server total_price = motors×days×rate
+      qty: svc === 'motor_rental' ? _motorUnits * _motorDays : _motorUnits,
       unit_price: parseFloat(tr.querySelector('.iPrice').value) || 0,
       motor_id: motorId || null,
       car_id: (svc === 'car_rental' ? carId : driverCarId) || null,
@@ -1184,7 +1201,7 @@ function eAddItemRow (itemOrSvc, desc, qty, price) {
     `</div>` +
     `</div>` +
     `<div class="hs-ic-nums">` +
-    `<div class="hs-ic-labeled"><span>QTY</span><input type="number" class="iQty" value="${
+    `<div class="hs-ic-labeled"><span class="iQtyLabel">QTY</span><input type="number" class="iQty" value="${
       item.quantity || 1
     }" min="0.5" step="0.5" oninput="ercalc('${id2}')"></div>` +
     `<div class="hs-ic-labeled"><span>Harga (Rp)</span><input type="number" class="iPrice" value="${
@@ -1306,9 +1323,14 @@ function eOnSvcChange (id2, isNew) {
       if (svc === 'motor_rental') {
         if (motorSourceWrap) motorSourceWrap.style.display = ''
         if (motorSourceSel) motorSourceSel.innerHTML = buildMotorSourceOpts(motorSourceSel.value)
+        const ql = tr3.querySelector('.iQtyLabel')
+        if (ql) ql.textContent = 'Jml Motor'
+        if (isNew) tr3.querySelector('.iQty').value = 1
       } else {
         if (motorSourceWrap) motorSourceWrap.style.display = 'none'
         if (motorSourceSel) motorSourceSel.value = ''
+        const ql = tr3.querySelector('.iQtyLabel')
+        if (ql) ql.textContent = 'QTY'
       }
       if (!tr3.querySelector('.iDays').value)
         tr3.querySelector('.iDays').value = 1
@@ -1434,11 +1456,13 @@ function eOnRentalAssetChange (id2, keepManualDesc) {
 function eOnDaysChange (id2) {
   const tr3 = document.getElementById(id2)
   if (!tr3) return
+  const svc2 = tr3.querySelector('.iSvc')?.value
   const daysInput = tr3.querySelector('.iDays')
   const days = parseFloat(daysInput.value) || 1
-  tr3.querySelector('.iQty').value = Math.max(1, days)
+  if (svc2 !== 'motor_rental') {
+    tr3.querySelector('.iQty').value = Math.max(1, days)
+  }
   ercalc(id2)
-  // Recalculate driver commission when qty changes (driver_daily_rate is per-day)
   if (tr3.querySelector('.iNeedsDriver')?.checked) prefillDriverCommission(tr3)
 }
 
@@ -1451,11 +1475,12 @@ function eDelRow (id) {
 function ercalc (id) {
   const tr = document.getElementById(id)
   if (!tr) return
-  const t =
-    (parseFloat(tr.querySelector('.iQty').value) || 0) *
-    (parseFloat(tr.querySelector('.iPrice').value) || 0)
+  const svc  = tr.querySelector('.iSvc')?.value
+  const qty  = parseFloat(tr.querySelector('.iQty').value) || 0
+  const price = parseFloat(tr.querySelector('.iPrice').value) || 0
+  const days = svc === 'motor_rental' ? (parseFloat(tr.querySelector('.iDays')?.value) || 1) : 1
   tr.querySelector('.iTotal').textContent =
-    'Rp ' + Math.round(t).toLocaleString('id-ID')
+    'Rp ' + Math.round(qty * days * price).toLocaleString('id-ID')
   eRefreshTotal()
 }
 
@@ -1469,9 +1494,11 @@ function eOnTaxRateChange () {
 function eRefreshTotal () {
   let s = 0
   document.querySelectorAll('#eItemsBody .hs-item-card').forEach(tr => {
-    s +=
-      (parseFloat(tr.querySelector('.iQty')?.value) || 0) *
-      (parseFloat(tr.querySelector('.iPrice')?.value) || 0)
+    const svc   = tr.querySelector('.iSvc')?.value
+    const qty   = parseFloat(tr.querySelector('.iQty')?.value) || 0
+    const price = parseFloat(tr.querySelector('.iPrice')?.value) || 0
+    const days  = svc === 'motor_rental' ? (parseFloat(tr.querySelector('.iDays')?.value) || 1) : 1
+    s += qty * days * price
   })
   const sel = document.getElementById('eTaxRate')
   let r = sel
