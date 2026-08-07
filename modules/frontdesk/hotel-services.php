@@ -1898,7 +1898,7 @@ try {
 }
 
 try {
-    $motorStmt = $pdo->prepare("SELECT id, plate_number, motor_name, daily_rate FROM rental_motors WHERE business_id=? AND status='available' ORDER BY motor_name ASC, plate_number ASC");
+    $motorStmt = $pdo->prepare("SELECT id, plate_number, motor_name, daily_rate, partner_owner, owner_phone, owner_commission_pct, driver_daily_rate FROM rental_motors WHERE business_id=? AND status='available' ORDER BY motor_name ASC, plate_number ASC");
     $motorStmt->execute([$businessId]);
     $availableMotors = $motorStmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (\Throwable $e) {
