@@ -323,7 +323,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $rentalId = (int)($_POST['rental_id'] ?? 0);
             if (!$rentalId) throw new Exception('Invalid rental ID');
 
-            $rental = $pdo->prepare("SELECT rb.*, rm.plate_number, rm.motor_name
+            $rental = $pdo->prepare("SELECT rb.*, rm.plate_number, rm.motor_name,
+                    rm.owner_commission_pct, rm.partner_owner
                 FROM rental_motor_bookings rb
                 JOIN rental_motors rm ON rb.motor_id = rm.id
                 WHERE rb.id=? AND rb.business_id=?");
@@ -344,15 +345,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $actualDays = max(1, (int)ceil($totalHours / 24));
 
             // Calculate actual price with minimum 100k
-            $dailyRate = (float)$rentalRow['daily_rate'];
-            $calculatedTotal = $actualDays * $dailyRate;
-            $newTotal = max(100000, round($calculatedTotal, 2)); // Minimum 100k
+            $dailyRate   = (float)$rentalRow['daily_rate'];
+            $newTotal    = max(100000, round($actualDays * $dailyRate, 2));
+
+            // Calculate mitra commission split
+            $commPct       = (float)($rentalRow['owner_commission_pct'] ?? 0);
+            $ownerAmount   = $commPct > 0 ? round($newTotal * $commPct / 100, 2) : 0.0;
+            $hotelComm     = round($newTotal - $ownerAmount, 2);
 
             $pdo->beginTransaction();
 
-            // Update rental with calculated total price
-            $pdo->prepare("UPDATE rental_motor_bookings SET status='returned', actual_return=?, total_price=?, updated_at=NOW() WHERE id=?")
-                ->execute([$returnTime, $newTotal, $rentalId]);
+            // Update rental with calculated total price and commission split
+            $pdo->prepare("UPDATE rental_motor_bookings SET status='returned', actual_return=?, total_price=?, owner_amount=?, hotel_commission=?, updated_at=NOW() WHERE id=?")
+                ->execute([$returnTime, $newTotal, $ownerAmount, $hotelComm, $rentalId]);
 
             // Update motor status back to available
             $pdo->prepare("UPDATE rental_motors SET status='available', updated_at=NOW() WHERE id=?")->execute([$rentalRow['motor_id']]);
@@ -376,8 +381,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $pdo->commit();
             ob_clean();
             echo json_encode([
-                'success' => true,
-                'actual_days' => $actualDays,
+                'success'      => true,
+                'actual_days'  => $actualDays,
                 'daily_rate' => $dailyRate,
                 'new_total' => $newTotal,
                 'calculated' => $actualDays * $dailyRate,

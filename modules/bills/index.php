@@ -1770,6 +1770,7 @@ include '../../includes/header.php';
                     <td style="text-align:right;font-weight:700;color:#16794d;">Rp ${formatNumber(d.owner_amount)}</td>
                     <td style="text-align:right;">
                         <div style="display:flex;gap:4px;justify-content:flex-end;align-items:center;flex-wrap:wrap;">
+                            <button class="btn-trip-edit" onclick="editMotorRentalAmount(${d.rental_id}, ${d.total_price}, ${d.owner_amount}, '${motorNameSafe}')">✏️ Edit</button>
                             ${d.paid
                                 ? `<span class="btn-trip-paid">✅ Lunas</span>`
                                 : `<button class="btn-trip-pay" onclick="payMotorRental(${d.rental_id}, ${d.owner_amount}, '${motorNameSafe}')">Bayar</button>`
@@ -1803,6 +1804,60 @@ include '../../includes/header.php';
         });
 
         recapEl.innerHTML = html;
+    }
+
+    let pendingMotorEdit = null;
+
+    function editMotorRentalAmount(rentalId, totalPrice, ownerAmount, mitraName) {
+        pendingMotorEdit = { rentalId };
+        document.getElementById('etDriverName').textContent = mitraName || '-';
+        document.getElementById('etTripLabel').textContent = 'Motor Rental';
+        document.getElementById('etTotalPrice').value = totalPrice;
+        document.getElementById('etOwnerAmount').value = ownerAmount;
+        const suggestEl = document.getElementById('etSuggestLink');
+        if (suggestEl) suggestEl.style.display = 'none';
+        const btn = document.getElementById('etConfirmBtn');
+        btn.disabled = false;
+        btn.textContent = '💾 Simpan';
+        btn.onclick = confirmEditMotorRental;
+        updateEditCompanyAmount();
+        document.getElementById('editTripModalOverlay').classList.add('open');
+    }
+
+    async function confirmEditMotorRental() {
+        if (!pendingMotorEdit) return;
+        const totalPrice  = parseFloat(document.getElementById('etTotalPrice').value);
+        const ownerAmount = parseFloat(document.getElementById('etOwnerAmount').value);
+        if (isNaN(totalPrice) || totalPrice < 0) { alert('Total tarif tidak valid'); return; }
+        if (isNaN(ownerAmount) || ownerAmount < 0) { alert('Bagian mitra tidak valid'); return; }
+        if (ownerAmount > totalPrice) { alert('Bagian mitra tidak boleh melebihi total'); return; }
+
+        const btn = document.getElementById('etConfirmBtn');
+        btn.disabled = true;
+        btn.textContent = 'Menyimpan...';
+
+        const fd = new FormData();
+        fd.append('rental_id', pendingMotorEdit.rentalId);
+        fd.append('total_price', totalPrice);
+        fd.append('owner_amount', ownerAmount);
+
+        try {
+            const res = await fetch(BASE_URL + '/api/edit-motor-rental-amount.php', { method: 'POST', body: fd, credentials: 'include' });
+            const result = await res.json();
+            if (result.success) {
+                closeEditTripModal();
+                pendingMotorEdit = null;
+                await loadMotorRecap();
+            } else {
+                alert('Error: ' + (result.message || 'Gagal menyimpan'));
+                btn.disabled = false;
+                btn.textContent = '💾 Simpan';
+            }
+        } catch (e) {
+            alert('Network error');
+            btn.disabled = false;
+            btn.textContent = '💾 Simpan';
+        }
     }
 
     async function saveDriverPartnerName() {
