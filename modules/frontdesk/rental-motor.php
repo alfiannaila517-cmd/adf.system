@@ -1083,6 +1083,7 @@ include '../../includes/header.php';
     <div class="rm-tabs">
         <button class="rm-tab active" id="tab-monitoring" onclick="switchTab('monitoring')">📊 Monitoring</button>
         <button class="rm-tab" id="tab-fleet" onclick="switchTab('fleet')">🏍️ Armada Motor</button>
+        <button class="rm-tab" id="tab-prices" onclick="switchTab('prices')">💰 Data Harga Motor</button>
         <button class="rm-tab" id="tab-history" onclick="switchTab('history')">📋 Riwayat</button>
     </div>
 
@@ -1302,6 +1303,81 @@ include '../../includes/header.php';
                         </div>
                     </div>
                 <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+    </div>
+
+    <!-- TAB: Data Harga Motor (Price List) -->
+    <div class="rm-tab-pane" id="pane-prices">
+        <?php if (empty($motorList)): ?>
+            <div class="rm-empty">
+                <div class="em-icon">💰</div>
+                <p>Belum ada motor terdaftar</p>
+            </div>
+        <?php else: ?>
+            <div class="rm-table-wrap">
+                <table class="rm-table">
+                    <thead>
+                        <tr>
+                            <th>Plat Nomor</th>
+                            <th>Nama Motor</th>
+                            <th>Status</th>
+                            <th>Tarif/Hari</th>
+                            <th>Mitra (Motor Luar)</th>
+                            <th>Telepon</th>
+                            <th>Komisi %</th>
+                            <th>Tarif Mitra/Hari</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php
+                        $statusLabels = ['available' => '✓ Tersedia', 'rented' => '🚗 Disewa', 'maintenance' => '🔧 Pemeliharaan'];
+                        foreach ($motorList as $m):
+                            $isPartnerMotor = !empty($m['partner_owner']);
+                        ?>
+                            <tr style="<?php echo $isPartnerMotor ? 'background-color:#f0fdf4;' : ''; ?>">
+                                <td>
+                                    <strong><?php echo htmlspecialchars($m['plate_number']); ?></strong>
+                                </td>
+                                <td>
+                                    <div style="font-weight:500"><?php echo htmlspecialchars($m['motor_name']); ?></div>
+                                    <?php if ($m['year']): ?>
+                                        <div style="font-size:0.75rem;color:var(--text-secondary)"><?php echo $m['year']; ?> · <?php echo htmlspecialchars($m['color'] ?? 'No color'); ?></div>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <span class="rm-badge" style="background:<?php echo ['available' => '#dcfce7', 'rented' => '#fef3c7', 'maintenance' => '#e5e7eb'][$m['status']] ?? '#e5e7eb'; ?>;color:<?php echo ['available' => '#15803d', 'rented' => '#b45309', 'maintenance' => '#4b5563'][$m['status']] ?? '#4b5563'; ?>">
+                                        <?php echo $statusLabels[$m['status']] ?? $m['status']; ?>
+                                    </span>
+                                </td>
+                                <td style="font-weight:600">
+                                    Rp <?php echo number_format($m['daily_rate'], 0, ',', '.'); ?>
+                                </td>
+                                <td>
+                                    <?php echo $isPartnerMotor ? htmlspecialchars($m['partner_owner']) : '<span style="color:var(--text-secondary)">—</span>'; ?>
+                                </td>
+                                <td>
+                                    <?php echo $isPartnerMotor ? htmlspecialchars($m['owner_phone'] ?? '—') : '<span style="color:var(--text-secondary)">—</span>'; ?>
+                                </td>
+                                <td style="text-align:center;font-weight:600">
+                                    <?php echo $isPartnerMotor ? $m['owner_commission_pct'] . '%' : '<span style="color:var(--text-secondary)">—</span>'; ?>
+                                </td>
+                                <td style="font-weight:600">
+                                    <?php echo $isPartnerMotor ? 'Rp ' . number_format($m['driver_daily_rate'], 0, ',', '.') : '<span style="color:var(--text-secondary)">—</span>'; ?>
+                                </td>
+                                <td style="white-space:nowrap">
+                                    <button class="rm-action-btn" style="background:#e0e7ff;color:#4338ca;padding:0.35rem 0.65rem;font-size:0.75rem" onclick="editMotor(<?php echo htmlspecialchars(json_encode($m)); ?>)">
+                                        ✏️ Edit
+                                    </button>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <div style="margin-top:1rem;padding:0.75rem;background:#f0fdf4;border-radius:6px;border-left:4px solid #10b981;font-size:0.85rem;color:#15803d">
+                <strong>💡 Catatan:</strong> Baris hijau menunjukkan motor dari mitra eksternal (Motor Luar) dengan informasi komisi dan tarif mitra.
             </div>
         <?php endif; ?>
     </div>
