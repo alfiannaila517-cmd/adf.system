@@ -1370,8 +1370,8 @@ if ($search) {
     $params[] = "%$search%";
 }
 
+// First get the list of invoices
 $stmt = $pdo->prepare("SELECT hi.*,
-    GROUP_CONCAT(DISTINCT hii.service_type ORDER BY hii.id SEPARATOR ',') as service_types,
     COUNT(hii.id) as item_count
     FROM hotel_invoices hi
     LEFT JOIN hotel_invoice_items hii ON hii.invoice_id = hi.id
@@ -1379,6 +1379,18 @@ $stmt = $pdo->prepare("SELECT hi.*,
     GROUP BY hi.id ORDER BY hi.created_at DESC LIMIT 200");
 $stmt->execute($params);
 $invoices = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// For each invoice, get service type breakdown (count per type)
+foreach ($invoices as &$inv) {
+    $typeCountStmt = $pdo->prepare("SELECT hii.service_type, COUNT(*) as cnt
+        FROM hotel_invoice_items hii
+        WHERE hii.invoice_id = ?
+        GROUP BY hii.service_type
+        ORDER BY hii.service_type");
+    $typeCountStmt->execute([$inv['id']]);
+    $inv['service_type_counts'] = $typeCountStmt->fetchAll(PDO::FETCH_ASSOC);
+}
+unset($inv);
 
 // Stats — today totals
 $stats = $pdo->prepare("SELECT COUNT(*) as total,
@@ -2179,8 +2191,7 @@ include '../../includes/header.php';
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($invoices as $inv):
-                        $svcList = array_filter(explode(',', $inv['service_types'] ?? '')); ?>
+                    <?php foreach ($invoices as $inv): ?>
                         <tr>
                             <td style="font-weight:700;color:#4338ca;white-space:nowrap"><?php echo htmlspecialchars($inv['invoice_number']); ?></td>
                             <td>
@@ -2189,10 +2200,14 @@ include '../../includes/header.php';
                             </td>
                             <td><?php echo $inv['room_number'] ? htmlspecialchars($inv['room_number']) : '<span style="color:#d1d5db">—</span>'; ?></td>
                             <td>
-                                <?php foreach (array_unique($svcList) as $svc): ?>
-                                    <span class="hs-svc-pill"><?php echo $serviceTypes[$svc]['icon'] ?? ''; ?> <?php echo $serviceTypes[$svc]['label'] ?? $svc; ?></span>
-                                <?php endforeach; ?>
-                                <?php if ((int)$inv['item_count'] > 1): ?><div style="font-size:0.68rem;color:#6b7280;margin-top:2px"><?php echo $inv['item_count']; ?> items</div><?php endif; ?>
+                                <?php if (!empty($inv['service_type_counts'])): ?>
+                                    <?php foreach ($inv['service_type_counts'] as $typeCount): ?>
+                                        <?php $svcKey = $typeCount['service_type']; $svcInfo = $serviceTypes[$svcKey] ?? ['label' => $svcKey, 'icon' => '🔹']; ?>
+                                        <span class="hs-svc-pill"><?php echo $svcInfo['icon'] ?? ''; ?> <?php echo $svcInfo['label'] ?? $svcKey; ?> (<?php echo (int)$typeCount['cnt']; ?>)</span>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    <span style="color:#d1d5db">No items</span>
+                                <?php endif; ?>
                             </td>
                             <td style="font-weight:700;white-space:nowrap">Rp <?php echo number_format($inv['total'], 0, ',', '.'); ?></td>
                             <td style="color:#10b981;font-weight:600;white-space:nowrap">Rp <?php echo number_format($inv['paid_amount'], 0, ',', '.'); ?></td>
