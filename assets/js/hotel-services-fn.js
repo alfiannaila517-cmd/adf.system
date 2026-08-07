@@ -1149,6 +1149,7 @@ function eAddItemRow (itemOrSvc, desc, qty, price) {
     `</div>` +
     `<div class="hs-rental-extra">` +
     `<div class="hs-rental-row1">` +
+    `<div class="iMotorSourceWrap hs-ic-labeled" style="display:none"><span>Sumber Motor</span><select class="iMotorSource" onchange="onMotorSourceChange('${id2}')"></select></div>` +
     `<div class="hs-ic-labeled hs-asset-wrap"><span>Armada</span><select class="iAsset" onchange="eOnRentalAssetChange('${id2}')"></select></div>` +
     `<div class="hs-ic-labeled hs-paket-wrap" style="display:none"><span>Paket / Jenis</span><select class="iPaket" onchange="onPaketChange('${id2}')"><option value="">── Harga dari Armada ──</option></select></div>` +
     `<div class="hs-ic-labeled"><span>Hari Sewa</span><input type="number" class="iDays" value="${
@@ -1309,6 +1310,16 @@ function eOnSvcChange (id2, isNew) {
         assetWrap.style.display = svc === 'car_rental' ? 'none' : ''
       if (destWrap3)
         destWrap3.style.display = svc === 'car_rental' ? '' : 'none'
+      // Show motor source dropdown for motor_rental
+      const motorSourceWrap = tr3.querySelector('.iMotorSourceWrap')
+      const motorSourceSel = tr3.querySelector('.iMotorSource')
+      if (svc === 'motor_rental') {
+        if (motorSourceWrap) motorSourceWrap.style.display = ''
+        if (motorSourceSel) motorSourceSel.innerHTML = buildMotorSourceOpts(motorSourceSel.value)
+      } else {
+        if (motorSourceWrap) motorSourceWrap.style.display = 'none'
+        if (motorSourceSel) motorSourceSel.value = ''
+      }
       if (!tr3.querySelector('.iDays').value)
         tr3.querySelector('.iDays').value = 1
       // Populate paket picker from catalog
