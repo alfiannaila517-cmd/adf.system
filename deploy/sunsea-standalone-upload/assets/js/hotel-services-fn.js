@@ -488,16 +488,6 @@ function onMotorSourceChange (id) {
   assetSelect.innerHTML = buildRentalAssetOpts(RENTAL_MOTORS, assetSelect.value, motorSource)
   onRentalAssetChange(id, false)
 }
-  // Auto-check driver if this vehicle has a preset driver rate
-  if (chosen.driver_daily_rate > 0) {
-    const chk = tr.querySelector('.iNeedsDriver')
-    const commWrap = tr.querySelector('.iCommWrap')
-    if (chk) chk.checked = true
-    if (commWrap) commWrap.style.display = 'flex'
-    prefillDriverCommission(tr)
-  }
-  rcalc(id)
-}
 
 function syncRentalDuration (id) {
   const tr = document.getElementById(id)
