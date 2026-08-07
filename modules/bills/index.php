@@ -1783,6 +1783,7 @@ include '../../includes/header.php';
                 <div class="driver-recap-card">
                     <div class="dr-name">
                         <span>🏍️ ${motor.partner_owner || 'Tanpa Pemilik'}${motor.owner_phone ? ' <span style="font-weight:400;color:#6b7690;font-size:11px;">&middot; ' + motor.owner_phone + '</span>' : ''}</span>
+                        <button class="btn-print-recap" onclick="printMotorRecap(${idx})">🖨️ Cetak Rekap</button>
                     </div>
                     <div class="dr-stats">
                         <div class="dr-stat"><div class="v">${baseRows.length}</div><div class="l">🏍️ Total Rental</div></div>
@@ -1806,7 +1807,119 @@ include '../../includes/header.php';
         recapEl.innerHTML = html;
     }
 
+    let pendingMotorPay = null;
     let pendingMotorEdit = null;
+
+    function payMotorRental(rentalId, ownerAmount, mitraName) {
+        pendingMotorPay = { rentalId, ownerAmount, mitraName };
+        pendingPayMethod = 'cash';
+        document.getElementById('ptDriverName').textContent = mitraName || 'Mitra';
+        document.getElementById('ptAmount').textContent = 'Rp ' + formatNumber(ownerAmount);
+        document.querySelectorAll('.dp-method-btn').forEach(b => b.classList.toggle('active', b.dataset.method === 'cash'));
+        const btn = document.getElementById('ptConfirmBtn');
+        btn.disabled = false;
+        btn.textContent = '✅ Bayar & Catat ke Kas';
+        btn.onclick = confirmPayMotorRental;
+        document.getElementById('payTripModalOverlay').classList.add('open');
+    }
+
+    async function confirmPayMotorRental() {
+        if (!pendingMotorPay) return;
+        const { rentalId, mitraName } = pendingMotorPay;
+        const cashAccountId = document.getElementById('ptCashAccount').value || '1';
+        const btn = document.getElementById('ptConfirmBtn');
+        btn.disabled = true;
+        btn.textContent = 'Memproses...';
+
+        const fd = new FormData();
+        fd.append('rental_id', rentalId);
+        fd.append('payment_method', pendingPayMethod || 'cash');
+        fd.append('cash_account_id', cashAccountId);
+        fd.append('mitra_name', mitraName || 'Mitra');
+
+        try {
+            const res = await fetch(BASE_URL + '/api/pay-motor-rental.php', { method: 'POST', body: fd, credentials: 'include' });
+            const result = await res.json();
+            if (result.success) {
+                document.getElementById('payTripModalOverlay').classList.remove('open');
+                pendingMotorPay = null;
+                await loadMotorRecap();
+            } else {
+                alert('Error: ' + (result.message || 'Gagal'));
+                btn.disabled = false;
+                btn.textContent = '✅ Bayar & Catat ke Kas';
+            }
+        } catch (e) {
+            alert('Network error');
+            btn.disabled = false;
+            btn.textContent = '✅ Bayar & Catat ke Kas';
+        }
+    }
+
+    function printMotorRecap(idx) {
+        const motor = lastMotorRecap[idx];
+        if (!motor) return;
+        const monthVal = document.getElementById('filterMonth').value;
+        const monthLabel = monthVal
+            ? new Date(monthVal + '-01').toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })
+            : '';
+        const rows = motor.detail_rows || [];
+        const sumRevenue = rows.reduce((s, r) => s + (parseFloat(r.total_price) || 0), 0);
+        const sumOwner   = rows.reduce((s, r) => s + (parseFloat(r.owner_amount) || 0), 0);
+        const sumPaid    = rows.filter(r => r.paid).reduce((s, r) => s + (parseFloat(r.owner_amount) || 0), 0);
+        const sumUnpaid  = rows.filter(r => !r.paid).reduce((s, r) => s + (parseFloat(r.owner_amount) || 0), 0);
+
+        const rowsHtml = rows.map((d, i) => `
+            <tr>
+                <td>${i + 1}</td>
+                <td>${new Date(d.trx_date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                <td>${d.motor_name || '—'}<br><small>${d.plate_number || ''}</small></td>
+                <td>${d.guest_name || '—'}${d.room_number ? ' (Kamar ' + d.room_number + ')' : ''}</td>
+                <td style="text-align:right;">Rp ${formatNumber(d.total_price)}</td>
+                <td style="text-align:right;">Rp ${formatNumber(d.owner_amount)}</td>
+                <td style="text-align:center;">${d.paid ? '✅ Lunas' : '⏳ Belum'}</td>
+            </tr>`).join('');
+
+        const pw = window.open('', '_blank', 'width=900,height=700');
+        pw.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
+            <title>Rekap Motor Mitra - ${motor.partner_owner || 'Tanpa Pemilik'}</title>
+            <style>
+                body { font-family: Arial, sans-serif; padding: 24px; color: #1a2540; }
+                h1 { font-size: 18px; margin-bottom: 2px; }
+                .sub { color: #6b7690; font-size: 12px; margin-bottom: 16px; }
+                .summary { display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+                .summary div { border: 1px solid #e2e6ee; border-radius: 6px; padding: 8px 14px; font-size: 12px; }
+                .summary b { display: block; font-size: 15px; }
+                table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+                th, td { border: 1px solid #d8dee8; padding: 5px 6px; }
+                th { background: #f3f5fb; text-align: left; }
+                small { color: #6b7690; }
+                .footer { margin-top: 28px; display: flex; justify-content: space-between; font-size: 12px; }
+                .footer div { text-align: center; width: 200px; }
+                .footer .line { margin-top: 48px; border-top: 1px solid #333; padding-top: 4px; }
+                @media print { .no-print { display: none; } }
+            </style></head><body>
+            <button class="no-print" onclick="window.print()" style="float:right;padding:6px 14px;">🖨️ Cetak</button>
+            <h1>Rekap Tagihan Motor Mitra</h1>
+            <div class="sub">${motor.partner_owner || 'Tanpa Pemilik'}${motor.owner_phone ? ' · ' + motor.owner_phone : ''} &mdash; Periode ${monthLabel}</div>
+            <div class="summary">
+                <div><b>${rows.length}</b>Total Rental</div>
+                <div><b>Rp ${formatNumber(sumRevenue)}</b>Total Revenue</div>
+                <div><b>Rp ${formatNumber(sumOwner)}</b>Bagian Mitra</div>
+                <div><b>Rp ${formatNumber(sumPaid)}</b>Sudah Dibayar</div>
+                <div><b>Rp ${formatNumber(sumUnpaid)}</b>Belum Dibayar</div>
+            </div>
+            <table>
+                <thead><tr><th>#</th><th>Tanggal</th><th>Motor</th><th>Tamu</th><th style="text-align:right;">Total</th><th style="text-align:right;">Bagian Mitra</th><th style="text-align:center;">Status</th></tr></thead>
+                <tbody>${rowsHtml || '<tr><td colspan="7" style="text-align:center;color:#999;">Tidak ada rental bulan ini</td></tr>'}</tbody>
+            </table>
+            <div class="footer">
+                <div>Mitra<div class="line">${motor.partner_owner || ''}</div></div>
+                <div>Hotel<div class="line">Frontdesk</div></div>
+            </div></body></html>`);
+        pw.document.close();
+        pw.focus();
+    }
 
     function editMotorRentalAmount(rentalId, totalPrice, ownerAmount, mitraName) {
         pendingMotorEdit = { rentalId };
