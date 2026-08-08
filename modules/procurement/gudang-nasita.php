@@ -18,6 +18,30 @@ $db = Database::getInstance();
 $currentUser = $auth->getCurrentUser();
 $pageTitle = 'Gudang Nasita';
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'manual_stock_in') {
+    $itemName = trim($_POST['item_name'] ?? '');
+    $unit = trim($_POST['unit'] ?? 'pcs');
+    $quantity = (float)($_POST['quantity'] ?? 0);
+    $supplierName = trim($_POST['supplier_name'] ?? '');
+    $reorderLevel = isset($_POST['reorder_level']) ? (float)$_POST['reorder_level'] : null;
+    $notes = trim($_POST['notes'] ?? '');
+
+    $result = addGudangNasitaManualStock($itemName, $unit, $quantity, $currentUser['id'], [
+        'supplier_name' => $supplierName,
+        'reorder_level' => $reorderLevel,
+        'notes' => $notes,
+    ]);
+
+    if ($result['success']) {
+        $_SESSION['success'] = $result['message'];
+    } else {
+        $_SESSION['error'] = $result['message'];
+    }
+
+    header('Location: gudang-nasita.php');
+    exit;
+}
+
 $stockItems = getGudangNasitaStock(300);
 $recentTransfers = getGudangNasitaTransfers(15);
 
@@ -57,6 +81,10 @@ include '../../includes/header.php';
         <p style="color: var(--text-muted); font-size: 0.875rem;">Stok pusat, penerimaan supplier, dan kontrol barang keluar</p>
     </div>
     <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
+        <button type="button" class="btn btn-success" onclick="document.getElementById('manualStockModal').style.display='flex'">
+            <i data-feather="plus-square" style="width: 16px; height: 16px;"></i>
+            Input Stock Manual
+        </button>
         <a href="purchase-orders.php" class="btn btn-primary">
             <i data-feather="file-plus" style="width: 16px; height: 16px;"></i>
             PO Supplier
@@ -67,6 +95,13 @@ include '../../includes/header.php';
         </a>
     </div>
 </div>
+
+<?php if (isset($_SESSION['success'])): ?>
+    <div class="alert alert-success" style="margin-bottom:1rem;"><?php echo htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?></div>
+<?php endif; ?>
+<?php if (isset($_SESSION['error'])): ?>
+    <div class="alert alert-danger" style="margin-bottom:1rem;"><?php echo htmlspecialchars($_SESSION['error']); unset($_SESSION['error']); ?></div>
+<?php endif; ?>
 
 <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.25rem;">
     <div class="card" style="padding:1rem;">
@@ -168,6 +203,55 @@ include '../../includes/header.php';
 
 <script>
     feather.replace();
+
+    document.addEventListener('click', function (e) {
+        var modal = document.getElementById('manualStockModal');
+        if (e.target === modal) {
+            modal.style.display = 'none';
+        }
+    });
 </script>
+
+<div id="manualStockModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.45); z-index:2000; align-items:center; justify-content:center; padding:1rem;">
+    <div class="card" style="width:min(640px, 100%); max-height:90vh; overflow:auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <h3 style="font-size:1.05rem; margin:0;">Input Stock Manual</h3>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('manualStockModal').style.display='none'">Tutup</button>
+        </div>
+        <form method="POST">
+            <input type="hidden" name="action" value="manual_stock_in">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.9rem;">
+                <div>
+                    <label class="form-label">Nama Item *</label>
+                    <input type="text" name="item_name" class="form-control" required>
+                </div>
+                <div>
+                    <label class="form-label">Unit *</label>
+                    <input type="text" name="unit" class="form-control" value="pcs" required>
+                </div>
+                <div>
+                    <label class="form-label">Qty Masuk *</label>
+                    <input type="number" name="quantity" class="form-control" step="0.01" min="0.01" required>
+                </div>
+                <div>
+                    <label class="form-label">Reorder Level</label>
+                    <input type="number" name="reorder_level" class="form-control" step="0.01" min="0" value="0">
+                </div>
+                <div style="grid-column:1 / span 2;">
+                    <label class="form-label">Supplier (opsional)</label>
+                    <input type="text" name="supplier_name" class="form-control" placeholder="Contoh: CV Sumber Jaya">
+                </div>
+                <div style="grid-column:1 / span 2;">
+                    <label class="form-label">Catatan</label>
+                    <textarea name="notes" class="form-control" rows="3" placeholder="Contoh: Stok awal sebelum sistem PO aktif"></textarea>
+                </div>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('manualStockModal').style.display='none'">Batal</button>
+                <button type="submit" class="btn btn-success">Simpan Stock Manual</button>
+            </div>
+        </form>
+    </div>
+</div>
 
 <?php include '../../includes/footer.php'; ?>
