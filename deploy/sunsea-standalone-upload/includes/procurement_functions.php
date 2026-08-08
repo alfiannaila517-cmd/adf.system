@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Procurement Module Functions
  * Narayana Hotel Management System
@@ -13,11 +14,12 @@ require_once __DIR__ . '/CloudinaryHelper.php';
  * 
  * @return string Generated PO number
  */
-function generatePONumber() {
+function generatePONumber()
+{
     $db = Database::getInstance();
-    
+
     $prefix = 'PO-' . date('Ym') . '-';
-    
+
     // Get the last PO number for this month
     $lastPO = $db->fetchOne("
         SELECT po_number 
@@ -26,7 +28,7 @@ function generatePONumber() {
         ORDER BY po_number DESC 
         LIMIT 1
     ", [$prefix . '%']);
-    
+
     if ($lastPO) {
         // Extract the sequence number
         $lastNumber = (int)substr($lastPO['po_number'], -4);
@@ -34,7 +36,7 @@ function generatePONumber() {
     } else {
         $newNumber = 1;
     }
-    
+
     return $prefix . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
 }
 
@@ -47,65 +49,66 @@ function generatePONumber() {
  * @param array $options Optional parameters: expected_delivery_date, notes, status
  * @return array ['success' => bool, 'po_id' => int, 'po_number' => string, 'message' => string]
  */
-function createPurchaseOrder($supplier_id, $po_date, $items, $options = []) {
+function createPurchaseOrder($supplier_id, $po_date, $items, $options = [])
+{
     $db = Database::getInstance();
-    
+
     try {
         // Validate inputs
         if (empty($supplier_id) || !is_numeric($supplier_id)) {
             throw new Exception("Invalid supplier ID");
         }
-        
+
         if (empty($po_date)) {
             throw new Exception("Purchase Order date is required");
         }
-        
+
         if (empty($items) || !is_array($items)) {
             throw new Exception("Items array is required and must not be empty");
         }
-        
+
         // Verify supplier exists
         $supplier = $db->fetchOne("SELECT id FROM suppliers WHERE id = ? AND is_active = 1", [$supplier_id]);
         if (!$supplier) {
             throw new Exception("Supplier not found or inactive");
         }
-        
+
         // Begin transaction
         $db->getConnection()->beginTransaction();
-        
+
         // Calculate totals
         $total_amount = 0;
         $line_number = 1;
         $validated_items = [];
-        
+
         foreach ($items as $item) {
             // Validate each item
             if (empty($item['item_name'])) {
                 throw new Exception("Item name is required for line {$line_number}");
             }
-            
+
             if (!isset($item['quantity']) || !is_numeric($item['quantity']) || $item['quantity'] <= 0) {
                 throw new Exception("Valid quantity is required for line {$line_number}");
             }
-            
+
             if (!isset($item['unit_price']) || !is_numeric($item['unit_price']) || $item['unit_price'] < 0) {
                 throw new Exception("Valid unit price is required for line {$line_number}");
             }
-            
+
             if (empty($item['division_id']) || !is_numeric($item['division_id'])) {
                 throw new Exception("Division ID is required for line {$line_number}");
             }
-            
+
             // Verify division exists
             $division = $db->fetchOne("SELECT id FROM divisions WHERE id = ?", [$item['division_id']]);
             if (!$division) {
                 throw new Exception("Division not found for line {$line_number}");
             }
-            
+
             // Calculate subtotal
             $subtotal = $item['quantity'] * $item['unit_price'];
             $total_amount += $subtotal;
-            
+
             // Store validated item
             $validated_items[] = [
                 'line_number' => $line_number,
@@ -118,10 +121,10 @@ function createPurchaseOrder($supplier_id, $po_date, $items, $options = []) {
                 'division_id' => $item['division_id'],
                 'notes' => isset($item['notes']) ? trim($item['notes']) : null
             ];
-            
+
             $line_number++;
         }
-        
+
         // Get current user ID
         $auth = new Auth();
         $currentUser = $auth->getCurrentUser();
@@ -130,26 +133,41 @@ function createPurchaseOrder($supplier_id, $po_date, $items, $options = []) {
         // Fix: Validate created_by user exists (Handle session mismatch)
         $user_check = $db->fetchOne("SELECT id FROM users WHERE id = ?", [$created_by]);
         if (!$user_check) {
-             // Try to find by username
-             $user_by_name = $db->fetchOne("SELECT id FROM users WHERE username = ?", [$currentUser['username']]);
-             if ($user_by_name) {
-                 $created_by = $user_by_name['id'];
-             } else {
-                 // Fallback to Admin (ID 1)
-                 $admin = $db->fetchOne("SELECT id FROM users WHERE id = 1 OR role = 'admin' LIMIT 1");
-                 $created_by = $admin ? $admin['id'] : 1; 
-             }
+            // Try to find by username
+            $user_by_name = $db->fetchOne("SELECT id FROM users WHERE username = ?", [$currentUser['username']]);
+            if ($user_by_name) {
+                $created_by = $user_by_name['id'];
+            } else {
+                // Fallback to Admin (ID 1)
+                $admin = $db->fetchOne("SELECT id FROM users WHERE id = 1 OR role = 'admin' LIMIT 1");
+                $created_by = $admin ? $admin['id'] : 1;
+            }
         }
-        
+
         // Generate PO Number
         $po_number = generatePONumber();
-        $businessId = isset($_SESSION['business_id']) ? (int)$_SESSION['business_id'] : null;
-        
+        $businessId = isset($_SESSION['business_id']) ? (int)$_SESSION['business_id'] : 0;
+        if ($businessId <= 0 && defined('ACTIVE_BUSINESS_ID') && function_exists('getNumericBusinessId')) {
+            $resolvedBusinessId = getNumericBusinessId((string)ACTIVE_BUSINESS_ID);
+            if (!empty($resolvedBusinessId)) {
+                $businessId = (int)$resolvedBusinessId;
+            }
+        }
+        if ($businessId <= 0 && !empty($_SESSION['active_business_id']) && function_exists('getNumericBusinessId')) {
+            $resolvedBusinessId = getNumericBusinessId((string)$_SESSION['active_business_id']);
+            if (!empty($resolvedBusinessId)) {
+                $businessId = (int)$resolvedBusinessId;
+            }
+        }
+        if ($businessId <= 0) {
+            $businessId = null;
+        }
+
         // Prepare header data
         $discount_amount = isset($options['discount_amount']) ? $options['discount_amount'] : 0;
         $tax_amount = isset($options['tax_amount']) ? $options['tax_amount'] : 0;
         $grand_total = $total_amount - $discount_amount + $tax_amount;
-        
+
         $header_data = [
             'business_id' => $businessId,
             'po_number' => $po_number,
@@ -164,14 +182,14 @@ function createPurchaseOrder($supplier_id, $po_date, $items, $options = []) {
             'notes' => isset($options['notes']) ? $options['notes'] : null,
             'created_by' => $created_by
         ];
-        
+
         // Insert header
         $po_header_id = $db->insert('purchase_orders_header', $header_data);
-        
+
         if (!$po_header_id) {
             throw new Exception("Failed to create Purchase Order header");
         }
-        
+
         // Insert details
         foreach ($validated_items as $item) {
             $detail_data = [
@@ -187,17 +205,17 @@ function createPurchaseOrder($supplier_id, $po_date, $items, $options = []) {
                 'received_quantity' => 0,
                 'notes' => $item['notes']
             ];
-            
+
             $detail_id = $db->insert('purchase_orders_detail', $detail_data);
-            
+
             if (!$detail_id) {
                 throw new Exception("Failed to insert item: {$item['item_name']}");
             }
         }
-        
+
         // Commit transaction
         $db->getConnection()->commit();
-        
+
         return [
             'success' => true,
             'po_id' => $po_header_id,
@@ -207,13 +225,12 @@ function createPurchaseOrder($supplier_id, $po_date, $items, $options = []) {
             'items_count' => count($validated_items),
             'message' => "Purchase Order {$po_number} created successfully"
         ];
-        
     } catch (Exception $e) {
         // Rollback on error
         if ($db->getConnection()->inTransaction()) {
             $db->getConnection()->rollBack();
         }
-        
+
         return [
             'success' => false,
             'message' => $e->getMessage()
@@ -227,9 +244,10 @@ function createPurchaseOrder($supplier_id, $po_date, $items, $options = []) {
  * @param int $po_id Purchase Order ID
  * @return array|null Purchase Order data with details
  */
-function getPurchaseOrder($po_id) {
+function getPurchaseOrder($po_id)
+{
     $db = Database::getInstance();
-    
+
     // Get header
     $header = $db->fetchOne("
         SELECT 
@@ -242,11 +260,11 @@ function getPurchaseOrder($po_id) {
         LEFT JOIN users u ON poh.created_by = u.id
         WHERE poh.id = ?
     ", [$po_id]);
-    
+
     if (!$header) {
         return null;
     }
-    
+
     // Get details
     $details = $db->fetchAll("
         SELECT 
@@ -258,9 +276,9 @@ function getPurchaseOrder($po_id) {
         WHERE pod.po_header_id = ?
         ORDER BY pod.id
     ", [$po_id]);
-    
+
     $header['items'] = $details;
-    
+
     return $header;
 }
 
@@ -272,32 +290,33 @@ function getPurchaseOrder($po_id) {
  * @param int $approved_by User ID who approved (optional)
  * @return array ['success' => bool, 'message' => string]
  */
-function updatePurchaseOrderStatus($po_id, $status, $approved_by = null) {
+function updatePurchaseOrderStatus($po_id, $status, $approved_by = null)
+{
     $db = Database::getInstance();
-    
+
     try {
         // Validate status
         $valid_statuses = ['draft', 'submitted', 'approved', 'rejected', 'partially_received', 'completed', 'cancelled'];
         if (!in_array($status, $valid_statuses)) {
             throw new Exception("Invalid status: {$status}");
         }
-        
+
         // Check if PO exists
         $po = $db->fetchOne("SELECT id, status FROM purchase_orders_header WHERE id = ?", [$po_id]);
         if (!$po) {
             throw new Exception("Purchase Order not found");
         }
-        
+
         $update_data = ['status' => $status];
-        
+
         // If approving, set approved_by and approved_at
         if ($status === 'approved' && $approved_by) {
             $update_data['approved_by'] = $approved_by;
             $update_data['approved_at'] = date('Y-m-d H:i:s');
         }
-        
+
         $result = $db->update('purchase_orders_header', $update_data, 'id = :id', ['id' => $po_id]);
-        
+
         if ($result) {
             return [
                 'success' => true,
@@ -306,7 +325,6 @@ function updatePurchaseOrderStatus($po_id, $status, $approved_by = null) {
         } else {
             throw new Exception("Failed to update status");
         }
-        
     } catch (Exception $e) {
         return [
             'success' => false,
@@ -315,7 +333,8 @@ function updatePurchaseOrderStatus($po_id, $status, $approved_by = null) {
     }
 }
 
-function generateGudangNasitaStockCode() {
+function generateGudangNasitaStockCode()
+{
     $db = Database::getInstance();
     $prefix = 'GN-' . date('Ym') . '-';
 
@@ -331,19 +350,22 @@ function generateGudangNasitaStockCode() {
     return $prefix . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
 }
 
-function getGudangNasitaStock($limit = 200) {
+function getGudangNasitaStock($limit = 200)
+{
     $db = Database::getInstance();
 
     return $db->fetchAll("\n        SELECT\n            gs.*,\n            COALESCE((SELECT SUM(quantity) FROM gudang_nasita_movements gm WHERE gm.stock_id = gs.id AND gm.movement_type = 'in_supplier'), 0) AS total_in,\n            COALESCE((SELECT SUM(quantity) FROM gudang_nasita_movements gm WHERE gm.stock_id = gs.id AND gm.movement_type = 'out_transfer'), 0) AS total_out\n        FROM gudang_nasita_stock gs\n        WHERE gs.is_active = 1\n        ORDER BY COALESCE(gs.category, 'lainnya') ASC, gs.item_name ASC\n        LIMIT {$limit}\n    ");
 }
 
-function getGudangNasitaTransfers($limit = 50) {
+function getGudangNasitaTransfers($limit = 50)
+{
     $db = Database::getInstance();
 
     return $db->fetchAll("\n        SELECT\n            gt.*,\n            u.full_name AS created_by_name,\n            r.full_name AS received_by_name,\n            COUNT(gti.id) AS items_count,\n            COALESCE(SUM(gti.quantity), 0) AS total_qty\n        FROM gudang_nasita_transfers gt\n        LEFT JOIN users u ON gt.created_by = u.id\n        LEFT JOIN users r ON gt.received_by = r.id\n        LEFT JOIN gudang_nasita_transfer_items gti ON gti.transfer_id = gt.id\n        GROUP BY gt.id\n        ORDER BY gt.created_at DESC\n        LIMIT {$limit}\n    ");
 }
 
-function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $options = []) {
+function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $options = [])
+{
     $db = Database::getInstance();
 
     try {
@@ -434,7 +456,8 @@ function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $op
     }
 }
 
-function receivePurchaseOrderToGudang($po_id, array $receivedItems, $receivedBy, $notes = '') {
+function receivePurchaseOrderToGudang($po_id, array $receivedItems, $receivedBy, $notes = '')
+{
     $db = Database::getInstance();
 
     try {
@@ -546,7 +569,8 @@ function receivePurchaseOrderToGudang($po_id, array $receivedItems, $receivedBy,
     }
 }
 
-function generateGudangNasitaTransferNumber() {
+function generateGudangNasitaTransferNumber()
+{
     $db = Database::getInstance();
     $prefix = 'GNT-' . date('Ym') . '-';
 
@@ -562,7 +586,8 @@ function generateGudangNasitaTransferNumber() {
     return $prefix . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
 }
 
-function transferGudangNasitaStock($targetBusinessId, array $items, $createdBy, $notes = '', $sourcePoId = null) {
+function transferGudangNasitaStock($targetBusinessId, array $items, $createdBy, $notes = '', $sourcePoId = null)
+{
     $db = Database::getInstance();
 
     try {
@@ -671,17 +696,18 @@ function transferGudangNasitaStock($targetBusinessId, array $items, $createdBy, 
  * @param int $offset Offset for pagination (default 0)
  * @return array Purchase Orders list
  */
-function getPurchaseOrders($filters = [], $limit = 100, $offset = 0) {
+function getPurchaseOrders($filters = [], $limit = 100, $offset = 0)
+{
     $db = Database::getInstance();
-    
+
     $where_conditions = [];
     $params = [];
-    
+
     if (isset($filters['status']) && !empty($filters['status'])) {
         $where_conditions[] = "poh.status = :status";
         $params['status'] = $filters['status'];
     }
-    
+
     if (isset($filters['supplier_id']) && !empty($filters['supplier_id'])) {
         $where_conditions[] = "poh.supplier_id = :supplier_id";
         $params['supplier_id'] = $filters['supplier_id'];
@@ -691,19 +717,19 @@ function getPurchaseOrders($filters = [], $limit = 100, $offset = 0) {
         $where_conditions[] = "poh.business_id = :business_id";
         $params['business_id'] = $filters['business_id'];
     }
-    
+
     if (isset($filters['date_from']) && !empty($filters['date_from'])) {
         $where_conditions[] = "poh.po_date >= :date_from";
         $params['date_from'] = $filters['date_from'];
     }
-    
+
     if (isset($filters['date_to']) && !empty($filters['date_to'])) {
         $where_conditions[] = "poh.po_date <= :date_to";
         $params['date_to'] = $filters['date_to'];
     }
-    
+
     $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
-    
+
     $query = "
         SELECT 
             poh.*,
@@ -724,7 +750,7 @@ function getPurchaseOrders($filters = [], $limit = 100, $offset = 0) {
         ORDER BY poh.po_date DESC, poh.created_at DESC
         LIMIT {$limit} OFFSET {$offset}
     ";
-    
+
     return $db->fetchAll($query, $params);
 }
 
@@ -737,29 +763,30 @@ function getPurchaseOrders($filters = [], $limit = 100, $offset = 0) {
  * @param array $options Optional: payment_date, payment_notes
  * @return array ['success' => bool, 'message' => string, 'cash_book_id' => int]
  */
-function approvePurchaseOrderAndPay($po_id, $approved_by, $options = []) {
+function approvePurchaseOrderAndPay($po_id, $approved_by, $options = [])
+{
     $db = Database::getInstance();
-    
+
     try {
         // Get PO details
         $po = getPurchaseOrder($po_id);
         if (!$po) {
             throw new Exception("Purchase Order not found");
         }
-        
+
         // Check if already approved/completed
         if (in_array($po['status'], ['completed', 'cancelled'])) {
             throw new Exception("Purchase Order already {$po['status']}");
         }
-        
+
         $db->getConnection()->beginTransaction();
 
         // 1. Fix: Validate approved_by user exists (Handle session mismatch)
         $user_check = $db->fetchOne("SELECT id FROM users WHERE id = ?", [$approved_by]);
         if (!$user_check) {
-             // Fallback to Admin (ID 1)
-             $admin = $db->fetchOne("SELECT id FROM users WHERE id = 1 OR role = 'admin' LIMIT 1");
-             $approved_by = $admin ? $admin['id'] : 1;
+            // Fallback to Admin (ID 1)
+            $admin = $db->fetchOne("SELECT id FROM users WHERE id = 1 OR role = 'admin' LIMIT 1");
+            $approved_by = $admin ? $admin['id'] : 1;
         }
 
         // 2. Handle File Upload (Attachment)
@@ -767,7 +794,7 @@ function approvePurchaseOrderAndPay($po_id, $approved_by, $options = []) {
         if (isset($options['attachment_file']) && $options['attachment_file']['error'] === UPLOAD_ERR_OK) {
             $file_extension = strtolower(pathinfo($options['attachment_file']['name'], PATHINFO_EXTENSION));
             $allowed_extensions = ['jpg', 'jpeg', 'png', 'pdf', 'gif'];
-            
+
             if (in_array($file_extension, $allowed_extensions)) {
                 $new_filename = 'PO_' . $po['po_number'] . '_' . time() . '.' . $file_extension;
                 $cloudinary = CloudinaryHelper::getInstance();
@@ -789,23 +816,23 @@ function approvePurchaseOrderAndPay($po_id, $approved_by, $options = []) {
                 'uploaded_by' => $approved_by
             ]);
         }
-        
+
         // 4. Update PO Status to Completed
         $update_data = [
             'status' => 'completed',
             'approved_by' => $approved_by,
             'approved_at' => date('Y-m-d H:i:s')
         ];
-        
+
         if ($attachment_path) {
-             $update_data['attachment_path'] = $attachment_path; // Backward compatibility
+            $update_data['attachment_path'] = $attachment_path; // Backward compatibility
         }
-        
+
         $db->update('purchase_orders_header', $update_data, 'id = :id', ['id' => $po_id]);
-        
+
         // 5. Create Cash Book Entry (Only if not exists)
         $existing_payment = $db->fetchOne(
-            "SELECT id FROM cash_book WHERE source_type = 'purchase_order' AND reference_no = ?", 
+            "SELECT id FROM cash_book WHERE source_type = 'purchase_order' AND reference_no = ?",
             [$po['po_number']]
         );
 
@@ -817,17 +844,17 @@ function approvePurchaseOrderAndPay($po_id, $approved_by, $options = []) {
         } else {
             // Prepare cash_book entry
             $payment_date = isset($options['payment_date']) ? $options['payment_date'] : date('Y-m-d');
-            $payment_notes = isset($options['payment_notes']) ? $options['payment_notes'] : 
-                            "Pembayaran PO #{$po['po_number']} - {$po['supplier_name']}";
-            
+            $payment_notes = isset($options['payment_notes']) ? $options['payment_notes'] :
+                "Pembayaran PO #{$po['po_number']} - {$po['supplier_name']}";
+
             // Get expense category
             // Prefer explicit Payment category, otherwise default expense
             $expense_category = $db->fetchOne("SELECT id FROM categories WHERE category_name LIKE '%Payment Supplier%' OR category_name LIKE '%Pembayaran Supplier%' LIMIT 1");
-            
+
             if (!$expense_category) {
-                 $expense_category = $db->fetchOne("SELECT id FROM categories WHERE category_type = 'expense' LIMIT 1");
+                $expense_category = $db->fetchOne("SELECT id FROM categories WHERE category_type = 'expense' LIMIT 1");
             }
-            
+
             if (!$expense_category) {
                 // Create default category
                 try {
@@ -843,7 +870,7 @@ function approvePurchaseOrderAndPay($po_id, $approved_by, $options = []) {
             } else {
                 $category_id = $expense_category['id'];
             }
-            
+
             // Get division
             $division_id = 1;
             if (isset($po['items'][0]['division_id']) && $po['items'][0]['division_id'] > 0) {
@@ -854,7 +881,7 @@ function approvePurchaseOrderAndPay($po_id, $approved_by, $options = []) {
                     $division_id = $first_div['id'];
                 }
             }
-            
+
             // Post to cash_book (pengeluaran)
             $cash_book_data = [
                 'transaction_date' => $payment_date,
@@ -870,7 +897,7 @@ function approvePurchaseOrderAndPay($po_id, $approved_by, $options = []) {
                 'reference_no' => $po['po_number'],
                 'is_editable' => 0
             ];
-            
+
             try {
                 $cash_book_id = $db->insert('cash_book', $cash_book_data);
                 if (!$cash_book_id) {
@@ -880,9 +907,9 @@ function approvePurchaseOrderAndPay($po_id, $approved_by, $options = []) {
                 throw new Exception("Gagal post ke cash book: " . $cb_ex->getMessage());
             }
         }
-        
+
         $db->getConnection()->commit();
-        
+
         return [
             'success' => true,
             'message' => "Purchase Order approved and payment posted to cash book",
@@ -890,12 +917,11 @@ function approvePurchaseOrderAndPay($po_id, $approved_by, $options = []) {
             'amount' => $po['total_amount'],
             'cash_book_id' => $cash_book_id
         ];
-        
     } catch (Exception $e) {
         if ($db->getConnection()->inTransaction()) {
             $db->getConnection()->rollBack();
         }
-        
+
         return [
             'success' => false,
             'message' => $e->getMessage()
@@ -960,76 +986,77 @@ function approvePurchaseOrderAndPay($po_id, $approved_by, $options = []) {
  * @param array $options Optional parameters: po_id, due_date, received_date, notes, discount_amount, tax_amount, attachment_path
  * @return array ['success' => bool, 'purchase_id' => int, 'invoice_number' => string, 'gl_entries' => array, 'message' => string]
  */
-function storePurchase($invoice_number, $supplier_id, $invoice_date, $items, $options = []) {
+function storePurchase($invoice_number, $supplier_id, $invoice_date, $items, $options = [])
+{
     $db = Database::getInstance();
-    
+
     try {
         // Validate inputs
         if (empty($invoice_number)) {
             throw new Exception("Invoice number is required");
         }
-        
+
         if (empty($supplier_id) || !is_numeric($supplier_id)) {
             throw new Exception("Invalid supplier ID");
         }
-        
+
         if (empty($invoice_date)) {
             throw new Exception("Invoice date is required");
         }
-        
+
         if (empty($items) || !is_array($items)) {
             throw new Exception("Items array is required and must not be empty");
         }
-        
+
         // Check if invoice number already exists
         $existing = $db->fetchOne("SELECT id FROM purchases_header WHERE invoice_number = ?", [$invoice_number]);
         if ($existing) {
             throw new Exception("Invoice number {$invoice_number} already exists");
         }
-        
+
         // Verify supplier exists
         $supplier = $db->fetchOne("SELECT id, supplier_name FROM suppliers WHERE id = ? AND is_active = 1", [$supplier_id]);
         if (!$supplier) {
             throw new Exception("Supplier not found or inactive");
         }
-        
+
         // Begin transaction
         $db->getConnection()->beginTransaction();
-        
+
         // Calculate totals and validate items
         $total_amount = 0;
         $line_number = 1;
         $validated_items = [];
         $division_totals = []; // Track expense per division
-        
+
         foreach ($items as $item) {
             // Validate each item
             if (empty($item['item_name'])) {
                 throw new Exception("Item name is required for line {$line_number}");
             }
-            
+
             if (!isset($item['quantity']) || !is_numeric($item['quantity']) || $item['quantity'] <= 0) {
                 throw new Exception("Valid quantity is required for line {$line_number}");
             }
-            
+
             if (!isset($item['unit_price']) || !is_numeric($item['unit_price']) || $item['unit_price'] < 0) {
                 throw new Exception("Valid unit price is required for line {$line_number}");
             }
-            
+
             if (empty($item['division_id']) || !is_numeric($item['division_id'])) {
                 throw new Exception("Division ID is required for line {$line_number}");
             }
-            
+
             // Verify division exists
             $division = $db->fetchOne("SELECT id, division_name FROM divisions WHERE id = ?", [$item['division_id']]);
             if (!$division) {
                 throw new Exception("Division not found for line {$line_number}");
             }
-            
+
             // Calculate subtotal
             $subtotal = $item['quantity'] * $item['unit_price'];
             $total_amount += $subtotal;
-            
+
             // Track division totals for GL posting
             if (!isset($division_totals[$item['division_id']])) {
                 $division_totals[$item['division_id']] = [
@@ -1038,7 +1065,7 @@ function storePurchase($invoice_number, $supplier_id, $invoice_date, $items, $op
                 ];
             }
             $division_totals[$item['division_id']]['amount'] += $subtotal;
-            
+
             // Store validated item
             $validated_items[] = [
                 'line_number' => $line_number,
@@ -1052,21 +1079,21 @@ function storePurchase($invoice_number, $supplier_id, $invoice_date, $items, $op
                 'po_detail_id' => isset($item['po_detail_id']) ? $item['po_detail_id'] : null,
                 'notes' => isset($item['notes']) ? trim($item['notes']) : null
             ];
-            
+
             $line_number++;
         }
-        
+
         // Get current user ID
         $auth = new Auth();
         $currentUser = $auth->getCurrentUser();
         $created_by = $currentUser['user_id'];
-        
+
         // Prepare header data
         $discount_amount = isset($options['discount_amount']) ? $options['discount_amount'] : 0;
         $tax_amount = isset($options['tax_amount']) ? $options['tax_amount'] : 0;
         $grand_total = $total_amount - $discount_amount + $tax_amount;
         $received_date = isset($options['received_date']) ? $options['received_date'] : $invoice_date;
-        
+
         $header_data = [
             'invoice_number' => trim($invoice_number),
             'po_id' => isset($options['po_id']) ? $options['po_id'] : null,
@@ -1085,30 +1112,30 @@ function storePurchase($invoice_number, $supplier_id, $invoice_date, $items, $op
             'attachment_path' => isset($options['attachment_path']) ? $options['attachment_path'] : null,
             'created_by' => $created_by
         ];
-        
+
         // Insert header
         $purchase_header_id = $db->insert('purchases_header', $header_data);
-        
+
         if (!$purchase_header_id) {
             throw new Exception("Failed to create Purchase Invoice header");
         }
-        
+
         // Insert details
         foreach ($validated_items as $item) {
             $item['purchase_header_id'] = $purchase_header_id;
-            
+
             $detail_id = $db->insert('purchases_detail', $item);
-            
+
             if (!$detail_id) {
                 throw new Exception("Failed to insert item: {$item['item_name']}");
             }
         }
-        
+
         // Auto-Post to General Ledger
         $gl_entries = [];
         $fiscal_year = date('Y', strtotime($invoice_date));
         $fiscal_period = date('m', strtotime($invoice_date));
-        
+
         // Entry 1: DEBIT - Expense Account (per division)
         foreach ($division_totals as $division_id => $division_data) {
             $debit_entry = [
@@ -1127,12 +1154,12 @@ function storePurchase($invoice_number, $supplier_id, $invoice_date, $items, $op
                 'posted_by' => $created_by,
                 'notes' => "Auto-posted from Purchase Invoice"
             ];
-            
+
             $gl_id = $db->insert('general_ledger', $debit_entry);
             if (!$gl_id) {
                 throw new Exception("Failed to post GL entry (Debit)");
             }
-            
+
             $gl_entries[] = [
                 'gl_id' => $gl_id,
                 'type' => 'debit',
@@ -1141,7 +1168,7 @@ function storePurchase($invoice_number, $supplier_id, $invoice_date, $items, $op
                 'division_id' => $division_id
             ];
         }
-        
+
         // Entry 2: CREDIT - Cash/Bank Account (Accounts Payable)
         $credit_entry = [
             'gl_date' => $invoice_date,
@@ -1159,12 +1186,12 @@ function storePurchase($invoice_number, $supplier_id, $invoice_date, $items, $op
             'posted_by' => $created_by,
             'notes' => "Auto-posted from Purchase Invoice"
         ];
-        
+
         $gl_id = $db->insert('general_ledger', $credit_entry);
         if (!$gl_id) {
             throw new Exception("Failed to post GL entry (Credit)");
         }
-        
+
         $gl_entries[] = [
             'gl_id' => $gl_id,
             'type' => 'credit',
@@ -1172,13 +1199,13 @@ function storePurchase($invoice_number, $supplier_id, $invoice_date, $items, $op
             'amount' => $grand_total,
             'division_id' => null
         ];
-        
+
         // Update purchase header to mark as GL posted
         $db->update('purchases_header', [
             'gl_posted' => 1,
             'gl_posted_at' => date('Y-m-d H:i:s')
         ], ['id' => $purchase_header_id]);
-        
+
         // If linked to PO, update PO received quantities
         if (isset($options['po_id']) && $options['po_id']) {
             foreach ($validated_items as $item) {
@@ -1191,7 +1218,7 @@ function storePurchase($invoice_number, $supplier_id, $invoice_date, $items, $op
                     ");
                 }
             }
-            
+
             // Check if all items in PO are fully received
             $po_status = $db->fetchOne("
                 SELECT 
@@ -1203,17 +1230,17 @@ function storePurchase($invoice_number, $supplier_id, $invoice_date, $items, $op
                 FROM purchase_orders_detail
                 WHERE po_header_id = ?
             ", [$options['po_id']]);
-            
+
             if ($po_status) {
                 $db->update('purchase_orders_header', [
                     'status' => $po_status['new_status']
                 ], 'id = :id', ['id' => $options['po_id']]);
             }
         }
-        
+
         // Commit transaction
         $db->getConnection()->commit();
-        
+
         return [
             'success' => true,
             'purchase_id' => $purchase_header_id,
@@ -1225,13 +1252,12 @@ function storePurchase($invoice_number, $supplier_id, $invoice_date, $items, $op
             'gl_posted' => true,
             'message' => "Purchase Invoice {$invoice_number} saved and posted to GL successfully"
         ];
-        
     } catch (Exception $e) {
         // Rollback on error
         if ($db->getConnection()->inTransaction()) {
             $db->getConnection()->rollBack();
         }
-        
+
         return [
             'success' => false,
             'message' => $e->getMessage()
@@ -1245,9 +1271,10 @@ function storePurchase($invoice_number, $supplier_id, $invoice_date, $items, $op
  * @param int $purchase_id Purchase Invoice ID
  * @return array|null Purchase data with details and GL entries
  */
-function getPurchase($purchase_id) {
+function getPurchase($purchase_id)
+{
     $db = Database::getInstance();
-    
+
     // Get header
     $header = $db->fetchOne("
         SELECT 
@@ -1262,11 +1289,11 @@ function getPurchase($purchase_id) {
         LEFT JOIN purchase_orders_header poh ON ph.po_id = poh.id
         WHERE ph.id = ?
     ", [$purchase_id]);
-    
+
     if (!$header) {
         return null;
     }
-    
+
     // Get details
     $details = $db->fetchAll("
         SELECT 
@@ -1278,9 +1305,9 @@ function getPurchase($purchase_id) {
         WHERE pd.purchase_header_id = ?
         ORDER BY pd.line_number
     ", [$purchase_id]);
-    
+
     $header['items'] = $details;
-    
+
     // Get GL entries if posted
     if ($header['gl_posted']) {
         $gl_entries = $db->fetchAll("
@@ -1291,10 +1318,10 @@ function getPurchase($purchase_id) {
                 AND reversed = 0
             ORDER BY id
         ", [$purchase_id]);
-        
+
         $header['gl_entries'] = $gl_entries;
     }
-    
+
     return $header;
 }
 
@@ -1306,39 +1333,40 @@ function getPurchase($purchase_id) {
  * @param int $offset Offset for pagination (default 0)
  * @return array Purchase Invoices list
  */
-function getPurchases($filters = [], $limit = 100, $offset = 0) {
+function getPurchases($filters = [], $limit = 100, $offset = 0)
+{
     $db = Database::getInstance();
-    
+
     $where_conditions = [];
     $params = [];
-    
+
     if (isset($filters['payment_status']) && !empty($filters['payment_status'])) {
         $where_conditions[] = "ph.payment_status = :payment_status";
         $params['payment_status'] = $filters['payment_status'];
     }
-    
+
     if (isset($filters['supplier_id']) && !empty($filters['supplier_id'])) {
         $where_conditions[] = "ph.supplier_id = :supplier_id";
         $params['supplier_id'] = $filters['supplier_id'];
     }
-    
+
     if (isset($filters['date_from']) && !empty($filters['date_from'])) {
         $where_conditions[] = "ph.invoice_date >= :date_from";
         $params['date_from'] = $filters['date_from'];
     }
-    
+
     if (isset($filters['date_to']) && !empty($filters['date_to'])) {
         $where_conditions[] = "ph.invoice_date <= :date_to";
         $params['date_to'] = $filters['date_to'];
     }
-    
+
     if (isset($filters['gl_posted'])) {
         $where_conditions[] = "ph.gl_posted = :gl_posted";
         $params['gl_posted'] = $filters['gl_posted'];
     }
-    
+
     $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
-    
+
     $query = "
         SELECT 
             ph.*,
@@ -1357,6 +1385,6 @@ function getPurchases($filters = [], $limit = 100, $offset = 0) {
         ORDER BY ph.invoice_date DESC, ph.created_at DESC
         LIMIT {$limit} OFFSET {$offset}
     ";
-    
+
     return $db->fetchAll($query, $params);
 }
