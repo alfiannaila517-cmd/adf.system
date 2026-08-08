@@ -201,8 +201,11 @@ include '../../includes/header.php';
             <div class="form-group">
                 <label class="form-label">Tujuan Bisnis</label>
                 <?php if ($prefillPoId > 0 && $prefillTargetBusinessId > 0): ?>
-                    <input type="text" class="form-control" value="<?php echo htmlspecialchars(($prefillTargetBusinessName !== '' ? $prefillTargetBusinessName : 'Business') . ' (ID: ' . $prefillTargetBusinessId . ')'); ?>" readonly style="font-weight:700; background:#f8fafc;">
+                    <input type="text" class="form-control" value="<?php echo htmlspecialchars(($prefillTargetBusinessName !== '' ? $prefillTargetBusinessName : 'Business') . ' (ID: ' . $prefillTargetBusinessId . ')'); ?>" readonly style="font-weight:700; background:#f8fafc; cursor:not-allowed;">
                     <input type="hidden" name="target_business_id" value="<?php echo (int)$prefillTargetBusinessId; ?>">
+                    <div style="margin-top:0.35rem; font-size:0.812rem; color:var(--text-muted);">
+                        Tujuan otomatis mengikuti bisnis dari PO sumber.
+                    </div>
                 <?php else: ?>
                     <select name="target_business_id" class="form-control" required>
                         <option value="">-- Pilih bisnis --</option>
