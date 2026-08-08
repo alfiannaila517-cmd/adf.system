@@ -13,14 +13,34 @@ $currentUser = $auth->getCurrentUser();
 $pageTitle = 'Buat Purchase Order';
 
 // PO procurement di flow ini khusus untuk Gudang Nasita.
-$gudangSupplier = $db->fetchOne("SELECT id, supplier_name FROM suppliers WHERE LOWER(supplier_name) = 'gudang nasita' LIMIT 1");
-if (!$gudangSupplier) {
-    $supplierId = $db->insert('suppliers', [
-        'supplier_name' => 'Gudang Nasita',
-        'contact_person' => 'Internal Warehouse',
-        'is_active' => 1,
-    ]);
-    $gudangSupplier = $db->fetchOne('SELECT id, supplier_name FROM suppliers WHERE id = ? LIMIT 1', [$supplierId]);
+$gudangSupplier = null;
+try {
+    $gudangSupplier = $db->fetchOne("SELECT id, supplier_name FROM suppliers WHERE LOWER(supplier_name) = 'gudang nasita' LIMIT 1");
+
+    if (!$gudangSupplier) {
+        $supplierColumns = $db->fetchAll("SHOW COLUMNS FROM suppliers");
+        $colNames = [];
+        foreach ($supplierColumns as $col) {
+            $colNames[] = strtolower((string)($col['Field'] ?? ''));
+        }
+
+        $insertData = [
+            'supplier_name' => 'Gudang Nasita',
+        ];
+        if (in_array('contact_person', $colNames, true)) {
+            $insertData['contact_person'] = 'Internal Warehouse';
+        }
+        if (in_array('is_active', $colNames, true)) {
+            $insertData['is_active'] = 1;
+        }
+
+        $supplierId = $db->insert('suppliers', $insertData);
+        if ($supplierId) {
+            $gudangSupplier = $db->fetchOne('SELECT id, supplier_name FROM suppliers WHERE id = ? LIMIT 1', [$supplierId]);
+        }
+    }
+} catch (Throwable $e) {
+    $gudangSupplier = null;
 }
 
 if (!$gudangSupplier || empty($gudangSupplier['id'])) {
@@ -38,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $notes = $_POST['notes'];
     $discount_amount = (float)$_POST['discount_amount'];
     $tax_amount = (float)$_POST['tax_amount'];
-    
+
     // Build items array
     $items = [];
     if (isset($_POST['items'])) {
@@ -56,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     }
-    
+
     if ($supplier_id <= 0) {
         $_SESSION['error'] = '❌ Supplier internal Gudang Nasita belum tersedia.';
     } elseif (empty($items)) {
@@ -69,7 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'discount_amount' => $discount_amount,
             'tax_amount' => $tax_amount
         ]);
-        
+
         if ($result['success']) {
             $_SESSION['success'] = '✅ ' . $result['message'];
             header('Location: view-po.php?id=' . $result['po_id']);
@@ -105,7 +125,8 @@ include '../../includes/header.php';
             </div>
             <div style="flex: 1;">
                 <div style="font-weight: 700; color: #991b1b; font-size: 1.125rem; margin-bottom: 0.25rem;">Error!</div>
-                <div style="color: #b91c1c; font-size: 0.95rem;"><?php echo $_SESSION['error']; unset($_SESSION['error']); ?></div>
+                <div style="color: #b91c1c; font-size: 0.95rem;"><?php echo $_SESSION['error'];
+                                                                    unset($_SESSION['error']); ?></div>
             </div>
             <button onclick="this.parentElement.parentElement.style.display='none'" style="background: none; border: none; color: #dc2626; font-size: 1.5rem; cursor: pointer; padding: 0; width: 32px; height: 32px;">&times;</button>
         </div>
@@ -120,7 +141,8 @@ include '../../includes/header.php';
             </div>
             <div style="flex: 1;">
                 <div style="font-weight: 700; color: #065f46; font-size: 1.125rem; margin-bottom: 0.25rem;">Berhasil!</div>
-                <div style="color: #047857; font-size: 0.95rem;"><?php echo $_SESSION['success']; unset($_SESSION['success']); ?></div>
+                <div style="color: #047857; font-size: 0.95rem;"><?php echo $_SESSION['success'];
+                                                                    unset($_SESSION['success']); ?></div>
             </div>
             <button onclick="this.parentElement.parentElement.style.display='none'" style="background: none; border: none; color: #059669; font-size: 1.5rem; cursor: pointer; padding: 0; width: 32px; height: 32px;">&times;</button>
         </div>
@@ -139,7 +161,7 @@ include '../../includes/header.php';
                 <input type="text" class="form-control" value="Gudang Nasita (Internal)" readonly style="font-weight: 700; background: #f8fafc;">
                 <input type="hidden" name="supplier_id" value="<?php echo (int)($gudangSupplier['id'] ?? 0); ?>">
             </div>
-            
+
             <div class="form-group" style="margin: 0;">
                 <label class="form-label">
                     <i data-feather="calendar" style="width: 14px; height: 14px;"></i>
@@ -147,7 +169,7 @@ include '../../includes/header.php';
                 </label>
                 <input type="date" name="po_date" class="form-control" value="<?php echo date('Y-m-d'); ?>" required>
             </div>
-            
+
             <div class="form-group" style="margin: 0;">
                 <label class="form-label">
                     <i data-feather="truck" style="width: 14px; height: 14px;"></i>
@@ -155,7 +177,7 @@ include '../../includes/header.php';
                 </label>
                 <input type="date" name="expected_delivery_date" class="form-control" value="<?php echo date('Y-m-d', strtotime('+7 days')); ?>">
             </div>
-            
+
             <div class="form-group" style="margin: 0;">
                 <label class="form-label">
                     <i data-feather="message-square" style="width: 14px; height: 14px;"></i>
@@ -165,7 +187,7 @@ include '../../includes/header.php';
             </div>
         </div>
     </div>
-    
+
     <!-- Items Section -->
     <div class="card" style="margin-bottom: 1.25rem;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 2px solid var(--bg-tertiary);">
@@ -178,9 +200,9 @@ include '../../includes/header.php';
                 Tambah
             </button>
         </div>
-        
+
         <div id="itemsContainer"></div>
-        
+
         <!-- Totals -->
         <div style="margin-top: 2rem; padding: 1.5rem; background: var(--bg-secondary); border-radius: var(--radius-md);">
             <div style="max-width: 400px; margin-left: auto;">
@@ -188,17 +210,17 @@ include '../../includes/header.php';
                     <label style="color: var(--text-muted); font-weight: 500;">Subtotal:</label>
                     <div id="subtotalDisplay" style="font-weight: 600; text-align: right; font-size: 1.125rem;">Rp 0</div>
                 </div>
-                
+
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem; align-items: center;">
                     <label style="color: var(--text-muted); font-weight: 500;">Diskon:</label>
                     <input type="number" name="discount_amount" id="discountInput" class="form-control" style="text-align: right;" value="0" step="any" min="0" onchange="calculateTotal()" placeholder="0">
                 </div>
-                
+
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem; align-items: center;">
                     <label style="color: var(--text-muted); font-weight: 500;">Pajak/PPn:</label>
                     <input type="number" name="tax_amount" id="taxInput" class="form-control" style="text-align: right;" value="0" step="any" min="0" onchange="calculateTotal()" placeholder="0">
                 </div>
-                
+
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; padding-top: 1rem; border-top: 2px solid var(--bg-tertiary);">
                     <label style="font-weight: 700; font-size: 1.125rem;">TOTAL:</label>
                     <div id="grandTotalDisplay" style="font-weight: 800; font-size: 1.5rem; color: var(--primary-color); text-align: right;">Rp 0</div>
@@ -206,7 +228,7 @@ include '../../includes/header.php';
             </div>
         </div>
     </div>
-    
+
     <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
         <a href="purchase-orders.php" class="btn btn-secondary">
             <i data-feather="x" style="width: 16px; height: 16px;"></i>
@@ -220,16 +242,16 @@ include '../../includes/header.php';
 </form>
 
 <script>
-let itemCount = 0;
-const divisions = <?php echo json_encode($divisions); ?>;
+    let itemCount = 0;
+    const divisions = <?php echo json_encode($divisions); ?>;
 
-function addItem() {
-    itemCount++;
-    const container = document.getElementById('itemsContainer');
-    const itemDiv = document.createElement('div');
-    itemDiv.className = 'item-row';
-    itemDiv.style.cssText = 'display: grid; grid-template-columns: 0.3fr 2fr 1fr 0.7fr 0.7fr 1fr 1fr auto; gap: 0.5rem; padding: 0.5rem; border-bottom: 1px solid var(--bg-tertiary); align-items: center;';
-    itemDiv.innerHTML = `
+    function addItem() {
+        itemCount++;
+        const container = document.getElementById('itemsContainer');
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'item-row';
+        itemDiv.style.cssText = 'display: grid; grid-template-columns: 0.3fr 2fr 1fr 0.7fr 0.7fr 1fr 1fr auto; gap: 0.5rem; padding: 0.5rem; border-bottom: 1px solid var(--bg-tertiary); align-items: center;';
+        itemDiv.innerHTML = `
         <div style="font-weight: 600; color: var(--primary-color); font-size: 0.875rem;">#${itemCount}</div>
         
         <input type="text" name="items[${itemCount}][item_name]" class="form-control" placeholder="Nama item..." required style="font-size: 0.875rem; padding: 0.5rem;">
@@ -259,97 +281,106 @@ function addItem() {
         
         <input type="hidden" name="items[${itemCount}][item_description]" value="">
     `;
-    container.appendChild(itemDiv);
-    feather.replace();
-}
-
-function removeItem(btn) {
-    if (document.querySelectorAll('.item-row').length === 1) {
-        alert('Minimal harus ada 1 item!');
-        return;
+        container.appendChild(itemDiv);
+        feather.replace();
     }
-    btn.closest('.item-row').remove();
-    calculateTotal();
-    // Renumber items
-    document.querySelectorAll('.item-row').forEach((row, index) => {
-        row.querySelector('div').textContent = `#${index + 1}`;
-    });
-    itemCount = document.querySelectorAll('.item-row').length;
-}
 
-function calculateItemTotal(input) {
-    const row = input.closest('.item-row');
-    const qty = parseFloat(row.querySelector('.item-qty').value) || 0;
-    const price = parseFloat(row.querySelector('.item-price').value) || 0;
-    const itemSubtotal = qty * price;
-    row.querySelector('.item-subtotal').textContent = 'Rp ' + itemSubtotal.toLocaleString('id-ID', {minimumFractionDigits: 0, maximumFractionDigits: 0});
-    calculateTotal();
-}
+    function removeItem(btn) {
+        if (document.querySelectorAll('.item-row').length === 1) {
+            alert('Minimal harus ada 1 item!');
+            return;
+        }
+        btn.closest('.item-row').remove();
+        calculateTotal();
+        // Renumber items
+        document.querySelectorAll('.item-row').forEach((row, index) => {
+            row.querySelector('div').textContent = `#${index + 1}`;
+        });
+        itemCount = document.querySelectorAll('.item-row').length;
+    }
 
-function calculateTotal() {
-    let subtotal = 0;
-    document.querySelectorAll('.item-row').forEach(row => {
+    function calculateItemTotal(input) {
+        const row = input.closest('.item-row');
         const qty = parseFloat(row.querySelector('.item-qty').value) || 0;
         const price = parseFloat(row.querySelector('.item-price').value) || 0;
-        subtotal += (qty * price);
-    });
-    
-    const discount = parseFloat(document.getElementById('discountInput').value) || 0;
-    const tax = parseFloat(document.getElementById('taxInput').value) || 0;
-    const grandTotal = subtotal - discount + tax;
-    
-    document.getElementById('subtotalDisplay').textContent = 'Rp ' + subtotal.toLocaleString('id-ID', {minimumFractionDigits: 0, maximumFractionDigits: 0});
-    document.getElementById('grandTotalDisplay').textContent = 'Rp ' + grandTotal.toLocaleString('id-ID', {minimumFractionDigits: 0, maximumFractionDigits: 0});
-}
-
-// Add first item on load
-document.addEventListener('DOMContentLoaded', function() {
-    addItem();
-    feather.replace();
-    
-    // Form validation before submit
-    document.getElementById('poForm').addEventListener('submit', function(e) {
-        let hasError = false;
-        let errorMsg = '';
-        
-        // Check if at least one item exists
-        const items = document.querySelectorAll('.item-row');
-        if (items.length === 0) {
-            hasError = true;
-            errorMsg = 'Minimal tambahkan 1 item!';
-        }
-        
-        // Validate each item
-        items.forEach((row, index) => {
-            const itemName = row.querySelector('input[name*="[item_name]"]').value.trim();
-            const qty = parseFloat(row.querySelector('.item-qty').value);
-            const price = parseFloat(row.querySelector('.item-price').value);
-            
-            if (!itemName) {
-                hasError = true;
-                errorMsg = `Item #${index + 1}: Nama item wajib diisi!`;
-            }
-            
-            if (isNaN(qty) || qty <= 0) {
-                hasError = true;
-                errorMsg = `Item #${index + 1}: Quantity harus lebih dari 0!`;
-            }
-            
-            if (isNaN(price) || price < 0) {
-                hasError = true;
-                errorMsg = `Item #${index + 1}: Harga tidak valid!`;
-            }
+        const itemSubtotal = qty * price;
+        row.querySelector('.item-subtotal').textContent = 'Rp ' + itemSubtotal.toLocaleString('id-ID', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
         });
-        
-        if (hasError) {
-            e.preventDefault();
-            alert('❌ ' + errorMsg);
-            return false;
-        }
-        
-        console.log('Form data:', new FormData(this));
+        calculateTotal();
+    }
+
+    function calculateTotal() {
+        let subtotal = 0;
+        document.querySelectorAll('.item-row').forEach(row => {
+            const qty = parseFloat(row.querySelector('.item-qty').value) || 0;
+            const price = parseFloat(row.querySelector('.item-price').value) || 0;
+            subtotal += (qty * price);
+        });
+
+        const discount = parseFloat(document.getElementById('discountInput').value) || 0;
+        const tax = parseFloat(document.getElementById('taxInput').value) || 0;
+        const grandTotal = subtotal - discount + tax;
+
+        document.getElementById('subtotalDisplay').textContent = 'Rp ' + subtotal.toLocaleString('id-ID', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        });
+        document.getElementById('grandTotalDisplay').textContent = 'Rp ' + grandTotal.toLocaleString('id-ID', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        });
+    }
+
+    // Add first item on load
+    document.addEventListener('DOMContentLoaded', function() {
+        addItem();
+        feather.replace();
+
+        // Form validation before submit
+        document.getElementById('poForm').addEventListener('submit', function(e) {
+            let hasError = false;
+            let errorMsg = '';
+
+            // Check if at least one item exists
+            const items = document.querySelectorAll('.item-row');
+            if (items.length === 0) {
+                hasError = true;
+                errorMsg = 'Minimal tambahkan 1 item!';
+            }
+
+            // Validate each item
+            items.forEach((row, index) => {
+                const itemName = row.querySelector('input[name*="[item_name]"]').value.trim();
+                const qty = parseFloat(row.querySelector('.item-qty').value);
+                const price = parseFloat(row.querySelector('.item-price').value);
+
+                if (!itemName) {
+                    hasError = true;
+                    errorMsg = `Item #${index + 1}: Nama item wajib diisi!`;
+                }
+
+                if (isNaN(qty) || qty <= 0) {
+                    hasError = true;
+                    errorMsg = `Item #${index + 1}: Quantity harus lebih dari 0!`;
+                }
+
+                if (isNaN(price) || price < 0) {
+                    hasError = true;
+                    errorMsg = `Item #${index + 1}: Harga tidak valid!`;
+                }
+            });
+
+            if (hasError) {
+                e.preventDefault();
+                alert('❌ ' + errorMsg);
+                return false;
+            }
+
+            console.log('Form data:', new FormData(this));
+        });
     });
-});
 </script>
 
 <?php include '../../includes/footer.php'; ?>
