@@ -15,23 +15,44 @@ $pageTitle = 'Buat Purchase Order';
 // PO procurement di flow ini khusus untuk Gudang Nasita.
 $gudangSupplier = null;
 try {
-    $gudangSupplier = $db->fetchOne("SELECT id, supplier_name FROM suppliers WHERE LOWER(supplier_name) = 'gudang nasita' LIMIT 1");
+    $gudangSupplier = $db->fetchOne("SELECT id, supplier_name FROM suppliers WHERE LOWER(supplier_name) LIKE '%gudang nasita%' LIMIT 1");
 
     if (!$gudangSupplier) {
         $supplierColumns = $db->fetchAll("SHOW COLUMNS FROM suppliers");
-        $colNames = [];
+        $colMap = [];
         foreach ($supplierColumns as $col) {
-            $colNames[] = strtolower((string)($col['Field'] ?? ''));
+            $field = strtolower((string)($col['Field'] ?? ''));
+            if ($field !== '') {
+                $colMap[$field] = $col;
+            }
         }
 
         $insertData = [
             'supplier_name' => 'Gudang Nasita',
         ];
-        if (in_array('contact_person', $colNames, true)) {
+
+        if (isset($colMap['supplier_code'])) {
+            $baseCode = 'GDN' . date('ymd');
+            $seq = 1;
+            do {
+                $candidateCode = $baseCode . str_pad((string)$seq, 3, '0', STR_PAD_LEFT);
+                $existsCode = $db->fetchOne('SELECT id FROM suppliers WHERE supplier_code = ? LIMIT 1', [$candidateCode]);
+                $seq++;
+            } while ($existsCode && $seq < 999);
+            $insertData['supplier_code'] = $candidateCode;
+        }
+
+        if (isset($colMap['contact_person'])) {
             $insertData['contact_person'] = 'Internal Warehouse';
         }
-        if (in_array('is_active', $colNames, true)) {
+        if (isset($colMap['payment_terms'])) {
+            $insertData['payment_terms'] = !empty($colMap['payment_terms']['Default']) ? $colMap['payment_terms']['Default'] : 'net_30';
+        }
+        if (isset($colMap['is_active'])) {
             $insertData['is_active'] = 1;
+        }
+        if (isset($colMap['created_by'])) {
+            $insertData['created_by'] = (int)($currentUser['id'] ?? 1);
         }
 
         $supplierId = $db->insert('suppliers', $insertData);
@@ -39,8 +60,12 @@ try {
             $gudangSupplier = $db->fetchOne('SELECT id, supplier_name FROM suppliers WHERE id = ? LIMIT 1', [$supplierId]);
         }
     }
+
+    if (!$gudangSupplier) {
+        $gudangSupplier = $db->fetchOne("SELECT id, supplier_name FROM suppliers WHERE is_active = 1 ORDER BY id ASC LIMIT 1");
+    }
 } catch (Throwable $e) {
-    $gudangSupplier = null;
+    $gudangSupplier = $db->fetchOne("SELECT id, supplier_name FROM suppliers WHERE is_active = 1 ORDER BY id ASC LIMIT 1");
 }
 
 if (!$gudangSupplier || empty($gudangSupplier['id'])) {
