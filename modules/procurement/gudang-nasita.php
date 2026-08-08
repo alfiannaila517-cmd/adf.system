@@ -80,7 +80,7 @@ if ($activeBusinessId > 0) {
     $businessFilterParams[] = $activeBusinessId;
 }
 
-$pendingReceipts = $db->fetchAll("\n    SELECT poh.id, poh.po_number, poh.po_date, poh.status, poh.supplier_id, s.supplier_name,\n           COUNT(pod.id) AS items_count,\n           SUM(CASE WHEN COALESCE(pod.received_quantity,0) < pod.quantity THEN 1 ELSE 0 END) AS pending_items\n    FROM purchase_orders_header poh\n    LEFT JOIN suppliers s ON s.id = poh.supplier_id\n    LEFT JOIN purchase_orders_detail pod ON pod.po_header_id = poh.id\n    WHERE poh.status NOT IN ('completed','cancelled','received','rejected')" . $businessFilterSql . "\n    GROUP BY poh.id\n    HAVING pending_items > 0\n    ORDER BY poh.created_at DESC\n    LIMIT 12\n", $businessFilterParams);
+$pendingReceipts = $db->fetchAll("\n    SELECT poh.id, poh.po_number, poh.po_date, poh.status, poh.supplier_id, s.supplier_name,\n           b.id AS source_business_id, b.business_name AS source_business_name,\n           COUNT(pod.id) AS items_count,\n           SUM(CASE WHEN COALESCE(pod.received_quantity,0) < pod.quantity THEN 1 ELSE 0 END) AS pending_items\n    FROM purchase_orders_header poh\n    LEFT JOIN suppliers s ON s.id = poh.supplier_id\n    LEFT JOIN businesses b ON b.id = poh.business_id\n    LEFT JOIN purchase_orders_detail pod ON pod.po_header_id = poh.id\n    WHERE poh.status NOT IN ('completed','cancelled','received','rejected')" . $businessFilterSql . "\n    GROUP BY poh.id\n    HAVING pending_items > 0\n    ORDER BY poh.created_at DESC\n    LIMIT 12\n", $businessFilterParams);
 $pendingPoCount = count($pendingReceipts);
 
 include '../../includes/header.php';
@@ -220,6 +220,9 @@ include '../../includes/header.php';
                     <?php foreach ($pendingReceipts as $po): ?>
                         <div style="padding:0.75rem; border:1px solid var(--border); border-radius:0.75rem; background: var(--bg-secondary);">
                             <div style="font-weight:700;"><?php echo htmlspecialchars($po['po_number']); ?></div>
+                            <div style="font-size:0.812rem; color:#0f172a; font-weight:700;">
+                                <?php echo htmlspecialchars(($po['source_business_name'] ?: 'Business #' . (int)($po['source_business_id'] ?? 0)) . ' PO'); ?>
+                            </div>
                             <div style="font-size:0.812rem; color:var(--text-muted);">Status: <?php echo htmlspecialchars($po['status']); ?></div>
                             <div style="font-size:0.812rem; color:var(--text-muted);"><?php echo (int)$po['items_count']; ?> item | <?php echo (int)$po['pending_items']; ?> belum diproses</div>
                             <div style="display:flex; gap:0.5rem; margin-top:0.5rem; flex-wrap:wrap;">
