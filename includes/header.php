@@ -506,45 +506,82 @@ if (isset($_SESSION['user_id'])) {
         $overdueMotors = getOverdueMotorsForNotification($db->getConnection(), $businessId);
         if (!empty($overdueMotors)):
             $messages = formatOverdueMotorMessages($overdueMotors);
-            $notificationText = implode(' | ', $messages);
+            $count = count($overdueMotors);
+            $notificationText = implode('          ', $messages);
+            $scrollDuration = max(15, $count * 8);
     ?>
             <style>
-                .motor-notification-banner {
-                    background: linear-gradient(90deg, #dc2626, #b91c1c);
-                    color: white;
-                    padding: 0.75rem 1rem;
+                .motor-overdue-banner {
+                    background: linear-gradient(90deg, #7f1d1d, #dc2626, #7f1d1d);
+                    background-size: 200% 100%;
+                    animation: banner-pulse 3s ease infinite, banner-bg 4s linear infinite;
+                    color: #fff;
+                    padding: 0.5rem 0;
                     overflow: hidden;
                     position: relative;
-                    font-weight: 600;
-                    font-size: 0.875rem;
-                    box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
+                    font-weight: 700;
+                    font-size: 0.84rem;
+                    letter-spacing: 0.01em;
+                    box-shadow: 0 3px 10px rgba(220,38,38,0.5);
+                    border-bottom: 2px solid #fca5a5;
+                    z-index: 999;
+                    cursor: pointer;
                 }
-
-                .motor-notification-banner .running-text {
-                    display: inline-block;
+                @keyframes banner-bg {
+                    0%   { background-position: 0% 50%; }
+                    100% { background-position: 200% 50%; }
+                }
+                @keyframes banner-pulse {
+                    0%, 100% { box-shadow: 0 3px 10px rgba(220,38,38,0.5); }
+                    50%       { box-shadow: 0 3px 20px rgba(220,38,38,0.9); }
+                }
+                .motor-overdue-banner .ob-label {
+                    position: absolute;
+                    left: 0;
+                    top: 0;
+                    bottom: 0;
+                    display: flex;
+                    align-items: center;
+                    padding: 0 0.75rem;
+                    background: rgba(0,0,0,0.35);
                     white-space: nowrap;
-                    animation: scroll-text 25s linear infinite;
-                    padding-left: 100%;
+                    font-size: 0.78rem;
+                    gap: 0.3rem;
+                    z-index: 1;
+                    border-right: 1px solid rgba(255,255,255,0.2);
                 }
-
-                @keyframes scroll-text {
-                    0% {
-                        transform: translateX(0);
-                    }
-
-                    100% {
-                        transform: translateX(-100%);
-                    }
+                .motor-overdue-banner .ob-label .flash {
+                    animation: flash-icon 1s step-start infinite;
+                    font-size: 1rem;
                 }
-
-                .motor-notification-banner .running-text:hover {
+                @keyframes flash-icon {
+                    0%, 100% { opacity: 1; }
+                    50%       { opacity: 0; }
+                }
+                .motor-overdue-banner .ob-ticker {
+                    display: block;
+                    white-space: nowrap;
+                    padding-left: 160px;
+                    animation: ticker-scroll <?php echo $scrollDuration; ?>s linear infinite;
+                }
+                @keyframes ticker-scroll {
+                    0%   { transform: translateX(100vw); }
+                    100% { transform: translateX(-100%); }
+                }
+                .motor-overdue-banner:hover .ob-ticker {
                     animation-play-state: paused;
                 }
             </style>
-            <div class="motor-notification-banner">
-                <div class="running-text">
+            <div class="motor-overdue-banner" onclick="window.location.href='<?php echo BASE_URL; ?>/modules/frontdesk/rental-motor.php'" title="Klik untuk lihat rental motor">
+                <span class="ob-label">
+                    <span class="flash">🚨</span>
+                    OVERDUE (<?php echo $count; ?>)
+                </span>
+                <span class="ob-ticker">
                     <?php echo htmlspecialchars($notificationText); ?>
-                </div>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                    <?php echo htmlspecialchars($notificationText); ?>
+                </span>
             </div>
         <?php endif; ?>
     <?php } catch (\Throwable $e) {

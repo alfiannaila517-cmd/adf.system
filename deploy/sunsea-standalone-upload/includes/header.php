@@ -5,6 +5,9 @@ require_once __DIR__ . '/functions.php';
 // Load language system
 require_once __DIR__ . '/language.php';
 
+// Load motor notification system
+require_once __DIR__ . '/MotorNotificationHelper.php';
+
 // Sunsea must use its own custom UI/module stack.
 // If a generic module tries to render with this global header, redirect to Sunsea dashboard.
 if (defined('ACTIVE_BUSINESS_ID') && ACTIVE_BUSINESS_ID === 'sunsea') {
@@ -495,6 +498,96 @@ if (isset($_SESSION['user_id'])) {
     <?php if ($themeError): ?>
         <!-- Theme Load Warning: <?php echo htmlspecialchars($themeError); ?> -->
     <?php endif; ?>
+
+    <!-- Motor Overdue Notification Banner -->
+    <?php
+    try {
+        $businessId = $_SESSION['business_id'] ?? 1;
+        $overdueMotors = getOverdueMotorsForNotification($db->getConnection(), $businessId);
+        if (!empty($overdueMotors)):
+            $messages = formatOverdueMotorMessages($overdueMotors);
+            $count = count($overdueMotors);
+            $notificationText = implode('          ', $messages);
+            $scrollDuration = max(15, $count * 8);
+    ?>
+            <style>
+                .motor-overdue-banner {
+                    background: linear-gradient(90deg, #7f1d1d, #dc2626, #7f1d1d);
+                    background-size: 200% 100%;
+                    animation: banner-pulse 3s ease infinite, banner-bg 4s linear infinite;
+                    color: #fff;
+                    padding: 0.5rem 0;
+                    overflow: hidden;
+                    position: relative;
+                    font-weight: 700;
+                    font-size: 0.84rem;
+                    letter-spacing: 0.01em;
+                    box-shadow: 0 3px 10px rgba(220,38,38,0.5);
+                    border-bottom: 2px solid #fca5a5;
+                    z-index: 999;
+                    cursor: pointer;
+                }
+                @keyframes banner-bg {
+                    0%   { background-position: 0% 50%; }
+                    100% { background-position: 200% 50%; }
+                }
+                @keyframes banner-pulse {
+                    0%, 100% { box-shadow: 0 3px 10px rgba(220,38,38,0.5); }
+                    50%       { box-shadow: 0 3px 20px rgba(220,38,38,0.9); }
+                }
+                .motor-overdue-banner .ob-label {
+                    position: absolute;
+                    left: 0;
+                    top: 0;
+                    bottom: 0;
+                    display: flex;
+                    align-items: center;
+                    padding: 0 0.75rem;
+                    background: rgba(0,0,0,0.35);
+                    white-space: nowrap;
+                    font-size: 0.78rem;
+                    gap: 0.3rem;
+                    z-index: 1;
+                    border-right: 1px solid rgba(255,255,255,0.2);
+                }
+                .motor-overdue-banner .ob-label .flash {
+                    animation: flash-icon 1s step-start infinite;
+                    font-size: 1rem;
+                }
+                @keyframes flash-icon {
+                    0%, 100% { opacity: 1; }
+                    50%       { opacity: 0; }
+                }
+                .motor-overdue-banner .ob-ticker {
+                    display: block;
+                    white-space: nowrap;
+                    padding-left: 160px;
+                    animation: ticker-scroll <?php echo $scrollDuration; ?>s linear infinite;
+                }
+                @keyframes ticker-scroll {
+                    0%   { transform: translateX(100vw); }
+                    100% { transform: translateX(-100%); }
+                }
+                .motor-overdue-banner:hover .ob-ticker {
+                    animation-play-state: paused;
+                }
+            </style>
+            <div class="motor-overdue-banner" onclick="window.location.href='<?php echo BASE_URL; ?>/modules/frontdesk/rental-motor.php'" title="Klik untuk lihat rental motor">
+                <span class="ob-label">
+                    <span class="flash">🚨</span>
+                    OVERDUE (<?php echo $count; ?>)
+                </span>
+                <span class="ob-ticker">
+                    <?php echo htmlspecialchars($notificationText); ?>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                    <?php echo htmlspecialchars($notificationText); ?>
+                </span>
+            </div>
+        <?php endif; ?>
+    <?php } catch (\Throwable $e) {
+        // Silent fail if notification fails
+    } ?>
+
     <div class="main-wrapper">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
@@ -758,12 +851,6 @@ if (isset($_SESSION['user_id'])) {
                                     <a href="<?php echo BASE_URL; ?>/modules/bills/index.php" class="submenu-link <?php echo activeMenu('bills/index'); ?>">
                                         <i data-feather="list" class="submenu-icon"></i>
                                         <span>Daftar Tagihan</span>
-                                    </a>
-                                </li>
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/bills/index.php?cat=driver" class="submenu-link <?php echo (($_GET['cat'] ?? '') === 'driver') ? 'active' : ''; ?>">
-                                        <i data-feather="truck" class="submenu-icon"></i>
-                                        <span>Tagihan Driver</span>
                                     </a>
                                 </li>
                                 <li class="submenu-item">
