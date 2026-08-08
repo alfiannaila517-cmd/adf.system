@@ -22,16 +22,66 @@ $message = '';
 $messageType = 'success';
 
 $prefillPoId = (int)($_GET['po_id'] ?? 0);
+$prefillPoBusinessSlug = trim((string)($_GET['po_business'] ?? ''));
 $prefillStockId = (int)($_GET['stock_id'] ?? 0);
 $prefillQty = (float)($_GET['qty'] ?? 0);
 $prefillTargetBusinessId = 0;
 $prefillTargetBusinessName = '';
 $prefillNotes = '';
+$allowedPoBusinessSlugs = ['narayana-hotel', 'bens-cafe', 'eaat-meet'];
+if (!in_array($prefillPoBusinessSlug, $allowedPoBusinessSlugs, true)) {
+    $prefillPoBusinessSlug = '';
+}
+
+$resolvePoContext = function (int $poId, string $poBusinessSlug = '') use ($db, $allowedPoBusinessSlugs) {
+    $originDbName = Database::getCurrentDatabase();
+    $resolved = [
+        'row' => null,
+        'business_slug' => $poBusinessSlug,
+        'business_name' => '',
+    ];
+
+    try {
+        if ($poBusinessSlug !== '' && in_array($poBusinessSlug, $allowedPoBusinessSlugs, true)) {
+            $cfgPath = __DIR__ . '/../../config/businesses/' . $poBusinessSlug . '.php';
+            if (file_exists($cfgPath)) {
+                $cfg = require $cfgPath;
+                $bizDbName = (string)($cfg['database'] ?? '');
+                if ($bizDbName !== '') {
+                    $bizDb = Database::switchDatabase($bizDbName);
+                    $resolved['row'] = $bizDb->fetchOne("\n                        SELECT poh.id, poh.po_number, poh.business_id, b.business_name, b.business_code\n                        FROM purchase_orders_header poh\n                        LEFT JOIN businesses b ON b.id = poh.business_id\n                        WHERE poh.id = ?\n                        LIMIT 1\n                    ", [$poId]);
+                    $resolved['business_name'] = (string)($cfg['name'] ?? '');
+                }
+            }
+        }
+
+        if (!$resolved['row']) {
+            $resolved['row'] = $db->fetchOne("\n                SELECT poh.id, poh.po_number, poh.business_id, b.business_name, b.business_code\n                FROM purchase_orders_header poh\n                LEFT JOIN businesses b ON b.id = poh.business_id\n                WHERE poh.id = ?\n                LIMIT 1\n            ", [$poId]);
+            $resolved['business_slug'] = $resolved['business_slug'] ?: '';
+        }
+    } catch (Throwable $e) {
+        error_log('Gudang transfer resolve PO error: ' . $e->getMessage());
+    }
+
+    if (!empty($originDbName)) {
+        try {
+            Database::switchDatabase($originDbName);
+        } catch (Throwable $e) {
+        }
+    }
+
+    return $resolved;
+};
+
 if ($prefillPoId > 0) {
-    $poRow = $db->fetchOne("\n        SELECT poh.id, poh.po_number, poh.business_id, b.business_name, b.business_code\n        FROM purchase_orders_header poh\n        LEFT JOIN businesses b ON b.id = poh.business_id\n        WHERE poh.id = ?\n        LIMIT 1\n    ", [$prefillPoId]);
+    $resolvedPo = $resolvePoContext($prefillPoId, $prefillPoBusinessSlug);
+    $poRow = $resolvedPo['row'];
     if ($poRow) {
         $prefillTargetBusinessId = (int)($poRow['business_id'] ?? 0);
         $prefillTargetBusinessName = trim((string)($poRow['business_name'] ?? ''));
+        if ($prefillTargetBusinessName === '') {
+            $prefillTargetBusinessName = trim((string)($resolvedPo['business_name'] ?? ''));
+        }
         $prefillNotes = 'Proses PO ' . $poRow['po_number'];
     }
 }
@@ -79,11 +129,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $quantity = (float)($_POST['quantity'] ?? 0);
     $notes = trim($_POST['notes'] ?? '');
     $sourcePoId = (int)($_POST['source_po_id'] ?? 0);
+    $sourcePoBusinessSlug = trim((string)($_POST['source_po_business'] ?? ''));
+    if (!in_array($sourcePoBusinessSlug, $allowedPoBusinessSlugs, true)) {
+        $sourcePoBusinessSlug = '';
+    }
     if ($sourcePoId <= 0) {
         $sourcePoId = null;
     } else {
         // Jika transfer dari PO, bisnis tujuan wajib mengikuti business_id PO.
-        $poFromPost = $db->fetchOne("SELECT id, po_number, business_id FROM purchase_orders_header WHERE id = ? LIMIT 1", [$sourcePoId]);
+        $resolvedPoPost = $resolvePoContext($sourcePoId, $sourcePoBusinessSlug);
+        $poFromPost = $resolvedPoPost['row'];
         if (!$poFromPost || (int)($poFromPost['business_id'] ?? 0) <= 0) {
             $result = ['success' => false, 'message' => 'PO sumber tidak valid untuk transfer.'];
         } else {
@@ -142,6 +197,7 @@ include '../../includes/header.php';
         <h3 style="font-size:1rem; font-weight:700; margin-bottom:1rem;">Form Transfer</h3>
         <form method="POST">
             <input type="hidden" name="source_po_id" value="<?php echo (int)$prefillPoId; ?>">
+            <input type="hidden" name="source_po_business" value="<?php echo htmlspecialchars($prefillPoBusinessSlug); ?>">
             <div class="form-group">
                 <label class="form-label">Tujuan Bisnis</label>
                 <?php if ($prefillPoId > 0 && $prefillTargetBusinessId > 0): ?>
