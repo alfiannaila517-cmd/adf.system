@@ -17,7 +17,7 @@ $po_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $action = $_POST['action'];
     $new_status = '';
-    
+
     switch ($action) {
         case 'receive_warehouse':
             if (!($auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse'))) {
@@ -35,12 +35,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         case 'approve':
             // Use special approve function that posts to cash_book
             $options = [];
-            
+
             // Handle file upload
             if (isset($_FILES['attachment']) && $_FILES['attachment']['error'] === UPLOAD_ERR_OK) {
                 $options['attachment_file'] = $_FILES['attachment'];
             }
-            
+
             $result = approvePurchaseOrderAndPay($po_id, $currentUser['id'], $options);
             break;
         case 'reject':
@@ -52,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $result = updatePurchaseOrderStatus($po_id, $new_status, $currentUser['id']);
             break;
     }
-    
+
     if (isset($result)) {
         if ($result['success']) {
             $_SESSION['success'] = $result['message'];
@@ -127,37 +127,19 @@ include '../../includes/header.php';
                 <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem;">
                     📋 <?php echo $po['po_number']; ?>
                 </h2>
-                <p style="color: var(--text-muted); font-size: 0.875rem;">Purchase Order Details</p>
+                <p style="color: var(--text-muted); font-size: 0.875rem;">PO internal bisnis untuk proses gudang dan transfer</p>
             </div>
         </div>
         <div style="display: flex; gap: 0.5rem;">
-            <?php if (in_array($po['status'], ['approved', 'completed', 'partially_received'])): ?>
-                <button type="button" class="btn btn-warning btn-sm" onclick="document.getElementById('receiveModal').style.display='flex'">
-                    <i data-feather="package" style="width: 14px; height: 14px;"></i>
-                    Terima Barang ke Gudang
-                </button>
-            <?php endif; ?>
             <?php if ($po['status'] === 'draft'): ?>
                 <form method="POST" style="display: inline;">
                     <input type="hidden" name="action" value="submit">
                     <button type="submit" class="btn btn-primary btn-sm">Submit PO</button>
                 </form>
             <?php elseif (in_array($po['status'], ['submitted', 'approved'])): ?>
-                <button type="button" class="btn btn-success btn-sm" onclick="document.getElementById('approveModal').style.display='flex'">
-                    <i data-feather="check-circle" style="width: 14px; height: 14px;"></i>
-                    <?php echo $po['status'] === 'approved' ? 'Bayar & Selesaikan' : 'Approve & Bayar'; ?>
-                </button>
-                <?php if ($po['status'] === 'submitted'): ?>
-                <form method="POST" style="display: inline;">
-                    <input type="hidden" name="action" value="reject">
-                    <button type="submit" class="btn btn-danger btn-sm">Reject</button>
-                </form>
-                <?php endif; ?>
-            <?php endif; ?>
-            <?php if (!empty($po['attachment_path'])): ?>
-                <a href="../../<?php echo $po['attachment_path']; ?>" target="_blank" class="btn btn-info btn-sm">
-                    <i data-feather="image" style="width: 14px; height: 14px;"></i>
-                    Lihat Nota
+                <a href="gudang-transfer.php?po_id=<?php echo (int)$po['id']; ?>" class="btn btn-success btn-sm">
+                    <i data-feather="send" style="width: 14px; height: 14px;"></i>
+                    Siapkan Transfer Gudang
                 </a>
             <?php endif; ?>
             <button onclick="window.print()" class="btn btn-secondary btn-sm">
@@ -169,13 +151,15 @@ include '../../includes/header.php';
 
 <?php if (isset($_SESSION['success'])): ?>
     <div class="alert alert-success">
-        <?php echo $_SESSION['success']; unset($_SESSION['success']); ?>
+        <?php echo $_SESSION['success'];
+        unset($_SESSION['success']); ?>
     </div>
 <?php endif; ?>
 
 <?php if (isset($_SESSION['error'])): ?>
     <div class="alert alert-danger">
-        <?php echo $_SESSION['error']; unset($_SESSION['error']); ?>
+        <?php echo $_SESSION['error'];
+        unset($_SESSION['error']); ?>
     </div>
 <?php endif; ?>
 
@@ -229,11 +213,11 @@ include '../../includes/header.php';
             </div>
         <?php endif; ?>
     </div>
-    
+
     <div class="card">
-        <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 1rem;">Supplier</h3>
-        <div style="font-weight: 700; font-size: 1.125rem; margin-bottom: 0.25rem;"><?php echo $po['supplier_name']; ?></div>
-        <div style="font-size: 0.813rem; color: var(--text-muted);">Code: <?php echo $po['supplier_code']; ?></div>
+        <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 1rem;">Tujuan PO</h3>
+        <div style="font-weight: 700; font-size: 1.125rem; margin-bottom: 0.25rem;">Gudang Nasita (Internal)</div>
+        <div style="font-size: 0.813rem; color: var(--text-muted);">Tanpa supplier eksternal / tanpa pembayaran</div>
     </div>
 </div>
 
@@ -376,10 +360,10 @@ include '../../includes/header.php';
             </div>
             <button type="button" onclick="document.getElementById('approveModal').style.display='none'" style="background: rgba(255,255,255,0.2); border: none; cursor: pointer; color: white; font-size: 1.75rem; width: 36px; height: 36px; border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">&times;</button>
         </div>
-        
+
         <form method="POST" enctype="multipart/form-data">
             <input type="hidden" name="action" value="approve">
-            
+
             <!-- Info PO -->
             <div style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-left: 4px solid #10b981; border-radius: 0.75rem; padding: 1.5rem; margin-bottom: 1.75rem;">
                 <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
@@ -401,7 +385,7 @@ include '../../includes/header.php';
                     </div>
                 </div>
             </div>
-            
+
             <!-- Warning Box -->
             <div style="background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border-left: 4px solid #f59e0b; border-radius: 0.75rem; padding: 1.25rem; margin-bottom: 1.75rem;">
                 <div style="display: flex; gap: 1rem;">
@@ -418,7 +402,7 @@ include '../../includes/header.php';
                     </div>
                 </div>
             </div>
-            
+
             <!-- Upload Section -->
             <div style="background: #f9fafb; border: 2px dashed #d1d5db; border-radius: 0.75rem; padding: 1.5rem; margin-bottom: 1.75rem;">
                 <label class="form-label" style="display: flex; align-items: center; gap: 0.5rem; font-size: 1rem; font-weight: 600; color: #374151; margin-bottom: 1rem;">
@@ -431,7 +415,7 @@ include '../../includes/header.php';
                     Format: JPG, PNG, PDF • Ukuran maksimal: 5MB
                 </div>
             </div>
-            
+
             <!-- Action Buttons -->
             <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 2rem;">
                 <button type="button" onclick="document.getElementById('approveModal').style.display='none'" class="btn btn-secondary" style="padding: 0.875rem 1.75rem; font-size: 1rem; font-weight: 600;">
@@ -448,18 +432,25 @@ include '../../includes/header.php';
 </div>
 
 <style>
-@media print {
-    .sidebar, .topbar, .btn, form button, #approveModal {
-        display: none !important;
+    @media print {
+
+        .sidebar,
+        .topbar,
+        .btn,
+        form button,
+        #approveModal {
+            display: none !important;
+        }
+
+        body {
+            background: white !important;
+        }
+
+        .card {
+            border: 1px solid #ddd !important;
+            box-shadow: none !important;
+        }
     }
-    body {
-        background: white !important;
-    }
-    .card {
-        border: 1px solid #ddd !important;
-        box-shadow: none !important;
-    }
-}
 </style>
 
 <script>
