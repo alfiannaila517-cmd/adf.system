@@ -21,11 +21,26 @@ $pageTitle = 'Transfer Gudang Nasita';
 $message = '';
 $messageType = 'success';
 
+$prefillPoId = (int)($_GET['po_id'] ?? 0);
+$prefillTargetBusinessId = 0;
+$prefillNotes = '';
+if ($prefillPoId > 0) {
+    $poRow = $db->fetchOne("SELECT id, po_number, business_id FROM purchase_orders_header WHERE id = ? LIMIT 1", [$prefillPoId]);
+    if ($poRow) {
+        $prefillTargetBusinessId = (int)($poRow['business_id'] ?? 0);
+        $prefillNotes = 'Proses PO ' . $poRow['po_number'];
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $targetBusinessId = (int)($_POST['target_business_id'] ?? 0);
     $stockId = (int)($_POST['stock_id'] ?? 0);
     $quantity = (float)($_POST['quantity'] ?? 0);
     $notes = trim($_POST['notes'] ?? '');
+    $sourcePoId = (int)($_POST['source_po_id'] ?? 0);
+    if ($sourcePoId <= 0) {
+        $sourcePoId = null;
+    }
 
     $result = transferGudangNasitaStock($targetBusinessId, [
         [
@@ -33,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'quantity' => $quantity,
             'notes' => $notes,
         ]
-    ], $currentUser['id'], $notes, null);
+    ], $currentUser['id'], $notes, $sourcePoId);
 
     if ($result['success']) {
         $message = $result['message'] . ' Ke ' . $result['business_name'];
@@ -66,16 +81,23 @@ include '../../includes/header.php';
     <div class="alert alert-<?php echo $messageType; ?>"><?php echo htmlspecialchars($message); ?></div>
 <?php endif; ?>
 
+<?php if ($prefillPoId > 0): ?>
+    <div class="alert alert-info" style="margin-bottom:1rem;">
+        Proses transfer berdasarkan PO bisnis. Silakan pilih item gudang lalu transfer ke bisnis tujuan.
+    </div>
+<?php endif; ?>
+
 <div style="display:grid; grid-template-columns: 1.1fr 1fr; gap: 1.25rem; align-items:start;">
     <div class="card">
         <h3 style="font-size:1rem; font-weight:700; margin-bottom:1rem;">Form Transfer</h3>
         <form method="POST">
+            <input type="hidden" name="source_po_id" value="<?php echo (int)$prefillPoId; ?>">
             <div class="form-group">
                 <label class="form-label">Tujuan Bisnis</label>
                 <select name="target_business_id" class="form-control" required>
                     <option value="">-- Pilih bisnis --</option>
                     <?php foreach ($businesses as $biz): ?>
-                        <option value="<?php echo (int)$biz['id']; ?>"><?php echo htmlspecialchars($biz['business_name']); ?></option>
+                        <option value="<?php echo (int)$biz['id']; ?>" <?php echo ((int)$biz['id'] === (int)$prefillTargetBusinessId) ? 'selected' : ''; ?>><?php echo htmlspecialchars($biz['business_name']); ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
@@ -97,7 +119,7 @@ include '../../includes/header.php';
 
             <div class="form-group">
                 <label class="form-label">Catatan</label>
-                <textarea name="notes" class="form-control" rows="3" placeholder="Catatan pengiriman, nomor PO, dll."></textarea>
+                <textarea name="notes" class="form-control" rows="3" placeholder="Catatan pengiriman, nomor PO, dll."><?php echo htmlspecialchars($prefillNotes); ?></textarea>
             </div>
 
             <button type="submit" class="btn btn-primary">

@@ -113,10 +113,12 @@ include '../../includes/header.php';
 </div>
 
 <?php if (isset($_SESSION['success'])): ?>
-    <div class="alert alert-success" style="margin-bottom:1rem;"><?php echo htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?></div>
+    <div class="alert alert-success" style="margin-bottom:1rem;"><?php echo htmlspecialchars($_SESSION['success']);
+                                                                    unset($_SESSION['success']); ?></div>
 <?php endif; ?>
 <?php if (isset($_SESSION['error'])): ?>
-    <div class="alert alert-danger" style="margin-bottom:1rem;"><?php echo htmlspecialchars($_SESSION['error']); unset($_SESSION['error']); ?></div>
+    <div class="alert alert-danger" style="margin-bottom:1rem;"><?php echo htmlspecialchars($_SESSION['error']);
+                                                                unset($_SESSION['error']); ?></div>
 <?php endif; ?>
 
 <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.25rem;">
@@ -160,12 +162,16 @@ include '../../includes/header.php';
                 </thead>
                 <tbody>
                     <?php if (empty($stockItems)): ?>
-                        <tr><td colspan="6" style="text-align:center; padding: 2rem; color: var(--text-muted);">Belum ada stok gudang</td></tr>
+                        <tr>
+                            <td colspan="6" style="text-align:center; padding: 2rem; color: var(--text-muted);">Belum ada stok gudang</td>
+                        </tr>
                     <?php else: ?>
                         <?php $currentCategory = null; ?>
                         <?php foreach ($stockItems as $item): ?>
                             <?php $rowCategory = trim((string)($item['category'] ?? '')); ?>
-                            <?php if ($rowCategory === '') { $rowCategory = 'lainnya'; } ?>
+                            <?php if ($rowCategory === '') {
+                                $rowCategory = 'lainnya';
+                            } ?>
                             <?php if ($currentCategory !== $rowCategory): ?>
                                 <?php $currentCategory = $rowCategory; ?>
                                 <tr>
@@ -195,21 +201,24 @@ include '../../includes/header.php';
     <div style="display:grid; gap:1.25rem;">
         <div class="card">
             <h3 style="font-size:1rem; font-weight:700; margin-bottom:0.75rem; display:flex; align-items:center; justify-content:space-between; gap:0.5rem;">
-                <span>Penerimaan PO Pending</span>
+                <span>PO Bisnis Menunggu Proses Gudang</span>
                 <?php if ($pendingPoCount > 0): ?>
                     <span style="background:#ef4444; color:#fff; min-width:22px; height:22px; border-radius:11px; display:inline-flex; align-items:center; justify-content:center; font-size:0.7rem; font-weight:800; padding:0 6px;"><?php echo (int)$pendingPoCount; ?></span>
                 <?php endif; ?>
             </h3>
             <div style="display:grid; gap:0.75rem;">
                 <?php if (empty($pendingReceipts)): ?>
-                    <div style="color:var(--text-muted); font-size:0.875rem;">Tidak ada PO pending penerimaan</div>
+                    <div style="color:var(--text-muted); font-size:0.875rem;">Tidak ada PO bisnis yang perlu diproses gudang</div>
                 <?php else: ?>
                     <?php foreach ($pendingReceipts as $po): ?>
                         <div style="padding:0.75rem; border:1px solid var(--border); border-radius:0.75rem; background: var(--bg-secondary);">
                             <div style="font-weight:700;"><?php echo htmlspecialchars($po['po_number']); ?></div>
-                            <div style="font-size:0.812rem; color:var(--text-muted);"><?php echo htmlspecialchars($po['supplier_name']); ?></div>
-                            <div style="font-size:0.812rem; color:var(--text-muted);"><?php echo (int)$po['items_count']; ?> item | <?php echo (int)$po['pending_items']; ?> pending</div>
-                            <a href="view-po.php?id=<?php echo (int)$po['id']; ?>" class="btn btn-sm btn-success" style="margin-top:0.5rem;">Terima Barang</a>
+                            <div style="font-size:0.812rem; color:var(--text-muted);">Status: <?php echo htmlspecialchars($po['status']); ?></div>
+                            <div style="font-size:0.812rem; color:var(--text-muted);"><?php echo (int)$po['items_count']; ?> item | <?php echo (int)$po['pending_items']; ?> belum diproses</div>
+                            <div style="display:flex; gap:0.5rem; margin-top:0.5rem; flex-wrap:wrap;">
+                                <a href="view-po.php?id=<?php echo (int)$po['id']; ?>" class="btn btn-sm btn-primary">Buka PO</a>
+                                <a href="gudang-transfer.php?po_id=<?php echo (int)$po['id']; ?>" class="btn btn-sm btn-success">Siapkan Transfer</a>
+                            </div>
                         </div>
                     <?php endforeach; ?>
                 <?php endif; ?>
@@ -238,7 +247,7 @@ include '../../includes/header.php';
 <script>
     feather.replace();
 
-    document.addEventListener('click', function (e) {
+    document.addEventListener('click', function(e) {
         var modal = document.getElementById('manualStockModal');
         if (e.target === modal) {
             modal.style.display = 'none';
