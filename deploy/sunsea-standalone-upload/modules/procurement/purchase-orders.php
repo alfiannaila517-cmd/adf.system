@@ -12,6 +12,8 @@ $db = Database::getInstance();
 $currentUser = $auth->getCurrentUser();
 $pageTitle = 'Purchase Orders';
 
+$activeBusinessId = isset($_SESSION['business_id']) ? (int)$_SESSION['business_id'] : 0;
+
 // Get filters
 $status = isset($_GET['status']) ? $_GET['status'] : '';
 $supplier_id = isset($_GET['supplier_id']) ? (int)$_GET['supplier_id'] : 0;
@@ -27,6 +29,7 @@ if ($status) $filters['status'] = $status;
 if ($supplier_id > 0) $filters['supplier_id'] = $supplier_id;
 if ($date_from) $filters['date_from'] = $date_from;
 if ($date_to) $filters['date_to'] = $date_to;
+if ($activeBusinessId > 0 && !$auth->hasPermission('warehouse')) $filters['business_id'] = $activeBusinessId;
 
 // Get purchase orders
 $purchase_orders = getPurchaseOrders($filters, 50, 0);
@@ -156,6 +159,10 @@ include '../../includes/header.php';
             <p style="color: var(--text-muted); font-size: 0.875rem;">Kelola Purchase Order pembelian</p>
         </div>
         <div style="display: flex; gap: 0.75rem; align-items: center;">
+            <a href="business-stock-incoming.php" class="btn btn-outline-secondary">
+                <i data-feather="inbox" style="width: 16px; height: 16px;"></i>
+                Rekaman Stock Masuk
+            </a>
             <a href="report-unpaid-po.php" class="btn" style="background: linear-gradient(135deg, #ef4444, #dc2626); color: white;">
                 <i data-feather="file-text" style="width: 16px; height: 16px;"></i>
                 Laporan Tagihan

@@ -110,7 +110,7 @@ class Database
         $isMaster = in_array($dbName, $masterNames);
 
         // Only run once per session per database (version bump forces re-check)
-        $schemaVersion = 4; // v4: gudang nasita stock + transfer tables
+        $schemaVersion = 5; // v5: add business-scoped purchase orders
         $sessionKey = '_schema_synced_v' . $schemaVersion . '_' . md5($dbName);
         if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION[$sessionKey])) return;
 
@@ -221,7 +221,7 @@ class Database
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
                 )",
                     'purchase_orders_header' => "CREATE TABLE IF NOT EXISTS purchase_orders_header (
-                    id INT AUTO_INCREMENT PRIMARY KEY, po_number VARCHAR(30) UNIQUE, supplier_id INT,
+                    id INT AUTO_INCREMENT PRIMARY KEY, business_id INT NULL, po_number VARCHAR(30) UNIQUE, supplier_id INT,
                     po_date DATE NOT NULL, delivery_date DATE, status ENUM('draft','sent','received','cancelled') DEFAULT 'draft',
                     total_amount DECIMAL(15,2) DEFAULT 0, notes TEXT, created_by INT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -467,6 +467,9 @@ class Database
                     'users' => [
                         'role_id' => "INT NULL",
                         'business_access' => "TEXT NULL",
+                    ],
+                    'purchase_orders_header' => [
+                        'business_id' => "INT NULL",
                     ],
                     // ---- FRONTDESK table columns ----
                     'room_types' => [

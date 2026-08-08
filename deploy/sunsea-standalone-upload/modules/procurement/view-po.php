@@ -66,6 +66,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
 $po = getPurchaseOrder($po_id);
 
+if ($po && !empty($po['business_id']) && !$auth->hasPermission('warehouse')) {
+    $activeBusinessId = isset($_SESSION['business_id']) ? (int)$_SESSION['business_id'] : 0;
+    if ($activeBusinessId > 0 && (int)$po['business_id'] !== $activeBusinessId) {
+        http_response_code(403);
+        echo 'PO ini bukan milik bisnis aktif.';
+        exit;
+    }
+}
+
 // Fix: Fetch attachment from new table 'transaction_attachments' if not in main table
 if ($po && empty($po['attachment_path'])) {
     $attachment = $db->fetchOne("SELECT file_path FROM transaction_attachments WHERE transaction_type = 'purchase_order' AND transaction_id = ? ORDER BY id DESC LIMIT 1", [$po_id]);

@@ -143,6 +143,7 @@ function createPurchaseOrder($supplier_id, $po_date, $items, $options = []) {
         
         // Generate PO Number
         $po_number = generatePONumber();
+        $businessId = isset($_SESSION['business_id']) ? (int)$_SESSION['business_id'] : null;
         
         // Prepare header data
         $discount_amount = isset($options['discount_amount']) ? $options['discount_amount'] : 0;
@@ -150,6 +151,7 @@ function createPurchaseOrder($supplier_id, $po_date, $items, $options = []) {
         $grand_total = $total_amount - $discount_amount + $tax_amount;
         
         $header_data = [
+            'business_id' => $businessId,
             'po_number' => $po_number,
             'supplier_id' => $supplier_id,
             'po_date' => $po_date,
@@ -591,6 +593,11 @@ function getPurchaseOrders($filters = [], $limit = 100, $offset = 0) {
     if (isset($filters['supplier_id']) && !empty($filters['supplier_id'])) {
         $where_conditions[] = "poh.supplier_id = :supplier_id";
         $params['supplier_id'] = $filters['supplier_id'];
+    }
+
+    if (isset($filters['business_id']) && !empty($filters['business_id'])) {
+        $where_conditions[] = "poh.business_id = :business_id";
+        $params['business_id'] = $filters['business_id'];
     }
     
     if (isset($filters['date_from']) && !empty($filters['date_from'])) {
