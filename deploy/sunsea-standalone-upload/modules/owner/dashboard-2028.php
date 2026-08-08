@@ -1626,11 +1626,11 @@ if ($healthScore >= 80) {
         /* Kas Harian Section - Elegant White */
         .kas-harian-section {
             margin: 16px 0;
-            background: #ffffff;
-            border-radius: 18px;
+            background: linear-gradient(145deg, #0d1b2e, #0f2342);
+            border-radius: 16px;
             padding: 18px;
-            border: 1px solid rgba(0, 0, 0, 0.06);
-            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
+            border: 1px solid rgba(255,255,255,0.07);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.35);
         }
 
         .kas-harian-header {
@@ -1641,9 +1641,9 @@ if ($healthScore >= 80) {
         }
 
         .kas-harian-title {
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 800;
-            color: #1e293b;
+            color: #e2e8f0;
             display: flex;
             align-items: center;
             gap: 8px;
@@ -1651,9 +1651,9 @@ if ($healthScore >= 80) {
 
         .kas-harian-date {
             font-size: 10px;
-            color: #64748b;
+            color: #8b9ab5;
             font-weight: 600;
-            background: #f1f5f9;
+            background: rgba(255,255,255,0.07);
             padding: 3px 10px;
             border-radius: 20px;
         }
@@ -1663,27 +1663,27 @@ if ($healthScore >= 80) {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 8px;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
         }
 
         .kas-hero-card {
             padding: 12px 14px;
-            border-radius: 12px;
-            border: 1px solid rgba(0, 0, 0, 0.06);
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.07);
         }
 
         .kas-hero-card.start {
-            background: #f8fafc;
+            background: rgba(255,255,255,0.05);
         }
 
         .kas-hero-card.available-pos {
-            background: rgba(16, 185, 129, 0.06);
-            border-color: rgba(16, 185, 129, 0.15);
+            background: rgba(16,185,129,0.08);
+            border-color: rgba(16,185,129,0.2);
         }
 
         .kas-hero-card.available-neg {
-            background: rgba(239, 68, 68, 0.06);
-            border-color: rgba(239, 68, 68, 0.15);
+            background: rgba(239,68,68,0.08);
+            border-color: rgba(239,68,68,0.2);
         }
 
         .kas-hero-label {
@@ -1694,81 +1694,31 @@ if ($healthScore >= 80) {
             margin-bottom: 4px;
         }
 
-        .kas-hero-label.muted {
-            color: #94a3b8;
-        }
-
-        .kas-hero-label.green {
-            color: #34d399;
-        }
-
-        .kas-hero-label.red {
-            color: #fb7185;
-        }
+        .kas-hero-label.muted  { color: #576278; }
+        .kas-hero-label.green  { color: #34d399; }
+        .kas-hero-label.red    { color: #fb7185; }
 
         .kas-hero-value {
-            font-size: 16px;
+            font-size: 15px;
             font-weight: 800;
             font-family: 'Monaco', 'Courier New', monospace;
             letter-spacing: -0.3px;
         }
 
-        .kas-hero-value.white {
-            color: #1e293b;
-        }
+        .kas-hero-value.white  { color: #e2e8f0; }
+        .kas-hero-value.green  { color: #10b981; }
+        .kas-hero-value.red    { color: #ef4444; }
 
-        .kas-hero-value.green {
-            color: #10b981;
-        }
-
-        .kas-hero-value.red {
-            color: #ef4444;
-        }
-
-        /* Summary strip */
-        .kas-summary-strip {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 6px;
-            margin-bottom: 12px;
-        }
-
-        .kas-strip-item {
-            background: #f8fafc;
-            border: 1px solid rgba(0, 0, 0, 0.05);
-            border-radius: 10px;
-            padding: 10px 8px;
-            text-align: center;
-        }
-
-        .kas-strip-label {
-            font-size: 8px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: #64748b;
-            margin-bottom: 4px;
-        }
-
-        .kas-strip-value {
-            font-size: 14px;
-            font-weight: 800;
-            font-family: 'Monaco', 'Courier New', monospace;
-        }
-
-        .kas-strip-value.green {
-            color: #10b981;
-        }
-
-        .kas-strip-value.red {
-            color: #ef4444;
-        }
+        /* Summary strip - REMOVED */
+        .kas-summary-strip { display: none; }
 
         .kas-table-wrapper {
-            max-height: 240px;
+            max-height: 260px;
             overflow-y: auto;
             border-radius: 10px;
-            border: 1px solid rgba(0, 0, 0, 0.06);
+            border: 1px solid rgba(255,255,255,0.06);
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,0.1) transparent;
         }
 
         .kas-table {
@@ -1778,50 +1728,47 @@ if ($healthScore >= 80) {
         }
 
         .kas-table th {
-            background: #f8fafc;
-            padding: 8px 10px;
+            background: rgba(255,255,255,0.06);
+            padding: 7px 10px;
             text-align: left;
             font-weight: 700;
-            font-size: 9px;
+            font-size: 8px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            color: #64748b;
+            color: #576278;
             position: sticky;
             top: 0;
             z-index: 10;
         }
 
         .kas-table td {
-            padding: 8px 10px;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.04);
-            color: #374151;
+            padding: 7px 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            color: #c8d0e0;
         }
 
-        .kas-table tr:last-child td {
-            border-bottom: none;
-        }
-
-        .kas-table .text-right {
-            text-align: right;
-        }
+        .kas-table tr:last-child td { border-bottom: none; }
+        .kas-table tr:hover td { background: rgba(255,255,255,0.02); }
+        .kas-table .text-right { text-align: right; }
 
         .kas-badge-masuk,
         .kas-badge-keluar {
             display: inline-block;
-            padding: 2px 6px;
-            border-radius: 4px;
+            padding: 1px 5px;
+            border-radius: 3px;
             font-size: 8px;
-            font-weight: 700;
+            font-weight: 800;
+            letter-spacing: 0.3px;
         }
 
         .kas-badge-masuk {
-            background: rgba(16, 185, 129, 0.15);
-            color: #10b981;
+            background: rgba(16,185,129,0.18);
+            color: #34d399;
         }
 
         .kas-badge-keluar {
-            background: rgba(239, 68, 68, 0.15);
-            color: #ef4444;
+            background: rgba(239,68,68,0.18);
+            color: #f87171;
         }
 
         .kas-pay-badge {
@@ -1836,32 +1783,13 @@ if ($healthScore >= 80) {
             vertical-align: middle;
         }
 
-        .kas-pay-badge.cash {
-            background: rgba(16, 185, 129, 0.12);
-            color: #059669;
-        }
-
+        .kas-pay-badge.cash     { background: rgba(16,185,129,0.15); color: #34d399; }
         .kas-pay-badge.tf,
-        .kas-pay-badge.transfer {
-            background: rgba(59, 130, 246, 0.12);
-            color: #2563eb;
-        }
-
-        .kas-pay-badge.qr {
-            background: rgba(245, 158, 11, 0.12);
-            color: #d97706;
-        }
-
+        .kas-pay-badge.transfer { background: rgba(59,130,246,0.15);  color: #60a5fa; }
+        .kas-pay-badge.qr       { background: rgba(212,175,55,0.15);  color: #D4AF37; }
         .kas-pay-badge.edc,
-        .kas-pay-badge.debit {
-            background: rgba(168, 85, 247, 0.12);
-            color: #9333ea;
-        }
-
-        .kas-pay-badge.other {
-            background: rgba(148, 163, 184, 0.12);
-            color: #64748b;
-        }
+        .kas-pay-badge.debit    { background: rgba(168,85,247,0.15);  color: #c084fc; }
+        .kas-pay-badge.other    { background: rgba(148,163,184,0.1);  color: #8b9ab5; }
 
         .kas-amount-masuk {
             color: #10b981;
@@ -3520,7 +3448,7 @@ if ($healthScore >= 80) {
                                         <td style="white-space:nowrap;font-size:11px;color:<?= $rowColor ?>;"><?= $kas['jam'] ?></td>
                                         <td>
                                             <span class="<?= $isMasuk ? 'kas-badge-masuk' : 'kas-badge-keluar' ?>"><?= $isMasuk ? 'IN' : 'OUT' ?></span>
-                                            <span style="color:<?= $rowColor ?>;<?= $isOperationalIn ? 'font-weight:600;' : '' ?>"><?= htmlspecialchars(mb_substr($kas['description'], 0, 28)) ?></span>
+                                            <span style="color:<?= $rowColor ?>;<?= $isOperationalIn ? 'font-weight:600;' : '' ?>"><?= htmlspecialchars(html_entity_decode(mb_substr($kas['description'], 0, 30), ENT_QUOTES|ENT_HTML5, 'UTF-8')) ?></span>
                                             <span class="kas-pay-badge <?= $payClass ?>"><?= $payLabel ?></span>
                                         </td>
                                         <td class="text-right" style="white-space:nowrap;font-weight:700;color:<?= $rowColor ?>;">
