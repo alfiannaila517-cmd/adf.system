@@ -144,14 +144,36 @@ class Database
 
                 try {
                     $menuSeeds = [
-                        ['warehouse', 'Gudang Nasita', 'bi bi-boxes', 'modules/procurement/gudang-nasita.php', 8],
-                        ['warehouse_transfers', 'Transfer Gudang', 'bi bi-arrow-left-right', 'modules/procurement/gudang-transfer.php', 9],
+                        ['gudang_nasita', 'Gudang Nasita', 'bi bi-boxes', 'modules/procurement/gudang-nasita.php', 8],
+                        ['warehouse', 'Gudang Nasita (Legacy)', 'bi bi-boxes', 'modules/procurement/gudang-nasita.php', 9],
+                        ['warehouse_transfers', 'Transfer Gudang', 'bi bi-arrow-left-right', 'modules/procurement/gudang-transfer.php', 10],
                     ];
                     $menuStmt = $this->connection->prepare(
                         "INSERT INTO menu_items (menu_code, menu_name, menu_icon, menu_url, menu_order, is_active) VALUES (?, ?, ?, ?, ?, 1)\n                         ON DUPLICATE KEY UPDATE menu_name = VALUES(menu_name), menu_icon = VALUES(menu_icon), menu_url = VALUES(menu_url), menu_order = VALUES(menu_order), is_active = VALUES(is_active)"
                     );
                     foreach ($menuSeeds as $menuSeed) {
                         $menuStmt->execute($menuSeed);
+                    }
+
+                    // Enable Gudang Nasita menu only for target businesses.
+                    $menuIdRow = $this->connection->query("SELECT id FROM menu_items WHERE menu_code = 'gudang_nasita' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+                    if (!empty($menuIdRow['id'])) {
+                        $targetCodes = ['narayanahotel', 'benscafe', 'eatmeet', 'eaatmeet'];
+                        $bizRows = $this->connection->query("SELECT id, business_code, business_name FROM businesses WHERE is_active = 1")->fetchAll(PDO::FETCH_ASSOC);
+                        $cfgStmt = $this->connection->prepare(
+                            "INSERT INTO business_menu_config (business_id, menu_id, is_enabled) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE is_enabled = 1"
+                        );
+                        foreach ($bizRows as $biz) {
+                            $codeNorm = strtolower(preg_replace('/[^a-z0-9]/', '', (string)$biz['business_code']));
+                            $nameNorm = strtolower((string)($biz['business_name'] ?? ''));
+                            $isTarget = in_array($codeNorm, $targetCodes, true)
+                                || strpos($nameNorm, 'narayana') !== false
+                                || strpos($nameNorm, 'bens') !== false
+                                || strpos($nameNorm, 'eat') !== false;
+                            if ($isTarget) {
+                                $cfgStmt->execute([(int)$biz['id'], (int)$menuIdRow['id']]);
+                            }
+                        }
                     }
                 } catch (PDOException $e) {
                 }

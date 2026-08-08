@@ -8,7 +8,7 @@ require_once '../../includes/procurement_functions.php';
 $auth = new Auth();
 $auth->requireLogin();
 
-if (!$auth->hasPermission('warehouse')) {
+if (!($auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse'))) {
     http_response_code(403);
     echo 'Akses Gudang Nasita ditolak.';
     exit;

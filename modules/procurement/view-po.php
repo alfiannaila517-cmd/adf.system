@@ -20,7 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     
     switch ($action) {
         case 'receive_warehouse':
-            if (!$auth->hasPermission('warehouse')) {
+            if (!($auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse'))) {
                 $result = ['success' => false, 'message' => 'Akses Gudang Nasita ditolak'];
                 break;
             }

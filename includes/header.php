@@ -934,8 +934,12 @@ if (isset($_SESSION['user_id'])) {
                         </li>
                     <?php endif; ?>
 
-                    <?php if (($auth->hasPermission('warehouse') || $auth->hasPermission('warehouse_transfers')) && isModuleEnabled('procurement')): ?>
-                        <?php $gudangMenuUrl = $auth->hasPermission('warehouse') ? (BASE_URL . '/modules/procurement/gudang-nasita.php') : (BASE_URL . '/modules/procurement/gudang-transfer.php'); ?>
+                    <?php
+                    $gudangBizAllowed = in_array(ACTIVE_BUSINESS_ID, ['narayana-hotel', 'bens-cafe', 'eat-meet', 'eaat-meet', 'eatmeet']);
+                    $canAccessGudangMenu = $auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse') || $auth->hasPermission('warehouse_transfers');
+                    ?>
+                    <?php if ($gudangBizAllowed && $canAccessGudangMenu && isModuleEnabled('procurement')): ?>
+                        <?php $gudangMenuUrl = ($auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse')) ? (BASE_URL . '/modules/procurement/gudang-nasita.php') : (BASE_URL . '/modules/procurement/gudang-transfer.php'); ?>
                         <li class="nav-item">
                             <a href="<?php echo $gudangMenuUrl; ?>" class="nav-link <?php echo (activeMenu('gudang-nasita.php') || activeMenu('gudang-transfer.php')) ? 'active' : ''; ?>">
                                 <i data-feather="archive" class="nav-icon"></i>

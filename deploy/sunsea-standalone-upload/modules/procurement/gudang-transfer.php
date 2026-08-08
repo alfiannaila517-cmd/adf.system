@@ -8,7 +8,7 @@ require_once '../../includes/procurement_functions.php';
 $auth = new Auth();
 $auth->requireLogin();
 
-if (!$auth->hasPermission('warehouse_transfers')) {
+if (!($auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse_transfers') || $auth->hasPermission('warehouse'))) {
     http_response_code(403);
     echo 'Akses transfer Gudang Nasita ditolak.';
     exit;
