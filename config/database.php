@@ -110,7 +110,7 @@ class Database
         $isMaster = in_array($dbName, $masterNames);
 
         // Only run once per session per database (version bump forces re-check)
-        $schemaVersion = 5; // v5: add business-scoped purchase orders
+        $schemaVersion = 6; // v6: add gudang_nasita_stock category
         $sessionKey = '_schema_synced_v' . $schemaVersion . '_' . md5($dbName);
         if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION[$sessionKey])) return;
 
@@ -257,6 +257,7 @@ class Database
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     stock_code VARCHAR(30) UNIQUE,
                     item_name VARCHAR(200) NOT NULL,
+                    category VARCHAR(80) DEFAULT 'lainnya',
                     unit VARCHAR(20) DEFAULT 'pcs',
                     quantity DECIMAL(15,2) NOT NULL DEFAULT 0,
                     reorder_level DECIMAL(15,2) DEFAULT 0,
@@ -492,6 +493,9 @@ class Database
                     ],
                     'purchase_orders_header' => [
                         'business_id' => "INT NULL",
+                    ],
+                    'gudang_nasita_stock' => [
+                        'category' => "VARCHAR(80) DEFAULT 'lainnya'",
                     ],
                     // ---- FRONTDESK table columns ----
                     'room_types' => [

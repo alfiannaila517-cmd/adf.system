@@ -20,6 +20,7 @@ $pageTitle = 'Gudang Nasita';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'manual_stock_in') {
     $itemName = trim($_POST['item_name'] ?? '');
+    $category = trim($_POST['category'] ?? 'lainnya');
     $unit = trim($_POST['unit'] ?? 'pcs');
     $quantity = (float)($_POST['quantity'] ?? 0);
     $supplierName = trim($_POST['supplier_name'] ?? '');
@@ -27,6 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $notes = trim($_POST['notes'] ?? '');
 
     $result = addGudangNasitaManualStock($itemName, $unit, $quantity, $currentUser['id'], [
+        'category' => $category,
         'supplier_name' => $supplierName,
         'reorder_level' => $reorderLevel,
         'notes' => $notes,
@@ -135,6 +137,7 @@ include '../../includes/header.php';
                 <thead>
                     <tr>
                         <th>Kode</th>
+                        <th>Kategori</th>
                         <th>Item</th>
                         <th class="text-right">Qty</th>
                         <th>Unit</th>
@@ -143,11 +146,23 @@ include '../../includes/header.php';
                 </thead>
                 <tbody>
                     <?php if (empty($stockItems)): ?>
-                        <tr><td colspan="5" style="text-align:center; padding: 2rem; color: var(--text-muted);">Belum ada stok gudang</td></tr>
+                        <tr><td colspan="6" style="text-align:center; padding: 2rem; color: var(--text-muted);">Belum ada stok gudang</td></tr>
                     <?php else: ?>
+                        <?php $currentCategory = null; ?>
                         <?php foreach ($stockItems as $item): ?>
+                            <?php $rowCategory = trim((string)($item['category'] ?? '')); ?>
+                            <?php if ($rowCategory === '') { $rowCategory = 'lainnya'; } ?>
+                            <?php if ($currentCategory !== $rowCategory): ?>
+                                <?php $currentCategory = $rowCategory; ?>
+                                <tr>
+                                    <td colspan="6" style="background:#f8fafc; font-weight:700; color:#334155; text-transform:capitalize; border-top:1px solid var(--border);">
+                                        Kategori: <?php echo htmlspecialchars($currentCategory); ?>
+                                    </td>
+                                </tr>
+                            <?php endif; ?>
                             <tr>
                                 <td style="font-weight:600;"><?php echo htmlspecialchars($item['stock_code']); ?></td>
+                                <td><span class="badge badge-info" style="text-transform:capitalize;"><?php echo htmlspecialchars($rowCategory); ?></span></td>
                                 <td>
                                     <div style="font-weight:600;"><?php echo htmlspecialchars($item['item_name']); ?></div>
                                     <?php if (!empty($item['notes'])): ?><div style="font-size:0.75rem; color: var(--text-muted);"><?php echo htmlspecialchars($item['notes']); ?></div><?php endif; ?>
@@ -224,6 +239,20 @@ include '../../includes/header.php';
                 <div>
                     <label class="form-label">Nama Item *</label>
                     <input type="text" name="item_name" class="form-control" required>
+                </div>
+                <div>
+                    <label class="form-label">Kategori *</label>
+                    <input type="text" name="category" class="form-control" list="manualStockCategoryList" placeholder="Contoh: minuman" required>
+                    <datalist id="manualStockCategoryList">
+                        <option value="minuman"></option>
+                        <option value="frozen"></option>
+                        <option value="alat"></option>
+                        <option value="sayur"></option>
+                        <option value="daging"></option>
+                        <option value="sembako"></option>
+                        <option value="bumbu"></option>
+                        <option value="lainnya"></option>
+                    </datalist>
                 </div>
                 <div>
                     <label class="form-label">Unit *</label>

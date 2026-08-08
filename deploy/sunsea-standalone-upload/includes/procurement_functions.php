@@ -334,13 +334,104 @@ function generateGudangNasitaStockCode() {
 function getGudangNasitaStock($limit = 200) {
     $db = Database::getInstance();
 
-    return $db->fetchAll("\n        SELECT\n            gs.*,\n            COALESCE((SELECT SUM(quantity) FROM gudang_nasita_movements gm WHERE gm.stock_id = gs.id AND gm.movement_type = 'in_supplier'), 0) AS total_in,\n            COALESCE((SELECT SUM(quantity) FROM gudang_nasita_movements gm WHERE gm.stock_id = gs.id AND gm.movement_type = 'out_transfer'), 0) AS total_out\n        FROM gudang_nasita_stock gs\n        WHERE gs.is_active = 1\n        ORDER BY gs.updated_at DESC, gs.item_name ASC\n        LIMIT {$limit}\n    ");
+    return $db->fetchAll("\n        SELECT\n            gs.*,\n            COALESCE((SELECT SUM(quantity) FROM gudang_nasita_movements gm WHERE gm.stock_id = gs.id AND gm.movement_type = 'in_supplier'), 0) AS total_in,\n            COALESCE((SELECT SUM(quantity) FROM gudang_nasita_movements gm WHERE gm.stock_id = gs.id AND gm.movement_type = 'out_transfer'), 0) AS total_out\n        FROM gudang_nasita_stock gs\n        WHERE gs.is_active = 1\n        ORDER BY COALESCE(gs.category, 'lainnya') ASC, gs.item_name ASC\n        LIMIT {$limit}\n    ");
 }
 
 function getGudangNasitaTransfers($limit = 50) {
     $db = Database::getInstance();
 
     return $db->fetchAll("\n        SELECT\n            gt.*,\n            u.full_name AS created_by_name,\n            r.full_name AS received_by_name,\n            COUNT(gti.id) AS items_count,\n            COALESCE(SUM(gti.quantity), 0) AS total_qty\n        FROM gudang_nasita_transfers gt\n        LEFT JOIN users u ON gt.created_by = u.id\n        LEFT JOIN users r ON gt.received_by = r.id\n        LEFT JOIN gudang_nasita_transfer_items gti ON gti.transfer_id = gt.id\n        GROUP BY gt.id\n        ORDER BY gt.created_at DESC\n        LIMIT {$limit}\n    ");
+}
+
+function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $options = []) {
+    $db = Database::getInstance();
+
+    try {
+        $itemName = trim((string)$itemName);
+        $unit = trim((string)$unit);
+        $quantity = (float)$quantity;
+        $category = strtolower(trim((string)($options['category'] ?? '')));
+        if ($category === '') {
+            $category = 'lainnya';
+        }
+
+        if ($itemName === '') {
+            throw new Exception('Nama item wajib diisi');
+        }
+        if ($unit === '') {
+            $unit = 'pcs';
+        }
+        if ($quantity <= 0) {
+            throw new Exception('Qty manual harus lebih dari 0');
+        }
+
+        $supplierName = trim((string)($options['supplier_name'] ?? ''));
+        $notes = trim((string)($options['notes'] ?? ''));
+        $reorderLevel = isset($options['reorder_level']) ? (float)$options['reorder_level'] : null;
+
+        $db->getConnection()->beginTransaction();
+
+        $stock = $db->fetchOne(
+            "SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) AND unit = ? AND COALESCE(LOWER(category), 'lainnya') = ? LIMIT 1",
+            [$itemName, $unit, $category]
+        );
+
+        if (!$stock) {
+            $stockId = $db->insert('gudang_nasita_stock', [
+                'stock_code' => generateGudangNasitaStockCode(),
+                'item_name' => $itemName,
+                'category' => $category,
+                'unit' => $unit,
+                'quantity' => 0,
+                'reorder_level' => $reorderLevel !== null && $reorderLevel >= 0 ? $reorderLevel : 0,
+                'supplier_name' => $supplierName !== '' ? $supplierName : null,
+                'notes' => $notes !== '' ? $notes : 'Input stok manual awal'
+            ]);
+            $stock = $db->fetchOne('SELECT * FROM gudang_nasita_stock WHERE id = ? LIMIT 1', [$stockId]);
+        }
+
+        $updateData = [
+            'quantity' => (float)$stock['quantity'] + $quantity,
+            'supplier_name' => $supplierName !== '' ? $supplierName : ($stock['supplier_name'] ?? null),
+            'notes' => $notes !== '' ? $notes : ($stock['notes'] ?? null),
+            'category' => $category,
+        ];
+        if ($reorderLevel !== null && $reorderLevel >= 0) {
+            $updateData['reorder_level'] = $reorderLevel;
+        }
+
+        $db->update('gudang_nasita_stock', $updateData, 'id = :id', ['id' => $stock['id']]);
+
+        $referenceNumber = 'MAN-' . date('YmdHis');
+        $db->insert('gudang_nasita_movements', [
+            'stock_id' => $stock['id'],
+            'movement_date' => date('Y-m-d'),
+            'movement_type' => 'adjustment',
+            'quantity' => $quantity,
+            'reference_type' => 'manual_stock',
+            'reference_id' => null,
+            'reference_number' => $referenceNumber,
+            'notes' => $notes !== '' ? $notes : 'Input stok manual awal',
+            'created_by' => $createdBy
+        ]);
+
+        $db->getConnection()->commit();
+
+        return [
+            'success' => true,
+            'message' => 'Stok manual berhasil ditambahkan',
+            'stock_id' => (int)$stock['id'],
+            'new_qty' => (float)$updateData['quantity']
+        ];
+    } catch (Exception $e) {
+        if ($db->getConnection()->inTransaction()) {
+            $db->getConnection()->rollBack();
+        }
+        return [
+            'success' => false,
+            'message' => $e->getMessage()
+        ];
+    }
 }
 
 function receivePurchaseOrderToGudang($po_id, array $receivedItems, $receivedBy, $notes = '') {
@@ -382,97 +473,13 @@ function receivePurchaseOrderToGudang($po_id, array $receivedItems, $receivedBy,
                 $stockId = $db->insert('gudang_nasita_stock', [
                     'stock_code' => generateGudangNasitaStockCode(),
                     'item_name' => trim($item['item_name']),
+                    'category' => 'lainnya',
                     'unit' => $unit,
                     'quantity' => 0,
                     'supplier_name' => $po['supplier_name'] ?? null,
                     'notes' => $notes ?: ('Auto created from PO ' . $po['po_number'])
                 ]);
                 $stock = $db->fetchOne('SELECT * FROM gudang_nasita_stock WHERE id = ? LIMIT 1', [$stockId]);
-
-            function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $options = []) {
-                $db = Database::getInstance();
-
-                try {
-                    $itemName = trim((string)$itemName);
-                    $unit = trim((string)$unit);
-                    $quantity = (float)$quantity;
-
-                    if ($itemName === '') {
-                        throw new Exception('Nama item wajib diisi');
-                    }
-                    if ($unit === '') {
-                        $unit = 'pcs';
-                    }
-                    if ($quantity <= 0) {
-                        throw new Exception('Qty manual harus lebih dari 0');
-                    }
-
-                    $supplierName = trim((string)($options['supplier_name'] ?? ''));
-                    $notes = trim((string)($options['notes'] ?? ''));
-                    $reorderLevel = isset($options['reorder_level']) ? (float)$options['reorder_level'] : null;
-
-                    $db->getConnection()->beginTransaction();
-
-                    $stock = $db->fetchOne(
-                        "SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) AND unit = ? LIMIT 1",
-                        [$itemName, $unit]
-                    );
-
-                    if (!$stock) {
-                        $stockId = $db->insert('gudang_nasita_stock', [
-                            'stock_code' => generateGudangNasitaStockCode(),
-                            'item_name' => $itemName,
-                            'unit' => $unit,
-                            'quantity' => 0,
-                            'reorder_level' => $reorderLevel !== null && $reorderLevel >= 0 ? $reorderLevel : 0,
-                            'supplier_name' => $supplierName !== '' ? $supplierName : null,
-                            'notes' => $notes !== '' ? $notes : 'Input stok manual awal'
-                        ]);
-                        $stock = $db->fetchOne('SELECT * FROM gudang_nasita_stock WHERE id = ? LIMIT 1', [$stockId]);
-                    }
-
-                    $updateData = [
-                        'quantity' => (float)$stock['quantity'] + $quantity,
-                        'supplier_name' => $supplierName !== '' ? $supplierName : ($stock['supplier_name'] ?? null),
-                        'notes' => $notes !== '' ? $notes : ($stock['notes'] ?? null),
-                    ];
-                    if ($reorderLevel !== null && $reorderLevel >= 0) {
-                        $updateData['reorder_level'] = $reorderLevel;
-                    }
-
-                    $db->update('gudang_nasita_stock', $updateData, 'id = :id', ['id' => $stock['id']]);
-
-                    $referenceNumber = 'MAN-' . date('YmdHis');
-                    $db->insert('gudang_nasita_movements', [
-                        'stock_id' => $stock['id'],
-                        'movement_date' => date('Y-m-d'),
-                        'movement_type' => 'adjustment',
-                        'quantity' => $quantity,
-                        'reference_type' => 'manual_stock',
-                        'reference_id' => null,
-                        'reference_number' => $referenceNumber,
-                        'notes' => $notes !== '' ? $notes : 'Input stok manual awal',
-                        'created_by' => $createdBy
-                    ]);
-
-                    $db->getConnection()->commit();
-
-                    return [
-                        'success' => true,
-                        'message' => 'Stok manual berhasil ditambahkan',
-                        'stock_id' => (int)$stock['id'],
-                        'new_qty' => (float)$updateData['quantity']
-                    ];
-                } catch (Exception $e) {
-                    if ($db->getConnection()->inTransaction()) {
-                        $db->getConnection()->rollBack();
-                    }
-                    return [
-                        'success' => false,
-                        'message' => $e->getMessage()
-                    ];
-                }
-            }
             }
 
             $newQty = (float)$stock['quantity'] + $receivedQty;
