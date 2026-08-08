@@ -930,19 +930,16 @@ if (isset($_SESSION['user_id'])) {
                                         <span><?php echo __('menu.suppliers'); ?></span>
                                     </a>
                                 </li>
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/procurement/gudang-nasita.php" class="submenu-link <?php echo activeMenu('gudang-nasita.php'); ?>">
-                                        <i data-feather="archive" class="submenu-icon"></i>
-                                        <span>Gudang Nasita</span>
-                                    </a>
-                                </li>
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/procurement/gudang-transfer.php" class="submenu-link <?php echo activeMenu('gudang-transfer.php'); ?>">
-                                        <i data-feather="shuffle" class="submenu-icon"></i>
-                                        <span>Transfer ke Bisnis</span>
-                                    </a>
-                                </li>
                             </ul>
+                        </li>
+                    <?php endif; ?>
+
+                    <?php if ($auth->hasPermission('warehouse') && isModuleEnabled('procurement')): ?>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>/modules/procurement/gudang-nasita.php" class="nav-link <?php echo activeMenu('gudang-nasita.php'); ?>">
+                                <i data-feather="archive" class="nav-icon"></i>
+                                <span>Gudang Nasita</span>
+                            </a>
                         </li>
                     <?php endif; ?>
 

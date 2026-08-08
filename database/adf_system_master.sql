@@ -205,7 +205,9 @@ INSERT INTO menu_items (menu_code, menu_name, menu_icon, menu_url, menu_order, i
 ('sales', 'Sales', 'bi-graph-up', 'modules/sales/index.php', 4, 1),
 ('users', 'User Management', 'bi-people', 'modules/users/index.php', 5, 1),
 ('reports', 'Reports', 'bi-file-earmark-pdf', 'modules/reports/index.php', 6, 1),
-('settings', 'Settings', 'bi-gear', 'modules/settings/index.php', 7, 1)
+('settings', 'Settings', 'bi-gear', 'modules/settings/index.php', 7, 1),
+('warehouse', 'Gudang Nasita', 'bi-boxes', 'modules/procurement/gudang-nasita.php', 8, 1),
+('warehouse_transfers', 'Transfer Gudang', 'bi-arrow-left-right', 'modules/procurement/gudang-transfer.php', 9, 1)
 ON DUPLICATE KEY UPDATE menu_name = VALUES(menu_name);
 
 -- ============================================

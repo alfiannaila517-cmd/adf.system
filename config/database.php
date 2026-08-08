@@ -141,6 +141,20 @@ class Database
                         }
                     }
                 }
+
+                try {
+                    $menuSeeds = [
+                        ['warehouse', 'Gudang Nasita', 'bi bi-boxes', 'modules/procurement/gudang-nasita.php', 8],
+                        ['warehouse_transfers', 'Transfer Gudang', 'bi bi-arrow-left-right', 'modules/procurement/gudang-transfer.php', 9],
+                    ];
+                    $menuStmt = $this->connection->prepare(
+                        "INSERT INTO menu_items (menu_code, menu_name, menu_icon, menu_url, menu_order, is_active) VALUES (?, ?, ?, ?, ?, 1)\n                         ON DUPLICATE KEY UPDATE menu_name = VALUES(menu_name), menu_icon = VALUES(menu_icon), menu_url = VALUES(menu_url), menu_order = VALUES(menu_order), is_active = VALUES(is_active)"
+                    );
+                    foreach ($menuSeeds as $menuSeed) {
+                        $menuStmt->execute($menuSeed);
+                    }
+                } catch (PDOException $e) {
+                }
             } else {
                 // Get existing tables
                 $tables = $this->connection->query("SHOW TABLES")->fetchAll(PDO::FETCH_COLUMN);
