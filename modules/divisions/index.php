@@ -482,6 +482,8 @@ $divisionColors = [
             $color = $divisionColors[$index % count($divisionColors)];
             $isSelected = $division_id == $div['division_id'];
             $netClass = $div['net_balance'] >= 0 ? 'positive' : 'negative';
+            // Hide cards with no transactions unless currently selected
+            if ((int)$div['transaction_count'] === 0 && !$isSelected) continue;
         ?>
             <div class="division-card <?php echo $isSelected ? 'division-selected' : ''; ?>">
                 <a href="?month=<?php echo $month; ?>&division_id=<?php echo $div['division_id']; ?>" class="division-link"></a>
