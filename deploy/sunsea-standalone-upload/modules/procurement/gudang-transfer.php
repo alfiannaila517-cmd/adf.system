@@ -36,7 +36,18 @@ if ($prefillPoId > 0) {
     }
 }
 
-$allBusinesses = $db->fetchAll("SELECT id, business_name, business_code FROM businesses WHERE is_active = 1 ORDER BY business_name ASC");
+if ($prefillTargetBusinessId > 0 && $prefillTargetBusinessName === '') {
+    $bizById = $db->fetchOne("SELECT id, business_name FROM businesses WHERE id = ? LIMIT 1", [$prefillTargetBusinessId]);
+    if ($bizById && !empty($bizById['business_name'])) {
+        $prefillTargetBusinessName = trim((string)$bizById['business_name']);
+    }
+}
+
+$activeBusinessId = isset($_SESSION['business_id']) ? (int)$_SESSION['business_id'] : 0;
+$allBusinesses = $db->fetchAll("SELECT id, business_name, business_code FROM businesses WHERE (is_active = 1 OR is_active IS NULL) ORDER BY business_name ASC");
+if (empty($allBusinesses)) {
+    $allBusinesses = $db->fetchAll("SELECT id, business_name, business_code FROM businesses ORDER BY business_name ASC");
+}
 $allowedBusinesses = [];
 foreach ($allBusinesses as $biz) {
     $codeNorm = strtolower(preg_replace('/[^a-z0-9]/', '', (string)($biz['business_code'] ?? '')));
@@ -51,6 +62,15 @@ foreach ($allBusinesses as $biz) {
     if ($prefillTargetBusinessId > 0 && (int)$biz['id'] === $prefillTargetBusinessId) {
         $prefillTargetBusinessName = (string)$biz['business_name'];
     }
+}
+
+if (empty($allowedBusinesses)) {
+    // Fallback: gunakan bisnis yang pernah membuat PO agar dropdown tidak kosong.
+    $allowedBusinesses = $db->fetchAll("\n        SELECT DISTINCT b.id, b.business_name, b.business_code\n        FROM purchase_orders_header poh\n        INNER JOIN businesses b ON b.id = poh.business_id\n        ORDER BY b.business_name ASC\n    ");
+}
+
+if (empty($allowedBusinesses)) {
+    $allowedBusinesses = $allBusinesses;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -131,7 +151,7 @@ include '../../includes/header.php';
                     <select name="target_business_id" class="form-control" required>
                         <option value="">-- Pilih bisnis --</option>
                         <?php foreach ($allowedBusinesses as $biz): ?>
-                            <option value="<?php echo (int)$biz['id']; ?>"><?php echo htmlspecialchars($biz['business_name']); ?></option>
+                            <option value="<?php echo (int)$biz['id']; ?>" <?php echo ($activeBusinessId > 0 && (int)$biz['id'] === $activeBusinessId) ? 'selected' : ''; ?>><?php echo htmlspecialchars($biz['business_name']); ?></option>
                         <?php endforeach; ?>
                     </select>
                 <?php endif; ?>
