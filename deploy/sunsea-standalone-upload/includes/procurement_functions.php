@@ -313,6 +313,262 @@ function updatePurchaseOrderStatus($po_id, $status, $approved_by = null) {
     }
 }
 
+function generateGudangNasitaStockCode() {
+    $db = Database::getInstance();
+    $prefix = 'GN-' . date('Ym') . '-';
+
+    $lastStock = $db->fetchOne("\n        SELECT stock_code\n        FROM gudang_nasita_stock\n        WHERE stock_code LIKE ?\n        ORDER BY stock_code DESC\n        LIMIT 1\n    ", [$prefix . '%']);
+
+    if ($lastStock && !empty($lastStock['stock_code'])) {
+        $lastNumber = (int)substr($lastStock['stock_code'], -4);
+        $newNumber = $lastNumber + 1;
+    } else {
+        $newNumber = 1;
+    }
+
+    return $prefix . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
+}
+
+function getGudangNasitaStock($limit = 200) {
+    $db = Database::getInstance();
+
+    return $db->fetchAll("\n        SELECT\n            gs.*,\n            COALESCE((SELECT SUM(quantity) FROM gudang_nasita_movements gm WHERE gm.stock_id = gs.id AND gm.movement_type = 'in_supplier'), 0) AS total_in,\n            COALESCE((SELECT SUM(quantity) FROM gudang_nasita_movements gm WHERE gm.stock_id = gs.id AND gm.movement_type = 'out_transfer'), 0) AS total_out\n        FROM gudang_nasita_stock gs\n        WHERE gs.is_active = 1\n        ORDER BY gs.updated_at DESC, gs.item_name ASC\n        LIMIT {$limit}\n    ");
+}
+
+function getGudangNasitaTransfers($limit = 50) {
+    $db = Database::getInstance();
+
+    return $db->fetchAll("\n        SELECT\n            gt.*,\n            u.full_name AS created_by_name,\n            r.full_name AS received_by_name,\n            COUNT(gti.id) AS items_count,\n            COALESCE(SUM(gti.quantity), 0) AS total_qty\n        FROM gudang_nasita_transfers gt\n        LEFT JOIN users u ON gt.created_by = u.id\n        LEFT JOIN users r ON gt.received_by = r.id\n        LEFT JOIN gudang_nasita_transfer_items gti ON gti.transfer_id = gt.id\n        GROUP BY gt.id\n        ORDER BY gt.created_at DESC\n        LIMIT {$limit}\n    ");
+}
+
+function receivePurchaseOrderToGudang($po_id, array $receivedItems, $receivedBy, $notes = '') {
+    $db = Database::getInstance();
+
+    try {
+        $po = getPurchaseOrder($po_id);
+        if (!$po) {
+            throw new Exception('Purchase Order not found');
+        }
+
+        $db->getConnection()->beginTransaction();
+
+        $totalReceived = 0;
+        $allCompleted = true;
+
+        foreach ($po['items'] as $item) {
+            $detailId = (int)$item['id'];
+            $orderedQty = (float)$item['quantity'];
+            $existingReceived = (float)($item['received_quantity'] ?? 0);
+            $remainingQty = max(0, $orderedQty - $existingReceived);
+            $receivedQty = isset($receivedItems[$detailId]) ? (float)$receivedItems[$detailId] : 0;
+
+            if ($receivedQty <= 0) {
+                if ($remainingQty > 0) {
+                    $allCompleted = false;
+                }
+                continue;
+            }
+
+            if ($receivedQty > $remainingQty) {
+                throw new Exception('Qty received melebihi sisa qty untuk item ' . $item['item_name']);
+            }
+
+            $unit = trim($item['unit_of_measure'] ?: 'pcs');
+            $stock = $db->fetchOne("SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) AND unit = ? LIMIT 1", [$item['item_name'], $unit]);
+
+            if (!$stock) {
+                $stockId = $db->insert('gudang_nasita_stock', [
+                    'stock_code' => generateGudangNasitaStockCode(),
+                    'item_name' => trim($item['item_name']),
+                    'unit' => $unit,
+                    'quantity' => 0,
+                    'supplier_name' => $po['supplier_name'] ?? null,
+                    'notes' => $notes ?: ('Auto created from PO ' . $po['po_number'])
+                ]);
+                $stock = $db->fetchOne('SELECT * FROM gudang_nasita_stock WHERE id = ? LIMIT 1', [$stockId]);
+            }
+
+            $newQty = (float)$stock['quantity'] + $receivedQty;
+            $db->update('gudang_nasita_stock', [
+                'quantity' => $newQty,
+                'supplier_name' => $po['supplier_name'] ?? $stock['supplier_name'],
+                'notes' => $notes ?: $stock['notes']
+            ], 'id = :id', ['id' => $stock['id']]);
+
+            $db->insert('gudang_nasita_movements', [
+                'stock_id' => $stock['id'],
+                'movement_date' => date('Y-m-d'),
+                'movement_type' => 'in_supplier',
+                'quantity' => $receivedQty,
+                'reference_type' => 'purchase_order',
+                'reference_id' => $po_id,
+                'reference_number' => $po['po_number'],
+                'notes' => $notes ?: ('Received from supplier ' . ($po['supplier_name'] ?? '')),
+                'created_by' => $receivedBy
+            ]);
+
+            $newReceived = $existingReceived + $receivedQty;
+            $db->update('purchase_orders_detail', [
+                'received_quantity' => $newReceived
+            ], 'id = :id', ['id' => $detailId]);
+
+            $totalReceived += $receivedQty;
+            if ($newReceived < $orderedQty) {
+                $allCompleted = false;
+            }
+        }
+
+        if ($totalReceived <= 0) {
+            throw new Exception('Tidak ada qty yang diterima');
+        }
+
+        if ($allCompleted) {
+            $db->update('purchase_orders_header', [
+                'status' => 'completed',
+            ], 'id = :id', ['id' => $po_id]);
+        } else {
+            $db->update('purchase_orders_header', [
+                'status' => 'partially_received',
+            ], 'id = :id', ['id' => $po_id]);
+        }
+
+        $db->getConnection()->commit();
+
+        return [
+            'success' => true,
+            'message' => 'Barang berhasil dimasukkan ke Gudang Nasita',
+            'total_received' => $totalReceived,
+            'all_completed' => $allCompleted
+        ];
+    } catch (Exception $e) {
+        if ($db->getConnection()->inTransaction()) {
+            $db->getConnection()->rollBack();
+        }
+
+        return [
+            'success' => false,
+            'message' => $e->getMessage()
+        ];
+    }
+}
+
+function generateGudangNasitaTransferNumber() {
+    $db = Database::getInstance();
+    $prefix = 'GNT-' . date('Ym') . '-';
+
+    $lastTransfer = $db->fetchOne("\n        SELECT transfer_number\n        FROM gudang_nasita_transfers\n        WHERE transfer_number LIKE ?\n        ORDER BY transfer_number DESC\n        LIMIT 1\n    ", [$prefix . '%']);
+
+    if ($lastTransfer && !empty($lastTransfer['transfer_number'])) {
+        $lastNumber = (int)substr($lastTransfer['transfer_number'], -4);
+        $newNumber = $lastNumber + 1;
+    } else {
+        $newNumber = 1;
+    }
+
+    return $prefix . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
+}
+
+function transferGudangNasitaStock($targetBusinessId, array $items, $createdBy, $notes = '', $sourcePoId = null) {
+    $db = Database::getInstance();
+
+    try {
+        if (empty($items)) {
+            throw new Exception('Minimal 1 item transfer wajib diisi');
+        }
+
+        $business = $db->fetchOne('SELECT id, business_name FROM businesses WHERE id = ? LIMIT 1', [$targetBusinessId]);
+        if (!$business) {
+            throw new Exception('Tujuan bisnis tidak ditemukan');
+        }
+
+        $db->getConnection()->beginTransaction();
+
+        $transferNumber = generateGudangNasitaTransferNumber();
+
+        $transferId = $db->insert('gudang_nasita_transfers', [
+            'transfer_number' => $transferNumber,
+            'target_business_id' => $targetBusinessId,
+            'target_business_name' => $business['business_name'],
+            'source_po_id' => $sourcePoId,
+            'status' => 'sent',
+            'notes' => $notes,
+            'created_by' => $createdBy
+        ]);
+
+        $totalQty = 0;
+        foreach ($items as $item) {
+            $stockId = (int)($item['stock_id'] ?? 0);
+            $qty = (float)($item['quantity'] ?? 0);
+            if ($stockId <= 0 || $qty <= 0) {
+                continue;
+            }
+
+            $stock = $db->fetchOne('SELECT * FROM gudang_nasita_stock WHERE id = ? LIMIT 1', [$stockId]);
+            if (!$stock) {
+                throw new Exception('Stock tidak ditemukan');
+            }
+
+            $available = (float)$stock['quantity'];
+            if ($qty > $available) {
+                throw new Exception('Stok tidak cukup untuk item ' . $stock['item_name']);
+            }
+
+            $remaining = $available - $qty;
+            $db->update('gudang_nasita_stock', [
+                'quantity' => $remaining
+            ], 'id = :id', ['id' => $stockId]);
+
+            $db->insert('gudang_nasita_transfer_items', [
+                'transfer_id' => $transferId,
+                'stock_id' => $stockId,
+                'item_name' => $stock['item_name'],
+                'unit' => $stock['unit'],
+                'quantity' => $qty,
+                'notes' => $item['notes'] ?? null
+            ]);
+
+            $db->insert('gudang_nasita_movements', [
+                'stock_id' => $stockId,
+                'movement_date' => date('Y-m-d'),
+                'movement_type' => 'out_transfer',
+                'quantity' => $qty,
+                'reference_type' => 'transfer',
+                'reference_id' => $transferId,
+                'reference_number' => $transferNumber,
+                'target_business_id' => $targetBusinessId,
+                'notes' => $notes ?: ('Transfer ke ' . $business['business_name']),
+                'created_by' => $createdBy
+            ]);
+
+            $totalQty += $qty;
+        }
+
+        if ($totalQty <= 0) {
+            throw new Exception('Tidak ada item transfer yang valid');
+        }
+
+        $db->getConnection()->commit();
+
+        return [
+            'success' => true,
+            'message' => 'Barang berhasil ditransfer dari Gudang Nasita',
+            'transfer_id' => $transferId,
+            'transfer_number' => $transferNumber,
+            'total_qty' => $totalQty,
+            'business_name' => $business['business_name']
+        ];
+    } catch (Exception $e) {
+        if ($db->getConnection()->inTransaction()) {
+            $db->getConnection()->rollBack();
+        }
+
+        return [
+            'success' => false,
+            'message' => $e->getMessage()
+        ];
+    }
+}
+
 /**
  * Get all Purchase Orders with filters
  * 

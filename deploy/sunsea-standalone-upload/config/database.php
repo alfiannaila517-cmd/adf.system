@@ -110,7 +110,7 @@ class Database
         $isMaster = in_array($dbName, $masterNames);
 
         // Only run once per session per database (version bump forces re-check)
-        $schemaVersion = 3; // v3: comprehensive frontdesk tables audit
+        $schemaVersion = 4; // v4: gudang nasita stock + transfer tables
         $sessionKey = '_schema_synced_v' . $schemaVersion . '_' . md5($dbName);
         if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION[$sessionKey])) return;
 
@@ -216,6 +216,68 @@ class Database
                     id INT AUTO_INCREMENT PRIMARY KEY, po_header_id INT, item_name VARCHAR(200),
                     quantity DECIMAL(10,2) DEFAULT 1, unit VARCHAR(20), unit_price DECIMAL(15,2) DEFAULT 0,
                     total_price DECIMAL(15,2) DEFAULT 0, notes TEXT
+                )",
+                    'gudang_nasita_stock' => "CREATE TABLE IF NOT EXISTS gudang_nasita_stock (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    stock_code VARCHAR(30) UNIQUE,
+                    item_name VARCHAR(200) NOT NULL,
+                    unit VARCHAR(20) DEFAULT 'pcs',
+                    quantity DECIMAL(15,2) NOT NULL DEFAULT 0,
+                    reorder_level DECIMAL(15,2) DEFAULT 0,
+                    supplier_name VARCHAR(150) NULL,
+                    notes TEXT NULL,
+                    is_active TINYINT(1) DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_item_name (item_name),
+                    INDEX idx_stock_code (stock_code),
+                    INDEX idx_is_active (is_active)
+                )",
+                    'gudang_nasita_movements' => "CREATE TABLE IF NOT EXISTS gudang_nasita_movements (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    stock_id INT NOT NULL,
+                    movement_date DATE NOT NULL,
+                    movement_type ENUM('in_supplier','out_transfer','adjustment') NOT NULL,
+                    quantity DECIMAL(15,2) NOT NULL,
+                    reference_type VARCHAR(50) NULL,
+                    reference_id INT NULL,
+                    reference_number VARCHAR(50) NULL,
+                    target_business_id INT NULL,
+                    notes TEXT NULL,
+                    created_by INT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_stock_id (stock_id),
+                    INDEX idx_movement_date (movement_date),
+                    INDEX idx_reference (reference_type, reference_id),
+                    INDEX idx_target_business (target_business_id)
+                )",
+                    'gudang_nasita_transfers' => "CREATE TABLE IF NOT EXISTS gudang_nasita_transfers (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    transfer_number VARCHAR(50) UNIQUE,
+                    target_business_id INT NOT NULL,
+                    target_business_name VARCHAR(150) NOT NULL,
+                    source_po_id INT NULL,
+                    status ENUM('draft','sent','received','cancelled') DEFAULT 'draft',
+                    notes TEXT NULL,
+                    created_by INT NULL,
+                    received_by INT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_target_business (target_business_id),
+                    INDEX idx_status (status),
+                    INDEX idx_source_po (source_po_id)
+                )",
+                    'gudang_nasita_transfer_items' => "CREATE TABLE IF NOT EXISTS gudang_nasita_transfer_items (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    transfer_id INT NOT NULL,
+                    stock_id INT NOT NULL,
+                    item_name VARCHAR(200) NOT NULL,
+                    unit VARCHAR(20) DEFAULT 'pcs',
+                    quantity DECIMAL(15,2) NOT NULL,
+                    notes TEXT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_transfer_id (transfer_id),
+                    INDEX idx_stock_id (stock_id)
                 )",
                     'sales_invoices_header' => "CREATE TABLE IF NOT EXISTS sales_invoices_header (
                     id INT AUTO_INCREMENT PRIMARY KEY, invoice_number VARCHAR(30) UNIQUE, customer_name VARCHAR(100),

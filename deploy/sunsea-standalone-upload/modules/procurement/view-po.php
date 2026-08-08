@@ -19,6 +19,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $new_status = '';
     
     switch ($action) {
+        case 'receive_warehouse':
+            if (!$auth->hasPermission('warehouse')) {
+                $result = ['success' => false, 'message' => 'Akses Gudang Nasita ditolak'];
+                break;
+            }
+            $receivedItems = isset($_POST['received_qty']) && is_array($_POST['received_qty']) ? $_POST['received_qty'] : [];
+            $notes = trim($_POST['warehouse_notes'] ?? '');
+            $result = receivePurchaseOrderToGudang($po_id, $receivedItems, $currentUser['id'], $notes);
+            break;
         case 'submit':
             $new_status = 'submitted';
             $result = updatePurchaseOrderStatus($po_id, $new_status, $currentUser['id']);
@@ -113,6 +122,12 @@ include '../../includes/header.php';
             </div>
         </div>
         <div style="display: flex; gap: 0.5rem;">
+            <?php if (in_array($po['status'], ['approved', 'completed', 'partially_received'])): ?>
+                <button type="button" class="btn btn-warning btn-sm" onclick="document.getElementById('receiveModal').style.display='flex'">
+                    <i data-feather="package" style="width: 14px; height: 14px;"></i>
+                    Terima Barang ke Gudang
+                </button>
+            <?php endif; ?>
             <?php if ($po['status'] === 'draft'): ?>
                 <form method="POST" style="display: inline;">
                     <input type="hidden" name="action" value="submit">
@@ -283,6 +298,58 @@ include '../../includes/header.php';
                 </tr>
             </tfoot>
         </table>
+    </div>
+</div>
+
+<!-- Receive to Gudang Modal -->
+<div id="receiveModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center;">
+    <div class="card" style="max-width: 760px; width: 94%; max-height: 90vh; overflow-y: auto; margin: 0;">
+        <div style="background: linear-gradient(135deg, #0f9d6a 0%, #10b981 100%); color: white; padding: 1.5rem; margin: -1.25rem -1.25rem 1.25rem -1.25rem; border-radius: 1rem 1rem 0 0; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h3 style="margin: 0; font-size: 1.25rem; font-weight: 700;">
+                    <i data-feather="archive" style="width: 22px; height: 22px; vertical-align: middle; margin-right: 0.5rem;"></i>
+                    Terima Barang ke Gudang Nasita
+                </h3>
+                <p style="margin: 0.35rem 0 0 0; font-size: 0.875rem; opacity: 0.95;">Isi qty yang benar-benar datang agar stok gudang bertambah</p>
+            </div>
+            <button type="button" onclick="document.getElementById('receiveModal').style.display='none'" style="background: rgba(255,255,255,0.2); border: none; cursor: pointer; color: white; font-size: 1.75rem; width: 36px; height: 36px; border-radius: 0.5rem; display: flex; align-items: center; justify-content: center;">&times;</button>
+        </div>
+
+        <form method="POST">
+            <input type="hidden" name="action" value="receive_warehouse">
+            <div style="padding: 0 0.25rem;">
+                <div style="margin-bottom: 1rem; color: var(--text-muted); font-size: 0.875rem;">
+                    PO: <strong><?php echo htmlspecialchars($po['po_number']); ?></strong>
+                </div>
+                <div style="display: grid; gap: 0.85rem;">
+                    <?php foreach ($po['items'] as $item):
+                        $remainingQty = max(0, (float)$item['quantity'] - (float)($item['received_quantity'] ?? 0));
+                    ?>
+                        <div style="padding: 0.9rem; border: 1px solid #e5e7eb; border-radius: 0.85rem; background: #f8fafc;">
+                            <div style="display: flex; justify-content: space-between; gap: 1rem; margin-bottom: 0.65rem;">
+                                <div>
+                                    <div style="font-weight: 700; color: #0f172a;"><?php echo htmlspecialchars($item['item_name']); ?></div>
+                                    <div style="font-size: 0.8rem; color: #64748b;">Qty PO: <?php echo number_format($item['quantity'], 2); ?> <?php echo htmlspecialchars($item['unit_of_measure']); ?> | Sisa: <?php echo number_format($remainingQty, 2); ?></div>
+                                </div>
+                                <div style="min-width: 140px;">
+                                    <input type="number" step="0.01" min="0" max="<?php echo $remainingQty; ?>" name="received_qty[<?php echo (int)$item['id']; ?>]" class="form-control" value="<?php echo $remainingQty; ?>" style="text-align: right;">
+                                </div>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+
+                <div class="form-group" style="margin-top: 1rem;">
+                    <label class="form-label">Catatan Gudang</label>
+                    <textarea name="warehouse_notes" class="form-control" rows="3" placeholder="Catatan penerimaan barang dari supplier..."></textarea>
+                </div>
+
+                <div style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.25rem;">
+                    <button type="button" onclick="document.getElementById('receiveModal').style.display='none'" class="btn btn-secondary">Batal</button>
+                    <button type="submit" class="btn btn-success">Simpan ke Gudang</button>
+                </div>
+            </div>
+        </form>
     </div>
 </div>
 

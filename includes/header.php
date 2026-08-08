@@ -905,7 +905,7 @@ if (isset($_SESSION['user_id'])) {
                     <?php endif; ?>
 
                     <!-- Procurement Dropdown Menu -->
-                    <?php if ($auth->hasPermission('procurement') && isModuleEnabled('procurement')): ?>
+                    <?php if (($auth->hasPermission('procurement') || $auth->hasPermission('warehouse') || $auth->hasPermission('warehouse_transfers')) && isModuleEnabled('procurement')): ?>
                         <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/procurement/') !== false) ? 'open' : ''; ?>">
                             <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo activeMenu('procurement'); ?>">
                                 <i data-feather="shopping-cart" class="nav-icon"></i>
@@ -928,6 +928,18 @@ if (isset($_SESSION['user_id'])) {
                                     <a href="<?php echo BASE_URL; ?>/modules/procurement/suppliers.php" class="submenu-link <?php echo activeMenu('suppliers.php'); ?>">
                                         <i data-feather="users" class="submenu-icon"></i>
                                         <span><?php echo __('menu.suppliers'); ?></span>
+                                    </a>
+                                </li>
+                                <li class="submenu-item">
+                                    <a href="<?php echo BASE_URL; ?>/modules/procurement/gudang-nasita.php" class="submenu-link <?php echo activeMenu('gudang-nasita.php'); ?>">
+                                        <i data-feather="archive" class="submenu-icon"></i>
+                                        <span>Gudang Nasita</span>
+                                    </a>
+                                </li>
+                                <li class="submenu-item">
+                                    <a href="<?php echo BASE_URL; ?>/modules/procurement/gudang-transfer.php" class="submenu-link <?php echo activeMenu('gudang-transfer.php'); ?>">
+                                        <i data-feather="shuffle" class="submenu-icon"></i>
+                                        <span>Transfer ke Bisnis</span>
                                     </a>
                                 </li>
                             </ul>
