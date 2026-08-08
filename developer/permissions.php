@@ -15,6 +15,38 @@ $user = $auth->getCurrentUser();
 $pdo = $auth->getConnection();
 $pageTitle = 'User Permissions';
 
+// Ensure Gudang Nasita menu appears in Developer Permissions for target businesses.
+try {
+    $pdo->beginTransaction();
+
+    $pdo->prepare("\n        INSERT INTO menu_items (menu_code, menu_name, menu_icon, menu_url, menu_order, is_active)\n        VALUES ('gudang_nasita', 'Gudang Nasita', 'bi-boxes', 'modules/procurement/gudang-nasita.php', 8, 1)\n        ON DUPLICATE KEY UPDATE\n            menu_name = VALUES(menu_name),\n            menu_icon = VALUES(menu_icon),\n            menu_url = VALUES(menu_url),\n            menu_order = VALUES(menu_order),\n            is_active = VALUES(is_active)\n    ")->execute();
+
+    $menuIdRow = $pdo->query("SELECT id FROM menu_items WHERE menu_code = 'gudang_nasita' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+    if (!empty($menuIdRow['id'])) {
+        $targetCodes = ['narayanahotel', 'benscafe', 'eatmeet', 'eaatmeet'];
+        $bizRows = $pdo->query("SELECT id, business_code, business_name FROM businesses WHERE is_active = 1")->fetchAll(PDO::FETCH_ASSOC);
+        $cfgStmt = $pdo->prepare("\n            INSERT INTO business_menu_config (business_id, menu_id, is_enabled)\n            VALUES (?, ?, 1)\n            ON DUPLICATE KEY UPDATE is_enabled = 1\n        ");
+
+        foreach ($bizRows as $biz) {
+            $codeNorm = strtolower(preg_replace('/[^a-z0-9]/', '', (string)$biz['business_code']));
+            $nameNorm = strtolower((string)($biz['business_name'] ?? ''));
+            $isTarget = in_array($codeNorm, $targetCodes, true)
+                || strpos($nameNorm, 'narayana') !== false
+                || strpos($nameNorm, 'bens') !== false
+                || strpos($nameNorm, 'eat') !== false;
+            if ($isTarget) {
+                $cfgStmt->execute([(int)$biz['id'], (int)$menuIdRow['id']]);
+            }
+        }
+    }
+
+    $pdo->commit();
+} catch (Exception $e) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+}
+
 $businessId = $_GET['business_id'] ?? null;
 $userId = $_GET['user_id'] ?? null;
 $error = '';
