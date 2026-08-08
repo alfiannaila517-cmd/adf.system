@@ -23,12 +23,30 @@ $messageType = 'success';
 
 $prefillPoId = (int)($_GET['po_id'] ?? 0);
 $prefillTargetBusinessId = 0;
+$prefillTargetBusinessName = '';
 $prefillNotes = '';
 if ($prefillPoId > 0) {
     $poRow = $db->fetchOne("SELECT id, po_number, business_id FROM purchase_orders_header WHERE id = ? LIMIT 1", [$prefillPoId]);
     if ($poRow) {
         $prefillTargetBusinessId = (int)($poRow['business_id'] ?? 0);
         $prefillNotes = 'Proses PO ' . $poRow['po_number'];
+    }
+}
+
+$allBusinesses = $db->fetchAll("SELECT id, business_name, business_code FROM businesses WHERE is_active = 1 ORDER BY business_name ASC");
+$allowedBusinesses = [];
+foreach ($allBusinesses as $biz) {
+    $codeNorm = strtolower(preg_replace('/[^a-z0-9]/', '', (string)($biz['business_code'] ?? '')));
+    $nameNorm = strtolower(preg_replace('/[^a-z0-9]/', '', (string)($biz['business_name'] ?? '')));
+    $isAllowed = in_array($codeNorm, ['narayanahotel', 'benscafe', 'eatmeet', 'eaatmeet'], true)
+        || strpos($nameNorm, 'narayana') !== false
+        || strpos($nameNorm, 'bens') !== false
+        || strpos($nameNorm, 'eatmeet') !== false;
+    if ($isAllowed) {
+        $allowedBusinesses[] = $biz;
+    }
+    if ($prefillTargetBusinessId > 0 && (int)$biz['id'] === $prefillTargetBusinessId) {
+        $prefillTargetBusinessName = (string)$biz['business_name'];
     }
 }
 
@@ -40,15 +58,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $sourcePoId = (int)($_POST['source_po_id'] ?? 0);
     if ($sourcePoId <= 0) {
         $sourcePoId = null;
+    } else {
+        // Jika transfer dari PO, bisnis tujuan wajib mengikuti business_id PO.
+        $poFromPost = $db->fetchOne("SELECT id, po_number, business_id FROM purchase_orders_header WHERE id = ? LIMIT 1", [$sourcePoId]);
+        if (!$poFromPost || (int)($poFromPost['business_id'] ?? 0) <= 0) {
+            $result = ['success' => false, 'message' => 'PO sumber tidak valid untuk transfer.'];
+        } else {
+            $targetBusinessId = (int)$poFromPost['business_id'];
+        }
     }
 
-    $result = transferGudangNasitaStock($targetBusinessId, [
-        [
-            'stock_id' => $stockId,
-            'quantity' => $quantity,
-            'notes' => $notes,
-        ]
-    ], $currentUser['id'], $notes, $sourcePoId);
+    if (!isset($result)) {
+        $result = transferGudangNasitaStock($targetBusinessId, [
+            [
+                'stock_id' => $stockId,
+                'quantity' => $quantity,
+                'notes' => $notes,
+            ]
+        ], $currentUser['id'], $notes, $sourcePoId);
+    }
 
     if ($result['success']) {
         $message = $result['message'] . ' Ke ' . $result['business_name'];
@@ -61,7 +89,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $stockItems = getGudangNasitaStock(300);
 $transfers = getGudangNasitaTransfers(50);
-$businesses = $db->fetchAll("\n    SELECT id, business_name, business_code\n    FROM businesses\n    WHERE is_active = 1 AND (business_name LIKE '%Narayana%' OR business_name LIKE '%Eat Meet%' OR business_name LIKE '%Bens%')\n    ORDER BY business_name ASC\n");
 
 include '../../includes/header.php';
 ?>
@@ -83,7 +110,7 @@ include '../../includes/header.php';
 
 <?php if ($prefillPoId > 0): ?>
     <div class="alert alert-info" style="margin-bottom:1rem;">
-        Proses transfer berdasarkan PO bisnis. Silakan pilih item gudang lalu transfer ke bisnis tujuan.
+        Proses transfer berdasarkan PO bisnis. Tujuan bisnis otomatis mengikuti sumber PO.
     </div>
 <?php endif; ?>
 
@@ -94,12 +121,17 @@ include '../../includes/header.php';
             <input type="hidden" name="source_po_id" value="<?php echo (int)$prefillPoId; ?>">
             <div class="form-group">
                 <label class="form-label">Tujuan Bisnis</label>
-                <select name="target_business_id" class="form-control" required>
-                    <option value="">-- Pilih bisnis --</option>
-                    <?php foreach ($businesses as $biz): ?>
-                        <option value="<?php echo (int)$biz['id']; ?>" <?php echo ((int)$biz['id'] === (int)$prefillTargetBusinessId) ? 'selected' : ''; ?>><?php echo htmlspecialchars($biz['business_name']); ?></option>
-                    <?php endforeach; ?>
-                </select>
+                <?php if ($prefillPoId > 0 && $prefillTargetBusinessId > 0): ?>
+                    <input type="text" class="form-control" value="<?php echo htmlspecialchars($prefillTargetBusinessName ?: ('Business ID ' . $prefillTargetBusinessId)); ?>" readonly style="font-weight:700; background:#f8fafc;">
+                    <input type="hidden" name="target_business_id" value="<?php echo (int)$prefillTargetBusinessId; ?>">
+                <?php else: ?>
+                    <select name="target_business_id" class="form-control" required>
+                        <option value="">-- Pilih bisnis --</option>
+                        <?php foreach ($allowedBusinesses as $biz): ?>
+                            <option value="<?php echo (int)$biz['id']; ?>"><?php echo htmlspecialchars($biz['business_name']); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                <?php endif; ?>
             </div>
 
             <div class="form-group">
