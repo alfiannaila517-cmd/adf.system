@@ -33,6 +33,29 @@ if (!in_array($prefillPoBusinessSlug, $allowedPoBusinessSlugs, true)) {
     $prefillPoBusinessSlug = '';
 }
 
+$resolveBusinessIdFromSlug = function (string $businessSlug) use ($db) {
+    $businessSlug = trim(strtolower($businessSlug));
+    if ($businessSlug === '') {
+        return [0, ''];
+    }
+
+    $normalizedSlug = preg_replace('/[^a-z0-9]/', '', $businessSlug);
+    $businessRows = $db->fetchAll("SELECT id, business_name, business_code FROM businesses WHERE is_active = 1 OR is_active IS NULL ORDER BY business_name ASC");
+    if (empty($businessRows)) {
+        $businessRows = $db->fetchAll("SELECT id, business_name, business_code FROM businesses ORDER BY business_name ASC");
+    }
+
+    foreach ($businessRows as $businessRow) {
+        $codeNorm = strtolower(preg_replace('/[^a-z0-9]/', '', (string)($businessRow['business_code'] ?? '')));
+        $nameNorm = strtolower(preg_replace('/[^a-z0-9]/', '', (string)($businessRow['business_name'] ?? '')));
+        if ($normalizedSlug !== '' && ($normalizedSlug === $codeNorm || strpos($nameNorm, $normalizedSlug) !== false || strpos($normalizedSlug, $nameNorm) !== false)) {
+            return [(int)$businessRow['id'], (string)$businessRow['business_name']];
+        }
+    }
+
+    return [0, ''];
+};
+
 $resolvePoContext = function (int $poId, string $poBusinessSlug = '') use ($db, $allowedPoBusinessSlugs) {
     $originDbName = Database::getCurrentDatabase();
     $resolved = [
@@ -81,6 +104,18 @@ if ($prefillPoId > 0) {
         $prefillTargetBusinessName = trim((string)($poRow['business_name'] ?? ''));
         if ($prefillTargetBusinessName === '') {
             $prefillTargetBusinessName = trim((string)($resolvedPo['business_name'] ?? ''));
+        }
+        if ($prefillTargetBusinessId <= 0 && $prefillPoBusinessSlug !== '') {
+            [$resolvedBusinessId, $resolvedBusinessName] = $resolveBusinessIdFromSlug($prefillPoBusinessSlug);
+            if ($resolvedBusinessId > 0) {
+                $prefillTargetBusinessId = $resolvedBusinessId;
+                if ($prefillTargetBusinessName === '') {
+                    $prefillTargetBusinessName = $resolvedBusinessName;
+                }
+            }
+        }
+        if ($prefillTargetBusinessId <= 0 && !empty($_SESSION['business_id'])) {
+            $prefillTargetBusinessId = (int)$_SESSION['business_id'];
         }
         $prefillNotes = 'Proses PO ' . $poRow['po_number'];
     }
@@ -140,7 +175,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $resolvedPoPost = $resolvePoContext($sourcePoId, $sourcePoBusinessSlug);
         $poFromPost = $resolvedPoPost['row'];
         if (!$poFromPost || (int)($poFromPost['business_id'] ?? 0) <= 0) {
-            $result = ['success' => false, 'message' => 'PO sumber tidak valid untuk transfer.'];
+            if ($sourcePoBusinessSlug !== '') {
+                [$resolvedBusinessId, $resolvedBusinessName] = $resolveBusinessIdFromSlug($sourcePoBusinessSlug);
+                if ($resolvedBusinessId > 0) {
+                    $targetBusinessId = $resolvedBusinessId;
+                    $prefillTargetBusinessName = $resolvedBusinessName;
+                }
+            }
+
+            if ($targetBusinessId <= 0 && !empty($_SESSION['business_id'])) {
+                $targetBusinessId = (int)$_SESSION['business_id'];
+            }
+
+            if ($targetBusinessId <= 0) {
+                $result = ['success' => false, 'message' => 'PO sumber tidak valid untuk transfer.'];
+            }
         } else {
             $targetBusinessId = (int)$poFromPost['business_id'];
         }
@@ -200,8 +249,8 @@ include '../../includes/header.php';
             <input type="hidden" name="source_po_business" value="<?php echo htmlspecialchars($prefillPoBusinessSlug); ?>">
             <div class="form-group">
                 <label class="form-label">Tujuan Bisnis</label>
-                <?php if ($prefillPoId > 0 && $prefillTargetBusinessId > 0): ?>
-                    <input type="text" class="form-control" value="<?php echo htmlspecialchars(($prefillTargetBusinessName !== '' ? $prefillTargetBusinessName : 'Business') . ' (ID: ' . $prefillTargetBusinessId . ')'); ?>" readonly style="font-weight:700; background:#f8fafc; cursor:not-allowed;">
+                <?php if ($prefillPoId > 0): ?>
+                    <input type="text" class="form-control" value="<?php echo htmlspecialchars(($prefillTargetBusinessName !== '' ? $prefillTargetBusinessName : 'Business') . ' (otomatis)'); ?>" readonly style="font-weight:700; background:#f8fafc; cursor:not-allowed;">
                     <input type="hidden" name="target_business_id" value="<?php echo (int)$prefillTargetBusinessId; ?>">
                     <div style="margin-top:0.35rem; font-size:0.812rem; color:var(--text-muted);">
                         Tujuan otomatis mengikuti bisnis dari PO sumber.
