@@ -937,6 +937,20 @@ if (isset($_SESSION['user_id'])) {
                     <?php
                     $gudangBizAllowed = in_array(ACTIVE_BUSINESS_ID, ['narayana-hotel', 'bens-cafe', 'eat-meet', 'eaat-meet', 'eatmeet']);
                     $canAccessGudangMenu = $auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse') || $auth->hasPermission('warehouse_transfers');
+                    $gudangPendingPoCount = 0;
+                    if ($gudangBizAllowed && $canAccessGudangMenu) {
+                        try {
+                            $businessId = isset($_SESSION['business_id']) ? (int)$_SESSION['business_id'] : 0;
+                            if ($businessId > 0) {
+                                $row = $db->fetchOne("SELECT COUNT(*) AS total FROM purchase_orders_header WHERE business_id = ? AND status NOT IN ('completed','cancelled','received','rejected')", [$businessId]);
+                            } else {
+                                $row = $db->fetchOne("SELECT COUNT(*) AS total FROM purchase_orders_header WHERE status NOT IN ('completed','cancelled','received','rejected')");
+                            }
+                            $gudangPendingPoCount = (int)($row['total'] ?? 0);
+                        } catch (Exception $e) {
+                            $gudangPendingPoCount = 0;
+                        }
+                    }
                     ?>
                     <?php if ($gudangBizAllowed && $canAccessGudangMenu && isModuleEnabled('procurement')): ?>
                         <?php $gudangMenuUrl = ($auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse')) ? (BASE_URL . '/modules/procurement/gudang-nasita.php') : (BASE_URL . '/modules/procurement/gudang-transfer.php'); ?>
@@ -944,6 +958,9 @@ if (isset($_SESSION['user_id'])) {
                             <a href="<?php echo $gudangMenuUrl; ?>" class="nav-link <?php echo (activeMenu('gudang-nasita.php') || activeMenu('gudang-transfer.php')) ? 'active' : ''; ?>">
                                 <i data-feather="archive" class="nav-icon"></i>
                                 <span>Gudang Nasita</span>
+                                <?php if ($gudangPendingPoCount > 0): ?>
+                                    <span style="margin-left:auto; background:#ef4444; color:#fff; min-width:20px; height:20px; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; font-size:0.7rem; font-weight:800; padding:0 6px;"><?php echo $gudangPendingPoCount; ?></span>
+                                <?php endif; ?>
                             </a>
                         </li>
                     <?php endif; ?>

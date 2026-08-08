@@ -12,13 +12,27 @@ $db = Database::getInstance();
 $currentUser = $auth->getCurrentUser();
 $pageTitle = 'Buat Purchase Order';
 
-// Get suppliers and divisions
-$suppliers = $db->fetchAll("SELECT * FROM suppliers WHERE is_active = 1 ORDER BY supplier_name");
+// PO procurement di flow ini khusus untuk Gudang Nasita.
+$gudangSupplier = $db->fetchOne("SELECT id, supplier_name FROM suppliers WHERE LOWER(supplier_name) = 'gudang nasita' LIMIT 1");
+if (!$gudangSupplier) {
+    $supplierId = $db->insert('suppliers', [
+        'supplier_name' => 'Gudang Nasita',
+        'contact_person' => 'Internal Warehouse',
+        'is_active' => 1,
+    ]);
+    $gudangSupplier = $db->fetchOne('SELECT id, supplier_name FROM suppliers WHERE id = ? LIMIT 1', [$supplierId]);
+}
+
+if (!$gudangSupplier || empty($gudangSupplier['id'])) {
+    $_SESSION['error'] = '❌ Supplier internal Gudang Nasita belum tersedia.';
+}
+
+// Get divisions
 $divisions = $db->fetchAll("SELECT * FROM divisions ORDER BY division_name");
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $supplier_id = (int)$_POST['supplier_id'];
+    $supplier_id = (int)($gudangSupplier['id'] ?? 0);
     $po_date = $_POST['po_date'];
     $expected_delivery_date = $_POST['expected_delivery_date'];
     $notes = $_POST['notes'];
@@ -43,7 +57,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
     
-    if (empty($items)) {
+    if ($supplier_id <= 0) {
+        $_SESSION['error'] = '❌ Supplier internal Gudang Nasita belum tersedia.';
+    } elseif (empty($items)) {
         $_SESSION['error'] = '❌ Minimal tambahkan 1 item dengan quantity dan harga yang valid';
     } else {
         $result = createPurchaseOrder($supplier_id, $po_date, $items, [
@@ -118,16 +134,10 @@ include '../../includes/header.php';
             <div class="form-group" style="margin: 0;">
                 <label class="form-label">
                     <i data-feather="users" style="width: 14px; height: 14px;"></i>
-                    Supplier *
+                    Tujuan PO
                 </label>
-                <select name="supplier_id" class="form-control" required style="font-weight: 600;">
-                    <option value="">-- Pilih Supplier --</option>
-                    <?php foreach ($suppliers as $sup): ?>
-                        <option value="<?php echo $sup['id']; ?>">
-                            <?php echo $sup['supplier_name']; ?> (<?php echo $sup['supplier_code']; ?>)
-                        </option>
-                    <?php endforeach; ?>
-                </select>
+                <input type="text" class="form-control" value="Gudang Nasita (Internal)" readonly style="font-weight: 700; background: #f8fafc;">
+                <input type="hidden" name="supplier_id" value="<?php echo (int)($gudangSupplier['id'] ?? 0); ?>">
             </div>
             
             <div class="form-group" style="margin: 0;">

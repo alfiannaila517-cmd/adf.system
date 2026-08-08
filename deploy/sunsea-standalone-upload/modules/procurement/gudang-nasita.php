@@ -72,14 +72,28 @@ foreach ($movementSummary as $row) {
     }
 }
 
-$pendingReceipts = $db->fetchAll("\n    SELECT poh.id, poh.po_number, poh.po_date, poh.status, poh.supplier_id, s.supplier_name,\n           COUNT(pod.id) AS items_count,\n           SUM(CASE WHEN COALESCE(pod.received_quantity,0) < pod.quantity THEN 1 ELSE 0 END) AS pending_items\n    FROM purchase_orders_header poh\n    LEFT JOIN suppliers s ON s.id = poh.supplier_id\n    LEFT JOIN purchase_orders_detail pod ON pod.po_header_id = poh.id\n    WHERE poh.status IN ('approved','partially_received','completed')\n    GROUP BY poh.id\n    ORDER BY poh.created_at DESC\n    LIMIT 12\n");
+$businessFilterSql = '';
+$businessFilterParams = [];
+$activeBusinessId = isset($_SESSION['business_id']) ? (int)$_SESSION['business_id'] : 0;
+if ($activeBusinessId > 0) {
+    $businessFilterSql = ' AND (poh.business_id = ? OR poh.business_id IS NULL)';
+    $businessFilterParams[] = $activeBusinessId;
+}
+
+$pendingReceipts = $db->fetchAll("\n    SELECT poh.id, poh.po_number, poh.po_date, poh.status, poh.supplier_id, s.supplier_name,\n           COUNT(pod.id) AS items_count,\n           SUM(CASE WHEN COALESCE(pod.received_quantity,0) < pod.quantity THEN 1 ELSE 0 END) AS pending_items\n    FROM purchase_orders_header poh\n    LEFT JOIN suppliers s ON s.id = poh.supplier_id\n    LEFT JOIN purchase_orders_detail pod ON pod.po_header_id = poh.id\n    WHERE poh.status NOT IN ('completed','cancelled','received','rejected')" . $businessFilterSql . "\n    GROUP BY poh.id\n    HAVING pending_items > 0\n    ORDER BY poh.created_at DESC\n    LIMIT 12\n", $businessFilterParams);
+$pendingPoCount = count($pendingReceipts);
 
 include '../../includes/header.php';
 ?>
 
 <div style="margin-bottom: 1.25rem; display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap;">
     <div>
-        <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem;">Gudang Nasita</h2>
+        <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem; display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+            Gudang Nasita
+            <?php if ($pendingPoCount > 0): ?>
+                <span style="background:#ef4444; color:#fff; border-radius:999px; padding:0.2rem 0.55rem; font-size:0.75rem; font-weight:800;">PO Masuk: <?php echo (int)$pendingPoCount; ?></span>
+            <?php endif; ?>
+        </h2>
         <p style="color: var(--text-muted); font-size: 0.875rem;">Stok pusat, penerimaan supplier, dan kontrol barang keluar</p>
     </div>
     <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
@@ -180,7 +194,12 @@ include '../../includes/header.php';
 
     <div style="display:grid; gap:1.25rem;">
         <div class="card">
-            <h3 style="font-size:1rem; font-weight:700; margin-bottom:0.75rem;">Penerimaan PO Pending</h3>
+            <h3 style="font-size:1rem; font-weight:700; margin-bottom:0.75rem; display:flex; align-items:center; justify-content:space-between; gap:0.5rem;">
+                <span>Penerimaan PO Pending</span>
+                <?php if ($pendingPoCount > 0): ?>
+                    <span style="background:#ef4444; color:#fff; min-width:22px; height:22px; border-radius:11px; display:inline-flex; align-items:center; justify-content:center; font-size:0.7rem; font-weight:800; padding:0 6px;"><?php echo (int)$pendingPoCount; ?></span>
+                <?php endif; ?>
+            </h3>
             <div style="display:grid; gap:0.75rem;">
                 <?php if (empty($pendingReceipts)): ?>
                     <div style="color:var(--text-muted); font-size:0.875rem;">Tidak ada PO pending penerimaan</div>
