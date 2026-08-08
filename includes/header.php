@@ -934,9 +934,10 @@ if (isset($_SESSION['user_id'])) {
                         </li>
                     <?php endif; ?>
 
-                    <?php if ($auth->hasPermission('warehouse') && isModuleEnabled('procurement')): ?>
+                    <?php if (($auth->hasPermission('warehouse') || $auth->hasPermission('warehouse_transfers')) && isModuleEnabled('procurement')): ?>
+                        <?php $gudangMenuUrl = $auth->hasPermission('warehouse') ? (BASE_URL . '/modules/procurement/gudang-nasita.php') : (BASE_URL . '/modules/procurement/gudang-transfer.php'); ?>
                         <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>/modules/procurement/gudang-nasita.php" class="nav-link <?php echo activeMenu('gudang-nasita.php'); ?>">
+                            <a href="<?php echo $gudangMenuUrl; ?>" class="nav-link <?php echo (activeMenu('gudang-nasita.php') || activeMenu('gudang-transfer.php')) ? 'active' : ''; ?>">
                                 <i data-feather="archive" class="nav-icon"></i>
                                 <span>Gudang Nasita</span>
                             </a>
