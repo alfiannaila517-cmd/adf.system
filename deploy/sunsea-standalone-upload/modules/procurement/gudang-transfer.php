@@ -22,13 +22,16 @@ $message = '';
 $messageType = 'success';
 
 $prefillPoId = (int)($_GET['po_id'] ?? 0);
+$prefillStockId = (int)($_GET['stock_id'] ?? 0);
+$prefillQty = (float)($_GET['qty'] ?? 0);
 $prefillTargetBusinessId = 0;
 $prefillTargetBusinessName = '';
 $prefillNotes = '';
 if ($prefillPoId > 0) {
-    $poRow = $db->fetchOne("SELECT id, po_number, business_id FROM purchase_orders_header WHERE id = ? LIMIT 1", [$prefillPoId]);
+    $poRow = $db->fetchOne("\n        SELECT poh.id, poh.po_number, poh.business_id, b.business_name, b.business_code\n        FROM purchase_orders_header poh\n        LEFT JOIN businesses b ON b.id = poh.business_id\n        WHERE poh.id = ?\n        LIMIT 1\n    ", [$prefillPoId]);
     if ($poRow) {
         $prefillTargetBusinessId = (int)($poRow['business_id'] ?? 0);
+        $prefillTargetBusinessName = trim((string)($poRow['business_name'] ?? ''));
         $prefillNotes = 'Proses PO ' . $poRow['po_number'];
     }
 }
@@ -122,7 +125,7 @@ include '../../includes/header.php';
             <div class="form-group">
                 <label class="form-label">Tujuan Bisnis</label>
                 <?php if ($prefillPoId > 0 && $prefillTargetBusinessId > 0): ?>
-                    <input type="text" class="form-control" value="<?php echo htmlspecialchars($prefillTargetBusinessName ?: ('Business ID ' . $prefillTargetBusinessId)); ?>" readonly style="font-weight:700; background:#f8fafc;">
+                    <input type="text" class="form-control" value="<?php echo htmlspecialchars(($prefillTargetBusinessName !== '' ? $prefillTargetBusinessName : 'Business') . ' (ID: ' . $prefillTargetBusinessId . ')'); ?>" readonly style="font-weight:700; background:#f8fafc;">
                     <input type="hidden" name="target_business_id" value="<?php echo (int)$prefillTargetBusinessId; ?>">
                 <?php else: ?>
                     <select name="target_business_id" class="form-control" required>
@@ -139,14 +142,14 @@ include '../../includes/header.php';
                 <select name="stock_id" class="form-control" required>
                     <option value="">-- Pilih item --</option>
                     <?php foreach ($stockItems as $item): ?>
-                        <option value="<?php echo (int)$item['id']; ?>"><?php echo htmlspecialchars($item['item_name']); ?> (<?php echo number_format((float)$item['quantity'], 2); ?> <?php echo htmlspecialchars($item['unit']); ?>)</option>
+                        <option value="<?php echo (int)$item['id']; ?>" <?php echo ((int)$item['id'] === $prefillStockId) ? 'selected' : ''; ?>><?php echo htmlspecialchars($item['item_name']); ?> (<?php echo number_format((float)$item['quantity'], 2); ?> <?php echo htmlspecialchars($item['unit']); ?>)</option>
                     <?php endforeach; ?>
                 </select>
             </div>
 
             <div class="form-group">
                 <label class="form-label">Qty Transfer</label>
-                <input type="number" step="0.01" min="0.01" name="quantity" class="form-control" required>
+                <input type="number" step="0.01" min="0.01" name="quantity" class="form-control" value="<?php echo $prefillQty > 0 ? htmlspecialchars((string)$prefillQty) : ''; ?>" required>
             </div>
 
             <div class="form-group">

@@ -158,12 +158,13 @@ include '../../includes/header.php';
                         <th class="text-right">Qty</th>
                         <th>Unit</th>
                         <th>Supplier</th>
+                        <th>Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (empty($stockItems)): ?>
                         <tr>
-                            <td colspan="6" style="text-align:center; padding: 2rem; color: var(--text-muted);">Belum ada stok gudang</td>
+                            <td colspan="7" style="text-align:center; padding: 2rem; color: var(--text-muted);">Belum ada stok gudang</td>
                         </tr>
                     <?php else: ?>
                         <?php $currentCategory = null; ?>
@@ -175,7 +176,7 @@ include '../../includes/header.php';
                             <?php if ($currentCategory !== $rowCategory): ?>
                                 <?php $currentCategory = $rowCategory; ?>
                                 <tr>
-                                    <td colspan="6" style="background:#f8fafc; font-weight:700; color:#334155; text-transform:capitalize; border-top:1px solid var(--border);">
+                                    <td colspan="7" style="background:#f8fafc; font-weight:700; color:#334155; text-transform:capitalize; border-top:1px solid var(--border);">
                                         Kategori: <?php echo htmlspecialchars($currentCategory); ?>
                                     </td>
                                 </tr>
@@ -190,6 +191,12 @@ include '../../includes/header.php';
                                 <td class="text-right" style="font-weight:700; color:<?php echo ((float)$item['quantity'] <= (float)($item['reorder_level'] ?? 0) && (float)($item['reorder_level'] ?? 0) > 0) ? '#d97706' : 'var(--text-primary)'; ?>;"><?php echo number_format($item['quantity'], 2); ?></td>
                                 <td><?php echo htmlspecialchars($item['unit']); ?></td>
                                 <td style="font-size:0.813rem;"><?php echo htmlspecialchars($item['supplier_name'] ?: '-'); ?></td>
+                                <td>
+                                    <a href="gudang-transfer.php?stock_id=<?php echo (int)$item['id']; ?>" class="btn btn-sm btn-primary">
+                                        <i data-feather="send" style="width:14px; height:14px;"></i>
+                                        Transfer Stock
+                                    </a>
+                                </td>
                             </tr>
                         <?php endforeach; ?>
                     <?php endif; ?>
