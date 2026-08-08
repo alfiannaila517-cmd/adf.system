@@ -1623,14 +1623,14 @@ if ($healthScore >= 80) {
             flex-shrink: 0;
         }
 
-        /* Kas Harian Section - Elegant White */
+        /* Kas Harian Section - Clean Light */
         .kas-harian-section {
             margin: 16px 0;
-            background: linear-gradient(145deg, #0d1b2e, #0f2342);
+            background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
             border-radius: 16px;
             padding: 18px;
-            border: 1px solid rgba(255,255,255,0.07);
-            box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+            border: 1px solid #d9e6f4;
+            box-shadow: 0 10px 28px rgba(15, 42, 77, 0.08);
         }
 
         .kas-harian-header {
@@ -1643,7 +1643,7 @@ if ($healthScore >= 80) {
         .kas-harian-title {
             font-size: 13px;
             font-weight: 800;
-            color: #e2e8f0;
+            color: #17365d;
             display: flex;
             align-items: center;
             gap: 8px;
@@ -1651,9 +1651,10 @@ if ($healthScore >= 80) {
 
         .kas-harian-date {
             font-size: 10px;
-            color: #8b9ab5;
+            color: #3f5f86;
             font-weight: 600;
-            background: rgba(255,255,255,0.07);
+            background: #eaf3ff;
+            border: 1px solid #cfe0f4;
             padding: 3px 10px;
             border-radius: 20px;
         }
@@ -1669,21 +1670,21 @@ if ($healthScore >= 80) {
         .kas-hero-card {
             padding: 12px 14px;
             border-radius: 10px;
-            border: 1px solid rgba(255,255,255,0.07);
+            border: 1px solid #d9e6f4;
         }
 
         .kas-hero-card.start {
-            background: rgba(255,255,255,0.05);
+            background: #f8fbff;
         }
 
         .kas-hero-card.available-pos {
-            background: rgba(16,185,129,0.08);
-            border-color: rgba(16,185,129,0.2);
+            background: #ecfdf5;
+            border-color: #86efac;
         }
 
         .kas-hero-card.available-neg {
-            background: rgba(239,68,68,0.08);
-            border-color: rgba(239,68,68,0.2);
+            background: #fff1f2;
+            border-color: #fecdd3;
         }
 
         .kas-hero-label {
@@ -1694,9 +1695,9 @@ if ($healthScore >= 80) {
             margin-bottom: 4px;
         }
 
-        .kas-hero-label.muted  { color: #576278; }
-        .kas-hero-label.green  { color: #34d399; }
-        .kas-hero-label.red    { color: #fb7185; }
+        .kas-hero-label.muted  { color: #5f7492; }
+        .kas-hero-label.green  { color: #0f9d6a; }
+        .kas-hero-label.red    { color: #d83a5b; }
 
         .kas-hero-value {
             font-size: 15px;
@@ -1705,7 +1706,7 @@ if ($healthScore >= 80) {
             letter-spacing: -0.3px;
         }
 
-        .kas-hero-value.white  { color: #e2e8f0; }
+        .kas-hero-value.white  { color: #17365d; }
         .kas-hero-value.green  { color: #10b981; }
         .kas-hero-value.red    { color: #ef4444; }
 
@@ -1716,9 +1717,10 @@ if ($healthScore >= 80) {
             max-height: 260px;
             overflow-y: auto;
             border-radius: 10px;
-            border: 1px solid rgba(255,255,255,0.06);
+            background: #ffffff;
+            border: 1px solid #d9e6f4;
             scrollbar-width: thin;
-            scrollbar-color: rgba(255,255,255,0.1) transparent;
+            scrollbar-color: #c8d7ea transparent;
         }
 
         .kas-table {
@@ -1728,14 +1730,14 @@ if ($healthScore >= 80) {
         }
 
         .kas-table th {
-            background: rgba(255,255,255,0.06);
+            background: #f3f8ff;
             padding: 7px 10px;
             text-align: left;
             font-weight: 700;
             font-size: 8px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            color: #576278;
+            color: #5f7492;
             position: sticky;
             top: 0;
             z-index: 10;
@@ -1743,12 +1745,12 @@ if ($healthScore >= 80) {
 
         .kas-table td {
             padding: 7px 10px;
-            border-bottom: 1px solid rgba(255,255,255,0.04);
-            color: #c8d0e0;
+            border-bottom: 1px solid #edf2f8;
+            color: #334155;
         }
 
         .kas-table tr:last-child td { border-bottom: none; }
-        .kas-table tr:hover td { background: rgba(255,255,255,0.02); }
+        .kas-table tr:hover td { background: #f8fbff; }
         .kas-table .text-right { text-align: right; }
 
         .kas-badge-masuk,
@@ -1762,13 +1764,13 @@ if ($healthScore >= 80) {
         }
 
         .kas-badge-masuk {
-            background: rgba(16,185,129,0.18);
-            color: #34d399;
+            background: #dcfce7;
+            color: #0f9d6a;
         }
 
         .kas-badge-keluar {
-            background: rgba(239,68,68,0.18);
-            color: #f87171;
+            background: #ffe4e6;
+            color: #d83a5b;
         }
 
         .kas-pay-badge {
@@ -1783,13 +1785,13 @@ if ($healthScore >= 80) {
             vertical-align: middle;
         }
 
-        .kas-pay-badge.cash     { background: rgba(16,185,129,0.15); color: #34d399; }
+        .kas-pay-badge.cash     { background: #dcfce7; color: #0f9d6a; }
         .kas-pay-badge.tf,
-        .kas-pay-badge.transfer { background: rgba(59,130,246,0.15);  color: #60a5fa; }
-        .kas-pay-badge.qr       { background: rgba(212,175,55,0.15);  color: #D4AF37; }
+        .kas-pay-badge.transfer { background: #dbeafe; color: #2563eb; }
+        .kas-pay-badge.qr       { background: #fef3c7; color: #b45309; }
         .kas-pay-badge.edc,
-        .kas-pay-badge.debit    { background: rgba(168,85,247,0.15);  color: #c084fc; }
-        .kas-pay-badge.other    { background: rgba(148,163,184,0.1);  color: #8b9ab5; }
+        .kas-pay-badge.debit    { background: #ede9fe; color: #7c3aed; }
+        .kas-pay-badge.other    { background: #e2e8f0; color: #475569; }
 
         .kas-amount-masuk {
             color: #10b981;
@@ -3441,7 +3443,7 @@ if ($healthScore >= 80) {
                                     } elseif (!$isMasuk) {
                                         $rowColor = '#d83a5b'; // red (pengeluaran)
                                     } else {
-                                        $rowColor = '#0d2440'; // navy pekat (income dari tamu)
+                                        $rowColor = '#334155'; // slate dark (income dari tamu)
                                     }
                                 ?>
                                     <tr>
