@@ -113,19 +113,19 @@ try {
         foreach ($detailRows as $row) {
             $ownerName = $row['partner_owner'] ?? '';
             $ownerPhone = null;
-            
+
             // Find matching recap entry
             foreach ($recap as &$recapEntry) {
                 if ($recapEntry['partner_owner'] === $ownerName) {
                     $ownerPhone = $recapEntry['owner_phone'];
-                    
+
                     $row['total_price'] = (float)$row['total_price'];
                     $row['owner_amount'] = (float)$row['owner_amount'];
                     $row['hotel_commission'] = (float)$row['hotel_commission'];
                     $row['paid'] = (bool)$row['paid'];
-                    
+
                     $recapEntry['detail_rows'][] = $row;
-                    
+
                     if ($row['paid']) {
                         $recapEntry['paid_total'] += $row['owner_amount'];
                         $recapEntry['paid_rentals']++;
@@ -157,4 +157,3 @@ try {
     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
     exit;
 }
-?>

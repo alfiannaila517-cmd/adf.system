@@ -167,8 +167,13 @@ $isPdf = isset($_GET['pdf']);
 // Determine payment status
 $overallStatus = 'unpaid';
 $overallLabel = 'UNPAID';
-if ($totalPaid >= $combinedFinalPrice && $combinedFinalPrice > 0) { $overallStatus = 'paid'; $overallLabel = 'PAID'; }
-elseif ($totalPaid > 0) { $overallStatus = 'partial'; $overallLabel = 'DOWN PAYMENT'; }
+if ($totalPaid >= $combinedFinalPrice && $combinedFinalPrice > 0) {
+    $overallStatus = 'paid';
+    $overallLabel = 'PAID';
+} elseif ($totalPaid > 0) {
+    $overallStatus = 'partial';
+    $overallLabel = 'DOWN PAYMENT';
+}
 
 // Get business info
 $businessId = $_SESSION['business_id'] ?? 1;
@@ -335,7 +340,7 @@ $accountingTitle = $accountingTitleRow['setting_value'] ?? 'Accounting Staff';
             border-radius: 50%;
             object-fit: cover;
             border: none;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
 
         .brand-text h1 {
@@ -1050,8 +1055,8 @@ $accountingTitle = $accountingTitleRow['setting_value'] ?? 'Accounting Staff';
                 <div style="display: flex; align-items: flex-start; gap: 0.6rem; padding: 0.4rem 0;">
                     <div style="flex-shrink: 0; margin-top: 2px;">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0D3B66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
-                            <line x1="1" y1="10" x2="23" y2="10"/>
+                            <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+                            <line x1="1" y1="10" x2="23" y2="10" />
                         </svg>
                     </div>
                     <div style="flex: 1; min-width: 0;">
@@ -1059,40 +1064,40 @@ $accountingTitle = $accountingTitleRow['setting_value'] ?? 'Accounting Staff';
                         <div style="font-size: 0.8rem; font-weight: 600; color: #0D3B66; word-break: break-all;"><?php echo htmlspecialchars($bankAccountNumber); ?></div>
                         <div style="font-size: 0.62rem; color: #6b7d94; margin-top: 0.1rem;">a.n <?php echo htmlspecialchars($bankAccountName); ?></div>
                         <?php if (!empty($swiftCode)): ?>
-                        <div style="font-size: 0.62rem; color: #0D3B66; margin-top: 0.15rem; font-weight: 500;">Swift: <?php echo htmlspecialchars($swiftCode); ?></div>
+                            <div style="font-size: 0.62rem; color: #0D3B66; margin-top: 0.15rem; font-weight: 500;">Swift: <?php echo htmlspecialchars($swiftCode); ?></div>
                         <?php endif; ?>
                     </div>
                 </div>
             </div>
 
-            </div>
+        </div>
 
-            <!-- Signature Section -->
-            <div class="signature-section">
-                <div style="display: flex; flex-direction: column; align-items: center; margin-top: 1.2rem; max-width: 300px; margin-left: auto; margin-right: auto;">
-                    <div style="border-top: 1px solid #0D3B66; width: 100%; padding-top: 2.5rem; text-align: center; min-height: 30px;">
-                        <div style="font-size: 0.75rem; color: #0D3B66; font-weight: 600;">
-                            <?php echo !empty($accountingName) ? htmlspecialchars($accountingName) : '..........................'; ?>
-                        </div>
-                        <div style="font-size: 0.65rem; color: #6b7d94; margin-top: 0.15rem;">
-                            <?php echo htmlspecialchars($accountingTitle); ?>
-                        </div>
+        <!-- Signature Section -->
+        <div class="signature-section">
+            <div style="display: flex; flex-direction: column; align-items: center; margin-top: 1.2rem; max-width: 300px; margin-left: auto; margin-right: auto;">
+                <div style="border-top: 1px solid #0D3B66; width: 100%; padding-top: 2.5rem; text-align: center; min-height: 30px;">
+                    <div style="font-size: 0.75rem; color: #0D3B66; font-weight: 600;">
+                        <?php echo !empty($accountingName) ? htmlspecialchars($accountingName) : '..........................'; ?>
                     </div>
-                </div>
-            </div>
-
-            <!-- Footer -->
-            <div class="footer">
-                <div class="ty">Thank you for staying with us</div>
-                <div class="fc">
-                    <?php echo htmlspecialchars($companySettings['name']); ?><br>
-                    Jl. Kasimo Jatikerep Karimunjawa Jepara Jawatengah 59455<br>
-                    081222228590 &middot; narayanahotelkarimunjawa@gmail.com &middot; www.narayanakarimunjawa.com
+                    <div style="font-size: 0.65rem; color: #6b7d94; margin-top: 0.15rem;">
+                        <?php echo htmlspecialchars($accountingTitle); ?>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="bottom-border"></div>
+        <!-- Footer -->
+        <div class="footer">
+            <div class="ty">Thank you for staying with us</div>
+            <div class="fc">
+                <?php echo htmlspecialchars($companySettings['name']); ?><br>
+                Jl. Kasimo Jatikerep Karimunjawa Jepara Jawatengah 59455<br>
+                081222228590 &middot; narayanahotelkarimunjawa@gmail.com &middot; www.narayanakarimunjawa.com
+            </div>
+        </div>
+    </div>
+
+    <div class="bottom-border"></div>
     </div>
 
     <!-- Actions -->

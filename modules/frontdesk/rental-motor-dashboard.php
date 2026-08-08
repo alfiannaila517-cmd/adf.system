@@ -720,7 +720,8 @@ include '../../includes/header.php';
     <div class="dashboard-content">
         <?php
         // Reusable motor grid renderer
-        function renderMotorGrid(array $list): void { ?>
+        function renderMotorGrid(array $list): void
+        { ?>
             <?php if (!empty($list)): ?>
                 <div class="motor-grid">
                     <?php foreach ($list as $m):

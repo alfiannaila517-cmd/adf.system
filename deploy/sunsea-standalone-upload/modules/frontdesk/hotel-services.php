@@ -6,12 +6,17 @@
  * Narayana Hotel Karimunjawa
  */
 
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: 0');
+
 define('APP_ACCESS', true);
 require_once '../../config/config.php';
 require_once '../../config/database.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/CloudinaryHelper.php';
 require_once '../../includes/InvoiceHelper.php';
+require_once '../../includes/DriverPaymentHelper.php';
 
 $auth = new Auth();
 $auth->requireLogin();
@@ -102,6 +107,63 @@ try {
         $pdo->exec("ALTER TABLE hotel_service_catalog MODIFY service_type VARCHAR(50) NOT NULL");
     }
 } catch (\Throwable $e) {
+}
+
+// Driver/partner vehicle payment tracking (rental_cars commission mode, rental_car_bookings
+// driver-payment flag, monthly_bills traceability columns)
+ensureDriverPaymentSchema($pdo);
+
+// Add driver_rate column to hotel_service_catalog (bayar ke driver per layanan)
+try {
+    $pdo->query("SELECT driver_rate FROM hotel_service_catalog LIMIT 1");
+} catch (\Exception $e) {
+    try {
+        $pdo->exec("ALTER TABLE hotel_service_catalog ADD COLUMN driver_rate DECIMAL(15,2) NOT NULL DEFAULT 0 COMMENT 'harga bayar ke driver per layanan' AFTER default_price");
+    } catch (\Exception $e2) {
+        error_log('catalog driver_rate migration: ' . $e2->getMessage());
+    }
+}
+
+// Narayana Trip guide master
+$pdo->exec("CREATE TABLE IF NOT EXISTS narayana_trip_guides (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    business_id INT NOT NULL DEFAULT 1,
+    guide_name  VARCHAR(120) NOT NULL,
+    phone       VARCHAR(40) DEFAULT NULL,
+    is_active   TINYINT(1) NOT NULL DEFAULT 1,
+    sort_order  INT NOT NULL DEFAULT 0,
+    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_biz_guide (business_id, guide_name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+try {
+    $pdo->query("SELECT trip_type FROM hotel_invoice_items LIMIT 1");
+} catch (\Throwable $e) {
+    try {
+        $pdo->exec("ALTER TABLE hotel_invoice_items ADD COLUMN trip_type VARCHAR(20) DEFAULT NULL AFTER service_type");
+    } catch (\Throwable $e2) {
+        error_log('hotel_invoice_items trip_type migration: ' . $e2->getMessage());
+    }
+}
+
+try {
+    $pdo->query("SELECT guide_id FROM hotel_invoice_items LIMIT 1");
+} catch (\Throwable $e) {
+    try {
+        $pdo->exec("ALTER TABLE hotel_invoice_items ADD COLUMN guide_id INT DEFAULT NULL AFTER trip_type");
+    } catch (\Throwable $e2) {
+        error_log('hotel_invoice_items guide_id migration: ' . $e2->getMessage());
+    }
+}
+
+try {
+    $pdo->query("SELECT guide_name FROM hotel_invoice_items LIMIT 1");
+} catch (\Throwable $e) {
+    try {
+        $pdo->exec("ALTER TABLE hotel_invoice_items ADD COLUMN guide_name VARCHAR(120) DEFAULT NULL AFTER guide_id");
+    } catch (\Throwable $e2) {
+        error_log('hotel_invoice_items guide_name migration: ' . $e2->getMessage());
+    }
 }
 
 $pdo->exec("CREATE TABLE IF NOT EXISTS hotel_invoice_items (
@@ -464,17 +526,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $subtotal = 0;
             $motorRentalItems = [];
             $carRentalItems   = [];
+            $driverTripItems  = [];
             foreach ($items as &$item) {
-                $item['qty']        = max(0.5, (float)($item['qty']        ?? 1));
-                $item['unit_price'] = max(0,   (float)($item['unit_price'] ?? 0));
+                $item['qty']         = max(0.5, (float)($item['qty']        ?? 1));
+                $item['unit_price']  = max(0,   (float)($item['unit_price'] ?? 0));
+                $item['motor_count'] = max(1, (int)($item['motor_count'] ?? 1));
                 $item['start_dt']   = trim((string)($item['start_dt'] ?? '')) ?: null;
                 $item['end_dt']     = trim((string)($item['end_dt'] ?? '')) ?: null;
                 $item['deposit']    = max(0, (float)($item['deposit'] ?? 0));
                 $item['trip_destination'] = trim((string)($item['trip_destination'] ?? '')) ?: null;
+                $item['trip_type'] = trim((string)($item['trip_type'] ?? ''));
+                $item['guide_id'] = (int)($item['guide_id'] ?? 0);
+                $item['guide_name'] = trim((string)($item['guide_name'] ?? ''));
                 $item['total']      = round($item['qty'] * $item['unit_price'], 2);
+                $item['car_id']              = (int)($item['car_id'] ?? 0);
+                $item['needs_driver_payment'] = !empty($item['needs_driver_payment']) ? 1 : 0;
+                $item['commission_type']     = in_array($item['commission_type'] ?? '', ['percent', 'nominal'], true) ? $item['commission_type'] : 'percent';
+                $item['commission_value']    = max(0, (float)($item['commission_value'] ?? 0));
                 $subtotal += $item['total'];
                 if (!isset($serviceTypes[$item['service_type'] ?? ''])) {
                     throw new Exception('Invalid service type: ' . ($item['service_type'] ?? ''));
+                }
+
+                if (($item['service_type'] ?? '') === 'narayana_trip') {
+                    if (!in_array($item['trip_type'], ['open_trip', 'private_trip'], true)) {
+                        throw new Exception('Narayana Trip wajib pilih tipe Open Trip atau Private Trip');
+                    }
+                    if ($item['guide_id'] <= 0) {
+                        throw new Exception('Narayana Trip wajib pilih nama guide');
+                    }
+                    $guideStmt = $pdo->prepare("SELECT id, guide_name FROM narayana_trip_guides WHERE id=? AND business_id=? AND is_active=1 LIMIT 1");
+                    $guideStmt->execute([$item['guide_id'], $businessId]);
+                    $guideRow = $guideStmt->fetch(PDO::FETCH_ASSOC);
+                    if (!$guideRow) {
+                        throw new Exception('Guide Narayana Trip tidak ditemukan');
+                    }
+                    $item['guide_name'] = trim((string)$guideRow['guide_name']);
+                    if (trim((string)($item['description'] ?? '')) === '') {
+                        $tripTypeLabel = $item['trip_type'] === 'open_trip' ? 'Open Trip' : 'Private Trip';
+                        $item['description'] = "Narayana Trip - {$tripTypeLabel} - Guide: {$item['guide_name']}";
+                    }
                 }
 
                 if (($item['service_type'] ?? '') === 'motor_rental') {
@@ -523,6 +614,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                             $item['description'] .= ' — Tujuan: ' . $item['trip_destination'];
                         }
                     }
+                }
+
+                if (in_array($item['service_type'] ?? '', ['airport_drop', 'harbor_drop'], true) && $item['car_id']) {
+                    $carStmt = $pdo->prepare("SELECT * FROM rental_cars WHERE id=? AND business_id=?");
+                    $carStmt->execute([$item['car_id'], $businessId]);
+                    $carRow = $carStmt->fetch(PDO::FETCH_ASSOC);
+                    if (!$carRow) throw new Exception('Mobil/driver tidak ditemukan');
+                    $item['start_dt'] = $item['start_dt'] ?: date('Y-m-d H:i:s');
+                    $item['end_dt']   = $item['end_dt'] ?: $item['start_dt'];
+                    if ($item['needs_driver_payment'] && $item['commission_value'] <= 0) {
+                        $item['commission_type']  = $carRow['commission_type'] ?: 'percent';
+                        $item['commission_value'] = $item['commission_type'] === 'nominal' ? (float)$carRow['commission_nominal'] : (float)$carRow['owner_commission_pct'];
+                    }
+                    $driverTripItems[] = ['item' => $item, 'row' => $carRow];
                 }
             }
             unset($item);
@@ -581,16 +686,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 $existingSubtotal = (float)$sumStmt->fetchColumn();
                 // Update totals based on new items
                 $iStmt = $pdo->prepare("INSERT INTO hotel_invoice_items
-                    (invoice_id, service_type, description, quantity, unit_price, total_price, start_datetime, end_datetime)
-                    VALUES (?,?,?,?,?,?,?,?)");
+                    (invoice_id, service_type, trip_type, guide_id, guide_name, description, quantity, unit_price, total_price, owner_amount, hotel_commission, start_datetime, end_datetime)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)");
                 foreach ($items as $item) {
+                    [$iOwner, $iHotel] = !empty($item['needs_driver_payment'])
+                        ? calcDriverSplit((float)$item['total'], $item['commission_type'] ?? 'percent', (float)($item['commission_value'] ?? 0))
+                        : [0.0, 0.0];
+                    if (($item['service_type'] ?? '') === 'narayana_trip') {
+                        // Guide billing defaults to full amount when no explicit split is provided.
+                        if ($iOwner <= 0 && $iHotel <= 0) {
+                            $iOwner = (float)$item['total'];
+                            $iHotel = 0.0;
+                        }
+                    }
                     $iStmt->execute([
                         $invId,
                         $item['service_type'],
+                        $item['trip_type'] ?: null,
+                        $item['guide_id'] ?: null,
+                        $item['guide_name'] ?: null,
                         $item['description'] ?: null,
                         $item['qty'],
                         $item['unit_price'],
                         $item['total'],
+                        $iOwner,
+                        $iHotel,
                         $item['start_dt'] ?: null,
                         $item['end_dt'] ?: null,
                     ]);
@@ -654,16 +774,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 $invId = (int)$pdo->lastInsertId();
 
                 $iStmt = $pdo->prepare("INSERT INTO hotel_invoice_items
-                    (invoice_id, service_type, description, quantity, unit_price, total_price, start_datetime, end_datetime)
-                    VALUES (?,?,?,?,?,?,?,?)");
+                    (invoice_id, service_type, trip_type, guide_id, guide_name, description, quantity, unit_price, total_price, owner_amount, hotel_commission, start_datetime, end_datetime)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)");
                 foreach ($items as $item) {
+                    [$iOwner, $iHotel] = !empty($item['needs_driver_payment'])
+                        ? calcDriverSplit((float)$item['total'], $item['commission_type'] ?? 'percent', (float)($item['commission_value'] ?? 0))
+                        : [0.0, 0.0];
+                    if (($item['service_type'] ?? '') === 'narayana_trip') {
+                        if ($iOwner <= 0 && $iHotel <= 0) {
+                            $iOwner = (float)$item['total'];
+                            $iHotel = 0.0;
+                        }
+                    }
                     $iStmt->execute([
                         $invId,
                         $item['service_type'],
+                        $item['trip_type'] ?: null,
+                        $item['guide_id'] ?: null,
+                        $item['guide_name'] ?: null,
                         $item['description'] ?: null,
                         $item['qty'],
                         $item['unit_price'],
                         $item['total'],
+                        $iOwner,
+                        $iHotel,
                         $item['start_dt'] ?: null,
                         $item['end_dt'] ?: null,
                     ]);
@@ -675,8 +809,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 $motorRow = $motorRental['row'];
                 $pdo->prepare("INSERT INTO rental_motor_bookings
                     (business_id, motor_id, invoice_id, guest_name, guest_phone, room_number, booking_id,
-                     start_datetime, end_datetime, daily_rate, total_price, deposit, status, notes, created_by)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+                     start_datetime, end_datetime, daily_rate, total_price, motor_count, deposit, status, notes, created_by)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
                     ->execute([
                         $businessId,
                         (int)$motorRow['id'],
@@ -689,6 +823,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                         $item['end_dt'],
                         $item['unit_price'],
                         $item['total'],
+                        $item['motor_count'] ?? 1,
                         $item['deposit'],
                         'active',
                         $notes ?: null,
@@ -701,11 +836,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             foreach ($carRentalItems as $carRental) {
                 $item = $carRental['item'];
                 $carRow = $carRental['row'];
+                [$ownerAmount, $hotelCommission] = $item['needs_driver_payment']
+                    ? calcDriverSplit((float)$item['total'], $item['commission_type'], $item['commission_value'])
+                    : [0, 0];
                 $pdo->prepare("INSERT INTO rental_car_bookings
                     (business_id, car_id, invoice_id, guest_name, guest_phone, room_number, booking_id,
                      start_datetime, end_datetime, daily_rate, total_price, owner_amount, hotel_commission,
-                     deposit, trip_destination, status, notes, created_by)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+                     deposit, trip_destination, status, notes, created_by,
+                     service_type, needs_driver_payment, commission_type, commission_value)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
                     ->execute([
                         $businessId,
                         (int)$carRow['id'],
@@ -718,16 +857,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                         $item['end_dt'],
                         $item['unit_price'],
                         $item['total'],
-                        0,
-                        0,
+                        $ownerAmount,
+                        $hotelCommission,
                         $item['deposit'],
                         $item['trip_destination'],
                         'active',
                         $notes ?: null,
-                        $currentUser['id'] ?? null
+                        $currentUser['id'] ?? null,
+                        'car_rental',
+                        $item['needs_driver_payment'],
+                        $item['commission_type'],
+                        $item['commission_value'],
                     ]);
                 $pdo->prepare("UPDATE rental_cars SET status='rented', updated_at=NOW() WHERE id=?")
                     ->execute([(int)$carRow['id']]);
+            }
+
+            foreach ($driverTripItems as $driverTrip) {
+                $item = $driverTrip['item'];
+                $carRow = $driverTrip['row'];
+                [$ownerAmount, $hotelCommission] = $item['needs_driver_payment']
+                    ? calcDriverSplit((float)$item['total'], $item['commission_type'], $item['commission_value'])
+                    : [0, 0];
+                $pdo->prepare("INSERT INTO rental_car_bookings
+                    (business_id, car_id, invoice_id, guest_name, guest_phone, room_number, booking_id,
+                     start_datetime, end_datetime, daily_rate, total_price, owner_amount, hotel_commission,
+                     deposit, trip_destination, status, notes, created_by,
+                     service_type, needs_driver_payment, commission_type, commission_value)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+                    ->execute([
+                        $businessId,
+                        (int)$carRow['id'],
+                        $invId,
+                        $guestName,
+                        $guestPhone ?: null,
+                        $roomNumber ?: null,
+                        $bookingId,
+                        $item['start_dt'],
+                        $item['end_dt'],
+                        $item['unit_price'],
+                        $item['total'],
+                        $ownerAmount,
+                        $hotelCommission,
+                        0,
+                        $item['trip_destination'],
+                        'returned',
+                        $notes ?: null,
+                        $currentUser['id'] ?? null,
+                        $item['service_type'],
+                        $item['needs_driver_payment'],
+                        $item['commission_type'],
+                        $item['commission_value'],
+                    ]);
             }
             $pdo->commit();
 
@@ -850,9 +1031,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $pdo->prepare("UPDATE hotel_invoices SET paid_amount=?, payment_status=?, payment_method=?, updated_at=NOW() WHERE id=? AND business_id=?")
                 ->execute([$newPaid, $payStatus, $method, $id, $businessId]);
 
+            // Motor Return Tracking: Instead of auto-returning, ask staff to confirm
+            // whether motor is actually back. If not returned within 24h, system will notify.
+            $motorsForConfirmation = [];
+            $carsAutoReturned   = [];
+            if ($payStatus === 'paid') {
+                // Get motors that need return confirmation (don't auto-return yet)
+                $motorRentals = $pdo->prepare("SELECT rb.id, rb.motor_id, rm.motor_name, rm.plate_number 
+                    FROM rental_motor_bookings rb
+                    JOIN rental_motors rm ON rb.motor_id = rm.id
+                    WHERE rb.invoice_id=? AND rb.business_id=? AND rb.status IN ('active','overdue')");
+                $motorRentals->execute([$id, $businessId]);
+                foreach ($motorRentals->fetchAll(PDO::FETCH_ASSOC) as $mr) {
+                    $motorsForConfirmation[] = [
+                        'id' => (int)$mr['id'],
+                        'motor_name' => $mr['motor_name'],
+                        'plate_number' => $mr['plate_number']
+                    ];
+                }
+
+                // Auto-return rental cars (user doesn't manually return cars via invoice like motors)
+                $carRentals = $pdo->prepare("SELECT cb.id, cb.car_id FROM rental_car_bookings cb
+                    WHERE cb.invoice_id=? AND cb.business_id=? AND cb.status IN ('active','overdue')");
+                $carRentals->execute([$id, $businessId]);
+                foreach ($carRentals->fetchAll(PDO::FETCH_ASSOC) as $cr) {
+                    $pdo->prepare("UPDATE rental_car_bookings SET status='returned', actual_return=NOW(), updated_at=NOW() WHERE id=?")
+                        ->execute([$cr['id']]);
+                    $pdo->prepare("UPDATE rental_cars SET status='available', updated_at=NOW() WHERE id=?")
+                        ->execute([$cr['car_id']]);
+                    $carsAutoReturned[] = (int)$cr['id'];
+                }
+            }
+
             // Cashbook NOT synced here — must use "Process Invoice" in preview
             ob_clean();
-            echo json_encode(['success' => true, 'payment_status' => $payStatus, 'paid_amount' => $newPaid, 'cashbook' => false]);
+            echo json_encode(['success' => true, 'payment_status' => $payStatus, 'paid_amount' => $newPaid, 'cashbook' => false, 'motors_for_confirmation' => $motorsForConfirmation, 'cars_auto_returned' => $carsAutoReturned]);
             exit;
         }
 
@@ -896,8 +1109,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 $pdo->prepare("UPDATE hotel_invoices SET cashbook_synced=1, updated_at=NOW() WHERE id=?")->execute([$id]);
             }
 
+            // Auto-generate Tagihan (Bills) entries for any driver/partner payments owed on this trip
+            $driverBillsCreated = 0;
+            try {
+                $driverBookingsStmt = $pdo->prepare("SELECT * FROM rental_car_bookings WHERE invoice_id=? AND business_id=? AND needs_driver_payment=1 AND billed_to_tagihan=0");
+                $driverBookingsStmt->execute([$id, $businessId]);
+                foreach ($driverBookingsStmt->fetchAll(PDO::FETCH_ASSOC) as $driverBooking) {
+                    $svcLabel = $serviceTypes[$driverBooking['service_type']]['label'] ?? ucfirst(str_replace('_', ' ', $driverBooking['service_type']));
+                    if (createDriverPayableBill($pdo, $currentUser['id'] ?? null, $driverBooking, $svcLabel)) {
+                        $driverBillsCreated++;
+                    }
+                }
+            } catch (\Throwable $e) {
+                error_log('createDriverPayableBill: ' . $e->getMessage());
+            }
+
             ob_clean();
-            echo json_encode(['success' => true, 'cashbook' => $cbOk, 'paid_amount' => $invRow['paid_amount']]);
+            echo json_encode(['success' => true, 'cashbook' => $cbOk, 'paid_amount' => $invRow['paid_amount'], 'driver_bills_created' => $driverBillsCreated]);
             exit;
         }
 
@@ -931,8 +1159,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
         if ($action === 'delete') {
             $id = (int)($_POST['id'] ?? 0);
             if (!$id) throw new Exception('Invalid ID');
+            $pdo->beginTransaction();
+
+            $motorBookings = $pdo->prepare("SELECT id, motor_id, status FROM rental_motor_bookings WHERE invoice_id=? AND business_id=?");
+            $motorBookings->execute([$id, $businessId]);
+            foreach ($motorBookings->fetchAll(PDO::FETCH_ASSOC) as $booking) {
+                $pdo->prepare("DELETE FROM rental_motor_bookings WHERE id=? AND business_id=?")
+                    ->execute([$booking['id'], $businessId]);
+                $activeCheck = $pdo->prepare("SELECT COUNT(*) FROM rental_motor_bookings WHERE motor_id=? AND status IN ('active','overdue') AND business_id=?");
+                $activeCheck->execute([$booking['motor_id'], $businessId]);
+                if ((int)$activeCheck->fetchColumn() === 0) {
+                    $pdo->prepare("UPDATE rental_motors SET status='available', updated_at=NOW() WHERE id=?")
+                        ->execute([$booking['motor_id']]);
+                }
+            }
+
+            $carBookings = $pdo->prepare("SELECT id, car_id, status FROM rental_car_bookings WHERE invoice_id=? AND business_id=?");
+            $carBookings->execute([$id, $businessId]);
+            foreach ($carBookings->fetchAll(PDO::FETCH_ASSOC) as $booking) {
+                $pdo->prepare("DELETE FROM rental_car_bookings WHERE id=? AND business_id=?")
+                    ->execute([$booking['id'], $businessId]);
+                $activeCheck = $pdo->prepare("SELECT COUNT(*) FROM rental_car_bookings WHERE car_id=? AND status IN ('active','overdue') AND business_id=?");
+                $activeCheck->execute([$booking['car_id'], $businessId]);
+                if ((int)$activeCheck->fetchColumn() === 0) {
+                    $pdo->prepare("UPDATE rental_cars SET status='available', updated_at=NOW() WHERE id=?")
+                        ->execute([$booking['car_id']]);
+                }
+            }
+
             $pdo->prepare("DELETE FROM hotel_invoice_items WHERE invoice_id=?")->execute([$id]);
             $pdo->prepare("DELETE FROM hotel_invoices WHERE id=? AND business_id=?")->execute([$id, $businessId]);
+            $pdo->commit();
             ob_clean();
             echo json_encode(['success' => true]);
             exit;
@@ -996,17 +1253,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $cid   = (int)($_POST['cid'] ?? 0);
             $stype = $_POST['service_type'] ?? '';
             $name  = trim($_POST['item_name'] ?? '');
-            $price = max(0, (float)($_POST['default_price'] ?? 0));
+            $price      = max(0, (float)($_POST['default_price'] ?? 0));
+            $driverRate = max(0, (float)($_POST['driver_rate'] ?? 0));
             $unit  = trim($_POST['unit'] ?? 'unit');
             $sort  = (int)($_POST['sort_order'] ?? 0);
             if (!$name) throw new Exception('Item name is required');
             if (!isset($serviceTypes[$stype])) throw new Exception('Invalid service type');
             if ($cid) {
-                $pdo->prepare("UPDATE hotel_service_catalog SET service_type=?,item_name=?,default_price=?,unit=?,sort_order=? WHERE id=? AND business_id=?")
-                    ->execute([$stype, $name, $price, $unit, $sort, $cid, $businessId]);
+                $pdo->prepare("UPDATE hotel_service_catalog SET service_type=?,item_name=?,default_price=?,driver_rate=?,unit=?,sort_order=? WHERE id=? AND business_id=?")
+                    ->execute([$stype, $name, $price, $driverRate, $unit, $sort, $cid, $businessId]);
             } else {
-                $pdo->prepare("INSERT INTO hotel_service_catalog (business_id,service_type,item_name,default_price,unit,sort_order) VALUES (?,?,?,?,?,?)")
-                    ->execute([$businessId, $stype, $name, $price, $unit, $sort]);
+                $pdo->prepare("INSERT INTO hotel_service_catalog (business_id,service_type,item_name,default_price,driver_rate,unit,sort_order) VALUES (?,?,?,?,?,?,?)")
+                    ->execute([$businessId, $stype, $name, $price, $driverRate, $unit, $sort]);
                 $cid = (int)$pdo->lastInsertId();
             }
             ob_clean();
@@ -1066,6 +1324,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             exit;
         }
 
+        // ── SAVE / UPDATE NARAYANA TRIP GUIDE ───────────────────────────────────────────
+        if ($action === 'save_trip_guide') {
+            $guideId = (int)($_POST['guide_id'] ?? 0);
+            $guideName = trim($_POST['guide_name'] ?? '');
+            $phone = trim($_POST['phone'] ?? '');
+            $sortOrder = (int)($_POST['sort_order'] ?? 0);
+            if ($guideName === '') {
+                throw new Exception('Nama guide wajib diisi');
+            }
+            if ($guideId > 0) {
+                $pdo->prepare("UPDATE narayana_trip_guides SET guide_name=?, phone=?, sort_order=? WHERE id=? AND business_id=?")
+                    ->execute([$guideName, $phone ?: null, $sortOrder, $guideId, $businessId]);
+            } else {
+                $pdo->prepare("INSERT INTO narayana_trip_guides (business_id, guide_name, phone, sort_order, is_active) VALUES (?,?,?,?,1)")
+                    ->execute([$businessId, $guideName, $phone ?: null, $sortOrder]);
+                $guideId = (int)$pdo->lastInsertId();
+            }
+            ob_clean();
+            echo json_encode(['success' => true, 'id' => $guideId]);
+            exit;
+        }
+
+        // ── DELETE NARAYANA TRIP GUIDE ─────────────────────────────────────────────────
+        if ($action === 'delete_trip_guide') {
+            $guideId = (int)($_POST['guide_id'] ?? 0);
+            if (!$guideId) throw new Exception('Guide ID tidak valid');
+
+            $usedCheck = $pdo->prepare("SELECT COUNT(*) FROM hotel_invoice_items hii
+                JOIN hotel_invoices hi ON hi.id = hii.invoice_id
+                WHERE hi.business_id=? AND hii.guide_id=?");
+            $usedCheck->execute([$businessId, $guideId]);
+            if ((int)$usedCheck->fetchColumn() > 0) {
+                throw new Exception('Guide sudah dipakai pada invoice, tidak bisa dihapus');
+            }
+
+            $pdo->prepare("DELETE FROM narayana_trip_guides WHERE id=? AND business_id=?")
+                ->execute([$guideId, $businessId]);
+            ob_clean();
+            echo json_encode(['success' => true]);
+            exit;
+        }
+
         // ── GET SERVICE TYPES (AJAX) ────────────────────────────────────────────────────────
         if ($action === 'get_service_types') {
             $stRows = $pdo->prepare("SELECT * FROM hotel_service_types WHERE business_id=? ORDER BY sort_order, type_label");
@@ -1117,8 +1417,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $existingCarRows->execute([$id, $businessId]);
             $existingCarBookings = $existingCarRows->fetchAll(PDO::FETCH_ASSOC);
             $existingCarByAssetId = [];
+            $existingDriverTripByKey = [];
             foreach ($existingCarBookings as $row) {
-                $existingCarByAssetId[(int)$row['car_id']] = $row;
+                $svcType = $row['service_type'] ?: 'car_rental';
+                if ($svcType === 'car_rental') {
+                    $existingCarByAssetId[(int)$row['car_id']] = $row;
+                } else {
+                    $existingDriverTripByKey[$svcType . '_' . (int)$row['car_id']] = $row;
+                }
             }
 
             $subtotal = 0;
@@ -1131,9 +1437,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 $item['end_dt']     = trim((string)($item['end_dt'] ?? '')) ?: null;
                 $item['deposit']    = max(0, (float)($item['deposit'] ?? 0));
                 $item['trip_destination'] = trim((string)($item['trip_destination'] ?? '')) ?: null;
+                $item['trip_type'] = trim((string)($item['trip_type'] ?? ''));
+                $item['guide_id'] = (int)($item['guide_id'] ?? 0);
+                $item['guide_name'] = trim((string)($item['guide_name'] ?? ''));
                 $item['total']      = round($item['qty'] * $item['unit_price'], 2);
+                $item['car_id']              = (int)($item['car_id'] ?? 0);
+                $item['needs_driver_payment'] = !empty($item['needs_driver_payment']) ? 1 : 0;
+                $item['commission_type']     = in_array($item['commission_type'] ?? '', ['percent', 'nominal'], true) ? $item['commission_type'] : 'percent';
+                $item['commission_value']    = max(0, (float)($item['commission_value'] ?? 0));
                 $subtotal += $item['total'];
                 if (!isset($serviceTypes[$item['service_type'] ?? ''])) throw new Exception('Invalid service type');
+
+                if (($item['service_type'] ?? '') === 'narayana_trip') {
+                    if (!in_array($item['trip_type'], ['open_trip', 'private_trip'], true)) {
+                        throw new Exception('Narayana Trip wajib pilih tipe Open Trip atau Private Trip');
+                    }
+                    if ($item['guide_id'] <= 0) {
+                        throw new Exception('Narayana Trip wajib pilih nama guide');
+                    }
+                    $guideStmt = $pdo->prepare("SELECT id, guide_name FROM narayana_trip_guides WHERE id=? AND business_id=? AND is_active=1 LIMIT 1");
+                    $guideStmt->execute([$item['guide_id'], $businessId]);
+                    $guideRow = $guideStmt->fetch(PDO::FETCH_ASSOC);
+                    if (!$guideRow) {
+                        throw new Exception('Guide Narayana Trip tidak ditemukan');
+                    }
+                    $item['guide_name'] = trim((string)$guideRow['guide_name']);
+                    if (trim((string)($item['description'] ?? '')) === '') {
+                        $tripTypeLabel = $item['trip_type'] === 'open_trip' ? 'Open Trip' : 'Private Trip';
+                        $item['description'] = "Narayana Trip - {$tripTypeLabel} - Guide: {$item['guide_name']}";
+                    }
+                }
 
                 if (($item['service_type'] ?? '') === 'motor_rental') {
                     $item['motor_id'] = (int)($item['motor_id'] ?? 0);
@@ -1149,16 +1482,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
 
                 if (($item['service_type'] ?? '') === 'car_rental') {
                     $item['car_id'] = (int)($item['car_id'] ?? 0);
-                    if (!$item['car_id'] || !$item['start_dt'] || !$item['end_dt']) throw new Exception('Rental mobil/taxi wajib pilih armada, mulai, dan selesai');
+                    if (!$item['start_dt'] || !$item['end_dt']) throw new Exception('Rental mobil/taxi wajib isi mulai dan selesai');
+                    if ($item['car_id']) {
+                        $carStmt = $pdo->prepare("SELECT * FROM rental_cars WHERE id=? AND business_id=?");
+                        $carStmt->execute([$item['car_id'], $businessId]);
+                        $carRow = $carStmt->fetch(PDO::FETCH_ASSOC);
+                        if (!$carRow) throw new Exception('Armada mobil tidak ditemukan');
+                        if ($carRow['status'] !== 'available' && !isset($existingCarByAssetId[$item['car_id']])) throw new Exception("Mobil {$carRow['plate_number']} tidak tersedia");
+                        $baseDesc = $carRow['car_name'] . ' (' . $carRow['plate_number'] . ')';
+                        if ($item['trip_destination']) $baseDesc .= ' — Tujuan: ' . $item['trip_destination'];
+                        $item['description'] = trim((string)($item['description'] ?? '')) ?: $baseDesc;
+                        if ($item['needs_driver_payment'] && $item['commission_value'] <= 0) {
+                            $item['commission_type']  = $carRow['commission_type'] ?: 'percent';
+                            $item['commission_value'] = $item['commission_type'] === 'nominal' ? (float)$carRow['commission_nominal'] : (float)$carRow['owner_commission_pct'];
+                        }
+                        $carRentalItems[] = ['item' => $item, 'row' => $carRow];
+                    } else {
+                        if (trim((string)($item['description'] ?? '')) === '') {
+                            $item['description'] = 'Rental Mobil / Taxi';
+                        }
+                    }
+                }
+
+                if (in_array($item['service_type'] ?? '', ['airport_drop', 'harbor_drop'], true) && $item['car_id']) {
                     $carStmt = $pdo->prepare("SELECT * FROM rental_cars WHERE id=? AND business_id=?");
                     $carStmt->execute([$item['car_id'], $businessId]);
                     $carRow = $carStmt->fetch(PDO::FETCH_ASSOC);
-                    if (!$carRow) throw new Exception('Armada mobil tidak ditemukan');
-                    if ($carRow['status'] !== 'available' && !isset($existingCarByAssetId[$item['car_id']])) throw new Exception("Mobil {$carRow['plate_number']} tidak tersedia");
-                    $baseDesc = $carRow['car_name'] . ' (' . $carRow['plate_number'] . ')';
-                    if ($item['trip_destination']) $baseDesc .= ' — Tujuan: ' . $item['trip_destination'];
-                    $item['description'] = trim((string)($item['description'] ?? '')) ?: $baseDesc;
-                    $carRentalItems[] = ['item' => $item, 'row' => $carRow];
+                    if (!$carRow) throw new Exception('Mobil/driver tidak ditemukan');
+                    $item['start_dt'] = $item['start_dt'] ?: date('Y-m-d H:i:s');
+                    $item['end_dt']   = $item['end_dt'] ?: $item['start_dt'];
+                    if ($item['needs_driver_payment'] && $item['commission_value'] <= 0) {
+                        $item['commission_type']  = $carRow['commission_type'] ?: 'percent';
+                        $item['commission_value'] = $item['commission_type'] === 'nominal' ? (float)$carRow['commission_nominal'] : (float)$carRow['owner_commission_pct'];
+                    }
+                    $driverTripItems[] = ['item' => $item, 'row' => $carRow];
                 }
             }
             unset($item);
@@ -1176,9 +1533,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $pdo->prepare("UPDATE hotel_invoices SET guest_name=?,guest_phone=?,room_number=?,total=?,paid_amount=?,payment_status=?,payment_method=?,notes=?,tax_rate=?,tax_amount=?,service_charge_rate=?,service_charge_amount=?,discount_rate=?,discount_amount=?,updated_at=NOW() WHERE id=?")
                 ->execute([$guestName, $guestPhone ?: null, $roomNumber ?: null, $total, $paidAmount, $payStatus, $payMethod, $notes ?: null, $taxRate, $taxAmount, $serviceChargeRate, $serviceChargeAmount, $discountRate, $discountAmount, $id]);
             $pdo->prepare("DELETE FROM hotel_invoice_items WHERE invoice_id=?")->execute([$id]);
-            $iStmt = $pdo->prepare("INSERT INTO hotel_invoice_items (invoice_id,service_type,description,quantity,unit_price,total_price,start_datetime,end_datetime) VALUES (?,?,?,?,?,?,?,?)");
+            $iStmt = $pdo->prepare("INSERT INTO hotel_invoice_items
+                (invoice_id,service_type,trip_type,guide_id,guide_name,description,quantity,unit_price,total_price,owner_amount,hotel_commission,start_datetime,end_datetime)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)");
             foreach ($items as $item) {
-                $iStmt->execute([$id, $item['service_type'], $item['description'] ?: null, $item['qty'], $item['unit_price'], $item['total'], $item['start_dt'] ?: null, $item['end_dt'] ?: null]);
+                [$iOwner, $iHotel] = !empty($item['needs_driver_payment'])
+                    ? calcDriverSplit((float)$item['total'], $item['commission_type'] ?? 'percent', (float)($item['commission_value'] ?? 0))
+                    : [0.0, 0.0];
+                if (($item['service_type'] ?? '') === 'narayana_trip') {
+                    if ($iOwner <= 0 && $iHotel <= 0) {
+                        $iOwner = (float)$item['total'];
+                        $iHotel = 0.0;
+                    }
+                }
+                $iStmt->execute([
+                    $id,
+                    $item['service_type'],
+                    $item['trip_type'] ?: null,
+                    $item['guide_id'] ?: null,
+                    $item['guide_name'] ?: null,
+                    $item['description'] ?: null,
+                    $item['qty'],
+                    $item['unit_price'],
+                    $item['total'],
+                    $iOwner,
+                    $iHotel,
+                    $item['start_dt'] ?: null,
+                    $item['end_dt'] ?: null
+                ]);
             }
 
             $matchedMotorBookingIds = [];
@@ -1260,13 +1642,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 $item = $carRental['item'];
                 $carRow = $carRental['row'];
                 $existingBooking = $existingCarByAssetId[(int)$item['car_id']] ?? null;
+                [$ownerAmount, $hotelCommission] = $item['needs_driver_payment']
+                    ? calcDriverSplit((float)$item['total'], $item['commission_type'], $item['commission_value'])
+                    : [0, 0];
                 if ($existingBooking) {
                     $matchedCarBookingIds[] = (int)$existingBooking['id'];
                     $newStatus = in_array($existingBooking['status'], ['returned', 'cancelled'], true) ? 'active' : $existingBooking['status'];
                     $pdo->prepare("UPDATE rental_car_bookings
                         SET invoice_id=?, guest_name=?, guest_phone=?, room_number=?, booking_id=?,
                             start_datetime=?, end_datetime=?, daily_rate=?, total_price=?, deposit=?,
-                            trip_destination=?, status=?, notes=?, updated_at=NOW()
+                            trip_destination=?, status=?, notes=?, owner_amount=?, hotel_commission=?,
+                            needs_driver_payment=?, commission_type=?, commission_value=?, updated_at=NOW()
                         WHERE id=? AND business_id=?")
                         ->execute([
                             $id,
@@ -1282,6 +1668,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                             $item['trip_destination'],
                             $newStatus,
                             $notes ?: null,
+                            $ownerAmount,
+                            $hotelCommission,
+                            $item['needs_driver_payment'],
+                            $item['commission_type'],
+                            $item['commission_value'],
                             $existingBooking['id'],
                             $businessId
                         ]);
@@ -1289,8 +1680,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                     $pdo->prepare("INSERT INTO rental_car_bookings
                         (business_id, car_id, invoice_id, guest_name, guest_phone, room_number, booking_id,
                          start_datetime, end_datetime, daily_rate, total_price, owner_amount, hotel_commission,
-                         deposit, trip_destination, status, notes, created_by)
-                        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+                         deposit, trip_destination, status, notes, created_by,
+                         service_type, needs_driver_payment, commission_type, commission_value)
+                        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
                         ->execute([
                             $businessId,
                             (int)$carRow['id'],
@@ -1303,18 +1695,94 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                             $item['end_dt'],
                             $item['unit_price'],
                             $item['total'],
-                            0,
-                            0,
+                            $ownerAmount,
+                            $hotelCommission,
                             $item['deposit'],
                             $item['trip_destination'],
                             'active',
                             $notes ?: null,
-                            $currentUser['id'] ?? null
+                            $currentUser['id'] ?? null,
+                            'car_rental',
+                            $item['needs_driver_payment'],
+                            $item['commission_type'],
+                            $item['commission_value'],
                         ]);
                     $matchedCarBookingIds[] = (int)$pdo->lastInsertId();
                 }
                 $pdo->prepare("UPDATE rental_cars SET status='rented', updated_at=NOW() WHERE id=?")
                     ->execute([(int)$carRow['id']]);
+            }
+
+            // Airport Drop / Harbor Drop driver-trip items (update existing or insert new)
+            foreach ($driverTripItems as $driverTrip) {
+                $item = $driverTrip['item'];
+                $carRow = $driverTrip['row'];
+                $key = ($item['service_type'] ?? '') . '_' . (int)$carRow['id'];
+                $existingTrip = $existingDriverTripByKey[$key] ?? null;
+                [$ownerAmount, $hotelCommission] = $item['needs_driver_payment']
+                    ? calcDriverSplit((float)$item['total'], $item['commission_type'], $item['commission_value'])
+                    : [0, 0];
+                if ($existingTrip) {
+                    $matchedCarBookingIds[] = (int)$existingTrip['id'];
+                    $pdo->prepare("UPDATE rental_car_bookings
+                        SET invoice_id=?, guest_name=?, guest_phone=?, room_number=?, booking_id=?,
+                            start_datetime=?, end_datetime=?, daily_rate=?, total_price=?,
+                            trip_destination=?, notes=?, owner_amount=?, hotel_commission=?,
+                            needs_driver_payment=?, commission_type=?, commission_value=?, updated_at=NOW()
+                        WHERE id=? AND business_id=?")
+                        ->execute([
+                            $id,
+                            $guestName,
+                            $guestPhone ?: null,
+                            $roomNumber ?: null,
+                            $invoiceBookingId,
+                            $item['start_dt'],
+                            $item['end_dt'],
+                            $item['unit_price'],
+                            $item['total'],
+                            $item['trip_destination'],
+                            $notes ?: null,
+                            $ownerAmount,
+                            $hotelCommission,
+                            $item['needs_driver_payment'],
+                            $item['commission_type'],
+                            $item['commission_value'],
+                            $existingTrip['id'],
+                            $businessId
+                        ]);
+                } else {
+                    $pdo->prepare("INSERT INTO rental_car_bookings
+                        (business_id, car_id, invoice_id, guest_name, guest_phone, room_number, booking_id,
+                         start_datetime, end_datetime, daily_rate, total_price, owner_amount, hotel_commission,
+                         deposit, trip_destination, status, notes, created_by,
+                         service_type, needs_driver_payment, commission_type, commission_value)
+                        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+                        ->execute([
+                            $businessId,
+                            (int)$carRow['id'],
+                            $id,
+                            $guestName,
+                            $guestPhone ?: null,
+                            $roomNumber ?: null,
+                            $invoiceBookingId,
+                            $item['start_dt'],
+                            $item['end_dt'],
+                            $item['unit_price'],
+                            $item['total'],
+                            $ownerAmount,
+                            $hotelCommission,
+                            0,
+                            $item['trip_destination'],
+                            'returned',
+                            $notes ?: null,
+                            $currentUser['id'] ?? null,
+                            $item['service_type'],
+                            $item['needs_driver_payment'],
+                            $item['commission_type'],
+                            $item['commission_value'],
+                        ]);
+                    $matchedCarBookingIds[] = (int)$pdo->lastInsertId();
+                }
             }
 
             foreach ($existingCarBookings as $booking) {
@@ -1440,11 +1908,19 @@ try {
 }
 
 try {
-    $carStmt = $pdo->prepare("SELECT id, plate_number, car_name, car_type, daily_rate FROM rental_cars WHERE business_id=? AND status='available' ORDER BY car_name ASC, plate_number ASC");
+    $carStmt = $pdo->prepare("SELECT id, plate_number, car_name, car_type, daily_rate, driver_daily_rate, partner_owner, owner_commission_pct, commission_type, commission_nominal FROM rental_cars WHERE business_id=? AND status='available' ORDER BY car_name ASC, plate_number ASC");
     $carStmt->execute([$businessId]);
     $availableCars = $carStmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (\Throwable $e) {
     $availableCars = [];
+}
+
+try {
+    $guideStmt = $pdo->prepare("SELECT id, guide_name, phone, sort_order FROM narayana_trip_guides WHERE business_id=? AND is_active=1 ORDER BY sort_order, guide_name");
+    $guideStmt->execute([$businessId]);
+    $tripGuides = $guideStmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (\Throwable $e) {
+    $tripGuides = [];
 }
 
 // ── GET: load invoice for edit modal ─────────────────────────────────────────
@@ -1474,6 +1950,14 @@ if (isset($_GET['get_invoice']) && isset($_GET['id'])) {
         $carRentals = $carMapStmt->fetchAll(PDO::FETCH_ASSOC);
 
         foreach ($gRow['items'] as &$gItem) {
+            if (($gItem['service_type'] ?? '') === 'narayana_trip') {
+                if (!empty($gItem['trip_type'])) {
+                    $gItem['trip_type'] = (string)$gItem['trip_type'];
+                }
+                if (!empty($gItem['guide_id'])) {
+                    $gItem['guide_id'] = (int)$gItem['guide_id'];
+                }
+            }
             if (($gItem['service_type'] ?? '') === 'motor_rental') {
                 foreach ($motorRentals as $mr) {
                     if (strpos((string)($gItem['description'] ?? ''), (string)$mr['plate_number']) !== false) {
@@ -1505,11 +1989,28 @@ if (isset($_GET['get_invoice']) && isset($_GET['id'])) {
                         $gItem['end_dt'] = $cr['end_datetime'];
                         $gItem['deposit'] = (float)$cr['deposit'];
                         $gItem['trip_destination'] = $cr['trip_destination'];
+                        $gItem['needs_driver_payment'] = (int)($cr['needs_driver_payment'] ?? 0);
+                        $gItem['commission_type'] = $cr['commission_type'] ?? 'percent';
+                        $gItem['commission_value'] = (float)($cr['commission_value'] ?? 0);
                         // Calculate rental days
                         $start = new DateTime($cr['start_datetime']);
                         $end = new DateTime($cr['end_datetime']);
                         $interval = $start->diff($end);
                         $gItem['rental_days'] = max(1, (int)$interval->days) ?: 1;
+                        break;
+                    }
+                }
+            }
+            if (in_array($gItem['service_type'] ?? '', ['airport_drop', 'harbor_drop'], true)) {
+                foreach ($carRentals as $cr) {
+                    if ($cr['plate_number'] && strpos((string)($gItem['description'] ?? ''), (string)$cr['plate_number']) !== false) {
+                        $gItem['car_id'] = (int)$cr['car_id'];
+                        $gItem['car_name'] = $cr['car_name'];
+                        $gItem['plate_number'] = $cr['plate_number'];
+                        $gItem['trip_destination'] = $cr['trip_destination'];
+                        $gItem['needs_driver_payment'] = (int)($cr['needs_driver_payment'] ?? 0);
+                        $gItem['commission_type'] = $cr['commission_type'] ?? 'percent';
+                        $gItem['commission_value'] = (float)($cr['commission_value'] ?? 0);
                         break;
                     }
                 }
@@ -1545,50 +2046,81 @@ try {
 
 include '../../includes/header.php';
 ?>
+<!-- HS-VERSION:20260729-v3-split -->
 <style>
     .hs-page {
-        padding: 1.25rem;
+        max-width: 1140px;
+        margin: 0 auto;
+        padding: 0.65rem 0.85rem 1rem;
     }
 
     .hs-topbar {
-        display: flex;
-        justify-content: space-between;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
         align-items: center;
-        margin-bottom: 1.25rem;
+        margin-bottom: 0.85rem;
         flex-wrap: wrap;
-        gap: 0.75rem;
+        gap: 0.6rem;
+        background: #ffffff;
+        border: 1px solid #e8edf5;
+        border-radius: 12px;
+        padding: 0.7rem 0.9rem;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+    }
+
+    .hs-head-main {
+        min-width: 0;
     }
 
     .hs-topbar h2 {
-        font-size: 1.2rem;
+        font-size: 0.98rem;
         font-weight: 700;
         color: var(--text-primary);
         margin: 0;
+        letter-spacing: 0.01em;
+    }
+
+    .hs-topmeta {
+        margin-top: 0.2rem;
+        font-size: 0.75rem;
+        color: #64748b;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .hs-top-actions {
+        display: flex;
+        gap: 0.45rem;
+        flex-wrap: wrap;
+        justify-content: flex-end;
     }
 
     .hs-stats {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
         gap: 0.75rem;
-        margin-bottom: 1.25rem;
+        margin-bottom: 0.85rem;
     }
 
     .hs-stat {
         background: white;
         border-radius: 10px;
-        padding: 0.85rem 1rem;
-        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+        padding: 0.7rem 0.85rem;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
         border-top: 3px solid var(--c);
+        border: 1px solid #eef2f7;
     }
 
     .hs-stat .val {
-        font-size: 1.25rem;
+        font-size: 1.02rem;
         font-weight: 800;
         color: var(--c);
+        line-height: 1.25;
     }
 
     .hs-stat .lbl {
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         color: var(--text-secondary);
         margin-top: 0.15rem;
     }
@@ -1596,21 +2128,22 @@ include '../../includes/header.php';
     .hs-filters {
         background: white;
         border-radius: 10px;
-        padding: 0.85rem 1rem;
-        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+        padding: 0.7rem 0.85rem;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
         margin-bottom: 1rem;
         display: flex;
         flex-wrap: wrap;
         gap: 0.6rem;
         align-items: center;
+        border: 1px solid #eef2f7;
     }
 
     .hs-filters input,
     .hs-filters select {
-        padding: 0.4rem 0.6rem;
+        padding: 0.38rem 0.55rem;
         border: 1px solid #e2e8f0;
         border-radius: 6px;
-        font-size: 0.8rem;
+        font-size: 0.875rem;
         background: white;
         color: var(--text-primary);
     }
@@ -1618,30 +2151,31 @@ include '../../includes/header.php';
     .hs-table-wrap {
         background: white;
         border-radius: 10px;
-        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
         overflow: hidden;
+        border: 1px solid #eef2f7;
     }
 
     .hs-table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 0.8rem;
+        font-size: 0.875rem;
     }
 
     .hs-table th {
         background: #f8fafc;
-        padding: 0.65rem 0.85rem;
+        padding: 0.55rem 0.75rem;
         text-align: left;
         font-weight: 600;
         color: var(--text-secondary);
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         text-transform: uppercase;
         letter-spacing: 0.03em;
         border-bottom: 1px solid #e2e8f0;
     }
 
     .hs-table td {
-        padding: 0.65rem 0.85rem;
+        padding: 0.58rem 0.75rem;
         border-bottom: 1px solid #f1f5f9;
         vertical-align: middle;
     }
@@ -1695,7 +2229,7 @@ include '../../includes/header.php';
         display: inline-block;
         padding: 0.15rem 0.45rem;
         border-radius: 12px;
-        font-size: 0.68rem;
+        font-size: 0.75rem;
         font-weight: 600;
         background: #ede9fe;
         color: #5b21b6;
@@ -1705,33 +2239,45 @@ include '../../includes/header.php';
 
     .hs-rental-extra {
         display: none;
-        margin-top: 0.35rem;
-        padding: 0.45rem;
-        border: 1px dashed #cbd5e1;
-        border-radius: 8px;
-        background: #f8fafc;
-        gap: 0.4rem;
+        flex-direction: column;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+        padding-top: 0.5rem;
+        border-top: 1px dashed #e2e8f0;
     }
 
     .hs-rental-extra.open {
-        display: grid;
+        display: flex;
     }
 
-    .hs-rental-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.35rem;
+    .hs-rental-row1 {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        align-items: flex-end;
     }
 
-    .hs-rental-extra input,
-    .hs-rental-extra select {
+    .hs-dest-wrap {
+        display: none;
+    }
+
+    .hs-dest-wrap span {
+        display: block;
+        font-size: 0.68rem;
+        font-weight: 600;
+        color: #64748b;
+        text-transform: uppercase;
+        margin-bottom: 3px;
+    }
+
+    .hs-dest-wrap input {
         width: 100%;
-        padding: 0.38rem 0.5rem;
-        border: 1px solid #cbd5e1;
+        padding: 0.35rem 0.5rem;
+        border: 1px solid #e2e8f0;
         border-radius: 6px;
-        font-size: 0.76rem;
-        box-sizing: border-box;
+        font-size: 0.8rem;
         background: #fff;
+        box-sizing: border-box;
     }
 
     .hs-action-btn {
@@ -1739,7 +2285,7 @@ include '../../includes/header.php';
         border: none;
         border-radius: 5px;
         cursor: pointer;
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         font-weight: 600;
         transition: opacity 0.2s;
     }
@@ -1777,7 +2323,7 @@ include '../../includes/header.php';
 
     .hs-modal h3 {
         margin: 0 0 1rem;
-        font-size: 1.05rem;
+        font-size: 0.95rem;
         font-weight: 700;
     }
 
@@ -1794,7 +2340,7 @@ include '../../includes/header.php';
 
     .hs-field label {
         display: block;
-        font-size: 0.75rem;
+        font-size: 0.875rem;
         font-weight: 600;
         color: var(--text-secondary);
         margin-bottom: 0.3rem;
@@ -1807,7 +2353,7 @@ include '../../includes/header.php';
         padding: 0.5rem 0.65rem;
         border: 1px solid #e2e8f0;
         border-radius: 7px;
-        font-size: 0.85rem;
+        font-size: 0.875rem;
         color: var(--text-primary);
         background: white;
         box-sizing: border-box;
@@ -1839,7 +2385,7 @@ include '../../includes/header.php';
         border: 2px solid #e2e8f0;
         border-radius: 7px;
         background: white;
-        font-size: 0.78rem;
+        font-size: 0.875rem;
         font-weight: 600;
         cursor: pointer;
         transition: all 0.15s;
@@ -1852,46 +2398,185 @@ include '../../includes/header.php';
         color: #4c1d95;
     }
 
-    /* Items table */
-    .items-tbl {
-        width: 100%;
-        border-collapse: collapse;
+    /* Item cards */
+    .hs-items-wrap {
         margin-bottom: 0.5rem;
-        font-size: 0.8rem;
     }
 
-    .items-tbl th {
-        background: #f8fafc;
-        padding: 0.45rem 0.5rem;
-        font-size: 0.7rem;
+    .hs-item-card {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 10px 12px;
+        margin-bottom: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    }
+
+    .hs-ic-top {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        margin-bottom: 6px;
+    }
+
+    .hs-ic-top .iSvc {
+        flex: 0 0 auto;
+        min-width: 145px;
+        max-width: 175px;
+    }
+
+    .hs-ic-top .iDesc {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .hs-ic-top input,
+    .hs-ic-top select {
+        padding: 0.38rem 0.5rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        background: white;
+        box-sizing: border-box;
+    }
+
+    .hs-ic-top input:focus,
+    .hs-ic-top select:focus {
+        outline: none;
+        border-color: #6366f1;
+    }
+
+    .hs-ic-labeled {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+
+    .hs-ic-labeled>span {
+        font-size: 0.75rem;
         font-weight: 600;
-        color: var(--text-secondary);
+        color: #64748b;
         text-transform: uppercase;
-        border-bottom: 1px solid #e2e8f0;
+        letter-spacing: 0.02em;
         white-space: nowrap;
     }
 
-    .items-tbl td {
-        padding: 0.35rem 0.3rem;
-        border-bottom: 1px solid #f1f5f9;
-        vertical-align: middle;
-    }
-
-    .items-tbl td input,
-    .items-tbl td select {
-        padding: 0.35rem 0.4rem;
+    .hs-ic-labeled input,
+    .hs-ic-labeled select {
+        padding: 0.35rem 0.45rem;
         border: 1px solid #e2e8f0;
-        border-radius: 5px;
-        font-size: 0.78rem;
+        border-radius: 6px;
+        font-size: 0.875rem;
         background: white;
         box-sizing: border-box;
-        width: 100%;
     }
 
-    .items-tbl td input:focus,
-    .items-tbl td select:focus {
+    .hs-ic-labeled input:focus,
+    .hs-ic-labeled select:focus {
         outline: none;
         border-color: #6366f1;
+    }
+
+    .hs-rental-row1 .iAsset {
+        min-width: 155px;
+    }
+
+    .hs-rental-row1 .iDays {
+        width: 65px;
+    }
+
+    .hs-rental-row1 .iDeposit {
+        width: 105px;
+    }
+
+    .hs-ic-nums {
+        display: flex;
+        gap: 8px;
+        align-items: flex-end;
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px solid #f1f5f9;
+        flex-wrap: wrap;
+    }
+
+    .hs-ic-nums .iQty {
+        width: 65px;
+    }
+
+    .hs-ic-nums .iPrice {
+        width: 120px;
+    }
+
+    .hs-ic-subtotal {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        margin-left: auto;
+        text-align: right;
+    }
+
+    .hs-ic-subtotal>span {
+        font-size: 0.67rem;
+        font-weight: 600;
+        color: #64748b;
+        text-transform: uppercase;
+    }
+
+    .hs-ic-subtotal .iTotal {
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: #4338ca;
+        white-space: nowrap;
+    }
+
+    .hs-driver-extra {
+        display: none;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: flex-end;
+        margin-top: 8px;
+        padding: 8px 10px;
+        background: #f8fafc;
+        border: 1px dashed #cbd5e1;
+        border-radius: 6px;
+    }
+
+    .hs-driver-extra .iDriverCarRow {
+        width: 100%;
+        margin-bottom: 2px;
+    }
+
+    .hs-driver-chk {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 0.875rem;
+        color: #334155;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+
+    .iCommWrap {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+    }
+
+    .iCommWrap select,
+    .iCommWrap input {
+        padding: 0.32rem 0.45rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        background: white;
+    }
+
+    .iCommWrap select {
+        min-width: 150px;
+    }
+
+    .iCommWrap input {
+        width: 80px;
     }
 
     .btn-add-item {
@@ -1900,7 +2585,7 @@ include '../../includes/header.php';
         border: 1px dashed #6366f1;
         border-radius: 7px;
         padding: 0.4rem 0.8rem;
-        font-size: 0.78rem;
+        font-size: 0.875rem;
         font-weight: 600;
         cursor: pointer;
         width: 100%;
@@ -1918,7 +2603,7 @@ include '../../includes/header.php';
         border-radius: 4px;
         padding: 0.25rem 0.45rem;
         cursor: pointer;
-        font-size: 0.78rem;
+        font-size: 0.875rem;
         font-weight: 700;
     }
 
@@ -1928,7 +2613,7 @@ include '../../includes/header.php';
         padding: 0.75rem 1rem;
         text-align: center;
         margin: 0.75rem 0;
-        font-size: 1.1rem;
+        font-size: 0.95rem;
         font-weight: 700;
         color: #4338ca;
     }
@@ -1946,7 +2631,7 @@ include '../../includes/header.php';
         border-radius: 8px;
         font-weight: 600;
         cursor: pointer;
-        font-size: 0.85rem;
+        font-size: 0.875rem;
     }
 
     .btn-hs-primary {
@@ -1967,12 +2652,12 @@ include '../../includes/header.php';
     }
 
     .hs-empty .em-icon {
-        font-size: 2.5rem;
+        font-size: 2rem;
         margin-bottom: 0.5rem;
     }
 
     .sect-label {
-        font-size: 0.75rem;
+        font-size: 0.875rem;
         font-weight: 700;
         color: var(--text-secondary);
         margin-bottom: 0.4rem;
@@ -1991,7 +2676,7 @@ include '../../includes/header.php';
 
     .hs-tab {
         padding: 0.5rem 1rem;
-        font-size: 0.82rem;
+        font-size: 0.875rem;
         font-weight: 600;
         cursor: pointer;
         color: #64748b;
@@ -2020,13 +2705,13 @@ include '../../includes/header.php';
     .cat-tbl {
         width: 100%;
         border-collapse: collapse;
-        font-size: 0.8rem;
+        font-size: 0.875rem;
     }
 
     .cat-tbl th {
         background: #f8fafc;
         padding: 0.4rem 0.5rem;
-        font-size: 0.7rem;
+        font-size: 0.75rem;
         font-weight: 700;
         color: #64748b;
         text-transform: uppercase;
@@ -2046,7 +2731,7 @@ include '../../includes/header.php';
         padding: 0.3rem 0.4rem;
         border: 1px solid #e2e8f0;
         border-radius: 5px;
-        font-size: 0.78rem;
+        font-size: 0.875rem;
         background: white;
         box-sizing: border-box;
     }
@@ -2058,7 +2743,7 @@ include '../../includes/header.php';
         border-radius: 4px;
         padding: 0.25rem 0.5rem;
         cursor: pointer;
-        font-size: 0.75rem;
+        font-size: 0.875rem;
     }
 
     .cat-tbl .btn-cat-save {
@@ -2068,7 +2753,7 @@ include '../../includes/header.php';
         border-radius: 4px;
         padding: 0.25rem 0.5rem;
         cursor: pointer;
-        font-size: 0.75rem;
+        font-size: 0.875rem;
     }
 
     .logo-preview {
@@ -2079,6 +2764,20 @@ include '../../includes/header.php';
     }
 
     @media(max-width:580px) {
+        .hs-page {
+            padding: 0.5rem 0.55rem 0.85rem;
+        }
+
+        .hs-topbar {
+            grid-template-columns: 1fr;
+            padding: 0.65rem 0.75rem;
+        }
+
+        .hs-top-actions {
+            width: 100%;
+            justify-content: flex-start;
+        }
+
         .hs-form-row {
             grid-template-columns: 1fr;
         }
@@ -2092,15 +2791,38 @@ include '../../includes/header.php';
 <div class="hs-page">
 
     <div class="hs-topbar">
-        <div>
+        <div class="hs-head-main">
             <h2>🛎️ Hotel Services</h2>
-            <div style="font-size:0.75rem;color:var(--text-secondary)">Motor Rental · Laundry · Service · Airport Drop · Harbor Drop · Narayana Trip · Lain-lain</div>
+            <div class="hs-topmeta">Motor Rental · Laundry · Service · Airport Drop · Harbor Drop · Narayana Trip · Lain-lain</div>
         </div>
-        <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+        <div class="hs-top-actions">
             <button class="btn-hs btn-hs-secondary" onclick="openSettingsModal()">⚙️ Pengaturan</button>
-            <button class="btn-hs btn-hs-primary" onclick="openCreateModal()">+ New Invoice</button>
+            <button class="btn-hs btn-hs-primary" id="btnNewInvoice">+ New Invoice</button>
         </div>
     </div>
+    <script>
+        // Fallback: attach button directly in case main script block fails to execute
+        (function() {
+            function tryAttach() {
+                var btn = document.getElementById('btnNewInvoice');
+                var modal = document.getElementById('createModal');
+                if (btn && modal) {
+                    btn.onclick = function() {
+                        if (typeof openCreateModal === 'function') {
+                            openCreateModal();
+                        } else {
+                            modal.classList.add('open');
+                        }
+                    };
+                }
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', tryAttach);
+            } else {
+                tryAttach();
+            }
+        })();
+    </script>
 
     <!-- Stats -->
     <div class="hs-stats">
@@ -2285,21 +3007,7 @@ include '../../includes/header.php';
 
         <!-- Service items -->
         <span class="sect-label">Service Items *</span>
-        <div style="overflow-x:auto;margin-bottom:0.4rem">
-            <table class="items-tbl">
-                <thead>
-                    <tr>
-                        <th style="min-width:140px">Service Type</th>
-                        <th style="min-width:160px">Description</th>
-                        <th style="width:65px">Qty</th>
-                        <th style="width:115px">Unit Price</th>
-                        <th style="width:105px;text-align:right">Subtotal</th>
-                        <th style="width:34px"></th>
-                    </tr>
-                </thead>
-                <tbody id="itemsBody"></tbody>
-            </table>
-        </div>
+        <div id="itemsBody" class="hs-items-wrap"></div>
         <button type="button" class="btn-add-item" onclick="addItemRow()">+ Add Service Item</button>
 
         <!-- Tax, Service Charge, Discount -->
@@ -2408,6 +3116,7 @@ include '../../includes/header.php';
             <button class="hs-tab active" id="tab-inv" onclick="switchTab('inv')"> 🏨 Invoice &amp; Perusahaan</button>
             <button class="hs-tab" id="tab-catalog" onclick="switchTab('catalog')">📂 Katalog Harga</button>
             <button class="hs-tab" id="tab-svctype" onclick="switchTab('svctype')">🏷️ Tipe Layanan</button>
+            <button class="hs-tab" id="tab-guide" onclick="switchTab('guide')">🧭 Guide Trip</button>
         </div>
 
         <!-- TAB 1: Invoice & Company -->
@@ -2459,6 +3168,7 @@ include '../../includes/header.php';
                             <th style="min-width:130px">Tipe Layanan</th>
                             <th style="min-width:140px">Nama Item</th>
                             <th style="width:110px">Harga Default</th>
+                            <th style="width:110px">🚗 Bayar Driver</th>
                             <th style="width:75px">Satuan</th>
                             <th style="width:50px">Urut</th>
                             <th style="width:80px"></th>
@@ -2474,6 +3184,7 @@ include '../../includes/header.php';
                                     </select></td>
                                 <td><input type="text" class="cName" value="<?php echo htmlspecialchars($cr['item_name'], ENT_QUOTES); ?>"></td>
                                 <td><input type="number" class="cPrice" value="<?php echo $cr['default_price']; ?>" min="0"></td>
+                                <td><input type="number" class="cDriverRate" value="<?php echo (float)($cr['driver_rate'] ?? 0); ?>" min="0" placeholder="0"></td>
                                 <td><input type="text" class="cUnit" value="<?php echo htmlspecialchars($cr['unit'] ?? 'unit', ENT_QUOTES); ?>"></td>
                                 <td><input type="number" class="cSort" value="<?php echo $cr['sort_order']; ?>" style="width:45px"></td>
                                 <td style="display:flex;gap:3px">
@@ -2525,6 +3236,39 @@ include '../../includes/header.php';
             </div>
         </div>
 
+        <!-- TAB 4: Guide Narayana Trip -->
+        <div class="hs-tab-pane" id="pane-guide">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.65rem">
+                <span style="font-size:0.78rem;color:#64748b">Kelola daftar guide untuk layanan Narayana Trip (Open/Private). Nama guide ini akan dipakai di Tagihan.</span>
+                <button class="btn-hs btn-hs-primary" style="font-size:0.78rem;padding:0.35rem 0.85rem" onclick="addGuideRow()">+ Tambah Guide</button>
+            </div>
+            <div style="overflow-x:auto;max-height:55vh;overflow-y:auto">
+                <table class="cat-tbl">
+                    <thead>
+                        <tr>
+                            <th style="min-width:180px">Nama Guide</th>
+                            <th style="min-width:130px">Telepon</th>
+                            <th style="width:60px">Urut</th>
+                            <th style="width:90px"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="guideBody">
+                        <?php foreach ($tripGuides as $g): ?>
+                            <tr id="gtr<?php echo (int)$g['id']; ?>">
+                                <td><input type="text" class="gName" value="<?php echo htmlspecialchars($g['guide_name'], ENT_QUOTES); ?>"></td>
+                                <td><input type="text" class="gPhone" value="<?php echo htmlspecialchars((string)($g['phone'] ?? ''), ENT_QUOTES); ?>"></td>
+                                <td><input type="number" class="gSort" value="<?php echo (int)($g['sort_order'] ?? 0); ?>" style="width:45px"></td>
+                                <td style="display:flex;gap:3px">
+                                    <button class="btn-cat-save" onclick="saveGuideRow(<?php echo (int)$g['id']; ?>)">💾</button>
+                                    <button class="btn-cat-del" onclick="deleteGuideRow(<?php echo (int)$g['id']; ?>)">✕</button>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
     </div>
 </div>
 
@@ -2542,21 +3286,7 @@ include '../../includes/header.php';
         <div class="hs-field" style="margin-bottom:0.75rem"><label>Nomor Kamar</label><input type="text" id="eRoom" style="width:200px"></div>
 
         <span class="sect-label">Service Items *</span>
-        <div style="overflow-x:auto;margin-bottom:0.4rem">
-            <table class="items-tbl">
-                <thead>
-                    <tr>
-                        <th style="min-width:140px">Tipe Layanan</th>
-                        <th style="min-width:160px">Deskripsi</th>
-                        <th style="width:65px">Qty</th>
-                        <th style="width:115px">Harga Satuan</th>
-                        <th style="width:105px;text-align:right">Subtotal</th>
-                        <th style="width:34px"></th>
-                    </tr>
-                </thead>
-                <tbody id="eItemsBody"></tbody>
-            </table>
-        </div>
+        <div id="eItemsBody" class="hs-items-wrap"></div>
         <button type="button" class="btn-add-item" onclick="eAddItemRow()">+ Tambah Item</button>
 
         <span class="sect-label">Tax, Service Charge & Discount</span>
@@ -2619,1040 +3349,32 @@ include '../../includes/header.php';
 </div>
 
 <script>
-    const SVC_KEYS = <?php echo json_encode(array_keys($serviceTypes)); ?>;
-    const SVC_LABELS = <?php echo json_encode(array_values(array_map(fn($v) => $v['icon'] . ' ' . $v['label'], $serviceTypes))); ?>;
-    // Catalog data grouped by service_type: { motor_rental: [{name,price,unit}, ...], ... }
-    const CATALOG_DATA = <?php
-                            $catalogByType = [];
-                            foreach ($catalogRows as $cr) {
-                                $catalogByType[$cr['service_type']][] = [
-                                    'name'  => $cr['item_name'],
-                                    'price' => (float)$cr['default_price'],
-                                    'unit'  => $cr['unit'] ?? 'unit',
-                                ];
-                            }
-                            echo json_encode($catalogByType);
-                            ?>;
-    const RENTAL_MOTORS = <?php echo json_encode(array_map(fn($m) => ['id' => (int)$m['id'], 'label' => $m['motor_name'] . ' (' . $m['plate_number'] . ')', 'daily_rate' => (float)$m['daily_rate']], $availableMotors)); ?>;
-    const RENTAL_CARS = <?php echo json_encode(array_map(fn($c) => ['id' => (int)$c['id'], 'label' => $c['car_name'] . ' (' . $c['plate_number'] . ')' . (!empty($c['car_type']) ? ' - ' . $c['car_type'] : ''), 'daily_rate' => (float)$c['daily_rate']], $availableCars)); ?>;
-
-    // ── Guest mode ────────────────────────────────────────────────────────────────
-    function setGuestMode(mode) {
-        const ih = mode === 'inhouse';
-        document.getElementById('inhouseSection').style.display = ih ? '' : 'none';
-        document.getElementById('manualSection').style.display = ih ? 'none' : '';
-        document.getElementById('btnInhouse').classList.toggle('active', ih);
-        document.getElementById('btnManual').classList.toggle('active', !ih);
-        if (!ih) {
-            document.getElementById('fBookingId').value = '';
-        }
-    }
-
-    function fillFromInhouse() {
-        const sel = document.getElementById('fGuestSelect');
-        const opt = sel.options[sel.selectedIndex];
-        document.getElementById('fBookingId').value = opt.value || '';
-        document.getElementById('fPhone').value = opt.dataset.phone || '';
-        document.getElementById('fRoom').value = opt.dataset.room || '';
-    }
-
-    function getGuestName() {
-        const ih = document.getElementById('inhouseSection').style.display !== 'none';
-        if (ih) {
-            const sel = document.getElementById('fGuestSelect');
-            return sel.options[sel.selectedIndex].dataset.name || '';
-        }
-        return document.getElementById('fGuestName').value.trim();
-    }
-
-    // ── Items ─────────────────────────────────────────────────────────────────────
-    let rowCnt = 0;
-
-    function buildSvcOpts(selected) {
-        return SVC_KEYS.map((k, i) =>
-            `<option value="${k}" ${k===selected?'selected':''}>${SVC_LABELS[i]}</option>`
-        ).join('');
-    }
-
-    function buildRentalAssetOpts(items, selected) {
-        let html = '<option value="">Pilih armada...</option>';
-        items.forEach(item => {
-            html += `<option value="${item.id}" data-rate="${item.daily_rate}" ${String(item.id)===String(selected||'')?'selected':''}>${item.label}</option>`;
-        });
-        return html;
-    }
-
-    function isRentalService(svc) {
-        return svc === 'motor_rental' || svc === 'car_rental';
-    }
-
-    function rentalDefaultDate(offsetDays) {
-        const dt = new Date();
-        dt.setDate(dt.getDate() + offsetDays);
-        dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
-        return dt.toISOString().slice(0, 16);
-    }
-
-    function addItemRow(svc, desc, qty, price) {
-        rowCnt++;
-        const id = 'r' + rowCnt;
-        const tr = document.createElement('tr');
-        tr.id = id;
-        tr.innerHTML =
-            `<td><select class="iSvc" onchange="onSvcChange('${id}')">${buildSvcOpts(svc||'')}</select></td>` +
-            `<td>` +
-            `<input type="text" class="iDesc" placeholder="e.g. Honda Beat" value="${(desc||'').replace(/"/g,'&quot;')}">` +
-            `<div class="hs-rental-extra">` +
-            `<select class="iAsset" onchange="onRentalAssetChange('${id}')"><option value="">Pilih armada...</option></select>` +
-            `<div class="hs-rental-grid">` +
-            `<label>Hari Sewa:</label>` +
-            `<input type="number" class="iDays" value="1" min="1" max="365" step="1" placeholder="Jumlah hari" onchange="onDaysChange('${id}')">` +
-            `</div>` +
-            `<div class="hs-rental-grid">` +
-            `<input type="number" class="iDeposit" value="0" min="0" placeholder="Deposit (Rp)">` +
-            `<input type="text" class="iDest" placeholder="Tujuan / catatan mobil">` +
-            `</div>` +
-            `</div>` +
-            `</td>` +
-            `<td><input type="number" class="iQty" value="${qty||1}" min="0.5" step="0.5" style="width:60px" oninput="rcalc('${id}')"></td>` +
-            `<td><input type="number" class="iPrice" value="${price||0}" min="0" style="width:105px" oninput="rcalc('${id}')"></td>` +
-            `<td style="font-weight:700;color:#4338ca;text-align:right;white-space:nowrap" class="iTotal">Rp 0</td>` +
-            `<td><button type="button" class="btn-del-row" onclick="delRow('${id}')">✕</button></td>`;
-        document.getElementById('itemsBody').appendChild(tr);
-        // Only auto-populate if service type was provided
-        if (svc) {
-            onSvcChange(id, true);
-        } else {
-            rcalc(id);
-        }
-    }
-
-    function onDaysChange(id) {
-        const tr = document.getElementById(id);
-        if (!tr) return;
-        const daysInput = tr.querySelector('.iDays');
-        const days = parseFloat(daysInput.value) || 1;
-        tr.querySelector('.iQty').value = Math.max(1, days);
-        rcalc(id);
-    }
-
-    function onSvcChange(id, isNew) {
-        const tr = document.getElementById(id);
-        if (!tr) return;
-        const svc = tr.querySelector('.iSvc').value;
-        const priceInput = tr.querySelector('.iPrice');
-        const descInput = tr.querySelector('.iDesc');
-        const rentalWrap = tr.querySelector('.hs-rental-extra');
-        const assetSelect = tr.querySelector('.iAsset');
-        const destInput = tr.querySelector('.iDest');
-        const items = CATALOG_DATA[svc];
-        const rentalItems = svc === 'motor_rental' ? RENTAL_MOTORS : (svc === 'car_rental' ? RENTAL_CARS : []);
-
-        if (isRentalService(svc)) {
-            // Show rental fields for motor_rental and car_rental
-            rentalWrap.classList.add('open');
-            assetSelect.innerHTML = buildRentalAssetOpts(rentalItems, assetSelect.value);
-            destInput.style.display = svc === 'car_rental' ? '' : 'none';
-            // Set default 1 day
-            if (!tr.querySelector('.iDays').value) tr.querySelector('.iDays').value = 1;
-        } else {
-            // Hide rental fields for other services
-            rentalWrap.classList.remove('open');
-            assetSelect.innerHTML = '<option value="">Pilih armada...</option>';
-            tr.querySelector('.iDays').value = 1;
-            tr.querySelector('.iDeposit').value = 0;
-            tr.querySelector('.iDest').value = '';
-        }
-
-        if (items && items.length > 0) {
-            if (isNew) {
-                if (parseFloat(priceInput.value) === 0) priceInput.value = items[0].price;
-                if (!descInput.value.trim()) descInput.value = items[0].name;
-            } else {
-                priceInput.value = items[0].price;
-                descInput.value = items[0].name;
-            }
-        } else if (!isNew) {
-            priceInput.value = 0;
-        }
-
-        if (isRentalService(svc)) {
-            onRentalAssetChange(id, !!isNew);
-        }
-        rcalc(id);
-    }
-
-    function onRentalAssetChange(id, keepManualDesc) {
-        const tr = document.getElementById(id);
-        if (!tr) return;
-        const svc = tr.querySelector('.iSvc').value;
-        const assetSelect = tr.querySelector('.iAsset');
-        const selectedId = assetSelect.value;
-        const source = svc === 'motor_rental' ? RENTAL_MOTORS : RENTAL_CARS;
-        const chosen = source.find(item => String(item.id) === String(selectedId));
-        if (!chosen) return;
-        const priceInput = tr.querySelector('.iPrice');
-        const descInput = tr.querySelector('.iDesc');
-        if (!priceInput.value || parseFloat(priceInput.value) === 0 || !keepManualDesc) {
-            priceInput.value = chosen.daily_rate;
-        }
-        if (!descInput.value.trim() || descInput.dataset.autoFilled === '1' || !keepManualDesc) {
-            descInput.value = chosen.label;
-            descInput.dataset.autoFilled = '1';
-        }
-        rcalc(id);
-    }
-
-    function syncRentalDuration(id) {
-        const tr = document.getElementById(id);
-        if (!tr) return;
-        const svc = tr.querySelector('.iSvc').value;
-        if (!isRentalService(svc)) return;
-        const startVal = tr.querySelector('.iStart').value;
-        const endVal = tr.querySelector('.iEnd').value;
-        if (!startVal || !endVal) return;
-        const start = new Date(startVal);
-        const end = new Date(endVal);
-        const diffHours = (end - start) / (1000 * 60 * 60);
-        if (Number.isFinite(diffHours) && diffHours > 0) {
-            tr.querySelector('.iQty').value = Math.max(1, Math.ceil(diffHours / 24));
-            rcalc(id);
-        }
-    }
-
-    function delRow(id) {
-        const el = document.getElementById(id);
-        if (el) el.remove();
-        refreshTotal();
-    }
-
-    function rcalc(id) {
-        const tr = document.getElementById(id);
-        if (!tr) return;
-        const t = (parseFloat(tr.querySelector('.iQty').value) || 0) * (parseFloat(tr.querySelector('.iPrice').value) || 0);
-        tr.querySelector('.iTotal').textContent = 'Rp ' + Math.round(t).toLocaleString('id-ID');
-        refreshTotal();
-    }
-
-    function subtotal() {
-        let t = 0;
-        document.querySelectorAll('#itemsBody tr').forEach(tr => {
-            t += (parseFloat(tr.querySelector('.iQty')?.value) || 0) * (parseFloat(tr.querySelector('.iPrice')?.value) || 0);
-        });
-        return t;
-    }
-
-    function getTaxRate() {
-        const sel = document.getElementById('fTaxRate');
-        if (!sel) return 0;
-        if (sel.value === 'custom') return parseFloat(document.getElementById('fTaxCustom')?.value) || 0;
-        return parseFloat(sel.value) || 0;
-    }
-
-    function grandTotal() {
-        const sub = subtotal();
-        const scRate = parseFloat(document.getElementById('fServiceCharge')?.value) || 0;
-        const discRate = parseFloat(document.getElementById('fDiscount')?.value) || 0;
-        const sc = sub * (scRate / 100);
-        const disc = sub * (discRate / 100);
-        const afterCD = sub + sc - disc;
-        const rate = getTaxRate();
-        return afterCD + afterCD * (rate / 100);
-    }
-
-    function onTaxRateChange() {
-        const sel = document.getElementById('fTaxRate');
-        document.getElementById('customTaxWrap').style.display = sel.value === 'custom' ? '' : 'none';
-        refreshTotal();
-    }
-
-    function refreshTotal() {
-        const sub = subtotal();
-        const rate = getTaxRate();
-        const scRate = parseFloat(document.getElementById('fServiceCharge')?.value) || 0;
-        const discRate = parseFloat(document.getElementById('fDiscount')?.value) || 0;
-        const sc = sub * (scRate / 100);
-        const disc = sub * (discRate / 100);
-        const afterCD = sub + sc - disc;
-        const tax = afterCD * (rate / 100);
-        const tot = afterCD + tax;
-        const dp = parseFloat(document.getElementById('fPaid')?.value) || 0;
-        const sisa = Math.max(0, tot - dp);
-        const fmt = v => 'Rp ' + Math.round(v).toLocaleString('id-ID');
-
-        document.getElementById('tpSubtotal').textContent = fmt(sub);
-        document.getElementById('tpGrand').textContent = fmt(tot);
-
-        const scRow = document.getElementById('tpScRow');
-        scRow.style.display = scRate > 0 ? '' : 'none';
-        document.getElementById('tpSc').textContent = `${fmt(sc)} (${scRate}%)`;
-
-        const discRow = document.getElementById('tpDiscRow');
-        discRow.style.display = discRate > 0 ? '' : 'none';
-        document.getElementById('tpDisc').textContent = `- ${fmt(disc)} (${discRate}%)`;
-
-        const taxRow = document.getElementById('tpTaxRow');
-        taxRow.style.display = rate > 0 ? '' : 'none';
-        document.getElementById('tpTax').textContent = `${fmt(tax)} (${rate}%)`;
-
-        const dpEl = document.getElementById('fPaid');
-        const hasDp = dpEl && parseFloat(dpEl.value) > 0;
-        document.getElementById('tpDpRow').style.display = hasDp ? '' : 'none';
-        document.getElementById('tpSisaRow').style.display = (hasDp && sisa > 0) ? '' : 'none';
-        document.getElementById('tpDp').textContent = fmt(dp);
-        document.getElementById('tpSisa').textContent = fmt(sisa);
-
-        enforceMaxPaid();
-        if (document.getElementById('fFullPay').checked)
-            document.getElementById('fPaid').value = Math.round(tot);
-    }
-
-    function enforceMaxPaid() {
-        const mx = grandTotal(),
-            inp = document.getElementById('fPaid');
-        if (parseFloat(inp.value) > mx) inp.value = Math.round(mx);
-    }
-
-    function toggleFullPay(checked) {
-        document.getElementById('fPaid').value = checked ? Math.round(grandTotal()) : 0;
-        refreshTotal();
-    }
-
-    // ── Open/Close ────────────────────────────────────────────────────────────────
-    function openCreateModal() {
-        document.getElementById('createModal').classList.add('open');
-        ['fGuestName', 'fPhone', 'fRoom', 'fNotes'].forEach(id => {
-            const e = document.getElementById(id);
-            if (e) e.value = '';
-        });
-        document.getElementById('fGuestSelect').value = '';
-        document.getElementById('fBookingId').value = '';
-        document.getElementById('fPaid').value = 0;
-        document.getElementById('fFullPay').checked = false;
-        document.getElementById('fTaxRate').value = '0';
-        document.getElementById('customTaxWrap').style.display = 'none';
-        if (document.getElementById('fTaxCustom')) document.getElementById('fTaxCustom').value = 0;
-        document.getElementById('fServiceCharge').value = 0;
-        document.getElementById('fDiscount').value = 0;
-        document.getElementById('itemsBody').innerHTML = '';
-        rowCnt = 0;
-        setGuestMode('inhouse');
-        addItemRow();
-        refreshTotal();
-    }
-
-    function closeCreateModal() {
-        document.getElementById('createModal').classList.remove('open');
-    }
-
-    // ── Submit create ─────────────────────────────────────────────────────────────
-    function submitCreate() {
-        const guestName = getGuestName();
-        if (!guestName) {
-            alert('Please select or enter a guest name');
-            return;
-        }
-
-        const rows = document.querySelectorAll('#itemsBody tr');
-        if (!rows.length) {
-            alert('Add at least one service item');
-            return;
-        }
-
-        const items = [];
-        for (const tr of rows) {
-            const svc = tr.querySelector('.iSvc').value;
-            if (!svc) {
-                alert('Select service type for all rows');
-                return;
-            }
-            const motorId = svc === 'motor_rental' ? parseInt(tr.querySelector('.iAsset').value || '0', 10) : 0;
-            const carId = svc === 'car_rental' ? parseInt(tr.querySelector('.iAsset').value || '0', 10) : 0;
-            const daysInput = tr.querySelector('.iDays');
-            const days = daysInput ? parseFloat(daysInput.value) || 1 : 1;
-
-            // Generate start and end dates from days
-            const today = new Date();
-            const startDt = today.toISOString().slice(0, 19).replace('T', ' ');
-            const endDate = new Date(today);
-            endDate.setDate(endDate.getDate() + days);
-            const endDt = endDate.toISOString().slice(0, 19).replace('T', ' ');
-
-            if ((svc === 'motor_rental' || svc === 'car_rental') && (!motorId && !carId)) {
-                alert('Item rental motor/mobil wajib pilih armada');
-                return;
-            }
-            items.push({
-                service_type: svc,
-                description: tr.querySelector('.iDesc').value.trim(),
-                qty: parseFloat(tr.querySelector('.iQty').value) || 1,
-                unit_price: parseFloat(tr.querySelector('.iPrice').value) || 0,
-                motor_id: motorId || null,
-                car_id: carId || null,
-                start_dt: (svc === 'motor_rental' || svc === 'car_rental') ? startDt : null,
-                end_dt: (svc === 'motor_rental' || svc === 'car_rental') ? endDt : null,
-                deposit: parseFloat(tr.querySelector('.iDeposit').value) || 0,
-                trip_destination: tr.querySelector('.iDest').value.trim() || null
-            });
-        }
-
-        const btn = document.getElementById('createBtn');
-        btn.disabled = true;
-        btn.textContent = 'Creating...';
-
-        const fd = new FormData();
-        fd.append('action', 'create');
-        fd.append('guest_name', guestName);
-        fd.append('guest_phone', document.getElementById('fPhone').value.trim());
-        fd.append('room_number', document.getElementById('fRoom').value.trim());
-        fd.append('booking_id', document.getElementById('fBookingId').value || '');
-        fd.append('items', JSON.stringify(items));
-        fd.append('payment_method', document.getElementById('fPayMethod').value);
-        fd.append('paid_amount', document.getElementById('fPaid').value || 0);
-        fd.append('tax_rate', getTaxRate());
-        fd.append('service_charge_rate', document.getElementById('fServiceCharge').value || 0);
-        fd.append('discount_rate', document.getElementById('fDiscount').value || 0);
-        fd.append('notes', document.getElementById('fNotes').value.trim());
-
-        fetch('hotel-services.php', {
-                method: 'POST',
-                body: fd,
-                credentials: 'include'
-            })
-            .then(r => r.json())
-            .then(res => {
-                if (res.success) {
-                    closeCreateModal();
-                    const cbMsg = res.cashbook ? '\n✅ Tercatat di Buku Kas' : '';
-                    alert('Invoice ' + res.invoice_number + ' created!' + cbMsg);
-                    location.reload();
-                } else {
-                    alert('Error: ' + (res.message || 'Unknown'));
-                    btn.disabled = false;
-                    btn.textContent = '✅ Create Invoice';
-                }
-            })
-            .catch(() => {
-                alert('Network error');
-                btn.disabled = false;
-                btn.textContent = '✅ Create Invoice';
-            });
-    }
-
-    // ── Status ────────────────────────────────────────────────────────────────────
-    function updateStatus(id, status) {
-        const fd = new FormData();
-        fd.append('action', 'update_status');
-        fd.append('id', id);
-        fd.append('status', status);
-        fetch('hotel-services.php', {
-                method: 'POST',
-                body: fd,
-                credentials: 'include'
-            })
-            .then(r => r.json()).then(res => {
-                if (!res.success) alert('Failed to update status');
-            });
-    }
-
-    // ── Delete ────────────────────────────────────────────────────────────────────
-    function deleteInvoice(id, code) {
-        if (!confirm('Delete invoice ' + code + '? Cannot be undone.')) return;
-        const fd = new FormData();
-        fd.append('action', 'delete');
-        fd.append('id', id);
-        fetch('hotel-services.php', {
-                method: 'POST',
-                body: fd,
-                credentials: 'include'
-            })
-            .then(r => r.json()).then(res => {
-                if (res.success) location.reload();
-                else alert('Delete failed');
-            });
-    }
-
-    // ── Pay modal ─────────────────────────────────────────────────────────────────
-    function openPayModal(id, remaining, invNo) {
-        document.getElementById('pInvId').value = id;
-        document.getElementById('pInvNo').textContent = 'Invoice: ' + invNo;
-        document.getElementById('pRemaining').textContent = 'Rp ' + Math.round(remaining).toLocaleString('id-ID');
-        document.getElementById('pAmount').value = Math.round(remaining);
-        document.getElementById('payModal').classList.add('open');
-    }
-
-    function closePayModal() {
-        document.getElementById('payModal').classList.remove('open');
-    }
-
-    function submitPay() {
-        const id = document.getElementById('pInvId').value;
-        const amount = document.getElementById('pAmount').value;
-        if (!amount || parseFloat(amount) <= 0) {
-            alert('Enter valid amount');
-            return;
-        }
-        const btn = document.getElementById('payBtn');
-        btn.disabled = true;
-        btn.textContent = 'Saving...';
-        const fd = new FormData();
-        fd.append('action', 'add_payment');
-        fd.append('id', id);
-        fd.append('amount', amount);
-        fd.append('method', document.getElementById('pMethod').value);
-        fetch('hotel-services.php', {
-                method: 'POST',
-                body: fd,
-                credentials: 'include'
-            })
-            .then(r => r.json())
-            .then(res => {
-                if (res.success) {
-                    closePayModal();
-                    alert('Payment saved! ' + (res.cashbook ? '✅ Tercatat di Buku Kas' : '⚠️ Gagal sync ke Buku Kas'));
-                    location.reload();
-                } else {
-                    alert('Error: ' + (res.message || 'Unknown'));
-                    btn.disabled = false;
-                    btn.textContent = '💾 Save & Sync to Cashbook';
-                }
-            });
-    }
-
-    // ── SETTINGS ─────────────────────────────────────────────────────────────────
-    function openSettingsModal() {
-        document.getElementById('settingsModal').classList.add('open');
-        switchTab('inv');
-    }
-
-    function closeSettingsModal() {
-        document.getElementById('settingsModal').classList.remove('open');
-    }
-
-    function switchTab(t) {
-        ['inv', 'catalog', 'svctype'].forEach(id => {
-            document.getElementById('tab-' + id).classList.toggle('active', id === t);
-            document.getElementById('pane-' + id).classList.toggle('active', id === t);
-        });
-    }
-
-    function previewLogo(inp) {
-        const prev = document.getElementById('logoPreview');
-        if (inp.files && inp.files[0]) {
-            const reader = new FileReader();
-            reader.onload = e => {
-                prev.src = e.target.result;
-                prev.style.display = 'block';
-            };
-            reader.readAsDataURL(inp.files[0]);
-        }
-    }
-
-    function saveSettings() {
-        const btn = document.getElementById('btnSaveSettings');
-        btn.disabled = true;
-        btn.textContent = 'Saving...';
-        const fd = new FormData();
-        fd.append('action', 'save_hs_settings');
-        fd.append('company_name', document.getElementById('sCmpName').value.trim());
-        fd.append('company_website', document.getElementById('sCmpWeb').value.trim());
-        fd.append('company_phone', document.getElementById('sCmpPhone').value.trim());
-        fd.append('company_email', document.getElementById('sCmpEmail').value.trim());
-        fd.append('company_address', document.getElementById('sCmpAddr').value.trim());
-        fd.append('payment_info_bank', document.getElementById('sPayBank').value.trim());
-        fd.append('payment_info_account', document.getElementById('sPayAccount').value.trim());
-        fd.append('payment_info_name', document.getElementById('sPayName').value.trim());
-        fd.append('payment_info_note', document.getElementById('sPayNote').value.trim());
-        const logoFile = document.getElementById('sLogoFile').files[0];
-        if (logoFile) fd.append('logo_file', logoFile);
-        fetch('hotel-services.php', {
-                method: 'POST',
-                body: fd,
-                credentials: 'include'
-            })
-            .then(r => r.json())
-            .then(res => {
-                if (res.success) {
-                    alert('✅ Settings saved!');
-                    closeSettingsModal();
-                    location.reload();
-                } else {
-                    alert('Error: ' + (res.message || 'unknown'));
-                }
-                btn.disabled = false;
-                btn.textContent = '💾 Save Settings';
-            }).catch(() => {
-                alert('Network error');
-                btn.disabled = false;
-                btn.textContent = '💾 Save Settings';
-            });
-    }
-
-    // ── CATALOG ───────────────────────────────────────────────────────────────────
-    let catRowCnt = 0;
-    const SVC_OPTIONS = <?php echo json_encode(array_map(fn($k, $v) => ['val' => $k, 'lbl' => $v['icon'] . ' ' . $v['label']], array_keys($serviceTypes), $serviceTypes)); ?>;
-
-    function buildSvcOptsFor(selected = '') {
-        return SVC_OPTIONS.map(o => `<option value="${o.val}" ${o.val===selected?'selected':''}>${o.lbl}</option>`).join('');
-    }
-
-    function addCatalogRow() {
-        catRowCnt++;
-        const id = 'new_' + catRowCnt;
-        const tr = document.createElement('tr');
-        tr.id = 'ctr' + id;
-        tr.innerHTML =
-            `<td><select class="cSType">${buildSvcOptsFor()}</select></td>` +
-            `<td><input type="text" class="cName" placeholder="ex: Honda Beat 1 Hari"></td>` +
-            `<td><input type="number" class="cPrice" value="0" min="0"></td>` +
-            `<td><input type="text" class="cUnit" value="unit"></td>` +
-            `<td><input type="number" class="cSort" value="0" style="width:45px"></td>` +
-            `<td style="display:flex;gap:3px">` +
-            `<button class="btn-cat-save" onclick="saveCatalogRow('${id}')">💾</button>` +
-            `<button class="btn-cat-del" onclick="document.getElementById('ctr${id}').remove()">✕</button>` +
-            `</td>`;
-        document.getElementById('catalogBody').prepend(tr);
-    }
-
-    function saveCatalogRow(cid) {
-        const tr = document.getElementById('ctr' + cid);
-        if (!tr) return;
-        const fd = new FormData();
-        fd.append('action', 'save_catalog_item');
-        fd.append('cid', isNaN(cid) ? 0 : cid);
-        fd.append('service_type', tr.querySelector('.cSType').value);
-        fd.append('item_name', tr.querySelector('.cName').value.trim());
-        fd.append('default_price', tr.querySelector('.cPrice').value);
-        fd.append('unit', tr.querySelector('.cUnit').value.trim() || 'unit');
-        fd.append('sort_order', tr.querySelector('.cSort').value);
-        fetch('hotel-services.php', {
-                method: 'POST',
-                body: fd,
-                credentials: 'include'
-            })
-            .then(r => r.json())
-            .then(res => {
-                if (res.success) {
-                    tr.id = 'ctr' + res.id;
-                    tr.querySelectorAll('button')[0].setAttribute('onclick', 'saveCatalogRow(' + res.id + ')');
-                    tr.querySelectorAll('button')[1].setAttribute('onclick', 'deleteCatalogRow(' + res.id + ')');
-                    tr.style.background = '#f0fdf4';
-                    setTimeout(() => tr.style.background = '', 1500);
-                } else {
-                    alert('Error: ' + (res.message || 'failed'));
-                }
-            });
-    }
-
-    function deleteCatalogRow(cid) {
-        if (!confirm('Hapus item ini dari katalog?')) return;
-        const fd = new FormData();
-        fd.append('action', 'delete_catalog_item');
-        fd.append('cid', cid);
-        fetch('hotel-services.php', {
-                method: 'POST',
-                body: fd,
-                credentials: 'include'
-            })
-            .then(r => r.json())
-            .then(res => {
-                if (res.success) {
-                    const el = document.getElementById('ctr' + cid);
-                    if (el) el.remove();
-                } else alert('Error');
-            });
-    }
-
-    const CATALOG = <?php echo json_encode(array_map(fn($r) => ['stype' => $r['service_type'], 'name' => $r['item_name'], 'price' => (float)$r['default_price'], 'unit' => $r['unit']], $catalogRows)); ?>;
-
-    // ── EDIT INVOICE ──────────────────────────────────────────────────────────────
-    let eRowCnt = 0;
-
-    const ACTIVE_BIZ_ID = <?php echo (int)$businessId; ?>;
-
-    function openEditModal(id) {
-        fetch('hotel-services.php?get_invoice=1&id=' + id + '&business_id=' + encodeURIComponent(ACTIVE_BIZ_ID), {
-                credentials: 'include'
-            })
-            .then(r => r.json())
-            .then(inv => {
-                if (!inv.success) {
-                    alert(inv.message || 'Cannot load invoice');
-                    return;
-                }
-                document.getElementById('eInvId').value = inv.id;
-                document.getElementById('eInvNo').textContent = 'Invoice: ' + inv.invoice_number;
-                document.getElementById('eGuestName').value = inv.guest_name || '';
-                document.getElementById('ePhone').value = inv.guest_phone || '';
-                document.getElementById('eRoom').value = inv.room_number || '';
-                document.getElementById('ePayMethod').value = inv.payment_method || 'cash';
-                document.getElementById('ePaid').value = inv.paid_amount || 0;
-                document.getElementById('eNotes').value = inv.notes || '';
-                const tr2 = parseFloat(inv.tax_rate) || 0;
-                const taxSel = document.getElementById('eTaxRate');
-                if (['0', '5', '10', '11'].includes(String(tr2))) {
-                    taxSel.value = String(tr2);
-                    document.getElementById('eCustomTaxWrap').style.display = 'none';
-                } else {
-                    taxSel.value = 'custom';
-                    document.getElementById('eCustomTaxWrap').style.display = '';
-                    document.getElementById('eTaxCustom').value = tr2;
-                }
-                document.getElementById('eServiceCharge').value = parseFloat(inv.service_charge_rate) || 0;
-                document.getElementById('eDiscount').value = parseFloat(inv.discount_rate) || 0;
-                document.getElementById('eItemsBody').innerHTML = '';
-                eRowCnt = 0;
-                (inv.items || []).forEach(it => eAddItemRow(it));
-                eRefreshTotal();
-                document.getElementById('editModal').classList.add('open');
-            })
-            .catch(() => alert('Network error loading invoice'));
-    }
-
-    function closeEditModal() {
-        document.getElementById('editModal').classList.remove('open');
-    }
-
-    function eAddItemRow(itemOrSvc, desc, qty, price) {
-        const item = typeof itemOrSvc === 'object' && itemOrSvc !== null ? itemOrSvc : {
-            service_type: itemOrSvc,
-            description: desc,
-            quantity: qty,
-            unit_price: price,
-            motor_id: null,
-            car_id: null,
-            rental_days: 1,
-            deposit: 0,
-            trip_destination: null
-        };
-        eRowCnt++;
-        const id2 = 'er' + eRowCnt;
-        const tr3 = document.createElement('tr');
-        tr3.id = id2;
-        tr3.innerHTML =
-            `<td><select class="iSvc" onchange="eOnSvcChange('${id2}')">${buildSvcOpts(item.service_type||'')}</select></td>` +
-            `<td>` +
-            `<input type="text" class="iDesc" value="${(item.description||'').replace(/"/g,'&quot;')}" placeholder="Description">` +
-            `<div class="hs-rental-extra">` +
-            `<select class="iAsset" onchange="eOnRentalAssetChange('${id2}')"></select>` +
-            `<div class="hs-rental-grid">` +
-            `<label>Hari Sewa:</label>` +
-            `<input type="number" class="iDays" value="${item.rental_days||1}" min="1" max="365" step="1" placeholder="Jumlah hari" onchange="eOnDaysChange('${id2}')">` +
-            `</div>` +
-            `<div class="hs-rental-grid">` +
-            `<input type="number" class="iDeposit" value="${item.deposit||0}" min="0" placeholder="Deposit (Rp)">` +
-            `<input type="text" class="iDest" value="${(item.trip_destination||'').replace(/"/g,'&quot;')}" placeholder="Tujuan / catatan mobil">` +
-            `</div>` +
-            `</div>` +
-            `</td>` +
-            `<td><input type="number" class="iQty" value="${item.quantity||1}" min="0.5" step="0.5" style="width:60px" oninput="ercalc('${id2}')"></td>` +
-            `<td><input type="number" class="iPrice" value="${item.unit_price||0}" min="0" style="width:105px" oninput="ercalc('${id2}')"></td>` +
-            `<td style="font-weight:700;color:#4338ca;text-align:right;white-space:nowrap" class="iTotal">Rp 0</td>` +
-            `<td><button type="button" class="btn-del-row" onclick="eDelRow('${id2}')">✕</button></td>`;
-        document.getElementById('eItemsBody').appendChild(tr3);
-        if (item.service_type === 'motor_rental') {
-            let motorOpts = [...RENTAL_MOTORS];
-            if (item.motor_id && !motorOpts.find(m => m.id === item.motor_id)) {
-                motorOpts = [{
-                    id: item.motor_id,
-                    label: (item.motor_name || 'Motor') + (item.plate_number ? ' (' + item.plate_number + ')' : ''),
-                    daily_rate: item.daily_rate || 0
-                }, ...motorOpts];
-            }
-            tr3.querySelector('.iAsset').innerHTML = buildRentalAssetOpts(motorOpts, item.motor_id);
-        }
-        if (item.service_type === 'car_rental') {
-            let carOpts = [...RENTAL_CARS];
-            if (item.car_id && !carOpts.find(c => c.id === item.car_id)) {
-                const label = (item.car_name || 'Mobil') + (item.plate_number ? ' (' + item.plate_number + ')' : '') + (item.car_type ? ' - ' + item.car_type : '');
-                carOpts = [{
-                    id: item.car_id,
-                    label: label,
-                    daily_rate: item.daily_rate || 0
-                }, ...carOpts];
-            }
-            tr3.querySelector('.iAsset').innerHTML = buildRentalAssetOpts(carOpts, item.car_id);
-        }
-        // Only trigger onSvcChange for existing rows (loaded from API), not for new empty rows
-        // Pass false to indicate we're loading from API, not creating new
-        if (item.service_type) {
-            eOnSvcChange(id2, false);
-        }
-        ercalc(id2);
-    }
-
-    function eOnSvcChange(id2, isNew) {
-        const tr3 = document.getElementById(id2);
-        if (!tr3) return;
-        const svc = tr3.querySelector('.iSvc').value;
-        const priceInput = tr3.querySelector('.iPrice');
-        const descInput = tr3.querySelector('.iDesc');
-        const rentalWrap = tr3.querySelector('.hs-rental-extra');
-        const assetSelect = tr3.querySelector('.iAsset');
-        const destInput = tr3.querySelector('.iDest');
-        const items = CATALOG_DATA[svc];
-
-        // Only rebuild asset dropdown if THIS IS A NEW ROW (not loading from API)
-        if (isNew) {
-            const rentalItems = svc === 'motor_rental' ? RENTAL_MOTORS : (svc === 'car_rental' ? RENTAL_CARS : []);
-            if (isRentalService(svc)) {
-                rentalWrap.classList.add('open');
-                assetSelect.innerHTML = buildRentalAssetOpts(rentalItems, assetSelect.value);
-                destInput.style.display = svc === 'car_rental' ? '' : 'none';
-                if (!tr3.querySelector('.iDays').value) tr3.querySelector('.iDays').value = 1;
-            } else {
-                rentalWrap.classList.remove('open');
-                assetSelect.innerHTML = '<option value="">Pilih armada...</option>';
-                tr3.querySelector('.iDays').value = 1;
-                tr3.querySelector('.iDeposit').value = 0;
-                tr3.querySelector('.iDest').value = '';
-            }
-        } else {
-            // Loading from API - just show/hide rental fields, don't rebuild dropdown
-            if (isRentalService(svc)) {
-                rentalWrap.classList.add('open');
-                destInput.style.display = svc === 'car_rental' ? '' : 'none';
-            } else {
-                rentalWrap.classList.remove('open');
-                assetSelect.innerHTML = '<option value="">Pilih armada...</option>';
-                tr3.querySelector('.iDays').value = 1;
-                tr3.querySelector('.iDeposit').value = 0;
-                tr3.querySelector('.iDest').value = '';
-            }
-        }
-
-        if (items && items.length > 0) {
-            if (isNew) {
-                if (parseFloat(priceInput.value) === 0) priceInput.value = items[0].price;
-                if (!descInput.value.trim()) descInput.value = items[0].name;
-            } else {
-                priceInput.value = items[0].price;
-                descInput.value = items[0].name;
-            }
-        } else if (!isNew) {
-            priceInput.value = 0;
-        }
-
-        const chosen = source.find(item => String(item.id) === String(selectedId));
-        if (!chosen) return;
-        const priceInput = tr3.querySelector('.iPrice');
-        const descInput = tr3.querySelector('.iDesc');
-        if (!priceInput.value || parseFloat(priceInput.value) === 0 || !keepManualDesc) {
-            priceInput.value = chosen.daily_rate;
-        }
-        if (!descInput.value.trim() || descInput.dataset.autoFilled === '1' || !keepManualDesc) {
-            descInput.value = chosen.label;
-            descInput.dataset.autoFilled = '1';
-        }
-        ercalc(id2);
-    }
-
-    function eOnDaysChange(id2) {
-        const tr3 = document.getElementById(id2);
-        if (!tr3) return;
-        const daysInput = tr3.querySelector('.iDays');
-        const days = parseFloat(daysInput.value) || 1;
-        tr3.querySelector('.iQty').value = Math.max(1, days);
-        ercalc(id2);
-    }
-
-    function eDelRow(id) {
-        const el = document.getElementById(id);
-        if (el) el.remove();
-        eRefreshTotal();
-    }
-
-    function ercalc(id) {
-        const tr = document.getElementById(id);
-        if (!tr) return;
-        const t = (parseFloat(tr.querySelector('.iQty').value) || 0) * (parseFloat(tr.querySelector('.iPrice').value) || 0);
-        tr.querySelector('.iTotal').textContent = 'Rp ' + Math.round(t).toLocaleString('id-ID');
-        eRefreshTotal();
-    }
-
-    function eOnTaxRateChange() {
-        const sel = document.getElementById('eTaxRate');
-        document.getElementById('eCustomTaxWrap').style.display = sel.value === 'custom' ? '' : 'none';
-        eRefreshTotal();
-    }
-
-    function eRefreshTotal() {
-        let s = 0;
-        document.querySelectorAll('#eItemsBody tr').forEach(tr => {
-            s += (parseFloat(tr.querySelector('.iQty')?.value) || 0) * (parseFloat(tr.querySelector('.iPrice')?.value) || 0);
-        });
-        const sel = document.getElementById('eTaxRate');
-        let r = sel ? ((sel.value === 'custom' ? (parseFloat(document.getElementById('eTaxCustom')?.value) || 0) : (parseFloat(sel.value) || 0))) : 0;
-        const scRate = parseFloat(document.getElementById('eServiceCharge')?.value) || 0;
-        const discRate = parseFloat(document.getElementById('eDiscount')?.value) || 0;
-        const sc = s * (scRate / 100),
-            disc = s * (discRate / 100);
-        const afterCD = s + sc - disc;
-        const tax = afterCD * (r / 100),
-            tot = afterCD + tax;
-        const fmt = v => 'Rp ' + Math.round(v).toLocaleString('id-ID');
-        document.getElementById('etpSub').textContent = fmt(s);
-        document.getElementById('etpGrand').textContent = fmt(tot);
-        document.getElementById('etpScRow').style.display = scRate > 0 ? '' : 'none';
-        document.getElementById('etpSc').textContent = fmt(sc) + ' (' + scRate + '%)';
-        document.getElementById('etpDiscRow').style.display = discRate > 0 ? '' : 'none';
-        document.getElementById('etpDisc').textContent = '- ' + fmt(disc) + ' (' + discRate + '%)';
-        document.getElementById('etpTaxRow').style.display = r > 0 ? '' : 'none';
-        document.getElementById('etpTax').textContent = fmt(tax) + ' (' + r + '%)';
-    }
-
-    function submitEdit() {
-        const id = document.getElementById('eInvId').value;
-        const guestName = document.getElementById('eGuestName').value.trim();
-        if (!guestName) {
-            alert('Nama tamu wajib diisi');
-            return;
-        }
-        const rows = document.querySelectorAll('#eItemsBody tr');
-        if (!rows.length) {
-            alert('Minimal 1 item layanan');
-            return;
-        }
-        const items = [];
-        for (const tr of rows) {
-            const svc = tr.querySelector('.iSvc').value;
-            const motorId = svc === 'motor_rental' ? parseInt(tr.querySelector('.iAsset').value || '0', 10) : 0;
-            const carId = svc === 'car_rental' ? parseInt(tr.querySelector('.iAsset').value || '0', 10) : 0;
-            const daysInput = tr.querySelector('.iDays');
-            const days = daysInput ? parseFloat(daysInput.value) || 1 : 1;
-
-            // Generate start and end dates from days
-            const today = new Date();
-            const startDt = today.toISOString().slice(0, 19).replace('T', ' ');
-            const endDate = new Date(today);
-            endDate.setDate(endDate.getDate() + days);
-            const endDt = endDate.toISOString().slice(0, 19).replace('T', ' ');
-
-            if ((svc === 'motor_rental' || svc === 'car_rental') && (!motorId && !carId)) {
-                alert('Item rental motor/mobil wajib pilih armada');
-                return;
-            }
-            items.push({
-                service_type: svc,
-                description: tr.querySelector('.iDesc').value.trim(),
-                qty: parseFloat(tr.querySelector('.iQty').value) || 1,
-                unit_price: parseFloat(tr.querySelector('.iPrice').value) || 0,
-                motor_id: motorId || null,
-                car_id: carId || null,
-                start_dt: (svc === 'motor_rental' || svc === 'car_rental') ? startDt : null,
-                end_dt: (svc === 'motor_rental' || svc === 'car_rental') ? endDt : null,
-                deposit: parseFloat(tr.querySelector('.iDeposit').value) || 0,
-                trip_destination: tr.querySelector('.iDest').value.trim() || null
-            });
-        }
-        const sel = document.getElementById('eTaxRate');
-        const taxR = sel.value === 'custom' ? (parseFloat(document.getElementById('eTaxCustom')?.value) || 0) : (parseFloat(sel.value) || 0);
-        const btn = document.getElementById('editBtn');
-        btn.disabled = true;
-        btn.textContent = 'Menyimpan...';
-        const fd = new FormData();
-        fd.append('action', 'update_invoice');
-        fd.append('id', id);
-        fd.append('guest_name', guestName);
-        fd.append('guest_phone', document.getElementById('ePhone').value.trim());
-        fd.append('room_number', document.getElementById('eRoom').value.trim());
-        fd.append('payment_method', document.getElementById('ePayMethod').value);
-        fd.append('paid_amount', document.getElementById('ePaid').value || 0);
-        fd.append('tax_rate', taxR);
-        fd.append('service_charge_rate', document.getElementById('eServiceCharge').value || 0);
-        fd.append('discount_rate', document.getElementById('eDiscount').value || 0);
-        fd.append('notes', document.getElementById('eNotes').value.trim());
-        fd.append('items', JSON.stringify(items));
-        fetch('hotel-services.php', {
-                method: 'POST',
-                body: fd,
-                credentials: 'include'
-            })
-            .then(r => r.json())
-            .then(res => {
-                if (res.success) {
-                    closeEditModal();
-                    location.reload();
-                } else {
-                    alert('Error: ' + (res.message || 'Unknown'));
-                    btn.disabled = false;
-                    btn.textContent = '💾 Simpan Perubahan';
-                }
-            }).catch(() => {
-                alert('Network error');
-                btn.disabled = false;
-                btn.textContent = '💾 Simpan Perubahan';
-            });
-    }
-
-    // ── SERVICE TYPE MANAGEMENT ──────────────────────────────────────────────────
-    let stRowCnt = 0;
-
-    function addSvcTypeRow() {
-        stRowCnt++;
-        const id = 'new_' + stRowCnt;
-        const tr = document.createElement('tr');
-        tr.id = 'str' + id;
-        tr.innerHTML =
-            `<td><input type="text" class="stIcon" value="🔹" style="width:40px;text-align:center"></td>` +
-            `<td><input type="text" class="stKey" placeholder="e.g. spa_treatment"></td>` +
-            `<td><input type="text" class="stLabel" placeholder="e.g. Spa Treatment"></td>` +
-            `<td><input type="number" class="stSort" value="0" style="width:45px"></td>` +
-            `<td style="display:flex;gap:3px">` +
-            `<button class="btn-cat-save" onclick="saveSvcType('${id}')">💾</button>` +
-            `<button class="btn-cat-del" onclick="document.getElementById('str${id}').remove()">✕</button>` +
-            `</td>`;
-        document.getElementById('svcTypeBody').prepend(tr);
-    }
-
-    function saveSvcType(stId) {
-        const tr = document.getElementById('str' + stId);
-        if (!tr) return;
-        const fd = new FormData();
-        fd.append('action', 'save_service_type');
-        fd.append('st_id', isNaN(stId) ? 0 : stId);
-        fd.append('type_icon', tr.querySelector('.stIcon').value.trim() || '🔹');
-        fd.append('type_key', tr.querySelector('.stKey').value.trim());
-        fd.append('type_label', tr.querySelector('.stLabel').value.trim());
-        fd.append('sort_order', tr.querySelector('.stSort').value || 0);
-        fetch('hotel-services.php', {
-                method: 'POST',
-                body: fd,
-                credentials: 'include'
-            })
-            .then(r => r.json())
-            .then(res => {
-                if (res.success) {
-                    tr.id = 'str' + res.id;
-                    tr.querySelectorAll('button')[0].setAttribute('onclick', 'saveSvcType(' + res.id + ')');
-                    tr.querySelectorAll('button')[1].setAttribute('onclick', 'deleteSvcType(' + res.id + ')');
-                    tr.style.background = '#f0fdf4';
-                    setTimeout(() => tr.style.background = '', 1500);
-                    alert('✅ Tipe layanan tersimpan! Refresh halaman untuk melihat perubahan di dropdown.');
-                } else {
-                    alert('Error: ' + (res.message || 'failed'));
-                }
-            });
-    }
-
-    function deleteSvcType(stId) {
-        if (!confirm('Hapus tipe layanan ini?')) return;
-        const fd = new FormData();
-        fd.append('action', 'delete_service_type');
-        fd.append('st_id', stId);
-        fetch('hotel-services.php', {
-                method: 'POST',
-                body: fd,
-                credentials: 'include'
-            })
-            .then(r => r.json())
-            .then(res => {
-                if (res.success) {
-                    const el = document.getElementById('str' + stId);
-                    if (el) el.remove();
-                } else alert('Error: ' + (res.message || 'Cannot delete'));
-            });
+    // Block 1: PHP-generated data only (isolated so any error here doesn't break functions)
+    try {
+        window.SVC_KEYS = <?php echo json_encode(array_keys($serviceTypes), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
+        window.SVC_LABELS = <?php echo json_encode(array_values(array_map(fn($v) => ($v['icon'] ?? '') . ' ' . ($v['label'] ?? ''), $serviceTypes)), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
+        window.CATALOG_DATA = <?php
+                                $catalogByType = [];
+                                foreach ($catalogRows as $cr) {
+                                    $catalogByType[$cr['service_type']][] = [
+                                        'name'        => $cr['item_name'],
+                                        'price'       => (float)$cr['default_price'],
+                                        'driver_rate' => (float)($cr['driver_rate'] ?? 0),
+                                        'unit'        => $cr['unit'] ?? 'unit',
+                                    ];
+                                }
+                                echo json_encode($catalogByType, JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '{}';
+                                ?>;
+        window.RENTAL_MOTORS = <?php echo json_encode(array_map(fn($m) => ['id' => (int)$m['id'], 'label' => ($m['motor_name'] ?? '') . ' (' . ($m['plate_number'] ?? '') . ')', 'daily_rate' => (float)$m['daily_rate'], 'partner_owner' => $m['partner_owner'] ?? '', 'owner_phone' => $m['owner_phone'] ?? '', 'commission_type' => $m['commission_type'] ?? 'percent', 'commission_pct' => (float)($m['owner_commission_pct'] ?? 0), 'driver_daily_rate' => (float)($m['driver_daily_rate'] ?? 0)], $availableMotors), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
+        window.RENTAL_CARS = <?php echo json_encode(array_map(fn($c) => ['id' => (int)$c['id'], 'label' => ($c['car_name'] ?? '') . ' (' . ($c['plate_number'] ?? '') . ')' . (!empty($c['car_type']) ? ' - ' . $c['car_type'] : ''), 'daily_rate' => (float)$c['daily_rate'], 'partner_owner' => $c['partner_owner'] ?? '', 'commission_type' => $c['commission_type'] ?? 'percent', 'commission_pct' => (float)($c['owner_commission_pct'] ?? 0), 'commission_nominal' => (float)($c['commission_nominal'] ?? 0), 'driver_daily_rate' => (float)($c['driver_daily_rate'] ?? 0)], $availableCars), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
+        window.TRIP_GUIDES = <?php echo json_encode(array_map(fn($g) => ['id' => (int)$g['id'], 'name' => $g['guide_name'], 'phone' => $g['phone'] ?? '', 'sort_order' => (int)($g['sort_order'] ?? 0)], $tripGuides), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
+        window.SVC_OPTIONS = <?php echo json_encode(array_map(fn($k, $v) => ['val' => $k, 'lbl' => ($v['icon'] ?? '') . ' ' . ($v['label'] ?? '')], array_keys($serviceTypes), $serviceTypes), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
+        window.CATALOG_LIST = <?php echo json_encode(array_map(fn($r) => ['stype' => $r['service_type'], 'name' => $r['item_name'], 'price' => (float)$r['default_price'], 'unit' => $r['unit'] ?? 'unit'], $catalogRows), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
+        window.ACTIVE_BIZ_ID = <?php echo (int)$businessId; ?>;
+    } catch (e) {
+        console.error('[hs-data] failed:', e);
     }
 </script>
+<script src="../../assets/js/hotel-services-fn.js?v=20260807"></script>
 
 <?php include '../../includes/footer.php'; ?>

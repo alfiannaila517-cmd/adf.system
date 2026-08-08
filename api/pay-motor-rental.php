@@ -1,4 +1,5 @@
 <?php
+
 /**
  * API: PAY MOTOR RENTAL (mitra commission)
  * POST /api/pay-motor-rental.php
@@ -59,8 +60,8 @@ try {
     // Sync to cashbook as expense (keluar)
     if ($cashAccountId > 0) {
         $desc = 'Bayar mitra motor: ' . ($row['motor_name'] ?? '') . ' (' . ($row['plate_number'] ?? '') . ')' .
-                ' - ' . ($row['guest_name'] ? 'Tamu: ' . $row['guest_name'] : '') .
-                ' [' . $mitraName . ']';
+            ' - ' . ($row['guest_name'] ? 'Tamu: ' . $row['guest_name'] : '') .
+            ' [' . $mitraName . ']';
         try {
             CashbookHelper::addEntry($pdo, $bizId, [
                 'account_id'     => $cashAccountId,

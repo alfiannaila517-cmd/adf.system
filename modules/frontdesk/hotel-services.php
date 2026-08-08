@@ -528,8 +528,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $carRentalItems   = [];
             $driverTripItems  = [];
             foreach ($items as &$item) {
-                $item['qty']        = max(0.5, (float)($item['qty']        ?? 1));
-                $item['unit_price'] = max(0,   (float)($item['unit_price'] ?? 0));
+                $item['qty']         = max(0.5, (float)($item['qty']        ?? 1));
+                $item['unit_price']  = max(0,   (float)($item['unit_price'] ?? 0));
+                $item['motor_count'] = max(1, (int)($item['motor_count'] ?? 1));
                 $item['start_dt']   = trim((string)($item['start_dt'] ?? '')) ?: null;
                 $item['end_dt']     = trim((string)($item['end_dt'] ?? '')) ?: null;
                 $item['deposit']    = max(0, (float)($item['deposit'] ?? 0));
@@ -808,8 +809,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 $motorRow = $motorRental['row'];
                 $pdo->prepare("INSERT INTO rental_motor_bookings
                     (business_id, motor_id, invoice_id, guest_name, guest_phone, room_number, booking_id,
-                     start_datetime, end_datetime, daily_rate, total_price, deposit, status, notes, created_by)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+                     start_datetime, end_datetime, daily_rate, total_price, motor_count, deposit, status, notes, created_by)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
                     ->execute([
                         $businessId,
                         (int)$motorRow['id'],
@@ -822,6 +823,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                         $item['end_dt'],
                         $item['unit_price'],
                         $item['total'],
+                        $item['motor_count'] ?? 1,
                         $item['deposit'],
                         'active',
                         $notes ?: null,

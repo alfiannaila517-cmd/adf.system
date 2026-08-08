@@ -730,6 +730,7 @@ function submitCreate () {
       description: tr.querySelector('.iDesc').value.trim(),
       // For motor_rental: send motors×days as qty so server total_price = motors×days×rate
       qty: svc === 'motor_rental' ? _motorUnits * _motorDays : _motorUnits,
+      motor_count: svc === 'motor_rental' ? _motorUnits : 1,
       unit_price: parseFloat(tr.querySelector('.iPrice').value) || 0,
       motor_id: motorId || null,
       car_id: (svc === 'car_rental' ? carId : driverCarId) || null,

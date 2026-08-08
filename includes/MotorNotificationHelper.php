@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Header Notification Banner - Motor Overdue Tracking
  * Display running text notification for motors not returned >24hrs
@@ -6,7 +7,8 @@
  */
 
 // Get motors overdue (>24 hours without return confirmation after payment)
-function getOverdueMotorsForNotification($pdo, $businessId = 1) {
+function getOverdueMotorsForNotification($pdo, $businessId = 1)
+{
     try {
         $stmt = $pdo->prepare("
             SELECT 
@@ -34,22 +36,22 @@ function getOverdueMotorsForNotification($pdo, $businessId = 1) {
 }
 
 // Format notification messages
-function formatOverdueMotorMessages($overdueMotors) {
+function formatOverdueMotorMessages($overdueMotors)
+{
     if (empty($overdueMotors)) {
         return [];
     }
-    
+
     $messages = [];
     foreach ($overdueMotors as $motor) {
         $hoursOverdue = $motor['hours_overdue'] ?? 0;
         $daysOverdue = floor($hoursOverdue / 24);
         $hoursLeft = $hoursOverdue % 24;
-        
+
         $timeStr = $daysOverdue > 0 ? "{$daysOverdue} hari {$hoursLeft} jam" : "{$hoursOverdue} jam";
-        
+
         $messages[] = "⚠️ {$motor['motor_name']} ({$motor['plate_number']}) belum dikembalikan - {$timeStr} overdue! Guest: {$motor['guest_name']}";
     }
-    
+
     return $messages;
 }
-?>

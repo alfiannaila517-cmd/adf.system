@@ -1,4 +1,5 @@
 <?php
+
 /**
  * API: EDIT MOTOR RENTAL AMOUNT
  * POST /api/edit-motor-rental-amount.php

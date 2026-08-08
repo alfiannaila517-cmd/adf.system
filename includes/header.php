@@ -498,7 +498,7 @@ if (isset($_SESSION['user_id'])) {
     <?php if ($themeError): ?>
         <!-- Theme Load Warning: <?php echo htmlspecialchars($themeError); ?> -->
     <?php endif; ?>
-    
+
     <!-- Motor Overdue Notification Banner -->
     <?php
     try {
@@ -508,41 +508,49 @@ if (isset($_SESSION['user_id'])) {
             $messages = formatOverdueMotorMessages($overdueMotors);
             $notificationText = implode(' | ', $messages);
     ?>
-        <style>
-            .motor-notification-banner {
-                background: linear-gradient(90deg, #dc2626, #b91c1c);
-                color: white;
-                padding: 0.75rem 1rem;
-                overflow: hidden;
-                position: relative;
-                font-weight: 600;
-                font-size: 0.875rem;
-                box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
-            }
-            .motor-notification-banner .running-text {
-                display: inline-block;
-                white-space: nowrap;
-                animation: scroll-text 25s linear infinite;
-                padding-left: 100%;
-            }
-            @keyframes scroll-text {
-                0% { transform: translateX(0); }
-                100% { transform: translateX(-100%); }
-            }
-            .motor-notification-banner .running-text:hover {
-                animation-play-state: paused;
-            }
-        </style>
-        <div class="motor-notification-banner">
-            <div class="running-text">
-                <?php echo htmlspecialchars($notificationText); ?>
+            <style>
+                .motor-notification-banner {
+                    background: linear-gradient(90deg, #dc2626, #b91c1c);
+                    color: white;
+                    padding: 0.75rem 1rem;
+                    overflow: hidden;
+                    position: relative;
+                    font-weight: 600;
+                    font-size: 0.875rem;
+                    box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
+                }
+
+                .motor-notification-banner .running-text {
+                    display: inline-block;
+                    white-space: nowrap;
+                    animation: scroll-text 25s linear infinite;
+                    padding-left: 100%;
+                }
+
+                @keyframes scroll-text {
+                    0% {
+                        transform: translateX(0);
+                    }
+
+                    100% {
+                        transform: translateX(-100%);
+                    }
+                }
+
+                .motor-notification-banner .running-text:hover {
+                    animation-play-state: paused;
+                }
+            </style>
+            <div class="motor-notification-banner">
+                <div class="running-text">
+                    <?php echo htmlspecialchars($notificationText); ?>
+                </div>
             </div>
-        </div>
-    <?php endif; ?>
+        <?php endif; ?>
     <?php } catch (\Throwable $e) {
         // Silent fail if notification fails
     } ?>
-    
+
     <div class="main-wrapper">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
