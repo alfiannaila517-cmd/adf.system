@@ -33,29 +33,6 @@ if (!in_array($prefillPoBusinessSlug, $allowedPoBusinessSlugs, true)) {
     $prefillPoBusinessSlug = '';
 }
 
-$resolveBusinessIdFromSlug = function (string $businessSlug) use ($db) {
-    $businessSlug = trim(strtolower($businessSlug));
-    if ($businessSlug === '') {
-        return [0, ''];
-    }
-
-    $normalizedSlug = preg_replace('/[^a-z0-9]/', '', $businessSlug);
-    $businessRows = $db->fetchAll("SELECT id, business_name, business_code FROM businesses WHERE is_active = 1 OR is_active IS NULL ORDER BY business_name ASC");
-    if (empty($businessRows)) {
-        $businessRows = $db->fetchAll("SELECT id, business_name, business_code FROM businesses ORDER BY business_name ASC");
-    }
-
-    foreach ($businessRows as $businessRow) {
-        $codeNorm = strtolower(preg_replace('/[^a-z0-9]/', '', (string)($businessRow['business_code'] ?? '')));
-        $nameNorm = strtolower(preg_replace('/[^a-z0-9]/', '', (string)($businessRow['business_name'] ?? '')));
-        if ($normalizedSlug !== '' && ($normalizedSlug === $codeNorm || strpos($nameNorm, $normalizedSlug) !== false || strpos($normalizedSlug, $nameNorm) !== false)) {
-            return [(int)$businessRow['id'], (string)$businessRow['business_name']];
-        }
-    }
-
-    return [0, ''];
-};
-
 $resolvePoContext = function (int $poId, string $poBusinessSlug = '') use ($db, $allowedPoBusinessSlugs) {
     $originDbName = Database::getCurrentDatabase();
     $resolved = [
@@ -105,18 +82,6 @@ if ($prefillPoId > 0) {
         if ($prefillTargetBusinessName === '') {
             $prefillTargetBusinessName = trim((string)($resolvedPo['business_name'] ?? ''));
         }
-        if ($prefillTargetBusinessId <= 0 && $prefillPoBusinessSlug !== '') {
-            [$resolvedBusinessId, $resolvedBusinessName] = $resolveBusinessIdFromSlug($prefillPoBusinessSlug);
-            if ($resolvedBusinessId > 0) {
-                $prefillTargetBusinessId = $resolvedBusinessId;
-                if ($prefillTargetBusinessName === '') {
-                    $prefillTargetBusinessName = $resolvedBusinessName;
-                }
-            }
-        }
-        if ($prefillTargetBusinessId <= 0 && !empty($_SESSION['business_id'])) {
-            $prefillTargetBusinessId = (int)$_SESSION['business_id'];
-        }
         $prefillNotes = 'Proses PO ' . $poRow['po_number'];
     }
 }
@@ -158,6 +123,38 @@ if (empty($allowedBusinesses)) {
     $allowedBusinesses = $allBusinesses;
 }
 
+// Resolve target business from PO slug using already-loaded businesses (avoids stale DB closure issues)
+$findBusinessBySlug = function (string $slug) use ($allBusinesses) {
+    $slugNorm = preg_replace('/[^a-z0-9]/', '', strtolower($slug));
+    if ($slugNorm === '') {
+        return [0, ''];
+    }
+    foreach ($allBusinesses as $biz) {
+        $codeNorm = strtolower(preg_replace('/[^a-z0-9]/', '', (string)($biz['business_code'] ?? '')));
+        $nameNorm = strtolower(preg_replace('/[^a-z0-9]/', '', (string)($biz['business_name'] ?? '')));
+        if ($slugNorm === $codeNorm || strpos($nameNorm, $slugNorm) !== false || strpos($slugNorm, $nameNorm) !== false) {
+            return [(int)$biz['id'], (string)$biz['business_name']];
+        }
+    }
+    return [0, ''];
+};
+
+// Fix GET-phase: if target still 0, resolve from slug via loaded list
+if ($prefillPoId > 0 && $prefillTargetBusinessId <= 0 && $prefillPoBusinessSlug !== '') {
+    [$prefillTargetBusinessId, $resolvedName] = $findBusinessBySlug($prefillPoBusinessSlug);
+    if ($prefillTargetBusinessName === '' && $resolvedName !== '') {
+        $prefillTargetBusinessName = $resolvedName;
+    }
+}
+// Load display name from config file as final fallback
+if ($prefillPoId > 0 && $prefillTargetBusinessId > 0 && $prefillTargetBusinessName === '') {
+    $bizCfgPath = __DIR__ . '/../../config/businesses/' . $prefillPoBusinessSlug . '.php';
+    if ($prefillPoBusinessSlug !== '' && file_exists($bizCfgPath)) {
+        $bizCfg = require $bizCfgPath;
+        $prefillTargetBusinessName = (string)($bizCfg['name'] ?? '');
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $targetBusinessId = (int)($_POST['target_business_id'] ?? 0);
     $stockId = (int)($_POST['stock_id'] ?? 0);
@@ -168,50 +165,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!in_array($sourcePoBusinessSlug, $allowedPoBusinessSlugs, true)) {
         $sourcePoBusinessSlug = '';
     }
+    $redirectBack = 'gudang-transfer.php' . ($sourcePoId > 0 ? '?po_id=' . $sourcePoId . '&po_business=' . urlencode($sourcePoBusinessSlug) : '');
+
     if ($sourcePoId <= 0) {
         $sourcePoId = null;
     } else {
-        // Jika transfer dari PO, bisnis tujuan wajib mengikuti business_id PO.
+        // Resolve target from PO; fallback to slug→allBusinesses lookup
         $resolvedPoPost = $resolvePoContext($sourcePoId, $sourcePoBusinessSlug);
         $poFromPost = $resolvedPoPost['row'];
-        if (!$poFromPost || (int)($poFromPost['business_id'] ?? 0) <= 0) {
-            if ($sourcePoBusinessSlug !== '') {
-                [$resolvedBusinessId, $resolvedBusinessName] = $resolveBusinessIdFromSlug($sourcePoBusinessSlug);
-                if ($resolvedBusinessId > 0) {
-                    $targetBusinessId = $resolvedBusinessId;
-                    $prefillTargetBusinessName = $resolvedBusinessName;
-                }
-            }
-
-            if ($targetBusinessId <= 0 && !empty($_SESSION['business_id'])) {
-                $targetBusinessId = (int)$_SESSION['business_id'];
-            }
-
-            if ($targetBusinessId <= 0) {
-                $result = ['success' => false, 'message' => 'PO sumber tidak valid untuk transfer.'];
-            }
-        } else {
+        if ($poFromPost && (int)($poFromPost['business_id'] ?? 0) > 0) {
             $targetBusinessId = (int)$poFromPost['business_id'];
+        }
+        if ($targetBusinessId <= 0 && $sourcePoBusinessSlug !== '') {
+            [$targetBusinessId] = $findBusinessBySlug($sourcePoBusinessSlug);
+        }
+        if ($targetBusinessId <= 0) {
+            $_SESSION['error'] = 'Bisnis tujuan tidak ditemukan. Pastikan PO dan bisnis sudah terdaftar.';
+            header('Location: ' . $redirectBack);
+            exit;
         }
     }
 
-    if (!isset($result)) {
-        $result = transferGudangNasitaStock($targetBusinessId, [
-            [
-                'stock_id' => $stockId,
-                'quantity' => $quantity,
-                'notes' => $notes,
-            ]
-        ], $currentUser['id'], $notes, $sourcePoId);
-    }
+    $result = transferGudangNasitaStock($targetBusinessId, [
+        [
+            'stock_id' => $stockId,
+            'quantity' => $quantity,
+            'notes' => $notes,
+        ]
+    ], $currentUser['id'], $notes, $sourcePoId);
 
     if ($result['success']) {
-        $message = $result['message'] . ' Ke ' . $result['business_name'];
-        $messageType = 'success';
+        $_SESSION['success'] = $result['message'] . ' → ' . ($result['business_name'] ?? '');
     } else {
-        $message = $result['message'];
-        $messageType = 'danger';
+        $_SESSION['error'] = $result['message'];
     }
+    header('Location: ' . $redirectBack);
+    exit;
 }
 
 $stockItems = getGudangNasitaStock(300);
@@ -231,8 +220,11 @@ include '../../includes/header.php';
     </a>
 </div>
 
-<?php if (!empty($message)): ?>
-    <div class="alert alert-<?php echo $messageType; ?>"><?php echo htmlspecialchars($message); ?></div>
+<?php if (isset($_SESSION['success'])): ?>
+    <div class="alert alert-success"><?php echo htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?></div>
+<?php endif; ?>
+<?php if (isset($_SESSION['error'])): ?>
+    <div class="alert alert-danger"><?php echo htmlspecialchars($_SESSION['error']); unset($_SESSION['error']); ?></div>
 <?php endif; ?>
 
 <?php if ($prefillPoId > 0): ?>
