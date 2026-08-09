@@ -213,8 +213,10 @@ function createPurchaseOrder($supplier_id, $po_date, $items, $options = [])
                 'item_name'    => $item['item_name'],
                 'quantity'     => $item['quantity'],
                 'unit_price'   => $item['unit_price'],
-                'received_quantity' => 0,
             ];
+            if (in_array('received_quantity', $dtlColNames)) {
+                $detail_data['received_quantity'] = 0;
+            }
             // unit column: new schema = unit_of_measure, old schema = unit
             if (in_array('unit_of_measure', $dtlColNames)) {
                 $detail_data['unit_of_measure'] = $item['unit_of_measure'];
