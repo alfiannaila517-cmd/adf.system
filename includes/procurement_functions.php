@@ -810,16 +810,26 @@ function getPurchaseOrders($filters = [], $limit = 100, $offset = 0)
         error_log('getPurchaseOrders full query error: ' . $e->getMessage());
     }
 
-    // Fallback: bare-minimum query that works on any schema version
+    // Fallback: absolutely minimal — no WHERE, no JOIN, just return all rows from the table
     try {
-        $fbWhere = [];
-        $fbParams = [];
-        if (!empty($filters['exclude_gdn_prefix'])) $fbWhere[] = "po_number NOT LIKE 'GDN-%'";
-        if (!empty($filters['date_from'])) { $fbWhere[] = "po_date >= ?"; $fbParams[] = $filters['date_from']; }
-        if (!empty($filters['date_to']))   { $fbWhere[] = "po_date <= ?"; $fbParams[] = $filters['date_to']; }
-        $fbClause = $fbWhere ? 'WHERE ' . implode(' AND ', $fbWhere) : '';
-        return $db->fetchAll("SELECT *, 0 AS items_count FROM purchase_orders_header $fbClause ORDER BY id DESC LIMIT $limit OFFSET $offset", $fbParams) ?: [];
+        $raw = $db->fetchAll("SELECT * FROM purchase_orders_header ORDER BY id DESC LIMIT $limit OFFSET $offset");
+        if ($raw === false || $raw === null) {
+            error_log('getPurchaseOrders fallback returned false — table may not exist');
+            return [];
+        }
+        error_log('getPurchaseOrders fallback returned ' . count($raw) . ' rows for DB: ' . Database::getCurrentDatabase());
+        // Apply only prefix filter in PHP to avoid column-name issues
+        $exclude = !empty($filters['exclude_gdn_prefix']);
+        $filtered = [];
+        foreach ($raw as $row) {
+            $pn = (string)($row['po_number'] ?? '');
+            if ($exclude && strpos($pn, 'GDN-') === 0) continue;
+            $row['items_count'] = 0;
+            $filtered[] = $row;
+        }
+        return $filtered;
     } catch (Throwable $e) {
+        error_log('getPurchaseOrders absolute fallback error: ' . $e->getMessage());
         return [];
     }
 }
