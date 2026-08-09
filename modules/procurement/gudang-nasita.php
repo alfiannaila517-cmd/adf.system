@@ -70,7 +70,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 'status'        => 'submitted',
                 'total_amount'  => 0,
                 'notes'         => $poNotes ?: 'Restock Gudang Nasita',
-                'created_by'    => $currentUser['id'],
+                // Verify user exists in this DB to avoid FK violation
+                'created_by'    => ($db->fetchOne('SELECT id FROM users WHERE id = ? LIMIT 1', [$currentUser['id']]) ? $currentUser['id'] : null),
             ]);
             $db->insert('purchase_orders_detail', [
                 'po_header_id'  => $poHeaderId,

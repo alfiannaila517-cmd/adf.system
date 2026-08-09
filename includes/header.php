@@ -956,12 +956,6 @@ if (isset($_SESSION['user_id'])) {
                                         <span><?php echo __('menu.purchase_invoices'); ?></span>
                                     </a>
                                 </li>
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/procurement/suppliers.php" class="submenu-link <?php echo activeMenu('suppliers.php'); ?>">
-                                        <i data-feather="users" class="submenu-icon"></i>
-                                        <span><?php echo __('menu.suppliers'); ?></span>
-                                    </a>
-                                </li>
                             </ul>
                         </li>
                     <?php endif; ?>
@@ -985,15 +979,29 @@ if (isset($_SESSION['user_id'])) {
                     }
                     ?>
                     <?php if ($gudangBizAllowed && $canAccessGudangMenu && isModuleEnabled('procurement')): ?>
-                        <?php $gudangMenuUrl = ($auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse')) ? (BASE_URL . '/modules/procurement/gudang-nasita.php') : (BASE_URL . '/modules/procurement/gudang-transfer.php'); ?>
-                        <li class="nav-item">
-                            <a href="<?php echo $gudangMenuUrl; ?>" class="nav-link <?php echo (activeMenu('gudang-nasita.php') || activeMenu('gudang-transfer.php')) ? 'active' : ''; ?>">
+                        <li class="nav-item has-submenu <?php echo (activeMenu('gudang-nasita.php') || activeMenu('gudang-transfer.php') || activeMenu('suppliers.php')) ? 'open' : ''; ?>">
+                            <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo (activeMenu('gudang-nasita.php') || activeMenu('gudang-transfer.php') || activeMenu('suppliers.php')) ? 'active' : ''; ?>">
                                 <i data-feather="archive" class="nav-icon"></i>
                                 <span>Gudang Nasita</span>
                                 <?php if ($gudangPendingPoCount > 0): ?>
                                     <span style="margin-left:auto; background:#ef4444; color:#fff; min-width:20px; height:20px; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; font-size:0.7rem; font-weight:800; padding:0 6px;"><?php echo $gudangPendingPoCount; ?></span>
                                 <?php endif; ?>
                             </a>
+                            <ul class="submenu">
+                                <?php $gudangMainUrl = ($auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse')) ? (BASE_URL . '/modules/procurement/gudang-nasita.php') : (BASE_URL . '/modules/procurement/gudang-transfer.php'); ?>
+                                <li class="submenu-item">
+                                    <a href="<?php echo $gudangMainUrl; ?>" class="submenu-link <?php echo (activeMenu('gudang-nasita.php') || activeMenu('gudang-transfer.php')) ? 'active' : ''; ?>">
+                                        <i data-feather="archive" class="submenu-icon"></i>
+                                        <span>Stok &amp; Transfer</span>
+                                    </a>
+                                </li>
+                                <li class="submenu-item">
+                                    <a href="<?php echo BASE_URL; ?>/modules/procurement/suppliers.php" class="submenu-link <?php echo activeMenu('suppliers.php'); ?>">
+                                        <i data-feather="users" class="submenu-icon"></i>
+                                        <span>Pemasok</span>
+                                    </a>
+                                </li>
+                            </ul>
                         </li>
                     <?php endif; ?>
 
