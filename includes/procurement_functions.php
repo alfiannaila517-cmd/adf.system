@@ -818,12 +818,36 @@ function getPurchaseOrders($filters = [], $limit = 100, $offset = 0)
             return [];
         }
         error_log('getPurchaseOrders fallback returned ' . count($raw) . ' rows for DB: ' . Database::getCurrentDatabase());
-        // Apply only prefix filter in PHP to avoid column-name issues
-        $exclude = !empty($filters['exclude_gdn_prefix']);
+        
+        // Apply filters in PHP to avoid column-name issues
         $filtered = [];
         foreach ($raw as $row) {
+            // Filter by status if specified
+            if (!empty($filters['status']) && ((string)($row['status'] ?? '') !== $filters['status'])) {
+                continue;
+            }
+            // Filter by GDN-* prefix
             $pn = (string)($row['po_number'] ?? '');
-            if ($exclude && strpos($pn, 'GDN-') === 0) continue;
+            if (!empty($filters['exclude_gdn_prefix']) && strpos($pn, 'GDN-') === 0) {
+                continue;
+            }
+            // Filter by business_id OR NULL
+            if (!empty($filters['business_id_or_null'])) {
+                $bid = (int)($row['business_id'] ?? 0);
+                $targetBid = (int)$filters['business_id_or_null'];
+                if ($bid !== $targetBid && $bid !== 0) {
+                    continue;
+                }
+            }
+            // Filter by date range
+            if (!empty($filters['date_from'])) {
+                $pd = (string)($row['po_date'] ?? '');
+                if ($pd < $filters['date_from']) continue;
+            }
+            if (!empty($filters['date_to'])) {
+                $pd = (string)($row['po_date'] ?? '');
+                if ($pd > $filters['date_to']) continue;
+            }
             $row['items_count'] = 0;
             $filtered[] = $row;
         }

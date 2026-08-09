@@ -8,6 +8,12 @@ require_once '../../includes/procurement_functions.php';
 $auth = new Auth();
 $auth->requireLogin();
 
+// Switch to active business database
+$activeBusinessSlug = isset($_SESSION['active_business_id']) ? (string)$_SESSION['active_business_id'] : '';
+if (!empty($activeBusinessSlug)) {
+    Database::switchDatabase($activeBusinessSlug);
+}
+
 $db = Database::getInstance();
 $currentUser = $auth->getCurrentUser();
 $pageTitle = 'Buat Purchase Order';
@@ -123,6 +129,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['error'] = '❌ ' . $result['message'];
         }
     }
+}
+
+// Restore to default database before rendering header
+if (!empty($activeBusinessSlug)) {
+    Database::switchDatabase('narayana');
 }
 
 include '../../includes/header.php';
