@@ -136,11 +136,13 @@ include '../../includes/header.php';
                     <input type="hidden" name="action" value="submit">
                     <button type="submit" class="btn btn-primary btn-sm">Submit PO</button>
                 </form>
-            <?php elseif (in_array($po['status'], ['submitted', 'approved'])): ?>
+            <?php elseif (in_array($po['status'], ['submitted', 'approved']) && ($auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse'))): ?>
                 <a href="gudang-transfer.php?po_id=<?php echo (int)$po['id']; ?>" class="btn btn-success btn-sm">
                     <i data-feather="send" style="width: 14px; height: 14px;"></i>
                     Siapkan Transfer Gudang
                 </a>
+            <?php elseif (in_array($po['status'], ['submitted', 'approved'])): ?>
+                <span class="badge badge-warning" style="font-size:0.8rem;">⏳ Menunggu diproses Gudang</span>
             <?php endif; ?>
             <button onclick="window.print()" class="btn btn-secondary btn-sm">
                 <i data-feather="printer" style="width: 14px; height: 14px;"></i> Print
