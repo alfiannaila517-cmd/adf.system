@@ -165,41 +165,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!in_array($sourcePoBusinessSlug, $allowedPoBusinessSlugs, true)) {
         $sourcePoBusinessSlug = '';
     }
-    $redirectBack = 'gudang-transfer.php' . ($sourcePoId > 0 ? '?po_id=' . $sourcePoId . '&po_business=' . urlencode($sourcePoBusinessSlug) : '');
+    $redirectBase = 'gudang-transfer.php' . ($sourcePoId > 0 ? '?po_id=' . $sourcePoId . '&po_business=' . urlencode($sourcePoBusinessSlug) : '');
 
-    if ($sourcePoId <= 0) {
-        $sourcePoId = null;
-    } else {
-        // Resolve target from PO; fallback to slug→allBusinesses lookup
-        $resolvedPoPost = $resolvePoContext($sourcePoId, $sourcePoBusinessSlug);
-        $poFromPost = $resolvedPoPost['row'];
-        if ($poFromPost && (int)($poFromPost['business_id'] ?? 0) > 0) {
-            $targetBusinessId = (int)$poFromPost['business_id'];
-        }
-        if ($targetBusinessId <= 0 && $sourcePoBusinessSlug !== '') {
-            [$targetBusinessId] = $findBusinessBySlug($sourcePoBusinessSlug);
-        }
-        if ($targetBusinessId <= 0) {
-            $_SESSION['error'] = 'Bisnis tujuan tidak ditemukan. Pastikan PO dan bisnis sudah terdaftar.';
-            header('Location: ' . $redirectBack);
-            exit;
+    // Resolve target business name + ID from the source business's own DB config
+    $resolvedBizName = '';
+    $resolvedBizId = $targetBusinessId;
+    if ($sourcePoBusinessSlug !== '') {
+        $bizCfgPath = __DIR__ . '/../../config/businesses/' . $sourcePoBusinessSlug . '.php';
+        if (file_exists($bizCfgPath)) {
+            $bizCfgData = require $bizCfgPath;
+            $resolvedBizName = (string)($bizCfgData['name'] ?? '');
+            $bizDbName = (string)($bizCfgData['database'] ?? '');
+            if ($bizDbName !== '' && $resolvedBizId <= 0) {
+                // Try to get the business's own ID from its own database
+                try {
+                    $originDbName = Database::getCurrentDatabase();
+                    $bizDb = Database::switchDatabase($bizDbName);
+                    $bizRow = $bizDb->fetchOne('SELECT id, business_name FROM businesses ORDER BY id ASC LIMIT 1');
+                    if ($bizRow) {
+                        $resolvedBizId = (int)$bizRow['id'];
+                        if ($resolvedBizName === '') {
+                            $resolvedBizName = (string)$bizRow['business_name'];
+                        }
+                    }
+                    if (!empty($originDbName)) {
+                        Database::switchDatabase($originDbName);
+                    }
+                } catch (Throwable $e) {
+                    error_log('gudang-transfer biz resolve error: ' . $e->getMessage());
+                }
+            }
         }
     }
 
-    $result = transferGudangNasitaStock($targetBusinessId, [
+    // Fallback: resolve from already-loaded businesses list
+    if ($resolvedBizId <= 0 && $sourcePoBusinessSlug !== '') {
+        [$resolvedBizId, $resolvedBizNameFallback] = $findBusinessBySlug($sourcePoBusinessSlug);
+        if ($resolvedBizName === '') {
+            $resolvedBizName = $resolvedBizNameFallback;
+        }
+    }
+
+    if ($sourcePoId <= 0) {
+        $sourcePoId = null;
+    } else if ($resolvedBizId <= 0) {
+        header('Location: ' . $redirectBase . (strpos($redirectBase, '?') !== false ? '&' : '?') . 'transfer_err=' . urlencode('Bisnis tujuan tidak ditemukan. Hubungi admin.'));
+        exit;
+    }
+
+    $result = transferGudangNasitaStock($resolvedBizId ?: $targetBusinessId, [
         [
             'stock_id' => $stockId,
             'quantity' => $quantity,
             'notes' => $notes,
         ]
-    ], $currentUser['id'], $notes, $sourcePoId);
+    ], $currentUser['id'], $notes, $sourcePoId, $resolvedBizName ?: null);
 
+    $sep = strpos($redirectBase, '?') !== false ? '&' : '?';
     if ($result['success']) {
-        $_SESSION['success'] = $result['message'] . ' → ' . ($result['business_name'] ?? '');
+        header('Location: ' . $redirectBase . $sep . 'transfer_ok=1&biz=' . urlencode($result['business_name'] ?? $resolvedBizName));
     } else {
-        $_SESSION['error'] = $result['message'];
+        header('Location: ' . $redirectBase . $sep . 'transfer_err=' . urlencode($result['message']));
     }
-    header('Location: ' . $redirectBack);
     exit;
 }
 
@@ -220,6 +247,17 @@ include '../../includes/header.php';
     </a>
 </div>
 
+<?php if (!empty($_GET['transfer_ok'])): ?>
+    <div class="alert alert-success" id="transferResult">
+        ✅ Barang berhasil ditransfer ke <strong><?php echo htmlspecialchars((string)($_GET['biz'] ?? '')); ?></strong>!
+        <script>document.getElementById('transferResult').scrollIntoView({behavior:'smooth'});</script>
+    </div>
+<?php elseif (!empty($_GET['transfer_err'])): ?>
+    <div class="alert alert-danger" id="transferResult">
+        ❌ <?php echo htmlspecialchars((string)$_GET['transfer_err']); ?>
+        <script>document.getElementById('transferResult').scrollIntoView({behavior:'smooth'});</script>
+    </div>
+<?php endif; ?>
 <?php if (isset($_SESSION['success'])): ?>
     <div class="alert alert-success"><?php echo htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?></div>
 <?php endif; ?>

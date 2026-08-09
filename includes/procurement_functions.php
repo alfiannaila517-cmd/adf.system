@@ -586,7 +586,7 @@ function generateGudangNasitaTransferNumber()
     return $prefix . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
 }
 
-function transferGudangNasitaStock($targetBusinessId, array $items, $createdBy, $notes = '', $sourcePoId = null)
+function transferGudangNasitaStock($targetBusinessId, array $items, $createdBy, $notes = '', $sourcePoId = null, $businessName = null)
 {
     $db = Database::getInstance();
 
@@ -596,6 +596,10 @@ function transferGudangNasitaStock($targetBusinessId, array $items, $createdBy, 
         }
 
         $business = $db->fetchOne('SELECT id, business_name FROM businesses WHERE id = ? LIMIT 1', [$targetBusinessId]);
+        // Fallback: use pre-resolved name when businesses table doesn't have the target
+        if (!$business && $businessName !== null && $businessName !== '') {
+            $business = ['id' => $targetBusinessId, 'business_name' => $businessName];
+        }
         if (!$business) {
             throw new Exception('Tujuan bisnis tidak ditemukan');
         }
