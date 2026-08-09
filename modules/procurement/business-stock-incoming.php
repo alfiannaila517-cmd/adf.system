@@ -24,9 +24,70 @@ $incomingTransfers = [];
 $businessPurchaseOrders = [];
 
 if ($activeBusinessId > 0) {
-    $incomingTransfers = $db->fetchAll("\n        SELECT\n            gt.id,\n            gt.transfer_number,\n            gt.target_business_name,\n            gt.status,\n            gt.notes,\n            gt.created_at,\n            gt.received_by,\n            u.full_name AS created_by_name,\n            r.full_name AS received_by_name,\n            COUNT(gti.id) AS items_count,\n            COALESCE(SUM(gti.quantity), 0) AS total_qty\n        FROM gudang_nasita_transfers gt\n        LEFT JOIN users u ON gt.created_by = u.id\n        LEFT JOIN users r ON gt.received_by = r.id\n        LEFT JOIN gudang_nasita_transfer_items gti ON gti.transfer_id = gt.id\n        WHERE gt.target_business_id = ?\n        GROUP BY gt.id\n        ORDER BY gt.created_at DESC\n        LIMIT 100\n    ", [$activeBusinessId]);
+    // POs live in the current (business) DB
+    $businessPurchaseOrders = $db->fetchAll("
+        SELECT
+            poh.id,
+            poh.po_number,
+            poh.po_date,
+            poh.status,
+            poh.notes,
+            poh.created_at,
+            s.supplier_name,
+            COUNT(pod.id) AS items_count,
+            COALESCE(SUM(pod.quantity), 0) AS ordered_qty,
+            COALESCE(SUM(pod.received_quantity), 0) AS received_qty
+        FROM purchase_orders_header poh
+        LEFT JOIN suppliers s ON s.id = poh.supplier_id
+        LEFT JOIN purchase_orders_detail pod ON pod.po_header_id = poh.id
+        WHERE poh.business_id = ?
+        GROUP BY poh.id
+        ORDER BY poh.created_at DESC
+        LIMIT 100
+    ", [$activeBusinessId]);
 
-    $businessPurchaseOrders = $db->fetchAll("\n        SELECT\n            poh.id,\n            poh.po_number,\n            poh.po_date,\n            poh.status,\n            poh.notes,\n            poh.created_at,\n            s.supplier_name,\n            COUNT(pod.id) AS items_count,\n            COALESCE(SUM(pod.quantity), 0) AS ordered_qty,\n            COALESCE(SUM(pod.received_quantity), 0) AS received_qty\n        FROM purchase_orders_header poh\n        LEFT JOIN suppliers s ON s.id = poh.supplier_id\n        LEFT JOIN purchase_orders_detail pod ON pod.po_header_id = poh.id\n        WHERE poh.business_id = ?\n        GROUP BY poh.id\n        ORDER BY poh.created_at DESC\n        LIMIT 100\n    ", [$activeBusinessId]);
+    // gudang_nasita_transfers lives in Narayana (gudang) DB — cross-DB query
+    $gudangCfgPath = __DIR__ . '/../../config/businesses/narayana-hotel.php';
+    if (file_exists($gudangCfgPath)) {
+        $gudangCfg = require $gudangCfgPath;
+        $gudangDbName = (string)($gudangCfg['database'] ?? '');
+        if ($gudangDbName !== '') {
+            try {
+                $originDbName = Database::getCurrentDatabase();
+                $gudangDb = Database::switchDatabase($gudangDbName);
+                // Match by name so ID mismatches across DBs are not a problem
+                $bizNameForMatch = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $activeBusinessName) . '%';
+                $incomingTransfers = $gudangDb->fetchAll("
+                    SELECT
+                        gt.id,
+                        gt.transfer_number,
+                        gt.target_business_name,
+                        gt.status,
+                        gt.notes,
+                        gt.created_at,
+                        gt.received_by,
+                        u.full_name AS created_by_name,
+                        r.full_name AS received_by_name,
+                        COUNT(gti.id) AS items_count,
+                        COALESCE(SUM(gti.quantity), 0) AS total_qty
+                    FROM gudang_nasita_transfers gt
+                    LEFT JOIN users u ON gt.created_by = u.id
+                    LEFT JOIN users r ON gt.received_by = r.id
+                    LEFT JOIN gudang_nasita_transfer_items gti ON gti.transfer_id = gt.id
+                    WHERE gt.target_business_name LIKE ?
+                    GROUP BY gt.id
+                    ORDER BY gt.created_at DESC
+                    LIMIT 100
+                ", [$bizNameForMatch]);
+                if (!empty($originDbName)) {
+                    Database::switchDatabase($originDbName);
+                    $db = Database::getInstance();
+                }
+            } catch (Throwable $e) {
+                error_log('business-stock-incoming cross-db error: ' . $e->getMessage());
+            }
+        }
+    }
 }
 
 include '../../includes/header.php';
