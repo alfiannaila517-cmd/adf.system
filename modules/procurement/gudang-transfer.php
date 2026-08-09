@@ -155,10 +155,60 @@ if ($prefillPoId > 0 && $prefillTargetBusinessId > 0 && $prefillTargetBusinessNa
     }
 }
 
+// Load PO items from source business DB and match with gudang stock
+$poData = null;
+$poItemsWithStock = [];
+if ($prefillPoId > 0 && $prefillPoBusinessSlug !== '') {
+    $bizCfgPath2 = __DIR__ . '/../../config/businesses/' . $prefillPoBusinessSlug . '.php';
+    if (file_exists($bizCfgPath2)) {
+        $bizCfgData2 = require $bizCfgPath2;
+        $bizDbName2 = (string)($bizCfgData2['database'] ?? '');
+        if ($bizDbName2 !== '') {
+            try {
+                $originDbName2 = Database::getCurrentDatabase();
+                $bizDb2 = Database::switchDatabase($bizDbName2);
+                $poHeader2 = $bizDb2->fetchOne('SELECT * FROM purchase_orders_header WHERE id = ? LIMIT 1', [$prefillPoId]);
+                if ($poHeader2) {
+                    $poDetails2 = $bizDb2->fetchAll('SELECT pod.* FROM purchase_orders_detail pod WHERE pod.po_header_id = ? ORDER BY pod.id', [$prefillPoId]);
+                    $poHeader2['items'] = $poDetails2;
+                    $poData = $poHeader2;
+                }
+                if (!empty($originDbName2)) {
+                    Database::switchDatabase($originDbName2);
+                    $db = Database::getInstance();
+                }
+            } catch (Throwable $e) {
+                error_log('gudang-transfer load PO items error: ' . $e->getMessage());
+            }
+        }
+    }
+    if ($poData && !empty($poData['items'])) {
+        foreach ($poData['items'] as $poItem) {
+            $pItemName = trim((string)($poItem['item_name'] ?? ''));
+            $pUnit = trim((string)($poItem['unit'] ?? 'pcs'));
+            $pOrdered = (float)($poItem['quantity'] ?? 0);
+            $pReceived = (float)($poItem['received_quantity'] ?? 0);
+            $pRemaining = max(0, $pOrdered - $pReceived);
+            // Exact then partial match against gudang stock
+            $gStock = $db->fetchOne('SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) AND is_active = 1 LIMIT 1', [$pItemName]);
+            if (!$gStock && $pItemName !== '') {
+                $gStock = $db->fetchOne('SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) LIKE ? AND is_active = 1 ORDER BY quantity DESC LIMIT 1', ['%' . strtolower($pItemName) . '%']);
+            }
+            $poItemsWithStock[] = [
+                'po_detail_id' => (int)($poItem['id'] ?? 0),
+                'item_name'    => $pItemName,
+                'unit'         => $pUnit,
+                'ordered_qty'  => $pOrdered,
+                'received_qty' => $pReceived,
+                'remaining_qty'=> $pRemaining,
+                'gudang_stock' => $gStock ?: null,
+            ];
+        }
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $targetBusinessId = (int)($_POST['target_business_id'] ?? 0);
-    $stockId = (int)($_POST['stock_id'] ?? 0);
-    $quantity = (float)($_POST['quantity'] ?? 0);
     $notes = trim($_POST['notes'] ?? '');
     $sourcePoId = (int)($_POST['source_po_id'] ?? 0);
     $sourcePoBusinessSlug = trim((string)($_POST['source_po_business'] ?? ''));
@@ -166,6 +216,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $sourcePoBusinessSlug = '';
     }
     $redirectBase = 'gudang-transfer.php' . ($sourcePoId > 0 ? '?po_id=' . $sourcePoId . '&po_business=' . urlencode($sourcePoBusinessSlug) : '');
+
+    // Build items array — support both multi-item (PO mode) and single-item (manual mode)
+    $transferItems = [];
+    if (!empty($_POST['transfer_items']) && is_array($_POST['transfer_items'])) {
+        foreach ($_POST['transfer_items'] as $tItem) {
+            $tStockId = (int)($tItem['stock_id'] ?? 0);
+            $tQty = (float)($tItem['qty'] ?? 0);
+            if ($tStockId > 0 && $tQty > 0) {
+                $transferItems[] = ['stock_id' => $tStockId, 'quantity' => $tQty, 'notes' => $notes];
+            }
+        }
+    } else {
+        $stockId = (int)($_POST['stock_id'] ?? 0);
+        $quantity = (float)($_POST['quantity'] ?? 0);
+        if ($stockId > 0 && $quantity > 0) {
+            $transferItems[] = ['stock_id' => $stockId, 'quantity' => $quantity, 'notes' => $notes];
+        }
+    }
+    if (empty($transferItems)) {
+        $sep = strpos($redirectBase, '?') !== false ? '&' : '?';
+        header('Location: ' . $redirectBase . $sep . 'transfer_err=' . urlencode('Tidak ada item transfer yang valid. Isi qty minimal 1 item.'));
+        exit;
+    }
 
     // Resolve target business name + ID from the source business's own DB config
     $resolvedBizName = '';
@@ -213,13 +286,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    $result = transferGudangNasitaStock($resolvedBizId ?: $targetBusinessId, [
-        [
-            'stock_id' => $stockId,
-            'quantity' => $quantity,
-            'notes' => $notes,
-        ]
-    ], $currentUser['id'], $notes, $sourcePoId, $resolvedBizName ?: null);
+    $result = transferGudangNasitaStock($resolvedBizId ?: $targetBusinessId, $transferItems, $currentUser['id'], $notes, $sourcePoId, $resolvedBizName ?: null);
 
     $sep = strpos($redirectBase, '?') !== false ? '&' : '?';
     if ($result['success']) {
@@ -265,9 +332,11 @@ include '../../includes/header.php';
     <div class="alert alert-danger"><?php echo htmlspecialchars($_SESSION['error']); unset($_SESSION['error']); ?></div>
 <?php endif; ?>
 
-<?php if ($prefillPoId > 0): ?>
+<?php if ($prefillPoId > 0 && $poData): ?>
     <div class="alert alert-info" style="margin-bottom:1rem;">
-        Proses transfer berdasarkan PO bisnis. Tujuan bisnis otomatis mengikuti sumber PO.
+        Transfer untuk PO <strong><?php echo htmlspecialchars($poData['po_number'] ?? ''); ?></strong>
+        dari <strong><?php echo htmlspecialchars($prefillTargetBusinessName ?: $prefillPoBusinessSlug); ?></strong>.
+        Isi qty yang akan dikirim untuk setiap item.
     </div>
 <?php endif; ?>
 
@@ -277,14 +346,12 @@ include '../../includes/header.php';
         <form method="POST">
             <input type="hidden" name="source_po_id" value="<?php echo (int)$prefillPoId; ?>">
             <input type="hidden" name="source_po_business" value="<?php echo htmlspecialchars($prefillPoBusinessSlug); ?>">
-            <div class="form-group">
+            <input type="hidden" name="target_business_id" value="<?php echo (int)$prefillTargetBusinessId; ?>">
+
+            <div class="form-group" style="margin-bottom:1rem;">
                 <label class="form-label">Tujuan Bisnis</label>
                 <?php if ($prefillPoId > 0): ?>
-                    <input type="text" class="form-control" value="<?php echo htmlspecialchars(($prefillTargetBusinessName !== '' ? $prefillTargetBusinessName : 'Business') . ' (otomatis)'); ?>" readonly style="font-weight:700; background:#f8fafc; cursor:not-allowed;">
-                    <input type="hidden" name="target_business_id" value="<?php echo (int)$prefillTargetBusinessId; ?>">
-                    <div style="margin-top:0.35rem; font-size:0.812rem; color:var(--text-muted);">
-                        Tujuan otomatis mengikuti bisnis dari PO sumber.
-                    </div>
+                    <input type="text" class="form-control" value="<?php echo htmlspecialchars(($prefillTargetBusinessName !== '' ? $prefillTargetBusinessName : 'Business')); ?>" readonly style="font-weight:700; background:#f8fafc; cursor:not-allowed;">
                 <?php else: ?>
                     <select name="target_business_id" class="form-control" required>
                         <option value="">-- Pilih bisnis --</option>
@@ -295,24 +362,66 @@ include '../../includes/header.php';
                 <?php endif; ?>
             </div>
 
-            <div class="form-group">
-                <label class="form-label">Item Gudang</label>
-                <select name="stock_id" class="form-control" required>
-                    <option value="">-- Pilih item --</option>
-                    <?php foreach ($stockItems as $item): ?>
-                        <option value="<?php echo (int)$item['id']; ?>" <?php echo ((int)$item['id'] === $prefillStockId) ? 'selected' : ''; ?>><?php echo htmlspecialchars($item['item_name']); ?> (<?php echo number_format((float)$item['quantity'], 2); ?> <?php echo htmlspecialchars($item['unit']); ?>)</option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">Qty Transfer</label>
-                <input type="number" step="0.01" min="0.01" name="quantity" class="form-control" value="<?php echo $prefillQty > 0 ? htmlspecialchars((string)$prefillQty) : ''; ?>" required>
-            </div>
+            <?php if ($prefillPoId > 0 && !empty($poItemsWithStock)): ?>
+                <!-- PO mode: table of PO items with gudang stock check -->
+                <div style="overflow-x:auto; margin-bottom:1rem;">
+                    <table class="table" style="font-size:0.875rem;">
+                        <thead>
+                            <tr>
+                                <th>Item PO</th>
+                                <th class="text-right">Diminta</th>
+                                <th>Stok Gudang</th>
+                                <th class="text-right" style="min-width:110px;">Kirim (qty)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        <?php foreach ($poItemsWithStock as $idx => $pItem): ?>
+                            <?php $gStock = $pItem['gudang_stock']; ?>
+                            <tr style="<?php echo ($pItem['remaining_qty'] <= 0) ? 'opacity:0.5;' : ''; ?>">
+                                <td style="font-weight:600;"><?php echo htmlspecialchars($pItem['item_name']); ?></td>
+                                <td class="text-right"><?php echo number_format($pItem['remaining_qty'], 2); ?> <?php echo htmlspecialchars($pItem['unit']); ?></td>
+                                <td>
+                                    <?php if ($gStock): ?>
+                                        <span style="color:<?php echo (float)$gStock['quantity'] > 0 ? '#0f9d6a' : '#d97706'; ?>; font-weight:600;">
+                                            <?php echo number_format((float)$gStock['quantity'], 2); ?> <?php echo htmlspecialchars($gStock['unit']); ?>
+                                        </span>
+                                    <?php else: ?>
+                                        <span style="color:#9ca3af;">Tidak ada di gudang</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <?php if ($gStock && (float)$gStock['quantity'] > 0 && $pItem['remaining_qty'] > 0): ?>
+                                        <input type="hidden" name="transfer_items[<?php echo $idx; ?>][stock_id]" value="<?php echo (int)$gStock['id']; ?>">
+                                        <input type="number" name="transfer_items[<?php echo $idx; ?>][qty]" step="0.01" min="0" max="<?php echo min($pItem['remaining_qty'], (float)$gStock['quantity']); ?>" value="<?php echo min($pItem['remaining_qty'], (float)$gStock['quantity']); ?>" class="form-control" style="width:100px; text-align:right;">
+                                    <?php else: ?>
+                                        <span style="color:#9ca3af;">—</span>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php else: ?>
+                <!-- Simple mode: single item dropdown -->
+                <div class="form-group">
+                    <label class="form-label">Item Gudang</label>
+                    <select name="stock_id" class="form-control" required>
+                        <option value="">-- Pilih item --</option>
+                        <?php foreach ($stockItems as $item): ?>
+                            <option value="<?php echo (int)$item['id']; ?>" <?php echo ((int)$item['id'] === $prefillStockId) ? 'selected' : ''; ?>><?php echo htmlspecialchars($item['item_name']); ?> (<?php echo number_format((float)$item['quantity'], 2); ?> <?php echo htmlspecialchars($item['unit']); ?>)</option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Qty Transfer</label>
+                    <input type="number" step="0.01" min="0.01" name="quantity" class="form-control" value="<?php echo $prefillQty > 0 ? htmlspecialchars((string)$prefillQty) : ''; ?>" required>
+                </div>
+            <?php endif; ?>
 
             <div class="form-group">
                 <label class="form-label">Catatan</label>
-                <textarea name="notes" class="form-control" rows="3" placeholder="Catatan pengiriman, nomor PO, dll."><?php echo htmlspecialchars($prefillNotes); ?></textarea>
+                <textarea name="notes" class="form-control" rows="2" placeholder="Catatan pengiriman..."><?php echo htmlspecialchars($prefillNotes); ?></textarea>
             </div>
 
             <button type="submit" class="btn btn-primary">
