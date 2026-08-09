@@ -139,6 +139,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+// Restore to master database before rendering (header.php needs master context for theme/menus)
+Database::switchDatabase(DB_NAME);
+
 include '../../includes/header.php';
 ?>
 
