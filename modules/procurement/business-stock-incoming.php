@@ -65,18 +65,21 @@ include '../../includes/header.php';
                 </thead>
                 <tbody>
                     <?php if (empty($businessPurchaseOrders)): ?>
-                        <tr><td colspan="7" class="text-center text-muted">Belum ada PO untuk bisnis ini.</td></tr>
-                    <?php else: foreach ($businessPurchaseOrders as $po): ?>
                         <tr>
-                            <td><strong><?php echo htmlspecialchars($po['po_number']); ?></strong></td>
-                            <td><?php echo !empty($po['po_date']) ? date('d M Y', strtotime($po['po_date'])) : '-'; ?></td>
-                            <td><?php echo htmlspecialchars($po['supplier_name'] ?? '-'); ?></td>
-                            <td><?php echo (int)$po['items_count']; ?> item</td>
-                            <td><span class="badge bg-secondary"><?php echo htmlspecialchars(ucfirst(str_replace('_', ' ', $po['status']))); ?></span></td>
-                            <td><?php echo number_format((float)$po['received_qty'], 0, ',', '.'); ?></td>
-                            <td><a href="view-po.php?id=<?php echo (int)$po['id']; ?>" class="btn btn-sm btn-outline-primary">Lihat</a></td>
+                            <td colspan="7" class="text-center text-muted">Belum ada PO untuk bisnis ini.</td>
                         </tr>
-                    <?php endforeach; endif; ?>
+                        <?php else: foreach ($businessPurchaseOrders as $po): ?>
+                            <tr>
+                                <td><strong><?php echo htmlspecialchars($po['po_number']); ?></strong></td>
+                                <td><?php echo !empty($po['po_date']) ? date('d M Y', strtotime($po['po_date'])) : '-'; ?></td>
+                                <td><?php echo htmlspecialchars($po['supplier_name'] ?? '-'); ?></td>
+                                <td><?php echo (int)$po['items_count']; ?> item</td>
+                                <td><span class="badge bg-secondary"><?php echo htmlspecialchars(ucfirst(str_replace('_', ' ', $po['status']))); ?></span></td>
+                                <td><?php echo number_format((float)$po['received_qty'], 0, ',', '.'); ?></td>
+                                <td><a href="view-po.php?id=<?php echo (int)$po['id']; ?>" class="btn btn-sm btn-outline-primary">Lihat</a></td>
+                            </tr>
+                    <?php endforeach;
+                    endif; ?>
                 </tbody>
             </table>
         </div>
@@ -98,17 +101,20 @@ include '../../includes/header.php';
                 </thead>
                 <tbody>
                     <?php if (empty($incomingTransfers)): ?>
-                        <tr><td colspan="6" class="text-center text-muted">Belum ada transfer stock masuk.</td></tr>
-                    <?php else: foreach ($incomingTransfers as $transfer): ?>
                         <tr>
-                            <td><strong><?php echo htmlspecialchars($transfer['transfer_number']); ?></strong></td>
-                            <td><?php echo !empty($transfer['created_at']) ? date('d M Y H:i', strtotime($transfer['created_at'])) : '-'; ?></td>
-                            <td><?php echo (int)$transfer['items_count']; ?> item</td>
-                            <td><?php echo number_format((float)$transfer['total_qty'], 0, ',', '.'); ?></td>
-                            <td><span class="badge bg-info text-dark"><?php echo htmlspecialchars(ucfirst($transfer['status'])); ?></span></td>
-                            <td><?php echo htmlspecialchars($transfer['created_by_name'] ?? '-'); ?></td>
+                            <td colspan="6" class="text-center text-muted">Belum ada transfer stock masuk.</td>
                         </tr>
-                    <?php endforeach; endif; ?>
+                        <?php else: foreach ($incomingTransfers as $transfer): ?>
+                            <tr>
+                                <td><strong><?php echo htmlspecialchars($transfer['transfer_number']); ?></strong></td>
+                                <td><?php echo !empty($transfer['created_at']) ? date('d M Y H:i', strtotime($transfer['created_at'])) : '-'; ?></td>
+                                <td><?php echo (int)$transfer['items_count']; ?> item</td>
+                                <td><?php echo number_format((float)$transfer['total_qty'], 0, ',', '.'); ?></td>
+                                <td><span class="badge bg-info text-dark"><?php echo htmlspecialchars(ucfirst($transfer['status'])); ?></span></td>
+                                <td><?php echo htmlspecialchars($transfer['created_by_name'] ?? '-'); ?></td>
+                            </tr>
+                    <?php endforeach;
+                    endif; ?>
                 </tbody>
             </table>
         </div>

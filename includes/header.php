@@ -522,19 +522,34 @@ if (isset($_SESSION['user_id'])) {
                     font-weight: 700;
                     font-size: 0.84rem;
                     letter-spacing: 0.01em;
-                    box-shadow: 0 3px 10px rgba(220,38,38,0.5);
+                    box-shadow: 0 3px 10px rgba(220, 38, 38, 0.5);
                     border-bottom: 2px solid #fca5a5;
                     z-index: 999;
                     cursor: pointer;
                 }
+
                 @keyframes banner-bg {
-                    0%   { background-position: 0% 50%; }
-                    100% { background-position: 200% 50%; }
+                    0% {
+                        background-position: 0% 50%;
+                    }
+
+                    100% {
+                        background-position: 200% 50%;
+                    }
                 }
+
                 @keyframes banner-pulse {
-                    0%, 100% { box-shadow: 0 3px 10px rgba(220,38,38,0.5); }
-                    50%       { box-shadow: 0 3px 20px rgba(220,38,38,0.9); }
+
+                    0%,
+                    100% {
+                        box-shadow: 0 3px 10px rgba(220, 38, 38, 0.5);
+                    }
+
+                    50% {
+                        box-shadow: 0 3px 20px rgba(220, 38, 38, 0.9);
+                    }
                 }
+
                 .motor-overdue-banner .ob-label {
                     position: absolute;
                     left: 0;
@@ -543,31 +558,48 @@ if (isset($_SESSION['user_id'])) {
                     display: flex;
                     align-items: center;
                     padding: 0 0.75rem;
-                    background: rgba(0,0,0,0.35);
+                    background: rgba(0, 0, 0, 0.35);
                     white-space: nowrap;
                     font-size: 0.78rem;
                     gap: 0.3rem;
                     z-index: 1;
-                    border-right: 1px solid rgba(255,255,255,0.2);
+                    border-right: 1px solid rgba(255, 255, 255, 0.2);
                 }
+
                 .motor-overdue-banner .ob-label .flash {
                     animation: flash-icon 1s step-start infinite;
                     font-size: 1rem;
                 }
+
                 @keyframes flash-icon {
-                    0%, 100% { opacity: 1; }
-                    50%       { opacity: 0; }
+
+                    0%,
+                    100% {
+                        opacity: 1;
+                    }
+
+                    50% {
+                        opacity: 0;
+                    }
                 }
+
                 .motor-overdue-banner .ob-ticker {
                     display: block;
                     white-space: nowrap;
                     padding-left: 160px;
                     animation: ticker-scroll <?php echo $scrollDuration; ?>s linear infinite;
                 }
+
                 @keyframes ticker-scroll {
-                    0%   { transform: translateX(100vw); }
-                    100% { transform: translateX(-100%); }
+                    0% {
+                        transform: translateX(100vw);
+                    }
+
+                    100% {
+                        transform: translateX(-100%);
+                    }
                 }
+
                 .motor-overdue-banner:hover .ob-ticker {
                     animation-play-state: paused;
                 }

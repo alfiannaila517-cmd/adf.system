@@ -2924,7 +2924,8 @@ include '../../includes/header.php';
                             <td>
                                 <?php if (!empty($inv['service_type_counts'])): ?>
                                     <?php foreach ($inv['service_type_counts'] as $typeCount): ?>
-                                        <?php $svcKey = $typeCount['service_type']; $svcInfo = $serviceTypes[$svcKey] ?? ['label' => $svcKey, 'icon' => '🔹']; ?>
+                                        <?php $svcKey = $typeCount['service_type'];
+                                        $svcInfo = $serviceTypes[$svcKey] ?? ['label' => $svcKey, 'icon' => '🔹']; ?>
                                         <span class="hs-svc-pill"><?php echo $svcInfo['icon'] ?? ''; ?> <?php echo $svcInfo['label'] ?? $svcKey; ?> (<?php echo (int)$typeCount['cnt']; ?>)</span>
                                     <?php endforeach; ?>
                                 <?php else: ?>

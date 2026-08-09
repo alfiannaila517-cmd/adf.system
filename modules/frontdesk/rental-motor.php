@@ -1947,7 +1947,8 @@ include '../../includes/header.php';
     }
 
     function updateBulkPlatRows() {
-        /* keep in sync */ }
+        /* keep in sync */
+    }
 
     function submitBulkMotors() {
         const name = document.getElementById('bm_name').value.trim();

@@ -1695,9 +1695,17 @@ if ($healthScore >= 80) {
             margin-bottom: 4px;
         }
 
-        .kas-hero-label.muted  { color: #5f7492; }
-        .kas-hero-label.green  { color: #0f9d6a; }
-        .kas-hero-label.red    { color: #d83a5b; }
+        .kas-hero-label.muted {
+            color: #5f7492;
+        }
+
+        .kas-hero-label.green {
+            color: #0f9d6a;
+        }
+
+        .kas-hero-label.red {
+            color: #d83a5b;
+        }
 
         .kas-hero-value {
             font-size: 15px;
@@ -1706,12 +1714,22 @@ if ($healthScore >= 80) {
             letter-spacing: -0.3px;
         }
 
-        .kas-hero-value.white  { color: #17365d; }
-        .kas-hero-value.green  { color: #10b981; }
-        .kas-hero-value.red    { color: #ef4444; }
+        .kas-hero-value.white {
+            color: #17365d;
+        }
+
+        .kas-hero-value.green {
+            color: #10b981;
+        }
+
+        .kas-hero-value.red {
+            color: #ef4444;
+        }
 
         /* Summary strip - REMOVED */
-        .kas-summary-strip { display: none; }
+        .kas-summary-strip {
+            display: none;
+        }
 
         .kas-table-wrapper {
             max-height: 260px;
@@ -1749,9 +1767,17 @@ if ($healthScore >= 80) {
             color: #334155;
         }
 
-        .kas-table tr:last-child td { border-bottom: none; }
-        .kas-table tr:hover td { background: #f8fbff; }
-        .kas-table .text-right { text-align: right; }
+        .kas-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .kas-table tr:hover td {
+            background: #f8fbff;
+        }
+
+        .kas-table .text-right {
+            text-align: right;
+        }
 
         .kas-badge-masuk,
         .kas-badge-keluar {
@@ -1785,13 +1811,32 @@ if ($healthScore >= 80) {
             vertical-align: middle;
         }
 
-        .kas-pay-badge.cash     { background: #dcfce7; color: #0f9d6a; }
+        .kas-pay-badge.cash {
+            background: #dcfce7;
+            color: #0f9d6a;
+        }
+
         .kas-pay-badge.tf,
-        .kas-pay-badge.transfer { background: #dbeafe; color: #2563eb; }
-        .kas-pay-badge.qr       { background: #fef3c7; color: #b45309; }
+        .kas-pay-badge.transfer {
+            background: #dbeafe;
+            color: #2563eb;
+        }
+
+        .kas-pay-badge.qr {
+            background: #fef3c7;
+            color: #b45309;
+        }
+
         .kas-pay-badge.edc,
-        .kas-pay-badge.debit    { background: #ede9fe; color: #7c3aed; }
-        .kas-pay-badge.other    { background: #e2e8f0; color: #475569; }
+        .kas-pay-badge.debit {
+            background: #ede9fe;
+            color: #7c3aed;
+        }
+
+        .kas-pay-badge.other {
+            background: #e2e8f0;
+            color: #475569;
+        }
 
         .kas-amount-masuk {
             color: #10b981;
@@ -3450,7 +3495,7 @@ if ($healthScore >= 80) {
                                         <td style="white-space:nowrap;font-size:11px;color:<?= $rowColor ?>;"><?= $kas['jam'] ?></td>
                                         <td>
                                             <span class="<?= $isMasuk ? 'kas-badge-masuk' : 'kas-badge-keluar' ?>"><?= $isMasuk ? 'IN' : 'OUT' ?></span>
-                                            <span style="color:<?= $rowColor ?>;<?= $isOperationalIn ? 'font-weight:600;' : '' ?>"><?= htmlspecialchars(html_entity_decode(mb_substr($kas['description'], 0, 30), ENT_QUOTES|ENT_HTML5, 'UTF-8')) ?></span>
+                                            <span style="color:<?= $rowColor ?>;<?= $isOperationalIn ? 'font-weight:600;' : '' ?>"><?= htmlspecialchars(html_entity_decode(mb_substr($kas['description'], 0, 30), ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?></span>
                                             <span class="kas-pay-badge <?= $payClass ?>"><?= $payLabel ?></span>
                                         </td>
                                         <td class="text-right" style="white-space:nowrap;font-weight:700;color:<?= $rowColor ?>;">

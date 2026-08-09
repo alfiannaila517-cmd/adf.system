@@ -70,8 +70,12 @@ function buildRentalAssetOpts (items, selected, motorSource = '') {
 function buildMotorSourceOpts (selected) {
   return `
     <option value="">🏍️ Pilih sumber motor</option>
-    <option value="hotel" ${selected === 'hotel' ? 'selected' : ''}>🏨 Motor Hotel</option>
-    <option value="external" ${selected === 'external' ? 'selected' : ''}>🤝 Motor Luar (Mitra)</option>
+    <option value="hotel" ${
+      selected === 'hotel' ? 'selected' : ''
+    }>🏨 Motor Hotel</option>
+    <option value="external" ${
+      selected === 'external' ? 'selected' : ''
+    }>🤝 Motor Luar (Mitra)</option>
   `
 }
 
@@ -103,7 +107,10 @@ function isNarayanaTrip (svc) {
 }
 
 function buildGuideOpts (selected) {
-  if ((!TRIP_GUIDES || !TRIP_GUIDES.length) && document.getElementById('guideBody')) {
+  if (
+    (!TRIP_GUIDES || !TRIP_GUIDES.length) &&
+    document.getElementById('guideBody')
+  ) {
     syncTripGuidesFromTable()
   }
   let html = '<option value="">Pilih guide...</option>'
@@ -374,7 +381,8 @@ function onSvcChange (id, isNew) {
     const motorSourceSel = tr.querySelector('.iMotorSource')
     if (svc === 'motor_rental') {
       if (motorSourceWrap) motorSourceWrap.style.display = ''
-      if (motorSourceSel) motorSourceSel.innerHTML = buildMotorSourceOpts(motorSourceSel.value)
+      if (motorSourceSel)
+        motorSourceSel.innerHTML = buildMotorSourceOpts(motorSourceSel.value)
       // QTY = jumlah motor unit; reset to 1 when switching to motor_rental
       const qtyLabel = tr.querySelector('.iQtyLabel')
       if (qtyLabel) qtyLabel.textContent = 'Jml Motor'
@@ -494,7 +502,11 @@ function onMotorSourceChange (id) {
   const motorSourceSel = tr.querySelector('.iMotorSource')
   const motorSource = motorSourceSel.value
   const assetSelect = tr.querySelector('.iAsset')
-  assetSelect.innerHTML = buildRentalAssetOpts(RENTAL_MOTORS, assetSelect.value, motorSource)
+  assetSelect.innerHTML = buildRentalAssetOpts(
+    RENTAL_MOTORS,
+    assetSelect.value,
+    motorSource
+  )
   onRentalAssetChange(id, false)
 }
 
@@ -525,10 +537,13 @@ function rcalc (id) {
   const tr = document.getElementById(id)
   if (!tr) return
   const svc = tr.querySelector('.iSvc')?.value
-  const qty   = parseFloat(tr.querySelector('.iQty').value) || 0
+  const qty = parseFloat(tr.querySelector('.iQty').value) || 0
   const price = parseFloat(tr.querySelector('.iPrice').value) || 0
   // For motor_rental: subtotal = motors × days × daily_rate
-  const days  = svc === 'motor_rental' ? (parseFloat(tr.querySelector('.iDays')?.value) || 1) : 1
+  const days =
+    svc === 'motor_rental'
+      ? parseFloat(tr.querySelector('.iDays')?.value) || 1
+      : 1
   const t = qty * days * price
   tr.querySelector('.iTotal').textContent =
     'Rp ' + Math.round(t).toLocaleString('id-ID')
@@ -538,10 +553,13 @@ function rcalc (id) {
 function subtotal () {
   let t = 0
   document.querySelectorAll('#itemsBody .hs-item-card').forEach(tr => {
-    const svc   = tr.querySelector('.iSvc')?.value
-    const qty   = parseFloat(tr.querySelector('.iQty')?.value) || 0
+    const svc = tr.querySelector('.iSvc')?.value
+    const qty = parseFloat(tr.querySelector('.iQty')?.value) || 0
     const price = parseFloat(tr.querySelector('.iPrice')?.value) || 0
-    const days  = svc === 'motor_rental' ? (parseFloat(tr.querySelector('.iDays')?.value) || 1) : 1
+    const days =
+      svc === 'motor_rental'
+        ? parseFloat(tr.querySelector('.iDays')?.value) || 1
+        : 1
     t += qty * days * price
   })
   return t
@@ -724,7 +742,7 @@ function submitCreate () {
       }
     }
     const _motorUnits = parseFloat(tr.querySelector('.iQty').value) || 1
-    const _motorDays  = parseFloat(tr.querySelector('.iDays')?.value) || 1
+    const _motorDays = parseFloat(tr.querySelector('.iDays')?.value) || 1
     items.push({
       service_type: svc,
       description: tr.querySelector('.iDesc').value.trim(),
@@ -1323,7 +1341,8 @@ function eOnSvcChange (id2, isNew) {
       const motorSourceSel = tr3.querySelector('.iMotorSource')
       if (svc === 'motor_rental') {
         if (motorSourceWrap) motorSourceWrap.style.display = ''
-        if (motorSourceSel) motorSourceSel.innerHTML = buildMotorSourceOpts(motorSourceSel.value)
+        if (motorSourceSel)
+          motorSourceSel.innerHTML = buildMotorSourceOpts(motorSourceSel.value)
         const ql = tr3.querySelector('.iQtyLabel')
         if (ql) ql.textContent = 'Jml Motor'
         if (isNew) tr3.querySelector('.iQty').value = 1
@@ -1476,10 +1495,13 @@ function eDelRow (id) {
 function ercalc (id) {
   const tr = document.getElementById(id)
   if (!tr) return
-  const svc  = tr.querySelector('.iSvc')?.value
-  const qty  = parseFloat(tr.querySelector('.iQty').value) || 0
+  const svc = tr.querySelector('.iSvc')?.value
+  const qty = parseFloat(tr.querySelector('.iQty').value) || 0
   const price = parseFloat(tr.querySelector('.iPrice').value) || 0
-  const days = svc === 'motor_rental' ? (parseFloat(tr.querySelector('.iDays')?.value) || 1) : 1
+  const days =
+    svc === 'motor_rental'
+      ? parseFloat(tr.querySelector('.iDays')?.value) || 1
+      : 1
   tr.querySelector('.iTotal').textContent =
     'Rp ' + Math.round(qty * days * price).toLocaleString('id-ID')
   eRefreshTotal()
@@ -1495,10 +1517,13 @@ function eOnTaxRateChange () {
 function eRefreshTotal () {
   let s = 0
   document.querySelectorAll('#eItemsBody .hs-item-card').forEach(tr => {
-    const svc   = tr.querySelector('.iSvc')?.value
-    const qty   = parseFloat(tr.querySelector('.iQty')?.value) || 0
+    const svc = tr.querySelector('.iSvc')?.value
+    const qty = parseFloat(tr.querySelector('.iQty')?.value) || 0
     const price = parseFloat(tr.querySelector('.iPrice')?.value) || 0
-    const days  = svc === 'motor_rental' ? (parseFloat(tr.querySelector('.iDays')?.value) || 1) : 1
+    const days =
+      svc === 'motor_rental'
+        ? parseFloat(tr.querySelector('.iDays')?.value) || 1
+        : 1
     s += qty * days * price
   })
   const sel = document.getElementById('eTaxRate')
@@ -1844,7 +1869,4 @@ window.saveSvcType = saveSvcType
 window.deleteSvcType = deleteSvcType
 window.editInvoice = editInvoice
 window.printInvoice = printInvoice
-console.log(
-  '[hotel-services] loaded OK, addItemRow:',
-  typeof addItemRow
-)
+console.log('[hotel-services] loaded OK, addItemRow:', typeof addItemRow)
