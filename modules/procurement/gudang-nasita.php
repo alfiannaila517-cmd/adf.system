@@ -199,7 +199,7 @@ include '../../includes/header.php';
             <i data-feather="plus-square" style="width: 16px; height: 16px;"></i>
             Input Stock Manual
         </button>
-        <a href="purchase-orders.php" class="btn btn-primary">
+        <a href="gudang-po-supplier.php" class="btn btn-primary">
             <i data-feather="file-plus" style="width: 16px; height: 16px;"></i>
             PO Supplier
         </a>
@@ -236,7 +236,7 @@ include '../../includes/header.php';
                 <?php endif; ?>
             </div>
             <button type="button" class="btn btn-sm" style="background:#dc2626; color:#fff; font-size:0.78rem; padding:0.3rem 0.75rem;"
-                onclick="openOrderModal(<?php echo htmlspecialchars(json_encode($lwItem['item_name'])); ?>, <?php echo htmlspecialchars(json_encode($lwItem['unit'])); ?>, <?php echo htmlspecialchars(json_encode($lwItem['supplier_name'] ?? '')); ?>)">
+                onclick="window.location.href='gudang-po-supplier.php'">
                 <i data-feather="shopping-cart" style="width:13px;height:13px;"></i> Pesan ke Supplier
             </button>
         </div>
