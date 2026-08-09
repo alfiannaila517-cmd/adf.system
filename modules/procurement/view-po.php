@@ -13,24 +13,31 @@ $currentUser = $auth->getCurrentUser();
 
 $po_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
-// Switch to source business DB if viewing a cross-business PO
+// Cross-business PO viewing: switch DB only for data fetch, restore immediately after
 $poBizSlug = trim($_GET['po_business'] ?? '');
 $allowedPoBizSlugs = ['narayana-hotel', 'bens-cafe', 'eaat-meet'];
-if ($poBizSlug !== '' && in_array($poBizSlug, $allowedPoBizSlugs, true)) {
-    $poBizCfgPath = __DIR__ . '/../../config/businesses/' . $poBizSlug . '.php';
-    if (file_exists($poBizCfgPath)) {
-        $poBizCfg = require $poBizCfgPath;
-        $poBizDbName = (string)($poBizCfg['database'] ?? '');
-        if ($poBizDbName !== '') {
-            try { $db = Database::switchDatabase($poBizDbName); } catch (Throwable $e) { }
-        }
-    }
-}
+$viewOriginalDb = Database::getCurrentDatabase();
 
-// Handle status update
+$switchToPoDb = function () use ($poBizSlug, $allowedPoBizSlugs) {
+    if ($poBizSlug === '' || !in_array($poBizSlug, $allowedPoBizSlugs, true)) return;
+    $cfgPath = __DIR__ . '/../../config/businesses/' . $poBizSlug . '.php';
+    if (!file_exists($cfgPath)) return;
+    $cfg = require $cfgPath;
+    $bizDb = (string)($cfg['database'] ?? '');
+    if ($bizDb !== '') try { Database::switchDatabase($bizDb); } catch (Throwable $e) {}
+};
+
+$restoreUserDb = function () use ($viewOriginalDb, &$db) {
+    if (!empty($viewOriginalDb)) {
+        try { Database::switchDatabase($viewOriginalDb); $db = Database::getInstance(); } catch (Throwable $e) {}
+    }
+};
+
+// Handle status update (switch to PO source DB for operations, restore after)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $action = $_POST['action'];
     $new_status = '';
+    $switchToPoDb();
 
     switch ($action) {
         case 'receive_warehouse':
@@ -40,6 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
             $receivedItems = isset($_POST['received_qty']) && is_array($_POST['received_qty']) ? $_POST['received_qty'] : [];
             $notes = trim($_POST['warehouse_notes'] ?? '');
+            $restoreUserDb(); // receivePurchaseOrderToGudang must run in gudang (original) DB
             $result = receivePurchaseOrderToGudang($po_id, $receivedItems, $currentUser['id'], $notes);
             break;
         case 'submit':
@@ -47,14 +55,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $result = updatePurchaseOrderStatus($po_id, $new_status, $currentUser['id']);
             break;
         case 'approve':
-            // Use special approve function that posts to cash_book
             $options = [];
-
-            // Handle file upload
             if (isset($_FILES['attachment']) && $_FILES['attachment']['error'] === UPLOAD_ERR_OK) {
                 $options['attachment_file'] = $_FILES['attachment'];
             }
-
             $result = approvePurchaseOrderAndPay($po_id, $currentUser['id'], $options);
             break;
         case 'reject':
@@ -67,18 +71,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             break;
     }
 
+    $restoreUserDb();
     if (isset($result)) {
         if ($result['success']) {
             $_SESSION['success'] = $result['message'];
         } else {
             $_SESSION['error'] = $result['message'];
         }
-        header('Location: view-po.php?id=' . $po_id);
+        $redirect = 'view-po.php?id=' . $po_id . ($poBizSlug !== '' ? '&po_business=' . urlencode($poBizSlug) : '');
+        header('Location: ' . $redirect);
         exit;
     }
 }
 
+// Fetch PO from source DB then restore user DB immediately so header renders correctly
+$switchToPoDb();
 $po = getPurchaseOrder($po_id);
+$restoreUserDb();
 
 // Gudang Nasita users can view any business PO — bypass ownership check
 if ($po && !empty($po['business_id'])
