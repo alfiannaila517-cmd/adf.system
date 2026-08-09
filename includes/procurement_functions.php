@@ -727,6 +727,11 @@ function getPurchaseOrders($filters = [], $limit = 100, $offset = 0)
         $params['business_id'] = $filters['business_id'];
     }
 
+    // Exclude gudang-supplier POs (GDN-* prefix) from regular business PO view
+    if (!empty($filters['exclude_gdn_prefix'])) {
+        $where_conditions[] = "poh.po_number NOT LIKE 'GDN-%'";
+    }
+
     if (isset($filters['date_from']) && !empty($filters['date_from'])) {
         $where_conditions[] = "poh.po_date >= :date_from";
         $params['date_from'] = $filters['date_from'];
