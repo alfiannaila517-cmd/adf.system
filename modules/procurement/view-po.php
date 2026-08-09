@@ -13,6 +13,20 @@ $currentUser = $auth->getCurrentUser();
 
 $po_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
+// Switch to source business DB if viewing a cross-business PO
+$poBizSlug = trim($_GET['po_business'] ?? '');
+$allowedPoBizSlugs = ['narayana-hotel', 'bens-cafe', 'eaat-meet'];
+if ($poBizSlug !== '' && in_array($poBizSlug, $allowedPoBizSlugs, true)) {
+    $poBizCfgPath = __DIR__ . '/../../config/businesses/' . $poBizSlug . '.php';
+    if (file_exists($poBizCfgPath)) {
+        $poBizCfg = require $poBizCfgPath;
+        $poBizDbName = (string)($poBizCfg['database'] ?? '');
+        if ($poBizDbName !== '') {
+            try { $db = Database::switchDatabase($poBizDbName); } catch (Throwable $e) { }
+        }
+    }
+}
+
 // Handle status update
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $action = $_POST['action'];

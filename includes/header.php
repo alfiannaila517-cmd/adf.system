@@ -965,16 +965,24 @@ if (isset($_SESSION['user_id'])) {
                     $canAccessGudangMenu = $auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse') || $auth->hasPermission('warehouse_transfers');
                     $gudangPendingPoCount = 0;
                     if ($gudangBizAllowed && $canAccessGudangMenu) {
-                        try {
-                            $businessId = isset($_SESSION['business_id']) ? (int)$_SESSION['business_id'] : 0;
-                            if ($businessId > 0) {
-                                $row = $db->fetchOne("SELECT COUNT(*) AS total FROM purchase_orders_header WHERE business_id = ? AND status NOT IN ('completed','cancelled','received','rejected')", [$businessId]);
-                            } else {
-                                $row = $db->fetchOne("SELECT COUNT(*) AS total FROM purchase_orders_header WHERE status NOT IN ('completed','cancelled','received','rejected')");
-                            }
-                            $gudangPendingPoCount = (int)($row['total'] ?? 0);
-                        } catch (Exception $e) {
-                            $gudangPendingPoCount = 0;
+                        // Cross-DB count pending POs from all business databases
+                        $gudangPendingPoCount = 0;
+                        $headerPoBizSlugs = ['narayana-hotel', 'bens-cafe', 'eaat-meet'];
+                        $headerOriginDb = Database::getCurrentDatabase();
+                        foreach ($headerPoBizSlugs as $hSlug) {
+                            $hCfgPath = __DIR__ . '/../config/businesses/' . $hSlug . '.php';
+                            if (!file_exists($hCfgPath)) continue;
+                            $hCfg = require $hCfgPath;
+                            $hDbName = (string)($hCfg['database'] ?? '');
+                            if ($hDbName === '') continue;
+                            try {
+                                $hDb = Database::switchDatabase($hDbName);
+                                $hRow = $hDb->fetchOne("SELECT COUNT(*) AS total FROM purchase_orders_header WHERE business_id IS NOT NULL AND status IN ('submitted','approved','partially_received')");
+                                $gudangPendingPoCount += (int)($hRow['total'] ?? 0);
+                            } catch (Throwable $e) { }
+                        }
+                        if (!empty($headerOriginDb)) {
+                            try { Database::switchDatabase($headerOriginDb); } catch (Throwable $e) { }
                         }
                     }
                     ?>
