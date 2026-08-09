@@ -66,14 +66,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
                 'created_by'   => $createdById,
             ]);
 
-            foreach ($validItems as $it) {
+            foreach ($validItems as $idx => $it) {
                 $db->insert('purchase_orders_detail', [
-                    'po_header_id' => $poHeaderId,
-                    'item_name'    => $it['item_name'],
-                    'quantity'     => $it['quantity'],
-                    'unit'         => $it['unit'],
-                    'unit_price'   => $it['unit_price'],
-                    'total_price'  => $it['quantity'] * $it['unit_price'],
+                    'po_header_id'    => $poHeaderId,
+                    'line_number'     => $idx + 1,
+                    'item_name'       => $it['item_name'],
+                    'item_description'=> null,
+                    'unit_of_measure' => $it['unit'],
+                    'quantity'        => $it['quantity'],
+                    'unit_price'      => $it['unit_price'],
+                    'subtotal'        => $it['quantity'] * $it['unit_price'],
+                    'division_id'     => null,
+                    'received_quantity'=> 0,
                 ]);
             }
             $_SESSION['success'] = 'PO ' . $poNumber . ' berhasil dibuat.';
