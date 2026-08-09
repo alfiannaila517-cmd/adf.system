@@ -207,15 +207,26 @@ function createPurchaseOrder($supplier_id, $po_date, $items, $options = [])
         $dtlColNames = array_column($dtlCols, 'Field');
 
         foreach ($validated_items as $item) {
+            // Build detail row using only columns that exist in this DB's schema
             $detail_data = [
                 'po_header_id' => $po_header_id,
                 'item_name'    => $item['item_name'],
-                'unit_of_measure' => $item['unit_of_measure'],
                 'quantity'     => $item['quantity'],
                 'unit_price'   => $item['unit_price'],
-                'subtotal'     => $item['subtotal'],
                 'received_quantity' => 0,
             ];
+            // unit column: new schema = unit_of_measure, old schema = unit
+            if (in_array('unit_of_measure', $dtlColNames)) {
+                $detail_data['unit_of_measure'] = $item['unit_of_measure'];
+            } elseif (in_array('unit', $dtlColNames)) {
+                $detail_data['unit'] = $item['unit_of_measure'];
+            }
+            // subtotal column: new schema = subtotal, old schema = total_price
+            if (in_array('subtotal', $dtlColNames)) {
+                $detail_data['subtotal'] = $item['subtotal'];
+            } elseif (in_array('total_price', $dtlColNames)) {
+                $detail_data['total_price'] = $item['subtotal'];
+            }
             if (in_array('line_number', $dtlColNames)) {
                 $detail_data['line_number'] = $item['line_number'];
             }
