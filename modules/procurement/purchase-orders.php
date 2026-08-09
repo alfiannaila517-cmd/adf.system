@@ -36,6 +36,23 @@ if ($activeBusinessId > 0) {
     $filters['business_id_or_null'] = $activeBusinessId;
 }
 
+// Handle delete PO (draft/cancelled only)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_po') {
+    $delId = (int)($_POST['po_id'] ?? 0);
+    if ($delId > 0) {
+        $poRow = $db->fetchOne('SELECT status FROM purchase_orders_header WHERE id = ? LIMIT 1', [$delId]);
+        if ($poRow && in_array($poRow['status'], ['draft', 'cancelled'])) {
+            $db->query('DELETE FROM purchase_orders_detail WHERE po_header_id = ?', [$delId]);
+            $db->query('DELETE FROM purchase_orders_header WHERE id = ?', [$delId]);
+            $_SESSION['success'] = 'PO berhasil dihapus.';
+        } elseif ($poRow) {
+            $_SESSION['error'] = 'Hanya PO berstatus Draft atau Cancelled yang bisa dihapus.';
+        }
+    }
+    header('Location: purchase-orders.php');
+    exit;
+}
+
 // Get purchase orders
 $purchase_orders = getPurchaseOrders($filters, 50, 0);
 
@@ -348,6 +365,15 @@ include '../../includes/header.php';
                                         <span class="badge badge-warning" style="font-size:0.75rem;">Menunggu Gudang</span>
                                     <?php elseif ($po['status'] === 'completed'): ?>
                                         <span class="badge badge-success">✓ Selesai</span>
+                                    <?php endif; ?>
+                                    <?php if (in_array($po['status'], ['draft', 'cancelled'])): ?>
+                                        <form method="POST" style="display:inline;" onsubmit="return confirm('Hapus PO ini?')">
+                                            <input type="hidden" name="action" value="delete_po">
+                                            <input type="hidden" name="po_id" value="<?php echo (int)$po['id']; ?>">
+                                            <button type="submit" class="po-action-btn reject" title="Hapus PO">
+                                                <i data-feather="trash-2"></i>
+                                            </button>
+                                        </form>
                                     <?php endif; ?>
                                 </div>
                             </td>
