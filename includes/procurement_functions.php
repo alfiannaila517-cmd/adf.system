@@ -751,14 +751,12 @@ function getPurchaseOrders($filters = [], $limit = 100, $offset = 0)
             s.supplier_code,
             u.full_name as created_by_name,
             COUNT(pod.id) as items_count,
-            cb.id as payment_id,
-            COALESCE(ta.file_path, NULL) as ta_attachment_path
+            cb.id as payment_id
         FROM purchase_orders_header poh
         LEFT JOIN suppliers s ON poh.supplier_id = s.id
         LEFT JOIN users u ON poh.created_by = u.id
         LEFT JOIN purchase_orders_detail pod ON poh.id = pod.po_header_id
         LEFT JOIN cash_book cb ON cb.reference_no = poh.po_number AND cb.source_type = 'purchase_order'
-        LEFT JOIN transaction_attachments ta ON ta.transaction_type = 'purchase_order' AND ta.transaction_id = poh.id
         {$where_clause}
         GROUP BY poh.id
         ORDER BY poh.po_date DESC, poh.created_at DESC
