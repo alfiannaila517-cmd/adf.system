@@ -163,7 +163,7 @@ include '../../includes/header.php';
                     <button type="submit" class="btn btn-primary btn-sm">Submit PO</button>
                 </form>
             <?php elseif (in_array($po['status'], ['submitted', 'approved']) && ($auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse'))): ?>
-                <a href="gudang-transfer.php?po_id=<?php echo (int)$po['id']; ?>" class="btn btn-success btn-sm">
+                <a href="gudang-transfer.php?po_id=<?php echo (int)$po['id']; ?><?php echo $poBizSlug !== '' ? '&po_business=' . urlencode($poBizSlug) : ''; ?>" class="btn btn-success btn-sm">
                     <i data-feather="send" style="width: 14px; height: 14px;"></i>
                     Siapkan Transfer Gudang
                 </a>

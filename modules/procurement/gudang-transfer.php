@@ -77,8 +77,8 @@ if ($prefillPoId > 0) {
     $resolvedPo = $resolvePoContext($prefillPoId, $prefillPoBusinessSlug);
     $poRow = $resolvedPo['row'];
     if ($poRow) {
-        $prefillTargetBusinessId = (int)($poRow['business_id'] ?? 0);
-        $prefillTargetBusinessName = trim((string)($poRow['business_name'] ?? ''));
+        // Do NOT use business_id from cross-DB context — IDs differ between databases.
+        // Only take business name from config and PO number for notes.
         if ($prefillTargetBusinessName === '') {
             $prefillTargetBusinessName = trim((string)($resolvedPo['business_name'] ?? ''));
         }
@@ -139,8 +139,13 @@ $findBusinessBySlug = function (string $slug) use ($allBusinesses) {
     return [0, ''];
 };
 
-// Fix GET-phase: if target still 0, resolve from slug via loaded list
-if ($prefillPoId > 0 && $prefillTargetBusinessId <= 0 && $prefillPoBusinessSlug !== '') {
+// When po_business is given, ALWAYS resolve from narayana's businesses table (slug is reliable, cross-DB IDs are not)
+if ($prefillPoId > 0 && $prefillPoBusinessSlug !== '') {
+    [$prefillTargetBusinessId, $resolvedName] = $findBusinessBySlug($prefillPoBusinessSlug);
+    if ($prefillTargetBusinessName === '' && $resolvedName !== '') {
+        $prefillTargetBusinessName = $resolvedName;
+    }
+} elseif ($prefillPoId > 0 && $prefillTargetBusinessId <= 0 && $prefillPoBusinessSlug !== '') {
     [$prefillTargetBusinessId, $resolvedName] = $findBusinessBySlug($prefillPoBusinessSlug);
     if ($prefillTargetBusinessName === '' && $resolvedName !== '') {
         $prefillTargetBusinessName = $resolvedName;
