@@ -288,6 +288,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $result = transferGudangNasitaStock($resolvedBizId ?: $targetBusinessId, $transferItems, $currentUser['id'], $notes, $sourcePoId, $resolvedBizName ?: null);
 
+    // After successful transfer, update PO status in source business DB to 'completed'
+    if ($result['success'] && $sourcePoId !== null && $sourcePoBusinessSlug !== '') {
+        $poStatusCfgPath = __DIR__ . '/../../config/businesses/' . $sourcePoBusinessSlug . '.php';
+        if (file_exists($poStatusCfgPath)) {
+            $poStatusCfg = require $poStatusCfgPath;
+            $poStatusDbName = (string)($poStatusCfg['database'] ?? '');
+            if ($poStatusDbName !== '') {
+                try {
+                    $originDbForPo = Database::getCurrentDatabase();
+                    $poStatusDb = Database::switchDatabase($poStatusDbName);
+                    $poStatusDb->update('purchase_orders_header', ['status' => 'completed'], 'id = :id', ['id' => $sourcePoId]);
+                    if (!empty($originDbForPo)) {
+                        Database::switchDatabase($originDbForPo);
+                    }
+                } catch (Throwable $e) {
+                    error_log('gudang-transfer PO status update error: ' . $e->getMessage());
+                }
+            }
+        }
+    }
+
     $sep = strpos($redirectBase, '?') !== false ? '&' : '?';
     if ($result['success']) {
         header('Location: ' . $redirectBase . $sep . 'transfer_ok=1&biz=' . urlencode($result['business_name'] ?? $resolvedBizName));

@@ -613,7 +613,7 @@ function transferGudangNasitaStock($targetBusinessId, array $items, $createdBy, 
             'target_business_id' => $targetBusinessId,
             'target_business_name' => $business['business_name'],
             'source_po_id' => $sourcePoId,
-            'status' => 'sent',
+            'status' => 'received',
             'notes' => $notes,
             'created_by' => $createdBy
         ]);
