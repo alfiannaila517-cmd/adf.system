@@ -44,7 +44,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
-// Handle PO to external supplier for gudang restocking
+// Handle hapus stock item (soft delete)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_stock') {
+    $stockId = (int)($_POST['stock_id'] ?? 0);
+    if ($stockId > 0) {
+        $db->update('gudang_nasita_stock', ['is_active' => 0], 'id = :id', ['id' => $stockId]);
+        $_SESSION['success'] = 'Item stok berhasil dihapus.';
+    }
+    header('Location: gudang-nasita.php');
+    exit;
+}
+
+// Handle hapus/batalkan permintaan PO dari bisnis (cross-DB)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'cancel_pending_po') {
+    $poId   = (int)($_POST['po_id'] ?? 0);
+    $poSlug = trim($_POST['po_slug'] ?? '');
+    $allowedSlugs = ['narayana-hotel', 'bens-cafe', 'eaat-meet'];
+    if ($poId > 0 && in_array($poSlug, $allowedSlugs, true)) {
+        $cfgPath = __DIR__ . '/../../config/businesses/' . $poSlug . '.php';
+        if (file_exists($cfgPath)) {
+            $cfg = require $cfgPath;
+            $bizDbName = (string)($cfg['database'] ?? '');
+            if ($bizDbName !== '') {
+                try {
+                    $originDb = Database::getCurrentDatabase();
+                    $bizDb = Database::switchDatabase($bizDbName);
+                    $bizDb->update('purchase_orders_header', ['status' => 'cancelled'], 'id = :id', ['id' => $poId]);
+                    if (!empty($originDb)) {
+                        Database::switchDatabase($originDb);
+                        $db = Database::getInstance();
+                    }
+                    $_SESSION['success'] = 'Permintaan PO berhasil dibatalkan.';
+                } catch (Throwable $e) {
+                    $_SESSION['error'] = 'Gagal batalkan PO: ' . $e->getMessage();
+                }
+            }
+        }
+    }
+    header('Location: gudang-nasita.php');
+    exit;
+}
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'order_supplier') {
     $poItemName = trim($_POST['item_name'] ?? '');
     $poUnit     = trim($_POST['unit'] ?? 'pcs');
@@ -151,7 +190,8 @@ foreach ($targetBusinessConfigs as $bizSlug) {
 
     try {
         $bizDb = Database::switchDatabase($bizDbName);
-        $rows = $bizDb->fetchAll("\n            SELECT poh.id, poh.po_number, poh.po_date, poh.status, poh.supplier_id, s.supplier_name,\n                   b.id AS source_business_id, b.business_name AS source_business_name,\n                   COUNT(pod.id) AS items_count,\n                   SUM(CASE WHEN COALESCE(pod.received_quantity,0) < pod.quantity THEN 1 ELSE 0 END) AS pending_items,\n                   poh.created_at\n            FROM purchase_orders_header poh\n            LEFT JOIN suppliers s ON s.id = poh.supplier_id\n            LEFT JOIN businesses b ON b.id = poh.business_id\n            LEFT JOIN purchase_orders_detail pod ON pod.po_header_id = poh.id\n            WHERE poh.status NOT IN ('completed','cancelled','received','rejected')\n            GROUP BY poh.id\n            HAVING pending_items > 0\n            ORDER BY poh.created_at DESC\n            LIMIT 20\n        ");
+        $rows = $bizDb->fetchAll("\n            SELECT poh.id, poh.po_number, poh.po_date, poh.status, poh.supplier_id, s.supplier_name,\n                   b.id AS source_business_id, b.business_name AS source_business_name,\n                   COUNT(pod.id) AS items_count,\n                   SUM(CASE WHEN COALESCE(pod.received_quantity,0) < pod.quantity THEN 1 ELSE 0 END) AS pending_items,\n                   poh.created_at\n            FROM purchase_orders_header poh\n            LEFT JOIN suppliers s ON s.id = poh.supplier_id\n            LEFT JOIN businesses b ON b.id = poh.business_id\n            LEFT JOIN purchase_orders_detail pod ON pod.po_header_id = poh.id\n            WHERE poh.status NOT IN ('completed','cancelled','received','rejected')
+            AND poh.business_id IS NOT NULL\n            GROUP BY poh.id\n            HAVING pending_items > 0\n            ORDER BY poh.created_at DESC\n            LIMIT 20\n        ");
 
         foreach ($rows as $row) {
             if (empty($row['source_business_name']) && !empty($bizCfg['name'])) {
@@ -316,10 +356,19 @@ include '../../includes/header.php';
                                 <td><?php echo htmlspecialchars($item['unit']); ?></td>
                                 <td style="font-size:0.813rem;"><?php echo htmlspecialchars($item['supplier_name'] ?: '-'); ?></td>
                                 <td>
+                                    <div style="display:flex; gap:0.35rem; align-items:center;">
                                     <a href="gudang-transfer.php?stock_id=<?php echo (int)$item['id']; ?>" class="btn btn-sm btn-primary">
                                         <i data-feather="send" style="width:14px; height:14px;"></i>
-                                        Transfer Stock
+                                        Transfer
                                     </a>
+                                    <form method="POST" style="display:inline;" onsubmit="return confirm('Hapus item stok ini?')">
+                                        <input type="hidden" name="action" value="delete_stock">
+                                        <input type="hidden" name="stock_id" value="<?php echo (int)$item['id']; ?>">
+                                        <button type="submit" class="btn btn-sm btn-danger" title="Hapus">
+                                            <i data-feather="trash-2" style="width:14px;height:14px;"></i>
+                                        </button>
+                                    </form>
+                                    </div>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -352,6 +401,12 @@ include '../../includes/header.php';
                             <div style="display:flex; gap:0.5rem; margin-top:0.5rem; flex-wrap:wrap;">
                                 <a href="view-po.php?id=<?php echo (int)$po['id']; ?>" class="btn btn-sm btn-primary">Buka PO</a>
                                 <a href="gudang-transfer.php?po_id=<?php echo (int)$po['id']; ?>&po_business=<?php echo urlencode((string)($po['source_business_slug'] ?? '')); ?>" class="btn btn-sm btn-success">Siapkan Transfer</a>
+                                <form method="POST" style="display:inline;" onsubmit="return confirm('Batalkan permintaan PO ini?')">
+                                    <input type="hidden" name="action" value="cancel_pending_po">
+                                    <input type="hidden" name="po_id" value="<?php echo (int)$po['id']; ?>">
+                                    <input type="hidden" name="po_slug" value="<?php echo htmlspecialchars((string)($po['source_business_slug'] ?? '')); ?>">
+                                    <button type="submit" class="btn btn-sm btn-danger">Hapus</button>
+                                </form>
                             </div>
                         </div>
                     <?php endforeach; ?>
