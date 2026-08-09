@@ -55,6 +55,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
 
             $totalAmount = array_sum(array_map(fn($i) => $i['quantity'] * $i['unit_price'], $validItems));
 
+            // Wrap in transaction so header rolls back if any detail insert fails
+            $db->getConnection()->beginTransaction();
+
             $poHeaderId = $db->insert('purchase_orders_header', [
                 'business_id'  => null,
                 'po_number'    => $poNumber,
@@ -80,8 +83,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
                     'received_quantity'=> 0,
                 ]);
             }
-            $_SESSION['success'] = 'PO ' . $poNumber . ' berhasil dibuat.';
+
+            $db->getConnection()->commit();
+            $_SESSION['success'] = 'PO ' . $poNumber . ' berhasil dibuat (' . count($validItems) . ' item).';
         } catch (Throwable $e) {
+        } catch (Throwable $e) {
+            if ($db->getConnection()->inTransaction()) {
+                $db->getConnection()->rollBack();
+            }
             $_SESSION['error'] = 'Gagal buat PO: ' . $e->getMessage();
         }
     }
@@ -242,6 +251,18 @@ include '../../includes/header.php';
     </div>
 
     <?php if (in_array($viewPo['status'], ['submitted', 'approved', 'partially_received'])): ?>
+    <?php if (empty($viewPo['items'])): ?>
+        <div class="alert alert-danger" style="margin-bottom:1rem;">
+            ⚠️ PO ini tidak memiliki detail item — kemungkinan dibuat saat terjadi error database sebelumnya.<br>
+            <strong>Batalkan PO ini dan buat PO baru.</strong>
+        </div>
+        <form method="POST" onsubmit="return confirm('Batalkan PO ini?')">
+            <input type="hidden" name="action" value="cancel_po">
+            <input type="hidden" name="po_id" value="<?php echo (int)$viewPo['id']; ?>">
+            <button type="submit" class="btn btn-danger">✕ Batalkan PO Ini</button>
+            <a href="gudang-po-supplier.php" class="btn btn-secondary" style="margin-left:0.5rem;">Kembali</a>
+        </form>
+    <?php else: ?>
     <form method="POST">
         <input type="hidden" name="action" value="receive_goods">
         <input type="hidden" name="po_id" value="<?php echo (int)$viewPo['id']; ?>">
@@ -293,6 +314,7 @@ include '../../includes/header.php';
             </button>
         </div>
     </form>
+    <?php endif; // end empty/non-empty items check ?>
     <?php else: ?>
         <div class="alert alert-info">PO ini sudah berstatus <strong><?php echo ucfirst(str_replace('_', ' ', $viewPo['status'])); ?></strong> — semua barang sudah diterima.</div>
     <?php endif; ?>
