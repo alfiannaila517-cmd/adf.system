@@ -29,10 +29,11 @@ if ($status) $filters['status'] = $status;
 if ($supplier_id > 0) $filters['supplier_id'] = $supplier_id;
 if ($date_from) $filters['date_from'] = $date_from;
 if ($date_to) $filters['date_to'] = $date_to;
-// Each business has its own DB — no need to filter by business_id.
-// Exclude GDN-* gudang-supplier POs from regular business view.
-if (!($auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse'))) {
-    $filters['exclude_gdn_prefix'] = true;
+// Always exclude GDN-* gudang-supplier POs — those are managed in gudang-po-supplier.php
+$filters['exclude_gdn_prefix'] = true;
+// Filter by current business (OR null for older POs without explicit business assignment)
+if ($activeBusinessId > 0) {
+    $filters['business_id_or_null'] = $activeBusinessId;
 }
 
 // Get purchase orders

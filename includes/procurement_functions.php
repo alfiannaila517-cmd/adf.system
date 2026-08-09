@@ -727,6 +727,12 @@ function getPurchaseOrders($filters = [], $limit = 100, $offset = 0)
         $params['business_id'] = $filters['business_id'];
     }
 
+    // Match business_id OR NULL (covers POs created before session was properly set)
+    if (isset($filters['business_id_or_null']) && !empty($filters['business_id_or_null'])) {
+        $where_conditions[] = '(poh.business_id = :biz_id_or_null OR poh.business_id IS NULL)';
+        $params['biz_id_or_null'] = $filters['business_id_or_null'];
+    }
+
     // Exclude gudang-supplier POs (GDN-* prefix) from regular business PO view
     if (!empty($filters['exclude_gdn_prefix'])) {
         $where_conditions[] = "poh.po_number NOT LIKE 'GDN-%'";
