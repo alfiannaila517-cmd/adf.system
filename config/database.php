@@ -110,7 +110,7 @@ class Database
         $isMaster = in_array($dbName, $masterNames);
 
         // Only run once per session per database (version bump forces re-check)
-        $schemaVersion = 7; // v7: add missing procurement columns for cross-DB compatibility
+        $schemaVersion = 8; // v8: expand purchase_orders status ENUM to VARCHAR
         $sessionKey = '_schema_synced_v' . $schemaVersion . '_' . md5($dbName);
         if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION[$sessionKey])) return;
 
@@ -610,6 +610,16 @@ class Database
                             }
                         }
                     }
+                }
+
+                // Expand purchase_orders_header.status from old ENUM to VARCHAR so new statuses work
+                if (in_array('purchase_orders_header', $tables)) {
+                    try {
+                        $colInfo = $this->connection->query("SHOW COLUMNS FROM purchase_orders_header WHERE Field = 'status'")->fetch(PDO::FETCH_ASSOC);
+                        if ($colInfo && stripos((string)($colInfo['Type'] ?? ''), 'enum') !== false) {
+                            $this->connection->exec("ALTER TABLE purchase_orders_header MODIFY COLUMN status VARCHAR(30) DEFAULT 'draft'");
+                        }
+                    } catch (PDOException $e) { }
                 }
             } // end else (business DB)
 

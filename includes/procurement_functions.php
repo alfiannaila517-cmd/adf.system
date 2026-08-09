@@ -799,11 +799,29 @@ function getPurchaseOrders($filters = [], $limit = 100, $offset = 0)
         LEFT JOIN purchase_orders_detail pod ON poh.id = pod.po_header_id
         {$where_clause}
         GROUP BY poh.id
-        ORDER BY poh.po_date DESC, poh.created_at DESC
+        ORDER BY poh.po_date DESC, poh.id DESC
         LIMIT {$limit} OFFSET {$offset}
     ";
 
-    return $db->fetchAll($query, $params);
+    try {
+        $result = $db->fetchAll($query, $params);
+        if ($result !== false) return $result;
+    } catch (Throwable $e) {
+        error_log('getPurchaseOrders full query error: ' . $e->getMessage());
+    }
+
+    // Fallback: bare-minimum query that works on any schema version
+    try {
+        $fbWhere = [];
+        $fbParams = [];
+        if (!empty($filters['exclude_gdn_prefix'])) $fbWhere[] = "po_number NOT LIKE 'GDN-%'";
+        if (!empty($filters['date_from'])) { $fbWhere[] = "po_date >= ?"; $fbParams[] = $filters['date_from']; }
+        if (!empty($filters['date_to']))   { $fbWhere[] = "po_date <= ?"; $fbParams[] = $filters['date_to']; }
+        $fbClause = $fbWhere ? 'WHERE ' . implode(' AND ', $fbWhere) : '';
+        return $db->fetchAll("SELECT *, 0 AS items_count FROM purchase_orders_header $fbClause ORDER BY id DESC LIMIT $limit OFFSET $offset", $fbParams) ?: [];
+    } catch (Throwable $e) {
+        return [];
+    }
 }
 
 /**
