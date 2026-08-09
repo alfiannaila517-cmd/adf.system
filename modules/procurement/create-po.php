@@ -9,6 +9,9 @@ require_once '../../includes/procurement_functions.php';
 $auth = new Auth();
 $auth->requireLogin();
 
+// Get active business ID for database switching and redirect parameter
+$activeBusinessId = isset($_SESSION['active_business_id']) ? (string)$_SESSION['active_business_id'] : '';
+
 // Switch to active business database
 $businessConfig = getActiveBusinessConfig();
 if (!empty($businessConfig['database'])) {
@@ -124,17 +127,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($result['success']) {
             $_SESSION['success'] = '✅ ' . $result['message'];
-            header('Location: view-po.php?id=' . $result['po_id']);
+            $redirectUrl = 'view-po.php?id=' . $result['po_id'];
+            if (!empty($activeBusinessId)) {
+                $redirectUrl .= '&po_business=' . urlencode($activeBusinessId);
+            }
+            header('Location: ' . $redirectUrl);
             exit;
         } else {
             $_SESSION['error'] = '❌ ' . $result['message'];
         }
     }
-}
-
-// Restore to master database before rendering header
-if (!empty($businessConfig['database'])) {
-    Database::switchDatabase(DB_NAME);
 }
 
 include '../../includes/header.php';

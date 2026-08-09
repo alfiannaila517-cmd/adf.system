@@ -3,10 +3,17 @@ require_once '../../config/config.php';
 require_once '../../config/database.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
+require_once '../../includes/business_helper.php';
 require_once '../../includes/procurement_functions.php';
 
 $auth = new Auth();
 $auth->requireLogin();
+
+// Switch to active business database
+$businessConfig = getActiveBusinessConfig();
+if (!empty($businessConfig['database'])) {
+    Database::switchDatabase($businessConfig['database']);
+}
 
 $db = Database::getInstance();
 $currentUser = $auth->getCurrentUser();
