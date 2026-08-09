@@ -3,15 +3,16 @@ require_once '../../config/config.php';
 require_once '../../config/database.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
+require_once '../../includes/business_helper.php';
 require_once '../../includes/procurement_functions.php';
 
 $auth = new Auth();
 $auth->requireLogin();
 
 // Switch to active business database
-$activeBusinessSlug = isset($_SESSION['active_business_id']) ? (string)$_SESSION['active_business_id'] : '';
-if (!empty($activeBusinessSlug)) {
-    Database::switchDatabase($activeBusinessSlug);
+$businessConfig = getActiveBusinessConfig();
+if (!empty($businessConfig['database'])) {
+    Database::switchDatabase($businessConfig['database']);
 }
 
 $db = Database::getInstance();
@@ -131,9 +132,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Restore to default database before rendering header
-if (!empty($activeBusinessSlug)) {
-    Database::switchDatabase('narayana');
+// Restore to master database before rendering header
+if (!empty($businessConfig['database'])) {
+    Database::switchDatabase(DB_NAME);
 }
 
 include '../../includes/header.php';
