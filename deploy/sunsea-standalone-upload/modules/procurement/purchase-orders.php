@@ -9,16 +9,30 @@ require_once '../../includes/procurement_functions.php';
 $auth = new Auth();
 $auth->requireLogin();
 
-// Switch to active business database
-$businessConfig = getActiveBusinessConfig();
-if (!empty($businessConfig['database'])) {
-    Database::switchDatabase($businessConfig['database']);
-}
+// Check if user is gudang/warehouse - can see all businesses' POs
+$isGudang = $auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse');
 
-$db = Database::getInstance();
+// Map of business slugs to database names
+$businessDatabases = [
+    'narayana-hotel' => 'adf_narayana_hotel',
+    'bens-cafe' => 'adf_benscafe',
+    'eaat-meet' => 'adf_eat_meet'
+];
+
+// Get active business config
+$businessConfig = getActiveBusinessConfig();
 $currentUser = $auth->getCurrentUser();
 $pageTitle = 'Purchase Orders';
 
+// For gudang users: will fetch from all DBs below
+// For regular users: fetch from active business DB only
+if (!$isGudang) {
+    if (!empty($businessConfig['database'])) {
+        Database::switchDatabase($businessConfig['database']);
+    }
+}
+
+$db = Database::getInstance();
 $activeBusinessId = isset($_SESSION['business_id']) ? (int)$_SESSION['business_id'] : 0;
 
 // Get filters
@@ -36,10 +50,55 @@ if ($status) $filters['status'] = $status;
 if ($supplier_id > 0) $filters['supplier_id'] = $supplier_id;
 if ($date_from) $filters['date_from'] = $date_from;
 if ($date_to) $filters['date_to'] = $date_to;
-if ($activeBusinessId > 0 && !$auth->hasPermission('warehouse')) $filters['business_id'] = $activeBusinessId;
+if ($activeBusinessId > 0 && !$isGudang) $filters['business_id'] = $activeBusinessId;
 
 // Get purchase orders
-$purchase_orders = getPurchaseOrders($filters, 50, 0);
+if ($isGudang) {
+    // Gudang user: aggregate POs from ALL business databases
+    $purchase_orders = [];
+    $businessNames = [
+        'adf_narayana_hotel' => 'Narayana Hotel',
+        'adf_benscafe' => 'Bens Cafe',
+        'adf_eat_meet' => 'Eat Meet'
+    ];
+    
+    foreach ($businessDatabases as $bizSlug => $bizDb) {
+        try {
+            Database::switchDatabase($bizDb);
+            $bizDbInstance = Database::getInstance();
+            $bizName = $businessNames[$bizDb] ?? $bizSlug;
+            $bizPOs = $bizDbInstance->fetchAll("
+                SELECT 
+                    poh.*,
+                    s.supplier_name,
+                    s.supplier_code,
+                    u.full_name as created_by_name,
+                    COUNT(pod.id) as items_count,
+                    '{$bizSlug}' as source_business_slug,
+                    '{$bizName}' as source_business_name
+                FROM purchase_orders_header poh
+                LEFT JOIN suppliers s ON poh.supplier_id = s.id
+                LEFT JOIN users u ON poh.created_by = u.id
+                LEFT JOIN purchase_orders_detail pod ON poh.id = pod.po_header_id
+                WHERE poh.po_number NOT LIKE 'GDN-%'
+                GROUP BY poh.id
+                ORDER BY poh.id DESC
+                LIMIT 1000
+            ");
+            $purchase_orders = array_merge($purchase_orders, $bizPOs ?? []);
+        } catch (Throwable $e) {
+            error_log("Error fetching POs from {$bizDb}: " . $e->getMessage());
+        }
+    }
+    
+    // Sort all combined POs by date DESC
+    usort($purchase_orders, function($a, $b) {
+        return strtotime($b['po_date'] ?? '0') - strtotime($a['po_date'] ?? '0');
+    });
+    $purchase_orders = array_slice($purchase_orders, 0, 50);
+} else {
+    $purchase_orders = getPurchaseOrders($filters, 50, 0);
+}
 
 // Restore to master database before rendering (header.php needs master context for theme/menus)
 Database::switchDatabase(DB_NAME);
@@ -274,6 +333,9 @@ include '../../includes/header.php';
             <thead>
                 <tr>
                     <th>PO Number</th>
+                    <?php if ($isGudang): ?>
+                        <th>Bisnis</th>
+                    <?php endif; ?>
                     <th>Tanggal</th>
                     <th>Tujuan</th>
                     <th>Status</th>
@@ -286,7 +348,7 @@ include '../../includes/header.php';
             <tbody>
                 <?php if (empty($purchase_orders)): ?>
                     <tr>
-                        <td colspan="8" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                        <td colspan="<?php echo $isGudang ? 9 : 8; ?>" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                             <i data-feather="inbox" style="width: 48px; height: 48px; opacity: 0.3; margin-bottom: 1rem;"></i>
                             <p>Tidak ada purchase order</p>
                         </td>
@@ -297,6 +359,11 @@ include '../../includes/header.php';
                             <td style="font-weight: 600; color: var(--primary-color);">
                                 <?php echo $po['po_number']; ?>
                             </td>
+                            <?php if ($isGudang): ?>
+                                <td style="font-weight: 600; font-size: 0.9rem; color: #6b7280;">
+                                    <?php echo htmlspecialchars($po['source_business_name'] ?? $po['source_business_slug'] ?? 'Unknown', ENT_QUOTES, 'UTF-8'); ?>
+                                </td>
+                            <?php endif; ?>
                             <td><?php echo date('d M Y', strtotime($po['po_date'])); ?></td>
                             <td>
                                 <div style="font-weight: 600;">Gudang Nasita (Internal)</div>
