@@ -90,94 +90,115 @@ if ($activeBusinessId > 0) {
     }
 }
 
+// Aggregate stock per item from all received transfers (also from gudang DB)
+$stockSummary = [];
+if (!empty($incomingTransfers)) {
+    $gudangCfgPath2 = __DIR__ . '/../../config/businesses/narayana-hotel.php';
+    if (file_exists($gudangCfgPath2)) {
+        $gudangCfg2 = require $gudangCfgPath2;
+        $gudangDbName2 = (string)($gudangCfg2['database'] ?? '');
+        if ($gudangDbName2 !== '') {
+            try {
+                $originDbName3 = Database::getCurrentDatabase();
+                $gudangDb3 = Database::switchDatabase($gudangDbName2);
+                $bizNameForMatch2 = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $activeBusinessName) . '%';
+                $stockRows = $gudangDb3->fetchAll("
+                    SELECT gti.item_name, gti.unit, COALESCE(SUM(gti.quantity), 0) AS total_received
+                    FROM gudang_nasita_transfer_items gti
+                    JOIN gudang_nasita_transfers gt ON gti.transfer_id = gt.id
+                    WHERE gt.target_business_name LIKE ?
+                    GROUP BY gti.item_name, gti.unit
+                    ORDER BY gti.item_name ASC
+                ", [$bizNameForMatch2]);
+                $stockSummary = $stockRows;
+                if (!empty($originDbName3)) {
+                    Database::switchDatabase($originDbName3);
+                    $db = Database::getInstance();
+                }
+            } catch (Throwable $e) {
+                error_log('business-stock-incoming stock summary error: ' . $e->getMessage());
+            }
+        }
+    }
+}
+
 include '../../includes/header.php';
 ?>
 
 <div style="margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
     <div>
-        <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem;">Rekaman Stock Masuk</h2>
-        <p style="color: var(--text-muted); font-size: 0.875rem;">PO dan stock masuk untuk bisnis aktif<?php echo $activeBusinessName ? ' - ' . htmlspecialchars($activeBusinessName) : ''; ?></p>
+        <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem;">Stok &amp; Penerimaan Barang</h2>
+        <p style="color: var(--text-muted); font-size: 0.875rem;">Stok yang sudah diterima dari Gudang Nasita<?php echo $activeBusinessName ? ' &mdash; ' . htmlspecialchars($activeBusinessName) : ''; ?></p>
     </div>
     <a href="purchase-orders.php" class="btn btn-secondary">
-        <i data-feather="arrow-left" style="width: 16px; height: 16px;"></i>
-        Kembali ke PO
+        <i data-feather="file-text" style="width: 16px; height: 16px;"></i>
+        Purchase Orders
     </a>
 </div>
 
 <?php if ($activeBusinessId <= 0): ?>
-    <div class="alert alert-warning">
-        Tidak ada bisnis aktif di sesi ini.
-    </div>
+    <div class="alert alert-warning">Tidak ada bisnis aktif di sesi ini.</div>
 <?php else: ?>
+
+    <!-- Stock inventory per item -->
     <div class="card" style="margin-bottom: 1.25rem;">
-        <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 1rem;">Purchase Order Bisnis Ini</h3>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <h3 style="font-size:1rem; font-weight:700; margin:0;">Stok Bisnis (Total Diterima dari Gudang)</h3>
+            <span style="font-size:0.8rem; color:var(--text-muted);"><?php echo count($stockSummary); ?> item</span>
+        </div>
         <div class="table-responsive">
-            <table class="table table-hover align-middle">
+            <table class="table">
                 <thead>
                     <tr>
-                        <th>No PO</th>
-                        <th>Tanggal</th>
-                        <th>Supplier</th>
-                        <th>Item</th>
-                        <th>Status</th>
-                        <th>Qty Terima</th>
-                        <th>Aksi</th>
+                        <th>Nama Item</th>
+                        <th>Unit</th>
+                        <th class="text-right">Total Diterima</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php if (empty($businessPurchaseOrders)): ?>
+                    <?php if (empty($stockSummary)): ?>
+                        <tr><td colspan="3" style="text-align:center; padding:2rem; color:var(--text-muted);">Belum ada stok masuk dari gudang.</td></tr>
+                    <?php else: foreach ($stockSummary as $sItem): ?>
                         <tr>
-                            <td colspan="7" class="text-center text-muted">Belum ada PO untuk bisnis ini.</td>
+                            <td style="font-weight:600;"><?php echo htmlspecialchars($sItem['item_name']); ?></td>
+                            <td><?php echo htmlspecialchars($sItem['unit']); ?></td>
+                            <td class="text-right" style="font-weight:700; color:#0f9d6a;"><?php echo number_format((float)$sItem['total_received'], 2); ?></td>
                         </tr>
-                        <?php else: foreach ($businessPurchaseOrders as $po): ?>
-                            <tr>
-                                <td><strong><?php echo htmlspecialchars($po['po_number']); ?></strong></td>
-                                <td><?php echo !empty($po['po_date']) ? date('d M Y', strtotime($po['po_date'])) : '-'; ?></td>
-                                <td><?php echo htmlspecialchars($po['supplier_name'] ?? '-'); ?></td>
-                                <td><?php echo (int)$po['items_count']; ?> item</td>
-                                <td><span class="badge bg-secondary"><?php echo htmlspecialchars(ucfirst(str_replace('_', ' ', $po['status']))); ?></span></td>
-                                <td><?php echo number_format((float)$po['received_qty'], 0, ',', '.'); ?></td>
-                                <td><a href="view-po.php?id=<?php echo (int)$po['id']; ?>" class="btn btn-sm btn-outline-primary">Lihat</a></td>
-                            </tr>
-                    <?php endforeach;
-                    endif; ?>
+                    <?php endforeach; endif; ?>
                 </tbody>
             </table>
         </div>
     </div>
 
+    <!-- Incoming transfer history -->
     <div class="card">
-        <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 1rem;">Rekaman Stock Masuk dari Gudang</h3>
+        <h3 style="font-size:1rem; font-weight:700; margin-bottom:1rem;">Histori Penerimaan dari Gudang</h3>
         <div class="table-responsive">
-            <table class="table table-hover align-middle">
+            <table class="table">
                 <thead>
                     <tr>
                         <th>No Transfer</th>
                         <th>Tanggal</th>
                         <th>Item</th>
-                        <th>Qty</th>
-                        <th>Status</th>
-                        <th>Dibuat Oleh</th>
+                        <th class="text-right">Total Qty</th>
+                        <th>Dikirim Oleh</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (empty($incomingTransfers)): ?>
+                        <tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--text-muted);">Belum ada penerimaan barang dari gudang.</td></tr>
+                    <?php else: foreach ($incomingTransfers as $transfer): ?>
                         <tr>
-                            <td colspan="6" class="text-center text-muted">Belum ada transfer stock masuk.</td>
+                            <td style="font-weight:600;"><?php echo htmlspecialchars($transfer['transfer_number']); ?></td>
+                            <td style="font-size:0.875rem;"><?php echo !empty($transfer['created_at']) ? date('d M Y H:i', strtotime($transfer['created_at'])) : '-'; ?></td>
+                            <td><?php echo (int)$transfer['items_count']; ?> item</td>
+                            <td class="text-right" style="font-weight:600;"><?php echo number_format((float)$transfer['total_qty'], 2); ?></td>
+                            <td style="font-size:0.875rem;"><?php echo htmlspecialchars($transfer['created_by_name'] ?? '-'); ?></td>
                         </tr>
-                        <?php else: foreach ($incomingTransfers as $transfer): ?>
-                            <tr>
-                                <td><strong><?php echo htmlspecialchars($transfer['transfer_number']); ?></strong></td>
-                                <td><?php echo !empty($transfer['created_at']) ? date('d M Y H:i', strtotime($transfer['created_at'])) : '-'; ?></td>
-                                <td><?php echo (int)$transfer['items_count']; ?> item</td>
-                                <td><?php echo number_format((float)$transfer['total_qty'], 0, ',', '.'); ?></td>
-                                <td><span class="badge bg-info text-dark"><?php echo htmlspecialchars(ucfirst($transfer['status'])); ?></span></td>
-                                <td><?php echo htmlspecialchars($transfer['created_by_name'] ?? '-'); ?></td>
-                            </tr>
-                    <?php endforeach;
-                    endif; ?>
+                    <?php endforeach; endif; ?>
                 </tbody>
             </table>
         </div>
     </div>
+
 <?php endif; ?>

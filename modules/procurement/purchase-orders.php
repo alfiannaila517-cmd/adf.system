@@ -178,12 +178,12 @@ include '../../includes/header.php';
             <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem;">
                 📋 Purchase Orders
             </h2>
-            <p style="color: var(--text-muted); font-size: 0.875rem;">Kelola PO internal bisnis untuk proses gudang dan transfer</p>
+            <p style="color: var(--text-muted); font-size: 0.875rem;">Permintaan barang ke Gudang Nasita</p>
         </div>
         <div style="display: flex; gap: 0.75rem; align-items: center;">
             <a href="business-stock-incoming.php" class="btn btn-outline-secondary">
-                <i data-feather="inbox" style="width: 16px; height: 16px;"></i>
-                Rekaman Stock Masuk
+                <i data-feather="package" style="width: 16px; height: 16px;"></i>
+                Stok &amp; Penerimaan Barang
             </a>
             <a href="create-po.php" class="btn btn-primary">
                 <i data-feather="plus" style="width: 16px; height: 16px;"></i>
@@ -289,8 +289,7 @@ include '../../includes/header.php';
                             </td>
                             <td><?php echo date('d M Y', strtotime($po['po_date'])); ?></td>
                             <td>
-                                <div style="font-weight: 600;">Gudang Nasita (Internal)</div>
-                                <div style="font-size: 0.75rem; color: var(--text-muted);">Tanpa supplier eksternal</div>
+                                <div style="font-weight: 600;">Gudang Nasita</div>
                             </td>
                             <td>
                                 <?php
@@ -336,12 +335,14 @@ include '../../includes/header.php';
                                                 <i data-feather="send"></i>
                                             </button>
                                         </form>
-                                    <?php elseif ($po['status'] === 'submitted'): ?>
+                                    <?php elseif ($po['status'] === 'submitted' && ($auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse'))): ?>
                                         <a href="gudang-transfer.php?po_id=<?php echo (int)$po['id']; ?>" class="po-action-btn po-action-wide submit" title="Siapkan Transfer Gudang">
                                             <i data-feather="send"></i> Siapkan Transfer
                                         </a>
+                                    <?php elseif ($po['status'] === 'submitted'): ?>
+                                        <span class="badge badge-warning" style="font-size:0.75rem;">Menunggu Gudang</span>
                                     <?php elseif ($po['status'] === 'completed'): ?>
-                                        <span class="badge badge-success">Transfer Selesai</span>
+                                        <span class="badge badge-success">✓ Selesai</span>
                                     <?php endif; ?>
                                 </div>
                             </td>
