@@ -70,18 +70,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
             ]);
 
             foreach ($validItems as $idx => $it) {
-                $db->insert('purchase_orders_detail', [
-                    'po_header_id'    => $poHeaderId,
-                    'line_number'     => $idx + 1,
-                    'item_name'       => $it['item_name'],
-                    'item_description'=> null,
-                    'unit_of_measure' => $it['unit'],
-                    'quantity'        => $it['quantity'],
-                    'unit_price'      => $it['unit_price'],
-                    'subtotal'        => $it['quantity'] * $it['unit_price'],
-                    'division_id'     => null,
-                    'received_quantity'=> 0,
-                ]);
+                // Use only essential columns to avoid NOT NULL / FK failures on optional fields
+                $detailData = [
+                    'po_header_id'     => $poHeaderId,
+                    'item_name'        => $it['item_name'],
+                    'unit_of_measure'  => $it['unit'],
+                    'quantity'         => $it['quantity'],
+                    'unit_price'       => $it['unit_price'],
+                    'subtotal'         => $it['quantity'] * $it['unit_price'],
+                    'received_quantity' => 0,
+                ];
+                // Add optional columns only if they exist in the table
+                $detailCols = $db->fetchAll("SHOW COLUMNS FROM purchase_orders_detail");
+                $detailColNames = array_column($detailCols, 'Field');
+                if (in_array('line_number', $detailColNames)) {
+                    $detailData['line_number'] = $idx + 1;
+                }
+                if (in_array('division_id', $detailColNames)) {
+                    $firstDiv = $db->fetchOne("SELECT id FROM divisions ORDER BY id ASC LIMIT 1");
+                    $detailData['division_id'] = $firstDiv ? (int)$firstDiv['id'] : null;
+                }
+                $db->insert('purchase_orders_detail', $detailData);
             }
 
             $db->getConnection()->commit();
