@@ -168,20 +168,32 @@ function createPurchaseOrder($supplier_id, $po_date, $items, $options = [])
         $tax_amount = isset($options['tax_amount']) ? $options['tax_amount'] : 0;
         $grand_total = $total_amount - $discount_amount + $tax_amount;
 
+        // Probe actual columns to avoid INSERT failures on older-schema DBs
+        $hdrCols = $db->fetchAll("SHOW COLUMNS FROM purchase_orders_header");
+        $hdrColNames = array_column($hdrCols, 'Field');
+
         $header_data = [
             'business_id' => $businessId,
-            'po_number' => $po_number,
+            'po_number'   => $po_number,
             'supplier_id' => $supplier_id,
-            'po_date' => $po_date,
-            'expected_delivery_date' => isset($options['expected_delivery_date']) ? $options['expected_delivery_date'] : null,
-            'status' => isset($options['status']) ? $options['status'] : 'draft',
-            'total_amount' => $total_amount,
-            'discount_amount' => $discount_amount,
-            'tax_amount' => $tax_amount,
-            'grand_total' => $grand_total,
-            'notes' => isset($options['notes']) ? $options['notes'] : null,
-            'created_by' => $created_by
+            'po_date'     => $po_date,
+            'status'      => isset($options['status']) ? $options['status'] : 'draft',
+            'total_amount'=> $total_amount,
+            'notes'       => isset($options['notes']) ? $options['notes'] : null,
+            'created_by'  => $created_by,
         ];
+        if (in_array('expected_delivery_date', $hdrColNames)) {
+            $header_data['expected_delivery_date'] = isset($options['expected_delivery_date']) ? $options['expected_delivery_date'] : null;
+        }
+        if (in_array('discount_amount', $hdrColNames)) {
+            $header_data['discount_amount'] = $discount_amount;
+        }
+        if (in_array('tax_amount', $hdrColNames)) {
+            $header_data['tax_amount'] = $tax_amount;
+        }
+        if (in_array('grand_total', $hdrColNames)) {
+            $header_data['grand_total'] = $grand_total;
+        }
 
         // Insert header
         $po_header_id = $db->insert('purchase_orders_header', $header_data);
@@ -190,21 +202,32 @@ function createPurchaseOrder($supplier_id, $po_date, $items, $options = [])
             throw new Exception("Failed to create Purchase Order header");
         }
 
-        // Insert details
+        // Insert details (probe columns once to avoid failures on older-schema DBs)
+        $dtlCols    = $db->fetchAll("SHOW COLUMNS FROM purchase_orders_detail");
+        $dtlColNames = array_column($dtlCols, 'Field');
+
         foreach ($validated_items as $item) {
             $detail_data = [
                 'po_header_id' => $po_header_id,
-                'line_number' => $item['line_number'],
-                'item_name' => $item['item_name'],
-                'item_description' => $item['item_description'],
+                'item_name'    => $item['item_name'],
                 'unit_of_measure' => $item['unit_of_measure'],
-                'quantity' => $item['quantity'],
-                'unit_price' => $item['unit_price'],
-                'subtotal' => $item['subtotal'],
-                'division_id' => $item['division_id'],
+                'quantity'     => $item['quantity'],
+                'unit_price'   => $item['unit_price'],
+                'subtotal'     => $item['subtotal'],
                 'received_quantity' => 0,
-                'notes' => $item['notes']
             ];
+            if (in_array('line_number', $dtlColNames)) {
+                $detail_data['line_number'] = $item['line_number'];
+            }
+            if (in_array('item_description', $dtlColNames)) {
+                $detail_data['item_description'] = $item['item_description'];
+            }
+            if (in_array('division_id', $dtlColNames)) {
+                $detail_data['division_id'] = $item['division_id'];
+            }
+            if (in_array('notes', $dtlColNames)) {
+                $detail_data['notes'] = $item['notes'];
+            }
 
             $detail_id = $db->insert('purchase_orders_detail', $detail_data);
 
