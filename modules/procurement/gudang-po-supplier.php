@@ -68,9 +68,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
                 'notes'        => $notes ?: 'Restock Gudang Nasita',
                 'created_by'   => $createdById,
             ]);
+            if (!$poHeaderId) {
+                throw new \RuntimeException('Gagal membuat header PO.');
+            }
+
+            // Probe optional columns once before the loop
+            $detailCols    = $db->fetchAll("SHOW COLUMNS FROM purchase_orders_detail");
+            $detailColNames = array_column($detailCols, 'Field');
+            $firstDiv = in_array('division_id', $detailColNames)
+                ? $db->fetchOne("SELECT id FROM divisions ORDER BY id ASC LIMIT 1")
+                : null;
 
             foreach ($validItems as $idx => $it) {
-                // Use only essential columns to avoid NOT NULL / FK failures on optional fields
                 $detailData = [
                     'po_header_id'     => $poHeaderId,
                     'item_name'        => $it['item_name'],
@@ -80,22 +89,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
                     'subtotal'         => $it['quantity'] * $it['unit_price'],
                     'received_quantity' => 0,
                 ];
-                // Add optional columns only if they exist in the table
-                $detailCols = $db->fetchAll("SHOW COLUMNS FROM purchase_orders_detail");
-                $detailColNames = array_column($detailCols, 'Field');
                 if (in_array('line_number', $detailColNames)) {
                     $detailData['line_number'] = $idx + 1;
                 }
-                if (in_array('division_id', $detailColNames)) {
-                    $firstDiv = $db->fetchOne("SELECT id FROM divisions ORDER BY id ASC LIMIT 1");
-                    $detailData['division_id'] = $firstDiv ? (int)$firstDiv['id'] : null;
+                if ($firstDiv) {
+                    $detailData['division_id'] = (int)$firstDiv['id'];
                 }
-                $db->insert('purchase_orders_detail', $detailData);
+                $insertedId = $db->insert('purchase_orders_detail', $detailData);
+                if (!$insertedId) {
+                    throw new \RuntimeException('Gagal menyimpan item: ' . $it['item_name']);
+                }
             }
 
             $db->getConnection()->commit();
             $_SESSION['success'] = 'PO ' . $poNumber . ' berhasil dibuat (' . count($validItems) . ' item).';
-        } catch (Throwable $e) {
         } catch (Throwable $e) {
             if ($db->getConnection()->inTransaction()) {
                 $db->getConnection()->rollBack();
