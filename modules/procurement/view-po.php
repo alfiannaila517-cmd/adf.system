@@ -80,7 +80,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
 $po = getPurchaseOrder($po_id);
 
-if ($po && !empty($po['business_id']) && !$auth->hasPermission('warehouse')) {
+// Gudang Nasita users can view any business PO — bypass ownership check
+if ($po && !empty($po['business_id'])
+    && !$auth->hasPermission('warehouse')
+    && !$auth->hasPermission('gudang_nasita')) {
     $activeBusinessId = isset($_SESSION['business_id']) ? (int)$_SESSION['business_id'] : 0;
     if ($activeBusinessId > 0 && (int)$po['business_id'] !== $activeBusinessId) {
         http_response_code(403);
