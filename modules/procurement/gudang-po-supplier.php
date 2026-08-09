@@ -17,7 +17,15 @@ if (!($auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse')
 $db = Database::getInstance();
 $currentUser = $auth->getCurrentUser();
 $pageTitle = 'PO Supplier Gudang';
-$createdById = $db->fetchOne('SELECT id FROM users WHERE id = ? LIMIT 1', [$currentUser['id']]) ? $currentUser['id'] : null;
+$createdById = null;
+$userInDb = $db->fetchOne('SELECT id FROM users WHERE id = ? LIMIT 1', [$currentUser['id']]);
+if ($userInDb) {
+    $createdById = $currentUser['id'];
+} else {
+    // Current user not in this DB — use first available user as fallback
+    $fallbackUser = $db->fetchOne('SELECT id FROM users ORDER BY id ASC LIMIT 1');
+    $createdById = $fallbackUser ? (int)$fallbackUser['id'] : 1;
+}
 
 // ─── POST: buat PO baru ke supplier ────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'create_po') {
