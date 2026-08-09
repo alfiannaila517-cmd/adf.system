@@ -110,7 +110,7 @@ class Database
         $isMaster = in_array($dbName, $masterNames);
 
         // Only run once per session per database (version bump forces re-check)
-        $schemaVersion = 6; // v6: add gudang_nasita_stock category
+        $schemaVersion = 7; // v7: add missing procurement columns for cross-DB compatibility
         $sessionKey = '_schema_synced_v' . $schemaVersion . '_' . md5($dbName);
         if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION[$sessionKey])) return;
 
@@ -493,6 +493,23 @@ class Database
                     ],
                     'purchase_orders_header' => [
                         'business_id' => "INT NULL",
+                        'expected_delivery_date' => "DATE NULL",
+                        'discount_amount' => "DECIMAL(15,2) DEFAULT 0",
+                        'tax_amount' => "DECIMAL(15,2) DEFAULT 0",
+                        'grand_total' => "DECIMAL(15,2) DEFAULT 0",
+                        'approved_by' => "INT NULL",
+                        'approved_at' => "DATETIME NULL",
+                        'created_at' => "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+                        'updated_at' => "TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+                    ],
+                    'purchase_orders_detail' => [
+                        'unit_of_measure' => "VARCHAR(20) DEFAULT 'pcs'",
+                        'subtotal' => "DECIMAL(15,2) DEFAULT 0",
+                        'received_quantity' => "DECIMAL(10,2) DEFAULT 0",
+                        'line_number' => "INT NULL",
+                        'item_description' => "TEXT NULL",
+                        'division_id' => "INT NULL",
+                        'notes' => "TEXT NULL",
                     ],
                     'gudang_nasita_stock' => [
                         'category' => "VARCHAR(80) DEFAULT 'lainnya'",
