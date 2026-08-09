@@ -393,9 +393,10 @@ function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $op
 
         $db->getConnection()->beginTransaction();
 
+        // Match by name only so unit differences don't create duplicate stock entries
         $stock = $db->fetchOne(
-            "SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) AND unit = ? AND COALESCE(LOWER(category), 'lainnya') = ? LIMIT 1",
-            [$itemName, $unit, $category]
+            "SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) AND is_active = 1 LIMIT 1",
+            [$itemName]
         );
 
         if (!$stock) {
@@ -490,7 +491,11 @@ function receivePurchaseOrderToGudang($po_id, array $receivedItems, $receivedBy,
             }
 
             $unit = trim($item['unit_of_measure'] ?: 'pcs');
-            $stock = $db->fetchOne("SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) AND unit = ? LIMIT 1", [$item['item_name'], $unit]);
+            // Match by name only so existing stock is updated regardless of unit mismatch
+            $stock = $db->fetchOne("SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) AND is_active = 1 LIMIT 1", [$item['item_name']]);
+            if (!$stock) {
+                $stock = $db->fetchOne("SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) LIKE LOWER(?) AND is_active = 1 ORDER BY quantity DESC LIMIT 1", ['%' . trim($item['item_name']) . '%']);
+            }
 
             if (!$stock) {
                 $stockId = $db->insert('gudang_nasita_stock', [
