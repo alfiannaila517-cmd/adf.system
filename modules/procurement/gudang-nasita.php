@@ -44,8 +44,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
+// Handle PO to external supplier for gudang restocking
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'order_supplier') {
+    $poItemName = trim($_POST['item_name'] ?? '');
+    $poUnit     = trim($_POST['unit'] ?? 'pcs');
+    $poQty      = (float)($_POST['quantity'] ?? 0);
+    $poSupplierId = (int)($_POST['supplier_id'] ?? 0);
+    $poNotes    = trim($_POST['notes'] ?? '');
+
+    if ($poItemName === '' || $poQty <= 0 || $poSupplierId <= 0) {
+        $_SESSION['error'] = 'Nama item, qty, dan supplier wajib diisi.';
+    } else {
+        try {
+            // Generate PO number for gudang restocking
+            $poPrefix = 'GDN-' . date('Ymd') . '-';
+            $lastPo = $db->fetchOne("SELECT po_number FROM purchase_orders_header WHERE po_number LIKE ? ORDER BY po_number DESC LIMIT 1", [$poPrefix . '%']);
+            $poSeq = $lastPo ? ((int)substr($lastPo['po_number'], -3) + 1) : 1;
+            $poNumber = $poPrefix . str_pad($poSeq, 3, '0', STR_PAD_LEFT);
+
+            $poHeaderId = $db->insert('purchase_orders_header', [
+                'business_id'   => null,
+                'po_number'     => $poNumber,
+                'supplier_id'   => $poSupplierId,
+                'po_date'       => date('Y-m-d'),
+                'status'        => 'submitted',
+                'total_amount'  => 0,
+                'notes'         => $poNotes ?: 'Restock Gudang Nasita',
+                'created_by'    => $currentUser['id'],
+            ]);
+            $db->insert('purchase_orders_detail', [
+                'po_header_id'  => $poHeaderId,
+                'item_name'     => $poItemName,
+                'quantity'      => $poQty,
+                'unit'          => $poUnit,
+                'unit_price'    => 0,
+                'total_price'   => 0,
+            ]);
+            $_SESSION['success'] = 'PO ' . $poNumber . ' ke supplier berhasil dibuat.';
+        } catch (Throwable $e) {
+            $_SESSION['error'] = 'Gagal buat PO supplier: ' . $e->getMessage();
+        }
+    }
+    header('Location: gudang-nasita.php');
+    exit;
+}
+
 $stockItems = getGudangNasitaStock(300);
 $recentTransfers = getGudangNasitaTransfers(15);
+
+// Collect low-stock items for prominent alert
+$lowStockItems = array_values(array_filter($stockItems, function ($item) {
+    return (float)($item['reorder_level'] ?? 0) > 0 && (float)$item['quantity'] <= (float)$item['reorder_level'];
+}));
+
+// Load suppliers for the order-to-supplier modal
+$gudangSuppliers = $db->fetchAll("SELECT id, supplier_name FROM suppliers WHERE (is_active = 1 OR is_active IS NULL) ORDER BY supplier_name ASC");
+if (empty($gudangSuppliers)) {
+    $gudangSuppliers = $db->fetchAll("SELECT id, supplier_name FROM suppliers ORDER BY supplier_name ASC");
+}
 
 $summary = [
     'items' => count($stockItems),
@@ -160,6 +216,32 @@ include '../../includes/header.php';
 <?php if (isset($_SESSION['error'])): ?>
     <div class="alert alert-danger" style="margin-bottom:1rem;"><?php echo htmlspecialchars($_SESSION['error']);
                                                                 unset($_SESSION['error']); ?></div>
+<?php endif; ?>
+
+<?php if (!empty($lowStockItems)): ?>
+<div style="background:#fef2f2; border:1.5px solid #fca5a5; border-radius:0.85rem; padding:1rem 1.25rem; margin-bottom:1.25rem;">
+    <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.75rem;">
+        <i data-feather="alert-triangle" style="width:18px; height:18px; color:#dc2626;"></i>
+        <strong style="color:#dc2626; font-size:0.95rem;">⚠️ <?php echo count($lowStockItems); ?> item stok menipis &mdash; perlu segera dipesan ke supplier</strong>
+    </div>
+    <div style="display:grid; gap:0.5rem;">
+        <?php foreach ($lowStockItems as $lwItem): ?>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; background:#fff; border:1px solid #fca5a5; border-radius:0.6rem; padding:0.6rem 0.85rem;">
+            <div>
+                <span style="font-weight:700; color:#991b1b;"><?php echo htmlspecialchars($lwItem['item_name']); ?></span>
+                <span style="font-size:0.8rem; color:#b91c1c; margin-left:0.5rem;">Sisa: <?php echo number_format((float)$lwItem['quantity'], 2); ?> <?php echo htmlspecialchars($lwItem['unit']); ?> &mdash; Reorder: <?php echo number_format((float)$lwItem['reorder_level'], 2); ?></span>
+                <?php if (!empty($lwItem['supplier_name'])): ?>
+                    <span style="font-size:0.78rem; color:#6b7280; margin-left:0.4rem;">(Supplier: <?php echo htmlspecialchars($lwItem['supplier_name']); ?>)</span>
+                <?php endif; ?>
+            </div>
+            <button type="button" class="btn btn-sm" style="background:#dc2626; color:#fff; font-size:0.78rem; padding:0.3rem 0.75rem;"
+                onclick="openOrderModal(<?php echo htmlspecialchars(json_encode($lwItem['item_name'])); ?>, <?php echo htmlspecialchars(json_encode($lwItem['unit'])); ?>, <?php echo htmlspecialchars(json_encode($lwItem['supplier_name'] ?? '')); ?>)">
+                <i data-feather="shopping-cart" style="width:13px;height:13px;"></i> Pesan ke Supplier
+            </button>
+        </div>
+        <?php endforeach; ?>
+    </div>
+</div>
 <?php endif; ?>
 
 <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.25rem;">
@@ -299,11 +381,24 @@ include '../../includes/header.php';
     feather.replace();
 
     document.addEventListener('click', function(e) {
-        var modal = document.getElementById('manualStockModal');
-        if (e.target === modal) {
-            modal.style.display = 'none';
-        }
+        if (e.target === document.getElementById('manualStockModal')) document.getElementById('manualStockModal').style.display = 'none';
+        if (e.target === document.getElementById('orderSupplierModal')) document.getElementById('orderSupplierModal').style.display = 'none';
     });
+
+    function openOrderModal(itemName, unit, supplierHint) {
+        var m = document.getElementById('orderSupplierModal');
+        m.querySelector('[name="item_name"]').value = itemName;
+        m.querySelector('[name="unit"]').value = unit;
+        m.style.display = 'flex';
+        // Try to match supplier by hint text
+        var sel = m.querySelector('[name="supplier_id"]');
+        if (supplierHint && sel) {
+            var hint = supplierHint.toLowerCase();
+            for (var i = 0; i < sel.options.length; i++) {
+                if (sel.options[i].text.toLowerCase().includes(hint)) { sel.selectedIndex = i; break; }
+            }
+        }
+    }
 </script>
 
 <div id="manualStockModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.45); z-index:2000; align-items:center; justify-content:center; padding:1rem;">
@@ -363,3 +458,50 @@ include '../../includes/header.php';
 </div>
 
 <?php include '../../includes/footer.php'; ?>
+
+<!-- Modal: Pesan ke Supplier -->
+<div id="orderSupplierModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.55); z-index:2100; align-items:center; justify-content:center; padding:1rem;">
+    <div class="card" style="width:min(520px,100%); max-height:90vh; overflow:auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <h3 style="font-size:1.05rem; margin:0; color:#dc2626;">🛒 Pesan ke Supplier</h3>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('orderSupplierModal').style.display='none'">Tutup</button>
+        </div>
+        <form method="POST">
+            <input type="hidden" name="action" value="order_supplier">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.85rem;">
+                <div style="grid-column:1/span 2;">
+                    <label class="form-label">Supplier *</label>
+                    <select name="supplier_id" class="form-control" required>
+                        <option value="">-- Pilih Supplier --</option>
+                        <?php foreach ($gudangSuppliers as $sup): ?>
+                            <option value="<?php echo (int)$sup['id']; ?>"><?php echo htmlspecialchars($sup['supplier_name']); ?></option>
+                        <?php endforeach; ?>
+                        <?php if (empty($gudangSuppliers)): ?>
+                            <option value="" disabled>Belum ada supplier — tambah di menu Pemasok</option>
+                        <?php endif; ?>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Nama Item *</label>
+                    <input type="text" name="item_name" class="form-control" required>
+                </div>
+                <div>
+                    <label class="form-label">Unit *</label>
+                    <input type="text" name="unit" class="form-control" value="pcs" required>
+                </div>
+                <div style="grid-column:1/span 2;">
+                    <label class="form-label">Qty yang Dipesan *</label>
+                    <input type="number" name="quantity" class="form-control" step="0.01" min="0.01" required>
+                </div>
+                <div style="grid-column:1/span 2;">
+                    <label class="form-label">Catatan</label>
+                    <textarea name="notes" class="form-control" rows="2" placeholder="Contoh: Urgent, butuh sebelum weekend"></textarea>
+                </div>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('orderSupplierModal').style.display='none'">Batal</button>
+                <button type="submit" class="btn" style="background:#dc2626; color:#fff;">Buat PO Supplier</button>
+            </div>
+        </form>
+    </div>
+</div>
