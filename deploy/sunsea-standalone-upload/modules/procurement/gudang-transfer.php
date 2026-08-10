@@ -104,11 +104,26 @@ if (empty($allBusinesses)) {
 }
 
 // FILTER: Hanya ambil 3 bisnis yang diizinkan
-$allowedBusinessCodes = ['narayana-hotel', 'bens-cafe', 'eaat-meet'];
-$allBusinesses = array_filter($allBusinesses, function($biz) use ($allowedBusinessCodes) {
-    $code = strtolower(preg_replace('/[^a-z0-9-]/', '', (string)($biz['business_code'] ?? '')));
-    return in_array($code, $allowedBusinessCodes, true);
-});
+$normalizeBizToken = function ($value) {
+    return strtolower(preg_replace('/[^a-z0-9]/', '', (string)$value));
+};
+$allowedBizTokens = ['narayanahotel', 'benscafe', 'eatmeet', 'eaatmeet'];
+$allBusinesses = array_values(array_filter($allBusinesses, function ($biz) use ($allowedBizTokens, $normalizeBizToken) {
+    $codeToken = $normalizeBizToken($biz['business_code'] ?? '');
+    $nameToken = $normalizeBizToken($biz['business_name'] ?? '');
+
+    if (in_array($codeToken, $allowedBizTokens, true)) {
+        return true;
+    }
+
+    foreach ($allowedBizTokens as $token) {
+        if ($nameToken !== '' && (strpos($nameToken, $token) !== false || strpos($token, $nameToken) !== false)) {
+            return true;
+        }
+    }
+
+    return false;
+}));
 // Re-order by business_name
 usort($allBusinesses, fn($a, $b) => strcmp($a['business_name'], $b['business_name']));
 

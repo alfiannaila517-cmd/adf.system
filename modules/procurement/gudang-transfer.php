@@ -104,11 +104,26 @@ if (empty($allBusinesses)) {
 }
 
 // FILTER: Hanya ambil 3 bisnis yang diizinkan
-$allowedBusinessCodes = ['narayana-hotel', 'bens-cafe', 'eaat-meet'];
-$allBusinesses = array_filter($allBusinesses, function($biz) use ($allowedBusinessCodes) {
-    $code = strtolower(preg_replace('/[^a-z0-9-]/', '', (string)($biz['business_code'] ?? '')));
-    return in_array($code, $allowedBusinessCodes, true);
-});
+$normalizeBizToken = function ($value) {
+    return strtolower(preg_replace('/[^a-z0-9]/', '', (string)$value));
+};
+$allowedBizTokens = ['narayanahotel', 'benscafe', 'eatmeet', 'eaatmeet'];
+$allBusinesses = array_values(array_filter($allBusinesses, function ($biz) use ($allowedBizTokens, $normalizeBizToken) {
+    $codeToken = $normalizeBizToken($biz['business_code'] ?? '');
+    $nameToken = $normalizeBizToken($biz['business_name'] ?? '');
+
+    if (in_array($codeToken, $allowedBizTokens, true)) {
+        return true;
+    }
+
+    foreach ($allowedBizTokens as $token) {
+        if ($nameToken !== '' && (strpos($nameToken, $token) !== false || strpos($token, $nameToken) !== false)) {
+            return true;
+        }
+    }
+
+    return false;
+}));
 // Re-order by business_name
 usort($allBusinesses, fn($a, $b) => strcmp($a['business_name'], $b['business_name']));
 
@@ -207,7 +222,7 @@ if ($prefillPoId > 0 && $prefillPoBusinessSlug !== '') {
                 'unit'         => $pUnit,
                 'ordered_qty'  => $pOrdered,
                 'received_qty' => $pReceived,
-                'remaining_qty'=> $pRemaining,
+                'remaining_qty' => $pRemaining,
                 'gudang_stock' => $gStock ?: null,
             ];
         }
@@ -345,19 +360,29 @@ include '../../includes/header.php';
 <?php if (!empty($_GET['transfer_ok'])): ?>
     <div class="alert alert-success" id="transferResult">
         ✅ Barang berhasil ditransfer ke <strong><?php echo htmlspecialchars((string)($_GET['biz'] ?? '')); ?></strong>!
-        <script>document.getElementById('transferResult').scrollIntoView({behavior:'smooth'});</script>
+        <script>
+            document.getElementById('transferResult').scrollIntoView({
+                behavior: 'smooth'
+            });
+        </script>
     </div>
 <?php elseif (!empty($_GET['transfer_err'])): ?>
     <div class="alert alert-danger" id="transferResult">
         ❌ <?php echo htmlspecialchars((string)$_GET['transfer_err']); ?>
-        <script>document.getElementById('transferResult').scrollIntoView({behavior:'smooth'});</script>
+        <script>
+            document.getElementById('transferResult').scrollIntoView({
+                behavior: 'smooth'
+            });
+        </script>
     </div>
 <?php endif; ?>
 <?php if (isset($_SESSION['success'])): ?>
-    <div class="alert alert-success"><?php echo htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?></div>
+    <div class="alert alert-success"><?php echo htmlspecialchars($_SESSION['success']);
+                                        unset($_SESSION['success']); ?></div>
 <?php endif; ?>
 <?php if (isset($_SESSION['error'])): ?>
-    <div class="alert alert-danger"><?php echo htmlspecialchars($_SESSION['error']); unset($_SESSION['error']); ?></div>
+    <div class="alert alert-danger"><?php echo htmlspecialchars($_SESSION['error']);
+                                    unset($_SESSION['error']); ?></div>
 <?php endif; ?>
 
 <?php if ($prefillPoId > 0 && $poData): ?>
@@ -403,30 +428,30 @@ include '../../includes/header.php';
                             </tr>
                         </thead>
                         <tbody>
-                        <?php foreach ($poItemsWithStock as $idx => $pItem): ?>
-                            <?php $gStock = $pItem['gudang_stock']; ?>
-                            <tr style="<?php echo ($pItem['remaining_qty'] <= 0) ? 'opacity:0.5;' : ''; ?>">
-                                <td style="font-weight:600;"><?php echo htmlspecialchars($pItem['item_name']); ?></td>
-                                <td class="text-right"><?php echo number_format($pItem['remaining_qty'], 2); ?> <?php echo htmlspecialchars($pItem['unit']); ?></td>
-                                <td>
-                                    <?php if ($gStock): ?>
-                                        <span style="color:<?php echo (float)$gStock['quantity'] > 0 ? '#0f9d6a' : '#d97706'; ?>; font-weight:600;">
-                                            <?php echo number_format((float)$gStock['quantity'], 2); ?> <?php echo htmlspecialchars($gStock['unit']); ?>
-                                        </span>
-                                    <?php else: ?>
-                                        <span style="color:#9ca3af;">Tidak ada di gudang</span>
-                                    <?php endif; ?>
-                                </td>
-                                <td>
-                                    <?php if ($gStock && (float)$gStock['quantity'] > 0 && $pItem['remaining_qty'] > 0): ?>
-                                        <input type="hidden" name="transfer_items[<?php echo $idx; ?>][stock_id]" value="<?php echo (int)$gStock['id']; ?>">
-                                        <input type="number" name="transfer_items[<?php echo $idx; ?>][qty]" step="0.01" min="0" max="<?php echo min($pItem['remaining_qty'], (float)$gStock['quantity']); ?>" value="<?php echo min($pItem['remaining_qty'], (float)$gStock['quantity']); ?>" class="form-control" style="width:100px; text-align:right;">
-                                    <?php else: ?>
-                                        <span style="color:#9ca3af;">—</span>
-                                    <?php endif; ?>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
+                            <?php foreach ($poItemsWithStock as $idx => $pItem): ?>
+                                <?php $gStock = $pItem['gudang_stock']; ?>
+                                <tr style="<?php echo ($pItem['remaining_qty'] <= 0) ? 'opacity:0.5;' : ''; ?>">
+                                    <td style="font-weight:600;"><?php echo htmlspecialchars($pItem['item_name']); ?></td>
+                                    <td class="text-right"><?php echo number_format($pItem['remaining_qty'], 2); ?> <?php echo htmlspecialchars($pItem['unit']); ?></td>
+                                    <td>
+                                        <?php if ($gStock): ?>
+                                            <span style="color:<?php echo (float)$gStock['quantity'] > 0 ? '#0f9d6a' : '#d97706'; ?>; font-weight:600;">
+                                                <?php echo number_format((float)$gStock['quantity'], 2); ?> <?php echo htmlspecialchars($gStock['unit']); ?>
+                                            </span>
+                                        <?php else: ?>
+                                            <span style="color:#9ca3af;">Tidak ada di gudang</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if ($gStock && (float)$gStock['quantity'] > 0 && $pItem['remaining_qty'] > 0): ?>
+                                            <input type="hidden" name="transfer_items[<?php echo $idx; ?>][stock_id]" value="<?php echo (int)$gStock['id']; ?>">
+                                            <input type="number" name="transfer_items[<?php echo $idx; ?>][qty]" step="0.01" min="0" max="<?php echo min($pItem['remaining_qty'], (float)$gStock['quantity']); ?>" value="<?php echo min($pItem['remaining_qty'], (float)$gStock['quantity']); ?>" class="form-control" style="width:100px; text-align:right;">
+                                        <?php else: ?>
+                                            <span style="color:#9ca3af;">—</span>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
                         </tbody>
                     </table>
                 </div>
