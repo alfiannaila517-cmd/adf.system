@@ -6,9 +6,35 @@
 
 require_once __DIR__ . '/config/database.php';
 
+@ini_set('display_errors', '1');
+@ini_set('display_startup_errors', '1');
+error_reporting(E_ALL);
+@set_time_limit(120);
+
+if (function_exists('ob_get_level') && ob_get_level() > 0) {
+    @ob_end_flush();
+}
+
+header('Content-Type: text/plain; charset=utf-8');
+
+register_shutdown_function(function () {
+    $lastError = error_get_last();
+    if ($lastError !== null) {
+        echo "\n[Shutdown Error] {$lastError['message']} in {$lastError['file']}:{$lastError['line']}\n";
+    }
+});
+
+function setupEcho($text)
+{
+    echo $text;
+    if (function_exists('flush')) {
+        @flush();
+    }
+}
+
 try {
-    echo "[Gudang Nasita Setup]\n";
-    echo "=" . str_repeat("-", 50) . "\n\n";
+    setupEcho("[Gudang Nasita Setup]\n");
+    setupEcho("=" . str_repeat("-", 50) . "\n\n");
     
     $db = Database::getInstance();
     $masterDb = Database::switchDatabase(DB_NAME);
@@ -17,9 +43,9 @@ try {
     $sql_file = __DIR__ . '/sql/setup-gudang-nasita.sql';
     if (file_exists($sql_file)) {
         $sql_content = file_get_contents($sql_file);
-        echo "Using SQL file: {$sql_file}\n";
+        setupEcho("Using SQL file: {$sql_file}\n");
     } else {
-        echo "SQL file not found, using embedded fallback SQL...\n";
+        setupEcho("SQL file not found, using embedded fallback SQL...\n");
         $sql_content = <<<'SQL'
 CREATE TABLE IF NOT EXISTS gudang_nasita_barang (
     id INT PRIMARY KEY AUTO_INCREMENT,
@@ -116,22 +142,25 @@ SQL;
     $success_count = 0;
     $skip_count = 0;
     
-    foreach ($statements as $statement) {
+    foreach ($statements as $idx => $statement) {
         if (empty($statement) || strpos(trim($statement), '--') === 0) {
             continue;
         }
         
         try {
-            $db->execute($statement);
+            $preview = substr(preg_replace('/\s+/', ' ', trim($statement)), 0, 80);
+            setupEcho("-> Running statement #" . ($idx + 1) . ": {$preview}...\n");
+
+            $masterDb->execute($statement);
             $success_count++;
-            echo "✓ Executed: " . substr(trim($statement), 0, 60) . "...\n";
+            setupEcho("✓ Executed statement #" . ($idx + 1) . "\n");
         } catch (Exception $e) {
             // Ignore "table already exists" type errors
             if (strpos($e->getMessage(), 'already exists') !== false) {
                 $skip_count++;
-                echo "⊘ Skipped (already exists): " . substr(trim($statement), 0, 50) . "...\n";
+                setupEcho("⊘ Skipped statement #" . ($idx + 1) . " (already exists)\n");
             } else {
-                echo "✗ ERROR: " . $e->getMessage() . "\n";
+                setupEcho("✗ ERROR at statement #" . ($idx + 1) . ": " . $e->getMessage() . "\n");
                 throw $e;
             }
         }
@@ -140,30 +169,31 @@ SQL;
     // Ensure Gudang Nasita appears in business dropdown
     $existingBusiness = $masterDb->fetchOne("SELECT id FROM businesses WHERE slug = ? LIMIT 1", ['gudang-nasita']);
     if ($existingBusiness) {
-        echo "⊘ Business exists: Gudang Nasita (ID: " . (int)$existingBusiness['id'] . ")\n";
+        setupEcho("⊘ Business exists: Gudang Nasita (ID: " . (int)$existingBusiness['id'] . ")\n");
     } else {
         $masterDb->execute(
             "INSERT INTO businesses (business_name, business_code, slug, database_name, business_type, is_active, status, created_at) VALUES (?, ?, ?, ?, ?, 1, 'active', NOW())",
             ['Gudang Nasita', 'gudang-nasita', 'gudang-nasita', DB_NAME, 'warehouse']
         );
-        echo "✓ Business inserted: Gudang Nasita\n";
+        setupEcho("✓ Business inserted: Gudang Nasita\n");
     }
 
-    echo "\n" . str_repeat("-", 50) . "\n";
-    echo "Setup completed!\n";
-    echo "✓ Executed: {$success_count} statements\n";
-    echo "⊘ Skipped: {$skip_count} statements (already exist)\n";
-    echo "\nGudang Nasita system is ready!\n";
-    echo "Business added: Gudang Nasita (warehouse)\n";
-    echo "\nNext steps:\n";
-    echo "1. Go to Developer Panel > User Permissions\n";
-    echo "2. Select 'Gudang Nasita' from business dropdown\n";
-    echo "3. Assign warehouse permissions to your user\n";
-    echo "4. Login & select 'Gudang Nasita' from business dropdown\n";
-    echo "5. Menu 'Gudang Nasita' will appear in sidebar\n";
+    setupEcho("\n" . str_repeat("-", 50) . "\n");
+    setupEcho("Setup completed!\n");
+    setupEcho("✓ Executed: {$success_count} statements\n");
+    setupEcho("⊘ Skipped: {$skip_count} statements (already exist)\n");
+    setupEcho("\nGudang Nasita system is ready!\n");
+    setupEcho("Business added: Gudang Nasita (warehouse)\n");
+    setupEcho("\nNext steps:\n");
+    setupEcho("1. Go to Developer Panel > User Permissions\n");
+    setupEcho("2. Select 'Gudang Nasita' from business dropdown\n");
+    setupEcho("3. Assign warehouse permissions to your user\n");
+    setupEcho("4. Login & select 'Gudang Nasita' from business dropdown\n");
+    setupEcho("5. Menu 'Gudang Nasita' will appear in sidebar\n");
     
-} catch (Exception $e) {
-    echo "\n✗ Setup failed: " . $e->getMessage() . "\n";
+} catch (Throwable $e) {
+    setupEcho("\n✗ Setup failed: " . $e->getMessage() . "\n");
+    setupEcho("Location: " . $e->getFile() . ":" . $e->getLine() . "\n");
     http_response_code(500);
     exit(1);
 }
