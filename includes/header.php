@@ -936,6 +936,60 @@ if (isset($_SESSION['user_id'])) {
                         </li>
                     <?php endif; ?>
 
+                    <!-- Gudang Nasita Menu (Warehouse) -->
+                    <?php if (ACTIVE_BUSINESS_ID === 'gudang-nasita' && ($auth->hasPermission('gudang_view') || $auth->hasPermission('warehouse'))): ?>
+                        <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/modules/gudang/') !== false) ? 'open' : ''; ?>">
+                            <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo (strpos($_SERVER['REQUEST_URI'], '/modules/gudang/') !== false) ? 'active' : ''; ?>">
+                                <i data-feather="archive" class="nav-icon"></i>
+                                <span>Gudang Nasita</span>
+                            </a>
+                            <ul class="submenu">
+                                <li class="submenu-item">
+                                    <a href="<?php echo BASE_URL; ?>/modules/gudang/dashboard.php" class="submenu-link <?php echo activeMenu('dashboard.php'); ?>">
+                                        <i data-feather="home" class="submenu-icon"></i>
+                                        <span>Dashboard</span>
+                                    </a>
+                                </li>
+                                <li class="submenu-item">
+                                    <a href="<?php echo BASE_URL; ?>/modules/gudang/barang.php" class="submenu-link <?php echo activeMenu('barang.php'); ?>">
+                                        <i data-feather="package" class="submenu-icon"></i>
+                                        <span>Master Barang</span>
+                                    </a>
+                                </li>
+                                <li class="submenu-item">
+                                    <a href="<?php echo BASE_URL; ?>/modules/gudang/stock.php" class="submenu-link <?php echo activeMenu('stock.php'); ?>">
+                                        <i data-feather="layers" class="submenu-icon"></i>
+                                        <span>Kelola Stok</span>
+                                    </a>
+                                </li>
+                                <li class="submenu-item">
+                                    <a href="<?php echo BASE_URL; ?>/modules/gudang/po-supplier.php" class="submenu-link <?php echo activeMenu('po-supplier.php'); ?>">
+                                        <i data-feather="file-text" class="submenu-icon"></i>
+                                        <span>PO Supplier</span>
+                                    </a>
+                                </li>
+                                <li class="submenu-item">
+                                    <a href="<?php echo BASE_URL; ?>/modules/gudang/transfer.php" class="submenu-link <?php echo activeMenu('transfer.php'); ?>">
+                                        <i data-feather="arrow-right" class="submenu-icon"></i>
+                                        <span>Transfer ke Bisnis</span>
+                                    </a>
+                                </li>
+                                <li class="submenu-item">
+                                    <a href="<?php echo BASE_URL; ?>/modules/gudang/minimum-stock.php" class="submenu-link <?php echo activeMenu('minimum-stock.php'); ?>">
+                                        <i data-feather="alert-circle" class="submenu-icon"></i>
+                                        <span>Minimum Stock Alert</span>
+                                    </a>
+                                </li>
+                                <li class="submenu-item">
+                                    <a href="<?php echo BASE_URL; ?>/modules/gudang/reports.php" class="submenu-link <?php echo activeMenu('reports.php'); ?>">
+                                        <i data-feather="bar-chart-2" class="submenu-icon"></i>
+                                        <span>Laporan Gudang</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+                    <?php endif; ?>
+
                     <!-- Laporan Dropdown Menu -->
                     <?php if ($auth->hasPermission('reports') && isModuleEnabled('reports')): ?>
                         <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/reports/') !== false) ? 'open' : ''; ?>">
