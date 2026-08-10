@@ -189,6 +189,10 @@ include '../../includes/header.php';
             <input type="hidden" name="source_po_business" value="<?php echo htmlspecialchars($prefillPoBusinessSlug); ?>">
             <div class="form-group">
                 <label class="form-label">Tujuan Bisnis</label>
+                <!-- DEBUG: Show count of allowed businesses -->
+                <div style="font-size: 0.75rem; color: #999; margin-bottom: 0.5rem;">
+                    [Debug: <?php echo count($allowedBusinesses); ?> bisnis tersedia]
+                </div>
                 <?php if ($prefillPoId > 0 && $prefillTargetBusinessId > 0): ?>
                     <input type="text" class="form-control" value="<?php echo htmlspecialchars(($prefillTargetBusinessName !== '' ? $prefillTargetBusinessName : 'Business') . ' (ID: ' . $prefillTargetBusinessId . ')'); ?>" readonly style="font-weight:700; background:#f8fafc;">
                     <input type="hidden" name="target_business_id" value="<?php echo (int)$prefillTargetBusinessId; ?>">
