@@ -99,6 +99,9 @@ if (empty($allBusinesses)) {
     $allBusinesses = $db->fetchAll("SELECT id, business_name, business_code FROM businesses ORDER BY business_name ASC");
 }
 
+// DEBUG: Log business loading
+error_log('[gudang-transfer] Loaded ' . count($allBusinesses) . ' businesses: ' . json_encode(array_map(fn($b) => ['id' => $b['id'], 'name' => $b['business_name']], $allBusinesses)));
+
 // Gunakan semua bisnis aktif untuk dropdown transfer
 $allowedBusinesses = $allBusinesses;
 
