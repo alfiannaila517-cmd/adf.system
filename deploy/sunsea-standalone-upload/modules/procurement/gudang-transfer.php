@@ -103,10 +103,19 @@ if (empty($allBusinesses)) {
     $allBusinesses = $masterDb->fetchAll("SELECT id, business_name, business_code FROM businesses ORDER BY business_name ASC");
 }
 
+// FILTER: Hanya ambil 3 bisnis yang diizinkan
+$allowedBusinessCodes = ['narayana-hotel', 'bens-cafe', 'eaat-meet'];
+$allBusinesses = array_filter($allBusinesses, function($biz) use ($allowedBusinessCodes) {
+    $code = strtolower(preg_replace('/[^a-z0-9-]/', '', (string)($biz['business_code'] ?? '')));
+    return in_array($code, $allowedBusinessCodes, true);
+});
+// Re-order by business_name
+usort($allBusinesses, fn($a, $b) => strcmp($a['business_name'], $b['business_name']));
+
 // DEBUG: Log business loading
 error_log('[gudang-transfer] Loaded ' . count($allBusinesses) . ' businesses: ' . json_encode(array_map(fn($b) => ['id' => $b['id'], 'name' => $b['business_name']], $allBusinesses)));
 
-// Gunakan semua bisnis aktif untuk dropdown transfer
+// Gunakan bisnis yang sudah difilter untuk dropdown transfer
 $allowedBusinesses = $allBusinesses;
 
 // Update prefillTargetBusinessName jika ada prefillTargetBusinessId
@@ -193,10 +202,6 @@ include '../../includes/header.php';
             <input type="hidden" name="source_po_business" value="<?php echo htmlspecialchars($prefillPoBusinessSlug); ?>">
             <div class="form-group">
                 <label class="form-label">Tujuan Bisnis</label>
-                <!-- DEBUG: Show count of allowed businesses -->
-                <div style="font-size: 0.75rem; color: #999; margin-bottom: 0.5rem;">
-                    [Debug: <?php echo count($allowedBusinesses); ?> bisnis tersedia]
-                </div>
                 <?php if ($prefillPoId > 0 && $prefillTargetBusinessId > 0): ?>
                     <input type="text" class="form-control" value="<?php echo htmlspecialchars(($prefillTargetBusinessName !== '' ? $prefillTargetBusinessName : 'Business') . ' (ID: ' . $prefillTargetBusinessId . ')'); ?>" readonly style="font-weight:700; background:#f8fafc;">
                     <input type="hidden" name="target_business_id" value="<?php echo (int)$prefillTargetBusinessId; ?>">
