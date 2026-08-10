@@ -151,7 +151,10 @@ SQL;
             $preview = substr(preg_replace('/\s+/', ' ', trim($statement)), 0, 80);
             setupEcho("-> Running statement #" . ($idx + 1) . ": {$preview}...\n");
 
-            $masterDb->execute($statement);
+            $ok = $masterDb->query($statement);
+            if ($ok === false) {
+                throw new Exception('Database query returned false');
+            }
             $success_count++;
             setupEcho("✓ Executed statement #" . ($idx + 1) . "\n");
         } catch (Exception $e) {
@@ -171,10 +174,13 @@ SQL;
     if ($existingBusiness) {
         setupEcho("⊘ Business exists: Gudang Nasita (ID: " . (int)$existingBusiness['id'] . ")\n");
     } else {
-        $masterDb->execute(
+        $ok = $masterDb->query(
             "INSERT INTO businesses (business_name, business_code, slug, database_name, business_type, is_active, status, created_at) VALUES (?, ?, ?, ?, ?, 1, 'active', NOW())",
             ['Gudang Nasita', 'gudang-nasita', 'gudang-nasita', DB_NAME, 'warehouse']
         );
+        if ($ok === false) {
+            throw new Exception('Failed to insert Gudang Nasita into businesses table');
+        }
         setupEcho("✓ Business inserted: Gudang Nasita\n");
     }
 
