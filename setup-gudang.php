@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Setup Script - Gudang Nasita Database Tables
  * Run this once to initialize Gudang Nasita warehouse system
@@ -35,10 +36,10 @@ function setupEcho($text)
 try {
     setupEcho("[Gudang Nasita Setup]\n");
     setupEcho("=" . str_repeat("-", 50) . "\n\n");
-    
+
     $db = Database::getInstance();
     $masterDb = Database::switchDatabase(DB_NAME);
-    
+
     // SQL Setup (prefer file, fallback to embedded SQL for production deploy safety)
     $sql_file = __DIR__ . '/sql/setup-gudang-nasita.sql';
     if (file_exists($sql_file)) {
@@ -138,15 +139,15 @@ SQL;
     }
 
     $statements = array_filter(array_map('trim', explode(';', $sql_content)));
-    
+
     $success_count = 0;
     $skip_count = 0;
-    
+
     foreach ($statements as $idx => $statement) {
         if (empty($statement) || strpos(trim($statement), '--') === 0) {
             continue;
         }
-        
+
         try {
             $preview = substr(preg_replace('/\s+/', ' ', trim($statement)), 0, 80);
             setupEcho("-> Running statement #" . ($idx + 1) . ": {$preview}...\n");
@@ -168,20 +169,104 @@ SQL;
             }
         }
     }
-    
-    // Ensure Gudang Nasita appears in business dropdown
-    $existingBusiness = $masterDb->fetchOne("SELECT id FROM businesses WHERE slug = ? LIMIT 1", ['gudang-nasita']);
+
+    // Ensure Gudang Nasita appears in business dropdown (schema-aware insert)
+    $conn = $masterDb->getConnection();
+    $bizColsRows = $masterDb->fetchAll("SHOW COLUMNS FROM businesses");
+    if (empty($bizColsRows)) {
+        throw new Exception('Unable to read businesses table schema');
+    }
+
+    $bizCols = [];
+    foreach ($bizColsRows as $row) {
+        $bizCols[(string)$row['Field']] = $row;
+    }
+
+    // Check existing with the best available unique identifiers
+    $existingBusiness = false;
+    if (isset($bizCols['slug'])) {
+        $existingBusiness = $masterDb->fetchOne("SELECT id FROM businesses WHERE slug = ? LIMIT 1", ['gudang-nasita']);
+    }
+    if (!$existingBusiness && isset($bizCols['business_code'])) {
+        $existingBusiness = $masterDb->fetchOne("SELECT id FROM businesses WHERE business_code = ? LIMIT 1", ['GUDANGNASITA']);
+    }
+    if (!$existingBusiness && isset($bizCols['business_name'])) {
+        $existingBusiness = $masterDb->fetchOne("SELECT id FROM businesses WHERE business_name = ? LIMIT 1", ['Gudang Nasita']);
+    }
+
     if ($existingBusiness) {
         setupEcho("⊘ Business exists: Gudang Nasita (ID: " . (int)$existingBusiness['id'] . ")\n");
     } else {
-        $ok = $masterDb->query(
-            "INSERT INTO businesses (business_name, business_code, slug, database_name, business_type, is_active, status, created_at) VALUES (?, ?, ?, ?, ?, 1, 'active', NOW())",
-            ['Gudang Nasita', 'gudang-nasita', 'gudang-nasita', DB_NAME, 'warehouse']
-        );
-        if ($ok === false) {
-            throw new Exception('Failed to insert Gudang Nasita into businesses table');
+        $insertData = [];
+
+        if (isset($bizCols['business_name'])) {
+            $insertData['business_name'] = 'Gudang Nasita';
         }
-        setupEcho("✓ Business inserted: Gudang Nasita\n");
+        if (isset($bizCols['business_code'])) {
+            $insertData['business_code'] = 'GUDANGNASITA';
+        }
+        if (isset($bizCols['slug'])) {
+            $insertData['slug'] = 'gudang-nasita';
+        }
+        if (isset($bizCols['database_name'])) {
+            $insertData['database_name'] = DB_NAME;
+        } elseif (isset($bizCols['db_name'])) {
+            $insertData['db_name'] = DB_NAME;
+        }
+        if (isset($bizCols['business_type'])) {
+            // Keep enum-safe value across old/new schemas
+            $insertData['business_type'] = 'other';
+        }
+        if (isset($bizCols['is_active'])) {
+            $insertData['is_active'] = 1;
+        }
+        if (isset($bizCols['status'])) {
+            $insertData['status'] = 'active';
+        }
+
+        // Required owner_id in many server schemas
+        if (isset($bizCols['owner_id'])) {
+            $ownerId = 1;
+            $ownerRow = $masterDb->fetchOne("SELECT id FROM users ORDER BY id ASC LIMIT 1");
+            if ($ownerRow && isset($ownerRow['id'])) {
+                $ownerId = (int)$ownerRow['id'];
+            }
+            $insertData['owner_id'] = $ownerId;
+        }
+
+        // Optional fields if present
+        if (isset($bizCols['description'])) {
+            $insertData['description'] = 'Gudang pusat untuk transfer stok ke bisnis';
+        }
+        if (isset($bizCols['created_at'])) {
+            // handled via NOW() expression below
+        }
+
+        if (empty($insertData)) {
+            throw new Exception('No compatible columns found to insert Gudang Nasita');
+        }
+
+        $fields = [];
+        $placeholders = [];
+        $params = [];
+        foreach ($insertData as $field => $value) {
+            $fields[] = "`{$field}`";
+            $placeholders[] = '?';
+            $params[] = $value;
+        }
+        if (isset($bizCols['created_at'])) {
+            $fields[] = '`created_at`';
+            $placeholders[] = 'NOW()';
+        }
+
+        $sql = "INSERT INTO businesses (" . implode(', ', $fields) . ") VALUES (" . implode(', ', $placeholders) . ")";
+        try {
+            $stmt = $conn->prepare($sql);
+            $stmt->execute($params);
+            setupEcho("✓ Business inserted: Gudang Nasita\n");
+        } catch (Throwable $insertErr) {
+            throw new Exception('Failed to insert Gudang Nasita into businesses table: ' . $insertErr->getMessage());
+        }
     }
 
     setupEcho("\n" . str_repeat("-", 50) . "\n");
@@ -196,11 +281,9 @@ SQL;
     setupEcho("3. Assign warehouse permissions to your user\n");
     setupEcho("4. Login & select 'Gudang Nasita' from business dropdown\n");
     setupEcho("5. Menu 'Gudang Nasita' will appear in sidebar\n");
-    
 } catch (Throwable $e) {
     setupEcho("\n✗ Setup failed: " . $e->getMessage() . "\n");
     setupEcho("Location: " . $e->getFile() . ":" . $e->getLine() . "\n");
     http_response_code(500);
     exit(1);
 }
-?>
