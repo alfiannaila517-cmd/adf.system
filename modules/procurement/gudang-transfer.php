@@ -94,9 +94,13 @@ if ($prefillTargetBusinessId > 0 && $prefillTargetBusinessName === '') {
 }
 
 $activeBusinessId = isset($_SESSION['business_id']) ? (int)$_SESSION['business_id'] : 0;
-$allBusinesses = $db->fetchAll("SELECT id, business_name, business_code FROM businesses WHERE (is_active = 1 OR is_active IS NULL) ORDER BY business_name ASC");
+
+// PENTING: Pastikan di master DB sebelum query businesses
+// (bisa terjadi database context switch di autoload atau includes sebelumnya)
+$masterDb = Database::switchDatabase(DB_NAME);
+$allBusinesses = $masterDb->fetchAll("SELECT id, business_name, business_code FROM businesses WHERE (is_active = 1 OR is_active IS NULL) ORDER BY business_name ASC");
 if (empty($allBusinesses)) {
-    $allBusinesses = $db->fetchAll("SELECT id, business_name, business_code FROM businesses ORDER BY business_name ASC");
+    $allBusinesses = $masterDb->fetchAll("SELECT id, business_name, business_code FROM businesses ORDER BY business_name ASC");
 }
 
 // DEBUG: Log business loading
