@@ -8,26 +8,41 @@ require_once '../../includes/business_helper.php';
 $auth = new Auth();
 $auth->requireLogin();
 
-// Only business users can view their received stock (not warehouse users viewing all)
 $businessConfig = getActiveBusinessConfig();
 $db = Database::getInstance();
 $currentUser = $auth->getCurrentUser();
 $pageTitle = 'Penerimaan dari Gudang';
 
+// Check if user is warehouse/gudang user
+$isWarehouse = $auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse') || $auth->hasPermission('warehouse_transfers');
+
 $activeBusinessId = isset($_SESSION['business_id']) ? (int)$_SESSION['business_id'] : 0;
-if ($activeBusinessId <= 0) {
+
+// For non-warehouse users, require a business context
+if (!$isWarehouse && $activeBusinessId <= 0) {
     http_response_code(403);
     echo 'Bisnis tidak ditemukan.';
     exit;
 }
 
-// Get all transfers received by this business from master DB
+// Get all transfers with filters
 $dateFrom = isset($_GET['date_from']) ? $_GET['date_from'] : date('Y-m-01');
 $dateTo = isset($_GET['date_to']) ? $_GET['date_to'] : date('Y-m-t');
 $statusFilter = isset($_GET['status']) ? $_GET['status'] : '';
+$businessIdFilter = isset($_GET['business_id']) ? (int)$_GET['business_id'] : ($isWarehouse ? 0 : $activeBusinessId);
 
-$whereConditions = ['target_business_id = ?'];
-$whereParams = [$activeBusinessId];
+$whereConditions = [];
+$whereParams = [];
+
+// For business users: only show their transfers
+// For warehouse users: show all transfers (unless they filter by business)
+if (!$isWarehouse) {
+    $whereConditions[] = 'target_business_id = ?';
+    $whereParams[] = $activeBusinessId;
+} elseif ($businessIdFilter > 0) {
+    $whereConditions[] = 'target_business_id = ?';
+    $whereParams[] = $businessIdFilter;
+}
 
 if ($dateFrom) {
     $whereConditions[] = 'DATE(created_at) >= ?';
@@ -42,7 +57,7 @@ if ($statusFilter !== '') {
     $whereParams[] = $statusFilter;
 }
 
-$whereClause = implode(' AND ', $whereConditions);
+$whereClause = empty($whereConditions) ? '1=1' : implode(' AND ', $whereConditions);
 
 // Get transfers
 $transfers = $db->fetchAll("
@@ -70,10 +85,20 @@ $viewTransferId = isset($_GET['view']) ? (int)$_GET['view'] : 0;
 $transferDetail = null;
 $transferItems = [];
 if ($viewTransferId > 0) {
+    $detailWhereClause = 'gnt.id = ?';
+    $detailParams = [$viewTransferId];
+    
+    // For business users, also check they own this transfer
+    if (!$isWarehouse && $activeBusinessId > 0) {
+        $detailWhereClause .= ' AND gnt.target_business_id = ?';
+        $detailParams[] = $activeBusinessId;
+    }
+    
     $transferDetail = $db->fetchOne("
         SELECT 
             gnt.id,
             gnt.transfer_number,
+            gnt.target_business_id,
             gnt.target_business_name,
             gnt.status,
             gnt.notes,
@@ -82,9 +107,9 @@ if ($viewTransferId > 0) {
             u.full_name as created_by_name
         FROM gudang_nasita_transfers gnt
         LEFT JOIN users u ON u.id = gnt.created_by
-        WHERE gnt.id = ? AND gnt.target_business_id = ?
+        WHERE {$detailWhereClause}
         LIMIT 1
-    ", [$viewTransferId, $activeBusinessId]);
+    ", $detailParams);
 
     if ($transferDetail) {
         $transferItems = $db->fetchAll("
@@ -101,13 +126,21 @@ if ($viewTransferId > 0) {
     }
 }
 
+// Get all businesses for warehouse user filter
+$allBusinesses = [];
+if ($isWarehouse) {
+    $allBusinesses = $db->fetchAll("SELECT id, business_name FROM businesses WHERE is_active = 1 OR is_active IS NULL ORDER BY business_name ASC");
+}
+
 include '../../includes/header.php';
 ?>
 
 <div style="margin-bottom: 1.25rem; display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap;">
     <div>
         <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem;">Penerimaan dari Gudang</h2>
-        <p style="color: var(--text-muted); font-size: 0.875rem;">Stok yang diterima dari Gudang Nasita untuk bisnis ini</p>
+        <p style="color: var(--text-muted); font-size: 0.875rem;">
+            <?php echo $isWarehouse ? 'Stock yang diterima semua bisnis dari Gudang Nasita' : 'Stok yang diterima dari Gudang Nasita untuk bisnis ini'; ?>
+        </p>
     </div>
 </div>
 
@@ -126,6 +159,19 @@ include '../../includes/header.php';
 <!-- Filter Section -->
 <div style="background: var(--bg-secondary); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
     <form method="GET" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
+        <?php if ($isWarehouse && !empty($allBusinesses)): ?>
+            <div style="flex: 1; min-width: 200px;">
+                <label style="display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.5rem; color: var(--text-secondary);">Bisnis Tujuan</label>
+                <select name="business_id" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-primary); color: var(--text-primary);">
+                    <option value="">-- Semua Bisnis --</option>
+                    <?php foreach ($allBusinesses as $biz): ?>
+                        <option value="<?php echo (int)$biz['id']; ?>" <?php echo $businessIdFilter === (int)$biz['id'] ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($biz['business_name']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+        <?php endif; ?>
         <div style="flex: 1; min-width: 200px;">
             <label style="display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.5rem; color: var(--text-secondary);">Dari Tanggal</label>
             <input type="date" name="date_from" value="<?php echo htmlspecialchars($dateFrom); ?>" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-primary); color: var(--text-primary);">
@@ -156,6 +202,9 @@ include '../../includes/header.php';
         <thead>
             <tr>
                 <th>Transfer #</th>
+                <?php if ($isWarehouse): ?>
+                    <th>Bisnis Tujuan</th>
+                <?php endif; ?>
                 <th>Tanggal</th>
                 <th>Items</th>
                 <th>Total Qty</th>
@@ -167,7 +216,7 @@ include '../../includes/header.php';
         <tbody>
             <?php if (empty($transfers)): ?>
                 <tr>
-                    <td colspan="7" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <td colspan="<?php echo $isWarehouse ? 8 : 7; ?>" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                         <i data-feather="box" style="width: 48px; height: 48px; opacity: 0.3; margin-bottom: 1rem; display: block;"></i>
                         <p>Belum ada penerimaan dari gudang</p>
                     </td>
@@ -178,6 +227,11 @@ include '../../includes/header.php';
                         <td style="font-weight: 600; color: var(--primary-color);">
                             <?php echo htmlspecialchars($transfer['transfer_number']); ?>
                         </td>
+                        <?php if ($isWarehouse): ?>
+                            <td style="font-size: 0.9rem; color: var(--text-primary);">
+                                <strong><?php echo htmlspecialchars($transfer['target_business_name'] ?? 'Unknown'); ?></strong>
+                            </td>
+                        <?php endif; ?>
                         <td><?php echo date('d M Y H:i', strtotime($transfer['created_at'])); ?></td>
                         <td>
                             <span class="badge" style="background: var(--primary-color); color: white; padding: 0.25rem 0.75rem; border-radius: 4px; font-size: 0.75rem;">
@@ -201,7 +255,7 @@ include '../../includes/header.php';
                         </td>
                         <td><?php echo htmlspecialchars($transfer['created_by_name'] ?? 'System'); ?></td>
                         <td class="text-center">
-                            <a href="?view=<?php echo (int)$transfer['id']; ?>" class="btn btn-sm btn-info" style="padding: 0.375rem 0.75rem; font-size: 0.75rem;">
+                            <a href="?view=<?php echo (int)$transfer['id']; ?><?php echo $isWarehouse && $businessIdFilter > 0 ? '&business_id=' . (int)$businessIdFilter : ''; ?>" class="btn btn-sm btn-info" style="padding: 0.375rem 0.75rem; font-size: 0.75rem;">
                                 <i data-feather="eye" style="width: 14px; height: 14px;"></i> Lihat
                             </a>
                         </td>

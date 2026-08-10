@@ -956,6 +956,12 @@ if (isset($_SESSION['user_id'])) {
                                         <span><?php echo __('menu.purchase_invoices'); ?></span>
                                     </a>
                                 </li>
+                                <li class="submenu-item">
+                                    <a href="<?php echo BASE_URL; ?>/modules/procurement/penerimaan-gudang.php" class="submenu-link <?php echo activeMenu('penerimaan-gudang.php'); ?>">
+                                        <i data-feather="inbox" class="submenu-icon"></i>
+                                        <span>Penerimaan dari Gudang</span>
+                                    </a>
+                                </li>
                             </ul>
                         </li>
                     <?php endif; ?>

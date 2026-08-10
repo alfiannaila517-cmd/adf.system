@@ -957,6 +957,12 @@ if (isset($_SESSION['user_id'])) {
                                     </a>
                                 </li>
                                 <li class="submenu-item">
+                                    <a href="<?php echo BASE_URL; ?>/modules/procurement/penerimaan-gudang.php" class="submenu-link <?php echo activeMenu('penerimaan-gudang.php'); ?>">
+                                        <i data-feather="inbox" class="submenu-icon"></i>
+                                        <span>Penerimaan dari Gudang</span>
+                                    </a>
+                                </li>
+                                <li class="submenu-item">
                                     <a href="<?php echo BASE_URL; ?>/modules/procurement/suppliers.php" class="submenu-link <?php echo activeMenu('suppliers.php'); ?>">
                                         <i data-feather="users" class="submenu-icon"></i>
                                         <span><?php echo __('menu.suppliers'); ?></span>
