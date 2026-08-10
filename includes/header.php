@@ -987,8 +987,8 @@ if (isset($_SESSION['user_id'])) {
                     }
                     ?>
                     <?php if ($gudangBizAllowed && $canAccessGudangMenu && isModuleEnabled('procurement')): ?>
-                        <li class="nav-item has-submenu <?php echo (activeMenu('gudang-nasita.php') || activeMenu('gudang-transfer.php') || activeMenu('suppliers.php')) ? 'open' : ''; ?>">
-                            <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo (activeMenu('gudang-nasita.php') || activeMenu('gudang-transfer.php') || activeMenu('suppliers.php')) ? 'active' : ''; ?>">
+                        <li class="nav-item has-submenu <?php echo (activeMenu('gudang-nasita.php') || activeMenu('gudang-transfer.php') || activeMenu('penerimaan-gudang.php') || activeMenu('suppliers.php')) ? 'open' : ''; ?>">
+                            <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo (activeMenu('gudang-nasita.php') || activeMenu('gudang-transfer.php') || activeMenu('penerimaan-gudang.php') || activeMenu('suppliers.php')) ? 'active' : ''; ?>">
                                 <i data-feather="archive" class="nav-icon"></i>
                                 <span>Gudang Nasita</span>
                                 <?php if ($gudangPendingPoCount > 0): ?>
@@ -1001,6 +1001,12 @@ if (isset($_SESSION['user_id'])) {
                                     <a href="<?php echo $gudangMainUrl; ?>" class="submenu-link <?php echo (activeMenu('gudang-nasita.php') || activeMenu('gudang-transfer.php')) ? 'active' : ''; ?>">
                                         <i data-feather="archive" class="submenu-icon"></i>
                                         <span>Stok &amp; Transfer</span>
+                                    </a>
+                                </li>
+                                <li class="submenu-item">
+                                    <a href="<?php echo BASE_URL; ?>/modules/procurement/penerimaan-gudang.php" class="submenu-link <?php echo activeMenu('penerimaan-gudang.php'); ?>">
+                                        <i data-feather="package" class="submenu-icon"></i>
+                                        <span>Penerimaan dari Gudang</span>
                                     </a>
                                 </li>
                                 <li class="submenu-item">
