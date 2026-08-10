@@ -170,117 +170,17 @@ SQL;
         }
     }
 
-    // Ensure Gudang Nasita appears in business dropdown (schema-aware insert)
-    $conn = $masterDb->getConnection();
-    $bizColsRows = $masterDb->fetchAll("SHOW COLUMNS FROM businesses");
-    if (empty($bizColsRows)) {
-        throw new Exception('Unable to read businesses table schema');
-    }
-
-    $bizCols = [];
-    foreach ($bizColsRows as $row) {
-        $bizCols[(string)$row['Field']] = $row;
-    }
-
-    // Check existing with the best available unique identifiers
-    $existingBusiness = false;
-    if (isset($bizCols['slug'])) {
-        $existingBusiness = $masterDb->fetchOne("SELECT id FROM businesses WHERE slug = ? LIMIT 1", ['gudang-nasita']);
-    }
-    if (!$existingBusiness && isset($bizCols['business_code'])) {
-        $existingBusiness = $masterDb->fetchOne("SELECT id FROM businesses WHERE business_code = ? LIMIT 1", ['GUDANGNASITA']);
-    }
-    if (!$existingBusiness && isset($bizCols['business_name'])) {
-        $existingBusiness = $masterDb->fetchOne("SELECT id FROM businesses WHERE business_name = ? LIMIT 1", ['Gudang Nasita']);
-    }
-
-    if ($existingBusiness) {
-        setupEcho("⊘ Business exists: Gudang Nasita (ID: " . (int)$existingBusiness['id'] . ")\n");
-    } else {
-        $insertData = [];
-
-        if (isset($bizCols['business_name'])) {
-            $insertData['business_name'] = 'Gudang Nasita';
-        }
-        if (isset($bizCols['business_code'])) {
-            $insertData['business_code'] = 'GUDANGNASITA';
-        }
-        if (isset($bizCols['slug'])) {
-            $insertData['slug'] = 'gudang-nasita';
-        }
-        if (isset($bizCols['database_name'])) {
-            $insertData['database_name'] = DB_NAME;
-        } elseif (isset($bizCols['db_name'])) {
-            $insertData['db_name'] = DB_NAME;
-        }
-        if (isset($bizCols['business_type'])) {
-            // Keep enum-safe value across old/new schemas
-            $insertData['business_type'] = 'other';
-        }
-        if (isset($bizCols['is_active'])) {
-            $insertData['is_active'] = 1;
-        }
-        if (isset($bizCols['status'])) {
-            $insertData['status'] = 'active';
-        }
-
-        // Required owner_id in many server schemas
-        if (isset($bizCols['owner_id'])) {
-            $ownerId = 1;
-            $ownerRow = $masterDb->fetchOne("SELECT id FROM users ORDER BY id ASC LIMIT 1");
-            if ($ownerRow && isset($ownerRow['id'])) {
-                $ownerId = (int)$ownerRow['id'];
-            }
-            $insertData['owner_id'] = $ownerId;
-        }
-
-        // Optional fields if present
-        if (isset($bizCols['description'])) {
-            $insertData['description'] = 'Gudang pusat untuk transfer stok ke bisnis';
-        }
-        if (isset($bizCols['created_at'])) {
-            // handled via NOW() expression below
-        }
-
-        if (empty($insertData)) {
-            throw new Exception('No compatible columns found to insert Gudang Nasita');
-        }
-
-        $fields = [];
-        $placeholders = [];
-        $params = [];
-        foreach ($insertData as $field => $value) {
-            $fields[] = "`{$field}`";
-            $placeholders[] = '?';
-            $params[] = $value;
-        }
-        if (isset($bizCols['created_at'])) {
-            $fields[] = '`created_at`';
-            $placeholders[] = 'NOW()';
-        }
-
-        $sql = "INSERT INTO businesses (" . implode(', ', $fields) . ") VALUES (" . implode(', ', $placeholders) . ")";
-        try {
-            $stmt = $conn->prepare($sql);
-            $stmt->execute($params);
-            setupEcho("✓ Business inserted: Gudang Nasita\n");
-        } catch (Throwable $insertErr) {
-            throw new Exception('Failed to insert Gudang Nasita into businesses table: ' . $insertErr->getMessage());
-        }
-    }
-
     setupEcho("\n" . str_repeat("-", 50) . "\n");
     setupEcho("Setup completed!\n");
     setupEcho("✓ Executed: {$success_count} statements\n");
     setupEcho("⊘ Skipped: {$skip_count} statements (already exist)\n");
     setupEcho("\nGudang Nasita system is ready!\n");
-    setupEcho("Business added: Gudang Nasita (warehouse)\n");
+    setupEcho("Business is handled from Developer Panel; this script only creates tables.\n");
     setupEcho("\nNext steps:\n");
-    setupEcho("1. Go to Developer Panel > User Permissions\n");
-    setupEcho("2. Select 'Gudang Nasita' from business dropdown\n");
-    setupEcho("3. Assign warehouse permissions to your user\n");
-    setupEcho("4. Login & select 'Gudang Nasita' from business dropdown\n");
-    setupEcho("5. Menu 'Gudang Nasita' will appear in sidebar\n");
+    setupEcho("1. Create/choose business Gudang Nasita from Developer Panel\n");
+    setupEcho("2. Assign warehouse permissions to your user\n");
+    setupEcho("3. Login & select 'Gudang Nasita' from business dropdown\n");
+    setupEcho("4. Menu Gudang Nasita will appear in sidebar\n");
 } catch (Throwable $e) {
     setupEcho("\n✗ Setup failed: " . $e->getMessage() . "\n");
     setupEcho("Location: " . $e->getFile() . ":" . $e->getLine() . "\n");
