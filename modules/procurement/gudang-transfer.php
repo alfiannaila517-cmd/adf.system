@@ -98,9 +98,24 @@ $activeBusinessId = isset($_SESSION['business_id']) ? (int)$_SESSION['business_i
 // PENTING: Pastikan di master DB sebelum query businesses
 // (bisa terjadi database context switch di autoload atau includes sebelumnya)
 $masterDb = Database::switchDatabase(DB_NAME);
-$allBusinesses = $masterDb->fetchAll("SELECT id, business_name, business_code FROM businesses WHERE (is_active = 1 OR is_active IS NULL) ORDER BY business_name ASC");
-if (empty($allBusinesses)) {
-    $allBusinesses = $masterDb->fetchAll("SELECT id, business_name, business_code FROM businesses ORDER BY business_name ASC");
+$allBusinesses = [];
+$businessQueries = [
+    "SELECT id, business_name, business_code FROM businesses WHERE (is_active = 1 OR is_active IS NULL) ORDER BY business_name ASC",
+    "SELECT id, business_name, business_code FROM businesses ORDER BY business_name ASC",
+    "SELECT id, business_name, slug AS business_code FROM businesses WHERE (is_active = 1 OR is_active IS NULL) ORDER BY business_name ASC",
+    "SELECT id, business_name, slug AS business_code FROM businesses ORDER BY business_name ASC",
+    "SELECT id, business_name, '' AS business_code FROM businesses WHERE (is_active = 1 OR is_active IS NULL) ORDER BY business_name ASC",
+    "SELECT id, business_name, '' AS business_code FROM businesses ORDER BY business_name ASC",
+];
+foreach ($businessQueries as $q) {
+    try {
+        $allBusinesses = $masterDb->fetchAll($q);
+        if (!empty($allBusinesses)) {
+            break;
+        }
+    } catch (Throwable $e) {
+        error_log('[gudang-transfer] business query failed: ' . $e->getMessage() . ' | SQL=' . $q);
+    }
 }
 
 // FILTER: Hanya ambil 3 bisnis yang diizinkan
