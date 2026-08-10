@@ -695,6 +695,29 @@ if (isset($_SESSION['user_id'])) {
 
             <nav style="flex: 1; overflow-y: auto; overflow-x: hidden;">
                 <ul class="nav-menu">
+                    <?php $isGudangNasitaContext = (defined('ACTIVE_BUSINESS_ID') && ACTIVE_BUSINESS_ID === 'gudang-nasita'); ?>
+                    <?php if ($isGudangNasitaContext): ?>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>/modules/procurement/gudang-nasita.php" class="nav-link <?php echo (activeMenu('gudang-nasita.php') || activeMenu('stock.php')) ? 'active' : ''; ?>">
+                                <i data-feather="archive" class="nav-icon"></i>
+                                <span>Stock Gudang</span>
+                            </a>
+                        </li>
+
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>/modules/procurement/purchase-orders.php" class="nav-link <?php echo activeMenu('purchase-orders.php'); ?>">
+                                <i data-feather="clipboard" class="nav-icon"></i>
+                                <span>PO</span>
+                            </a>
+                        </li>
+
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>/modules/procurement/gudang-transfer.php" class="nav-link <?php echo activeMenu('gudang-transfer.php'); ?>">
+                                <i data-feather="repeat" class="nav-icon"></i>
+                                <span>Transfer ke Bisnis</span>
+                            </a>
+                        </li>
+                    <?php else: ?>
                     <?php if ($auth->hasPermission('dashboard')): ?>
                         <li class="nav-item">
                             <a href="<?php echo BASE_URL; ?>/index.php" class="nav-link <?php echo activeMenu('index.php'); ?>">
@@ -1135,6 +1158,7 @@ if (isset($_SESSION['user_id'])) {
                                 </li>
                             </ul>
                         </li>
+                    <?php endif; ?>
                     <?php endif; ?>
 
                     <li class="nav-item" style="margin-top: 2rem;">
