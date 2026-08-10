@@ -98,29 +98,15 @@ $allBusinesses = $db->fetchAll("SELECT id, business_name, business_code FROM bus
 if (empty($allBusinesses)) {
     $allBusinesses = $db->fetchAll("SELECT id, business_name, business_code FROM businesses ORDER BY business_name ASC");
 }
-$allowedBusinesses = [];
-foreach ($allBusinesses as $biz) {
-    $codeNorm = strtolower(preg_replace('/[^a-z0-9]/', '', (string)($biz['business_code'] ?? '')));
-    $nameNorm = strtolower(preg_replace('/[^a-z0-9]/', '', (string)($biz['business_name'] ?? '')));
-    $isAllowed = in_array($codeNorm, ['narayanahotel', 'benscafe', 'eatmeet', 'eaatmeet'], true)
-        || strpos($nameNorm, 'narayana') !== false
-        || strpos($nameNorm, 'bens') !== false
-        || strpos($nameNorm, 'eatmeet') !== false;
-    if ($isAllowed) {
-        $allowedBusinesses[] = $biz;
-    }
+
+// Gunakan semua bisnis aktif untuk dropdown transfer
+$allowedBusinesses = $allBusinesses;
+
+// Update prefillTargetBusinessName jika ada prefillTargetBusinessId
+foreach ($allowedBusinesses as $biz) {
     if ($prefillTargetBusinessId > 0 && (int)$biz['id'] === $prefillTargetBusinessId) {
         $prefillTargetBusinessName = (string)$biz['business_name'];
     }
-}
-
-if (empty($allowedBusinesses)) {
-    // Fallback: gunakan bisnis yang pernah membuat PO agar dropdown tidak kosong.
-    $allowedBusinesses = $db->fetchAll("\n        SELECT DISTINCT b.id, b.business_name, b.business_code\n        FROM purchase_orders_header poh\n        INNER JOIN businesses b ON b.id = poh.business_id\n        ORDER BY b.business_name ASC\n    ");
-}
-
-if (empty($allowedBusinesses)) {
-    $allowedBusinesses = $allBusinesses;
 }
 
 // Resolve target business from PO slug using already-loaded businesses (avoids stale DB closure issues)
