@@ -186,6 +186,99 @@ if (isset($_GET['print_stock']) && (string)$_GET['print_stock'] === '1') {
     exit;
 }
 
+if (isset($_GET['export_excel']) && (string)$_GET['export_excel'] === '1') {
+    $exportItems = $stockItems;
+    $filename = 'stok-gudang-nasita-' . date('Ymd-His') . '.xls';
+    header('Content-Type: application/vnd.ms-excel; charset=utf-8');
+    header('Content-Disposition: attachment; filename=' . $filename);
+
+    echo "<table border='1'>";
+    echo "<tr><th>No</th><th>Kode</th><th>Kategori</th><th>Item</th><th>Qty</th><th>Unit</th><th>Supplier</th><th>Reorder Level</th><th>Status</th></tr>";
+    foreach ($exportItems as $idx => $item) {
+        $qty = (float)($item['quantity'] ?? 0);
+        $reorder = (float)($item['reorder_level'] ?? 0);
+        $isLow = $reorder > 0 && $qty <= $reorder;
+        $code = (string)($item['stock_code'] ?? ('GN-LEGACY-' . str_pad((string)($item['id'] ?? 0), 4, '0', STR_PAD_LEFT)));
+        echo '<tr>';
+        echo '<td>' . ($idx + 1) . '</td>';
+        echo '<td>' . htmlspecialchars($code) . '</td>';
+        echo '<td>' . htmlspecialchars((string)($item['category'] ?? '-')) . '</td>';
+        echo '<td>' . htmlspecialchars((string)($item['item_name'] ?? '-')) . '</td>';
+        echo '<td style="text-align:right;">' . number_format($qty, 2, '.', '') . '</td>';
+        echo '<td>' . htmlspecialchars((string)($item['unit'] ?? 'pcs')) . '</td>';
+        echo '<td>' . htmlspecialchars((string)($item['supplier_name'] ?? '-')) . '</td>';
+        echo '<td style="text-align:right;">' . number_format($reorder, 2, '.', '') . '</td>';
+        echo '<td>' . ($isLow ? 'Stok Menipis' : 'Aman') . '</td>';
+        echo '</tr>';
+    }
+    echo '</table>';
+    exit;
+}
+
+if (isset($_GET['export_pdf']) && (string)$_GET['export_pdf'] === '1') {
+    $exportItems = $stockItems;
+    $pdfLib = __DIR__ . '/../../vendor/tecnickcom/tcpdf/tcpdf.php';
+
+    if (file_exists($pdfLib)) {
+        require_once $pdfLib;
+
+        $pdf = new TCPDF('L', 'mm', 'A4', true, 'UTF-8', false);
+        $pdf->SetCreator('ADF System');
+        $pdf->SetAuthor('Gudang Nasita');
+        $pdf->SetTitle('Laporan Stok Gudang Nasita');
+        $pdf->SetMargins(8, 8, 8);
+        $pdf->setPrintHeader(false);
+        $pdf->setPrintFooter(false);
+        $pdf->AddPage();
+
+        $html = '<h2 style="margin:0;">Laporan Stok Gudang Nasita</h2>';
+        $html .= '<p style="font-size:11px; margin:4px 0 10px;">Tanggal cetak: ' . date('d M Y H:i') . '</p>';
+        $html .= '<table border="1" cellpadding="4">';
+        $html .= '<tr style="font-weight:bold;background-color:#f1f5f9;">'
+            . '<th width="26">No</th>'
+            . '<th width="88">Kode</th>'
+            . '<th width="78">Kategori</th>'
+            . '<th width="180">Item</th>'
+            . '<th width="56" align="right">Qty</th>'
+            . '<th width="45">Unit</th>'
+            . '<th width="130">Supplier</th>'
+            . '<th width="72" align="right">Reorder</th>'
+            . '<th width="84">Status</th>'
+            . '</tr>';
+
+        foreach ($exportItems as $idx => $item) {
+            $qty = (float)($item['quantity'] ?? 0);
+            $reorder = (float)($item['reorder_level'] ?? 0);
+            $isLow = $reorder > 0 && $qty <= $reorder;
+            $code = (string)($item['stock_code'] ?? ('GN-LEGACY-' . str_pad((string)($item['id'] ?? 0), 4, '0', STR_PAD_LEFT)));
+            $html .= '<tr>'
+                . '<td>' . ($idx + 1) . '</td>'
+                . '<td>' . htmlspecialchars($code) . '</td>'
+                . '<td>' . htmlspecialchars((string)($item['category'] ?? '-')) . '</td>'
+                . '<td>' . htmlspecialchars((string)($item['item_name'] ?? '-')) . '</td>'
+                . '<td align="right">' . number_format($qty, 2) . '</td>'
+                . '<td>' . htmlspecialchars((string)($item['unit'] ?? 'pcs')) . '</td>'
+                . '<td>' . htmlspecialchars((string)($item['supplier_name'] ?? '-')) . '</td>'
+                . '<td align="right">' . number_format($reorder, 2) . '</td>'
+                . '<td>' . ($isLow ? 'Stok Menipis' : 'Aman') . '</td>'
+                . '</tr>';
+        }
+
+        $html .= '</table>';
+        $pdf->writeHTML($html, true, false, true, false, '');
+        $pdf->Output('stok-gudang-nasita-' . date('Ymd-His') . '.pdf', 'D');
+        exit;
+    }
+
+    // Fallback if TCPDF is not available.
+    header('Content-Type: text/html; charset=utf-8');
+    echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Export PDF Stok Gudang Nasita</title></head><body>';
+    echo '<script>window.print();</script>';
+    echo '<h3>TCPDF tidak tersedia. Gunakan Save as PDF dari dialog print.</h3>';
+    echo '</body></html>';
+    exit;
+}
+
 $recentTransfers = getGudangNasitaTransfers(15);
 
 // Collect low-stock items for prominent alert
@@ -307,6 +400,14 @@ include '../../includes/header.php';
             <i data-feather="plus-square" style="width: 16px; height: 16px;"></i>
             Input Stock Manual
         </button>
+        <a href="gudang-nasita.php?export_excel=1&q_item=<?php echo urlencode($searchItemName); ?>&low_stock=<?php echo $filterLowStockOnly ? '1' : '0'; ?>" class="btn btn-success" style="font-weight:700;">
+            <i data-feather="download" style="width: 16px; height: 16px;"></i>
+            Export Excel
+        </a>
+        <a href="gudang-nasita.php?export_pdf=1&q_item=<?php echo urlencode($searchItemName); ?>&low_stock=<?php echo $filterLowStockOnly ? '1' : '0'; ?>" class="btn btn-danger" style="font-weight:700;">
+            <i data-feather="file-text" style="width: 16px; height: 16px;"></i>
+            Export PDF
+        </a>
         <a href="gudang-nasita.php?print_stock=1" target="_blank" class="btn btn-primary" style="font-weight:700;">
             <i data-feather="printer" style="width: 16px; height: 16px;"></i>
             Print Semua Stock

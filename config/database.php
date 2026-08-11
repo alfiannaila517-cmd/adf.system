@@ -148,6 +148,8 @@ class Database
                         ['gudang_nasita', 'Gudang Nasita', 'bi bi-boxes', 'modules/procurement/gudang-nasita.php', 8],
                         ['warehouse', 'Gudang Nasita (Legacy)', 'bi bi-boxes', 'modules/procurement/gudang-nasita.php', 9],
                         ['warehouse_transfers', 'Transfer Gudang', 'bi bi-arrow-left-right', 'modules/procurement/gudang-transfer.php', 10],
+                        ['procurement_po', 'PO Internal', 'bi bi-clipboard-check', 'modules/procurement/purchase-orders.php', 11],
+                        ['procurement_stock', 'Stock Masuk', 'bi bi-inboxes', 'modules/procurement/business-stock-incoming.php', 12],
                     ];
                     $menuStmt = $this->connection->prepare(
                         "INSERT INTO menu_items (menu_code, menu_name, menu_icon, menu_url, menu_order, is_active) VALUES (?, ?, ?, ?, ?, 1)\n                         ON DUPLICATE KEY UPDATE menu_name = VALUES(menu_name), menu_icon = VALUES(menu_icon), menu_url = VALUES(menu_url), menu_order = VALUES(menu_order), is_active = VALUES(is_active)"
@@ -156,9 +158,9 @@ class Database
                         $menuStmt->execute($menuSeed);
                     }
 
-                    // Enable Gudang Nasita menu only for target businesses.
-                    $menuIdRow = $this->connection->query("SELECT id FROM menu_items WHERE menu_code = 'gudang_nasita' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
-                    if (!empty($menuIdRow['id'])) {
+                    // Enable Gudang and procurement menu items only for target businesses.
+                    $targetMenuRows = $this->connection->query("SELECT id, menu_code FROM menu_items WHERE menu_code IN ('gudang_nasita','procurement_po','procurement_stock')")->fetchAll(PDO::FETCH_ASSOC);
+                    if (!empty($targetMenuRows)) {
                         $targetCodes = ['narayanahotel', 'benscafe', 'eatmeet', 'eaatmeet'];
                         $bizRows = $this->connection->query("SELECT id, business_code, business_name FROM businesses WHERE is_active = 1")->fetchAll(PDO::FETCH_ASSOC);
                         $cfgStmt = $this->connection->prepare(
@@ -172,7 +174,9 @@ class Database
                                 || strpos($nameNorm, 'bens') !== false
                                 || strpos($nameNorm, 'eat') !== false;
                             if ($isTarget) {
-                                $cfgStmt->execute([(int)$biz['id'], (int)$menuIdRow['id']]);
+                                foreach ($targetMenuRows as $menuRow) {
+                                    $cfgStmt->execute([(int)$biz['id'], (int)$menuRow['id']]);
+                                }
                             }
                         }
                     }
@@ -620,7 +624,8 @@ class Database
                         if ($colInfo && stripos((string)($colInfo['Type'] ?? ''), 'enum') !== false) {
                             $this->connection->exec("ALTER TABLE purchase_orders_header MODIFY COLUMN status VARCHAR(30) DEFAULT 'draft'");
                         }
-                    } catch (PDOException $e) { }
+                    } catch (PDOException $e) {
+                    }
                 }
             } // end else (business DB)
 
