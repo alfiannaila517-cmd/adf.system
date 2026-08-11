@@ -4,6 +4,7 @@ require_once '../../config/database.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/procurement_functions.php';
+require_once '../../includes/business_helper.php';
 
 $auth = new Auth();
 $auth->requireLogin();
@@ -12,12 +13,38 @@ $db = Database::getInstance();
 $currentUser = $auth->getCurrentUser();
 $pageTitle = 'Rekaman Stock Masuk';
 
+$activeBusinessSlug = strtolower((string)($_SESSION['active_business_id'] ?? ''));
+$activeBusinessConfig = getActiveBusinessConfig();
+
 $activeBusinessId = isset($_SESSION['business_id']) ? (int)$_SESSION['business_id'] : 0;
-$activeBusinessName = '';
+$activeBusinessName = (string)($activeBusinessConfig['name'] ?? '');
+
+$transferBusinessConfigs = [
+    'narayana-hotel' => __DIR__ . '/../../config/businesses/narayana-hotel.php',
+    'bens-cafe' => __DIR__ . '/../../config/businesses/bens-cafe.php',
+    'eaat-meet' => __DIR__ . '/../../config/businesses/eaat-meet.php',
+    'eat-meet' => __DIR__ . '/../../config/businesses/eaat-meet.php',
+];
+
+$transferBusinessOptions = [];
+foreach ($transferBusinessConfigs as $slug => $cfgPath) {
+    if (!file_exists($cfgPath)) {
+        continue;
+    }
+    $cfg = require $cfgPath;
+    if (!empty($cfg['name'])) {
+        $transferBusinessOptions[$slug] = [
+            'slug' => $slug,
+            'name' => (string)$cfg['name'],
+        ];
+    }
+}
 
 if ($activeBusinessId > 0) {
-    $businessRow = $db->fetchOne('SELECT business_name FROM businesses WHERE id = ? LIMIT 1', [$activeBusinessId]);
-    $activeBusinessName = $businessRow['business_name'] ?? '';
+    if ($activeBusinessName === '') {
+        $businessRow = $db->fetchOne('SELECT business_name FROM businesses WHERE id = ? LIMIT 1', [$activeBusinessId]);
+        $activeBusinessName = $businessRow['business_name'] ?? '';
+    }
 }
 
 // Local baseline table allows reset-to-zero per business without deleting transfer history.
@@ -42,6 +69,56 @@ if ($activeBusinessId > 0) {
 $incomingTransfers = [];
 $rawStockSummary = [];
 $stockSummary = [];
+$baselineMap = [];
+$rawStockMap = [];
+$interTransferInMap = [];
+$interTransferOutMap = [];
+$masterPdo = null;
+
+// Build map by item+unit for precise adjustments
+$buildKey = function ($itemName, $unit) {
+    return strtolower(trim((string)$itemName)) . '||' . strtolower(trim((string)$unit));
+};
+
+$getMapQty = function ($map, $key) {
+    return isset($map[$key]) ? (float)$map[$key] : 0;
+};
+
+$computeVisibleQty = function ($itemName, $unit) use (&$rawStockMap, &$baselineMap, &$interTransferInMap, &$interTransferOutMap, $buildKey, $getMapQty) {
+    $key = $buildKey($itemName, $unit);
+    $gross = $getMapQty($rawStockMap, $key) + $getMapQty($interTransferInMap, $key) - $getMapQty($interTransferOutMap, $key);
+    $visible = $gross - $getMapQty($baselineMap, $key);
+    return $visible > 0 ? $visible : 0;
+};
+
+// Master DB table for inter-business transfers
+try {
+    $masterDsn = 'mysql:host=' . DB_HOST . ';dbname=' . (defined('MASTER_DB_NAME') ? MASTER_DB_NAME : DB_NAME) . ';charset=' . DB_CHARSET;
+    $masterPdo = new PDO($masterDsn, DB_USER, DB_PASS, [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+    ]);
+
+    $masterPdo->exec("CREATE TABLE IF NOT EXISTS business_inter_stock_transfers (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        transfer_number VARCHAR(60) NOT NULL UNIQUE,
+        source_business_slug VARCHAR(60) NOT NULL,
+        source_business_name VARCHAR(255) NULL,
+        target_business_slug VARCHAR(60) NOT NULL,
+        target_business_name VARCHAR(255) NULL,
+        item_name VARCHAR(255) NOT NULL,
+        unit VARCHAR(50) NOT NULL,
+        quantity DECIMAL(15,2) NOT NULL DEFAULT 0,
+        notes TEXT NULL,
+        created_by INT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_source_item (source_business_slug, item_name, unit),
+        INDEX idx_target_item (target_business_slug, item_name, unit)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+} catch (Throwable $e) {
+    $masterPdo = null;
+    error_log('business-stock-incoming master transfer table error: ' . $e->getMessage());
+}
 
 if ($activeBusinessId > 0) {
     // gudang_nasita_transfers lives in Gudang DB (cross-DB read)
@@ -156,13 +233,60 @@ if ($activeBusinessId > 0) {
     }
 }
 
+foreach ($rawStockSummary as $row) {
+    $itemName = (string)($row['item_name'] ?? '');
+    $unit = (string)($row['unit'] ?? 'pcs');
+    $key = $buildKey($itemName, $unit);
+    $rawStockMap[$key] = (float)($row['total_received'] ?? 0);
+}
+
+if ($activeBusinessId > 0) {
+    try {
+        $baselineRows = $db->fetchAll(
+            'SELECT item_name, unit, baseline_qty FROM business_stock_reset_baseline WHERE business_id = ?',
+            [$activeBusinessId]
+        );
+
+        foreach ($baselineRows as $bRow) {
+            $key = $buildKey($bRow['item_name'] ?? '', $bRow['unit'] ?? '');
+            $baselineMap[$key] = (float)($bRow['baseline_qty'] ?? 0);
+        }
+    } catch (Throwable $e) {
+        $baselineMap = [];
+    }
+}
+
+if ($masterPdo && $activeBusinessSlug !== '') {
+    try {
+        $stmtIn = $masterPdo->prepare("SELECT item_name, unit, SUM(quantity) AS qty
+            FROM business_inter_stock_transfers
+            WHERE target_business_slug = ?
+            GROUP BY item_name, unit");
+        $stmtIn->execute([$activeBusinessSlug]);
+        foreach ($stmtIn->fetchAll() as $row) {
+            $interTransferInMap[$buildKey($row['item_name'] ?? '', $row['unit'] ?? '')] = (float)($row['qty'] ?? 0);
+        }
+
+        $stmtOut = $masterPdo->prepare("SELECT item_name, unit, SUM(quantity) AS qty
+            FROM business_inter_stock_transfers
+            WHERE source_business_slug = ?
+            GROUP BY item_name, unit");
+        $stmtOut->execute([$activeBusinessSlug]);
+        foreach ($stmtOut->fetchAll() as $row) {
+            $interTransferOutMap[$buildKey($row['item_name'] ?? '', $row['unit'] ?? '')] = (float)($row['qty'] ?? 0);
+        }
+    } catch (Throwable $e) {
+        error_log('business-stock-incoming transfer aggregate error: ' . $e->getMessage());
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'reset_business_stock_zero') {
     if ($activeBusinessId > 0) {
         try {
             foreach ($rawStockSummary as $row) {
                 $itemName = trim((string)($row['item_name'] ?? ''));
                 $unit = trim((string)($row['unit'] ?? 'pcs'));
-                $qty = (float)($row['total_received'] ?? 0);
+                $qty = $computeVisibleQty($itemName, $unit);
                 if ($itemName === '') {
                     continue;
                 }
@@ -184,38 +308,110 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
-if ($activeBusinessId > 0) {
-    try {
-        $baselineRows = $db->fetchAll(
-            'SELECT item_name, unit, baseline_qty FROM business_stock_reset_baseline WHERE business_id = ?',
-            [$activeBusinessId]
-        );
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_stock_item') {
+    $itemName = trim((string)($_POST['item_name'] ?? ''));
+    $unit = trim((string)($_POST['unit'] ?? 'pcs'));
 
-        $baselineMap = [];
-        foreach ($baselineRows as $bRow) {
-            $key = strtolower(trim((string)$bRow['item_name'])) . '||' . strtolower(trim((string)$bRow['unit']));
-            $baselineMap[$key] = (float)$bRow['baseline_qty'];
+    if ($activeBusinessId <= 0 || $itemName === '') {
+        $_SESSION['error'] = 'Data item tidak valid untuk dihapus.';
+    } else {
+        try {
+            $qtyNow = $computeVisibleQty($itemName, $unit);
+            $key = $buildKey($itemName, $unit);
+            $baselineNow = $getMapQty($baselineMap, $key);
+
+            $db->query(
+                "INSERT INTO business_stock_reset_baseline (business_id, item_name, unit, baseline_qty, updated_by)
+                 VALUES (?, ?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE baseline_qty = VALUES(baseline_qty), updated_by = VALUES(updated_by)",
+                [$activeBusinessId, $itemName, $unit, ($baselineNow + $qtyNow), (int)($currentUser['id'] ?? 0)]
+            );
+            $_SESSION['success'] = 'Item stok bisnis berhasil dihapus.';
+        } catch (Throwable $e) {
+            $_SESSION['error'] = 'Gagal hapus item stok: ' . $e->getMessage();
         }
+    }
 
-        foreach ($rawStockSummary as $row) {
-            $itemName = (string)($row['item_name'] ?? '');
-            $unit = (string)($row['unit'] ?? 'pcs');
-            $totalReceived = (float)($row['total_received'] ?? 0);
-            $key = strtolower(trim($itemName)) . '||' . strtolower(trim($unit));
-            $baselineQty = $baselineMap[$key] ?? 0;
-            $visibleQty = $totalReceived - $baselineQty;
-            if ($visibleQty < 0) {
-                $visibleQty = 0;
+    header('Location: business-stock-incoming.php');
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'transfer_stock_business') {
+    $itemName = trim((string)($_POST['item_name'] ?? ''));
+    $unit = trim((string)($_POST['unit'] ?? 'pcs'));
+    $targetSlug = strtolower(trim((string)($_POST['target_business_slug'] ?? '')));
+    $qty = (float)($_POST['transfer_qty'] ?? 0);
+    $notes = trim((string)($_POST['notes'] ?? ''));
+
+    if ($activeBusinessSlug === '' || $itemName === '' || $qty <= 0 || $targetSlug === '' || $targetSlug === $activeBusinessSlug) {
+        $_SESSION['error'] = 'Data transfer tidak valid.';
+    } elseif (!$masterPdo) {
+        $_SESSION['error'] = 'Fitur transfer antar bisnis belum siap (koneksi master DB gagal).';
+    } else {
+        $availableQty = $computeVisibleQty($itemName, $unit);
+        if ($qty > $availableQty) {
+            $_SESSION['error'] = 'Qty transfer melebihi stok tersedia (' . number_format($availableQty, 2) . ').';
+        } else {
+            try {
+                $targetCfgPath = $transferBusinessConfigs[$targetSlug] ?? '';
+                $targetName = $targetSlug;
+                if ($targetCfgPath && file_exists($targetCfgPath)) {
+                    $targetCfg = require $targetCfgPath;
+                    $targetName = (string)($targetCfg['name'] ?? $targetSlug);
+                }
+
+                $prefix = 'BST-' . date('Ym') . '-';
+                $last = $masterPdo->prepare("SELECT transfer_number FROM business_inter_stock_transfers WHERE transfer_number LIKE ? ORDER BY transfer_number DESC LIMIT 1");
+                $last->execute([$prefix . '%']);
+                $lastNo = $last->fetchColumn();
+                $next = 1;
+                if ($lastNo) {
+                    $next = ((int)substr((string)$lastNo, -4)) + 1;
+                }
+                $transferNo = $prefix . str_pad((string)$next, 4, '0', STR_PAD_LEFT);
+
+                $ins = $masterPdo->prepare("INSERT INTO business_inter_stock_transfers
+                    (transfer_number, source_business_slug, source_business_name, target_business_slug, target_business_name, item_name, unit, quantity, notes, created_by)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $ins->execute([
+                    $transferNo,
+                    $activeBusinessSlug,
+                    $activeBusinessName,
+                    $targetSlug,
+                    $targetName,
+                    $itemName,
+                    $unit,
+                    $qty,
+                    $notes,
+                    (int)($currentUser['id'] ?? 0)
+                ]);
+
+                $_SESSION['success'] = 'Transfer stok berhasil: ' . $transferNo;
+            } catch (Throwable $e) {
+                $_SESSION['error'] = 'Gagal transfer stok antar bisnis: ' . $e->getMessage();
             }
-
-            $stockSummary[] = [
-                'item_name' => $itemName,
-                'unit' => $unit,
-                'total_received' => $visibleQty,
-            ];
         }
-    } catch (Throwable $e) {
-        $stockSummary = $rawStockSummary;
+    }
+
+    header('Location: business-stock-incoming.php');
+    exit;
+}
+
+if ($activeBusinessId > 0) {
+    foreach ($rawStockSummary as $row) {
+        $itemName = (string)($row['item_name'] ?? '');
+        $unit = (string)($row['unit'] ?? 'pcs');
+        $visibleQty = $computeVisibleQty($itemName, $unit);
+
+        if ($visibleQty <= 0) {
+            continue;
+        }
+
+        $stockSummary[] = [
+            'item_name' => $itemName,
+            'unit' => $unit,
+            'total_received' => $visibleQty,
+        ];
     }
 }
 
@@ -249,11 +445,11 @@ include '../../includes/header.php';
 
 <?php if (isset($_SESSION['success'])): ?>
     <div class="alert alert-success" style="margin-bottom:1rem;"><?php echo htmlspecialchars($_SESSION['success']);
-                                                unset($_SESSION['success']); ?></div>
+                                                                    unset($_SESSION['success']); ?></div>
 <?php endif; ?>
 <?php if (isset($_SESSION['error'])): ?>
     <div class="alert alert-danger" style="margin-bottom:1rem;"><?php echo htmlspecialchars($_SESSION['error']);
-                                               unset($_SESSION['error']); ?></div>
+                                                                unset($_SESSION['error']); ?></div>
 <?php endif; ?>
 
 <?php if ($activeBusinessId <= 0): ?>
@@ -287,18 +483,49 @@ include '../../includes/header.php';
                         <th>Nama Item</th>
                         <th>Unit</th>
                         <th class="text-right">Qty Saat Ini</th>
+                        <th class="text-center">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (empty($stockSummary)): ?>
                         <tr>
-                            <td colspan="3" style="text-align:center; padding:2rem; color:var(--text-muted);">Belum ada stok masuk dari gudang.</td>
+                            <td colspan="4" style="text-align:center; padding:2rem; color:var(--text-muted);">Belum ada stok masuk dari gudang.</td>
                         </tr>
                         <?php else: foreach ($stockSummary as $item): ?>
                             <tr>
                                 <td style="font-weight:600;"><?php echo htmlspecialchars($item['item_name']); ?></td>
                                 <td><?php echo htmlspecialchars($item['unit']); ?></td>
                                 <td class="text-right" style="font-weight:700; color:#0f9d6a;"><?php echo number_format((float)$item['total_received'], 2); ?></td>
+                                <td class="text-center">
+                                    <div style="display:flex; gap:0.4rem; justify-content:center; flex-wrap:wrap;">
+                                        <form method="POST" style="display:inline-flex; gap:0.35rem; align-items:center; flex-wrap:wrap; justify-content:center;" onsubmit="return confirm('Transfer stok item ini ke bisnis lain?')">
+                                            <input type="hidden" name="action" value="transfer_stock_business">
+                                            <input type="hidden" name="item_name" value="<?php echo htmlspecialchars($item['item_name']); ?>">
+                                            <input type="hidden" name="unit" value="<?php echo htmlspecialchars($item['unit']); ?>">
+                                            <select name="target_business_slug" class="form-control" style="height:32px; min-width:150px; padding:0 0.5rem;" required>
+                                                <option value="">Tujuan bisnis</option>
+                                                <?php foreach ($transferBusinessOptions as $slug => $biz): ?>
+                                                    <?php if (strtolower($slug) === $activeBusinessSlug): continue; endif; ?>
+                                                    <option value="<?php echo htmlspecialchars($slug); ?>"><?php echo htmlspecialchars($biz['name']); ?></option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                            <input type="number" name="transfer_qty" min="0.01" max="<?php echo htmlspecialchars((string)number_format((float)$item['total_received'], 2, '.', '')); ?>" step="0.01" class="form-control" style="height:32px; width:90px;" placeholder="Qty" required>
+                                            <button type="submit" class="btn btn-sm btn-primary" style="height:32px; padding:0 0.7rem;">
+                                                <i data-feather="send" style="width:13px; height:13px;"></i>
+                                                Transfer
+                                            </button>
+                                        </form>
+                                        <form method="POST" style="display:inline;" onsubmit="return confirm('Hapus item stok ini dari bisnis aktif?')">
+                                            <input type="hidden" name="action" value="delete_stock_item">
+                                            <input type="hidden" name="item_name" value="<?php echo htmlspecialchars($item['item_name']); ?>">
+                                            <input type="hidden" name="unit" value="<?php echo htmlspecialchars($item['unit']); ?>">
+                                            <button type="submit" class="btn btn-sm btn-danger" style="height:32px; padding:0 0.7rem;" title="Hapus item">
+                                                <i data-feather="trash-2" style="width:13px; height:13px;"></i>
+                                                Hapus
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
                             </tr>
                     <?php endforeach;
                     endif; ?>
