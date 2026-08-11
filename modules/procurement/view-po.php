@@ -16,7 +16,7 @@ $po_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 $isGudangContext = (strtolower((string)($_SESSION['active_business_id'] ?? '')) === 'gudang-nasita');
 
 // Cross-business PO viewing: switch DB only for data fetch, restore immediately after
-$poBizSlug = trim($_GET['po_business'] ?? '');
+$poBizSlug = resolveBusinessConfigSlug(trim($_GET['po_business'] ?? ''));
 $allowedPoBizSlugs = ['narayana-hotel', 'bens-cafe', 'eaat-meet', 'eat-meet'];
 $viewOriginalDb = Database::getCurrentDatabase();
 
@@ -31,6 +31,15 @@ if ($poBizSlug !== '' && in_array($poBizSlug, $allowedPoBizSlugs, true)) {
 if ($sourcePoDb === '') {
     $activeBizCfg = getActiveBusinessConfig();
     $sourcePoDb = (string)($activeBizCfg['database'] ?? '');
+}
+
+$sourceBusinessName = '';
+if ($poBizSlug !== '' && in_array($poBizSlug, $allowedPoBizSlugs, true)) {
+    $cfgPath = __DIR__ . '/../../config/businesses/' . $poBizSlug . '.php';
+    if (file_exists($cfgPath)) {
+        $cfg = require $cfgPath;
+        $sourceBusinessName = (string)($cfg['name'] ?? '');
+    }
 }
 
 $switchToPoDb = function () use ($sourcePoDb) {
@@ -104,6 +113,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 // Fetch PO from source DB then restore user DB immediately so header renders correctly
 $switchToPoDb();
 $po = getPurchaseOrder($po_id);
+
+// Gudang fallback: if PO not found with incoming slug, auto-scan known business DBs by PO id.
+if (!$po && $isGudangContext) {
+    $candidateSlugs = ['narayana-hotel', 'bens-cafe', 'eaat-meet'];
+    foreach ($candidateSlugs as $candidateSlug) {
+        $cfgPath = __DIR__ . '/../../config/businesses/' . $candidateSlug . '.php';
+        if (!file_exists($cfgPath)) {
+            continue;
+        }
+        $cfg = require $cfgPath;
+        $candidateDb = (string)($cfg['database'] ?? '');
+        if ($candidateDb === '') {
+            continue;
+        }
+
+        try {
+            Database::switchDatabase($candidateDb);
+            $candidatePo = getPurchaseOrder($po_id);
+            if ($candidatePo) {
+                $po = $candidatePo;
+                $poBizSlug = $candidateSlug;
+                $sourceBusinessName = (string)($cfg['name'] ?? $candidateSlug);
+                break;
+            }
+        } catch (Throwable $e) {
+        }
+    }
+}
 $restoreUserDb();
 
 // Gudang Nasita users can view any business PO — bypass ownership check
@@ -263,6 +300,10 @@ include '../../includes/header.php';
                 <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.25rem;">Created At</div>
                 <div><?php echo date('d M Y H:i', strtotime($po['created_at'])); ?></div>
             </div>
+            <div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.25rem;">Bisnis Sumber</div>
+                <div style="font-weight: 600;"><?php echo htmlspecialchars($sourceBusinessName !== '' ? $sourceBusinessName : ($poBizSlug !== '' ? $poBizSlug : 'Tidak diketahui')); ?></div>
+            </div>
         </div>
         <?php if ($po['notes']): ?>
             <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--bg-tertiary);">
@@ -301,15 +342,16 @@ include '../../includes/header.php';
                         <td><?php echo ($index + 1); ?></td>
                         <td>
                             <div style="font-weight: 600;"><?php echo $item['item_name']; ?></div>
-                            <?php if ($item['item_description']): ?>
+                            <?php if (!empty($item['item_description'])): ?>
                                 <div style="font-size: 0.75rem; color: var(--text-muted);"><?php echo $item['item_description']; ?></div>
                             <?php endif; ?>
                         </td>
-                        <td><?php echo $item['division_name']; ?></td>
+                        <td><?php echo htmlspecialchars((string)($item['division_name'] ?? '-')); ?></td>
                         <td class="text-right"><?php echo number_format($item['quantity'], 2); ?></td>
-                        <td><?php echo $item['unit_of_measure']; ?></td>
+                        <td><?php echo htmlspecialchars((string)($item['unit_of_measure'] ?? ($item['unit'] ?? '-'))); ?></td>
                         <td class="text-right">Rp <?php echo number_format($item['unit_price'], 0, ',', '.'); ?></td>
-                        <td class="text-right" style="font-weight: 600;">Rp <?php echo number_format($item['subtotal'], 0, ',', '.'); ?></td>
+                        <?php $lineSubtotal = isset($item['subtotal']) ? (float)$item['subtotal'] : (isset($item['total_price']) ? (float)$item['total_price'] : ((float)$item['quantity'] * (float)$item['unit_price'])); ?>
+                        <td class="text-right" style="font-weight: 600;">Rp <?php echo number_format($lineSubtotal, 0, ',', '.'); ?></td>
                         <td class="text-right">
                             <?php if (isset($item['received_quantity']) && $item['received_quantity'] > 0): ?>
                                 <span style="color: var(--success);"><?php echo number_format($item['received_quantity'], 2); ?></span>
