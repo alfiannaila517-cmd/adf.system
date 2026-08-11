@@ -61,6 +61,46 @@ if (!$isGudang) {
 $db = Database::getInstance();
 $activeBusinessId = isset($_SESSION['business_id']) ? (int)$_SESSION['business_id'] : 0;
 
+// Inline delete action from PO list (for editable statuses)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_po') {
+    $poIdToDelete = isset($_POST['po_id']) ? (int)$_POST['po_id'] : 0;
+
+    try {
+        if ($poIdToDelete <= 0) {
+            throw new Exception('PO tidak valid');
+        }
+
+        $poRow = $db->fetchOne('SELECT id, po_number, status FROM purchase_orders_header WHERE id = ? LIMIT 1', [$poIdToDelete]);
+        if (!$poRow) {
+            throw new Exception('PO tidak ditemukan');
+        }
+
+        $allowedDeleteStatuses = ['draft', 'cancelled', 'rejected'];
+        if (!in_array(strtolower((string)$poRow['status']), $allowedDeleteStatuses, true)) {
+            throw new Exception('PO dengan status ini tidak boleh dihapus');
+        }
+
+        $conn = $db->getConnection();
+        $conn->beginTransaction();
+        $db->query('DELETE FROM purchase_orders_detail WHERE po_header_id = ?', [$poIdToDelete]);
+        $db->query('DELETE FROM purchase_orders_header WHERE id = ?', [$poIdToDelete]);
+        $conn->commit();
+
+        $_SESSION['success'] = 'PO ' . $poRow['po_number'] . ' berhasil dihapus.';
+    } catch (Throwable $e) {
+        try {
+            if ($db->getConnection()->inTransaction()) {
+                $db->getConnection()->rollBack();
+            }
+        } catch (Throwable $rollbackError) {
+        }
+        $_SESSION['error'] = 'Gagal hapus PO: ' . $e->getMessage();
+    }
+
+    header('Location: purchase-orders.php');
+    exit;
+}
+
 // Get filters
 $status = isset($_GET['status']) ? $_GET['status'] : '';
 $supplier_id = isset($_GET['supplier_id']) ? (int)$_GET['supplier_id'] : 0;
@@ -347,6 +387,10 @@ include '../../includes/header.php';
                 <i data-feather="inbox" style="width: 16px; height: 16px;"></i>
                 Rekaman Stock Masuk
             </a>
+            <a href="business-stock-incoming.php" class="btn btn-secondary">
+                <i data-feather="repeat" style="width: 16px; height: 16px;"></i>
+                Transfer Stock
+            </a>
             <a href="create-po.php" class="btn btn-primary">
                 <i data-feather="plus" style="width: 16px; height: 16px;"></i>
                 Buat PO Baru
@@ -516,6 +560,16 @@ include '../../includes/header.php';
                                         <span class="badge badge-warning" style="font-size:0.75rem;">Menunggu Gudang</span>
                                     <?php elseif ($po['status'] === 'completed'): ?>
                                         <span class="badge badge-success">Transfer Selesai</span>
+                                    <?php endif; ?>
+
+                                    <?php if (in_array(strtolower((string)$po['status']), ['draft', 'cancelled', 'rejected'], true)): ?>
+                                        <form method="POST" style="display: inline;" onsubmit="return confirm('Hapus PO ini permanen?')">
+                                            <input type="hidden" name="action" value="delete_po">
+                                            <input type="hidden" name="po_id" value="<?php echo (int)$po['id']; ?>">
+                                            <button type="submit" class="po-action-btn reject" title="Hapus PO">
+                                                <i data-feather="trash-2"></i>
+                                            </button>
+                                        </form>
                                     <?php endif; ?>
                                 </div>
                             </td>
