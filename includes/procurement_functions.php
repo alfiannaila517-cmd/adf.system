@@ -967,6 +967,67 @@ function ensureGudangNasitaOperationalTablesCompatibility()
         INDEX idx_transfer_id (transfer_id),
         INDEX idx_stock_id (stock_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    // Backfill missing columns for legacy tables that were created with older schema.
+    try {
+        $transferColsRaw = $db->fetchAll("SHOW COLUMNS FROM gudang_nasita_transfers");
+        $transferCols = [];
+        foreach ($transferColsRaw as $c) {
+            $transferCols[strtolower((string)($c['Field'] ?? ''))] = true;
+        }
+
+        $transferRequired = [
+            'transfer_number' => "VARCHAR(50) NULL",
+            'target_business_id' => "INT NULL",
+            'target_business_name' => "VARCHAR(150) NULL",
+            'source_po_id' => "INT NULL",
+            'status' => "VARCHAR(20) NULL",
+            'notes' => "TEXT NULL",
+            'created_by' => "INT NULL",
+            'received_by' => "INT NULL",
+            'created_at' => "TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP",
+            'updated_at' => "TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+        ];
+
+        foreach ($transferRequired as $col => $ddl) {
+            if (!isset($transferCols[$col])) {
+                $db->query("ALTER TABLE gudang_nasita_transfers ADD COLUMN `{$col}` {$ddl}");
+            }
+        }
+
+        $transferNumIdx = $db->fetchOne("SHOW INDEX FROM gudang_nasita_transfers WHERE Key_name = 'idx_transfer_number'");
+        if (!$transferNumIdx) {
+            $db->query("ALTER TABLE gudang_nasita_transfers ADD INDEX idx_transfer_number (transfer_number)");
+        }
+    } catch (Throwable $e) {
+        error_log('ensureGudangNasitaOperationalTablesCompatibility transfers backfill error: ' . $e->getMessage());
+    }
+
+    try {
+        $transferItemColsRaw = $db->fetchAll("SHOW COLUMNS FROM gudang_nasita_transfer_items");
+        $transferItemCols = [];
+        foreach ($transferItemColsRaw as $c) {
+            $transferItemCols[strtolower((string)($c['Field'] ?? ''))] = true;
+        }
+
+        $transferItemRequired = [
+            'transfer_id' => "INT NULL",
+            'stock_id' => "INT NULL",
+            'item_name' => "VARCHAR(200) NULL",
+            'unit' => "VARCHAR(20) DEFAULT 'pcs'",
+            'quantity' => "DECIMAL(15,2) NOT NULL DEFAULT 0",
+            'notes' => "TEXT NULL",
+            'created_at' => "TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP",
+        ];
+
+        foreach ($transferItemRequired as $col => $ddl) {
+            if (!isset($transferItemCols[$col])) {
+                $db->query("ALTER TABLE gudang_nasita_transfer_items ADD COLUMN `{$col}` {$ddl}");
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('ensureGudangNasitaOperationalTablesCompatibility transfer_items backfill error: ' . $e->getMessage());
+    }
 }
 
 function transferGudangNasitaStock($targetBusinessId, array $items, $createdBy, $notes = '', $sourcePoId = null, $businessName = null)

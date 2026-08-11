@@ -29,7 +29,7 @@ $prefillQty = (float)($_GET['qty'] ?? 0);
 $prefillTargetBusinessId = 0;
 $prefillTargetBusinessName = '';
 $prefillNotes = '';
-$allowedPoBusinessSlugs = ['narayana-hotel', 'bens-cafe', 'eaat-meet'];
+$allowedPoBusinessSlugs = ['narayana-hotel', 'bens-cafe', 'eaat-meet', 'eat-meet'];
 if (!in_array($prefillPoBusinessSlug, $allowedPoBusinessSlugs, true)) {
     $prefillPoBusinessSlug = '';
 }

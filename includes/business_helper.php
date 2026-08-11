@@ -279,6 +279,8 @@ function getNumericBusinessId($businessCode)
     $codeMap = [
         'narayana-hotel' => 'NARAYANAHOTEL',
         'bens-cafe' => 'BENSCAFE',
+        'eat-meet' => 'EAT_MEET',
+        'eaat-meet' => 'EAT_MEET',
         'demo' => 'DEMO'
     ];
 
@@ -307,6 +309,21 @@ function getNumericBusinessId($businessCode)
             $stmt = $masterPdo->prepare("SELECT id FROM businesses WHERE business_code = ? LIMIT 1");
             $stmt->execute([$dbCode]);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        }
+
+        if (!$row) {
+            // Robust fallback for legacy slug/code variants like eat-meet/eaat-meet.
+            $normalized = strtolower(preg_replace('/[^a-z0-9]/', '', (string)$businessCode));
+            $variants = [$normalized];
+            if ($normalized === 'eaatmeet') {
+                $variants[] = 'eatmeet';
+            } elseif ($normalized === 'eatmeet') {
+                $variants[] = 'eaatmeet';
+            }
+
+            $normStmt = $masterPdo->prepare("\n                SELECT id\n                FROM businesses\n                WHERE REPLACE(REPLACE(LOWER(COALESCE(slug, '')), '-', ''), '_', '') IN (?, ?)\n                   OR REPLACE(REPLACE(LOWER(COALESCE(business_code, '')), '-', ''), '_', '') IN (?, ?)\n                LIMIT 1\n            ");
+            $normStmt->execute([$variants[0], $variants[1] ?? $variants[0], $variants[0], $variants[1] ?? $variants[0]]);
+            $row = $normStmt->fetch(PDO::FETCH_ASSOC);
         }
 
         return $row ? (int)$row['id'] : null;
