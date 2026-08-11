@@ -142,6 +142,17 @@ if ($po['status'] === 'submitted' && $po['approved_at']) {
 
 $pageTitle = 'PO: ' . $po['po_number'];
 
+// Keep visual context (logo/settings) on active business DB while rendering header.
+try {
+    $activeBizCfgForHeader = getActiveBusinessConfig();
+    $activeBizDbForHeader = (string)($activeBizCfgForHeader['database'] ?? '');
+    if ($activeBizDbForHeader !== '') {
+        Database::switchDatabase($activeBizDbForHeader);
+        $db = Database::getInstance();
+    }
+} catch (Throwable $e) {
+}
+
 include '../../includes/header.php';
 ?>
 

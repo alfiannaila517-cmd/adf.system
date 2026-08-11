@@ -371,11 +371,10 @@ foreach ($targetBusinessConfigs as $bizSlug) {
         $bizDb = Database::switchDatabase($bizDbName);
         $rows = $bizDb->fetchAll("
             SELECT poh.id, poh.po_number, poh.po_date, poh.status,
-                   b.id AS source_business_id, b.business_name AS source_business_name,
+                   poh.business_id AS source_business_id,
                    COUNT(pod.id) AS items_count,
                    poh.created_at
             FROM purchase_orders_header poh
-            LEFT JOIN businesses b ON b.id = poh.business_id
             LEFT JOIN purchase_orders_detail pod ON pod.po_header_id = poh.id
             WHERE poh.status IN ('submitted', 'approved', 'partially_received')
             GROUP BY poh.id
@@ -384,9 +383,7 @@ foreach ($targetBusinessConfigs as $bizSlug) {
         ");
 
         foreach ($rows as $row) {
-            if (empty($row['source_business_name']) && !empty($bizCfg['name'])) {
-                $row['source_business_name'] = (string)$bizCfg['name'];
-            }
+            $row['source_business_name'] = (string)($bizCfg['name'] ?? $bizSlug);
             $row['source_business_slug'] = $bizSlug;
             $pendingReceipts[] = $row;
         }
