@@ -627,6 +627,9 @@ if (isset($_SESSION['user_id'])) {
                 <?php
                 // Get business logo
                 $logoPath = getBusinessLogo();
+                if (defined('ACTIVE_BUSINESS_ID') && ACTIVE_BUSINESS_ID === 'gudang-nasita') {
+                    $logoPath = BASE_URL . '/assets/img/gudang-nasita-logo.svg';
+                }
 
                 // Get company name from settings, fallback to BUSINESS_NAME
                 $companyNameSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'company_name'");
@@ -1323,8 +1326,12 @@ if (isset($_SESSION['user_id'])) {
                                 .then(response => response.json())
                                 .then(data => {
                                     if (data.success) {
-                                        // Reload page to apply new business
-                                        window.location.reload();
+                                        // Redirect to business landing page for clearer workflow
+                                        if (businessId === 'gudang-nasita') {
+                                            window.location.href = '<?php echo BASE_URL; ?>/modules/procurement/gudang-nasita.php';
+                                        } else {
+                                            window.location.href = '<?php echo BASE_URL; ?>/index.php';
+                                        }
                                     } else {
                                         alert('Failed to switch business: ' + (data.message || 'Unknown error'));
                                     }
