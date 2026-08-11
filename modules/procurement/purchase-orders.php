@@ -40,7 +40,7 @@ $activeBusinessId = isset($_SESSION['business_id']) ? (int)$_SESSION['business_i
 // Get filters
 $status = isset($_GET['status']) ? $_GET['status'] : '';
 $supplier_id = isset($_GET['supplier_id']) ? (int)$_GET['supplier_id'] : 0;
-$date_from = isset($_GET['date_from']) ? $_GET['date_from'] : date('Y-m-01');
+$date_from = isset($_GET['date_from']) ? $_GET['date_from'] : date('Y-m-d', strtotime('-30 days'));
 $date_to = isset($_GET['date_to']) ? $_GET['date_to'] : date('Y-m-t');
 
 // Get suppliers for filter

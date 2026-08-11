@@ -1151,6 +1151,28 @@ function getPurchaseOrders($filters = [], $limit = 100, $offset = 0)
 
     $where_conditions = [];
     $params = [];
+    $poDateExpr = 'poh.po_date';
+
+    // Probe columns once so date filtering works across older business schemas.
+    try {
+        $headerCols = $db->fetchAll("SHOW COLUMNS FROM purchase_orders_header");
+        $headerColNames = array_map(function ($row) {
+            return strtolower((string)($row['Field'] ?? ''));
+        }, $headerCols ?: []);
+
+        $hasPoDate = in_array('po_date', $headerColNames, true);
+        $hasCreatedAt = in_array('created_at', $headerColNames, true);
+
+        if ($hasPoDate && $hasCreatedAt) {
+            $poDateExpr = 'COALESCE(poh.po_date, DATE(poh.created_at))';
+        } elseif ($hasCreatedAt && !$hasPoDate) {
+            $poDateExpr = 'DATE(poh.created_at)';
+        } elseif (!$hasPoDate) {
+            $poDateExpr = "''";
+        }
+    } catch (Throwable $e) {
+        $poDateExpr = 'poh.po_date';
+    }
 
     if (isset($filters['status']) && !empty($filters['status'])) {
         $where_conditions[] = "poh.status = :status";
@@ -1179,12 +1201,12 @@ function getPurchaseOrders($filters = [], $limit = 100, $offset = 0)
     }
 
     if (isset($filters['date_from']) && !empty($filters['date_from'])) {
-        $where_conditions[] = "poh.po_date >= :date_from";
+        $where_conditions[] = "{$poDateExpr} >= :date_from";
         $params['date_from'] = $filters['date_from'];
     }
 
     if (isset($filters['date_to']) && !empty($filters['date_to'])) {
-        $where_conditions[] = "poh.po_date <= :date_to";
+        $where_conditions[] = "{$poDateExpr} <= :date_to";
         $params['date_to'] = $filters['date_to'];
     }
 
@@ -1243,13 +1265,19 @@ function getPurchaseOrders($filters = [], $limit = 100, $offset = 0)
                     continue;
                 }
             }
-            // Filter by date range
+            // Filter by date range (fallback to created_at date for legacy/null po_date rows)
             if (!empty($filters['date_from'])) {
                 $pd = (string)($row['po_date'] ?? '');
+                if ($pd === '' && !empty($row['created_at'])) {
+                    $pd = substr((string)$row['created_at'], 0, 10);
+                }
                 if ($pd < $filters['date_from']) continue;
             }
             if (!empty($filters['date_to'])) {
                 $pd = (string)($row['po_date'] ?? '');
+                if ($pd === '' && !empty($row['created_at'])) {
+                    $pd = substr((string)$row['created_at'], 0, 10);
+                }
                 if ($pd > $filters['date_to']) continue;
             }
             $row['items_count'] = 0;
