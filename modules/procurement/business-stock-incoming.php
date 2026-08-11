@@ -498,23 +498,10 @@ include '../../includes/header.php';
                                 <td class="text-right" style="font-weight:700; color:#0f9d6a;"><?php echo number_format((float)$item['total_received'], 2); ?></td>
                                 <td class="text-center">
                                     <div style="display:flex; gap:0.4rem; justify-content:center; flex-wrap:wrap;">
-                                        <form method="POST" style="display:inline-flex; gap:0.35rem; align-items:center; flex-wrap:wrap; justify-content:center;" onsubmit="return confirm('Transfer stok item ini ke bisnis lain?')">
-                                            <input type="hidden" name="action" value="transfer_stock_business">
-                                            <input type="hidden" name="item_name" value="<?php echo htmlspecialchars($item['item_name']); ?>">
-                                            <input type="hidden" name="unit" value="<?php echo htmlspecialchars($item['unit']); ?>">
-                                            <select name="target_business_slug" class="form-control" style="height:32px; min-width:150px; padding:0 0.5rem;" required>
-                                                <option value="">Tujuan bisnis</option>
-                                                <?php foreach ($transferBusinessOptions as $slug => $biz): ?>
-                                                    <?php if (strtolower($slug) === $activeBusinessSlug): continue; endif; ?>
-                                                    <option value="<?php echo htmlspecialchars($slug); ?>"><?php echo htmlspecialchars($biz['name']); ?></option>
-                                                <?php endforeach; ?>
-                                            </select>
-                                            <input type="number" name="transfer_qty" min="0.01" max="<?php echo htmlspecialchars((string)number_format((float)$item['total_received'], 2, '.', '')); ?>" step="0.01" class="form-control" style="height:32px; width:90px;" placeholder="Qty" required>
-                                            <button type="submit" class="btn btn-sm btn-primary" style="height:32px; padding:0 0.7rem;">
-                                                <i data-feather="send" style="width:13px; height:13px;"></i>
-                                                Transfer
-                                            </button>
-                                        </form>
+                                        <button type="button" class="btn btn-sm btn-primary" style="height:32px; padding:0 0.7rem;" onclick="openTransferModal('<?php echo htmlspecialchars(addslashes($item['item_name'])); ?>','<?php echo htmlspecialchars(addslashes($item['unit'])); ?>','<?php echo htmlspecialchars((string)number_format((float)$item['total_received'], 2, '.', '')); ?>')">
+                                            <i data-feather="send" style="width:13px; height:13px;"></i>
+                                            Transfer
+                                        </button>
                                         <form method="POST" style="display:inline;" onsubmit="return confirm('Hapus item stok ini dari bisnis aktif?')">
                                             <input type="hidden" name="action" value="delete_stock_item">
                                             <input type="hidden" name="item_name" value="<?php echo htmlspecialchars($item['item_name']); ?>">
@@ -568,5 +555,88 @@ include '../../includes/header.php';
     </div>
 
 <?php endif; ?>
+
+<div id="transferStockModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:9999; align-items:center; justify-content:center; padding:1rem;">
+    <div class="card" style="max-width:560px; width:100%; margin:0; border-radius:1rem; overflow:hidden; box-shadow:0 24px 64px rgba(0,0,0,0.25);">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:1rem 1.25rem; background:linear-gradient(135deg,#4f46e5,#3730a3); color:#fff;">
+            <div>
+                <div style="font-size:1rem; font-weight:700;">Transfer Stock Antar Bisnis</div>
+                <div style="font-size:0.82rem; opacity:0.9;" id="transferModalItemLabel">-</div>
+            </div>
+            <button type="button" onclick="closeTransferModal()" style="background:transparent; border:none; color:#fff; font-size:1.4rem; cursor:pointer;">&times;</button>
+        </div>
+
+        <form method="POST" style="padding:1rem 1.25rem;" onsubmit="return confirm('Kirim stok ke bisnis tujuan?')">
+            <input type="hidden" name="action" value="transfer_stock_business">
+            <input type="hidden" name="item_name" id="transfer_item_name" value="">
+            <input type="hidden" name="unit" id="transfer_unit" value="">
+
+            <div style="display:grid; grid-template-columns:1fr 140px; gap:0.75rem; margin-bottom:0.85rem;">
+                <div>
+                    <label class="form-label">Tujuan bisnis</label>
+                    <select name="target_business_slug" class="form-control" required>
+                        <option value="">Pilih bisnis tujuan</option>
+                        <?php foreach ($transferBusinessOptions as $slug => $biz): ?>
+                            <?php if (strtolower($slug) === $activeBusinessSlug): continue; endif; ?>
+                            <option value="<?php echo htmlspecialchars($slug); ?>"><?php echo htmlspecialchars($biz['name']); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Qty</label>
+                    <input type="number" name="transfer_qty" id="transfer_qty" min="0.01" step="0.01" class="form-control" placeholder="Qty" required>
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom:0.75rem;">
+                <label class="form-label">Catatan (opsional)</label>
+                <textarea name="notes" class="form-control" rows="2" placeholder="Misal: transfer operasional antar outlet"></textarea>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:0.75rem;">
+                <div id="transferQtyInfo" style="font-size:0.82rem; color:#64748b;">Stok tersedia: -</div>
+                <div style="display:flex; gap:0.5rem;">
+                    <button type="button" class="btn btn-secondary" onclick="closeTransferModal()">Batal</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i data-feather="send" style="width:14px; height:14px;"></i>
+                        Transfer Stock
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openTransferModal(itemName, unit, maxQty) {
+        var modal = document.getElementById('transferStockModal');
+        var itemInput = document.getElementById('transfer_item_name');
+        var unitInput = document.getElementById('transfer_unit');
+        var qtyInput = document.getElementById('transfer_qty');
+        var label = document.getElementById('transferModalItemLabel');
+        var qtyInfo = document.getElementById('transferQtyInfo');
+
+        itemInput.value = itemName;
+        unitInput.value = unit;
+        qtyInput.value = '';
+        qtyInput.max = maxQty;
+        label.textContent = itemName + ' (' + unit + ')';
+        qtyInfo.textContent = 'Stok tersedia: ' + maxQty + ' ' + unit;
+
+        modal.style.display = 'flex';
+    }
+
+    function closeTransferModal() {
+        var modal = document.getElementById('transferStockModal');
+        modal.style.display = 'none';
+    }
+
+    window.addEventListener('click', function(e) {
+        var modal = document.getElementById('transferStockModal');
+        if (e.target === modal) {
+            closeTransferModal();
+        }
+    });
+</script>
 
 <?php include '../../includes/footer.php'; ?>
