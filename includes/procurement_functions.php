@@ -1040,13 +1040,22 @@ function transferGudangNasitaStock($targetBusinessId, array $items, $createdBy, 
             throw new Exception('Minimal 1 item transfer wajib diisi');
         }
 
+        $targetBusinessId = (int)$targetBusinessId;
         $business = $db->fetchOne('SELECT id, business_name FROM businesses WHERE id = ? LIMIT 1', [$targetBusinessId]);
-        // Fallback: use pre-resolved name when businesses table doesn't have the target
-        if (!$business && $businessName !== null && $businessName !== '') {
-            $business = ['id' => $targetBusinessId, 'business_name' => $businessName];
+
+        // If ID mismatch happens (common in cross-DB context), remap by business name in current DB.
+        if (!$business && $businessName !== null && trim((string)$businessName) !== '') {
+            $business = $db->fetchOne(
+                'SELECT id, business_name FROM businesses WHERE LOWER(TRIM(business_name)) = LOWER(TRIM(?)) LIMIT 1',
+                [trim((string)$businessName)]
+            );
+            if ($business) {
+                $targetBusinessId = (int)$business['id'];
+            }
         }
+
         if (!$business) {
-            throw new Exception('Tujuan bisnis tidak ditemukan');
+            throw new Exception('Tujuan bisnis tidak ditemukan di database gudang. Periksa data businesses.');
         }
 
         $db->getConnection()->beginTransaction();

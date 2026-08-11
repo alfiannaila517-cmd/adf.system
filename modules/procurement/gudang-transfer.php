@@ -315,7 +315,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // Resolve target business name + ID from the source business's own DB config
+    // Resolve target business name + ID from current gudang/master businesses table.
+    // Never trust cross-DB IDs because each business database can have different numeric IDs.
     $resolvedBizName = '';
     $resolvedBizId = $targetBusinessId;
 
@@ -332,26 +333,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (file_exists($bizCfgPath)) {
             $bizCfgData = require $bizCfgPath;
             $resolvedBizName = (string)($bizCfgData['name'] ?? '');
-            $bizDbName = (string)($bizCfgData['database'] ?? '');
-            if ($bizDbName !== '' && $resolvedBizId <= 0) {
-                // Try to get the business's own ID from its own database
-                try {
-                    $originDbName = Database::getCurrentDatabase();
-                    $bizDb = Database::switchDatabase($bizDbName);
-                    $bizRow = $bizDb->fetchOne('SELECT id, business_name FROM businesses ORDER BY id ASC LIMIT 1');
-                    if ($bizRow) {
-                        $resolvedBizId = (int)$bizRow['id'];
-                        if ($resolvedBizName === '') {
-                            $resolvedBizName = (string)$bizRow['business_name'];
-                        }
-                    }
-                    if (!empty($originDbName)) {
-                        Database::switchDatabase($originDbName);
-                    }
-                } catch (Throwable $e) {
-                    error_log('gudang-transfer biz resolve error: ' . $e->getMessage());
-                }
-            }
         }
     }
 
@@ -360,6 +341,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         [$resolvedBizId, $resolvedBizNameFallback] = $findBusinessBySlug($sourcePoBusinessSlug);
         if ($resolvedBizName === '') {
             $resolvedBizName = $resolvedBizNameFallback;
+        }
+    }
+
+    // Final safety: resolve by business name in current DB if ID still missing/invalid.
+    if ($resolvedBizName !== '') {
+        $bizByName = $db->fetchOne(
+            'SELECT id, business_name FROM businesses WHERE LOWER(TRIM(business_name)) = LOWER(TRIM(?)) LIMIT 1',
+            [$resolvedBizName]
+        );
+        if ($bizByName) {
+            $resolvedBizId = (int)($bizByName['id'] ?? 0);
+            $resolvedBizName = (string)($bizByName['business_name'] ?? $resolvedBizName);
         }
     }
 
