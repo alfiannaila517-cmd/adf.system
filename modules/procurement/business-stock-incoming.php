@@ -229,16 +229,34 @@ if ($activeBusinessId > 0) {
 
                     $rawStockSummary = $gudangDb->fetchAll(
                         "SELECT
-                            gti.item_name,
-                            gti.unit,
-                            COALESCE(SUM(gti.quantity), 0) AS total_received
-                         FROM gudang_nasita_transfer_items gti
-                         JOIN gudang_nasita_transfers gt ON gti.transfer_id = gt.id
-                         WHERE (gt.target_business_id = ? OR gt.target_business_name LIKE ?)
-                         GROUP BY gti.item_name, gti.unit
-                         ORDER BY gti.item_name ASC",
+                            COALESCE(gs.item_name, gti.item_name) AS item_name,
+                            COALESCE(gs.unit, gti.unit, 'pcs') AS unit,
+                            COALESCE(SUM(gm.quantity), 0) AS total_received
+                         FROM gudang_nasita_movements gm
+                         LEFT JOIN gudang_nasita_stock gs ON gs.id = gm.stock_id
+                         LEFT JOIN gudang_nasita_transfers gt ON gt.id = gm.reference_id
+                         LEFT JOIN gudang_nasita_transfer_items gti ON gti.transfer_id = gt.id AND gti.stock_id = gm.stock_id
+                         WHERE gm.movement_type = 'out_transfer'
+                           AND (gm.target_business_id = ? OR gt.target_business_name LIKE ?)
+                         GROUP BY COALESCE(gs.item_name, gti.item_name), COALESCE(gs.unit, gti.unit, 'pcs')
+                         ORDER BY item_name ASC",
                         [$activeBusinessId, $bizNameForMatch]
                     );
+
+                    if (empty($rawStockSummary)) {
+                        $rawStockSummary = $gudangDb->fetchAll(
+                            "SELECT
+                                gti.item_name,
+                                gti.unit,
+                                COALESCE(SUM(gti.quantity), 0) AS total_received
+                             FROM gudang_nasita_transfer_items gti
+                             JOIN gudang_nasita_transfers gt ON gti.transfer_id = gt.id
+                             WHERE (gt.target_business_id = ? OR gt.target_business_name LIKE ?)
+                             GROUP BY gti.item_name, gti.unit
+                             ORDER BY gti.item_name ASC",
+                            [$activeBusinessId, $bizNameForMatch]
+                        );
+                    }
                 } else {
                     $incomingTransfers = $gudangDb->fetchAll(
                         "SELECT
@@ -266,16 +284,34 @@ if ($activeBusinessId > 0) {
 
                     $rawStockSummary = $gudangDb->fetchAll(
                         "SELECT
-                            gti.item_name,
-                            gti.unit,
-                            COALESCE(SUM(gti.quantity), 0) AS total_received
-                         FROM gudang_nasita_transfer_items gti
-                         JOIN gudang_nasita_transfers gt ON gti.transfer_id = gt.id
-                         WHERE gt.target_business_name LIKE ?
-                         GROUP BY gti.item_name, gti.unit
-                         ORDER BY gti.item_name ASC",
+                            COALESCE(gs.item_name, gti.item_name) AS item_name,
+                            COALESCE(gs.unit, gti.unit, 'pcs') AS unit,
+                            COALESCE(SUM(gm.quantity), 0) AS total_received
+                         FROM gudang_nasita_movements gm
+                         LEFT JOIN gudang_nasita_stock gs ON gs.id = gm.stock_id
+                         LEFT JOIN gudang_nasita_transfers gt ON gt.id = gm.reference_id
+                         LEFT JOIN gudang_nasita_transfer_items gti ON gti.transfer_id = gt.id AND gti.stock_id = gm.stock_id
+                         WHERE gm.movement_type = 'out_transfer'
+                           AND gt.target_business_name LIKE ?
+                         GROUP BY COALESCE(gs.item_name, gti.item_name), COALESCE(gs.unit, gti.unit, 'pcs')
+                         ORDER BY item_name ASC",
                         [$bizNameForMatch]
                     );
+
+                    if (empty($rawStockSummary)) {
+                        $rawStockSummary = $gudangDb->fetchAll(
+                            "SELECT
+                                gti.item_name,
+                                gti.unit,
+                                COALESCE(SUM(gti.quantity), 0) AS total_received
+                             FROM gudang_nasita_transfer_items gti
+                             JOIN gudang_nasita_transfers gt ON gti.transfer_id = gt.id
+                             WHERE gt.target_business_name LIKE ?
+                             GROUP BY gti.item_name, gti.unit
+                             ORDER BY gti.item_name ASC",
+                            [$bizNameForMatch]
+                        );
+                    }
                 }
 
                 if (!empty($originDbName)) {
