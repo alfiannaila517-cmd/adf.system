@@ -444,10 +444,22 @@ function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $op
         $db->getConnection()->beginTransaction();
 
         // Match by name only so unit differences don't create duplicate stock entries
-        $stock = $db->fetchOne(
-            "SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) AND is_active = 1 LIMIT 1",
-            [$itemName]
-        );
+        if (gudangNasitaStockRequiresBarangId()) {
+            $stock = $db->fetchOne(
+                "SELECT gs.*, gb.nama_barang AS master_item_name
+                 FROM gudang_nasita_stock gs
+                 LEFT JOIN gudang_nasita_barang gb ON gb.id = gs.barang_id
+                 WHERE LOWER(COALESCE(gs.item_name, gb.nama_barang, '')) = LOWER(?)
+                 AND COALESCE(gs.is_active, 1) = 1
+                 LIMIT 1",
+                [$itemName]
+            );
+        } else {
+            $stock = $db->fetchOne(
+                "SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) AND is_active = 1 LIMIT 1",
+                [$itemName]
+            );
+        }
 
         if (!$stock) {
             $insertData = [
@@ -463,17 +475,27 @@ function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $op
             if (gudangNasitaStockHasColumn('stock_code')) {
                 $insertData['stock_code'] = generateGudangNasitaStockCode();
             }
+            if (gudangNasitaStockRequiresBarangId()) {
+                $insertData['barang_id'] = ensureGudangNasitaBarangId($itemName, $unit, $category, $notes);
+            }
+            if (gudangNasitaStockHasColumn('jumlah_stok')) {
+                $insertData['jumlah_stok'] = 0;
+            }
 
             $stockId = $db->insert('gudang_nasita_stock', $insertData);
             $stock = $db->fetchOne('SELECT * FROM gudang_nasita_stock WHERE id = ? LIMIT 1', [$stockId]);
         }
 
+        $newQty = gudangNasitaCurrentQty($stock) + $quantity;
         $updateData = [
-            'quantity' => (float)$stock['quantity'] + $quantity,
+            'quantity' => $newQty,
             'supplier_name' => $supplierName !== '' ? $supplierName : ($stock['supplier_name'] ?? null),
             'notes' => $notes !== '' ? $notes : ($stock['notes'] ?? null),
             'category' => $category,
         ];
+        if (gudangNasitaStockHasColumn('jumlah_stok')) {
+            $updateData['jumlah_stok'] = $newQty;
+        }
         if ($reorderLevel !== null && $reorderLevel >= 0) {
             $updateData['reorder_level'] = $reorderLevel;
         }
@@ -549,9 +571,21 @@ function receivePurchaseOrderToGudang($po_id, array $receivedItems, $receivedBy,
 
             $unit = trim($item['unit_of_measure'] ?: 'pcs');
             // Match by name only so existing stock is updated regardless of unit mismatch
-            $stock = $db->fetchOne("SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) AND is_active = 1 LIMIT 1", [$item['item_name']]);
+            if (gudangNasitaStockRequiresBarangId()) {
+                $stock = $db->fetchOne(
+                    "SELECT gs.*, gb.nama_barang AS master_item_name
+                     FROM gudang_nasita_stock gs
+                     LEFT JOIN gudang_nasita_barang gb ON gb.id = gs.barang_id
+                     WHERE LOWER(COALESCE(gs.item_name, gb.nama_barang, '')) = LOWER(?)
+                     AND COALESCE(gs.is_active, 1) = 1
+                     LIMIT 1",
+                    [$item['item_name']]
+                );
+            } else {
+                $stock = $db->fetchOne("SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) AND is_active = 1 LIMIT 1", [$item['item_name']]);
+            }
             if (!$stock) {
-                $stock = $db->fetchOne("SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) LIKE LOWER(?) AND is_active = 1 ORDER BY quantity DESC LIMIT 1", ['%' . trim($item['item_name']) . '%']);
+                $stock = $db->fetchOne("SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) LIKE LOWER(?) AND COALESCE(is_active,1) = 1 ORDER BY COALESCE(quantity, jumlah_stok, 0) DESC LIMIT 1", ['%' . trim($item['item_name']) . '%']);
             }
 
             if (!$stock) {
@@ -567,17 +601,27 @@ function receivePurchaseOrderToGudang($po_id, array $receivedItems, $receivedBy,
                 if (gudangNasitaStockHasColumn('stock_code')) {
                     $insertData['stock_code'] = generateGudangNasitaStockCode();
                 }
+                if (gudangNasitaStockRequiresBarangId()) {
+                    $insertData['barang_id'] = ensureGudangNasitaBarangId(trim($item['item_name']), $unit, 'lainnya', $notes ?: ('Auto created from PO ' . $po['po_number']));
+                }
+                if (gudangNasitaStockHasColumn('jumlah_stok')) {
+                    $insertData['jumlah_stok'] = 0;
+                }
 
                 $stockId = $db->insert('gudang_nasita_stock', $insertData);
                 $stock = $db->fetchOne('SELECT * FROM gudang_nasita_stock WHERE id = ? LIMIT 1', [$stockId]);
             }
 
-            $newQty = (float)$stock['quantity'] + $receivedQty;
-            $db->update('gudang_nasita_stock', [
+            $newQty = gudangNasitaCurrentQty($stock) + $receivedQty;
+            $stockUpdate = [
                 'quantity' => $newQty,
                 'supplier_name' => $po['supplier_name'] ?? $stock['supplier_name'],
                 'notes' => $notes ?: $stock['notes']
-            ], 'id = :id', ['id' => $stock['id']]);
+            ];
+            if (gudangNasitaStockHasColumn('jumlah_stok')) {
+                $stockUpdate['jumlah_stok'] = $newQty;
+            }
+            $db->update('gudang_nasita_stock', $stockUpdate, 'id = :id', ['id' => $stock['id']]);
 
             $db->insert('gudang_nasita_movements', [
                 'stock_id' => $stock['id'],
@@ -671,6 +715,84 @@ function gudangNasitaStockColumns($refresh = false)
 function gudangNasitaStockHasColumn($columnName)
 {
     return in_array($columnName, gudangNasitaStockColumns(), true);
+}
+
+function gudangNasitaStockRequiresBarangId()
+{
+    return gudangNasitaStockHasColumn('barang_id');
+}
+
+function gudangNasitaCurrentQty(array $stock)
+{
+    if (isset($stock['quantity'])) {
+        return (float)$stock['quantity'];
+    }
+    if (isset($stock['jumlah_stok'])) {
+        return (float)$stock['jumlah_stok'];
+    }
+    return 0.0;
+}
+
+function generateGudangNasitaBarangCode()
+{
+    $db = Database::getInstance();
+    $prefix = 'GNB-' . date('Ym') . '-';
+
+    $last = $db->fetchOne('SELECT kode_barang FROM gudang_nasita_barang WHERE kode_barang LIKE ? ORDER BY kode_barang DESC LIMIT 1', [$prefix . '%']);
+    if ($last && !empty($last['kode_barang'])) {
+        $seq = (int)substr($last['kode_barang'], -4) + 1;
+    } else {
+        $seq = 1;
+    }
+
+    return $prefix . str_pad((string)$seq, 4, '0', STR_PAD_LEFT);
+}
+
+function ensureGudangNasitaBarangId($itemName, $unit = 'pcs', $category = 'lainnya', $notes = '')
+{
+    $db = Database::getInstance();
+
+    $tableExists = $db->fetchOne("SHOW TABLES LIKE 'gudang_nasita_barang'");
+    if (!$tableExists) {
+        return null;
+    }
+
+    $existing = $db->fetchOne('SELECT id FROM gudang_nasita_barang WHERE LOWER(nama_barang) = LOWER(?) LIMIT 1', [$itemName]);
+    if ($existing) {
+        return (int)$existing['id'];
+    }
+
+    $cols = $db->fetchAll('SHOW COLUMNS FROM gudang_nasita_barang');
+    $colNames = array_column($cols, 'Field');
+
+    $insertData = [];
+    if (in_array('kode_barang', $colNames, true)) {
+        $insertData['kode_barang'] = generateGudangNasitaBarangCode();
+    }
+    if (in_array('nama_barang', $colNames, true)) {
+        $insertData['nama_barang'] = $itemName;
+    }
+    if (in_array('deskripsi', $colNames, true)) {
+        $insertData['deskripsi'] = $notes !== '' ? $notes : 'Auto created from Gudang Nasita stock input';
+    }
+    if (in_array('satuan', $colNames, true)) {
+        $insertData['satuan'] = $unit !== '' ? $unit : 'pcs';
+    }
+    if (in_array('kategori', $colNames, true)) {
+        $insertData['kategori'] = $category !== '' ? $category : 'lainnya';
+    }
+    if (in_array('harga_beli', $colNames, true)) {
+        $insertData['harga_beli'] = 0;
+    }
+    if (in_array('harga_jual', $colNames, true)) {
+        $insertData['harga_jual'] = 0;
+    }
+    if (in_array('is_active', $colNames, true)) {
+        $insertData['is_active'] = 1;
+    }
+
+    $id = $db->insert('gudang_nasita_barang', $insertData);
+    return (int)$id;
 }
 
 function ensureGudangNasitaStockSchemaCompatibility()
