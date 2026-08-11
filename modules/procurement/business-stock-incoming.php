@@ -653,16 +653,19 @@ if ($activeBusinessId > 0) {
     foreach ($stockMetaMap as $meta) {
         $itemName = (string)($meta['item_name'] ?? '');
         $unit = (string)($meta['unit'] ?? 'pcs');
-        $visibleQty = $computeVisibleQty($itemName, $unit);
+        $key = $buildKey($itemName, $unit);
+        $receivedQty = $getMapQty($rawStockMap, $key);
+        $currentQty = $computeVisibleQty($itemName, $unit);
 
-        if ($visibleQty <= 0) {
+        if ($receivedQty <= 0 && $currentQty <= 0) {
             continue;
         }
 
         $stockSummary[] = [
             'item_name' => $itemName,
             'unit' => $unit,
-            'total_received' => $visibleQty,
+            'total_received' => $receivedQty,
+            'current_qty' => $currentQty,
         ];
     }
 
@@ -709,8 +712,10 @@ foreach ($manualItemSuggestions as $normalizedName => $entry) {
 }
 
 $totalQtyVisible = 0;
+$totalQtyReceived = 0;
 foreach ($stockSummary as $row) {
-    $totalQtyVisible += (float)($row['total_received'] ?? 0);
+    $totalQtyVisible += (float)($row['current_qty'] ?? 0);
+    $totalQtyReceived += (float)($row['total_received'] ?? 0);
 }
 
 include '../../includes/header.php';
@@ -759,8 +764,9 @@ include '../../includes/header.php';
             <div style="font-size:1.45rem; font-weight:800; color:#0f172a;"><?php echo count($stockSummary); ?></div>
         </div>
         <div class="card" style="padding:0.9rem 1rem; border:1px solid #dcfce7; background:linear-gradient(145deg,#f0fdf4,#ffffff);">
-            <div style="font-size:0.75rem; color:#166534; margin-bottom:0.3rem;">Total Qty Stok Bisnis</div>
-            <div style="font-size:1.45rem; font-weight:800; color:#14532d;"><?php echo number_format($totalQtyVisible, 2); ?></div>
+            <div style="font-size:0.75rem; color:#166534; margin-bottom:0.3rem;">Total Qty Diterima Gudang</div>
+            <div style="font-size:1.45rem; font-weight:800; color:#14532d;"><?php echo number_format($totalQtyReceived, 2); ?></div>
+            <div style="font-size:0.72rem; color:#4b5563; margin-top:0.2rem;">Stok saat ini: <?php echo number_format($totalQtyVisible, 2); ?></div>
         </div>
         <div class="card" style="padding:0.9rem 1rem; border:1px solid #fef3c7; background:linear-gradient(145deg,#fffbeb,#ffffff);">
             <div style="font-size:0.75rem; color:#92400e; margin-bottom:0.3rem;">Histori Transfer</div>
@@ -787,7 +793,7 @@ include '../../includes/header.php';
                     <tr>
                         <th>Nama Item</th>
                         <th>Unit</th>
-                        <th class="text-right">Qty Saat Ini</th>
+                        <th class="text-right">Qty Diterima</th>
                         <th class="text-center">Aksi</th>
                     </tr>
                 </thead>
@@ -806,10 +812,13 @@ include '../../includes/header.php';
                                     </button>
                                 </td>
                                 <td><?php echo htmlspecialchars($item['unit']); ?></td>
-                                <td class="text-right" style="font-weight:700; color:#0f9d6a;"><?php echo number_format((float)$item['total_received'], 2); ?></td>
+                                <td class="text-right" style="font-weight:700; color:#0f9d6a;">
+                                    <div><?php echo number_format((float)$item['total_received'], 2); ?></div>
+                                    <div style="font-size:0.72rem; color:#64748b; font-weight:500;">Saat ini: <?php echo number_format((float)($item['current_qty'] ?? 0), 2); ?></div>
+                                </td>
                                 <td class="text-center">
                                     <div style="display:flex; gap:0.4rem; justify-content:center; flex-wrap:wrap;">
-                                        <button type="button" class="btn btn-sm btn-primary" style="height:32px; padding:0 0.7rem;" onclick="openTransferModal('<?php echo htmlspecialchars(addslashes($item['item_name'])); ?>','<?php echo htmlspecialchars(addslashes($item['unit'])); ?>','<?php echo htmlspecialchars((string)number_format((float)$item['total_received'], 2, '.', '')); ?>')">
+                                        <button type="button" class="btn btn-sm btn-primary" style="height:32px; padding:0 0.7rem;" onclick="openTransferModal('<?php echo htmlspecialchars(addslashes($item['item_name'])); ?>','<?php echo htmlspecialchars(addslashes($item['unit'])); ?>','<?php echo htmlspecialchars((string)number_format((float)($item['current_qty'] ?? 0), 2, '.', '')); ?>')">
                                             <i data-feather="send" style="width:13px; height:13px;"></i>
                                             Transfer
                                         </button>
