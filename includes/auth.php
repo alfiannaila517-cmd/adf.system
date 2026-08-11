@@ -244,6 +244,11 @@ class Auth
 
         $userRole = $_SESSION['role'] ?? 'staff';
 
+        // Admin and owner should not be blocked by per-menu entries.
+        if (in_array($userRole, ['admin', 'owner'], true)) {
+            return true;
+        }
+
         // Get username from session
         $username = $_SESSION['username'] ?? null;
         if (!$username) {
