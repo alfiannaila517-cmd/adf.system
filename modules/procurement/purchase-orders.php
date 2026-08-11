@@ -17,7 +17,8 @@ $isGudang = ($activeBusinessSlug === 'gudang-nasita');
 $businessDatabases = [
     'narayana-hotel' => 'adf_narayana_hotel',
     'bens-cafe' => 'adf_benscafe',
-    'eaat-meet' => 'adf_eat_meet'
+    'eaat-meet' => 'adf_eat_meet',
+    'eat-meet' => 'adf_eat_meet'
 ];
 
 // Get active business config

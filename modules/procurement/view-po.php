@@ -17,7 +17,7 @@ $isGudangContext = (strtolower((string)($_SESSION['active_business_id'] ?? '')) 
 
 // Cross-business PO viewing: switch DB only for data fetch, restore immediately after
 $poBizSlug = trim($_GET['po_business'] ?? '');
-$allowedPoBizSlugs = ['narayana-hotel', 'bens-cafe', 'eaat-meet'];
+$allowedPoBizSlugs = ['narayana-hotel', 'bens-cafe', 'eaat-meet', 'eat-meet'];
 $viewOriginalDb = Database::getCurrentDatabase();
 
 $sourcePoDb = '';

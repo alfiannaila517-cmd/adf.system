@@ -89,7 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'cancel_pending_po') {
     $poId   = (int)($_POST['po_id'] ?? 0);
     $poSlug = trim($_POST['po_slug'] ?? '');
-    $allowedSlugs = ['narayana-hotel', 'bens-cafe', 'eaat-meet'];
+    $allowedSlugs = ['narayana-hotel', 'bens-cafe', 'eaat-meet', 'eat-meet'];
     if ($poId > 0 && in_array($poSlug, $allowedSlugs, true)) {
         $cfgPath = __DIR__ . '/../../config/businesses/' . $poSlug . '.php';
         if (file_exists($cfgPath)) {
@@ -353,6 +353,7 @@ $targetBusinessConfigs = [
     'narayana-hotel',
     'bens-cafe',
     'eaat-meet',
+    'eat-meet',
 ];
 
 foreach ($targetBusinessConfigs as $bizSlug) {

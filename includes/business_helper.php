@@ -23,6 +23,41 @@ function businessCodeToSlug($code)
 }
 
 /**
+ * Resolve known slug aliases to an existing business config slug.
+ * This keeps legacy typo variants (eaat-meet) compatible with canonical slug (eat-meet).
+ *
+ * @param string $businessSlug
+ * @return string
+ */
+function resolveBusinessConfigSlug($businessSlug)
+{
+    $slug = preg_replace('/[^a-zA-Z0-9_-]/', '', (string)$businessSlug);
+    if ($slug === '') {
+        return $slug;
+    }
+
+    $basePath = __DIR__ . '/../config/businesses/';
+    $directFile = $basePath . $slug . '.php';
+    if (file_exists($directFile)) {
+        return $slug;
+    }
+
+    $aliases = [
+        'eat-meet' => 'eaat-meet',
+        'eaat-meet' => 'eat-meet',
+    ];
+
+    if (isset($aliases[$slug])) {
+        $aliasFile = $basePath . $aliases[$slug] . '.php';
+        if (file_exists($aliasFile)) {
+            return $aliases[$slug];
+        }
+    }
+
+    return $slug;
+}
+
+/**
  * Auto-generate missing config files from businesses table in DB.
  * Called automatically so any business registered in the DB gets a config file.
  */
@@ -193,11 +228,10 @@ function getActiveBusinessId()
     // Session should already be started by config.php
     // Check if business is set in session AND config file exists
     if (session_status() === PHP_SESSION_ACTIVE && isset($_SESSION['active_business_id'])) {
-        $bizId = $_SESSION['active_business_id'];
-        // Validate: sanitize and check config file exists
-        $bizId = preg_replace('/[^a-zA-Z0-9_-]/', '', $bizId);
+        $bizId = resolveBusinessConfigSlug($_SESSION['active_business_id']);
         $bizFile = __DIR__ . '/../config/businesses/' . $bizId . '.php';
         if (file_exists($bizFile)) {
+            $_SESSION['active_business_id'] = $bizId;
             return $bizId;
         }
         // Invalid session value - clear it so we fall through to default
@@ -245,10 +279,12 @@ function setActiveBusinessId($businessCode)
         // Auto-sync config files from DB (generates missing configs)
         autoSyncBusinessConfigs();
 
+        $resolvedBusinessCode = resolveBusinessConfigSlug($businessCode);
+
         // Validate business exists
-        $businessFile = __DIR__ . '/../config/businesses/' . $businessCode . '.php';
+        $businessFile = __DIR__ . '/../config/businesses/' . $resolvedBusinessCode . '.php';
         if (file_exists($businessFile)) {
-            $_SESSION['active_business_id'] = $businessCode;
+            $_SESSION['active_business_id'] = $resolvedBusinessCode;
 
             // Also set numeric business_id from master database
             $numericId = getNumericBusinessId($businessCode);
@@ -339,7 +375,7 @@ function getNumericBusinessId($businessCode)
  */
 function getActiveBusinessConfig()
 {
-    $businessId = getActiveBusinessId();
+    $businessId = resolveBusinessConfigSlug(getActiveBusinessId());
     $businessFile = __DIR__ . '/../config/businesses/' . $businessId . '.php';
 
     if (file_exists($businessFile)) {
