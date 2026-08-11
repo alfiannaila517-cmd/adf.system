@@ -47,7 +47,7 @@ foreach ($candidateSlugs as $slug) {
         if ($poNumber !== '') {
             $row = $db->fetchOne('SELECT id, po_number FROM purchase_orders_header WHERE po_number = ? LIMIT 1', [$poNumber]);
         }
-        if (!$row && $poId > 0) {
+        if (!$row && $poNumber === '' && $poId > 0) {
             $row = $db->fetchOne('SELECT id, po_number FROM purchase_orders_header WHERE id = ? LIMIT 1', [$poId]);
         }
 

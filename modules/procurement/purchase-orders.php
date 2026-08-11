@@ -9,6 +9,29 @@ require_once '../../includes/procurement_functions.php';
 $auth = new Auth();
 $auth->requireLogin();
 
+// Safety net: if a PO detail intent lands here, redirect to PO resolver.
+$intentPoId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$intentPoNumber = trim((string)($_GET['po_number'] ?? ''));
+$intentPoBiz = trim((string)($_GET['po_business'] ?? ''));
+if ($intentPoId > 0 || $intentPoNumber !== '') {
+    $target = 'open-po.php';
+    $q = [];
+    if ($intentPoId > 0) {
+        $q['id'] = $intentPoId;
+    }
+    if ($intentPoNumber !== '') {
+        $q['po_number'] = $intentPoNumber;
+    }
+    if ($intentPoBiz !== '') {
+        $q['po_business'] = $intentPoBiz;
+    }
+    if (!empty($q)) {
+        $target .= '?' . http_build_query($q);
+        header('Location: ' . $target);
+        exit;
+    }
+}
+
 // Gudang mode must follow active business context, not global role/permission.
 $activeBusinessSlug = strtolower((string)($_SESSION['active_business_id'] ?? ''));
 $isGudang = ($activeBusinessSlug === 'gudang-nasita');
