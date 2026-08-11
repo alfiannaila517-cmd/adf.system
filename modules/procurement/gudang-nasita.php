@@ -378,7 +378,6 @@ foreach ($targetBusinessConfigs as $bizSlug) {
             LEFT JOIN businesses b ON b.id = poh.business_id
             LEFT JOIN purchase_orders_detail pod ON pod.po_header_id = poh.id
             WHERE poh.status IN ('submitted', 'approved', 'partially_received')
-            AND poh.business_id IS NOT NULL
             GROUP BY poh.id
             ORDER BY poh.created_at DESC
             LIMIT 20

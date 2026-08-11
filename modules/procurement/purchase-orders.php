@@ -51,7 +51,8 @@ if ($status) $filters['status'] = $status;
 if ($supplier_id > 0) $filters['supplier_id'] = $supplier_id;
 if ($date_from) $filters['date_from'] = $date_from;
 if ($date_to) $filters['date_to'] = $date_to;
-if ($activeBusinessId > 0 && !$isGudang) $filters['business_id'] = $activeBusinessId;
+$filters['exclude_gdn_prefix'] = true;
+if ($activeBusinessId > 0 && !$isGudang) $filters['business_id_or_null'] = $activeBusinessId;
 
 // Get purchase orders
 if ($isGudang) {

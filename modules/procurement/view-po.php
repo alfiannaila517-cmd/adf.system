@@ -3,6 +3,7 @@ require_once '../../config/config.php';
 require_once '../../config/database.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
+require_once '../../includes/business_helper.php';
 require_once '../../includes/procurement_functions.php';
 
 $auth = new Auth();
@@ -12,24 +13,40 @@ $db = Database::getInstance();
 $currentUser = $auth->getCurrentUser();
 
 $po_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$isGudangContext = (strtolower((string)($_SESSION['active_business_id'] ?? '')) === 'gudang-nasita');
 
 // Cross-business PO viewing: switch DB only for data fetch, restore immediately after
 $poBizSlug = trim($_GET['po_business'] ?? '');
 $allowedPoBizSlugs = ['narayana-hotel', 'bens-cafe', 'eaat-meet'];
 $viewOriginalDb = Database::getCurrentDatabase();
 
-$switchToPoDb = function () use ($poBizSlug, $allowedPoBizSlugs) {
-    if ($poBizSlug === '' || !in_array($poBizSlug, $allowedPoBizSlugs, true)) return;
+$sourcePoDb = '';
+if ($poBizSlug !== '' && in_array($poBizSlug, $allowedPoBizSlugs, true)) {
     $cfgPath = __DIR__ . '/../../config/businesses/' . $poBizSlug . '.php';
-    if (!file_exists($cfgPath)) return;
-    $cfg = require $cfgPath;
-    $bizDb = (string)($cfg['database'] ?? '');
-    if ($bizDb !== '') try { Database::switchDatabase($bizDb); } catch (Throwable $e) {}
+    if (file_exists($cfgPath)) {
+        $cfg = require $cfgPath;
+        $sourcePoDb = (string)($cfg['database'] ?? '');
+    }
+}
+if ($sourcePoDb === '') {
+    $activeBizCfg = getActiveBusinessConfig();
+    $sourcePoDb = (string)($activeBizCfg['database'] ?? '');
+}
+
+$switchToPoDb = function () use ($sourcePoDb) {
+    if ($sourcePoDb !== '') try {
+        Database::switchDatabase($sourcePoDb);
+    } catch (Throwable $e) {
+    }
 };
 
 $restoreUserDb = function () use ($viewOriginalDb, &$db) {
     if (!empty($viewOriginalDb)) {
-        try { Database::switchDatabase($viewOriginalDb); $db = Database::getInstance(); } catch (Throwable $e) {}
+        try {
+            Database::switchDatabase($viewOriginalDb);
+            $db = Database::getInstance();
+        } catch (Throwable $e) {
+        }
     }
 };
 
@@ -90,9 +107,11 @@ $po = getPurchaseOrder($po_id);
 $restoreUserDb();
 
 // Gudang Nasita users can view any business PO — bypass ownership check
-if ($po && !empty($po['business_id'])
+if (
+    $po && !empty($po['business_id'])
     && !$auth->hasPermission('warehouse')
-    && !$auth->hasPermission('gudang_nasita')) {
+    && !$auth->hasPermission('gudang_nasita')
+) {
     $activeBusinessId = isset($_SESSION['business_id']) ? (int)$_SESSION['business_id'] : 0;
     if ($activeBusinessId > 0 && (int)$po['business_id'] !== $activeBusinessId) {
         http_response_code(403);
@@ -162,7 +181,7 @@ include '../../includes/header.php';
                     <input type="hidden" name="action" value="submit">
                     <button type="submit" class="btn btn-primary btn-sm">Submit PO</button>
                 </form>
-            <?php elseif (in_array($po['status'], ['submitted', 'approved']) && ($auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse'))): ?>
+            <?php elseif (in_array($po['status'], ['submitted', 'approved']) && $isGudangContext): ?>
                 <a href="gudang-transfer.php?po_id=<?php echo (int)$po['id']; ?><?php echo $poBizSlug !== '' ? '&po_business=' . urlencode($poBizSlug) : ''; ?>" class="btn btn-success btn-sm">
                     <i data-feather="send" style="width: 14px; height: 14px;"></i>
                     Siapkan Transfer Gudang

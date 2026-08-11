@@ -175,6 +175,26 @@ function createPurchaseOrder($supplier_id, $po_date, $items, $options = [])
                 $businessId = (int)$resolvedBusinessId;
             }
         }
+        if ($businessId <= 0 && !empty($_SESSION['active_business_id'])) {
+            $activeBizSlug = strtolower((string)$_SESSION['active_business_id']);
+            $normalizedCode = strtoupper(str_replace(['-', '_'], '', $activeBizSlug));
+            try {
+                $masterPdo = new PDO(
+                    "mysql:host=" . DB_HOST . ";dbname=" . MASTER_DB_NAME . ";charset=" . DB_CHARSET,
+                    DB_USER,
+                    DB_PASS,
+                    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+                );
+                $bizRow = $masterPdo->prepare("\n                    SELECT id\n                    FROM businesses\n                    WHERE slug = ?\n                       OR UPPER(REPLACE(REPLACE(business_code, '_', ''), '-', '')) = ?\n                    ORDER BY id ASC\n                    LIMIT 1\n                ");
+                $bizRow->execute([$activeBizSlug, $normalizedCode]);
+                $row = $bizRow->fetch(PDO::FETCH_ASSOC);
+                if ($row && !empty($row['id'])) {
+                    $businessId = (int)$row['id'];
+                    $_SESSION['business_id'] = $businessId;
+                }
+            } catch (Throwable $e) {
+            }
+        }
         if ($businessId <= 0) {
             $businessId = null;
         }
