@@ -353,7 +353,7 @@ include '../../includes/header.php';
                 </div>
             </div>
             <div style="display:flex; gap:0.5rem;">
-                <a href="gudang-po-supplier.php?print=<?php echo (int)$viewPo['id']; ?>" target="_blank" class="btn btn-sm btn-outline-secondary">
+                <a href="gudang-po-supplier.php?print=<?php echo (int)$viewPo['id']; ?>" target="_blank" class="btn btn-sm btn-primary" style="font-weight:700;">
                     <i data-feather="printer" style="width:14px;height:14px;"></i> Cetak PO
                 </a>
                 <a href="gudang-po-supplier.php" class="btn btn-sm btn-secondary">Tutup</a>
@@ -472,8 +472,8 @@ include '../../includes/header.php';
                                             <i data-feather="package" style="width:13px;height:13px;"></i> Terima Barang
                                         </a>
                                     <?php endif; ?>
-                                    <a href="gudang-po-supplier.php?print=<?php echo (int)$po['id']; ?>" target="_blank" class="btn btn-sm btn-outline-secondary">
-                                        <i data-feather="printer" style="width:13px;height:13px;"></i> Print
+                                    <a href="gudang-po-supplier.php?print=<?php echo (int)$po['id']; ?>" target="_blank" class="btn btn-sm btn-primary" style="font-weight:700;">
+                                        <i data-feather="printer" style="width:13px;height:13px;"></i> Cetak PO
                                     </a>
                                     <?php if ($po['status'] === 'submitted'): ?>
                                         <form method="POST" style="display:inline;" onsubmit="return confirm('Batalkan PO ini?')">

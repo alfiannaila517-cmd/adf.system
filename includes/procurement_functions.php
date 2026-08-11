@@ -301,7 +301,7 @@ function getPurchaseOrder($po_id)
         return null;
     }
 
-    // Get details
+    // Get details. Fallback to plain detail query when divisions table is unavailable.
     $details = $db->fetchAll("
         SELECT 
             pod.*,
@@ -312,6 +312,14 @@ function getPurchaseOrder($po_id)
         WHERE pod.po_header_id = ?
         ORDER BY pod.id
     ", [$po_id]);
+    if (empty($details)) {
+        $details = $db->fetchAll("
+            SELECT pod.*
+            FROM purchase_orders_detail pod
+            WHERE pod.po_header_id = ?
+            ORDER BY pod.id
+        ", [$po_id]);
+    }
 
     $header['items'] = $details;
 
