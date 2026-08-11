@@ -52,7 +52,8 @@ if ($supplier_id > 0) $filters['supplier_id'] = $supplier_id;
 if ($date_from) $filters['date_from'] = $date_from;
 if ($date_to) $filters['date_to'] = $date_to;
 $filters['exclude_gdn_prefix'] = true;
-if ($activeBusinessId > 0 && !$isGudang) $filters['business_id_or_null'] = $activeBusinessId;
+// Do not filter by business_id in business context.
+// Each business already uses its own database, so business_id drift should not hide PO rows.
 
 // Get purchase orders
 if ($isGudang) {
