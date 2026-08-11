@@ -129,7 +129,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
-$stockItems = getGudangNasitaStock(300);
+$stockItemsAll = getGudangNasitaStock(1000);
+$searchItemName = trim((string)($_GET['q_item'] ?? ''));
+$filterLowStockOnly = (string)($_GET['low_stock'] ?? '') === '1';
+
+$stockItems = array_values(array_filter($stockItemsAll, function ($item) use ($searchItemName, $filterLowStockOnly) {
+    $itemName = (string)($item['item_name'] ?? '');
+    $isLow = (float)($item['reorder_level'] ?? 0) > 0 && (float)$item['quantity'] <= (float)$item['reorder_level'];
+
+    if ($searchItemName !== '' && stripos($itemName, $searchItemName) === false) {
+        return false;
+    }
+    if ($filterLowStockOnly && !$isLow) {
+        return false;
+    }
+
+    return true;
+}));
+
+if (isset($_GET['print_stock']) && (string)$_GET['print_stock'] === '1') {
+    $printItems = $stockItemsAll;
+    $totalQty = 0;
+    foreach ($printItems as $pi) {
+        $totalQty += (float)($pi['quantity'] ?? 0);
+    }
+
+    header('Content-Type: text/html; charset=utf-8');
+    echo '<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><title>Cetak Semua Stok Gudang Nasita</title>';
+    echo '<style>body{font-family:Arial,sans-serif;font-size:12px;margin:20px;}h2{margin:0 0 4px;}table{width:100%;border-collapse:collapse;margin-top:12px;}th,td{border:1px solid #999;padding:6px 8px;text-align:left;}th{background:#f0f0f0;}.text-right{text-align:right;}@media print{button{display:none}}</style>';
+    echo '</head><body>';
+    echo '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;">';
+    echo '<div><h2>STOK GUDANG NASITA</h2><strong>ADF System</strong><br>Dicetak: ' . date('d M Y H:i') . '</div>';
+    echo '<div style="text-align:right;"><strong>Total Item:</strong> ' . count($printItems) . '<br><strong>Total Qty:</strong> ' . number_format($totalQty, 2) . '</div>';
+    echo '</div>';
+    echo '<table><thead><tr><th>No</th><th>Kode</th><th>Kategori</th><th>Item</th><th class="text-right">Qty</th><th>Unit</th><th>Supplier</th><th>Reorder</th></tr></thead><tbody>';
+    if (empty($printItems)) {
+        echo '<tr><td colspan="8" style="text-align:center;">Belum ada stok gudang</td></tr>';
+    } else {
+        foreach ($printItems as $idx => $item) {
+            $code = (string)($item['stock_code'] ?? ('GN-LEGACY-' . str_pad((string)($item['id'] ?? 0), 4, '0', STR_PAD_LEFT)));
+            echo '<tr>';
+            echo '<td>' . ($idx + 1) . '</td>';
+            echo '<td>' . htmlspecialchars($code) . '</td>';
+            echo '<td>' . htmlspecialchars((string)($item['category'] ?? '-')) . '</td>';
+            echo '<td>' . htmlspecialchars((string)($item['item_name'] ?? '-')) . '</td>';
+            echo '<td class="text-right">' . number_format((float)($item['quantity'] ?? 0), 2) . '</td>';
+            echo '<td>' . htmlspecialchars((string)($item['unit'] ?? 'pcs')) . '</td>';
+            echo '<td>' . htmlspecialchars((string)($item['supplier_name'] ?? '-')) . '</td>';
+            echo '<td>' . number_format((float)($item['reorder_level'] ?? 0), 2) . '</td>';
+            echo '</tr>';
+        }
+    }
+    echo '</tbody></table>';
+    echo '<br><button onclick="window.print()">Cetak</button>';
+    echo '</body></html>';
+    exit;
+}
+
 $recentTransfers = getGudangNasitaTransfers(15);
 
 // Collect low-stock items for prominent alert
@@ -251,6 +307,10 @@ include '../../includes/header.php';
             <i data-feather="plus-square" style="width: 16px; height: 16px;"></i>
             Input Stock Manual
         </button>
+        <a href="gudang-nasita.php?print_stock=1" target="_blank" class="btn btn-primary" style="font-weight:700;">
+            <i data-feather="printer" style="width: 16px; height: 16px;"></i>
+            Print Semua Stock
+        </a>
         <a href="gudang-po-supplier.php" class="btn btn-primary">
             <i data-feather="file-plus" style="width: 16px; height: 16px;"></i>
             PO Supplier
@@ -320,10 +380,19 @@ include '../../includes/header.php';
     <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; gap:1rem; flex-wrap:wrap;">
             <h3 style="font-size:1rem; font-weight:700; margin:0;">Stok Gudang</h3>
-            <?php if ($summary['low'] > 0): ?>
-                <span class="badge badge-warning"><?php echo $summary['low']; ?> item di bawah reorder</span>
-            <?php endif; ?>
+            <form method="GET" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+                <input type="text" name="q_item" class="form-control" placeholder="Cari nama item..." value="<?php echo htmlspecialchars($searchItemName); ?>" style="min-width:220px;">
+                <label style="display:flex; align-items:center; gap:0.35rem; font-size:0.82rem; color:var(--text-muted);">
+                    <input type="checkbox" name="low_stock" value="1" <?php echo $filterLowStockOnly ? 'checked' : ''; ?>>
+                    Stok menipis saja
+                </label>
+                <button type="submit" class="btn btn-sm btn-primary">Cari</button>
+                <a href="gudang-nasita.php" class="btn btn-sm btn-secondary">Reset</a>
+            </form>
         </div>
+        <?php if ($summary['low'] > 0): ?>
+            <div style="margin-bottom:0.75rem;"><span class="badge badge-warning"><?php echo $summary['low']; ?> item di bawah reorder</span></div>
+        <?php endif; ?>
         <div class="table-responsive">
             <table class="table">
                 <thead>
