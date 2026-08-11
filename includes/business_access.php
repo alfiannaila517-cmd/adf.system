@@ -25,6 +25,8 @@ function getBusinessCodeToSlugMap($pdo = null)
         'SUNSEA'        => 'sunsea',
         'PWF'           => 'pwf-furniture',
         'PWFFURNITURE'  => 'pwf-furniture',
+        'GUDANGNASITA'  => 'gudang-nasita',
+        'GUDANG_NASITA' => 'gudang-nasita',
     ];
 
     if ($pdo) {
@@ -77,10 +79,25 @@ function checkOwnerBusinessAccess($userId, $businessSlug)
         $countStmt->execute([$userId]);
         $totalAssignments = (int)$countStmt->fetchColumn();
 
-        // If owner has no assignments configured, deny access to business-specific pages
-        // so access follows the developer setup instead of opening everything.
+        // If no assignment exists, fallback to explicit menu permissions for this business.
+        // This keeps compatibility with setups where developer configured only menu permissions.
         if ($totalAssignments === 0) {
-            return false;
+            $codeMap = getBusinessCodeToSlugMap($masterPdo);
+            $slugToId = [];
+            $bizStmt = $masterPdo->query("SELECT id, business_code FROM businesses WHERE is_active = 1");
+            while ($row = $bizStmt->fetch(PDO::FETCH_ASSOC)) {
+                $slug = $codeMap[$row['business_code']] ?? strtolower($row['business_code']);
+                $slugToId[$slug] = $row['id'];
+            }
+
+            $targetBizId = $slugToId[$businessSlug] ?? null;
+            if (!$targetBizId) {
+                return false;
+            }
+
+            $permStmt = $masterPdo->prepare("SELECT COUNT(*) FROM user_menu_permissions WHERE user_id = ? AND business_id = ? AND can_view = 1");
+            $permStmt->execute([$userId, $targetBizId]);
+            return (int)$permStmt->fetchColumn() > 0;
         }
 
         // Owner has assignments — check if current business is in the list

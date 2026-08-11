@@ -317,6 +317,7 @@ function getNumericBusinessId($businessCode)
         'bens-cafe' => 'BENSCAFE',
         'eat-meet' => 'EAT_MEET',
         'eaat-meet' => 'EAT_MEET',
+        'gudang-nasita' => 'GUDANG_NASITA',
         'demo' => 'DEMO'
     ];
 
