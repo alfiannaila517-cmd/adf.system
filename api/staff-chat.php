@@ -35,9 +35,26 @@ try {
 }
 
 $isOwnerAdmin = in_array($user['role'] ?? '', ['owner', 'admin', 'developer']);
+$canView = $isOwnerAdmin;
+$canSend = $isOwnerAdmin;
+$canDelete = $isOwnerAdmin;
+
+if (!$canView) {
+    $canView = $auth->hasPermission('staff_chat') || $auth->hasPermission('staff_messages');
+}
+if (!$canSend && method_exists($auth, 'canCreate')) {
+    $canSend = $auth->canCreate('staff_chat') || $auth->canCreate('staff_messages');
+}
+if (!$canDelete && method_exists($auth, 'canDelete')) {
+    $canDelete = $auth->canDelete('staff_chat') || $auth->canDelete('staff_messages');
+}
 
 // ═══ List messages ═══
 if ($action === 'list') {
+    if (!$canView) {
+        echo json_encode(['success' => false, 'message' => 'Tidak diizinkan']);
+        exit;
+    }
     $rows = $db->fetchAll("SELECT id, message, created_by_name, created_at FROM staff_chat_messages ORDER BY id DESC LIMIT 50") ?: [];
     echo json_encode(['success' => true, 'data' => $rows]);
     exit;
@@ -45,7 +62,7 @@ if ($action === 'list') {
 
 // ═══ Send new announcement (admin/owner/developer only) ═══
 if ($action === 'send' && $_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!$isOwnerAdmin) {
+    if (!$canSend) {
         echo json_encode(['success' => false, 'message' => 'Tidak diizinkan']);
         exit;
     }
@@ -62,7 +79,7 @@ if ($action === 'send' && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // ═══ Delete announcement (admin/owner/developer only) ═══
 if ($action === 'delete' && $_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!$isOwnerAdmin) {
+    if (!$canDelete) {
         echo json_encode(['success' => false, 'message' => 'Tidak diizinkan']);
         exit;
     }

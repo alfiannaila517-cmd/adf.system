@@ -33,8 +33,21 @@
            <script>
                // Initialize notification polling for owner/admin
                <?php
-                $userRole = $_SESSION['role'] ?? '';
-                $isOwnerAdmin = in_array($userRole, ['owner', 'admin', 'developer']);
+                   $userRole = $_SESSION['role'] ?? '';
+                   $isOwnerAdmin = in_array($userRole, ['owner', 'admin', 'developer']);
+
+                   $canStaffChatAccess = $isOwnerAdmin;
+                   $canStaffChatSend = $isOwnerAdmin;
+                   $canStaffChatDelete = $isOwnerAdmin;
+                   if (!$canStaffChatAccess && isset($auth) && method_exists($auth, 'hasPermission')) {
+                       $canStaffChatAccess = $auth->hasPermission('staff_chat') || $auth->hasPermission('staff_messages');
+                   }
+                   if (!$canStaffChatSend && isset($auth) && method_exists($auth, 'canCreate')) {
+                       $canStaffChatSend = $auth->canCreate('staff_chat') || $auth->canCreate('staff_messages');
+                   }
+                   if (!$canStaffChatDelete && isset($auth) && method_exists($auth, 'canDelete')) {
+                       $canStaffChatDelete = $auth->canDelete('staff_chat') || $auth->canDelete('staff_messages');
+                   }
                 ?>
                <?php if ($isOwnerAdmin): ?>
                        (function() {
@@ -88,7 +101,7 @@
            </script>
 
            <!-- Push Notification Enable Prompt -->
-           <?php if ($isOwnerAdmin): ?>
+           <?php if ($canStaffChatAccess): ?>
                <div id="pushPrompt" style="display:none;position:fixed;bottom:24px;right:24px;z-index:9999;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;padding:16px 20px;border-radius:14px;box-shadow:0 8px 32px rgba(102,126,234,.4);max-width:340px;font-size:0.9rem;animation:slideUpIn .4s ease;">
                    <div style="display:flex;align-items:flex-start;gap:12px;">
                        <span style="font-size:1.5rem;line-height:1;">🔔</span>
@@ -407,15 +420,23 @@
                        <span class="acp-head-title"><span class="acp-head-icon">&#128172;</span><span>Pesan ke Staff</span></span>
                        <span class="acp-close" onclick="toggleAdminChat()">✕</span>
                    </div>
-                   <div class="acp-compose">
-                       <textarea id="adminChatText" placeholder="Tulis pesan untuk semua staff..."></textarea>
-                       <button onclick="sendAdminChat()">Kirim Pesan</button>
-                   </div>
+                   <?php if ($canStaffChatSend): ?>
+                       <div class="acp-compose">
+                           <textarea id="adminChatText" placeholder="Tulis pesan untuk semua staff..."></textarea>
+                           <button onclick="sendAdminChat()">Kirim Pesan</button>
+                       </div>
+                   <?php else: ?>
+                       <div class="acp-compose" style="padding:10px 12px;color:#64748b;font-size:12px;">
+                           Anda hanya bisa melihat pengumuman.
+                       </div>
+                   <?php endif; ?>
                    <div class="acp-list" id="adminChatList">
                        <div class="acp-empty">Memuat...</div>
                    </div>
                </div>
                <script>
+                   const ADMIN_CHAT_CAN_SEND = <?php echo $canStaffChatSend ? 'true' : 'false'; ?>;
+                   const ADMIN_CHAT_CAN_DELETE = <?php echo $canStaffChatDelete ? 'true' : 'false'; ?>;
                    let adminChatOpen = false;
 
                    function toggleAdminChat() {
@@ -437,9 +458,9 @@
                            if (msgs.length === 0) {
                                listEl.innerHTML = '<div class="acp-empty">Belum ada pengumuman</div>';
                            } else {
-                               listEl.innerHTML = msgs.map(m => `
+                                   listEl.innerHTML = msgs.map(m => `
                    <div class="acp-msg">
-                       <span class="acp-del" onclick="deleteAdminChat(${m.id})">✕</span>
+                               ${ADMIN_CHAT_CAN_DELETE ? `<span class="acp-del" onclick="deleteAdminChat(${m.id})">✕</span>` : ''}
                        <div class="acp-meta">${m.created_by_name || 'Admin'} · ${m.created_at}</div>
                        <div class="acp-text">${(m.message || '').replace(/</g, '&lt;')}</div>
                    </div>`).join('');
@@ -449,7 +470,9 @@
                        }
                    }
                    async function sendAdminChat() {
+                       if (!ADMIN_CHAT_CAN_SEND) return;
                        const textEl = document.getElementById('adminChatText');
+                       if (!textEl) return;
                        const message = textEl.value.trim();
                        if (!message) return;
                        try {
@@ -472,6 +495,7 @@
                        }
                    }
                    async function deleteAdminChat(id) {
+                       if (!ADMIN_CHAT_CAN_DELETE) return;
                        if (!confirm('Hapus pengumuman ini?')) return;
                        try {
                            await fetch('<?php echo BASE_URL; ?>/api/staff-chat.php?action=delete', {
