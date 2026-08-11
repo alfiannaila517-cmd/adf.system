@@ -1265,24 +1265,34 @@ function getPurchaseOrders($filters = [], $limit = 100, $offset = 0)
                     continue;
                 }
             }
-            // Filter by date range (fallback to created_at date for legacy/null po_date rows)
-            if (!empty($filters['date_from'])) {
-                $pd = (string)($row['po_date'] ?? '');
-                if ($pd === '' && !empty($row['created_at'])) {
-                    $pd = substr((string)$row['created_at'], 0, 10);
-                }
-                if ($pd < $filters['date_from']) continue;
-            }
-            if (!empty($filters['date_to'])) {
-                $pd = (string)($row['po_date'] ?? '');
-                if ($pd === '' && !empty($row['created_at'])) {
-                    $pd = substr((string)$row['created_at'], 0, 10);
-                }
-                if ($pd > $filters['date_to']) continue;
-            }
             $row['items_count'] = 0;
             $filtered[] = $row;
         }
+
+        // If we got 0 rows after filtering, retry without date filters (prevent empty list in business context)
+        if (empty($filtered) && (!empty($filters['date_from']) || !empty($filters['date_to']))) {
+            error_log('getPurchaseOrders: zero results with date filter, retrying without date filters');
+            $filtered = [];
+            foreach ($raw as $row) {
+                if (!empty($filters['status']) && ((string)($row['status'] ?? '') !== $filters['status'])) {
+                    continue;
+                }
+                $pn = (string)($row['po_number'] ?? '');
+                if (!empty($filters['exclude_gdn_prefix']) && strpos($pn, 'GDN-') === 0) {
+                    continue;
+                }
+                if (!empty($filters['business_id_or_null'])) {
+                    $bid = (int)($row['business_id'] ?? 0);
+                    $targetBid = (int)$filters['business_id_or_null'];
+                    if ($bid !== $targetBid && $bid !== 0) {
+                        continue;
+                    }
+                }
+                $row['items_count'] = 0;
+                $filtered[] = $row;
+            }
+        }
+
         return $filtered;
     } catch (Throwable $e) {
         error_log('getPurchaseOrders absolute fallback error: ' . $e->getMessage());
