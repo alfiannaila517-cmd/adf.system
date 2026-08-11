@@ -110,10 +110,17 @@ $interTransferOutMap = [];
 $masterPdo = null;
 $gudangDbNameResolved = '';
 $stockMetaMap = [];
+$manualCatalogByName = [];
+$manualItemSuggestions = [];
 
 // Build map by item+unit for precise adjustments
 $buildKey = function ($itemName, $unit) {
     return strtolower(trim((string)$itemName)) . '||' . strtolower(trim((string)$unit));
+};
+
+$normalizeItemName = function ($value) {
+    $value = preg_replace('/\s+/', ' ', trim((string)$value));
+    return strtolower($value ?? '');
 };
 
 $getMapQty = function ($map, $key) {
@@ -307,6 +314,28 @@ if ($activeBusinessId > 0) {
     } catch (Throwable $e) {
         $manualStockMap = [];
     }
+
+    try {
+        $manualEntryRows = $db->fetchAll(
+            'SELECT item_name, category, unit FROM business_manual_stock_entries WHERE business_id = ? ORDER BY created_at DESC, id DESC',
+            [$activeBusinessId]
+        );
+
+        foreach ($manualEntryRows as $entryRow) {
+            $normalizedName = $normalizeItemName($entryRow['item_name'] ?? '');
+            if ($normalizedName === '' || isset($manualCatalogByName[$normalizedName])) {
+                continue;
+            }
+
+            $manualCatalogByName[$normalizedName] = [
+                'item_name' => trim((string)($entryRow['item_name'] ?? '')),
+                'category' => trim((string)($entryRow['category'] ?? '')),
+                'unit' => trim((string)($entryRow['unit'] ?? '')) !== '' ? trim((string)$entryRow['unit']) : 'pcs',
+            ];
+        }
+    } catch (Throwable $e) {
+        $manualCatalogByName = [];
+    }
 }
 
 if ($activeBusinessId > 0) {
@@ -386,6 +415,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $unit = trim((string)($_POST['unit'] ?? 'pcs'));
     $qty = (float)($_POST['quantity'] ?? 0);
     $notes = trim((string)($_POST['notes'] ?? ''));
+
+    $normalizedInputName = $normalizeItemName($itemName);
+    if ($normalizedInputName !== '') {
+        foreach ($stockMetaMap as $meta) {
+            $candidateName = (string)($meta['item_name'] ?? '');
+            if ($normalizeItemName($candidateName) === $normalizedInputName) {
+                $itemName = $candidateName;
+                if ($unit === '' || strtolower($unit) === 'pcs') {
+                    $metaUnit = trim((string)($meta['unit'] ?? ''));
+                    if ($metaUnit !== '') {
+                        $unit = $metaUnit;
+                    }
+                }
+                break;
+            }
+        }
+
+        if (($category === '' || strtolower($category) === 'lainnya') && isset($manualCatalogByName[$normalizedInputName])) {
+            $knownCategory = trim((string)($manualCatalogByName[$normalizedInputName]['category'] ?? ''));
+            if ($knownCategory !== '') {
+                $category = $knownCategory;
+            }
+        }
+    }
 
     if ($activeBusinessId <= 0 || $itemName === '' || $qty <= 0) {
         $_SESSION['error'] = 'Data stok manual tidak valid.';
@@ -580,6 +633,43 @@ if ($activeBusinessId > 0) {
     usort($stockSummary, function ($a, $b) {
         return strcasecmp((string)$a['item_name'], (string)$b['item_name']);
     });
+}
+
+// Build autocomplete source from manual entries + existing stock names.
+foreach ($manualCatalogByName as $normalizedName => $entry) {
+    if ($normalizedName !== '') {
+        $manualItemSuggestions[$normalizedName] = $entry;
+    }
+}
+
+foreach ($stockMetaMap as $meta) {
+    $name = trim((string)($meta['item_name'] ?? ''));
+    $unit = trim((string)($meta['unit'] ?? ''));
+    $normalizedName = $normalizeItemName($name);
+    if ($normalizedName === '') {
+        continue;
+    }
+
+    if (!isset($manualItemSuggestions[$normalizedName])) {
+        $manualItemSuggestions[$normalizedName] = [
+            'item_name' => $name,
+            'category' => '',
+            'unit' => $unit !== '' ? $unit : 'pcs',
+        ];
+    }
+}
+
+uasort($manualItemSuggestions, function ($a, $b) {
+    return strcasecmp((string)($a['item_name'] ?? ''), (string)($b['item_name'] ?? ''));
+});
+
+$manualItemMetaJs = [];
+foreach ($manualItemSuggestions as $normalizedName => $entry) {
+    $manualItemMetaJs[$normalizedName] = [
+        'item_name' => (string)($entry['item_name'] ?? ''),
+        'category' => (string)($entry['category'] ?? ''),
+        'unit' => (string)($entry['unit'] ?? 'pcs'),
+    ];
 }
 
 $totalQtyVisible = 0;
@@ -954,15 +1044,15 @@ include '../../includes/header.php';
             <div class="manual-stock-grid">
                 <div>
                     <label class="form-label">Nama item</label>
-                    <input type="text" name="item_name" class="form-control" placeholder="Contoh: Gula Pasir" required>
+                    <input type="text" name="item_name" id="manual_item_name" class="form-control" list="manualStockItemList" autocomplete="off" placeholder="Contoh: Gula Pasir" required>
                 </div>
                 <div>
                     <label class="form-label">Kategori</label>
-                    <input type="text" name="category" class="form-control" list="manualStockCategoryList" placeholder="Bahan" required>
+                    <input type="text" name="category" id="manual_item_category" class="form-control" list="manualStockCategoryList" placeholder="Bahan" required>
                 </div>
                 <div>
                     <label class="form-label">Unit</label>
-                    <input type="text" name="unit" class="form-control" value="pcs" required>
+                    <input type="text" name="unit" id="manual_item_unit" class="form-control" value="pcs" required>
                 </div>
                 <div>
                     <label class="form-label">Qty</label>
@@ -983,6 +1073,12 @@ include '../../includes/header.php';
                 <option value="Kebersihan"></option>
                 <option value="Perlengkapan"></option>
                 <option value="Lainnya"></option>
+            </datalist>
+
+            <datalist id="manualStockItemList">
+                <?php foreach ($manualItemSuggestions as $entry): ?>
+                    <option value="<?php echo htmlspecialchars((string)($entry['item_name'] ?? '')); ?>"></option>
+                <?php endforeach; ?>
             </datalist>
 
             <div class="manual-stock-actions">
@@ -1051,15 +1147,64 @@ include '../../includes/header.php';
 </div>
 
 <script>
+    var manualItemMeta = <?php echo json_encode($manualItemMetaJs, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
+
+    function normalizeManualName(value) {
+        return String(value || '').toLowerCase().trim().replace(/\s+/g, ' ');
+    }
+
+    function applyExistingManualItemMeta() {
+        var nameInput = document.getElementById('manual_item_name');
+        var categoryInput = document.getElementById('manual_item_category');
+        var unitInput = document.getElementById('manual_item_unit');
+
+        if (!nameInput || !categoryInput || !unitInput) {
+            return;
+        }
+
+        var key = normalizeManualName(nameInput.value);
+        if (!key || !manualItemMeta[key]) {
+            return;
+        }
+
+        var existing = manualItemMeta[key];
+        if (existing.item_name) {
+            nameInput.value = existing.item_name;
+        }
+        if (existing.category && categoryInput.value.trim() === '') {
+            categoryInput.value = existing.category;
+        }
+        if (existing.unit && (unitInput.value.trim() === '' || unitInput.value.toLowerCase().trim() === 'pcs')) {
+            unitInput.value = existing.unit;
+        }
+    }
+
     function openManualStockModal() {
         var modal = document.getElementById('manualStockModal');
         modal.style.display = 'flex';
+
+        var nameInput = document.getElementById('manual_item_name');
+        if (nameInput) {
+            setTimeout(function() {
+                nameInput.focus();
+            }, 80);
+        }
     }
 
     function closeManualStockModal() {
         var modal = document.getElementById('manualStockModal');
         modal.style.display = 'none';
     }
+
+    (function bindManualStockAutocomplete() {
+        var nameInput = document.getElementById('manual_item_name');
+        if (!nameInput) {
+            return;
+        }
+
+        nameInput.addEventListener('change', applyExistingManualItemMeta);
+        nameInput.addEventListener('blur', applyExistingManualItemMeta);
+    })();
 
     function openTransferModal(itemName, unit, maxQty) {
         var modal = document.getElementById('transferStockModal');
