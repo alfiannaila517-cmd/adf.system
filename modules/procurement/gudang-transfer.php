@@ -388,7 +388,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $sep = strpos($redirectBase, '?') !== false ? '&' : '?';
     if ($result['success']) {
-        header('Location: ' . $redirectBase . $sep . 'transfer_ok=1&biz=' . urlencode($result['business_name'] ?? $resolvedBizName));
+        $redirectParams = [
+            'transfer_ok' => '1',
+            'biz' => (string)($result['business_name'] ?? $resolvedBizName),
+            'tn' => (string)($result['transfer_number'] ?? ''),
+            'tq' => (string)number_format((float)($result['total_qty'] ?? 0), 2, '.', ''),
+            'ic' => (string)count($transferItems),
+        ];
+        header('Location: ' . $redirectBase . $sep . http_build_query($redirectParams));
     } else {
         header('Location: ' . $redirectBase . $sep . 'transfer_err=' . urlencode($result['message']));
     }
@@ -413,8 +420,24 @@ include '../../includes/header.php';
 </div>
 
 <?php if (!empty($_GET['transfer_ok'])): ?>
-    <div class="alert alert-success" id="transferResult">
-        ✅ Barang berhasil ditransfer ke <strong><?php echo htmlspecialchars((string)($_GET['biz'] ?? '')); ?></strong>!
+    <div class="alert alert-success" id="transferResult" style="border-left:4px solid #16a34a; background:linear-gradient(135deg,#ecfdf3,#f0fdf4);">
+        <div style="display:flex; gap:0.8rem; align-items:flex-start;">
+            <div style="font-size:1.2rem; line-height:1;">✅</div>
+            <div>
+                <div style="font-weight:700; color:#166534; margin-bottom:0.25rem;">Transfer Berhasil Dikirim</div>
+                <div style="color:#166534; font-size:0.92rem;">
+                    Barang berhasil ditransfer ke <strong><?php echo htmlspecialchars((string)($_GET['biz'] ?? '')); ?></strong>
+                    <?php if (!empty($_GET['tn'])): ?>
+                        dengan nomor <strong><?php echo htmlspecialchars((string)$_GET['tn']); ?></strong>
+                    <?php endif; ?>.
+                </div>
+                <div style="margin-top:0.35rem; color:#065f46; font-size:0.82rem;">
+                    Total Qty: <strong><?php echo htmlspecialchars((string)($_GET['tq'] ?? '0')); ?></strong>
+                    | Item Terkirim: <strong><?php echo htmlspecialchars((string)($_GET['ic'] ?? '0')); ?></strong>
+                    | Riwayat transfer di samping sudah otomatis ter-update.
+                </div>
+            </div>
+        </div>
         <script>
             document.getElementById('transferResult').scrollIntoView({
                 behavior: 'smooth'

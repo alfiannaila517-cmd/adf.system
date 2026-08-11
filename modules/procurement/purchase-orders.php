@@ -236,6 +236,51 @@ if ($isGudang) {
     }
 }
 
+$gudangTransferHistory = [];
+$gudangTransferStats = [
+    'narayana' => ['label' => 'Narayana Hotel', 'count' => 0, 'qty' => 0],
+    'bens' => ['label' => 'Bens Cafe', 'count' => 0, 'qty' => 0],
+    'eatmeet' => ['label' => 'Eat Meet', 'count' => 0, 'qty' => 0],
+];
+
+if ($isGudang) {
+    try {
+        $gudangCfgPath = __DIR__ . '/../../config/businesses/gudang-nasita.php';
+        if (file_exists($gudangCfgPath)) {
+            $gudangCfg = require $gudangCfgPath;
+            $gudangDbName = (string)($gudangCfg['database'] ?? '');
+            if ($gudangDbName !== '') {
+                Database::switchDatabase($gudangDbName);
+            }
+        }
+
+        $gudangTransferHistory = getGudangNasitaTransfers(120);
+
+        foreach ($gudangTransferHistory as $t) {
+            $bizNameNorm = strtolower(preg_replace('/[^a-z0-9]/', '', (string)($t['target_business_name'] ?? '')));
+            $qty = (float)($t['total_qty'] ?? 0);
+
+            if (strpos($bizNameNorm, 'narayana') !== false || strpos($bizNameNorm, 'hotel') !== false) {
+                $bucket = 'narayana';
+            } elseif (strpos($bizNameNorm, 'bens') !== false || strpos($bizNameNorm, 'cafe') !== false) {
+                $bucket = 'bens';
+            } elseif (strpos($bizNameNorm, 'eatmeet') !== false || strpos($bizNameNorm, 'eaatmeet') !== false || strpos($bizNameNorm, 'eat') !== false) {
+                $bucket = 'eatmeet';
+            } else {
+                $bucket = null;
+            }
+
+            if ($bucket !== null) {
+                $gudangTransferStats[$bucket]['count']++;
+                $gudangTransferStats[$bucket]['qty'] += $qty;
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('purchase-orders gudang transfer history error: ' . $e->getMessage());
+        $gudangTransferHistory = [];
+    }
+}
+
 include '../../includes/header.php';
 ?>
 
@@ -398,6 +443,56 @@ include '../../includes/header.php';
         </div>
     </div>
 </div>
+
+<?php if ($isGudang): ?>
+    <div class="card" style="margin-bottom:1.25rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; margin-bottom:0.9rem;">
+            <h3 style="font-size:1rem; font-weight:700; margin:0;">Riwayat Transfer Gudang (3 Bisnis)</h3>
+            <span style="font-size:0.8rem; color:var(--text-muted);">History langsung ter-update setelah transfer sukses</span>
+        </div>
+
+        <div style="display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:0.75rem; margin-bottom:0.95rem;">
+            <?php foreach ($gudangTransferStats as $stat): ?>
+                <div style="padding:0.75rem 0.9rem; border:1px solid #dbeafe; border-radius:0.7rem; background:linear-gradient(150deg,#f8fbff,#ffffff);">
+                    <div style="font-size:0.76rem; color:#475569; margin-bottom:0.2rem;"><?php echo htmlspecialchars($stat['label']); ?></div>
+                    <div style="font-size:1.2rem; font-weight:800; color:#0f172a;"><?php echo (int)$stat['count']; ?> transfer</div>
+                    <div style="font-size:0.78rem; color:#0f766e;">Total Qty: <?php echo number_format((float)$stat['qty'], 2); ?></div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>No Transfer</th>
+                        <th>Bisnis Tujuan</th>
+                        <th>Tanggal</th>
+                        <th class="text-right">Qty</th>
+                        <th class="text-center">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($gudangTransferHistory)): ?>
+                        <tr>
+                            <td colspan="5" style="text-align:center; color:var(--text-muted); padding:1.5rem;">Belum ada riwayat transfer gudang.</td>
+                        </tr>
+                    <?php else: ?>
+                        <?php foreach (array_slice($gudangTransferHistory, 0, 20) as $t): ?>
+                            <tr>
+                                <td style="font-weight:700;"><?php echo htmlspecialchars((string)($t['transfer_number'] ?? $t['no_transfer'] ?? '-')); ?></td>
+                                <td><?php echo htmlspecialchars((string)($t['target_business_name'] ?? '-')); ?></td>
+                                <td><?php echo !empty($t['created_at']) ? date('d M Y H:i', strtotime((string)$t['created_at'])) : '-'; ?></td>
+                                <td class="text-right" style="font-weight:700;"><?php echo number_format((float)($t['total_qty'] ?? 0), 2); ?></td>
+                                <td class="text-center"><span class="badge badge-secondary"><?php echo strtoupper((string)($t['status'] ?? '-')); ?></span></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+<?php endif; ?>
 
 <!-- Filter Section -->
 <div class="card" style="margin-bottom: 1.25rem;">
