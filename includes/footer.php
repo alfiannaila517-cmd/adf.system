@@ -33,8 +33,8 @@
            <script>
                // Initialize notification polling for owner/admin
                <?php
-                   $userRole = $_SESSION['role'] ?? '';
-                   $isOwnerAdmin = in_array($userRole, ['owner', 'admin', 'developer']);
+                   $userRole = strtolower((string)($_SESSION['role'] ?? ''));
+                   $isOwnerAdmin = in_array($userRole, ['owner', 'admin', 'developer', 'manager'], true);
 
                    $canStaffChatAccess = $isOwnerAdmin;
                    $canStaffChatSend = $isOwnerAdmin;

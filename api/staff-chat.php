@@ -34,7 +34,8 @@ try {
 } catch (Exception $e) {
 }
 
-$isOwnerAdmin = in_array($user['role'] ?? '', ['owner', 'admin', 'developer']);
+$userRole = strtolower((string)($user['role'] ?? ''));
+$isOwnerAdmin = in_array($userRole, ['owner', 'admin', 'developer', 'manager'], true);
 $canView = $isOwnerAdmin;
 $canSend = $isOwnerAdmin;
 $canDelete = $isOwnerAdmin;
