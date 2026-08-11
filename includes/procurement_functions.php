@@ -1062,15 +1062,56 @@ function transferGudangNasitaStock($targetBusinessId, array $items, $createdBy, 
 
         $transferNumber = generateGudangNasitaTransferNumber();
 
-        $transferId = $db->insert('gudang_nasita_transfers', [
-            'transfer_number' => $transferNumber,
-            'target_business_id' => $targetBusinessId,
-            'target_business_name' => $business['business_name'],
-            'source_po_id' => $sourcePoId,
-            'status' => 'received',
-            'notes' => $notes,
-            'created_by' => $createdBy
-        ]);
+        $transferColsRaw = $db->fetchAll('SHOW COLUMNS FROM gudang_nasita_transfers');
+        $transferCols = [];
+        foreach ($transferColsRaw as $col) {
+            $field = strtolower((string)($col['Field'] ?? ''));
+            if ($field !== '') {
+                $transferCols[$field] = true;
+            }
+        }
+
+        $transferData = [];
+
+        if (isset($transferCols['transfer_number'])) {
+            $transferData['transfer_number'] = $transferNumber;
+        }
+        if (isset($transferCols['no_transfer'])) {
+            $transferData['no_transfer'] = $transferNumber;
+        }
+
+        if (isset($transferCols['target_business_id'])) {
+            $transferData['target_business_id'] = $targetBusinessId;
+        }
+        if (isset($transferCols['bisnis_tujuan_id'])) {
+            $transferData['bisnis_tujuan_id'] = $targetBusinessId;
+        }
+
+        if (isset($transferCols['target_business_name'])) {
+            $transferData['target_business_name'] = $business['business_name'];
+        }
+        if (isset($transferCols['source_po_id'])) {
+            $transferData['source_po_id'] = $sourcePoId;
+        }
+        if (isset($transferCols['status'])) {
+            $transferData['status'] = 'received';
+        }
+
+        if (isset($transferCols['notes'])) {
+            $transferData['notes'] = $notes;
+        }
+        if (isset($transferCols['catatan'])) {
+            $transferData['catatan'] = $notes;
+        }
+
+        if (isset($transferCols['tanggal_transfer'])) {
+            $transferData['tanggal_transfer'] = date('Y-m-d');
+        }
+        if (isset($transferCols['created_by'])) {
+            $transferData['created_by'] = $createdBy;
+        }
+
+        $transferId = $db->insert('gudang_nasita_transfers', $transferData);
 
         $totalQty = 0;
         foreach ($items as $item) {
