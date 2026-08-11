@@ -472,7 +472,9 @@ include '../../includes/header.php';
                             <td style="font-size: 0.813rem;"><?php echo $po['created_by_name']; ?></td>
                             <td>
                                 <div class="po-action-group">
-                                    <a href="view-po.php?id=<?php echo $po['id']; ?>" class="po-action-btn view" title="View">
+                                    <a href="<?php echo $isGudang
+                                                    ? ('open-po.php?id=' . (int)$po['id'] . '&po_business=' . urlencode((string)($po['source_business_slug'] ?? '')) . '&po_number=' . urlencode((string)($po['po_number'] ?? '')))
+                                                    : ('view-po.php?id=' . (int)$po['id']); ?>" class="po-action-btn view" title="View">
                                         <i data-feather="eye"></i>
                                     </a>
 

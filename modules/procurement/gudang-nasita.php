@@ -615,7 +615,7 @@ include '../../includes/header.php';
                             <div style="font-size:0.812rem; color:var(--text-muted);">Status: <?php echo htmlspecialchars($po['status']); ?></div>
                             <div style="font-size:0.812rem; color:var(--text-muted);"><?php echo (int)$po['items_count']; ?> item</div>
                             <div style="display:flex; gap:0.5rem; margin-top:0.5rem; flex-wrap:wrap;">
-                                <a href="view-po.php?id=<?php echo (int)$po['id']; ?>&po_business=<?php echo urlencode((string)($po['source_business_slug'] ?? '')); ?>&po_number=<?php echo urlencode((string)($po['po_number'] ?? '')); ?>" class="btn btn-sm btn-primary">Buka PO</a>
+                                <a href="open-po.php?id=<?php echo (int)$po['id']; ?>&po_business=<?php echo urlencode((string)($po['source_business_slug'] ?? '')); ?>&po_number=<?php echo urlencode((string)($po['po_number'] ?? '')); ?>" class="btn btn-sm btn-primary">Buka PO</a>
                                 <a href="gudang-transfer.php?po_id=<?php echo (int)$po['id']; ?>&po_business=<?php echo urlencode((string)($po['source_business_slug'] ?? '')); ?>" class="btn btn-sm btn-success">Siapkan Transfer</a>
                                 <form method="POST" style="display:inline;" onsubmit="return confirm('Batalkan permintaan PO ini?')">
                                     <input type="hidden" name="action" value="cancel_pending_po">
