@@ -11,11 +11,21 @@ $auth->requireLogin();
 
 // Get active business ID for database switching and redirect parameter
 $activeBusinessId = isset($_SESSION['active_business_id']) ? (string)$_SESSION['active_business_id'] : '';
+$activeBusinessSlug = strtolower($activeBusinessId);
+
+// Keep DB routing identical with purchase-orders.php
+$businessDatabases = [
+    'narayana-hotel' => 'adf_narayana_hotel',
+    'bens-cafe' => 'adf_benscafe',
+    'eaat-meet' => 'adf_eat_meet',
+    'eat-meet' => 'adf_eat_meet'
+];
 
 // Switch to active business database
 $businessConfig = getActiveBusinessConfig();
-if (!empty($businessConfig['database'])) {
-    Database::switchDatabase($businessConfig['database']);
+$resolvedBusinessDb = $businessDatabases[$activeBusinessSlug] ?? ($businessConfig['database'] ?? null);
+if (!empty($resolvedBusinessDb)) {
+    Database::switchDatabase($resolvedBusinessDb);
 }
 
 $db = Database::getInstance();

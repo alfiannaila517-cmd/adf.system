@@ -126,6 +126,23 @@ if ($isGudang) {
             LIMIT 100
         ");
 
+        // Hard fallback for legacy schemas: no joins, no subqueries.
+        // If joins fail or return empty due schema mismatch, still show PO headers.
+        if (empty($purchase_orders)) {
+            $purchase_orders = $db->fetchAll("
+                SELECT
+                    poh.*,
+                    '' as supplier_name,
+                    '' as supplier_code,
+                    CAST(COALESCE(poh.created_by, 0) AS CHAR) as created_by_name,
+                    0 as items_count
+                FROM purchase_orders_header poh
+                WHERE poh.po_number NOT LIKE 'GDN-%'
+                ORDER BY poh.id DESC
+                LIMIT 100
+            ");
+        }
+
         // If still empty, force-fetch using slug-mapped DB to avoid any wrong active DB context.
         if (empty($purchase_orders)) {
             $forceDb = $businessDatabases[$activeBusinessSlug] ?? null;
@@ -133,15 +150,13 @@ if ($isGudang) {
                 Database::switchDatabase($forceDb);
                 $forcedDb = Database::getInstance();
                 $purchase_orders = $forcedDb->fetchAll("
-                    SELECT 
+                    SELECT
                         poh.*,
-                        s.supplier_name,
-                        s.supplier_code,
-                        u.full_name as created_by_name,
-                        (SELECT COUNT(*) FROM purchase_orders_detail pod WHERE pod.po_header_id = poh.id) as items_count
+                        '' as supplier_name,
+                        '' as supplier_code,
+                        CAST(COALESCE(poh.created_by, 0) AS CHAR) as created_by_name,
+                        0 as items_count
                     FROM purchase_orders_header poh
-                    LEFT JOIN suppliers s ON poh.supplier_id = s.id
-                    LEFT JOIN users u ON poh.created_by = u.id
                     WHERE poh.po_number NOT LIKE 'GDN-%'
                     ORDER BY poh.id DESC
                     LIMIT 100
