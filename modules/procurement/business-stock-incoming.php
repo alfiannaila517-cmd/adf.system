@@ -937,8 +937,8 @@ include '../../includes/header.php';
     <div class="card manual-stock-panel">
         <div class="manual-stock-head">
             <div>
-                <div class="manual-stock-title">Tambah Stok Manual</div>
-                <div class="manual-stock-subtitle">Gunakan untuk stok awal atau barang lokal yang tidak datang dari Gudang Nasita.</div>
+                <div class="manual-stock-title" style="color:#ffffff !important;">Tambah Stok Manual</div>
+                <div class="manual-stock-subtitle" style="color:#ffffff !important; opacity:0.95;">Gunakan untuk stok awal atau barang lokal yang tidak datang dari Gudang Nasita.</div>
             </div>
             <button type="button" class="manual-stock-close" onclick="closeManualStockModal()" aria-label="Tutup popup">&times;</button>
         </div>
