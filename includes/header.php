@@ -761,24 +761,6 @@ if (isset($_SESSION['user_id'])) {
                             </li>
                         <?php endif; ?>
 
-                        <?php if ($auth->hasPermission('procurement_po')): ?>
-                            <li class="nav-item">
-                                <a href="<?php echo BASE_URL; ?>/modules/procurement/purchase-orders.php" class="nav-link <?php echo activeMenu('purchase-orders.php'); ?>">
-                                    <i data-feather="clipboard" class="nav-icon"></i>
-                                    <span>PO Gudang</span>
-                                </a>
-                            </li>
-                        <?php endif; ?>
-
-                        <?php if ($auth->hasPermission('procurement_stock')): ?>
-                            <li class="nav-item">
-                                <a href="<?php echo BASE_URL; ?>/modules/procurement/business-stock-incoming.php" class="nav-link <?php echo activeMenu('business-stock-incoming.php'); ?>">
-                                    <i data-feather="inbox" class="nav-icon"></i>
-                                    <span>Stock Gudang</span>
-                                </a>
-                            </li>
-                        <?php endif; ?>
-
                         <?php if ($auth->hasPermission('cashbook')): ?>
                             <li class="nav-item">
                                 <a href="<?php echo BASE_URL; ?>/modules/cashbook/index.php" class="nav-link <?php echo activeMenu('cashbook'); ?>">
@@ -973,6 +955,34 @@ if (isset($_SESSION['user_id'])) {
                                         </a>
                                     </li>
 
+                                </ul>
+                            </li>
+                        <?php endif; ?>
+
+                        <?php $showPurchaseMenu = (!$isGudangNasitaContext && ($auth->hasPermission('procurement_po') || $auth->hasPermission('procurement_stock'))); ?>
+                        <?php if ($showPurchaseMenu): ?>
+                            <li class="nav-item has-submenu <?php echo (activeMenu('purchase-orders.php') || activeMenu('business-stock-incoming.php')) ? 'open' : ''; ?>">
+                                <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo (activeMenu('purchase-orders.php') || activeMenu('business-stock-incoming.php')) ? 'active' : ''; ?>">
+                                    <i data-feather="shopping-bag" class="nav-icon"></i>
+                                    <span>Purchase</span>
+                                </a>
+                                <ul class="submenu">
+                                    <?php if ($auth->hasPermission('procurement_po')): ?>
+                                        <li class="submenu-item">
+                                            <a href="<?php echo BASE_URL; ?>/modules/procurement/purchase-orders.php" class="submenu-link <?php echo activeMenu('purchase-orders.php'); ?>">
+                                                <i data-feather="clipboard" class="submenu-icon"></i>
+                                                <span>PO Gudang</span>
+                                            </a>
+                                        </li>
+                                    <?php endif; ?>
+                                    <?php if ($auth->hasPermission('procurement_stock')): ?>
+                                        <li class="submenu-item">
+                                            <a href="<?php echo BASE_URL; ?>/modules/procurement/business-stock-incoming.php" class="submenu-link <?php echo activeMenu('business-stock-incoming.php'); ?>">
+                                                <i data-feather="inbox" class="submenu-icon"></i>
+                                                <span>Stock Gudang</span>
+                                            </a>
+                                        </li>
+                                    <?php endif; ?>
                                 </ul>
                             </li>
                         <?php endif; ?>
