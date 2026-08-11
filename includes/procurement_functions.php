@@ -685,6 +685,28 @@ function ensureGudangNasitaStockSchemaCompatibility()
     $db = Database::getInstance();
     $columns = gudangNasitaStockColumns();
 
+    $requiredColumns = [
+        'item_name' => "VARCHAR(200) NOT NULL DEFAULT ''",
+        'category' => "VARCHAR(80) DEFAULT 'lainnya'",
+        'unit' => "VARCHAR(20) DEFAULT 'pcs'",
+        'quantity' => "DECIMAL(15,2) NOT NULL DEFAULT 0",
+        'reorder_level' => "DECIMAL(15,2) DEFAULT 0",
+        'supplier_name' => "VARCHAR(150) NULL",
+        'notes' => "TEXT NULL",
+        'is_active' => "TINYINT(1) DEFAULT 1",
+        'created_at' => "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        'updated_at' => "TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+    ];
+
+    foreach ($requiredColumns as $col => $definition) {
+        if (!in_array($col, $columns, true)) {
+            $db->query("ALTER TABLE gudang_nasita_stock ADD COLUMN `{$col}` {$definition}");
+        }
+    }
+
+    // Refresh columns after potential ALTERs.
+    $columns = gudangNasitaStockColumns(true);
+
     if (!in_array('stock_code', $columns, true)) {
         // Add stock_code for compatibility with current procurement flow.
         $db->query('ALTER TABLE gudang_nasita_stock ADD COLUMN stock_code VARCHAR(30) NULL AFTER id');
@@ -694,8 +716,26 @@ function ensureGudangNasitaStockSchemaCompatibility()
 
         if (in_array('stock_code', $columns, true)) {
             $db->query("UPDATE gudang_nasita_stock SET stock_code = CONCAT('GN-', DATE_FORMAT(NOW(), '%Y%m'), '-', LPAD(id, 4, '0')) WHERE stock_code IS NULL OR stock_code = ''");
+        }
+    }
+
+    if (in_array('stock_code', $columns, true)) {
+        $db->query("UPDATE gudang_nasita_stock SET stock_code = CONCAT('GN-', DATE_FORMAT(NOW(), '%Y%m'), '-', LPAD(id, 4, '0')) WHERE stock_code IS NULL OR stock_code = ''");
+
+        $stockCodeIdx = $db->fetchOne("SHOW INDEX FROM gudang_nasita_stock WHERE Key_name = 'idx_stock_code'");
+        if (!$stockCodeIdx) {
             $db->query('ALTER TABLE gudang_nasita_stock ADD UNIQUE KEY idx_stock_code (stock_code)');
         }
+    }
+
+    $itemNameIdx = $db->fetchOne("SHOW INDEX FROM gudang_nasita_stock WHERE Key_name = 'idx_item_name'");
+    if (!$itemNameIdx) {
+        $db->query('ALTER TABLE gudang_nasita_stock ADD INDEX idx_item_name (item_name)');
+    }
+
+    $isActiveIdx = $db->fetchOne("SHOW INDEX FROM gudang_nasita_stock WHERE Key_name = 'idx_is_active'");
+    if (!$isActiveIdx) {
+        $db->query('ALTER TABLE gudang_nasita_stock ADD INDEX idx_is_active (is_active)');
     }
 }
 
