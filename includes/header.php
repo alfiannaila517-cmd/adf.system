@@ -459,7 +459,8 @@ try {
 </head>
 <?php
 // Load user theme from database per business (reliable method)
-$userTheme = 'dark';
+// Warehouse/gudang businesses default to light; others default to dark
+$userTheme = (defined('BUSINESS_TYPE') && BUSINESS_TYPE === 'warehouse') ? 'light' : 'dark';
 $themeError = null;
 
 if (isset($_SESSION['user_id'])) {
@@ -475,8 +476,10 @@ if (isset($_SESSION['user_id'])) {
 
         if ($themeResult && !empty($themeResult['theme'])) {
             $userTheme = $themeResult['theme'];
-        } else {
-            // Fallback: try to find any preference for this user
+        }
+        // For non-warehouse: fallback to any saved preference
+        // For warehouse: keep the light default (don't inherit dark from other businesses)
+        elseif (!defined('BUSINESS_TYPE') || BUSINESS_TYPE !== 'warehouse') {
             $fallbackTheme = $db->fetchOne(
                 "SELECT theme FROM user_preferences WHERE user_id = ? LIMIT 1",
                 [$_SESSION['user_id']]
@@ -487,9 +490,8 @@ if (isset($_SESSION['user_id'])) {
             }
         }
     } catch (Exception $e) {
-        $userTheme = 'dark';
         $themeError = $e->getMessage();
-        // Don't die, just use default theme
+        // keep the default set above
     }
 }
 ?>
