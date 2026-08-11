@@ -81,6 +81,20 @@ function createPurchaseOrder($supplier_id, $po_date, $items, $options = [])
         $line_number = 1;
         $validated_items = [];
 
+        $requireDivision = false;
+        try {
+            $detailCols = $db->fetchAll('SHOW COLUMNS FROM purchase_orders_detail');
+            $detailColNames = array_map(function ($row) {
+                return strtolower((string)($row['Field'] ?? ''));
+            }, $detailCols);
+            if (in_array('division_id', $detailColNames, true)) {
+                $divCountRow = $db->fetchOne('SELECT COUNT(*) AS total FROM divisions');
+                $requireDivision = ((int)($divCountRow['total'] ?? 0) > 0);
+            }
+        } catch (Throwable $e) {
+            $requireDivision = false;
+        }
+
         foreach ($items as $item) {
             // Validate each item
             if (empty($item['item_name'])) {
@@ -95,14 +109,16 @@ function createPurchaseOrder($supplier_id, $po_date, $items, $options = [])
                 throw new Exception("Valid unit price is required for line {$line_number}");
             }
 
-            if (empty($item['division_id']) || !is_numeric($item['division_id'])) {
-                throw new Exception("Division ID is required for line {$line_number}");
-            }
+            if ($requireDivision) {
+                if (empty($item['division_id']) || !is_numeric($item['division_id'])) {
+                    throw new Exception("Division ID is required for line {$line_number}");
+                }
 
-            // Verify division exists
-            $division = $db->fetchOne("SELECT id FROM divisions WHERE id = ?", [$item['division_id']]);
-            if (!$division) {
-                throw new Exception("Division not found for line {$line_number}");
+                // Verify division exists
+                $division = $db->fetchOne("SELECT id FROM divisions WHERE id = ?", [$item['division_id']]);
+                if (!$division) {
+                    throw new Exception("Division not found for line {$line_number}");
+                }
             }
 
             // Calculate subtotal
@@ -118,7 +134,7 @@ function createPurchaseOrder($supplier_id, $po_date, $items, $options = [])
                 'quantity' => $item['quantity'],
                 'unit_price' => $item['unit_price'],
                 'subtotal' => $subtotal,
-                'division_id' => $item['division_id'],
+                'division_id' => isset($item['division_id']) && is_numeric($item['division_id']) ? (int)$item['division_id'] : null,
                 'notes' => isset($item['notes']) ? trim($item['notes']) : null
             ];
 
@@ -417,7 +433,7 @@ function getGudangNasitaStock($limit = 200)
 function getGudangNasitaTransfers($limit = 50)
 {
     $db = Database::getInstance();
-    
+
     ensureGudangNasitaOperationalTablesCompatibility();
     return $db->fetchAll("\n        SELECT\n            gt.*,\n            u.full_name AS created_by_name,\n            r.full_name AS received_by_name,\n            COUNT(gti.id) AS items_count,\n            COALESCE(SUM(gti.quantity), 0) AS total_qty\n        FROM gudang_nasita_transfers gt\n        LEFT JOIN users u ON gt.created_by = u.id\n        LEFT JOIN users r ON gt.received_by = r.id\n        LEFT JOIN gudang_nasita_transfer_items gti ON gti.transfer_id = gt.id\n        GROUP BY gt.id\n        ORDER BY gt.created_at DESC\n        LIMIT {$limit}\n    ");
 }
@@ -936,7 +952,7 @@ function ensureGudangNasitaOperationalTablesCompatibility()
 function transferGudangNasitaStock($targetBusinessId, array $items, $createdBy, $notes = '', $sourcePoId = null, $businessName = null)
 {
     $db = Database::getInstance();
-    
+
     ensureGudangNasitaOperationalTablesCompatibility();
     try {
         if (empty($items)) {

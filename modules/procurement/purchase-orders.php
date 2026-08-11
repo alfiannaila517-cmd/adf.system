@@ -9,8 +9,9 @@ require_once '../../includes/procurement_functions.php';
 $auth = new Auth();
 $auth->requireLogin();
 
-// Check if user is gudang/warehouse - can see all businesses' POs
-$isGudang = $auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse');
+// Gudang mode must follow active business context, not global role/permission.
+$activeBusinessSlug = strtolower((string)($_SESSION['active_business_id'] ?? ''));
+$isGudang = ($activeBusinessSlug === 'gudang-nasita');
 
 // Map of business slugs to database names
 $businessDatabases = [
@@ -32,6 +33,7 @@ if (!$isGudang) {
     }
 }
 
+$db = Database::getInstance();
 $activeBusinessId = isset($_SESSION['business_id']) ? (int)$_SESSION['business_id'] : 0;
 
 // Get filters
@@ -40,9 +42,7 @@ $supplier_id = isset($_GET['supplier_id']) ? (int)$_GET['supplier_id'] : 0;
 $date_from = isset($_GET['date_from']) ? $_GET['date_from'] : date('Y-m-01');
 $date_to = isset($_GET['date_to']) ? $_GET['date_to'] : date('Y-m-t');
 
-$db = Database::getInstance();
-
-// Get suppliers for filter (from active business DB)
+// Get suppliers for filter
 $suppliers = $db->fetchAll("SELECT * FROM suppliers WHERE is_active = 1 ORDER BY supplier_name");
 
 // Build filters
@@ -51,29 +51,7 @@ if ($status) $filters['status'] = $status;
 if ($supplier_id > 0) $filters['supplier_id'] = $supplier_id;
 if ($date_from) $filters['date_from'] = $date_from;
 if ($date_to) $filters['date_to'] = $date_to;
-// Always exclude GDN-* gudang-supplier POs
-$filters['exclude_gdn_prefix'] = true;
-// Filter by current business (OR null for older POs)
-if ($activeBusinessId > 0 && !$isGudang) {
-    $filters['business_id_or_null'] = $activeBusinessId;
-}
-
-// Handle delete PO (draft/cancelled only)
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_po') {
-    $delId = (int)($_POST['po_id'] ?? 0);
-    if ($delId > 0) {
-        $poRow = $db->fetchOne('SELECT status FROM purchase_orders_header WHERE id = ? LIMIT 1', [$delId]);
-        if ($poRow && in_array($poRow['status'], ['draft', 'cancelled'])) {
-            $db->query('DELETE FROM purchase_orders_detail WHERE po_header_id = ?', [$delId]);
-            $db->query('DELETE FROM purchase_orders_header WHERE id = ?', [$delId]);
-            $_SESSION['success'] = 'PO berhasil dihapus.';
-        } elseif ($poRow) {
-            $_SESSION['error'] = 'Hanya PO berstatus Draft atau Cancelled yang bisa dihapus.';
-        }
-    }
-    header('Location: purchase-orders.php');
-    exit;
-}
+if ($activeBusinessId > 0 && !$isGudang) $filters['business_id'] = $activeBusinessId;
 
 // Get purchase orders
 if ($isGudang) {
@@ -84,7 +62,7 @@ if ($isGudang) {
         'adf_benscafe' => 'Bens Cafe',
         'adf_eat_meet' => 'Eat Meet'
     ];
-    
+
     foreach ($businessDatabases as $bizSlug => $bizDb) {
         try {
             Database::switchDatabase($bizDb);
@@ -113,15 +91,13 @@ if ($isGudang) {
             error_log("Error fetching POs from {$bizDb}: " . $e->getMessage());
         }
     }
-    
+
     // Sort all combined POs by date DESC
-    usort($purchase_orders, function($a, $b) {
+    usort($purchase_orders, function ($a, $b) {
         return strtotime($b['po_date'] ?? '0') - strtotime($a['po_date'] ?? '0');
     });
     $purchase_orders = array_slice($purchase_orders, 0, 50);
-    
 } else {
-    // Regular business user: only query their own DB
     $purchase_orders = getPurchaseOrders($filters, 50, 0);
 }
 
@@ -272,12 +248,12 @@ include '../../includes/header.php';
             <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem;">
                 📋 Purchase Orders
             </h2>
-            <p style="color: var(--text-muted); font-size: 0.875rem;">Permintaan barang ke Gudang Nasita</p>
+            <p style="color: var(--text-muted); font-size: 0.875rem;">Kelola PO internal bisnis untuk proses gudang dan transfer</p>
         </div>
         <div style="display: flex; gap: 0.75rem; align-items: center;">
             <a href="business-stock-incoming.php" class="btn btn-outline-secondary">
-                <i data-feather="package" style="width: 16px; height: 16px;"></i>
-                Stok &amp; Penerimaan Barang
+                <i data-feather="inbox" style="width: 16px; height: 16px;"></i>
+                Rekaman Stock Masuk
             </a>
             <a href="create-po.php" class="btn btn-primary">
                 <i data-feather="plus" style="width: 16px; height: 16px;"></i>
@@ -391,7 +367,8 @@ include '../../includes/header.php';
                             <?php endif; ?>
                             <td><?php echo date('d M Y', strtotime($po['po_date'])); ?></td>
                             <td>
-                                <div style="font-weight: 600;">Gudang Nasita</div>
+                                <div style="font-weight: 600;">Gudang Nasita (Internal)</div>
+                                <div style="font-size: 0.75rem; color: var(--text-muted);">Tanpa supplier eksternal</div>
                             </td>
                             <td>
                                 <?php
@@ -437,23 +414,14 @@ include '../../includes/header.php';
                                                 <i data-feather="send"></i>
                                             </button>
                                         </form>
-                                    <?php elseif ($po['status'] === 'submitted' && ($auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse'))): ?>
+                                    <?php elseif ($po['status'] === 'submitted' && $isGudang): ?>
                                         <a href="gudang-transfer.php?po_id=<?php echo (int)$po['id']; ?>" class="po-action-btn po-action-wide submit" title="Siapkan Transfer Gudang">
                                             <i data-feather="send"></i> Siapkan Transfer
                                         </a>
                                     <?php elseif ($po['status'] === 'submitted'): ?>
                                         <span class="badge badge-warning" style="font-size:0.75rem;">Menunggu Gudang</span>
                                     <?php elseif ($po['status'] === 'completed'): ?>
-                                        <span class="badge badge-success">✓ Selesai</span>
-                                    <?php endif; ?>
-                                    <?php if (in_array($po['status'], ['draft', 'cancelled'])): ?>
-                                        <form method="POST" style="display:inline;" onsubmit="return confirm('Hapus PO ini?')">
-                                            <input type="hidden" name="action" value="delete_po">
-                                            <input type="hidden" name="po_id" value="<?php echo (int)$po['id']; ?>">
-                                            <button type="submit" class="po-action-btn reject" title="Hapus PO">
-                                                <i data-feather="trash-2"></i>
-                                            </button>
-                                        </form>
+                                        <span class="badge badge-success">Transfer Selesai</span>
                                     <?php endif; ?>
                                 </div>
                             </td>

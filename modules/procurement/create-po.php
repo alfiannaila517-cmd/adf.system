@@ -119,7 +119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $result = createPurchaseOrder($supplier_id, $po_date, $items, [
             'expected_delivery_date' => $expected_delivery_date,
-            'status' => 'draft',
+            'status' => 'submitted',
             'notes' => $notes,
             'discount_amount' => $discount_amount,
             'tax_amount' => $tax_amount
