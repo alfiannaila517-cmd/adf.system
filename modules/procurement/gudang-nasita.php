@@ -55,6 +55,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
+// Reset all active Gudang stock quantities to zero.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'reset_stock_zero') {
+    try {
+        $hasJumlahStok = function_exists('gudangNasitaStockHasColumn') ? gudangNasitaStockHasColumn('jumlah_stok') : false;
+        $hasBusinessId = function_exists('gudangNasitaStockHasColumn') ? gudangNasitaStockHasColumn('business_id') : false;
+        $activeBusinessId = isset($_SESSION['business_id']) ? (int)$_SESSION['business_id'] : 0;
+
+        if ($hasBusinessId && $activeBusinessId > 0) {
+            if ($hasJumlahStok) {
+                $db->query('UPDATE gudang_nasita_stock SET quantity = 0, jumlah_stok = 0 WHERE COALESCE(is_active,1) = 1 AND business_id = ?', [$activeBusinessId]);
+            } else {
+                $db->query('UPDATE gudang_nasita_stock SET quantity = 0 WHERE COALESCE(is_active,1) = 1 AND business_id = ?', [$activeBusinessId]);
+            }
+        } else {
+            if ($hasJumlahStok) {
+                $db->query('UPDATE gudang_nasita_stock SET quantity = 0, jumlah_stok = 0 WHERE COALESCE(is_active,1) = 1');
+            } else {
+                $db->query('UPDATE gudang_nasita_stock SET quantity = 0 WHERE COALESCE(is_active,1) = 1');
+            }
+        }
+
+        $_SESSION['success'] = 'Stok Gudang berhasil di-reset ke 0.';
+    } catch (Throwable $e) {
+        $_SESSION['error'] = 'Gagal reset stok: ' . $e->getMessage();
+    }
+
+    header('Location: gudang-nasita.php');
+    exit;
+}
+
 // Handle hapus/batalkan permintaan PO dari bisnis (cross-DB)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'cancel_pending_po') {
     $poId   = (int)($_POST['po_id'] ?? 0);
@@ -420,6 +450,13 @@ include '../../includes/header.php';
             <i data-feather="shuffle" style="width: 16px; height: 16px;"></i>
             Transfer ke Bisnis
         </a>
+        <form method="POST" style="display:inline;" onsubmit="return confirm('Reset stok Gudang ke 0? Data item tetap ada, hanya qty di-nolkan.')">
+            <input type="hidden" name="action" value="reset_stock_zero">
+            <button type="submit" class="btn btn-danger">
+                <i data-feather="rotate-ccw" style="width: 16px; height: 16px;"></i>
+                Reset Stok 0
+            </button>
+        </form>
     </div>
 </div>
 
@@ -616,7 +653,9 @@ include '../../includes/header.php';
 </div>
 
 <script>
-    feather.replace();
+    if (typeof feather !== 'undefined') {
+        feather.replace();
+    }
 
     document.addEventListener('click', function(e) {
         if (e.target === document.getElementById('manualStockModal')) document.getElementById('manualStockModal').style.display = 'none';
@@ -698,8 +737,6 @@ include '../../includes/header.php';
     </div>
 </div>
 
-<?php include '../../includes/footer.php'; ?>
-
 <!-- Modal: Pesan ke Supplier -->
 <div id="orderSupplierModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.55); z-index:2100; align-items:center; justify-content:center; padding:1rem;">
     <div class="card" style="width:min(520px,100%); max-height:90vh; overflow:auto;">
@@ -746,3 +783,5 @@ include '../../includes/header.php';
         </form>
     </div>
 </div>
+
+<?php include '../../includes/footer.php'; ?>
