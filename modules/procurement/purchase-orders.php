@@ -451,14 +451,13 @@ include '../../includes/header.php';
             <span style="font-size:0.8rem; color:var(--text-muted);">History langsung ter-update setelah transfer sukses</span>
         </div>
 
-        <div style="display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:0.75rem; margin-bottom:0.95rem;">
-            <?php foreach ($gudangTransferStats as $stat): ?>
-                <div style="padding:0.75rem 0.9rem; border:1px solid #dbeafe; border-radius:0.7rem; background:linear-gradient(150deg,#f8fbff,#ffffff);">
-                    <div style="font-size:0.76rem; color:#475569; margin-bottom:0.2rem;"><?php echo htmlspecialchars($stat['label']); ?></div>
-                    <div style="font-size:1.2rem; font-weight:800; color:#0f172a;"><?php echo (int)$stat['count']; ?> transfer</div>
-                    <div style="font-size:0.78rem; color:#0f766e;">Total Qty: <?php echo number_format((float)$stat['qty'], 2); ?></div>
-                </div>
-            <?php endforeach; ?>
+        <div style="display:flex; gap:0.6rem; align-items:center; margin-bottom:0.95rem; flex-wrap:wrap;">
+            <div style="position:relative; min-width:320px; flex:1;">
+                <i data-feather="search" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); width:14px; height:14px; color:#64748b;"></i>
+                <input type="text" id="gudangHistorySearch" class="form-control" placeholder="Cari no transfer / bisnis tujuan / status" style="padding-left:2rem;">
+            </div>
+            <button type="button" class="btn btn-secondary" onclick="clearGudangHistorySearch()" style="height:38px;">Reset</button>
+            <span id="gudangHistoryCounter" style="font-size:0.8rem; color:var(--text-muted);">Menampilkan <?php echo count(array_slice($gudangTransferHistory, 0, 20)); ?> data</span>
         </div>
 
         <div class="table-responsive">
@@ -479,7 +478,14 @@ include '../../includes/header.php';
                         </tr>
                     <?php else: ?>
                         <?php foreach (array_slice($gudangTransferHistory, 0, 20) as $t): ?>
-                            <tr>
+                            <?php
+                            $transferNo = (string)($t['transfer_number'] ?? $t['no_transfer'] ?? '-');
+                            $targetBiz = (string)($t['target_business_name'] ?? '-');
+                            $statusText = strtoupper((string)($t['status'] ?? '-'));
+                            $dateText = !empty($t['created_at']) ? date('d M Y H:i', strtotime((string)$t['created_at'])) : '-';
+                            $searchText = strtolower(trim($transferNo . ' ' . $targetBiz . ' ' . $statusText . ' ' . $dateText));
+                            ?>
+                            <tr class="gudang-history-row" data-search="<?php echo htmlspecialchars($searchText); ?>">
                                 <td style="font-weight:700;"><?php echo htmlspecialchars((string)($t['transfer_number'] ?? $t['no_transfer'] ?? '-')); ?></td>
                                 <td><?php echo htmlspecialchars((string)($t['target_business_name'] ?? '-')); ?></td>
                                 <td><?php echo !empty($t['created_at']) ? date('d M Y H:i', strtotime((string)$t['created_at'])) : '-'; ?></td>
@@ -494,6 +500,7 @@ include '../../includes/header.php';
     </div>
 <?php endif; ?>
 
+<?php if (!$isGudang): ?>
 <!-- Filter Section -->
 <div class="card" style="margin-bottom: 1.25rem;">
     <form method="GET" style="display: grid; grid-template-columns: repeat(3, 1fr) auto; gap: 1rem; align-items: end;">
@@ -675,6 +682,7 @@ include '../../includes/header.php';
         </table>
     </div>
 </div>
+<?php endif; ?>
 
 <!-- Approve Modal -->
 <div id="approveModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; backdrop-filter: blur(8px);">
@@ -784,6 +792,46 @@ include '../../includes/header.php';
 
 <script>
     feather.replace();
+
+    function normalizeGudangHistoryTerm(value) {
+        return String(value || '').toLowerCase().trim().replace(/\s+/g, ' ');
+    }
+
+    function filterGudangHistoryRows() {
+        const input = document.getElementById('gudangHistorySearch');
+        const rows = document.querySelectorAll('.gudang-history-row');
+        const counter = document.getElementById('gudangHistoryCounter');
+        if (!input || !rows.length) return;
+
+        const term = normalizeGudangHistoryTerm(input.value);
+        let shown = 0;
+
+        rows.forEach((row) => {
+            const hay = String(row.getAttribute('data-search') || '').toLowerCase();
+            const match = term === '' || hay.includes(term);
+            row.style.display = match ? '' : 'none';
+            if (match) shown++;
+        });
+
+        if (counter) {
+            counter.textContent = 'Menampilkan ' + shown + ' data';
+        }
+    }
+
+    function clearGudangHistorySearch() {
+        const input = document.getElementById('gudangHistorySearch');
+        if (!input) return;
+        input.value = '';
+        filterGudangHistoryRows();
+        input.focus();
+    }
+
+    (function bindGudangHistorySearch() {
+        const input = document.getElementById('gudangHistorySearch');
+        if (!input) return;
+        input.addEventListener('input', filterGudangHistoryRows);
+        filterGudangHistoryRows();
+    })();
 
     function openApproveDialog(poId, poNumber, amount) {
         document.getElementById('modalPoId').value = poId;
