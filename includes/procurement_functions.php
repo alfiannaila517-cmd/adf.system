@@ -178,7 +178,7 @@ function createPurchaseOrder($supplier_id, $po_date, $items, $options = [])
             'supplier_id' => $supplier_id,
             'po_date'     => $po_date,
             'status'      => isset($options['status']) ? $options['status'] : 'draft',
-            'total_amount'=> $total_amount,
+            'total_amount' => $total_amount,
             'notes'       => isset($options['notes']) ? $options['notes'] : null,
             'created_by'  => $created_by,
         ];
@@ -371,8 +371,14 @@ function updatePurchaseOrderStatus($po_id, $status, $approved_by = null)
 
 function generateGudangNasitaStockCode()
 {
+    ensureGudangNasitaStockSchemaCompatibility();
     $db = Database::getInstance();
     $prefix = 'GN-' . date('Ym') . '-';
+
+    if (!gudangNasitaStockHasColumn('stock_code')) {
+        // Legacy schema fallback: code is virtual from row id.
+        return $prefix . str_pad('1', 4, '0', STR_PAD_LEFT);
+    }
 
     $lastStock = $db->fetchOne("\n        SELECT stock_code\n        FROM gudang_nasita_stock\n        WHERE stock_code LIKE ?\n        ORDER BY stock_code DESC\n        LIMIT 1\n    ", [$prefix . '%']);
 
@@ -390,7 +396,13 @@ function getGudangNasitaStock($limit = 200)
 {
     $db = Database::getInstance();
 
-    return $db->fetchAll("\n        SELECT\n            gs.*,\n            COALESCE((SELECT SUM(quantity) FROM gudang_nasita_movements gm WHERE gm.stock_id = gs.id AND gm.movement_type = 'in_supplier'), 0) AS total_in,\n            COALESCE((SELECT SUM(quantity) FROM gudang_nasita_movements gm WHERE gm.stock_id = gs.id AND gm.movement_type = 'out_transfer'), 0) AS total_out\n        FROM gudang_nasita_stock gs\n        WHERE gs.is_active = 1\n        ORDER BY COALESCE(gs.category, 'lainnya') ASC, gs.item_name ASC\n        LIMIT {$limit}\n    ");
+    ensureGudangNasitaStockSchemaCompatibility();
+
+    $codeExpr = gudangNasitaStockHasColumn('stock_code')
+        ? 'gs.stock_code'
+        : "CONCAT('GN-LEGACY-', LPAD(gs.id, 4, '0'))";
+
+    return $db->fetchAll("\n        SELECT\n            gs.*,\n            {$codeExpr} AS stock_code,\n            COALESCE((SELECT SUM(quantity) FROM gudang_nasita_movements gm WHERE gm.stock_id = gs.id AND gm.movement_type = 'in_supplier'), 0) AS total_in,\n            COALESCE((SELECT SUM(quantity) FROM gudang_nasita_movements gm WHERE gm.stock_id = gs.id AND gm.movement_type = 'out_transfer'), 0) AS total_out\n        FROM gudang_nasita_stock gs\n        WHERE gs.is_active = 1\n        ORDER BY COALESCE(gs.category, 'lainnya') ASC, gs.item_name ASC\n        LIMIT {$limit}\n    ");
 }
 
 function getGudangNasitaTransfers($limit = 50)
@@ -403,6 +415,8 @@ function getGudangNasitaTransfers($limit = 50)
 function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $options = [])
 {
     $db = Database::getInstance();
+
+    ensureGudangNasitaStockSchemaCompatibility();
 
     try {
         $itemName = trim((string)$itemName);
@@ -436,8 +450,7 @@ function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $op
         );
 
         if (!$stock) {
-            $stockId = $db->insert('gudang_nasita_stock', [
-                'stock_code' => generateGudangNasitaStockCode(),
+            $insertData = [
                 'item_name' => $itemName,
                 'category' => $category,
                 'unit' => $unit,
@@ -445,7 +458,13 @@ function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $op
                 'reorder_level' => $reorderLevel !== null && $reorderLevel >= 0 ? $reorderLevel : 0,
                 'supplier_name' => $supplierName !== '' ? $supplierName : null,
                 'notes' => $notes !== '' ? $notes : 'Input stok manual awal'
-            ]);
+            ];
+
+            if (gudangNasitaStockHasColumn('stock_code')) {
+                $insertData['stock_code'] = generateGudangNasitaStockCode();
+            }
+
+            $stockId = $db->insert('gudang_nasita_stock', $insertData);
             $stock = $db->fetchOne('SELECT * FROM gudang_nasita_stock WHERE id = ? LIMIT 1', [$stockId]);
         }
 
@@ -497,6 +516,8 @@ function receivePurchaseOrderToGudang($po_id, array $receivedItems, $receivedBy,
 {
     $db = Database::getInstance();
 
+    ensureGudangNasitaStockSchemaCompatibility();
+
     try {
         $po = getPurchaseOrder($po_id);
         if (!$po) {
@@ -534,15 +555,20 @@ function receivePurchaseOrderToGudang($po_id, array $receivedItems, $receivedBy,
             }
 
             if (!$stock) {
-                $stockId = $db->insert('gudang_nasita_stock', [
-                    'stock_code' => generateGudangNasitaStockCode(),
+                $insertData = [
                     'item_name' => trim($item['item_name']),
                     'category' => 'lainnya',
                     'unit' => $unit,
                     'quantity' => 0,
                     'supplier_name' => $po['supplier_name'] ?? null,
                     'notes' => $notes ?: ('Auto created from PO ' . $po['po_number'])
-                ]);
+                ];
+
+                if (gudangNasitaStockHasColumn('stock_code')) {
+                    $insertData['stock_code'] = generateGudangNasitaStockCode();
+                }
+
+                $stockId = $db->insert('gudang_nasita_stock', $insertData);
                 $stock = $db->fetchOne('SELECT * FROM gudang_nasita_stock WHERE id = ? LIMIT 1', [$stockId]);
             }
 
@@ -625,6 +651,52 @@ function generateGudangNasitaTransferNumber()
     }
 
     return $prefix . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
+}
+
+function gudangNasitaStockColumns($refresh = false)
+{
+    static $columns = null;
+
+    if (!$refresh && $columns !== null) {
+        return $columns;
+    }
+
+    $db = Database::getInstance();
+    $rows = $db->fetchAll('SHOW COLUMNS FROM gudang_nasita_stock');
+    $columns = array_column($rows, 'Field');
+
+    return $columns;
+}
+
+function gudangNasitaStockHasColumn($columnName)
+{
+    return in_array($columnName, gudangNasitaStockColumns(), true);
+}
+
+function ensureGudangNasitaStockSchemaCompatibility()
+{
+    static $checked = false;
+
+    if ($checked) {
+        return;
+    }
+    $checked = true;
+
+    $db = Database::getInstance();
+    $columns = gudangNasitaStockColumns();
+
+    if (!in_array('stock_code', $columns, true)) {
+        // Add stock_code for compatibility with current procurement flow.
+        $db->query('ALTER TABLE gudang_nasita_stock ADD COLUMN stock_code VARCHAR(30) NULL AFTER id');
+
+        // Refresh cached columns after DDL.
+        $columns = gudangNasitaStockColumns(true);
+
+        if (in_array('stock_code', $columns, true)) {
+            $db->query("UPDATE gudang_nasita_stock SET stock_code = CONCAT('GN-', DATE_FORMAT(NOW(), '%Y%m'), '-', LPAD(id, 4, '0')) WHERE stock_code IS NULL OR stock_code = ''");
+            $db->query('ALTER TABLE gudang_nasita_stock ADD UNIQUE KEY idx_stock_code (stock_code)');
+        }
+    }
 }
 
 function transferGudangNasitaStock($targetBusinessId, array $items, $createdBy, $notes = '', $sourcePoId = null, $businessName = null)
@@ -818,7 +890,7 @@ function getPurchaseOrders($filters = [], $limit = 100, $offset = 0)
             return [];
         }
         error_log('getPurchaseOrders fallback returned ' . count($raw) . ' rows for DB: ' . Database::getCurrentDatabase());
-        
+
         // Apply filters in PHP to avoid column-name issues
         $filtered = [];
         foreach ($raw as $row) {
