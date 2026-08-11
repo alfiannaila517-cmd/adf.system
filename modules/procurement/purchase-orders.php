@@ -104,25 +104,8 @@ if ($isGudang) {
     $purchase_orders = getPurchaseOrders($filters, 50, 0);
 }
 
-// DEBUG: Log database and PO count for troubleshooting
-$debugDbName = Database::getCurrentDatabase();
-$debugPoCount = count($purchase_orders ?? []);
-error_log("DEBUG purchase-orders.php: activeSlug={$activeBusinessSlug}, isGudang={$isGudang}, db={$debugDbName}, po_count={$debugPoCount}, filters=" . json_encode($filters));
-
 include '../../includes/header.php';
 ?>
-
-<!-- DEBUG INFO (remove in production) -->
-<div style="background: #fff3cd; border: 1px solid #ffc107; padding: 1rem; margin: 1rem; border-radius: 0.5rem; font-family: monospace; font-size: 0.85rem;">
-    <strong>🔍 DEBUG INFO:</strong><br>
-    Active Business: <?php echo htmlspecialchars($activeBusinessSlug, ENT_QUOTES); ?><br>
-    Is Gudang: <?php echo $isGudang ? 'YES' : 'NO'; ?><br>
-    Current DB: <?php echo htmlspecialchars($debugDbName, ENT_QUOTES); ?><br>
-    PO Count: <strong><?php echo $debugPoCount; ?></strong><br>
-    Filters: <?php echo htmlspecialchars(json_encode($filters), ENT_QUOTES); ?><br>
-    Date Range: <?php echo htmlspecialchars($date_from, ENT_QUOTES); ?> to <?php echo htmlspecialchars($date_to, ENT_QUOTES); ?><br>
-</div>
-<?php
 
 <?php if (isset($_SESSION['success'])): ?>
     <!-- Success Popup Modal -->
