@@ -107,7 +107,30 @@ if ($isGudang) {
     });
     $purchase_orders = array_slice($purchase_orders, 0, 50);
 } else {
-    $purchase_orders = getPurchaseOrders($filters, 50, 0);
+    // Business context: use absolutely minimal query, no filters except GDN-prefix
+    // This ensures data always shows regardless of schema variations
+    try {
+        $purchase_orders = $db->fetchAll("
+            SELECT 
+                poh.*,
+                s.supplier_name,
+                s.supplier_code,
+                u.full_name as created_by_name,
+                (SELECT COUNT(*) FROM purchase_orders_detail pod WHERE pod.po_header_id = poh.id) as items_count
+            FROM purchase_orders_header poh
+            LEFT JOIN suppliers s ON poh.supplier_id = s.id
+            LEFT JOIN users u ON poh.created_by = u.id
+            WHERE poh.po_number NOT LIKE 'GDN-%'
+            ORDER BY poh.id DESC
+            LIMIT 100
+        ");
+        if (!is_array($purchase_orders)) {
+            $purchase_orders = [];
+        }
+    } catch (Throwable $e) {
+        error_log("Business PO query error: " . $e->getMessage());
+        $purchase_orders = [];
+    }
 }
 
 include '../../includes/header.php';
