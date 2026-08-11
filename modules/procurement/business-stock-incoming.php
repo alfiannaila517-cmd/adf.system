@@ -720,20 +720,213 @@ include '../../includes/header.php';
 
 <?php endif; ?>
 
-<div id="manualStockModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:9999; align-items:center; justify-content:center; padding:1rem;">
-    <div class="card" style="max-width:560px; width:100%; margin:0; border-radius:1rem; overflow:hidden; box-shadow:0 24px 64px rgba(0,0,0,0.25);">
-        <div style="display:flex; justify-content:space-between; align-items:center; padding:1rem 1.25rem; background:linear-gradient(135deg,#0ea5e9,#0369a1); color:#fff;">
+<style>
+    .manual-stock-modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+        background:
+            radial-gradient(circle at 20% 15%, rgba(2, 132, 199, 0.18), transparent 40%),
+            radial-gradient(circle at 85% 85%, rgba(16, 185, 129, 0.16), transparent 44%),
+            rgba(15, 23, 42, 0.55);
+        backdrop-filter: blur(3px);
+    }
+
+    .manual-stock-panel {
+        width: 100%;
+        max-width: 640px;
+        margin: 0;
+        border-radius: 18px;
+        overflow: hidden;
+        border: 1px solid #d6e7f8;
+        box-shadow: 0 30px 70px rgba(15, 23, 42, 0.3);
+        background: #ffffff;
+    }
+
+    .manual-stock-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 1rem;
+        padding: 1.1rem 1.3rem;
+        background: linear-gradient(140deg, #0284c7, #0369a1 64%, #065f86);
+        color: #ffffff;
+    }
+
+    .manual-stock-title {
+        font-size: 1.08rem;
+        font-weight: 800;
+        letter-spacing: 0.01em;
+        line-height: 1.25;
+        margin-bottom: 0.2rem;
+    }
+
+    .manual-stock-subtitle {
+        font-size: 0.83rem;
+        opacity: 0.95;
+        line-height: 1.35;
+    }
+
+    .manual-stock-close {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        border: 0;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.15);
+        color: #ffffff;
+        font-size: 1.2rem;
+        cursor: pointer;
+        transition: background 0.2s ease;
+    }
+
+    .manual-stock-close:hover {
+        background: rgba(255, 255, 255, 0.26);
+    }
+
+    .manual-stock-body {
+        padding: 1.15rem 1.3rem 1.2rem;
+        background: linear-gradient(180deg, #f8fbff, #ffffff 26%);
+    }
+
+    .manual-stock-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: 0.74rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #075985;
+        background: #dff4ff;
+        border: 1px solid #bfe7fb;
+        border-radius: 999px;
+        padding: 0.24rem 0.55rem;
+        margin-bottom: 0.85rem;
+    }
+
+    .manual-stock-grid {
+        display: grid;
+        grid-template-columns: minmax(220px, 1fr) 110px 130px;
+        gap: 0.78rem;
+        margin-bottom: 0.95rem;
+    }
+
+    .manual-stock-body .form-label {
+        display: block;
+        color: #1e293b;
+        font-size: 0.82rem;
+        font-weight: 700;
+        margin-bottom: 0.34rem;
+    }
+
+    .manual-stock-body .form-control {
+        border: 1px solid #bfd4e6;
+        border-radius: 10px;
+        background: #ffffff;
+        color: #0f172a;
+        min-height: 40px;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .manual-stock-body .form-control:focus {
+        border-color: #0284c7;
+        box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.14);
+        outline: none;
+    }
+
+    .manual-stock-notes {
+        margin-bottom: 1rem;
+    }
+
+    .manual-stock-notes textarea.form-control {
+        min-height: 84px;
+        resize: vertical;
+    }
+
+    .manual-stock-help {
+        font-size: 0.78rem;
+        color: #64748b;
+        margin-top: 0.32rem;
+    }
+
+    .manual-stock-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.85rem;
+        padding-top: 0.2rem;
+    }
+
+    .manual-stock-actions-note {
+        font-size: 0.78rem;
+        color: #64748b;
+    }
+
+    .manual-stock-actions .btn {
+        min-width: 116px;
+        height: 38px;
+        border-radius: 10px;
+        font-weight: 700;
+    }
+
+    @media (max-width: 700px) {
+        .manual-stock-panel {
+            max-width: 100%;
+            border-radius: 14px;
+        }
+
+        .manual-stock-head,
+        .manual-stock-body {
+            padding-left: 0.95rem;
+            padding-right: 0.95rem;
+        }
+
+        .manual-stock-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .manual-stock-actions {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .manual-stock-actions .btn {
+            width: 100%;
+        }
+
+        .manual-stock-actions-right {
+            display: grid;
+            gap: 0.5rem;
+        }
+    }
+</style>
+
+<div id="manualStockModal" class="manual-stock-modal">
+    <div class="card manual-stock-panel">
+        <div class="manual-stock-head">
             <div>
-                <div style="font-size:1rem; font-weight:700;">Tambah Stok Manual</div>
-                <div style="font-size:0.82rem; opacity:0.9;">Untuk stok awal/barang lokal bisnis</div>
+                <div class="manual-stock-title">Tambah Stok Manual</div>
+                <div class="manual-stock-subtitle">Gunakan untuk stok awal atau barang lokal yang tidak datang dari Gudang Nasita.</div>
             </div>
-            <button type="button" onclick="closeManualStockModal()" style="background:transparent; border:none; color:#fff; font-size:1.4rem; cursor:pointer;">&times;</button>
+            <button type="button" class="manual-stock-close" onclick="closeManualStockModal()" aria-label="Tutup popup">&times;</button>
         </div>
 
-        <form method="POST" style="padding:1rem 1.25rem;" onsubmit="return confirm('Tambah stok manual sekarang?')">
+        <form method="POST" class="manual-stock-body" onsubmit="return confirm('Tambah stok manual sekarang?')">
             <input type="hidden" name="action" value="add_manual_stock_business">
 
-            <div style="display:grid; grid-template-columns:1fr 110px 120px; gap:0.75rem; margin-bottom:0.85rem;">
+            <div class="manual-stock-badge">
+                <i data-feather="edit-3" style="width:12px; height:12px;"></i>
+                Input Manual
+            </div>
+
+            <div class="manual-stock-grid">
                 <div>
                     <label class="form-label">Nama item</label>
                     <input type="text" name="item_name" class="form-control" placeholder="Contoh: Gula Pasir" required>
@@ -748,17 +941,21 @@ include '../../includes/header.php';
                 </div>
             </div>
 
-            <div class="form-group" style="margin-bottom:0.75rem;">
+            <div class="form-group manual-stock-notes">
                 <label class="form-label">Catatan (opsional)</label>
-                <textarea name="notes" class="form-control" rows="2" placeholder="Misal: stok awal existing di outlet"></textarea>
+                <textarea name="notes" class="form-control" placeholder="Misal: stok awal existing di outlet"></textarea>
+                <div class="manual-stock-help">Catatan membantu tim melacak asal stok manual.</div>
             </div>
 
-            <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
-                <button type="button" class="btn btn-secondary" onclick="closeManualStockModal()">Batal</button>
-                <button type="submit" class="btn btn-primary">
-                    <i data-feather="plus" style="width:14px; height:14px;"></i>
-                    Simpan Stok
-                </button>
+            <div class="manual-stock-actions">
+                <div class="manual-stock-actions-note">Perubahan stok langsung tercatat ke bisnis aktif.</div>
+                <div class="manual-stock-actions-right" style="display:flex; gap:0.5rem;">
+                    <button type="button" class="btn btn-secondary" onclick="closeManualStockModal()">Batal</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i data-feather="plus" style="width:14px; height:14px;"></i>
+                        Simpan Stok
+                    </button>
+                </div>
             </div>
         </form>
     </div>
