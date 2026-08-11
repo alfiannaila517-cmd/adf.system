@@ -29,8 +29,9 @@ $pageTitle = 'Purchase Orders';
 // For gudang users: will fetch from all DBs below
 // For regular users: fetch from active business DB only
 if (!$isGudang) {
-    if (!empty($businessConfig['database'])) {
-        Database::switchDatabase($businessConfig['database']);
+    $resolvedBusinessDb = $businessDatabases[$activeBusinessSlug] ?? ($businessConfig['database'] ?? null);
+    if (!empty($resolvedBusinessDb)) {
+        Database::switchDatabase($resolvedBusinessDb);
     }
 }
 
@@ -124,6 +125,30 @@ if ($isGudang) {
             ORDER BY poh.id DESC
             LIMIT 100
         ");
+
+        // If still empty, force-fetch using slug-mapped DB to avoid any wrong active DB context.
+        if (empty($purchase_orders)) {
+            $forceDb = $businessDatabases[$activeBusinessSlug] ?? null;
+            if (!empty($forceDb)) {
+                Database::switchDatabase($forceDb);
+                $forcedDb = Database::getInstance();
+                $purchase_orders = $forcedDb->fetchAll("
+                    SELECT 
+                        poh.*,
+                        s.supplier_name,
+                        s.supplier_code,
+                        u.full_name as created_by_name,
+                        (SELECT COUNT(*) FROM purchase_orders_detail pod WHERE pod.po_header_id = poh.id) as items_count
+                    FROM purchase_orders_header poh
+                    LEFT JOIN suppliers s ON poh.supplier_id = s.id
+                    LEFT JOIN users u ON poh.created_by = u.id
+                    WHERE poh.po_number NOT LIKE 'GDN-%'
+                    ORDER BY poh.id DESC
+                    LIMIT 100
+                ");
+            }
+        }
+
         if (!is_array($purchase_orders)) {
             $purchase_orders = [];
         }
