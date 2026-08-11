@@ -4,6 +4,7 @@ require_once '../../config/database.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/procurement_functions.php';
+require_once '../../includes/business_helper.php';
 
 $auth = new Auth();
 $auth->requireLogin();
@@ -142,11 +143,48 @@ $allBusinesses = array_values(array_filter($allBusinesses, function ($biz) use (
 // Re-order by business_name
 usort($allBusinesses, fn($a, $b) => strcmp($a['business_name'], $b['business_name']));
 
+// Fallback: when businesses table query/filter returns empty, build options from business configs.
+if (empty($allBusinesses)) {
+    $fallbackBusinesses = [];
+    $fallbackId = 900000;
+
+    foreach ($allowedPoBusinessSlugs as $slug) {
+        $cfgPath = __DIR__ . '/../../config/businesses/' . $slug . '.php';
+        if (!file_exists($cfgPath)) {
+            continue;
+        }
+
+        $cfg = require $cfgPath;
+        $bizName = trim((string)($cfg['name'] ?? $slug));
+        $bizId = 0;
+        if (function_exists('getNumericBusinessId')) {
+            $bizId = (int)getNumericBusinessId($slug);
+        }
+        if ($bizId <= 0) {
+            $bizId = $fallbackId;
+            $fallbackId++;
+        }
+
+        $fallbackBusinesses[] = [
+            'id' => $bizId,
+            'business_name' => $bizName,
+            'business_code' => $slug,
+        ];
+    }
+
+    $allBusinesses = $fallbackBusinesses;
+}
+
 // DEBUG: Log business loading
 error_log('[gudang-transfer] Loaded ' . count($allBusinesses) . ' businesses: ' . json_encode(array_map(fn($b) => ['id' => $b['id'], 'name' => $b['business_name']], $allBusinesses)));
 
 // Gunakan bisnis yang sudah difilter untuk dropdown transfer
 $allowedBusinesses = $allBusinesses;
+
+$allowedBusinessesById = [];
+foreach ($allowedBusinesses as $biz) {
+    $allowedBusinessesById[(string)$biz['id']] = $biz;
+}
 
 // Update prefillTargetBusinessName jika ada prefillTargetBusinessId
 foreach ($allowedBusinesses as $biz) {
@@ -280,6 +318,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Resolve target business name + ID from the source business's own DB config
     $resolvedBizName = '';
     $resolvedBizId = $targetBusinessId;
+
+    // Manual mode can rely on dropdown value directly; keep a readable target name.
+    if ($targetBusinessId > 0) {
+        $selectedBiz = $allowedBusinessesById[(string)$targetBusinessId] ?? null;
+        if ($selectedBiz) {
+            $resolvedBizName = (string)($selectedBiz['business_name'] ?? '');
+        }
+    }
+
     if ($sourcePoBusinessSlug !== '') {
         $bizCfgPath = __DIR__ . '/../../config/businesses/' . $sourcePoBusinessSlug . '.php';
         if (file_exists($bizCfgPath)) {
