@@ -397,9 +397,10 @@ function getGudangNasitaStock($limit = 200)
     $db = Database::getInstance();
 
     ensureGudangNasitaStockSchemaCompatibility();
+    ensureGudangNasitaOperationalTablesCompatibility();
 
     $codeExpr = gudangNasitaStockHasColumn('stock_code')
-    ensureGudangNasitaOperationalTablesCompatibility();
+        ? 'gs.stock_code'
         : "CONCAT('GN-LEGACY-', LPAD(gs.id, 4, '0'))";
 
     return $db->fetchAll("\n        SELECT\n            gs.*,\n            {$codeExpr} AS stock_code,\n            COALESCE((SELECT SUM(quantity) FROM gudang_nasita_movements gm WHERE gm.stock_id = gs.id AND gm.movement_type = 'in_supplier'), 0) AS total_in,\n            COALESCE((SELECT SUM(quantity) FROM gudang_nasita_movements gm WHERE gm.stock_id = gs.id AND gm.movement_type = 'out_transfer'), 0) AS total_out\n        FROM gudang_nasita_stock gs\n        WHERE gs.is_active = 1\n        ORDER BY COALESCE(gs.category, 'lainnya') ASC, gs.item_name ASC\n        LIMIT {$limit}\n    ");
@@ -418,9 +419,10 @@ function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $op
     $db = Database::getInstance();
 
     ensureGudangNasitaStockSchemaCompatibility();
+    ensureGudangNasitaOperationalTablesCompatibility();
 
     try {
-    ensureGudangNasitaOperationalTablesCompatibility();
+        $itemName = trim((string)$itemName);
         $unit = trim((string)$unit);
         $quantity = (float)$quantity;
         $category = strtolower(trim((string)($options['category'] ?? '')));
@@ -540,9 +542,10 @@ function receivePurchaseOrderToGudang($po_id, array $receivedItems, $receivedBy,
     $db = Database::getInstance();
 
     ensureGudangNasitaStockSchemaCompatibility();
+    ensureGudangNasitaOperationalTablesCompatibility();
 
     try {
-    ensureGudangNasitaOperationalTablesCompatibility();
+        $po = getPurchaseOrder($po_id);
         if (!$po) {
             throw new Exception('Purchase Order not found');
         }
@@ -640,7 +643,6 @@ function receivePurchaseOrderToGudang($po_id, array $receivedItems, $receivedBy,
             $db->update('purchase_orders_detail', [
                 'received_quantity' => $newReceived
             ], 'id = :id', ['id' => $detailId]);
-
             $totalReceived += $receivedQty;
             if ($newReceived < $orderedQty) {
                 $allCompleted = false;
@@ -860,6 +862,67 @@ function ensureGudangNasitaStockSchemaCompatibility()
     if (!$isActiveIdx) {
         $db->query('ALTER TABLE gudang_nasita_stock ADD INDEX idx_is_active (is_active)');
     }
+}
+
+function ensureGudangNasitaOperationalTablesCompatibility()
+{
+    static $checked = false;
+
+    if ($checked) {
+        return;
+    }
+    $checked = true;
+
+    $db = Database::getInstance();
+
+    $db->query("CREATE TABLE IF NOT EXISTS gudang_nasita_movements (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        stock_id INT NOT NULL,
+        movement_date DATE NOT NULL,
+        movement_type ENUM('in_supplier','out_transfer','adjustment') NOT NULL,
+        quantity DECIMAL(15,2) NOT NULL,
+        reference_type VARCHAR(50) NULL,
+        reference_id INT NULL,
+        reference_number VARCHAR(50) NULL,
+        target_business_id INT NULL,
+        notes TEXT NULL,
+        created_by INT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_stock_id (stock_id),
+        INDEX idx_movement_date (movement_date),
+        INDEX idx_reference (reference_type, reference_id),
+        INDEX idx_target_business (target_business_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    $db->query("CREATE TABLE IF NOT EXISTS gudang_nasita_transfers (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        transfer_number VARCHAR(50) UNIQUE,
+        target_business_id INT NOT NULL,
+        target_business_name VARCHAR(150) NOT NULL,
+        source_po_id INT NULL,
+        status ENUM('draft','sent','received','cancelled') DEFAULT 'draft',
+        notes TEXT NULL,
+        created_by INT NULL,
+        received_by INT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_target_business (target_business_id),
+        INDEX idx_status (status),
+        INDEX idx_source_po (source_po_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    $db->query("CREATE TABLE IF NOT EXISTS gudang_nasita_transfer_items (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        transfer_id INT NOT NULL,
+        stock_id INT NOT NULL,
+        item_name VARCHAR(200) NOT NULL,
+        unit VARCHAR(20) DEFAULT 'pcs',
+        quantity DECIMAL(15,2) NOT NULL,
+        notes TEXT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_transfer_id (transfer_id),
+        INDEX idx_stock_id (stock_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 }
 
 function transferGudangNasitaStock($targetBusinessId, array $items, $createdBy, $notes = '', $sourcePoId = null, $businessName = null)
@@ -1634,66 +1697,6 @@ function getPurchase($purchase_id)
         return null;
     }
 
-            function ensureGudangNasitaOperationalTablesCompatibility()
-            {
-                static $checked = false;
-
-                if ($checked) {
-                    return;
-                }
-                $checked = true;
-
-                $db = Database::getInstance();
-
-                $db->query("CREATE TABLE IF NOT EXISTS gudang_nasita_movements (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    stock_id INT NOT NULL,
-                    movement_date DATE NOT NULL,
-                    movement_type ENUM('in_supplier','out_transfer','adjustment') NOT NULL,
-                    quantity DECIMAL(15,2) NOT NULL,
-                    reference_type VARCHAR(50) NULL,
-                    reference_id INT NULL,
-                    reference_number VARCHAR(50) NULL,
-                    target_business_id INT NULL,
-                    notes TEXT NULL,
-                    created_by INT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    INDEX idx_stock_id (stock_id),
-                    INDEX idx_movement_date (movement_date),
-                    INDEX idx_reference (reference_type, reference_id),
-                    INDEX idx_target_business (target_business_id)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
-                $db->query("CREATE TABLE IF NOT EXISTS gudang_nasita_transfers (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    transfer_number VARCHAR(50) UNIQUE,
-                    target_business_id INT NOT NULL,
-                    target_business_name VARCHAR(150) NOT NULL,
-                    source_po_id INT NULL,
-                    status ENUM('draft','sent','received','cancelled') DEFAULT 'draft',
-                    notes TEXT NULL,
-                    created_by INT NULL,
-                    received_by INT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                    INDEX idx_target_business (target_business_id),
-                    INDEX idx_status (status),
-                    INDEX idx_source_po (source_po_id)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
-                $db->query("CREATE TABLE IF NOT EXISTS gudang_nasita_transfer_items (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    transfer_id INT NOT NULL,
-                    stock_id INT NOT NULL,
-                    item_name VARCHAR(200) NOT NULL,
-                    unit VARCHAR(20) DEFAULT 'pcs',
-                    quantity DECIMAL(15,2) NOT NULL,
-                    notes TEXT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    INDEX idx_transfer_id (transfer_id),
-                    INDEX idx_stock_id (stock_id)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-            }
 
     // Get details
     $details = $db->fetchAll("
