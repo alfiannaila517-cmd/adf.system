@@ -11,6 +11,62 @@ $db = Database::getInstance();
 $currentUser = $auth->getCurrentUser();
 $pageTitle = 'Tambah Supplier';
 
+// Gudang Nasita can run on a database that doesn't have suppliers table yet.
+// Create minimal schema and missing columns on-demand to keep form usable.
+$ensureSuppliersSchema = function () use ($db) {
+    try {
+        $db->query("CREATE TABLE IF NOT EXISTS suppliers (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            supplier_code VARCHAR(50) NULL,
+            supplier_name VARCHAR(150) NOT NULL,
+            contact_person VARCHAR(150) NULL,
+            phone VARCHAR(50) NULL,
+            email VARCHAR(150) NULL,
+            address TEXT NULL,
+            tax_number VARCHAR(100) NULL,
+            payment_terms VARCHAR(30) DEFAULT 'net_30',
+            is_active TINYINT(1) DEFAULT 1,
+            created_by INT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_supplier_name (supplier_name),
+            UNIQUE KEY uk_supplier_code (supplier_code)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $columns = $db->fetchAll("SHOW COLUMNS FROM suppliers");
+        $columnNames = array_column($columns, 'Field');
+        $requiredColumns = [
+            'supplier_code' => "VARCHAR(50) NULL",
+            'supplier_name' => "VARCHAR(150) NOT NULL",
+            'contact_person' => "VARCHAR(150) NULL",
+            'phone' => "VARCHAR(50) NULL",
+            'email' => "VARCHAR(150) NULL",
+            'address' => "TEXT NULL",
+            'tax_number' => "VARCHAR(100) NULL",
+            'payment_terms' => "VARCHAR(30) DEFAULT 'net_30'",
+            'is_active' => "TINYINT(1) DEFAULT 1",
+            'created_by' => "INT NULL",
+            'created_at' => "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+            'updated_at' => "TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+        ];
+
+        foreach ($requiredColumns as $col => $definition) {
+            if (!in_array($col, $columnNames, true)) {
+                $db->query("ALTER TABLE suppliers ADD COLUMN `{$col}` {$definition}");
+            }
+        }
+
+        $indexExists = $db->fetchOne("SHOW INDEX FROM suppliers WHERE Key_name = 'uk_supplier_code'");
+        if (!$indexExists) {
+            $db->query("ALTER TABLE suppliers ADD UNIQUE KEY uk_supplier_code (supplier_code)");
+        }
+    } catch (Throwable $e) {
+        error_log('ensure suppliers schema error: ' . $e->getMessage());
+    }
+};
+
+$ensureSuppliersSchema();
+
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $supplier_code = trim($_POST['supplier_code']);
