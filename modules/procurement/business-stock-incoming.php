@@ -177,7 +177,7 @@ try {
 
 if ($activeBusinessId > 0) {
     // gudang_nasita_transfers lives in Gudang DB (cross-DB read)
-    $gudangCfgPath = __DIR__ . '/../../config/businesses/narayana-hotel.php';
+    $gudangCfgPath = __DIR__ . '/../../config/businesses/gudang-nasita.php';
     if (file_exists($gudangCfgPath)) {
         $gudangCfg = require $gudangCfgPath;
         $gudangDbName = (string)($gudangCfg['database'] ?? '');
