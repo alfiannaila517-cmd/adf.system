@@ -64,6 +64,22 @@ if ($activeBusinessId > 0) {
     } catch (Throwable $e) {
         error_log('business-stock-incoming baseline table error: ' . $e->getMessage());
     }
+
+    try {
+        $db->query("CREATE TABLE IF NOT EXISTS business_manual_stock_entries (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            business_id INT NOT NULL,
+            item_name VARCHAR(255) NOT NULL,
+            unit VARCHAR(50) NOT NULL,
+            quantity DECIMAL(15,2) NOT NULL DEFAULT 0,
+            notes TEXT NULL,
+            created_by INT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_business_item (business_id, item_name, unit)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } catch (Throwable $e) {
+        error_log('business-stock-incoming manual stock table error: ' . $e->getMessage());
+    }
 }
 
 $incomingTransfers = [];
@@ -71,9 +87,12 @@ $rawStockSummary = [];
 $stockSummary = [];
 $baselineMap = [];
 $rawStockMap = [];
+$manualStockMap = [];
 $interTransferInMap = [];
 $interTransferOutMap = [];
 $masterPdo = null;
+$gudangDbNameResolved = '';
+$stockMetaMap = [];
 
 // Build map by item+unit for precise adjustments
 $buildKey = function ($itemName, $unit) {
@@ -84,9 +103,21 @@ $getMapQty = function ($map, $key) {
     return isset($map[$key]) ? (float)$map[$key] : 0;
 };
 
-$computeVisibleQty = function ($itemName, $unit) use (&$rawStockMap, &$baselineMap, &$interTransferInMap, &$interTransferOutMap, $buildKey, $getMapQty) {
+$registerStockMeta = function ($itemName, $unit) use (&$stockMetaMap, $buildKey) {
+    $itemName = (string)$itemName;
+    $unit = (string)$unit;
     $key = $buildKey($itemName, $unit);
-    $gross = $getMapQty($rawStockMap, $key) + $getMapQty($interTransferInMap, $key) - $getMapQty($interTransferOutMap, $key);
+    if ($key !== '||' && !isset($stockMetaMap[$key])) {
+        $stockMetaMap[$key] = [
+            'item_name' => $itemName,
+            'unit' => $unit,
+        ];
+    }
+};
+
+$computeVisibleQty = function ($itemName, $unit) use (&$rawStockMap, &$manualStockMap, &$baselineMap, &$interTransferInMap, &$interTransferOutMap, $buildKey, $getMapQty) {
+    $key = $buildKey($itemName, $unit);
+    $gross = $getMapQty($rawStockMap, $key) + $getMapQty($manualStockMap, $key) + $getMapQty($interTransferInMap, $key) - $getMapQty($interTransferOutMap, $key);
     $visible = $gross - $getMapQty($baselineMap, $key);
     return $visible > 0 ? $visible : 0;
 };
@@ -126,6 +157,7 @@ if ($activeBusinessId > 0) {
     if (file_exists($gudangCfgPath)) {
         $gudangCfg = require $gudangCfgPath;
         $gudangDbName = (string)($gudangCfg['database'] ?? '');
+        $gudangDbNameResolved = $gudangDbName;
 
         if ($gudangDbName !== '') {
             try {
@@ -238,6 +270,26 @@ foreach ($rawStockSummary as $row) {
     $unit = (string)($row['unit'] ?? 'pcs');
     $key = $buildKey($itemName, $unit);
     $rawStockMap[$key] = (float)($row['total_received'] ?? 0);
+    $registerStockMeta($itemName, $unit);
+}
+
+if ($activeBusinessId > 0) {
+    try {
+        $manualRows = $db->fetchAll(
+            'SELECT item_name, unit, COALESCE(SUM(quantity),0) AS total_manual FROM business_manual_stock_entries WHERE business_id = ? GROUP BY item_name, unit',
+            [$activeBusinessId]
+        );
+
+        foreach ($manualRows as $mRow) {
+            $itemName = (string)($mRow['item_name'] ?? '');
+            $unit = (string)($mRow['unit'] ?? 'pcs');
+            $key = $buildKey($itemName, $unit);
+            $manualStockMap[$key] = (float)($mRow['total_manual'] ?? 0);
+            $registerStockMeta($itemName, $unit);
+        }
+    } catch (Throwable $e) {
+        $manualStockMap = [];
+    }
 }
 
 if ($activeBusinessId > 0) {
@@ -250,6 +302,7 @@ if ($activeBusinessId > 0) {
         foreach ($baselineRows as $bRow) {
             $key = $buildKey($bRow['item_name'] ?? '', $bRow['unit'] ?? '');
             $baselineMap[$key] = (float)($bRow['baseline_qty'] ?? 0);
+            $registerStockMeta($bRow['item_name'] ?? '', $bRow['unit'] ?? '');
         }
     } catch (Throwable $e) {
         $baselineMap = [];
@@ -265,6 +318,7 @@ if ($masterPdo && $activeBusinessSlug !== '') {
         $stmtIn->execute([$activeBusinessSlug]);
         foreach ($stmtIn->fetchAll() as $row) {
             $interTransferInMap[$buildKey($row['item_name'] ?? '', $row['unit'] ?? '')] = (float)($row['qty'] ?? 0);
+            $registerStockMeta($row['item_name'] ?? '', $row['unit'] ?? '');
         }
 
         $stmtOut = $masterPdo->prepare("SELECT item_name, unit, SUM(quantity) AS qty
@@ -274,6 +328,7 @@ if ($masterPdo && $activeBusinessSlug !== '') {
         $stmtOut->execute([$activeBusinessSlug]);
         foreach ($stmtOut->fetchAll() as $row) {
             $interTransferOutMap[$buildKey($row['item_name'] ?? '', $row['unit'] ?? '')] = (float)($row['qty'] ?? 0);
+            $registerStockMeta($row['item_name'] ?? '', $row['unit'] ?? '');
         }
     } catch (Throwable $e) {
         error_log('business-stock-incoming transfer aggregate error: ' . $e->getMessage());
@@ -302,6 +357,96 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         } catch (Throwable $e) {
             $_SESSION['error'] = 'Gagal reset stok bisnis: ' . $e->getMessage();
         }
+    }
+
+    header('Location: business-stock-incoming.php');
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add_manual_stock_business') {
+    $itemName = trim((string)($_POST['item_name'] ?? ''));
+    $unit = trim((string)($_POST['unit'] ?? 'pcs'));
+    $qty = (float)($_POST['quantity'] ?? 0);
+    $notes = trim((string)($_POST['notes'] ?? ''));
+
+    if ($activeBusinessId <= 0 || $itemName === '' || $qty <= 0) {
+        $_SESSION['error'] = 'Data stok manual tidak valid.';
+    } else {
+        try {
+            $db->query(
+                'INSERT INTO business_manual_stock_entries (business_id, item_name, unit, quantity, notes, created_by) VALUES (?, ?, ?, ?, ?, ?)',
+                [$activeBusinessId, $itemName, $unit !== '' ? $unit : 'pcs', $qty, $notes, (int)($currentUser['id'] ?? 0)]
+            );
+            $_SESSION['success'] = 'Stok manual berhasil ditambahkan.';
+        } catch (Throwable $e) {
+            $_SESSION['error'] = 'Gagal menambah stok manual: ' . $e->getMessage();
+        }
+    }
+
+    header('Location: business-stock-incoming.php');
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_transfer_history') {
+    $transferId = isset($_POST['transfer_id']) ? (int)$_POST['transfer_id'] : 0;
+
+    if ($transferId <= 0 || $gudangDbNameResolved === '') {
+        $_SESSION['error'] = 'Data transfer tidak valid.';
+        header('Location: business-stock-incoming.php');
+        exit;
+    }
+
+    try {
+        $originDbName = Database::getCurrentDatabase();
+        $gudangDb = Database::switchDatabase($gudangDbNameResolved);
+
+        $hasTargetBusinessId = false;
+        $transferCols = $gudangDb->fetchAll('SHOW COLUMNS FROM gudang_nasita_transfers');
+        foreach ($transferCols as $col) {
+            if (strtolower((string)($col['Field'] ?? '')) === 'target_business_id') {
+                $hasTargetBusinessId = true;
+                break;
+            }
+        }
+
+        $bizNameForMatch = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $activeBusinessName) . '%';
+        if ($hasTargetBusinessId) {
+            $transferRow = $gudangDb->fetchOne(
+                'SELECT id, transfer_number FROM gudang_nasita_transfers WHERE id = ? AND (target_business_id = ? OR target_business_name LIKE ?) LIMIT 1',
+                [$transferId, $activeBusinessId, $bizNameForMatch]
+            );
+        } else {
+            $transferRow = $gudangDb->fetchOne(
+                'SELECT id, transfer_number FROM gudang_nasita_transfers WHERE id = ? AND target_business_name LIKE ? LIMIT 1',
+                [$transferId, $bizNameForMatch]
+            );
+        }
+
+        if (!$transferRow) {
+            throw new Exception('Histori transfer tidak ditemukan untuk bisnis ini.');
+        }
+
+        $conn = $gudangDb->getConnection();
+        $conn->beginTransaction();
+        $gudangDb->query('DELETE FROM gudang_nasita_transfer_items WHERE transfer_id = ?', [$transferId]);
+        $gudangDb->query('DELETE FROM gudang_nasita_transfers WHERE id = ?', [$transferId]);
+        $conn->commit();
+
+        if (!empty($originDbName)) {
+            Database::switchDatabase($originDbName);
+            $db = Database::getInstance();
+        }
+
+        $_SESSION['success'] = 'Histori transfer ' . ($transferRow['transfer_number'] ?? '') . ' berhasil dihapus.';
+    } catch (Throwable $e) {
+        try {
+            if (isset($gudangDb) && $gudangDb->getConnection()->inTransaction()) {
+                $gudangDb->getConnection()->rollBack();
+            }
+        } catch (Throwable $rollbackError) {
+        }
+
+        $_SESSION['error'] = 'Gagal hapus histori transfer: ' . $e->getMessage();
     }
 
     header('Location: business-stock-incoming.php');
@@ -398,9 +543,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 }
 
 if ($activeBusinessId > 0) {
-    foreach ($rawStockSummary as $row) {
-        $itemName = (string)($row['item_name'] ?? '');
-        $unit = (string)($row['unit'] ?? 'pcs');
+    foreach ($stockMetaMap as $meta) {
+        $itemName = (string)($meta['item_name'] ?? '');
+        $unit = (string)($meta['unit'] ?? 'pcs');
         $visibleQty = $computeVisibleQty($itemName, $unit);
 
         if ($visibleQty <= 0) {
@@ -413,6 +558,10 @@ if ($activeBusinessId > 0) {
             'total_received' => $visibleQty,
         ];
     }
+
+    usort($stockSummary, function ($a, $b) {
+        return strcasecmp((string)$a['item_name'], (string)$b['item_name']);
+    });
 }
 
 $totalQtyVisible = 0;
@@ -433,6 +582,10 @@ include '../../includes/header.php';
             <i data-feather="file-text" style="width: 16px; height: 16px;"></i>
             Purchase Orders
         </a>
+        <button type="button" class="btn btn-primary" onclick="openManualStockModal()">
+            <i data-feather="plus-square" style="width: 16px; height: 16px;"></i>
+            Tambah Stok Manual
+        </button>
         <form method="POST" onsubmit="return confirm('Reset stok bisnis ini ke 0? Histori transfer tetap aman.')" style="display:inline;">
             <input type="hidden" name="action" value="reset_business_stock_zero">
             <button type="submit" class="btn btn-danger">
@@ -532,12 +685,13 @@ include '../../includes/header.php';
                         <th>Item</th>
                         <th class="text-right">Total Qty</th>
                         <th>Dikirim Oleh</th>
+                        <th class="text-center">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (empty($incomingTransfers)): ?>
                         <tr>
-                            <td colspan="5" style="text-align:center; padding:2rem; color:var(--text-muted);">Belum ada penerimaan barang dari gudang.</td>
+                            <td colspan="6" style="text-align:center; padding:2rem; color:var(--text-muted);">Belum ada penerimaan barang dari gudang.</td>
                         </tr>
                         <?php else: foreach ($incomingTransfers as $transfer): ?>
                             <tr>
@@ -546,6 +700,16 @@ include '../../includes/header.php';
                                 <td><?php echo (int)$transfer['items_count']; ?> item</td>
                                 <td class="text-right" style="font-weight:600;"><?php echo number_format((float)$transfer['total_qty'], 2); ?></td>
                                 <td style="font-size:0.875rem;"><?php echo htmlspecialchars($transfer['created_by_name'] ?? '-'); ?></td>
+                                <td class="text-center">
+                                    <form method="POST" style="display:inline;" onsubmit="return confirm('Hapus histori transfer ini? Stok bisnis akan ikut berkurang.')">
+                                        <input type="hidden" name="action" value="delete_transfer_history">
+                                        <input type="hidden" name="transfer_id" value="<?php echo (int)$transfer['id']; ?>">
+                                        <button type="submit" class="btn btn-sm btn-danger" style="height:30px; padding:0 0.6rem;" title="Hapus histori">
+                                            <i data-feather="trash-2" style="width:12px; height:12px;"></i>
+                                            Hapus
+                                        </button>
+                                    </form>
+                                </td>
                             </tr>
                     <?php endforeach;
                     endif; ?>
@@ -555,6 +719,50 @@ include '../../includes/header.php';
     </div>
 
 <?php endif; ?>
+
+<div id="manualStockModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:9999; align-items:center; justify-content:center; padding:1rem;">
+    <div class="card" style="max-width:560px; width:100%; margin:0; border-radius:1rem; overflow:hidden; box-shadow:0 24px 64px rgba(0,0,0,0.25);">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:1rem 1.25rem; background:linear-gradient(135deg,#0ea5e9,#0369a1); color:#fff;">
+            <div>
+                <div style="font-size:1rem; font-weight:700;">Tambah Stok Manual</div>
+                <div style="font-size:0.82rem; opacity:0.9;">Untuk stok awal/barang lokal bisnis</div>
+            </div>
+            <button type="button" onclick="closeManualStockModal()" style="background:transparent; border:none; color:#fff; font-size:1.4rem; cursor:pointer;">&times;</button>
+        </div>
+
+        <form method="POST" style="padding:1rem 1.25rem;" onsubmit="return confirm('Tambah stok manual sekarang?')">
+            <input type="hidden" name="action" value="add_manual_stock_business">
+
+            <div style="display:grid; grid-template-columns:1fr 110px 120px; gap:0.75rem; margin-bottom:0.85rem;">
+                <div>
+                    <label class="form-label">Nama item</label>
+                    <input type="text" name="item_name" class="form-control" placeholder="Contoh: Gula Pasir" required>
+                </div>
+                <div>
+                    <label class="form-label">Unit</label>
+                    <input type="text" name="unit" class="form-control" value="pcs" required>
+                </div>
+                <div>
+                    <label class="form-label">Qty</label>
+                    <input type="number" name="quantity" class="form-control" min="0.01" step="0.01" required>
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom:0.75rem;">
+                <label class="form-label">Catatan (opsional)</label>
+                <textarea name="notes" class="form-control" rows="2" placeholder="Misal: stok awal existing di outlet"></textarea>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+                <button type="button" class="btn btn-secondary" onclick="closeManualStockModal()">Batal</button>
+                <button type="submit" class="btn btn-primary">
+                    <i data-feather="plus" style="width:14px; height:14px;"></i>
+                    Simpan Stok
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 
 <div id="transferStockModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:9999; align-items:center; justify-content:center; padding:1rem;">
     <div class="card" style="max-width:560px; width:100%; margin:0; border-radius:1rem; overflow:hidden; box-shadow:0 24px 64px rgba(0,0,0,0.25);">
@@ -608,6 +816,16 @@ include '../../includes/header.php';
 </div>
 
 <script>
+    function openManualStockModal() {
+        var modal = document.getElementById('manualStockModal');
+        modal.style.display = 'flex';
+    }
+
+    function closeManualStockModal() {
+        var modal = document.getElementById('manualStockModal');
+        modal.style.display = 'none';
+    }
+
     function openTransferModal(itemName, unit, maxQty) {
         var modal = document.getElementById('transferStockModal');
         var itemInput = document.getElementById('transfer_item_name');
@@ -632,7 +850,11 @@ include '../../includes/header.php';
     }
 
     window.addEventListener('click', function(e) {
+        var manualModal = document.getElementById('manualStockModal');
         var modal = document.getElementById('transferStockModal');
+        if (e.target === manualModal) {
+            closeManualStockModal();
+        }
         if (e.target === modal) {
             closeTransferModal();
         }
