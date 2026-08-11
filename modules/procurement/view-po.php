@@ -13,6 +13,7 @@ $db = Database::getInstance();
 $currentUser = $auth->getCurrentUser();
 
 $po_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$poNumberParam = trim((string)($_GET['po_number'] ?? ''));
 $isGudangContext = (strtolower((string)($_SESSION['active_business_id'] ?? '')) === 'gudang-nasita');
 
 // Cross-business PO viewing: switch DB only for data fetch, restore immediately after
@@ -56,6 +57,19 @@ $restoreUserDb = function () use ($viewOriginalDb, &$db) {
             $db = Database::getInstance();
         } catch (Throwable $e) {
         }
+    }
+};
+
+$findPoIdByNumber = function ($poNumber) {
+    if ($poNumber === '') {
+        return 0;
+    }
+    try {
+        $dbLocal = Database::getInstance();
+        $row = $dbLocal->fetchOne("SELECT id FROM purchase_orders_header WHERE po_number = ? ORDER BY id DESC LIMIT 1", [$poNumber]);
+        return (int)($row['id'] ?? 0);
+    } catch (Throwable $e) {
+        return 0;
     }
 };
 
@@ -112,7 +126,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
 // Fetch PO from source DB then restore user DB immediately so header renders correctly
 $switchToPoDb();
-$po = getPurchaseOrder($po_id);
+$resolvedPoId = $po_id;
+if ($poNumberParam !== '') {
+    $idByNumber = $findPoIdByNumber($poNumberParam);
+    if ($idByNumber > 0) {
+        $resolvedPoId = $idByNumber;
+    }
+}
+$po = $resolvedPoId > 0 ? getPurchaseOrder($resolvedPoId) : null;
 
 // Gudang fallback: if PO not found with incoming slug, auto-scan known business DBs by PO id.
 if (!$po && $isGudangContext) {
@@ -130,9 +151,17 @@ if (!$po && $isGudangContext) {
 
         try {
             Database::switchDatabase($candidateDb);
-            $candidatePo = getPurchaseOrder($po_id);
+            $candidateId = $po_id;
+            if ($poNumberParam !== '') {
+                $idByNumber = $findPoIdByNumber($poNumberParam);
+                if ($idByNumber > 0) {
+                    $candidateId = $idByNumber;
+                }
+            }
+            $candidatePo = $candidateId > 0 ? getPurchaseOrder($candidateId) : null;
             if ($candidatePo) {
                 $po = $candidatePo;
+                $resolvedPoId = (int)($candidatePo['id'] ?? $candidateId);
                 $poBizSlug = $candidateSlug;
                 $sourceBusinessName = (string)($cfg['name'] ?? $candidateSlug);
                 break;
@@ -142,6 +171,10 @@ if (!$po && $isGudangContext) {
     }
 }
 $restoreUserDb();
+
+if ($po) {
+    $po_id = (int)($po['id'] ?? $po_id);
+}
 
 // Gudang Nasita users can view any business PO — bypass ownership check
 if (
