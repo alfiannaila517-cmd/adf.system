@@ -737,6 +737,14 @@ include '../../includes/header.php';
             <h3 style="font-size:1rem; font-weight:700; margin:0;">Stok Bisnis (Total Diterima dari Gudang)</h3>
             <span style="font-size:0.8rem; color:var(--text-muted);"><?php echo count($stockSummary); ?> item | Khusus bisnis aktif</span>
         </div>
+        <div style="display:flex; gap:0.55rem; align-items:center; margin-bottom:0.9rem; flex-wrap:wrap;">
+            <div style="position:relative; min-width:280px; flex:1;">
+                <i data-feather="search" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); width:14px; height:14px; color:#64748b;"></i>
+                <input type="text" id="stockSearchInput" class="form-control" placeholder="Cari stok: nama barang / unit" style="padding-left:2rem;">
+            </div>
+            <button type="button" class="btn btn-secondary" style="height:38px;" onclick="clearStockSearch()">Reset Cari</button>
+            <span id="stockSearchCounter" style="font-size:0.8rem; color:#64748b;">Menampilkan <?php echo count($stockSummary); ?> item</span>
+        </div>
         <div class="table-responsive">
             <table class="table">
                 <thead>
@@ -753,8 +761,14 @@ include '../../includes/header.php';
                             <td colspan="4" style="text-align:center; padding:2rem; color:var(--text-muted);">Belum ada stok masuk dari gudang.</td>
                         </tr>
                         <?php else: foreach ($stockSummary as $item): ?>
-                            <tr>
-                                <td style="font-weight:600;"><?php echo htmlspecialchars($item['item_name']); ?></td>
+                            <tr class="stock-row" data-search="<?php echo htmlspecialchars(strtolower(trim((string)$item['item_name']) . ' ' . trim((string)$item['unit']))); ?>">
+                                <td style="font-weight:600;">
+                                    <?php echo htmlspecialchars($item['item_name']); ?>
+                                    <button type="button" class="btn btn-sm btn-secondary" style="height:26px; margin-left:0.45rem; padding:0 0.5rem;" onclick="openManualStockModalPreset('<?php echo htmlspecialchars(addslashes($item['item_name'])); ?>','<?php echo htmlspecialchars(addslashes($item['unit'])); ?>')">
+                                        <i data-feather="plus-circle" style="width:12px; height:12px;"></i>
+                                        Tambah
+                                    </button>
+                                </td>
                                 <td><?php echo htmlspecialchars($item['unit']); ?></td>
                                 <td class="text-right" style="font-weight:700; color:#0f9d6a;"><?php echo number_format((float)$item['total_received'], 2); ?></td>
                                 <td class="text-center">
@@ -1191,6 +1205,20 @@ include '../../includes/header.php';
         }
     }
 
+    function openManualStockModalPreset(itemName, unit) {
+        openManualStockModal();
+
+        var nameInput = document.getElementById('manual_item_name');
+        var unitInput = document.getElementById('manual_item_unit');
+        if (nameInput) {
+            nameInput.value = itemName || '';
+            applyExistingManualItemMeta();
+        }
+        if (unitInput && unit) {
+            unitInput.value = unit;
+        }
+    }
+
     function closeManualStockModal() {
         var modal = document.getElementById('manualStockModal');
         modal.style.display = 'none';
@@ -1204,6 +1232,50 @@ include '../../includes/header.php';
 
         nameInput.addEventListener('change', applyExistingManualItemMeta);
         nameInput.addEventListener('blur', applyExistingManualItemMeta);
+    })();
+
+    function filterStockRows() {
+        var input = document.getElementById('stockSearchInput');
+        var rows = document.querySelectorAll('.stock-row');
+        var counter = document.getElementById('stockSearchCounter');
+        if (!input || !rows.length) {
+            return;
+        }
+
+        var term = normalizeManualName(input.value || '');
+        var visibleCount = 0;
+
+        rows.forEach(function(row) {
+            var hay = String(row.getAttribute('data-search') || '').toLowerCase();
+            var match = term === '' || hay.indexOf(term) !== -1;
+            row.style.display = match ? '' : 'none';
+            if (match) {
+                visibleCount++;
+            }
+        });
+
+        if (counter) {
+            counter.textContent = 'Menampilkan ' + visibleCount + ' item';
+        }
+    }
+
+    function clearStockSearch() {
+        var input = document.getElementById('stockSearchInput');
+        if (input) {
+            input.value = '';
+            filterStockRows();
+            input.focus();
+        }
+    }
+
+    (function bindStockSearch() {
+        var input = document.getElementById('stockSearchInput');
+        if (!input) {
+            return;
+        }
+
+        input.addEventListener('input', filterStockRows);
+        filterStockRows();
     })();
 
     function openTransferModal(itemName, unit, maxQty) {
