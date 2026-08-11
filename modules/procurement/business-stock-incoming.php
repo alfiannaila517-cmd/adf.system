@@ -70,13 +70,30 @@ if ($activeBusinessId > 0) {
             id INT AUTO_INCREMENT PRIMARY KEY,
             business_id INT NOT NULL,
             item_name VARCHAR(255) NOT NULL,
+            category VARCHAR(100) NULL,
             unit VARCHAR(50) NOT NULL,
             quantity DECIMAL(15,2) NOT NULL DEFAULT 0,
             notes TEXT NULL,
             created_by INT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            INDEX idx_business_item (business_id, item_name, unit)
+            INDEX idx_business_item (business_id, item_name, unit),
+            INDEX idx_business_category (business_id, category)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        // Backward-safe migration for environments where table existed before category column.
+        $manualCols = $db->fetchAll('SHOW COLUMNS FROM business_manual_stock_entries');
+        $hasCategoryColumn = false;
+        foreach ($manualCols as $col) {
+            if (strtolower((string)($col['Field'] ?? '')) === 'category') {
+                $hasCategoryColumn = true;
+                break;
+            }
+        }
+
+        if (!$hasCategoryColumn) {
+            $db->query('ALTER TABLE business_manual_stock_entries ADD COLUMN category VARCHAR(100) NULL AFTER item_name');
+            $db->query('ALTER TABLE business_manual_stock_entries ADD INDEX idx_business_category (business_id, category)');
+        }
     } catch (Throwable $e) {
         error_log('business-stock-incoming manual stock table error: ' . $e->getMessage());
     }
@@ -365,6 +382,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add_manual_stock_business') {
     $itemName = trim((string)($_POST['item_name'] ?? ''));
+    $category = trim((string)($_POST['category'] ?? ''));
     $unit = trim((string)($_POST['unit'] ?? 'pcs'));
     $qty = (float)($_POST['quantity'] ?? 0);
     $notes = trim((string)($_POST['notes'] ?? ''));
@@ -374,8 +392,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     } else {
         try {
             $db->query(
-                'INSERT INTO business_manual_stock_entries (business_id, item_name, unit, quantity, notes, created_by) VALUES (?, ?, ?, ?, ?, ?)',
-                [$activeBusinessId, $itemName, $unit !== '' ? $unit : 'pcs', $qty, $notes, (int)($currentUser['id'] ?? 0)]
+                'INSERT INTO business_manual_stock_entries (business_id, item_name, category, unit, quantity, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [$activeBusinessId, $itemName, $category !== '' ? $category : null, $unit !== '' ? $unit : 'pcs', $qty, $notes, (int)($currentUser['id'] ?? 0)]
             );
             $_SESSION['success'] = 'Stok manual berhasil ditambahkan.';
         } catch (Throwable $e) {
@@ -763,12 +781,19 @@ include '../../includes/header.php';
         letter-spacing: 0.01em;
         line-height: 1.25;
         margin-bottom: 0.2rem;
+        color: #ffffff !important;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.14);
     }
 
     .manual-stock-subtitle {
         font-size: 0.83rem;
         opacity: 0.95;
         line-height: 1.35;
+        color: #f0f9ff !important;
+    }
+
+    .manual-stock-head * {
+        color: #ffffff;
     }
 
     .manual-stock-close {
@@ -813,7 +838,7 @@ include '../../includes/header.php';
 
     .manual-stock-grid {
         display: grid;
-        grid-template-columns: minmax(220px, 1fr) 110px 130px;
+        grid-template-columns: minmax(190px, 1fr) minmax(130px, 0.8fr) 110px 120px;
         gap: 0.78rem;
         margin-bottom: 0.95rem;
     }
@@ -932,6 +957,10 @@ include '../../includes/header.php';
                     <input type="text" name="item_name" class="form-control" placeholder="Contoh: Gula Pasir" required>
                 </div>
                 <div>
+                    <label class="form-label">Kategori</label>
+                    <input type="text" name="category" class="form-control" list="manualStockCategoryList" placeholder="Bahan" required>
+                </div>
+                <div>
                     <label class="form-label">Unit</label>
                     <input type="text" name="unit" class="form-control" value="pcs" required>
                 </div>
@@ -946,6 +975,15 @@ include '../../includes/header.php';
                 <textarea name="notes" class="form-control" placeholder="Misal: stok awal existing di outlet"></textarea>
                 <div class="manual-stock-help">Catatan membantu tim melacak asal stok manual.</div>
             </div>
+
+            <datalist id="manualStockCategoryList">
+                <option value="Bahan Makanan"></option>
+                <option value="Minuman"></option>
+                <option value="Bumbu"></option>
+                <option value="Kebersihan"></option>
+                <option value="Perlengkapan"></option>
+                <option value="Lainnya"></option>
+            </datalist>
 
             <div class="manual-stock-actions">
                 <div class="manual-stock-actions-note">Perubahan stok langsung tercatat ke bisnis aktif.</div>
