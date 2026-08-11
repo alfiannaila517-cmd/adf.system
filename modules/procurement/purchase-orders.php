@@ -53,8 +53,14 @@ if ($supplier_id > 0) $filters['supplier_id'] = $supplier_id;
 if ($date_from) $filters['date_from'] = $date_from;
 if ($date_to) $filters['date_to'] = $date_to;
 $filters['exclude_gdn_prefix'] = true;
-// Do not filter by business_id in business context.
-// Each business already uses its own database, so business_id drift should not hide PO rows.
+
+// For non-Gudang (business context): strip supplier + date filters to ensure data always shows
+// This prevents empty lists due to filter strictness in legacy schemas
+if (!$isGudang) {
+    unset($filters['supplier_id']);
+    unset($filters['date_from']);
+    unset($filters['date_to']);
+}
 
 // Get purchase orders
 if ($isGudang) {
