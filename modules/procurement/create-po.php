@@ -409,35 +409,6 @@ include '../../includes/header.php';
             if (drop) drop.style.display='none';
         }, delay);
     }
-        
-        <select name="items[${itemCount}][division_id]" class="form-control" required style="font-size: 0.875rem; padding: 0.5rem;">
-            ${divisions.map(d => `<option value="${d.id}">${d.division_name}</option>`).join('')}
-        </select>
-        
-        <input type="number" name="items[${itemCount}][quantity]" class="form-control item-qty" step="any" min="0" value="1" required onchange="calculateItemTotal(this)" style="font-size: 0.875rem; padding: 0.5rem;">
-        
-        <select name="items[${itemCount}][unit_of_measure]" class="form-control" style="font-size: 0.875rem; padding: 0.5rem;">
-            <option value="pcs">Pcs</option>
-            <option value="kg">Kg</option>
-            <option value="liter">Ltr</option>
-            <option value="box">Box</option>
-            <option value="pack">Pack</option>
-            <option value="unit">Unit</option>
-        </select>
-        
-        <input type="number" name="items[${itemCount}][unit_price]" class="form-control item-price" step="any" min="0" value="0" required onchange="calculateItemTotal(this)" placeholder="0" style="font-size: 0.875rem; padding: 0.5rem;">
-        
-        <div class="form-control item-subtotal" readonly style="background: #e6f7ff; font-weight: 700; color: var(--primary-color); font-size: 0.875rem; padding: 0.5rem;">Rp 0</div>
-        
-        <button type="button" onclick="removeItem(this)" class="btn btn-sm btn-danger" title="Hapus" style="padding: 0.5rem;">
-            <i data-feather="x" style="width: 14px; height: 14px;"></i>
-        </button>
-        
-        <input type="hidden" name="items[${itemCount}][item_description]" value="">
-    `;
-        container.appendChild(itemDiv);
-        feather.replace();
-    }
 
     function removeItem(btn) {
         if (document.querySelectorAll('.item-row').length === 1) {
