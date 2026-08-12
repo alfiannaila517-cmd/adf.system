@@ -568,15 +568,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $_SESSION['error'] = 'Data item tidak valid untuk dihapus.';
     } else {
         try {
-            $qtyNow = $computeVisibleQty($itemName, $unit);
             $key = $buildKey($itemName, $unit);
-            $baselineNow = $getMapQty($baselineMap, $key);
+            // Set baseline to total gross so visible qty becomes 0 regardless of current value
+            $totalGross = $getMapQty($rawStockMap, $key)
+                        + $getMapQty($manualStockMap, $key)
+                        + $getMapQty($interTransferInMap, $key)
+                        - $getMapQty($interTransferOutMap, $key);
+            $newBaseline = max($totalGross, $getMapQty($baselineMap, $key));
 
             $db->query(
                 "INSERT INTO business_stock_reset_baseline (business_id, item_name, unit, baseline_qty, updated_by)
                  VALUES (?, ?, ?, ?, ?)
                  ON DUPLICATE KEY UPDATE baseline_qty = VALUES(baseline_qty), updated_by = VALUES(updated_by)",
-                [$activeBusinessId, $itemName, $unit, ($baselineNow + $qtyNow), (int)($currentUser['id'] ?? 0)]
+                [$activeBusinessId, $itemName, $unit, $newBaseline, (int)($currentUser['id'] ?? 0)]
             );
             $_SESSION['success'] = 'Item stok bisnis berhasil dihapus.';
         } catch (Throwable $e) {
@@ -1175,7 +1179,8 @@ include '../../includes/header.php';
                     <select name="target_business_slug" class="form-control" required>
                         <option value="">Pilih bisnis tujuan</option>
                         <?php foreach ($transferBusinessOptions as $slug => $biz): ?>
-                            <?php if (strtolower($slug) === $activeBusinessSlug): continue; endif; ?>
+                            <?php if (strtolower($slug) === $activeBusinessSlug): continue;
+                            endif; ?>
                             <option value="<?php echo htmlspecialchars($slug); ?>"><?php echo htmlspecialchars($biz['name']); ?></option>
                         <?php endforeach; ?>
                     </select>
