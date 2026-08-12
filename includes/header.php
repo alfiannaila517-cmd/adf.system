@@ -710,9 +710,16 @@ if (isset($_SESSION['user_id'])) {
                         </li>
 
                         <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>/modules/procurement/gudang-produk.php" class="nav-link <?php echo activeMenu('gudang-produk.php'); ?>">
+                                <i data-feather="database" class="nav-icon"></i>
+                                <span>Database Produk</span>
+                            </a>
+                        </li>
+
+                        <li class="nav-item">
                             <a href="<?php echo BASE_URL; ?>/modules/procurement/purchase-orders.php" class="nav-link <?php echo activeMenu('purchase-orders.php'); ?>">
-                                <i data-feather="clipboard" class="nav-icon"></i>
-                                <span>PO</span>
+                                <i data-feather="send" class="nav-icon"></i>
+                                <span>History Terkirim</span>
                             </a>
                         </li>
 

@@ -427,10 +427,6 @@ include '../../includes/header.php';
             <i data-feather="plus-square" style="width: 16px; height: 16px;"></i>
             Input Stock Manual
         </button>
-        <a href="gudang-produk.php" class="btn" style="background:#7c3aed;color:#fff;font-weight:700;">
-            <i data-feather="database" style="width: 16px; height: 16px;"></i>
-            Database Produk
-        </a>
         <a href="gudang-nasita.php?export_excel=1&q_item=<?php echo urlencode($searchItemName); ?>&low_stock=<?php echo $filterLowStockOnly ? '1' : '0'; ?>" class="btn btn-success" style="font-weight:700;">
             <i data-feather="download" style="width: 16px; height: 16px;"></i>
             Export Excel
