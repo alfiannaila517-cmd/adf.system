@@ -107,6 +107,16 @@ foreach ($stockRows as $sr) {
     $stockMap[$sr['k']] = (float)$sr['total'];
 }
 
+// Build full product list with current stock for JS (rendered once, filtered client-side)
+$allProductsForJs = $db->fetchAll(
+    "SELECT gb.id, gb.kode_barang, gb.nama_barang, gb.kategori, gb.satuan,
+            COALESCE((SELECT SUM(gs.quantity) FROM gudang_nasita_stock gs
+                      WHERE gs.is_active = 1 AND LOWER(gs.item_name) = LOWER(gb.nama_barang)), 0) AS stok_qty
+     FROM gudang_nasita_barang gb
+     WHERE gb.is_active = 1
+     ORDER BY gb.nama_barang ASC"
+) ?: [];
+
 include '../../includes/header.php';
 ?>
 
@@ -116,7 +126,10 @@ include '../../includes/header.php';
         <p style="color:var(--text-muted); font-size:0.875rem; margin:0.25rem 0 0;">Master barang terpusat — cegah nama ganda seperti "Beer" vs "Bir"</p>
     </div>
     <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
-        <button type="button" class="btn btn-success" onclick="openProdukModal(0)">
+        <button type="button" class="btn btn-success" onclick="openAddStockSearch()">
+            <i data-feather="plus-circle" style="width:15px;height:15px;"></i> Tambah Stock
+        </button>
+        <button type="button" class="btn" style="background:#7c3aed;color:#fff;" onclick="openProdukModal(0)">
             <i data-feather="plus" style="width:15px;height:15px;"></i> Tambah Produk
         </button>
         <a href="gudang-nasita.php" class="btn btn-secondary">← Kembali ke Stock Gudang</a>
@@ -271,48 +284,78 @@ include '../../includes/header.php';
     </div>
 </div>
 
-<!-- Modal: Quick Add Stock (redirect ke gudang-nasita dengan pre-fill) -->
-<div id="quickStockModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.5); z-index:2100; align-items:center; justify-content:center; padding:1rem;">
-    <div class="card" style="width:min(480px,100%); max-height:90vh; overflow:auto;">
+<!-- Modal: Tambah Stock — fase 1: search+filter, fase 2: form -->
+<div id="addStockModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.55); z-index:2100; align-items:flex-start; justify-content:center; padding:1.5rem 1rem; overflow-y:auto;">
+    <div class="card" style="width:min(580px,100%); margin:auto;">
+
+        <!-- Header modal -->
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-            <h3 style="font-size:1.05rem; margin:0;">Tambah Stock</h3>
-            <button type="button" onclick="document.getElementById('quickStockModal').style.display='none'" class="btn btn-sm btn-outline-secondary">✕</button>
+            <div style="display:flex; align-items:center; gap:0.6rem;">
+                <button type="button" id="asBackBtn" onclick="showSearchPhase()" style="display:none; background:none; border:none; cursor:pointer; color:var(--text-muted); font-size:1.1rem; padding:0 4px;">← </button>
+                <h3 id="asTitle" style="font-size:1.05rem; margin:0;">Tambah Stock — Pilih Produk</h3>
+            </div>
+            <button type="button" onclick="closeAddStockModal()" class="btn btn-sm btn-outline-secondary">✕</button>
         </div>
-        <form method="POST" action="gudang-nasita.php">
-            <input type="hidden" name="action" value="manual_stock_in">
-            <div style="display:grid; gap:0.85rem;">
+
+        <!-- FASE 1: Search + filter + list -->
+        <div id="asSearchPhase">
+            <div style="display:flex; gap:0.5rem; margin-bottom:0.75rem;">
+                <input type="text" id="asSearchInput" class="form-control" placeholder="Cari nama produk..." oninput="renderProductList()" style="flex:1;">
+                <select id="asKategoriFilter" class="form-control" style="width:150px;" onchange="renderProductList()">
+                    <option value="">Semua Kategori</option>
+                    <?php
+                    $jsKats = $db->fetchAll("SELECT DISTINCT COALESCE(kategori,'lainnya') AS kategori FROM gudang_nasita_barang WHERE is_active=1 ORDER BY kategori ASC");
+                    foreach ($jsKats as $kk): ?>
+                        <option value="<?php echo htmlspecialchars($kk['kategori']); ?>"><?php echo htmlspecialchars(ucfirst($kk['kategori'])); ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div id="asProductList" style="max-height:380px; overflow-y:auto; border:1px solid var(--border); border-radius:0.5rem;">
+                <!-- rendered by JS -->
+            </div>
+            <div style="margin-top:0.75rem; font-size:0.78rem; color:var(--text-muted); text-align:right;" id="asCountLabel"></div>
+        </div>
+
+        <!-- FASE 2: Form tambah stock -->
+        <div id="asFormPhase" style="display:none;">
+            <div style="background:var(--bg-secondary); border-radius:0.6rem; padding:0.75rem 1rem; margin-bottom:1rem; display:flex; align-items:center; justify-content:space-between; gap:1rem;">
                 <div>
-                    <label class="form-label">Nama Item</label>
-                    <input type="text" name="item_name" id="qsItemName" class="form-control" readonly style="background:var(--bg-secondary);">
-                </div>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.7rem;">
-                    <div>
-                        <label class="form-label">Kategori</label>
-                        <input type="text" name="category" id="qsKategori" class="form-control">
-                    </div>
-                    <div>
-                        <label class="form-label">Unit</label>
-                        <input type="text" name="unit" id="qsSatuan" class="form-control">
-                    </div>
-                </div>
-                <div>
-                    <label class="form-label">Qty Masuk <span style="color:#dc2626;">*</span></label>
-                    <input type="number" name="quantity" class="form-control" step="0.01" min="0.01" required autofocus>
-                </div>
-                <div>
-                    <label class="form-label">Supplier (opsional)</label>
-                    <input type="text" name="supplier_name" class="form-control" placeholder="Nama supplier">
-                </div>
-                <div>
-                    <label class="form-label">Catatan</label>
-                    <textarea name="notes" class="form-control" rows="2"></textarea>
+                    <div style="font-weight:700; font-size:0.95rem;" id="asSelectedName"></div>
+                    <div style="font-size:0.78rem; color:var(--text-muted);"><span id="asSelectedKat"></span> · <span id="asSelectedSat"></span> · Stok saat ini: <strong id="asSelectedStok" style="color:#0f9d6a;"></strong></div>
                 </div>
             </div>
-            <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
-                <button type="button" onclick="document.getElementById('quickStockModal').style.display='none'" class="btn btn-secondary">Batal</button>
-                <button type="submit" class="btn btn-success">Simpan Stock</button>
-            </div>
-        </form>
+            <form method="POST" action="gudang-nasita.php" id="asForm">
+                <input type="hidden" name="action" value="manual_stock_in">
+                <input type="hidden" name="item_name" id="asFormItem">
+                <input type="hidden" name="category" id="asFormKat">
+                <input type="hidden" name="unit" id="asFormUnit">
+                <div style="display:grid; gap:0.85rem;">
+                    <div>
+                        <label class="form-label">Qty Masuk <span style="color:#dc2626;">*</span></label>
+                        <input type="number" name="quantity" id="asFormQty" class="form-control" step="0.01" min="0.01" required placeholder="0">
+                    </div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.7rem;">
+                        <div>
+                            <label class="form-label">Reorder Level</label>
+                            <input type="number" name="reorder_level" class="form-control" step="0.01" min="0" value="0">
+                        </div>
+                        <div>
+                            <label class="form-label">Supplier</label>
+                            <input type="text" name="supplier_name" class="form-control" placeholder="Opsional">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="form-label">Catatan</label>
+                        <textarea name="notes" class="form-control" rows="2" placeholder="Opsional"></textarea>
+                    </div>
+                </div>
+                <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
+                    <button type="button" onclick="showSearchPhase()" class="btn btn-secondary">← Ganti Produk</button>
+                    <button type="submit" class="btn btn-success">Simpan Stock</button>
+                </div>
+            </form>
+        </div>
+
     </div>
 </div>
 
@@ -401,18 +444,92 @@ include '../../includes/header.php';
         }
     }
 
+    // All active products embedded for client-side search/filter
+    const GP_PRODUCTS = <?php echo json_encode(array_values($allProductsForJs), JSON_UNESCAPED_UNICODE); ?>;
+
+    function openAddStockSearch() {
+        document.getElementById('addStockModal').style.display = 'flex';
+        showSearchPhase();
+        setTimeout(() => document.getElementById('asSearchInput').focus(), 80);
+    }
+
+    function closeAddStockModal() {
+        document.getElementById('addStockModal').style.display = 'none';
+    }
+
+    function showSearchPhase() {
+        document.getElementById('asSearchPhase').style.display = 'block';
+        document.getElementById('asFormPhase').style.display = 'none';
+        document.getElementById('asBackBtn').style.display = 'none';
+        document.getElementById('asTitle').textContent = 'Tambah Stock — Pilih Produk';
+        renderProductList();
+        setTimeout(() => document.getElementById('asSearchInput').focus(), 60);
+    }
+
+    function renderProductList() {
+        const q = (document.getElementById('asSearchInput').value || '').toLowerCase().trim();
+        const kat = document.getElementById('asKategoriFilter').value;
+        const filtered = GP_PRODUCTS.filter(p =>
+            (!q || p.nama_barang.toLowerCase().includes(q)) &&
+            (!kat || (p.kategori || 'lainnya') === kat)
+        );
+        const list = document.getElementById('asProductList');
+        document.getElementById('asCountLabel').textContent = filtered.length + ' produk';
+        if (!filtered.length) {
+            list.innerHTML = '<div style="padding:1.5rem; text-align:center; color:var(--text-muted); font-size:0.875rem;">Tidak ada produk yang cocok</div>';
+            return;
+        }
+        // Group by kategori
+        const groups = {};
+        filtered.forEach(p => {
+            const k = (p.kategori || 'lainnya');
+            if (!groups[k]) groups[k] = [];
+            groups[k].push(p);
+        });
+        let html = '';
+        Object.keys(groups).sort().forEach(k => {
+            html += `<div style="padding:0.35rem 0.85rem; font-size:0.72rem; font-weight:700; text-transform:uppercase; color:#64748b; background:var(--bg-secondary); border-bottom:1px solid var(--border); letter-spacing:0.05em;">${k}</div>`;
+            groups[k].forEach(p => {
+                const stokColor = p.stok_qty > 0 ? '#0f9d6a' : '#dc2626';
+                html += `<div onclick="selectProductForStock(${JSON.stringify(p)})" style="display:flex; align-items:center; justify-content:space-between; padding:0.65rem 0.85rem; cursor:pointer; border-bottom:1px solid var(--border); transition:background 0.12s;" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background=''">` +
+                    `<div><div style="font-weight:600; font-size:0.875rem;">${p.nama_barang}</div><div style="font-size:0.75rem; color:#64748b;">${p.kode_barang || ''} · ${p.satuan || 'pcs'}</div></div>` +
+                    `<div style="text-align:right; flex-shrink:0;"><div style="font-weight:700; font-size:0.9rem; color:${stokColor};">${parseFloat(p.stok_qty).toLocaleString('id-ID', {minimumFractionDigits:0, maximumFractionDigits:2})}</div><div style="font-size:0.7rem; color:#94a3b8;">stok saat ini</div></div>` +
+                `</div>`;
+            });
+        });
+        list.innerHTML = html;
+    }
+
+    function selectProductForStock(p) {
+        document.getElementById('asFormItem').value = p.nama_barang;
+        document.getElementById('asFormKat').value  = p.kategori || 'lainnya';
+        document.getElementById('asFormUnit').value = p.satuan || 'pcs';
+        document.getElementById('asSelectedName').textContent = p.nama_barang;
+        document.getElementById('asSelectedKat').textContent  = p.kategori || 'lainnya';
+        document.getElementById('asSelectedSat').textContent  = p.satuan || 'pcs';
+        document.getElementById('asSelectedStok').textContent = parseFloat(p.stok_qty).toLocaleString('id-ID', {minimumFractionDigits:0, maximumFractionDigits:2}) + ' ' + (p.satuan || 'pcs');
+        document.getElementById('asFormQty').value = '';
+        document.getElementById('asSearchPhase').style.display = 'none';
+        document.getElementById('asFormPhase').style.display = 'block';
+        document.getElementById('asBackBtn').style.display = 'inline';
+        document.getElementById('asTitle').textContent = 'Tambah Stock';
+        setTimeout(() => document.getElementById('asFormQty').focus(), 60);
+    }
+
+    // Per-row button still works by jumping straight to the form phase
     function quickAddStock(nama, kategori, satuan) {
-        document.getElementById('qsItemName').value = nama;
-        document.getElementById('qsKategori').value = kategori;
-        document.getElementById('qsSatuan').value = satuan;
-        document.getElementById('quickStockModal').style.display = 'flex';
-        setTimeout(() => document.querySelector('#quickStockModal input[name="quantity"]').focus(), 80);
+        const p = GP_PRODUCTS.find(x => x.nama_barang === nama) || { nama_barang: nama, kategori: kategori, satuan: satuan, stok_qty: 0, kode_barang: '' };
+        openAddStockSearch();
+        selectProductForStock(p);
     }
 
     document.addEventListener('click', e => {
         if (e.target === document.getElementById('produkModal')) closeProdukModal();
-        if (e.target === document.getElementById('quickStockModal')) document.getElementById('quickStockModal').style.display = 'none';
+        if (e.target === document.getElementById('addStockModal')) closeAddStockModal();
     });
+
+    // Render list on first open
+    document.addEventListener('DOMContentLoaded', renderProductList);
 </script>
 
 <?php include '../../includes/footer.php'; ?>
