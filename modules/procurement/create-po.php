@@ -151,6 +151,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 include '../../includes/header.php';
 ?>
+<style>
+.po-drop-item:hover { background: #f0f9ff !important; }
+.po-item-drop { background: var(--bg-primary, #fff) !important; }
+</style>
 
 <div style="margin-bottom: 1.25rem;">
     <div style="display: flex; align-items: center; gap: 0.75rem;">
@@ -293,17 +297,118 @@ include '../../includes/header.php';
 <script>
     let itemCount = 0;
     const divisions = <?php echo json_encode($divisions); ?>;
+    const GUDANG_API = '<?php echo BASE_URL; ?>/api/gudang-produk-search.php';
 
     function addItem() {
         itemCount++;
         const container = document.getElementById('itemsContainer');
         const itemDiv = document.createElement('div');
         itemDiv.className = 'item-row';
-        itemDiv.style.cssText = 'display: grid; grid-template-columns: 0.3fr 2fr 1fr 0.7fr 0.7fr 1fr 1fr auto; gap: 0.5rem; padding: 0.5rem; border-bottom: 1px solid var(--bg-tertiary); align-items: center;';
+        itemDiv.style.cssText = 'display: grid; grid-template-columns: 0.3fr 2fr 1fr 0.7fr 0.7fr 1fr 1fr auto; gap: 0.5rem; padding: 0.5rem; border-bottom: 1px solid var(--bg-tertiary); align-items: start;';
         itemDiv.innerHTML = `
-        <div style="font-weight: 600; color: var(--primary-color); font-size: 0.875rem;">#${itemCount}</div>
+        <div style="font-weight: 600; color: var(--primary-color); font-size: 0.875rem; padding-top:.55rem;">#${itemCount}</div>
         
-        <input type="text" name="items[${itemCount}][item_name]" class="form-control" placeholder="Nama item..." required style="font-size: 0.875rem; padding: 0.5rem;">
+        <div style="position:relative;">
+            <input type="text" name="items[${itemCount}][item_name]" class="form-control po-item-ac" placeholder="Ketik nama item..." required autocomplete="off" style="font-size: 0.875rem; padding: 0.5rem;" oninput="handleItemInput(this)" onblur="hideItemDrop(this,200)">
+            <div class="po-item-drop" style="display:none;position:absolute;left:0;right:0;top:100%;background:#fff;border:1px solid #e2e8f0;border-radius:0 0 .5rem .5rem;max-height:200px;overflow-y:auto;z-index:999;box-shadow:0 4px 16px rgba(0,0,0,.12);"></div>
+            <div class="po-item-hint" style="font-size:.7rem;margin-top:2px;display:none;"></div>
+        </div>
+        
+        <select name="items[${itemCount}][division_id]" class="form-control" required style="font-size: 0.875rem; padding: 0.5rem;">
+            ${divisions.map(d => `<option value="${d.id}">${d.division_name}</option>`).join('')}
+        </select>
+        
+        <input type="number" name="items[${itemCount}][quantity]" class="form-control item-qty" step="any" min="0" value="1" required onchange="calculateItemTotal(this)" style="font-size: 0.875rem; padding: 0.5rem;">
+        
+        <select name="items[${itemCount}][unit_of_measure]" class="form-control po-item-unit" style="font-size: 0.875rem; padding: 0.5rem;">
+            <option value="pcs">Pcs</option>
+            <option value="kg">Kg</option>
+            <option value="liter">Ltr</option>
+            <option value="box">Box</option>
+            <option value="pack">Pack</option>
+            <option value="unit">Unit</option>
+            <option value="botol">Botol</option>
+            <option value="karton">Karton</option>
+        </select>
+        
+        <input type="number" name="items[${itemCount}][unit_price]" class="form-control item-price" step="any" min="0" value="0" required onchange="calculateItemTotal(this)" placeholder="0" style="font-size: 0.875rem; padding: 0.5rem;">
+        
+        <div class="form-control item-subtotal" readonly style="background: #e6f7ff; font-weight: 700; color: var(--primary-color); font-size: 0.875rem; padding: 0.5rem;">Rp 0</div>
+        
+        <button type="button" onclick="removeItem(this)" class="btn btn-sm btn-danger" title="Hapus" style="padding: 0.5rem; margin-top:.1rem;">
+            <i data-feather="x" style="width: 14px; height: 14px;"></i>
+        </button>
+        
+        <input type="hidden" name="items[${itemCount}][item_description]" value="">
+    `;
+        container.appendChild(itemDiv);
+        feather.replace();
+    }
+
+    // ── Gudang autocomplete helpers ────────────────────────────────────────────
+    let acTimers = {};
+
+    function handleItemInput(inp) {
+        const key = inp.name;
+        clearTimeout(acTimers[key]);
+        const q = inp.value.trim();
+        const drop = inp.nextElementSibling;
+        const hint = drop.nextElementSibling;
+        if (q.length < 2) { drop.style.display='none'; hint.style.display='none'; return; }
+        acTimers[key] = setTimeout(() => fetchGudangItems(q, inp, drop, hint), 280);
+    }
+
+    async function fetchGudangItems(q, inp, drop, hint) {
+        try {
+            const r = await fetch(`${GUDANG_API}?action=search&q=${encodeURIComponent(q)}`);
+            const d = await r.json();
+            const items = d.data || [];
+            if (!items.length) {
+                drop.style.display='none';
+                hint.textContent = '⚠️ Tidak ada di database Gudang — ketik manual';
+                hint.style.color = '#f59e0b'; hint.style.display='block';
+                return;
+            }
+            hint.style.display='none';
+            drop.innerHTML = items.map(p =>
+                `<div class="po-drop-item" style="padding:.5rem .75rem;cursor:pointer;font-size:.84rem;border-bottom:1px solid #f1f5f9;"
+                    data-name="${p.nama_barang.replace(/"/g,'&quot;')}"
+                    data-unit="${(p.satuan||'pcs').replace(/"/g,'&quot;')}"
+                    onmousedown="selectGudangItem(this)">
+                    <span style="font-weight:600;">${p.nama_barang}</span>
+                    <span style="color:#64748b;font-size:.75rem;margin-left:.5rem;">${p.kategori||''} &middot; ${p.satuan||'pcs'}</span>
+                </div>`
+            ).join('');
+            drop.style.display='block';
+        } catch(e) {
+            drop.style.display='none';
+        }
+    }
+
+    function selectGudangItem(el) {
+        const row   = el.closest('.item-row');
+        const inp   = row.querySelector('.po-item-ac');
+        const drop  = inp.nextElementSibling;
+        const hint  = drop.nextElementSibling;
+        const unit  = row.querySelector('.po-item-unit');
+        inp.value = el.dataset.name;
+        // match unit option or keep pcs
+        if (unit) {
+            const u = el.dataset.unit.toLowerCase();
+            [...unit.options].forEach(o => { if (o.value.toLowerCase()===u) o.selected=true; });
+        }
+        drop.style.display='none';
+        hint.textContent = '✅ Item dari Gudang Nasita';
+        hint.style.color = '#16a34a'; hint.style.display='block';
+        row.querySelector('.item-qty')?.focus();
+    }
+
+    function hideItemDrop(inp, delay) {
+        setTimeout(() => {
+            const drop = inp.nextElementSibling;
+            if (drop) drop.style.display='none';
+        }, delay);
+    }
         
         <select name="items[${itemCount}][division_id]" class="form-control" required style="font-size: 0.875rem; padding: 0.5rem;">
             ${divisions.map(d => `<option value="${d.id}">${d.division_name}</option>`).join('')}
