@@ -661,7 +661,7 @@ if ($activeBusinessId > 0) {
         $receivedQty = $getMapQty($rawStockMap, $key);
         $currentQty = $computeVisibleQty($itemName, $unit);
 
-        if ($receivedQty <= 0 && $currentQty <= 0) {
+        if ($currentQty <= 0) {
             continue;
         }
 
