@@ -490,33 +490,41 @@ function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $op
 
         $db->getConnection()->beginTransaction();
 
-        // Match by barang_id first (prevents unique_barang constraint violations), then by name
+        // Match by barang_id first (no is_active filter — unique_barang constraint applies to ALL rows)
         if (gudangNasitaStockRequiresBarangId()) {
             $barangId = ensureGudangNasitaBarangId($itemName, $unit, $category, $notes);
             $stock = null;
             if ($barangId) {
                 $stock = $db->fetchOne(
-                    "SELECT * FROM gudang_nasita_stock WHERE barang_id = ? AND COALESCE(is_active,1) = 1 LIMIT 1",
+                    "SELECT * FROM gudang_nasita_stock WHERE barang_id = ? LIMIT 1",
                     [$barangId]
                 );
+                // Reactivate soft-deleted row so we update instead of insert
+                if ($stock && !(int)($stock['is_active'] ?? 1)) {
+                    $db->update('gudang_nasita_stock', ['is_active' => 1], 'id = :id', ['id' => $stock['id']]);
+                }
             }
             if (!$stock) {
                 $stock = $db->fetchOne(
-                    "SELECT gs.*, gb.nama_barang AS master_item_name
-                     FROM gudang_nasita_stock gs
+                    "SELECT gs.* FROM gudang_nasita_stock gs
                      LEFT JOIN gudang_nasita_barang gb ON gb.id = gs.barang_id
                      WHERE LOWER(COALESCE(gs.item_name, gb.nama_barang, '')) = LOWER(?)
-                     AND COALESCE(gs.is_active, 1) = 1
                      LIMIT 1",
                     [$itemName]
                 );
+                if ($stock && !(int)($stock['is_active'] ?? 1)) {
+                    $db->update('gudang_nasita_stock', ['is_active' => 1], 'id = :id', ['id' => $stock['id']]);
+                }
             }
         } else {
             $barangId = null;
             $stock = $db->fetchOne(
-                "SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) AND is_active = 1 LIMIT 1",
+                "SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) LIMIT 1",
                 [$itemName]
             );
+            if ($stock && !(int)($stock['is_active'] ?? 1)) {
+                $db->update('gudang_nasita_stock', ['is_active' => 1], 'id = :id', ['id' => $stock['id']]);
+            }
         }
 
         if (!$stock) {
