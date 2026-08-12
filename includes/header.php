@@ -703,6 +703,13 @@ if (isset($_SESSION['user_id'])) {
                     <?php $isGudangNasitaContext = (defined('ACTIVE_BUSINESS_ID') && ACTIVE_BUSINESS_ID === 'gudang-nasita'); ?>
                     <?php if ($isGudangNasitaContext): ?>
                         <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>/modules/gudang/dashboard.php" class="nav-link <?php echo activeMenu('dashboard.php'); ?>">
+                                <i data-feather="grid" class="nav-icon"></i>
+                                <span>Dashboard</span>
+                            </a>
+                        </li>
+
+                        <li class="nav-item">
                             <a href="<?php echo BASE_URL; ?>/modules/procurement/gudang-nasita.php" class="nav-link <?php echo (activeMenu('gudang-nasita.php') || activeMenu('stock.php')) ? 'active' : ''; ?>">
                                 <i data-feather="archive" class="nav-icon"></i>
                                 <span>Stock Gudang</span>
