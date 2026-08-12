@@ -427,6 +427,10 @@ include '../../includes/header.php';
             <i data-feather="plus-square" style="width: 16px; height: 16px;"></i>
             Input Stock Manual
         </button>
+        <a href="gudang-produk.php" class="btn" style="background:#7c3aed;color:#fff;font-weight:700;">
+            <i data-feather="database" style="width: 16px; height: 16px;"></i>
+            Database Produk
+        </a>
         <a href="gudang-nasita.php?export_excel=1&q_item=<?php echo urlencode($searchItemName); ?>&low_stock=<?php echo $filterLowStockOnly ? '1' : '0'; ?>" class="btn btn-success" style="font-weight:700;">
             <i data-feather="download" style="width: 16px; height: 16px;"></i>
             Export Excel
@@ -572,7 +576,11 @@ include '../../includes/header.php';
                                 <td><?php echo htmlspecialchars($item['unit']); ?></td>
                                 <td style="font-size:0.813rem;"><?php echo htmlspecialchars($item['supplier_name'] ?: '-'); ?></td>
                                 <td>
-                                    <div style="display:flex; gap:0.35rem; align-items:center;">
+                                    <div style="display:flex; gap:0.35rem; align-items:center; flex-wrap:wrap;">
+                                        <button type="button" class="btn btn-sm" style="background:#0f9d6a;color:#fff;"
+                                            onclick="openManualModalPreset(<?php echo htmlspecialchars(json_encode($item['item_name']), ENT_QUOTES); ?>, <?php echo htmlspecialchars(json_encode($item['category'] ?? 'lainnya'), ENT_QUOTES); ?>, <?php echo htmlspecialchars(json_encode($item['unit']), ENT_QUOTES); ?>)">
+                                            <i data-feather="plus" style="width:13px;height:13px;"></i> Tambah Stok
+                                        </button>
                                         <a href="gudang-transfer.php?stock_id=<?php echo (int)$item['id']; ?>" class="btn btn-sm btn-primary">
                                             <i data-feather="send" style="width:14px; height:14px;"></i>
                                             Transfer
@@ -649,9 +657,8 @@ include '../../includes/header.php';
 </div>
 
 <script>
-    if (typeof feather !== 'undefined') {
-        feather.replace();
-    }
+    if (typeof feather !== 'undefined') feather.replace();
+    const GUDANG_BASE = '<?php echo BASE_URL; ?>';
 
     document.addEventListener('click', function(e) {
         if (e.target === document.getElementById('manualStockModal')) document.getElementById('manualStockModal').style.display = 'none';
@@ -663,17 +670,70 @@ include '../../includes/header.php';
         m.querySelector('[name="item_name"]').value = itemName;
         m.querySelector('[name="unit"]').value = unit;
         m.style.display = 'flex';
-        // Try to match supplier by hint text
         var sel = m.querySelector('[name="supplier_id"]');
         if (supplierHint && sel) {
             var hint = supplierHint.toLowerCase();
             for (var i = 0; i < sel.options.length; i++) {
-                if (sel.options[i].text.toLowerCase().includes(hint)) {
-                    sel.selectedIndex = i;
-                    break;
-                }
+                if (sel.options[i].text.toLowerCase().includes(hint)) { sel.selectedIndex = i; break; }
             }
         }
+    }
+
+    // Open manual stock modal pre-filled with existing item data
+    function openManualModalPreset(itemName, category, unit) {
+        var m = document.getElementById('manualStockModal');
+        m.querySelector('[name="item_name"]').value = itemName;
+        m.querySelector('[name="category"]').value = category || 'lainnya';
+        m.querySelector('[name="unit"]').value = unit || 'pcs';
+        m.querySelector('[name="quantity"]').value = '';
+        m.querySelector('[name="quantity"]').focus();
+        m.style.display = 'flex';
+    }
+
+    // Live autocomplete for item name in manual stock modal
+    let acTimer;
+    const acInput = document.querySelector('#manualStockModal [name="item_name"]');
+    const acDrop  = document.getElementById('produkAcDrop');
+
+    if (acInput && acDrop) {
+        acInput.addEventListener('input', function () {
+            clearTimeout(acTimer);
+            const q = this.value.trim();
+            if (q.length < 2) { acDrop.style.display = 'none'; return; }
+            acTimer = setTimeout(() => fetchAcResults(q), 280);
+        });
+        acInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') acDrop.style.display = 'none';
+        });
+        document.addEventListener('click', function (e) {
+            if (!acDrop.contains(e.target) && e.target !== acInput) acDrop.style.display = 'none';
+        });
+    }
+
+    async function fetchAcResults(q) {
+        try {
+            const r = await fetch(`${GUDANG_BASE}/api/gudang-produk-search.php?action=search&q=${encodeURIComponent(q)}`);
+            const d = await r.json();
+            if (!d.success || !d.data.length) { acDrop.style.display = 'none'; return; }
+            acDrop.innerHTML = d.data.map(p =>
+                `<div class="ac-item" onclick="selectAcItem(${JSON.stringify(p.nama_barang)}, ${JSON.stringify(p.kategori||'lainnya')}, ${JSON.stringify(p.satuan||'pcs')})"
+                    style="padding:0.55rem 0.85rem; cursor:pointer; border-bottom:1px solid #e2e8f0; font-size:0.875rem;">
+                    <span style="font-weight:600;">${p.nama_barang}</span>
+                    <span style="color:#64748b; margin-left:0.5rem;">${p.kategori||''} · ${p.satuan||'pcs'}</span>
+                    <span style="color:#94a3b8; font-size:0.75rem; margin-left:0.5rem;">${p.kode_barang||''}</span>
+                </div>`
+            ).join('');
+            acDrop.style.display = 'block';
+        } catch (e) {}
+    }
+
+    function selectAcItem(nama, kategori, satuan) {
+        acInput.value = nama;
+        var m = document.getElementById('manualStockModal');
+        m.querySelector('[name="category"]').value = kategori;
+        m.querySelector('[name="unit"]').value = satuan;
+        acDrop.style.display = 'none';
+        m.querySelector('[name="quantity"]').focus();
     }
 </script>
 
@@ -686,9 +746,11 @@ include '../../includes/header.php';
         <form method="POST">
             <input type="hidden" name="action" value="manual_stock_in">
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.9rem;">
-                <div>
-                    <label class="form-label">Nama Item *</label>
-                    <input type="text" name="item_name" class="form-control" required>
+                <div style="grid-column:1/span 2; position:relative;">
+                    <label class="form-label">Nama Item * <a href="gudang-produk.php" target="_blank" style="font-size:0.75rem; margin-left:0.5rem;">(kelola produk)</a></label>
+                    <input type="text" name="item_name" class="form-control" required autocomplete="off" placeholder="Ketik untuk cari atau isi nama baru...">
+                    <div id="produkAcDrop" style="display:none; position:absolute; left:0; right:0; top:100%; background:#fff; border:1px solid #e2e8f0; border-radius:0 0 0.5rem 0.5rem; max-height:200px; overflow-y:auto; z-index:9999; box-shadow:0 4px 16px rgba(0,0,0,0.12);"></div>
+                </div>
                 </div>
                 <div>
                     <label class="form-label">Kategori *</label>
