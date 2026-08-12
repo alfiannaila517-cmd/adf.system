@@ -439,7 +439,7 @@ include '../../includes/header.php';
             <i data-feather="printer" style="width: 16px; height: 16px;"></i>
             Print Semua Stock
         </a>
-        <a href="gudang-po-supplier.php" class="btn btn-primary">
+        <a href="gudang-po-supplier.php" class="btn btn-primary" style="display:none;">
             <i data-feather="file-plus" style="width: 16px; height: 16px;"></i>
             PO Supplier
         </a>

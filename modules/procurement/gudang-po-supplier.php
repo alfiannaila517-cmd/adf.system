@@ -232,7 +232,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'cance
     header('Location: gudang-po-supplier.php');
     exit;
 }
-
+// ─── POST: hapus PO permanen ───────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete_po') {
+    $poId = (int)($_POST['po_id'] ?? 0);
+    if ($poId > 0) {
+        try {
+            $db->query('DELETE FROM purchase_orders_detail WHERE po_header_id = ?', [$poId]);
+            $db->query('DELETE FROM purchase_orders_header WHERE id = ?', [$poId]);
+            $_SESSION['success'] = 'PO berhasil dihapus permanen.';
+        } catch (Throwable $e) {
+            $_SESSION['error'] = 'Gagal hapus PO: ' . $e->getMessage();
+        }
+    }
+    header('Location: gudang-po-supplier.php');
+    exit;
+}
 // ─── Data ──────────────────────────────────────────────────────────────────
 $viewPoId = (int)($_GET['view'] ?? 0);
 $printPoId = (int)($_GET['print'] ?? 0);
@@ -479,11 +493,18 @@ include '../../includes/header.php';
                                         <form method="POST" style="display:inline;" onsubmit="return confirm('Batalkan PO ini?')">
                                             <input type="hidden" name="action" value="cancel_po">
                                             <input type="hidden" name="po_id" value="<?php echo (int)$po['id']; ?>">
-                                            <button type="submit" class="btn btn-sm btn-danger">
+                                            <button type="submit" class="btn btn-sm btn-warning" title="Batalkan">
                                                 <i data-feather="x" style="width:13px;height:13px;"></i>
                                             </button>
                                         </form>
                                     <?php endif; ?>
+                                    <form method="POST" style="display:inline;" onsubmit="return confirm('Hapus permanen PO ini? Data tidak bisa dikembalikan.')">
+                                        <input type="hidden" name="action" value="delete_po">
+                                        <input type="hidden" name="po_id" value="<?php echo (int)$po['id']; ?>">
+                                        <button type="submit" class="btn btn-sm btn-danger" title="Hapus Permanen">
+                                            <i data-feather="trash-2" style="width:13px;height:13px;"></i>
+                                        </button>
+                                    </form>
                                 </div>
                             </td>
                         </tr>
