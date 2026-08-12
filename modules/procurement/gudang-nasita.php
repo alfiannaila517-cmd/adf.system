@@ -519,21 +519,20 @@ include '../../includes/header.php';
     <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; gap:1rem; flex-wrap:wrap;">
             <h3 style="font-size:1rem; font-weight:700; margin:0;">Stok Gudang</h3>
-            <form method="GET" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
-                <input type="text" name="q_item" class="form-control" placeholder="Cari nama item..." value="<?php echo htmlspecialchars($searchItemName); ?>" style="min-width:220px;">
+<form method="GET" id="stockFilterForm" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+                <input type="text" name="q_item" id="stockSearchInput" class="form-control" placeholder="Cari nama item..." value="<?php echo htmlspecialchars($searchItemName); ?>" style="min-width:220px;" autocomplete="off">
                 <label style="display:flex; align-items:center; gap:0.35rem; font-size:0.82rem; color:var(--text-muted);">
-                    <input type="checkbox" name="low_stock" value="1" <?php echo $filterLowStockOnly ? 'checked' : ''; ?>>
+                    <input type="checkbox" name="low_stock" id="stockLowFilter" value="1" <?php echo $filterLowStockOnly ? 'checked' : ''; ?>>
                     Stok menipis saja
                 </label>
-                <button type="submit" class="btn btn-sm btn-primary">Cari</button>
-                <a href="gudang-nasita.php" class="btn btn-sm btn-secondary">Reset</a>
+                <a href="gudang-nasita.php" class="btn btn-sm btn-secondary" id="stockResetBtn" style="<?php echo ($searchItemName || $filterLowStockOnly) ? '' : 'display:none'; ?>">Reset</a>
             </form>
         </div>
         <?php if ($summary['low'] > 0): ?>
             <div style="margin-bottom:0.75rem;"><span class="badge badge-warning"><?php echo $summary['low']; ?> item di bawah reorder</span></div>
         <?php endif; ?>
         <div class="table-responsive">
-            <table class="table">
+            <table class="table" id="stockTable">
                 <thead>
                     <tr>
                         <th>Kode</th>
@@ -565,7 +564,8 @@ include '../../includes/header.php';
                                     </td>
                                 </tr>
                             <?php endif; ?>
-                            <tr>
+                            <?php $isLowRow = ((float)$item['quantity'] <= (float)($item['reorder_level'] ?? 0) && (float)($item['reorder_level'] ?? 0) > 0); ?>
+                            <tr data-item="<?php echo htmlspecialchars(strtolower((string)$item['item_name'])); ?>" data-low="<?php echo $isLowRow ? '1' : '0'; ?>">
                                 <td style="font-weight:600;"><?php echo htmlspecialchars($item['stock_code'] ?? ('GN-LEGACY-' . str_pad((string)($item['id'] ?? 0), 4, '0', STR_PAD_LEFT))); ?></td>
                                 <td><span class="badge badge-info" style="text-transform:capitalize;"><?php echo htmlspecialchars($rowCategory); ?></span></td>
                                 <td>
@@ -660,6 +660,44 @@ include '../../includes/header.php';
     if (typeof feather !== 'undefined') feather.replace();
     const GUDANG_BASE = '<?php echo BASE_URL; ?>';
 
+    // Live client-side stock filter
+    (function () {
+        const inp  = document.getElementById('stockSearchInput');
+        const chk  = document.getElementById('stockLowFilter');
+        const rst  = document.getElementById('stockResetBtn');
+        const tbody = document.querySelector('#stockTable tbody');
+        if (!inp || !tbody) return;
+
+        function filterRows() {
+            const q   = inp.value.trim().toLowerCase();
+            const low = chk && chk.checked;
+            rst.style.display = (q || low) ? '' : 'none';
+
+            let catRow = null, catVisible = false;
+
+            Array.from(tbody.rows).forEach(tr => {
+                // Category header row has colspan attribute
+                if (tr.cells.length === 1 && tr.cells[0].colSpan > 1) {
+                    // Finalise previous category visibility
+                    if (catRow) catRow.style.display = catVisible ? '' : 'none';
+                    catRow = tr;
+                    catVisible = false;
+                    return;
+                }
+                // Data row
+                const name = (tr.dataset.item  || '').toLowerCase();
+                const isLow = tr.dataset.low === '1';
+                const show  = (!q || name.includes(q)) && (!low || isLow);
+                tr.style.display = show ? '' : 'none';
+                if (show) catVisible = true;
+            });
+            if (catRow) catRow.style.display = catVisible ? '' : 'none';
+        }
+
+        inp.addEventListener('input', filterRows);
+        if (chk) chk.addEventListener('change', filterRows);
+    })();
+
     document.addEventListener('click', function(e) {
         if (e.target === document.getElementById('manualStockModal')) document.getElementById('manualStockModal').style.display = 'none';
         if (e.target === document.getElementById('orderSupplierModal')) document.getElementById('orderSupplierModal').style.display = 'none';
@@ -674,7 +712,10 @@ include '../../includes/header.php';
         if (supplierHint && sel) {
             var hint = supplierHint.toLowerCase();
             for (var i = 0; i < sel.options.length; i++) {
-                if (sel.options[i].text.toLowerCase().includes(hint)) { sel.selectedIndex = i; break; }
+                if (sel.options[i].text.toLowerCase().includes(hint)) {
+                    sel.selectedIndex = i;
+                    break;
+                }
             }
         }
     }
@@ -693,19 +734,22 @@ include '../../includes/header.php';
     // Live autocomplete for item name in manual stock modal
     let acTimer;
     const acInput = document.querySelector('#manualStockModal [name="item_name"]');
-    const acDrop  = document.getElementById('produkAcDrop');
+    const acDrop = document.getElementById('produkAcDrop');
 
     if (acInput && acDrop) {
-        acInput.addEventListener('input', function () {
+        acInput.addEventListener('input', function() {
             clearTimeout(acTimer);
             const q = this.value.trim();
-            if (q.length < 2) { acDrop.style.display = 'none'; return; }
+            if (q.length < 2) {
+                acDrop.style.display = 'none';
+                return;
+            }
             acTimer = setTimeout(() => fetchAcResults(q), 280);
         });
-        acInput.addEventListener('keydown', function (e) {
+        acInput.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') acDrop.style.display = 'none';
         });
-        document.addEventListener('click', function (e) {
+        document.addEventListener('click', function(e) {
             if (!acDrop.contains(e.target) && e.target !== acInput) acDrop.style.display = 'none';
         });
     }
@@ -714,7 +758,10 @@ include '../../includes/header.php';
         try {
             const r = await fetch(`${GUDANG_BASE}/api/gudang-produk-search.php?action=search&q=${encodeURIComponent(q)}`);
             const d = await r.json();
-            if (!d.success || !d.data.length) { acDrop.style.display = 'none'; return; }
+            if (!d.success || !d.data.length) {
+                acDrop.style.display = 'none';
+                return;
+            }
             acDrop.innerHTML = d.data.map(p =>
                 `<div class="ac-item" onclick="selectAcItem(${JSON.stringify(p.nama_barang)}, ${JSON.stringify(p.kategori||'lainnya')}, ${JSON.stringify(p.satuan||'pcs')})"
                     style="padding:0.55rem 0.85rem; cursor:pointer; border-bottom:1px solid #e2e8f0; font-size:0.875rem;">
@@ -751,48 +798,48 @@ include '../../includes/header.php';
                     <input type="text" name="item_name" class="form-control" required autocomplete="off" placeholder="Ketik untuk cari atau isi nama baru...">
                     <div id="produkAcDrop" style="display:none; position:absolute; left:0; right:0; top:100%; background:#fff; border:1px solid #e2e8f0; border-radius:0 0 0.5rem 0.5rem; max-height:200px; overflow-y:auto; z-index:9999; box-shadow:0 4px 16px rgba(0,0,0,0.12);"></div>
                 </div>
-                </div>
-                <div>
-                    <label class="form-label">Kategori *</label>
-                    <input type="text" name="category" class="form-control" list="manualStockCategoryList" placeholder="Contoh: minuman" required>
-                    <datalist id="manualStockCategoryList">
-                        <option value="minuman"></option>
-                        <option value="frozen"></option>
-                        <option value="alat"></option>
-                        <option value="sayur"></option>
-                        <option value="daging"></option>
-                        <option value="sembako"></option>
-                        <option value="bumbu"></option>
-                        <option value="lainnya"></option>
-                    </datalist>
-                </div>
-                <div>
-                    <label class="form-label">Unit *</label>
-                    <input type="text" name="unit" class="form-control" value="pcs" required>
-                </div>
-                <div>
-                    <label class="form-label">Qty Masuk *</label>
-                    <input type="number" name="quantity" class="form-control" step="0.01" min="0.01" required>
-                </div>
-                <div>
-                    <label class="form-label">Reorder Level</label>
-                    <input type="number" name="reorder_level" class="form-control" step="0.01" min="0" value="0">
-                </div>
-                <div style="grid-column:1 / span 2;">
-                    <label class="form-label">Supplier (opsional)</label>
-                    <input type="text" name="supplier_name" class="form-control" placeholder="Contoh: CV Sumber Jaya">
-                </div>
-                <div style="grid-column:1 / span 2;">
-                    <label class="form-label">Catatan</label>
-                    <textarea name="notes" class="form-control" rows="3" placeholder="Contoh: Stok awal sebelum sistem PO aktif"></textarea>
-                </div>
             </div>
-            <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
-                <button type="button" class="btn btn-secondary" onclick="document.getElementById('manualStockModal').style.display='none'">Batal</button>
-                <button type="submit" class="btn btn-success">Simpan Stock Manual</button>
+            <div>
+                <label class="form-label">Kategori *</label>
+                <input type="text" name="category" class="form-control" list="manualStockCategoryList" placeholder="Contoh: minuman" required>
+                <datalist id="manualStockCategoryList">
+                    <option value="minuman"></option>
+                    <option value="frozen"></option>
+                    <option value="alat"></option>
+                    <option value="sayur"></option>
+                    <option value="daging"></option>
+                    <option value="sembako"></option>
+                    <option value="bumbu"></option>
+                    <option value="lainnya"></option>
+                </datalist>
             </div>
-        </form>
+            <div>
+                <label class="form-label">Unit *</label>
+                <input type="text" name="unit" class="form-control" value="pcs" required>
+            </div>
+            <div>
+                <label class="form-label">Qty Masuk *</label>
+                <input type="number" name="quantity" class="form-control" step="0.01" min="0.01" required>
+            </div>
+            <div>
+                <label class="form-label">Reorder Level</label>
+                <input type="number" name="reorder_level" class="form-control" step="0.01" min="0" value="0">
+            </div>
+            <div style="grid-column:1 / span 2;">
+                <label class="form-label">Supplier (opsional)</label>
+                <input type="text" name="supplier_name" class="form-control" placeholder="Contoh: CV Sumber Jaya">
+            </div>
+            <div style="grid-column:1 / span 2;">
+                <label class="form-label">Catatan</label>
+                <textarea name="notes" class="form-control" rows="3" placeholder="Contoh: Stok awal sebelum sistem PO aktif"></textarea>
+            </div>
     </div>
+    <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
+        <button type="button" class="btn btn-secondary" onclick="document.getElementById('manualStockModal').style.display='none'">Batal</button>
+        <button type="submit" class="btn btn-success">Simpan Stock Manual</button>
+    </div>
+    </form>
+</div>
 </div>
 
 <!-- Modal: Pesan ke Supplier -->
