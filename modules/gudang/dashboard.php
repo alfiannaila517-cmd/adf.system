@@ -72,11 +72,13 @@ for ($i = 6; $i >= 0; $i--) {
     $chartKeluar[] = (float)($db->fetchOne("SELECT COALESCE(SUM(quantity),0) AS q FROM gudang_nasita_movements WHERE movement_type IN ('out_transfer','transfer_out') AND DATE(COALESCE(movement_date,created_at))=?", [$d])['q'] ?? 0);
 }
 
-// ── Category distribution for donut chart ─────────────────────────────────────
-$catRows = $db->fetchAll(
-    "SELECT COALESCE(category,'lainnya') AS cat, SUM(quantity) AS total
-     FROM gudang_nasita_stock WHERE COALESCE(is_active,1)=1
-     GROUP BY COALESCE(category,'lainnya') ORDER BY total DESC LIMIT 8"
+// ── Transfer qty per bisnis for pie chart ────────────────────────────────────
+$bizTransferRows = $db->fetchAll(
+    "SELECT COALESCE(target_business_name, bisnis_tujuan, 'Lainnya') AS bisnis,
+            COALESCE(SUM(total_qty),0) AS total
+     FROM gudang_nasita_transfers
+     GROUP BY COALESCE(target_business_name, bisnis_tujuan, 'Lainnya')
+     ORDER BY total DESC LIMIT 6"
 ) ?: [];
 
 include __DIR__ . '/../../includes/header.php';
@@ -137,12 +139,16 @@ include __DIR__ . '/../../includes/header.php';
         <div class="gd-section-title">📊 Pergerakan Stok 7 Hari Terakhir</div>
         <canvas id="movementChart" height="120"></canvas>
     </div>
-    <div class="card" style="padding:1.25rem;">
-        <div class="gd-section-title">🗂️ Distribusi Kategori</div>
-        <?php if (empty($catRows)): ?>
-            <div style="text-align:center;padding:2rem;color:var(--text-muted);font-size:.875rem;">Belum ada data</div>
+    <div class="card" style="padding:1.25rem;display:flex;flex-direction:column;">
+        <div class="gd-section-title">🏢 Distribusi Barang Terkirim</div>
+        <?php if(empty($bizTransferRows)): ?>
+            <div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:.875rem;">Belum ada data transfer</div>
         <?php else: ?>
-            <canvas id="categoryChart" height="180"></canvas>
+            <div style="flex:1;display:flex;align-items:center;justify-content:center;">
+                <canvas id="bizPieChart" style="max-width:180px;max-height:180px;"></canvas>
+            </div>
+            <!-- Legend below chart -->
+            <div id="bizPieLegend" style="display:flex;flex-wrap:wrap;gap:.4rem .75rem;justify-content:center;margin-top:.85rem;"></div>
         <?php endif; ?>
     </div>
 </div>
@@ -256,10 +262,16 @@ include __DIR__ . '/../../includes/header.php';
     const lc=dark?'#94a3b8':'#64748b';
     const mCtx=document.getElementById('movementChart');
     if(mCtx){new Chart(mCtx,{type:'bar',data:{labels:<?php echo json_encode($chartDays);?>,datasets:[{label:'Masuk',data:<?php echo json_encode($chartMasuk);?>,backgroundColor:'rgba(22,163,74,.72)',borderColor:'#16a34a',borderWidth:1.5,borderRadius:6},{label:'Keluar',data:<?php echo json_encode($chartKeluar);?>,backgroundColor:'rgba(37,99,235,.65)',borderColor:'#2563eb',borderWidth:1.5,borderRadius:6}]},options:{responsive:true,plugins:{legend:{labels:{color:lc,boxWidth:11,font:{size:11}}},tooltip:{mode:'index',intersect:false}},scales:{x:{grid:{color:gc},ticks:{color:lc}},y:{grid:{color:gc},ticks:{color:lc},beginAtZero:true}}}});}
-    const cCtx=document.getElementById('categoryChart');
-    const cl=<?php echo json_encode(array_column($catRows,'cat'));?>;
-    const cv=<?php echo json_encode(array_map(fn($r)=>(float)$r['total'],$catRows));?>;
-    if(cCtx&&cl.length){new Chart(cCtx,{type:'doughnut',data:{labels:cl,datasets:[{data:cv,backgroundColor:['#7c3aed','#2563eb','#16a34a','#f59e0b','#ef4444','#0ea5e9','#8b5cf6','#14b8a6'].slice(0,cl.length),borderWidth:2,borderColor:dark?'#1e293b':'#fff',hoverOffset:8}]},options:{responsive:true,cutout:'64%',plugins:{legend:{position:'right',labels:{color:lc,boxWidth:10,font:{size:11},padding:8}},tooltip:{callbacks:{label:c=>` ${c.label}: ${c.parsed.toLocaleString('id-ID')}`}}}}});}
+    const cCtx=document.getElementById('bizPieChart');
+    const bizLabels=<?php echo json_encode(array_column($bizTransferRows,'bisnis')); ?>;
+    const bizVals=<?php echo json_encode(array_map(fn($r)=>(float)$r['total'],$bizTransferRows)); ?>;
+    const palette=['#7c3aed','#0ea5e9','#f59e0b','#ef4444','#10b981','#e11d48'];
+    if(cCtx&&bizLabels.length){
+        const chart=new Chart(cCtx,{type:'pie',data:{labels:bizLabels,datasets:[{data:bizVals,backgroundColor:palette.slice(0,bizLabels.length),borderWidth:3,borderColor:dark?'#1e293b':'#fff',hoverOffset:10}]},options:{responsive:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+c.label+': '+c.parsed.toLocaleString('id-ID')+' qty'}}}}});
+        // Custom legend below
+        const leg=document.getElementById('bizPieLegend');
+        if(leg){const total=bizVals.reduce((a,b)=>a+b,0);bizLabels.forEach((l,i)=>{const pct=total>0?Math.round(bizVals[i]/total*100):0;leg.innerHTML+=`<div style="display:flex;align-items:center;gap:.35rem;font-size:.75rem;"><span style="width:10px;height:10px;border-radius:50%;background:${palette[i]};flex-shrink:0;"></span><span style="font-weight:700;color:${palette[i]}">${l}</span><span style="color:var(--text-muted);">${pct}%</span></div>`;});}
+    }
 })();
 </script>
 
