@@ -491,7 +491,8 @@ include '../../includes/header.php';
             html += `<div style="padding:0.35rem 0.85rem; font-size:0.72rem; font-weight:700; text-transform:uppercase; color:#64748b; background:var(--bg-secondary); border-bottom:1px solid var(--border); letter-spacing:0.05em;">${k}</div>`;
             groups[k].forEach(p => {
                 const stokColor = p.stok_qty > 0 ? '#0f9d6a' : '#dc2626';
-                html += `<div onclick="selectProductForStock(${JSON.stringify(p)})" style="display:flex; align-items:center; justify-content:space-between; padding:0.65rem 0.85rem; cursor:pointer; border-bottom:1px solid var(--border); transition:background 0.12s;" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background=''">` +
+                // Store JSON in data-attribute to avoid breaking onclick with embedded quotes
+        html += `<div class="as-prod-row" data-product="${encodeURIComponent(JSON.stringify(p))}" style="display:flex; align-items:center; justify-content:space-between; padding:0.65rem 0.85rem; cursor:pointer; border-bottom:1px solid var(--border); transition:background 0.12s;" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background=''">` +
                     `<div><div style="font-weight:600; font-size:0.875rem;">${p.nama_barang}</div><div style="font-size:0.75rem; color:#64748b;">${p.kode_barang || ''} · ${p.satuan || 'pcs'}</div></div>` +
                     `<div style="text-align:right; flex-shrink:0;"><div style="font-weight:700; font-size:0.9rem; color:${stokColor};">${parseFloat(p.stok_qty).toLocaleString('id-ID', {minimumFractionDigits:0, maximumFractionDigits:2})}</div><div style="font-size:0.7rem; color:#94a3b8;">stok saat ini</div></div>` +
                 `</div>`;
@@ -522,6 +523,12 @@ include '../../includes/header.php';
         openAddStockSearch();
         selectProductForStock(p);
     }
+
+    // Delegated click for product rows (avoids JSON-in-onclick quoting issues)
+    document.getElementById('asProductList').addEventListener('click', function(e) {
+        const row = e.target.closest('.as-prod-row');
+        if (row) selectProductForStock(JSON.parse(decodeURIComponent(row.dataset.product)));
+    });
 
     document.addEventListener('click', e => {
         if (e.target === document.getElementById('produkModal')) closeProdukModal();
