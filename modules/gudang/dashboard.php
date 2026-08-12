@@ -63,14 +63,29 @@ $permintaanTerbaru = $db->fetchAll(
      ORDER BY COALESCE(tanggal_transfer, transfer_date, created_at) DESC LIMIT 8"
 ) ?: [];
 
-// ── 7-day movement chart data ─────────────────────────────────────────────────
-$chartDays = $chartMasuk = $chartKeluar = [];
-for ($i = 6; $i >= 0; $i--) {
-    $chartDays[] = date('d M', strtotime("-$i days"));
-    $d = date('Y-m-d', strtotime("-$i days"));
-    $chartMasuk[]  = (float)($db->fetchOne("SELECT COALESCE(SUM(quantity),0) AS q FROM gudang_nasita_movements WHERE movement_type IN ('in_supplier','in_manual','manual_in') AND DATE(COALESCE(movement_date,created_at))=?", [$d])['q'] ?? 0);
-    $chartKeluar[] = (float)($db->fetchOne("SELECT COALESCE(SUM(quantity),0) AS q FROM gudang_nasita_movements WHERE movement_type IN ('out_transfer','transfer_out') AND DATE(COALESCE(movement_date,created_at))=?", [$d])['q'] ?? 0);
+// ── Transfer per bisnis per minggu dalam 1 bulan terakhir (untuk bar chart) ────────────
+// Label: Minggu 1..4 | Dataset: tiap bisnis
+$chartWeekLabels = ['Minggu 1','Minggu 2','Minggu 3','Minggu 4'];
+$allBizRows = $db->fetchAll(
+    "SELECT COALESCE(target_business_name, bisnis_tujuan, 'Lainnya') AS bisnis,
+            CEIL(DAY(COALESCE(tanggal_transfer,transfer_date,created_at))/7) AS minggu,
+            COALESCE(SUM(total_qty),0) AS total
+     FROM gudang_nasita_transfers
+     WHERE COALESCE(tanggal_transfer,transfer_date,created_at) >= DATE_FORMAT(CURDATE(),'%Y-%m-01')
+     GROUP BY bisnis, minggu
+     ORDER BY bisnis, minggu"
+) ?: [];
+
+// Build dataset: [bisnis => [w1,w2,w3,w4]]
+$bizDatasets = [];
+foreach ($allBizRows as $r) {
+    $b = (string)$r['bisnis'];
+    if (!isset($bizDatasets[$b])) $bizDatasets[$b] = [0,0,0,0];
+    $w = max(1, min(4, (int)$r['minggu'])) - 1;
+    $bizDatasets[$b][$w] += (float)$r['total'];
 }
+// Month label for chart title
+$chartMonthLabel = date('F Y');
 
 // ── Transfer qty per bisnis for pie chart ────────────────────────────────────
 $bizTransferRows = $db->fetchAll(
@@ -136,8 +151,12 @@ include __DIR__ . '/../../includes/header.php';
 <!-- Charts -->
 <div style="display:grid;grid-template-columns:2fr 1fr;gap:1rem;margin-bottom:1.25rem;">
     <div class="card" style="padding:1.25rem;">
-        <div class="gd-section-title">📊 Pergerakan Stok 7 Hari Terakhir</div>
-        <canvas id="movementChart" height="120"></canvas>
+        <div class="gd-section-title">📊 Barang Terkirim per Bisnis &mdash; <?php echo $chartMonthLabel; ?></div>
+        <?php if(empty($bizDatasets)): ?>
+            <div style="display:flex;align-items:center;justify-content:center;height:120px;color:var(--text-muted);font-size:.875rem;">Belum ada data transfer bulan ini</div>
+        <?php else: ?>
+            <canvas id="movementChart" height="120"></canvas>
+        <?php endif; ?>
     </div>
     <div class="card" style="padding:1.25rem;display:flex;flex-direction:column;">
         <div class="gd-section-title">🏢 Distribusi Barang Terkirim</div>
@@ -261,7 +280,40 @@ include __DIR__ . '/../../includes/header.php';
     const gc=dark?'rgba(255,255,255,.07)':'rgba(0,0,0,.06)';
     const lc=dark?'#94a3b8':'#64748b';
     const mCtx=document.getElementById('movementChart');
-    if(mCtx){new Chart(mCtx,{type:'bar',data:{labels:<?php echo json_encode($chartDays);?>,datasets:[{label:'Masuk',data:<?php echo json_encode($chartMasuk);?>,backgroundColor:'rgba(22,163,74,.72)',borderColor:'#16a34a',borderWidth:1.5,borderRadius:6},{label:'Keluar',data:<?php echo json_encode($chartKeluar);?>,backgroundColor:'rgba(37,99,235,.65)',borderColor:'#2563eb',borderWidth:1.5,borderRadius:6}]},options:{responsive:true,plugins:{legend:{labels:{color:lc,boxWidth:11,font:{size:11}}},tooltip:{mode:'index',intersect:false}},scales:{x:{grid:{color:gc},ticks:{color:lc}},y:{grid:{color:gc},ticks:{color:lc},beginAtZero:true}}}});}
+    const bizPalette=['#7c3aed','#0ea5e9','#f59e0b','#ef4444','#10b981','#e11d48'];
+    const bizDatasetsRaw=<?php
+        $out=[];
+        $i=0;
+        foreach($bizDatasets as $name=>$vals){
+            $out[]=['label'=>$name,'data'=>array_values($vals),'idx'=>$i++];
+        }
+        echo json_encode($out);
+    ?>;
+    if(mCtx&&bizDatasetsRaw.length){
+        new Chart(mCtx,{type:'bar',
+            data:{
+                labels:<?php echo json_encode($chartWeekLabels);?>,
+                datasets:bizDatasetsRaw.map((d,i)=>({
+                    label:d.label,
+                    data:d.data,
+                    backgroundColor:bizPalette[i%bizPalette.length]+'bb',
+                    borderColor:bizPalette[i%bizPalette.length],
+                    borderWidth:1.5,
+                    borderRadius:6,
+                }))
+            },
+            options:{responsive:true,
+                plugins:{
+                    legend:{labels:{color:lc,boxWidth:11,font:{size:11}}},
+                    tooltip:{mode:'index',intersect:false,callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y.toLocaleString('id-ID')} qty`}}
+                },
+                scales:{
+                    x:{grid:{color:gc},ticks:{color:lc}},
+                    y:{grid:{color:gc},ticks:{color:lc},beginAtZero:true}
+                }
+            }
+        });
+    }
     const cCtx=document.getElementById('bizPieChart');
     const bizLabels=<?php echo json_encode(array_column($bizTransferRows,'bisnis')); ?>;
     const bizVals=<?php echo json_encode(array_map(fn($r)=>(float)$r['total'],$bizTransferRows)); ?>;
