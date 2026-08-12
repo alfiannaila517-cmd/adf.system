@@ -490,18 +490,29 @@ function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $op
 
         $db->getConnection()->beginTransaction();
 
-        // Match by name only so unit differences don't create duplicate stock entries
+        // Match by barang_id first (prevents unique_barang constraint violations), then by name
         if (gudangNasitaStockRequiresBarangId()) {
-            $stock = $db->fetchOne(
-                "SELECT gs.*, gb.nama_barang AS master_item_name
-                 FROM gudang_nasita_stock gs
-                 LEFT JOIN gudang_nasita_barang gb ON gb.id = gs.barang_id
-                 WHERE LOWER(COALESCE(gs.item_name, gb.nama_barang, '')) = LOWER(?)
-                 AND COALESCE(gs.is_active, 1) = 1
-                 LIMIT 1",
-                [$itemName]
-            );
+            $barangId = ensureGudangNasitaBarangId($itemName, $unit, $category, $notes);
+            $stock = null;
+            if ($barangId) {
+                $stock = $db->fetchOne(
+                    "SELECT * FROM gudang_nasita_stock WHERE barang_id = ? AND COALESCE(is_active,1) = 1 LIMIT 1",
+                    [$barangId]
+                );
+            }
+            if (!$stock) {
+                $stock = $db->fetchOne(
+                    "SELECT gs.*, gb.nama_barang AS master_item_name
+                     FROM gudang_nasita_stock gs
+                     LEFT JOIN gudang_nasita_barang gb ON gb.id = gs.barang_id
+                     WHERE LOWER(COALESCE(gs.item_name, gb.nama_barang, '')) = LOWER(?)
+                     AND COALESCE(gs.is_active, 1) = 1
+                     LIMIT 1",
+                    [$itemName]
+                );
+            }
         } else {
+            $barangId = null;
             $stock = $db->fetchOne(
                 "SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) AND is_active = 1 LIMIT 1",
                 [$itemName]
@@ -523,7 +534,8 @@ function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $op
                 $insertData['stock_code'] = generateGudangNasitaStockCode();
             }
             if (gudangNasitaStockRequiresBarangId()) {
-                $insertData['barang_id'] = ensureGudangNasitaBarangId($itemName, $unit, $category, $notes);
+                // $barangId already resolved above; use it directly to avoid re-lookup
+                $insertData['barang_id'] = $barangId ?? ensureGudangNasitaBarangId($itemName, $unit, $category, $notes);
             }
             if (gudangNasitaStockHasColumn('jumlah_stok')) {
                 $insertData['jumlah_stok'] = 0;
