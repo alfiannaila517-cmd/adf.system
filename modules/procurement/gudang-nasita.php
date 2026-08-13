@@ -83,6 +83,26 @@ function gudangImportParseTable(string $content): array
         $rows[] = str_getcsv($line, $delimiter);
     }
 
+    return gudangImportParseRows($rows);
+}
+
+function gudangImportColumnLettersToIndex(string $letters): int
+{
+    $letters = strtoupper(trim($letters));
+    $index = 0;
+    $length = strlen($letters);
+    for ($i = 0; $i < $length; $i++) {
+        $index = ($index * 26) + (ord($letters[$i]) - 64);
+    }
+    return max(0, $index - 1);
+}
+
+function gudangImportParseRows(array $rows): array
+{
+    if (empty($rows)) {
+        throw new Exception('Tidak ada baris data yang terbaca dari import.');
+    }
+
     $header = array_map('gudangImportNormalizeHeader', $rows[0]);
     $headerMap = array_flip($header);
 
@@ -122,6 +142,87 @@ function gudangImportParseTable(string $content): array
     return $parsedRows;
 }
 
+function gudangImportParseXlsxFile(string $tmpPath): array
+{
+    if (!class_exists('ZipArchive')) {
+        throw new Exception('Server belum mendukung pembacaan file Excel .xlsx karena ekstensi ZIP PHP tidak aktif. Gunakan CSV atau copy-paste data Excel.');
+    }
+
+    $zip = new ZipArchive();
+    if ($zip->open($tmpPath) !== true) {
+        throw new Exception('File Excel .xlsx tidak bisa dibuka.');
+    }
+
+    $sharedStrings = [];
+    $sharedXmlRaw = $zip->getFromName('xl/sharedStrings.xml');
+    if ($sharedXmlRaw !== false) {
+        $sharedXml = @simplexml_load_string($sharedXmlRaw);
+        if ($sharedXml && isset($sharedXml->si)) {
+            foreach ($sharedXml->si as $si) {
+                $parts = [];
+                if (isset($si->t)) {
+                    $parts[] = (string)$si->t;
+                }
+                if (isset($si->r)) {
+                    foreach ($si->r as $run) {
+                        $parts[] = (string)$run->t;
+                    }
+                }
+                $sharedStrings[] = implode('', $parts);
+            }
+        }
+    }
+
+    $sheetPath = 'xl/worksheets/sheet1.xml';
+    $sheetXmlRaw = $zip->getFromName($sheetPath);
+    if ($sheetXmlRaw === false) {
+        $zip->close();
+        throw new Exception('Worksheet pertama pada file Excel tidak ditemukan.');
+    }
+
+    $sheetXml = @simplexml_load_string($sheetXmlRaw);
+    if (!$sheetXml || !isset($sheetXml->sheetData)) {
+        $zip->close();
+        throw new Exception('Format worksheet Excel tidak valid.');
+    }
+
+    $rows = [];
+    foreach ($sheetXml->sheetData->row as $row) {
+        $cells = [];
+        foreach ($row->c as $cell) {
+            $ref = (string)($cell['r'] ?? '');
+            $letters = preg_replace('/[^A-Z]/i', '', $ref);
+            $colIndex = gudangImportColumnLettersToIndex($letters);
+            $type = (string)($cell['t'] ?? '');
+            $value = '';
+
+            if ($type === 's') {
+                $sharedIndex = (int)($cell->v ?? 0);
+                $value = (string)($sharedStrings[$sharedIndex] ?? '');
+            } elseif ($type === 'inlineStr') {
+                $value = (string)($cell->is->t ?? '');
+            } else {
+                $value = (string)($cell->v ?? '');
+            }
+
+            $cells[$colIndex] = $value;
+        }
+
+        if (!empty($cells)) {
+            ksort($cells);
+            $maxIndex = max(array_keys($cells));
+            $normalized = [];
+            for ($i = 0; $i <= $maxIndex; $i++) {
+                $normalized[] = isset($cells[$i]) ? (string)$cells[$i] : '';
+            }
+            $rows[] = $normalized;
+        }
+    }
+
+    $zip->close();
+    return gudangImportParseRows($rows);
+}
+
 function gudangImportReadUpload(array $file): string
 {
     $error = (int)($file['error'] ?? UPLOAD_ERR_NO_FILE);
@@ -133,13 +234,18 @@ function gudangImportReadUpload(array $file): string
     }
 
     $name = strtolower((string)($file['name'] ?? ''));
-    if (preg_match('/\.(xlsx|xls)$/', $name)) {
-        throw new Exception('Server belum bisa membaca file Excel .xlsx/.xls langsung. Silakan Save As CSV atau copy-paste data dari Excel ke kotak import.');
-    }
 
     $tmpPath = (string)($file['tmp_name'] ?? '');
     if ($tmpPath === '' || !is_uploaded_file($tmpPath)) {
         throw new Exception('File import temporary tidak valid.');
+    }
+
+    if (preg_match('/\.xlsx$/', $name)) {
+        return json_encode(gudangImportParseXlsxFile($tmpPath), JSON_UNESCAPED_UNICODE);
+    }
+
+    if (preg_match('/\.xls$/', $name)) {
+        throw new Exception('Format Excel .xls lama belum didukung. Silakan Save As .xlsx atau CSV, lalu upload lagi.');
     }
 
     $content = file_get_contents($tmpPath);
@@ -188,7 +294,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $uploadContent = !empty($_FILES['import_stock_file']) ? gudangImportReadUpload((array)$_FILES['import_stock_file']) : '';
         $rawContent = $pastedData !== '' ? $pastedData : $uploadContent;
 
-        $rows = gudangImportParseTable($rawContent);
+        if ($rawContent === '') {
+            throw new Exception('Pilih file import atau paste data Excel terlebih dulu.');
+        }
+
+        if ($pastedData !== '') {
+            $rows = gudangImportParseTable($pastedData);
+        } elseif (!empty($_FILES['import_stock_file']['name']) && preg_match('/\.xlsx$/i', (string)$_FILES['import_stock_file']['name'])) {
+            $decodedRows = json_decode($uploadContent, true);
+            if (!is_array($decodedRows)) {
+                throw new Exception('Data Excel .xlsx tidak bisa diproses.');
+            }
+            $rows = $decodedRows;
+        } else {
+            $rows = gudangImportParseTable($uploadContent);
+        }
+
         if (empty($rows)) {
             throw new Exception('Tidak ada data stok yang valid untuk diimport.');
         }
@@ -1006,7 +1127,7 @@ include '../../includes/header.php';
                 <div style="grid-column:1 / span 2;">
                     <label class="form-label">Upload File CSV</label>
                     <input type="file" name="import_stock_file" class="form-control" accept=".csv,.txt,.xlsx,.xls">
-                    <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.35rem;">Jika file masih format Excel `.xlsx/.xls`, simpan dulu sebagai CSV. Alternatif paling cepat: copy dari Excel lalu paste ke kotak di bawah.</div>
+                    <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.35rem;">Format `.xlsx` modern didukung jika server punya ekstensi ZIP. Format `.xls` lama tetap disarankan di-save sebagai `.xlsx` atau `CSV`. Alternatif paling cepat: copy dari Excel lalu paste ke kotak di bawah.</div>
                 </div>
                 <div>
                     <label class="form-label">Default Kategori</label>
