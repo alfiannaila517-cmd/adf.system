@@ -298,8 +298,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         foreach ($_POST['transfer_items'] as $tItem) {
             $tStockId = (int)($tItem['stock_id'] ?? 0);
             $tQty = (float)($tItem['qty'] ?? 0);
+            $tPoDetailId = (int)($tItem['po_detail_id'] ?? 0);
             if ($tStockId > 0 && $tQty > 0) {
-                $transferItems[] = ['stock_id' => $tStockId, 'quantity' => $tQty, 'notes' => $notes];
+                $transferItems[] = ['stock_id' => $tStockId, 'quantity' => $tQty, 'po_detail_id' => $tPoDetailId, 'notes' => $notes];
             }
         }
     } else {
@@ -365,7 +366,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $result = transferGudangNasitaStock($resolvedBizId ?: $targetBusinessId, $transferItems, $currentUser['id'], $notes, $sourcePoId, $resolvedBizName ?: null);
 
-    // After successful transfer, update PO status in source business DB to 'completed'
+    // After successful transfer, increment PO received quantities and set status partial/completed.
     if ($result['success'] && $sourcePoId !== null && $sourcePoBusinessSlug !== '') {
         $poStatusCfgPath = __DIR__ . '/../../config/businesses/' . $sourcePoBusinessSlug . '.php';
         if (file_exists($poStatusCfgPath)) {
@@ -375,7 +376,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 try {
                     $originDbForPo = Database::getCurrentDatabase();
                     $poStatusDb = Database::switchDatabase($poStatusDbName);
-                    $poStatusDb->update('purchase_orders_header', ['status' => 'completed'], 'id = :id', ['id' => $sourcePoId]);
+
+                    // Ensure received_quantity column exists in older schemas.
+                    $detailCols = $poStatusDb->fetchAll('SHOW COLUMNS FROM purchase_orders_detail');
+                    $detailColNames = array_map(function ($r) {
+                        return strtolower((string)($r['Field'] ?? ''));
+                    }, $detailCols ?: []);
+                    if (!in_array('received_quantity', $detailColNames, true)) {
+                        $poStatusDb->query('ALTER TABLE purchase_orders_detail ADD COLUMN received_quantity DECIMAL(15,2) NOT NULL DEFAULT 0 AFTER quantity');
+                    }
+
+                    // Aggregate transferred qty by PO detail row.
+                    $byDetail = [];
+                    foreach ($transferItems as $ti) {
+                        $detailId = (int)($ti['po_detail_id'] ?? 0);
+                        $qty = (float)($ti['quantity'] ?? 0);
+                        if ($detailId > 0 && $qty > 0) {
+                            if (!isset($byDetail[$detailId])) {
+                                $byDetail[$detailId] = 0;
+                            }
+                            $byDetail[$detailId] += $qty;
+                        }
+                    }
+
+                    foreach ($byDetail as $detailId => $qtyToAdd) {
+                        $row = $poStatusDb->fetchOne('SELECT id, quantity, COALESCE(received_quantity,0) AS received_quantity FROM purchase_orders_detail WHERE id = ? AND po_header_id = ? LIMIT 1', [(int)$detailId, (int)$sourcePoId]);
+                        if (!$row) {
+                            continue;
+                        }
+                        $ordered = (float)($row['quantity'] ?? 0);
+                        $receivedNow = (float)($row['received_quantity'] ?? 0);
+                        $newReceived = min($ordered, $receivedNow + (float)$qtyToAdd);
+                        $poStatusDb->update('purchase_orders_detail', ['received_quantity' => $newReceived], 'id = :id', ['id' => (int)$detailId]);
+                    }
+
+                    // Recompute header status.
+                    $agg = $poStatusDb->fetchOne('SELECT COALESCE(SUM(quantity),0) AS ordered_total, COALESCE(SUM(received_quantity),0) AS received_total FROM purchase_orders_detail WHERE po_header_id = ?', [(int)$sourcePoId]);
+                    $orderedTotal = (float)($agg['ordered_total'] ?? 0);
+                    $receivedTotal = (float)($agg['received_total'] ?? 0);
+                    $newStatus = 'submitted';
+                    if ($orderedTotal > 0 && $receivedTotal >= $orderedTotal) {
+                        $newStatus = 'completed';
+                    } elseif ($receivedTotal > 0) {
+                        $newStatus = 'partially_received';
+                    }
+                    $poStatusDb->update('purchase_orders_header', ['status' => $newStatus], 'id = :id', ['id' => (int)$sourcePoId]);
+
                     if (!empty($originDbForPo)) {
                         Database::switchDatabase($originDbForPo);
                     }
@@ -429,7 +475,7 @@ include '../../includes/header.php';
                     Barang berhasil ditransfer ke <strong><?php echo htmlspecialchars((string)($_GET['biz'] ?? '')); ?></strong>
                     <?php if (!empty($_GET['tn'])): ?>
                         dengan nomor <strong><?php echo htmlspecialchars((string)$_GET['tn']); ?></strong>
-                    <?php endif; ?>.
+                        <?php endif; ?>.
                 </div>
                 <div style="margin-top:0.35rem; color:#065f46; font-size:0.82rem;">
                     Total Qty: <strong><?php echo htmlspecialchars((string)($_GET['tq'] ?? '0')); ?></strong>
@@ -523,6 +569,7 @@ include '../../includes/header.php';
                                     <td>
                                         <?php if ($gStock && (float)$gStock['quantity'] > 0 && $pItem['remaining_qty'] > 0): ?>
                                             <input type="hidden" name="transfer_items[<?php echo $idx; ?>][stock_id]" value="<?php echo (int)$gStock['id']; ?>">
+                                            <input type="hidden" name="transfer_items[<?php echo $idx; ?>][po_detail_id]" value="<?php echo (int)$pItem['po_detail_id']; ?>">
                                             <input type="number" name="transfer_items[<?php echo $idx; ?>][qty]" step="0.01" min="0" max="<?php echo min($pItem['remaining_qty'], (float)$gStock['quantity']); ?>" value="<?php echo min($pItem['remaining_qty'], (float)$gStock['quantity']); ?>" class="form-control" style="width:100px; text-align:right;">
                                         <?php else: ?>
                                             <span style="color:#9ca3af;">—</span>
