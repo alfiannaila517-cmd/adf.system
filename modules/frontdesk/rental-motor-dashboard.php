@@ -22,8 +22,15 @@ $pdo         = $db->getConnection();
 $businessId  = $_SESSION['business_id'] ?? 1;
 
 // Auto-update overdue status
-$pdo->exec("UPDATE rental_motor_bookings SET status='overdue'
-    WHERE status='active' AND end_datetime < NOW() AND business_id={$businessId}");
+$normalizeStatus = $pdo->prepare("UPDATE rental_motor_bookings SET status='active'
+    WHERE business_id=? AND status='overdue'
+    AND end_datetime > DATE_SUB(NOW(), INTERVAL 24 HOUR)");
+$normalizeStatus->execute([$businessId]);
+
+$markOverdue = $pdo->prepare("UPDATE rental_motor_bookings SET status='overdue'
+    WHERE business_id=? AND status='active'
+    AND end_datetime <= DATE_SUB(NOW(), INTERVAL 24 HOUR)");
+$markOverdue->execute([$businessId]);
 
 // ── Fetch Statistics ──────────────────────────────────────────────────────────
 // Total motors by status
@@ -49,7 +56,9 @@ $activeRentals->execute([$businessId]);
 $activeCount = (int)$activeRentals->fetchColumn();
 
 $overdueRentals = $pdo->prepare("SELECT COUNT(*) FROM rental_motor_bookings 
-    WHERE business_id=? AND status='overdue'");
+    WHERE business_id=?
+    AND status IN ('active','overdue')
+    AND end_datetime <= DATE_SUB(NOW(), INTERVAL 24 HOUR)");
 $overdueRentals->execute([$businessId]);
 $overdueCount = (int)$overdueRentals->fetchColumn();
 
@@ -727,7 +736,8 @@ include '../../includes/header.php';
                     <?php foreach ($list as $m):
                         $state    = $m['motor_status'];
                         $isRented = $state === 'rented' && $m['booking_id'];
-                        $isOverdue = $isRented && $m['booking_status'] === 'overdue';
+                        $endTs = !empty($m['end_datetime']) ? strtotime((string)$m['end_datetime']) : false;
+                        $isOverdue = $isRented && $endTs !== false && $endTs <= (time() - 86400);
                         $boxClass = $isRented ? 'rented' . ($isOverdue ? ' overdue' : '') : $state;
                         $detail   = [
                             'plate'          => $m['plate_number'],
@@ -740,6 +750,7 @@ include '../../includes/header.php';
                             'room'           => $m['room_number'],
                             'start'          => $m['start_datetime'],
                             'end'            => $m['end_datetime'],
+                            'is_overdue_24h' => $isOverdue ? 1 : 0,
                             'total'          => (float)$m['total_price'],
                             'partner_owner'  => $m['partner_owner'] ?? '',
                             'owner_phone'    => $m['owner_phone'] ?? '',
@@ -893,7 +904,7 @@ include '../../includes/header.php';
         html += `<div class="md-row"><span>Tarif</span><span>Rp ${Math.round(d.rate).toLocaleString('id-ID')}/hari</span></div>`;
 
         if (d.status === 'rented' && d.guest) {
-            const isOverdue = d.booking_status === 'overdue';
+            const isOverdue = String(d.is_overdue_24h || '0') === '1';
             html += `<div class="md-row"><span>Status</span><span style="color:${isOverdue ? '#ef4444' : '#10b981'}">${isOverdue ? '⚠ Overdue' : '✓ Aktif'}</span></div>`;
             html += `<div class="md-row"><span>Tamu</span><span>${d.guest}</span></div>`;
             if (d.room) html += `<div class="md-row"><span>Kamar</span><span>#${d.room}</span></div>`;
