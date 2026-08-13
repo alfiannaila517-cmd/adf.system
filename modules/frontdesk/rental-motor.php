@@ -379,10 +379,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 }
 
                 // Update invoice items with calculated quantity and price
+                $invoiceQty = $motorCount * $actualDays;
                 $pdo->prepare("UPDATE hotel_invoice_items 
                     SET quantity=?, unit_price=?, total_price=? 
                     WHERE invoice_id=? AND service_type='motor_rental' AND description LIKE ?")
-                    ->execute([$actualDays, $dailyRate, $newTotal, $rentalRow['invoice_id'], "%{$rentalRow['plate_number']}%"]);
+                    ->execute([$invoiceQty, $dailyRate, $newTotal, $rentalRow['invoice_id'], "%{$rentalRow['plate_number']}%"]);
             }
 
             $pdo->commit();

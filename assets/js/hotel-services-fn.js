@@ -1613,7 +1613,16 @@ function submitEdit () {
     items.push({
       service_type: svc,
       description: tr.querySelector('.iDesc').value.trim(),
-      qty: parseFloat(tr.querySelector('.iQty').value) || 1,
+      // Keep same pricing formula as create: total units = jumlah motor x hari sewa.
+      qty:
+        svc === 'motor_rental'
+          ? (parseFloat(tr.querySelector('.iQty').value) || 1) *
+            (parseFloat(tr.querySelector('.iDays')?.value) || 1)
+          : parseFloat(tr.querySelector('.iQty').value) || 1,
+      motor_count:
+        svc === 'motor_rental'
+          ? parseFloat(tr.querySelector('.iQty').value) || 1
+          : 1,
       unit_price: parseFloat(tr.querySelector('.iPrice').value) || 0,
       motor_id: motorId || null,
       car_id: (svc === 'car_rental' ? carId : driverCarId) || null,
