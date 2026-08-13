@@ -99,6 +99,96 @@ function ensureMenuBookMenuRegistered(string $activeBizSlug): void
     }
 }
 
+function parseIniSizeToBytes(string $value): int
+{
+    $value = trim($value);
+    if ($value === '') {
+        return 0;
+    }
+
+    $unit = strtolower(substr($value, -1));
+    $number = (float)$value;
+    if ($unit === 'g') {
+        return (int)round($number * 1024 * 1024 * 1024);
+    }
+    if ($unit === 'm') {
+        return (int)round($number * 1024 * 1024);
+    }
+    if ($unit === 'k') {
+        return (int)round($number * 1024);
+    }
+    return (int)round($number);
+}
+
+function formatBytesHuman(int $bytes): string
+{
+    if ($bytes <= 0) {
+        return '0 B';
+    }
+    $units = ['B', 'KB', 'MB', 'GB'];
+    $pow = (int)floor(log($bytes, 1024));
+    $pow = max(0, min($pow, count($units) - 1));
+    $value = $bytes / (1024 ** $pow);
+    return number_format($value, $pow === 0 ? 0 : 1) . ' ' . $units[$pow];
+}
+
+function normalizeUploadFiles(array $fileField): array
+{
+    $names = $fileField['name'] ?? [];
+    $tmps = $fileField['tmp_name'] ?? [];
+    $errs = $fileField['error'] ?? [];
+    $sizes = $fileField['size'] ?? [];
+
+    if (!is_array($names)) {
+        $names = [$names];
+    }
+    if (!is_array($tmps)) {
+        $tmps = [$tmps];
+    }
+    if (!is_array($errs)) {
+        $errs = [$errs];
+    }
+    if (!is_array($sizes)) {
+        $sizes = [$sizes];
+    }
+
+    $count = max(count($names), count($tmps), count($errs), count($sizes));
+    $out = [];
+    for ($i = 0; $i < $count; $i++) {
+        $out[] = [
+            'name' => (string)($names[$i] ?? ''),
+            'tmp_name' => (string)($tmps[$i] ?? ''),
+            'error' => (int)($errs[$i] ?? UPLOAD_ERR_NO_FILE),
+            'size' => (int)($sizes[$i] ?? 0),
+        ];
+    }
+    return $out;
+}
+
+function uploadErrorText(int $code): string
+{
+    switch ($code) {
+        case UPLOAD_ERR_INI_SIZE:
+            return 'Melebihi upload_max_filesize server.';
+        case UPLOAD_ERR_FORM_SIZE:
+            return 'Melebihi batas ukuran dari form.';
+        case UPLOAD_ERR_PARTIAL:
+            return 'Upload tidak lengkap (partial).';
+        case UPLOAD_ERR_NO_TMP_DIR:
+            return 'Folder temporary upload tidak tersedia.';
+        case UPLOAD_ERR_CANT_WRITE:
+            return 'Gagal menulis file ke disk.';
+        case UPLOAD_ERR_EXTENSION:
+            return 'Upload dihentikan oleh extension PHP.';
+        case UPLOAD_ERR_NO_FILE:
+            return 'Tidak ada file dipilih.';
+        case UPLOAD_ERR_OK:
+            return 'OK';
+        default:
+            return 'Error upload tidak diketahui.';
+    }
+}
+
 ensureMenuBookTable($pdo);
 if (in_array((string)($_SESSION['role'] ?? ''), ['developer', 'owner'], true)) {
     ensureMenuBookMenuRegistered($activeBizSlug);
@@ -122,38 +212,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new Exception('Anda tidak punya hak create untuk menu ini.');
             }
 
+            $contentLength = (int)($_SERVER['CONTENT_LENGTH'] ?? 0);
+            $postMaxBytes = parseIniSizeToBytes((string)ini_get('post_max_size'));
+            if ($postMaxBytes > 0 && $contentLength > $postMaxBytes) {
+                throw new Exception('Total file terlalu besar untuk server (post_max_size ' . formatBytesHuman($postMaxBytes) . '). Kurangi jumlah/ukuran gambar.');
+            }
+
             if (!isset($_FILES['menu_images'])) {
                 throw new Exception('File gambar belum dipilih.');
             }
 
-            $files = $_FILES['menu_images'];
-            $names = is_array($files['name']) ? $files['name'] : [$files['name']];
-            $tmps = is_array($files['tmp_name']) ? $files['tmp_name'] : [$files['tmp_name']];
-            $errs = is_array($files['error']) ? $files['error'] : [$files['error']];
+            $files = normalizeUploadFiles((array)$_FILES['menu_images']);
+            if (empty($files)) {
+                throw new Exception('Tidak ada file yang terbaca dari request upload.');
+            }
 
             $nextOrderRow = $pdo->query('SELECT COALESCE(MAX(page_order), 0) + 1 FROM menu_book_pages')->fetchColumn();
             $nextOrder = (int)$nextOrderRow;
             $insertStmt = $pdo->prepare('INSERT INTO menu_book_pages (title, image_path, page_order, is_active, created_by) VALUES (?, ?, ?, 1, ?)');
 
             $okCount = 0;
-            for ($i = 0; $i < count($names); $i++) {
-                if ((int)($errs[$i] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            $failReasons = [];
+            foreach ($files as $i => $file) {
+                $fileLabel = trim($file['name']) !== '' ? $file['name'] : ('file ke-' . ($i + 1));
+                if ((int)$file['error'] !== UPLOAD_ERR_OK) {
+                    if ((int)$file['error'] !== UPLOAD_ERR_NO_FILE) {
+                        $failReasons[] = $fileLabel . ': ' . uploadErrorText((int)$file['error']);
+                    }
                     continue;
                 }
 
-                $tmp = (string)($tmps[$i] ?? '');
+                $tmp = (string)$file['tmp_name'];
                 if ($tmp === '' || !is_uploaded_file($tmp)) {
+                    $failReasons[] = $fileLabel . ': file temporary tidak valid.';
                     continue;
                 }
 
                 $imgInfo = @getimagesize($tmp);
                 if (!$imgInfo) {
+                    $failReasons[] = $fileLabel . ': bukan gambar yang valid.';
                     continue;
                 }
 
                 $w = (int)($imgInfo[0] ?? 0);
                 $h = (int)($imgInfo[1] ?? 0);
                 if ($w < 900 || $h < 900 || ($w * $h) < 1500000) {
+                    $failReasons[] = $fileLabel . ': resolusi terlalu kecil (min 900x900 dan >1.5MP).';
                     continue;
                 }
 
@@ -164,6 +268,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'image/webp' => 'webp',
                 ];
                 if (!isset($extMap[$mime])) {
+                    $failReasons[] = $fileLabel . ': format tidak didukung. Gunakan JPG/PNG/WEBP.';
                     continue;
                 }
 
@@ -173,20 +278,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $relTarget = $uploadDirRel . '/' . $newName;
 
                 if (!move_uploaded_file($tmp, $absTarget)) {
+                    $failReasons[] = $fileLabel . ': gagal dipindahkan ke folder upload.';
                     continue;
                 }
 
-                $title = pathinfo((string)$names[$i], PATHINFO_FILENAME);
+                $title = pathinfo((string)$file['name'], PATHINFO_FILENAME);
                 $insertStmt->execute([$title, $relTarget, $nextOrder, (int)($currentUser['id'] ?? 0)]);
                 $nextOrder++;
                 $okCount++;
             }
 
             if ($okCount <= 0) {
-                throw new Exception('Upload gagal. Pastikan file gambar resolusi tinggi (min 900x900, >1.5MP).');
+                $detail = '';
+                if (!empty($failReasons)) {
+                    $detail = ' Detail: ' . implode(' | ', array_slice($failReasons, 0, 3));
+                }
+                throw new Exception('Upload gagal. Pastikan file gambar valid dan tidak melebihi batas server.' . $detail);
             }
 
             $msg = $okCount . ' halaman menu berhasil diupload.';
+            $failedCount = count($failReasons);
+            if ($failedCount > 0) {
+                $msg .= ' ' . $failedCount . ' file dilewati karena tidak valid.';
+            }
             $msgType = 'success';
         }
 
@@ -258,22 +372,114 @@ include '../../includes/header.php';
 ?>
 
 <style>
-    .mb-wrap { max-width: 1200px; margin: 0 auto; padding: 14px; }
-    .mb-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px; margin-bottom: 12px; }
-    .mb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
-    .mb-item { border: 1px solid #dbe4ee; border-radius: 10px; padding: 10px; background: #f8fafc; }
-    .mb-item img { width: 100%; height: 160px; object-fit: cover; border-radius: 8px; border: 1px solid #dbe4ee; background: #fff; }
-    .mb-row { margin-top: 8px; display: flex; gap: 6px; align-items: center; }
-    .mb-input { width: 100%; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 8px; }
-    .mb-btn { border: 1px solid #cbd5e1; background: #fff; border-radius: 8px; padding: 7px 11px; cursor: pointer; font-weight: 600; }
-    .mb-btn-primary { background: #1d4ed8; color: #fff; border-color: #1d4ed8; }
-    .mb-btn-danger { background: #ef4444; color: #fff; border-color: #ef4444; }
-    .mb-alert-ok { background: #ecfdf3; color: #166534; border: 1px solid #bbf7d0; padding: 8px 10px; border-radius: 8px; margin-bottom: 10px; }
-    .mb-alert-err { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; padding: 8px 10px; border-radius: 8px; margin-bottom: 10px; }
-    .mb-qr { display: grid; grid-template-columns: 180px 1fr; gap: 12px; align-items: center; }
-    .mb-qr img { width: 180px; height: 180px; border: 1px solid #dbe4ee; border-radius: 10px; background: #fff; }
+    .mb-wrap {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 14px;
+    }
+
+    .mb-card {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 14px;
+        margin-bottom: 12px;
+    }
+
+    .mb-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 12px;
+    }
+
+    .mb-item {
+        border: 1px solid #dbe4ee;
+        border-radius: 10px;
+        padding: 10px;
+        background: #f8fafc;
+    }
+
+    .mb-item img {
+        width: 100%;
+        height: 160px;
+        object-fit: cover;
+        border-radius: 8px;
+        border: 1px solid #dbe4ee;
+        background: #fff;
+    }
+
+    .mb-row {
+        margin-top: 8px;
+        display: flex;
+        gap: 6px;
+        align-items: center;
+    }
+
+    .mb-input {
+        width: 100%;
+        padding: 6px 8px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+    }
+
+    .mb-btn {
+        border: 1px solid #cbd5e1;
+        background: #fff;
+        border-radius: 8px;
+        padding: 7px 11px;
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    .mb-btn-primary {
+        background: #1d4ed8;
+        color: #fff;
+        border-color: #1d4ed8;
+    }
+
+    .mb-btn-danger {
+        background: #ef4444;
+        color: #fff;
+        border-color: #ef4444;
+    }
+
+    .mb-alert-ok {
+        background: #ecfdf3;
+        color: #166534;
+        border: 1px solid #bbf7d0;
+        padding: 8px 10px;
+        border-radius: 8px;
+        margin-bottom: 10px;
+    }
+
+    .mb-alert-err {
+        background: #fef2f2;
+        color: #991b1b;
+        border: 1px solid #fecaca;
+        padding: 8px 10px;
+        border-radius: 8px;
+        margin-bottom: 10px;
+    }
+
+    .mb-qr {
+        display: grid;
+        grid-template-columns: 180px 1fr;
+        gap: 12px;
+        align-items: center;
+    }
+
+    .mb-qr img {
+        width: 180px;
+        height: 180px;
+        border: 1px solid #dbe4ee;
+        border-radius: 10px;
+        background: #fff;
+    }
+
     @media (max-width: 768px) {
-        .mb-qr { grid-template-columns: 1fr; }
+        .mb-qr {
+            grid-template-columns: 1fr;
+        }
     }
 </style>
 
