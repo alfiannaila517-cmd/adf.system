@@ -320,6 +320,18 @@ if ($printPo) {
     exit;
 }
 
+// Load all barang for client-side autocomplete — no column filters that might not exist
+$allBarang = [];
+try {
+    $allBarang = $db->fetchAll(
+        "SELECT id, COALESCE(kode_barang,'') AS kode_barang, nama_barang,
+                COALESCE(satuan,'pcs') AS satuan, COALESCE(harga_beli,0) AS harga_beli
+         FROM gudang_nasita_barang ORDER BY nama_barang ASC"
+    ) ?: [];
+} catch (Throwable $e) {
+    error_log('gudang-po-supplier allBarang load error: ' . $e->getMessage());
+}
+
 $forceTheme = 'light';
 include '../../includes/header.php';
 ?>
@@ -522,14 +534,14 @@ include '../../includes/header.php';
         if (e.target === document.getElementById('createPoModal')) document.getElementById('createPoModal').style.display = 'none';
     });
 
-    const BASE = '<?php echo BASE_URL; ?>';
-    const acTimers = {};
+    // Products embedded server-side — no AJAX needed
+    const BARANG_LIST = <?php echo json_encode(array_values($allBarang), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
 
     function buildItemRow(idx) {
         return `<td style="min-width:200px;">
             <div class="po-ac-wrap" style="position:relative;">
                 <input type="text" name="items[${idx}][item_name]" class="form-control po-item-ac" placeholder="Cari nama barang..." autocomplete="off" required>
-                <div class="po-item-drop" style="display:none;position:absolute;z-index:9999;width:100%;background:#fff;border:1px solid #e2e8f0;border-radius:.4rem;max-height:220px;overflow-y:auto;box-shadow:0 6px 16px rgba(0,0,0,.15);top:calc(100% + 2px);left:0;"></div>
+                <div class="po-item-drop" style="display:none;position:fixed;z-index:99999;width:320px;background:#fff;border:1px solid #cbd5e1;border-radius:.5rem;max-height:260px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.18);"></div>
             </div>
         </td>
         <td><input type="number" name="items[${idx}][quantity]" class="form-control" step="0.01" min="0.01" placeholder="0" required style="width:90px;"></td>
@@ -548,21 +560,47 @@ include '../../includes/header.php';
         feather.replace();
     }
 
+    function renderDrop(drop, input, matches) {
+        if (!matches.length) { drop.style.display = 'none'; return; }
+        // Position dropdown below the input using fixed coords
+        const rect = input.getBoundingClientRect();
+        drop.style.top  = (rect.bottom + window.scrollY + 2) + 'px';
+        drop.style.left = rect.left + 'px';
+        drop.style.width = Math.max(rect.width, 280) + 'px';
+        drop.innerHTML = matches.map(p =>
+            `<div class="po-drop-row"
+                data-nama="${p.nama_barang.replace(/"/g,'&quot;')}"
+                data-satuan="${(p.satuan||'pcs').replace(/"/g,'&quot;')}"
+                data-harga="${p.harga_beli||0}"
+                style="padding:.55rem .85rem;cursor:pointer;font-size:.84rem;border-bottom:1px solid #f1f5f9;
+                       display:flex;justify-content:space-between;align-items:center;"
+                onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background=''">
+                <span><strong>${p.nama_barang}</strong>
+                    <span style="color:#64748b;font-size:.75rem;margin-left:.3rem;">${p.satuan||'pcs'}</span>
+                </span>
+                <span style="color:#0f9d6a;font-weight:700;font-size:.8rem;white-space:nowrap;">
+                    ${parseFloat(p.harga_beli)>0 ? 'Rp '+parseInt(p.harga_beli).toLocaleString('id-ID') : ''}
+                </span>
+            </div>`
+        ).join('');
+        drop.style.display = 'block';
+    }
+
     function initPoItemAc(input) {
-        const key = Math.random();
         const drop = input.parentElement.querySelector('.po-item-drop');
 
         input.addEventListener('input', function () {
-            clearTimeout(acTimers[key]);
-            const q = this.value.trim();
-            drop.style.display = 'none';
-            if (q.length < 1) return;
-            acTimers[key] = setTimeout(() => fetchGudangItems(q, input, drop), 250);
+            const q = this.value.trim().toLowerCase();
+            if (!q) { drop.style.display = 'none'; return; }
+            const matches = BARANG_LIST.filter(p => p.nama_barang.toLowerCase().includes(q)).slice(0, 25);
+            renderDrop(drop, input, matches);
         });
 
-        drop.addEventListener('click', function (e) {
+        drop.addEventListener('mousedown', function (e) {
+            // mousedown fires before blur so we can safely read the clicked row
             const item = e.target.closest('.po-drop-row');
             if (!item) return;
+            e.preventDefault(); // prevent input blur
             const row = input.closest('tr');
             input.value = item.dataset.nama;
             const unitInput  = row.querySelector('.po-item-unit');
@@ -570,30 +608,11 @@ include '../../includes/header.php';
             if (unitInput)  unitInput.value  = item.dataset.satuan || 'pcs';
             if (priceInput && parseFloat(item.dataset.harga) > 0) priceInput.value = Math.round(parseFloat(item.dataset.harga));
             drop.style.display = 'none';
+            input.focus();
         });
 
+        input.addEventListener('blur',   () => setTimeout(() => { drop.style.display = 'none'; }, 150));
         input.addEventListener('keydown', e => { if (e.key === 'Escape') drop.style.display = 'none'; });
-        document.addEventListener('click', e => {
-            if (!input.parentElement.contains(e.target)) drop.style.display = 'none';
-        });
-    }
-
-    async function fetchGudangItems(q, input, drop) {
-        try {
-            const r = await fetch(`${BASE}/api/gudang-produk-search.php?action=search&q=${encodeURIComponent(q)}`);
-            const d = await r.json();
-            const items = d.data || [];
-            if (!items.length) { drop.style.display = 'none'; return; }
-            drop.innerHTML = items.map(p =>
-                `<div class="po-drop-row" data-nama="${p.nama_barang.replace(/"/g,'&quot;')}" data-satuan="${p.satuan||'pcs'}" data-harga="${p.harga_beli||0}"
-                    style="padding:.55rem .85rem;cursor:pointer;font-size:.84rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;"
-                    onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background=''">
-                    <span><strong>${p.nama_barang}</strong> <span style="color:#64748b;font-size:.75rem;margin-left:.3rem;">${p.satuan||'pcs'}</span></span>
-                    <span style="color:#0f9d6a;font-weight:700;font-size:.8rem;white-space:nowrap;">${parseFloat(p.harga_beli)>0?'Rp '+parseInt(p.harga_beli).toLocaleString('id-ID'):''}</span>
-                </div>`
-            ).join('');
-            drop.style.display = 'block';
-        } catch (e) { drop.style.display = 'none'; }
     }
 
     // Init autocomplete on first (static) row
