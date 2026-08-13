@@ -281,6 +281,7 @@ if ($isGudang) {
     }
 }
 
+$forceTheme = 'light';
 include '../../includes/header.php';
 ?>
 
@@ -501,187 +502,187 @@ include '../../includes/header.php';
 <?php endif; ?>
 
 <?php if (!$isGudang): ?>
-<!-- Filter Section -->
-<div class="card" style="margin-bottom: 1.25rem;">
-    <form method="GET" style="display: grid; grid-template-columns: repeat(3, 1fr) auto; gap: 1rem; align-items: end;">
-        <div class="form-group" style="margin: 0;">
-            <label class="form-label">Status</label>
-            <select name="status" class="form-control">
-                <option value="">Semua Status</option>
-                <option value="draft" <?php echo $status === 'draft' ? 'selected' : ''; ?>>Draft</option>
-                <option value="submitted" <?php echo $status === 'submitted' ? 'selected' : ''; ?>>Menunggu Proses Gudang</option>
-                <option value="approved" <?php echo $status === 'approved' ? 'selected' : ''; ?>>Disiapkan Gudang</option>
-                <option value="partially_received" <?php echo $status === 'partially_received' ? 'selected' : ''; ?>>Partially Received</option>
-                <option value="completed" <?php echo $status === 'completed' ? 'selected' : ''; ?>>Completed</option>
-                <option value="cancelled" <?php echo $status === 'cancelled' ? 'selected' : ''; ?>>Cancelled</option>
-            </select>
-        </div>
+    <!-- Filter Section -->
+    <div class="card" style="margin-bottom: 1.25rem;">
+        <form method="GET" style="display: grid; grid-template-columns: repeat(3, 1fr) auto; gap: 1rem; align-items: end;">
+            <div class="form-group" style="margin: 0;">
+                <label class="form-label">Status</label>
+                <select name="status" class="form-control">
+                    <option value="">Semua Status</option>
+                    <option value="draft" <?php echo $status === 'draft' ? 'selected' : ''; ?>>Draft</option>
+                    <option value="submitted" <?php echo $status === 'submitted' ? 'selected' : ''; ?>>Menunggu Proses Gudang</option>
+                    <option value="approved" <?php echo $status === 'approved' ? 'selected' : ''; ?>>Disiapkan Gudang</option>
+                    <option value="partially_received" <?php echo $status === 'partially_received' ? 'selected' : ''; ?>>Partially Received</option>
+                    <option value="completed" <?php echo $status === 'completed' ? 'selected' : ''; ?>>Completed</option>
+                    <option value="cancelled" <?php echo $status === 'cancelled' ? 'selected' : ''; ?>>Cancelled</option>
+                </select>
+            </div>
 
-        <div class="form-group" style="margin: 0;">
-            <label class="form-label">Dari Tanggal</label>
-            <input type="date" name="date_from" class="form-control" value="<?php echo $date_from; ?>">
-        </div>
+            <div class="form-group" style="margin: 0;">
+                <label class="form-label">Dari Tanggal</label>
+                <input type="date" name="date_from" class="form-control" value="<?php echo $date_from; ?>">
+            </div>
 
-        <div class="form-group" style="margin: 0;">
-            <label class="form-label">Sampai Tanggal</label>
-            <input type="date" name="date_to" class="form-control" value="<?php echo $date_to; ?>">
-        </div>
+            <div class="form-group" style="margin: 0;">
+                <label class="form-label">Sampai Tanggal</label>
+                <input type="date" name="date_to" class="form-control" value="<?php echo $date_to; ?>">
+            </div>
 
-        <button type="submit" class="btn btn-primary" style="height: 42px;">
-            <i data-feather="filter" style="width: 16px; height: 16px;"></i> Filter
-        </button>
-    </form>
-</div>
+            <button type="submit" class="btn btn-primary" style="height: 42px;">
+                <i data-feather="filter" style="width: 16px; height: 16px;"></i> Filter
+            </button>
+        </form>
+    </div>
 
-<!-- Statistics Cards -->
-<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.25rem;">
-    <?php
-    $stats = [
-        'draft' => ['label' => 'Draft', 'color' => '#6366f1', 'icon' => 'edit-3'],
-        'submitted' => ['label' => 'Menunggu Proses Gudang', 'color' => '#f59e0b', 'icon' => 'clock'],
-        'completed' => ['label' => 'Selesai', 'color' => '#10b981', 'icon' => 'check-circle']
-    ];
+    <!-- Statistics Cards -->
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.25rem;">
+        <?php
+        $stats = [
+            'draft' => ['label' => 'Draft', 'color' => '#6366f1', 'icon' => 'edit-3'],
+            'submitted' => ['label' => 'Menunggu Proses Gudang', 'color' => '#f59e0b', 'icon' => 'clock'],
+            'completed' => ['label' => 'Selesai', 'color' => '#10b981', 'icon' => 'check-circle']
+        ];
 
-    foreach ($stats as $stat_status => $stat_data) {
-        $count = count(array_filter($purchase_orders, function ($po) use ($stat_status) {
-            return $po['status'] === $stat_status;
-        }));
-        $total = array_sum(array_map(function ($po) use ($stat_status) {
-            return $po['status'] === $stat_status ? ($po['total_amount'] ?? 0) : 0;
-        }, $purchase_orders));
-    ?>
-        <div class="card" style="padding: 1rem;">
-            <div style="display: flex; align-items: center; gap: 0.75rem;">
-                <div style="width: 40px; height: 40px; border-radius: 8px; background: <?php echo $stat_data['color']; ?>20; display: flex; align-items: center; justify-content: center;">
-                    <i data-feather="<?php echo $stat_data['icon']; ?>" style="width: 20px; height: 20px; color: <?php echo $stat_data['color']; ?>;"></i>
-                </div>
-                <div>
-                    <div style="font-size: 0.75rem; color: var(--text-muted);"><?php echo $stat_data['label']; ?></div>
-                    <div style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);"><?php echo $count; ?></div>
-                    <div style="font-size: 0.688rem; color: var(--text-muted);">Rp <?php echo number_format($total, 0, ',', '.'); ?></div>
+        foreach ($stats as $stat_status => $stat_data) {
+            $count = count(array_filter($purchase_orders, function ($po) use ($stat_status) {
+                return $po['status'] === $stat_status;
+            }));
+            $total = array_sum(array_map(function ($po) use ($stat_status) {
+                return $po['status'] === $stat_status ? ($po['total_amount'] ?? 0) : 0;
+            }, $purchase_orders));
+        ?>
+            <div class="card" style="padding: 1rem;">
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <div style="width: 40px; height: 40px; border-radius: 8px; background: <?php echo $stat_data['color']; ?>20; display: flex; align-items: center; justify-content: center;">
+                        <i data-feather="<?php echo $stat_data['icon']; ?>" style="width: 20px; height: 20px; color: <?php echo $stat_data['color']; ?>;"></i>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);"><?php echo $stat_data['label']; ?></div>
+                        <div style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);"><?php echo $count; ?></div>
+                        <div style="font-size: 0.688rem; color: var(--text-muted);">Rp <?php echo number_format($total, 0, ',', '.'); ?></div>
+                    </div>
                 </div>
             </div>
-        </div>
-    <?php } ?>
-</div>
+        <?php } ?>
+    </div>
 
-<!-- Purchase Orders Table -->
-<div class="card">
-    <div class="table-responsive">
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>PO Number</th>
-                    <?php if ($isGudang): ?>
-                        <th>Bisnis</th>
-                    <?php endif; ?>
-                    <th>Tanggal</th>
-                    <th>Tujuan</th>
-                    <th>Status</th>
-                    <th>Items</th>
-                    <th class="text-right">Total</th>
-                    <th>Dibuat Oleh</th>
-                    <th class="text-center">Aksi</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php if (empty($purchase_orders)): ?>
+    <!-- Purchase Orders Table -->
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
                     <tr>
-                        <td colspan="<?php echo $isGudang ? 9 : 8; ?>" style="text-align: center; padding: 3rem; color: var(--text-muted);">
-                            <i data-feather="inbox" style="width: 48px; height: 48px; opacity: 0.3; margin-bottom: 1rem;"></i>
-                            <p>Tidak ada purchase order</p>
-                        </td>
+                        <th>PO Number</th>
+                        <?php if ($isGudang): ?>
+                            <th>Bisnis</th>
+                        <?php endif; ?>
+                        <th>Tanggal</th>
+                        <th>Tujuan</th>
+                        <th>Status</th>
+                        <th>Items</th>
+                        <th class="text-right">Total</th>
+                        <th>Dibuat Oleh</th>
+                        <th class="text-center">Aksi</th>
                     </tr>
-                <?php else: ?>
-                    <?php foreach ($purchase_orders as $po): ?>
+                </thead>
+                <tbody>
+                    <?php if (empty($purchase_orders)): ?>
                         <tr>
-                            <td style="font-weight: 600; color: var(--primary-color);">
-                                <?php echo $po['po_number']; ?>
-                            </td>
-                            <?php if ($isGudang): ?>
-                                <td style="font-weight: 600; font-size: 0.9rem; color: #6b7280;">
-                                    <?php echo htmlspecialchars($po['source_business_name'] ?? $po['source_business_slug'] ?? 'Unknown', ENT_QUOTES, 'UTF-8'); ?>
-                                </td>
-                            <?php endif; ?>
-                            <td><?php echo date('d M Y', strtotime($po['po_date'])); ?></td>
-                            <td>
-                                <div style="font-weight: 600;">Gudang Nasita (Internal)</div>
-                                <div style="font-size: 0.75rem; color: var(--text-muted);">Tanpa supplier eksternal</div>
-                            </td>
-                            <td>
-                                <?php
-                                $status_colors = [
-                                    'draft' => 'secondary',
-                                    'submitted' => 'warning',
-                                    'approved' => 'success',
-                                    'rejected' => 'danger',
-                                    'partially_received' => 'info',
-                                    'completed' => 'success',
-                                    'cancelled' => 'danger'
-                                ];
-                                $status_labels = [
-                                    'draft' => 'Draft',
-                                    'submitted' => '🕐 Menunggu Proses Gudang',
-                                    'approved' => 'Disiapkan Gudang',
-                                    'completed' => '✓ Selesai',
-                                    'rejected' => 'Rejected',
-                                    'cancelled' => 'Cancelled'
-                                ];
-                                $badge_color = $status_colors[$po['status']] ?? 'secondary';
-                                $badge_label = $status_labels[$po['status']] ?? ucfirst($po['status']);
-                                ?>
-                                <span class="badge badge-<?php echo $badge_color; ?>" style="font-size: 0.875rem;">
-                                    <?php echo $badge_label; ?>
-                                </span>
-                            </td>
-                            <td><?php echo $po['items_count']; ?> items</td>
-                            <td class="text-right" style="font-weight: 700; color: var(--text-primary);">
-                                Rp <?php echo number_format($po['total_amount'] ?? 0, 0, ',', '.'); ?>
-                            </td>
-                            <td style="font-size: 0.813rem;"><?php echo $po['created_by_name']; ?></td>
-                            <td>
-                                <div class="po-action-group">
-                                    <a href="<?php echo $isGudang
-                                                    ? ('open-po.php?id=' . (int)$po['id'] . '&po_business=' . urlencode((string)($po['source_business_slug'] ?? '')) . '&po_number=' . urlencode((string)($po['po_number'] ?? '')))
-                                                    : ('view-po.php?id=' . (int)$po['id']); ?>" class="po-action-btn view" title="View">
-                                        <i data-feather="eye"></i>
-                                    </a>
-
-                                    <?php if ($po['status'] === 'draft'): ?>
-                                        <form method="POST" action="submit-po.php" style="display: inline;">
-                                            <input type="hidden" name="po_id" value="<?php echo $po['id']; ?>">
-                                            <button type="submit" class="po-action-btn submit" title="Submit PO" onclick="return confirm('Submit PO ini?')">
-                                                <i data-feather="send"></i>
-                                            </button>
-                                        </form>
-                                    <?php elseif ($po['status'] === 'submitted' && $isGudang): ?>
-                                        <a href="gudang-transfer.php?po_id=<?php echo (int)$po['id']; ?>" class="po-action-btn po-action-wide submit" title="Siapkan Transfer Gudang">
-                                            <i data-feather="send"></i> Siapkan Transfer
-                                        </a>
-                                    <?php elseif ($po['status'] === 'submitted'): ?>
-                                        <span class="badge badge-warning" style="font-size:0.75rem;">Menunggu Gudang</span>
-                                    <?php elseif ($po['status'] === 'completed'): ?>
-                                        <span class="badge badge-success">Transfer Selesai</span>
-                                    <?php endif; ?>
-
-                                    <?php if (in_array(strtolower((string)$po['status']), ['draft', 'cancelled', 'rejected', 'completed'], true)): ?>
-                                        <form method="POST" style="display: inline;" onsubmit="return confirm('Hapus PO ini permanen?')">
-                                            <input type="hidden" name="action" value="delete_po">
-                                            <input type="hidden" name="po_id" value="<?php echo (int)$po['id']; ?>">
-                                            <button type="submit" class="po-action-btn reject" title="Hapus PO">
-                                                <i data-feather="trash-2"></i>
-                                            </button>
-                                        </form>
-                                    <?php endif; ?>
-                                </div>
+                            <td colspan="<?php echo $isGudang ? 9 : 8; ?>" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                                <i data-feather="inbox" style="width: 48px; height: 48px; opacity: 0.3; margin-bottom: 1rem;"></i>
+                                <p>Tidak ada purchase order</p>
                             </td>
                         </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </tbody>
-        </table>
+                    <?php else: ?>
+                        <?php foreach ($purchase_orders as $po): ?>
+                            <tr>
+                                <td style="font-weight: 600; color: var(--primary-color);">
+                                    <?php echo $po['po_number']; ?>
+                                </td>
+                                <?php if ($isGudang): ?>
+                                    <td style="font-weight: 600; font-size: 0.9rem; color: #6b7280;">
+                                        <?php echo htmlspecialchars($po['source_business_name'] ?? $po['source_business_slug'] ?? 'Unknown', ENT_QUOTES, 'UTF-8'); ?>
+                                    </td>
+                                <?php endif; ?>
+                                <td><?php echo date('d M Y', strtotime($po['po_date'])); ?></td>
+                                <td>
+                                    <div style="font-weight: 600;">Gudang Nasita (Internal)</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-muted);">Tanpa supplier eksternal</div>
+                                </td>
+                                <td>
+                                    <?php
+                                    $status_colors = [
+                                        'draft' => 'secondary',
+                                        'submitted' => 'warning',
+                                        'approved' => 'success',
+                                        'rejected' => 'danger',
+                                        'partially_received' => 'info',
+                                        'completed' => 'success',
+                                        'cancelled' => 'danger'
+                                    ];
+                                    $status_labels = [
+                                        'draft' => 'Draft',
+                                        'submitted' => '🕐 Menunggu Proses Gudang',
+                                        'approved' => 'Disiapkan Gudang',
+                                        'completed' => '✓ Selesai',
+                                        'rejected' => 'Rejected',
+                                        'cancelled' => 'Cancelled'
+                                    ];
+                                    $badge_color = $status_colors[$po['status']] ?? 'secondary';
+                                    $badge_label = $status_labels[$po['status']] ?? ucfirst($po['status']);
+                                    ?>
+                                    <span class="badge badge-<?php echo $badge_color; ?>" style="font-size: 0.875rem;">
+                                        <?php echo $badge_label; ?>
+                                    </span>
+                                </td>
+                                <td><?php echo $po['items_count']; ?> items</td>
+                                <td class="text-right" style="font-weight: 700; color: var(--text-primary);">
+                                    Rp <?php echo number_format($po['total_amount'] ?? 0, 0, ',', '.'); ?>
+                                </td>
+                                <td style="font-size: 0.813rem;"><?php echo $po['created_by_name']; ?></td>
+                                <td>
+                                    <div class="po-action-group">
+                                        <a href="<?php echo $isGudang
+                                                        ? ('open-po.php?id=' . (int)$po['id'] . '&po_business=' . urlencode((string)($po['source_business_slug'] ?? '')) . '&po_number=' . urlencode((string)($po['po_number'] ?? '')))
+                                                        : ('view-po.php?id=' . (int)$po['id']); ?>" class="po-action-btn view" title="View">
+                                            <i data-feather="eye"></i>
+                                        </a>
+
+                                        <?php if ($po['status'] === 'draft'): ?>
+                                            <form method="POST" action="submit-po.php" style="display: inline;">
+                                                <input type="hidden" name="po_id" value="<?php echo $po['id']; ?>">
+                                                <button type="submit" class="po-action-btn submit" title="Submit PO" onclick="return confirm('Submit PO ini?')">
+                                                    <i data-feather="send"></i>
+                                                </button>
+                                            </form>
+                                        <?php elseif ($po['status'] === 'submitted' && $isGudang): ?>
+                                            <a href="gudang-transfer.php?po_id=<?php echo (int)$po['id']; ?>" class="po-action-btn po-action-wide submit" title="Siapkan Transfer Gudang">
+                                                <i data-feather="send"></i> Siapkan Transfer
+                                            </a>
+                                        <?php elseif ($po['status'] === 'submitted'): ?>
+                                            <span class="badge badge-warning" style="font-size:0.75rem;">Menunggu Gudang</span>
+                                        <?php elseif ($po['status'] === 'completed'): ?>
+                                            <span class="badge badge-success">Transfer Selesai</span>
+                                        <?php endif; ?>
+
+                                        <?php if (in_array(strtolower((string)$po['status']), ['draft', 'cancelled', 'rejected', 'completed'], true)): ?>
+                                            <form method="POST" style="display: inline;" onsubmit="return confirm('Hapus PO ini permanen?')">
+                                                <input type="hidden" name="action" value="delete_po">
+                                                <input type="hidden" name="po_id" value="<?php echo (int)$po['id']; ?>">
+                                                <button type="submit" class="po-action-btn reject" title="Hapus PO">
+                                                    <i data-feather="trash-2"></i>
+                                                </button>
+                                            </form>
+                                        <?php endif; ?>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
     </div>
-</div>
 <?php endif; ?>
 
 <!-- Approve Modal -->
