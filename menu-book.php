@@ -89,63 +89,75 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
         }
 
         .book-shell {
-            width: min(980px, 100%);
+            width: min(920px, 100%);
         }
 
         .book-head {
             text-align: center;
-            margin-bottom: 14px;
+            margin-bottom: 8px;
         }
 
         .book-head h1 {
             margin: 0;
             font-family: 'Cormorant Garamond', Georgia, serif;
-            letter-spacing: 0.08em;
+            letter-spacing: 0.06em;
             text-transform: uppercase;
-            font-size: clamp(1.8rem, 3vw, 3rem);
+            font-size: clamp(1.2rem, 2.2vw, 2rem);
             font-weight: 700;
-            color: #2c2116;
+            color: #332514;
         }
 
         .viewer {
             position: relative;
-            border-radius: 24px;
-            border: 1px solid rgba(255, 255, 255, 0.6);
-            background: linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.2));
-            box-shadow: 0 18px 44px var(--shadow);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.68);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.14));
+            box-shadow: 0 20px 46px var(--shadow);
             backdrop-filter: blur(4px);
-            padding: 22px;
+            padding: 12px;
         }
 
         .viewer::after {
             content: '';
             position: absolute;
-            inset: 9px;
-            border: 1px solid rgba(161, 115, 42, 0.32);
-            border-radius: 18px;
+            inset: 6px;
+            border: 1px solid rgba(161, 115, 42, 0.35);
+            border-radius: 16px;
             pointer-events: none;
         }
 
         .book-stage {
             position: relative;
-            height: clamp(520px, 74vh, 900px);
-            aspect-ratio: 4 / 5;
+            height: clamp(590px, 78vh, 980px);
+            aspect-ratio: 10 / 13;
             max-width: 100%;
-            border-radius: 16px;
+            border-radius: 14px;
             overflow: hidden;
             border: 1px solid var(--line);
             background: linear-gradient(180deg, #fefcf8, #f6eddf);
             box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.75);
+            touch-action: pan-y;
+        }
+
+        .book-stage::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background: linear-gradient(110deg, rgba(255, 255, 255, 0.16) 0%, transparent 40%, transparent 60%, rgba(120, 85, 30, 0.08) 100%);
+            z-index: 4;
         }
 
         .page-layer {
             position: absolute;
             inset: 0;
             overflow: hidden;
-            border-radius: 16px;
+            border-radius: 14px;
             opacity: 0;
             pointer-events: none;
             display: none;
+            will-change: transform, opacity;
+            backface-visibility: hidden;
         }
 
         .page-layer.is-active {
@@ -157,50 +169,54 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
         .page-sheet {
             position: absolute;
             inset: 0;
-            padding: 12px;
+            padding: 6px;
             background: linear-gradient(180deg, #fffefc, #f8efe2);
-            border-radius: 16px;
-            display: grid;
-            grid-template-rows: 1fr auto;
+            border-radius: 14px;
         }
 
         .page-sheet img {
             width: 100%;
             height: 100%;
-            object-fit: cover;
+            object-fit: contain;
             background: #fff;
             display: block;
-            border-radius: 12px;
+            border-radius: 10px;
             border: 1px solid #eadcc8;
-            box-shadow: 0 12px 28px rgba(88, 58, 18, 0.12);
+            box-shadow: 0 8px 20px rgba(88, 58, 18, 0.11);
         }
 
         .sheet-meta {
+            position: absolute;
+            left: 12px;
+            right: 12px;
+            bottom: 12px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             gap: 10px;
-            padding-top: 10px;
-            min-height: 34px;
+            min-height: 24px;
+            background: linear-gradient(180deg, rgba(35, 22, 7, 0.03), rgba(35, 22, 7, 0.38));
+            border-radius: 10px;
+            padding: 6px 8px;
         }
 
         .sheet-title {
-            font-family: 'Cormorant Garamond', Georgia, serif;
-            font-size: 1.02rem;
-            letter-spacing: 0.03em;
-            color: #4a3823;
+            font-size: 0.72rem;
+            letter-spacing: 0.04em;
+            color: #fff4e3;
+            text-transform: uppercase;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
 
         .sheet-page-number {
-            font-size: 0.78rem;
+            font-size: 0.66rem;
             font-weight: 700;
-            color: #705330;
-            background: #f3e6d2;
-            border: 1px solid #e0cda9;
-            padding: 4px 9px;
+            color: #ffefdb;
+            background: rgba(255, 255, 255, 0.14);
+            border: 1px solid rgba(255, 231, 193, 0.44);
+            padding: 3px 8px;
             border-radius: 999px;
         }
 
@@ -208,7 +224,7 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
             display: flex;
             justify-content: center;
             gap: 10px;
-            margin-top: 14px;
+            margin-top: 10px;
             flex-wrap: wrap;
         }
 
@@ -217,8 +233,9 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
             background: #fffaf2;
             color: #3f2f1d;
             border-radius: 999px;
-            padding: 10px 16px;
+            padding: 8px 14px;
             font-weight: 700;
+            font-size: 0.76rem;
             cursor: pointer;
             letter-spacing: 0.02em;
             box-shadow: 0 8px 16px rgba(61, 35, 6, 0.1);
@@ -238,21 +255,21 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
 
         .badge {
             align-self: center;
-            font-size: 0.86rem;
+            font-size: 0.74rem;
             color: #4b3621;
             background: #f4e8d8;
             border: 1px solid #dcc4a4;
-            padding: 7px 11px;
+            padding: 6px 9px;
             border-radius: 999px;
             font-weight: 700;
-            min-width: 122px;
+            min-width: 112px;
             text-align: center;
         }
 
         .progress-track {
-            margin: 10px auto 0;
-            width: min(360px, 88%);
-            height: 5px;
+            margin: 8px auto 0;
+            width: min(280px, 84%);
+            height: 4px;
             background: rgba(161, 115, 42, 0.18);
             border-radius: 999px;
             overflow: hidden;
@@ -280,34 +297,30 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
 
         @media (max-width: 860px) {
             .viewer {
-                padding: 12px;
+                padding: 9px;
             }
 
             .book-stage {
-                height: clamp(480px, 70vh, 760px);
+                height: clamp(520px, 74vh, 860px);
             }
 
             .page-sheet {
-                padding: 8px;
-            }
-
-            .sheet-title {
-                font-size: 0.95rem;
+                padding: 5px;
             }
         }
 
         @media (max-width: 520px) {
             body {
-                padding: 12px;
+                padding: 8px;
             }
 
             .book-head h1 {
-                font-size: clamp(1.4rem, 6.2vw, 2rem);
+                font-size: clamp(1rem, 6vw, 1.35rem);
             }
 
             .book-stage {
-                height: clamp(420px, 66vh, 640px);
-                aspect-ratio: 3 / 4;
+                height: clamp(560px, 78vh, 820px);
+                aspect-ratio: 10 / 14;
             }
 
             .controls {
@@ -315,8 +328,19 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
             }
 
             .btn {
-                padding: 9px 13px;
-                font-size: 0.85rem;
+                padding: 7px 12px;
+                font-size: 0.72rem;
+            }
+
+            .sheet-meta {
+                left: 8px;
+                right: 8px;
+                bottom: 8px;
+                padding: 5px 7px;
+            }
+
+            .sheet-title {
+                font-size: 0.64rem;
             }
         }
     </style>
@@ -470,22 +494,130 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
                 }
             });
 
-            let touchStartX = 0;
-            stage.addEventListener('touchstart', (e) => {
-                touchStartX = e.changedTouches[0].clientX;
-            }, {
-                passive: true
-            });
-            stage.addEventListener('touchend', (e) => {
-                const dx = e.changedTouches[0].clientX - touchStartX;
-                if (Math.abs(dx) < 40) return;
-                if (dx < 0) {
-                    animateTo(current + 1);
-                } else {
-                    animateTo(current - 1);
+            function resetLayerStyles(layer) {
+                layer.style.transition = '';
+                layer.style.transform = 'translateX(0) scale(1)';
+                layer.style.opacity = '1';
+            }
+
+            let dragStartX = 0;
+            let dragDx = 0;
+            let isDragging = false;
+            let dragPreviewDirection = 0;
+
+            function dragThresholdPx() {
+                return Math.max(48, Math.min(130, stage.clientWidth * 0.18));
+            }
+
+            function updatePreviewForDirection(direction) {
+                if (direction === 0 || direction === dragPreviewDirection) {
+                    return;
                 }
-            }, {
-                passive: true
+                const previewIndex = current + direction;
+                if (previewIndex < 0 || previewIndex >= PAGES.length) {
+                    dragPreviewDirection = 0;
+                    passiveLayer.classList.remove('is-active');
+                    return;
+                }
+                dragPreviewDirection = direction;
+                passiveLayer.innerHTML = pageHtml(previewIndex);
+                passiveLayer.classList.add('is-active');
+            }
+
+            function onDragMove(clientX) {
+                if (!isDragging || isAnimating) {
+                    return;
+                }
+
+                dragDx = clientX - dragStartX;
+                const direction = dragDx < 0 ? 1 : (dragDx > 0 ? -1 : 0);
+                const previewIndex = current + direction;
+                if (direction === 0 || previewIndex < 0 || previewIndex >= PAGES.length) {
+                    dragPreviewDirection = 0;
+                    passiveLayer.classList.remove('is-active');
+                    activeLayer.style.transform = `translateX(${dragDx * 0.18}px) scale(0.995)`;
+                    return;
+                }
+
+                updatePreviewForDirection(direction);
+
+                const stageWidth = Math.max(stage.clientWidth, 1);
+                const progress = Math.min(Math.abs(dragDx) / stageWidth, 1);
+                const offsetPercent = (dragDx / stageWidth) * 100;
+
+                activeLayer.style.transition = 'none';
+                passiveLayer.style.transition = 'none';
+
+                activeLayer.style.transform = `translateX(${offsetPercent}%) rotateY(${offsetPercent * 0.08}deg) scale(${1 - progress * 0.03})`;
+                activeLayer.style.opacity = String(1 - progress * 0.28);
+
+                const enterStart = direction > 0 ? 26 : -26;
+                passiveLayer.style.transform = `translateX(${enterStart + offsetPercent}%) scale(${0.985 + progress * 0.015})`;
+                passiveLayer.style.opacity = String(0.35 + progress * 0.65);
+            }
+
+            function endDrag() {
+                if (!isDragging || isAnimating) {
+                    return;
+                }
+
+                isDragging = false;
+                const direction = dragDx < 0 ? 1 : (dragDx > 0 ? -1 : 0);
+                const canNavigate = direction !== 0 && (current + direction) >= 0 && (current + direction) < PAGES.length;
+                const passThreshold = Math.abs(dragDx) > dragThresholdPx();
+
+                if (canNavigate && passThreshold) {
+                    const target = current + direction;
+                    resetLayerStyles(activeLayer);
+                    resetLayerStyles(passiveLayer);
+                    passiveLayer.classList.remove('is-active');
+                    dragDx = 0;
+                    dragPreviewDirection = 0;
+                    animateTo(target);
+                    return;
+                }
+
+                const duration = 360;
+                const easing = 'cubic-bezier(0.2, 0.9, 0.2, 1)';
+                activeLayer.style.transition = `transform ${duration}ms ${easing}, opacity ${duration}ms ${easing}`;
+                activeLayer.style.transform = 'translateX(0) scale(1)';
+                activeLayer.style.opacity = '1';
+
+                passiveLayer.style.transition = `transform ${duration}ms ${easing}, opacity ${duration}ms ${easing}`;
+                passiveLayer.style.transform = 'translateX(0) scale(1)';
+                passiveLayer.style.opacity = '0';
+
+                window.setTimeout(() => {
+                    passiveLayer.classList.remove('is-active');
+                    resetLayerStyles(activeLayer);
+                    resetLayerStyles(passiveLayer);
+                }, duration + 16);
+
+                dragDx = 0;
+                dragPreviewDirection = 0;
+            }
+
+            stage.addEventListener('pointerdown', (e) => {
+                if (isAnimating || e.pointerType === 'mouse' && e.button !== 0) {
+                    return;
+                }
+                isDragging = true;
+                dragStartX = e.clientX;
+                dragDx = 0;
+                dragPreviewDirection = 0;
+                stage.setPointerCapture(e.pointerId);
+            });
+
+            stage.addEventListener('pointermove', (e) => {
+                onDragMove(e.clientX);
+            });
+
+            stage.addEventListener('pointerup', () => {
+                endDrag();
+            });
+
+            stage.addEventListener('pointercancel', () => {
+                endDrag();
             });
 
             renderInitial();
