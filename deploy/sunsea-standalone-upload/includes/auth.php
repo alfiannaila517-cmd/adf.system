@@ -10,10 +10,69 @@ require_once __DIR__ . '/../config/database.php';
 class Auth
 {
     private $db;
+    private static $usersColumnCache = [];
 
     public function __construct()
     {
         $this->db = Database::getInstance();
+    }
+
+    private function usersTableHasColumn($columnName)
+    {
+        if (array_key_exists($columnName, self::$usersColumnCache)) {
+            return self::$usersColumnCache[$columnName];
+        }
+
+        try {
+            $result = $this->db->fetchOne(
+                "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = ? LIMIT 1",
+                [$columnName]
+            );
+            self::$usersColumnCache[$columnName] = (bool) $result;
+        } catch (Exception $e) {
+            self::$usersColumnCache[$columnName] = false;
+        }
+
+        return self::$usersColumnCache[$columnName];
+    }
+
+    private function updateUserActivity($userId, $pdo = null)
+    {
+        $hasLastLogin = $this->usersTableHasColumn('last_login');
+        $hasUpdatedAt = $this->usersTableHasColumn('updated_at');
+
+        if ($hasLastLogin || $hasUpdatedAt) {
+            try {
+                if ($pdo instanceof PDO) {
+                    $fields = [];
+                    if ($hasLastLogin) {
+                        $fields[] = 'last_login = NOW()';
+                    }
+                    if ($hasUpdatedAt) {
+                        $fields[] = 'updated_at = NOW()';
+                    }
+
+                    if (!empty($fields)) {
+                        $stmt = $pdo->prepare('UPDATE users SET ' . implode(', ', $fields) . ' WHERE id = ?');
+                        $stmt->execute([$userId]);
+                    }
+                    return;
+                }
+
+                $fields = [];
+                if ($hasLastLogin) {
+                    $fields[] = 'last_login = NOW()';
+                }
+                if ($hasUpdatedAt) {
+                    $fields[] = 'updated_at = NOW()';
+                }
+
+                if (!empty($fields)) {
+                    $this->db->query('UPDATE users SET ' . implode(', ', $fields) . ' WHERE id = ?', [$userId]);
+                }
+            } catch (Exception $e) {
+            }
+        }
     }
 
     public function startSession()
@@ -91,18 +150,7 @@ class Auth
                     $_SESSION['user_language'] = 'id';
                 }
 
-                // Update last_login and updated_at
-                try {
-                    $stmt = $pdo->prepare("UPDATE users SET last_login = NOW(), updated_at = NOW() WHERE id = ?");
-                    $stmt->execute([$user['id']]);
-                } catch (Exception $e) {
-                    // Fallback if last_login doesn't exist
-                    try {
-                        $stmt = $pdo->prepare("UPDATE users SET updated_at = NOW() WHERE id = ?");
-                        $stmt->execute([$user['id']]);
-                    } catch (Exception $e2) {
-                    }
-                }
+                $this->updateUserActivity($user['id'], $pdo);
 
                 // Log to audit_logs
                 try {
@@ -198,11 +246,8 @@ class Auth
         // Update last activity (every 5 minutes to reduce DB load)
         $lastUpdate = $_SESSION['last_activity_update'] ?? 0;
         if (time() - $lastUpdate > 300) { // 5 minutes
-            try {
-                $this->db->query("UPDATE users SET last_login = NOW() WHERE id = ?", [$_SESSION['user_id']]);
-                $_SESSION['last_activity_update'] = time();
-            } catch (Exception $e) {
-            }
+            $this->updateUserActivity($_SESSION['user_id']);
+            $_SESSION['last_activity_update'] = time();
         }
 
         if (!isset($_SESSION['user_theme']) || !isset($_SESSION['user_language'])) {
