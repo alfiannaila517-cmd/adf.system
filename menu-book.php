@@ -85,7 +85,7 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 24px;
+            padding: 18px;
         }
 
         .book-shell {
@@ -117,6 +117,34 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
             padding: 12px;
         }
 
+        .viewer-topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .viewer-page-chip {
+            font-size: 0.7rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: #5b4021;
+            background: #f5e8d5;
+            border: 1px solid #e3ccb0;
+            border-radius: 999px;
+            padding: 4px 10px;
+            font-weight: 700;
+        }
+
+        .viewer-hint {
+            font-size: 0.67rem;
+            color: #81613a;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            opacity: 0.9;
+        }
+
         .viewer::after {
             content: '';
             position: absolute;
@@ -146,6 +174,26 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
             pointer-events: none;
             background: linear-gradient(110deg, rgba(255, 255, 255, 0.16) 0%, transparent 40%, transparent 60%, rgba(120, 85, 30, 0.08) 100%);
             z-index: 4;
+        }
+
+        .tap-zone {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 23%;
+            border: 0;
+            background: transparent;
+            z-index: 8;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .tap-zone.left {
+            left: 0;
+        }
+
+        .tap-zone.right {
+            right: 0;
         }
 
         .page-layer {
@@ -220,67 +268,61 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
             border-radius: 999px;
         }
 
-        .controls {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            margin-top: 10px;
-            flex-wrap: wrap;
+        .finale-panel {
+            position: absolute;
+            left: 10px;
+            right: 10px;
+            bottom: 10px;
+            z-index: 12;
+            background: linear-gradient(180deg, rgba(36, 20, 4, 0.78), rgba(22, 12, 3, 0.9));
+            border: 1px solid rgba(255, 227, 184, 0.46);
+            border-radius: 14px;
+            padding: 10px;
+            color: #fae9d1;
+            transform: translateY(112%);
+            opacity: 0;
+            pointer-events: none;
+            transition: transform .42s cubic-bezier(0.2, 0.9, 0.2, 1), opacity .35s ease;
         }
 
-        .btn {
-            border: 1px solid #e3ccb0;
-            background: #fffaf2;
-            color: #3f2f1d;
+        .finale-panel.is-visible {
+            transform: translateY(0);
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .finale-title {
+            margin: 0 0 5px 0;
+            font-size: 0.78rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #ffe9ca;
+        }
+
+        .finale-text {
+            margin: 0 0 9px 0;
+            color: #f7dfbd;
+            font-size: 0.68rem;
+            line-height: 1.42;
+        }
+
+        .finale-actions {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 7px;
+        }
+
+        .finale-btn {
+            border: 1px solid rgba(255, 223, 180, 0.55);
+            background: linear-gradient(180deg, rgba(255, 248, 237, 0.95), rgba(251, 226, 192, 0.95));
+            color: #4a3015;
             border-radius: 999px;
-            padding: 8px 14px;
+            padding: 8px 10px;
+            font-size: 0.67rem;
             font-weight: 700;
-            font-size: 0.76rem;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
             cursor: pointer;
-            letter-spacing: 0.02em;
-            box-shadow: 0 8px 16px rgba(61, 35, 6, 0.1);
-            transition: transform .2s ease, box-shadow .2s ease;
-        }
-
-        .btn:hover:not(:disabled) {
-            transform: translateY(-1px);
-            box-shadow: 0 12px 22px rgba(61, 35, 6, 0.16);
-        }
-
-        .btn:disabled {
-            opacity: 0.45;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .badge {
-            align-self: center;
-            font-size: 0.74rem;
-            color: #4b3621;
-            background: #f4e8d8;
-            border: 1px solid #dcc4a4;
-            padding: 6px 9px;
-            border-radius: 999px;
-            font-weight: 700;
-            min-width: 112px;
-            text-align: center;
-        }
-
-        .progress-track {
-            margin: 8px auto 0;
-            width: min(280px, 84%);
-            height: 4px;
-            background: rgba(161, 115, 42, 0.18);
-            border-radius: 999px;
-            overflow: hidden;
-        }
-
-        .progress-fill {
-            height: 100%;
-            width: 0%;
-            border-radius: 999px;
-            background: linear-gradient(90deg, #8a5a22, var(--gold));
-            transition: width .35s ease;
         }
 
         .empty {
@@ -311,25 +353,50 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
 
         @media (max-width: 520px) {
             body {
-                padding: 8px;
+                padding: env(safe-area-inset-top, 0) 0 env(safe-area-inset-bottom, 0);
+                align-items: stretch;
+            }
+
+            .book-shell {
+                width: 100%;
+                min-height: 100svh;
+                display: flex;
+                flex-direction: column;
+            }
+
+            .book-head {
+                margin: 8px 0 6px;
             }
 
             .book-head h1 {
                 font-size: clamp(1rem, 6vw, 1.35rem);
             }
 
+            .viewer {
+                border-radius: 0;
+                border-left: 0;
+                border-right: 0;
+                border-bottom: 0;
+                box-shadow: none;
+                padding: 6px;
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+            }
+
+            .viewer::after {
+                display: none;
+            }
+
+            .viewer-topbar {
+                margin-bottom: 6px;
+                padding: 0 4px;
+            }
+
             .book-stage {
-                height: clamp(560px, 78vh, 820px);
+                height: calc(100svh - 98px);
                 aspect-ratio: 10 / 14;
-            }
-
-            .controls {
-                gap: 8px;
-            }
-
-            .btn {
-                padding: 7px 12px;
-                font-size: 0.72rem;
+                border-radius: 10px;
             }
 
             .sheet-meta {
@@ -341,6 +408,22 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
 
             .sheet-title {
                 font-size: 0.64rem;
+            }
+
+            .tap-zone {
+                width: 28%;
+            }
+
+            .finale-panel {
+                left: 8px;
+                right: 8px;
+                bottom: 8px;
+                padding: 9px;
+                border-radius: 12px;
+            }
+
+            .finale-actions {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -356,18 +439,27 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
             <div class="empty">The menu book is not available yet.</div>
         <?php else: ?>
             <div class="viewer">
+                <div class="viewer-topbar">
+                    <div class="viewer-page-chip" id="pageBadge">Page 1 of <?php echo count($pages); ?></div>
+                    <div class="viewer-hint">Swipe or tap edge</div>
+                </div>
                 <div class="book-stage" id="bookStage" aria-live="polite">
                     <div class="page-layer is-active" id="pageA"></div>
                     <div class="page-layer" id="pageB"></div>
+                    <button class="tap-zone left" id="zonePrev" aria-label="Previous page"></button>
+                    <button class="tap-zone right" id="zoneNext" aria-label="Next page"></button>
+
+                    <div class="finale-panel" id="finalePanel">
+                        <h3 class="finale-title">Continue Your Journey</h3>
+                        <p class="finale-text">Explore hotel offers, dining promos, and partner business highlights from our group.</p>
+                        <div class="finale-actions">
+                            <button class="finale-btn" type="button">Hotel Offers</button>
+                            <button class="finale-btn" type="button">Dining Promo</button>
+                            <button class="finale-btn" type="button">Tour Packages</button>
+                            <button class="finale-btn" type="button">Partner Deals</button>
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <div class="controls">
-                <button class="btn" id="btnPrev">Previous</button>
-                <div class="badge" id="pageBadge">Page 1 of <?php echo count($pages); ?></div>
-                <button class="btn" id="btnNext">Next</button>
-            </div>
-            <div class="progress-track" aria-hidden="true">
-                <div class="progress-fill" id="progressFill"></div>
             </div>
         <?php endif; ?>
     </div>
@@ -390,10 +482,10 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
             let activeLayer = document.getElementById('pageA');
             let passiveLayer = document.getElementById('pageB');
             const stage = document.getElementById('bookStage');
-            const prevBtn = document.getElementById('btnPrev');
-            const nextBtn = document.getElementById('btnNext');
+            const prevBtn = document.getElementById('zonePrev');
+            const nextBtn = document.getElementById('zoneNext');
             const badge = document.getElementById('pageBadge');
-            const progressFill = document.getElementById('progressFill');
+            const finalePanel = document.getElementById('finalePanel');
 
             function pageHtml(idx) {
                 if (idx < 0 || idx >= PAGES.length) {
@@ -420,10 +512,9 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
             function updateControls() {
                 const pageNumber = current + 1;
                 badge.textContent = `Page ${pageNumber} of ${PAGES.length}`;
-                const progressPercent = (pageNumber / PAGES.length) * 100;
-                progressFill.style.width = `${progressPercent}%`;
                 prevBtn.disabled = current <= 0 || isAnimating;
                 nextBtn.disabled = current >= PAGES.length - 1 || isAnimating;
+                finalePanel.classList.toggle('is-visible', current >= PAGES.length - 1);
             }
 
             function renderInitial() {
