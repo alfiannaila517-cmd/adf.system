@@ -840,6 +840,26 @@ function gudangNasitaCurrentQty(array $stock)
     return 0.0;
 }
 
+function gudangNasitaCurrentUnitCost(array $stock)
+{
+    if (isset($stock['harga_beli']) && (float)$stock['harga_beli'] > 0) {
+        return (float)$stock['harga_beli'];
+    }
+    $qty = gudangNasitaCurrentQty($stock);
+    if ($qty > 0 && isset($stock['total_harga']) && (float)$stock['total_harga'] > 0) {
+        return (float)$stock['total_harga'] / $qty;
+    }
+    return 0.0;
+}
+
+function gudangNasitaCurrentStockValue(array $stock)
+{
+    if (isset($stock['total_harga']) && (float)$stock['total_harga'] > 0) {
+        return (float)$stock['total_harga'];
+    }
+    return gudangNasitaCurrentQty($stock) * gudangNasitaCurrentUnitCost($stock);
+}
+
 function generateGudangNasitaBarangCode()
 {
     $db = Database::getInstance();
@@ -930,29 +950,6 @@ function ensureGudangNasitaStockSchemaCompatibility()
     foreach ($requiredColumns as $col => $definition) {
         if (!in_array($col, $columns, true)) {
             $db->query("ALTER TABLE gudang_nasita_stock ADD COLUMN `{$col}` {$definition}");
-        }
-
-        function gudangNasitaCurrentUnitCost(array $stock)
-        {
-            if (isset($stock['harga_beli']) && (float)$stock['harga_beli'] > 0) {
-                return (float)$stock['harga_beli'];
-            }
-
-            $qty = gudangNasitaCurrentQty($stock);
-            if ($qty > 0 && isset($stock['total_harga']) && (float)$stock['total_harga'] > 0) {
-                return (float)$stock['total_harga'] / $qty;
-            }
-
-            return 0.0;
-        }
-
-        function gudangNasitaCurrentStockValue(array $stock)
-        {
-            if (isset($stock['total_harga']) && (float)$stock['total_harga'] > 0) {
-                return (float)$stock['total_harga'];
-            }
-
-            return gudangNasitaCurrentQty($stock) * gudangNasitaCurrentUnitCost($stock);
         }
     }
 
