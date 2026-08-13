@@ -18,13 +18,6 @@ $db = Database::getInstance();
 $currentUser = $auth->getCurrentUser();
 $pageTitle = 'Gudang Nasita';
 
-if (function_exists('ensureGudangNasitaStockSchemaCompatibility')) {
-    ensureGudangNasitaStockSchemaCompatibility();
-}
-if (function_exists('ensureGudangNasitaOperationalTablesCompatibility')) {
-    ensureGudangNasitaOperationalTablesCompatibility();
-}
-
 function gudangImportNormalizeHeader(string $value): string
 {
     $value = trim($value);

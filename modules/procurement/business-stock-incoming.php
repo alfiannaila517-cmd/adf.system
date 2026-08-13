@@ -13,10 +13,6 @@ $db = Database::getInstance();
 $currentUser = $auth->getCurrentUser();
 $pageTitle = 'Rekaman Stock Masuk';
 
-if (function_exists('ensureGudangNasitaOperationalTablesCompatibility')) {
-    ensureGudangNasitaOperationalTablesCompatibility();
-}
-
 $activeBusinessSlug = strtolower((string)($_SESSION['active_business_id'] ?? ''));
 $activeBusinessConfig = getActiveBusinessConfig();
 
