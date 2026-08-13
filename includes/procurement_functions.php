@@ -442,18 +442,61 @@ function getGudangNasitaStock($limit = 200)
 {
     $db = Database::getInstance();
 
+    // Run each ensure separately so one failure doesn't block the other.
     try {
         ensureGudangNasitaStockSchemaCompatibility();
+    } catch (Throwable $e) {
+        error_log('getGudangNasitaStock stock schema skipped: ' . $e->getMessage());
+    }
+    try {
         ensureGudangNasitaOperationalTablesCompatibility();
     } catch (Throwable $e) {
-        error_log('getGudangNasitaStock schema bootstrap skipped: ' . $e->getMessage());
+        error_log('getGudangNasitaStock operational tables skipped: ' . $e->getMessage());
     }
 
-    $codeExpr = gudangNasitaStockHasColumn('stock_code')
+    // Refresh column cache after potential ALTERs.
+    gudangNasitaStockColumns(true);
+
+    $cols = gudangNasitaStockColumns();
+
+    $codeExpr = in_array('stock_code', $cols, true)
         ? 'gs.stock_code'
         : "CONCAT('GN-LEGACY-', LPAD(gs.id, 4, '0'))";
 
-    return $db->fetchAll("\n        SELECT\n            gs.*,\n            {$codeExpr} AS stock_code,\n            COALESCE(gs.harga_beli, 0) AS harga_beli,\n            COALESCE(gs.total_harga, COALESCE(gs.quantity, 0) * COALESCE(gs.harga_beli, 0), 0) AS total_harga,\n            COALESCE((SELECT SUM(quantity) FROM gudang_nasita_movements gm WHERE gm.stock_id = gs.id AND gm.movement_type = 'in_supplier'), 0) AS total_in,\n            COALESCE((SELECT SUM(quantity) FROM gudang_nasita_movements gm WHERE gm.stock_id = gs.id AND gm.movement_type = 'out_transfer'), 0) AS total_out\n        FROM gudang_nasita_stock gs\n        WHERE gs.is_active = 1\n        ORDER BY COALESCE(gs.category, 'lainnya') ASC, gs.item_name ASC\n        LIMIT {$limit}\n    ");
+    // Build expressions only for columns that actually exist to avoid "Unknown column" errors.
+    $hargaBeliExpr  = in_array('harga_beli', $cols, true)  ? 'COALESCE(gs.harga_beli, 0)'  : '0';
+    $qtyExpr        = in_array('quantity', $cols, true)     ? 'COALESCE(gs.quantity, 0)'     : 'COALESCE(gs.jumlah_stok, 0)';
+    $totalHargaExpr = in_array('total_harga', $cols, true)
+        ? "COALESCE(gs.total_harga, {$qtyExpr} * {$hargaBeliExpr}, 0)"
+        : '0';
+    $isActiveWhere  = in_array('is_active', $cols, true)   ? 'COALESCE(gs.is_active, 1) = 1' : '1 = 1';
+    $itemNameOrder  = in_array('item_name', $cols, true)    ? 'gs.item_name'                  : 'gs.id';
+    $categoryOrder  = in_array('category', $cols, true)     ? "COALESCE(gs.category, 'lainnya')" : "'lainnya'";
+
+    // Only use movements subqueries if the table exists.
+    $movementsExist = (bool)$db->fetchOne("SHOW TABLES LIKE 'gudang_nasita_movements'");
+    $totalInExpr  = $movementsExist
+        ? "COALESCE((SELECT SUM(quantity) FROM gudang_nasita_movements gm WHERE gm.stock_id = gs.id AND gm.movement_type = 'in_supplier'), 0)"
+        : '0';
+    $totalOutExpr = $movementsExist
+        ? "COALESCE((SELECT SUM(quantity) FROM gudang_nasita_movements gm WHERE gm.stock_id = gs.id AND gm.movement_type = 'out_transfer'), 0)"
+        : '0';
+
+    $rows = $db->fetchAll("
+        SELECT
+            gs.*,
+            {$codeExpr}     AS stock_code,
+            {$hargaBeliExpr} AS harga_beli,
+            {$totalHargaExpr} AS total_harga,
+            {$totalInExpr}  AS total_in,
+            {$totalOutExpr} AS total_out
+        FROM gudang_nasita_stock gs
+        WHERE {$isActiveWhere}
+        ORDER BY {$categoryOrder} ASC, {$itemNameOrder} ASC
+        LIMIT {$limit}
+    ");
+
+    return is_array($rows) ? $rows : [];
 }
 
 function getGudangNasitaTransfers($limit = 50)
@@ -474,10 +517,16 @@ function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $op
 
     try {
         ensureGudangNasitaStockSchemaCompatibility();
+    } catch (Throwable $e) {
+        error_log('addGudangNasitaManualStock stock schema skipped: ' . $e->getMessage());
+    }
+    try {
         ensureGudangNasitaOperationalTablesCompatibility();
     } catch (Throwable $e) {
-        error_log('addGudangNasitaManualStock schema bootstrap skipped: ' . $e->getMessage());
+        error_log('addGudangNasitaManualStock operational tables skipped: ' . $e->getMessage());
     }
+    // Refresh column cache after schema ensure runs.
+    gudangNasitaStockColumns(true);
 
     try {
         $itemName = trim((string)$itemName);
