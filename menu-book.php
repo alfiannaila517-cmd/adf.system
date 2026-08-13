@@ -75,7 +75,7 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
 
         body {
             margin: 0;
-            min-height: 100vh;
+            min-height: 100svh;
             font-family: 'Manrope', 'Segoe UI', sans-serif;
             color: var(--ink);
             background:
@@ -85,11 +85,14 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 18px;
+            padding: 8px;
         }
 
         .book-shell {
             width: min(920px, 100%);
+            min-height: calc(100svh - 16px);
+            display: flex;
+            flex-direction: column;
         }
 
         .book-head {
@@ -115,6 +118,9 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
             box-shadow: 0 20px 46px var(--shadow);
             backdrop-filter: blur(4px);
             padding: 12px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
         }
 
         .viewer-topbar {
@@ -156,7 +162,8 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
 
         .book-stage {
             position: relative;
-            height: clamp(590px, 78vh, 980px);
+            height: 100%;
+            min-height: clamp(590px, 78vh, 980px);
             aspect-ratio: 10 / 13;
             max-width: 100%;
             border-radius: 14px;
@@ -206,6 +213,7 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
             display: none;
             will-change: transform, opacity;
             backface-visibility: hidden;
+            transform-style: preserve-3d;
         }
 
         .page-layer.is-active {
@@ -343,7 +351,7 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
             }
 
             .book-stage {
-                height: clamp(520px, 74vh, 860px);
+                min-height: clamp(520px, 74vh, 860px);
             }
 
             .page-sheet {
@@ -362,26 +370,35 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
                 min-height: 100svh;
                 display: flex;
                 flex-direction: column;
+                position: relative;
             }
 
             .book-head {
-                margin: 8px 0 6px;
+                position: absolute;
+                top: calc(env(safe-area-inset-top, 0) + 6px);
+                left: 10px;
+                right: 10px;
+                margin: 0;
+                z-index: 20;
+                pointer-events: none;
             }
 
             .book-head h1 {
-                font-size: clamp(1rem, 6vw, 1.35rem);
+                font-size: clamp(0.95rem, 5.4vw, 1.18rem);
+                color: #fff6e8;
+                text-shadow: 0 3px 14px rgba(0, 0, 0, 0.45);
             }
 
             .viewer {
                 border-radius: 0;
-                border-left: 0;
-                border-right: 0;
-                border-bottom: 0;
+                border: 0;
                 box-shadow: none;
-                padding: 6px;
+                padding: 0;
                 flex: 1;
                 display: flex;
                 flex-direction: column;
+                background: transparent;
+                backdrop-filter: none;
             }
 
             .viewer::after {
@@ -389,14 +406,29 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
             }
 
             .viewer-topbar {
-                margin-bottom: 6px;
-                padding: 0 4px;
+                margin: 0;
+                padding: 0;
+                position: absolute;
+                top: calc(env(safe-area-inset-top, 0) + 38px);
+                left: 10px;
+                right: 10px;
+                z-index: 20;
+            }
+
+            .viewer-page-chip,
+            .viewer-hint {
+                color: #fff0d9;
+                background: rgba(31, 19, 6, 0.45);
+                border-color: rgba(255, 230, 194, 0.45);
+                backdrop-filter: blur(4px);
             }
 
             .book-stage {
-                height: calc(100svh - 98px);
-                aspect-ratio: 10 / 14;
-                border-radius: 10px;
+                height: 100svh;
+                min-height: 100svh;
+                aspect-ratio: auto;
+                border-radius: 0;
+                border: 0;
             }
 
             .sheet-meta {
@@ -417,7 +449,7 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
             .finale-panel {
                 left: 8px;
                 right: 8px;
-                bottom: 8px;
+                bottom: calc(env(safe-area-inset-bottom, 0) + 8px);
                 padding: 9px;
                 border-radius: 12px;
             }
@@ -587,6 +619,7 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
 
             function resetLayerStyles(layer) {
                 layer.style.transition = '';
+                layer.style.transformOrigin = 'center center';
                 layer.style.transform = 'translateX(0) scale(1)';
                 layer.style.opacity = '1';
             }
@@ -635,16 +668,53 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
                 const stageWidth = Math.max(stage.clientWidth, 1);
                 const progress = Math.min(Math.abs(dragDx) / stageWidth, 1);
                 const offsetPercent = (dragDx / stageWidth) * 100;
+                const pullPx = Math.abs(dragDx);
 
                 activeLayer.style.transition = 'none';
                 passiveLayer.style.transition = 'none';
 
-                activeLayer.style.transform = `translateX(${offsetPercent}%) rotateY(${offsetPercent * 0.08}deg) scale(${1 - progress * 0.03})`;
-                activeLayer.style.opacity = String(1 - progress * 0.28);
+                const isNext = direction > 0;
+                const rotateDeg = Math.min(38, (pullPx / stageWidth) * 42) * (isNext ? -1 : 1);
+                activeLayer.style.transformOrigin = isNext ? 'left center' : 'right center';
+                activeLayer.style.transform = `perspective(1600px) translateX(${offsetPercent * 0.72}%) rotateY(${rotateDeg}deg) scale(${1 - progress * 0.055})`;
+                activeLayer.style.opacity = String(1 - progress * 0.42);
 
-                const enterStart = direction > 0 ? 26 : -26;
-                passiveLayer.style.transform = `translateX(${enterStart + offsetPercent}%) scale(${0.985 + progress * 0.015})`;
-                passiveLayer.style.opacity = String(0.35 + progress * 0.65);
+                const enterStart = isNext ? 32 : -32;
+                passiveLayer.style.transformOrigin = isNext ? 'right center' : 'left center';
+                passiveLayer.style.transform = `perspective(1600px) translateX(${enterStart + (offsetPercent * 0.4)}%) rotateY(${isNext ? 6 : -6}deg) scale(${0.978 + progress * 0.022})`;
+                passiveLayer.style.opacity = String(0.3 + progress * 0.7);
+            }
+
+            function completeDragTransition(target, direction) {
+                isAnimating = true;
+                const duration = 310;
+                const easing = 'cubic-bezier(0.2, 0.9, 0.24, 1)';
+                const isNext = direction > 0;
+
+                activeLayer.style.transition = `transform ${duration}ms ${easing}, opacity ${duration}ms ${easing}`;
+                passiveLayer.style.transition = `transform ${duration}ms ${easing}, opacity ${duration}ms ${easing}`;
+
+                activeLayer.style.transformOrigin = isNext ? 'left center' : 'right center';
+                activeLayer.style.transform = `perspective(1600px) translateX(${isNext ? -88 : 88}%) rotateY(${isNext ? -48 : 48}deg) scale(0.94)`;
+                activeLayer.style.opacity = '0.02';
+
+                passiveLayer.style.transformOrigin = 'center center';
+                passiveLayer.style.transform = 'perspective(1600px) translateX(0) rotateY(0deg) scale(1)';
+                passiveLayer.style.opacity = '1';
+
+                window.setTimeout(() => {
+                    const oldActive = activeLayer;
+                    activeLayer = passiveLayer;
+                    passiveLayer = oldActive;
+
+                    passiveLayer.classList.remove('is-active');
+                    resetLayerStyles(passiveLayer);
+                    resetLayerStyles(activeLayer);
+
+                    current = target;
+                    isAnimating = false;
+                    updateControls();
+                }, duration + 18);
             }
 
             function endDrag() {
@@ -659,12 +729,9 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
 
                 if (canNavigate && passThreshold) {
                     const target = current + direction;
-                    resetLayerStyles(activeLayer);
-                    resetLayerStyles(passiveLayer);
-                    passiveLayer.classList.remove('is-active');
                     dragDx = 0;
                     dragPreviewDirection = 0;
-                    animateTo(target);
+                    completeDragTransition(target, direction);
                     return;
                 }
 
