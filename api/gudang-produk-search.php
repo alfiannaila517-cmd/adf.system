@@ -1,4 +1,5 @@
 <?php
+
 /**
  * API: Gudang Produk Search
  * Autocomplete & lookup for gudang_nasita_barang master product table.
@@ -34,7 +35,8 @@ try {
         `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE KEY `uk_nama_barang` (`nama_barang`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-} catch (Throwable $e) {}
+} catch (Throwable $e) {
+}
 
 // ─── Search (autocomplete) ───────────────────────────────────────────────────
 if ($action === 'search') {

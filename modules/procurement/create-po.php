@@ -152,8 +152,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 include '../../includes/header.php';
 ?>
 <style>
-.po-drop-item:hover { background: #f0f9ff !important; }
-.po-item-drop { background: var(--bg-primary, #fff) !important; }
+    .po-drop-item:hover {
+        background: #f0f9ff !important;
+    }
+
+    .po-item-drop {
+        background: var(--bg-primary, #fff) !important;
+    }
 </style>
 
 <div style="margin-bottom: 1.25rem;">
@@ -354,7 +359,11 @@ include '../../includes/header.php';
         const q = inp.value.trim();
         const drop = inp.nextElementSibling;
         const hint = drop.nextElementSibling;
-        if (q.length < 2) { drop.style.display='none'; hint.style.display='none'; return; }
+        if (q.length < 2) {
+            drop.style.display = 'none';
+            hint.style.display = 'none';
+            return;
+        }
         acTimers[key] = setTimeout(() => fetchGudangItems(q, inp, drop, hint), 280);
     }
 
@@ -364,12 +373,13 @@ include '../../includes/header.php';
             const d = await r.json();
             const items = d.data || [];
             if (!items.length) {
-                drop.style.display='none';
+                drop.style.display = 'none';
                 hint.textContent = '⚠️ Tidak ada di database Gudang — ketik manual';
-                hint.style.color = '#f59e0b'; hint.style.display='block';
+                hint.style.color = '#f59e0b';
+                hint.style.display = 'block';
                 return;
             }
-            hint.style.display='none';
+            hint.style.display = 'none';
             drop.innerHTML = items.map(p =>
                 `<div class="po-drop-item" style="padding:.5rem .75rem;cursor:pointer;font-size:.84rem;border-bottom:1px solid #f1f5f9;"
                     data-name="${p.nama_barang.replace(/"/g,'&quot;')}"
@@ -379,34 +389,37 @@ include '../../includes/header.php';
                     <span style="color:#64748b;font-size:.75rem;margin-left:.5rem;">${p.kategori||''} &middot; ${p.satuan||'pcs'}</span>
                 </div>`
             ).join('');
-            drop.style.display='block';
-        } catch(e) {
-            drop.style.display='none';
+            drop.style.display = 'block';
+        } catch (e) {
+            drop.style.display = 'none';
         }
     }
 
     function selectGudangItem(el) {
-        const row   = el.closest('.item-row');
-        const inp   = row.querySelector('.po-item-ac');
-        const drop  = inp.nextElementSibling;
-        const hint  = drop.nextElementSibling;
-        const unit  = row.querySelector('.po-item-unit');
+        const row = el.closest('.item-row');
+        const inp = row.querySelector('.po-item-ac');
+        const drop = inp.nextElementSibling;
+        const hint = drop.nextElementSibling;
+        const unit = row.querySelector('.po-item-unit');
         inp.value = el.dataset.name;
         // match unit option or keep pcs
         if (unit) {
             const u = el.dataset.unit.toLowerCase();
-            [...unit.options].forEach(o => { if (o.value.toLowerCase()===u) o.selected=true; });
+            [...unit.options].forEach(o => {
+                if (o.value.toLowerCase() === u) o.selected = true;
+            });
         }
-        drop.style.display='none';
+        drop.style.display = 'none';
         hint.textContent = '✅ Item dari Gudang Nasita';
-        hint.style.color = '#16a34a'; hint.style.display='block';
+        hint.style.color = '#16a34a';
+        hint.style.display = 'block';
         row.querySelector('.item-qty')?.focus();
     }
 
     function hideItemDrop(inp, delay) {
         setTimeout(() => {
             const drop = inp.nextElementSibling;
-            if (drop) drop.style.display='none';
+            if (drop) drop.style.display = 'none';
         }, delay);
     }
 

@@ -87,13 +87,13 @@ $transferItems = [];
 if ($viewTransferId > 0) {
     $detailWhereClause = 'gnt.id = ?';
     $detailParams = [$viewTransferId];
-    
+
     // For business users, also check they own this transfer
     if (!$isWarehouse && $activeBusinessId > 0) {
         $detailWhereClause .= ' AND gnt.target_business_id = ?';
         $detailParams[] = $activeBusinessId;
     }
-    
+
     $transferDetail = $db->fetchOne("
         SELECT 
             gnt.id,
@@ -146,13 +146,15 @@ include '../../includes/header.php';
 
 <?php if (!empty($_SESSION['success'])): ?>
     <div class="alert alert-success">
-        <?php echo htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?>
+        <?php echo htmlspecialchars($_SESSION['success']);
+        unset($_SESSION['success']); ?>
     </div>
 <?php endif; ?>
 
 <?php if (!empty($_SESSION['error'])): ?>
     <div class="alert alert-danger">
-        <?php echo htmlspecialchars($_SESSION['error']); unset($_SESSION['error']); ?>
+        <?php echo htmlspecialchars($_SESSION['error']);
+        unset($_SESSION['error']); ?>
     </div>
 <?php endif; ?>
 
@@ -276,7 +278,7 @@ include '../../includes/header.php';
                 </h3>
                 <a href="penerimaan-gudang.php" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted);">×</a>
             </div>
-            
+
             <div style="padding: 1.5rem;">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
                     <div>

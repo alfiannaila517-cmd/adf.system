@@ -1360,7 +1360,7 @@ include '../../includes/header.php';
         const isRecap = cat === 'driver' || cat === 'motor' || cat === 'trip';
         const isMotor = cat === 'motor';
         const isDriver = cat === 'driver' || cat === 'trip';
-        
+
         document.getElementById('manualBillsWrap').style.display = isRecap ? 'none' : 'block';
         document.getElementById('driverRecapSection').style.display = isDriver ? 'block' : 'none';
         document.getElementById('motorRecapSection').style.display = isMotor ? 'block' : 'none';
@@ -1812,7 +1812,11 @@ include '../../includes/header.php';
     let pendingMotorEdit = null;
 
     function payMotorRental(rentalId, ownerAmount, mitraName) {
-        pendingMotorPay = { rentalId, ownerAmount, mitraName };
+        pendingMotorPay = {
+            rentalId,
+            ownerAmount,
+            mitraName
+        };
         pendingPayMethod = 'cash';
         document.getElementById('ptDriverName').textContent = mitraName || 'Mitra';
         document.getElementById('ptAmount').textContent = 'Rp ' + formatNumber(ownerAmount);
@@ -1826,7 +1830,10 @@ include '../../includes/header.php';
 
     async function confirmPayMotorRental() {
         if (!pendingMotorPay) return;
-        const { rentalId, mitraName } = pendingMotorPay;
+        const {
+            rentalId,
+            mitraName
+        } = pendingMotorPay;
         const cashAccountId = document.getElementById('ptCashAccount').value || '1';
         const btn = document.getElementById('ptConfirmBtn');
         btn.disabled = true;
@@ -1839,7 +1846,11 @@ include '../../includes/header.php';
         fd.append('mitra_name', mitraName || 'Mitra');
 
         try {
-            const res = await fetch(BASE_URL + '/api/pay-motor-rental.php', { method: 'POST', body: fd, credentials: 'include' });
+            const res = await fetch(BASE_URL + '/api/pay-motor-rental.php', {
+                method: 'POST',
+                body: fd,
+                credentials: 'include'
+            });
             const result = await res.json();
             if (result.success) {
                 document.getElementById('payTripModalOverlay').classList.remove('open');
@@ -1861,14 +1872,17 @@ include '../../includes/header.php';
         const motor = lastMotorRecap[idx];
         if (!motor) return;
         const monthVal = document.getElementById('filterMonth').value;
-        const monthLabel = monthVal
-            ? new Date(monthVal + '-01').toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })
-            : '';
+        const monthLabel = monthVal ?
+            new Date(monthVal + '-01').toLocaleDateString('id-ID', {
+                month: 'long',
+                year: 'numeric'
+            }) :
+            '';
         const rows = motor.detail_rows || [];
         const sumRevenue = rows.reduce((s, r) => s + (parseFloat(r.total_price) || 0), 0);
-        const sumOwner   = rows.reduce((s, r) => s + (parseFloat(r.owner_amount) || 0), 0);
-        const sumPaid    = rows.filter(r => r.paid).reduce((s, r) => s + (parseFloat(r.owner_amount) || 0), 0);
-        const sumUnpaid  = rows.filter(r => !r.paid).reduce((s, r) => s + (parseFloat(r.owner_amount) || 0), 0);
+        const sumOwner = rows.reduce((s, r) => s + (parseFloat(r.owner_amount) || 0), 0);
+        const sumPaid = rows.filter(r => r.paid).reduce((s, r) => s + (parseFloat(r.owner_amount) || 0), 0);
+        const sumUnpaid = rows.filter(r => !r.paid).reduce((s, r) => s + (parseFloat(r.owner_amount) || 0), 0);
 
         const rowsHtml = rows.map((d, i) => `
             <tr>
@@ -1923,7 +1937,9 @@ include '../../includes/header.php';
     }
 
     function editMotorRentalAmount(rentalId, totalPrice, ownerAmount, mitraName) {
-        pendingMotorEdit = { rentalId };
+        pendingMotorEdit = {
+            rentalId
+        };
         document.getElementById('etDriverName').textContent = mitraName || '-';
         document.getElementById('etTripLabel').textContent = 'Motor Rental';
         document.getElementById('etTotalPrice').value = totalPrice;
@@ -1940,11 +1956,20 @@ include '../../includes/header.php';
 
     async function confirmEditMotorRental() {
         if (!pendingMotorEdit) return;
-        const totalPrice  = parseFloat(document.getElementById('etTotalPrice').value);
+        const totalPrice = parseFloat(document.getElementById('etTotalPrice').value);
         const ownerAmount = parseFloat(document.getElementById('etOwnerAmount').value);
-        if (isNaN(totalPrice) || totalPrice < 0) { alert('Total tarif tidak valid'); return; }
-        if (isNaN(ownerAmount) || ownerAmount < 0) { alert('Bagian mitra tidak valid'); return; }
-        if (ownerAmount > totalPrice) { alert('Bagian mitra tidak boleh melebihi total'); return; }
+        if (isNaN(totalPrice) || totalPrice < 0) {
+            alert('Total tarif tidak valid');
+            return;
+        }
+        if (isNaN(ownerAmount) || ownerAmount < 0) {
+            alert('Bagian mitra tidak valid');
+            return;
+        }
+        if (ownerAmount > totalPrice) {
+            alert('Bagian mitra tidak boleh melebihi total');
+            return;
+        }
 
         const btn = document.getElementById('etConfirmBtn');
         btn.disabled = true;
@@ -1956,7 +1981,11 @@ include '../../includes/header.php';
         fd.append('owner_amount', ownerAmount);
 
         try {
-            const res = await fetch(BASE_URL + '/api/edit-motor-rental-amount.php', { method: 'POST', body: fd, credentials: 'include' });
+            const res = await fetch(BASE_URL + '/api/edit-motor-rental-amount.php', {
+                method: 'POST',
+                body: fd,
+                credentials: 'include'
+            });
             const result = await res.json();
             if (result.success) {
                 closeEditTripModal();
@@ -1976,9 +2005,9 @@ include '../../includes/header.php';
 
     async function toggleMotorPartnerPaidStatus(rentalId, paidFlag) {
         const nextPaid = Number(paidFlag) === 1;
-        const ok = confirm(nextPaid
-            ? 'Set pembayaran mitra menjadi LUNAS?'
-            : 'Set pembayaran mitra menjadi BELUM dibayar?');
+        const ok = confirm(nextPaid ?
+            'Set pembayaran mitra menjadi LUNAS?' :
+            'Set pembayaran mitra menjadi BELUM dibayar?');
         if (!ok) return;
 
         const fd = new FormData();

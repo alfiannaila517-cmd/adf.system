@@ -718,447 +718,447 @@ if (isset($_SESSION['user_id'])) {
                             </a>
                         </li>
                     <?php else: ?>
-                    <?php if ($auth->hasPermission('dashboard')): ?>
-                        <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>/index.php" class="nav-link <?php echo activeMenu('index.php'); ?>">
-                                <i data-feather="home" class="nav-icon"></i>
-                                <span><?php echo __('dashboard.title'); ?></span>
-                            </a>
-                        </li>
-                    <?php endif; ?>
+                        <?php if ($auth->hasPermission('dashboard')): ?>
+                            <li class="nav-item">
+                                <a href="<?php echo BASE_URL; ?>/index.php" class="nav-link <?php echo activeMenu('index.php'); ?>">
+                                    <i data-feather="home" class="nav-icon"></i>
+                                    <span><?php echo __('dashboard.title'); ?></span>
+                                </a>
+                            </li>
+                        <?php endif; ?>
 
-                    <!-- CQC Projects Menu (Solar Panel) -->
-                    <?php if ($auth->hasPermission('cqc-projects')): ?>
-                        <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/cqc-projects/') !== false) ? 'open' : ''; ?>">
-                            <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo activeMenu('cqc-projects'); ?>">
-                                <i data-feather="sun" class="nav-icon"></i>
-                                <span>CQC Projects</span>
-                            </a>
-                            <ul class="submenu">
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/cqc-projects/dashboard.php" class="submenu-link <?php echo activeMenu('dashboard.php'); ?>">
-                                        <i data-feather="bar-chart-2" class="submenu-icon"></i>
-                                        <span>Dashboard</span>
-                                    </a>
-                                </li>
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/cqc-projects/add.php" class="submenu-link <?php echo activeMenu('add.php'); ?>">
-                                        <i data-feather="plus-circle" class="submenu-icon"></i>
-                                        <span>Tambah Proyek</span>
-                                    </a>
-                                </li>
-                            </ul>
-                        </li>
-                    <?php endif; ?>
+                        <!-- CQC Projects Menu (Solar Panel) -->
+                        <?php if ($auth->hasPermission('cqc-projects')): ?>
+                            <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/cqc-projects/') !== false) ? 'open' : ''; ?>">
+                                <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo activeMenu('cqc-projects'); ?>">
+                                    <i data-feather="sun" class="nav-icon"></i>
+                                    <span>CQC Projects</span>
+                                </a>
+                                <ul class="submenu">
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/cqc-projects/dashboard.php" class="submenu-link <?php echo activeMenu('dashboard.php'); ?>">
+                                            <i data-feather="bar-chart-2" class="submenu-icon"></i>
+                                            <span>Dashboard</span>
+                                        </a>
+                                    </li>
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/cqc-projects/add.php" class="submenu-link <?php echo activeMenu('add.php'); ?>">
+                                            <i data-feather="plus-circle" class="submenu-icon"></i>
+                                            <span>Tambah Proyek</span>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </li>
+                        <?php endif; ?>
 
-                    <!-- PO Menu (Manufacture/PWF) -->
-                    <?php if ($auth->hasPermission('production')): ?>
-                        <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>/modules/production/orders.php" class="nav-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/production/orders') !== false) ? 'active' : ''; ?>">
-                                <i data-feather="clipboard" class="nav-icon"></i>
-                                <span>PO</span>
-                            </a>
-                        </li>
-                    <?php endif; ?>
+                        <!-- PO Menu (Manufacture/PWF) -->
+                        <?php if ($auth->hasPermission('production')): ?>
+                            <li class="nav-item">
+                                <a href="<?php echo BASE_URL; ?>/modules/production/orders.php" class="nav-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/production/orders') !== false) ? 'active' : ''; ?>">
+                                    <i data-feather="clipboard" class="nav-icon"></i>
+                                    <span>PO</span>
+                                </a>
+                            </li>
+                        <?php endif; ?>
 
-                    <?php if ($auth->hasPermission('cashbook')): ?>
-                        <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>/modules/cashbook/index.php" class="nav-link <?php echo activeMenu('cashbook'); ?>">
-                                <i data-feather="book" class="nav-icon"></i>
-                                <span><?php echo __('cashbook.title'); ?></span>
-                            </a>
-                        </li>
-                    <?php endif; ?>
+                        <?php if ($auth->hasPermission('cashbook')): ?>
+                            <li class="nav-item">
+                                <a href="<?php echo BASE_URL; ?>/modules/cashbook/index.php" class="nav-link <?php echo activeMenu('cashbook'); ?>">
+                                    <i data-feather="book" class="nav-icon"></i>
+                                    <span><?php echo __('cashbook.title'); ?></span>
+                                </a>
+                            </li>
+                        <?php endif; ?>
 
-                    <?php if ($auth->hasPermission('divisions')): ?>
-                        <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>/modules/divisions/index.php" class="nav-link <?php echo activeMenu('divisions'); ?>">
-                                <i data-feather="grid" class="nav-icon"></i>
-                                <span><?php echo __('settings.divisions'); ?></span>
-                            </a>
-                        </li>
-                    <?php endif; ?>
+                        <?php if ($auth->hasPermission('divisions')): ?>
+                            <li class="nav-item">
+                                <a href="<?php echo BASE_URL; ?>/modules/divisions/index.php" class="nav-link <?php echo activeMenu('divisions'); ?>">
+                                    <i data-feather="grid" class="nav-icon"></i>
+                                    <span><?php echo __('settings.divisions'); ?></span>
+                                </a>
+                            </li>
+                        <?php endif; ?>
 
-                    <?php if ($auth->hasPermission('frontdesk') && isModuleEnabled('frontdesk')): ?>
-                        <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/frontdesk/') !== false && strpos($_SERVER['REQUEST_URI'], 'hotel-services.php') === false && strpos($_SERVER['REQUEST_URI'], 'rental-motor.php') === false) ? 'open' : ''; ?>">
-                            <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo (strpos($_SERVER['REQUEST_URI'], 'hotel-services.php') === false && strpos($_SERVER['REQUEST_URI'], 'rental-motor.php') === false) ? activeMenu('frontdesk') : ''; ?>">
-                                <i data-feather="home" class="nav-icon"></i>
-                                <span><?php echo __('menu.frontdesk'); ?></span>
-                            </a>
-                            <ul class="submenu">
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/frontdesk/dashboard.php" class="submenu-link <?php echo activeMenu('dashboard.php'); ?>">
-                                        <i data-feather="layout" class="submenu-icon"></i>
-                                        <span><?php echo __('dashboard.title'); ?></span>
-                                    </a>
-                                </li>
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/frontdesk/reservasi.php" class="submenu-link <?php echo activeMenu('reservasi.php'); ?>">
-                                        <i data-feather="calendar" class="submenu-icon"></i>
-                                        <span><?php echo __('menu.reservations'); ?></span>
-                                    </a>
-                                </li>
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/frontdesk/calendar.php" class="submenu-link <?php echo activeMenu('calendar.php'); ?>">
-                                        <i data-feather="grid" class="submenu-icon"></i>
-                                        <span><?php echo __('menu.calendar'); ?></span>
-                                    </a>
-                                </li>
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/frontdesk/in-house.php" class="submenu-link <?php echo activeMenu('in-house.php'); ?>">
-                                        <i data-feather="users" class="submenu-icon"></i>
-                                        <span><?php echo __('menu.in_house'); ?></span>
-                                    </a>
-                                </li>
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/frontdesk/hk-allocation.php" class="submenu-link <?php echo activeMenu('hk-allocation.php'); ?>">
-                                        <i data-feather="check-square" class="submenu-icon"></i>
-                                        <span>Pembagian HK</span>
-                                    </a>
-                                </li>
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/frontdesk/breakfast.php"
-                                        class="submenu-link <?php echo activeMenu('breakfast.php'); ?>"
-                                        onclick="console.log('Breakfast link clicked!'); return true;">
-                                        <i data-feather="coffee" class="submenu-icon"></i>
-                                        <span><?php echo __('menu.breakfast'); ?></span>
-                                    </a>
-                                </li>
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/frontdesk/laporan.php" class="submenu-link <?php echo activeMenu('laporan.php'); ?>">
-                                        <i data-feather="file-text" class="submenu-icon"></i>
-                                        <span><?php echo __('menu.reports'); ?></span>
-                                    </a>
-                                </li>
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/frontdesk/settings.php" class="submenu-link <?php echo activeMenu('settings.php'); ?>">
-                                        <i data-feather="settings" class="submenu-icon"></i>
-                                        <span><?php echo __('settings.title'); ?></span>
-                                    </a>
-                                </li>
-                            </ul>
-                        </li>
-                    <?php endif; ?>
+                        <?php if ($auth->hasPermission('frontdesk') && isModuleEnabled('frontdesk')): ?>
+                            <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/frontdesk/') !== false && strpos($_SERVER['REQUEST_URI'], 'hotel-services.php') === false && strpos($_SERVER['REQUEST_URI'], 'rental-motor.php') === false) ? 'open' : ''; ?>">
+                                <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo (strpos($_SERVER['REQUEST_URI'], 'hotel-services.php') === false && strpos($_SERVER['REQUEST_URI'], 'rental-motor.php') === false) ? activeMenu('frontdesk') : ''; ?>">
+                                    <i data-feather="home" class="nav-icon"></i>
+                                    <span><?php echo __('menu.frontdesk'); ?></span>
+                                </a>
+                                <ul class="submenu">
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/frontdesk/dashboard.php" class="submenu-link <?php echo activeMenu('dashboard.php'); ?>">
+                                            <i data-feather="layout" class="submenu-icon"></i>
+                                            <span><?php echo __('dashboard.title'); ?></span>
+                                        </a>
+                                    </li>
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/frontdesk/reservasi.php" class="submenu-link <?php echo activeMenu('reservasi.php'); ?>">
+                                            <i data-feather="calendar" class="submenu-icon"></i>
+                                            <span><?php echo __('menu.reservations'); ?></span>
+                                        </a>
+                                    </li>
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/frontdesk/calendar.php" class="submenu-link <?php echo activeMenu('calendar.php'); ?>">
+                                            <i data-feather="grid" class="submenu-icon"></i>
+                                            <span><?php echo __('menu.calendar'); ?></span>
+                                        </a>
+                                    </li>
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/frontdesk/in-house.php" class="submenu-link <?php echo activeMenu('in-house.php'); ?>">
+                                            <i data-feather="users" class="submenu-icon"></i>
+                                            <span><?php echo __('menu.in_house'); ?></span>
+                                        </a>
+                                    </li>
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/frontdesk/hk-allocation.php" class="submenu-link <?php echo activeMenu('hk-allocation.php'); ?>">
+                                            <i data-feather="check-square" class="submenu-icon"></i>
+                                            <span>Pembagian HK</span>
+                                        </a>
+                                    </li>
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/frontdesk/breakfast.php"
+                                            class="submenu-link <?php echo activeMenu('breakfast.php'); ?>"
+                                            onclick="console.log('Breakfast link clicked!'); return true;">
+                                            <i data-feather="coffee" class="submenu-icon"></i>
+                                            <span><?php echo __('menu.breakfast'); ?></span>
+                                        </a>
+                                    </li>
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/frontdesk/laporan.php" class="submenu-link <?php echo activeMenu('laporan.php'); ?>">
+                                            <i data-feather="file-text" class="submenu-icon"></i>
+                                            <span><?php echo __('menu.reports'); ?></span>
+                                        </a>
+                                    </li>
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/frontdesk/settings.php" class="submenu-link <?php echo activeMenu('settings.php'); ?>">
+                                            <i data-feather="settings" class="submenu-icon"></i>
+                                            <span><?php echo __('settings.title'); ?></span>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </li>
+                        <?php endif; ?>
 
-                    <!-- Hotel Services Menu (hotel only) -->
-                    <?php if (defined('BUSINESS_TYPE') && BUSINESS_TYPE === 'hotel' && $auth->hasPermission('frontdesk')): ?>
-                        <li class="nav-item has-submenu <?php echo (activeMenu('hotel-services.php') || activeMenu('rental-motor.php') || activeMenu('rental-motor-dashboard.php')) ? 'open' : ''; ?>">
-                            <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo (activeMenu('hotel-services.php') || activeMenu('rental-motor.php') || activeMenu('rental-motor-dashboard.php')) ? 'active' : ''; ?>">
-                                <i data-feather="briefcase" class="nav-icon"></i>
-                                <span>Hotel Services</span>
-                            </a>
-                            <ul class="submenu">
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/frontdesk/hotel-services.php" class="submenu-link <?php echo activeMenu('hotel-services.php'); ?>">
-                                        <i data-feather="file-text" class="submenu-icon"></i>
-                                        <span>Invoice & Layanan</span>
-                                    </a>
-                                </li>
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/frontdesk/rental-motor-dashboard.php" class="submenu-link <?php echo (activeMenu('rental-motor.php') || activeMenu('rental-motor-dashboard.php')) ? 'active' : ''; ?>">
-                                        <i data-feather="truck" class="submenu-icon"></i>
-                                        <span>Rental Motor</span>
-                                    </a>
-                                </li>
-                            </ul>
-                        </li>
-                    <?php endif; ?>
+                        <!-- Hotel Services Menu (hotel only) -->
+                        <?php if (defined('BUSINESS_TYPE') && BUSINESS_TYPE === 'hotel' && $auth->hasPermission('frontdesk')): ?>
+                            <li class="nav-item has-submenu <?php echo (activeMenu('hotel-services.php') || activeMenu('rental-motor.php') || activeMenu('rental-motor-dashboard.php')) ? 'open' : ''; ?>">
+                                <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo (activeMenu('hotel-services.php') || activeMenu('rental-motor.php') || activeMenu('rental-motor-dashboard.php')) ? 'active' : ''; ?>">
+                                    <i data-feather="briefcase" class="nav-icon"></i>
+                                    <span>Hotel Services</span>
+                                </a>
+                                <ul class="submenu">
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/frontdesk/hotel-services.php" class="submenu-link <?php echo activeMenu('hotel-services.php'); ?>">
+                                            <i data-feather="file-text" class="submenu-icon"></i>
+                                            <span>Invoice & Layanan</span>
+                                        </a>
+                                    </li>
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/frontdesk/rental-motor-dashboard.php" class="submenu-link <?php echo (activeMenu('rental-motor.php') || activeMenu('rental-motor-dashboard.php')) ? 'active' : ''; ?>">
+                                            <i data-feather="truck" class="submenu-icon"></i>
+                                            <span>Rental Motor</span>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </li>
+                        <?php endif; ?>
 
-                    <!-- Sales Invoice Menu (CQC only, not for hotel) -->
-                    <?php if ($auth->hasPermission('sales_invoice') && isModuleEnabled('sales') && (!defined('BUSINESS_TYPE') || BUSINESS_TYPE !== 'hotel')): ?>
-                        <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/sales/') !== false) ? 'open' : ''; ?>">
-                            <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo activeMenu('sales'); ?>">
-                                <i data-feather="file-text" class="nav-icon"></i>
-                                <span><?php echo __('menu.sales_invoice'); ?></span>
-                            </a>
-                            <ul class="submenu">
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/sales/index-cqc.php?tab=termin" class="submenu-link <?php echo (strpos($_SERVER['REQUEST_URI'], 'index-cqc') !== false && ($_GET['tab'] ?? '') === 'termin') ? 'active' : ''; ?>">
-                                        <i data-feather="file" class="submenu-icon"></i>
-                                        <span>Invoice Termin</span>
-                                    </a>
-                                </li>
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/sales/index-cqc.php?tab=general" class="submenu-link <?php echo (strpos($_SERVER['REQUEST_URI'], 'index-cqc') !== false && ($_GET['tab'] ?? '') === 'general') ? 'active' : ''; ?>">
-                                        <i data-feather="file-text" class="submenu-icon"></i>
-                                        <span>Invoice Umum</span>
-                                    </a>
-                                </li>
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/sales/index-cqc.php?tab=quotation" class="submenu-link <?php echo (strpos($_SERVER['REQUEST_URI'], 'index-cqc') !== false && ($_GET['tab'] ?? '') === 'quotation') ? 'active' : ''; ?>">
-                                        <i data-feather="clipboard" class="submenu-icon"></i>
-                                        <span>Quotation</span>
-                                    </a>
-                                </li>
-                            </ul>
-                        </li>
-                    <?php endif; ?>
+                        <!-- Sales Invoice Menu (CQC only, not for hotel) -->
+                        <?php if ($auth->hasPermission('sales_invoice') && isModuleEnabled('sales') && (!defined('BUSINESS_TYPE') || BUSINESS_TYPE !== 'hotel')): ?>
+                            <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/sales/') !== false) ? 'open' : ''; ?>">
+                                <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo activeMenu('sales'); ?>">
+                                    <i data-feather="file-text" class="nav-icon"></i>
+                                    <span><?php echo __('menu.sales_invoice'); ?></span>
+                                </a>
+                                <ul class="submenu">
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/sales/index-cqc.php?tab=termin" class="submenu-link <?php echo (strpos($_SERVER['REQUEST_URI'], 'index-cqc') !== false && ($_GET['tab'] ?? '') === 'termin') ? 'active' : ''; ?>">
+                                            <i data-feather="file" class="submenu-icon"></i>
+                                            <span>Invoice Termin</span>
+                                        </a>
+                                    </li>
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/sales/index-cqc.php?tab=general" class="submenu-link <?php echo (strpos($_SERVER['REQUEST_URI'], 'index-cqc') !== false && ($_GET['tab'] ?? '') === 'general') ? 'active' : ''; ?>">
+                                            <i data-feather="file-text" class="submenu-icon"></i>
+                                            <span>Invoice Umum</span>
+                                        </a>
+                                    </li>
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/sales/index-cqc.php?tab=quotation" class="submenu-link <?php echo (strpos($_SERVER['REQUEST_URI'], 'index-cqc') !== false && ($_GET['tab'] ?? '') === 'quotation') ? 'active' : ''; ?>">
+                                            <i data-feather="clipboard" class="submenu-icon"></i>
+                                            <span>Quotation</span>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </li>
+                        <?php endif; ?>
 
-                    <!-- Bills / Tagihan Menu -->
-                    <?php if ($auth->hasPermission('bills')): ?>
-                        <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/bills/') !== false) ? 'open' : ''; ?>">
-                            <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo activeMenu('bills'); ?>">
-                                <i data-feather="credit-card" class="nav-icon"></i>
-                                <span>Tagihan</span>
-                            </a>
-                            <ul class="submenu">
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/bills/index.php" class="submenu-link <?php echo activeMenu('bills/index'); ?>">
-                                        <i data-feather="list" class="submenu-icon"></i>
-                                        <span>Daftar Tagihan</span>
-                                    </a>
-                                </li>
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/bills/templates.php" class="submenu-link <?php echo activeMenu('templates.php'); ?>">
-                                        <i data-feather="layers" class="submenu-icon"></i>
-                                        <span>Template Rutin</span>
-                                    </a>
-                                </li>
-                            </ul>
-                        </li>
-                    <?php endif; ?>
+                        <!-- Bills / Tagihan Menu -->
+                        <?php if ($auth->hasPermission('bills')): ?>
+                            <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/bills/') !== false) ? 'open' : ''; ?>">
+                                <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo activeMenu('bills'); ?>">
+                                    <i data-feather="credit-card" class="nav-icon"></i>
+                                    <span>Tagihan</span>
+                                </a>
+                                <ul class="submenu">
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/bills/index.php" class="submenu-link <?php echo activeMenu('bills/index'); ?>">
+                                            <i data-feather="list" class="submenu-icon"></i>
+                                            <span>Daftar Tagihan</span>
+                                        </a>
+                                    </li>
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/bills/templates.php" class="submenu-link <?php echo activeMenu('templates.php'); ?>">
+                                            <i data-feather="layers" class="submenu-icon"></i>
+                                            <span>Template Rutin</span>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </li>
+                        <?php endif; ?>
 
-                    <!-- Cafe Invoice Menu (Bens Cafe only) -->
-                    <?php if (isModuleEnabled('cafe-invoice')): ?>
-                        <li class="nav-item <?php echo (strpos($_SERVER['REQUEST_URI'], '/cafe-invoice/') !== false) ? 'open' : ''; ?>">
-                            <a href="<?php echo BASE_URL; ?>/modules/cafe-invoice/index.php" class="nav-link <?php echo activeMenu('cafe-invoice'); ?>">
-                                <i data-feather="file-text" class="nav-icon"></i>
-                                <span>☕ Invoice</span>
-                            </a>
-                        </li>
-                    <?php endif; ?>
+                        <!-- Cafe Invoice Menu (Bens Cafe only) -->
+                        <?php if (isModuleEnabled('cafe-invoice')): ?>
+                            <li class="nav-item <?php echo (strpos($_SERVER['REQUEST_URI'], '/cafe-invoice/') !== false) ? 'open' : ''; ?>">
+                                <a href="<?php echo BASE_URL; ?>/modules/cafe-invoice/index.php" class="nav-link <?php echo activeMenu('cafe-invoice'); ?>">
+                                    <i data-feather="file-text" class="nav-icon"></i>
+                                    <span>☕ Invoice</span>
+                                </a>
+                            </li>
+                        <?php endif; ?>
 
-                    <!-- Payroll Menu -->
-                    <?php if ($auth->hasPermission('payroll') && isModuleEnabled('payroll')): ?>
-                        <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/payroll/') !== false) ? 'open' : ''; ?>">
-                            <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo activeMenu('payroll'); ?>">
-                                <i data-feather="dollar-sign" class="nav-icon"></i>
-                                <span>Payroll</span>
-                            </a>
-                            <ul class="submenu">
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/payroll/employees.php" class="submenu-link <?php echo activeMenu('employees.php'); ?>">
-                                        <i data-feather="users" class="submenu-icon"></i>
-                                        <span>Employee Data</span>
-                                    </a>
-                                </li>
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/payroll/process.php" class="submenu-link <?php echo activeMenu('process.php'); ?>">
-                                        <i data-feather="monitor" class="submenu-icon"></i>
-                                        <span>Process Salary</span>
-                                    </a>
-                                </li>
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/payroll/attendance.php" class="submenu-link <?php echo activeMenu('attendance.php'); ?>">
-                                        <i data-feather="map-pin" class="submenu-icon"></i>
-                                        <span>Absensi GPS</span>
-                                    </a>
-                                </li>
+                        <!-- Payroll Menu -->
+                        <?php if ($auth->hasPermission('payroll') && isModuleEnabled('payroll')): ?>
+                            <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/payroll/') !== false) ? 'open' : ''; ?>">
+                                <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo activeMenu('payroll'); ?>">
+                                    <i data-feather="dollar-sign" class="nav-icon"></i>
+                                    <span>Payroll</span>
+                                </a>
+                                <ul class="submenu">
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/payroll/employees.php" class="submenu-link <?php echo activeMenu('employees.php'); ?>">
+                                            <i data-feather="users" class="submenu-icon"></i>
+                                            <span>Employee Data</span>
+                                        </a>
+                                    </li>
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/payroll/process.php" class="submenu-link <?php echo activeMenu('process.php'); ?>">
+                                            <i data-feather="monitor" class="submenu-icon"></i>
+                                            <span>Process Salary</span>
+                                        </a>
+                                    </li>
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/payroll/attendance.php" class="submenu-link <?php echo activeMenu('attendance.php'); ?>">
+                                            <i data-feather="map-pin" class="submenu-icon"></i>
+                                            <span>Absensi GPS</span>
+                                        </a>
+                                    </li>
 
-                            </ul>
-                        </li>
-                    <?php endif; ?>
+                                </ul>
+                            </li>
+                        <?php endif; ?>
 
-                    <!-- Gudang Nasita Menu (Warehouse) -->
-                    <?php if (ACTIVE_BUSINESS_ID === 'gudang-nasita' && ($auth->hasPermission('gudang_view') || $auth->hasPermission('warehouse'))): ?>
-                        <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/modules/gudang/') !== false) ? 'open' : ''; ?>">
-                            <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo (strpos($_SERVER['REQUEST_URI'], '/modules/gudang/') !== false) ? 'active' : ''; ?>">
-                                <i data-feather="archive" class="nav-icon"></i>
-                                <span>Gudang Nasita</span>
-                            </a>
-                            <ul class="submenu">
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/gudang/dashboard.php" class="submenu-link <?php echo activeMenu('dashboard.php'); ?>">
-                                        <i data-feather="home" class="submenu-icon"></i>
-                                        <span>Dashboard</span>
-                                    </a>
-                                </li>
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/gudang/barang.php" class="submenu-link <?php echo activeMenu('barang.php'); ?>">
-                                        <i data-feather="package" class="submenu-icon"></i>
-                                        <span>Master Barang</span>
-                                    </a>
-                                </li>
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/gudang/stock.php" class="submenu-link <?php echo activeMenu('stock.php'); ?>">
-                                        <i data-feather="layers" class="submenu-icon"></i>
-                                        <span>Kelola Stok</span>
-                                    </a>
-                                </li>
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/gudang/po-supplier.php" class="submenu-link <?php echo activeMenu('po-supplier.php'); ?>">
-                                        <i data-feather="file-text" class="submenu-icon"></i>
-                                        <span>PO Supplier</span>
-                                    </a>
-                                </li>
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/gudang/transfer.php" class="submenu-link <?php echo activeMenu('transfer.php'); ?>">
-                                        <i data-feather="arrow-right" class="submenu-icon"></i>
-                                        <span>Transfer ke Bisnis</span>
-                                    </a>
-                                </li>
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/gudang/minimum-stock.php" class="submenu-link <?php echo activeMenu('minimum-stock.php'); ?>">
-                                        <i data-feather="alert-circle" class="submenu-icon"></i>
-                                        <span>Minimum Stock Alert</span>
-                                    </a>
-                                </li>
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/gudang/reports.php" class="submenu-link <?php echo activeMenu('reports.php'); ?>">
-                                        <i data-feather="bar-chart-2" class="submenu-icon"></i>
-                                        <span>Laporan Gudang</span>
-                                    </a>
-                                </li>
-                            </ul>
-                        </li>
-                    <?php endif; ?>
+                        <!-- Gudang Nasita Menu (Warehouse) -->
+                        <?php if (ACTIVE_BUSINESS_ID === 'gudang-nasita' && ($auth->hasPermission('gudang_view') || $auth->hasPermission('warehouse'))): ?>
+                            <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/modules/gudang/') !== false) ? 'open' : ''; ?>">
+                                <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo (strpos($_SERVER['REQUEST_URI'], '/modules/gudang/') !== false) ? 'active' : ''; ?>">
+                                    <i data-feather="archive" class="nav-icon"></i>
+                                    <span>Gudang Nasita</span>
+                                </a>
+                                <ul class="submenu">
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/gudang/dashboard.php" class="submenu-link <?php echo activeMenu('dashboard.php'); ?>">
+                                            <i data-feather="home" class="submenu-icon"></i>
+                                            <span>Dashboard</span>
+                                        </a>
+                                    </li>
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/gudang/barang.php" class="submenu-link <?php echo activeMenu('barang.php'); ?>">
+                                            <i data-feather="package" class="submenu-icon"></i>
+                                            <span>Master Barang</span>
+                                        </a>
+                                    </li>
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/gudang/stock.php" class="submenu-link <?php echo activeMenu('stock.php'); ?>">
+                                            <i data-feather="layers" class="submenu-icon"></i>
+                                            <span>Kelola Stok</span>
+                                        </a>
+                                    </li>
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/gudang/po-supplier.php" class="submenu-link <?php echo activeMenu('po-supplier.php'); ?>">
+                                            <i data-feather="file-text" class="submenu-icon"></i>
+                                            <span>PO Supplier</span>
+                                        </a>
+                                    </li>
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/gudang/transfer.php" class="submenu-link <?php echo activeMenu('transfer.php'); ?>">
+                                            <i data-feather="arrow-right" class="submenu-icon"></i>
+                                            <span>Transfer ke Bisnis</span>
+                                        </a>
+                                    </li>
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/gudang/minimum-stock.php" class="submenu-link <?php echo activeMenu('minimum-stock.php'); ?>">
+                                            <i data-feather="alert-circle" class="submenu-icon"></i>
+                                            <span>Minimum Stock Alert</span>
+                                        </a>
+                                    </li>
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/gudang/reports.php" class="submenu-link <?php echo activeMenu('reports.php'); ?>">
+                                            <i data-feather="bar-chart-2" class="submenu-icon"></i>
+                                            <span>Laporan Gudang</span>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </li>
+                        <?php endif; ?>
 
-                    <!-- Laporan Dropdown Menu -->
-                    <?php if ($auth->hasPermission('reports') && isModuleEnabled('reports')): ?>
-                        <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/reports/') !== false) ? 'open' : ''; ?>">
-                            <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo activeMenu('reports'); ?>">
-                                <i data-feather="bar-chart-2" class="nav-icon"></i>
-                                <span><?php echo __('menu.reports'); ?></span>
-                            </a>
-                            <ul class="submenu">
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/reports/daily.php" class="submenu-link <?php echo activeMenu('daily.php'); ?>">
-                                        <i data-feather="calendar" class="submenu-icon"></i>
-                                        <span>Laporan Harian</span>
-                                    </a>
-                                </li>
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/reports/monthly.php" class="submenu-link <?php echo activeMenu('monthly.php'); ?>">
-                                        <i data-feather="trending-up" class="submenu-icon"></i>
-                                        <span>Laporan Bulanan</span>
-                                    </a>
-                                </li>
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/reports/yearly.php" class="submenu-link <?php echo activeMenu('yearly.php'); ?>">
-                                        <i data-feather="activity" class="submenu-icon"></i>
-                                        <span>Laporan Tahunan</span>
-                                    </a>
-                                </li>
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/reports/by-division.php" class="submenu-link <?php echo activeMenu('by-division.php'); ?>">
-                                        <i data-feather="grid" class="submenu-icon"></i>
-                                        <span>Laporan Per Divisi</span>
-                                    </a>
-                                </li>
-                            </ul>
-                        </li>
-                    <?php endif; ?>
+                        <!-- Laporan Dropdown Menu -->
+                        <?php if ($auth->hasPermission('reports') && isModuleEnabled('reports')): ?>
+                            <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/reports/') !== false) ? 'open' : ''; ?>">
+                                <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo activeMenu('reports'); ?>">
+                                    <i data-feather="bar-chart-2" class="nav-icon"></i>
+                                    <span><?php echo __('menu.reports'); ?></span>
+                                </a>
+                                <ul class="submenu">
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/reports/daily.php" class="submenu-link <?php echo activeMenu('daily.php'); ?>">
+                                            <i data-feather="calendar" class="submenu-icon"></i>
+                                            <span>Laporan Harian</span>
+                                        </a>
+                                    </li>
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/reports/monthly.php" class="submenu-link <?php echo activeMenu('monthly.php'); ?>">
+                                            <i data-feather="trending-up" class="submenu-icon"></i>
+                                            <span>Laporan Bulanan</span>
+                                        </a>
+                                    </li>
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/reports/yearly.php" class="submenu-link <?php echo activeMenu('yearly.php'); ?>">
+                                            <i data-feather="activity" class="submenu-icon"></i>
+                                            <span>Laporan Tahunan</span>
+                                        </a>
+                                    </li>
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/reports/by-division.php" class="submenu-link <?php echo activeMenu('by-division.php'); ?>">
+                                            <i data-feather="grid" class="submenu-icon"></i>
+                                            <span>Laporan Per Divisi</span>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </li>
+                        <?php endif; ?>
 
-                    <!-- Invest & Projek Menu -->
-                    <?php if ($auth->hasPermission('investor') && isModuleEnabled('investor')): ?>
-                        <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>/modules/investor/" class="nav-link <?php echo activeMenu('investor'); ?>">
-                                <i data-feather="briefcase" class="nav-icon"></i>
-                                <span>Invest & Projek</span>
-                            </a>
-                        </li>
-                    <?php endif; ?>
+                        <!-- Invest & Projek Menu -->
+                        <?php if ($auth->hasPermission('investor') && isModuleEnabled('investor')): ?>
+                            <li class="nav-item">
+                                <a href="<?php echo BASE_URL; ?>/modules/investor/" class="nav-link <?php echo activeMenu('investor'); ?>">
+                                    <i data-feather="briefcase" class="nav-icon"></i>
+                                    <span>Invest & Projek</span>
+                                </a>
+                            </li>
+                        <?php endif; ?>
 
-                    <!-- Project Menu -->
-                    <?php if ($auth->hasPermission('project')): ?>
-                        <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>/modules/project/" class="nav-link <?php echo activeMenu('project'); ?>">
-                                <i data-feather="folder" class="nav-icon"></i>
-                                <span>Project</span>
-                            </a>
-                        </li>
-                    <?php endif; ?>
+                        <!-- Project Menu -->
+                        <?php if ($auth->hasPermission('project')): ?>
+                            <li class="nav-item">
+                                <a href="<?php echo BASE_URL; ?>/modules/project/" class="nav-link <?php echo activeMenu('project'); ?>">
+                                    <i data-feather="folder" class="nav-icon"></i>
+                                    <span>Project</span>
+                                </a>
+                            </li>
+                        <?php endif; ?>
 
-                    <!-- Finance Menu -->
-                    <?php if ($auth->hasPermission('finance')): ?>
-                        <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>/modules/finance/" class="nav-link <?php echo activeMenu('finance'); ?>">
-                                <i data-feather="trending-up" class="nav-icon"></i>
-                                <span>Manajemen Keuangan</span>
-                            </a>
-                        </li>
-                    <?php endif; ?>
+                        <!-- Finance Menu -->
+                        <?php if ($auth->hasPermission('finance')): ?>
+                            <li class="nav-item">
+                                <a href="<?php echo BASE_URL; ?>/modules/finance/" class="nav-link <?php echo activeMenu('finance'); ?>">
+                                    <i data-feather="trending-up" class="nav-icon"></i>
+                                    <span>Manajemen Keuangan</span>
+                                </a>
+                            </li>
+                        <?php endif; ?>
 
-                    <!-- Owner Monitoring Menu -->
-                    <?php if ($auth->hasPermission('owner')): ?>
-                        <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>/modules/owner/" class="nav-link <?php echo activeMenu('owner'); ?>">
-                                <i data-feather="eye" class="nav-icon"></i>
-                                <span>Owner Monitoring</span>
-                            </a>
-                        </li>
-                    <?php endif; ?>
+                        <!-- Owner Monitoring Menu -->
+                        <?php if ($auth->hasPermission('owner')): ?>
+                            <li class="nav-item">
+                                <a href="<?php echo BASE_URL; ?>/modules/owner/" class="nav-link <?php echo activeMenu('owner'); ?>">
+                                    <i data-feather="eye" class="nav-icon"></i>
+                                    <span>Owner Monitoring</span>
+                                </a>
+                            </li>
+                        <?php endif; ?>
 
-                    <!-- Database Master Menu (CQC) -->
-                    <?php if ($auth->hasPermission('database')): ?>
-                        <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/database/') !== false) ? 'open' : ''; ?>">
-                            <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo activeMenu('database'); ?>">
-                                <i data-feather="database" class="nav-icon"></i>
-                                <span>Database</span>
-                            </a>
-                            <ul class="submenu">
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/database/" class="submenu-link">
-                                        <i data-feather="home" class="submenu-icon"></i>
-                                        <span>Dashboard</span>
-                                    </a>
-                                </li>
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/database/suppliers.php" class="submenu-link">
-                                        <i data-feather="truck" class="submenu-icon"></i>
-                                        <span>Supplier</span>
-                                    </a>
-                                </li>
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/database/customers.php" class="submenu-link">
-                                        <i data-feather="users" class="submenu-icon"></i>
-                                        <span>Customer</span>
-                                    </a>
-                                </li>
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/database/staff.php" class="submenu-link">
-                                        <i data-feather="user-check" class="submenu-icon"></i>
-                                        <span>Staf</span>
-                                    </a>
-                                </li>
-                            </ul>
-                        </li>
-                    <?php endif; ?>
+                        <!-- Database Master Menu (CQC) -->
+                        <?php if ($auth->hasPermission('database')): ?>
+                            <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/database/') !== false) ? 'open' : ''; ?>">
+                                <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo activeMenu('database'); ?>">
+                                    <i data-feather="database" class="nav-icon"></i>
+                                    <span>Database</span>
+                                </a>
+                                <ul class="submenu">
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/database/" class="submenu-link">
+                                            <i data-feather="home" class="submenu-icon"></i>
+                                            <span>Dashboard</span>
+                                        </a>
+                                    </li>
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/database/suppliers.php" class="submenu-link">
+                                            <i data-feather="truck" class="submenu-icon"></i>
+                                            <span>Supplier</span>
+                                        </a>
+                                    </li>
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/database/customers.php" class="submenu-link">
+                                            <i data-feather="users" class="submenu-icon"></i>
+                                            <span>Customer</span>
+                                        </a>
+                                    </li>
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/database/staff.php" class="submenu-link">
+                                            <i data-feather="user-check" class="submenu-icon"></i>
+                                            <span>Staf</span>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </li>
+                        <?php endif; ?>
 
-                    <?php if ($auth->hasPermission('settings')): ?>
-                        <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/settings/') !== false) ? 'open' : ''; ?>" style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--bg-tertiary);">
-                            <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo activeMenu('settings'); ?>">
-                                <i data-feather="settings" class="nav-icon"></i>
-                                <span><?php echo __('settings.title'); ?></span>
-                            </a>
-                            <ul class="submenu">
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/settings/" class="submenu-link <?php echo activeMenu('settings-index'); ?>">
-                                        <i data-feather="home" class="submenu-icon"></i>
-                                        <span>Beranda Settings</span>
-                                    </a>
-                                </li>
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/settings/change-password.php" class="submenu-link <?php echo activeMenu('change-password.php'); ?>">
-                                        <i data-feather="lock" class="submenu-icon"></i>
-                                        <span>Ganti Password</span>
-                                    </a>
-                                </li>
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/settings/company.php" class="submenu-link <?php echo activeMenu('company.php'); ?>">
-                                        <i data-feather="briefcase" class="submenu-icon"></i>
-                                        <span>Setup Perusahaan</span>
-                                    </a>
-                                </li>
-                                <li class="submenu-item">
-                                    <a href="<?php echo BASE_URL; ?>/modules/settings/display.php" class="submenu-link <?php echo activeMenu('display.php'); ?>">
-                                        <i data-feather="eye" class="submenu-icon"></i>
-                                        <span>Display & Theme</span>
-                                    </a>
-                                </li>
-                            </ul>
-                        </li>
-                    <?php endif; ?>
+                        <?php if ($auth->hasPermission('settings')): ?>
+                            <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/settings/') !== false) ? 'open' : ''; ?>" style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--bg-tertiary);">
+                                <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo activeMenu('settings'); ?>">
+                                    <i data-feather="settings" class="nav-icon"></i>
+                                    <span><?php echo __('settings.title'); ?></span>
+                                </a>
+                                <ul class="submenu">
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/settings/" class="submenu-link <?php echo activeMenu('settings-index'); ?>">
+                                            <i data-feather="home" class="submenu-icon"></i>
+                                            <span>Beranda Settings</span>
+                                        </a>
+                                    </li>
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/settings/change-password.php" class="submenu-link <?php echo activeMenu('change-password.php'); ?>">
+                                            <i data-feather="lock" class="submenu-icon"></i>
+                                            <span>Ganti Password</span>
+                                        </a>
+                                    </li>
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/settings/company.php" class="submenu-link <?php echo activeMenu('company.php'); ?>">
+                                            <i data-feather="briefcase" class="submenu-icon"></i>
+                                            <span>Setup Perusahaan</span>
+                                        </a>
+                                    </li>
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/settings/display.php" class="submenu-link <?php echo activeMenu('display.php'); ?>">
+                                            <i data-feather="eye" class="submenu-icon"></i>
+                                            <span>Display & Theme</span>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </li>
+                        <?php endif; ?>
                     <?php endif; ?>
 
                     <li class="nav-item" style="margin-top: 2rem;">

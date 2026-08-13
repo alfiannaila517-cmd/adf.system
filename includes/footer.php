@@ -33,21 +33,21 @@
            <script>
                // Initialize notification polling for owner/admin
                <?php
-                   $userRole = strtolower((string)($_SESSION['role'] ?? ''));
-                   $isOwnerAdmin = in_array($userRole, ['owner', 'admin', 'developer', 'manager'], true);
+                $userRole = strtolower((string)($_SESSION['role'] ?? ''));
+                $isOwnerAdmin = in_array($userRole, ['owner', 'admin', 'developer', 'manager'], true);
 
-                   $canStaffChatAccess = $isOwnerAdmin;
-                   $canStaffChatSend = $isOwnerAdmin;
-                   $canStaffChatDelete = $isOwnerAdmin;
-                   if (!$canStaffChatAccess && isset($auth) && method_exists($auth, 'hasPermission')) {
-                       $canStaffChatAccess = $auth->hasPermission('staff_chat') || $auth->hasPermission('staff_messages');
-                   }
-                   if (!$canStaffChatSend && isset($auth) && method_exists($auth, 'canCreate')) {
-                       $canStaffChatSend = $auth->canCreate('staff_chat') || $auth->canCreate('staff_messages');
-                   }
-                   if (!$canStaffChatDelete && isset($auth) && method_exists($auth, 'canDelete')) {
-                       $canStaffChatDelete = $auth->canDelete('staff_chat') || $auth->canDelete('staff_messages');
-                   }
+                $canStaffChatAccess = $isOwnerAdmin;
+                $canStaffChatSend = $isOwnerAdmin;
+                $canStaffChatDelete = $isOwnerAdmin;
+                if (!$canStaffChatAccess && isset($auth) && method_exists($auth, 'hasPermission')) {
+                    $canStaffChatAccess = $auth->hasPermission('staff_chat') || $auth->hasPermission('staff_messages');
+                }
+                if (!$canStaffChatSend && isset($auth) && method_exists($auth, 'canCreate')) {
+                    $canStaffChatSend = $auth->canCreate('staff_chat') || $auth->canCreate('staff_messages');
+                }
+                if (!$canStaffChatDelete && isset($auth) && method_exists($auth, 'canDelete')) {
+                    $canStaffChatDelete = $auth->canDelete('staff_chat') || $auth->canDelete('staff_messages');
+                }
                 ?>
                <?php if ($isOwnerAdmin): ?>
                        (function() {
@@ -458,7 +458,7 @@
                            if (msgs.length === 0) {
                                listEl.innerHTML = '<div class="acp-empty">Belum ada pengumuman</div>';
                            } else {
-                                   listEl.innerHTML = msgs.map(m => `
+                               listEl.innerHTML = msgs.map(m => `
                    <div class="acp-msg">
                                ${ADMIN_CHAT_CAN_DELETE ? `<span class="acp-del" onclick="deleteAdminChat(${m.id})">✕</span>` : ''}
                        <div class="acp-meta">${m.created_by_name || 'Admin'} · ${m.created_at}</div>

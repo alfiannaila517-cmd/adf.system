@@ -61,7 +61,7 @@ if ($isGudang) {
         'adf_benscafe' => 'Bens Cafe',
         'adf_eat_meet' => 'Eat Meet'
     ];
-    
+
     foreach ($businessDatabases as $bizSlug => $bizDb) {
         try {
             Database::switchDatabase($bizDb);
@@ -90,9 +90,9 @@ if ($isGudang) {
             error_log("Error fetching POs from {$bizDb}: " . $e->getMessage());
         }
     }
-    
+
     // Sort all combined POs by date DESC
-    usort($purchase_orders, function($a, $b) {
+    usort($purchase_orders, function ($a, $b) {
         return strtotime($b['po_date'] ?? '0') - strtotime($a['po_date'] ?? '0');
     });
     $purchase_orders = array_slice($purchase_orders, 0, 50);

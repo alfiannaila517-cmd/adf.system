@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Gudang Nasita Configuration
  * Warehouse business configuration - connects to master DB
@@ -12,7 +13,7 @@ return [
     'database'              => 'adfb2574_adf',  // Uses master DB for warehouse tables
     'is_active'             => true,
     'status'                => 'active',
-    
+
     // Warehouse specific config
     'warehouse'             => [
         'enable_stock_tracking'     => true,
@@ -22,7 +23,7 @@ return [
         'transfer_targets'          => ['narayana-hotel', 'bens-cafe', 'eaat-meet'],  // Businesses that can receive transfers
         'default_location'          => 'Gudang Utama',
     ],
-    
+
     // Module settings
     'modules_enabled'       => [
         'gudang_dashboard',
@@ -33,7 +34,7 @@ return [
         'gudang_minimum_stock',
         'gudang_reports',
     ],
-    
+
     // Permissions for warehouse operations
     'default_permissions'   => [
         'gudang_view',
@@ -47,4 +48,3 @@ return [
         'gudang_reports_view',
     ],
 ];
-?>
