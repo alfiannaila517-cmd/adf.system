@@ -238,7 +238,7 @@ class Auth
                     exit;
                 }
                 $_SESSION['last_user_check'] = time();
-            } catch (Exception $e) {
+            } catch (Throwable $e) {
                 // DB error — don't block, just skip check
             }
         }
@@ -397,7 +397,7 @@ class Auth
 
             // If not found, return false (no fallback)
             return false;
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             // Log error for debugging - IMPORTANT FOR TROUBLESHOOTING
             error_log("⚠️ Permission check FAILED for user_id=" . ($_SESSION['user_id'] ?? 'none') . ", module=" . $module . ": " . $e->getMessage());
             error_log("Stack trace: " . $e->getTraceAsString());
@@ -462,7 +462,7 @@ class Auth
             $permRow->execute([$masterUser['id'], $business['id'], $module]);
             $perm = $permRow->fetch(PDO::FETCH_ASSOC);
             return $perm && (int)$perm[$column] === 1;
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             error_log("⚠️ Granular perm check failed: " . $e->getMessage());
             // On error: fallback allow for developer/admin/manager/owner, deny for staff
             return in_array($userRole, ['developer', 'owner', 'manager']);
@@ -503,7 +503,7 @@ class Auth
                     return true;
                 }
             }
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             // Table might not exist, continue to role-based
         }
 
