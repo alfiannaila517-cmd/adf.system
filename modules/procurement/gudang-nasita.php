@@ -963,7 +963,7 @@ include '../../includes/header.php';
                                 <td>
                                     <div style="display:flex; gap:0.35rem; align-items:center; flex-wrap:wrap;">
                                         <button type="button" class="btn btn-sm" style="background:#0f9d6a;color:#fff;"
-                                            onclick="openManualModalPreset(<?php echo htmlspecialchars(json_encode($item['item_name']), ENT_QUOTES); ?>, <?php echo htmlspecialchars(json_encode($item['category'] ?? 'lainnya'), ENT_QUOTES); ?>, <?php echo htmlspecialchars(json_encode($item['unit']), ENT_QUOTES); ?>)">
+                                            onclick="openQuickStock(<?php echo htmlspecialchars(json_encode($item['item_name']), ENT_QUOTES); ?>, <?php echo htmlspecialchars(json_encode($item['category'] ?? 'lainnya'), ENT_QUOTES); ?>, <?php echo htmlspecialchars(json_encode($item['unit']), ENT_QUOTES); ?>, <?php echo (float)($item['quantity'] ?? 0); ?>)">
                                             <i data-feather="plus" style="width:13px;height:13px;"></i> Tambah Stok
                                         </button>
                                         <a href="gudang-transfer.php?stock_id=<?php echo (int)$item['id']; ?>" class="btn btn-sm btn-primary">
@@ -1088,7 +1088,22 @@ include '../../includes/header.php';
         if (e.target === document.getElementById('manualStockModal')) document.getElementById('manualStockModal').style.display = 'none';
         if (e.target === document.getElementById('importStockModal')) document.getElementById('importStockModal').style.display = 'none';
         if (e.target === document.getElementById('orderSupplierModal')) document.getElementById('orderSupplierModal').style.display = 'none';
+        if (e.target === document.getElementById('quickStockModal')) document.getElementById('quickStockModal').style.display = 'none';
     });
+
+    // Slim modal: tambah stok ke item yang sudah ada (dari tombol per baris)
+    function openQuickStock(itemName, category, unit, currentQty) {
+        var m = document.getElementById('quickStockModal');
+        m.querySelector('[name="item_name"]').value = itemName;
+        m.querySelector('[name="category"]').value = category || 'lainnya';
+        m.querySelector('[name="unit"]').value = unit || 'pcs';
+        m.querySelector('#qsTitle').textContent = itemName;
+        m.querySelector('#qsCurrentQty').textContent = parseFloat(currentQty).toLocaleString('id-ID', {minimumFractionDigits:0, maximumFractionDigits:2}) + ' ' + (unit || 'pcs');
+        var qtyInput = m.querySelector('[name="quantity"]');
+        qtyInput.value = '';
+        m.style.display = 'flex';
+        setTimeout(() => qtyInput.focus(), 60);
+    }
 
     function openOrderModal(itemName, unit, supplierHint) {
         var m = document.getElementById('orderSupplierModal');
@@ -1127,7 +1142,7 @@ include '../../includes/header.php';
         acInput.addEventListener('input', function() {
             clearTimeout(acTimer);
             const q = this.value.trim();
-            if (q.length < 2) {
+            if (q.length < 1) {
                 acDrop.style.display = 'none';
                 return;
             }
@@ -1211,6 +1226,36 @@ include '../../includes/header.php';
             <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
                 <button type="button" class="btn btn-secondary" onclick="document.getElementById('importStockModal').style.display='none'">Batal</button>
                 <button type="submit" class="btn btn-primary">Import Sekarang</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="quickStockModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.55); z-index:2050; align-items:center; justify-content:center; padding:1rem;">
+    <div class="card" style="width:min(400px,100%);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <div>
+                <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.04em;">Tambah Stok</div>
+                <h3 id="qsTitle" style="font-size:1.05rem; margin:0.15rem 0 0; font-weight:700;"></h3>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('quickStockModal').style.display='none'">✕</button>
+        </div>
+        <div style="background:var(--bg-secondary); border-radius:0.5rem; padding:0.65rem 0.9rem; margin-bottom:1rem; font-size:0.875rem;">
+            Stok saat ini: <strong id="qsCurrentQty" style="color:#0f9d6a;"></strong>
+        </div>
+        <form method="POST">
+            <input type="hidden" name="action" value="manual_stock_in">
+            <input type="hidden" name="item_name">
+            <input type="hidden" name="category">
+            <input type="hidden" name="unit">
+            <input type="hidden" name="reorder_level" value="0">
+            <div style="margin-bottom:1rem;">
+                <label class="form-label" style="font-weight:600;">Qty Masuk *</label>
+                <input type="number" name="quantity" class="form-control" step="0.01" min="0.01" required placeholder="0" style="font-size:1.1rem; padding:0.65rem;">
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('quickStockModal').style.display='none'">Batal</button>
+                <button type="submit" class="btn btn-success" style="font-weight:700;">Simpan Stock</button>
             </div>
         </form>
     </div>
