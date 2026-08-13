@@ -6,7 +6,9 @@
  */
 
 require_once __DIR__ . '/../config/database.php';
-require_once __DIR__ . '/CloudinaryHelper.php';
+if (file_exists(__DIR__ . '/CloudinaryHelper.php')) {
+    require_once __DIR__ . '/CloudinaryHelper.php';
+}
 
 /**
  * Generate Purchase Order Number
