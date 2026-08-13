@@ -464,11 +464,18 @@ function getGudangNasitaStock($limit = 200)
         : "CONCAT('GN-LEGACY-', LPAD(gs.id, 4, '0'))";
 
     // Build expressions only for columns that actually exist to avoid "Unknown column" errors.
-    $hargaBeliExpr  = in_array('harga_beli', $cols, true)  ? 'COALESCE(gs.harga_beli, 0)'  : '0';
+    $hasBarangId    = in_array('barang_id', $cols, true);
+    $barangJoin     = $hasBarangId
+        ? "LEFT JOIN gudang_nasita_barang gb ON gb.id = gs.barang_id"
+        : '';
+    // Prefer stock-level harga_beli; fall back to master barang price when stock price is 0 or missing.
+    $hargaBeliExpr  = in_array('harga_beli', $cols, true)
+        ? ($hasBarangId ? 'COALESCE(NULLIF(gs.harga_beli, 0), gb.harga_beli, 0)' : 'COALESCE(gs.harga_beli, 0)')
+        : ($hasBarangId ? 'COALESCE(gb.harga_beli, 0)' : '0');
     $qtyExpr        = in_array('quantity', $cols, true)     ? 'COALESCE(gs.quantity, 0)'     : 'COALESCE(gs.jumlah_stok, 0)';
     $totalHargaExpr = in_array('total_harga', $cols, true)
-        ? "COALESCE(gs.total_harga, {$qtyExpr} * {$hargaBeliExpr}, 0)"
-        : '0';
+        ? "COALESCE(NULLIF(gs.total_harga, 0), {$qtyExpr} * {$hargaBeliExpr}, 0)"
+        : "{$qtyExpr} * {$hargaBeliExpr}";
     $isActiveWhere  = in_array('is_active', $cols, true)   ? 'COALESCE(gs.is_active, 1) = 1' : '1 = 1';
     $itemNameOrder  = in_array('item_name', $cols, true)    ? 'gs.item_name'                  : 'gs.id';
     $categoryOrder  = in_array('category', $cols, true)     ? "COALESCE(gs.category, 'lainnya')" : "'lainnya'";
@@ -485,12 +492,13 @@ function getGudangNasitaStock($limit = 200)
     $rows = $db->fetchAll("
         SELECT
             gs.*,
-            {$codeExpr}     AS stock_code,
+            {$codeExpr}      AS stock_code,
             {$hargaBeliExpr} AS harga_beli,
             {$totalHargaExpr} AS total_harga,
-            {$totalInExpr}  AS total_in,
-            {$totalOutExpr} AS total_out
+            {$totalInExpr}   AS total_in,
+            {$totalOutExpr}  AS total_out
         FROM gudang_nasita_stock gs
+        {$barangJoin}
         WHERE {$isActiveWhere}
         ORDER BY {$categoryOrder} ASC, {$itemNameOrder} ASC
         LIMIT {$limit}
