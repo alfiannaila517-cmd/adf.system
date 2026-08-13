@@ -128,7 +128,9 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
 
         .book-stage {
             position: relative;
-            min-height: min(74vh, 860px);
+            height: clamp(520px, 74vh, 900px);
+            aspect-ratio: 4 / 5;
+            max-width: 100%;
             border-radius: 16px;
             overflow: hidden;
             border: 1px solid var(--line);
@@ -137,9 +139,8 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
         }
 
         .page-layer {
-            position: relative;
-            width: 100%;
-            height: 100%;
+            position: absolute;
+            inset: 0;
             overflow: hidden;
             border-radius: 16px;
             opacity: 0;
@@ -283,7 +284,7 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
             }
 
             .book-stage {
-                min-height: 70vh;
+                height: clamp(480px, 70vh, 760px);
             }
 
             .page-sheet {
@@ -305,7 +306,8 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
             }
 
             .book-stage {
-                min-height: 66vh;
+                height: clamp(420px, 66vh, 640px);
+                aspect-ratio: 3 / 4;
             }
 
             .controls {
