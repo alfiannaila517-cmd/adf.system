@@ -409,6 +409,7 @@ usort($pendingReceipts, function ($a, $b) {
 $pendingReceipts = array_slice($pendingReceipts, 0, 12);
 $pendingPoCount = count($pendingReceipts);
 
+$forceTheme = 'light';
 include '../../includes/header.php';
 ?>
 
@@ -515,7 +516,7 @@ include '../../includes/header.php';
     <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; gap:1rem; flex-wrap:wrap;">
             <h3 style="font-size:1rem; font-weight:700; margin:0;">Stok Gudang</h3>
-<form method="GET" id="stockFilterForm" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+            <form method="GET" id="stockFilterForm" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
                 <input type="text" name="q_item" id="stockSearchInput" class="form-control" placeholder="Cari nama item..." value="<?php echo htmlspecialchars($searchItemName); ?>" style="min-width:220px;" autocomplete="off">
                 <label style="display:flex; align-items:center; gap:0.35rem; font-size:0.82rem; color:var(--text-muted);">
                     <input type="checkbox" name="low_stock" id="stockLowFilter" value="1" <?php echo $filterLowStockOnly ? 'checked' : ''; ?>>
@@ -657,19 +658,20 @@ include '../../includes/header.php';
     const GUDANG_BASE = '<?php echo BASE_URL; ?>';
 
     // Live client-side stock filter
-    (function () {
-        const inp  = document.getElementById('stockSearchInput');
-        const chk  = document.getElementById('stockLowFilter');
-        const rst  = document.getElementById('stockResetBtn');
+    (function() {
+        const inp = document.getElementById('stockSearchInput');
+        const chk = document.getElementById('stockLowFilter');
+        const rst = document.getElementById('stockResetBtn');
         const tbody = document.querySelector('#stockTable tbody');
         if (!inp || !tbody) return;
 
         function filterRows() {
-            const q   = inp.value.trim().toLowerCase();
+            const q = inp.value.trim().toLowerCase();
             const low = chk && chk.checked;
             rst.style.display = (q || low) ? '' : 'none';
 
-            let catRow = null, catVisible = false;
+            let catRow = null,
+                catVisible = false;
 
             Array.from(tbody.rows).forEach(tr => {
                 // Category header row has colspan attribute
@@ -681,9 +683,9 @@ include '../../includes/header.php';
                     return;
                 }
                 // Data row
-                const name = (tr.dataset.item  || '').toLowerCase();
+                const name = (tr.dataset.item || '').toLowerCase();
                 const isLow = tr.dataset.low === '1';
-                const show  = (!q || name.includes(q)) && (!low || isLow);
+                const show = (!q || name.includes(q)) && (!low || isLow);
                 tr.style.display = show ? '' : 'none';
                 if (show) catVisible = true;
             });

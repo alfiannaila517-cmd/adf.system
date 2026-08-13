@@ -494,6 +494,13 @@ if (isset($_SESSION['user_id'])) {
         // keep the default set above
     }
 }
+
+if (isset($forceTheme) && is_string($forceTheme)) {
+    $forceTheme = strtolower(trim($forceTheme));
+    if (in_array($forceTheme, ['light', 'dark'], true)) {
+        $userTheme = $forceTheme;
+    }
+}
 ?>
 
 <body data-theme="<?php echo htmlspecialchars($userTheme); ?>" data-business="<?php echo ACTIVE_BUSINESS_ID; ?>" data-business-type="<?php echo BUSINESS_TYPE; ?>">
