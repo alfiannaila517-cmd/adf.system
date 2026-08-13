@@ -250,6 +250,16 @@ include '../../includes/header.php';
                         </datalist>
                     </div>
                 </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.7rem;">
+                    <div>
+                        <label class="form-label">Harga Beli (Rp)</label>
+                        <input type="number" id="produkHargaBeli" name="harga_beli" class="form-control" min="0" step="1" placeholder="0">
+                    </div>
+                    <div>
+                        <label class="form-label">Harga Jual (Rp)</label>
+                        <input type="number" id="produkHargaJual" name="harga_jual" class="form-control" min="0" step="1" placeholder="0">
+                    </div>
+                </div>
                 <div>
                     <label class="form-label">Deskripsi / Catatan</label>
                     <textarea id="produkDeskripsi" name="deskripsi" class="form-control" rows="2" placeholder="Opsional"></textarea>
@@ -275,6 +285,8 @@ include '../../includes/header.php';
         document.getElementById('produkNama').value = data ? data.nama_barang : '';
         document.getElementById('produkKategori').value = data ? (data.kategori || '') : '';
         document.getElementById('produkSatuan').value = data ? (data.satuan || '') : '';
+        document.getElementById('produkHargaBeli').value = data ? (parseFloat(data.harga_beli) || '') : '';
+        document.getElementById('produkHargaJual').value = data ? (parseFloat(data.harga_jual) || '') : '';
         document.getElementById('produkDeskripsi').value = data ? (data.deskripsi || '') : '';
         document.getElementById('produkModalMsg').style.display = 'none';
         document.getElementById('produkNamaHint').style.display = 'none';
