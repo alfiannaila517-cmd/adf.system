@@ -510,7 +510,8 @@ if (isset($_SESSION['user_id'])) {
             $messages = formatOverdueMotorMessages($overdueMotors);
             $count = count($overdueMotors);
             $notificationText = implode('          ', $messages);
-            $scrollDuration = max(15, $count * 8);
+            // Slow down ticker for readability.
+            $scrollDuration = max(30, $count * 14);
     ?>
             <style>
                 .motor-overdue-banner {
