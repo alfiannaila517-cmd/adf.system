@@ -485,7 +485,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
-$stockItemsAll = getGudangNasitaStock(1000);
+$stockItemsAll = [];
+try {
+    $stockItemsAll = getGudangNasitaStock(1000);
+} catch (Throwable $e) {
+    error_log('gudang-nasita stock load failed: ' . $e->getMessage());
+    $stockItemsAll = [];
+}
 $searchItemName = trim((string)($_GET['q_item'] ?? ''));
 $filterLowStockOnly = (string)($_GET['low_stock'] ?? '') === '1';
 
@@ -642,7 +648,13 @@ if (isset($_GET['export_pdf']) && (string)$_GET['export_pdf'] === '1') {
     exit;
 }
 
-$recentTransfers = getGudangNasitaTransfers(15);
+$recentTransfers = [];
+try {
+    $recentTransfers = getGudangNasitaTransfers(15);
+} catch (Throwable $e) {
+    error_log('gudang-nasita transfer load failed: ' . $e->getMessage());
+    $recentTransfers = [];
+}
 
 // Collect low-stock items for prominent alert
 $lowStockItems = array_values(array_filter($stockItems, function ($item) {

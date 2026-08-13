@@ -440,21 +440,29 @@ function getGudangNasitaStock($limit = 200)
 {
     $db = Database::getInstance();
 
-    ensureGudangNasitaStockSchemaCompatibility();
-    ensureGudangNasitaOperationalTablesCompatibility();
+    try {
+        ensureGudangNasitaStockSchemaCompatibility();
+        ensureGudangNasitaOperationalTablesCompatibility();
+    } catch (Throwable $e) {
+        error_log('getGudangNasitaStock schema bootstrap skipped: ' . $e->getMessage());
+    }
 
     $codeExpr = gudangNasitaStockHasColumn('stock_code')
         ? 'gs.stock_code'
         : "CONCAT('GN-LEGACY-', LPAD(gs.id, 4, '0'))";
 
-        return $db->fetchAll("\n        SELECT\n            gs.*,\n            {$codeExpr} AS stock_code,\n            COALESCE(gs.harga_beli, 0) AS harga_beli,\n            COALESCE(gs.total_harga, COALESCE(gs.quantity, 0) * COALESCE(gs.harga_beli, 0), 0) AS total_harga,\n            COALESCE((SELECT SUM(quantity) FROM gudang_nasita_movements gm WHERE gm.stock_id = gs.id AND gm.movement_type = 'in_supplier'), 0) AS total_in,\n            COALESCE((SELECT SUM(quantity) FROM gudang_nasita_movements gm WHERE gm.stock_id = gs.id AND gm.movement_type = 'out_transfer'), 0) AS total_out\n        FROM gudang_nasita_stock gs\n        WHERE gs.is_active = 1\n        ORDER BY COALESCE(gs.category, 'lainnya') ASC, gs.item_name ASC\n        LIMIT {$limit}\n    ");
+    return $db->fetchAll("\n        SELECT\n            gs.*,\n            {$codeExpr} AS stock_code,\n            COALESCE(gs.harga_beli, 0) AS harga_beli,\n            COALESCE(gs.total_harga, COALESCE(gs.quantity, 0) * COALESCE(gs.harga_beli, 0), 0) AS total_harga,\n            COALESCE((SELECT SUM(quantity) FROM gudang_nasita_movements gm WHERE gm.stock_id = gs.id AND gm.movement_type = 'in_supplier'), 0) AS total_in,\n            COALESCE((SELECT SUM(quantity) FROM gudang_nasita_movements gm WHERE gm.stock_id = gs.id AND gm.movement_type = 'out_transfer'), 0) AS total_out\n        FROM gudang_nasita_stock gs\n        WHERE gs.is_active = 1\n        ORDER BY COALESCE(gs.category, 'lainnya') ASC, gs.item_name ASC\n        LIMIT {$limit}\n    ");
 }
 
 function getGudangNasitaTransfers($limit = 50)
 {
     $db = Database::getInstance();
 
-    ensureGudangNasitaOperationalTablesCompatibility();
+    try {
+        ensureGudangNasitaOperationalTablesCompatibility();
+    } catch (Throwable $e) {
+        error_log('getGudangNasitaTransfers schema bootstrap skipped: ' . $e->getMessage());
+    }
     return $db->fetchAll("\n        SELECT\n            gt.*,\n            u.full_name AS created_by_name,\n            r.full_name AS received_by_name,\n            COUNT(gti.id) AS items_count,\n            COALESCE(SUM(gti.quantity), 0) AS total_qty\n        FROM gudang_nasita_transfers gt\n        LEFT JOIN users u ON gt.created_by = u.id\n        LEFT JOIN users r ON gt.received_by = r.id\n        LEFT JOIN gudang_nasita_transfer_items gti ON gti.transfer_id = gt.id\n        GROUP BY gt.id\n        ORDER BY gt.created_at DESC\n        LIMIT {$limit}\n    ");
 }
 
@@ -462,8 +470,12 @@ function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $op
 {
     $db = Database::getInstance();
 
-    ensureGudangNasitaStockSchemaCompatibility();
-    ensureGudangNasitaOperationalTablesCompatibility();
+    try {
+        ensureGudangNasitaStockSchemaCompatibility();
+        ensureGudangNasitaOperationalTablesCompatibility();
+    } catch (Throwable $e) {
+        error_log('addGudangNasitaManualStock schema bootstrap skipped: ' . $e->getMessage());
+    }
 
     try {
         $itemName = trim((string)$itemName);
@@ -614,8 +626,12 @@ function receivePurchaseOrderToGudang($po_id, array $receivedItems, $receivedBy,
 {
     $db = Database::getInstance();
 
-    ensureGudangNasitaStockSchemaCompatibility();
-    ensureGudangNasitaOperationalTablesCompatibility();
+    try {
+        ensureGudangNasitaStockSchemaCompatibility();
+        ensureGudangNasitaOperationalTablesCompatibility();
+    } catch (Throwable $e) {
+        error_log('receivePurchaseOrderToGudang schema bootstrap skipped: ' . $e->getMessage());
+    }
 
     try {
         $po = getPurchaseOrder($po_id);
@@ -914,28 +930,28 @@ function ensureGudangNasitaStockSchemaCompatibility()
             $db->query("ALTER TABLE gudang_nasita_stock ADD COLUMN `{$col}` {$definition}");
         }
 
-    function gudangNasitaCurrentUnitCost(array $stock)
-    {
-        if (isset($stock['harga_beli']) && (float)$stock['harga_beli'] > 0) {
-            return (float)$stock['harga_beli'];
+        function gudangNasitaCurrentUnitCost(array $stock)
+        {
+            if (isset($stock['harga_beli']) && (float)$stock['harga_beli'] > 0) {
+                return (float)$stock['harga_beli'];
+            }
+
+            $qty = gudangNasitaCurrentQty($stock);
+            if ($qty > 0 && isset($stock['total_harga']) && (float)$stock['total_harga'] > 0) {
+                return (float)$stock['total_harga'] / $qty;
+            }
+
+            return 0.0;
         }
 
-        $qty = gudangNasitaCurrentQty($stock);
-        if ($qty > 0 && isset($stock['total_harga']) && (float)$stock['total_harga'] > 0) {
-            return (float)$stock['total_harga'] / $qty;
+        function gudangNasitaCurrentStockValue(array $stock)
+        {
+            if (isset($stock['total_harga']) && (float)$stock['total_harga'] > 0) {
+                return (float)$stock['total_harga'];
+            }
+
+            return gudangNasitaCurrentQty($stock) * gudangNasitaCurrentUnitCost($stock);
         }
-
-        return 0.0;
-    }
-
-    function gudangNasitaCurrentStockValue(array $stock)
-    {
-        if (isset($stock['total_harga']) && (float)$stock['total_harga'] > 0) {
-            return (float)$stock['total_harga'];
-        }
-
-        return gudangNasitaCurrentQty($stock) * gudangNasitaCurrentUnitCost($stock);
-    }
     }
 
     // Refresh columns after potential ALTERs.
@@ -1121,7 +1137,11 @@ function transferGudangNasitaStock($targetBusinessId, array $items, $createdBy, 
 {
     $db = Database::getInstance();
 
-    ensureGudangNasitaOperationalTablesCompatibility();
+    try {
+        ensureGudangNasitaOperationalTablesCompatibility();
+    } catch (Throwable $e) {
+        error_log('transferGudangNasitaStock schema bootstrap skipped: ' . $e->getMessage());
+    }
     try {
         if (empty($items)) {
             throw new Exception('Minimal 1 item transfer wajib diisi');
