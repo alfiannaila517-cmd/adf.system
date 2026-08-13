@@ -87,7 +87,58 @@ $businessFilterSql = '';
 $businessFilterParams = [];
 
 $pendingReceipts = [];
-$originDbName = Database::getCurrentDatabase();
+
+function gudangResolveBusinessDbName(string $dbName): string
+{
+    $isProduction = (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') === false &&
+        strpos($_SERVER['HTTP_HOST'] ?? '', '127.0.0.1') === false);
+
+    if (!$isProduction) {
+        return $dbName;
+    }
+
+    $dbMapping = [
+        'adf_system' => 'adfb2574_adf',
+        'adf_narayana_hotel' => 'adfb2574_narayana_hotel',
+        'adf_benscafe' => 'adfb2574_Adf_Bens',
+        'adf_eat_meet' => 'adfb2574_eat_meet',
+        'adf_demo' => 'adfb2574_demo',
+        'adf_cqc' => 'adfb2574_cqc',
+    ];
+
+    if (isset($dbMapping[$dbName])) {
+        return $dbMapping[$dbName];
+    }
+
+    if (strpos($dbName, 'adf_') === 0) {
+        $hostingPrefix = 'adfb2574_';
+        if (defined('DB_USER')) {
+            $parts = explode('_', DB_USER);
+            if (count($parts) >= 2) {
+                $hostingPrefix = $parts[0] . '_';
+            }
+        }
+        return $hostingPrefix . substr($dbName, 4);
+    }
+
+    return $dbName;
+}
+
+function gudangFetchPendingPoFromBusinessDb(string $dbName): array
+{
+    $resolvedDbName = gudangResolveBusinessDbName($dbName);
+    $pdo = new PDO(
+        'mysql:host=' . DB_HOST . ';dbname=' . $resolvedDbName . ';charset=utf8mb4',
+        DB_USER,
+        DB_PASS,
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+    );
+
+    $stmt = $pdo->query("\n        SELECT poh.id, poh.po_number, poh.po_date, poh.status, poh.supplier_id, s.supplier_name,\n               b.id AS source_business_id, b.business_name AS source_business_name,\n               COUNT(pod.id) AS items_count,\n               SUM(CASE WHEN COALESCE(pod.received_quantity,0) < pod.quantity THEN 1 ELSE 0 END) AS pending_items,\n               poh.created_at\n        FROM purchase_orders_header poh\n        LEFT JOIN suppliers s ON s.id = poh.supplier_id\n        LEFT JOIN businesses b ON b.id = poh.business_id\n        LEFT JOIN purchase_orders_detail pod ON pod.po_header_id = poh.id\n        WHERE poh.status NOT IN ('completed','cancelled','received','rejected')\n        GROUP BY poh.id\n        HAVING pending_items > 0\n        ORDER BY poh.created_at DESC\n        LIMIT 20\n    ");
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+}
+
 $targetBusinessConfigs = [
     'narayana-hotel',
     'bens-cafe',
@@ -107,8 +158,7 @@ foreach ($targetBusinessConfigs as $bizSlug) {
     }
 
     try {
-        $bizDb = Database::switchDatabase($bizDbName);
-        $rows = $bizDb->fetchAll("\n            SELECT poh.id, poh.po_number, poh.po_date, poh.status, poh.supplier_id, s.supplier_name,\n                   b.id AS source_business_id, b.business_name AS source_business_name,\n                   COUNT(pod.id) AS items_count,\n                   SUM(CASE WHEN COALESCE(pod.received_quantity,0) < pod.quantity THEN 1 ELSE 0 END) AS pending_items,\n                   poh.created_at\n            FROM purchase_orders_header poh\n            LEFT JOIN suppliers s ON s.id = poh.supplier_id\n            LEFT JOIN businesses b ON b.id = poh.business_id\n            LEFT JOIN purchase_orders_detail pod ON pod.po_header_id = poh.id\n            WHERE poh.status NOT IN ('completed','cancelled','received','rejected')\n            GROUP BY poh.id\n            HAVING pending_items > 0\n            ORDER BY poh.created_at DESC\n            LIMIT 20\n        ");
+        $rows = gudangFetchPendingPoFromBusinessDb($bizDbName);
 
         foreach ($rows as $row) {
             if (empty($row['source_business_name']) && !empty($bizCfg['name'])) {
@@ -119,14 +169,6 @@ foreach ($targetBusinessConfigs as $bizSlug) {
         }
     } catch (Throwable $e) {
         error_log('Gudang pending PO cross-db error [' . $bizSlug . ']: ' . $e->getMessage());
-    }
-}
-
-if (!empty($originDbName)) {
-    try {
-        Database::switchDatabase($originDbName);
-        $db = Database::getInstance();
-    } catch (Throwable $e) {
     }
 }
 
