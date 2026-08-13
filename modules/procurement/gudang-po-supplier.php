@@ -320,6 +320,11 @@ if ($printPo) {
     exit;
 }
 
+$allBarang = $db->fetchAll(
+    "SELECT id, kode_barang, nama_barang, satuan, harga_beli
+     FROM gudang_nasita_barang WHERE COALESCE(is_active,1)=1 ORDER BY nama_barang ASC"
+) ?: [];
+
 $forceTheme = 'light';
 include '../../includes/header.php';
 ?>
@@ -522,18 +527,76 @@ include '../../includes/header.php';
         if (e.target === document.getElementById('createPoModal')) document.getElementById('createPoModal').style.display = 'none';
     });
 
+    const GUDANG_BARANG = <?php echo json_encode(array_values($allBarang), JSON_UNESCAPED_UNICODE); ?>;
+
+    function buildItemRow(idx) {
+        return `<td style="min-width:200px;">
+            <div class="po-ac-wrap" style="position:relative;">
+                <input type="text" name="items[${idx}][item_name]" class="form-control po-item-ac" placeholder="Cari nama barang..." autocomplete="off" required>
+                <div class="po-item-drop" style="display:none;position:absolute;z-index:999;width:100%;background:#fff;border:1px solid #e2e8f0;border-radius:.4rem;max-height:220px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.12);top:100%;left:0;"></div>
+            </div>
+        </td>
+        <td><input type="number" name="items[${idx}][quantity]" class="form-control" step="0.01" min="0.01" placeholder="0" required style="width:90px;"></td>
+        <td><input type="text" name="items[${idx}][unit]" class="form-control po-item-unit" placeholder="pcs" value="pcs" style="width:70px;"></td>
+        <td><input type="number" name="items[${idx}][unit_price]" class="form-control po-item-price" step="1" min="0" placeholder="0" style="width:120px;"></td>
+        <td><button type="button" class="btn btn-sm btn-danger" onclick="this.closest('tr').remove()"><i data-feather="trash-2" style="width:13px;height:13px;"></i></button></td>`;
+    }
+
     function addItem() {
-        var tbody = document.getElementById('itemsBody');
-        var idx = tbody.querySelectorAll('tr').length;
-        var tr = document.createElement('tr');
-        tr.innerHTML = '<td><input type="text" name="items[' + idx + '][item_name]" class="form-control" placeholder="Nama barang" required></td>' +
-            '<td><input type="number" name="items[' + idx + '][quantity]" class="form-control" step="0.01" min="0.01" placeholder="0" required style="width:90px;"></td>' +
-            '<td><input type="text" name="items[' + idx + '][unit]" class="form-control" placeholder="pcs" value="pcs" style="width:70px;"></td>' +
-            '<td><input type="number" name="items[' + idx + '][unit_price]" class="form-control" step="1" min="0" placeholder="0" style="width:110px;"></td>' +
-            '<td><button type="button" class="btn btn-sm btn-danger" onclick="this.closest(\'tr\').remove()"><i data-feather="trash-2" style="width:13px;height:13px;"></i></button></td>';
+        const tbody = document.getElementById('itemsBody');
+        const idx = tbody.querySelectorAll('tr').length;
+        const tr = document.createElement('tr');
+        tr.innerHTML = buildItemRow(idx);
         tbody.appendChild(tr);
+        initPoItemAc(tr.querySelector('.po-item-ac'));
         feather.replace();
     }
+
+    function initPoItemAc(input) {
+        const drop = input.parentElement.querySelector('.po-item-drop');
+
+        input.addEventListener('input', function () {
+            const q = this.value.trim().toLowerCase();
+            if (q.length < 1) { drop.style.display = 'none'; return; }
+            const matches = GUDANG_BARANG.filter(p => p.nama_barang.toLowerCase().includes(q)).slice(0, 20);
+            if (!matches.length) { drop.style.display = 'none'; return; }
+            drop.innerHTML = matches.map((p, i) =>
+                `<div class="po-drop-item" data-i="${GUDANG_BARANG.indexOf(p)}"
+                    style="padding:.5rem .75rem;cursor:pointer;font-size:.84rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;"
+                    onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background=''">
+                    <span><strong>${p.nama_barang}</strong> <span style="color:#64748b;font-size:.75rem;margin-left:.4rem;">${p.satuan||'pcs'}</span></span>
+                    <span style="color:#0f9d6a;font-weight:700;font-size:.8rem;white-space:nowrap;margin-left:.5rem;">${parseFloat(p.harga_beli)>0?'Rp '+parseInt(p.harga_beli).toLocaleString('id-ID'):''}</span>
+                </div>`
+            ).join('');
+            drop.style.display = 'block';
+        });
+
+        drop.addEventListener('click', function (e) {
+            const item = e.target.closest('.po-drop-item');
+            if (!item) return;
+            const p = GUDANG_BARANG[parseInt(item.dataset.i)];
+            if (!p) return;
+            const row = input.closest('tr');
+            input.value = p.nama_barang;
+            const unitInput = row.querySelector('.po-item-unit');
+            const priceInput = row.querySelector('.po-item-price');
+            if (unitInput) unitInput.value = p.satuan || 'pcs';
+            if (priceInput && parseFloat(p.harga_beli) > 0) priceInput.value = Math.round(parseFloat(p.harga_beli));
+            drop.style.display = 'none';
+        });
+
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') drop.style.display = 'none';
+        });
+
+        // Close dropdown when clicking outside this row
+        document.addEventListener('click', function (e) {
+            if (!input.parentElement.contains(e.target)) drop.style.display = 'none';
+        }, { capture: false });
+    }
+
+    // Init autocomplete on the first (static) row
+    document.querySelectorAll('.po-item-ac').forEach(initPoItemAc);
 </script>
 
 <!-- Modal Buat PO Baru -->
@@ -579,10 +642,15 @@ include '../../includes/header.php';
                         </thead>
                         <tbody id="itemsBody">
                             <tr>
-                                <td><input type="text" name="items[0][item_name]" class="form-control" placeholder="Nama barang" required></td>
+                                <td style="min-width:200px;">
+                                    <div class="po-ac-wrap" style="position:relative;">
+                                        <input type="text" name="items[0][item_name]" class="form-control po-item-ac" placeholder="Cari nama barang..." autocomplete="off" required>
+                                        <div class="po-item-drop" style="display:none;position:absolute;z-index:999;width:100%;background:#fff;border:1px solid #e2e8f0;border-radius:.4rem;max-height:220px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.12);top:100%;left:0;"></div>
+                                    </div>
+                                </td>
                                 <td><input type="number" name="items[0][quantity]" class="form-control" step="0.01" min="0.01" placeholder="0" required style="width:90px;"></td>
-                                <td><input type="text" name="items[0][unit]" class="form-control" placeholder="pcs" value="pcs" style="width:70px;"></td>
-                                <td><input type="number" name="items[0][unit_price]" class="form-control" step="1" min="0" placeholder="0" style="width:110px;"></td>
+                                <td><input type="text" name="items[0][unit]" class="form-control po-item-unit" placeholder="pcs" value="pcs" style="width:70px;"></td>
+                                <td><input type="number" name="items[0][unit_price]" class="form-control po-item-price" step="1" min="0" placeholder="0" style="width:120px;"></td>
                                 <td></td>
                             </tr>
                         </tbody>
