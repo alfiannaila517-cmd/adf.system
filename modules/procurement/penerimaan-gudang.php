@@ -13,6 +13,10 @@ $db = Database::getInstance();
 $currentUser = $auth->getCurrentUser();
 $pageTitle = 'Penerimaan dari Gudang';
 
+if (function_exists('ensureGudangNasitaOperationalTablesCompatibility')) {
+    ensureGudangNasitaOperationalTablesCompatibility();
+}
+
 // Check if user is warehouse/gudang user
 $isWarehouse = $auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse') || $auth->hasPermission('warehouse_transfers');
 
@@ -70,6 +74,7 @@ $transfers = $db->fetchAll("
         gnt.source_po_id,
         COUNT(gnti.id) as items_count,
         SUM(gnti.quantity) as total_quantity,
+        COALESCE(SUM(COALESCE(gnti.subtotal, gnti.quantity * COALESCE(gnti.unit_price, 0))), 0) as total_value,
         u.full_name as created_by_name
     FROM gudang_nasita_transfers gnt
     LEFT JOIN gudang_nasita_transfer_items gnti ON gnti.transfer_id = gnt.id
@@ -87,13 +92,13 @@ $transferItems = [];
 if ($viewTransferId > 0) {
     $detailWhereClause = 'gnt.id = ?';
     $detailParams = [$viewTransferId];
-    
+
     // For business users, also check they own this transfer
     if (!$isWarehouse && $activeBusinessId > 0) {
         $detailWhereClause .= ' AND gnt.target_business_id = ?';
         $detailParams[] = $activeBusinessId;
     }
-    
+
     $transferDetail = $db->fetchOne("
         SELECT 
             gnt.id,
@@ -118,6 +123,8 @@ if ($viewTransferId > 0) {
                 item_name,
                 unit,
                 quantity,
+                    unit_price,
+                    subtotal,
                 notes
             FROM gudang_nasita_transfer_items
             WHERE transfer_id = ?
@@ -146,13 +153,15 @@ include '../../includes/header.php';
 
 <?php if (!empty($_SESSION['success'])): ?>
     <div class="alert alert-success">
-        <?php echo htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?>
+        <?php echo htmlspecialchars($_SESSION['success']);
+        unset($_SESSION['success']); ?>
     </div>
 <?php endif; ?>
 
 <?php if (!empty($_SESSION['error'])): ?>
     <div class="alert alert-danger">
-        <?php echo htmlspecialchars($_SESSION['error']); unset($_SESSION['error']); ?>
+        <?php echo htmlspecialchars($_SESSION['error']);
+        unset($_SESSION['error']); ?>
     </div>
 <?php endif; ?>
 
@@ -208,6 +217,7 @@ include '../../includes/header.php';
                 <th>Tanggal</th>
                 <th>Items</th>
                 <th>Total Qty</th>
+                <th>Total Nilai</th>
                 <th>Status</th>
                 <th>Diterima Oleh</th>
                 <th class="text-center">Aksi</th>
@@ -216,7 +226,7 @@ include '../../includes/header.php';
         <tbody>
             <?php if (empty($transfers)): ?>
                 <tr>
-                    <td colspan="<?php echo $isWarehouse ? 8 : 7; ?>" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <td colspan="<?php echo $isWarehouse ? 9 : 8; ?>" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                         <i data-feather="box" style="width: 48px; height: 48px; opacity: 0.3; margin-bottom: 1rem; display: block;"></i>
                         <p>Belum ada penerimaan dari gudang</p>
                     </td>
@@ -239,6 +249,7 @@ include '../../includes/header.php';
                             </span>
                         </td>
                         <td><?php echo number_format($transfer['total_quantity'], 2); ?></td>
+                        <td style="font-weight:700; color:#0f9d6a;">Rp <?php echo number_format((float)$transfer['total_value'], 0, ',', '.'); ?></td>
                         <td>
                             <?php
                             $statusLabels = [
@@ -276,7 +287,7 @@ include '../../includes/header.php';
                 </h3>
                 <a href="penerimaan-gudang.php" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted);">×</a>
             </div>
-            
+
             <div style="padding: 1.5rem;">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
                     <div>
@@ -322,6 +333,8 @@ include '../../includes/header.php';
                                 <th style="text-align: left; padding: 0.75rem; font-size: 0.875rem; font-weight: 600; color: var(--text-muted);">Item</th>
                                 <th style="text-align: center; padding: 0.75rem; font-size: 0.875rem; font-weight: 600; color: var(--text-muted);">Qty</th>
                                 <th style="text-align: center; padding: 0.75rem; font-size: 0.875rem; font-weight: 600; color: var(--text-muted);">Satuan</th>
+                                <th style="text-align: right; padding: 0.75rem; font-size: 0.875rem; font-weight: 600; color: var(--text-muted);">Harga</th>
+                                <th style="text-align: right; padding: 0.75rem; font-size: 0.875rem; font-weight: 600; color: var(--text-muted);">Subtotal</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -340,6 +353,12 @@ include '../../includes/header.php';
                                     </td>
                                     <td style="text-align: center; padding: 0.75rem; font-size: 0.875rem; color: var(--text-muted);">
                                         <?php echo htmlspecialchars($item['unit']); ?>
+                                    </td>
+                                    <td style="text-align: right; padding: 0.75rem; font-size: 0.875rem; color: var(--text-primary);">
+                                        Rp <?php echo number_format((float)($item['unit_price'] ?? 0), 0, ',', '.'); ?>
+                                    </td>
+                                    <td style="text-align: right; padding: 0.75rem; font-size: 0.875rem; font-weight: 700; color: #0f9d6a;">
+                                        Rp <?php echo number_format((float)($item['subtotal'] ?? ((float)$item['quantity'] * (float)($item['unit_price'] ?? 0))), 0, ',', '.'); ?>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>

@@ -13,6 +13,10 @@ $db = Database::getInstance();
 $currentUser = $auth->getCurrentUser();
 $pageTitle = 'Rekaman Stock Masuk';
 
+if (function_exists('ensureGudangNasitaOperationalTablesCompatibility')) {
+    ensureGudangNasitaOperationalTablesCompatibility();
+}
+
 $activeBusinessSlug = strtolower((string)($_SESSION['active_business_id'] ?? ''));
 $activeBusinessConfig = getActiveBusinessConfig();
 
@@ -215,7 +219,8 @@ if ($activeBusinessId > 0) {
                             u.full_name AS created_by_name,
                             r.full_name AS received_by_name,
                             COUNT(gti.id) AS items_count,
-                            COALESCE(SUM(gti.quantity), 0) AS total_qty
+                                     COALESCE(SUM(gti.quantity), 0) AS total_qty,
+                                     COALESCE(SUM(COALESCE(gti.subtotal, gti.quantity * COALESCE(gti.unit_price, 0))), 0) AS total_value
                          FROM gudang_nasita_transfers gt
                          LEFT JOIN users u ON gt.created_by = u.id
                          LEFT JOIN users r ON gt.received_by = r.id
@@ -252,7 +257,8 @@ if ($activeBusinessId > 0) {
                             u.full_name AS created_by_name,
                             r.full_name AS received_by_name,
                             COUNT(gti.id) AS items_count,
-                            COALESCE(SUM(gti.quantity), 0) AS total_qty
+                                     COALESCE(SUM(gti.quantity), 0) AS total_qty,
+                                     COALESCE(SUM(COALESCE(gti.subtotal, gti.quantity * COALESCE(gti.unit_price, 0))), 0) AS total_value
                          FROM gudang_nasita_transfers gt
                          LEFT JOIN users u ON gt.created_by = u.id
                          LEFT JOIN users r ON gt.received_by = r.id
@@ -535,9 +541,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $key = $buildKey($itemName, $unit);
             // Set baseline to total gross so visible qty becomes 0 regardless of current value
             $totalGross = $getMapQty($rawStockMap, $key)
-                        + $getMapQty($manualStockMap, $key)
-                        + $getMapQty($interTransferInMap, $key)
-                        - $getMapQty($interTransferOutMap, $key);
+                + $getMapQty($manualStockMap, $key)
+                + $getMapQty($interTransferInMap, $key)
+                - $getMapQty($interTransferOutMap, $key);
             $newBaseline = max($totalGross, $getMapQty($baselineMap, $key));
 
             $db->query(
@@ -686,6 +692,20 @@ foreach ($stockSummary as $row) {
     $totalQtyReceived += (float)($row['total_received'] ?? 0);
 }
 
+$totalValueReceived = 0;
+$monthValueReceived = 0;
+$monthStart = strtotime(date('Y-m-01 00:00:00'));
+$monthEnd = strtotime(date('Y-m-t 23:59:59'));
+foreach ($incomingTransfers as $transferRow) {
+    $transferValue = (float)($transferRow['total_value'] ?? 0);
+    $totalValueReceived += $transferValue;
+
+    $transferTime = strtotime((string)($transferRow['created_at'] ?? ''));
+    if ($transferTime >= $monthStart && $transferTime <= $monthEnd) {
+        $monthValueReceived += $transferValue;
+    }
+}
+
 include '../../includes/header.php';
 ?>
 
@@ -726,7 +746,7 @@ include '../../includes/header.php';
     <div class="alert alert-warning">Tidak ada bisnis aktif di sesi ini.</div>
 <?php else: ?>
 
-    <div style="display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:0.9rem; margin-bottom:1rem;">
+    <div style="display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:0.9rem; margin-bottom:1rem;">
         <div class="card" style="padding:0.9rem 1rem; border:1px solid #dbeafe; background:linear-gradient(145deg,#eff6ff,#ffffff);">
             <div style="font-size:0.75rem; color:#475569; margin-bottom:0.3rem;">Total Item Aktif</div>
             <div style="font-size:1.45rem; font-weight:800; color:#0f172a;"><?php echo count($stockSummary); ?></div>
@@ -739,6 +759,11 @@ include '../../includes/header.php';
         <div class="card" style="padding:0.9rem 1rem; border:1px solid #fef3c7; background:linear-gradient(145deg,#fffbeb,#ffffff);">
             <div style="font-size:0.75rem; color:#92400e; margin-bottom:0.3rem;">Histori Transfer</div>
             <div style="font-size:1.45rem; font-weight:800; color:#78350f;"><?php echo count($incomingTransfers); ?></div>
+        </div>
+        <div class="card" style="padding:0.9rem 1rem; border:1px solid #dcfce7; background:linear-gradient(145deg,#f0fdf4,#ffffff);">
+            <div style="font-size:0.75rem; color:#166534; margin-bottom:0.3rem;">Nilai Bulan Ini</div>
+            <div style="font-size:1.45rem; font-weight:800; color:#0f9d6a;">Rp <?php echo number_format($monthValueReceived, 0, ',', '.'); ?></div>
+            <div style="font-size:0.72rem; color:#4b5563; margin-top:0.2rem;">Total histori: Rp <?php echo number_format($totalValueReceived, 0, ',', '.'); ?></div>
         </div>
     </div>
 
@@ -819,6 +844,7 @@ include '../../includes/header.php';
                         <th>Tanggal</th>
                         <th>Item</th>
                         <th class="text-right">Total Qty</th>
+                        <th class="text-right">Total Nilai</th>
                         <th>Dikirim Oleh</th>
                         <th class="text-center">Aksi</th>
                     </tr>
@@ -826,7 +852,7 @@ include '../../includes/header.php';
                 <tbody>
                     <?php if (empty($incomingTransfers)): ?>
                         <tr>
-                            <td colspan="6" style="text-align:center; padding:2rem; color:var(--text-muted);">Belum ada penerimaan barang dari gudang.</td>
+                            <td colspan="7" style="text-align:center; padding:2rem; color:var(--text-muted);">Belum ada penerimaan barang dari gudang.</td>
                         </tr>
                         <?php else: foreach ($incomingTransfers as $transfer): ?>
                             <tr>
@@ -834,6 +860,7 @@ include '../../includes/header.php';
                                 <td style="font-size:0.875rem;"><?php echo !empty($transfer['created_at']) ? date('d M Y H:i', strtotime($transfer['created_at'])) : '-'; ?></td>
                                 <td><?php echo (int)$transfer['items_count']; ?> item</td>
                                 <td class="text-right" style="font-weight:600;"><?php echo number_format((float)$transfer['total_qty'], 2); ?></td>
+                                <td class="text-right" style="font-weight:700; color:#0f9d6a;">Rp <?php echo number_format((float)$transfer['total_value'], 0, ',', '.'); ?></td>
                                 <td style="font-size:0.875rem;"><?php echo htmlspecialchars($transfer['created_by_name'] ?? '-'); ?></td>
                                 <td class="text-center">
                                     <form method="POST" style="display:inline;" onsubmit="return confirm('Hapus histori transfer ini? Stok bisnis akan ikut berkurang.')">

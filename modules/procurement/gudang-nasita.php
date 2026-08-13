@@ -18,6 +18,13 @@ $db = Database::getInstance();
 $currentUser = $auth->getCurrentUser();
 $pageTitle = 'Gudang Nasita';
 
+if (function_exists('ensureGudangNasitaStockSchemaCompatibility')) {
+    ensureGudangNasitaStockSchemaCompatibility();
+}
+if (function_exists('ensureGudangNasitaOperationalTablesCompatibility')) {
+    ensureGudangNasitaOperationalTablesCompatibility();
+}
+
 function gudangImportNormalizeHeader(string $value): string
 {
     $value = trim($value);
@@ -261,12 +268,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $category = trim($_POST['category'] ?? 'lainnya');
     $unit = trim($_POST['unit'] ?? 'pcs');
     $quantity = (float)($_POST['quantity'] ?? 0);
+    $unitPrice = isset($_POST['unit_price']) ? (float)$_POST['unit_price'] : 0;
     $supplierName = trim($_POST['supplier_name'] ?? '');
     $reorderLevel = isset($_POST['reorder_level']) ? (float)$_POST['reorder_level'] : null;
     $notes = trim($_POST['notes'] ?? '');
 
     $result = addGudangNasitaManualStock($itemName, $unit, $quantity, $currentUser['id'], [
         'category' => $category,
+        'unit_price' => $unitPrice,
         'supplier_name' => $supplierName,
         'reorder_level' => $reorderLevel,
         'notes' => $notes,
@@ -504,8 +513,10 @@ $stockItems = array_values(array_filter($stockItemsAll, function ($item) use ($s
 if (isset($_GET['print_stock']) && (string)$_GET['print_stock'] === '1') {
     $printItems = $stockItemsAll;
     $totalQty = 0;
+    $totalValue = 0;
     foreach ($printItems as $pi) {
         $totalQty += (float)($pi['quantity'] ?? 0);
+        $totalValue += (float)($pi['total_harga'] ?? ((float)($pi['quantity'] ?? 0) * (float)($pi['harga_beli'] ?? 0)));
     }
 
     header('Content-Type: text/html; charset=utf-8');
@@ -514,21 +525,26 @@ if (isset($_GET['print_stock']) && (string)$_GET['print_stock'] === '1') {
     echo '</head><body>';
     echo '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;">';
     echo '<div><h2>STOK GUDANG NASITA</h2><strong>ADF System</strong><br>Dicetak: ' . date('d M Y H:i') . '</div>';
-    echo '<div style="text-align:right;"><strong>Total Item:</strong> ' . count($printItems) . '<br><strong>Total Qty:</strong> ' . number_format($totalQty, 2) . '</div>';
+    echo '<div style="text-align:right;"><strong>Total Item:</strong> ' . count($printItems) . '<br><strong>Total Qty:</strong> ' . number_format($totalQty, 2) . '<br><strong>Total Nilai:</strong> Rp ' . number_format($totalValue, 0, ',', '.') . '</div>';
     echo '</div>';
-    echo '<table><thead><tr><th>No</th><th>Kode</th><th>Kategori</th><th>Item</th><th class="text-right">Qty</th><th>Unit</th><th>Supplier</th><th>Reorder</th></tr></thead><tbody>';
+    echo '<table><thead><tr><th>No</th><th>Kode</th><th>Kategori</th><th>Item</th><th class="text-right">Qty</th><th class="text-right">Harga/pcs</th><th class="text-right">Nilai</th><th>Unit</th><th>Supplier</th><th>Reorder</th></tr></thead><tbody>';
     if (empty($printItems)) {
-        echo '<tr><td colspan="8" style="text-align:center;">Belum ada stok gudang</td></tr>';
+        echo '<tr><td colspan="10" style="text-align:center;">Belum ada stok gudang</td></tr>';
     } else {
         foreach ($printItems as $idx => $item) {
             $code = (string)($item['stock_code'] ?? ('GN-LEGACY-' . str_pad((string)($item['id'] ?? 0), 4, '0', STR_PAD_LEFT)));
+            $itemQty = (float)($item['quantity'] ?? 0);
+            $itemUnitCost = (float)($item['harga_beli'] ?? 0);
+            $itemValue = (float)($item['total_harga'] ?? ($itemQty * $itemUnitCost));
             echo '<tr>';
             echo '<td>' . ($idx + 1) . '</td>';
             echo '<td>' . htmlspecialchars($code) . '</td>';
             echo '<td>' . htmlspecialchars((string)($item['category'] ?? '-')) . '</td>';
             echo '<td>' . htmlspecialchars((string)($item['item_name'] ?? '-')) . '</td>';
-            echo '<td class="text-right">' . number_format((float)($item['quantity'] ?? 0), 2) . '</td>';
-            echo '<td>' . htmlspecialchars((string)($item['unit'] ?? 'pcs')) . '</td>';
+            echo '<td class="text-right">' . number_format($itemQty, 2) . '</td>';
+            echo '<td class="text-right">Rp ' . number_format($itemUnitCost, 0, ',', '.') . '</td>';
+            echo '<td class="text-right">Rp ' . number_format($itemValue, 0, ',', '.') . '</td>';
+            echo '<td>' . htmlspecialchars((string)($item['unit'] ?? '-')) . '</td>';
             echo '<td>' . htmlspecialchars((string)($item['supplier_name'] ?? '-')) . '</td>';
             echo '<td>' . number_format((float)($item['reorder_level'] ?? 0), 2) . '</td>';
             echo '</tr>';
@@ -652,10 +668,12 @@ $summary = [
     'low' => 0,
     'incoming_today' => 0,
     'outgoing_today' => 0,
+    'value' => 0,
 ];
 
 foreach ($stockItems as $item) {
     $summary['qty'] += (float)$item['quantity'];
+    $summary['value'] += (float)($item['total_harga'] ?? ((float)$item['quantity'] * (float)($item['harga_beli'] ?? 0)));
     if ((float)$item['quantity'] <= (float)($item['reorder_level'] ?? 0) && (float)($item['reorder_level'] ?? 0) > 0) {
         $summary['low']++;
     }
@@ -821,7 +839,7 @@ include '../../includes/header.php';
     </div>
 <?php endif; ?>
 
-<div style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.25rem;">
+<div style="display:grid; grid-template-columns: repeat(5, 1fr); gap: 1rem; margin-bottom: 1.25rem;">
     <div class="card" style="padding:1rem;">
         <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.35rem;">Total Item</div>
         <div style="font-size:1.75rem; font-weight:800; color:var(--text-primary);"><?php echo $summary['items']; ?></div>
@@ -837,6 +855,10 @@ include '../../includes/header.php';
     <div class="card" style="padding:1rem;">
         <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.35rem;">Keluar Hari Ini</div>
         <div style="font-size:1.75rem; font-weight:800; color:#d83a5b;"><?php echo number_format($summary['outgoing_today'], 2); ?></div>
+    </div>
+    <div class="card" style="padding:1rem;">
+        <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.35rem;">Nilai Persediaan</div>
+        <div style="font-size:1.75rem; font-weight:800; color:#0f9d6a;">Rp <?php echo number_format($summary['value'], 0, ',', '.'); ?></div>
     </div>
 </div>
 
@@ -864,6 +886,8 @@ include '../../includes/header.php';
                         <th>Kategori</th>
                         <th>Item</th>
                         <th class="text-right">Qty</th>
+                        <th class="text-right">Harga/pcs</th>
+                        <th class="text-right">Nilai</th>
                         <th>Unit</th>
                         <th>Supplier</th>
                         <th>Aksi</th>
@@ -872,7 +896,7 @@ include '../../includes/header.php';
                 <tbody>
                     <?php if (empty($stockItems)): ?>
                         <tr>
-                            <td colspan="7" style="text-align:center; padding: 2rem; color: var(--text-muted);">Belum ada stok gudang</td>
+                            <td colspan="9" style="text-align:center; padding: 2rem; color: var(--text-muted);">Belum ada stok gudang</td>
                         </tr>
                     <?php else: ?>
                         <?php $currentCategory = null; ?>
@@ -884,7 +908,7 @@ include '../../includes/header.php';
                             <?php if ($currentCategory !== $rowCategory): ?>
                                 <?php $currentCategory = $rowCategory; ?>
                                 <tr>
-                                    <td colspan="7" style="background:#f8fafc; font-weight:700; color:#334155; text-transform:capitalize; border-top:1px solid var(--border);">
+                                    <td colspan="9" style="background:#f8fafc; font-weight:700; color:#334155; text-transform:capitalize; border-top:1px solid var(--border);">
                                         Kategori: <?php echo htmlspecialchars($currentCategory); ?>
                                     </td>
                                 </tr>
@@ -898,6 +922,8 @@ include '../../includes/header.php';
                                     <?php if (!empty($item['notes'])): ?><div style="font-size:0.75rem; color: var(--text-muted);"><?php echo htmlspecialchars($item['notes']); ?></div><?php endif; ?>
                                 </td>
                                 <td class="text-right" style="font-weight:700; color:<?php echo ((float)$item['quantity'] <= (float)($item['reorder_level'] ?? 0) && (float)($item['reorder_level'] ?? 0) > 0) ? '#d97706' : 'var(--text-primary)'; ?>;"><?php echo number_format($item['quantity'], 2); ?></td>
+                                <td class="text-right">Rp <?php echo number_format((float)($item['harga_beli'] ?? 0), 0, ',', '.'); ?></td>
+                                <td class="text-right" style="font-weight:700; color:#0f9d6a;">Rp <?php echo number_format((float)($item['total_harga'] ?? ((float)$item['quantity'] * (float)($item['harga_beli'] ?? 0))), 0, ',', '.'); ?></td>
                                 <td><?php echo htmlspecialchars($item['unit']); ?></td>
                                 <td style="font-size:0.813rem;"><?php echo htmlspecialchars($item['supplier_name'] ?: '-'); ?></td>
                                 <td>
@@ -1192,6 +1218,10 @@ include '../../includes/header.php';
             <div>
                 <label class="form-label">Qty Masuk *</label>
                 <input type="number" name="quantity" class="form-control" step="0.01" min="0.01" required>
+            </div>
+            <div>
+                <label class="form-label">Harga/pcs</label>
+                <input type="number" name="unit_price" class="form-control" step="0.01" min="0" value="0">
             </div>
             <div>
                 <label class="form-label">Reorder Level</label>

@@ -450,12 +450,15 @@ include '../../includes/header.php';
                 <div style="display: grid; gap: 0.85rem;">
                     <?php foreach ($po['items'] as $item):
                         $remainingQty = max(0, (float)$item['quantity'] - (float)($item['received_quantity'] ?? 0));
+                        $itemUnitPrice = (float)($item['unit_price'] ?? 0);
+                        $itemSubtotal = isset($item['subtotal']) ? (float)$item['subtotal'] : ((float)$item['quantity'] * $itemUnitPrice);
                     ?>
                         <div style="padding: 0.9rem; border: 1px solid #e5e7eb; border-radius: 0.85rem; background: #f8fafc;">
                             <div style="display: flex; justify-content: space-between; gap: 1rem; margin-bottom: 0.65rem;">
                                 <div>
                                     <div style="font-weight: 700; color: #0f172a;"><?php echo htmlspecialchars($item['item_name']); ?></div>
                                     <div style="font-size: 0.8rem; color: #64748b;">Qty PO: <?php echo number_format($item['quantity'], 2); ?> <?php echo htmlspecialchars($item['unit_of_measure']); ?> | Sisa: <?php echo number_format($remainingQty, 2); ?></div>
+                                    <div style="font-size: 0.8rem; color: #0f9d6a; font-weight: 700;">Rp <?php echo number_format($itemUnitPrice, 0, ',', '.'); ?> / pcs · Subtotal Rp <?php echo number_format($itemSubtotal, 0, ',', '.'); ?></div>
                                 </div>
                                 <div style="min-width: 140px;">
                                     <input type="number" step="0.01" min="0" max="<?php echo $remainingQty; ?>" name="received_qty[<?php echo (int)$item['id']; ?>]" class="form-control" value="<?php echo $remainingQty; ?>" style="text-align: right;">
