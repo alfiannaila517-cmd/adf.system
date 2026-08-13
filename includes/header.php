@@ -517,17 +517,23 @@ if (isset($_SESSION['user_id'])) {
                     background: linear-gradient(90deg, #7f1d1d, #dc2626, #7f1d1d);
                     background-size: 200% 100%;
                     animation: banner-pulse 3s ease infinite, banner-bg 4s linear infinite;
-                    color: #fff;
+                    color: #ffffff !important;
                     padding: 0.5rem 0;
                     overflow: hidden;
                     position: relative;
                     font-weight: 700;
                     font-size: 0.84rem;
                     letter-spacing: 0.01em;
+                    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
                     box-shadow: 0 3px 10px rgba(220, 38, 38, 0.5);
                     border-bottom: 2px solid #fca5a5;
                     z-index: 999;
                     cursor: pointer;
+                }
+
+                .motor-overdue-banner,
+                .motor-overdue-banner * {
+                    color: #ffffff !important;
                 }
 
                 @keyframes banner-bg {
