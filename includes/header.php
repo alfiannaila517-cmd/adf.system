@@ -517,16 +517,16 @@ if (isset($_SESSION['user_id'])) {
                     background: linear-gradient(90deg, #7f1d1d, #dc2626, #7f1d1d);
                     background-size: 200% 100%;
                     animation: banner-pulse 3s ease infinite, banner-bg 4s linear infinite;
-                    color: #111827 !important;
-                    -webkit-text-fill-color: #111827 !important;
-                    text-fill-color: #111827 !important;
+                    color: #ffffff !important;
+                    -webkit-text-fill-color: #ffffff !important;
+                    text-fill-color: #ffffff !important;
                     padding: 0.5rem 0;
                     overflow: hidden;
                     position: relative;
                     font-weight: 700;
                     font-size: 0.84rem;
                     letter-spacing: 0.01em;
-                    text-shadow: none;
+                    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
                     box-shadow: 0 3px 10px rgba(220, 38, 38, 0.5);
                     border-bottom: 2px solid #fca5a5;
                     z-index: 999;
@@ -535,9 +535,11 @@ if (isset($_SESSION['user_id'])) {
 
                 .motor-overdue-banner,
                 .motor-overdue-banner * {
-                    color: #111827 !important;
-                    -webkit-text-fill-color: #111827 !important;
-                    text-fill-color: #111827 !important;
+                    color: #ffffff !important;
+                    -webkit-text-fill-color: #ffffff !important;
+                    text-fill-color: #ffffff !important;
+                    opacity: 1 !important;
+                    mix-blend-mode: normal !important;
                 }
 
                 @keyframes banner-bg {
@@ -570,7 +572,7 @@ if (isset($_SESSION['user_id'])) {
                     display: flex;
                     align-items: center;
                     padding: 0 0.75rem;
-                    background: rgba(255, 255, 255, 0.28);
+                    background: rgba(0, 0, 0, 0.35);
                     white-space: nowrap;
                     font-size: 0.78rem;
                     gap: 0.3rem;
