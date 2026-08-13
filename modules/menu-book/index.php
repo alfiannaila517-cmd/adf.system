@@ -423,12 +423,22 @@ include '../../includes/header.php';
     }
 
     .mb-btn {
-        border: 1px solid #cbd5e1;
-        background: #fff;
+        border: 1px solid #334155;
+        background: #334155;
+        color: #fff !important;
         border-radius: 8px;
         padding: 7px 11px;
         cursor: pointer;
         font-weight: 600;
+        text-decoration: none;
+    }
+
+    .mb-btn:link,
+    .mb-btn:visited,
+    .mb-btn:hover,
+    .mb-btn:focus,
+    .mb-btn:active {
+        color: #fff !important;
     }
 
     .mb-btn-primary {
