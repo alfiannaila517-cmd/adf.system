@@ -903,6 +903,19 @@ if (isset($_SESSION['user_id'])) {
                             </li>
                         <?php endif; ?>
 
+                        <?php
+                        $menuBookBizSlugs = ['narayana-hotel', 'bens-cafe', 'eaat-meet'];
+                        $isMenuBookBiz = defined('ACTIVE_BUSINESS_ID') && in_array((string)ACTIVE_BUSINESS_ID, $menuBookBizSlugs, true);
+                        if ($isMenuBookBiz && $auth->hasPermission('menu_book')):
+                        ?>
+                            <li class="nav-item">
+                                <a href="<?php echo BASE_URL; ?>/modules/menu-book/index.php" class="nav-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/menu-book/') !== false) ? 'active' : ''; ?>">
+                                    <i data-feather="book-open" class="nav-icon"></i>
+                                    <span>Buku Menu</span>
+                                </a>
+                            </li>
+                        <?php endif; ?>
+
                         <!-- Sales Invoice Menu (CQC only, not for hotel) -->
                         <?php if ($auth->hasPermission('sales_invoice') && isModuleEnabled('sales') && (!defined('BUSINESS_TYPE') || BUSINESS_TYPE !== 'hotel')): ?>
                             <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/sales/') !== false) ? 'open' : ''; ?>">
