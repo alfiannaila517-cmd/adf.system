@@ -85,39 +85,28 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 8px;
+            padding: 0;
         }
 
         .book-shell {
-            width: min(920px, 100%);
-            min-height: calc(100svh - 16px);
+            width: 100%;
+            min-height: 100svh;
             display: flex;
             flex-direction: column;
         }
 
         .book-head {
-            text-align: center;
-            margin-bottom: 8px;
-        }
-
-        .book-head h1 {
-            margin: 0;
-            font-family: 'Cormorant Garamond', Georgia, serif;
-            letter-spacing: 0.06em;
-            text-transform: uppercase;
-            font-size: clamp(1.2rem, 2.2vw, 2rem);
-            font-weight: 700;
-            color: #332514;
+            display: none;
         }
 
         .viewer {
             position: relative;
-            border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.68);
-            background: linear-gradient(180deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.14));
-            box-shadow: 0 20px 46px var(--shadow);
-            backdrop-filter: blur(4px);
-            padding: 12px;
+            border-radius: 0;
+            border: 0;
+            background: transparent;
+            box-shadow: none;
+            backdrop-filter: none;
+            padding: 0;
             flex: 1;
             display: flex;
             flex-direction: column;
@@ -152,25 +141,20 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
         }
 
         .viewer::after {
-            content: '';
-            position: absolute;
-            inset: 6px;
-            border: 1px solid rgba(161, 115, 42, 0.35);
-            border-radius: 16px;
-            pointer-events: none;
+            display: none;
         }
 
         .book-stage {
             position: relative;
             height: 100%;
-            min-height: clamp(590px, 78vh, 980px);
-            aspect-ratio: 10 / 13;
+            min-height: 100svh;
+            aspect-ratio: auto;
             max-width: 100%;
-            border-radius: 14px;
+            border-radius: 0;
             overflow: hidden;
-            border: 1px solid var(--line);
+            border: 0;
             background: linear-gradient(180deg, #fefcf8, #f6eddf);
-            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.75);
+            box-shadow: none;
             touch-action: pan-y;
         }
 
@@ -347,11 +331,11 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
 
         @media (max-width: 860px) {
             .viewer {
-                padding: 9px;
+                padding: 0;
             }
 
             .book-stage {
-                min-height: clamp(520px, 74vh, 860px);
+                min-height: 100svh;
             }
 
             .page-sheet {
@@ -383,12 +367,6 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
                 pointer-events: none;
             }
 
-            .book-head h1 {
-                font-size: clamp(0.95rem, 5.4vw, 1.18rem);
-                color: #fff6e8;
-                text-shadow: 0 3px 14px rgba(0, 0, 0, 0.45);
-            }
-
             .viewer {
                 border-radius: 0;
                 border: 0;
@@ -409,7 +387,7 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
                 margin: 0;
                 padding: 0;
                 position: absolute;
-                top: calc(env(safe-area-inset-top, 0) + 38px);
+                top: calc(env(safe-area-inset-top, 0) + 8px);
                 left: 10px;
                 right: 10px;
                 z-index: 20;
@@ -463,10 +441,6 @@ $bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-
 
 <body>
     <div class="book-shell">
-        <div class="book-head">
-            <h1><?php echo htmlspecialchars($bizTitle); ?></h1>
-        </div>
-
         <?php if (empty($pages)): ?>
             <div class="empty">The menu book is not available yet.</div>
         <?php else: ?>
