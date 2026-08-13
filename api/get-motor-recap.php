@@ -61,13 +61,25 @@ try {
             GROUP_CONCAT(DISTINCT rm.motor_name ORDER BY rm.motor_name SEPARATOR ', ') as motors
             FROM rental_motor_bookings rmb
             JOIN rental_motors rm ON rmb.motor_id = rm.id
+            LEFT JOIN hotel_invoices hi ON hi.id = rmb.invoice_id AND hi.business_id = rmb.business_id
             WHERE rmb.business_id=? AND rmb.status IN ('active','returned')
                 AND rmb.motor_id IS NOT NULL
-                AND DATE(COALESCE(rmb.actual_return, rmb.end_datetime, rmb.created_at)) BETWEEN ? AND ?
+                AND (
+                    (
+                        rmb.invoice_id IS NOT NULL
+                        AND hi.id IS NOT NULL
+                        AND hi.status NOT IN ('cancelled')
+                        AND DATE(hi.created_at) BETWEEN ? AND ?
+                    )
+                    OR (
+                        rmb.invoice_id IS NULL
+                        AND DATE(COALESCE(rmb.actual_return, rmb.end_datetime, rmb.created_at)) BETWEEN ? AND ?
+                    )
+                )
                 AND rm.partner_owner IS NOT NULL AND rm.partner_owner != ''
             GROUP BY rm.partner_owner, rm.owner_phone
             ORDER BY total_revenue DESC");
-        $ownerStmt->execute([$businessId, $monthStart, $monthEnd]);
+        $ownerStmt->execute([$businessId, $monthStart, $monthEnd, $monthStart, $monthEnd]);
         $recap = $ownerStmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (Exception $ownerErr) {
         error_log('get-motor-recap owner query: ' . $ownerErr->getMessage());
@@ -97,16 +109,29 @@ try {
             COALESCE(rmb.total_price, 0) as total_price,
             COALESCE(rmb.owner_amount, 0) as owner_amount,
             COALESCE(rmb.hotel_commission, 0) as hotel_commission,
-            CASE WHEN rmb.payment_date IS NOT NULL OR rmb.status = 'returned' THEN 1 ELSE 0 END as paid,
-            COALESCE(DATE(rmb.start_datetime), rmb.created_at) as trx_date
+            CASE WHEN rmb.payment_date IS NOT NULL THEN 1 ELSE 0 END as paid,
+            COALESCE(DATE(hi.created_at), DATE(rmb.start_datetime), DATE(rmb.created_at)) as trx_date,
+            hi.payment_status as invoice_payment_status
             FROM rental_motor_bookings rmb
             JOIN rental_motors rm ON rmb.motor_id = rm.id
+            LEFT JOIN hotel_invoices hi ON hi.id = rmb.invoice_id AND hi.business_id = rmb.business_id
             WHERE rmb.business_id=? AND rmb.status IN ('active','returned')
                 AND rmb.motor_id IS NOT NULL
-                AND DATE(COALESCE(rmb.actual_return, rmb.end_datetime, rmb.created_at)) BETWEEN ? AND ?
+                AND (
+                    (
+                        rmb.invoice_id IS NOT NULL
+                        AND hi.id IS NOT NULL
+                        AND hi.status NOT IN ('cancelled')
+                        AND DATE(hi.created_at) BETWEEN ? AND ?
+                    )
+                    OR (
+                        rmb.invoice_id IS NULL
+                        AND DATE(COALESCE(rmb.actual_return, rmb.end_datetime, rmb.created_at)) BETWEEN ? AND ?
+                    )
+                )
                 AND rm.partner_owner IS NOT NULL AND rm.partner_owner != ''
             ORDER BY rmb.created_at DESC");
-        $detailStmt->execute([$businessId, $monthStart, $monthEnd]);
+        $detailStmt->execute([$businessId, $monthStart, $monthEnd, $monthStart, $monthEnd]);
         $detailRows = $detailStmt->fetchAll(PDO::FETCH_ASSOC);
 
         // Group detail rows by partner owner

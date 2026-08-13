@@ -1771,6 +1771,7 @@ include '../../includes/header.php';
                     <td style="text-align:right;">
                         <div style="display:flex;gap:4px;justify-content:flex-end;align-items:center;flex-wrap:wrap;">
                             <button class="btn-trip-edit" onclick="editMotorRentalAmount(${d.rental_id}, ${d.total_price}, ${d.owner_amount}, '${motorNameSafe}')">✏️ Edit</button>
+                            <button class="btn-trip-edit" onclick="toggleMotorPartnerPaidStatus(${d.rental_id}, ${d.paid ? 0 : 1})">${d.paid ? '↩️ Set Belum' : '✅ Set Lunas'}</button>
                             ${d.paid
                                 ? `<span class="btn-trip-paid">✅ Lunas</span>`
                                 : `<button class="btn-trip-pay" onclick="payMotorRental(${d.rental_id}, ${d.owner_amount}, '${motorNameSafe}')">Bayar</button>`
@@ -1970,6 +1971,36 @@ include '../../includes/header.php';
             alert('Network error');
             btn.disabled = false;
             btn.textContent = '💾 Simpan';
+        }
+    }
+
+    async function toggleMotorPartnerPaidStatus(rentalId, paidFlag) {
+        const nextPaid = Number(paidFlag) === 1;
+        const ok = confirm(nextPaid
+            ? 'Set pembayaran mitra menjadi LUNAS?'
+            : 'Set pembayaran mitra menjadi BELUM dibayar?');
+        if (!ok) return;
+
+        const fd = new FormData();
+        fd.append('rental_id', rentalId);
+        fd.append('paid', nextPaid ? '1' : '0');
+
+        try {
+            const res = await fetch(BASE_URL + '/api/update-motor-rental-payment-status.php', {
+                method: 'POST',
+                body: fd,
+                credentials: 'include'
+            });
+            const result = await res.json();
+            if (!result.success) {
+                throw new Error(result.message || 'Gagal update status pembayaran');
+            }
+            await loadMotorRecap();
+            if (result.note) {
+                alert(result.note);
+            }
+        } catch (err) {
+            alert('Error: ' + err.message);
         }
     }
 
