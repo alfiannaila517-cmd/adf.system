@@ -345,7 +345,7 @@ include '../../includes/header.php';
         <a href="gudang-nasita.php" class="btn btn-secondary">
             <i data-feather="arrow-left" style="width:16px;height:16px;"></i> Kembali ke Gudang
         </a>
-        <button type="button" class="btn btn-primary" onclick="document.getElementById('createPoModal').style.display='flex'">
+        <button type="button" class="btn btn-primary" onclick="openPoModal()">
             <i data-feather="plus" style="width:16px;height:16px;"></i> Buat PO Baru
         </button>
     </div>
@@ -587,48 +587,168 @@ include '../../includes/header.php';
     }
 
     function initPoItemAc(input) {
-        const drop = input.parentElement.querySelector('.po-item-drop');
+<style>
+.po-chk-row { display:flex; align-items:center; gap:0.75rem; padding:0.6rem 0.85rem; border-bottom:1px solid var(--border,#e2e8f0); transition:background .1s; }
+.po-chk-row:hover { background:#f8fafc; }
+.po-chk-row.checked { background:#f0fdf4; }
+.po-chk-row input[type=checkbox] { width:18px; height:18px; cursor:pointer; flex-shrink:0; accent-color:#0f9d6a; }
+.po-chk-row .item-info { flex:1; min-width:0; }
+.po-chk-row .item-info strong { display:block; font-size:.875rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.po-chk-row .item-meta { font-size:.75rem; color:#64748b; }
+.po-chk-row .item-price { font-size:.8rem; font-weight:700; color:#0f9d6a; white-space:nowrap; min-width:80px; text-align:right; }
+.po-chk-row .qty-wrap { display:none; flex-shrink:0; }
+.po-chk-row.checked .qty-wrap { display:flex; align-items:center; gap:0.3rem; }
+.po-chk-row .qty-wrap input { width:80px; }
+</style>
 
-        input.addEventListener('input', function () {
-            const q = this.value.trim().toLowerCase();
-            if (!q) { drop.style.display = 'none'; return; }
-            const matches = BARANG_LIST.filter(p => p.nama_barang.toLowerCase().includes(q)).slice(0, 25);
-            renderDrop(drop, input, matches);
-        });
+<script>
+    feather.replace();
+    document.addEventListener('click', function(e) {
+        if (e.target === document.getElementById('createPoModal')) closePoModal();
+    });
 
-        drop.addEventListener('mousedown', function (e) {
-            // mousedown fires before blur so we can safely read the clicked row
-            const item = e.target.closest('.po-drop-row');
-            if (!item) return;
-            e.preventDefault(); // prevent input blur
-            const row = input.closest('tr');
-            input.value = item.dataset.nama;
-            const unitInput  = row.querySelector('.po-item-unit');
-            const priceInput = row.querySelector('.po-item-price');
-            if (unitInput)  unitInput.value  = item.dataset.satuan || 'pcs';
-            if (priceInput && parseFloat(item.dataset.harga) > 0) priceInput.value = Math.round(parseFloat(item.dataset.harga));
-            drop.style.display = 'none';
-            input.focus();
-        });
+    const BARANG_LIST = <?php echo json_encode(array_values($allBarang), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
+    let manualIdx = 0;
 
-        input.addEventListener('blur',   () => setTimeout(() => { drop.style.display = 'none'; }, 150));
-        input.addEventListener('keydown', e => { if (e.key === 'Escape') drop.style.display = 'none'; });
+    function openPoModal() {
+        renderPoItemList('');
+        document.getElementById('poSearchInput').value = '';
+        document.getElementById('poManualBody').innerHTML = '';
+        manualIdx = 0;
+        document.getElementById('createPoModal').style.display = 'flex';
+        setTimeout(() => document.getElementById('poSearchInput').focus(), 80);
     }
 
-    // Init autocomplete on first (static) row
-    document.querySelectorAll('.po-item-ac').forEach(initPoItemAc);
+    function closePoModal() { document.getElementById('createPoModal').style.display = 'none'; }
+
+    function renderPoItemList(q) {
+        const container = document.getElementById('poItemList');
+        const filtered = q
+            ? BARANG_LIST.filter(p => p.nama_barang.toLowerCase().includes(q.toLowerCase()))
+            : BARANG_LIST;
+
+        if (!filtered.length) {
+            container.innerHTML = '<div style="padding:1.5rem;text-align:center;color:#64748b;font-size:.875rem;">Tidak ada barang yang cocok.</div>';
+            return;
+        }
+
+        container.innerHTML = filtered.map(p => {
+            const harga = parseFloat(p.harga_beli) || 0;
+            const hargaStr = harga > 0 ? 'Rp ' + Math.round(harga).toLocaleString('id-ID') : '—';
+            return `<div class="po-chk-row" data-id="${p.id}">
+                <input type="checkbox" id="chk_${p.id}" onchange="toggleChkRow(this)">
+                <label for="chk_${p.id}" class="item-info" style="cursor:pointer;margin:0;">
+                    <strong>${p.nama_barang}</strong>
+                    <span class="item-meta">${p.satuan||'pcs'} · ${p.kode_barang||''}</span>
+                </label>
+                <span class="item-price">${hargaStr}</span>
+                <div class="qty-wrap">
+                    <input type="number" class="form-control po-qty" placeholder="Qty" min="0.01" step="0.01"
+                        data-nama="${p.nama_barang.replace(/"/g,'&quot;')}" data-satuan="${(p.satuan||'pcs').replace(/"/g,'&quot;')}" data-harga="${harga}">
+                    <span style="font-size:.8rem;color:#64748b;">${p.satuan||'pcs'}</span>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function toggleChkRow(chk) {
+        const row = chk.closest('.po-chk-row');
+        row.classList.toggle('checked', chk.checked);
+        if (chk.checked) {
+            setTimeout(() => row.querySelector('.po-qty').focus(), 30);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const search = document.getElementById('poSearchInput');
+        if (search) search.addEventListener('input', () => renderPoItemList(search.value.trim()));
+    });
+
+    function addManualItem() {
+        const tbody = document.getElementById('poManualBody');
+        const i = manualIdx++;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><input type="text" name="manual_item_name[]" class="form-control" placeholder="Nama barang" required></td>
+            <td><input type="number" name="manual_qty[]" class="form-control" step="0.01" min="0.01" placeholder="0" style="width:80px;" required></td>
+            <td><input type="text" name="manual_unit[]" class="form-control" value="pcs" style="width:65px;"></td>
+            <td><input type="number" name="manual_price[]" class="form-control" step="1" min="0" placeholder="0" style="width:100px;"></td>
+            <td><button type="button" class="btn btn-sm btn-danger" onclick="this.closest('tr').remove()">✕</button></td>`;
+        tbody.appendChild(tr);
+        tr.querySelector('input').focus();
+    }
+
+    function submitPoForm(e) {
+        e.preventDefault();
+        const form = document.getElementById('poForm');
+
+        // Collect checked database items
+        const checkedRows = document.querySelectorAll('#poItemList .po-chk-row.checked');
+        let hasItem = false;
+
+        // Remove old hidden inputs
+        form.querySelectorAll('.po-hidden-item').forEach(el => el.remove());
+
+        let idx = 0;
+        checkedRows.forEach(row => {
+            const qtyInput = row.querySelector('.po-qty');
+            const qty = parseFloat(qtyInput?.value || 0);
+            if (!qtyInput || qty <= 0) return;
+            const nama   = qtyInput.dataset.nama;
+            const satuan = qtyInput.dataset.satuan;
+            const harga  = parseFloat(qtyInput.dataset.harga) || 0;
+            addHidden(form, `items[${idx}][item_name]`,  nama);
+            addHidden(form, `items[${idx}][quantity]`,   qty);
+            addHidden(form, `items[${idx}][unit]`,       satuan);
+            addHidden(form, `items[${idx}][unit_price]`, harga);
+            idx++;
+            hasItem = true;
+        });
+
+        // Collect manual items
+        const manualNames  = form.querySelectorAll('[name="manual_item_name[]"]');
+        const manualQtys   = form.querySelectorAll('[name="manual_qty[]"]');
+        const manualUnits  = form.querySelectorAll('[name="manual_unit[]"]');
+        const manualPrices = form.querySelectorAll('[name="manual_price[]"]');
+        manualNames.forEach((el, i) => {
+            const nm  = el.value.trim();
+            const qty = parseFloat(manualQtys[i]?.value || 0);
+            if (!nm || qty <= 0) return;
+            addHidden(form, `items[${idx}][item_name]`,  nm);
+            addHidden(form, `items[${idx}][quantity]`,   qty);
+            addHidden(form, `items[${idx}][unit]`,       manualUnits[i]?.value || 'pcs');
+            addHidden(form, `items[${idx}][unit_price]`, parseFloat(manualPrices[i]?.value || 0));
+            idx++;
+            hasItem = true;
+        });
+
+        if (!hasItem) { alert('Centang minimal 1 item atau tambah item manual.'); return; }
+        form.submit();
+    }
+
+    function addHidden(form, name, value) {
+        const el = document.createElement('input');
+        el.type = 'hidden'; el.name = name; el.value = value;
+        el.className = 'po-hidden-item';
+        form.appendChild(el);
+    }
 </script>
 
 <!-- Modal Buat PO Baru -->
 <div id="createPoModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.55); z-index:2100; align-items:center; justify-content:center; padding:1rem;">
-    <div class="card" style="width:min(760px,100%); max-height:92vh; overflow:auto;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+    <div class="card" style="width:min(680px,100%); max-height:94vh; display:flex; flex-direction:column; overflow:hidden;">
+
+        <!-- Header -->
+        <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:0.85rem; border-bottom:1px solid var(--border,#e2e8f0); flex-shrink:0;">
             <h3 style="font-size:1.05rem; margin:0;">📋 Buat PO Baru ke Supplier</h3>
-            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('createPoModal').style.display='none'">Tutup</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="closePoModal()">✕ Tutup</button>
         </div>
-        <form method="POST">
+
+        <form id="poForm" method="POST" onsubmit="submitPoForm(event)" style="display:flex; flex-direction:column; flex:1; overflow:hidden; min-height:0;">
             <input type="hidden" name="action" value="create_po">
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.85rem; margin-bottom:1rem;">
+
+            <!-- Supplier + Catatan -->
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; padding:0.85rem 0; flex-shrink:0;">
                 <div>
                     <label class="form-label">Supplier *</label>
                     <select name="supplier_id" class="form-control" required>
@@ -644,46 +764,63 @@ include '../../includes/header.php';
                 </div>
             </div>
 
-            <div style="margin-bottom:0.75rem;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
-                    <label class="form-label" style="margin:0;">Item yang Dipesan *</label>
-                    <button type="button" class="btn btn-sm btn-success" onclick="addItem()">+ Tambah Item</button>
+            <!-- Search + Item list -->
+            <div style="flex-shrink:0; margin-bottom:0.5rem;">
+                <div style="display:flex; align-items:center; gap:0.5rem;">
+                    <label class="form-label" style="margin:0; white-space:nowrap;">Pilih Barang</label>
+                    <input type="text" id="poSearchInput" class="form-control" placeholder="Cari nama barang..." style="flex:1;">
                 </div>
-                <div class="table-responsive">
-                    <table class="table" style="font-size:0.875rem;">
-                        <thead>
-                            <tr>
-                                <th>Nama Item</th>
-                                <th>Qty</th>
-                                <th>Unit</th>
-                                <th>Harga Satuan</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody id="itemsBody">
-                            <tr>
-                                <td style="min-width:200px;">
-                                    <div class="po-ac-wrap" style="position:relative;">
-                                        <input type="text" name="items[0][item_name]" class="form-control po-item-ac" placeholder="Cari nama barang..." autocomplete="off" required>
-                                        <div class="po-item-drop" style="display:none;position:absolute;z-index:999;width:100%;background:#fff;border:1px solid #e2e8f0;border-radius:.4rem;max-height:220px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.12);top:100%;left:0;"></div>
-                                    </div>
-                                </td>
-                                <td><input type="number" name="items[0][quantity]" class="form-control" step="0.01" min="0.01" placeholder="0" required style="width:90px;"></td>
-                                <td><input type="text" name="items[0][unit]" class="form-control po-item-unit" placeholder="pcs" value="pcs" style="width:70px;"></td>
-                                <td><input type="number" name="items[0][unit_price]" class="form-control po-item-price" step="1" min="0" placeholder="0" style="width:120px;"></td>
-                                <td></td>
-                            </tr>
-                        </tbody>
+                <div style="font-size:0.75rem; color:var(--text-muted,#64748b); margin-top:0.3rem;">
+                    Centang item → isi qty. Total: <strong id="poCheckedCount">0</strong> item dipilih.
+                </div>
+            </div>
+
+            <div id="poItemList" style="flex:1; overflow-y:auto; border:1px solid var(--border,#e2e8f0); border-radius:0.5rem; min-height:0;">
+                <div style="padding:1.5rem;text-align:center;color:#64748b;">Memuat daftar barang...</div>
+            </div>
+
+            <!-- Manual section -->
+            <div style="margin-top:0.75rem; flex-shrink:0;">
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addManualItem()" style="font-size:0.8rem;">
+                    + Tambah item yang tidak ada di database
+                </button>
+                <div id="poManualWrap" style="margin-top:0.5rem;">
+                    <table class="table" style="font-size:0.82rem; display:none;" id="poManualTable">
+                        <thead><tr><th>Nama Item</th><th>Qty</th><th>Unit</th><th>Harga</th><th></th></tr></thead>
+                        <tbody id="poManualBody"></tbody>
                     </table>
                 </div>
             </div>
 
-            <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
-                <button type="button" class="btn btn-secondary" onclick="document.getElementById('createPoModal').style.display='none'">Batal</button>
+            <!-- Footer -->
+            <div style="display:flex; justify-content:flex-end; gap:0.5rem; padding-top:0.85rem; border-top:1px solid var(--border,#e2e8f0); margin-top:0.75rem; flex-shrink:0;">
+                <button type="button" class="btn btn-secondary" onclick="closePoModal()">Batal</button>
                 <button type="submit" class="btn btn-primary">Buat PO</button>
             </div>
         </form>
     </div>
 </div>
+
+<script>
+    // Show manual table when rows are added
+    (function() {
+        const origAdd = addManualItem;
+        window.addManualItem = function() {
+            origAdd();
+            document.getElementById('poManualTable').style.display = 'table';
+        };
+    })();
+
+    // Update checked count on checkbox change
+    document.addEventListener('change', function(e) {
+        if (e.target.type === 'checkbox' && e.target.closest('#poItemList')) {
+            const count = document.querySelectorAll('#poItemList .po-chk-row.checked').length;
+            document.getElementById('poCheckedCount').textContent = count;
+        }
+    });
+
+    // Render on load after BARANG_LIST is ready
+    renderPoItemList('');
+</script>
 
 <?php include '../../includes/footer.php'; ?>
