@@ -81,6 +81,20 @@ function createPurchaseOrder($supplier_id, $po_date, $items, $options = [])
         $line_number = 1;
         $validated_items = [];
 
+        $requireDivision = false;
+        try {
+            $detailCols = $db->fetchAll('SHOW COLUMNS FROM purchase_orders_detail');
+            $detailColNames = array_map(function ($row) {
+                return strtolower((string)($row['Field'] ?? ''));
+            }, $detailCols);
+            if (in_array('division_id', $detailColNames, true)) {
+                $divCountRow = $db->fetchOne('SELECT COUNT(*) AS total FROM divisions');
+                $requireDivision = ((int)($divCountRow['total'] ?? 0) > 0);
+            }
+        } catch (Throwable $e) {
+            $requireDivision = false;
+        }
+
         foreach ($items as $item) {
             // Validate each item
             if (empty($item['item_name'])) {
@@ -95,14 +109,16 @@ function createPurchaseOrder($supplier_id, $po_date, $items, $options = [])
                 throw new Exception("Valid unit price is required for line {$line_number}");
             }
 
-            if (empty($item['division_id']) || !is_numeric($item['division_id'])) {
-                throw new Exception("Division ID is required for line {$line_number}");
-            }
+            if ($requireDivision) {
+                if (empty($item['division_id']) || !is_numeric($item['division_id'])) {
+                    throw new Exception("Division ID is required for line {$line_number}");
+                }
 
-            // Verify division exists
-            $division = $db->fetchOne("SELECT id FROM divisions WHERE id = ?", [$item['division_id']]);
-            if (!$division) {
-                throw new Exception("Division not found for line {$line_number}");
+                // Verify division exists
+                $division = $db->fetchOne("SELECT id FROM divisions WHERE id = ?", [$item['division_id']]);
+                if (!$division) {
+                    throw new Exception("Division not found for line {$line_number}");
+                }
             }
 
             // Calculate subtotal
@@ -118,7 +134,7 @@ function createPurchaseOrder($supplier_id, $po_date, $items, $options = [])
                 'quantity' => $item['quantity'],
                 'unit_price' => $item['unit_price'],
                 'subtotal' => $subtotal,
-                'division_id' => $item['division_id'],
+                'division_id' => isset($item['division_id']) && is_numeric($item['division_id']) ? (int)$item['division_id'] : null,
                 'notes' => isset($item['notes']) ? trim($item['notes']) : null
             ];
 
@@ -159,6 +175,26 @@ function createPurchaseOrder($supplier_id, $po_date, $items, $options = [])
                 $businessId = (int)$resolvedBusinessId;
             }
         }
+        if ($businessId <= 0 && !empty($_SESSION['active_business_id'])) {
+            $activeBizSlug = strtolower((string)$_SESSION['active_business_id']);
+            $normalizedCode = strtoupper(str_replace(['-', '_'], '', $activeBizSlug));
+            try {
+                $masterPdo = new PDO(
+                    "mysql:host=" . DB_HOST . ";dbname=" . MASTER_DB_NAME . ";charset=" . DB_CHARSET,
+                    DB_USER,
+                    DB_PASS,
+                    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+                );
+                $bizRow = $masterPdo->prepare("\n                    SELECT id\n                    FROM businesses\n                    WHERE slug = ?\n                       OR UPPER(REPLACE(REPLACE(business_code, '_', ''), '-', '')) = ?\n                    ORDER BY id ASC\n                    LIMIT 1\n                ");
+                $bizRow->execute([$activeBizSlug, $normalizedCode]);
+                $row = $bizRow->fetch(PDO::FETCH_ASSOC);
+                if ($row && !empty($row['id'])) {
+                    $businessId = (int)$row['id'];
+                    $_SESSION['business_id'] = $businessId;
+                }
+            } catch (Throwable $e) {
+            }
+        }
         if ($businessId <= 0) {
             $businessId = null;
         }
@@ -168,20 +204,32 @@ function createPurchaseOrder($supplier_id, $po_date, $items, $options = [])
         $tax_amount = isset($options['tax_amount']) ? $options['tax_amount'] : 0;
         $grand_total = $total_amount - $discount_amount + $tax_amount;
 
+        // Probe actual columns to avoid INSERT failures on older-schema DBs
+        $hdrCols = $db->fetchAll("SHOW COLUMNS FROM purchase_orders_header");
+        $hdrColNames = array_column($hdrCols, 'Field');
+
         $header_data = [
             'business_id' => $businessId,
-            'po_number' => $po_number,
+            'po_number'   => $po_number,
             'supplier_id' => $supplier_id,
-            'po_date' => $po_date,
-            'expected_delivery_date' => isset($options['expected_delivery_date']) ? $options['expected_delivery_date'] : null,
-            'status' => isset($options['status']) ? $options['status'] : 'draft',
+            'po_date'     => $po_date,
+            'status'      => isset($options['status']) ? $options['status'] : 'draft',
             'total_amount' => $total_amount,
-            'discount_amount' => $discount_amount,
-            'tax_amount' => $tax_amount,
-            'grand_total' => $grand_total,
-            'notes' => isset($options['notes']) ? $options['notes'] : null,
-            'created_by' => $created_by
+            'notes'       => isset($options['notes']) ? $options['notes'] : null,
+            'created_by'  => $created_by,
         ];
+        if (in_array('expected_delivery_date', $hdrColNames)) {
+            $header_data['expected_delivery_date'] = isset($options['expected_delivery_date']) ? $options['expected_delivery_date'] : null;
+        }
+        if (in_array('discount_amount', $hdrColNames)) {
+            $header_data['discount_amount'] = $discount_amount;
+        }
+        if (in_array('tax_amount', $hdrColNames)) {
+            $header_data['tax_amount'] = $tax_amount;
+        }
+        if (in_array('grand_total', $hdrColNames)) {
+            $header_data['grand_total'] = $grand_total;
+        }
 
         // Insert header
         $po_header_id = $db->insert('purchase_orders_header', $header_data);
@@ -190,21 +238,45 @@ function createPurchaseOrder($supplier_id, $po_date, $items, $options = [])
             throw new Exception("Failed to create Purchase Order header");
         }
 
-        // Insert details
+        // Insert details (probe columns once to avoid failures on older-schema DBs)
+        $dtlCols    = $db->fetchAll("SHOW COLUMNS FROM purchase_orders_detail");
+        $dtlColNames = array_column($dtlCols, 'Field');
+
         foreach ($validated_items as $item) {
+            // Build detail row using only columns that exist in this DB's schema
             $detail_data = [
                 'po_header_id' => $po_header_id,
-                'line_number' => $item['line_number'],
-                'item_name' => $item['item_name'],
-                'item_description' => $item['item_description'],
-                'unit_of_measure' => $item['unit_of_measure'],
-                'quantity' => $item['quantity'],
-                'unit_price' => $item['unit_price'],
-                'subtotal' => $item['subtotal'],
-                'division_id' => $item['division_id'],
-                'received_quantity' => 0,
-                'notes' => $item['notes']
+                'item_name'    => $item['item_name'],
+                'quantity'     => $item['quantity'],
+                'unit_price'   => $item['unit_price'],
             ];
+            if (in_array('received_quantity', $dtlColNames)) {
+                $detail_data['received_quantity'] = 0;
+            }
+            // unit column: new schema = unit_of_measure, old schema = unit
+            if (in_array('unit_of_measure', $dtlColNames)) {
+                $detail_data['unit_of_measure'] = $item['unit_of_measure'];
+            } elseif (in_array('unit', $dtlColNames)) {
+                $detail_data['unit'] = $item['unit_of_measure'];
+            }
+            // subtotal column: new schema = subtotal, old schema = total_price
+            if (in_array('subtotal', $dtlColNames)) {
+                $detail_data['subtotal'] = $item['subtotal'];
+            } elseif (in_array('total_price', $dtlColNames)) {
+                $detail_data['total_price'] = $item['subtotal'];
+            }
+            if (in_array('line_number', $dtlColNames)) {
+                $detail_data['line_number'] = $item['line_number'];
+            }
+            if (in_array('item_description', $dtlColNames)) {
+                $detail_data['item_description'] = $item['item_description'];
+            }
+            if (in_array('division_id', $dtlColNames)) {
+                $detail_data['division_id'] = $item['division_id'];
+            }
+            if (in_array('notes', $dtlColNames)) {
+                $detail_data['notes'] = $item['notes'];
+            }
 
             $detail_id = $db->insert('purchase_orders_detail', $detail_data);
 
@@ -265,7 +337,7 @@ function getPurchaseOrder($po_id)
         return null;
     }
 
-    // Get details
+    // Get details. Fallback to plain detail query when divisions table is unavailable.
     $details = $db->fetchAll("
         SELECT 
             pod.*,
@@ -276,6 +348,14 @@ function getPurchaseOrder($po_id)
         WHERE pod.po_header_id = ?
         ORDER BY pod.id
     ", [$po_id]);
+    if (empty($details)) {
+        $details = $db->fetchAll("
+            SELECT pod.*
+            FROM purchase_orders_detail pod
+            WHERE pod.po_header_id = ?
+            ORDER BY pod.id
+        ", [$po_id]);
+    }
 
     $header['items'] = $details;
 
@@ -335,8 +415,14 @@ function updatePurchaseOrderStatus($po_id, $status, $approved_by = null)
 
 function generateGudangNasitaStockCode()
 {
+    ensureGudangNasitaStockSchemaCompatibility();
     $db = Database::getInstance();
     $prefix = 'GN-' . date('Ym') . '-';
+
+    if (!gudangNasitaStockHasColumn('stock_code')) {
+        // Legacy schema fallback: code is virtual from row id.
+        return $prefix . str_pad('1', 4, '0', STR_PAD_LEFT);
+    }
 
     $lastStock = $db->fetchOne("\n        SELECT stock_code\n        FROM gudang_nasita_stock\n        WHERE stock_code LIKE ?\n        ORDER BY stock_code DESC\n        LIMIT 1\n    ", [$prefix . '%']);
 
@@ -354,19 +440,42 @@ function getGudangNasitaStock($limit = 200)
 {
     $db = Database::getInstance();
 
-    return $db->fetchAll("\n        SELECT\n            gs.*,\n            COALESCE((SELECT SUM(quantity) FROM gudang_nasita_movements gm WHERE gm.stock_id = gs.id AND gm.movement_type = 'in_supplier'), 0) AS total_in,\n            COALESCE((SELECT SUM(quantity) FROM gudang_nasita_movements gm WHERE gm.stock_id = gs.id AND gm.movement_type = 'out_transfer'), 0) AS total_out\n        FROM gudang_nasita_stock gs\n        WHERE gs.is_active = 1\n        ORDER BY COALESCE(gs.category, 'lainnya') ASC, gs.item_name ASC\n        LIMIT {$limit}\n    ");
+    try {
+        ensureGudangNasitaStockSchemaCompatibility();
+        ensureGudangNasitaOperationalTablesCompatibility();
+    } catch (Throwable $e) {
+        error_log('getGudangNasitaStock schema bootstrap skipped: ' . $e->getMessage());
+    }
+
+    $codeExpr = gudangNasitaStockHasColumn('stock_code')
+        ? 'gs.stock_code'
+        : "CONCAT('GN-LEGACY-', LPAD(gs.id, 4, '0'))";
+
+    return $db->fetchAll("\n        SELECT\n            gs.*,\n            {$codeExpr} AS stock_code,\n            COALESCE(gs.harga_beli, 0) AS harga_beli,\n            COALESCE(gs.total_harga, COALESCE(gs.quantity, 0) * COALESCE(gs.harga_beli, 0), 0) AS total_harga,\n            COALESCE((SELECT SUM(quantity) FROM gudang_nasita_movements gm WHERE gm.stock_id = gs.id AND gm.movement_type = 'in_supplier'), 0) AS total_in,\n            COALESCE((SELECT SUM(quantity) FROM gudang_nasita_movements gm WHERE gm.stock_id = gs.id AND gm.movement_type = 'out_transfer'), 0) AS total_out\n        FROM gudang_nasita_stock gs\n        WHERE gs.is_active = 1\n        ORDER BY COALESCE(gs.category, 'lainnya') ASC, gs.item_name ASC\n        LIMIT {$limit}\n    ");
 }
 
 function getGudangNasitaTransfers($limit = 50)
 {
     $db = Database::getInstance();
 
+    try {
+        ensureGudangNasitaOperationalTablesCompatibility();
+    } catch (Throwable $e) {
+        error_log('getGudangNasitaTransfers schema bootstrap skipped: ' . $e->getMessage());
+    }
     return $db->fetchAll("\n        SELECT\n            gt.*,\n            u.full_name AS created_by_name,\n            r.full_name AS received_by_name,\n            COUNT(gti.id) AS items_count,\n            COALESCE(SUM(gti.quantity), 0) AS total_qty\n        FROM gudang_nasita_transfers gt\n        LEFT JOIN users u ON gt.created_by = u.id\n        LEFT JOIN users r ON gt.received_by = r.id\n        LEFT JOIN gudang_nasita_transfer_items gti ON gti.transfer_id = gt.id\n        GROUP BY gt.id\n        ORDER BY gt.created_at DESC\n        LIMIT {$limit}\n    ");
 }
 
 function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $options = [])
 {
     $db = Database::getInstance();
+
+    try {
+        ensureGudangNasitaStockSchemaCompatibility();
+        ensureGudangNasitaOperationalTablesCompatibility();
+    } catch (Throwable $e) {
+        error_log('addGudangNasitaManualStock schema bootstrap skipped: ' . $e->getMessage());
+    }
 
     try {
         $itemName = trim((string)$itemName);
@@ -387,20 +496,52 @@ function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $op
             throw new Exception('Qty manual harus lebih dari 0');
         }
 
+        $unitPrice = isset($options['unit_price']) ? (float)$options['unit_price'] : 0;
         $supplierName = trim((string)($options['supplier_name'] ?? ''));
         $notes = trim((string)($options['notes'] ?? ''));
         $reorderLevel = isset($options['reorder_level']) ? (float)$options['reorder_level'] : null;
 
         $db->getConnection()->beginTransaction();
 
-        $stock = $db->fetchOne(
-            "SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) AND unit = ? AND COALESCE(LOWER(category), 'lainnya') = ? LIMIT 1",
-            [$itemName, $unit, $category]
-        );
+        // Match by barang_id first (no is_active filter — unique_barang constraint applies to ALL rows)
+        if (gudangNasitaStockRequiresBarangId()) {
+            $barangId = ensureGudangNasitaBarangId($itemName, $unit, $category, $notes);
+            $stock = null;
+            if ($barangId) {
+                $stock = $db->fetchOne(
+                    "SELECT * FROM gudang_nasita_stock WHERE barang_id = ? LIMIT 1",
+                    [$barangId]
+                );
+                // Reactivate soft-deleted row so we update instead of insert
+                if ($stock && !(int)($stock['is_active'] ?? 1)) {
+                    $db->update('gudang_nasita_stock', ['is_active' => 1], 'id = :id', ['id' => $stock['id']]);
+                }
+            }
+            if (!$stock) {
+                $stock = $db->fetchOne(
+                    "SELECT gs.* FROM gudang_nasita_stock gs
+                     LEFT JOIN gudang_nasita_barang gb ON gb.id = gs.barang_id
+                     WHERE LOWER(COALESCE(gs.item_name, gb.nama_barang, '')) = LOWER(?)
+                     LIMIT 1",
+                    [$itemName]
+                );
+                if ($stock && !(int)($stock['is_active'] ?? 1)) {
+                    $db->update('gudang_nasita_stock', ['is_active' => 1], 'id = :id', ['id' => $stock['id']]);
+                }
+            }
+        } else {
+            $barangId = null;
+            $stock = $db->fetchOne(
+                "SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) LIMIT 1",
+                [$itemName]
+            );
+            if ($stock && !(int)($stock['is_active'] ?? 1)) {
+                $db->update('gudang_nasita_stock', ['is_active' => 1], 'id = :id', ['id' => $stock['id']]);
+            }
+        }
 
         if (!$stock) {
-            $stockId = $db->insert('gudang_nasita_stock', [
-                'stock_code' => generateGudangNasitaStockCode(),
+            $insertData = [
                 'item_name' => $itemName,
                 'category' => $category,
                 'unit' => $unit,
@@ -408,16 +549,39 @@ function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $op
                 'reorder_level' => $reorderLevel !== null && $reorderLevel >= 0 ? $reorderLevel : 0,
                 'supplier_name' => $supplierName !== '' ? $supplierName : null,
                 'notes' => $notes !== '' ? $notes : 'Input stok manual awal'
-            ]);
+            ];
+
+            if (gudangNasitaStockHasColumn('stock_code')) {
+                $insertData['stock_code'] = generateGudangNasitaStockCode();
+            }
+            if (gudangNasitaStockRequiresBarangId()) {
+                // $barangId already resolved above; use it directly to avoid re-lookup
+                $insertData['barang_id'] = $barangId ?? ensureGudangNasitaBarangId($itemName, $unit, $category, $notes);
+            }
+            if (gudangNasitaStockHasColumn('jumlah_stok')) {
+                $insertData['jumlah_stok'] = 0;
+            }
+
+            $stockId = $db->insert('gudang_nasita_stock', $insertData);
             $stock = $db->fetchOne('SELECT * FROM gudang_nasita_stock WHERE id = ? LIMIT 1', [$stockId]);
         }
 
+        $newQty = gudangNasitaCurrentQty($stock) + $quantity;
+        $existingValue = gudangNasitaCurrentStockValue($stock);
+        $incomingValue = $quantity * ($unitPrice > 0 ? $unitPrice : gudangNasitaCurrentUnitCost($stock));
+        $newValue = $existingValue + $incomingValue;
+        $newUnitCost = $newQty > 0 ? ($newValue / $newQty) : 0;
         $updateData = [
-            'quantity' => (float)$stock['quantity'] + $quantity,
+            'quantity' => $newQty,
+            'harga_beli' => $newUnitCost,
+            'total_harga' => $newValue,
             'supplier_name' => $supplierName !== '' ? $supplierName : ($stock['supplier_name'] ?? null),
             'notes' => $notes !== '' ? $notes : ($stock['notes'] ?? null),
             'category' => $category,
         ];
+        if (gudangNasitaStockHasColumn('jumlah_stok')) {
+            $updateData['jumlah_stok'] = $newQty;
+        }
         if ($reorderLevel !== null && $reorderLevel >= 0) {
             $updateData['reorder_level'] = $reorderLevel;
         }
@@ -433,6 +597,8 @@ function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $op
             'reference_type' => 'manual_stock',
             'reference_id' => null,
             'reference_number' => $referenceNumber,
+            'unit_price' => $unitPrice > 0 ? $unitPrice : gudangNasitaCurrentUnitCost($stock),
+            'subtotal' => $incomingValue,
             'notes' => $notes !== '' ? $notes : 'Input stok manual awal',
             'created_by' => $createdBy
         ]);
@@ -459,6 +625,13 @@ function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $op
 function receivePurchaseOrderToGudang($po_id, array $receivedItems, $receivedBy, $notes = '')
 {
     $db = Database::getInstance();
+
+    try {
+        ensureGudangNasitaStockSchemaCompatibility();
+        ensureGudangNasitaOperationalTablesCompatibility();
+    } catch (Throwable $e) {
+        error_log('receivePurchaseOrderToGudang schema bootstrap skipped: ' . $e->getMessage());
+    }
 
     try {
         $po = getPurchaseOrder($po_id);
@@ -490,27 +663,69 @@ function receivePurchaseOrderToGudang($po_id, array $receivedItems, $receivedBy,
             }
 
             $unit = trim($item['unit_of_measure'] ?: 'pcs');
-            $stock = $db->fetchOne("SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) AND unit = ? LIMIT 1", [$item['item_name'], $unit]);
+            // Match by name only so existing stock is updated regardless of unit mismatch
+            if (gudangNasitaStockRequiresBarangId()) {
+                $stock = $db->fetchOne(
+                    "SELECT gs.*, gb.nama_barang AS master_item_name
+                     FROM gudang_nasita_stock gs
+                     LEFT JOIN gudang_nasita_barang gb ON gb.id = gs.barang_id
+                     WHERE LOWER(COALESCE(gs.item_name, gb.nama_barang, '')) = LOWER(?)
+                     AND COALESCE(gs.is_active, 1) = 1
+                     LIMIT 1",
+                    [$item['item_name']]
+                );
+            } else {
+                $stock = $db->fetchOne("SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) AND is_active = 1 LIMIT 1", [$item['item_name']]);
+            }
+            if (!$stock) {
+                $stock = $db->fetchOne("SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) LIKE LOWER(?) AND COALESCE(is_active,1) = 1 ORDER BY COALESCE(quantity, jumlah_stok, 0) DESC LIMIT 1", ['%' . trim($item['item_name']) . '%']);
+            }
 
             if (!$stock) {
-                $stockId = $db->insert('gudang_nasita_stock', [
-                    'stock_code' => generateGudangNasitaStockCode(),
+                $insertData = [
                     'item_name' => trim($item['item_name']),
                     'category' => 'lainnya',
                     'unit' => $unit,
                     'quantity' => 0,
+                    'harga_beli' => isset($item['unit_price']) ? (float)$item['unit_price'] : 0,
+                    'total_harga' => 0,
                     'supplier_name' => $po['supplier_name'] ?? null,
                     'notes' => $notes ?: ('Auto created from PO ' . $po['po_number'])
-                ]);
+                ];
+
+                if (gudangNasitaStockHasColumn('stock_code')) {
+                    $insertData['stock_code'] = generateGudangNasitaStockCode();
+                }
+                if (gudangNasitaStockRequiresBarangId()) {
+                    $insertData['barang_id'] = ensureGudangNasitaBarangId(trim($item['item_name']), $unit, 'lainnya', $notes ?: ('Auto created from PO ' . $po['po_number']));
+                }
+                if (gudangNasitaStockHasColumn('jumlah_stok')) {
+                    $insertData['jumlah_stok'] = 0;
+                }
+
+                $stockId = $db->insert('gudang_nasita_stock', $insertData);
                 $stock = $db->fetchOne('SELECT * FROM gudang_nasita_stock WHERE id = ? LIMIT 1', [$stockId]);
             }
 
-            $newQty = (float)$stock['quantity'] + $receivedQty;
-            $db->update('gudang_nasita_stock', [
+            $unitPrice = isset($item['unit_price']) ? (float)$item['unit_price'] : 0;
+            $lineSubtotal = isset($item['subtotal']) ? (float)$item['subtotal'] : ($receivedQty * $unitPrice);
+            $existingQty = gudangNasitaCurrentQty($stock);
+            $existingValue = gudangNasitaCurrentStockValue($stock);
+            $incomingValue = $lineSubtotal > 0 ? $lineSubtotal : ($receivedQty * $unitPrice);
+            $newQty = $existingQty + $receivedQty;
+            $newValue = $existingValue + $incomingValue;
+            $newUnitCost = $newQty > 0 ? ($newValue / $newQty) : $unitPrice;
+            $stockUpdate = [
                 'quantity' => $newQty,
+                'harga_beli' => $newUnitCost,
+                'total_harga' => $newValue,
                 'supplier_name' => $po['supplier_name'] ?? $stock['supplier_name'],
                 'notes' => $notes ?: $stock['notes']
-            ], 'id = :id', ['id' => $stock['id']]);
+            ];
+            if (gudangNasitaStockHasColumn('jumlah_stok')) {
+                $stockUpdate['jumlah_stok'] = $newQty;
+            }
+            $db->update('gudang_nasita_stock', $stockUpdate, 'id = :id', ['id' => $stock['id']]);
 
             $db->insert('gudang_nasita_movements', [
                 'stock_id' => $stock['id'],
@@ -520,6 +735,8 @@ function receivePurchaseOrderToGudang($po_id, array $receivedItems, $receivedBy,
                 'reference_type' => 'purchase_order',
                 'reference_id' => $po_id,
                 'reference_number' => $po['po_number'],
+                'unit_price' => $unitPrice,
+                'subtotal' => $incomingValue,
                 'notes' => $notes ?: ('Received from supplier ' . ($po['supplier_name'] ?? '')),
                 'created_by' => $receivedBy
             ]);
@@ -528,7 +745,6 @@ function receivePurchaseOrderToGudang($po_id, array $receivedItems, $receivedBy,
             $db->update('purchase_orders_detail', [
                 'received_quantity' => $newReceived
             ], 'id = :id', ['id' => $detailId]);
-
             $totalReceived += $receivedQty;
             if ($newReceived < $orderedQty) {
                 $allCompleted = false;
@@ -586,33 +802,423 @@ function generateGudangNasitaTransferNumber()
     return $prefix . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
 }
 
-function transferGudangNasitaStock($targetBusinessId, array $items, $createdBy, $notes = '', $sourcePoId = null)
+function gudangNasitaStockColumns($refresh = false)
+{
+    static $columns = null;
+
+    if (!$refresh && $columns !== null) {
+        return $columns;
+    }
+
+    $db = Database::getInstance();
+    $rows = $db->fetchAll('SHOW COLUMNS FROM gudang_nasita_stock');
+    $columns = array_column($rows, 'Field');
+
+    return $columns;
+}
+
+function gudangNasitaStockHasColumn($columnName)
+{
+    return in_array($columnName, gudangNasitaStockColumns(), true);
+}
+
+function gudangNasitaStockRequiresBarangId()
+{
+    return gudangNasitaStockHasColumn('barang_id');
+}
+
+function gudangNasitaCurrentQty(array $stock)
+{
+    if (isset($stock['quantity'])) {
+        return (float)$stock['quantity'];
+    }
+    if (isset($stock['jumlah_stok'])) {
+        return (float)$stock['jumlah_stok'];
+    }
+    return 0.0;
+}
+
+function generateGudangNasitaBarangCode()
+{
+    $db = Database::getInstance();
+    $prefix = 'GNB-' . date('Ym') . '-';
+
+    $last = $db->fetchOne('SELECT kode_barang FROM gudang_nasita_barang WHERE kode_barang LIKE ? ORDER BY kode_barang DESC LIMIT 1', [$prefix . '%']);
+    if ($last && !empty($last['kode_barang'])) {
+        $seq = (int)substr($last['kode_barang'], -4) + 1;
+    } else {
+        $seq = 1;
+    }
+
+    return $prefix . str_pad((string)$seq, 4, '0', STR_PAD_LEFT);
+}
+
+function ensureGudangNasitaBarangId($itemName, $unit = 'pcs', $category = 'lainnya', $notes = '')
 {
     $db = Database::getInstance();
 
+    $tableExists = $db->fetchOne("SHOW TABLES LIKE 'gudang_nasita_barang'");
+    if (!$tableExists) {
+        return null;
+    }
+
+    $existing = $db->fetchOne('SELECT id FROM gudang_nasita_barang WHERE LOWER(nama_barang) = LOWER(?) LIMIT 1', [$itemName]);
+    if ($existing) {
+        return (int)$existing['id'];
+    }
+
+    $cols = $db->fetchAll('SHOW COLUMNS FROM gudang_nasita_barang');
+    $colNames = array_column($cols, 'Field');
+
+    $insertData = [];
+    if (in_array('kode_barang', $colNames, true)) {
+        $insertData['kode_barang'] = generateGudangNasitaBarangCode();
+    }
+    if (in_array('nama_barang', $colNames, true)) {
+        $insertData['nama_barang'] = $itemName;
+    }
+    if (in_array('deskripsi', $colNames, true)) {
+        $insertData['deskripsi'] = $notes !== '' ? $notes : 'Auto created from Gudang Nasita stock input';
+    }
+    if (in_array('satuan', $colNames, true)) {
+        $insertData['satuan'] = $unit !== '' ? $unit : 'pcs';
+    }
+    if (in_array('kategori', $colNames, true)) {
+        $insertData['kategori'] = $category !== '' ? $category : 'lainnya';
+    }
+    if (in_array('harga_beli', $colNames, true)) {
+        $insertData['harga_beli'] = 0;
+    }
+    if (in_array('harga_jual', $colNames, true)) {
+        $insertData['harga_jual'] = 0;
+    }
+    if (in_array('is_active', $colNames, true)) {
+        $insertData['is_active'] = 1;
+    }
+
+    $id = $db->insert('gudang_nasita_barang', $insertData);
+    return (int)$id;
+}
+
+function ensureGudangNasitaStockSchemaCompatibility()
+{
+    static $checked = false;
+
+    if ($checked) {
+        return;
+    }
+    $checked = true;
+
+    $db = Database::getInstance();
+    $columns = gudangNasitaStockColumns();
+
+    $requiredColumns = [
+        'item_name' => "VARCHAR(200) NOT NULL DEFAULT ''",
+        'category' => "VARCHAR(80) DEFAULT 'lainnya'",
+        'unit' => "VARCHAR(20) DEFAULT 'pcs'",
+        'quantity' => "DECIMAL(15,2) NOT NULL DEFAULT 0",
+        'reorder_level' => "DECIMAL(15,2) DEFAULT 0",
+        'supplier_name' => "VARCHAR(150) NULL",
+        'notes' => "TEXT NULL",
+        'is_active' => "TINYINT(1) DEFAULT 1",
+        'created_at' => "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+        'updated_at' => "TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+    ];
+
+    foreach ($requiredColumns as $col => $definition) {
+        if (!in_array($col, $columns, true)) {
+            $db->query("ALTER TABLE gudang_nasita_stock ADD COLUMN `{$col}` {$definition}");
+        }
+
+        function gudangNasitaCurrentUnitCost(array $stock)
+        {
+            if (isset($stock['harga_beli']) && (float)$stock['harga_beli'] > 0) {
+                return (float)$stock['harga_beli'];
+            }
+
+            $qty = gudangNasitaCurrentQty($stock);
+            if ($qty > 0 && isset($stock['total_harga']) && (float)$stock['total_harga'] > 0) {
+                return (float)$stock['total_harga'] / $qty;
+            }
+
+            return 0.0;
+        }
+
+        function gudangNasitaCurrentStockValue(array $stock)
+        {
+            if (isset($stock['total_harga']) && (float)$stock['total_harga'] > 0) {
+                return (float)$stock['total_harga'];
+            }
+
+            return gudangNasitaCurrentQty($stock) * gudangNasitaCurrentUnitCost($stock);
+        }
+    }
+
+    // Refresh columns after potential ALTERs.
+    $columns = gudangNasitaStockColumns(true);
+
+    if (!in_array('stock_code', $columns, true)) {
+        // Add stock_code for compatibility with current procurement flow.
+        $db->query('ALTER TABLE gudang_nasita_stock ADD COLUMN stock_code VARCHAR(30) NULL AFTER id');
+
+        // Refresh cached columns after DDL.
+        $columns = gudangNasitaStockColumns(true);
+
+        if (in_array('stock_code', $columns, true)) {
+            $db->query("UPDATE gudang_nasita_stock SET stock_code = CONCAT('GN-', DATE_FORMAT(NOW(), '%Y%m'), '-', LPAD(id, 4, '0')) WHERE stock_code IS NULL OR stock_code = ''");
+        }
+    }
+
+    if (in_array('stock_code', $columns, true)) {
+        $db->query("UPDATE gudang_nasita_stock SET stock_code = CONCAT('GN-', DATE_FORMAT(NOW(), '%Y%m'), '-', LPAD(id, 4, '0')) WHERE stock_code IS NULL OR stock_code = ''");
+
+        $stockCodeIdx = $db->fetchOne("SHOW INDEX FROM gudang_nasita_stock WHERE Key_name = 'idx_stock_code'");
+        if (!$stockCodeIdx) {
+            $db->query('ALTER TABLE gudang_nasita_stock ADD UNIQUE KEY idx_stock_code (stock_code)');
+        }
+    }
+
+    $itemNameIdx = $db->fetchOne("SHOW INDEX FROM gudang_nasita_stock WHERE Key_name = 'idx_item_name'");
+    if (!$itemNameIdx) {
+        $db->query('ALTER TABLE gudang_nasita_stock ADD INDEX idx_item_name (item_name)');
+    }
+
+    $isActiveIdx = $db->fetchOne("SHOW INDEX FROM gudang_nasita_stock WHERE Key_name = 'idx_is_active'");
+    if (!$isActiveIdx) {
+        $db->query('ALTER TABLE gudang_nasita_stock ADD INDEX idx_is_active (is_active)');
+    }
+}
+
+function ensureGudangNasitaOperationalTablesCompatibility()
+{
+    static $checked = false;
+
+    if ($checked) {
+        return;
+    }
+    $checked = true;
+
+    $db = Database::getInstance();
+
+    $db->query("CREATE TABLE IF NOT EXISTS gudang_nasita_movements (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        stock_id INT NOT NULL,
+        movement_date DATE NOT NULL,
+        movement_type ENUM('in_supplier','out_transfer','adjustment') NOT NULL,
+        quantity DECIMAL(15,2) NOT NULL,
+        unit_price DECIMAL(15,2) NULL,
+        subtotal DECIMAL(15,2) NULL,
+        reference_type VARCHAR(50) NULL,
+        reference_id INT NULL,
+        reference_number VARCHAR(50) NULL,
+        target_business_id INT NULL,
+        notes TEXT NULL,
+        created_by INT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_stock_id (stock_id),
+        INDEX idx_movement_date (movement_date),
+        INDEX idx_reference (reference_type, reference_id),
+        INDEX idx_target_business (target_business_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    $db->query("CREATE TABLE IF NOT EXISTS gudang_nasita_transfers (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        transfer_number VARCHAR(50) UNIQUE,
+        target_business_id INT NOT NULL,
+        target_business_name VARCHAR(150) NOT NULL,
+        source_po_id INT NULL,
+        status ENUM('draft','sent','received','cancelled') DEFAULT 'draft',
+        notes TEXT NULL,
+        created_by INT NULL,
+        received_by INT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_target_business (target_business_id),
+        INDEX idx_status (status),
+        INDEX idx_source_po (source_po_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    $db->query("CREATE TABLE IF NOT EXISTS gudang_nasita_transfer_items (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        transfer_id INT NOT NULL,
+        stock_id INT NOT NULL,
+        item_name VARCHAR(200) NOT NULL,
+        unit VARCHAR(20) DEFAULT 'pcs',
+        quantity DECIMAL(15,2) NOT NULL,
+        unit_price DECIMAL(15,2) NULL,
+        subtotal DECIMAL(15,2) NULL,
+        notes TEXT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_transfer_id (transfer_id),
+        INDEX idx_stock_id (stock_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    // Backfill missing columns for legacy tables that were created with older schema.
+    try {
+        $transferColsRaw = $db->fetchAll("SHOW COLUMNS FROM gudang_nasita_transfers");
+        $transferCols = [];
+        foreach ($transferColsRaw as $c) {
+            $transferCols[strtolower((string)($c['Field'] ?? ''))] = true;
+        }
+
+        $transferRequired = [
+            'transfer_number' => "VARCHAR(50) NULL",
+            'target_business_id' => "INT NULL",
+            'target_business_name' => "VARCHAR(150) NULL",
+            'source_po_id' => "INT NULL",
+            'status' => "VARCHAR(20) NULL",
+            'notes' => "TEXT NULL",
+            'created_by' => "INT NULL",
+            'received_by' => "INT NULL",
+            'created_at' => "TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP",
+            'updated_at' => "TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+        ];
+
+        foreach ($transferRequired as $col => $ddl) {
+            if (!isset($transferCols[$col])) {
+                $db->query("ALTER TABLE gudang_nasita_transfers ADD COLUMN `{$col}` {$ddl}");
+            }
+        }
+
+        $transferNumIdx = $db->fetchOne("SHOW INDEX FROM gudang_nasita_transfers WHERE Key_name = 'idx_transfer_number'");
+        if (!$transferNumIdx) {
+            $db->query("ALTER TABLE gudang_nasita_transfers ADD INDEX idx_transfer_number (transfer_number)");
+        }
+    } catch (Throwable $e) {
+        error_log('ensureGudangNasitaOperationalTablesCompatibility transfers backfill error: ' . $e->getMessage());
+    }
+
+    try {
+        $transferItemColsRaw = $db->fetchAll("SHOW COLUMNS FROM gudang_nasita_transfer_items");
+        $transferItemCols = [];
+        foreach ($transferItemColsRaw as $c) {
+            $transferItemCols[strtolower((string)($c['Field'] ?? ''))] = true;
+        }
+
+        $transferItemRequired = [
+            'transfer_id' => "INT NULL",
+            'stock_id' => "INT NULL",
+            'item_name' => "VARCHAR(200) NULL",
+            'unit' => "VARCHAR(20) DEFAULT 'pcs'",
+            'quantity' => "DECIMAL(15,2) NOT NULL DEFAULT 0",
+            'unit_price' => "DECIMAL(15,2) NULL",
+            'subtotal' => "DECIMAL(15,2) NULL",
+            'notes' => "TEXT NULL",
+            'created_at' => "TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP",
+        ];
+
+        foreach ($transferItemRequired as $col => $ddl) {
+            if (!isset($transferItemCols[$col])) {
+                $db->query("ALTER TABLE gudang_nasita_transfer_items ADD COLUMN `{$col}` {$ddl}");
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('ensureGudangNasitaOperationalTablesCompatibility transfer_items backfill error: ' . $e->getMessage());
+    }
+
+    try {
+        $movementColsRaw = $db->fetchAll("SHOW COLUMNS FROM gudang_nasita_movements");
+        $movementCols = [];
+        foreach ($movementColsRaw as $c) {
+            $movementCols[strtolower((string)($c['Field'] ?? ''))] = true;
+        }
+
+        foreach (['unit_price' => "DECIMAL(15,2) NULL", 'subtotal' => "DECIMAL(15,2) NULL"] as $col => $ddl) {
+            if (!isset($movementCols[$col])) {
+                $db->query("ALTER TABLE gudang_nasita_movements ADD COLUMN `{$col}` {$ddl}");
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('ensureGudangNasitaOperationalTablesCompatibility movements backfill error: ' . $e->getMessage());
+    }
+}
+
+function transferGudangNasitaStock($targetBusinessId, array $items, $createdBy, $notes = '', $sourcePoId = null, $businessName = null)
+{
+    $db = Database::getInstance();
+
+    try {
+        ensureGudangNasitaOperationalTablesCompatibility();
+    } catch (Throwable $e) {
+        error_log('transferGudangNasitaStock schema bootstrap skipped: ' . $e->getMessage());
+    }
     try {
         if (empty($items)) {
             throw new Exception('Minimal 1 item transfer wajib diisi');
         }
 
+        $targetBusinessId = (int)$targetBusinessId;
         $business = $db->fetchOne('SELECT id, business_name FROM businesses WHERE id = ? LIMIT 1', [$targetBusinessId]);
+
+        // If ID mismatch happens (common in cross-DB context), remap by business name in current DB.
+        if (!$business && $businessName !== null && trim((string)$businessName) !== '') {
+            $business = $db->fetchOne(
+                'SELECT id, business_name FROM businesses WHERE LOWER(TRIM(business_name)) = LOWER(TRIM(?)) LIMIT 1',
+                [trim((string)$businessName)]
+            );
+            if ($business) {
+                $targetBusinessId = (int)$business['id'];
+            }
+        }
+
         if (!$business) {
-            throw new Exception('Tujuan bisnis tidak ditemukan');
+            throw new Exception('Tujuan bisnis tidak ditemukan di database gudang. Periksa data businesses.');
         }
 
         $db->getConnection()->beginTransaction();
 
         $transferNumber = generateGudangNasitaTransferNumber();
 
-        $transferId = $db->insert('gudang_nasita_transfers', [
-            'transfer_number' => $transferNumber,
-            'target_business_id' => $targetBusinessId,
-            'target_business_name' => $business['business_name'],
-            'source_po_id' => $sourcePoId,
-            'status' => 'sent',
-            'notes' => $notes,
-            'created_by' => $createdBy
-        ]);
+        $transferColsRaw = $db->fetchAll('SHOW COLUMNS FROM gudang_nasita_transfers');
+        $transferCols = [];
+        foreach ($transferColsRaw as $col) {
+            $field = strtolower((string)($col['Field'] ?? ''));
+            if ($field !== '') {
+                $transferCols[$field] = true;
+            }
+        }
+
+        $transferData = [];
+
+        if (isset($transferCols['transfer_number'])) {
+            $transferData['transfer_number'] = $transferNumber;
+        }
+        if (isset($transferCols['no_transfer'])) {
+            $transferData['no_transfer'] = $transferNumber;
+        }
+
+        if (isset($transferCols['target_business_id'])) {
+            $transferData['target_business_id'] = $targetBusinessId;
+        }
+        if (isset($transferCols['bisnis_tujuan_id'])) {
+            $transferData['bisnis_tujuan_id'] = $targetBusinessId;
+        }
+
+        if (isset($transferCols['target_business_name'])) {
+            $transferData['target_business_name'] = $business['business_name'];
+        }
+        if (isset($transferCols['source_po_id'])) {
+            $transferData['source_po_id'] = $sourcePoId;
+        }
+        if (isset($transferCols['status'])) {
+            $transferData['status'] = 'received';
+        }
+
+        if (isset($transferCols['notes'])) {
+            $transferData['notes'] = $notes;
+        }
+        if (isset($transferCols['catatan'])) {
+            $transferData['catatan'] = $notes;
+        }
+
+        if (isset($transferCols['tanggal_transfer'])) {
+            $transferData['tanggal_transfer'] = date('Y-m-d');
+        }
+        if (isset($transferCols['created_by'])) {
+            $transferData['created_by'] = $createdBy;
+        }
+
+        $transferId = $db->insert('gudang_nasita_transfers', $transferData);
 
         $totalQty = 0;
         foreach ($items as $item) {
@@ -628,13 +1234,18 @@ function transferGudangNasitaStock($targetBusinessId, array $items, $createdBy, 
             }
 
             $available = (float)$stock['quantity'];
+            $unitPrice = gudangNasitaCurrentUnitCost($stock);
+            $lineSubtotal = $qty * $unitPrice;
             if ($qty > $available) {
                 throw new Exception('Stok tidak cukup untuk item ' . $stock['item_name']);
             }
 
             $remaining = $available - $qty;
+            $remainingValue = max(0, gudangNasitaCurrentStockValue($stock) - $lineSubtotal);
             $db->update('gudang_nasita_stock', [
-                'quantity' => $remaining
+                'quantity' => $remaining,
+                'harga_beli' => $remaining > 0 ? ($remainingValue / $remaining) : $unitPrice,
+                'total_harga' => $remainingValue
             ], 'id = :id', ['id' => $stockId]);
 
             $db->insert('gudang_nasita_transfer_items', [
@@ -643,6 +1254,8 @@ function transferGudangNasitaStock($targetBusinessId, array $items, $createdBy, 
                 'item_name' => $stock['item_name'],
                 'unit' => $stock['unit'],
                 'quantity' => $qty,
+                'unit_price' => $unitPrice,
+                'subtotal' => $lineSubtotal,
                 'notes' => $item['notes'] ?? null
             ]);
 
@@ -655,6 +1268,8 @@ function transferGudangNasitaStock($targetBusinessId, array $items, $createdBy, 
                 'reference_id' => $transferId,
                 'reference_number' => $transferNumber,
                 'target_business_id' => $targetBusinessId,
+                'unit_price' => $unitPrice,
+                'subtotal' => $lineSubtotal,
                 'notes' => $notes ?: ('Transfer ke ' . $business['business_name']),
                 'created_by' => $createdBy
             ]);
@@ -700,58 +1315,115 @@ function getPurchaseOrders($filters = [], $limit = 100, $offset = 0)
 {
     $db = Database::getInstance();
 
-    $where_conditions = [];
+    $whereConditions = [];
     $params = [];
+    $poDateExpr = 'poh.po_date';
 
-    if (isset($filters['status']) && !empty($filters['status'])) {
-        $where_conditions[] = "poh.status = :status";
+    try {
+        $headerCols = $db->fetchAll('SHOW COLUMNS FROM purchase_orders_header');
+        $headerColNames = array_map(function ($row) {
+            return strtolower((string)($row['Field'] ?? ''));
+        }, $headerCols ?: []);
+
+        $hasPoDate = in_array('po_date', $headerColNames, true);
+        $hasCreatedAt = in_array('created_at', $headerColNames, true);
+
+        if ($hasPoDate && $hasCreatedAt) {
+            $poDateExpr = 'COALESCE(poh.po_date, DATE(poh.created_at))';
+        } elseif ($hasCreatedAt && !$hasPoDate) {
+            $poDateExpr = 'DATE(poh.created_at)';
+        }
+    } catch (Throwable $e) {
+        $poDateExpr = 'poh.po_date';
+    }
+
+    if (!empty($filters['status'])) {
+        $whereConditions[] = 'poh.status = :status';
         $params['status'] = $filters['status'];
     }
-
-    if (isset($filters['supplier_id']) && !empty($filters['supplier_id'])) {
-        $where_conditions[] = "poh.supplier_id = :supplier_id";
+    if (!empty($filters['supplier_id'])) {
+        $whereConditions[] = 'poh.supplier_id = :supplier_id';
         $params['supplier_id'] = $filters['supplier_id'];
     }
-
-    if (isset($filters['business_id']) && !empty($filters['business_id'])) {
-        $where_conditions[] = "poh.business_id = :business_id";
+    if (!empty($filters['business_id'])) {
+        $whereConditions[] = 'poh.business_id = :business_id';
         $params['business_id'] = $filters['business_id'];
     }
-
-    if (isset($filters['date_from']) && !empty($filters['date_from'])) {
-        $where_conditions[] = "poh.po_date >= :date_from";
+    if (!empty($filters['business_id_or_null'])) {
+        $whereConditions[] = '(poh.business_id = :biz_id_or_null OR poh.business_id IS NULL)';
+        $params['biz_id_or_null'] = $filters['business_id_or_null'];
+    }
+    if (!empty($filters['exclude_gdn_prefix'])) {
+        $whereConditions[] = "poh.po_number NOT LIKE 'GDN-%'";
+    }
+    if (!empty($filters['date_from'])) {
+        $whereConditions[] = "{$poDateExpr} >= :date_from";
         $params['date_from'] = $filters['date_from'];
     }
-
-    if (isset($filters['date_to']) && !empty($filters['date_to'])) {
-        $where_conditions[] = "poh.po_date <= :date_to";
+    if (!empty($filters['date_to'])) {
+        $whereConditions[] = "{$poDateExpr} <= :date_to";
         $params['date_to'] = $filters['date_to'];
     }
 
-    $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
+    $whereClause = empty($whereConditions) ? '' : 'WHERE ' . implode(' AND ', $whereConditions);
 
-    $query = "
-        SELECT 
-            poh.*,
-            s.supplier_name,
-            s.supplier_code,
-            u.full_name as created_by_name,
-            COUNT(pod.id) as items_count,
-            cb.id as payment_id,
-            COALESCE(ta.file_path, NULL) as ta_attachment_path
-        FROM purchase_orders_header poh
-        LEFT JOIN suppliers s ON poh.supplier_id = s.id
-        LEFT JOIN users u ON poh.created_by = u.id
-        LEFT JOIN purchase_orders_detail pod ON poh.id = pod.po_header_id
-        LEFT JOIN cash_book cb ON cb.reference_no = poh.po_number AND cb.source_type = 'purchase_order'
-        LEFT JOIN transaction_attachments ta ON ta.transaction_type = 'purchase_order' AND ta.transaction_id = poh.id
-        {$where_clause}
-        GROUP BY poh.id
-        ORDER BY poh.po_date DESC, poh.created_at DESC
-        LIMIT {$limit} OFFSET {$offset}
-    ";
+    try {
+        $query = "
+            SELECT
+                poh.*,
+                s.supplier_name,
+                s.supplier_code,
+                u.full_name AS created_by_name,
+                COUNT(pod.id) AS items_count
+            FROM purchase_orders_header poh
+            LEFT JOIN suppliers s ON poh.supplier_id = s.id
+            LEFT JOIN users u ON poh.created_by = u.id
+            LEFT JOIN purchase_orders_detail pod ON poh.id = pod.po_header_id
+            {$whereClause}
+            GROUP BY poh.id
+            ORDER BY poh.id DESC
+            LIMIT {$limit} OFFSET {$offset}
+        ";
 
-    return $db->fetchAll($query, $params);
+        $result = $db->fetchAll($query, $params);
+        if (is_array($result)) {
+            return $result;
+        }
+    } catch (Throwable $e) {
+        error_log('getPurchaseOrders full query error: ' . $e->getMessage());
+    }
+
+    try {
+        $raw = $db->fetchAll("SELECT * FROM purchase_orders_header ORDER BY id DESC LIMIT {$limit} OFFSET {$offset}");
+        if (!is_array($raw)) {
+            return [];
+        }
+
+        $filtered = [];
+        foreach ($raw as $row) {
+            if (!empty($filters['status']) && (string)($row['status'] ?? '') !== (string)$filters['status']) {
+                continue;
+            }
+            $poNumber = (string)($row['po_number'] ?? '');
+            if (!empty($filters['exclude_gdn_prefix']) && strpos($poNumber, 'GDN-') === 0) {
+                continue;
+            }
+            if (!empty($filters['business_id_or_null'])) {
+                $businessId = (int)($row['business_id'] ?? 0);
+                $targetBusinessId = (int)$filters['business_id_or_null'];
+                if ($businessId !== $targetBusinessId && $businessId !== 0) {
+                    continue;
+                }
+            }
+            $row['items_count'] = 0;
+            $filtered[] = $row;
+        }
+
+        return $filtered;
+    } catch (Throwable $e) {
+        error_log('getPurchaseOrders absolute fallback error: ' . $e->getMessage());
+        return [];
+    }
 }
 
 /**
@@ -1289,11 +1961,6 @@ function getPurchase($purchase_id)
         LEFT JOIN purchase_orders_header poh ON ph.po_id = poh.id
         WHERE ph.id = ?
     ", [$purchase_id]);
-
-    if (!$header) {
-        return null;
-    }
-
     // Get details
     $details = $db->fetchAll("
         SELECT 

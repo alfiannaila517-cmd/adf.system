@@ -44,8 +44,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
-$stockItems = getGudangNasitaStock(300);
-$recentTransfers = getGudangNasitaTransfers(15);
+$stockItems = [];
+try {
+    $stockItems = getGudangNasitaStock(300);
+} catch (Throwable $e) {
+    error_log('deploy gudang-nasita stock load failed: ' . $e->getMessage());
+}
+
+$recentTransfers = [];
+try {
+    $recentTransfers = getGudangNasitaTransfers(15);
+} catch (Throwable $e) {
+    error_log('deploy gudang-nasita transfer load failed: ' . $e->getMessage());
+}
 
 $summary = [
     'items' => count($stockItems),
