@@ -111,7 +111,7 @@ class Database
         $isMaster = in_array($dbName, $masterNames);
 
         // Only run once per session per database (version bump forces re-check)
-        $schemaVersion = 6; // v6: add gudang_nasita_stock category
+        $schemaVersion = 7; // v7: ensure users.last_login and users.updated_at exist on older databases
         $sessionKey = '_schema_synced_v' . $schemaVersion . '_' . md5($dbName);
         if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION[$sessionKey])) return;
 
@@ -491,6 +491,8 @@ class Database
                     'users' => [
                         'role_id' => "INT NULL",
                         'business_access' => "TEXT NULL",
+                        'last_login' => "DATETIME NULL",
+                        'updated_at' => "TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
                     ],
                     'purchase_orders_header' => [
                         'business_id' => "INT NULL",
