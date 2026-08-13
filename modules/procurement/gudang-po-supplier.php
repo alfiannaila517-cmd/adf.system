@@ -528,14 +528,144 @@ include '../../includes/header.php';
     </div>
 </div>
 
+<style>
+.po-chk-row { display:flex; align-items:center; gap:0.75rem; padding:0.6rem 0.85rem; border-bottom:1px solid var(--border,#e2e8f0); transition:background .1s; }
+.po-chk-row:hover { background:#f8fafc; }
+.po-chk-row.checked { background:#f0fdf4; }
+.po-chk-row input[type=checkbox] { width:18px; height:18px; cursor:pointer; flex-shrink:0; accent-color:#0f9d6a; }
+.po-chk-row .item-info { flex:1; min-width:0; cursor:pointer; }
+.po-chk-row .item-info strong { display:block; font-size:.875rem; }
+.po-chk-row .item-meta { font-size:.75rem; color:#64748b; }
+.po-chk-row .item-price { font-size:.8rem; font-weight:700; color:#0f9d6a; white-space:nowrap; min-width:80px; text-align:right; }
+.po-chk-row .qty-wrap { display:none; flex-shrink:0; }
+.po-chk-row.checked .qty-wrap { display:flex; align-items:center; gap:0.3rem; }
+.po-chk-row .qty-wrap input { width:80px; }
+</style>
+
 <script>
     feather.replace();
     document.addEventListener('click', function(e) {
-        if (e.target === document.getElementById('createPoModal')) document.getElementById('createPoModal').style.display = 'none';
+        if (e.target === document.getElementById('createPoModal')) closePoModal();
     });
 
-    // Products embedded server-side — no AJAX needed
-    const BARANG_LIST = <?php echo json_encode(array_values($allBarang), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
+    var BARANG_LIST = <?php echo json_encode(array_values($allBarang), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
+    var manualIdx = 0;
+
+    window.openPoModal = function() {
+        document.getElementById('poSearchInput').value = '';
+        document.getElementById('poManualBody').innerHTML = '';
+        document.getElementById('poManualTable').style.display = 'none';
+        document.getElementById('poCheckedCount').textContent = '0';
+        manualIdx = 0;
+        renderPoItemList('');
+        document.getElementById('createPoModal').style.display = 'flex';
+        setTimeout(function() { document.getElementById('poSearchInput').focus(); }, 80);
+    }
+
+    function closePoModal() { document.getElementById('createPoModal').style.display = 'none'; }
+
+    function renderPoItemList(q) {
+        var container = document.getElementById('poItemList');
+        var filtered = q ? BARANG_LIST.filter(function(p) {
+            return p.nama_barang.toLowerCase().includes(q.toLowerCase());
+        }) : BARANG_LIST;
+
+        if (!filtered.length) {
+            container.innerHTML = '<div style="padding:1.5rem;text-align:center;color:#64748b;font-size:.875rem;">Tidak ada barang yang cocok.</div>';
+            return;
+        }
+
+        container.innerHTML = filtered.map(function(p) {
+            var harga = parseFloat(p.harga_beli) || 0;
+            var hargaStr = harga > 0 ? 'Rp ' + Math.round(harga).toLocaleString('id-ID') : '\u2014';
+            var nm = p.nama_barang.replace(/"/g, '&quot;');
+            var sat = (p.satuan || 'pcs').replace(/"/g, '&quot;');
+            return '<div class="po-chk-row" data-id="' + p.id + '">' +
+                '<input type="checkbox" id="chk_' + p.id + '" onchange="toggleChkRow(this)">' +
+                '<label for="chk_' + p.id + '" class="item-info" style="margin:0;">' +
+                    '<strong>' + p.nama_barang + '</strong>' +
+                    '<span class="item-meta">' + (p.satuan || 'pcs') + (p.kode_barang ? ' \u00b7 ' + p.kode_barang : '') + '</span>' +
+                '</label>' +
+                '<span class="item-price">' + hargaStr + '</span>' +
+                '<div class="qty-wrap">' +
+                    '<input type="number" class="form-control po-qty" placeholder="Qty" min="0.01" step="0.01"' +
+                    ' data-nama="' + nm + '" data-satuan="' + sat + '" data-harga="' + harga + '">' +
+                    '<span style="font-size:.8rem;color:#64748b;">' + (p.satuan || 'pcs') + '</span>' +
+                '</div>' +
+            '</div>';
+        }).join('');
+    }
+
+    function toggleChkRow(chk) {
+        var row = chk.closest('.po-chk-row');
+        row.classList.toggle('checked', chk.checked);
+        if (chk.checked) setTimeout(function() { row.querySelector('.po-qty').focus(); }, 30);
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        var search = document.getElementById('poSearchInput');
+        if (search) search.addEventListener('input', function() { renderPoItemList(this.value.trim()); });
+    });
+
+    function addManualItem() {
+        var tbody = document.getElementById('poManualBody');
+        var tr = document.createElement('tr');
+        var i = manualIdx++;
+        tr.innerHTML =
+            '<td><input type="text" name="manual_item_name[]" class="form-control" placeholder="Nama barang"></td>' +
+            '<td><input type="number" name="manual_qty[]" class="form-control" step="0.01" min="0.01" placeholder="0" style="width:80px;"></td>' +
+            '<td><input type="text" name="manual_unit[]" class="form-control" value="pcs" style="width:65px;"></td>' +
+            '<td><input type="number" name="manual_price[]" class="form-control" step="1" min="0" placeholder="0" style="width:100px;"></td>' +
+            '<td><button type="button" class="btn btn-sm btn-danger" onclick="this.closest(\'tr\').remove()">\u00d7</button></td>';
+        tbody.appendChild(tr);
+        document.getElementById('poManualTable').style.display = 'table';
+        tr.querySelector('input').focus();
+    }
+
+    function submitPoForm(e) {
+        e.preventDefault();
+        var form = document.getElementById('poForm');
+        form.querySelectorAll('.po-hidden-item').forEach(function(el) { el.remove(); });
+
+        var idx = 0;
+        document.querySelectorAll('#poItemList .po-chk-row.checked').forEach(function(row) {
+            var qtyInput = row.querySelector('.po-qty');
+            var qty = parseFloat(qtyInput ? qtyInput.value : 0);
+            if (!qtyInput || qty <= 0) return;
+            addHidden(form, 'items[' + idx + '][item_name]',  qtyInput.dataset.nama);
+            addHidden(form, 'items[' + idx + '][quantity]',   qty);
+            addHidden(form, 'items[' + idx + '][unit]',       qtyInput.dataset.satuan || 'pcs');
+            addHidden(form, 'items[' + idx + '][unit_price]', parseFloat(qtyInput.dataset.harga) || 0);
+            idx++;
+        });
+
+        var manualNames  = form.querySelectorAll('[name="manual_item_name[]"]');
+        var manualQtys   = form.querySelectorAll('[name="manual_qty[]"]');
+        var manualUnits  = form.querySelectorAll('[name="manual_unit[]"]');
+        var manualPrices = form.querySelectorAll('[name="manual_price[]"]');
+        manualNames.forEach(function(el, i) {
+            var nm  = el.value.trim();
+            var qty = parseFloat(manualQtys[i] ? manualQtys[i].value : 0);
+            if (!nm || qty <= 0) return;
+            addHidden(form, 'items[' + idx + '][item_name]',  nm);
+            addHidden(form, 'items[' + idx + '][quantity]',   qty);
+            addHidden(form, 'items[' + idx + '][unit]',       manualUnits[i] ? manualUnits[i].value || 'pcs' : 'pcs');
+            addHidden(form, 'items[' + idx + '][unit_price]', parseFloat(manualPrices[i] ? manualPrices[i].value : 0) || 0);
+            idx++;
+        });
+
+        if (idx === 0) { alert('Centang minimal 1 item atau tambah item manual.'); return; }
+        form.submit();
+    }
+
+    function addHidden(form, name, value) {
+        var el = document.createElement('input');
+        el.type = 'hidden'; el.name = name; el.value = value; el.className = 'po-hidden-item';
+        form.appendChild(el);
+    }
+</script>
+
+<!-- Modal Buat PO Baru -->
 
     function buildItemRow(idx) {
         return `<td style="min-width:200px;">
@@ -561,10 +691,13 @@ include '../../includes/header.php';
     }
 
     function renderDrop(drop, input, matches) {
-        if (!matches.length) { drop.style.display = 'none'; return; }
+        if (!matches.length) {
+            drop.style.display = 'none';
+            return;
+        }
         // Position dropdown below the input using fixed coords
         const rect = input.getBoundingClientRect();
-        drop.style.top  = (rect.bottom + window.scrollY + 2) + 'px';
+        drop.style.top = (rect.bottom + window.scrollY + 2) + 'px';
         drop.style.left = rect.left + 'px';
         drop.style.width = Math.max(rect.width, 280) + 'px';
         drop.innerHTML = matches.map(p =>
@@ -587,15 +720,28 @@ include '../../includes/header.php';
     }
 
     function initPoItemAc(input) {
-<style>
-.po-chk-row { display:flex; align-items:center; gap:0.75rem; padding:0.6rem 0.85rem; border-bottom:1px solid var(--border,#e2e8f0); transition:background .1s; }
-.po-chk-row:hover { background:#f8fafc; }
-.po-chk-row.checked { background:#f0fdf4; }
-.po-chk-row input[type=checkbox] { width:18px; height:18px; cursor:pointer; flex-shrink:0; accent-color:#0f9d6a; }
+        <
+        style >
+            .po - chk - row {
+                display: flex;align - items: center;gap: 0.75 rem;padding: 0.6 rem 0.85 rem;border - bottom: 1 px solid
+                var (--border, #e2e8f0);transition: background .1 s;
+            }
+            .po - chk - row: hover {
+                background: #f8fafc;
+            }
+            .po - chk - row.checked {
+                background: #f0fdf4;
+            }
+            .po - chk - row input[type = checkbox] {
+                width: 18 px;height: 18 px;cursor: pointer;flex - shrink: 0;accent - color: #0f9d6a; }
 .po-chk-row .item-info { flex:1; min-width:0; }
 .po-chk-row .item-info strong { display:block; font-size:.875rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.po-chk-row .item-meta { font-size:.75rem; color:#64748b; }
-.po-chk-row .item-price { font-size:.8rem; font-weight:700; color:#0f9d6a; white-space:nowrap; min-width:80px; text-align:right; }
+.po-chk-row .item-meta { font-size:.75rem; color:# 64748 b;
+            }
+            .po - chk - row.item - price {
+                font - size: .8 rem;
+                font - weight: 700;
+                color: #0f9d6a; white-space:nowrap; min-width:80px; text-align:right; }
 .po-chk-row .qty-wrap { display:none; flex-shrink:0; }
 .po-chk-row.checked .qty-wrap { display:flex; align-items:center; gap:0.3rem; }
 .po-chk-row .qty-wrap input { width:80px; }
@@ -619,13 +765,15 @@ include '../../includes/header.php';
         setTimeout(() => document.getElementById('poSearchInput').focus(), 80);
     }
 
-    function closePoModal() { document.getElementById('createPoModal').style.display = 'none'; }
+    function closePoModal() {
+        document.getElementById('createPoModal').style.display = 'none';
+    }
 
     function renderPoItemList(q) {
         const container = document.getElementById('poItemList');
-        const filtered = q
-            ? BARANG_LIST.filter(p => p.nama_barang.toLowerCase().includes(q.toLowerCase()))
-            : BARANG_LIST;
+        const filtered = q ?
+            BARANG_LIST.filter(p => p.nama_barang.toLowerCase().includes(q.toLowerCase())) :
+            BARANG_LIST;
 
         if (!filtered.length) {
             container.innerHTML = '<div style="padding:1.5rem;text-align:center;color:#64748b;font-size:.875rem;">Tidak ada barang yang cocok.</div>';
@@ -694,41 +842,46 @@ include '../../includes/header.php';
             const qtyInput = row.querySelector('.po-qty');
             const qty = parseFloat(qtyInput?.value || 0);
             if (!qtyInput || qty <= 0) return;
-            const nama   = qtyInput.dataset.nama;
+            const nama = qtyInput.dataset.nama;
             const satuan = qtyInput.dataset.satuan;
-            const harga  = parseFloat(qtyInput.dataset.harga) || 0;
-            addHidden(form, `items[${idx}][item_name]`,  nama);
-            addHidden(form, `items[${idx}][quantity]`,   qty);
-            addHidden(form, `items[${idx}][unit]`,       satuan);
+            const harga = parseFloat(qtyInput.dataset.harga) || 0;
+            addHidden(form, `items[${idx}][item_name]`, nama);
+            addHidden(form, `items[${idx}][quantity]`, qty);
+            addHidden(form, `items[${idx}][unit]`, satuan);
             addHidden(form, `items[${idx}][unit_price]`, harga);
             idx++;
             hasItem = true;
         });
 
         // Collect manual items
-        const manualNames  = form.querySelectorAll('[name="manual_item_name[]"]');
-        const manualQtys   = form.querySelectorAll('[name="manual_qty[]"]');
-        const manualUnits  = form.querySelectorAll('[name="manual_unit[]"]');
+        const manualNames = form.querySelectorAll('[name="manual_item_name[]"]');
+        const manualQtys = form.querySelectorAll('[name="manual_qty[]"]');
+        const manualUnits = form.querySelectorAll('[name="manual_unit[]"]');
         const manualPrices = form.querySelectorAll('[name="manual_price[]"]');
         manualNames.forEach((el, i) => {
-            const nm  = el.value.trim();
+            const nm = el.value.trim();
             const qty = parseFloat(manualQtys[i]?.value || 0);
             if (!nm || qty <= 0) return;
-            addHidden(form, `items[${idx}][item_name]`,  nm);
-            addHidden(form, `items[${idx}][quantity]`,   qty);
-            addHidden(form, `items[${idx}][unit]`,       manualUnits[i]?.value || 'pcs');
+            addHidden(form, `items[${idx}][item_name]`, nm);
+            addHidden(form, `items[${idx}][quantity]`, qty);
+            addHidden(form, `items[${idx}][unit]`, manualUnits[i]?.value || 'pcs');
             addHidden(form, `items[${idx}][unit_price]`, parseFloat(manualPrices[i]?.value || 0));
             idx++;
             hasItem = true;
         });
 
-        if (!hasItem) { alert('Centang minimal 1 item atau tambah item manual.'); return; }
+        if (!hasItem) {
+            alert('Centang minimal 1 item atau tambah item manual.');
+            return;
+        }
         form.submit();
     }
 
     function addHidden(form, name, value) {
         const el = document.createElement('input');
-        el.type = 'hidden'; el.name = name; el.value = value;
+        el.type = 'hidden';
+        el.name = name;
+        el.value = value;
         el.className = 'po-hidden-item';
         form.appendChild(el);
     }
@@ -786,7 +939,15 @@ include '../../includes/header.php';
                 </button>
                 <div id="poManualWrap" style="margin-top:0.5rem;">
                     <table class="table" style="font-size:0.82rem; display:none;" id="poManualTable">
-                        <thead><tr><th>Nama Item</th><th>Qty</th><th>Unit</th><th>Harga</th><th></th></tr></thead>
+                        <thead>
+                            <tr>
+                                <th>Nama Item</th>
+                                <th>Qty</th>
+                                <th>Unit</th>
+                                <th>Harga</th>
+                                <th></th>
+                            </tr>
+                        </thead>
                         <tbody id="poManualBody"></tbody>
                     </table>
                 </div>
