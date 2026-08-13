@@ -57,6 +57,7 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS hotel_invoices (
     service_charge_amount DECIMAL(15,2) NOT NULL DEFAULT 0,
     discount_rate         DECIMAL(5,2) NOT NULL DEFAULT 0,
     discount_amount       DECIMAL(15,2) NOT NULL DEFAULT 0,
+    last_service_at DATETIME DEFAULT NULL,
     created_by      INT          DEFAULT NULL,
     created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME     DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
@@ -89,6 +90,17 @@ try {
 } catch (\Throwable $e) {
     try {
         $pdo->exec("ALTER TABLE hotel_invoices ADD COLUMN service_charge_rate DECIMAL(5,2) NOT NULL DEFAULT 0, ADD COLUMN service_charge_amount DECIMAL(15,2) NOT NULL DEFAULT 0, ADD COLUMN discount_rate DECIMAL(5,2) NOT NULL DEFAULT 0, ADD COLUMN discount_amount DECIMAL(15,2) NOT NULL DEFAULT 0");
+    } catch (\Throwable $e2) {
+    }
+}
+
+// Track latest service-add timestamp for correct invoice date semantics.
+try {
+    $pdo->query("SELECT last_service_at FROM hotel_invoices LIMIT 1");
+} catch (\Throwable $e) {
+    try {
+        $pdo->exec("ALTER TABLE hotel_invoices ADD COLUMN last_service_at DATETIME DEFAULT NULL AFTER discount_amount");
+        $pdo->exec("UPDATE hotel_invoices SET last_service_at = created_at WHERE last_service_at IS NULL");
     } catch (\Throwable $e2) {
     }
 }
@@ -733,6 +745,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                         tax_amount = ?,
                         service_charge_amount = ?,
                         discount_amount = ?,
+                        last_service_at = NOW(),
                         updated_at = NOW()
                     WHERE id = ? AND cashbook_synced = 0")
                     ->execute([$mergedTotal, $mergedPayStatus, $mergedTax, $mergedServiceCharge, $mergedDiscount, $invId]);
@@ -748,8 +761,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                     (business_id, invoice_number, booking_id, guest_name, guest_phone, room_number,
                      total, paid_amount, payment_status, payment_method, status, notes,
                      tax_rate, tax_amount, service_charge_rate, service_charge_amount,
-                     discount_rate, discount_amount, created_by, created_at)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())")
+                     discount_rate, discount_amount, last_service_at, created_by, created_at)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())")
                     ->execute([
                         $businessId,
                         $invNo,
@@ -769,6 +782,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                         $serviceChargeAmount,
                         $discountRate,
                         $discountAmount,
+                        date('Y-m-d H:i:s'),
                         $currentUser['id'] ?? null
                     ]);
                 $invId = (int)$pdo->lastInsertId();
@@ -1828,7 +1842,7 @@ if ($filterStatus) {
     $params[] = $filterStatus;
 }
 if ($filterDate) {
-    $where[] = 'DATE(hi.created_at) = ?';
+    $where[] = 'DATE(COALESCE(hi.last_service_at, hi.created_at)) = ?';
     $params[] = $filterDate;
 }
 if ($search) {
@@ -1840,11 +1854,12 @@ if ($search) {
 
 // First get the list of invoices
 $stmt = $pdo->prepare("SELECT hi.*,
+    COALESCE(hi.last_service_at, hi.created_at) as service_date,
     COUNT(hii.id) as item_count
     FROM hotel_invoices hi
     LEFT JOIN hotel_invoice_items hii ON hii.invoice_id = hi.id
     WHERE " . implode(' AND ', $where) . "
-    GROUP BY hi.id ORDER BY hi.created_at DESC LIMIT 200");
+    GROUP BY hi.id ORDER BY COALESCE(hi.last_service_at, hi.created_at) DESC LIMIT 200");
 $stmt->execute($params);
 $invoices = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -1865,7 +1880,7 @@ $stats = $pdo->prepare("SELECT COUNT(*) as total,
     COALESCE(SUM(total),0) as revenue, COALESCE(SUM(paid_amount),0) as collected,
     SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) as completed,
     SUM(CASE WHEN payment_status='unpaid' THEN 1 ELSE 0 END) as unpaid
-    FROM hotel_invoices WHERE business_id=? AND DATE(created_at)=CURDATE()");
+    FROM hotel_invoices WHERE business_id=? AND DATE(COALESCE(last_service_at, created_at))=CURDATE()");
 $stats->execute([$businessId]);
 $today = $stats->fetch(PDO::FETCH_ASSOC);
 
@@ -2936,7 +2951,7 @@ include '../../includes/header.php';
                             <td style="color:#10b981;font-weight:600;white-space:nowrap">Rp <?php echo number_format($inv['paid_amount'], 0, ',', '.'); ?></td>
                             <td><span class="hs-badge" style="background:<?php echo $payStatusColors[$inv['payment_status']]; ?>"><span class="hs-badge-text"><?php echo strtoupper($inv['payment_status']); ?></span></span></td>
                             <td><span class="hs-badge" style="background:<?php echo $statusColors[$inv['status']]; ?>"><span class="hs-badge-text"><?php echo strtoupper($inv['status']); ?></span></span></td>
-                            <td style="font-size:0.72rem;color:var(--text-secondary);white-space:nowrap"><?php echo date('d M Y', strtotime($inv['created_at'])); ?></td>
+                            <td style="font-size:0.72rem;color:var(--text-secondary);white-space:nowrap"><?php echo date('d M Y', strtotime($inv['service_date'] ?? $inv['created_at'])); ?></td>
                             <td>
                                 <div style="display:flex;gap:0.3rem;flex-wrap:wrap;min-width:160px">
                                     <?php if ($auth->canEdit('frontdesk')): ?>
