@@ -18,6 +18,138 @@ $db = Database::getInstance();
 $currentUser = $auth->getCurrentUser();
 $pageTitle = 'Gudang Nasita';
 
+function gudangImportNormalizeHeader(string $value): string
+{
+    $value = trim($value);
+    $value = preg_replace('/\s+/', ' ', $value ?? '');
+    $value = strtolower((string)$value);
+    return str_replace([' ', '_', '-'], '', $value);
+}
+
+function gudangImportParseNumber($value): float
+{
+    $value = trim((string)$value);
+    if ($value === '') {
+        return 0.0;
+    }
+
+    $value = str_replace(["\xc2\xa0", ' '], '', $value);
+    $hasComma = strpos($value, ',') !== false;
+    $hasDot = strpos($value, '.') !== false;
+
+    if ($hasComma && $hasDot) {
+        $lastComma = strrpos($value, ',');
+        $lastDot = strrpos($value, '.');
+        if ($lastComma > $lastDot) {
+            $value = str_replace('.', '', $value);
+            $value = str_replace(',', '.', $value);
+        } else {
+            $value = str_replace(',', '', $value);
+        }
+    } elseif ($hasComma) {
+        $value = str_replace(',', '.', $value);
+    }
+
+    return is_numeric($value) ? (float)$value : 0.0;
+}
+
+function gudangImportParseTable(string $content): array
+{
+    $content = trim($content);
+    if ($content === '') {
+        throw new Exception('File / data import kosong.');
+    }
+
+    $content = preg_replace('/^\xEF\xBB\xBF/', '', $content);
+    $content = str_replace(["\r\n", "\r"], "\n", $content);
+    $lines = array_values(array_filter(array_map('trim', explode("\n", $content)), static function ($line) {
+        return $line !== '';
+    }));
+
+    if (empty($lines)) {
+        throw new Exception('Tidak ada baris data yang terbaca dari import.');
+    }
+
+    $firstLine = $lines[0];
+    $delimiter = "\t";
+    if (substr_count($firstLine, "\t") === 0) {
+        $semicolonCount = substr_count($firstLine, ';');
+        $commaCount = substr_count($firstLine, ',');
+        $delimiter = $semicolonCount > $commaCount ? ';' : ',';
+    }
+
+    $rows = [];
+    foreach ($lines as $line) {
+        $rows[] = str_getcsv($line, $delimiter);
+    }
+
+    $header = array_map('gudangImportNormalizeHeader', $rows[0]);
+    $headerMap = array_flip($header);
+
+    $nameIndex = $headerMap['namabarang'] ?? $headerMap['item'] ?? null;
+    $unitIndex = $headerMap['satuan'] ?? $headerMap['unit'] ?? null;
+    $qtyIndex = $headerMap['saldoawal'] ?? $headerMap['qty'] ?? $headerMap['quantity'] ?? $headerMap['stokawal'] ?? null;
+    $categoryIndex = $headerMap['kategori'] ?? null;
+    $supplierIndex = $headerMap['supplier'] ?? $headerMap['namasupplier'] ?? null;
+    $reorderIndex = $headerMap['reorder'] ?? $headerMap['reorderlevel'] ?? $headerMap['minimumstok'] ?? null;
+    $notesIndex = $headerMap['catatan'] ?? $headerMap['keterangan'] ?? $headerMap['notes'] ?? null;
+
+    if ($nameIndex === null || $qtyIndex === null) {
+        throw new Exception('Header wajib minimal: NAMA BARANG dan SALDO AWAL/QTY.');
+    }
+
+    $parsedRows = [];
+    foreach (array_slice($rows, 1) as $rowNumber => $row) {
+        $itemName = trim((string)($row[$nameIndex] ?? ''));
+        $quantity = gudangImportParseNumber($row[$qtyIndex] ?? '');
+
+        if ($itemName === '' && $quantity <= 0) {
+            continue;
+        }
+
+        $parsedRows[] = [
+            'excel_row' => $rowNumber + 2,
+            'item_name' => $itemName,
+            'unit' => trim((string)($row[$unitIndex] ?? '')),
+            'quantity' => $quantity,
+            'category' => trim((string)($row[$categoryIndex] ?? '')),
+            'supplier_name' => trim((string)($row[$supplierIndex] ?? '')),
+            'reorder_level' => $reorderIndex !== null ? gudangImportParseNumber($row[$reorderIndex] ?? '') : null,
+            'notes' => trim((string)($row[$notesIndex] ?? '')),
+        ];
+    }
+
+    return $parsedRows;
+}
+
+function gudangImportReadUpload(array $file): string
+{
+    $error = (int)($file['error'] ?? UPLOAD_ERR_NO_FILE);
+    if ($error === UPLOAD_ERR_NO_FILE) {
+        return '';
+    }
+    if ($error !== UPLOAD_ERR_OK) {
+        throw new Exception('Upload file import gagal.');
+    }
+
+    $name = strtolower((string)($file['name'] ?? ''));
+    if (preg_match('/\.(xlsx|xls)$/', $name)) {
+        throw new Exception('Server belum bisa membaca file Excel .xlsx/.xls langsung. Silakan Save As CSV atau copy-paste data dari Excel ke kotak import.');
+    }
+
+    $tmpPath = (string)($file['tmp_name'] ?? '');
+    if ($tmpPath === '' || !is_uploaded_file($tmpPath)) {
+        throw new Exception('File import temporary tidak valid.');
+    }
+
+    $content = file_get_contents($tmpPath);
+    if ($content === false) {
+        throw new Exception('File import tidak bisa dibaca.');
+    }
+
+    return mb_convert_encoding($content, 'UTF-8', 'UTF-8, ISO-8859-1, Windows-1252');
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'manual_stock_in') {
     $itemName = trim($_POST['item_name'] ?? '');
     $category = trim($_POST['category'] ?? 'lainnya');
@@ -38,6 +170,77 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $_SESSION['success'] = $result['message'];
     } else {
         $_SESSION['error'] = $result['message'];
+    }
+
+    header('Location: gudang-nasita.php');
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'import_stock_sheet') {
+    try {
+        $defaultCategory = trim((string)($_POST['default_category'] ?? 'lainnya'));
+        if ($defaultCategory === '') {
+            $defaultCategory = 'lainnya';
+        }
+        $defaultSupplier = trim((string)($_POST['default_supplier_name'] ?? ''));
+        $defaultNotes = trim((string)($_POST['default_notes'] ?? 'Import stok awal gudang'));
+        $pastedData = trim((string)($_POST['import_paste_data'] ?? ''));
+        $uploadContent = !empty($_FILES['import_stock_file']) ? gudangImportReadUpload((array)$_FILES['import_stock_file']) : '';
+        $rawContent = $pastedData !== '' ? $pastedData : $uploadContent;
+
+        $rows = gudangImportParseTable($rawContent);
+        if (empty($rows)) {
+            throw new Exception('Tidak ada data stok yang valid untuk diimport.');
+        }
+
+        $successCount = 0;
+        $skippedCount = 0;
+        $failReasons = [];
+
+        foreach ($rows as $row) {
+            $itemName = trim((string)$row['item_name']);
+            $quantity = (float)$row['quantity'];
+            if ($itemName === '') {
+                $skippedCount++;
+                $failReasons[] = 'Baris ' . $row['excel_row'] . ': nama barang kosong.';
+                continue;
+            }
+            if ($quantity <= 0) {
+                $skippedCount++;
+                $failReasons[] = 'Baris ' . $row['excel_row'] . ' (' . $itemName . '): saldo awal harus lebih dari 0.';
+                continue;
+            }
+
+            $result = addGudangNasitaManualStock(
+                $itemName,
+                trim((string)$row['unit']) !== '' ? trim((string)$row['unit']) : 'pcs',
+                $quantity,
+                (int)($currentUser['id'] ?? 0),
+                [
+                    'category' => trim((string)$row['category']) !== '' ? trim((string)$row['category']) : $defaultCategory,
+                    'supplier_name' => trim((string)$row['supplier_name']) !== '' ? trim((string)$row['supplier_name']) : $defaultSupplier,
+                    'reorder_level' => $row['reorder_level'] !== null ? (float)$row['reorder_level'] : 0,
+                    'notes' => trim((string)$row['notes']) !== '' ? trim((string)$row['notes']) : $defaultNotes,
+                ]
+            );
+
+            if (!($result['success'] ?? false)) {
+                $skippedCount++;
+                $failReasons[] = 'Baris ' . $row['excel_row'] . ' (' . $itemName . '): ' . (string)($result['message'] ?? 'gagal import');
+                continue;
+            }
+
+            $successCount++;
+        }
+
+        if ($successCount <= 0) {
+            $detail = empty($failReasons) ? '' : ' Detail: ' . implode(' | ', array_slice($failReasons, 0, 4));
+            throw new Exception('Import stok gagal.' . $detail);
+        }
+
+        $_SESSION['success'] = $successCount . ' item berhasil diimport ke stok gudang.' . ($skippedCount > 0 ? ' ' . $skippedCount . ' baris dilewati.' : '');
+    } catch (Throwable $e) {
+        $_SESSION['error'] = $e->getMessage();
     }
 
     header('Location: gudang-nasita.php');
@@ -428,6 +631,10 @@ include '../../includes/header.php';
             <i data-feather="plus-square" style="width: 16px; height: 16px;"></i>
             Input Stock Manual
         </button>
+        <button type="button" class="btn btn-primary" onclick="document.getElementById('importStockModal').style.display='flex'">
+            <i data-feather="upload" style="width: 16px; height: 16px;"></i>
+            Import Stock
+        </button>
         <a href="gudang-nasita.php?export_excel=1&q_item=<?php echo urlencode($searchItemName); ?>&low_stock=<?php echo $filterLowStockOnly ? '1' : '0'; ?>" class="btn btn-success" style="font-weight:700;">
             <i data-feather="download" style="width: 16px; height: 16px;"></i>
             Export Excel
@@ -698,6 +905,7 @@ include '../../includes/header.php';
 
     document.addEventListener('click', function(e) {
         if (e.target === document.getElementById('manualStockModal')) document.getElementById('manualStockModal').style.display = 'none';
+        if (e.target === document.getElementById('importStockModal')) document.getElementById('importStockModal').style.display = 'none';
         if (e.target === document.getElementById('orderSupplierModal')) document.getElementById('orderSupplierModal').style.display = 'none';
     });
 
@@ -781,6 +989,51 @@ include '../../includes/header.php';
         m.querySelector('[name="quantity"]').focus();
     }
 </script>
+
+<div id="importStockModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.45); z-index:2050; align-items:center; justify-content:center; padding:1rem;">
+    <div class="card" style="width:min(760px, 100%); max-height:90vh; overflow:auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; gap:1rem;">
+            <div>
+                <h3 style="font-size:1.05rem; margin:0;">Import Stock Gudang</h3>
+                <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.25rem;">Kolom minimal: NAMA BARANG, SATUAN, SALDO AWAL. Bisa upload CSV atau paste langsung dari Excel.</div>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('importStockModal').style.display='none'">Tutup</button>
+        </div>
+        <form method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="action" value="import_stock_sheet">
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.9rem;">
+                <div style="grid-column:1 / span 2;">
+                    <label class="form-label">Upload File CSV</label>
+                    <input type="file" name="import_stock_file" class="form-control" accept=".csv,.txt,.xlsx,.xls">
+                    <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.35rem;">Jika file masih format Excel `.xlsx/.xls`, simpan dulu sebagai CSV. Alternatif paling cepat: copy dari Excel lalu paste ke kotak di bawah.</div>
+                </div>
+                <div>
+                    <label class="form-label">Default Kategori</label>
+                    <input type="text" name="default_category" class="form-control" value="lainnya" list="manualStockCategoryList">
+                </div>
+                <div>
+                    <label class="form-label">Default Supplier</label>
+                    <input type="text" name="default_supplier_name" class="form-control" placeholder="Opsional jika file tidak punya kolom supplier">
+                </div>
+                <div style="grid-column:1 / span 2;">
+                    <label class="form-label">Catatan Default</label>
+                    <input type="text" name="default_notes" class="form-control" value="Import stok awal gudang">
+                </div>
+                <div style="grid-column:1 / span 2;">
+                    <label class="form-label">Paste Data dari Excel</label>
+                    <textarea name="import_paste_data" class="form-control" rows="10" placeholder="Contoh header: NO[TAB]NAMA BARANG[TAB]Satuan[TAB]SALDO AWAL"></textarea>
+                    <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.35rem;">Import akan menambah qty ke stok yang sudah ada. Baris kosong atau qty 0 akan dilewati.</div>
+                </div>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('importStockModal').style.display='none'">Batal</button>
+                <button type="submit" class="btn btn-primary">Import Sekarang</button>
+            </div>
+        </form>
+    </div>
+</div>
 
 <div id="manualStockModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.45); z-index:2000; align-items:center; justify-content:center; padding:1rem;">
     <div class="card" style="width:min(640px, 100%); max-height:90vh; overflow:auto;">
