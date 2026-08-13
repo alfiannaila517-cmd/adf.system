@@ -46,8 +46,8 @@ if ($action === 'search') {
         exit;
     }
     $rows = $db->fetchAll(
-        "SELECT id, kode_barang, nama_barang, kategori, satuan FROM gudang_nasita_barang
-         WHERE is_active = 1 AND nama_barang LIKE ?
+        "SELECT id, kode_barang, nama_barang, kategori, satuan, COALESCE(harga_beli,0) AS harga_beli FROM gudang_nasita_barang
+         WHERE COALESCE(is_active,1) = 1 AND nama_barang LIKE ?
          ORDER BY nama_barang ASC LIMIT 20",
         ['%' . $q . '%']
     );

@@ -320,11 +320,6 @@ if ($printPo) {
     exit;
 }
 
-$allBarang = $db->fetchAll(
-    "SELECT id, kode_barang, nama_barang, satuan, harga_beli
-     FROM gudang_nasita_barang WHERE COALESCE(is_active,1)=1 ORDER BY nama_barang ASC"
-) ?: [];
-
 $forceTheme = 'light';
 include '../../includes/header.php';
 ?>
@@ -527,13 +522,14 @@ include '../../includes/header.php';
         if (e.target === document.getElementById('createPoModal')) document.getElementById('createPoModal').style.display = 'none';
     });
 
-    const GUDANG_BARANG = <?php echo json_encode(array_values($allBarang), JSON_UNESCAPED_UNICODE); ?>;
+    const BASE = '<?php echo BASE_URL; ?>';
+    const acTimers = {};
 
     function buildItemRow(idx) {
         return `<td style="min-width:200px;">
             <div class="po-ac-wrap" style="position:relative;">
                 <input type="text" name="items[${idx}][item_name]" class="form-control po-item-ac" placeholder="Cari nama barang..." autocomplete="off" required>
-                <div class="po-item-drop" style="display:none;position:absolute;z-index:999;width:100%;background:#fff;border:1px solid #e2e8f0;border-radius:.4rem;max-height:220px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.12);top:100%;left:0;"></div>
+                <div class="po-item-drop" style="display:none;position:absolute;z-index:9999;width:100%;background:#fff;border:1px solid #e2e8f0;border-radius:.4rem;max-height:220px;overflow-y:auto;box-shadow:0 6px 16px rgba(0,0,0,.15);top:calc(100% + 2px);left:0;"></div>
             </div>
         </td>
         <td><input type="number" name="items[${idx}][quantity]" class="form-control" step="0.01" min="0.01" placeholder="0" required style="width:90px;"></td>
@@ -553,49 +549,54 @@ include '../../includes/header.php';
     }
 
     function initPoItemAc(input) {
+        const key = Math.random();
         const drop = input.parentElement.querySelector('.po-item-drop');
 
         input.addEventListener('input', function () {
-            const q = this.value.trim().toLowerCase();
-            if (q.length < 1) { drop.style.display = 'none'; return; }
-            const matches = GUDANG_BARANG.filter(p => p.nama_barang.toLowerCase().includes(q)).slice(0, 20);
-            if (!matches.length) { drop.style.display = 'none'; return; }
-            drop.innerHTML = matches.map((p, i) =>
-                `<div class="po-drop-item" data-i="${GUDANG_BARANG.indexOf(p)}"
-                    style="padding:.5rem .75rem;cursor:pointer;font-size:.84rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;"
-                    onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background=''">
-                    <span><strong>${p.nama_barang}</strong> <span style="color:#64748b;font-size:.75rem;margin-left:.4rem;">${p.satuan||'pcs'}</span></span>
-                    <span style="color:#0f9d6a;font-weight:700;font-size:.8rem;white-space:nowrap;margin-left:.5rem;">${parseFloat(p.harga_beli)>0?'Rp '+parseInt(p.harga_beli).toLocaleString('id-ID'):''}</span>
-                </div>`
-            ).join('');
-            drop.style.display = 'block';
+            clearTimeout(acTimers[key]);
+            const q = this.value.trim();
+            drop.style.display = 'none';
+            if (q.length < 1) return;
+            acTimers[key] = setTimeout(() => fetchGudangItems(q, input, drop), 250);
         });
 
         drop.addEventListener('click', function (e) {
-            const item = e.target.closest('.po-drop-item');
+            const item = e.target.closest('.po-drop-row');
             if (!item) return;
-            const p = GUDANG_BARANG[parseInt(item.dataset.i)];
-            if (!p) return;
             const row = input.closest('tr');
-            input.value = p.nama_barang;
-            const unitInput = row.querySelector('.po-item-unit');
+            input.value = item.dataset.nama;
+            const unitInput  = row.querySelector('.po-item-unit');
             const priceInput = row.querySelector('.po-item-price');
-            if (unitInput) unitInput.value = p.satuan || 'pcs';
-            if (priceInput && parseFloat(p.harga_beli) > 0) priceInput.value = Math.round(parseFloat(p.harga_beli));
+            if (unitInput)  unitInput.value  = item.dataset.satuan || 'pcs';
+            if (priceInput && parseFloat(item.dataset.harga) > 0) priceInput.value = Math.round(parseFloat(item.dataset.harga));
             drop.style.display = 'none';
         });
 
-        input.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape') drop.style.display = 'none';
-        });
-
-        // Close dropdown when clicking outside this row
-        document.addEventListener('click', function (e) {
+        input.addEventListener('keydown', e => { if (e.key === 'Escape') drop.style.display = 'none'; });
+        document.addEventListener('click', e => {
             if (!input.parentElement.contains(e.target)) drop.style.display = 'none';
-        }, { capture: false });
+        });
     }
 
-    // Init autocomplete on the first (static) row
+    async function fetchGudangItems(q, input, drop) {
+        try {
+            const r = await fetch(`${BASE}/api/gudang-produk-search.php?action=search&q=${encodeURIComponent(q)}`);
+            const d = await r.json();
+            const items = d.data || [];
+            if (!items.length) { drop.style.display = 'none'; return; }
+            drop.innerHTML = items.map(p =>
+                `<div class="po-drop-row" data-nama="${p.nama_barang.replace(/"/g,'&quot;')}" data-satuan="${p.satuan||'pcs'}" data-harga="${p.harga_beli||0}"
+                    style="padding:.55rem .85rem;cursor:pointer;font-size:.84rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;"
+                    onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background=''">
+                    <span><strong>${p.nama_barang}</strong> <span style="color:#64748b;font-size:.75rem;margin-left:.3rem;">${p.satuan||'pcs'}</span></span>
+                    <span style="color:#0f9d6a;font-weight:700;font-size:.8rem;white-space:nowrap;">${parseFloat(p.harga_beli)>0?'Rp '+parseInt(p.harga_beli).toLocaleString('id-ID'):''}</span>
+                </div>`
+            ).join('');
+            drop.style.display = 'block';
+        } catch (e) { drop.style.display = 'none'; }
+    }
+
+    // Init autocomplete on first (static) row
     document.querySelectorAll('.po-item-ac').forEach(initPoItemAc);
 </script>
 
