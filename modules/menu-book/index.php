@@ -552,17 +552,36 @@ include '../../includes/header.php';
                                 <label style="font-size:0.8rem;"><input type="checkbox" name="is_active[<?php echo (int)$p['id']; ?>]" <?php echo ((int)$p['is_active'] === 1) ? 'checked' : ''; ?>> Aktif</label>
                             </div>
                             <div class="mb-row" style="justify-content:flex-end;">
-                                <button class="mb-btn mb-btn-danger" type="submit" form="del-form-<?php echo (int)$p['id']; ?>" onclick="return confirm('Hapus halaman ini?');">Hapus</button>
+                                <button class="mb-btn mb-btn-danger" type="button" onclick="return submitDeletePage(<?php echo (int)$p['id']; ?>);">Hapus</button>
                             </div>
                         </div>
-                        <form id="del-form-<?php echo (int)$p['id']; ?>" method="post" style="display:none;">
-                            <input type="hidden" name="action" value="delete_page">
-                            <input type="hidden" name="id" value="<?php echo (int)$p['id']; ?>">
-                        </form>
                     <?php endforeach; ?>
                 </div>
                 <button class="mb-btn mb-btn-primary" type="submit" style="margin-top:12px;">Simpan Perubahan</button>
             </form>
+
+            <form id="delete-page-form" method="post" style="display:none;">
+                <input type="hidden" name="action" value="delete_page">
+                <input type="hidden" name="id" id="delete-page-id" value="">
+            </form>
+
+            <script>
+                function submitDeletePage(id) {
+                    if (!confirm('Hapus halaman ini?')) {
+                        return false;
+                    }
+
+                    const idInput = document.getElementById('delete-page-id');
+                    const form = document.getElementById('delete-page-form');
+                    if (!idInput || !form) {
+                        return false;
+                    }
+
+                    idInput.value = String(id);
+                    form.submit();
+                    return false;
+                }
+            </script>
         <?php endif; ?>
     </div>
 </div>
