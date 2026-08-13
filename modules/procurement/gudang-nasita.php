@@ -753,11 +753,11 @@ include '../../includes/header.php';
             Input Stock Manual
         </button>
         <button type="button" class="btn btn-primary" onclick="document.getElementById('importStockModal').style.display='flex'">
-            <i data-feather="upload" style="width: 16px; height: 16px;"></i>
+            <i data-feather="download" style="width: 16px; height: 16px;"></i>
             Import Stock
         </button>
         <a href="gudang-nasita.php?export_excel=1&q_item=<?php echo urlencode($searchItemName); ?>&low_stock=<?php echo $filterLowStockOnly ? '1' : '0'; ?>" class="btn btn-success" style="font-weight:700;">
-            <i data-feather="download" style="width: 16px; height: 16px;"></i>
+            <i data-feather="upload" style="width: 16px; height: 16px;"></i>
             Export Excel
         </a>
         <a href="gudang-nasita.php?export_pdf=1&q_item=<?php echo urlencode($searchItemName); ?>&low_stock=<?php echo $filterLowStockOnly ? '1' : '0'; ?>" class="btn btn-danger" style="font-weight:700;">
