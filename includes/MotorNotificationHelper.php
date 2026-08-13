@@ -24,6 +24,7 @@ function getOverdueMotorsForNotification($pdo, $businessId = 1)
             WHERE rb.business_id = ?
             AND rb.status IN ('active', 'overdue')
             AND rb.end_datetime < NOW()
+            AND TIMESTAMPDIFF(HOUR, rb.end_datetime, NOW()) >= 24
             ORDER BY rb.end_datetime ASC
             LIMIT 15
         ");
