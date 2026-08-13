@@ -31,7 +31,8 @@ try {
         `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE KEY `uk_nama_barang` (`nama_barang`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-} catch (Throwable $e) {}
+} catch (Throwable $e) {
+}
 
 $msg = '';
 $msgType = 'success';
@@ -117,6 +118,7 @@ $allProductsForJs = $db->fetchAll(
      ORDER BY gb.nama_barang ASC"
 ) ?: [];
 
+$forceTheme = 'light';
 include '../../includes/header.php';
 ?>
 
@@ -174,7 +176,9 @@ include '../../includes/header.php';
             </thead>
             <tbody>
                 <?php if (empty($products)): ?>
-                    <tr><td colspan="7" style="text-align:center; padding:2rem; color:var(--text-muted);">Belum ada produk. Klik "Tambah Produk" untuk mulai.</td></tr>
+                    <tr>
+                        <td colspan="7" style="text-align:center; padding:2rem; color:var(--text-muted);">Belum ada produk. Klik "Tambah Produk" untuk mulai.</td>
+                    </tr>
                 <?php else: ?>
                     <?php foreach ($products as $p): ?>
                         <?php $stok = $stockMap[strtolower((string)($p['nama_barang'] ?? ''))] ?? null; ?>
@@ -384,11 +388,14 @@ include '../../includes/header.php';
     }
 
     // Live duplicate check while typing
-    document.getElementById('produkNama').addEventListener('input', function () {
+    document.getElementById('produkNama').addEventListener('input', function() {
         clearTimeout(produkNamaTimer);
         const val = this.value.trim();
         const hint = document.getElementById('produkNamaHint');
-        if (!val) { hint.style.display = 'none'; return; }
+        if (!val) {
+            hint.style.display = 'none';
+            return;
+        }
         produkNamaTimer = setTimeout(async () => {
             try {
                 const r = await fetch(`${BASE}/api/gudang-produk-search.php?action=search&q=${encodeURIComponent(val)}`);
@@ -492,10 +499,10 @@ include '../../includes/header.php';
             groups[k].forEach(p => {
                 const stokColor = p.stok_qty > 0 ? '#0f9d6a' : '#dc2626';
                 // Store JSON in data-attribute to avoid breaking onclick with embedded quotes
-        html += `<div class="as-prod-row" data-product="${encodeURIComponent(JSON.stringify(p))}" style="display:flex; align-items:center; justify-content:space-between; padding:0.65rem 0.85rem; cursor:pointer; border-bottom:1px solid var(--border); transition:background 0.12s;" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background=''">` +
+                html += `<div class="as-prod-row" data-product="${encodeURIComponent(JSON.stringify(p))}" style="display:flex; align-items:center; justify-content:space-between; padding:0.65rem 0.85rem; cursor:pointer; border-bottom:1px solid var(--border); transition:background 0.12s;" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background=''">` +
                     `<div><div style="font-weight:600; font-size:0.875rem;">${p.nama_barang}</div><div style="font-size:0.75rem; color:#64748b;">${p.kode_barang || ''} · ${p.satuan || 'pcs'}</div></div>` +
                     `<div style="text-align:right; flex-shrink:0;"><div style="font-weight:700; font-size:0.9rem; color:${stokColor};">${parseFloat(p.stok_qty).toLocaleString('id-ID', {minimumFractionDigits:0, maximumFractionDigits:2})}</div><div style="font-size:0.7rem; color:#94a3b8;">stok saat ini</div></div>` +
-                `</div>`;
+                    `</div>`;
             });
         });
         list.innerHTML = html;
@@ -503,12 +510,15 @@ include '../../includes/header.php';
 
     function selectProductForStock(p) {
         document.getElementById('asFormItem').value = p.nama_barang;
-        document.getElementById('asFormKat').value  = p.kategori || 'lainnya';
+        document.getElementById('asFormKat').value = p.kategori || 'lainnya';
         document.getElementById('asFormUnit').value = p.satuan || 'pcs';
         document.getElementById('asSelectedName').textContent = p.nama_barang;
-        document.getElementById('asSelectedKat').textContent  = p.kategori || 'lainnya';
-        document.getElementById('asSelectedSat').textContent  = p.satuan || 'pcs';
-        document.getElementById('asSelectedStok').textContent = parseFloat(p.stok_qty).toLocaleString('id-ID', {minimumFractionDigits:0, maximumFractionDigits:2}) + ' ' + (p.satuan || 'pcs');
+        document.getElementById('asSelectedKat').textContent = p.kategori || 'lainnya';
+        document.getElementById('asSelectedSat').textContent = p.satuan || 'pcs';
+        document.getElementById('asSelectedStok').textContent = parseFloat(p.stok_qty).toLocaleString('id-ID', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2
+        }) + ' ' + (p.satuan || 'pcs');
         document.getElementById('asFormQty').value = '';
         document.getElementById('asSearchPhase').style.display = 'none';
         document.getElementById('asFormPhase').style.display = 'block';
@@ -519,7 +529,13 @@ include '../../includes/header.php';
 
     // Per-row button still works by jumping straight to the form phase
     function quickAddStock(nama, kategori, satuan) {
-        const p = GP_PRODUCTS.find(x => x.nama_barang === nama) || { nama_barang: nama, kategori: kategori, satuan: satuan, stok_qty: 0, kode_barang: '' };
+        const p = GP_PRODUCTS.find(x => x.nama_barang === nama) || {
+            nama_barang: nama,
+            kategori: kategori,
+            satuan: satuan,
+            stok_qty: 0,
+            kode_barang: ''
+        };
         openAddStockSearch();
         selectProductForStock(p);
     }

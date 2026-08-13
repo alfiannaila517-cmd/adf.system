@@ -451,6 +451,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $stockItems = getGudangNasitaStock(300);
 $transfers = getGudangNasitaTransfers(50);
 
+$forceTheme = 'light';
 include '../../includes/header.php';
 ?>
 

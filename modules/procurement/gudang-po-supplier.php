@@ -320,6 +320,7 @@ if ($printPo) {
     exit;
 }
 
+$forceTheme = 'light';
 include '../../includes/header.php';
 ?>
 
