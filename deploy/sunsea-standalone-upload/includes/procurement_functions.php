@@ -450,8 +450,12 @@ function getGudangNasitaStock($limit = 200)
     $codeExpr = gudangNasitaStockHasColumn('stock_code')
         ? 'gs.stock_code'
         : "CONCAT('GN-LEGACY-', LPAD(gs.id, 4, '0'))";
+    $hargaExpr = gudangNasitaStockHasColumn('harga_beli') ? 'COALESCE(gs.harga_beli, 0)' : '0';
+    $totalHargaExpr = gudangNasitaStockHasColumn('total_harga')
+        ? 'COALESCE(gs.total_harga, COALESCE(gs.quantity, 0) * COALESCE(gs.harga_beli, 0), 0)'
+        : '(COALESCE(gs.quantity, 0) * ' . $hargaExpr . ')';
 
-    return $db->fetchAll("\n        SELECT\n            gs.*,\n            {$codeExpr} AS stock_code,\n            COALESCE(gs.harga_beli, 0) AS harga_beli,\n            COALESCE(gs.total_harga, COALESCE(gs.quantity, 0) * COALESCE(gs.harga_beli, 0), 0) AS total_harga,\n            COALESCE((SELECT SUM(quantity) FROM gudang_nasita_movements gm WHERE gm.stock_id = gs.id AND gm.movement_type = 'in_supplier'), 0) AS total_in,\n            COALESCE((SELECT SUM(quantity) FROM gudang_nasita_movements gm WHERE gm.stock_id = gs.id AND gm.movement_type = 'out_transfer'), 0) AS total_out\n        FROM gudang_nasita_stock gs\n        WHERE gs.is_active = 1\n        ORDER BY COALESCE(gs.category, 'lainnya') ASC, gs.item_name ASC\n        LIMIT {$limit}\n    ");
+    return $db->fetchAll("\n        SELECT\n            gs.*,\n            {$codeExpr} AS stock_code,\n            {$hargaExpr} AS harga_beli,\n            {$totalHargaExpr} AS total_harga,\n            COALESCE((SELECT SUM(quantity) FROM gudang_nasita_movements gm WHERE gm.stock_id = gs.id AND gm.movement_type = 'in_supplier'), 0) AS total_in,\n            COALESCE((SELECT SUM(quantity) FROM gudang_nasita_movements gm WHERE gm.stock_id = gs.id AND gm.movement_type = 'out_transfer'), 0) AS total_out\n        FROM gudang_nasita_stock gs\n        WHERE gs.is_active = 1\n        ORDER BY COALESCE(gs.category, 'lainnya') ASC, gs.item_name ASC\n        LIMIT {$limit}\n    ");
 }
 
 function getGudangNasitaTransfers($limit = 50)

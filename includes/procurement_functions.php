@@ -1963,6 +1963,10 @@ function getPurchase($purchase_id)
     ", [$purchase_id]);
     // Get details
     $details = $db->fetchAll("
+                $hargaExpr = gudangNasitaStockHasColumn('harga_beli') ? 'COALESCE(gs.harga_beli, 0)' : '0';
+                $totalHargaExpr = gudangNasitaStockHasColumn('total_harga')
+                    ? 'COALESCE(gs.total_harga, COALESCE(gs.quantity, 0) * COALESCE(gs.harga_beli, 0), 0)'
+                    : '(COALESCE(gs.quantity, 0) * ' . $hargaExpr . ')';
         SELECT 
             pd.*,
             d.division_name,
