@@ -904,9 +904,12 @@ if (isset($_SESSION['user_id'])) {
                         <?php endif; ?>
 
                         <?php
-                        $menuBookBizSlugs = ['narayana-hotel', 'bens-cafe', 'eaat-meet'];
-                        $isMenuBookBiz = defined('ACTIVE_BUSINESS_ID') && in_array((string)ACTIVE_BUSINESS_ID, $menuBookBizSlugs, true);
-                        if ($isMenuBookBiz && $auth->hasPermission('menu_book')):
+                        $activeBizRaw = (string)($_SESSION['active_business_id'] ?? (defined('ACTIVE_BUSINESS_ID') ? ACTIVE_BUSINESS_ID : ''));
+                        $activeBizNorm = strtolower((string)preg_replace('/[^a-z0-9]/', '', $activeBizRaw));
+                        $menuBookBizNorm = ['narayanahotel', 'benscafe', 'eaatmeet', 'eatmeet'];
+                        $isMenuBookBiz = in_array($activeBizNorm, $menuBookBizNorm, true);
+                        $isDeveloperRole = (($_SESSION['role'] ?? '') === 'developer');
+                        if ($isMenuBookBiz && ($isDeveloperRole || $auth->hasPermission('menu_book'))):
                         ?>
                             <li class="nav-item">
                                 <a href="<?php echo BASE_URL; ?>/modules/menu-book/index.php" class="nav-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/menu-book/') !== false) ? 'active' : ''; ?>">

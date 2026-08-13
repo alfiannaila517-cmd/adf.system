@@ -16,9 +16,11 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+$bizNorm = strtolower((string)preg_replace('/[^a-z0-9]/', '', $biz));
 $activeBiz = (string)($_SESSION['active_business_id'] ?? '');
+$activeBizNorm = strtolower((string)preg_replace('/[^a-z0-9]/', '', $activeBiz));
 $isDev = isset($_SESSION['role']) && $_SESSION['role'] === 'developer';
-$isAllowedInternal = $isDev || $activeBiz === $biz;
+$isAllowedInternal = $isDev || $activeBizNorm === $bizNorm;
 if (!$isAllowedInternal) {
     http_response_code(403);
     echo 'Akses halaman menu ini dibatasi.';

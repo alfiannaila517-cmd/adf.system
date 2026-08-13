@@ -8,15 +8,23 @@ require_once '../../includes/auth.php';
 $auth = new Auth();
 $auth->requireLogin();
 
-$allowedBizSlugs = ['narayana-hotel', 'bens-cafe', 'eaat-meet'];
-$activeBizSlug = defined('ACTIVE_BUSINESS_ID') ? (string)ACTIVE_BUSINESS_ID : (string)($_SESSION['active_business_id'] ?? '');
-if (!in_array($activeBizSlug, $allowedBizSlugs, true)) {
+$bizMap = [
+    'narayanahotel' => 'narayana-hotel',
+    'benscafe' => 'bens-cafe',
+    'eaatmeet' => 'eaat-meet',
+    'eatmeet' => 'eaat-meet',
+];
+$activeBizRaw = (string)($_SESSION['active_business_id'] ?? (defined('ACTIVE_BUSINESS_ID') ? ACTIVE_BUSINESS_ID : ''));
+$activeBizNorm = strtolower((string)preg_replace('/[^a-z0-9]/', '', $activeBizRaw));
+$activeBizSlug = $bizMap[$activeBizNorm] ?? '';
+if ($activeBizSlug === '') {
     http_response_code(403);
     echo 'Menu Buku Menu hanya tersedia untuk bisnis yang ditentukan.';
     exit;
 }
 
-if (!$auth->hasPermission('menu_book')) {
+$isDeveloperRole = (($_SESSION['role'] ?? '') === 'developer');
+if (!$isDeveloperRole && !$auth->hasPermission('menu_book')) {
     http_response_code(403);
     echo 'Akses ditolak. Hubungi developer untuk pemberian izin menu_book.';
     exit;
@@ -110,7 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $action = (string)($_POST['action'] ?? '');
 
         if ($action === 'upload_pages') {
-            if (!$auth->canCreate('menu_book')) {
+            if (!$isDeveloperRole && !$auth->canCreate('menu_book')) {
                 throw new Exception('Anda tidak punya hak create untuk menu ini.');
             }
 
@@ -183,7 +191,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if ($action === 'save_pages') {
-            if (!$auth->canEdit('menu_book')) {
+            if (!$isDeveloperRole && !$auth->canEdit('menu_book')) {
                 throw new Exception('Anda tidak punya hak edit untuk menu ini.');
             }
 
@@ -208,7 +216,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if ($action === 'delete_page') {
-            if (!$auth->canDelete('menu_book')) {
+            if (!$isDeveloperRole && !$auth->canDelete('menu_book')) {
                 throw new Exception('Anda tidak punya hak delete untuk menu ini.');
             }
             $id = (int)($_POST['id'] ?? 0);
