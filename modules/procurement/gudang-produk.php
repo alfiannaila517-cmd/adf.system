@@ -283,7 +283,7 @@ include '../../includes/header.php';
         document.getElementById('produkDeskripsi').value = data ? (data.deskripsi || '') : '';
         document.getElementById('produkModalMsg').style.display = 'none';
         document.getElementById('produkNamaHint').style.display = 'none';
-        document.getElementById('produkNama').readOnly = !!id; // lock name when editing
+        document.getElementById('produkNama').readOnly = false;
         document.getElementById('produkModal').style.display = 'flex';
         if (!id) setTimeout(() => document.getElementById('produkNama').focus(), 80);
     }
