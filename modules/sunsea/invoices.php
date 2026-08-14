@@ -235,6 +235,9 @@ $invoiceList = $pdo->prepare("
 $invoiceList->execute($lp);
 $invoiceList = $invoiceList->fetchAll();
 
+$invoiceLogoPath = sunseaSetting($pdo, 'invoice_logo', '') ?: sunseaSetting($pdo, 'company_logo', '');
+$invoiceLogoSrc = $invoiceLogoPath ? BASE_URL . '/' . ltrim($invoiceLogoPath, '/') : '';
+
 $pageTitle  = match ($action) {
     'add'   => 'Buat Invoice Baru',
     'edit'  => 'Edit Invoice',
@@ -249,6 +252,8 @@ if ($action === 'print' && $invoice):
     $companyName    = sunseaSetting($pdo, 'company_name', 'Explore Karimunjawa');
     $companyAddress = sunseaSetting($pdo, 'company_address', '');
     $companyPhone   = sunseaSetting($pdo, 'company_phone', '');
+    $printLogoPath  = sunseaSetting($pdo, 'invoice_logo', '') ?: sunseaSetting($pdo, 'company_logo', '');
+    $printLogoSrc   = $printLogoPath ? BASE_URL . '/' . ltrim($printLogoPath, '/') : '';
     $bankName       = sunseaSetting($pdo, 'bank_name', '');
     $bankAccount    = sunseaSetting($pdo, 'bank_account', '');
     $bankHolder     = sunseaSetting($pdo, 'bank_holder', '');
@@ -289,6 +294,13 @@ if ($action === 'print' && $invoice):
                 font-size: 22px;
                 margin: 0;
                 color: #7C2D12
+            }
+
+            .brand-logo {
+                width: 72px;
+                height: 72px;
+                object-fit: contain;
+                margin-right: 14px;
             }
 
             h2 {
@@ -365,11 +377,14 @@ if ($action === 'print' && $invoice):
     </head>
 
     <body onload="window.print()">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-            <div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #C2410C;padding-bottom:16px;">
+            <div style="display:flex;align-items:center;">
+                <?php if ($printLogoSrc): ?><img class="brand-logo" src="<?php echo htmlspecialchars($printLogoSrc); ?>" alt="Logo"> <?php endif; ?>
+                <div>
                 <h1><?php echo htmlspecialchars($companyName); ?></h1>
                 <div style="font-size:11px;color:#64748B;margin-top:2px;">
                     <?php echo htmlspecialchars($companyAddress); ?><?php echo ($companyAddress && $companyPhone) ? ' &middot; ' : ''; ?><?php echo htmlspecialchars($companyPhone); ?>
+                </div>
                 </div>
             </div>
             <div style="text-align:right;">
@@ -458,6 +473,7 @@ $prefillPaxCount = max(1, (int)($_GET['pax_count'] ?? 1));
     <!-- ============ VIEW ============ -->
     <div style="margin-bottom:20px;display:flex;gap:10px;flex-wrap:wrap;">
         <a href="invoices.php" class="ss-btn ss-btn-outline ss-btn-sm"><i data-feather="arrow-left"></i> Kembali</a>
+        <a href="invoices.php?action=edit&id=<?php echo $invoice['id']; ?>" class="ss-btn ss-btn-primary ss-btn-sm"><i data-feather="edit-3"></i> Edit Invoice</a>
         <a href="invoices.php?action=print&id=<?php echo $invoice['id']; ?>" target="_blank" class="ss-btn ss-btn-outline ss-btn-sm"><i data-feather="printer"></i> Cetak</a>
         <?php if (in_array($invoice['status'], ['issued', 'partial'])): ?>
             <button onclick="document.getElementById('paymentModal').style.display='flex'" class="ss-btn ss-btn-primary ss-btn-sm">
@@ -766,13 +782,24 @@ $prefillPaxCount = max(1, (int)($_GET['pax_count'] ?? 1));
 
 <?php else: ?>
     <!-- ============ LIST ============ -->
-    <div class="ss-card">
-        <div class="ss-card-header">
-            <div>
-                <div class="ss-card-title">Daftar Invoice</div>
-                <div class="ss-card-sub"><?php echo count($invoiceList); ?> invoice</div>
+    <div class="invoice-page-shell">
+        <div class="invoice-page-heading">
+            <div class="invoice-brand-lockup">
+                <?php if ($invoiceLogoSrc): ?><img src="<?php echo htmlspecialchars($invoiceLogoSrc); ?>" alt="Logo Explore Karimunjawa"><?php endif; ?>
+                <div>
+                    <div class="invoice-eyebrow">FINANCE &amp; BILLING</div>
+                    <h1>Invoice</h1>
+                    <p>Kelola tagihan perjalanan dengan cepat dan rapi.</p>
+                </div>
             </div>
             <a href="invoices.php?action=add" class="ss-btn ss-btn-primary"><i data-feather="plus"></i> Buat Invoice</a>
+        </div>
+        <div class="ss-card invoice-list-card">
+        <div class="ss-card-header">
+            <div>
+                <div class="ss-card-title">Semua Invoice</div>
+                <div class="ss-card-sub"><?php echo count($invoiceList); ?> invoice</div>
+            </div>
         </div>
         <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
             <?php foreach (['' => 'Semua', 'issued' => 'Issued', 'partial' => 'Partial', 'paid' => 'Lunas', 'overdue' => 'Overdue'] as $st => $lbl): ?>
@@ -809,17 +836,37 @@ $prefillPaxCount = max(1, (int)($_GET['pax_count'] ?? 1));
                                 <td style="color:<?php echo $inv['remaining_amount'] > 0 ? 'var(--ss-danger)' : 'var(--ss-success)'; ?>;font-weight:700;"><?php echo sunseaRupiah((float)$inv['remaining_amount']); ?></td>
                                 <td><span class="ss-status ss-status-<?php echo $inv['status']; ?>"><?php echo ucfirst($inv['status']); ?></span></td>
                                 <td><?php echo $inv['due_date'] ? date('d M Y', strtotime($inv['due_date'])) : '-'; ?></td>
-                                <td><a href="invoices.php?action=view&id=<?php echo $inv['id']; ?>" class="ss-btn ss-btn-outline ss-btn-sm"><i data-feather="eye"></i></a>
+                                <td><div style="display:flex;gap:6px;align-items:center;">
+                                    <a href="invoices.php?action=view&id=<?php echo $inv['id']; ?>" class="ss-btn ss-btn-outline ss-btn-sm" title="Lihat invoice"><i data-feather="eye"></i></a>
+                                    <a href="invoices.php?action=edit&id=<?php echo $inv['id']; ?>" class="ss-btn ss-btn-primary ss-btn-sm" title="Edit invoice"><i data-feather="edit-3"></i></a>
                                     <a href="invoices.php?action=print&id=<?php echo $inv['id']; ?>" target="_blank" class="ss-btn ss-btn-outline ss-btn-sm"><i data-feather="printer"></i></a>
-                                </td>
+                                </div></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
                 </table>
             </div>
         <?php endif; ?>
+        </div>
     </div>
 <?php endif; ?>
+
+<style>
+    .invoice-page-shell { max-width: 1180px; }
+    .invoice-page-heading { display:flex; align-items:center; justify-content:space-between; gap:20px; margin-bottom:18px; }
+    .invoice-brand-lockup { display:flex; align-items:center; gap:14px; }
+    .invoice-brand-lockup img { width:52px; height:52px; object-fit:contain; border-radius:14px; background:#fff; padding:5px; box-shadow:0 8px 22px rgba(124,45,18,.12); }
+    .invoice-eyebrow { color:#C2410C; font-size:10px; font-weight:800; letter-spacing:.12em; }
+    .invoice-brand-lockup h1 { margin:3px 0 2px; color:#431407; font-size:25px; letter-spacing:-.02em; }
+    .invoice-brand-lockup p { margin:0; color:#7C6F68; font-size:12px; }
+    .invoice-list-card { box-shadow:0 12px 35px rgba(124,45,18,.08); border:1px solid rgba(194,65,12,.08); }
+    .invoice-list-card .ss-table th { font-size:10px; letter-spacing:.06em; }
+    .invoice-list-card .ss-table td { padding-top:13px; padding-bottom:13px; }
+    @media (max-width:700px) {
+        .invoice-page-heading { align-items:flex-start; flex-direction:column; }
+        .invoice-page-heading .ss-btn { width:100%; justify-content:center; }
+    }
+</style>
 
 <?php
 function invItemRow($type = '', $desc = '', $qty = 1, $unit = 'pax', $price = 0): string
