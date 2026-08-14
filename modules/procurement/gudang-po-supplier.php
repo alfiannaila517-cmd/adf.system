@@ -367,7 +367,7 @@ include '../../includes/header.php';
 <?php endif; ?>
 
 <!-- Split-panel: kiri=daftar barang, kanan=form PO -->
-<div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.25rem; min-height:500px;">
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.25rem; height:calc(100vh - 210px); min-height:420px;">
 
     <!-- KIRI: Daftar barang dengan checkbox -->
     <div class="card" style="display:flex; flex-direction:column; overflow:hidden; padding:0;">
