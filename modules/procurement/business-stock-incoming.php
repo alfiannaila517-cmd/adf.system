@@ -16,8 +16,26 @@ $pageTitle = 'Rekaman Stock Masuk';
 $activeBusinessSlug = strtolower((string)($_SESSION['active_business_id'] ?? ''));
 $activeBusinessConfig = getActiveBusinessConfig();
 
+if ($activeBusinessSlug === '' || is_numeric($activeBusinessSlug)) {
+    $configuredSlug = strtolower(trim((string)($activeBusinessConfig['business_id'] ?? '')));
+    if ($configuredSlug !== '') {
+        $activeBusinessSlug = $configuredSlug;
+    }
+}
+
 $activeBusinessId = isset($_SESSION['business_id']) ? (int)$_SESSION['business_id'] : 0;
 $activeBusinessName = (string)($activeBusinessConfig['name'] ?? '');
+
+$targetBusinessNames = array_values(array_unique(array_filter([
+    trim($activeBusinessName),
+    trim((string)($activeBusinessConfig['name'] ?? '')),
+])));
+
+if (in_array(preg_replace('/[^a-z0-9]/', '', $activeBusinessSlug), ['eatmeet', 'eaatmeet'], true)) {
+    $targetBusinessNames = array_values(array_unique(array_merge($targetBusinessNames, ['Eat Meet', 'Eaat Meet', 'Eat & Meet'])));
+}
+
+$bizNameForMatch = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $activeBusinessName) . '%';
 
 $transferBusinessConfigs = [
     'narayana-hotel' => __DIR__ . '/../../config/businesses/narayana-hotel.php',
@@ -200,7 +218,19 @@ if ($activeBusinessId > 0) {
                 } catch (Throwable $e) {
                 }
 
-                $bizNameForMatch = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $activeBusinessName) . '%';
+                $targetNamePredicates = [];
+                $targetNameParams = [];
+                foreach ($targetBusinessNames as $targetName) {
+                    $targetNamePredicates[] = 'LOWER(TRIM(gt.target_business_name)) LIKE LOWER(?)';
+                    $targetNameParams[] = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $targetName) . '%';
+                }
+                $targetNameSql = $targetNamePredicates ? implode(' OR ', $targetNamePredicates) : '1 = 0';
+                $targetFilterSql = $hasTargetBusinessId
+                    ? '(gt.target_business_id = ? OR (' . $targetNameSql . '))'
+                    : '(' . $targetNameSql . ')';
+                $targetFilterParams = $hasTargetBusinessId
+                    ? array_merge([$activeBusinessId], $targetNameParams)
+                    : $targetNameParams;
 
                 if ($hasTargetBusinessId) {
                     $incomingTransfers = $gudangDb->fetchAll(
@@ -221,11 +251,11 @@ if ($activeBusinessId > 0) {
                          LEFT JOIN users u ON gt.created_by = u.id
                          LEFT JOIN users r ON gt.received_by = r.id
                          LEFT JOIN gudang_nasita_transfer_items gti ON gti.transfer_id = gt.id
-                         WHERE (gt.target_business_id = ? OR gt.target_business_name LIKE ?)
+                         WHERE {$targetFilterSql}
                          GROUP BY gt.id
                          ORDER BY gt.created_at DESC
                          LIMIT 100",
-                        [$activeBusinessId, $bizNameForMatch]
+                        $targetFilterParams
                     );
 
                     $rawStockSummary = $gudangDb->fetchAll(
@@ -235,10 +265,10 @@ if ($activeBusinessId > 0) {
                             COALESCE(SUM(gti.quantity), 0) AS total_received
                          FROM gudang_nasita_transfer_items gti
                          JOIN gudang_nasita_transfers gt ON gti.transfer_id = gt.id
-                         WHERE (gt.target_business_id = ? OR gt.target_business_name LIKE ?)
+                         WHERE {$targetFilterSql}
                          GROUP BY gti.item_name, gti.unit
                          ORDER BY gti.item_name ASC",
-                        [$activeBusinessId, $bizNameForMatch]
+                        $targetFilterParams
                     );
                 } else {
                     $incomingTransfers = $gudangDb->fetchAll(
@@ -259,11 +289,11 @@ if ($activeBusinessId > 0) {
                          LEFT JOIN users u ON gt.created_by = u.id
                          LEFT JOIN users r ON gt.received_by = r.id
                          LEFT JOIN gudang_nasita_transfer_items gti ON gti.transfer_id = gt.id
-                         WHERE gt.target_business_name LIKE ?
+                         WHERE {$targetFilterSql}
                          GROUP BY gt.id
                          ORDER BY gt.created_at DESC
                          LIMIT 100",
-                        [$bizNameForMatch]
+                        $targetFilterParams
                     );
 
                     $rawStockSummary = $gudangDb->fetchAll(
@@ -273,10 +303,10 @@ if ($activeBusinessId > 0) {
                             COALESCE(SUM(gti.quantity), 0) AS total_received
                          FROM gudang_nasita_transfer_items gti
                          JOIN gudang_nasita_transfers gt ON gti.transfer_id = gt.id
-                         WHERE gt.target_business_name LIKE ?
+                         WHERE {$targetFilterSql}
                          GROUP BY gti.item_name, gti.unit
                          ORDER BY gti.item_name ASC",
-                        [$bizNameForMatch]
+                        $targetFilterParams
                     );
                 }
 
