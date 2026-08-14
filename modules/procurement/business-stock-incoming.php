@@ -310,6 +310,24 @@ if ($activeBusinessId > 0) {
                     );
                 }
 
+                // History is authoritative for received quantities; recover item rows by transfer IDs if the aggregate query is empty.
+                if (empty($rawStockSummary) && !empty($incomingTransfers)) {
+                    $incomingIds = array_values(array_filter(array_map(static function ($row) {
+                        return (int)($row['id'] ?? 0);
+                    }, $incomingTransfers)));
+                    if (!empty($incomingIds)) {
+                        $placeholders = implode(',', array_fill(0, count($incomingIds), '?'));
+                        $rawStockSummary = $gudangDb->fetchAll(
+                            "SELECT gti.item_name, gti.unit, COALESCE(SUM(gti.quantity), 0) AS total_received
+                             FROM gudang_nasita_transfer_items gti
+                             WHERE gti.transfer_id IN ({$placeholders})
+                             GROUP BY gti.item_name, gti.unit
+                             ORDER BY gti.item_name ASC",
+                            $incomingIds
+                        );
+                    }
+                }
+
                 if (!empty($originDbName)) {
                     Database::switchDatabase($originDbName);
                     $db = Database::getInstance();
@@ -715,7 +733,9 @@ $totalQtyVisible = 0;
 $totalQtyReceived = 0;
 foreach ($stockSummary as $row) {
     $totalQtyVisible += (float)($row['current_qty'] ?? 0);
-    $totalQtyReceived += (float)($row['total_received'] ?? 0);
+}
+foreach ($incomingTransfers as $transferRow) {
+    $totalQtyReceived += (float)($transferRow['total_qty'] ?? 0);
 }
 
 $totalValueReceived = 0;
