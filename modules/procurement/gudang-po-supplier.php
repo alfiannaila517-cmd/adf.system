@@ -195,6 +195,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
 
             $db->getConnection()->commit();
             $_SESSION['success'] = 'PO ' . $poNumber . ' berhasil dibuat (' . count($validItems) . ' item).';
+            $poMode = $_POST['po_mode'] ?? 'save';
+            if ($poMode === 'print') {
+                header('Location: gudang-po-supplier.php?print=' . $poHeaderId);
+            } else {
+                header('Location: gudang-po-supplier.php');
+            }
+            exit;
         } catch (Throwable $e) {
             if ($db->getConnection()->inTransaction()) {
                 $db->getConnection()->rollBack();
@@ -336,35 +343,96 @@ $forceTheme = 'light';
 include '../../includes/header.php';
 ?>
 
-<div style="margin-bottom:1.25rem; display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap;">
+<div style="margin-bottom:1rem; display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap;">
     <div>
-        <h2 style="font-size:1.5rem; font-weight:700; color:var(--text-primary); margin-bottom:0.25rem;">PO Supplier Gudang</h2>
-        <p style="color:var(--text-muted); font-size:0.875rem;">Pemesanan barang ke supplier untuk restock Gudang Nasita</p>
+        <h2 style="font-size:1.5rem; font-weight:700; color:var(--text-primary); margin-bottom:0.2rem;">PO Supplier Gudang</h2>
+        <p style="color:var(--text-muted); font-size:0.875rem;">Centang barang di kiri → isi qty di kanan → Buat PO</p>
     </div>
-    <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
-        <a href="gudang-nasita.php" class="btn btn-secondary">
-            <i data-feather="arrow-left" style="width:16px;height:16px;"></i> Kembali ke Gudang
-        </a>
-        <button type="button" class="btn btn-primary" onclick="openPoModal()">
-            <i data-feather="plus" style="width:16px;height:16px;"></i> Buat PO Baru
-        </button>
-    </div>
+    <a href="gudang-nasita.php" class="btn btn-secondary">
+        <i data-feather="arrow-left" style="width:16px;height:16px;"></i> Kembali ke Gudang
+    </a>
 </div>
 
 <?php if (isset($_SESSION['success'])): ?>
-    <div class="alert alert-success" style="margin-bottom:1rem;"><?php echo htmlspecialchars($_SESSION['success']);
-                                                                    unset($_SESSION['success']); ?></div>
+    <div class="alert alert-success" style="margin-bottom:1rem;"><?php echo htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?></div>
 <?php endif; ?>
 <?php if (isset($_SESSION['error'])): ?>
-    <div class="alert alert-danger" style="margin-bottom:1rem;"><?php echo htmlspecialchars($_SESSION['error']);
-                                                                unset($_SESSION['error']); ?></div>
+    <div class="alert alert-danger" style="margin-bottom:1rem;"><?php echo htmlspecialchars($_SESSION['error']); unset($_SESSION['error']); ?></div>
 <?php endif; ?>
 
 <?php if (empty($suppliers)): ?>
     <div class="alert alert-warning" style="margin-bottom:1rem;">
-        ⚠️ Belum ada supplier. Tambahkan supplier terlebih dahulu di <a href="suppliers.php">menu Pemasok</a>.
+        ⚠️ Belum ada supplier. Tambahkan di <a href="suppliers.php">menu Pemasok</a>.
     </div>
 <?php endif; ?>
+
+<!-- Split-panel: kiri=daftar barang, kanan=form PO -->
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.25rem; min-height:500px;">
+
+    <!-- KIRI: Daftar barang dengan checkbox -->
+    <div class="card" style="display:flex; flex-direction:column; overflow:hidden; padding:0;">
+        <div style="padding:0.85rem 1rem; border-bottom:1px solid var(--border,#e2e8f0); flex-shrink:0;">
+            <div style="font-weight:700; font-size:0.95rem; margin-bottom:0.5rem;">Pilih Barang</div>
+            <input type="text" id="poLeftSearch" class="form-control" placeholder="Cari nama barang..." autocomplete="off">
+        </div>
+        <div id="poLeftList" style="flex:1; overflow-y:auto; min-height:0;"></div>
+        <div style="padding:0.5rem 1rem; border-top:1px solid var(--border,#e2e8f0); font-size:0.78rem; color:var(--text-muted); flex-shrink:0;">
+            <span id="poLeftCount">0 barang</span> &nbsp;·&nbsp; <span id="poSelectedCount" style="color:#0f9d6a; font-weight:700;">0 dipilih</span>
+        </div>
+    </div>
+
+    <!-- KANAN: Form PO + item terpilih -->
+    <div class="card" style="display:flex; flex-direction:column; overflow:hidden; padding:0;">
+        <div style="padding:0.85rem 1rem; border-bottom:1px solid var(--border,#e2e8f0); flex-shrink:0;">
+            <div style="font-weight:700; font-size:0.95rem; margin-bottom:0.75rem;">Buat PO Baru</div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.6rem;">
+                <div>
+                    <label class="form-label" style="font-size:0.82rem;">Supplier *</label>
+                    <select id="poSupplier" class="form-control" required>
+                        <option value="">-- Pilih Supplier --</option>
+                        <?php foreach ($suppliers as $sup): ?>
+                            <option value="<?php echo (int)$sup['id']; ?>"><?php echo htmlspecialchars($sup['supplier_name']); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" style="font-size:0.82rem;">Catatan</label>
+                    <input type="text" id="poNotes" class="form-control" placeholder="Kebutuhan minggu ini">
+                </div>
+            </div>
+        </div>
+
+        <!-- Selected items list -->
+        <div id="poRightList" style="flex:1; overflow-y:auto; min-height:0; padding:0;">
+            <div style="padding:2rem; text-align:center; color:#94a3b8; font-size:0.875rem;" id="poEmptyMsg">
+                ← Centang barang di sebelah kiri
+            </div>
+        </div>
+
+        <!-- Footer: submit -->
+        <div style="padding:0.85rem 1rem; border-top:1px solid var(--border,#e2e8f0); flex-shrink:0; display:flex; justify-content:space-between; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+            <span style="font-size:0.82rem; color:var(--text-muted);">
+                <strong id="poRightCount">0</strong> item · Total: <strong id="poRightTotal">Rp 0</strong>
+            </span>
+            <div style="display:flex; gap:0.5rem;">
+                <button type="button" class="btn btn-secondary" onclick="submitPo('save')" style="font-weight:700;">
+                    <i data-feather="save" style="width:15px;height:15px;"></i> Simpan PO
+                </button>
+                <button type="button" class="btn btn-primary" onclick="submitPo('print')" style="font-weight:700;">
+                    <i data-feather="printer" style="width:15px;height:15px;"></i> Cetak PO
+                </button>
+            </div>
+        </div>
+
+        <!-- Hidden form for submission -->
+        <form id="poHiddenForm" method="POST" style="display:none;">
+            <input type="hidden" name="action" value="create_po">
+            <input type="hidden" id="phSupplier" name="supplier_id">
+            <input type="hidden" id="phNotes" name="notes">
+            <input type="hidden" id="phMode" name="po_mode" value="save">
+        </form>
+    </div>
+</div>
 
 <!-- Terima Barang section (jika ada PO yang dibuka) -->
 <?php if ($viewPo): ?>
@@ -529,237 +597,157 @@ include '../../includes/header.php';
 </div>
 
 <style>
-.po-chk-row { display:flex; align-items:center; gap:0.75rem; padding:0.6rem 0.85rem; border-bottom:1px solid var(--border,#e2e8f0); transition:background .1s; }
+.po-chk-row { display:flex; align-items:center; gap:0.75rem; padding:0.55rem 0.85rem; border-bottom:1px solid var(--border,#e2e8f0); cursor:pointer; transition:background .1s; }
 .po-chk-row:hover { background:#f8fafc; }
-.po-chk-row.checked { background:#f0fdf4; }
-.po-chk-row input[type=checkbox] { width:18px; height:18px; cursor:pointer; flex-shrink:0; accent-color:#0f9d6a; }
-.po-chk-row .item-info { flex:1; min-width:0; cursor:pointer; }
-.po-chk-row .item-info strong { display:block; font-size:.875rem; }
-.po-chk-row .item-meta { font-size:.75rem; color:#64748b; }
-.po-chk-row .item-price { font-size:.8rem; font-weight:700; color:#0f9d6a; white-space:nowrap; min-width:80px; text-align:right; }
-.po-chk-row .qty-wrap { display:none; flex-shrink:0; }
-.po-chk-row.checked .qty-wrap { display:flex; align-items:center; gap:0.3rem; }
-.po-chk-row .qty-wrap input { width:80px; }
+.po-chk-row.selected { background:#f0fdf4; }
+.po-chk-row input[type=checkbox] { width:17px; height:17px; flex-shrink:0; accent-color:#0f9d6a; }
+.po-chk-row .item-info { flex:1; min-width:0; }
+.po-chk-row .item-info strong { display:block; font-size:.84rem; }
+.po-chk-row .item-meta { font-size:.73rem; color:#64748b; }
+.po-chk-row .item-price { font-size:.8rem; font-weight:700; color:#0f9d6a; white-space:nowrap; }
+.po-right-row { display:flex; align-items:center; gap:0.6rem; padding:0.55rem 1rem; border-bottom:1px solid var(--border,#e2e8f0); }
+.po-right-row .item-name { flex:1; min-width:0; font-size:.84rem; font-weight:600; }
+.po-right-row .item-unit { font-size:.75rem; color:#64748b; white-space:nowrap; }
 </style>
 
 <script>
     feather.replace();
-    document.addEventListener('click', function(e) {
-        if (e.target === document.getElementById('createPoModal')) closePoModal();
-    });
 
     var BARANG_LIST = <?php echo json_encode(array_values($allBarang), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
-    var manualIdx = 0;
 
-    window.openPoModal = function() {
-        document.getElementById('poSearchInput').value = '';
-        document.getElementById('poManualBody').innerHTML = '';
-        document.getElementById('poManualTable').style.display = 'none';
-        document.getElementById('poCheckedCount').textContent = '0';
-        manualIdx = 0;
-        renderPoItemList('');
-        document.getElementById('createPoModal').style.display = 'flex';
-        setTimeout(function() { document.getElementById('poSearchInput').focus(); }, 80);
-    }
+    // selected: {id → {nama, satuan, harga, qty}}
+    var selected = {};
 
-    function closePoModal() { document.getElementById('createPoModal').style.display = 'none'; }
-
-    function renderPoItemList(q) {
-        var container = document.getElementById('poItemList');
+    function renderLeft(q) {
+        var list = document.getElementById('poLeftList');
         var filtered = q ? BARANG_LIST.filter(function(p) {
             return p.nama_barang.toLowerCase().includes(q.toLowerCase());
         }) : BARANG_LIST;
 
+        document.getElementById('poLeftCount').textContent = filtered.length + ' barang';
+
         if (!filtered.length) {
-            container.innerHTML = '<div style="padding:1.5rem;text-align:center;color:#64748b;font-size:.875rem;">Tidak ada barang yang cocok.</div>';
+            list.innerHTML = '<div style="padding:1.5rem;text-align:center;color:#94a3b8;font-size:.875rem;">Tidak ada yang cocok</div>';
             return;
         }
 
-        container.innerHTML = filtered.map(function(p) {
+        list.innerHTML = filtered.map(function(p) {
             var harga = parseFloat(p.harga_beli) || 0;
-            var hargaStr = harga > 0 ? 'Rp ' + Math.round(harga).toLocaleString('id-ID') : '\u2014';
-            var nm = p.nama_barang.replace(/"/g, '&quot;');
-            var sat = (p.satuan || 'pcs').replace(/"/g, '&quot;');
-            return '<div class="po-chk-row" data-id="' + p.id + '">' +
-                '<input type="checkbox" id="chk_' + p.id + '" onchange="toggleChkRow(this)">' +
-                '<label for="chk_' + p.id + '" class="item-info" style="margin:0;">' +
+            var isSelected = !!selected[p.id];
+            return '<div class="po-chk-row' + (isSelected ? ' selected' : '') + '" data-id="' + p.id + '" onclick="toggleItem(' + p.id + ')">' +
+                '<input type="checkbox"' + (isSelected ? ' checked' : '') + ' onclick="event.stopPropagation();toggleItem(' + p.id + ')">' +
+                '<div class="item-info">' +
                     '<strong>' + p.nama_barang + '</strong>' +
-                    '<span class="item-meta">' + (p.satuan || 'pcs') + (p.kode_barang ? ' \u00b7 ' + p.kode_barang : '') + '</span>' +
-                '</label>' +
-                '<span class="item-price">' + hargaStr + '</span>' +
-                '<div class="qty-wrap">' +
-                    '<input type="number" class="form-control po-qty" placeholder="Qty" min="0.01" step="0.01"' +
-                    ' data-nama="' + nm + '" data-satuan="' + sat + '" data-harga="' + harga + '">' +
-                    '<span style="font-size:.8rem;color:#64748b;">' + (p.satuan || 'pcs') + '</span>' +
+                    '<span class="item-meta">' + (p.satuan || 'pcs') + (p.kode_barang ? ' · ' + p.kode_barang : '') + '</span>' +
                 '</div>' +
+                '<span class="item-price">' + (harga > 0 ? 'Rp ' + Math.round(harga).toLocaleString('id-ID') : '—') + '</span>' +
             '</div>';
         }).join('');
     }
 
-    function toggleChkRow(chk) {
-        var row = chk.closest('.po-chk-row');
-        row.classList.toggle('checked', chk.checked);
-        if (chk.checked) setTimeout(function() { row.querySelector('.po-qty').focus(); }, 30);
+    function toggleItem(id) {
+        var p = BARANG_LIST.find(function(x) { return x.id == id; });
+        if (!p) return;
+        if (selected[id]) {
+            delete selected[id];
+        } else {
+            selected[id] = { nama: p.nama_barang, satuan: p.satuan || 'pcs', harga: parseFloat(p.harga_beli) || 0, qty: '' };
+        }
+        renderRight();
+        // Update checkbox + row in left panel without full re-render (preserve scroll)
+        var row = document.querySelector('#poLeftList [data-id="' + id + '"]');
+        if (row) {
+            var chk = row.querySelector('input[type=checkbox]');
+            if (selected[id]) { row.classList.add('selected'); if (chk) chk.checked = true; }
+            else { row.classList.remove('selected'); if (chk) chk.checked = false; }
+        }
+        document.getElementById('poSelectedCount').textContent = Object.keys(selected).length + ' dipilih';
     }
 
-    document.addEventListener('DOMContentLoaded', function() {
-        var search = document.getElementById('poSearchInput');
-        if (search) search.addEventListener('input', function() { renderPoItemList(this.value.trim()); });
-    });
+    function renderRight() {
+        var ids = Object.keys(selected);
+        var emptyMsg = document.getElementById('poEmptyMsg');
+        var rightList = document.getElementById('poRightList');
+        document.getElementById('poSelectedCount').textContent = ids.length + ' dipilih';
+        document.getElementById('poRightCount').textContent = ids.length;
 
-    function addManualItem() {
-        var tbody = document.getElementById('poManualBody');
-        var tr = document.createElement('tr');
-        var i = manualIdx++;
-        tr.innerHTML =
-            '<td><input type="text" name="manual_item_name[]" class="form-control" placeholder="Nama barang"></td>' +
-            '<td><input type="number" name="manual_qty[]" class="form-control" step="0.01" min="0.01" placeholder="0" style="width:80px;"></td>' +
-            '<td><input type="text" name="manual_unit[]" class="form-control" value="pcs" style="width:65px;"></td>' +
-            '<td><input type="number" name="manual_price[]" class="form-control" step="1" min="0" placeholder="0" style="width:100px;"></td>' +
-            '<td><button type="button" class="btn btn-sm btn-danger" onclick="this.closest(\'tr\').remove()">\u00d7</button></td>';
-        tbody.appendChild(tr);
-        document.getElementById('poManualTable').style.display = 'table';
-        tr.querySelector('input').focus();
+        if (!ids.length) {
+            rightList.innerHTML = '<div style="padding:2rem;text-align:center;color:#94a3b8;font-size:.875rem;" id="poEmptyMsg">← Centang barang di sebelah kiri</div>';
+            document.getElementById('poRightTotal').textContent = 'Rp 0';
+            return;
+        }
+
+        var html = '';
+        var total = 0;
+        ids.forEach(function(id) {
+            var s = selected[id];
+            var subtotal = (parseFloat(s.qty) || 0) * s.harga;
+            total += subtotal;
+            html += '<div class="po-right-row">' +
+                '<div class="item-name">' + s.nama + '<br><span class="item-unit">' + s.satuan + (s.harga > 0 ? ' · Rp ' + Math.round(s.harga).toLocaleString('id-ID') : '') + '</span></div>' +
+                '<input type="number" class="form-control" style="width:80px;text-align:right;" placeholder="Qty" min="0.01" step="0.01" value="' + (s.qty || '') + '"' +
+                    ' oninput="selected[' + id + '].qty=this.value;updateTotal()">' +
+                '<span class="item-unit">' + s.satuan + '</span>' +
+                '<button type="button" onclick="toggleItem(' + id + ')" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:1rem;padding:0 4px;">✕</button>' +
+            '</div>';
+        });
+        rightList.innerHTML = html;
+        document.getElementById('poRightTotal').textContent = 'Rp ' + Math.round(total).toLocaleString('id-ID');
     }
 
-    function submitPoForm(e) {
-        e.preventDefault();
-        var form = document.getElementById('poForm');
-        form.querySelectorAll('.po-hidden-item').forEach(function(el) { el.remove(); });
+    function updateTotal() {
+        var total = 0;
+        Object.values(selected).forEach(function(s) { total += (parseFloat(s.qty) || 0) * s.harga; });
+        document.getElementById('poRightTotal').textContent = 'Rp ' + Math.round(total).toLocaleString('id-ID');
+    }
+
+    function submitPo(mode) {
+        var supplierId = document.getElementById('poSupplier').value;
+        if (!supplierId) { alert('Pilih supplier terlebih dahulu.'); document.getElementById('poSupplier').focus(); return; }
+        var ids = Object.keys(selected);
+        if (!ids.length) { alert('Centang minimal 1 barang.'); return; }
+
+        var valid = 0;
+        ids.forEach(function(id) {
+            if (parseFloat(selected[id].qty) > 0) valid++;
+        });
+        if (!valid) { alert('Isi qty untuk barang yang dipilih.'); return; }
+
+        var form = document.getElementById('poHiddenForm');
+        form.target = (mode === 'print') ? '_blank' : '_self';
+        document.getElementById('phMode').value = mode;
+        // Remove old items
+        form.querySelectorAll('.ph-item').forEach(function(el) { el.remove(); });
+        document.getElementById('phSupplier').value = supplierId;
+        document.getElementById('phNotes').value = document.getElementById('poNotes').value;
 
         var idx = 0;
-        document.querySelectorAll('#poItemList .po-chk-row.checked').forEach(function(row) {
-            var qtyInput = row.querySelector('.po-qty');
-            var qty = parseFloat(qtyInput ? qtyInput.value : 0);
-            if (!qtyInput || qty <= 0) return;
-            addHidden(form, 'items[' + idx + '][item_name]',  qtyInput.dataset.nama);
-            addHidden(form, 'items[' + idx + '][quantity]',   qty);
-            addHidden(form, 'items[' + idx + '][unit]',       qtyInput.dataset.satuan || 'pcs');
-            addHidden(form, 'items[' + idx + '][unit_price]', parseFloat(qtyInput.dataset.harga) || 0);
+        ids.forEach(function(id) {
+            var s = selected[id];
+            var qty = parseFloat(s.qty);
+            if (!qty || qty <= 0) return;
+            function h(name, val) {
+                var el = document.createElement('input');
+                el.type = 'hidden'; el.name = name; el.value = val; el.className = 'ph-item';
+                form.appendChild(el);
+            }
+            h('items[' + idx + '][item_name]',  s.nama);
+            h('items[' + idx + '][quantity]',   qty);
+            h('items[' + idx + '][unit]',       s.satuan);
+            h('items[' + idx + '][unit_price]', s.harga);
             idx++;
         });
 
-        var manualNames  = form.querySelectorAll('[name="manual_item_name[]"]');
-        var manualQtys   = form.querySelectorAll('[name="manual_qty[]"]');
-        var manualUnits  = form.querySelectorAll('[name="manual_unit[]"]');
-        var manualPrices = form.querySelectorAll('[name="manual_price[]"]');
-        manualNames.forEach(function(el, i) {
-            var nm  = el.value.trim();
-            var qty = parseFloat(manualQtys[i] ? manualQtys[i].value : 0);
-            if (!nm || qty <= 0) return;
-            addHidden(form, 'items[' + idx + '][item_name]',  nm);
-            addHidden(form, 'items[' + idx + '][quantity]',   qty);
-            addHidden(form, 'items[' + idx + '][unit]',       manualUnits[i] ? manualUnits[i].value || 'pcs' : 'pcs');
-            addHidden(form, 'items[' + idx + '][unit_price]', parseFloat(manualPrices[i] ? manualPrices[i].value : 0) || 0);
-            idx++;
-        });
-
-        if (idx === 0) { alert('Centang minimal 1 item atau tambah item manual.'); return; }
         form.submit();
     }
 
-    function addHidden(form, name, value) {
-        var el = document.createElement('input');
-        el.type = 'hidden'; el.name = name; el.value = value; el.className = 'po-hidden-item';
-        form.appendChild(el);
-    }
-</script>
-
-<!-- Modal Buat PO Baru -->
-<div id="createPoModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.55); z-index:2100; align-items:center; justify-content:center; padding:1rem;">
-    <div class="card" style="width:min(680px,100%); max-height:94vh; display:flex; flex-direction:column; overflow:hidden;">
-
-        <!-- Header -->
-        <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:0.85rem; border-bottom:1px solid var(--border,#e2e8f0); flex-shrink:0;">
-            <h3 style="font-size:1.05rem; margin:0;">📋 Buat PO Baru ke Supplier</h3>
-            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="closePoModal()">✕ Tutup</button>
-        </div>
-
-        <form id="poForm" method="POST" onsubmit="submitPoForm(event)" style="display:flex; flex-direction:column; flex:1; overflow:hidden; min-height:0;">
-            <input type="hidden" name="action" value="create_po">
-
-            <!-- Supplier + Catatan -->
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; padding:0.85rem 0; flex-shrink:0;">
-                <div>
-                    <label class="form-label">Supplier *</label>
-                    <select name="supplier_id" class="form-control" required>
-                        <option value="">-- Pilih Supplier --</option>
-                        <?php foreach ($suppliers as $sup): ?>
-                            <option value="<?php echo (int)$sup['id']; ?>"><?php echo htmlspecialchars($sup['supplier_name']); ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div>
-                    <label class="form-label">Catatan</label>
-                    <input type="text" name="notes" class="form-control" placeholder="Contoh: Kebutuhan minggu ini">
-                </div>
-            </div>
-
-            <!-- Search + Item list -->
-            <div style="flex-shrink:0; margin-bottom:0.5rem;">
-                <div style="display:flex; align-items:center; gap:0.5rem;">
-                    <label class="form-label" style="margin:0; white-space:nowrap;">Pilih Barang</label>
-                    <input type="text" id="poSearchInput" class="form-control" placeholder="Cari nama barang..." style="flex:1;">
-                </div>
-                <div style="font-size:0.75rem; color:var(--text-muted,#64748b); margin-top:0.3rem;">
-                    Centang item → isi qty. Total: <strong id="poCheckedCount">0</strong> item dipilih.
-                </div>
-            </div>
-
-            <div id="poItemList" style="flex:1; overflow-y:auto; border:1px solid var(--border,#e2e8f0); border-radius:0.5rem; min-height:0;">
-                <div style="padding:1.5rem;text-align:center;color:#64748b;">Memuat daftar barang...</div>
-            </div>
-
-            <!-- Manual section -->
-            <div style="margin-top:0.75rem; flex-shrink:0;">
-                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addManualItem()" style="font-size:0.8rem;">
-                    + Tambah item yang tidak ada di database
-                </button>
-                <div id="poManualWrap" style="margin-top:0.5rem;">
-                    <table class="table" style="font-size:0.82rem; display:none;" id="poManualTable">
-                        <thead>
-                            <tr>
-                                <th>Nama Item</th>
-                                <th>Qty</th>
-                                <th>Unit</th>
-                                <th>Harga</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody id="poManualBody"></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Footer -->
-            <div style="display:flex; justify-content:flex-end; gap:0.5rem; padding-top:0.85rem; border-top:1px solid var(--border,#e2e8f0); margin-top:0.75rem; flex-shrink:0;">
-                <button type="button" class="btn btn-secondary" onclick="closePoModal()">Batal</button>
-                <button type="submit" class="btn btn-primary">Buat PO</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<script>
-    // Show manual table when rows are added
-    (function() {
-        const origAdd = addManualItem;
-        window.addManualItem = function() {
-            origAdd();
-            document.getElementById('poManualTable').style.display = 'table';
-        };
-    })();
-
-    // Update checked count on checkbox change
-    document.addEventListener('change', function(e) {
-        if (e.target.type === 'checkbox' && e.target.closest('#poItemList')) {
-            const count = document.querySelectorAll('#poItemList .po-chk-row.checked').length;
-            document.getElementById('poCheckedCount').textContent = count;
-        }
+    // Init on load
+    document.addEventListener('DOMContentLoaded', function() {
+        renderLeft('');
+        document.getElementById('poLeftSearch').addEventListener('input', function() {
+            renderLeft(this.value.trim());
+        });
     });
-
-    // Render on load after BARANG_LIST is ready
-    renderPoItemList('');
 </script>
 
 <?php include '../../includes/footer.php'; ?>
