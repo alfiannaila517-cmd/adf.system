@@ -331,12 +331,29 @@ if ($printPo) {
 $allBarang = [];
 try {
     $allBarang = $db->fetchAll(
-        "SELECT id, COALESCE(kode_barang,'') AS kode_barang, nama_barang,
-                COALESCE(satuan,'pcs') AS satuan, COALESCE(harga_beli,0) AS harga_beli
-         FROM gudang_nasita_barang ORDER BY nama_barang ASC"
+        "SELECT gb.id, COALESCE(gb.kode_barang,'') AS kode_barang, gb.nama_barang,
+                COALESCE(gb.satuan,'pcs') AS satuan, COALESCE(gb.harga_beli,0) AS harga_beli,
+                COALESCE(gb.min_stock,0) AS min_stock,
+                COALESCE((
+                    SELECT SUM(COALESCE(gs.quantity,0))
+                    FROM gudang_nasita_stock gs
+                    WHERE LOWER(gs.item_name) = LOWER(gb.nama_barang)
+                      AND COALESCE(gs.is_active, 1) = 1
+                ), 0) AS current_stock
+         FROM gudang_nasita_barang gb ORDER BY gb.nama_barang ASC"
     ) ?: [];
 } catch (Throwable $e) {
     error_log('gudang-po-supplier allBarang load error: ' . $e->getMessage());
+    try {
+        $allBarang = $db->fetchAll(
+            "SELECT id, COALESCE(kode_barang,'') AS kode_barang, nama_barang,
+                    COALESCE(satuan,'pcs') AS satuan, COALESCE(harga_beli,0) AS harga_beli,
+                    0 AS min_stock, 0 AS current_stock
+             FROM gudang_nasita_barang ORDER BY nama_barang ASC"
+        ) ?: [];
+    } catch (Throwable $e2) {
+        error_log('gudang-po-supplier allBarang fallback error: ' . $e2->getMessage());
+    }
 }
 
 $forceTheme = 'light';
@@ -633,12 +650,24 @@ include '../../includes/header.php';
 
         list.innerHTML = filtered.map(function(p) {
             var harga = parseFloat(p.harga_beli) || 0;
+            var stok = parseFloat(p.current_stock) || 0;
+            var minStok = parseFloat(p.min_stock) || 0;
+            var stokLow = minStok > 0 && stok <= minStok;
+            var stokColor = stokLow ? '#dc2626' : '#64748b';
+            var stokWeight = stokLow ? '700' : 'normal';
+            var stokStr = stok % 1 === 0 ? stok.toLocaleString('id-ID') : stok.toLocaleString('id-ID', {maximumFractionDigits:2});
+            var stokHtml = '<span style="font-size:.72rem;color:' + stokColor + ';font-weight:' + stokWeight + ';">' +
+                (stokLow ? '⚠ ' : '') + 'Stok: ' + stokStr + (minStok > 0 ? ' / min ' + (minStok % 1 === 0 ? minStok.toLocaleString('id-ID') : minStok.toLocaleString('id-ID', {maximumFractionDigits:2})) : '') +
+                '</span>';
             var isSelected = !!selected[p.id];
             return '<div class="po-chk-row' + (isSelected ? ' selected' : '') + '" data-id="' + p.id + '" onclick="toggleItem(' + p.id + ')">' +
                 '<input type="checkbox"' + (isSelected ? ' checked' : '') + ' onclick="event.stopPropagation();toggleItem(' + p.id + ')">' +
                 '<div class="item-info">' +
                     '<strong>' + p.nama_barang + '</strong>' +
-                    '<span class="item-meta">' + (p.satuan || 'pcs') + (p.kode_barang ? ' · ' + p.kode_barang : '') + '</span>' +
+                    '<div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">' +
+                        '<span class="item-meta">' + (p.satuan || 'pcs') + (p.kode_barang ? ' · ' + p.kode_barang : '') + '</span>' +
+                        stokHtml +
+                    '</div>' +
                 '</div>' +
                 '<span class="item-price">' + (harga > 0 ? 'Rp ' + Math.round(harga).toLocaleString('id-ID') : '—') + '</span>' +
             '</div>';

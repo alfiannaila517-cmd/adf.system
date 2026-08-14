@@ -31,12 +31,19 @@ try {
         `deskripsi`  TEXT NULL,
         `harga_beli` DECIMAL(15,2) DEFAULT 0,
         `harga_jual` DECIMAL(15,2) DEFAULT 0,
+        `min_stock`  DECIMAL(15,2) DEFAULT 0,
         `is_active`  TINYINT(1) DEFAULT 1,
         `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE KEY `uk_nama_barang` (`nama_barang`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 } catch (Throwable $e) {
 }
+try {
+    $barangCols = array_column($db->fetchAll('SHOW COLUMNS FROM gudang_nasita_barang'), 'Field');
+    if (!in_array('min_stock', $barangCols)) {
+        $db->query('ALTER TABLE gudang_nasita_barang ADD COLUMN min_stock DECIMAL(15,2) DEFAULT 0 AFTER harga_jual');
+    }
+} catch (Throwable $e) {}
 
 // ─── Search (autocomplete) ───────────────────────────────────────────────────
 if ($action === 'search') {
@@ -46,7 +53,7 @@ if ($action === 'search') {
         exit;
     }
     $rows = $db->fetchAll(
-        "SELECT id, kode_barang, nama_barang, kategori, satuan, COALESCE(harga_beli,0) AS harga_beli FROM gudang_nasita_barang
+        "SELECT id, kode_barang, nama_barang, kategori, satuan, COALESCE(harga_beli,0) AS harga_beli, COALESCE(min_stock,0) AS min_stock FROM gudang_nasita_barang
          WHERE COALESCE(is_active,1) = 1 AND nama_barang LIKE ?
          ORDER BY nama_barang ASC LIMIT 20",
         ['%' . $q . '%']
@@ -58,7 +65,7 @@ if ($action === 'search') {
 // ─── List all products ───────────────────────────────────────────────────────
 if ($action === 'list') {
     $rows = $db->fetchAll(
-        "SELECT id, kode_barang, nama_barang, kategori, satuan, deskripsi, harga_beli, harga_jual, is_active
+        "SELECT id, kode_barang, nama_barang, kategori, satuan, deskripsi, harga_beli, harga_jual, COALESCE(min_stock,0) AS min_stock, is_active
          FROM gudang_nasita_barang ORDER BY nama_barang ASC"
     );
     echo json_encode(['success' => true, 'data' => $rows ?: []]);
@@ -74,6 +81,7 @@ if ($action === 'save' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $deskripsi  = trim($_POST['deskripsi'] ?? '');
     $hargaBeli  = (float)($_POST['harga_beli'] ?? 0);
     $hargaJual  = (float)($_POST['harga_jual'] ?? 0);
+    $minStock   = max(0, (float)($_POST['min_stock'] ?? 0));
 
     if ($nama === '') {
         echo json_encode(['success' => false, 'message' => 'Nama barang wajib diisi']);
@@ -97,6 +105,7 @@ if ($action === 'save' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         'deskripsi'   => $deskripsi,
         'harga_beli'  => $hargaBeli,
         'harga_jual'  => $hargaJual,
+        'min_stock'   => $minStock,
         'is_active'   => 1,
     ];
 

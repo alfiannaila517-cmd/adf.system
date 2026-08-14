@@ -27,12 +27,19 @@ try {
         `deskripsi`  TEXT NULL,
         `harga_beli` DECIMAL(15,2) DEFAULT 0,
         `harga_jual` DECIMAL(15,2) DEFAULT 0,
+        `min_stock`  DECIMAL(15,2) DEFAULT 0,
         `is_active`  TINYINT(1) DEFAULT 1,
         `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE KEY `uk_nama_barang` (`nama_barang`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 } catch (Throwable $e) {
 }
+try {
+    $barangCols = array_column($db->fetchAll('SHOW COLUMNS FROM gudang_nasita_barang'), 'Field');
+    if (!in_array('min_stock', $barangCols)) {
+        $db->query('ALTER TABLE gudang_nasita_barang ADD COLUMN min_stock DECIMAL(15,2) DEFAULT 0 AFTER harga_jual');
+    }
+} catch (Throwable $e) {}
 
 $msg = '';
 $msgType = 'success';
@@ -47,6 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $kategori = trim($_POST['kategori'] ?? 'lainnya') ?: 'lainnya';
         $satuan   = trim($_POST['satuan'] ?? 'pcs') ?: 'pcs';
         $deskripsi = trim($_POST['deskripsi'] ?? '');
+        $minStock = max(0, (float)($_POST['min_stock'] ?? 0));
 
         if ($nama === '') {
             $msg = 'Nama barang wajib diisi.';
@@ -57,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $msg = "Nama \"$nama\" sudah ada di database (ID #{$dupe['id']}). Gunakan nama yang berbeda atau edit produk yang ada.";
                 $msgType = 'danger';
             } else {
-                $data = ['nama_barang' => $nama, 'kategori' => $kategori, 'satuan' => $satuan, 'deskripsi' => $deskripsi, 'is_active' => 1];
+                $data = ['nama_barang' => $nama, 'kategori' => $kategori, 'satuan' => $satuan, 'deskripsi' => $deskripsi, 'min_stock' => $minStock, 'is_active' => 1];
                 if ($id > 0) {
                     $db->update('gudang_nasita_barang', $data, 'id = :id', ['id' => $id]);
                     $msg = 'Produk berhasil diperbarui.';
@@ -150,6 +158,7 @@ include '../../includes/header.php';
                     <th>Kategori</th>
                     <th>Satuan</th>
                     <th class="text-right">Harga Beli</th>
+                    <th class="text-right">Stok Min</th>
                     <th>Status</th>
                     <th>Aksi</th>
                 </tr>
@@ -157,7 +166,7 @@ include '../../includes/header.php';
             <tbody>
                 <?php if (empty($products)): ?>
                     <tr>
-                        <td colspan="7" style="text-align:center; padding:2rem; color:var(--text-muted);">Belum ada produk. Klik "Tambah Produk" untuk mulai.</td>
+                        <td colspan="8" style="text-align:center; padding:2rem; color:var(--text-muted);">Belum ada produk. Klik "Tambah Produk" untuk mulai.</td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($products as $p): ?>
@@ -173,8 +182,9 @@ include '../../includes/header.php';
                             <td><?php echo htmlspecialchars($p['satuan'] ?? 'pcs'); ?></td>
                             <td class="text-right" style="font-weight:600;">
                                 <?php echo (float)($p['harga_beli'] ?? 0) > 0 ? 'Rp ' . number_format((float)$p['harga_beli'], 0, ',', '.') : '—'; ?>
-                            </td>
-                            <td>
+                            </td>                            <td class="text-right" style="color:#64748b;">
+                                <?php echo (float)($p['min_stock'] ?? 0) > 0 ? number_format((float)$p['min_stock'], 0, ',', '.') : '—'; ?>
+                            </td>                            <td>
                                 <?php if ($p['is_active']): ?>
                                     <span class="badge badge-success">Aktif</span>
                                 <?php else: ?>
@@ -255,6 +265,11 @@ include '../../includes/header.php';
                     <input type="number" id="produkHargaBeli" name="harga_beli" class="form-control" min="0" step="1" placeholder="0">
                 </div>
                 <div>
+                    <label class="form-label">Stok Minimum</label>
+                    <input type="number" id="produkMinStock" name="min_stock" class="form-control" min="0" step="0.01" placeholder="0">
+                    <div style="font-size:0.73rem; color:#64748b; margin-top:2px;">Stok di PO Supplier ditandai merah bila ≤ nilai ini</div>
+                </div>
+                <div>
                     <label class="form-label">Deskripsi / Catatan</label>
                     <textarea id="produkDeskripsi" name="deskripsi" class="form-control" rows="2" placeholder="Opsional"></textarea>
                 </div>
@@ -280,6 +295,7 @@ include '../../includes/header.php';
         document.getElementById('produkKategori').value = data ? (data.kategori || '') : '';
         document.getElementById('produkSatuan').value = data ? (data.satuan || '') : '';
         document.getElementById('produkHargaBeli').value = data ? (parseFloat(data.harga_beli) || '') : '';
+        document.getElementById('produkMinStock').value = data ? (parseFloat(data.min_stock) || '') : '';
         document.getElementById('produkDeskripsi').value = data ? (data.deskripsi || '') : '';
         document.getElementById('produkModalMsg').style.display = 'none';
         document.getElementById('produkNamaHint').style.display = 'none';
