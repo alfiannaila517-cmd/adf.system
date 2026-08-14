@@ -95,6 +95,38 @@ if (!$gudangSupplier || empty($gudangSupplier['id'])) {
 // Get divisions
 $divisions = $db->fetchAll("SELECT * FROM divisions ORDER BY division_name");
 
+// PO bisnis memakai katalog dan harga dari Gudang Nasita, tetapi header PO tetap disimpan di database bisnis aktif.
+$gudangBarang = [];
+try {
+    $gudangConfig = require __DIR__ . '/../../config/businesses/gudang-nasita.php';
+    $gudangDbName = (string)($gudangConfig['database'] ?? '');
+    $originDbName = Database::getCurrentDatabase();
+    if ($gudangDbName !== '') {
+        $gudangDb = Database::switchDatabase($gudangDbName);
+        $gudangBarang = $gudangDb->fetchAll(
+            "SELECT id, COALESCE(kode_barang,'') AS kode_barang, nama_barang,
+                    COALESCE(kategori,'lainnya') AS kategori, COALESCE(satuan,'pcs') AS satuan,
+                    COALESCE(harga_beli,0) AS harga_beli
+             FROM gudang_nasita_barang
+             WHERE COALESCE(is_active,1) = 1
+             ORDER BY nama_barang ASC"
+        ) ?: [];
+    }
+    if (!empty($originDbName)) {
+        Database::switchDatabase($originDbName);
+        $db = Database::getInstance();
+    }
+} catch (Throwable $e) {
+    error_log('create-po warehouse catalog error: ' . $e->getMessage());
+    try {
+        if (!empty($originDbName)) {
+            Database::switchDatabase($originDbName);
+            $db = Database::getInstance();
+        }
+    } catch (Throwable $restoreError) {
+    }
+}
+
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $supplier_id = (int)($gudangSupplier['id'] ?? 0);
@@ -302,7 +334,7 @@ include '../../includes/header.php';
 <script>
     let itemCount = 0;
     const divisions = <?php echo json_encode($divisions); ?>;
-    const GUDANG_API = '<?php echo BASE_URL; ?>/api/gudang-produk-search.php';
+    const GUDANG_ITEMS = <?php echo json_encode(array_values($gudangBarang), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 
     function addItem() {
         itemCount++;
@@ -367,32 +399,34 @@ include '../../includes/header.php';
         acTimers[key] = setTimeout(() => fetchGudangItems(q, inp, drop, hint), 280);
     }
 
-    async function fetchGudangItems(q, inp, drop, hint) {
-        try {
-            const r = await fetch(`${GUDANG_API}?action=search&q=${encodeURIComponent(q)}`);
-            const d = await r.json();
-            const items = d.data || [];
-            if (!items.length) {
-                drop.style.display = 'none';
-                hint.textContent = '⚠️ Tidak ada di database Gudang — ketik manual';
-                hint.style.color = '#f59e0b';
-                hint.style.display = 'block';
-                return;
-            }
-            hint.style.display = 'none';
-            drop.innerHTML = items.map(p =>
-                `<div class="po-drop-item" style="padding:.5rem .75rem;cursor:pointer;font-size:.84rem;border-bottom:1px solid #f1f5f9;"
-                    data-name="${p.nama_barang.replace(/"/g,'&quot;')}"
-                    data-unit="${(p.satuan||'pcs').replace(/"/g,'&quot;')}"
-                    onmousedown="selectGudangItem(this)">
-                    <span style="font-weight:600;">${p.nama_barang}</span>
-                    <span style="color:#64748b;font-size:.75rem;margin-left:.5rem;">${p.kategori||''} &middot; ${p.satuan||'pcs'}</span>
-                </div>`
-            ).join('');
-            drop.style.display = 'block';
-        } catch (e) {
+    function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, function(char) {
+            return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char];
+        });
+    }
+
+    function fetchGudangItems(q, inp, drop, hint) {
+        const query = q.toLowerCase();
+        const items = GUDANG_ITEMS.filter(p => String(p.nama_barang || '').toLowerCase().includes(query)).slice(0, 20);
+        if (!items.length) {
             drop.style.display = 'none';
+            hint.textContent = '⚠️ Tidak ada di database Gudang — ketik manual';
+            hint.style.color = '#f59e0b';
+            hint.style.display = 'block';
+            return;
         }
+        hint.style.display = 'none';
+        drop.innerHTML = items.map(p =>
+            `<div class="po-drop-item" style="padding:.5rem .75rem;cursor:pointer;font-size:.84rem;border-bottom:1px solid #f1f5f9;"
+                data-name="${escapeHtml(p.nama_barang)}"
+                data-unit="${escapeHtml(p.satuan || 'pcs')}"
+                data-price="${Number(p.harga_beli || 0)}"
+                onmousedown="selectGudangItem(this)">
+                <span style="font-weight:600;">${escapeHtml(p.nama_barang)}</span>
+                <span style="color:#64748b;font-size:.75rem;margin-left:.5rem;">${escapeHtml(p.kategori || '')} &middot; ${escapeHtml(p.satuan || 'pcs')}</span>
+            </div>`
+        ).join('');
+        drop.style.display = 'block';
     }
 
     function selectGudangItem(el) {
@@ -401,6 +435,7 @@ include '../../includes/header.php';
         const drop = inp.nextElementSibling;
         const hint = drop.nextElementSibling;
         const unit = row.querySelector('.po-item-unit');
+        const price = row.querySelector('.item-price');
         inp.value = el.dataset.name;
         // match unit option or keep pcs
         if (unit) {
@@ -409,10 +444,14 @@ include '../../includes/header.php';
                 if (o.value.toLowerCase() === u) o.selected = true;
             });
         }
+        if (price && Number(el.dataset.price || 0) > 0) {
+            price.value = Number(el.dataset.price).toFixed(0);
+        }
         drop.style.display = 'none';
         hint.textContent = '✅ Item dari Gudang Nasita';
         hint.style.color = '#16a34a';
         hint.style.display = 'block';
+        calculateItemTotal(price || inp);
         row.querySelector('.item-qty')?.focus();
     }
 
