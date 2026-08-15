@@ -159,9 +159,9 @@ $registerStockMeta = function ($itemName, $unit) use (&$stockMetaMap, $buildKey)
     }
 };
 
-$computeVisibleQty = function ($itemName, $unit) use (&$rawStockMap, &$manualStockMap, &$baselineMap, &$interTransferInMap, &$interTransferOutMap, &$dailyOutMap, $buildKey, $getMapQty) {
+$computeVisibleQty = function ($itemName, $unit) use (&$rawStockMap, &$manualStockMap, &$baselineMap, &$dailyOutMap, $buildKey, $getMapQty) {
     $key = $buildKey($itemName, $unit);
-    $gross = $getMapQty($rawStockMap, $key) + $getMapQty($manualStockMap, $key) + $getMapQty($interTransferInMap, $key) - $getMapQty($interTransferOutMap, $key);
+    $gross = $getMapQty($rawStockMap, $key) + $getMapQty($manualStockMap, $key);
     $visible = $gross - $getMapQty($baselineMap, $key) - $getMapQty($dailyOutMap, $key);
     return $visible > 0 ? $visible : 0;
 };
@@ -262,15 +262,17 @@ if ($activeBusinessId > 0) {
 
                     $rawStockSummary = $gudangDb->fetchAll(
                         "SELECT
-                            gti.item_name,
-                            gti.unit,
-                            COALESCE(SUM(gti.quantity), 0) AS total_received
-                         FROM gudang_nasita_transfer_items gti
-                         JOIN gudang_nasita_transfers gt ON gti.transfer_id = gt.id
-                         WHERE {$targetFilterSql}
-                         GROUP BY gti.item_name, gti.unit
-                         ORDER BY gti.item_name ASC",
-                        $targetFilterParams
+                            gs.item_name,
+                            gs.unit,
+                            COALESCE(SUM(CASE
+                                WHEN gs.quantity IS NOT NULL THEN gs.quantity
+                                WHEN gs.jumlah_stok IS NOT NULL THEN gs.jumlah_stok
+                                ELSE 0
+                            END), 0) AS total_received
+                         FROM gudang_nasita_stock gs
+                         WHERE COALESCE(gs.is_active, 1) = 1
+                         GROUP BY gs.item_name, gs.unit
+                         ORDER BY gs.item_name ASC"
                     );
                 } else {
                     $incomingTransfers = $gudangDb->fetchAll(
@@ -300,34 +302,23 @@ if ($activeBusinessId > 0) {
 
                     $rawStockSummary = $gudangDb->fetchAll(
                         "SELECT
-                            gti.item_name,
-                            gti.unit,
-                            COALESCE(SUM(gti.quantity), 0) AS total_received
-                         FROM gudang_nasita_transfer_items gti
-                         JOIN gudang_nasita_transfers gt ON gti.transfer_id = gt.id
-                         WHERE {$targetFilterSql}
-                         GROUP BY gti.item_name, gti.unit
-                         ORDER BY gti.item_name ASC",
-                        $targetFilterParams
+                            gs.item_name,
+                            gs.unit,
+                            COALESCE(SUM(CASE
+                                WHEN gs.quantity IS NOT NULL THEN gs.quantity
+                                WHEN gs.jumlah_stok IS NOT NULL THEN gs.jumlah_stok
+                                ELSE 0
+                            END), 0) AS total_received
+                         FROM gudang_nasita_stock gs
+                         WHERE COALESCE(gs.is_active, 1) = 1
+                         GROUP BY gs.item_name, gs.unit
+                         ORDER BY gs.item_name ASC"
                     );
                 }
 
-                // History is authoritative for received quantities; recover item rows by transfer IDs if the aggregate query is empty.
-                if (empty($rawStockSummary) && !empty($incomingTransfers)) {
-                    $incomingIds = array_values(array_filter(array_map(static function ($row) {
-                        return (int)($row['id'] ?? 0);
-                    }, $incomingTransfers)));
-                    if (!empty($incomingIds)) {
-                        $placeholders = implode(',', array_fill(0, count($incomingIds), '?'));
-                        $rawStockSummary = $gudangDb->fetchAll(
-                            "SELECT gti.item_name, gti.unit, COALESCE(SUM(gti.quantity), 0) AS total_received
-                             FROM gudang_nasita_transfer_items gti
-                             WHERE gti.transfer_id IN ({$placeholders})
-                             GROUP BY gti.item_name, gti.unit
-                             ORDER BY gti.item_name ASC",
-                            $incomingIds
-                        );
-                    }
+                // Current warehouse stock is authoritative for available stock; transfer history stays as a separate audit trail only.
+                if (empty($rawStockSummary)) {
+                    $rawStockSummary = [];
                 }
 
                 if (!empty($originDbName)) {
@@ -973,9 +964,9 @@ include '../../includes/header.php';
             <div style="font-size:1.45rem; font-weight:800; color:#0f172a;"><?php echo count($stockSummary); ?></div>
         </div>
         <div class="card" style="padding:0.9rem 1rem; border:1px solid #dcfce7; background:linear-gradient(145deg,#f0fdf4,#ffffff);">
-            <div style="font-size:0.75rem; color:#166534; margin-bottom:0.3rem;">Total Qty Diterima Gudang</div>
-            <div style="font-size:1.45rem; font-weight:800; color:#14532d;"><?php echo number_format($totalQtyReceived, 2); ?></div>
-            <div style="font-size:0.72rem; color:#4b5563; margin-top:0.2rem;">Stok saat ini: <?php echo number_format($totalQtyVisible, 2); ?></div>
+            <div style="font-size:0.75rem; color:#166534; margin-bottom:0.3rem;">Stock Tersedia</div>
+            <div style="font-size:1.45rem; font-weight:800; color:#14532d;"><?php echo number_format($totalQtyVisible, 2); ?></div>
+            <div style="font-size:0.72rem; color:#4b5563; margin-top:0.2rem;">Gudang Nasita + Stok Manual Bisnis</div>
         </div>
         <div class="card" style="padding:0.9rem 1rem; border:1px solid #fef3c7; background:linear-gradient(145deg,#fffbeb,#ffffff);">
             <div style="font-size:0.75rem; color:#92400e; margin-bottom:0.3rem;">Histori Transfer</div>
@@ -990,7 +981,7 @@ include '../../includes/header.php';
 
     <div class="card" style="margin-bottom: 1.25rem;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-            <h3 style="font-size:1rem; font-weight:700; margin:0;">Stok Bisnis (Total Diterima dari Gudang)</h3>
+            <h3 style="font-size:1rem; font-weight:700; margin:0;">Stok Bisnis (Stock Tersedia)</h3>
             <span style="font-size:0.8rem; color:var(--text-muted);"><?php echo count($stockSummary); ?> item | Khusus bisnis aktif</span>
         </div>
         <div style="display:flex; gap:0.55rem; align-items:center; margin-bottom:0.9rem; flex-wrap:wrap;">
@@ -1007,7 +998,7 @@ include '../../includes/header.php';
                     <tr>
                         <th>Nama Item</th>
                         <th>Unit</th>
-                        <th class="text-right">Qty Diterima</th>
+                        <th class="text-right">Stock Tersedia</th>
                         <th class="text-center">Aksi</th>
                     </tr>
                 </thead>
@@ -1027,8 +1018,8 @@ include '../../includes/header.php';
                                 </td>
                                 <td><?php echo htmlspecialchars($item['unit']); ?></td>
                                 <td class="text-right" style="font-weight:700; color:#0f9d6a;">
-                                    <div><?php echo number_format((float)$item['total_received'], 2); ?></div>
-                                    <div style="font-size:0.72rem; color:#64748b; font-weight:500;">Saat ini: <?php echo number_format((float)($item['current_qty'] ?? 0), 2); ?></div>
+                                    <div><?php echo number_format((float)($item['current_qty'] ?? 0), 2); ?></div>
+                                    <div style="font-size:0.72rem; color:#64748b; font-weight:500;">Gudang + manual: <?php echo number_format((float)$item['total_received'], 2); ?></div>
                                 </td>
                                 <td class="text-center">
                                     <div style="display:flex; gap:0.4rem; justify-content:center; flex-wrap:wrap;">
