@@ -442,22 +442,69 @@ function getGudangNasitaStock($limit = 200)
 {
     $db = Database::getInstance();
 
+    // Run each ensure separately so one failure doesn't block the other.
     try {
         ensureGudangNasitaStockSchemaCompatibility();
+    } catch (Throwable $e) {
+        error_log('getGudangNasitaStock stock schema skipped: ' . $e->getMessage());
+    }
+    try {
         ensureGudangNasitaOperationalTablesCompatibility();
     } catch (Throwable $e) {
-        error_log('getGudangNasitaStock schema bootstrap skipped: ' . $e->getMessage());
+        error_log('getGudangNasitaStock operational tables skipped: ' . $e->getMessage());
     }
 
-    $codeExpr = gudangNasitaStockHasColumn('stock_code')
+    // Refresh column cache after potential ALTERs.
+    gudangNasitaStockColumns(true);
+
+    $cols = gudangNasitaStockColumns();
+
+    $codeExpr = in_array('stock_code', $cols, true)
         ? 'gs.stock_code'
         : "CONCAT('GN-LEGACY-', LPAD(gs.id, 4, '0'))";
-    $hargaExpr = gudangNasitaStockHasColumn('harga_beli') ? 'COALESCE(gs.harga_beli, 0)' : '0';
-    $totalHargaExpr = gudangNasitaStockHasColumn('total_harga')
-        ? 'COALESCE(gs.total_harga, COALESCE(gs.quantity, 0) * COALESCE(gs.harga_beli, 0), 0)'
-        : '(COALESCE(gs.quantity, 0) * ' . $hargaExpr . ')';
 
-    return $db->fetchAll("\n        SELECT\n            gs.*,\n            {$codeExpr} AS stock_code,\n            {$hargaExpr} AS harga_beli,\n            {$totalHargaExpr} AS total_harga,\n            COALESCE((SELECT SUM(quantity) FROM gudang_nasita_movements gm WHERE gm.stock_id = gs.id AND gm.movement_type = 'in_supplier'), 0) AS total_in,\n            COALESCE((SELECT SUM(quantity) FROM gudang_nasita_movements gm WHERE gm.stock_id = gs.id AND gm.movement_type = 'out_transfer'), 0) AS total_out\n        FROM gudang_nasita_stock gs\n        WHERE gs.is_active = 1\n        ORDER BY COALESCE(gs.category, 'lainnya') ASC, gs.item_name ASC\n        LIMIT {$limit}\n    ");
+    // Build expressions only for columns that actually exist to avoid "Unknown column" errors.
+    $hasBarangId    = in_array('barang_id', $cols, true);
+    $barangJoin     = $hasBarangId
+        ? "LEFT JOIN gudang_nasita_barang gb ON gb.id = gs.barang_id"
+        : '';
+    // Prefer stock-level harga_beli; fall back to master barang price when stock price is 0 or missing.
+    $hargaBeliExpr  = in_array('harga_beli', $cols, true)
+        ? ($hasBarangId ? 'COALESCE(NULLIF(gs.harga_beli, 0), gb.harga_beli, 0)' : 'COALESCE(gs.harga_beli, 0)')
+        : ($hasBarangId ? 'COALESCE(gb.harga_beli, 0)' : '0');
+    $qtyExpr        = in_array('quantity', $cols, true)     ? 'COALESCE(gs.quantity, 0)'     : 'COALESCE(gs.jumlah_stok, 0)';
+    $totalHargaExpr = in_array('total_harga', $cols, true)
+        ? "COALESCE(NULLIF(gs.total_harga, 0), {$qtyExpr} * {$hargaBeliExpr}, 0)"
+        : "{$qtyExpr} * {$hargaBeliExpr}";
+    $isActiveWhere  = in_array('is_active', $cols, true)   ? 'COALESCE(gs.is_active, 1) = 1' : '1 = 1';
+    $itemNameOrder  = in_array('item_name', $cols, true)    ? 'gs.item_name'                  : 'gs.id';
+    $categoryOrder  = in_array('category', $cols, true)     ? "COALESCE(gs.category, 'lainnya')" : "'lainnya'";
+
+    // Only use movements subqueries if the table exists.
+    $movementsExist = (bool)$db->fetchOne("SHOW TABLES LIKE 'gudang_nasita_movements'");
+    $totalInExpr  = $movementsExist
+        ? "COALESCE((SELECT SUM(quantity) FROM gudang_nasita_movements gm WHERE gm.stock_id = gs.id AND gm.movement_type = 'in_supplier'), 0)"
+        : '0';
+    $totalOutExpr = $movementsExist
+        ? "COALESCE((SELECT SUM(quantity) FROM gudang_nasita_movements gm WHERE gm.stock_id = gs.id AND gm.movement_type = 'out_transfer'), 0)"
+        : '0';
+
+    $rows = $db->fetchAll("
+        SELECT
+            gs.*,
+            {$codeExpr}      AS stock_code,
+            {$hargaBeliExpr} AS harga_beli,
+            {$totalHargaExpr} AS total_harga,
+            {$totalInExpr}   AS total_in,
+            {$totalOutExpr}  AS total_out
+        FROM gudang_nasita_stock gs
+        {$barangJoin}
+        WHERE {$isActiveWhere}
+        ORDER BY {$categoryOrder} ASC, {$itemNameOrder} ASC
+        LIMIT {$limit}
+    ");
+
+    return is_array($rows) ? $rows : [];
 }
 
 function getGudangNasitaTransfers($limit = 50)
@@ -478,10 +525,16 @@ function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $op
 
     try {
         ensureGudangNasitaStockSchemaCompatibility();
+    } catch (Throwable $e) {
+        error_log('addGudangNasitaManualStock stock schema skipped: ' . $e->getMessage());
+    }
+    try {
         ensureGudangNasitaOperationalTablesCompatibility();
     } catch (Throwable $e) {
-        error_log('addGudangNasitaManualStock schema bootstrap skipped: ' . $e->getMessage());
+        error_log('addGudangNasitaManualStock operational tables skipped: ' . $e->getMessage());
     }
+    // Refresh column cache after schema ensure runs.
+    gudangNasitaStockColumns(true);
 
     try {
         $itemName = trim((string)$itemName);
@@ -624,6 +677,96 @@ function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $op
         return [
             'success' => false,
             'message' => $e->getMessage()
+        ];
+    }
+}
+
+function recordGudangNasitaDailyStockOut($itemName, $quantity, $createdBy, $options = [])
+{
+    $db = Database::getInstance();
+
+    try {
+        ensureGudangNasitaStockSchemaCompatibility();
+        ensureGudangNasitaOperationalTablesCompatibility();
+    } catch (Throwable $e) {
+        error_log('recordGudangNasitaDailyStockOut schema bootstrap skipped: ' . $e->getMessage());
+    }
+
+    try {
+        $itemName = trim((string)$itemName);
+        $quantity = (float)$quantity;
+        $notes = trim((string)($options['notes'] ?? ''));
+
+        if ($itemName === '') {
+            throw new Exception('Nama item stok wajib diisi');
+        }
+        if ($quantity <= 0) {
+            throw new Exception('Qty stock keluar harus lebih dari 0');
+        }
+
+        $db->getConnection()->beginTransaction();
+
+        $stock = $db->fetchOne(
+            "SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) AND COALESCE(is_active,1) = 1 LIMIT 1",
+            [$itemName]
+        );
+
+        if (!$stock) {
+            throw new Exception('Item stok tidak ditemukan di Gudang Nasita');
+        }
+
+        $currentQty = (float)gudangNasitaCurrentQty($stock);
+        if ($quantity > $currentQty) {
+            throw new Exception('Qty stock keluar melebihi stok tersedia untuk item ' . $stock['item_name']);
+        }
+
+        $unitPrice = (float)gudangNasitaCurrentUnitCost($stock);
+        $lineSubtotal = $quantity * $unitPrice;
+        $remainingQty = $currentQty - $quantity;
+        $remainingValue = max(0, (float)gudangNasitaCurrentStockValue($stock) - $lineSubtotal);
+
+        $updateData = [
+            'quantity' => $remainingQty,
+            'total_harga' => $remainingValue,
+            'harga_beli' => $remainingQty > 0 ? ($remainingValue / $remainingQty) : 0,
+            'notes' => $notes !== '' ? $notes : ($stock['notes'] ?? null),
+        ];
+        if (gudangNasitaStockHasColumn('jumlah_stok')) {
+            $updateData['jumlah_stok'] = $remainingQty;
+        }
+
+        $db->update('gudang_nasita_stock', $updateData, 'id = :id', ['id' => $stock['id']]);
+
+        $referenceNumber = 'OUT-' . date('YmdHis');
+        $db->insert('gudang_nasita_movements', [
+            'stock_id' => $stock['id'],
+            'movement_date' => date('Y-m-d'),
+            'movement_type' => 'out_transfer',
+            'quantity' => $quantity,
+            'reference_type' => 'daily_stock_out',
+            'reference_id' => null,
+            'reference_number' => $referenceNumber,
+            'unit_price' => $unitPrice,
+            'subtotal' => $lineSubtotal,
+            'notes' => $notes !== '' ? $notes : 'Pengeluaran stok harian',
+            'created_by' => $createdBy,
+        ]);
+
+        $db->getConnection()->commit();
+
+        return [
+            'success' => true,
+            'message' => 'Stock keluar berhasil dicatat',
+            'stock_id' => (int)$stock['id'],
+            'remaining_qty' => (float)$remainingQty,
+        ];
+    } catch (Exception $e) {
+        if ($db->getConnection()->inTransaction()) {
+            $db->getConnection()->rollBack();
+        }
+        return [
+            'success' => false,
+            'message' => $e->getMessage(),
         ];
     }
 }
@@ -844,6 +987,26 @@ function gudangNasitaCurrentQty(array $stock)
     return 0.0;
 }
 
+function gudangNasitaCurrentUnitCost(array $stock)
+{
+    if (isset($stock['harga_beli']) && (float)$stock['harga_beli'] > 0) {
+        return (float)$stock['harga_beli'];
+    }
+    $qty = gudangNasitaCurrentQty($stock);
+    if ($qty > 0 && isset($stock['total_harga']) && (float)$stock['total_harga'] > 0) {
+        return (float)$stock['total_harga'] / $qty;
+    }
+    return 0.0;
+}
+
+function gudangNasitaCurrentStockValue(array $stock)
+{
+    if (isset($stock['total_harga']) && (float)$stock['total_harga'] > 0) {
+        return (float)$stock['total_harga'];
+    }
+    return gudangNasitaCurrentQty($stock) * gudangNasitaCurrentUnitCost($stock);
+}
+
 function generateGudangNasitaBarangCode()
 {
     $db = Database::getInstance();
@@ -934,29 +1097,6 @@ function ensureGudangNasitaStockSchemaCompatibility()
     foreach ($requiredColumns as $col => $definition) {
         if (!in_array($col, $columns, true)) {
             $db->query("ALTER TABLE gudang_nasita_stock ADD COLUMN `{$col}` {$definition}");
-        }
-
-        function gudangNasitaCurrentUnitCost(array $stock)
-        {
-            if (isset($stock['harga_beli']) && (float)$stock['harga_beli'] > 0) {
-                return (float)$stock['harga_beli'];
-            }
-
-            $qty = gudangNasitaCurrentQty($stock);
-            if ($qty > 0 && isset($stock['total_harga']) && (float)$stock['total_harga'] > 0) {
-                return (float)$stock['total_harga'] / $qty;
-            }
-
-            return 0.0;
-        }
-
-        function gudangNasitaCurrentStockValue(array $stock)
-        {
-            if (isset($stock['total_harga']) && (float)$stock['total_harga'] > 0) {
-                return (float)$stock['total_harga'];
-            }
-
-            return gudangNasitaCurrentQty($stock) * gudangNasitaCurrentUnitCost($stock);
         }
     }
 
@@ -1969,6 +2109,10 @@ function getPurchase($purchase_id)
     ", [$purchase_id]);
     // Get details
     $details = $db->fetchAll("
+                $hargaExpr = gudangNasitaStockHasColumn('harga_beli') ? 'COALESCE(gs.harga_beli, 0)' : '0';
+                $totalHargaExpr = gudangNasitaStockHasColumn('total_harga')
+                    ? 'COALESCE(gs.total_harga, COALESCE(gs.quantity, 0) * COALESCE(gs.harga_beli, 0), 0)'
+                    : '(COALESCE(gs.quantity, 0) * ' . $hargaExpr . ')';
         SELECT 
             pd.*,
             d.division_name,
