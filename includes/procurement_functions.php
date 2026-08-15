@@ -684,90 +684,115 @@ function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $op
 function recordGudangNasitaDailyStockOut($itemName, $quantity, $createdBy, $options = [])
 {
     $db = Database::getInstance();
+    $originDbName = Database::getCurrentDatabase();
+    $targetDbName = DB_NAME;
 
-    try {
-        ensureGudangNasitaStockSchemaCompatibility();
-        ensureGudangNasitaOperationalTablesCompatibility();
-    } catch (Throwable $e) {
-        error_log('recordGudangNasitaDailyStockOut schema bootstrap skipped: ' . $e->getMessage());
+    $gudangCfgPath = __DIR__ . '/../config/businesses/gudang-nasita.php';
+    if (file_exists($gudangCfgPath)) {
+        try {
+            $gudangCfg = require $gudangCfgPath;
+            $targetDbName = trim((string)($gudangCfg['database'] ?? '')) !== ''
+                ? trim((string)($gudangCfg['database']))
+                : $targetDbName;
+        } catch (Throwable $e) {
+            error_log('recordGudangNasitaDailyStockOut config load failed: ' . $e->getMessage());
+        }
+    }
+
+    if ($originDbName !== $targetDbName) {
+        Database::switchDatabase($targetDbName);
+        $db = Database::getInstance();
     }
 
     try {
-        $itemName = trim((string)$itemName);
-        $quantity = (float)$quantity;
-        $notes = trim((string)($options['notes'] ?? ''));
-
-        if ($itemName === '') {
-            throw new Exception('Nama item stok wajib diisi');
-        }
-        if ($quantity <= 0) {
-            throw new Exception('Qty stock keluar harus lebih dari 0');
+        try {
+            ensureGudangNasitaStockSchemaCompatibility();
+            ensureGudangNasitaOperationalTablesCompatibility();
+        } catch (Throwable $e) {
+            error_log('recordGudangNasitaDailyStockOut schema bootstrap skipped: ' . $e->getMessage());
         }
 
-        $db->getConnection()->beginTransaction();
+        try {
+            $itemName = trim((string)$itemName);
+            $quantity = (float)$quantity;
+            $notes = trim((string)($options['notes'] ?? ''));
 
-        $stock = $db->fetchOne(
-            "SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) AND COALESCE(is_active,1) = 1 LIMIT 1",
-            [$itemName]
-        );
+            if ($itemName === '') {
+                throw new Exception('Nama item stok wajib diisi');
+            }
+            if ($quantity <= 0) {
+                throw new Exception('Qty stock keluar harus lebih dari 0');
+            }
 
-        if (!$stock) {
-            throw new Exception('Item stok tidak ditemukan di Gudang Nasita');
+            $db->getConnection()->beginTransaction();
+
+            $stock = $db->fetchOne(
+                "SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) AND COALESCE(is_active,1) = 1 LIMIT 1",
+                [$itemName]
+            );
+
+            if (!$stock) {
+                throw new Exception('Item stok tidak ditemukan di Gudang Nasita');
+            }
+
+            $currentQty = (float)gudangNasitaCurrentQty($stock);
+            if ($quantity > $currentQty) {
+                throw new Exception('Qty stock keluar melebihi stok tersedia untuk item ' . $stock['item_name']);
+            }
+
+            $unitPrice = (float)gudangNasitaCurrentUnitCost($stock);
+            $lineSubtotal = $quantity * $unitPrice;
+            $remainingQty = $currentQty - $quantity;
+            $remainingValue = max(0, (float)gudangNasitaCurrentStockValue($stock) - $lineSubtotal);
+
+            $updateData = [
+                'quantity' => $remainingQty,
+                'total_harga' => $remainingValue,
+                'harga_beli' => $remainingQty > 0 ? ($remainingValue / $remainingQty) : 0,
+                'notes' => $notes !== '' ? $notes : ($stock['notes'] ?? null),
+            ];
+            if (gudangNasitaStockHasColumn('jumlah_stok')) {
+                $updateData['jumlah_stok'] = $remainingQty;
+            }
+
+            $db->update('gudang_nasita_stock', $updateData, 'id = :id', ['id' => $stock['id']]);
+
+            $referenceNumber = 'OUT-' . date('YmdHis');
+            $db->insert('gudang_nasita_movements', [
+                'stock_id' => $stock['id'],
+                'movement_date' => date('Y-m-d'),
+                'movement_type' => 'out_transfer',
+                'quantity' => $quantity,
+                'reference_type' => 'daily_stock_out',
+                'reference_id' => null,
+                'reference_number' => $referenceNumber,
+                'unit_price' => $unitPrice,
+                'subtotal' => $lineSubtotal,
+                'notes' => $notes !== '' ? $notes : 'Pengeluaran stok harian',
+                'created_by' => $createdBy,
+            ]);
+
+            $db->getConnection()->commit();
+
+            return [
+                'success' => true,
+                'message' => 'Stock keluar berhasil dicatat',
+                'stock_id' => (int)$stock['id'],
+                'remaining_qty' => (float)$remainingQty,
+            ];
+        } catch (Exception $e) {
+            if ($db->getConnection()->inTransaction()) {
+                $db->getConnection()->rollBack();
+            }
+            return [
+                'success' => false,
+                'message' => $e->getMessage(),
+            ];
         }
-
-        $currentQty = (float)gudangNasitaCurrentQty($stock);
-        if ($quantity > $currentQty) {
-            throw new Exception('Qty stock keluar melebihi stok tersedia untuk item ' . $stock['item_name']);
+    } finally {
+        if ($originDbName !== '' && $originDbName !== $targetDbName) {
+            Database::switchDatabase($originDbName);
         }
-
-        $unitPrice = (float)gudangNasitaCurrentUnitCost($stock);
-        $lineSubtotal = $quantity * $unitPrice;
-        $remainingQty = $currentQty - $quantity;
-        $remainingValue = max(0, (float)gudangNasitaCurrentStockValue($stock) - $lineSubtotal);
-
-        $updateData = [
-            'quantity' => $remainingQty,
-            'total_harga' => $remainingValue,
-            'harga_beli' => $remainingQty > 0 ? ($remainingValue / $remainingQty) : 0,
-            'notes' => $notes !== '' ? $notes : ($stock['notes'] ?? null),
-        ];
-        if (gudangNasitaStockHasColumn('jumlah_stok')) {
-            $updateData['jumlah_stok'] = $remainingQty;
-        }
-
-        $db->update('gudang_nasita_stock', $updateData, 'id = :id', ['id' => $stock['id']]);
-
-        $referenceNumber = 'OUT-' . date('YmdHis');
-        $db->insert('gudang_nasita_movements', [
-            'stock_id' => $stock['id'],
-            'movement_date' => date('Y-m-d'),
-            'movement_type' => 'out_transfer',
-            'quantity' => $quantity,
-            'reference_type' => 'daily_stock_out',
-            'reference_id' => null,
-            'reference_number' => $referenceNumber,
-            'unit_price' => $unitPrice,
-            'subtotal' => $lineSubtotal,
-            'notes' => $notes !== '' ? $notes : 'Pengeluaran stok harian',
-            'created_by' => $createdBy,
-        ]);
-
-        $db->getConnection()->commit();
-
-        return [
-            'success' => true,
-            'message' => 'Stock keluar berhasil dicatat',
-            'stock_id' => (int)$stock['id'],
-            'remaining_qty' => (float)$remainingQty,
-        ];
-    } catch (Exception $e) {
-        if ($db->getConnection()->inTransaction()) {
-            $db->getConnection()->rollBack();
-        }
-        return [
-            'success' => false,
-            'message' => $e->getMessage(),
-        ];
     }
 }
 
