@@ -244,10 +244,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
     $poId = (int)($_POST['po_id'] ?? 0);
     if ($poId > 0) {
         try {
+            $poRow = $db->fetchOne('SELECT id, po_number, status FROM purchase_orders_header WHERE id = ? LIMIT 1', [$poId]);
+            if (!$poRow) {
+                throw new RuntimeException('PO tidak ditemukan.');
+            }
+
+            $allowedStatuses = ['draft', 'submitted', 'approved', 'partially_received', 'cancelled', 'rejected'];
+            if (!in_array(strtolower((string)($poRow['status'] ?? '')), $allowedStatuses, true)) {
+                throw new RuntimeException('Status PO ini tidak boleh dihapus.');
+            }
+
+            $conn = $db->getConnection();
+            $conn->beginTransaction();
             $db->query('DELETE FROM purchase_orders_detail WHERE po_header_id = ?', [$poId]);
             $db->query('DELETE FROM purchase_orders_header WHERE id = ?', [$poId]);
-            $_SESSION['success'] = 'PO berhasil dihapus permanen.';
+            $conn->commit();
+
+            $_SESSION['success'] = 'PO ' . (string)($poRow['po_number'] ?? '') . ' berhasil dihapus dan hilang dari daftar Gudang Nasita.';
         } catch (Throwable $e) {
+            try {
+                if ($db->getConnection()->inTransaction()) {
+                    $db->getConnection()->rollBack();
+                }
+            } catch (Throwable $rollbackError) {
+            }
             $_SESSION['error'] = 'Gagal hapus PO: ' . $e->getMessage();
         }
     }
@@ -371,10 +391,12 @@ include '../../includes/header.php';
 </div>
 
 <?php if (isset($_SESSION['success'])): ?>
-    <div class="alert alert-success" style="margin-bottom:1rem;"><?php echo htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?></div>
+    <div class="alert alert-success" style="margin-bottom:1rem;"><?php echo htmlspecialchars($_SESSION['success']);
+                                                                    unset($_SESSION['success']); ?></div>
 <?php endif; ?>
 <?php if (isset($_SESSION['error'])): ?>
-    <div class="alert alert-danger" style="margin-bottom:1rem;"><?php echo htmlspecialchars($_SESSION['error']); unset($_SESSION['error']); ?></div>
+    <div class="alert alert-danger" style="margin-bottom:1rem;"><?php echo htmlspecialchars($_SESSION['error']);
+                                                                unset($_SESSION['error']); ?></div>
 <?php endif; ?>
 
 <?php if (empty($suppliers)): ?>
@@ -579,7 +601,7 @@ include '../../includes/header.php';
                             <td class="text-right">Rp <?php echo number_format((float)($po['total_amount'] ?? 0), 0, ',', '.'); ?></td>
                             <td>
                                 <div style="display:flex; gap:0.35rem; justify-content:center; flex-wrap:wrap;">
-                                    <?php if (in_array($po['status'], ['submitted', 'partially_received'])): ?>
+                                    <?php if (in_array($po['status'], ['submitted', 'partially_received', 'approved'])): ?>
                                         <a href="gudang-po-supplier.php?view=<?php echo (int)$po['id']; ?>" class="btn btn-sm btn-success">
                                             <i data-feather="package" style="width:13px;height:13px;"></i> Terima Barang
                                         </a>
@@ -587,7 +609,7 @@ include '../../includes/header.php';
                                     <a href="gudang-po-supplier.php?print=<?php echo (int)$po['id']; ?>" target="_blank" class="btn btn-sm btn-primary" style="font-weight:700;">
                                         <i data-feather="printer" style="width:13px;height:13px;"></i> Cetak PO
                                     </a>
-                                    <?php if ($po['status'] === 'submitted'): ?>
+                                    <?php if (in_array($po['status'], ['submitted', 'partially_received', 'approved', 'draft'], true)): ?>
                                         <form method="POST" style="display:inline;" onsubmit="return confirm('Batalkan PO ini?')">
                                             <input type="hidden" name="action" value="cancel_po">
                                             <input type="hidden" name="po_id" value="<?php echo (int)$po['id']; ?>">
@@ -596,13 +618,15 @@ include '../../includes/header.php';
                                             </button>
                                         </form>
                                     <?php endif; ?>
-                                    <form method="POST" style="display:inline;" onsubmit="return confirm('Hapus permanen PO ini? Data tidak bisa dikembalikan.')">
-                                        <input type="hidden" name="action" value="delete_po">
-                                        <input type="hidden" name="po_id" value="<?php echo (int)$po['id']; ?>">
-                                        <button type="submit" class="btn btn-sm btn-danger" title="Hapus Permanen">
-                                            <i data-feather="trash-2" style="width:13px;height:13px;"></i>
-                                        </button>
-                                    </form>
+                                    <?php if (in_array($po['status'], ['draft', 'submitted', 'approved', 'partially_received', 'cancelled', 'rejected'], true)): ?>
+                                        <form method="POST" style="display:inline;" onsubmit="return confirm('Hapus permanen PO ini? PO akan hilang dari daftar Gudang Nasita dan tidak bisa dikembalikan.')">
+                                            <input type="hidden" name="action" value="delete_po">
+                                            <input type="hidden" name="po_id" value="<?php echo (int)$po['id']; ?>">
+                                            <button type="submit" class="btn btn-sm btn-danger" title="Hapus Permanen">
+                                                <i data-feather="trash-2" style="width:13px;height:13px;"></i>
+                                            </button>
+                                        </form>
+                                    <?php endif; ?>
                                 </div>
                             </td>
                         </tr>
@@ -614,17 +638,73 @@ include '../../includes/header.php';
 </div>
 
 <style>
-.po-chk-row { display:flex; align-items:center; gap:0.75rem; padding:0.55rem 0.85rem; border-bottom:1px solid var(--border,#e2e8f0); cursor:pointer; transition:background .1s; }
-.po-chk-row:hover { background:#f8fafc; }
-.po-chk-row.selected { background:#f0fdf4; }
-.po-chk-row input[type=checkbox] { width:17px; height:17px; flex-shrink:0; accent-color:#0f9d6a; }
-.po-chk-row .item-info { flex:1; min-width:0; }
-.po-chk-row .item-info strong { display:block; font-size:.84rem; }
-.po-chk-row .item-meta { font-size:.73rem; color:#64748b; }
-.po-chk-row .item-price { font-size:.8rem; font-weight:700; color:#0f9d6a; white-space:nowrap; }
-.po-right-row { display:flex; align-items:center; gap:0.6rem; padding:0.55rem 1rem; border-bottom:1px solid var(--border,#e2e8f0); }
-.po-right-row .item-name { flex:1; min-width:0; font-size:.84rem; font-weight:600; }
-.po-right-row .item-unit { font-size:.75rem; color:#64748b; white-space:nowrap; }
+    .po-chk-row {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.55rem 0.85rem;
+        border-bottom: 1px solid var(--border, #e2e8f0);
+        cursor: pointer;
+        transition: background .1s;
+    }
+
+    .po-chk-row:hover {
+        background: #f8fafc;
+    }
+
+    .po-chk-row.selected {
+        background: #f0fdf4;
+    }
+
+    .po-chk-row input[type=checkbox] {
+        width: 17px;
+        height: 17px;
+        flex-shrink: 0;
+        accent-color: #0f9d6a;
+    }
+
+    .po-chk-row .item-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .po-chk-row .item-info strong {
+        display: block;
+        font-size: .84rem;
+    }
+
+    .po-chk-row .item-meta {
+        font-size: .73rem;
+        color: #64748b;
+    }
+
+    .po-chk-row .item-price {
+        font-size: .8rem;
+        font-weight: 700;
+        color: #0f9d6a;
+        white-space: nowrap;
+    }
+
+    .po-right-row {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.55rem 1rem;
+        border-bottom: 1px solid var(--border, #e2e8f0);
+    }
+
+    .po-right-row .item-name {
+        flex: 1;
+        min-width: 0;
+        font-size: .84rem;
+        font-weight: 600;
+    }
+
+    .po-right-row .item-unit {
+        font-size: .75rem;
+        color: #64748b;
+        white-space: nowrap;
+    }
 </style>
 
 <script>
@@ -655,40 +735,56 @@ include '../../includes/header.php';
             var stokLow = minStok > 0 && stok <= minStok;
             var stokColor = stokLow ? '#dc2626' : '#64748b';
             var stokWeight = stokLow ? '700' : 'normal';
-            var stokStr = stok % 1 === 0 ? stok.toLocaleString('id-ID') : stok.toLocaleString('id-ID', {maximumFractionDigits:2});
+            var stokStr = stok % 1 === 0 ? stok.toLocaleString('id-ID') : stok.toLocaleString('id-ID', {
+                maximumFractionDigits: 2
+            });
             var stokHtml = '<span style="font-size:.72rem;color:' + stokColor + ';font-weight:' + stokWeight + ';">' +
-                (stokLow ? '⚠ ' : '') + 'Stok: ' + stokStr + (minStok > 0 ? ' / min ' + (minStok % 1 === 0 ? minStok.toLocaleString('id-ID') : minStok.toLocaleString('id-ID', {maximumFractionDigits:2})) : '') +
+                (stokLow ? '⚠ ' : '') + 'Stok: ' + stokStr + (minStok > 0 ? ' / min ' + (minStok % 1 === 0 ? minStok.toLocaleString('id-ID') : minStok.toLocaleString('id-ID', {
+                    maximumFractionDigits: 2
+                })) : '') +
                 '</span>';
             var isSelected = !!selected[p.id];
             return '<div class="po-chk-row' + (isSelected ? ' selected' : '') + '" data-id="' + p.id + '" onclick="toggleItem(' + p.id + ')">' +
                 '<input type="checkbox"' + (isSelected ? ' checked' : '') + ' onclick="event.stopPropagation();toggleItem(' + p.id + ')">' +
                 '<div class="item-info">' +
-                    '<strong>' + p.nama_barang + '</strong>' +
-                    '<div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">' +
-                        '<span class="item-meta">' + (p.satuan || 'pcs') + (p.kode_barang ? ' · ' + p.kode_barang : '') + '</span>' +
-                        stokHtml +
-                    '</div>' +
+                '<strong>' + p.nama_barang + '</strong>' +
+                '<div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">' +
+                '<span class="item-meta">' + (p.satuan || 'pcs') + (p.kode_barang ? ' · ' + p.kode_barang : '') + '</span>' +
+                stokHtml +
+                '</div>' +
                 '</div>' +
                 '<span class="item-price">' + (harga > 0 ? 'Rp ' + Math.round(harga).toLocaleString('id-ID') : '—') + '</span>' +
-            '</div>';
+                '</div>';
         }).join('');
     }
 
     function toggleItem(id) {
-        var p = BARANG_LIST.find(function(x) { return x.id == id; });
+        var p = BARANG_LIST.find(function(x) {
+            return x.id == id;
+        });
         if (!p) return;
         if (selected[id]) {
             delete selected[id];
         } else {
-            selected[id] = { nama: p.nama_barang, satuan: p.satuan || 'pcs', harga: parseFloat(p.harga_beli) || 0, qty: '' };
+            selected[id] = {
+                nama: p.nama_barang,
+                satuan: p.satuan || 'pcs',
+                harga: parseFloat(p.harga_beli) || 0,
+                qty: ''
+            };
         }
         renderRight();
         // Update checkbox + row in left panel without full re-render (preserve scroll)
         var row = document.querySelector('#poLeftList [data-id="' + id + '"]');
         if (row) {
             var chk = row.querySelector('input[type=checkbox]');
-            if (selected[id]) { row.classList.add('selected'); if (chk) chk.checked = true; }
-            else { row.classList.remove('selected'); if (chk) chk.checked = false; }
+            if (selected[id]) {
+                row.classList.add('selected');
+                if (chk) chk.checked = true;
+            } else {
+                row.classList.remove('selected');
+                if (chk) chk.checked = false;
+            }
         }
         document.getElementById('poSelectedCount').textContent = Object.keys(selected).length + ' dipilih';
     }
@@ -715,10 +811,10 @@ include '../../includes/header.php';
             html += '<div class="po-right-row">' +
                 '<div class="item-name">' + s.nama + '<br><span class="item-unit">' + s.satuan + (s.harga > 0 ? ' · Rp ' + Math.round(s.harga).toLocaleString('id-ID') : '') + '</span></div>' +
                 '<input type="number" class="form-control" style="width:80px;text-align:right;" placeholder="Qty" min="0.01" step="0.01" value="' + (s.qty || '') + '"' +
-                    ' oninput="selected[' + id + '].qty=this.value;updateTotal()">' +
+                ' oninput="selected[' + id + '].qty=this.value;updateTotal()">' +
                 '<span class="item-unit">' + s.satuan + '</span>' +
                 '<button type="button" onclick="toggleItem(' + id + ')" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:1rem;padding:0 4px;">✕</button>' +
-            '</div>';
+                '</div>';
         });
         rightList.innerHTML = html;
         document.getElementById('poRightTotal').textContent = 'Rp ' + Math.round(total).toLocaleString('id-ID');
@@ -726,27 +822,41 @@ include '../../includes/header.php';
 
     function updateTotal() {
         var total = 0;
-        Object.values(selected).forEach(function(s) { total += (parseFloat(s.qty) || 0) * s.harga; });
+        Object.values(selected).forEach(function(s) {
+            total += (parseFloat(s.qty) || 0) * s.harga;
+        });
         document.getElementById('poRightTotal').textContent = 'Rp ' + Math.round(total).toLocaleString('id-ID');
     }
 
     function submitPo(mode) {
         var supplierId = document.getElementById('poSupplier').value;
-        if (!supplierId) { alert('Pilih supplier terlebih dahulu.'); document.getElementById('poSupplier').focus(); return; }
+        if (!supplierId) {
+            alert('Pilih supplier terlebih dahulu.');
+            document.getElementById('poSupplier').focus();
+            return;
+        }
         var ids = Object.keys(selected);
-        if (!ids.length) { alert('Centang minimal 1 barang.'); return; }
+        if (!ids.length) {
+            alert('Centang minimal 1 barang.');
+            return;
+        }
 
         var valid = 0;
         ids.forEach(function(id) {
             if (parseFloat(selected[id].qty) > 0) valid++;
         });
-        if (!valid) { alert('Isi qty untuk barang yang dipilih.'); return; }
+        if (!valid) {
+            alert('Isi qty untuk barang yang dipilih.');
+            return;
+        }
 
         var form = document.getElementById('poHiddenForm');
         form.target = (mode === 'print') ? '_blank' : '_self';
         document.getElementById('phMode').value = mode;
         // Remove old items
-        form.querySelectorAll('.ph-item').forEach(function(el) { el.remove(); });
+        form.querySelectorAll('.ph-item').forEach(function(el) {
+            el.remove();
+        });
         document.getElementById('phSupplier').value = supplierId;
         document.getElementById('phNotes').value = document.getElementById('poNotes').value;
 
@@ -755,14 +865,18 @@ include '../../includes/header.php';
             var s = selected[id];
             var qty = parseFloat(s.qty);
             if (!qty || qty <= 0) return;
+
             function h(name, val) {
                 var el = document.createElement('input');
-                el.type = 'hidden'; el.name = name; el.value = val; el.className = 'ph-item';
+                el.type = 'hidden';
+                el.name = name;
+                el.value = val;
+                el.className = 'ph-item';
                 form.appendChild(el);
             }
-            h('items[' + idx + '][item_name]',  s.nama);
-            h('items[' + idx + '][quantity]',   qty);
-            h('items[' + idx + '][unit]',       s.satuan);
+            h('items[' + idx + '][item_name]', s.nama);
+            h('items[' + idx + '][quantity]', qty);
+            h('items[' + idx + '][unit]', s.satuan);
             h('items[' + idx + '][unit_price]', s.harga);
             idx++;
         });
