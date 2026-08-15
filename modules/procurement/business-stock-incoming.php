@@ -1610,6 +1610,40 @@ include '../../includes/header.php';
         modal.style.display = 'none';
     }
 
+    function openDailyOutModal() {
+        var modal = document.getElementById('dailyOutBusinessModal');
+        if (!modal) {
+            return;
+        }
+
+        modal.style.display = 'flex';
+
+        var itemInput = document.getElementById('dailyOutItemName');
+        if (itemInput) {
+            setTimeout(function() {
+                itemInput.focus();
+            }, 80);
+        }
+    }
+
+    function closeDailyOutModal() {
+        var modal = document.getElementById('dailyOutBusinessModal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+    (function bindDailyOutAutocomplete() {
+        var itemInput = document.getElementById('dailyOutItemName');
+        var unitInput = document.getElementById('dailyOutUnit');
+        if (!itemInput || !unitInput) {
+            return;
+        }
+
+        itemInput.addEventListener('change', applyDailyOutMeta);
+        itemInput.addEventListener('blur', applyDailyOutMeta);
+    })();
+
     window.addEventListener('click', function(e) {
         var manualModal = document.getElementById('manualStockModal');
         var modal = document.getElementById('transferStockModal');
