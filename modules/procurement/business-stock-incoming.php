@@ -262,17 +262,15 @@ if ($activeBusinessId > 0) {
 
                     $rawStockSummary = $gudangDb->fetchAll(
                         "SELECT
-                            gs.item_name,
-                            gs.unit,
-                            COALESCE(SUM(CASE
-                                WHEN gs.quantity IS NOT NULL THEN gs.quantity
-                                WHEN gs.jumlah_stok IS NOT NULL THEN gs.jumlah_stok
-                                ELSE 0
-                            END), 0) AS total_received
-                         FROM gudang_nasita_stock gs
-                         WHERE COALESCE(gs.is_active, 1) = 1
-                         GROUP BY gs.item_name, gs.unit
-                         ORDER BY gs.item_name ASC"
+                            gti.item_name,
+                            gti.unit,
+                            COALESCE(SUM(gti.quantity), 0) AS total_received
+                         FROM gudang_nasita_transfer_items gti
+                         JOIN gudang_nasita_transfers gt ON gt.id = gti.transfer_id
+                         WHERE {$targetFilterSql}
+                         GROUP BY gti.item_name, gti.unit
+                         ORDER BY gti.item_name ASC",
+                        $targetFilterParams
                     );
                 } else {
                     $incomingTransfers = $gudangDb->fetchAll(
@@ -302,17 +300,15 @@ if ($activeBusinessId > 0) {
 
                     $rawStockSummary = $gudangDb->fetchAll(
                         "SELECT
-                            gs.item_name,
-                            gs.unit,
-                            COALESCE(SUM(CASE
-                                WHEN gs.quantity IS NOT NULL THEN gs.quantity
-                                WHEN gs.jumlah_stok IS NOT NULL THEN gs.jumlah_stok
-                                ELSE 0
-                            END), 0) AS total_received
-                         FROM gudang_nasita_stock gs
-                         WHERE COALESCE(gs.is_active, 1) = 1
-                         GROUP BY gs.item_name, gs.unit
-                         ORDER BY gs.item_name ASC"
+                            gti.item_name,
+                            gti.unit,
+                            COALESCE(SUM(gti.quantity), 0) AS total_received
+                         FROM gudang_nasita_transfer_items gti
+                         JOIN gudang_nasita_transfers gt ON gt.id = gti.transfer_id
+                         WHERE {$targetFilterSql}
+                         GROUP BY gti.item_name, gti.unit
+                         ORDER BY gti.item_name ASC",
+                        $targetFilterParams
                     );
                 }
 
