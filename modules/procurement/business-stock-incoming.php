@@ -675,7 +675,10 @@ if ($activeBusinessId > 0) {
         $receivedQty = $getMapQty($rawStockMap, $key);
         $currentQty = $computeVisibleQty($itemName, $unit);
 
-        if ($currentQty <= 0) {
+        // Keep historically received items visible even when the current visible stock has
+        // been reset to 0 or has aged out, otherwise the summary table can appear empty
+        // while older transfer history still exists lower on the page.
+        if ($currentQty <= 0 && $receivedQty <= 0) {
             continue;
         }
 
