@@ -9,6 +9,15 @@ require_once '../../includes/procurement_functions.php';
 $auth = new Auth();
 $auth->requireLogin();
 
+function normalizeGudangItemName($value)
+{
+    $normalized = trim((string)$value);
+    $normalized = mb_strtolower($normalized, 'UTF-8');
+    $normalized = preg_replace('/[^\p{L}\p{N}]+/u', ' ', $normalized);
+    $normalized = preg_replace('/\s+/', ' ', $normalized);
+    return trim($normalized);
+}
+
 // Get active business ID for database switching and redirect parameter
 $activeBusinessId = isset($_SESSION['active_business_id']) ? (string)$_SESSION['active_business_id'] : '';
 $activeBusinessSlug = strtolower($activeBusinessId);
@@ -96,20 +105,33 @@ if (!$gudangSupplier || empty($gudangSupplier['id'])) {
 $divisions = $db->fetchAll("SELECT * FROM divisions ORDER BY division_name");
 
 // PO bisnis memakai katalog dan harga dari Gudang Nasita, tetapi header PO tetap disimpan di database bisnis aktif.
+// Pastikan item yang benar-benar ada di stok gudang juga muncul di daftar PO, walaupun belum masuk ke master barang.
 $gudangBarang = [];
+$gudangStockRows = [];
+$originDbName = Database::getCurrentDatabase();
+
 try {
     $gudangConfig = require __DIR__ . '/../../config/businesses/gudang-nasita.php';
     $gudangDbName = (string)($gudangConfig['database'] ?? '');
-    $originDbName = Database::getCurrentDatabase();
     if ($gudangDbName !== '') {
         $gudangDb = Database::switchDatabase($gudangDbName);
+
         $gudangBarang = $gudangDb->fetchAll(
             "SELECT id, COALESCE(kode_barang,'') AS kode_barang, nama_barang,
                     COALESCE(kategori,'lainnya') AS kategori, COALESCE(satuan,'pcs') AS satuan,
-                    COALESCE(harga_beli,0) AS harga_beli
+                    COALESCE(harga_beli,0) AS harga_beli, COALESCE(min_stock,0) AS min_stock
              FROM gudang_nasita_barang
              WHERE COALESCE(is_active,1) = 1
              ORDER BY nama_barang ASC"
+        ) ?: [];
+
+        $gudangStockRows = $gudangDb->fetchAll(
+            "SELECT id, COALESCE(stock_code,'') AS stock_code, item_name, COALESCE(category,'lainnya') AS category,
+                    COALESCE(unit,'pcs') AS unit, COALESCE(quantity,0) AS quantity,
+                    COALESCE(reorder_level,0) AS reorder_level, COALESCE(harga_beli,0) AS harga_beli
+             FROM gudang_nasita_stock
+             WHERE COALESCE(is_active,1) = 1
+             ORDER BY item_name ASC"
         ) ?: [];
     }
     if (!empty($originDbName)) {
@@ -126,6 +148,56 @@ try {
     } catch (Throwable $restoreError) {
     }
 }
+
+if (!empty($gudangStockRows)) {
+    $catalogByName = [];
+    foreach ($gudangBarang as $row) {
+        $normalized = normalizeGudangItemName($row['nama_barang'] ?? '');
+        if ($normalized !== '') {
+            $catalogByName[$normalized] = $row;
+        }
+    }
+
+    foreach ($gudangStockRows as $stock) {
+        $itemName = trim((string)($stock['item_name'] ?? ''));
+        if ($itemName === '') {
+            continue;
+        }
+
+        $normalizedStockName = normalizeGudangItemName($itemName);
+        if ($normalizedStockName === '') {
+            continue;
+        }
+
+        if (isset($catalogByName[$normalizedStockName])) {
+            $catalogRow = $catalogByName[$normalizedStockName];
+            $catalogRow['current_stock'] = (float)($stock['quantity'] ?? 0);
+            $catalogRow['min_stock'] = (float)($stock['reorder_level'] ?? 0);
+            if (((float)($catalogRow['harga_beli'] ?? 0)) <= 0 && (float)($stock['harga_beli'] ?? 0) > 0) {
+                $catalogRow['harga_beli'] = (float)($stock['harga_beli'] ?? 0);
+            }
+            $catalogByName[$normalizedStockName] = $catalogRow;
+            continue;
+        }
+
+        $gudangBarang[] = [
+            'id' => 'stock_' . (int)($stock['id'] ?? 0),
+            'kode_barang' => (string)($stock['stock_code'] ?? ''),
+            'nama_barang' => $itemName,
+            'kategori' => (string)($stock['category'] ?? 'lainnya'),
+            'satuan' => (string)($stock['unit'] ?? 'pcs'),
+            'harga_beli' => (float)($stock['harga_beli'] ?? 0),
+            'min_stock' => (float)($stock['reorder_level'] ?? 0),
+            'current_stock' => (float)($stock['quantity'] ?? 0),
+        ];
+    }
+}
+
+usort($gudangBarang, function ($a, $b) {
+    $aName = strtolower(trim((string)($a['nama_barang'] ?? '')));
+    $bName = strtolower(trim((string)($b['nama_barang'] ?? '')));
+    return strcmp($aName, $bName);
+});
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
