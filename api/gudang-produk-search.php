@@ -43,7 +43,8 @@ try {
     if (!in_array('min_stock', $barangCols)) {
         $db->query('ALTER TABLE gudang_nasita_barang ADD COLUMN min_stock DECIMAL(15,2) DEFAULT 0 AFTER harga_jual');
     }
-} catch (Throwable $e) {}
+} catch (Throwable $e) {
+}
 
 // ─── Search (autocomplete) ───────────────────────────────────────────────────
 if ($action === 'search') {

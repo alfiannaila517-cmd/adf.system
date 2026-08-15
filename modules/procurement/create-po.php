@@ -625,7 +625,9 @@ include '../../includes/header.php';
             var stokLow = minStok > 0 && stok <= minStok;
             var stokColor = stokLow ? '#dc2626' : '#64748b';
             var stokWeight = stokLow ? '700' : 'normal';
-            var stokText = stok % 1 === 0 ? stok.toLocaleString('id-ID') : stok.toLocaleString('id-ID', { maximumFractionDigits: 2 });
+            var stokText = stok % 1 === 0 ? stok.toLocaleString('id-ID') : stok.toLocaleString('id-ID', {
+                maximumFractionDigits: 2
+            });
             var isSelected = !!selected[p.id];
             return '<div class="po-chk-row' + (isSelected ? ' selected' : '') + '" data-id="' + p.id + '" onclick="toggleItem(' + p.id + ')">' +
                 '<input type="checkbox"' + (isSelected ? ' checked' : '') + ' onclick="event.stopPropagation();toggleItem(' + p.id + ')">' +
@@ -634,7 +636,9 @@ include '../../includes/header.php';
                 '<div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">' +
                 '<span class="item-meta">' + (p.satuan || 'pcs') + (p.kode_barang ? ' · ' + p.kode_barang : '') + '</span>' +
                 '<span style="font-size:.72rem;color:' + stokColor + ';font-weight:' + stokWeight + ';">' +
-                (stokLow ? '⚠ ' : '') + 'Stok: ' + stokText + (minStok > 0 ? ' / min ' + ((minStok % 1 === 0 ? minStok.toLocaleString('id-ID') : minStok.toLocaleString('id-ID', { maximumFractionDigits: 2 }))) : '') +
+                (stokLow ? '⚠ ' : '') + 'Stok: ' + stokText + (minStok > 0 ? ' / min ' + ((minStok % 1 === 0 ? minStok.toLocaleString('id-ID') : minStok.toLocaleString('id-ID', {
+                    maximumFractionDigits: 2
+                }))) : '') +
                 '</span>' +
                 '</div>' +
                 '</div>' +
@@ -644,7 +648,9 @@ include '../../includes/header.php';
     }
 
     function toggleItem(id) {
-        var p = GUDANG_ITEMS.find(function(x) { return x.id == id; });
+        var p = GUDANG_ITEMS.find(function(x) {
+            return x.id == id;
+        });
         if (!p) return;
         if (selected[id]) {
             delete selected[id];
@@ -729,7 +735,9 @@ include '../../includes/header.php';
         }
 
         var form = document.getElementById('poForm');
-        form.querySelectorAll('input[name^="items["]').forEach(function(el) { el.remove(); });
+        form.querySelectorAll('input[name^="items["]').forEach(function(el) {
+            el.remove();
+        });
 
         var idx = 0;
         ids.forEach(function(id) {

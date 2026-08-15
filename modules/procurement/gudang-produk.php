@@ -39,7 +39,8 @@ try {
     if (!in_array('min_stock', $barangCols)) {
         $db->query('ALTER TABLE gudang_nasita_barang ADD COLUMN min_stock DECIMAL(15,2) DEFAULT 0 AFTER harga_jual');
     }
-} catch (Throwable $e) {}
+} catch (Throwable $e) {
+}
 
 $msg = '';
 $msgType = 'success';
@@ -182,9 +183,11 @@ include '../../includes/header.php';
                             <td><?php echo htmlspecialchars($p['satuan'] ?? 'pcs'); ?></td>
                             <td class="text-right" style="font-weight:600;">
                                 <?php echo (float)($p['harga_beli'] ?? 0) > 0 ? 'Rp ' . number_format((float)$p['harga_beli'], 0, ',', '.') : '—'; ?>
-                            </td>                            <td class="text-right" style="color:#64748b;">
+                            </td>
+                            <td class="text-right" style="color:#64748b;">
                                 <?php echo (float)($p['min_stock'] ?? 0) > 0 ? number_format((float)$p['min_stock'], 0, ',', '.') : '—'; ?>
-                            </td>                            <td>
+                            </td>
+                            <td>
                                 <?php if ($p['is_active']): ?>
                                     <span class="badge badge-success">Aktif</span>
                                 <?php else: ?>
