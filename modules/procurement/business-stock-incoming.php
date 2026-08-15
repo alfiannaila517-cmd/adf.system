@@ -573,6 +573,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 }
             }
 
+            $warehouseEntryNote = $notes !== '' ? 'Bisnis: ' . $notes : 'Pengeluaran stok harian bisnis';
+            $warehouseResult = recordGudangNasitaDailyStockOut($itemName, $qty, (int)($currentUser['id'] ?? 0), [
+                'notes' => $warehouseEntryNote,
+            ]);
+
+            if (!($warehouseResult['success'] ?? false)) {
+                throw new Exception($warehouseResult['message'] ?? 'Gudang Nasita tidak bisa mengurangi stok untuk item ini.');
+            }
+
             $db->insert('business_stock_daily_out', [
                 'business_id' => $activeBusinessId,
                 'item_name' => $itemName,
@@ -581,7 +590,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 'notes' => $notes !== '' ? $notes : 'Pengeluaran stok harian',
                 'created_by' => (int)($currentUser['id'] ?? 0),
             ]);
-            $_SESSION['success'] = 'Stock keluar berhasil dicatat.';
+            $_SESSION['success'] = 'Stock keluar berhasil dicatat dan stok Gudang Nasita telah berkurang.';
         } catch (Throwable $e) {
             $_SESSION['error'] = 'Gagal catat stock keluar: ' . $e->getMessage();
         }
@@ -781,19 +790,38 @@ foreach ($dailyOutRows as $dailyOutRow) {
 }
 
 if (isset($_GET['print_stock_out_business']) && (string)$_GET['print_stock_out_business'] === '1') {
+    $printFromDate = trim((string)($_GET['from_date'] ?? ''));
+    $printToDate = trim((string)($_GET['to_date'] ?? ''));
+    if ($printFromDate === '') {
+        $printFromDate = date('Y-m-d');
+    }
+    if ($printToDate === '') {
+        $printToDate = $printFromDate;
+    }
+
+    $printDailyOutRows = $db->fetchAll(
+        'SELECT * FROM business_stock_daily_out WHERE business_id = ? AND DATE(created_at) BETWEEN ? AND ? ORDER BY created_at DESC',
+        [$activeBusinessId, $printFromDate, $printToDate]
+    );
+
+    $printDailyOutTotalQty = 0;
+    foreach ($printDailyOutRows as $row) {
+        $printDailyOutTotalQty += (float)($row['quantity'] ?? 0);
+    }
+
     header('Content-Type: text/html; charset=utf-8');
     echo '<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><title>Cetak Pengeluaran Stock Harian</title>';
     echo '<style>body{font-family:Arial,sans-serif;font-size:12px;margin:20px;}h2{margin:0 0 4px;}table{width:100%;border-collapse:collapse;margin-top:12px;}th,td{border:1px solid #999;padding:6px 8px;text-align:left;}th{background:#f0f0f0;}.text-right{text-align:right;}@media print{button{display:none}}</style>';
     echo '</head><body>';
     echo '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;">';
-    echo '<div><h2>PENGELUARAN STOCK HARIAN</h2><strong>' . htmlspecialchars($activeBusinessName ?: 'Bisnis') . '</strong><br>Dicetak: ' . date('d M Y H:i') . '</div>';
-    echo '<div style="text-align:right;"><strong>Total Qty:</strong> ' . number_format($dailyOutTotalQty, 2) . '<br><strong>Jumlah Catatan:</strong> ' . count($dailyOutRows) . '</div>';
+    echo '<div><h2>PENGELUARAN STOCK HARIAN</h2><strong>' . htmlspecialchars($activeBusinessName ?: 'Bisnis') . '</strong><br>Periode: ' . htmlspecialchars($printFromDate) . ' s/d ' . htmlspecialchars($printToDate) . '<br>Dicetak: ' . date('d M Y H:i') . '</div>';
+    echo '<div style="text-align:right;"><strong>Total Qty:</strong> ' . number_format($printDailyOutTotalQty, 2) . '<br><strong>Jumlah Catatan:</strong> ' . count($printDailyOutRows) . '</div>';
     echo '</div>';
     echo '<table><thead><tr><th>No</th><th>Item</th><th>Unit</th><th>Qty</th><th>Catatan</th><th>Waktu</th></tr></thead><tbody>';
-    if (empty($dailyOutRows)) {
-        echo '<tr><td colspan="6" style="text-align:center;">Belum ada pengeluaran stok hari ini</td></tr>';
+    if (empty($printDailyOutRows)) {
+        echo '<tr><td colspan="6" style="text-align:center;">Belum ada pengeluaran stok untuk periode yang dipilih.</td></tr>';
     } else {
-        foreach ($dailyOutRows as $idx => $row) {
+        foreach ($printDailyOutRows as $idx => $row) {
             echo '<tr>';
             echo '<td>' . ($idx + 1) . '</td>';
             echo '<td>' . htmlspecialchars((string)($row['item_name'] ?? '-')) . '</td>';
@@ -893,7 +921,7 @@ include '../../includes/header.php';
         <h2 style="font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; color: var(--text-primary); margin-bottom: 0.25rem;">Stok &amp; Penerimaan Barang</h2>
         <p style="color: var(--text-muted); font-size: 0.875rem;">Stok terpisah untuk bisnis aktif<?php echo $activeBusinessName ? ' &mdash; ' . htmlspecialchars($activeBusinessName) : ''; ?></p>
     </div>
-    <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+    <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
         <a href="purchase-orders.php" class="btn btn-secondary">
             <i data-feather="file-text" style="width: 16px; height: 16px;"></i>
             Purchase Orders
@@ -902,10 +930,16 @@ include '../../includes/header.php';
             <i data-feather="minus-square" style="width: 16px; height: 16px;"></i>
             Stock Keluar
         </button>
-        <a href="business-stock-incoming.php?print_stock_out_business=1" target="_blank" class="btn btn-secondary">
-            <i data-feather="printer" style="width: 16px; height: 16px;"></i>
-            Print Pengeluaran Hari Ini
-        </a>
+        <form method="GET" target="_blank" style="display:flex; gap:0.45rem; align-items:center; flex-wrap:wrap; margin:0;">
+            <input type="hidden" name="print_stock_out_business" value="1">
+            <input type="date" name="from_date" class="form-control" value="<?php echo htmlspecialchars(date('Y-m-d')); ?>" style="width: 130px; min-height: 38px;">
+            <span style="font-size:0.75rem; color:var(--text-muted);">s/d</span>
+            <input type="date" name="to_date" class="form-control" value="<?php echo htmlspecialchars(date('Y-m-d')); ?>" style="width: 130px; min-height: 38px;">
+            <button type="submit" class="btn btn-secondary">
+                <i data-feather="printer" style="width: 16px; height: 16px;"></i>
+                Print
+            </button>
+        </form>
         <button type="button" class="btn btn-primary" onclick="openManualStockModal()">
             <i data-feather="plus-square" style="width: 16px; height: 16px;"></i>
             Tambah Stok Manual
@@ -1042,15 +1076,16 @@ include '../../includes/header.php';
                         <tr>
                             <td colspan="5" style="text-align:center; padding:2rem; color:var(--text-muted);">Belum ada pengeluaran stok hari ini.</td>
                         </tr>
-                    <?php else: foreach ($dailyOutRows as $dailyOutEntry): ?>
-                        <tr>
-                            <td style="font-weight:600;"><?php echo htmlspecialchars((string)($dailyOutEntry['item_name'] ?? '-')); ?></td>
-                            <td><?php echo htmlspecialchars((string)($dailyOutEntry['unit'] ?? 'pcs')); ?></td>
-                            <td class="text-right" style="font-weight:700; color:#d97706;"><?php echo number_format((float)($dailyOutEntry['quantity'] ?? 0), 2); ?></td>
-                            <td><?php echo htmlspecialchars((string)($dailyOutEntry['notes'] ?? '-')); ?></td>
-                            <td style="font-size:0.82rem; color:var(--text-muted);"><?php echo date('d M Y H:i', strtotime((string)($dailyOutEntry['created_at'] ?? date('Y-m-d H:i:s')))); ?></td>
-                        </tr>
-                    <?php endforeach; endif; ?>
+                        <?php else: foreach ($dailyOutRows as $dailyOutEntry): ?>
+                            <tr>
+                                <td style="font-weight:600;"><?php echo htmlspecialchars((string)($dailyOutEntry['item_name'] ?? '-')); ?></td>
+                                <td><?php echo htmlspecialchars((string)($dailyOutEntry['unit'] ?? 'pcs')); ?></td>
+                                <td class="text-right" style="font-weight:700; color:#d97706;"><?php echo number_format((float)($dailyOutEntry['quantity'] ?? 0), 2); ?></td>
+                                <td><?php echo htmlspecialchars((string)($dailyOutEntry['notes'] ?? '-')); ?></td>
+                                <td style="font-size:0.82rem; color:var(--text-muted);"><?php echo date('d M Y H:i', strtotime((string)($dailyOutEntry['created_at'] ?? date('Y-m-d H:i:s')))); ?></td>
+                            </tr>
+                    <?php endforeach;
+                    endif; ?>
                 </tbody>
             </table>
         </div>
@@ -1476,26 +1511,6 @@ include '../../includes/header.php';
         }
     }
 
-    function openDailyOutModal() {
-        var modal = document.getElementById('dailyOutBusinessModal');
-        if (modal) {
-            modal.style.display = 'flex';
-            var itemInput = document.getElementById('dailyOutItemName');
-            if (itemInput) {
-                setTimeout(function() {
-                    itemInput.focus();
-                }, 80);
-            }
-        }
-    }
-
-    function closeDailyOutModal() {
-        var modal = document.getElementById('dailyOutBusinessModal');
-        if (modal) {
-            modal.style.display = 'none';
-        }
-    }
-
     function openManualStockModal() {
         var modal = document.getElementById('manualStockModal');
         modal.style.display = 'flex';
@@ -1604,26 +1619,6 @@ include '../../includes/header.php';
         modal.style.display = 'none';
     }
 
-    function openDailyOutModal() {
-        var modal = document.getElementById('dailyOutBusinessModal');
-        if (modal) {
-            modal.style.display = 'flex';
-            var itemInput = document.getElementById('dailyOutItemName');
-            if (itemInput) {
-                setTimeout(function() {
-                    itemInput.focus();
-                }, 80);
-            }
-        }
-    }
-
-    function closeDailyOutModal() {
-        var modal = document.getElementById('dailyOutBusinessModal');
-        if (modal) {
-            modal.style.display = 'none';
-        }
-    }
-
     window.addEventListener('click', function(e) {
         var manualModal = document.getElementById('manualStockModal');
         var modal = document.getElementById('transferStockModal');
@@ -1657,7 +1652,7 @@ include '../../includes/header.php';
                 <datalist id="dailyOutItemList">
                     <?php foreach ($businessStockItemMetaJs as $item): ?>
                         <option value="<?php echo htmlspecialchars((string)($item['item_name'] ?? '')); ?>">
-                    <?php endforeach; ?>
+                        <?php endforeach; ?>
                 </datalist>
             </div>
             <div style="margin-bottom:0.85rem;">

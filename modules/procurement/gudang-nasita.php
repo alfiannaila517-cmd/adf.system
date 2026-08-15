@@ -579,7 +579,19 @@ if (isset($_GET['print_stock']) && (string)$_GET['print_stock'] === '1') {
 }
 
 if (isset($_GET['print_stock_out']) && (string)$_GET['print_stock_out'] === '1') {
-    $dailyOutRows = $db->fetchAll("SELECT gm.*, gs.item_name, gs.unit, u.full_name AS created_by_name FROM gudang_nasita_movements gm LEFT JOIN gudang_nasita_stock gs ON gs.id = gm.stock_id LEFT JOIN users u ON u.id = gm.created_by WHERE gm.movement_date = CURDATE() AND gm.movement_type IN ('out_transfer', 'adjustment') ORDER BY gm.created_at DESC");
+    $printFromDate = trim((string)($_GET['from_date'] ?? ''));
+    $printToDate = trim((string)($_GET['to_date'] ?? ''));
+    if ($printFromDate === '') {
+        $printFromDate = date('Y-m-d');
+    }
+    if ($printToDate === '') {
+        $printToDate = $printFromDate;
+    }
+
+    $dailyOutRows = $db->fetchAll(
+        "SELECT gm.*, gs.item_name, gs.unit, u.full_name AS created_by_name FROM gudang_nasita_movements gm LEFT JOIN gudang_nasita_stock gs ON gs.id = gm.stock_id LEFT JOIN users u ON u.id = gm.created_by WHERE gm.movement_date BETWEEN ? AND ? AND gm.movement_type IN ('out_transfer', 'adjustment') ORDER BY gm.created_at DESC",
+        [$printFromDate, $printToDate]
+    );
     $dailyOutTotalQty = 0;
     $dailyOutTotalValue = 0;
     foreach ($dailyOutRows as $row) {
@@ -592,12 +604,12 @@ if (isset($_GET['print_stock_out']) && (string)$_GET['print_stock_out'] === '1')
     echo '<style>body{font-family:Arial,sans-serif;font-size:12px;margin:20px;}h2{margin:0 0 4px;}table{width:100%;border-collapse:collapse;margin-top:12px;}th,td{border:1px solid #999;padding:6px 8px;text-align:left;}th{background:#f0f0f0;}.text-right{text-align:right;}@media print{button{display:none}}</style>';
     echo '</head><body>';
     echo '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;">';
-    echo '<div><h2>PENGELUARAN STOK HARIAN</h2><strong>Gudang Nasita</strong><br>Dicetak: ' . date('d M Y H:i') . '</div>';
+    echo '<div><h2>PENGELUARAN STOK HARIAN</h2><strong>Gudang Nasita</strong><br>Periode: ' . htmlspecialchars($printFromDate) . ' s/d ' . htmlspecialchars($printToDate) . '<br>Dicetak: ' . date('d M Y H:i') . '</div>';
     echo '<div style="text-align:right;"><strong>Total Item Keluar:</strong> ' . count($dailyOutRows) . '<br><strong>Total Qty:</strong> ' . number_format($dailyOutTotalQty, 2) . '<br><strong>Total Nilai:</strong> Rp ' . number_format($dailyOutTotalValue, 0, ',', '.') . '</div>';
     echo '</div>';
     echo '<table><thead><tr><th>No</th><th>Item</th><th>Unit</th><th>Qty</th><th>Nilai</th><th>Catatan</th><th>Petugas</th></tr></thead><tbody>';
     if (empty($dailyOutRows)) {
-        echo '<tr><td colspan="7" style="text-align:center;">Belum ada pengeluaran stok hari ini</td></tr>';
+        echo '<tr><td colspan="7" style="text-align:center;">Belum ada pengeluaran stok untuk periode yang dipilih.</td></tr>';
     } else {
         foreach ($dailyOutRows as $idx => $row) {
             echo '<tr>';
@@ -886,10 +898,16 @@ include '../../includes/header.php';
             <i data-feather="printer" style="width: 16px; height: 16px;"></i>
             Print Semua Stock
         </a>
-        <a href="gudang-nasita.php?print_stock_out=1" target="_blank" class="btn btn-secondary" style="font-weight:700;">
-            <i data-feather="printer" style="width: 16px; height: 16px;"></i>
-            Print Pengeluaran Hari Ini
-        </a>
+        <form method="GET" target="_blank" style="display:flex; gap:0.45rem; align-items:center; flex-wrap:wrap; margin:0;">
+            <input type="hidden" name="print_stock_out" value="1">
+            <input type="date" name="from_date" class="form-control" value="<?php echo htmlspecialchars(date('Y-m-d')); ?>" style="width: 130px; min-height: 38px;">
+            <span style="font-size:0.75rem; color:var(--text-muted);">s/d</span>
+            <input type="date" name="to_date" class="form-control" value="<?php echo htmlspecialchars(date('Y-m-d')); ?>" style="width: 130px; min-height: 38px;">
+            <button type="submit" class="btn btn-secondary" style="font-weight:700;">
+                <i data-feather="printer" style="width: 16px; height: 16px;"></i>
+                Print
+            </button>
+        </form>
         <a href="gudang-po-supplier.php" class="btn btn-primary" style="display:none;">
             <i data-feather="file-plus" style="width: 16px; height: 16px;"></i>
             PO Supplier
