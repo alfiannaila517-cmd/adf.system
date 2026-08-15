@@ -284,6 +284,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'stock_out_daily') {
+    $itemName = trim((string)($_POST['item_name'] ?? ''));
+    $quantity = (float)($_POST['quantity'] ?? 0);
+    $notes = trim((string)($_POST['notes'] ?? ''));
+
+    if ($itemName === '' || $quantity <= 0) {
+        $_SESSION['error'] = 'Nama item dan qty stock keluar wajib diisi.';
+    } else {
+        $result = recordGudangNasitaDailyStockOut($itemName, $quantity, (int)($currentUser['id'] ?? 0), [
+            'notes' => $notes,
+        ]);
+
+        if ($result['success']) {
+            $_SESSION['success'] = $result['message'] . ' untuk ' . htmlspecialchars($itemName, ENT_QUOTES) . '.';
+        } else {
+            $_SESSION['error'] = $result['message'];
+        }
+    }
+
+    header('Location: gudang-nasita.php');
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'import_stock_sheet') {
     try {
         $defaultCategory = trim((string)($_POST['default_category'] ?? 'lainnya'));
@@ -555,6 +578,45 @@ if (isset($_GET['print_stock']) && (string)$_GET['print_stock'] === '1') {
     exit;
 }
 
+if (isset($_GET['print_stock_out']) && (string)$_GET['print_stock_out'] === '1') {
+    $dailyOutRows = $db->fetchAll("SELECT gm.*, gs.item_name, gs.unit, u.full_name AS created_by_name FROM gudang_nasita_movements gm LEFT JOIN gudang_nasita_stock gs ON gs.id = gm.stock_id LEFT JOIN users u ON u.id = gm.created_by WHERE gm.movement_date = CURDATE() AND gm.movement_type IN ('out_transfer', 'adjustment') ORDER BY gm.created_at DESC");
+    $dailyOutTotalQty = 0;
+    $dailyOutTotalValue = 0;
+    foreach ($dailyOutRows as $row) {
+        $dailyOutTotalQty += (float)($row['quantity'] ?? 0);
+        $dailyOutTotalValue += (float)($row['subtotal'] ?? 0);
+    }
+
+    header('Content-Type: text/html; charset=utf-8');
+    echo '<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><title>Cetak Pengeluaran Stok Harian Gudang</title>';
+    echo '<style>body{font-family:Arial,sans-serif;font-size:12px;margin:20px;}h2{margin:0 0 4px;}table{width:100%;border-collapse:collapse;margin-top:12px;}th,td{border:1px solid #999;padding:6px 8px;text-align:left;}th{background:#f0f0f0;}.text-right{text-align:right;}@media print{button{display:none}}</style>';
+    echo '</head><body>';
+    echo '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;">';
+    echo '<div><h2>PENGELUARAN STOK HARIAN</h2><strong>Gudang Nasita</strong><br>Dicetak: ' . date('d M Y H:i') . '</div>';
+    echo '<div style="text-align:right;"><strong>Total Item Keluar:</strong> ' . count($dailyOutRows) . '<br><strong>Total Qty:</strong> ' . number_format($dailyOutTotalQty, 2) . '<br><strong>Total Nilai:</strong> Rp ' . number_format($dailyOutTotalValue, 0, ',', '.') . '</div>';
+    echo '</div>';
+    echo '<table><thead><tr><th>No</th><th>Item</th><th>Unit</th><th>Qty</th><th>Nilai</th><th>Catatan</th><th>Petugas</th></tr></thead><tbody>';
+    if (empty($dailyOutRows)) {
+        echo '<tr><td colspan="7" style="text-align:center;">Belum ada pengeluaran stok hari ini</td></tr>';
+    } else {
+        foreach ($dailyOutRows as $idx => $row) {
+            echo '<tr>';
+            echo '<td>' . ($idx + 1) . '</td>';
+            echo '<td>' . htmlspecialchars((string)($row['item_name'] ?? '-')) . '</td>';
+            echo '<td>' . htmlspecialchars((string)($row['unit'] ?? '-')) . '</td>';
+            echo '<td class="text-right">' . number_format((float)($row['quantity'] ?? 0), 2) . '</td>';
+            echo '<td class="text-right">Rp ' . number_format((float)($row['subtotal'] ?? 0), 0, ',', '.') . '</td>';
+            echo '<td>' . htmlspecialchars((string)($row['notes'] ?? '-')) . '</td>';
+            echo '<td>' . htmlspecialchars((string)($row['created_by_name'] ?? '-')) . '</td>';
+            echo '</tr>';
+        }
+    }
+    echo '</tbody></table>';
+    echo '<br><button onclick="window.print()">Cetak</button>';
+    echo '</body></html>';
+    exit;
+}
+
 if (isset($_GET['export_excel']) && (string)$_GET['export_excel'] === '1') {
     $exportItems = $stockItems;
     $filename = 'stok-gudang-nasita-' . date('Ymd-His') . '.xls';
@@ -689,8 +751,8 @@ foreach ($movementSummary as $row) {
     if ($row['movement_type'] === 'in_supplier') {
         $summary['incoming_today'] = (float)$row['total_qty'];
     }
-    if ($row['movement_type'] === 'out_transfer') {
-        $summary['outgoing_today'] = (float)$row['total_qty'];
+    if ($row['movement_type'] === 'out_transfer' || $row['movement_type'] === 'adjustment') {
+        $summary['outgoing_today'] += (float)$row['total_qty'];
     }
 }
 
@@ -800,6 +862,10 @@ include '../../includes/header.php';
         <p style="color: var(--text-muted); font-size: 0.875rem;">Stok pusat, penerimaan supplier, dan kontrol barang keluar</p>
     </div>
     <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
+        <button type="button" class="btn btn-warning" onclick="document.getElementById('dailyOutModal').style.display='flex'">
+            <i data-feather="minus-square" style="width: 16px; height: 16px;"></i>
+            Stock Keluar
+        </button>
         <button type="button" class="btn btn-success" onclick="document.getElementById('manualStockModal').style.display='flex'">
             <i data-feather="plus-square" style="width: 16px; height: 16px;"></i>
             Input Stock Manual
@@ -819,6 +885,10 @@ include '../../includes/header.php';
         <a href="gudang-nasita.php?print_stock=1" target="_blank" class="btn btn-primary" style="font-weight:700;">
             <i data-feather="printer" style="width: 16px; height: 16px;"></i>
             Print Semua Stock
+        </a>
+        <a href="gudang-nasita.php?print_stock_out=1" target="_blank" class="btn btn-secondary" style="font-weight:700;">
+            <i data-feather="printer" style="width: 16px; height: 16px;"></i>
+            Print Pengeluaran Hari Ini
         </a>
         <a href="gudang-po-supplier.php" class="btn btn-primary" style="display:none;">
             <i data-feather="file-plus" style="width: 16px; height: 16px;"></i>
@@ -1089,6 +1159,7 @@ include '../../includes/header.php';
         if (e.target === document.getElementById('importStockModal')) document.getElementById('importStockModal').style.display = 'none';
         if (e.target === document.getElementById('orderSupplierModal')) document.getElementById('orderSupplierModal').style.display = 'none';
         if (e.target === document.getElementById('quickStockModal')) document.getElementById('quickStockModal').style.display = 'none';
+        if (e.target === document.getElementById('dailyOutModal')) document.getElementById('dailyOutModal').style.display = 'none';
     });
 
     // Slim modal: tambah stok ke item yang sudah ada (dari tombol per baris)
@@ -1098,7 +1169,10 @@ include '../../includes/header.php';
         m.querySelector('[name="category"]').value = category || 'lainnya';
         m.querySelector('[name="unit"]').value = unit || 'pcs';
         m.querySelector('#qsTitle').textContent = itemName;
-        m.querySelector('#qsCurrentQty').textContent = parseFloat(currentQty).toLocaleString('id-ID', {minimumFractionDigits:0, maximumFractionDigits:2}) + ' ' + (unit || 'pcs');
+        m.querySelector('#qsCurrentQty').textContent = parseFloat(currentQty).toLocaleString('id-ID', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2
+        }) + ' ' + (unit || 'pcs');
         var qtyInput = m.querySelector('[name="quantity"]');
         qtyInput.value = '';
         m.style.display = 'flex';
@@ -1256,6 +1330,37 @@ include '../../includes/header.php';
             <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
                 <button type="button" class="btn btn-secondary" onclick="document.getElementById('quickStockModal').style.display='none'">Batal</button>
                 <button type="submit" class="btn btn-success" style="font-weight:700;">Simpan Stock</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="dailyOutModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.55); z-index:2055; align-items:center; justify-content:center; padding:1rem;">
+    <div class="card" style="width:min(420px,100%);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <div>
+                <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.04em;">Stock Keluar</div>
+                <h3 style="font-size:1.05rem; margin:0.15rem 0 0; font-weight:700;">Catat Pengeluaran Harian</h3>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('dailyOutModal').style.display='none'">✕</button>
+        </div>
+        <form method="POST">
+            <input type="hidden" name="action" value="stock_out_daily">
+            <div style="margin-bottom:0.85rem;">
+                <label class="form-label">Nama Item *</label>
+                <input type="text" name="item_name" class="form-control" required placeholder="Masukkan nama item...">
+            </div>
+            <div style="margin-bottom:0.85rem;">
+                <label class="form-label">Qty Keluar *</label>
+                <input type="number" name="quantity" class="form-control" step="0.01" min="0.01" required placeholder="0">
+            </div>
+            <div style="margin-bottom:1rem;">
+                <label class="form-label">Catatan</label>
+                <textarea name="notes" class="form-control" rows="3" placeholder="Contoh: Barang dipakai operasional, rusak, atau dikirim ke cabang"></textarea>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('dailyOutModal').style.display='none'">Batal</button>
+                <button type="submit" class="btn btn-warning" style="font-weight:700; color:#111827;">Simpan Stock Keluar</button>
             </div>
         </form>
     </div>
