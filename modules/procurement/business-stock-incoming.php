@@ -125,6 +125,8 @@ $rawStockMap = [];
 $manualStockMap = [];
 $interTransferInMap = [];
 $interTransferOutMap = [];
+$dailyOutMap = [];
+$dailyOutRows = [];
 $masterPdo = null;
 $gudangDbNameResolved = '';
 $stockMetaMap = [];
@@ -157,10 +159,10 @@ $registerStockMeta = function ($itemName, $unit) use (&$stockMetaMap, $buildKey)
     }
 };
 
-$computeVisibleQty = function ($itemName, $unit) use (&$rawStockMap, &$manualStockMap, &$baselineMap, &$interTransferInMap, &$interTransferOutMap, $buildKey, $getMapQty) {
+$computeVisibleQty = function ($itemName, $unit) use (&$rawStockMap, &$manualStockMap, &$baselineMap, &$interTransferInMap, &$interTransferOutMap, &$dailyOutMap, $buildKey, $getMapQty) {
     $key = $buildKey($itemName, $unit);
     $gross = $getMapQty($rawStockMap, $key) + $getMapQty($manualStockMap, $key) + $getMapQty($interTransferInMap, $key) - $getMapQty($interTransferOutMap, $key);
-    $visible = $gross - $getMapQty($baselineMap, $key);
+    $visible = $gross - $getMapQty($baselineMap, $key) - $getMapQty($dailyOutMap, $key);
     return $visible > 0 ? $visible : 0;
 };
 
@@ -390,6 +392,23 @@ if ($activeBusinessId > 0) {
 
 if ($activeBusinessId > 0) {
     try {
+        $db->query("CREATE TABLE IF NOT EXISTS business_stock_daily_out (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            business_id INT NOT NULL,
+            item_name VARCHAR(255) NOT NULL,
+            unit VARCHAR(50) NOT NULL,
+            quantity DECIMAL(15,2) NOT NULL DEFAULT 0,
+            notes TEXT NULL,
+            created_by INT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_business_item_unit (business_id, item_name, unit),
+            INDEX idx_business_created_at (business_id, created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } catch (Throwable $e) {
+        error_log('business-stock-incoming daily out table error: ' . $e->getMessage());
+    }
+
+    try {
         $baselineRows = $db->fetchAll(
             'SELECT item_name, unit, baseline_qty FROM business_stock_reset_baseline WHERE business_id = ?',
             [$activeBusinessId]
@@ -402,6 +421,28 @@ if ($activeBusinessId > 0) {
         }
     } catch (Throwable $e) {
         $baselineMap = [];
+    }
+
+    try {
+        $dailyOutRows = $db->fetchAll(
+            'SELECT * FROM business_stock_daily_out WHERE business_id = ? AND DATE(created_at) = CURDATE() ORDER BY created_at DESC',
+            [$activeBusinessId]
+        );
+
+        foreach ($dailyOutRows as $dailyRow) {
+            $itemName = trim((string)($dailyRow['item_name'] ?? ''));
+            $unit = trim((string)($dailyRow['unit'] ?? 'pcs'));
+            $qty = (float)($dailyRow['quantity'] ?? 0);
+            if ($itemName === '' || $qty <= 0) {
+                continue;
+            }
+            $key = $buildKey($itemName, $unit);
+            $dailyOutMap[$key] = ($dailyOutMap[$key] ?? 0) + $qty;
+            $registerStockMeta($itemName, $unit);
+        }
+    } catch (Throwable $e) {
+        $dailyOutRows = [];
+        $dailyOutMap = [];
     }
 }
 
@@ -501,6 +542,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $_SESSION['success'] = 'Stok manual berhasil ditambahkan.';
         } catch (Throwable $e) {
             $_SESSION['error'] = 'Gagal menambah stok manual: ' . $e->getMessage();
+        }
+    }
+
+    header('Location: business-stock-incoming.php');
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'record_daily_stock_out_business') {
+    $itemName = trim((string)($_POST['item_name'] ?? ''));
+    $unit = trim((string)($_POST['unit'] ?? 'pcs'));
+    $qty = (float)($_POST['quantity'] ?? 0);
+    $notes = trim((string)($_POST['notes'] ?? ''));
+
+    if ($activeBusinessId <= 0 || $itemName === '' || $qty <= 0) {
+        $_SESSION['error'] = 'Data stock keluar tidak valid.';
+    } else {
+        try {
+            $normalizedName = $normalizeItemName($itemName);
+            foreach ($stockMetaMap as $meta) {
+                if ($normalizeItemName((string)($meta['item_name'] ?? '')) === $normalizedName) {
+                    $itemName = (string)($meta['item_name'] ?? $itemName);
+                    if ($unit === '' || strtolower($unit) === 'pcs') {
+                        $metaUnit = trim((string)($meta['unit'] ?? ''));
+                        if ($metaUnit !== '') {
+                            $unit = $metaUnit;
+                        }
+                    }
+                    break;
+                }
+            }
+
+            $db->insert('business_stock_daily_out', [
+                'business_id' => $activeBusinessId,
+                'item_name' => $itemName,
+                'unit' => $unit !== '' ? $unit : 'pcs',
+                'quantity' => $qty,
+                'notes' => $notes !== '' ? $notes : 'Pengeluaran stok harian',
+                'created_by' => (int)($currentUser['id'] ?? 0),
+            ]);
+            $_SESSION['success'] = 'Stock keluar berhasil dicatat.';
+        } catch (Throwable $e) {
+            $_SESSION['error'] = 'Gagal catat stock keluar: ' . $e->getMessage();
         }
     }
 
@@ -675,9 +758,6 @@ if ($activeBusinessId > 0) {
         $receivedQty = $getMapQty($rawStockMap, $key);
         $currentQty = $computeVisibleQty($itemName, $unit);
 
-        // Keep historically received items visible even when the current visible stock has
-        // been reset to 0 or has aged out, otherwise the summary table can appear empty
-        // while older transfer history still exists lower on the page.
         if ($currentQty <= 0 && $receivedQty <= 0) {
             continue;
         }
@@ -693,6 +773,41 @@ if ($activeBusinessId > 0) {
     usort($stockSummary, function ($a, $b) {
         return strcasecmp((string)$a['item_name'], (string)$b['item_name']);
     });
+}
+
+$dailyOutTotalQty = 0;
+foreach ($dailyOutRows as $dailyOutRow) {
+    $dailyOutTotalQty += (float)($dailyOutRow['quantity'] ?? 0);
+}
+
+if (isset($_GET['print_stock_out_business']) && (string)$_GET['print_stock_out_business'] === '1') {
+    header('Content-Type: text/html; charset=utf-8');
+    echo '<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><title>Cetak Pengeluaran Stock Harian</title>';
+    echo '<style>body{font-family:Arial,sans-serif;font-size:12px;margin:20px;}h2{margin:0 0 4px;}table{width:100%;border-collapse:collapse;margin-top:12px;}th,td{border:1px solid #999;padding:6px 8px;text-align:left;}th{background:#f0f0f0;}.text-right{text-align:right;}@media print{button{display:none}}</style>';
+    echo '</head><body>';
+    echo '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;">';
+    echo '<div><h2>PENGELUARAN STOCK HARIAN</h2><strong>' . htmlspecialchars($activeBusinessName ?: 'Bisnis') . '</strong><br>Dicetak: ' . date('d M Y H:i') . '</div>';
+    echo '<div style="text-align:right;"><strong>Total Qty:</strong> ' . number_format($dailyOutTotalQty, 2) . '<br><strong>Jumlah Catatan:</strong> ' . count($dailyOutRows) . '</div>';
+    echo '</div>';
+    echo '<table><thead><tr><th>No</th><th>Item</th><th>Unit</th><th>Qty</th><th>Catatan</th><th>Waktu</th></tr></thead><tbody>';
+    if (empty($dailyOutRows)) {
+        echo '<tr><td colspan="6" style="text-align:center;">Belum ada pengeluaran stok hari ini</td></tr>';
+    } else {
+        foreach ($dailyOutRows as $idx => $row) {
+            echo '<tr>';
+            echo '<td>' . ($idx + 1) . '</td>';
+            echo '<td>' . htmlspecialchars((string)($row['item_name'] ?? '-')) . '</td>';
+            echo '<td>' . htmlspecialchars((string)($row['unit'] ?? 'pcs')) . '</td>';
+            echo '<td class="text-right">' . number_format((float)($row['quantity'] ?? 0), 2) . '</td>';
+            echo '<td>' . htmlspecialchars((string)($row['notes'] ?? '-')) . '</td>';
+            echo '<td>' . date('d M Y H:i', strtotime((string)($row['created_at'] ?? date('Y-m-d H:i:s')))) . '</td>';
+            echo '</tr>';
+        }
+    }
+    echo '</tbody></table>';
+    echo '<br><button onclick="window.print()">Cetak</button>';
+    echo '</body></html>';
+    exit;
 }
 
 // Build autocomplete source from manual entries + existing stock names.
@@ -767,6 +882,14 @@ include '../../includes/header.php';
         <a href="purchase-orders.php" class="btn btn-secondary">
             <i data-feather="file-text" style="width: 16px; height: 16px;"></i>
             Purchase Orders
+        </a>
+        <button type="button" class="btn btn-warning" onclick="openDailyOutModal()">
+            <i data-feather="minus-square" style="width: 16px; height: 16px;"></i>
+            Stock Keluar
+        </button>
+        <a href="business-stock-incoming.php?print_stock_out_business=1" target="_blank" class="btn btn-secondary">
+            <i data-feather="printer" style="width: 16px; height: 16px;"></i>
+            Print Pengeluaran Hari Ini
         </a>
         <button type="button" class="btn btn-primary" onclick="openManualStockModal()">
             <i data-feather="plus-square" style="width: 16px; height: 16px;"></i>
@@ -878,6 +1001,41 @@ include '../../includes/header.php';
                             </tr>
                     <?php endforeach;
                     endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card" style="margin-bottom:1.25rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; margin-bottom:1rem;">
+            <h3 style="font-size:1rem; font-weight:700; margin:0;">Pengeluaran Harian</h3>
+            <div style="font-size:0.8rem; color:var(--text-muted);">Total hari ini: <?php echo number_format($dailyOutTotalQty, 2); ?> qty</div>
+        </div>
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Unit</th>
+                        <th class="text-right">Qty</th>
+                        <th>Catatan</th>
+                        <th>Waktu</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($dailyOutRows)): ?>
+                        <tr>
+                            <td colspan="5" style="text-align:center; padding:2rem; color:var(--text-muted);">Belum ada pengeluaran stok hari ini.</td>
+                        </tr>
+                    <?php else: foreach ($dailyOutRows as $dailyOutEntry): ?>
+                        <tr>
+                            <td style="font-weight:600;"><?php echo htmlspecialchars((string)($dailyOutEntry['item_name'] ?? '-')); ?></td>
+                            <td><?php echo htmlspecialchars((string)($dailyOutEntry['unit'] ?? 'pcs')); ?></td>
+                            <td class="text-right" style="font-weight:700; color:#d97706;"><?php echo number_format((float)($dailyOutEntry['quantity'] ?? 0), 2); ?></td>
+                            <td><?php echo htmlspecialchars((string)($dailyOutEntry['notes'] ?? '-')); ?></td>
+                            <td style="font-size:0.82rem; color:var(--text-muted);"><?php echo date('d M Y H:i', strtotime((string)($dailyOutEntry['created_at'] ?? date('Y-m-d H:i:s')))); ?></td>
+                        </tr>
+                    <?php endforeach; endif; ?>
                 </tbody>
             </table>
         </div>
@@ -1283,6 +1441,26 @@ include '../../includes/header.php';
         }
     }
 
+    function openDailyOutModal() {
+        var modal = document.getElementById('dailyOutBusinessModal');
+        if (modal) {
+            modal.style.display = 'flex';
+            var itemInput = document.getElementById('dailyOutItemName');
+            if (itemInput) {
+                setTimeout(function() {
+                    itemInput.focus();
+                }, 80);
+            }
+        }
+    }
+
+    function closeDailyOutModal() {
+        var modal = document.getElementById('dailyOutBusinessModal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+
     function openManualStockModal() {
         var modal = document.getElementById('manualStockModal');
         modal.style.display = 'flex';
@@ -1391,16 +1569,75 @@ include '../../includes/header.php';
         modal.style.display = 'none';
     }
 
+    function openDailyOutModal() {
+        var modal = document.getElementById('dailyOutBusinessModal');
+        if (modal) {
+            modal.style.display = 'flex';
+            var itemInput = document.getElementById('dailyOutItemName');
+            if (itemInput) {
+                setTimeout(function() {
+                    itemInput.focus();
+                }, 80);
+            }
+        }
+    }
+
+    function closeDailyOutModal() {
+        var modal = document.getElementById('dailyOutBusinessModal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+
     window.addEventListener('click', function(e) {
         var manualModal = document.getElementById('manualStockModal');
         var modal = document.getElementById('transferStockModal');
+        var dailyModal = document.getElementById('dailyOutBusinessModal');
         if (e.target === manualModal) {
             closeManualStockModal();
         }
         if (e.target === modal) {
             closeTransferModal();
         }
+        if (e.target === dailyModal) {
+            closeDailyOutModal();
+        }
     });
 </script>
+
+<div id="dailyOutBusinessModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.55); z-index:2055; align-items:center; justify-content:center; padding:1rem;">
+    <div class="card" style="width:min(420px,100%);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <div>
+                <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.04em;">Stock Keluar</div>
+                <h3 style="font-size:1.05rem; margin:0.15rem 0 0; font-weight:700;">Catat Pengeluaran Harian</h3>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="closeDailyOutModal()">✕</button>
+        </div>
+        <form method="POST">
+            <input type="hidden" name="action" value="record_daily_stock_out_business">
+            <div style="margin-bottom:0.85rem;">
+                <label class="form-label">Nama Item *</label>
+                <input type="text" id="dailyOutItemName" name="item_name" class="form-control" required placeholder="Masukkan nama item...">
+            </div>
+            <div style="margin-bottom:0.85rem;">
+                <label class="form-label">Unit *</label>
+                <input type="text" name="unit" class="form-control" value="pcs" required>
+            </div>
+            <div style="margin-bottom:0.85rem;">
+                <label class="form-label">Qty Keluar *</label>
+                <input type="number" name="quantity" class="form-control" step="0.01" min="0.01" required placeholder="0">
+            </div>
+            <div style="margin-bottom:1rem;">
+                <label class="form-label">Catatan</label>
+                <textarea name="notes" class="form-control" rows="3" placeholder="Misal: penggunaan operasional, rusak, atau kebutuhan harian"></textarea>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+                <button type="button" class="btn btn-secondary" onclick="closeDailyOutModal()">Batal</button>
+                <button type="submit" class="btn btn-warning" style="font-weight:700; color:#111827;">Simpan Stock Keluar</button>
+            </div>
+        </form>
+    </div>
+</div>
 
 <?php include '../../includes/footer.php'; ?>
