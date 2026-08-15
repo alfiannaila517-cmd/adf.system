@@ -75,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             throw new Exception('PO tidak ditemukan');
         }
 
-        $allowedDeleteStatuses = ['draft', 'cancelled', 'rejected', 'completed'];
+        $allowedDeleteStatuses = ['draft', 'submitted', 'approved', 'partially_received', 'cancelled', 'rejected', 'completed'];
         if (!in_array(strtolower((string)$poRow['status']), $allowedDeleteStatuses, true)) {
             throw new Exception('PO dengan status ini tidak boleh dihapus');
         }
@@ -665,7 +665,7 @@ include '../../includes/header.php';
                                             <span class="badge badge-success">Transfer Selesai</span>
                                         <?php endif; ?>
 
-                                        <?php if (in_array(strtolower((string)$po['status']), ['draft', 'cancelled', 'rejected', 'completed'], true)): ?>
+                                        <?php if (in_array(strtolower((string)$po['status']), ['draft', 'submitted', 'approved', 'partially_received', 'cancelled', 'rejected', 'completed'], true)): ?>
                                             <form method="POST" style="display: inline;" onsubmit="return confirm('Hapus PO ini permanen?')">
                                                 <input type="hidden" name="action" value="delete_po">
                                                 <input type="hidden" name="po_id" value="<?php echo (int)$po['id']; ?>">
