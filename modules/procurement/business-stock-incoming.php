@@ -847,6 +847,21 @@ foreach ($manualItemSuggestions as $normalizedName => $entry) {
     ];
 }
 
+$businessStockItemMetaJs = [];
+foreach ($stockSummary as $stockRow) {
+    $itemName = trim((string)($stockRow['item_name'] ?? ''));
+    $unit = trim((string)($stockRow['unit'] ?? 'pcs'));
+    if ($itemName === '') {
+        continue;
+    }
+
+    $normalizedName = $normalizeItemName($itemName);
+    $businessStockItemMetaJs[$normalizedName] = [
+        'item_name' => $itemName,
+        'unit' => $unit !== '' ? $unit : 'pcs',
+    ];
+}
+
 $totalQtyVisible = 0;
 $totalQtyReceived = 0;
 foreach ($stockSummary as $row) {
@@ -1410,9 +1425,29 @@ include '../../includes/header.php';
 
 <script>
     var manualItemMeta = <?php echo json_encode($manualItemMetaJs, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
+    var businessStockItemMeta = <?php echo json_encode($businessStockItemMetaJs, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
 
     function normalizeManualName(value) {
         return String(value || '').toLowerCase().trim().replace(/\s+/g, ' ');
+    }
+
+    function applyDailyOutMeta() {
+        var itemInput = document.getElementById('dailyOutItemName');
+        var unitInput = document.getElementById('dailyOutUnit');
+        if (!itemInput || !unitInput) {
+            return;
+        }
+
+        var key = normalizeManualName(itemInput.value || '');
+        if (!key || !businessStockItemMeta[key]) {
+            return;
+        }
+
+        var meta = businessStockItemMeta[key];
+        itemInput.value = meta.item_name || itemInput.value;
+        if (meta.unit) {
+            unitInput.value = meta.unit;
+        }
     }
 
     function applyExistingManualItemMeta() {
@@ -1618,11 +1653,16 @@ include '../../includes/header.php';
             <input type="hidden" name="action" value="record_daily_stock_out_business">
             <div style="margin-bottom:0.85rem;">
                 <label class="form-label">Nama Item *</label>
-                <input type="text" id="dailyOutItemName" name="item_name" class="form-control" required placeholder="Masukkan nama item...">
+                <input type="text" id="dailyOutItemName" name="item_name" class="form-control" list="dailyOutItemList" autocomplete="off" required placeholder="Ketik 1-3 huruf...">
+                <datalist id="dailyOutItemList">
+                    <?php foreach ($businessStockItemMetaJs as $item): ?>
+                        <option value="<?php echo htmlspecialchars((string)($item['item_name'] ?? '')); ?>">
+                    <?php endforeach; ?>
+                </datalist>
             </div>
             <div style="margin-bottom:0.85rem;">
                 <label class="form-label">Unit *</label>
-                <input type="text" name="unit" class="form-control" value="pcs" required>
+                <input type="text" name="unit" id="dailyOutUnit" class="form-control" value="pcs" required>
             </div>
             <div style="margin-bottom:0.85rem;">
                 <label class="form-label">Qty Keluar *</label>
