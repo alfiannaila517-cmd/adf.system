@@ -278,285 +278,223 @@ include '../../includes/header.php';
         </div>
     </div>
 
-    <!-- Items Section -->
-    <div class="card" style="margin-bottom: 1.25rem;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 2px solid var(--bg-tertiary);">
-            <h3 style="font-size: 1rem; font-weight: 700; color: var(--text-primary); margin: 0;">
-                <i data-feather="package" style="width: 16px; height: 16px;"></i>
-                Daftar Item
-            </h3>
-            <button type="button" onclick="addItem()" class="btn btn-primary btn-sm">
-                <i data-feather="plus" style="width: 14px; height: 14px;"></i>
-                Tambah
-            </button>
+    <!-- Split Panel: kiri checklist barang, kanan item terpilih -->
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.25rem; min-height:530px;">
+        <div class="card" style="display:flex; flex-direction:column; overflow:hidden; padding:0;">
+            <div style="padding:0.85rem 1rem; border-bottom:1px solid var(--border,#e2e8f0); flex-shrink:0;">
+                <div style="font-weight:700; font-size:0.95rem; margin-bottom:0.5rem;">Pilih Barang</div>
+                <input type="text" id="poLeftSearch" class="form-control" placeholder="Cari nama barang..." autocomplete="off">
+            </div>
+            <div id="poLeftList" style="flex:1; overflow-y:auto; min-height:0;"></div>
+            <div style="padding:0.5rem 1rem; border-top:1px solid var(--border,#e2e8f0); font-size:0.78rem; color:var(--text-muted); flex-shrink:0;">
+                <span id="poLeftCount">0 barang</span> &nbsp;·&nbsp; <span id="poSelectedCount" style="color:#0f9d6a; font-weight:700;">0 dipilih</span>
+            </div>
         </div>
 
-        <div id="itemsContainer"></div>
-
-        <!-- Totals -->
-        <div style="margin-top: 2rem; padding: 1.5rem; background: var(--bg-secondary); border-radius: var(--radius-md);">
-            <div style="max-width: 400px; margin-left: auto;">
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
-                    <label style="color: var(--text-muted); font-weight: 500;">Subtotal:</label>
-                    <div id="subtotalDisplay" style="font-weight: 600; text-align: right; font-size: 1.125rem;">Rp 0</div>
+        <div class="card" style="display:flex; flex-direction:column; overflow:hidden; padding:0;">
+            <div style="padding:0.85rem 1rem; border-bottom:1px solid var(--border,#e2e8f0); flex-shrink:0;">
+                <div style="font-weight:700; font-size:0.95rem; margin-bottom:0.75rem;">Item yang Dipilih</div>
+                <div style="display:grid; grid-template-columns:1fr; gap:0.6rem;">
+                    <div>
+                        <label class="form-label" style="font-size:0.82rem;">Catatan</label>
+                        <input type="text" id="poNotes" class="form-control" placeholder="Catatan tambahan...">
+                    </div>
                 </div>
+            </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem; align-items: center;">
-                    <label style="color: var(--text-muted); font-weight: 500;">Diskon:</label>
-                    <input type="number" name="discount_amount" id="discountInput" class="form-control" style="text-align: right;" value="0" step="any" min="0" onchange="calculateTotal()" placeholder="0">
+            <div id="poRightList" style="flex:1; overflow-y:auto; min-height:0; padding:0;">
+                <div style="padding:2rem; text-align:center; color:#94a3b8; font-size:0.875rem;" id="poEmptyMsg">
+                    ← Centang barang di sebelah kiri
                 </div>
+            </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem; align-items: center;">
-                    <label style="color: var(--text-muted); font-weight: 500;">Pajak/PPn:</label>
-                    <input type="number" name="tax_amount" id="taxInput" class="form-control" style="text-align: right;" value="0" step="any" min="0" onchange="calculateTotal()" placeholder="0">
-                </div>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; padding-top: 1rem; border-top: 2px solid var(--bg-tertiary);">
-                    <label style="font-weight: 700; font-size: 1.125rem;">TOTAL:</label>
-                    <div id="grandTotalDisplay" style="font-weight: 800; font-size: 1.5rem; color: var(--primary-color); text-align: right;">Rp 0</div>
+            <div style="padding:0.85rem 1rem; border-top:1px solid var(--border,#e2e8f0); flex-shrink:0; display:flex; justify-content:space-between; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+                <span style="font-size:0.82rem; color:var(--text-muted);">
+                    <strong id="poRightCount">0</strong> item · Total: <strong id="poRightTotal">Rp 0</strong>
+                </span>
+                <div style="display:flex; gap:0.5rem;">
+                    <a href="purchase-orders.php" class="btn btn-secondary">
+                        <i data-feather="x" style="width:16px;height:16px;"></i>
+                        Batal
+                    </a>
+                    <button type="button" class="btn btn-primary" onclick="submitSelectedPo()" style="min-width: 150px;">
+                        <i data-feather="check-circle" style="width:16px;height:16px;"></i>
+                        Simpan PO
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
-        <a href="purchase-orders.php" class="btn btn-secondary">
-            <i data-feather="x" style="width: 16px; height: 16px;"></i>
-            Batal
-        </a>
-        <button type="submit" class="btn btn-primary" style="min-width: 150px;">
-            <i data-feather="check-circle" style="width: 16px; height: 16px;"></i>
-            Simpan PO
-        </button>
+    <div id="poHiddenFormWrap" style="display:none;">
+        <input type="hidden" name="discount_amount" value="0">
+        <input type="hidden" name="tax_amount" value="0">
     </div>
 </form>
 
 <script>
-    let itemCount = 0;
     const divisions = <?php echo json_encode($divisions); ?>;
     const GUDANG_ITEMS = <?php echo json_encode(array_values($gudangBarang), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+    const selected = {};
 
-    function addItem() {
-        itemCount++;
-        const container = document.getElementById('itemsContainer');
-        const itemDiv = document.createElement('div');
-        itemDiv.className = 'item-row';
-        itemDiv.style.cssText = 'display: grid; grid-template-columns: 0.3fr 2fr 1fr 0.7fr 0.7fr 1fr 1fr auto; gap: 0.5rem; padding: 0.5rem; border-bottom: 1px solid var(--bg-tertiary); align-items: start;';
-        itemDiv.innerHTML = `
-        <div style="font-weight: 600; color: var(--primary-color); font-size: 0.875rem; padding-top:.55rem;">#${itemCount}</div>
-        
-        <div style="position:relative;">
-            <input type="text" name="items[${itemCount}][item_name]" class="form-control po-item-ac" placeholder="Ketik nama item..." required autocomplete="off" style="font-size: 0.875rem; padding: 0.5rem;" oninput="handleItemInput(this)" onblur="hideItemDrop(this,200)">
-            <div class="po-item-drop" style="display:none;position:absolute;left:0;right:0;top:100%;background:#fff;border:1px solid #e2e8f0;border-radius:0 0 .5rem .5rem;max-height:200px;overflow-y:auto;z-index:999;box-shadow:0 4px 16px rgba(0,0,0,.12);"></div>
-            <div class="po-item-hint" style="font-size:.7rem;margin-top:2px;display:none;"></div>
-        </div>
-        
-        <select name="items[${itemCount}][division_id]" class="form-control" required style="font-size: 0.875rem; padding: 0.5rem;">
-            ${divisions.map(d => `<option value="${d.id}">${d.division_name}</option>`).join('')}
-        </select>
-        
-        <input type="number" name="items[${itemCount}][quantity]" class="form-control item-qty" step="any" min="0" value="1" required onchange="calculateItemTotal(this)" style="font-size: 0.875rem; padding: 0.5rem;">
-        
-        <select name="items[${itemCount}][unit_of_measure]" class="form-control po-item-unit" style="font-size: 0.875rem; padding: 0.5rem;">
-            <option value="pcs">Pcs</option>
-            <option value="kg">Kg</option>
-            <option value="liter">Ltr</option>
-            <option value="box">Box</option>
-            <option value="pack">Pack</option>
-            <option value="unit">Unit</option>
-            <option value="botol">Botol</option>
-            <option value="karton">Karton</option>
-        </select>
-        
-        <input type="number" name="items[${itemCount}][unit_price]" class="form-control item-price" step="any" min="0" value="0" required onchange="calculateItemTotal(this)" placeholder="0" style="font-size: 0.875rem; padding: 0.5rem;">
-        
-        <div class="form-control item-subtotal" readonly style="background: #e6f7ff; font-weight: 700; color: var(--primary-color); font-size: 0.875rem; padding: 0.5rem;">Rp 0</div>
-        
-        <button type="button" onclick="removeItem(this)" class="btn btn-sm btn-danger" title="Hapus" style="padding: 0.5rem; margin-top:.1rem;">
-            <i data-feather="x" style="width: 14px; height: 14px;"></i>
-        </button>
-        
-        <input type="hidden" name="items[${itemCount}][item_description]" value="">
-    `;
-        container.appendChild(itemDiv);
-        feather.replace();
-    }
+    function renderLeft(q) {
+        var list = document.getElementById('poLeftList');
+        var filtered = q ? GUDANG_ITEMS.filter(function(p) {
+            return (p.nama_barang || '').toLowerCase().includes(q.toLowerCase());
+        }) : GUDANG_ITEMS;
 
-    // ── Gudang autocomplete helpers ────────────────────────────────────────────
-    let acTimers = {};
+        document.getElementById('poLeftCount').textContent = filtered.length + ' barang';
 
-    function handleItemInput(inp) {
-        const key = inp.name;
-        clearTimeout(acTimers[key]);
-        const q = inp.value.trim();
-        const drop = inp.nextElementSibling;
-        const hint = drop.nextElementSibling;
-        if (q.length < 2) {
-            drop.style.display = 'none';
-            hint.style.display = 'none';
+        if (!filtered.length) {
+            list.innerHTML = '<div style="padding:1.5rem; text-align:center; color:#94a3b8; font-size:.875rem;">Tidak ada yang cocok</div>';
             return;
         }
-        acTimers[key] = setTimeout(() => fetchGudangItems(q, inp, drop, hint), 280);
+
+        list.innerHTML = filtered.map(function(p) {
+            var harga = parseFloat(p.harga_beli) || 0;
+            var stok = parseFloat(p.current_stock) || 0;
+            var minStok = parseFloat(p.min_stock) || 0;
+            var stokLow = minStok > 0 && stok <= minStok;
+            var stokColor = stokLow ? '#dc2626' : '#64748b';
+            var stokWeight = stokLow ? '700' : 'normal';
+            var stokText = stok % 1 === 0 ? stok.toLocaleString('id-ID') : stok.toLocaleString('id-ID', { maximumFractionDigits: 2 });
+            var isSelected = !!selected[p.id];
+            return '<div class="po-chk-row' + (isSelected ? ' selected' : '') + '" data-id="' + p.id + '" onclick="toggleItem(' + p.id + ')">' +
+                '<input type="checkbox"' + (isSelected ? ' checked' : '') + ' onclick="event.stopPropagation();toggleItem(' + p.id + ')">' +
+                '<div class="item-info">' +
+                '<strong>' + (p.nama_barang || '') + '</strong>' +
+                '<div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">' +
+                '<span class="item-meta">' + (p.satuan || 'pcs') + (p.kode_barang ? ' · ' + p.kode_barang : '') + '</span>' +
+                '<span style="font-size:.72rem;color:' + stokColor + ';font-weight:' + stokWeight + ';">' +
+                (stokLow ? '⚠ ' : '') + 'Stok: ' + stokText + (minStok > 0 ? ' / min ' + ((minStok % 1 === 0 ? minStok.toLocaleString('id-ID') : minStok.toLocaleString('id-ID', { maximumFractionDigits: 2 }))) : '') +
+                '</span>' +
+                '</div>' +
+                '</div>' +
+                '<span class="item-price">' + (harga > 0 ? 'Rp ' + Math.round(harga).toLocaleString('id-ID') : '—') + '</span>' +
+                '</div>';
+        }).join('');
     }
 
-    function escapeHtml(value) {
-        return String(value ?? '').replace(/[&<>"']/g, function(char) {
-            return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char];
-        });
+    function toggleItem(id) {
+        var p = GUDANG_ITEMS.find(function(x) { return x.id == id; });
+        if (!p) return;
+        if (selected[id]) {
+            delete selected[id];
+        } else {
+            selected[id] = {
+                nama: p.nama_barang,
+                satuan: p.satuan || 'pcs',
+                harga: parseFloat(p.harga_beli) || 0,
+                qty: ''
+            };
+        }
+        renderRight();
+
+        var row = document.querySelector('#poLeftList [data-id="' + id + '"]');
+        if (row) {
+            var chk = row.querySelector('input[type=checkbox]');
+            if (selected[id]) {
+                row.classList.add('selected');
+                if (chk) chk.checked = true;
+            } else {
+                row.classList.remove('selected');
+                if (chk) chk.checked = false;
+            }
+        }
+
+        document.getElementById('poSelectedCount').textContent = Object.keys(selected).length + ' dipilih';
     }
 
-    function fetchGudangItems(q, inp, drop, hint) {
-        const query = q.toLowerCase();
-        const items = GUDANG_ITEMS.filter(p => String(p.nama_barang || '').toLowerCase().includes(query)).slice(0, 20);
-        if (!items.length) {
-            drop.style.display = 'none';
-            hint.textContent = '⚠️ Tidak ada di database Gudang — ketik manual';
-            hint.style.color = '#f59e0b';
-            hint.style.display = 'block';
+    function renderRight() {
+        var ids = Object.keys(selected);
+        var emptyMsg = document.getElementById('poEmptyMsg');
+        var rightList = document.getElementById('poRightList');
+        document.getElementById('poSelectedCount').textContent = ids.length + ' dipilih';
+        document.getElementById('poRightCount').textContent = ids.length;
+
+        if (!ids.length) {
+            rightList.innerHTML = '<div style="padding:2rem;text-align:center;color:#94a3b8;font-size:.875rem;" id="poEmptyMsg">← Centang barang di sebelah kiri</div>';
+            document.getElementById('poRightTotal').textContent = 'Rp 0';
             return;
         }
-        hint.style.display = 'none';
-        drop.innerHTML = items.map(p =>
-            `<div class="po-drop-item" style="padding:.5rem .75rem;cursor:pointer;font-size:.84rem;border-bottom:1px solid #f1f5f9;"
-                data-name="${escapeHtml(p.nama_barang)}"
-                data-unit="${escapeHtml(p.satuan || 'pcs')}"
-                data-price="${Number(p.harga_beli || 0)}"
-                onmousedown="selectGudangItem(this)">
-                <span style="font-weight:600;">${escapeHtml(p.nama_barang)}</span>
-                <span style="color:#64748b;font-size:.75rem;margin-left:.5rem;">${escapeHtml(p.kategori || '')} &middot; ${escapeHtml(p.satuan || 'pcs')}</span>
-            </div>`
-        ).join('');
-        drop.style.display = 'block';
+
+        var html = '';
+        var total = 0;
+        ids.forEach(function(id) {
+            var s = selected[id];
+            var subtotal = (parseFloat(s.qty) || 0) * s.harga;
+            total += subtotal;
+            html += '<div class="po-right-row">' +
+                '<div class="item-name">' + s.nama + '<br><span class="item-unit">' + s.satuan + (s.harga > 0 ? ' · Rp ' + Math.round(s.harga).toLocaleString('id-ID') : '') + '</span></div>' +
+                '<input type="number" class="form-control" style="width:80px;text-align:right;" placeholder="Qty" min="0.01" step="0.01" value="' + (s.qty || '') + '" oninput="selected[' + id + '].qty=this.value;updateTotal()">' +
+                '<span class="item-unit">' + s.satuan + '</span>' +
+                '<button type="button" onclick="toggleItem(' + id + ')" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:1rem;padding:0 4px;">✕</button>' +
+                '</div>';
+        });
+
+        rightList.innerHTML = html;
+        document.getElementById('poRightTotal').textContent = 'Rp ' + Math.round(total).toLocaleString('id-ID');
     }
 
-    function selectGudangItem(el) {
-        const row = el.closest('.item-row');
-        const inp = row.querySelector('.po-item-ac');
-        const drop = inp.nextElementSibling;
-        const hint = drop.nextElementSibling;
-        const unit = row.querySelector('.po-item-unit');
-        const price = row.querySelector('.item-price');
-        inp.value = el.dataset.name;
-        // match unit option or keep pcs
-        if (unit) {
-            const u = el.dataset.unit.toLowerCase();
-            [...unit.options].forEach(o => {
-                if (o.value.toLowerCase() === u) o.selected = true;
-            });
-        }
-        if (price && Number(el.dataset.price || 0) > 0) {
-            price.value = Number(el.dataset.price).toFixed(0);
-        }
-        drop.style.display = 'none';
-        hint.textContent = '✅ Item dari Gudang Nasita';
-        hint.style.color = '#16a34a';
-        hint.style.display = 'block';
-        calculateItemTotal(price || inp);
-        row.querySelector('.item-qty')?.focus();
+    function updateTotal() {
+        var total = 0;
+        Object.values(selected).forEach(function(s) {
+            total += (parseFloat(s.qty) || 0) * s.harga;
+        });
+        document.getElementById('poRightTotal').textContent = 'Rp ' + Math.round(total).toLocaleString('id-ID');
     }
 
-    function hideItemDrop(inp, delay) {
-        setTimeout(() => {
-            const drop = inp.nextElementSibling;
-            if (drop) drop.style.display = 'none';
-        }, delay);
-    }
-
-    function removeItem(btn) {
-        if (document.querySelectorAll('.item-row').length === 1) {
-            alert('Minimal harus ada 1 item!');
+    function submitSelectedPo() {
+        var ids = Object.keys(selected);
+        if (!ids.length) {
+            alert('Centang minimal 1 barang.');
             return;
         }
-        btn.closest('.item-row').remove();
-        calculateTotal();
-        // Renumber items
-        document.querySelectorAll('.item-row').forEach((row, index) => {
-            row.querySelector('div').textContent = `#${index + 1}`;
+
+        var valid = 0;
+        ids.forEach(function(id) {
+            if (parseFloat(selected[id].qty) > 0) valid++;
         });
-        itemCount = document.querySelectorAll('.item-row').length;
+        if (!valid) {
+            alert('Isi qty untuk barang yang dipilih.');
+            return;
+        }
+
+        var form = document.getElementById('poForm');
+        form.querySelectorAll('input[name^="items["]').forEach(function(el) { el.remove(); });
+
+        var idx = 0;
+        ids.forEach(function(id) {
+            var s = selected[id];
+            var qty = parseFloat(s.qty);
+            if (!qty || qty <= 0) return;
+
+            function addInput(name, val) {
+                var el = document.createElement('input');
+                el.type = 'hidden';
+                el.name = name;
+                el.value = val;
+                form.appendChild(el);
+            }
+
+            addInput('items[' + idx + '][item_name]', s.nama);
+            addInput('items[' + idx + '][quantity]', qty);
+            addInput('items[' + idx + '][unit_of_measure]', s.satuan);
+            addInput('items[' + idx + '][unit_price]', s.harga);
+            addInput('items[' + idx + '][item_description]', '');
+            addInput('items[' + idx + '][division_id]', <?php echo (int)($divisions[0]['id'] ?? 0); ?>);
+            idx++;
+        });
+
+        form.submit();
     }
 
-    function calculateItemTotal(input) {
-        const row = input.closest('.item-row');
-        const qty = parseFloat(row.querySelector('.item-qty').value) || 0;
-        const price = parseFloat(row.querySelector('.item-price').value) || 0;
-        const itemSubtotal = qty * price;
-        row.querySelector('.item-subtotal').textContent = 'Rp ' + itemSubtotal.toLocaleString('id-ID', {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0
-        });
-        calculateTotal();
-    }
-
-    function calculateTotal() {
-        let subtotal = 0;
-        document.querySelectorAll('.item-row').forEach(row => {
-            const qty = parseFloat(row.querySelector('.item-qty').value) || 0;
-            const price = parseFloat(row.querySelector('.item-price').value) || 0;
-            subtotal += (qty * price);
-        });
-
-        const discount = parseFloat(document.getElementById('discountInput').value) || 0;
-        const tax = parseFloat(document.getElementById('taxInput').value) || 0;
-        const grandTotal = subtotal - discount + tax;
-
-        document.getElementById('subtotalDisplay').textContent = 'Rp ' + subtotal.toLocaleString('id-ID', {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0
-        });
-        document.getElementById('grandTotalDisplay').textContent = 'Rp ' + grandTotal.toLocaleString('id-ID', {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0
-        });
-    }
-
-    // Add first item on load
     document.addEventListener('DOMContentLoaded', function() {
-        addItem();
-        feather.replace();
-
-        // Form validation before submit
-        document.getElementById('poForm').addEventListener('submit', function(e) {
-            let hasError = false;
-            let errorMsg = '';
-
-            // Check if at least one item exists
-            const items = document.querySelectorAll('.item-row');
-            if (items.length === 0) {
-                hasError = true;
-                errorMsg = 'Minimal tambahkan 1 item!';
-            }
-
-            // Validate each item
-            items.forEach((row, index) => {
-                const itemName = row.querySelector('input[name*="[item_name]"]').value.trim();
-                const qty = parseFloat(row.querySelector('.item-qty').value);
-                const price = parseFloat(row.querySelector('.item-price').value);
-
-                if (!itemName) {
-                    hasError = true;
-                    errorMsg = `Item #${index + 1}: Nama item wajib diisi!`;
-                }
-
-                if (isNaN(qty) || qty <= 0) {
-                    hasError = true;
-                    errorMsg = `Item #${index + 1}: Quantity harus lebih dari 0!`;
-                }
-
-                if (isNaN(price) || price < 0) {
-                    hasError = true;
-                    errorMsg = `Item #${index + 1}: Harga tidak valid!`;
-                }
-            });
-
-            if (hasError) {
-                e.preventDefault();
-                alert('❌ ' + errorMsg);
-                return false;
-            }
-
-            console.log('Form data:', new FormData(this));
+        renderLeft('');
+        document.getElementById('poLeftSearch').addEventListener('input', function() {
+            renderLeft(this.value.trim());
         });
+        feather.replace();
     });
 </script>
 
