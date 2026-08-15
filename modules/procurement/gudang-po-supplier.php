@@ -18,6 +18,27 @@ $db = Database::getInstance();
 $currentUser = $auth->getCurrentUser();
 $pageTitle = 'PO Supplier Gudang';
 
+$normalizePoStatus = static function ($status): string {
+    $statusText = trim((string)($status ?? ''));
+    if ($statusText === '') {
+        return 'draft';
+    }
+    return strtolower($statusText);
+};
+
+$poStatusLabelMap = [
+    'draft' => 'Draft',
+    'submitted' => '⏳ Menunggu Datang',
+    'pending' => '⏳ Menunggu Datang',
+    'waiting' => '⏳ Menunggu Gudang',
+    'approved' => '✅ Disetujui',
+    'partially_received' => '📦 Sebagian Diterima',
+    'received' => '✓ Diterima',
+    'completed' => '✓ Selesai',
+    'cancelled' => '✗ Dibatalkan',
+    'rejected' => '⚠️ Ditolak',
+];
+
 $ensureGudangPoSchema = function () use ($db) {
     try {
         $db->query("CREATE TABLE IF NOT EXISTS purchase_orders_header (
@@ -249,8 +270,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
                 throw new RuntimeException('PO tidak ditemukan.');
             }
 
-            $allowedStatuses = ['draft', 'submitted', 'approved', 'partially_received', 'cancelled', 'rejected'];
-            if (!in_array(strtolower((string)($poRow['status'] ?? '')), $allowedStatuses, true)) {
+            $poStatusKey = $normalizePoStatus($poRow['status'] ?? '');
+            $allowedStatuses = ['draft', 'submitted', 'approved', 'partially_received', 'cancelled', 'rejected', 'pending', 'waiting'];
+            if (!in_array($poStatusKey, $allowedStatuses, true)) {
                 throw new RuntimeException('Status PO ini tidak boleh dihapus.');
             }
 
@@ -589,8 +611,11 @@ include '../../includes/header.php';
                     </tr>
                 <?php else: ?>
                     <?php foreach ($gudangPOs as $po):
-                        $statusColor = ['submitted' => 'warning', 'completed' => 'success', 'cancelled' => 'danger', 'partially_received' => 'info'][$po['status']] ?? 'secondary';
-                        $statusLabel = ['submitted' => '⏳ Menunggu Datang', 'completed' => '✓ Selesai', 'cancelled' => '✗ Dibatalkan', 'partially_received' => '📦 Sebagian Diterima'][$po['status']] ?? ucfirst($po['status']);
+                        $statusKey = $normalizePoStatus($po['status'] ?? '');
+                        $statusColor = ['submitted' => 'warning', 'pending' => 'warning', 'waiting' => 'warning', 'completed' => 'success', 'received' => 'success', 'cancelled' => 'danger', 'rejected' => 'danger', 'approved' => 'info', 'partially_received' => 'info'][$statusKey] ?? 'secondary';
+                        $statusLabel = $poStatusLabelMap[$statusKey] ?? ucfirst(str_replace('_', ' ', $statusKey));
+                        $canCancel = in_array($statusKey, ['submitted', 'partially_received', 'approved', 'draft', 'pending', 'waiting'], true);
+                        $canDelete = in_array($statusKey, ['draft', 'submitted', 'approved', 'partially_received', 'cancelled', 'rejected', 'pending', 'waiting'], true);
                     ?>
                         <tr>
                             <td style="font-weight:600;"><?php echo htmlspecialchars($po['po_number']); ?></td>
@@ -601,7 +626,7 @@ include '../../includes/header.php';
                             <td class="text-right">Rp <?php echo number_format((float)($po['total_amount'] ?? 0), 0, ',', '.'); ?></td>
                             <td>
                                 <div style="display:flex; gap:0.35rem; justify-content:center; flex-wrap:wrap;">
-                                    <?php if (in_array($po['status'], ['submitted', 'partially_received', 'approved'])): ?>
+                                    <?php if (in_array($statusKey, ['submitted', 'partially_received', 'approved', 'pending', 'waiting'], true)): ?>
                                         <a href="gudang-po-supplier.php?view=<?php echo (int)$po['id']; ?>" class="btn btn-sm btn-success">
                                             <i data-feather="package" style="width:13px;height:13px;"></i> Terima Barang
                                         </a>
@@ -609,7 +634,7 @@ include '../../includes/header.php';
                                     <a href="gudang-po-supplier.php?print=<?php echo (int)$po['id']; ?>" target="_blank" class="btn btn-sm btn-primary" style="font-weight:700;">
                                         <i data-feather="printer" style="width:13px;height:13px;"></i> Cetak PO
                                     </a>
-                                    <?php if (in_array($po['status'], ['submitted', 'partially_received', 'approved', 'draft'], true)): ?>
+                                    <?php if ($canCancel): ?>
                                         <form method="POST" style="display:inline;" onsubmit="return confirm('Batalkan PO ini?')">
                                             <input type="hidden" name="action" value="cancel_po">
                                             <input type="hidden" name="po_id" value="<?php echo (int)$po['id']; ?>">
@@ -618,7 +643,7 @@ include '../../includes/header.php';
                                             </button>
                                         </form>
                                     <?php endif; ?>
-                                    <?php if (in_array($po['status'], ['draft', 'submitted', 'approved', 'partially_received', 'cancelled', 'rejected'], true)): ?>
+                                    <?php if ($canDelete): ?>
                                         <form method="POST" style="display:inline;" onsubmit="return confirm('Hapus permanen PO ini? PO akan hilang dari daftar Gudang Nasita dan tidak bisa dikembalikan.')">
                                             <input type="hidden" name="action" value="delete_po">
                                             <input type="hidden" name="po_id" value="<?php echo (int)$po['id']; ?>">
