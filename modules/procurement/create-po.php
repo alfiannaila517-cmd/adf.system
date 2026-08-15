@@ -189,7 +189,9 @@ include '../../includes/header.php';
         grid-template-columns: 1.1fr 1fr;
         gap: 1rem;
         margin-bottom: 1.25rem;
-        min-height: 530px;
+        min-height: 520px;
+        height: calc(100vh - 330px);
+        max-height: 720px;
     }
 
     .po-panel-card {
@@ -232,6 +234,8 @@ include '../../includes/header.php';
 
     .po-left-list {
         background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+        overflow-y: auto;
+        min-height: 0;
     }
 
     .po-left-list .po-chk-row {
@@ -292,6 +296,8 @@ include '../../includes/header.php';
 
     .po-right-list {
         background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+        overflow-y: auto;
+        min-height: 0;
     }
 
     .po-right-row {
