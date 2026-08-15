@@ -184,6 +184,198 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 include '../../includes/header.php';
 ?>
 <style>
+    .po-main-panel {
+        display: grid;
+        grid-template-columns: 1.1fr 1fr;
+        gap: 1rem;
+        margin-bottom: 1.25rem;
+        min-height: 530px;
+    }
+
+    .po-panel-card {
+        background: #ffffff;
+        border: 1px solid #d6e6f8;
+        border-radius: 16px;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+        overflow: hidden;
+    }
+
+    .po-panel-header {
+        padding: 0.9rem 1rem;
+        border-bottom: 1px solid #e5edf7;
+        background: linear-gradient(180deg, #fbfdff 0%, #f8fbff 100%);
+    }
+
+    .po-panel-header-label {
+        font-weight: 800;
+        font-size: 0.95rem;
+        color: #0f172a;
+        margin-bottom: 0.5rem;
+    }
+
+    .po-search-wrap {
+        width: 100%;
+        border: 1px solid #dbe7f7;
+        border-radius: 10px;
+        padding: 0.7rem 0.85rem;
+        font-size: 0.9rem;
+        background: #fff;
+        color: #0f172a;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .po-search-wrap:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+    }
+
+    .po-left-list {
+        background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    }
+
+    .po-left-list .po-chk-row {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+        padding: 0.8rem 0.9rem;
+        border-bottom: 1px solid #edf3fa;
+        cursor: pointer;
+        transition: background 0.15s ease, transform 0.15s ease;
+    }
+
+    .po-left-list .po-chk-row:hover {
+        background: #f4f9ff;
+    }
+
+    .po-left-list .po-chk-row.selected {
+        background: linear-gradient(90deg, rgba(16, 185, 129, 0.08), rgba(59, 130, 246, 0.04));
+        border-left: 3px solid #10b981;
+        padding-left: 0.75rem;
+    }
+
+    .po-left-list .po-chk-row input[type=checkbox] {
+        width: 18px;
+        height: 18px;
+        flex-shrink: 0;
+        accent-color: #2563eb;
+        margin: 0;
+    }
+
+    .po-left-list .item-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .po-left-list .item-info strong {
+        display: block;
+        font-size: 0.9rem;
+        line-height: 1.35;
+        color: #0f172a;
+        margin-bottom: 0.25rem;
+    }
+
+    .po-left-list .item-meta {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        font-size: 0.72rem;
+        color: #64748b;
+    }
+
+    .po-left-list .item-price {
+        font-size: 0.8rem;
+        font-weight: 800;
+        color: #0f9d6a;
+        white-space: nowrap;
+    }
+
+    .po-right-list {
+        background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    }
+
+    .po-right-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 92px 54px 30px;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.75rem 0.9rem;
+        border-bottom: 1px solid #edf3fa;
+    }
+
+    .po-right-row .item-name {
+        min-width: 0;
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: #0f172a;
+        line-height: 1.35;
+    }
+
+    .po-right-row .item-unit {
+        font-size: 0.72rem;
+        color: #64748b;
+        white-space: nowrap;
+    }
+
+    .po-right-row input.form-control {
+        width: 100%;
+        height: 38px;
+        border: 1px solid #dbe7f7;
+        border-radius: 9px;
+        text-align: right;
+        padding: 0.5rem 0.65rem;
+        font-size: 0.84rem;
+        background: #ffffff;
+    }
+
+    .po-right-row input.form-control:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+    }
+
+    .po-right-row .remove-btn {
+        border: 0;
+        background: rgba(239, 68, 68, 0.08);
+        color: #dc2626;
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: background 0.15s ease;
+    }
+
+    .po-right-row .remove-btn:hover {
+        background: rgba(239, 68, 68, 0.15);
+    }
+
+    .po-footer-bar {
+        padding: 0.9rem 1rem;
+        border-top: 1px solid #e5edf7;
+        background: linear-gradient(180deg, #fbfdff 0%, #f8fbff 100%);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+
+    .po-footer-summary {
+        font-size: 0.82rem;
+        color: #475569;
+    }
+
+    .po-footer-summary strong {
+        color: #0f172a;
+    }
+
+    .po-btn-row {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
     .po-drop-item:hover {
         background: #f0f9ff !important;
     }
@@ -279,40 +471,38 @@ include '../../includes/header.php';
     </div>
 
     <!-- Split Panel: kiri checklist barang, kanan item terpilih -->
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.25rem; min-height:530px;">
-        <div class="card" style="display:flex; flex-direction:column; overflow:hidden; padding:0;">
-            <div style="padding:0.85rem 1rem; border-bottom:1px solid var(--border,#e2e8f0); flex-shrink:0;">
-                <div style="font-weight:700; font-size:0.95rem; margin-bottom:0.5rem;">Pilih Barang</div>
-                <input type="text" id="poLeftSearch" class="form-control" placeholder="Cari nama barang..." autocomplete="off">
+    <div class="po-main-panel">
+        <div class="card po-panel-card" style="display:flex; flex-direction:column; overflow:hidden; padding:0;">
+            <div class="po-panel-header">
+                <div class="po-panel-header-label">Pilih Barang</div>
+                <input type="text" id="poLeftSearch" class="po-search-wrap" placeholder="Cari nama barang..." autocomplete="off">
             </div>
-            <div id="poLeftList" style="flex:1; overflow-y:auto; min-height:0;"></div>
-            <div style="padding:0.5rem 1rem; border-top:1px solid var(--border,#e2e8f0); font-size:0.78rem; color:var(--text-muted); flex-shrink:0;">
-                <span id="poLeftCount">0 barang</span> &nbsp;·&nbsp; <span id="poSelectedCount" style="color:#0f9d6a; font-weight:700;">0 dipilih</span>
+            <div id="poLeftList" class="po-left-list" style="flex:1; overflow-y:auto; min-height:0;"></div>
+            <div style="padding:0.6rem 1rem; border-top:1px solid #e5edf7; font-size:0.78rem; color:#64748b; flex-shrink:0; background:#fbfdff;">
+                <span id="poLeftCount">0 barang</span> &nbsp;·&nbsp; <span id="poSelectedCount" style="color:#0f9d6a; font-weight:800;">0 dipilih</span>
             </div>
         </div>
 
-        <div class="card" style="display:flex; flex-direction:column; overflow:hidden; padding:0;">
-            <div style="padding:0.85rem 1rem; border-bottom:1px solid var(--border,#e2e8f0); flex-shrink:0;">
-                <div style="font-weight:700; font-size:0.95rem; margin-bottom:0.75rem;">Item yang Dipilih</div>
+        <div class="card po-panel-card" style="display:flex; flex-direction:column; overflow:hidden; padding:0;">
+            <div class="po-panel-header">
+                <div class="po-panel-header-label">Item yang Dipilih</div>
                 <div style="display:grid; grid-template-columns:1fr; gap:0.6rem;">
                     <div>
-                        <label class="form-label" style="font-size:0.82rem;">Catatan</label>
-                        <input type="text" id="poNotes" class="form-control" placeholder="Catatan tambahan...">
+                        <label class="form-label" style="font-size:0.82rem; margin-bottom:0.32rem; color:#475569;">Catatan</label>
+                        <input type="text" id="poNotes" class="form-control" placeholder="Catatan tambahan..." style="height:38px; border-radius:10px; border-color:#dbe7f7;">
                     </div>
                 </div>
             </div>
 
-            <div id="poRightList" style="flex:1; overflow-y:auto; min-height:0; padding:0;">
+            <div id="poRightList" class="po-right-list" style="flex:1; overflow-y:auto; min-height:0; padding:0;">
                 <div style="padding:2rem; text-align:center; color:#94a3b8; font-size:0.875rem;" id="poEmptyMsg">
                     ← Centang barang di sebelah kiri
                 </div>
             </div>
 
-            <div style="padding:0.85rem 1rem; border-top:1px solid var(--border,#e2e8f0); flex-shrink:0; display:flex; justify-content:space-between; align-items:center; gap:0.5rem; flex-wrap:wrap;">
-                <span style="font-size:0.82rem; color:var(--text-muted);">
-                    <strong id="poRightCount">0</strong> item · Total: <strong id="poRightTotal">Rp 0</strong>
-                </span>
-                <div style="display:flex; gap:0.5rem;">
+            <div class="po-footer-bar">
+                <span class="po-footer-summary"><strong id="poRightCount">0</strong> item · Total: <strong id="poRightTotal">Rp 0</strong></span>
+                <div class="po-btn-row">
                     <a href="purchase-orders.php" class="btn btn-secondary">
                         <i data-feather="x" style="width:16px;height:16px;"></i>
                         Batal
@@ -426,9 +616,9 @@ include '../../includes/header.php';
             total += subtotal;
             html += '<div class="po-right-row">' +
                 '<div class="item-name">' + s.nama + '<br><span class="item-unit">' + s.satuan + (s.harga > 0 ? ' · Rp ' + Math.round(s.harga).toLocaleString('id-ID') : '') + '</span></div>' +
-                '<input type="number" class="form-control" style="width:80px;text-align:right;" placeholder="Qty" min="0.01" step="0.01" value="' + (s.qty || '') + '" oninput="selected[' + id + '].qty=this.value;updateTotal()">' +
+                '<input type="number" class="form-control" placeholder="Qty" min="0.01" step="0.01" value="' + (s.qty || '') + '" oninput="selected[' + id + '].qty=this.value;updateTotal()">' +
                 '<span class="item-unit">' + s.satuan + '</span>' +
-                '<button type="button" onclick="toggleItem(' + id + ')" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:1rem;padding:0 4px;">✕</button>' +
+                '<button type="button" class="remove-btn" onclick="toggleItem(' + id + ')">✕</button>' +
                 '</div>';
         });
 
