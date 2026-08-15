@@ -5,12 +5,15 @@
  * Warehouse business configuration - connects to master DB
  */
 
+$isProduction = (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') === false &&
+    strpos($_SERVER['HTTP_HOST'] ?? '', '127.0.0.1') === false);
+
 return [
     'name'                  => 'Gudang Nasita',
     'slug'                  => 'gudang-nasita',
     'code'                  => 'gudang-nasita',
     'type'                  => 'warehouse',
-    'database'              => 'adfb2574_adf',  // Uses master DB for warehouse tables
+    'database'              => $isProduction ? 'adfb2574_adf' : (defined('DB_NAME') ? DB_NAME : 'adf_system'),
     'is_active'             => true,
     'status'                => 'active',
 
