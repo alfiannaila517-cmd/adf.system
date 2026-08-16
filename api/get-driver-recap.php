@@ -116,7 +116,7 @@ try {
               AND hi.status NOT IN ('cancelled')
               AND hi.payment_status = 'paid'
               AND hii.service_type IN ('car_rental','airport_drop','harbor_drop')
-              AND DATE(hi.created_at) BETWEEN ? AND ?
+              AND DATE(COALESCE(hii.start_datetime, hi.created_at)) BETWEEN ? AND ?
               AND COALESCE(rc.partner_owner, ?) != ''
             GROUP BY COALESCE(rc.partner_owner, ?), rc.owner_phone
             ORDER BY total_revenue DESC");
@@ -247,7 +247,7 @@ try {
               AND hi.status NOT IN ('cancelled')
               AND hi.payment_status = 'paid'
               AND hii.service_type IN ('car_rental','airport_drop','harbor_drop')
-              AND DATE(hi.created_at) BETWEEN ? AND ?
+              AND DATE(COALESCE(hii.start_datetime, hi.created_at)) BETWEEN ? AND ?
               AND COALESCE(rc.partner_owner, ?) != ''
             ORDER BY trx_date DESC, hii.id DESC");
         $detailStmt->execute([$dropOwnerName, $businessId, $businessId, $monthStart, $monthEnd, $dropOwnerName]);
@@ -307,7 +307,7 @@ try {
             WHERE hi.business_id=? AND hii.service_type IN ('airport_drop','harbor_drop','narayana_trip')
               AND hi.status NOT IN ('cancelled')
               AND hi.payment_status = 'paid'
-              AND DATE(hi.created_at) BETWEEN ? AND ?
+              AND DATE(COALESCE(hii.start_datetime, hi.created_at)) BETWEEN ? AND ?
               AND (
                   hii.service_type = 'narayana_trip'
                   OR NOT EXISTS (
@@ -317,7 +317,7 @@ try {
                         AND cb2.service_type = hii.service_type
                   )
               )
-            ORDER BY hi.created_at DESC, hii.id DESC");
+            ORDER BY COALESCE(hii.start_datetime, hi.created_at) DESC, hii.id DESC");
         $dropStmt->execute([$businessId, $monthStart, $monthEnd]);
         $dropDetails = $dropStmt->fetchAll(PDO::FETCH_ASSOC);
 
