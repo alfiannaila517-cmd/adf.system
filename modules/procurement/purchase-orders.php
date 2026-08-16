@@ -642,11 +642,21 @@ include '../../includes/header.php';
                                 <td style="font-size: 0.813rem;"><?php echo $po['created_by_name']; ?></td>
                                 <td>
                                     <div class="po-action-group">
-                                        <a href="<?php echo $isGudang
-                                                        ? ('open-po.php?id=' . (int)$po['id'] . '&po_business=' . urlencode((string)($po['source_business_slug'] ?? '')) . '&po_number=' . urlencode((string)($po['po_number'] ?? '')))
-                                                        : ('view-po.php?id=' . (int)$po['id']); ?>" class="po-action-btn view" title="View">
+                                        <a href="<?php
+                                                    $viewTarget = 'view-po.php?id=' . (int)$po['id'];
+                                                    if (!empty($po['source_business_slug'])) {
+                                                        $viewTarget .= '&po_business=' . urlencode((string)$po['source_business_slug']);
+                                                    }
+                                                    echo $viewTarget;
+                                                    ?>" class="po-action-btn view" title="Lihat PO">
                                             <i data-feather="eye"></i>
                                         </a>
+
+                                        <?php if (in_array(strtolower((string)$po['status']), ['draft', 'submitted'], true)): ?>
+                                            <a href="view-po.php?id=<?php echo (int)$po['id']; ?><?php echo !empty($po['source_business_slug']) ? '&po_business=' . urlencode((string)$po['source_business_slug']) : ''; ?>&edit=1" class="po-action-btn submit" title="Edit PO">
+                                                <i data-feather="edit-3"></i>
+                                            </a>
+                                        <?php endif; ?>
 
                                         <?php if ($po['status'] === 'draft'): ?>
                                             <form method="POST" action="submit-po.php" style="display: inline;">
@@ -656,7 +666,7 @@ include '../../includes/header.php';
                                                 </button>
                                             </form>
                                         <?php elseif ($po['status'] === 'submitted' && $isGudang): ?>
-                                            <a href="gudang-transfer.php?po_id=<?php echo (int)$po['id']; ?>" class="po-action-btn po-action-wide submit" title="Siapkan Transfer Gudang">
+                                            <a href="gudang-transfer.php?po_id=<?php echo (int)$po['id']; ?><?php echo !empty($po['source_business_slug']) ? '&po_business=' . urlencode((string)$po['source_business_slug']) : ''; ?>" class="po-action-btn po-action-wide submit" title="Siapkan Transfer Gudang">
                                                 <i data-feather="send"></i> Siapkan Transfer
                                             </a>
                                         <?php elseif ($po['status'] === 'submitted'): ?>
