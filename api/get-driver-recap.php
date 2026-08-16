@@ -92,35 +92,35 @@ try {
     $recap = [];
     try {
         $ownerStmt = $pdo->prepare("SELECT
-            rc.partner_owner, rc.owner_phone,
-            COUNT(*) as total_trips,
-            COALESCE(SUM(cb.total_price),0) as total_revenue,
-            COALESCE(SUM(cb.owner_amount),0) as owner_total,
-            COALESCE(SUM(cb.hotel_commission),0) as hotel_total,
-            AVG(rc.owner_commission_pct) as avg_comm_pct,
-            GROUP_CONCAT(DISTINCT rc.car_name ORDER BY rc.car_name SEPARATOR ', ') as cars,
-            SUM(cb.service_type = 'car_rental') as rental_trips,
-            SUM(cb.service_type = 'airport_drop') as airport_trips,
-            SUM(cb.service_type = 'harbor_drop') as harbor_trips
-            FROM rental_car_bookings cb
-            JOIN rental_cars rc ON cb.car_id = rc.id
-                    WHERE cb.business_id=? AND cb.status IN ('active','returned')
-                        AND cb.car_id IS NOT NULL
-              AND DATE(COALESCE(cb.actual_return, cb.end_datetime, cb.created_at)) BETWEEN ? AND ?
-                            AND (
-                                        cb.invoice_id IS NULL
-                                        OR EXISTS (
-                                                SELECT 1 FROM hotel_invoices hi2
-                                                WHERE hi2.id = cb.invoice_id
-                                                    AND hi2.business_id = cb.business_id
-                                                    AND hi2.status NOT IN ('cancelled')
-                                                    AND hi2.payment_status = 'paid'
-                                        )
-                            )
-              AND rc.partner_owner IS NOT NULL AND rc.partner_owner != ''
-            GROUP BY rc.partner_owner, rc.owner_phone
+            COALESCE(rc.partner_owner, ?) AS partner_owner,
+            rc.owner_phone,
+            COUNT(*) AS total_trips,
+            COALESCE(SUM(hii.total_price),0) AS total_revenue,
+            COALESCE(SUM(IF(hii.owner_amount > 0 OR hii.hotel_commission > 0, hii.owner_amount, hii.total_price)),0) AS owner_total,
+            COALESCE(SUM(COALESCE(hii.hotel_commission,0)),0) AS hotel_total,
+            AVG(COALESCE(rc.owner_commission_pct,0)) AS avg_comm_pct,
+            GROUP_CONCAT(DISTINCT rc.car_name ORDER BY rc.car_name SEPARATOR ', ') AS cars,
+            SUM(hii.service_type = 'car_rental') AS rental_trips,
+            SUM(hii.service_type = 'airport_drop') AS airport_trips,
+            SUM(hii.service_type = 'harbor_drop') AS harbor_trips
+            FROM hotel_invoice_items hii
+            JOIN hotel_invoices hi ON hi.id = hii.invoice_id
+            LEFT JOIN (
+                SELECT cb2.invoice_id, cb2.service_type, cb2.car_id
+                FROM rental_car_bookings cb2
+                WHERE cb2.business_id = ?
+                GROUP BY cb2.invoice_id, cb2.service_type, cb2.car_id
+            ) cb ON cb.invoice_id = hi.id AND cb.service_type = hii.service_type
+            LEFT JOIN rental_cars rc ON rc.id = cb.car_id
+            WHERE hi.business_id=?
+              AND hi.status NOT IN ('cancelled')
+              AND hi.payment_status = 'paid'
+              AND hii.service_type IN ('car_rental','airport_drop','harbor_drop')
+              AND DATE(hi.created_at) BETWEEN ? AND ?
+              AND COALESCE(rc.partner_owner, ?) != ''
+            GROUP BY COALESCE(rc.partner_owner, ?), rc.owner_phone
             ORDER BY total_revenue DESC");
-        $ownerStmt->execute([$businessId, $monthStart, $monthEnd]);
+        $ownerStmt->execute([$dropOwnerName, $businessId, $businessId, $monthStart, $monthEnd, $dropOwnerName, $dropOwnerName]);
         $recap = $ownerStmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (Exception $ownerErr) {
         error_log('get-driver-recap owner query fallback: ' . $ownerErr->getMessage());
@@ -218,31 +218,39 @@ try {
         $detailSelectPaymentMethod = $hasCashbookPaymentMethod ? 'paycb.payment_method' : 'NULL as payment_method';
         $detailJoinCashbook = ($hasCashBookTable && $hasCbDriverPaidCashbookId) ? 'LEFT JOIN cash_book paycb ON cb.driver_paid_cashbook_id = paycb.id' : '';
         $detailStmt = $pdo->prepare("SELECT
-                rc.partner_owner, cb.id as trip_id, cb.service_type,
-                COALESCE(cb.actual_return, cb.end_datetime, cb.created_at) as trx_date,
-                cb.guest_name, cb.room_number, cb.trip_destination,
-                cb.total_price, cb.owner_amount, cb.driver_paid,
-                cb.driver_paid_at, {$detailSelectCashbookId},
+                COALESCE(rc.partner_owner, ?) AS partner_owner,
+                hii.id AS trip_id,
+                hii.service_type,
+                hi.created_at AS trx_date,
+                hi.guest_name,
+                hi.room_number,
+                hii.description AS trip_destination,
+                hii.total_price,
+                IF(hii.owner_amount > 0 OR hii.hotel_commission > 0, hii.owner_amount, hii.total_price) AS owner_amount,
+                hii.driver_paid,
+                hii.driver_paid_at,
+                {$detailSelectCashbookId},
                 {$detailSelectPaymentMethod},
-                rc.car_name, rc.plate_number
-                FROM rental_car_bookings cb
-                JOIN rental_cars rc ON cb.car_id = rc.id
+                rc.car_name,
+                rc.plate_number
+                FROM hotel_invoice_items hii
+                JOIN hotel_invoices hi ON hi.id = hii.invoice_id
+                LEFT JOIN (
+                    SELECT cb2.invoice_id, cb2.service_type, cb2.car_id, cb2.driver_paid_cashbook_id, cb2.driver_paid, cb2.driver_paid_at
+                    FROM rental_car_bookings cb2
+                    WHERE cb2.business_id = ?
+                    GROUP BY cb2.invoice_id, cb2.service_type, cb2.car_id, cb2.driver_paid_cashbook_id, cb2.driver_paid, cb2.driver_paid_at
+                ) cb ON cb.invoice_id = hi.id AND cb.service_type = hii.service_type
+                LEFT JOIN rental_cars rc ON rc.id = cb.car_id
                 {$detailJoinCashbook}
-            WHERE cb.business_id=? AND cb.status IN ('active','returned')
-              AND DATE(COALESCE(cb.actual_return, cb.end_datetime, cb.created_at)) BETWEEN ? AND ?
-                            AND (
-                                        cb.invoice_id IS NULL
-                                        OR EXISTS (
-                                                SELECT 1 FROM hotel_invoices hi2
-                                                WHERE hi2.id = cb.invoice_id
-                                                    AND hi2.business_id = cb.business_id
-                                                    AND hi2.status NOT IN ('cancelled')
-                                                    AND hi2.payment_status = 'paid'
-                                        )
-                            )
-              AND rc.partner_owner IS NOT NULL AND rc.partner_owner != ''
-            ORDER BY trx_date DESC, cb.id DESC");
-        $detailStmt->execute([$businessId, $monthStart, $monthEnd]);
+            WHERE hi.business_id=?
+              AND hi.status NOT IN ('cancelled')
+              AND hi.payment_status = 'paid'
+              AND hii.service_type IN ('car_rental','airport_drop','harbor_drop')
+              AND DATE(hi.created_at) BETWEEN ? AND ?
+              AND COALESCE(rc.partner_owner, ?) != ''
+            ORDER BY trx_date DESC, hii.id DESC");
+        $detailStmt->execute([$dropOwnerName, $businessId, $businessId, $monthStart, $monthEnd, $dropOwnerName]);
         $seenDetailKeys = [];
         foreach ($detailStmt->fetchAll(PDO::FETCH_ASSOC) as $detail) {
             $rowKey = 'trip:' . (int)$detail['trip_id'] . ':' . (string)($detail['service_type'] ?? '');
