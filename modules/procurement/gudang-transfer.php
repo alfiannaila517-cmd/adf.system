@@ -19,6 +19,33 @@ $db = Database::getInstance();
 $currentUser = $auth->getCurrentUser();
 $pageTitle = 'Transfer Gudang Nasita';
 
+function normalizeGudangStockName($value)
+{
+    $normalized = trim((string)$value);
+    $normalized = mb_strtolower($normalized, 'UTF-8');
+    $normalized = preg_replace('/[\p{Z}\p{P}]+/u', ' ', $normalized);
+    $normalized = preg_replace('/\s+/', ' ', $normalized);
+    return trim($normalized);
+}
+
+function findExactGudangStockMatch($db, $poItemName)
+{
+    $targetName = normalizeGudangStockName($poItemName);
+    if ($targetName === '') {
+        return null;
+    }
+
+    $stockRows = $db->fetchAll('SELECT * FROM gudang_nasita_stock WHERE COALESCE(is_active,1) = 1 ORDER BY item_name ASC');
+    foreach ($stockRows as $row) {
+        $candidateName = normalizeGudangStockName($row['item_name'] ?? '');
+        if ($candidateName !== '' && $candidateName === $targetName) {
+            return $row;
+        }
+    }
+
+    return null;
+}
+
 $message = '';
 $messageType = 'success';
 
@@ -264,11 +291,11 @@ if ($prefillPoId > 0 && $prefillPoBusinessSlug !== '') {
             $pOrdered = (float)($poItem['quantity'] ?? 0);
             $pReceived = (float)($poItem['received_quantity'] ?? 0);
             $pRemaining = max(0, $pOrdered - $pReceived);
-            // Exact then partial match against gudang stock
-            $gStock = $db->fetchOne('SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) AND is_active = 1 LIMIT 1', [$pItemName]);
-            if (!$gStock && $pItemName !== '') {
-                $gStock = $db->fetchOne('SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) LIKE ? AND is_active = 1 ORDER BY quantity DESC LIMIT 1', ['%' . strtolower($pItemName) . '%']);
-            }
+
+            // IMPORTANT: only match on the exact normalized item name. Fuzzy/LIKE matching can
+            // silently pick a different item such as "Vibe Rum" when the PO requested "Vibe Ram".
+            $gStock = findExactGudangStockMatch($db, $pItemName);
+
             $poItemsWithStock[] = [
                 'po_detail_id' => (int)($poItem['id'] ?? 0),
                 'item_name'    => $pItemName,
