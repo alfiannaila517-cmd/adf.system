@@ -221,7 +221,7 @@ try {
                 COALESCE(rc.partner_owner, ?) AS partner_owner,
                 hii.id AS trip_id,
                 hii.service_type,
-                hi.created_at AS trx_date,
+                COALESCE(hii.start_datetime, hi.created_at) AS trx_date,
                 hi.guest_name,
                 hi.room_number,
                 hii.description AS trip_destination,
@@ -295,7 +295,7 @@ try {
         $dropSelectGuideName = $hasHiiGuideName ? 'hii.guide_name' : 'NULL as guide_name';
 
         $dropStmt = $pdo->prepare("SELECT
-            hi.guest_name, hi.room_number, hi.created_at as trx_date,
+            hi.guest_name, hi.room_number, COALESCE(hii.start_datetime, hi.created_at) as trx_date,
             hii.id as trip_id, hii.service_type, {$dropSelectTripType}, {$dropSelectGuideName}, hii.description, hii.total_price,
             IF(hii.owner_amount > 0 OR hii.hotel_commission > 0, hii.owner_amount, hii.total_price) as owner_amount,
             COALESCE(hii.hotel_commission, 0) as hotel_commission,
