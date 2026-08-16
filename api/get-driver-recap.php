@@ -296,16 +296,17 @@ try {
             FROM hotel_invoice_items hii
             JOIN hotel_invoices hi ON hii.invoice_id = hi.id
             {$dropJoinCashbook}
-            WHERE hi.business_id=? AND hii.service_type IN ('airport_drop','harbor_drop','car_rental','narayana_trip')
+            WHERE hi.business_id=? AND hii.service_type IN ('airport_drop','harbor_drop','narayana_trip')
               AND hi.status NOT IN ('cancelled')
               AND hi.payment_status = 'paid'
               AND DATE(hi.created_at) BETWEEN ? AND ?
               AND (
                   hii.service_type = 'narayana_trip'
-                  OR hii.service_type = 'car_rental'
                   OR NOT EXISTS (
                       SELECT 1 FROM rental_car_bookings cb2
-                      WHERE cb2.invoice_id = hii.invoice_id AND cb2.service_type = hii.service_type
+                      WHERE cb2.invoice_id = hii.invoice_id
+                        AND cb2.business_id = hi.business_id
+                        AND cb2.service_type = hii.service_type
                   )
               )
             ORDER BY hi.created_at DESC, hii.id DESC");
