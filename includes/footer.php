@@ -177,31 +177,30 @@
                        bottom: 24px;
                        right: 24px;
                        z-index: 9999;
-                       width: 60px;
-                       height: 60px;
-                       border-radius: 50%;
-                       background: linear-gradient(145deg, #2563eb 0%, #1d4ed8 100%);
-                       color: #ffffff;
-                       display: flex;
-                       align-items: center;
-                       justify-content: center;
-                       font-size: 27px;
-                       box-shadow: 0 12px 26px rgba(37, 99, 235, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.25) inset;
-                       cursor: pointer;
-                       border: none;
-                       transition: transform .16s ease, box-shadow .16s ease;
-                   }
-
-                   .admin-chat-fab .fab-chat-icon {
-                       width: 34px;
-                       height: 34px;
-                       border-radius: 50%;
-                       background: rgba(255, 255, 255, 0.96);
                        display: inline-flex;
                        align-items: center;
                        justify-content: center;
-                       color: #2563eb;
-                       box-shadow: 0 4px 12px rgba(15, 23, 42, 0.18);
+                       gap: 8px;
+                       padding: 0.7rem 1rem;
+                       border-radius: 10px;
+                       border: none;
+                       background: linear-gradient(145deg, #2563eb 0%, #1d4ed8 100%);
+                       color: #ffffff;
+                       font-size: 0.82rem;
+                       font-weight: 700;
+                       box-shadow: 0 10px 22px rgba(37, 99, 235, 0.28);
+                       cursor: pointer;
+                       transition: transform .16s ease, box-shadow .16s ease, filter .16s ease;
+                   }
+
+                   .admin-chat-fab .fab-chat-icon {
+                       width: 18px;
+                       height: 18px;
+                       display: inline-flex;
+                       align-items: center;
+                       justify-content: center;
+                       color: #ffffff;
+                       flex-shrink: 0;
                    }
 
                    .admin-chat-fab .fab-chat-icon svg {
@@ -212,12 +211,13 @@
                    }
 
                    .admin-chat-fab:hover {
-                       transform: translateY(-2px);
-                       box-shadow: 0 16px 32px rgba(37, 99, 235, 0.42), 0 0 0 1px rgba(255, 255, 255, 0.3) inset;
+                       transform: translateY(-1px);
+                       filter: brightness(1.04);
+                       box-shadow: 0 14px 28px rgba(37, 99, 235, 0.32);
                    }
 
                    .admin-chat-fab:active {
-                       transform: scale(0.92);
+                       transform: translateY(0);
                    }
 
                    .admin-chat-panel {
@@ -394,9 +394,8 @@
                        .admin-chat-fab {
                            bottom: 18px;
                            right: 16px;
-                           width: 56px;
-                           height: 56px;
-                           font-size: 24px;
+                           padding: 0.7rem 0.9rem;
+                           font-size: 0.76rem;
                        }
 
                        .admin-chat-panel {
@@ -408,12 +407,13 @@
                        }
                    }
                </style>
-               <div class="admin-chat-fab" onclick="toggleAdminChat()" title="Staff Messages" aria-label="Open staff messages">
+               <div class="admin-chat-fab" onclick="toggleAdminChat()" title="Pesan Staff" aria-label="Buka pesan staff">
                    <span class="fab-chat-icon" aria-hidden="true">
                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true">
                            <path d="M4 4.75C4 3.78 4.78 3 5.75 3h12.5C19.22 3 20 3.78 20 4.75v8.5c0 .97-.78 1.75-1.75 1.75H11.8l-3.22 3a.75.75 0 0 1-1.26-.55V15H5.75A1.75 1.75 0 0 1 4 13.25v-8.5z" />
                        </svg>
                    </span>
+                   <span>Pesan Staff</span>
                </div>
                <div class="admin-chat-panel" id="adminChatPanel">
                    <div class="acp-head">
