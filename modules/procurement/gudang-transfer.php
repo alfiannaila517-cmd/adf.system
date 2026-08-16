@@ -277,6 +277,8 @@ if ($prefillPoId > 0 && $prefillPoBusinessSlug !== '') {
                 'received_qty' => $pReceived,
                 'remaining_qty' => $pRemaining,
                 'gudang_stock' => $gStock ?: null,
+                'gudang_stock_id' => $gStock ? (int)($gStock['id'] ?? 0) : 0,
+                'gudang_stock_code' => $gStock['stock_code'] ?? null,
             ];
         }
     }
@@ -547,6 +549,7 @@ include '../../includes/header.php';
                         <thead>
                             <tr>
                                 <th>Item PO</th>
+                                <th>ID Produk</th>
                                 <th class="text-right">Diminta</th>
                                 <th>Stok Gudang</th>
                                 <th class="text-right" style="min-width:110px;">Kirim (qty)</th>
@@ -556,15 +559,29 @@ include '../../includes/header.php';
                             <?php foreach ($poItemsWithStock as $idx => $pItem): ?>
                                 <?php $gStock = $pItem['gudang_stock']; ?>
                                 <tr style="<?php echo ($pItem['remaining_qty'] <= 0) ? 'opacity:0.5;' : ''; ?>">
-                                    <td style="font-weight:600;"><?php echo htmlspecialchars($pItem['item_name']); ?></td>
+                                    <td style="font-weight:600;">
+                                        <?php echo htmlspecialchars($pItem['item_name']); ?>
+                                    </td>
+                                    <td>
+                                        <?php if ($gStock): ?>
+                                            <span style="font-weight:700; color:#1e3a8a;">
+                                                <?php echo htmlspecialchars((string)($pItem['gudang_stock_code'] ?: ('GN-' . $pItem['gudang_stock_id']))); ?>
+                                            </span>
+                                        <?php else: ?>
+                                            <span style="color:#b91c1c; font-weight:600;">-</span>
+                                        <?php endif; ?>
+                                    </td>
                                     <td class="text-right"><?php echo number_format($pItem['remaining_qty'], 2); ?> <?php echo htmlspecialchars($pItem['unit']); ?></td>
                                     <td>
                                         <?php if ($gStock): ?>
                                             <span style="color:<?php echo (float)$gStock['quantity'] > 0 ? '#0f9d6a' : '#d97706'; ?>; font-weight:600;">
                                                 <?php echo number_format((float)$gStock['quantity'], 2); ?> <?php echo htmlspecialchars($gStock['unit']); ?>
                                             </span>
+                                            <?php if ((float)$gStock['quantity'] <= 0): ?>
+                                                <div style="color:#b45309; font-size:0.75rem; margin-top:0.2rem; font-weight:600;">⚠️ Stok habis / tidak tersedia untuk dikirim</div>
+                                            <?php endif; ?>
                                         <?php else: ?>
-                                            <span style="color:#9ca3af;">Tidak ada di gudang</span>
+                                            <span style="color:#b91c1c; font-weight:700;">⚠️ Tidak ada di gudang</span>
                                         <?php endif; ?>
                                     </td>
                                     <td>
