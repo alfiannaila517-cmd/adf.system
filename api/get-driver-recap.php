@@ -260,7 +260,8 @@ try {
             $seenDetailKeys[$rowKey] = true;
             $key = $ownerKey($detail['partner_owner'] ?? '');
             $carLabel = trim(($detail['car_name'] ?? '') . ' (' . ($detail['plate_number'] ?? '') . ')');
-            $label = $detail['service_type'] === 'car_rental' ? $carLabel : ($detail['trip_destination'] ?: $carLabel);
+            $destination = trim((string)($detail['trip_destination'] ?? ''));
+            $label = $destination !== '' ? $destination : ($carLabel !== '' ? $carLabel : ucfirst((string)($detail['service_type'] ?? '')));
             $detailMap[$key][] = [
                 'trip_id' => (int)$detail['trip_id'],
                 'trx_date' => $detail['trx_date'],
