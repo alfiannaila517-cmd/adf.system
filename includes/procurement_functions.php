@@ -51,6 +51,167 @@ function generatePONumber()
  * @param array $options Optional parameters: expected_delivery_date, notes, status
  * @return array ['success' => bool, 'po_id' => int, 'po_number' => string, 'message' => string]
  */
+function updatePurchaseOrderItems($po_id, $items, $options = [])
+{
+    $db = Database::getInstance();
+
+    try {
+        if (empty($po_id) || !is_numeric($po_id)) {
+            throw new Exception('PO ID tidak valid');
+        }
+
+        if (empty($items) || !is_array($items)) {
+            throw new Exception('Item PO tidak boleh kosong');
+        }
+
+        $po = $db->fetchOne("SELECT id, po_number, status, total_amount, notes FROM purchase_orders_header WHERE id = ? LIMIT 1", [(int)$po_id]);
+        if (!$po) {
+            throw new Exception('Purchase Order tidak ditemukan');
+        }
+
+        if (!in_array((string)$po['status'], ['draft', 'submitted'], true)) {
+            throw new Exception('PO ini sudah diproses dan tidak bisa diedit.');
+        }
+
+        $db->getConnection()->beginTransaction();
+
+        $existingItems = $db->fetchAll('SELECT id, quantity, received_quantity FROM purchase_orders_detail WHERE po_header_id = ? ORDER BY id', [(int)$po_id]);
+        $existingReceivedMap = [];
+        foreach ($existingItems as $row) {
+            $existingReceivedMap[(int)($row['id'] ?? 0)] = (float)($row['received_quantity'] ?? 0);
+        }
+
+        $totalAmount = 0.0;
+        $processedItems = [];
+        $lineNumber = 1;
+
+        foreach ($items as $item) {
+            $itemName = trim((string)($item['item_name'] ?? ''));
+            $qty = isset($item['quantity']) ? (float)$item['quantity'] : 0.0;
+            $unitPrice = isset($item['unit_price']) ? (float)$item['unit_price'] : 0.0;
+            $unit = trim((string)($item['unit_of_measure'] ?? ($item['unit'] ?? 'pcs')));
+            $notes = trim((string)($item['notes'] ?? ''));
+            $description = trim((string)($item['item_description'] ?? ''));
+            $divisionId = isset($item['division_id']) && $item['division_id'] !== '' ? (int)$item['division_id'] : null;
+
+            if ($itemName === '') {
+                throw new Exception('Nama item tidak boleh kosong');
+            }
+            if ($qty <= 0) {
+                throw new Exception('Qty item "' . $itemName . '" harus lebih dari 0');
+            }
+            if ($unitPrice < 0) {
+                throw new Exception('Harga item "' . $itemName . '" tidak valid');
+            }
+
+            $subtotal = $qty * $unitPrice;
+            $totalAmount += $subtotal;
+
+            $processedItems[] = [
+                'line_number' => $lineNumber,
+                'item_name' => $itemName,
+                'item_description' => $description,
+                'unit_of_measure' => $unit !== '' ? $unit : 'pcs',
+                'quantity' => $qty,
+                'unit_price' => $unitPrice,
+                'subtotal' => $subtotal,
+                'notes' => $notes,
+                'division_id' => $divisionId,
+            ];
+
+            $lineNumber++;
+        }
+
+        $db->delete('purchase_orders_detail', ['po_header_id' => (int)$po_id]);
+
+        $detailCols = $db->fetchAll('SHOW COLUMNS FROM purchase_orders_detail');
+        $detailFieldNames = array_map(function ($row) {
+            return strtolower((string)($row['Field'] ?? ''));
+        }, $detailCols);
+
+        foreach ($processedItems as $item) {
+            $detailData = [
+                'po_header_id' => (int)$po_id,
+                'item_name' => $item['item_name'],
+                'quantity' => $item['quantity'],
+                'unit_price' => $item['unit_price'],
+                'subtotal' => $item['subtotal'],
+                'notes' => $item['notes'] !== '' ? $item['notes'] : null,
+            ];
+
+            if (in_array('line_number', $detailFieldNames, true)) {
+                $detailData['line_number'] = $item['line_number'];
+            }
+            if (in_array('item_description', $detailFieldNames, true)) {
+                $detailData['item_description'] = $item['item_description'];
+            }
+            if (in_array('unit_of_measure', $detailFieldNames, true)) {
+                $detailData['unit_of_measure'] = $item['unit_of_measure'];
+            }
+            if (in_array('unit', $detailFieldNames, true) && !isset($detailData['unit_of_measure'])) {
+                $detailData['unit'] = $item['unit_of_measure'];
+            }
+            if (in_array('division_id', $detailFieldNames, true) && $item['division_id'] !== null) {
+                $detailData['division_id'] = $item['division_id'];
+            }
+            if (in_array('received_quantity', $detailFieldNames, true)) {
+                $detailData['received_quantity'] = 0;
+            }
+
+            $db->insert('purchase_orders_detail', $detailData);
+        }
+
+        $discountAmount = isset($options['discount_amount']) ? (float)$options['discount_amount'] : 0.0;
+        $taxAmount = isset($options['tax_amount']) ? (float)$options['tax_amount'] : 0.0;
+        $grandTotal = $totalAmount - $discountAmount + $taxAmount;
+
+        $headerCols = $db->fetchAll('SHOW COLUMNS FROM purchase_orders_header');
+        $headerFieldNames = array_map(function ($row) {
+            return strtolower((string)($row['Field'] ?? ''));
+        }, $headerCols);
+
+        $headerData = [
+            'total_amount' => $totalAmount,
+            'notes' => isset($options['notes']) ? trim((string)$options['notes']) : (string)($po['notes'] ?? ''),
+        ];
+        if (in_array('discount_amount', $headerFieldNames, true)) {
+            $headerData['discount_amount'] = $discountAmount;
+        }
+        if (in_array('tax_amount', $headerFieldNames, true)) {
+            $headerData['tax_amount'] = $taxAmount;
+        }
+        if (in_array('grand_total', $headerFieldNames, true)) {
+            $headerData['grand_total'] = $grandTotal;
+        }
+        if (in_array('expected_delivery_date', $headerFieldNames, true) && isset($options['expected_delivery_date'])) {
+            $headerData['expected_delivery_date'] = $options['expected_delivery_date'];
+        }
+        if (in_array('updated_at', $headerFieldNames, true)) {
+            $headerData['updated_at'] = date('Y-m-d H:i:s');
+        }
+
+        $db->update('purchase_orders_header', $headerData, 'id = :id', ['id' => (int)$po_id]);
+
+        $db->getConnection()->commit();
+
+        return [
+            'success' => true,
+            'message' => 'PO berhasil diubah.',
+            'po_number' => (string)($po['po_number'] ?? ''),
+            'po_id' => (int)$po_id,
+        ];
+    } catch (Throwable $e) {
+        if ($db->getConnection()->inTransaction()) {
+            $db->getConnection()->rollBack();
+        }
+
+        return [
+            'success' => false,
+            'message' => $e->getMessage(),
+        ];
+    }
+}
+
 function createPurchaseOrder($supplier_id, $po_date, $items, $options = [])
 {
     $db = Database::getInstance();

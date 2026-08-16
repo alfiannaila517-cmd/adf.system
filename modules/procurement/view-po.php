@@ -80,6 +80,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $switchToPoDb();
 
     switch ($action) {
+        case 'edit_po':
+            if (!($auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse'))) {
+                $result = ['success' => false, 'message' => 'Akses Gudang Nasita ditolak'];
+                break;
+            }
+            $editItems = [];
+            if (isset($_POST['items']) && is_array($_POST['items'])) {
+                foreach ($_POST['items'] as $item) {
+                    if (empty($item['item_name'])) {
+                        continue;
+                    }
+                    $editItems[] = [
+                        'item_name' => trim((string)($item['item_name'] ?? '')),
+                        'item_description' => trim((string)($item['item_description'] ?? '')),
+                        'unit_of_measure' => trim((string)($item['unit_of_measure'] ?? 'pcs')),
+                        'quantity' => isset($item['quantity']) ? (float)$item['quantity'] : 0,
+                        'unit_price' => isset($item['unit_price']) ? (float)$item['unit_price'] : 0,
+                        'division_id' => isset($item['division_id']) ? (int)$item['division_id'] : 0,
+                        'notes' => trim((string)($item['notes'] ?? '')),
+                    ];
+                }
+            }
+            $result = updatePurchaseOrderItems($po_id, $editItems, [
+                'notes' => trim((string)($_POST['notes'] ?? '')),
+                'expected_delivery_date' => trim((string)($_POST['expected_delivery_date'] ?? '')),
+            ]);
+            break;
         case 'receive_warehouse':
             if (!($auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse'))) {
                 $result = ['success' => false, 'message' => 'Akses Gudang Nasita ditolak'];
@@ -256,13 +283,17 @@ include '../../includes/header.php';
                 <p style="color: var(--text-muted); font-size: 0.875rem;">PO internal bisnis untuk proses gudang dan transfer</p>
             </div>
         </div>
-        <div style="display: flex; gap: 0.5rem;">
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
             <?php if ($po['status'] === 'draft'): ?>
                 <form method="POST" style="display: inline;">
                     <input type="hidden" name="action" value="submit">
                     <button type="submit" class="btn btn-primary btn-sm">Submit PO</button>
                 </form>
             <?php elseif (in_array($po['status'], ['submitted', 'approved']) && $isGudangContext): ?>
+                <a href="view-po.php?id=<?php echo (int)$po['id']; ?><?php echo $poBizSlug !== '' ? '&po_business=' . urlencode($poBizSlug) : ''; ?>&edit=1" class="btn btn-warning btn-sm">
+                    <i data-feather="edit-3" style="width: 14px; height: 14px;"></i>
+                    Edit PO
+                </a>
                 <a href="gudang-transfer.php?po_id=<?php echo (int)$po['id']; ?><?php echo $poBizSlug !== '' ? '&po_business=' . urlencode($poBizSlug) : ''; ?>" class="btn btn-success btn-sm">
                     <i data-feather="send" style="width: 14px; height: 14px;"></i>
                     Siapkan Transfer Gudang
@@ -352,6 +383,49 @@ include '../../includes/header.php';
         <div style="font-size: 0.813rem; color: var(--text-muted);">Tanpa supplier eksternal / tanpa pembayaran</div>
     </div>
 </div>
+
+<?php if ($isGudangContext && in_array($po['status'], ['draft', 'submitted'], true) && !empty($_GET['edit'])): ?>
+    <div class="card" style="margin-bottom: 1.25rem; border: 1px solid #fde68a; background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; margin-bottom:1rem;">
+            <h3 style="font-size: 1rem; font-weight: 700; margin:0; color:#78350f;">Edit PO yang belum diproses</h3>
+            <a href="view-po.php?id=<?php echo (int)$po['id']; ?><?php echo $poBizSlug !== '' ? '&po_business=' . urlencode($poBizSlug) : ''; ?>" class="btn btn-sm btn-secondary">Batal Edit</a>
+        </div>
+        <form method="POST">
+            <input type="hidden" name="action" value="edit_po">
+            <input type="hidden" name="expected_delivery_date" value="<?php echo htmlspecialchars((string)($po['expected_delivery_date'] ?? '')); ?>">
+            <div style="display:grid; gap:0.9rem;">
+                <?php foreach ($po['items'] as $index => $item): ?>
+                    <div style="padding:0.9rem; border:1px solid #fcd34d; border-radius:0.8rem; background: rgba(255,255,255,0.6);">
+                        <div style="display:grid; grid-template-columns: 1.2fr 0.7fr 0.7fr 0.4fr; gap:0.75rem; align-items:end;">
+                            <div>
+                                <label class="form-label">Nama Item</label>
+                                <input type="text" name="items[<?php echo $index; ?>][item_name]" class="form-control" value="<?php echo htmlspecialchars((string)($item['item_name'] ?? '')); ?>">
+                                <input type="hidden" name="items[<?php echo $index; ?>][item_description]" value="<?php echo htmlspecialchars((string)($item['item_description'] ?? '')); ?>">
+                            </div>
+                            <div>
+                                <label class="form-label">Qty</label>
+                                <input type="number" name="items[<?php echo $index; ?>][quantity]" class="form-control" step="0.01" min="0.01" value="<?php echo htmlspecialchars((string)($item['quantity'] ?? 0)); ?>">
+                            </div>
+                            <div>
+                                <label class="form-label">Harga / unit</label>
+                                <input type="number" name="items[<?php echo $index; ?>][unit_price]" class="form-control" step="0.01" min="0" value="<?php echo htmlspecialchars((string)($item['unit_price'] ?? 0)); ?>">
+                            </div>
+                            <div>
+                                <label class="form-label">Satuan</label>
+                                <input type="text" name="items[<?php echo $index; ?>][unit_of_measure]" class="form-control" value="<?php echo htmlspecialchars((string)($item['unit_of_measure'] ?? ($item['unit'] ?? 'pcs'))); ?>">
+                            </div>
+                        </div>
+                        <input type="hidden" name="items[<?php echo $index; ?>][division_id]" value="<?php echo htmlspecialchars((string)($item['division_id'] ?? 0)); ?>">
+                        <input type="hidden" name="items[<?php echo $index; ?>][notes]" value="<?php echo htmlspecialchars((string)($item['notes'] ?? '')); ?>">
+                    </div>
+                <?php endforeach; ?>
+            </div>
+            <div style="margin-top:1rem; display:flex; justify-content:flex-end; gap:0.5rem; flex-wrap:wrap;">
+                <button type="submit" class="btn btn-warning">Simpan Perubahan</button>
+            </div>
+        </form>
+    </div>
+<?php endif; ?>
 
 <div class="card">
     <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 1rem;">Items (<?php echo count($po['items']); ?>)</h3>
