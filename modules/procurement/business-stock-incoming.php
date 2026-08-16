@@ -587,6 +587,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_daily_stock_out_business') {
+    $selectedIds = $_POST['daily_out_ids'] ?? [];
+    if (!is_array($selectedIds)) {
+        $selectedIds = [$selectedIds];
+    }
+    $selectedIds = array_values(array_unique(array_filter(array_map('intval', $selectedIds))));
+
+    if ($activeBusinessId <= 0 || empty($selectedIds)) {
+        $_SESSION['error'] = 'Pilih minimal satu pengeluaran harian yang ingin dihapus.';
+        header('Location: business-stock-incoming.php');
+        exit;
+    }
+
+    try {
+        $placeholders = implode(',', array_fill(0, count($selectedIds), '?'));
+        $rows = $db->fetchAll(
+            'SELECT * FROM business_stock_daily_out WHERE business_id = ? AND id IN (' . $placeholders . ')',
+            array_merge([$activeBusinessId], $selectedIds)
+        );
+
+        foreach ($rows as $row) {
+            $itemName = trim((string)($row['item_name'] ?? ''));
+            $unit = trim((string)($row['unit'] ?? 'pcs'));
+            $qty = (float)($row['quantity'] ?? 0);
+            if ($itemName === '' || $qty <= 0) {
+                continue;
+            }
+
+            $restoreResult = addGudangNasitaManualStock($itemName, $unit, $qty, (int)($currentUser['id'] ?? 0), [
+                'notes' => 'Pembatalan pengeluaran harian bisnis',
+            ]);
+            if (!($restoreResult['success'] ?? false)) {
+                throw new Exception($restoreResult['message'] ?? 'Gagal mengembalikan stok Gudang Nasita.');
+            }
+        }
+
+        $db->query(
+            'DELETE FROM business_stock_daily_out WHERE business_id = ? AND id IN (' . $placeholders . ')',
+            array_merge([$activeBusinessId], $selectedIds)
+        );
+
+        $_SESSION['success'] = 'Pengeluaran harian terpilih berhasil dihapus.';
+    } catch (Throwable $e) {
+        $_SESSION['error'] = 'Gagal hapus pengeluaran harian: ' . $e->getMessage();
+    }
+
+    header('Location: business-stock-incoming.php');
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_transfer_history') {
     $transferId = isset($_POST['transfer_id']) ? (int)$_POST['transfer_id'] : 0;
 
@@ -1045,36 +1095,56 @@ include '../../includes/header.php';
     <div class="card" style="margin-bottom:1.25rem;">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; margin-bottom:1rem;">
             <h3 style="font-size:1rem; font-weight:700; margin:0;">Pengeluaran Harian</h3>
-            <div style="font-size:0.8rem; color:var(--text-muted);">Total hari ini: <?php echo number_format($dailyOutTotalQty, 2); ?> qty</div>
+            <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+                <div style="font-size:0.8rem; color:var(--text-muted);">Total hari ini: <?php echo number_format($dailyOutTotalQty, 2); ?> qty</div>
+                <?php if (!empty($dailyOutRows)): ?>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleDailyOutSelectAll()">Centang Semua</button>
+                    <form method="POST" style="display:inline; margin:0;" onsubmit="return confirm('Hapus pengeluaran harian yang dipilih? Stok Gudang Nasita akan dikembalikan.')">
+                        <input type="hidden" name="action" value="delete_daily_stock_out_business">
+                        <button type="submit" class="btn btn-sm btn-danger" id="deleteDailyOutSelectedBtn" disabled>Hapus Terpilih</button>
+                    </form>
+                <?php endif; ?>
+            </div>
         </div>
         <div class="table-responsive">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Item</th>
-                        <th>Unit</th>
-                        <th class="text-right">Qty</th>
-                        <th>Catatan</th>
-                        <th>Waktu</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if (empty($dailyOutRows)): ?>
+            <form method="POST" id="dailyOutBulkDeleteForm" onsubmit="return confirm('Hapus pengeluaran harian yang dipilih? Stok Gudang Nasita akan dikembalikan.')">
+                <input type="hidden" name="action" value="delete_daily_stock_out_business">
+                <table class="table">
+                    <thead>
                         <tr>
-                            <td colspan="5" style="text-align:center; padding:2rem; color:var(--text-muted);">Belum ada pengeluaran stok hari ini.</td>
+                            <th style="width:42px; text-align:center;">
+                                <?php if (!empty($dailyOutRows)): ?>
+                                    <input type="checkbox" id="dailyOutSelectAll" aria-label="Centang semua pengeluaran harian">
+                                <?php endif; ?>
+                            </th>
+                            <th>Item</th>
+                            <th>Unit</th>
+                            <th class="text-right">Qty</th>
+                            <th>Catatan</th>
+                            <th>Waktu</th>
                         </tr>
-                        <?php else: foreach ($dailyOutRows as $dailyOutEntry): ?>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($dailyOutRows)): ?>
                             <tr>
-                                <td style="font-weight:600;"><?php echo htmlspecialchars((string)($dailyOutEntry['item_name'] ?? '-')); ?></td>
-                                <td><?php echo htmlspecialchars((string)($dailyOutEntry['unit'] ?? 'pcs')); ?></td>
-                                <td class="text-right" style="font-weight:700; color:#d97706;"><?php echo number_format((float)($dailyOutEntry['quantity'] ?? 0), 2); ?></td>
-                                <td><?php echo htmlspecialchars((string)($dailyOutEntry['notes'] ?? '-')); ?></td>
-                                <td style="font-size:0.82rem; color:var(--text-muted);"><?php echo date('d M Y H:i', strtotime((string)($dailyOutEntry['created_at'] ?? date('Y-m-d H:i:s')))); ?></td>
+                                <td colspan="6" style="text-align:center; padding:2rem; color:var(--text-muted);">Belum ada pengeluaran stok hari ini.</td>
                             </tr>
-                    <?php endforeach;
-                    endif; ?>
-                </tbody>
-            </table>
+                            <?php else: foreach ($dailyOutRows as $dailyOutEntry): ?>
+                                <tr>
+                                    <td style="text-align:center;">
+                                        <input type="checkbox" class="daily-out-checkbox" name="daily_out_ids[]" value="<?php echo (int)($dailyOutEntry['id'] ?? 0); ?>" aria-label="Pilih pengeluaran <?php echo htmlspecialchars((string)($dailyOutEntry['item_name'] ?? '-')); ?>">
+                                    </td>
+                                    <td style="font-weight:600;"><?php echo htmlspecialchars((string)($dailyOutEntry['item_name'] ?? '-')); ?></td>
+                                    <td><?php echo htmlspecialchars((string)($dailyOutEntry['unit'] ?? 'pcs')); ?></td>
+                                    <td class="text-right" style="font-weight:700; color:#d97706;"><?php echo number_format((float)($dailyOutEntry['quantity'] ?? 0), 2); ?></td>
+                                    <td><?php echo htmlspecialchars((string)($dailyOutEntry['notes'] ?? '-')); ?></td>
+                                    <td style="font-size:0.82rem; color:var(--text-muted);"><?php echo date('d M Y H:i', strtotime((string)($dailyOutEntry['created_at'] ?? date('Y-m-d H:i:s')))); ?></td>
+                                </tr>
+                        <?php endforeach;
+                        endif; ?>
+                    </tbody>
+                </table>
+            </form>
         </div>
     </div>
 
@@ -1581,6 +1651,49 @@ include '../../includes/header.php';
 
         input.addEventListener('input', filterStockRows);
         filterStockRows();
+    })();
+
+    function toggleDailyOutSelectAll() {
+        var selectAll = document.getElementById('dailyOutSelectAll');
+        var checkboxes = document.querySelectorAll('.daily-out-checkbox');
+        if (!selectAll || !checkboxes.length) {
+            return;
+        }
+
+        var shouldCheck = !selectAll.checked;
+        selectAll.checked = shouldCheck;
+        checkboxes.forEach(function(checkbox) {
+            checkbox.checked = shouldCheck;
+        });
+        updateDailyOutDeleteButtonState();
+    }
+
+    function updateDailyOutDeleteButtonState() {
+        var checkboxes = document.querySelectorAll('.daily-out-checkbox');
+        var button = document.getElementById('deleteDailyOutSelectedBtn');
+        var anyChecked = Array.prototype.slice.call(checkboxes).some(function(checkbox) {
+            return checkbox.checked;
+        });
+        if (button) {
+            button.disabled = !anyChecked;
+        }
+    }
+
+    (function bindDailyOutBulkActions() {
+        var selectAll = document.getElementById('dailyOutSelectAll');
+        var checkboxes = document.querySelectorAll('.daily-out-checkbox');
+        if (selectAll) {
+            selectAll.addEventListener('change', function() {
+                checkboxes.forEach(function(checkbox) {
+                    checkbox.checked = selectAll.checked;
+                });
+                updateDailyOutDeleteButtonState();
+            });
+        }
+        checkboxes.forEach(function(checkbox) {
+            checkbox.addEventListener('change', updateDailyOutDeleteButtonState);
+        });
+        updateDailyOutDeleteButtonState();
     })();
 
     function openTransferModal(itemName, unit, maxQty) {
