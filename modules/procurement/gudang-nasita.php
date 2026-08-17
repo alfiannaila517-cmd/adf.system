@@ -765,6 +765,20 @@ try {
     $recentTransfers = [];
 }
 
+// Incoming returns from businesses (kembalikan ke gudang)
+$recentReturnFromBusiness = [];
+try {
+    $retStmt = $db->fetchAll(
+        "SELECT source_business_name, item_name, unit, quantity, notes, created_at
+         FROM business_inter_stock_transfers
+         WHERE target_business_slug = 'gudang-nasita'
+         ORDER BY created_at DESC LIMIT 30"
+    );
+    $recentReturnFromBusiness = $retStmt ?: [];
+} catch (Throwable $e) {
+    $recentReturnFromBusiness = [];
+}
+
 // Collect low-stock items for prominent alert
 $lowStockItems = array_values(array_filter($stockItems, function ($item) {
     return (float)($item['reorder_level'] ?? 0) > 0 && (float)$item['quantity'] <= (float)$item['reorder_level'];
@@ -797,6 +811,10 @@ $movementSummary = $db->fetchAll("\n    SELECT movement_type, COALESCE(SUM(quant
 foreach ($movementSummary as $row) {
     if ($row['movement_type'] === 'in_supplier') {
         $summary['incoming_today'] = (float)$row['total_qty'];
+    }
+    if ($row['movement_type'] === 'adjustment') {
+        // Adjustments include stock returned from businesses
+        $summary['incoming_today'] += (float)$row['total_qty'];
     }
     if ($row['movement_type'] === 'out_transfer' || $row['movement_type'] === 'adjustment') {
         $summary['outgoing_today'] += (float)$row['total_qty'];
@@ -1159,6 +1177,25 @@ include '../../includes/header.php';
                 <?php endif; ?>
             </div>
         </div>
+
+        <?php if (!empty($recentReturnFromBusiness)): ?>
+        <div class="card" style="margin-top:1rem;">
+            <h3 style="font-size:1rem; font-weight:700; margin-bottom:0.75rem; color:#7c3aed;">&#8617; Masuk dari Bisnis</h3>
+            <div style="display:grid; gap:0.65rem;">
+                <?php foreach ($recentReturnFromBusiness as $ret): ?>
+                    <div style="padding:0.65rem 0.85rem; border:1px solid #ede9fe; border-radius:0.75rem; background:#faf5ff;">
+                        <div style="font-weight:700; font-size:0.875rem; color:#4c1d95;"><?php echo htmlspecialchars((string)($ret['item_name'] ?? '-')); ?></div>
+                        <div style="font-size:0.8rem; color:#7c3aed; font-weight:600;"><?php echo number_format((float)($ret['quantity'] ?? 0), 2); ?> <?php echo htmlspecialchars((string)($ret['unit'] ?? '')); ?></div>
+                        <div style="font-size:0.78rem; color:var(--text-muted);">dari <strong><?php echo htmlspecialchars((string)($ret['source_business_name'] ?? '-')); ?></strong></div>
+                        <?php if (!empty($ret['notes'])): ?>
+                            <div style="font-size:0.75rem; color:#64748b; margin-top:2px;"><?php echo htmlspecialchars($ret['notes']); ?></div>
+                        <?php endif; ?>
+                        <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;"><?php echo date('d M Y H:i', strtotime((string)($ret['created_at'] ?? date('Y-m-d')))); ?></div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+        <?php endif; ?>
     </div>
 </div>
 
