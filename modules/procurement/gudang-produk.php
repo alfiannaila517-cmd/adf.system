@@ -474,7 +474,9 @@ include '../../includes/header.php';
         try {
             const response = await fetch(`${BASE}/api/gudang-produk-search.php?action=delete`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+                },
                 body: formData.toString()
             });
             const result = await response.json();
