@@ -409,6 +409,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
+// Update expiry date per stock item
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_expiry') {
+    $stockId = (int)($_POST['stock_id'] ?? 0);
+    $expiry  = trim($_POST['expiry_date'] ?? '');
+    if ($stockId > 0) {
+        $safeExpiry = ($expiry !== '' && strtotime($expiry)) ? $expiry : null;
+        $db->update('gudang_nasita_stock', ['expiry_date' => $safeExpiry], 'id = :id', ['id' => $stockId]);
+        $_SESSION['success'] = 'Tanggal kadaluarsa berhasil diperbarui.';
+    }
+    header('Location: gudang-nasita.php');
+    exit;
+}
+
 // Hapus histori penerimaan dari bisnis (kembalikan ke gudang)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_bisnis_return') {
     $rid = (int)($_POST['return_id'] ?? 0);
@@ -1155,7 +1168,15 @@ include '../../includes/header.php';
                                     } else {
                                         echo '<span style="color:#cbd5e1;">—</span>';
                                     }
-                                ?></td>
+                                ?>
+                                <form method="POST" style="display:inline; margin-top:3px;">
+                                    <input type="hidden" name="action" value="update_expiry">
+                                    <input type="hidden" name="stock_id" value="<?php echo (int)$item['id']; ?>">
+                                    <div style="display:flex; gap:3px; align-items:center; margin-top:3px;">
+                                        <input type="date" name="expiry_date" class="form-control" style="font-size:0.73rem; height:26px; padding:0 4px; width:120px;" value="<?php echo htmlspecialchars($exp ?? ''); ?>">
+                                        <button type="submit" class="btn btn-sm" style="height:26px; padding:0 6px; font-size:0.72rem; background:#6366f1; color:#fff;">Simpan</button>
+                                    </div>
+                                </form></td>
                                 <td>
                                     <div style="display:flex; gap:0.35rem; align-items:center; flex-wrap:wrap;">
                                         <button type="button" class="btn btn-sm" style="background:#0f9d6a;color:#fff;"

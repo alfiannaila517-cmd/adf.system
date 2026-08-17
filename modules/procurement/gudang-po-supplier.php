@@ -456,7 +456,7 @@ include '../../includes/header.php';
 <?php endif; ?>
 
 <!-- Split-panel: kiri=daftar barang, kanan=form PO -->
-<div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.25rem; height:calc(100vh - 210px); min-height:420px;">
+<div style="display:<?php echo $viewPo ? 'none' : 'grid'; ?>; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.25rem; height:calc(100vh - 210px); min-height:420px;" id="poCreatePanel">
 
     <!-- KIRI: Daftar barang dengan checkbox -->
     <div class="card" style="display:flex; flex-direction:column; overflow:hidden; padding:0;">
