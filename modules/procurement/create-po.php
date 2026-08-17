@@ -150,11 +150,12 @@ try {
 }
 
 if (!empty($gudangStockRows)) {
+    // Map normalized name → $gudangBarang index so we can write current_stock back directly
     $catalogByName = [];
-    foreach ($gudangBarang as $row) {
+    foreach ($gudangBarang as $idx => $row) {
         $normalized = normalizeGudangItemName($row['nama_barang'] ?? '');
         if ($normalized !== '') {
-            $catalogByName[$normalized] = $row;
+            $catalogByName[$normalized] = $idx;
         }
     }
 
@@ -170,13 +171,15 @@ if (!empty($gudangStockRows)) {
         }
 
         if (isset($catalogByName[$normalizedStockName])) {
-            $catalogRow = $catalogByName[$normalizedStockName];
-            $catalogRow['current_stock'] = (float)($stock['quantity'] ?? 0);
-            $catalogRow['min_stock'] = (float)($stock['reorder_level'] ?? 0);
-            if (((float)($catalogRow['harga_beli'] ?? 0)) <= 0 && (float)($stock['harga_beli'] ?? 0) > 0) {
-                $catalogRow['harga_beli'] = (float)($stock['harga_beli'] ?? 0);
+            $idx = $catalogByName[$normalizedStockName];
+            $gudangBarang[$idx]['current_stock'] = (float)($stock['quantity'] ?? 0);
+            // Only override min_stock from reorder_level when catalog doesn't have its own
+            if ((float)($gudangBarang[$idx]['min_stock'] ?? 0) <= 0) {
+                $gudangBarang[$idx]['min_stock'] = (float)($stock['reorder_level'] ?? 0);
             }
-            $catalogByName[$normalizedStockName] = $catalogRow;
+            if (((float)($gudangBarang[$idx]['harga_beli'] ?? 0)) <= 0 && (float)($stock['harga_beli'] ?? 0) > 0) {
+                $gudangBarang[$idx]['harga_beli'] = (float)($stock['harga_beli'] ?? 0);
+            }
             continue;
         }
 
