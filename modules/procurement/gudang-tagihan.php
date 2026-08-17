@@ -16,8 +16,60 @@ if (!($auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse')
 
 $db = Database::getInstance();
 $pageTitle = 'Tagihan Gudang';
+$currentUser = $auth->getCurrentUser();
 
-// ── Tagihan ke Supplier (PO ke supplier dari Gudang Nasita) ──────────────────
+// ── Ensure TKBM table exists ─────────────────────────────────────────────────
+try {
+    $db->query("CREATE TABLE IF NOT EXISTS gudang_nasita_tkbm (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        tanggal DATE NOT NULL,
+        total_biaya DECIMAL(15,2) NOT NULL DEFAULT 0,
+        keterangan TEXT NULL,
+        jumlah_bisnis TINYINT DEFAULT 3,
+        created_by INT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+} catch (Throwable $e) {}
+
+// ── POST: tambah TKBM ────────────────────────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_tkbm') {
+    $tanggal    = trim($_POST['tanggal'] ?? date('Y-m-d'));
+    $biaya      = (float)($_POST['total_biaya'] ?? 0);
+    $ket        = trim($_POST['keterangan'] ?? '');
+    $jmlBisnis  = max(1, (int)($_POST['jumlah_bisnis'] ?? 3));
+    if ($biaya > 0) {
+        $db->insert('gudang_nasita_tkbm', [
+            'tanggal'       => $tanggal,
+            'total_biaya'   => $biaya,
+            'keterangan'    => $ket ?: null,
+            'jumlah_bisnis' => $jmlBisnis,
+            'created_by'    => (int)($currentUser['id'] ?? 0),
+        ]);
+        $_SESSION['success'] = 'TKBM berhasil ditambahkan.';
+    }
+    header('Location: gudang-tagihan.php');
+    exit;
+}
+
+// ── POST: hapus TKBM ─────────────────────────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete_tkbm') {
+    $tid = (int)($_POST['tkbm_id'] ?? 0);
+    if ($tid > 0) {
+        $db->query('DELETE FROM gudang_nasita_tkbm WHERE id = ?', [$tid]);
+        $_SESSION['success'] = 'TKBM dihapus.';
+    }
+    header('Location: gudang-tagihan.php');
+    exit;
+}
+
+// ── TKBM records ─────────────────────────────────────────────────────────────
+$tkbmRows = [];
+try {
+    $tkbmRows = $db->fetchAll('SELECT * FROM gudang_nasita_tkbm ORDER BY tanggal DESC LIMIT 100') ?: [];
+} catch (Throwable $e) {}
+$tkbmTotal = array_sum(array_column($tkbmRows, 'total_biaya'));
+
+// ── Tagihan ke Supplier ───────────────────────────────────────────────────────
 $supplierBills = [];
 try {
     $supplierBills = $db->fetchAll(
@@ -37,7 +89,7 @@ try {
     error_log('gudang-tagihan supplier bills: ' . $e->getMessage());
 }
 
-// ── Tagihan ke Bisnis (transfer dari Gudang ke tiap bisnis) ──────────────────
+// ── Tagihan ke Bisnis ────────────────────────────────────────────────────────
 $bizBills = [];
 try {
     $bizBills = $db->fetchAll(
@@ -112,7 +164,10 @@ $statusColors = [
                     <h3 style="font-size:1rem; font-weight:700; margin:0;">Tagihan ke Supplier</h3>
                     <p style="font-size:0.78rem; color:var(--text-muted); margin:0.15rem 0 0;">PO yang dibuat ke supplier Gudang Nasita</p>
                 </div>
-                <a href="gudang-po-supplier.php" class="btn btn-sm btn-primary">Buat PO Baru</a>
+                <div style="display:flex; gap:0.5rem;">
+                    <a href="suppliers.php" class="btn btn-sm btn-secondary" style="font-size:0.78rem;">Kelola Supplier</a>
+                    <a href="gudang-po-supplier.php" class="btn btn-sm btn-primary">Buat PO Baru</a>
+                </div>
             </div>
             <?php
             $totalSupplier = array_sum(array_column($supplierBills, 'total_amount'));
@@ -247,5 +302,87 @@ $statusColors = [
     }
     if (typeof feather !== 'undefined') feather.replace();
 </script>
+
+<!-- ── TKBM Section ──────────────────────────────────────────────────────── -->
+<div class="card" style="margin-top:1.5rem;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:0.75rem;">
+        <div>
+            <h3 style="font-size:1rem; font-weight:700; margin:0;">Tagihan TKBM <span style="font-size:0.78rem; color:var(--text-muted); font-weight:400;">(Tenaga Kerja Bongkar Muat)</span></h3>
+            <p style="font-size:0.78rem; color:var(--text-muted); margin:0.15rem 0 0;">Biaya jasa angkut dari pelabuhan ke Gudang Nasita — dibagi rata ke semua bisnis</p>
+        </div>
+        <button type="button" class="btn btn-sm btn-primary" onclick="document.getElementById('tkbmAddForm').style.display='flex'">+ Tambah TKBM</button>
+    </div>
+
+    <!-- Add TKBM form -->
+    <form id="tkbmAddForm" method="POST" style="display:none; gap:0.65rem; flex-wrap:wrap; align-items:flex-end; background:#f8fafc; padding:0.85rem 1rem; border-radius:0.65rem; margin-bottom:1rem;">
+        <input type="hidden" name="action" value="add_tkbm">
+        <div>
+            <label class="form-label" style="font-size:0.78rem;">Tanggal</label>
+            <input type="date" name="tanggal" class="form-control" style="width:140px;" value="<?php echo date('Y-m-d'); ?>" required>
+        </div>
+        <div>
+            <label class="form-label" style="font-size:0.78rem;">Total Biaya TKBM (Rp)</label>
+            <input type="number" name="total_biaya" class="form-control" style="width:160px;" placeholder="0" min="1" step="1" required>
+        </div>
+        <div>
+            <label class="form-label" style="font-size:0.78rem;">Dibagi ke (bisnis)</label>
+            <input type="number" name="jumlah_bisnis" class="form-control" style="width:80px;" value="3" min="1" max="10">
+        </div>
+        <div style="flex:1; min-width:180px;">
+            <label class="form-label" style="font-size:0.78rem;">Keterangan</label>
+            <input type="text" name="keterangan" class="form-control" placeholder="Mis: pengiriman Jepara 17 Agt">
+        </div>
+        <div style="display:flex; gap:0.5rem;">
+            <button type="submit" class="btn btn-sm btn-success">Simpan</button>
+            <button type="button" class="btn btn-sm btn-secondary" onclick="document.getElementById('tkbmAddForm').style.display='none'">Batal</button>
+        </div>
+    </form>
+
+    <div class="table-responsive">
+        <table class="table" style="font-size:0.83rem;">
+            <thead>
+                <tr>
+                    <th>Tanggal</th>
+                    <th>Keterangan</th>
+                    <th class="text-right">Total Biaya</th>
+                    <th class="text-center">Dibagi</th>
+                    <th class="text-right" style="color:#0f9d6a;">Per Bisnis</th>
+                    <th class="text-center">Hapus</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if (empty($tkbmRows)): ?>
+                    <tr><td colspan="6" style="text-align:center; padding:1.5rem; color:var(--text-muted);">Belum ada data TKBM</td></tr>
+                <?php else: foreach ($tkbmRows as $tkbm):
+                    $perBisnis = (float)$tkbm['total_biaya'] / max(1, (int)$tkbm['jumlah_bisnis']);
+                ?>
+                <tr>
+                    <td><?php echo date('d M Y', strtotime($tkbm['tanggal'])); ?></td>
+                    <td><?php echo htmlspecialchars($tkbm['keterangan'] ?? '-'); ?></td>
+                    <td class="text-right" style="font-weight:700;">Rp&nbsp;<?php echo number_format((float)$tkbm['total_biaya'], 0, ',', '.'); ?></td>
+                    <td class="text-center" style="color:#64748b;"><?php echo (int)$tkbm['jumlah_bisnis']; ?> bisnis</td>
+                    <td class="text-right" style="font-weight:700; color:#0f9d6a;">Rp&nbsp;<?php echo number_format($perBisnis, 0, ',', '.'); ?></td>
+                    <td class="text-center">
+                        <form method="POST" style="display:inline;" onsubmit="return confirm('Hapus entri TKBM ini?')">
+                            <input type="hidden" name="action" value="delete_tkbm">
+                            <input type="hidden" name="tkbm_id" value="<?php echo (int)$tkbm['id']; ?>">
+                            <button type="submit" class="btn btn-sm btn-danger" style="padding:2px 8px; font-size:0.73rem;">Hapus</button>
+                        </form>
+                    </td>
+                </tr>
+                <?php endforeach; endif; ?>
+            </tbody>
+            <?php if ($tkbmTotal > 0): ?>
+            <tfoot>
+                <tr style="background:#f8fafc; font-weight:700;">
+                    <td colspan="2">Total TKBM</td>
+                    <td class="text-right" style="color:#0f9d6a;">Rp&nbsp;<?php echo number_format($tkbmTotal, 0, ',', '.'); ?></td>
+                    <td colspan="3"></td>
+                </tr>
+            </tfoot>
+            <?php endif; ?>
+        </table>
+    </div>
+</div>
 
 <?php include '../../includes/footer.php'; ?>
