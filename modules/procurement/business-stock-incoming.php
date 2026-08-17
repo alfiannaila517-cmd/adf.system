@@ -648,6 +648,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
+// Hapus histori transfer antar bisnis (baris orange di Pengeluaran Harian)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_inter_transfer') {
+    $trId = (int)($_POST['transfer_id'] ?? 0);
+    if ($masterPdo && $trId > 0) {
+        try {
+            $stmt = $masterPdo->prepare('DELETE FROM business_inter_stock_transfers WHERE id = ? AND source_business_slug = ?');
+            $stmt->execute([$trId, $activeBusinessSlug]);
+            $_SESSION['success'] = 'Histori transfer keluar dihapus.';
+        } catch (Throwable $e) {
+            $_SESSION['error'] = 'Gagal hapus: ' . $e->getMessage();
+        }
+    }
+    header('Location: business-stock-incoming.php');
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_transfer_history') {
     $transferId = isset($_POST['transfer_id']) ? (int)$_POST['transfer_id'] : 0;
 
@@ -1175,7 +1191,13 @@ include '../../includes/header.php';
                         endif; ?>
                         <?php foreach ($interTransferOutRows ?? [] as $tr): ?>
                             <tr style="background:#fef3c7;">
-                                <td style="text-align:center;"><span style="font-size:0.75rem; color:#92400e;">&#8594;</span></td>
+                                <td style="text-align:center;">
+                                    <form method="POST" style="margin:0;" onsubmit="return confirm('Hapus histori transfer ini?')">
+                                        <input type="hidden" name="action" value="delete_inter_transfer">
+                                        <input type="hidden" name="transfer_id" value="<?php echo (int)$tr['id']; ?>">
+                                        <button type="submit" class="btn btn-sm btn-danger" style="padding:2px 6px; font-size:0.7rem; height:24px;" title="Hapus">&times;</button>
+                                    </form>
+                                </td>
                                 <td style="font-weight:600;"><?php echo htmlspecialchars((string)($tr['item_name'] ?? '-')); ?></td>
                                 <td><?php echo htmlspecialchars((string)($tr['unit'] ?? 'pcs')); ?></td>
                                 <td class="text-right" style="font-weight:700; color:#b45309;"><?php echo number_format((float)($tr['quantity'] ?? 0), 2); ?></td>

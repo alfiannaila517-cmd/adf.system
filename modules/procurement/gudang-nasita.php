@@ -393,6 +393,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
+// Hapus histori transfer keluar
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_gudang_transfer') {
+    $tid = (int)($_POST['transfer_id'] ?? 0);
+    if ($tid > 0) {
+        try {
+            $db->query('DELETE FROM gudang_nasita_transfer_items WHERE transfer_id = ?', [$tid]);
+        } catch (Throwable $e) {}
+        try {
+            $db->query('DELETE FROM gudang_nasita_transfers WHERE id = ?', [$tid]);
+        } catch (Throwable $e) {}
+        $_SESSION['success'] = 'Histori transfer dihapus.';
+    }
+    header('Location: gudang-nasita.php');
+    exit;
+}
+
+// Hapus histori penerimaan dari bisnis (kembalikan ke gudang)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_bisnis_return') {
+    $rid = (int)($_POST['return_id'] ?? 0);
+    if ($rid > 0) {
+        try {
+            $db->query("DELETE FROM business_inter_stock_transfers WHERE id = ? AND target_business_slug = 'gudang-nasita'", [$rid]);
+        } catch (Throwable $e) {}
+        $_SESSION['success'] = 'Histori penerimaan dari bisnis dihapus.';
+    }
+    header('Location: gudang-nasita.php');
+    exit;
+}
+
 // Handle hapus stock item (soft delete)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_stock') {
     $stockId = (int)($_POST['stock_id'] ?? 0);
@@ -1182,9 +1211,18 @@ include '../../includes/header.php';
                 <?php else: ?>
                     <?php foreach ($recentTransfers as $transfer): ?>
                         <div style="padding:0.75rem; border:1px solid var(--border); border-radius:0.75rem; background: var(--bg-secondary);">
-                            <div style="font-weight:700;"><?php echo htmlspecialchars($transfer['transfer_number']); ?></div>
-                            <div style="font-size:0.812rem; color:var(--text-muted);"><?php echo htmlspecialchars($transfer['target_business_name']); ?></div>
-                            <div style="font-size:0.812rem; color:var(--text-muted);"><?php echo (int)$transfer['items_count']; ?> item | <?php echo number_format((float)$transfer['total_qty'], 2); ?> qty</div>
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                                <div>
+                                    <div style="font-weight:700;"><?php echo htmlspecialchars($transfer['transfer_number']); ?></div>
+                                    <div style="font-size:0.812rem; color:var(--text-muted);"><?php echo htmlspecialchars($transfer['target_business_name']); ?></div>
+                                    <div style="font-size:0.812rem; color:var(--text-muted);"><?php echo (int)$transfer['items_count']; ?> item | <?php echo number_format((float)$transfer['total_qty'], 2); ?> qty</div>
+                                </div>
+                                <form method="POST" style="margin:0;" onsubmit="return confirm('Hapus histori transfer ini?')">
+                                    <input type="hidden" name="action" value="delete_gudang_transfer">
+                                    <input type="hidden" name="transfer_id" value="<?php echo (int)$transfer['id']; ?>">
+                                    <button type="submit" class="btn btn-sm btn-danger" style="padding:2px 8px; font-size:0.72rem;">Hapus</button>
+                                </form>
+                            </div>
                         </div>
                     <?php endforeach; ?>
                 <?php endif; ?>
@@ -1197,13 +1235,22 @@ include '../../includes/header.php';
             <div style="display:grid; gap:0.65rem;">
                 <?php foreach ($recentReturnFromBusiness as $ret): ?>
                     <div style="padding:0.65rem 0.85rem; border:1px solid #ede9fe; border-radius:0.75rem; background:#faf5ff;">
-                        <div style="font-weight:700; font-size:0.875rem; color:#4c1d95;"><?php echo htmlspecialchars((string)($ret['item_name'] ?? '-')); ?></div>
-                        <div style="font-size:0.8rem; color:#7c3aed; font-weight:600;"><?php echo number_format((float)($ret['quantity'] ?? 0), 2); ?> <?php echo htmlspecialchars((string)($ret['unit'] ?? '')); ?></div>
-                        <div style="font-size:0.78rem; color:var(--text-muted);">dari <strong><?php echo htmlspecialchars((string)($ret['source_business_name'] ?? '-')); ?></strong></div>
-                        <?php if (!empty($ret['notes'])): ?>
-                            <div style="font-size:0.75rem; color:#64748b; margin-top:2px;"><?php echo htmlspecialchars($ret['notes']); ?></div>
-                        <?php endif; ?>
-                        <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;"><?php echo date('d M Y H:i', strtotime((string)($ret['created_at'] ?? date('Y-m-d')))); ?></div>
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.5rem;">
+                            <div style="flex:1; min-width:0;">
+                                <div style="font-weight:700; font-size:0.875rem; color:#4c1d95;"><?php echo htmlspecialchars((string)($ret['item_name'] ?? '-')); ?></div>
+                                <div style="font-size:0.8rem; color:#7c3aed; font-weight:600;"><?php echo number_format((float)($ret['quantity'] ?? 0), 2); ?> <?php echo htmlspecialchars((string)($ret['unit'] ?? '')); ?></div>
+                                <div style="font-size:0.78rem; color:var(--text-muted);">dari <strong><?php echo htmlspecialchars((string)($ret['source_business_name'] ?? '-')); ?></strong></div>
+                                <?php if (!empty($ret['notes'])): ?>
+                                    <div style="font-size:0.75rem; color:#64748b; margin-top:2px;"><?php echo htmlspecialchars($ret['notes']); ?></div>
+                                <?php endif; ?>
+                                <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;"><?php echo date('d M Y H:i', strtotime((string)($ret['created_at'] ?? date('Y-m-d')))); ?></div>
+                            </div>
+                            <form method="POST" style="margin:0; flex-shrink:0;" onsubmit="return confirm('Hapus histori penerimaan ini?')">
+                                <input type="hidden" name="action" value="delete_bisnis_return">
+                                <input type="hidden" name="return_id" value="<?php echo (int)$ret['id']; ?>">
+                                <button type="submit" class="btn btn-sm btn-danger" style="padding:2px 8px; font-size:0.72rem;">Hapus</button>
+                            </form>
+                        </div>
                     </div>
                 <?php endforeach; ?>
             </div>
