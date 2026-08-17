@@ -43,6 +43,9 @@ try {
     if (!in_array('min_stock', $barangCols)) {
         $db->query('ALTER TABLE gudang_nasita_barang ADD COLUMN min_stock DECIMAL(15,2) DEFAULT 0 AFTER harga_jual');
     }
+    if (!in_array('expiry_date', $barangCols)) {
+        $db->query('ALTER TABLE gudang_nasita_barang ADD COLUMN expiry_date DATE NULL AFTER min_stock');
+    }
 } catch (Throwable $e) {
 }
 
@@ -83,6 +86,8 @@ if ($action === 'save' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $hargaBeli  = (float)($_POST['harga_beli'] ?? 0);
     $hargaJual  = (float)($_POST['harga_jual'] ?? 0);
     $minStock   = max(0, (float)($_POST['min_stock'] ?? 0));
+    $expiryDate = trim($_POST['expiry_date'] ?? '');
+    $expiryDate = ($expiryDate !== '' && strtotime($expiryDate)) ? $expiryDate : null;
 
     if ($nama === '') {
         echo json_encode(['success' => false, 'message' => 'Nama barang wajib diisi']);
@@ -107,11 +112,23 @@ if ($action === 'save' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         'harga_beli'  => $hargaBeli,
         'harga_jual'  => $hargaJual,
         'min_stock'   => $minStock,
+        'expiry_date' => $expiryDate,
         'is_active'   => 1,
     ];
 
     if ($id > 0) {
         $db->update('gudang_nasita_barang', $data, 'id = :id', ['id' => $id]);
+        // Sync expiry_date to matching gudang_nasita_stock row if the column exists
+        try {
+            $stCols = array_column($db->fetchAll('SHOW COLUMNS FROM gudang_nasita_stock'), 'Field');
+            if (in_array('expiry_date', $stCols)) {
+                $barang = $db->fetchOne('SELECT nama_barang FROM gudang_nasita_barang WHERE id = ? LIMIT 1', [$id]);
+                if ($barang) {
+                    $db->query('UPDATE gudang_nasita_stock SET expiry_date = ? WHERE LOWER(item_name) = LOWER(?) AND COALESCE(is_active,1)=1',
+                        [$expiryDate, $barang['nama_barang']]);
+                }
+            }
+        } catch (Throwable $syncErr) {}
         echo json_encode(['success' => true, 'message' => 'Produk berhasil diperbarui', 'id' => $id]);
     } else {
         // Auto-generate kode_barang

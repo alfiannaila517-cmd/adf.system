@@ -359,18 +359,27 @@ include '../../includes/header.php';
                         </datalist>
                     </div>
                 </div>
-                <div>
-                    <label class="form-label">Harga Beli (Rp)</label>
-                    <input type="number" id="produkHargaBeli" name="harga_beli" class="form-control" min="0" step="1" placeholder="0">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.7rem;">
+                    <div>
+                        <label class="form-label">Harga Beli (Rp)</label>
+                        <input type="number" id="produkHargaBeli" name="harga_beli" class="form-control" min="0" step="1" placeholder="0">
+                    </div>
+                    <div>
+                        <label class="form-label">Stok Minimum</label>
+                        <input type="number" id="produkMinStock" name="min_stock" class="form-control" min="0" step="0.01" placeholder="0">
+                        <div style="font-size:0.73rem; color:#64748b; margin-top:2px;">Ditandai merah di PO bila ≤ ini</div>
+                    </div>
                 </div>
-                <div>
-                    <label class="form-label">Stok Minimum</label>
-                    <input type="number" id="produkMinStock" name="min_stock" class="form-control" min="0" step="0.01" placeholder="0">
-                    <div style="font-size:0.73rem; color:#64748b; margin-top:2px;">Stok di PO Supplier ditandai merah bila ≤ nilai ini</div>
-                </div>
-                <div>
-                    <label class="form-label">Deskripsi / Catatan</label>
-                    <textarea id="produkDeskripsi" name="deskripsi" class="form-control" rows="2" placeholder="Opsional"></textarea>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.7rem;">
+                    <div>
+                        <label class="form-label">Tanggal Kadaluarsa</label>
+                        <input type="date" id="produkExpiry" name="expiry_date" class="form-control">
+                        <div style="font-size:0.73rem; color:#64748b; margin-top:2px;">Dikosongkan jika tidak ada kadaluarsa</div>
+                    </div>
+                    <div>
+                        <label class="form-label">Deskripsi / Catatan</label>
+                        <textarea id="produkDeskripsi" name="deskripsi" class="form-control" rows="3" placeholder="Opsional"></textarea>
+                    </div>
                 </div>
             </div>
             <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.1rem;">
@@ -395,6 +404,7 @@ include '../../includes/header.php';
         document.getElementById('produkSatuan').value = data ? (data.satuan || '') : '';
         document.getElementById('produkHargaBeli').value = data ? (parseFloat(data.harga_beli) || '') : '';
         document.getElementById('produkMinStock').value = data ? (parseFloat(data.min_stock) || '') : '';
+        document.getElementById('produkExpiry').value = data ? (data.expiry_date || '') : '';
         document.getElementById('produkDeskripsi').value = data ? (data.deskripsi || '') : '';
         document.getElementById('produkModalMsg').style.display = 'none';
         document.getElementById('produkNamaHint').style.display = 'none';
