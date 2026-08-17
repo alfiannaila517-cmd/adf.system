@@ -45,6 +45,9 @@ if ($search) {
 if ($status !== '') {
     $where_conditions[] = "is_active = :status";
     $params['status'] = $status;
+} else {
+    // Default: only show active suppliers
+    $where_conditions[] = "COALESCE(is_active, 1) = 1";
 }
 
 $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';

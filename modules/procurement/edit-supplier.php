@@ -16,7 +16,7 @@ $supplier_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 $supplier = $db->fetchOne("
     SELECT s.*, u.full_name as created_by_name
     FROM suppliers s
-    LEFT JOIN users u ON s.created_by = u.user_id
+    LEFT JOIN users u ON s.created_by = u.id
     WHERE s.id = ?
 ", [$supplier_id]);
 
