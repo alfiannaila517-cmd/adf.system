@@ -1309,7 +1309,20 @@ include '../../includes/header.php';
 
 <script>
     if (typeof feather !== 'undefined') feather.replace();
-    const GUDANG_BASE = '<?php echo BASE_URL; ?>';\n\n    function toggleStockDropdown(id) {\n        const el = document.getElementById('sdrop-' + id);\n        if (!el) return;\n        const isOpen = el.style.display !== 'none';\n        // Close all open dropdowns first\n        document.querySelectorAll('[id^=\"sdrop-\"]').forEach(d => d.style.display = 'none');\n        if (!isOpen) el.style.display = 'block';\n    }\n    // Close dropdown when clicking outside\n    document.addEventListener('click', e => {\n        if (!e.target.closest('.dropdown')) {\n            document.querySelectorAll('[id^=\"sdrop-\"]').forEach(d => d.style.display = 'none');\n        }\n    });
+    const GUDANG_BASE = '<?php echo BASE_URL; ?>';
+
+    function toggleStockDropdown(id) {
+        const el = document.getElementById('sdrop-' + id);
+        if (!el) return;
+        const isOpen = el.style.display !== 'none';
+        document.querySelectorAll('[id^="sdrop-"]').forEach(d => d.style.display = 'none');
+        if (!isOpen) el.style.display = 'block';
+    }
+    document.addEventListener('click', e => {
+        if (!e.target.closest('.dropdown')) {
+            document.querySelectorAll('[id^="sdrop-"]').forEach(d => d.style.display = 'none');
+        }
+    });
 
     // Live client-side stock filter
     (function() {
