@@ -515,6 +515,41 @@ try {
     error_log('gudang-nasita stock load failed: ' . $e->getMessage());
     $stockItemsAll = [];
 }
+
+// Append active catalog products that have no stock entry yet (shown as qty=0)
+try {
+    $existingNames = array_map('strtolower', array_column($stockItemsAll, 'item_name'));
+    $allBarang = $db->fetchAll(
+        "SELECT * FROM gudang_nasita_barang WHERE COALESCE(is_active,1) = 1 ORDER BY nama_barang ASC"
+    ) ?: [];
+    foreach ($allBarang as $barang) {
+        if (!in_array(strtolower((string)$barang['nama_barang']), $existingNames, true)) {
+            $stockItemsAll[] = [
+                'id'            => null,
+                'stock_code'    => $barang['kode_barang'] ?? '',
+                'item_name'     => $barang['nama_barang'],
+                'category'      => $barang['kategori'] ?? 'lainnya',
+                'unit'          => $barang['satuan'] ?? 'pcs',
+                'quantity'      => 0,
+                'harga_beli'    => $barang['harga_beli'] ?? 0,
+                'total_harga'   => 0,
+                'reorder_level' => $barang['min_stock'] ?? 0,
+                'supplier_name' => '',
+                'notes'         => '',
+                'is_active'     => 1,
+                'total_in'      => 0,
+                'total_out'     => 0,
+                'barang_id'     => $barang['id'],
+            ];
+        }
+    }
+    usort($stockItemsAll, function ($a, $b) {
+        $catCmp = strcasecmp($a['category'] ?? 'lainnya', $b['category'] ?? 'lainnya');
+        return $catCmp !== 0 ? $catCmp : strcasecmp((string)($a['item_name'] ?? ''), (string)($b['item_name'] ?? ''));
+    });
+} catch (Throwable $e) {
+    error_log('gudang-nasita catalog merge failed: ' . $e->getMessage());
+}
 $searchItemName = trim((string)($_GET['q_item'] ?? ''));
 $filterLowStockOnly = (string)($_GET['low_stock'] ?? '') === '1';
 
@@ -877,10 +912,6 @@ include '../../includes/header.php';
         <button type="button" class="btn btn-warning" onclick="document.getElementById('dailyOutModal').style.display='flex'">
             <i data-feather="minus-square" style="width: 16px; height: 16px;"></i>
             Stock Keluar
-        </button>
-        <button type="button" class="btn btn-success" onclick="document.getElementById('manualStockModal').style.display='flex'">
-            <i data-feather="plus-square" style="width: 16px; height: 16px;"></i>
-            Input Stock Manual
         </button>
         <button type="button" class="btn btn-primary" onclick="document.getElementById('importStockModal').style.display='flex'">
             <i data-feather="download" style="width: 16px; height: 16px;"></i>
