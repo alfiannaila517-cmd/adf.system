@@ -812,10 +812,6 @@ foreach ($movementSummary as $row) {
     if ($row['movement_type'] === 'in_supplier') {
         $summary['incoming_today'] = (float)$row['total_qty'];
     }
-    if ($row['movement_type'] === 'adjustment') {
-        // Adjustments include stock returned from businesses
-        $summary['incoming_today'] += (float)$row['total_qty'];
-    }
     if ($row['movement_type'] === 'out_transfer' || $row['movement_type'] === 'adjustment') {
         $summary['outgoing_today'] += (float)$row['total_qty'];
     }
