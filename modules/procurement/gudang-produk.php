@@ -121,7 +121,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Search & filter
 $qSearch = trim($_GET['q'] ?? '');
 $filterKategori = trim($_GET['kategori'] ?? '');
-$where = 'WHERE 1=1';
+$showInactive = ($_GET['show_inactive'] ?? '') === '1';
+$where = $showInactive ? 'WHERE 1=1' : 'WHERE COALESCE(is_active,1) = 1';
 $params = [];
 if ($qSearch !== '') {
     $where .= ' AND (nama_barang LIKE ? OR kode_barang LIKE ?)';
@@ -134,7 +135,7 @@ if ($filterKategori !== '') {
 }
 
 $products = $db->fetchAll("SELECT * FROM gudang_nasita_barang $where ORDER BY nama_barang ASC", $params);
-$allKategori = $db->fetchAll("SELECT DISTINCT COALESCE(kategori,'lainnya') AS kategori FROM gudang_nasita_barang ORDER BY kategori ASC");
+$allKategori = $db->fetchAll("SELECT DISTINCT COALESCE(kategori,'lainnya') AS kategori FROM gudang_nasita_barang WHERE COALESCE(is_active,1) = 1 ORDER BY kategori ASC");
 
 $forceTheme = 'light';
 include '../../includes/header.php';
@@ -169,6 +170,10 @@ include '../../includes/header.php';
                 </option>
             <?php endforeach; ?>
         </select>
+        <label style="display:flex; align-items:center; gap:0.35rem; font-size:0.83rem; color:var(--text-muted); margin:0;">
+            <input type="checkbox" name="show_inactive" value="1" <?php echo $showInactive ? 'checked' : ''; ?>>
+            Tampilkan non-aktif
+        </label>
         <button type="submit" class="btn btn-primary">Cari</button>
         <a href="gudang-produk.php" class="btn btn-secondary">Reset</a>
         <span style="margin-left:auto; font-size:0.83rem; color:var(--text-muted);"><?php echo count($products); ?> produk</span>
