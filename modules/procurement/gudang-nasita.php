@@ -807,14 +807,29 @@ foreach ($stockItems as $item) {
     }
 }
 
-$movementSummary = $db->fetchAll("\n    SELECT movement_type, COALESCE(SUM(quantity), 0) AS total_qty\n    FROM gudang_nasita_movements\n    WHERE movement_date = CURDATE()\n    GROUP BY movement_type\n");
+$movementSummary = $db->fetchAll("
+    SELECT movement_type, COALESCE(SUM(quantity), 0) AS total_qty
+    FROM gudang_nasita_movements
+    WHERE movement_date = CURDATE()
+    GROUP BY movement_type
+");
 foreach ($movementSummary as $row) {
     if ($row['movement_type'] === 'in_supplier') {
-        $summary['incoming_today'] = (float)$row['total_qty'];
+        $summary['incoming_today'] += (float)$row['total_qty'];
     }
-    if ($row['movement_type'] === 'out_transfer' || $row['movement_type'] === 'adjustment') {
+    if ($row['movement_type'] === 'out_transfer') {
         $summary['outgoing_today'] += (float)$row['total_qty'];
     }
+}
+
+// Add today's returns from businesses to Masuk Hari Ini (separate from movements table to avoid stale data)
+try {
+    $returnToday = $db->fetchOne(
+        "SELECT COALESCE(SUM(quantity),0) AS qty FROM business_inter_stock_transfers
+         WHERE target_business_slug = 'gudang-nasita' AND DATE(created_at) = CURDATE()"
+    );
+    $summary['incoming_today'] += (float)($returnToday['qty'] ?? 0);
+} catch (Throwable $e) {
 }
 
 $pendingReceipts = [];
