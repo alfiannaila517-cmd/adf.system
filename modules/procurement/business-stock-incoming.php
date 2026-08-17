@@ -37,12 +37,34 @@ if (in_array(preg_replace('/[^a-z0-9]/', '', $activeBusinessSlug), ['eatmeet', '
 
 $bizNameForMatch = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $activeBusinessName) . '%';
 
-$transferBusinessConfigs = [
-    'narayana-hotel' => __DIR__ . '/../../config/businesses/narayana-hotel.php',
-    'bens-cafe' => __DIR__ . '/../../config/businesses/bens-cafe.php',
-    'eaat-meet' => __DIR__ . '/../../config/businesses/eaat-meet.php',
-    'eat-meet' => __DIR__ . '/../../config/businesses/eaat-meet.php',
-];
+$transferBusinessConfigs = [];
+// Build from config/businesses/, deduplicate by database so aliases (eat-meet/eaat-meet) don't appear twice
+$bizConfigDir = __DIR__ . '/../../config/businesses/';
+if (is_dir($bizConfigDir)) {
+    $seenDbs = [];
+    foreach (glob($bizConfigDir . '*.php') ?: [] as $cfgFile) {
+        try {
+            $c = require $cfgFile;
+            $cfgSlug = strtolower(trim((string)($c['business_id'] ?? basename($cfgFile, '.php'))));
+            $cfgDb   = strtolower(trim((string)($c['database'] ?? '')));
+            // Skip gudang-nasita (source, not a target for cross-business transfer)
+            if (strpos($cfgSlug, 'gudang') !== false || strpos($cfgDb, 'gudang') !== false) {
+                continue;
+            }
+            // Deduplicate by database so slug aliases (eat-meet / eaat-meet) only appear once
+            if ($cfgDb !== '' && isset($seenDbs[$cfgDb])) {
+                continue;
+            }
+            if ($cfgDb !== '') {
+                $seenDbs[$cfgDb] = true;
+            }
+            if (!empty($c['name'])) {
+                $transferBusinessConfigs[$cfgSlug] = $cfgFile;
+            }
+        } catch (Throwable $ignored) {
+        }
+    }
+}
 
 $transferBusinessOptions = [];
 foreach ($transferBusinessConfigs as $slug => $cfgPath) {
@@ -744,46 +766,66 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
     if ($activeBusinessSlug === '' || $itemName === '' || $qty <= 0 || $targetSlug === '' || $targetSlug === $activeBusinessSlug) {
         $_SESSION['error'] = 'Data transfer tidak valid.';
-    } elseif (!$masterPdo) {
-        $_SESSION['error'] = 'Fitur transfer antar bisnis belum siap (koneksi master DB gagal).';
+    } elseif ($targetSlug === 'gudang-nasita' && !$masterPdo) {
+        $_SESSION['error'] = 'Koneksi master DB gagal untuk kembalikan ke gudang.';
     } else {
         $availableQty = $computeVisibleQty($itemName, $unit);
         if ($qty > $availableQty) {
             $_SESSION['error'] = 'Qty transfer melebihi stok tersedia (' . number_format($availableQty, 2) . ').';
         } else {
             try {
-                $targetCfgPath = $transferBusinessConfigs[$targetSlug] ?? '';
-                $targetName = $targetSlug;
-                if ($targetCfgPath && file_exists($targetCfgPath)) {
-                    $targetCfg = require $targetCfgPath;
-                    $targetName = (string)($targetCfg['name'] ?? $targetSlug);
+                // Determine target display name
+                if ($targetSlug === 'gudang-nasita') {
+                    $targetName = 'Gudang Nasita';
+                } else {
+                    $targetCfgPath = $transferBusinessConfigs[$targetSlug] ?? '';
+                    $targetName = $targetSlug;
+                    if ($targetCfgPath && file_exists($targetCfgPath)) {
+                        $targetCfg = require $targetCfgPath;
+                        $targetName = (string)($targetCfg['name'] ?? $targetSlug);
+                    }
                 }
 
-                $prefix = 'BST-' . date('Ym') . '-';
-                $last = $masterPdo->prepare("SELECT transfer_number FROM business_inter_stock_transfers WHERE transfer_number LIKE ? ORDER BY transfer_number DESC LIMIT 1");
-                $last->execute([$prefix . '%']);
-                $lastNo = $last->fetchColumn();
-                $next = 1;
-                if ($lastNo) {
-                    $next = ((int)substr((string)$lastNo, -4)) + 1;
-                }
-                $transferNo = $prefix . str_pad((string)$next, 4, '0', STR_PAD_LEFT);
+                $transferNo = 'BST-' . date('YmdHis');
+                if ($masterPdo) {
+                    $prefix = 'BST-' . date('Ym') . '-';
+                    $last = $masterPdo->prepare("SELECT transfer_number FROM business_inter_stock_transfers WHERE transfer_number LIKE ? ORDER BY transfer_number DESC LIMIT 1");
+                    $last->execute([$prefix . '%']);
+                    $lastNo = $last->fetchColumn();
+                    $next = 1;
+                    if ($lastNo) {
+                        $next = ((int)substr((string)$lastNo, -4)) + 1;
+                    }
+                    $transferNo = $prefix . str_pad((string)$next, 4, '0', STR_PAD_LEFT);
 
-                $ins = $masterPdo->prepare("INSERT INTO business_inter_stock_transfers
-                    (transfer_number, source_business_slug, source_business_name, target_business_slug, target_business_name, item_name, unit, quantity, notes, created_by)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                $ins->execute([
-                    $transferNo,
-                    $activeBusinessSlug,
-                    $activeBusinessName,
-                    $targetSlug,
-                    $targetName,
-                    $itemName,
-                    $unit,
-                    $qty,
-                    $notes,
-                    (int)($currentUser['id'] ?? 0)
-                ]);
+                    $ins = $masterPdo->prepare("INSERT INTO business_inter_stock_transfers
+                        (transfer_number, source_business_slug, source_business_name, target_business_slug, target_business_name, item_name, unit, quantity, notes, created_by)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    $ins->execute([
+                        $transferNo,
+                        $activeBusinessSlug,
+                        $activeBusinessName,
+                        $targetSlug,
+                        $targetName,
+                        $itemName,
+                        $unit,
+                        $qty,
+                        $notes,
+                        (int)($currentUser['id'] ?? 0)
+                    ]);
+                }
+
+                // When returning to Gudang Nasita, credit the gudang stock
+                if ($targetSlug === 'gudang-nasita') {
+                    $gudangResult = addGudangNasitaManualStock(
+                        $itemName, $unit, $qty,
+                        (int)($currentUser['id'] ?? 0),
+                        ['notes' => 'Dikembalikan dari ' . $activeBusinessName . ' — ' . $transferNo, 'category' => 'lainnya']
+                    );
+                    if (!$gudangResult['success']) {
+                        error_log('Gagal tambah stok gudang saat kembalikan: ' . $gudangResult['message']);
+                    }
+                }
 
                 $_SESSION['success'] = 'Transfer stok berhasil: ' . $transferNo;
             } catch (Throwable $e) {
@@ -1488,6 +1530,7 @@ include '../../includes/header.php';
                             endif; ?>
                             <option value="<?php echo htmlspecialchars($slug); ?>"><?php echo htmlspecialchars($biz['name']); ?></option>
                         <?php endforeach; ?>
+                        <option value="gudang-nasita" style="color:#7c3aed; font-weight:600;">↩ Kembalikan ke Gudang Nasita</option>
                     </select>
                 </div>
                 <div>
