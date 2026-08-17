@@ -382,7 +382,9 @@ try {
                     WHERE LOWER(gs.item_name) = LOWER(gb.nama_barang)
                       AND COALESCE(gs.is_active, 1) = 1
                 ), 0) AS current_stock
-         FROM gudang_nasita_barang gb ORDER BY gb.nama_barang ASC"
+         FROM gudang_nasita_barang gb
+         WHERE COALESCE(gb.is_active,1) = 1
+         ORDER BY gb.nama_barang ASC"
     ) ?: [];
 } catch (Throwable $e) {
     error_log('gudang-po-supplier allBarang load error: ' . $e->getMessage());
