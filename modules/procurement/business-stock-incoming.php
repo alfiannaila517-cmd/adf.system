@@ -37,34 +37,12 @@ if (in_array(preg_replace('/[^a-z0-9]/', '', $activeBusinessSlug), ['eatmeet', '
 
 $bizNameForMatch = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $activeBusinessName) . '%';
 
-$transferBusinessConfigs = [];
-// Build from config/businesses/, deduplicate by database so aliases (eat-meet/eaat-meet) don't appear twice
-$bizConfigDir = __DIR__ . '/../../config/businesses/';
-if (is_dir($bizConfigDir)) {
-    $seenDbs = [];
-    foreach (glob($bizConfigDir . '*.php') ?: [] as $cfgFile) {
-        try {
-            $c = require $cfgFile;
-            $cfgSlug = strtolower(trim((string)($c['business_id'] ?? basename($cfgFile, '.php'))));
-            $cfgDb   = strtolower(trim((string)($c['database'] ?? '')));
-            // Skip gudang-nasita (source, not a target for cross-business transfer)
-            if (strpos($cfgSlug, 'gudang') !== false || strpos($cfgDb, 'gudang') !== false) {
-                continue;
-            }
-            // Deduplicate by database so slug aliases (eat-meet / eaat-meet) only appear once
-            if ($cfgDb !== '' && isset($seenDbs[$cfgDb])) {
-                continue;
-            }
-            if ($cfgDb !== '') {
-                $seenDbs[$cfgDb] = true;
-            }
-            if (!empty($c['name'])) {
-                $transferBusinessConfigs[$cfgSlug] = $cfgFile;
-            }
-        } catch (Throwable $ignored) {
-        }
-    }
-}
+// Only expose the 3 operational businesses; eaat-meet is the canonical slug for Eat Meet
+$transferBusinessConfigs = [
+    'narayana-hotel' => __DIR__ . '/../../config/businesses/narayana-hotel.php',
+    'bens-cafe'      => __DIR__ . '/../../config/businesses/bens-cafe.php',
+    'eaat-meet'      => __DIR__ . '/../../config/businesses/eaat-meet.php',
+];
 
 $transferBusinessOptions = [];
 foreach ($transferBusinessConfigs as $slug => $cfgPath) {
