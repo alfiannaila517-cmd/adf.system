@@ -82,6 +82,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
+    if ($formAction === 'import_names') {
+        $rawText = trim($_POST['import_text'] ?? '');
+        $defaultKategori = trim($_POST['import_kategori'] ?? 'lainnya') ?: 'lainnya';
+        $defaultSatuan   = trim($_POST['import_satuan'] ?? 'pcs') ?: 'pcs';
+
+        $lines = array_values(array_filter(
+            array_map('trim', preg_split('/[\r\n;,]+/', $rawText)),
+            fn($l) => $l !== ''
+        ));
+
+        if (empty($lines)) {
+            $msg = 'Tidak ada nama barang yang valid untuk diimport.';
+            $msgType = 'danger';
+        } else {
+            $added = 0; $skipped = 0;
+            $prefix = 'BRG-';
+            foreach ($lines as $line) {
+                $nama = trim((string)$line);
+                if ($nama === '') { $skipped++; continue; }
+                $exist = $db->fetchOne('SELECT id FROM gudang_nasita_barang WHERE LOWER(nama_barang) = LOWER(?) LIMIT 1', [$nama]);
+                if ($exist) { $skipped++; continue; }
+                $last = $db->fetchOne('SELECT kode_barang FROM gudang_nasita_barang WHERE kode_barang LIKE ? ORDER BY kode_barang DESC LIMIT 1', [$prefix . '%']);
+                $seq = $last ? ((int)substr($last['kode_barang'], -4) + 1) : 1;
+                $db->insert('gudang_nasita_barang', [
+                    'kode_barang' => $prefix . str_pad($seq, 4, '0', STR_PAD_LEFT),
+                    'nama_barang' => $nama,
+                    'kategori'    => $defaultKategori,
+                    'satuan'      => $defaultSatuan,
+                    'harga_beli'  => 0,
+                    'is_active'   => 1,
+                ]);
+                $added++;
+            }
+            $msg = "Import selesai: {$added} barang ditambahkan" . ($skipped > 0 ? ", {$skipped} dilewati (sudah ada atau kosong)." : '.');
+            $msgType = $added > 0 ? 'success' : 'warning';
+        }
+    }
+
     if ($formAction === 'toggle') {
         $id = (int)($_POST['id'] ?? 0);
         $cur = $db->fetchOne('SELECT is_active FROM gudang_nasita_barang WHERE id = ?', [$id]);
@@ -149,6 +187,9 @@ include '../../includes/header.php';
     <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
         <button type="button" class="btn" style="background:#7c3aed;color:#fff;" onclick="openProdukModal(0)">
             <i data-feather="plus" style="width:15px;height:15px;"></i> Tambah Produk
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="document.getElementById('importNamaModal').style.display='flex'">
+            <i data-feather="upload" style="width:15px;height:15px;"></i> Import Nama Barang
         </button>
         <a href="gudang-nasita.php" class="btn btn-secondary">← Kembali ke Stock Gudang</a>
     </div>
@@ -494,7 +535,49 @@ include '../../includes/header.php';
 
     document.addEventListener('click', e => {
         if (e.target === document.getElementById('produkModal')) closeProdukModal();
+        if (e.target === document.getElementById('importNamaModal')) document.getElementById('importNamaModal').style.display = 'none';
     });
 </script>
+
+<!-- Modal: Import Nama Barang -->
+<div id="importNamaModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.5); z-index:2000; align-items:center; justify-content:center; padding:1rem;">
+    <div class="card" style="width:min(540px,100%); max-height:92vh; overflow:auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <h3 style="font-size:1.05rem; margin:0;">Import Nama Barang</h3>
+            <button type="button" onclick="document.getElementById('importNamaModal').style.display='none'" class="btn btn-sm btn-outline-secondary">✕ Tutup</button>
+        </div>
+        <p style="font-size:0.83rem; color:var(--text-muted); margin:0 0 1rem;">
+            Tulis atau tempel daftar nama barang — satu nama per baris (atau pisahkan dengan koma/titik koma).<br>
+            Nama yang sudah ada di database akan dilewati. <strong>Stok harus diisi manual setelah import.</strong>
+        </p>
+        <form method="POST">
+            <input type="hidden" name="form_action" value="import_names">
+            <div style="display:grid; gap:0.85rem;">
+                <div>
+                    <label class="form-label">Daftar Nama Barang <span style="color:#dc2626;">*</span></label>
+                    <textarea name="import_text" class="form-control" rows="10"
+                        placeholder="Bir Bintang 330ml&#10;Bir Bintang 620ml&#10;Absolut Vodka&#10;..." required></textarea>
+                    <div style="font-size:0.75rem; color:#64748b; margin-top:3px;">Satu nama per baris, atau pisahkan dengan koma/titik koma</div>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.7rem;">
+                    <div>
+                        <label class="form-label">Kategori default</label>
+                        <input type="text" name="import_kategori" class="form-control" list="kategoriList" placeholder="minuman" value="lainnya">
+                    </div>
+                    <div>
+                        <label class="form-label">Satuan default</label>
+                        <input type="text" name="import_satuan" class="form-control" list="satuanList" placeholder="pcs" value="pcs">
+                    </div>
+                </div>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.1rem;">
+                <button type="button" onclick="document.getElementById('importNamaModal').style.display='none'" class="btn btn-secondary">Batal</button>
+                <button type="submit" class="btn btn-primary">
+                    <i data-feather="upload" style="width:14px;height:14px;"></i> Import Sekarang
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 
 <?php include '../../includes/footer.php'; ?>
