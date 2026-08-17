@@ -27,50 +27,38 @@ if (!$supplier) {
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $supplier_code = trim($_POST['supplier_code']);
-    $supplier_name = trim($_POST['supplier_name']);
-    $contact_person = trim($_POST['contact_person']);
-    $phone = trim($_POST['phone']);
-    $email = trim($_POST['email']);
-    $address = trim($_POST['address']);
-    $tax_number = trim($_POST['tax_number']);
-    $payment_terms = $_POST['payment_terms'];
-    $is_active = isset($_POST['is_active']) ? 1 : 0;
-    
-    // Validate
-    if (empty($supplier_code) || empty($supplier_name)) {
-        $_SESSION['error'] = 'Kode dan nama supplier wajib diisi';
+    $supplier_name  = trim($_POST['supplier_name'] ?? '');
+    $contact_person = trim($_POST['contact_person'] ?? '');
+    $phone          = trim($_POST['phone'] ?? '');
+    $email          = trim($_POST['email'] ?? '');
+    $address        = trim($_POST['address'] ?? '');
+    $tax_number     = trim($_POST['tax_number'] ?? '');
+    $payment_terms  = trim($_POST['payment_terms'] ?? 'NET 30');
+    $is_active      = isset($_POST['is_active']) ? 1 : 0;
+
+    if (empty($supplier_name)) {
+        $_SESSION['error'] = 'Nama supplier wajib diisi';
     } else {
-        // Check if code already exists (except current)
-        $existing = $db->fetchOne("SELECT id FROM suppliers WHERE supplier_code = ? AND id != ?", [$supplier_code, $supplier_id]);
-        if ($existing) {
-            $_SESSION['error'] = 'Kode supplier sudah digunakan';
-        } else {
-            try {
-                $data = [
-                    'supplier_code' => $supplier_code,
-                    'supplier_name' => $supplier_name,
-                    'contact_person' => $contact_person ?: null,
-                    'phone' => $phone ?: null,
-                    'email' => $email ?: null,
-                    'address' => $address ?: null,
-                    'tax_number' => $tax_number ?: null,
-                    'payment_terms' => $payment_terms,
-                    'is_active' => $is_active
-                ];
-                
-                $result = $db->update('suppliers', $data, 'id = :id', ['id' => $supplier_id]);
-                
-                if ($result !== false) {
-                    $_SESSION['success'] = 'Supplier berhasil diupdate';
-                    header('Location: view-supplier.php?id=' . $supplier_id);
-                    exit;
-                } else {
-                    $_SESSION['error'] = 'Gagal mengupdate supplier';
-                }
-            } catch (Exception $e) {
-                $_SESSION['error'] = 'Error: ' . $e->getMessage();
+        try {
+            // Build update data; only include extra columns if they exist to avoid silent failures
+            $cols = array_column($db->fetchAll('SHOW COLUMNS FROM suppliers'), 'Field');
+            $data = ['supplier_name' => $supplier_name, 'contact_person' => $contact_person ?: null,
+                     'phone' => $phone ?: null, 'email' => $email ?: null,
+                     'address' => $address ?: null, 'is_active' => $is_active];
+            if (in_array('tax_number', $cols)) $data['tax_number'] = $tax_number ?: null;
+            if (in_array('payment_terms', $cols)) $data['payment_terms'] = $payment_terms;
+
+            $result = $db->update('suppliers', $data, 'id = :id', ['id' => $supplier_id]);
+
+            if ($result !== false) {
+                $_SESSION['success'] = 'Supplier berhasil diupdate';
+                header('Location: suppliers.php');
+                exit;
+            } else {
+                $_SESSION['error'] = 'Gagal mengupdate supplier. Coba lagi.';
             }
+        } catch (Exception $e) {
+            $_SESSION['error'] = 'Error: ' . $e->getMessage();
         }
     }
 }

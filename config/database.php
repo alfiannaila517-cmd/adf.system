@@ -498,6 +498,13 @@ class Database
                         'last_login' => "DATETIME NULL",
                         'updated_at' => "TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
                     ],
+                    'suppliers' => [
+                        'supplier_code'  => "VARCHAR(50) NULL",
+                        'tax_number'     => "VARCHAR(100) NULL",
+                        'payment_terms'  => "VARCHAR(30) DEFAULT 'NET 30'",
+                        'created_by'     => "INT NULL",
+                        'updated_at'     => "TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+                    ],
                     'purchase_orders_header' => [
                         'business_id' => "INT NULL",
                         'expected_delivery_date' => "DATE NULL",
