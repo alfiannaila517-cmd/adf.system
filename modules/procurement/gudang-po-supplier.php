@@ -153,7 +153,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
         $un = trim($it['unit'] ?? 'pcs');
         $up = (float)($it['unit_price'] ?? 0);
         if ($nm !== '' && $qt > 0) {
-            $validItems[] = ['item_name' => $nm, 'quantity' => $qt, 'unit' => $un, 'unit_price' => $up];
+                    $validItems[] = ['item_name' => $nm, 'quantity' => $qt, 'unit' => $un, 'unit_price' => $up, 'expiry_date' => trim($it['expiry_date'] ?? '')];
         }
     }
 
@@ -202,6 +202,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
                     'subtotal'         => $it['quantity'] * $it['unit_price'],
                     'received_quantity' => 0,
                 ];
+                if (!empty($it['expiry_date']) && in_array('expiry_date', $detailColNames)) {
+                    $detailData['expiry_date'] = $it['expiry_date'];
+                }
                 if (in_array('line_number', $detailColNames)) {
                     $detailData['line_number'] = $idx + 1;
                 }
@@ -854,8 +857,10 @@ include '../../includes/header.php';
         document.querySelectorAll('#poRightList .po-right-row').forEach(function(row) {
             var key = row.dataset.id;
             var inp = row.querySelector('input[type=number]');
-            if (key && inp && selected[key] !== undefined) {
-                selected[key].qty = inp.value;
+            var expInp = row.querySelector('.expiry-input');
+            if (key && selected[key] !== undefined) {
+                if (inp) selected[key].qty = inp.value;
+                if (expInp) selected[key].expiry = expInp.value;
             }
         });
 
@@ -879,13 +884,15 @@ include '../../includes/header.php';
             total += subtotal;
             // Label manual items differently so they're visually distinct
             var rowStyle = s.isManual ? 'background:#fffbeb;' : '';
-            html += '<div class="po-right-row" data-id=\'' + id + '\' style="' + rowStyle + '">' +
-                '<div class="item-name">' + s.nama +
+            html += '<div class="po-right-row" data-id=\'' + id + '\' style="' + rowStyle + 'flex-wrap:wrap;gap:0.3rem;">' +
+                '<div class="item-name" style="flex:1;min-width:120px;">' + s.nama +
                 (s.isManual ? '<span style="font-size:0.68rem;background:#f59e0b;color:#fff;padding:1px 5px;border-radius:4px;margin-left:4px;">Baru</span>' : '') +
                 '<br><span class="item-unit">' + s.satuan + (s.harga > 0 ? ' · Rp ' + Math.round(s.harga).toLocaleString('id-ID') : '') + '</span></div>' +
                 '<input type="number" class="form-control" style="width:80px;text-align:right;" placeholder="Qty" min="0.01" step="0.01" value="' + (s.qty || '') + '"' +
                 ' oninput="selected[\'' + id + '\'].qty=this.value;updateTotal()">' +
                 '<span class="item-unit">' + s.satuan + '</span>' +
+                '<input type="date" class="form-control expiry-input" style="width:130px;font-size:0.78rem;" title="Tanggal Kadaluarsa (opsional)" value="' + (s.expiry || '') + '"' +
+                ' oninput="selected[\'' + id + '\'].expiry=this.value">' +
                 '<button type="button" onclick="removePoItem(\'' + id + '\')" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:1rem;padding:0 4px;">✕</button>' +
                 '</div>';
         });
@@ -963,6 +970,7 @@ include '../../includes/header.php';
             h('items[' + idx + '][quantity]', qty);
             h('items[' + idx + '][unit]', s.satuan);
             h('items[' + idx + '][unit_price]', s.harga);
+            if (s.expiry) h('items[' + idx + '][expiry_date]', s.expiry);
             idx++;
         });
 

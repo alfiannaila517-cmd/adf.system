@@ -1039,6 +1039,9 @@ function receivePurchaseOrderToGudang($po_id, array $receivedItems, $receivedBy,
                 if (gudangNasitaStockHasColumn('jumlah_stok')) {
                     $insertData['jumlah_stok'] = 0;
                 }
+                if (gudangNasitaStockHasColumn('expiry_date') && !empty($item['expiry_date'])) {
+                    $insertData['expiry_date'] = $item['expiry_date'];
+                }
 
                 $stockId = $db->insert('gudang_nasita_stock', $insertData);
                 $stock = $db->fetchOne('SELECT * FROM gudang_nasita_stock WHERE id = ? LIMIT 1', [$stockId]);
@@ -1061,6 +1064,9 @@ function receivePurchaseOrderToGudang($po_id, array $receivedItems, $receivedBy,
             ];
             if (gudangNasitaStockHasColumn('jumlah_stok')) {
                 $stockUpdate['jumlah_stok'] = $newQty;
+            }
+            if (gudangNasitaStockHasColumn('expiry_date') && !empty($item['expiry_date'])) {
+                $stockUpdate['expiry_date'] = $item['expiry_date'];
             }
             $db->update('gudang_nasita_stock', $stockUpdate, 'id = :id', ['id' => $stock['id']]);
 

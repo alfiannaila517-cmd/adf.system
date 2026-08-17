@@ -1103,13 +1103,14 @@ include '../../includes/header.php';
                         <th class="text-right">Nilai</th>
                         <th>Unit</th>
                         <th>Supplier</th>
+                        <th>Kadaluarsa</th>
                         <th>Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (empty($stockItems)): ?>
                         <tr>
-                            <td colspan="9" style="text-align:center; padding: 2rem; color: var(--text-muted);">Belum ada stok gudang</td>
+                            <td colspan="10" style="text-align:center; padding: 2rem; color: var(--text-muted);">Belum ada stok gudang</td>
                         </tr>
                     <?php else: ?>
                         <?php $currentCategory = null; ?>
@@ -1121,7 +1122,7 @@ include '../../includes/header.php';
                             <?php if ($currentCategory !== $rowCategory): ?>
                                 <?php $currentCategory = $rowCategory; ?>
                                 <tr>
-                                    <td colspan="9" style="background:#f8fafc; font-weight:700; color:#334155; text-transform:capitalize; border-top:1px solid var(--border);">
+                                    <td colspan="10" style="background:#f8fafc; font-weight:700; color:#334155; text-transform:capitalize; border-top:1px solid var(--border);">
                                         Kategori: <?php echo htmlspecialchars($currentCategory); ?>
                                     </td>
                                 </tr>
@@ -1139,6 +1140,22 @@ include '../../includes/header.php';
                                 <td class="text-right" style="font-weight:700; color:#0f9d6a;">Rp <?php echo number_format((float)($item['total_harga'] ?? ((float)$item['quantity'] * (float)($item['harga_beli'] ?? 0))), 0, ',', '.'); ?></td>
                                 <td><?php echo htmlspecialchars($item['unit']); ?></td>
                                 <td style="font-size:0.813rem;"><?php echo htmlspecialchars($item['supplier_name'] ?: '-'); ?></td>
+                                <td style="font-size:0.82rem; white-space:nowrap;"><?php
+                                    $exp = $item['expiry_date'] ?? '';
+                                    if ($exp && $exp !== '0000-00-00') {
+                                        $expTs = strtotime($exp);
+                                        $diffDays = (int)floor(($expTs - time()) / 86400);
+                                        if ($diffDays < 0) {
+                                            echo '<span style="color:#dc2626; font-weight:700;">&#9888; Kadaluarsa ' . date('d M Y', $expTs) . '</span>';
+                                        } elseif ($diffDays <= 30) {
+                                            echo '<span style="color:#d97706; font-weight:700;">&#9888; ' . date('d M Y', $expTs) . ' (' . $diffDays . ' hr)</span>';
+                                        } else {
+                                            echo '<span style="color:#64748b;">' . date('d M Y', $expTs) . '</span>';
+                                        }
+                                    } else {
+                                        echo '<span style="color:#cbd5e1;">—</span>';
+                                    }
+                                ?></td>
                                 <td>
                                     <div style="display:flex; gap:0.35rem; align-items:center; flex-wrap:wrap;">
                                         <button type="button" class="btn btn-sm" style="background:#0f9d6a;color:#fff;"

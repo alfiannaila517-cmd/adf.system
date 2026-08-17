@@ -517,6 +517,7 @@ class Database
                         'item_description' => "TEXT NULL",
                         'division_id' => "INT NULL",
                         'notes' => "TEXT NULL",
+                        'expiry_date' => "DATE NULL",
                     ],
                     'gudang_nasita_stock' => [
                         'category'    => "VARCHAR(80) DEFAULT 'lainnya'",
@@ -525,6 +526,7 @@ class Database
                         'total_harga' => "DECIMAL(15,2) DEFAULT 0",
                         'barang_id'   => "INT NULL",
                         'stock_code'  => "VARCHAR(30) NULL",
+                        'expiry_date' => "DATE NULL",
                     ],
                     // ---- FRONTDESK table columns ----
                     'room_types' => [
