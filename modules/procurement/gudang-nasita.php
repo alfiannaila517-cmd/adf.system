@@ -1054,7 +1054,7 @@ include '../../includes/header.php';
                             <span style="font-size:0.75rem; color:#6b7280; margin-left:0.4rem;">(<?php echo htmlspecialchars($lwItem['supplier_name']); ?>)</span>
                         <?php endif; ?>
                     </div>
-                    <button type="button" class="btn btn-sm" style="background:#dc2626; color:#fff; font-size:0.75rem; padding:0.2rem 0.6rem; white-space:nowrap;"
+                    <button type="button" class="btn btn-sm" style="background:#fff; color:#dc2626; border:1.5px solid #fca5a5; font-size:0.75rem; padding:0.2rem 0.6rem; white-space:nowrap; font-weight:600;"
                         onclick="window.location.href='gudang-po-supplier.php'">
                         Pesan
                     </button>
