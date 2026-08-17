@@ -107,8 +107,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (!empty($cleanIds)) {
             $placeholders = implode(',', array_fill(0, count($cleanIds), '?'));
-            $db->query('DELETE FROM gudang_nasita_barang WHERE id IN (' . $placeholders . ')', $cleanIds);
-            $msg = 'Produk yang dipilih berhasil dihapus.';
+            // Soft-delete: set is_active=0 so historical PO references remain intact
+            $db->query('UPDATE gudang_nasita_barang SET is_active = 0 WHERE id IN (' . $placeholders . ')', $cleanIds);
+            $msg = 'Produk yang dipilih berhasil dihapus (dinonaktifkan).';
             $msgType = 'success';
         } else {
             $msg = 'Tidak ada produk yang dipilih untuk dihapus.';

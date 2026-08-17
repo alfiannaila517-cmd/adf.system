@@ -1217,42 +1217,10 @@ function ensureGudangNasitaBarangId($itemName, $unit = 'pcs', $category = 'lainn
         return null;
     }
 
+    // Only lookup — do NOT auto-create. Products must be added via Database Produk page.
+    // This prevents deleted items from reappearing after a PO or stock transfer.
     $existing = $db->fetchOne('SELECT id FROM gudang_nasita_barang WHERE LOWER(nama_barang) = LOWER(?) LIMIT 1', [$itemName]);
-    if ($existing) {
-        return (int)$existing['id'];
-    }
-
-    $cols = $db->fetchAll('SHOW COLUMNS FROM gudang_nasita_barang');
-    $colNames = array_column($cols, 'Field');
-
-    $insertData = [];
-    if (in_array('kode_barang', $colNames, true)) {
-        $insertData['kode_barang'] = generateGudangNasitaBarangCode();
-    }
-    if (in_array('nama_barang', $colNames, true)) {
-        $insertData['nama_barang'] = $itemName;
-    }
-    if (in_array('deskripsi', $colNames, true)) {
-        $insertData['deskripsi'] = $notes !== '' ? $notes : 'Auto created from Gudang Nasita stock input';
-    }
-    if (in_array('satuan', $colNames, true)) {
-        $insertData['satuan'] = $unit !== '' ? $unit : 'pcs';
-    }
-    if (in_array('kategori', $colNames, true)) {
-        $insertData['kategori'] = $category !== '' ? $category : 'lainnya';
-    }
-    if (in_array('harga_beli', $colNames, true)) {
-        $insertData['harga_beli'] = 0;
-    }
-    if (in_array('harga_jual', $colNames, true)) {
-        $insertData['harga_jual'] = 0;
-    }
-    if (in_array('is_active', $colNames, true)) {
-        $insertData['is_active'] = 1;
-    }
-
-    $id = $db->insert('gudang_nasita_barang', $insertData);
-    return (int)$id;
+    return $existing ? (int)$existing['id'] : null;
 }
 
 function ensureGudangNasitaStockSchemaCompatibility()

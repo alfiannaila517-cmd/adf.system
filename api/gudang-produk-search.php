@@ -163,7 +163,8 @@ if ($action === 'delete' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $placeholders = implode(',', array_fill(0, count($cleanIds), '?'));
-    $db->query('DELETE FROM gudang_nasita_barang WHERE id IN (' . $placeholders . ')', $cleanIds);
+    // Soft-delete: set is_active=0; physical DELETE would cause auto-recreate via ensureGudangNasitaBarangId
+    $db->query('UPDATE gudang_nasita_barang SET is_active = 0 WHERE id IN (' . $placeholders . ')', $cleanIds);
     echo json_encode(['success' => true, 'deleted' => count($cleanIds)]);
     exit;
 }
