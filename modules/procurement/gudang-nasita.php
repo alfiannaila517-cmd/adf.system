@@ -1018,10 +1018,12 @@ include '../../includes/header.php';
     <div class="card" style="padding:1rem;">
         <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.35rem;">Masuk Hari Ini</div>
         <div style="font-size:1.75rem; font-weight:800; color:#0f9d6a;"><?php echo number_format($summary['incoming_today'], 2); ?></div>
+        <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">pcs / qty masuk</div>
     </div>
     <div class="card" style="padding:1rem;">
         <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.35rem;">Keluar Hari Ini</div>
         <div style="font-size:1.75rem; font-weight:800; color:#d83a5b;"><?php echo number_format($summary['outgoing_today'], 2); ?></div>
+        <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">pcs / qty keluar</div>
     </div>
     <div class="card" style="padding:1rem;">
         <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.35rem;">Nilai Persediaan</div>
