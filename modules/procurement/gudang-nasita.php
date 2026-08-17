@@ -1038,24 +1038,25 @@ include '../../includes/header.php';
 <?php endif; ?>
 
 <?php if (!empty($lowStockItems)): ?>
-    <div style="background:#fef2f2; border:1.5px solid #fca5a5; border-radius:0.85rem; padding:1rem 1.25rem; margin-bottom:1.25rem;">
-        <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.75rem;">
-            <i data-feather="alert-triangle" style="width:18px; height:18px; color:#dc2626;"></i>
-            <strong style="color:#dc2626; font-size:0.95rem;">⚠️ <?php echo count($lowStockItems); ?> item stok menipis &mdash; perlu segera dipesan ke supplier</strong>
+    <div style="background:#fef2f2; border:1.5px solid #fca5a5; border-radius:0.85rem; padding:0.75rem 1.25rem; margin-bottom:0.85rem;">
+        <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.5rem;">
+            <i data-feather="alert-triangle" style="width:16px; height:16px; color:#dc2626;"></i>
+            <strong style="color:#dc2626; font-size:0.875rem;">⚠️ <?php echo count($lowStockItems); ?> item stok menipis &mdash; perlu segera dipesan ke supplier</strong>
         </div>
-        <div style="display:grid; gap:0.5rem;">
+        <!-- max-height shows ~3 items; rest scrollable -->
+        <div style="display:grid; gap:0.4rem; max-height:132px; overflow-y:auto; padding-right:4px;">
             <?php foreach ($lowStockItems as $lwItem): ?>
-                <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; background:#fff; border:1px solid #fca5a5; border-radius:0.6rem; padding:0.6rem 0.85rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:0.75rem; flex-wrap:wrap; background:#fff; border:1px solid #fca5a5; border-radius:0.5rem; padding:0.45rem 0.75rem;">
                     <div>
-                        <span style="font-weight:700; color:#991b1b;"><?php echo htmlspecialchars($lwItem['item_name']); ?></span>
-                        <span style="font-size:0.8rem; color:#b91c1c; margin-left:0.5rem;">Sisa: <?php echo number_format((float)$lwItem['quantity'], 2); ?> <?php echo htmlspecialchars($lwItem['unit']); ?> &mdash; Reorder: <?php echo number_format((float)$lwItem['reorder_level'], 2); ?></span>
+                        <span style="font-weight:700; color:#991b1b; font-size:0.875rem;"><?php echo htmlspecialchars($lwItem['item_name']); ?></span>
+                        <span style="font-size:0.78rem; color:#b91c1c; margin-left:0.4rem;">Sisa: <?php echo number_format((float)$lwItem['quantity'], 2); ?> <?php echo htmlspecialchars($lwItem['unit']); ?> &mdash; Reorder: <?php echo number_format((float)$lwItem['reorder_level'], 2); ?></span>
                         <?php if (!empty($lwItem['supplier_name'])): ?>
-                            <span style="font-size:0.78rem; color:#6b7280; margin-left:0.4rem;">(Supplier: <?php echo htmlspecialchars($lwItem['supplier_name']); ?>)</span>
+                            <span style="font-size:0.75rem; color:#6b7280; margin-left:0.4rem;">(<?php echo htmlspecialchars($lwItem['supplier_name']); ?>)</span>
                         <?php endif; ?>
                     </div>
-                    <button type="button" class="btn btn-sm" style="background:#dc2626; color:#fff; font-size:0.78rem; padding:0.3rem 0.75rem;"
+                    <button type="button" class="btn btn-sm" style="background:#dc2626; color:#fff; font-size:0.75rem; padding:0.2rem 0.6rem; white-space:nowrap;"
                         onclick="window.location.href='gudang-po-supplier.php'">
-                        <i data-feather="shopping-cart" style="width:13px;height:13px;"></i> Pesan ke Supplier
+                        Pesan
                     </button>
                 </div>
             <?php endforeach; ?>
