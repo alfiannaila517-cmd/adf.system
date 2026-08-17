@@ -15,8 +15,13 @@ $pageTitle = 'Suppliers';
 if (isset($_GET['delete'])) {
     $id = (int)$_GET['delete'];
     try {
-        $db->delete('suppliers', ['id' => $id]);
-        $_SESSION['success'] = 'Supplier berhasil dihapus';
+        // Soft-delete to preserve PO history that references this supplier
+        $affected = $db->update('suppliers', ['is_active' => 0], 'id = :id', ['id' => $id]);
+        if ($affected !== false) {
+            $_SESSION['success'] = 'Supplier berhasil dihapus.';
+        } else {
+            $_SESSION['error'] = 'Supplier tidak ditemukan.';
+        }
     } catch (Exception $e) {
         $_SESSION['error'] = 'Gagal menghapus supplier: ' . $e->getMessage();
     }
