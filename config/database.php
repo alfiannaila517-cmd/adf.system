@@ -520,9 +520,11 @@ class Database
                     ],
                     'gudang_nasita_stock' => [
                         'category'    => "VARCHAR(80) DEFAULT 'lainnya'",
+                        'quantity'    => "DECIMAL(15,2) NOT NULL DEFAULT 0",
                         'harga_beli'  => "DECIMAL(15,2) DEFAULT 0",
                         'total_harga' => "DECIMAL(15,2) DEFAULT 0",
                         'barang_id'   => "INT NULL",
+                        'stock_code'  => "VARCHAR(30) NULL",
                     ],
                     // ---- FRONTDESK table columns ----
                     'room_types' => [
