@@ -809,6 +809,7 @@ function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $op
         $db->update('gudang_nasita_stock', $updateData, 'id = :id', ['id' => $stock['id']]);
 
         $referenceNumber = 'MAN-' . date('YmdHis');
+        // unit_price and subtotal are NOT in the gudang_nasita_movements schema; omit to prevent rollback
         $db->insert('gudang_nasita_movements', [
             'stock_id' => $stock['id'],
             'movement_date' => date('Y-m-d'),
@@ -817,8 +818,6 @@ function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $op
             'reference_type' => 'manual_stock',
             'reference_id' => null,
             'reference_number' => $referenceNumber,
-            'unit_price' => $unitPrice > 0 ? $unitPrice : gudangNasitaCurrentUnitCost($stock),
-            'subtotal' => $incomingValue,
             'notes' => $notes !== '' ? $notes : 'Input stok manual awal',
             'created_by' => $createdBy
         ]);
