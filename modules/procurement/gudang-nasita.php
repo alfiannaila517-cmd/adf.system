@@ -1168,32 +1168,42 @@ include '../../includes/header.php';
                                     } else {
                                         echo '<span style="color:#cbd5e1;">—</span>';
                                     }
-                                ?>
-                                <form method="POST" style="display:inline; margin-top:3px;">
-                                    <input type="hidden" name="action" value="update_expiry">
-                                    <input type="hidden" name="stock_id" value="<?php echo (int)$item['id']; ?>">
-                                    <div style="display:flex; gap:3px; align-items:center; margin-top:3px;">
-                                        <input type="date" name="expiry_date" class="form-control" style="font-size:0.73rem; height:26px; padding:0 4px; width:120px;" value="<?php echo htmlspecialchars($exp ?? ''); ?>">
-                                        <button type="submit" class="btn btn-sm" style="height:26px; padding:0 6px; font-size:0.72rem; background:#6366f1; color:#fff;">Simpan</button>
-                                    </div>
-                                </form></td>
+                                ?></td>
                                 <td>
-                                    <div style="display:flex; gap:0.35rem; align-items:center; flex-wrap:wrap;">
-                                        <button type="button" class="btn btn-sm" style="background:#0f9d6a;color:#fff;"
-                                            onclick="openQuickStock(<?php echo htmlspecialchars(json_encode($item['item_name']), ENT_QUOTES); ?>, <?php echo htmlspecialchars(json_encode($item['category'] ?? 'lainnya'), ENT_QUOTES); ?>, <?php echo htmlspecialchars(json_encode($item['unit']), ENT_QUOTES); ?>, <?php echo (float)($item['quantity'] ?? 0); ?>)">
-                                            <i data-feather="plus" style="width:13px;height:13px;"></i> Tambah Stok
+                                    <?php $stockIdInt = (int)($item['id'] ?? 0); ?>
+                                    <div class="dropdown" style="position:relative; display:inline-block;">
+                                        <button type="button" class="btn btn-sm btn-secondary" style="padding:0 0.55rem; height:30px;"
+                                            onclick="toggleStockDropdown(<?php echo $stockIdInt; ?>)">
+                                            Aksi ▾
                                         </button>
-                                        <a href="gudang-transfer.php?stock_id=<?php echo (int)$item['id']; ?>" class="btn btn-sm btn-primary">
-                                            <i data-feather="send" style="width:14px; height:14px;"></i>
-                                            Transfer
-                                        </a>
-                                        <form method="POST" style="display:inline;" onsubmit="return confirm('Hapus item stok ini?')">
-                                            <input type="hidden" name="action" value="delete_stock">
-                                            <input type="hidden" name="stock_id" value="<?php echo (int)$item['id']; ?>">
-                                            <button type="submit" class="btn btn-sm btn-danger" title="Hapus">
-                                                <i data-feather="trash-2" style="width:14px;height:14px;"></i>
+                                        <div id="sdrop-<?php echo $stockIdInt; ?>" style="display:none; position:absolute; right:0; top:100%; background:#fff; border:1px solid #e2e8f0; border-radius:0.6rem; box-shadow:0 6px 20px rgba(0,0,0,0.12); z-index:1000; min-width:210px; padding:0.4rem 0;">
+                                            <button type="button" style="display:block; width:100%; text-align:left; padding:0.5rem 0.9rem; font-size:0.83rem; background:none; border:none; cursor:pointer; color:#0f9d6a; font-weight:600;"
+                                                onclick="toggleStockDropdown(<?php echo $stockIdInt; ?>); openQuickStock(<?php echo htmlspecialchars(json_encode($item['item_name']), ENT_QUOTES); ?>, <?php echo htmlspecialchars(json_encode($item['category'] ?? 'lainnya'), ENT_QUOTES); ?>, <?php echo htmlspecialchars(json_encode($item['unit']), ENT_QUOTES); ?>, <?php echo (float)($item['quantity'] ?? 0); ?>)">
+                                                + Tambah Stok
                                             </button>
-                                        </form>
+                                            <a href="gudang-transfer.php?stock_id=<?php echo $stockIdInt; ?>" style="display:block; padding:0.5rem 0.9rem; font-size:0.83rem; color:#3b82f6; font-weight:600; text-decoration:none;"
+                                                onclick="toggleStockDropdown(<?php echo $stockIdInt; ?>)">
+                                                ↗ Transfer ke Bisnis
+                                            </a>
+                                            <div style="border-top:1px solid #f1f5f9; margin:0.25rem 0;"></div>
+                                            <div style="padding:0.45rem 0.9rem;">
+                                                <div style="font-size:0.75rem; color:#64748b; margin-bottom:3px;">Edit Kadaluarsa</div>
+                                                <form method="POST" style="display:flex; gap:4px;" onsubmit="toggleStockDropdown(<?php echo $stockIdInt; ?>)">
+                                                    <input type="hidden" name="action" value="update_expiry">
+                                                    <input type="hidden" name="stock_id" value="<?php echo $stockIdInt; ?>">
+                                                    <input type="date" name="expiry_date" class="form-control" style="font-size:0.78rem; height:28px; padding:0 4px; flex:1;" value="<?php echo htmlspecialchars($exp ?? ''); ?>">
+                                                    <button type="submit" class="btn btn-sm" style="height:28px; padding:0 8px; font-size:0.75rem; background:#6366f1; color:#fff; white-space:nowrap;">Simpan</button>
+                                                </form>
+                                            </div>
+                                            <div style="border-top:1px solid #f1f5f9; margin:0.25rem 0;"></div>
+                                            <form method="POST" style="padding:0 0.9rem 0.4rem;" onsubmit="return confirm('Hapus item stok ini?')">
+                                                <input type="hidden" name="action" value="delete_stock">
+                                                <input type="hidden" name="stock_id" value="<?php echo $stockIdInt; ?>">
+                                                <button type="submit" style="display:block; width:100%; text-align:left; padding:0.3rem 0; font-size:0.83rem; background:none; border:none; cursor:pointer; color:#dc2626; font-weight:600;">
+                                                    🗑 Hapus Item Stok
+                                                </button>
+                                            </form>
+                                        </div>
                                     </div>
                                 </td>
                             </tr>
@@ -1299,7 +1309,7 @@ include '../../includes/header.php';
 
 <script>
     if (typeof feather !== 'undefined') feather.replace();
-    const GUDANG_BASE = '<?php echo BASE_URL; ?>';
+    const GUDANG_BASE = '<?php echo BASE_URL; ?>';\n\n    function toggleStockDropdown(id) {\n        const el = document.getElementById('sdrop-' + id);\n        if (!el) return;\n        const isOpen = el.style.display !== 'none';\n        // Close all open dropdowns first\n        document.querySelectorAll('[id^=\"sdrop-\"]').forEach(d => d.style.display = 'none');\n        if (!isOpen) el.style.display = 'block';\n    }\n    // Close dropdown when clicking outside\n    document.addEventListener('click', e => {\n        if (!e.target.closest('.dropdown')) {\n            document.querySelectorAll('[id^=\"sdrop-\"]').forEach(d => d.style.display = 'none');\n        }\n    });
 
     // Live client-side stock filter
     (function() {
