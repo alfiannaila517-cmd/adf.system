@@ -61,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $msg = 'Nama barang wajib diisi.';
             $msgType = 'danger';
         } else {
-            $dupe = $db->fetchOne("SELECT id FROM gudang_nasita_barang WHERE LOWER(nama_barang) = LOWER(?) AND id != ? LIMIT 1", [$nama, $id]);
+            $dupe = $db->fetchOne("SELECT id FROM gudang_nasita_barang WHERE LOWER(nama_barang) = LOWER(?) AND id != ? AND COALESCE(is_active,1) = 1 LIMIT 1", [$nama, $id]);
             if ($dupe) {
                 $msg = "Nama \"$nama\" sudah ada di database (ID #{$dupe['id']}). Gunakan nama yang berbeda atau edit produk yang ada.";
                 $msgType = 'danger';

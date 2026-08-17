@@ -91,7 +91,7 @@ if ($action === 'save' && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Duplicate check (exclude self when editing)
     $dupeCheck = $db->fetchOne(
-        "SELECT id FROM gudang_nasita_barang WHERE LOWER(nama_barang) = LOWER(?) AND id != ? LIMIT 1",
+        "SELECT id FROM gudang_nasita_barang WHERE LOWER(nama_barang) = LOWER(?) AND id != ? AND COALESCE(is_active,1) = 1 LIMIT 1",
         [$nama, $id]
     );
     if ($dupeCheck) {
