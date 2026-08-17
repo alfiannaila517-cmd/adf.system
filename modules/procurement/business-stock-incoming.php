@@ -455,6 +455,16 @@ if ($masterPdo && $activeBusinessSlug !== '') {
             $interTransferOutMap[$buildKey($row['item_name'] ?? '', $row['unit'] ?? '')] = (float)($row['qty'] ?? 0);
             $registerStockMeta($row['item_name'] ?? '', $row['unit'] ?? '');
         }
+
+        // Fetch transfer-out rows for display in Pengeluaran Harian
+        $stmtOutRows = $masterPdo->prepare(
+            "SELECT id, transfer_number, target_business_name, item_name, unit, quantity, notes, created_at
+             FROM business_inter_stock_transfers
+             WHERE source_business_slug = ?
+             ORDER BY created_at DESC LIMIT 200"
+        );
+        $stmtOutRows->execute([$activeBusinessSlug]);
+        $interTransferOutRows = $stmtOutRows->fetchAll();
     } catch (Throwable $e) {
         error_log('business-stock-incoming transfer aggregate error: ' . $e->getMessage());
     }
@@ -1141,7 +1151,7 @@ include '../../includes/header.php';
                             <th>Item</th>
                             <th>Unit</th>
                             <th class="text-right">Qty</th>
-                            <th>Catatan</th>
+                            <th>Catatan / Tujuan</th>
                             <th>Waktu</th>
                         </tr>
                     </thead>
@@ -1163,6 +1173,20 @@ include '../../includes/header.php';
                                 </tr>
                         <?php endforeach;
                         endif; ?>
+                        <?php foreach ($interTransferOutRows ?? [] as $tr): ?>
+                            <tr style="background:#fef3c7;">
+                                <td style="text-align:center;"><span style="font-size:0.75rem; color:#92400e;">&#8594;</span></td>
+                                <td style="font-weight:600;"><?php echo htmlspecialchars((string)($tr['item_name'] ?? '-')); ?></td>
+                                <td><?php echo htmlspecialchars((string)($tr['unit'] ?? 'pcs')); ?></td>
+                                <td class="text-right" style="font-weight:700; color:#b45309;"><?php echo number_format((float)($tr['quantity'] ?? 0), 2); ?></td>
+                                <td style="font-size:0.82rem;">
+                                    Transfer ke <strong><?php echo htmlspecialchars((string)($tr['target_business_name'] ?? '-')); ?></strong>
+                                    <?php if (!empty($tr['transfer_number'])): ?>&mdash; <?php echo htmlspecialchars($tr['transfer_number']); ?><?php endif; ?>
+                                    <?php if (!empty($tr['notes'])): ?><br><span style="color:#64748b;"><?php echo htmlspecialchars($tr['notes']); ?></span><?php endif; ?>
+                                </td>
+                                <td style="font-size:0.82rem; color:var(--text-muted);"><?php echo date('d M Y H:i', strtotime((string)($tr['created_at'] ?? date('Y-m-d H:i:s')))); ?></td>
+                            </tr>
+                        <?php endforeach; ?>
                     </tbody>
                 </table>
             </form>
@@ -1214,6 +1238,96 @@ include '../../includes/header.php';
             </table>
         </div>
     </div>
+
+<?php
+// Tagihan per PO ke Gudang Nasita
+$poBillingRows = [];
+try {
+    $poBillingRows = $db->fetchAll(
+        "SELECT poh.id, poh.po_number, poh.po_date, poh.status,
+                COALESCE(poh.grand_total, 0) AS grand_total,
+                COALESCE(SUM(pod.total_price), 0) AS items_total
+         FROM purchase_orders_header poh
+         LEFT JOIN purchase_orders_detail pod ON pod.po_header_id = poh.id
+         WHERE poh.status NOT IN ('cancelled','draft')
+         GROUP BY poh.id
+         ORDER BY poh.po_date DESC
+         LIMIT 50"
+    ) ?: [];
+} catch (Throwable $e) {
+    $poBillingRows = [];
+}
+?>
+
+<?php if ($activeBusinessId > 0 && !empty($poBillingRows)): ?>
+<div class="card" style="margin-top:1.25rem;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:0.5rem;">
+        <div>
+            <h3 style="font-size:1rem; font-weight:700; margin:0;">Tagihan ke Gudang Nasita <span style="font-size:0.8rem; color:var(--text-muted); font-weight:400;">(per PO)</span></h3>
+            <p style="font-size:0.8rem; color:var(--text-muted); margin:0.15rem 0 0;">Rekap pembayaran barang yang diterima dari gudang</p>
+        </div>
+        <span style="font-size:0.82rem; color:var(--text-muted);"><?php echo count($poBillingRows); ?> PO</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>No PO</th>
+                    <th>Tanggal</th>
+                    <th>Status PO</th>
+                    <th class="text-right">Total Nilai</th>
+                    <th class="text-center">Aksi</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php
+                $totalTagihan = 0;
+                foreach ($poBillingRows as $poBill):
+                    $poVal = (float)($poBill['grand_total'] ?? 0) > 0
+                        ? (float)$poBill['grand_total']
+                        : (float)($poBill['items_total'] ?? 0);
+                    $totalTagihan += $poVal;
+                    $poStatus = (string)($poBill['status'] ?? '-');
+                    $statusColors = [
+                        'submitted'          => ['#fef3c7','#92400e'],
+                        'approved'           => ['#dbeafe','#1e40af'],
+                        'received'           => ['#d1fae5','#065f46'],
+                        'partially_received' => ['#ede9fe','#5b21b6'],
+                    ];
+                    [$bgColor, $textColor] = $statusColors[$poStatus] ?? ['#f1f5f9','#475569'];
+                ?>
+                <tr>
+                    <td style="font-weight:700; color:#4f46e5;"><?php echo htmlspecialchars($poBill['po_number'] ?? '-'); ?></td>
+                    <td style="font-size:0.875rem;"><?php echo !empty($poBill['po_date']) ? date('d M Y', strtotime($poBill['po_date'])) : '-'; ?></td>
+                    <td>
+                        <span style="background:<?php echo $bgColor; ?>; color:<?php echo $textColor; ?>; padding:0.15rem 0.65rem; border-radius:999px; font-size:0.78rem; font-weight:600; white-space:nowrap;">
+                            <?php echo ucfirst(str_replace('_', ' ', $poStatus)); ?>
+                        </span>
+                    </td>
+                    <td class="text-right" style="font-weight:700; color:<?php echo $poVal > 0 ? '#0f9d6a' : '#94a3b8'; ?>;">
+                        <?php echo $poVal > 0 ? 'Rp&nbsp;' . number_format($poVal, 0, ',', '.') : '—'; ?>
+                    </td>
+                    <td class="text-center">
+                        <a href="view-po.php?id=<?php echo (int)$poBill['id']; ?>" class="btn btn-sm btn-primary" style="height:28px; padding:0 0.65rem; font-size:0.8rem;">
+                            Lihat PO
+                        </a>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+            <?php if ($totalTagihan > 0): ?>
+            <tfoot>
+                <tr style="background:#f8fafc; font-weight:700;">
+                    <td colspan="3">Total Tagihan</td>
+                    <td class="text-right" style="color:#0f9d6a;">Rp&nbsp;<?php echo number_format($totalTagihan, 0, ',', '.'); ?></td>
+                    <td></td>
+                </tr>
+            </tfoot>
+            <?php endif; ?>
+        </table>
+    </div>
+</div>
+<?php endif; ?>
 
 <?php endif; ?>
 
