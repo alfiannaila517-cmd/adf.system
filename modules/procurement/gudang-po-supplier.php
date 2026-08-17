@@ -850,6 +850,15 @@ include '../../includes/header.php';
     }
 
     function renderRight() {
+        // Preserve qty currently typed in DOM before re-render
+        document.querySelectorAll('#poRightList .po-right-row').forEach(function(row) {
+            var key = row.dataset.id;
+            var inp = row.querySelector('input[type=number]');
+            if (key && inp && selected[key] !== undefined) {
+                selected[key].qty = inp.value;
+            }
+        });
+
         var ids = Object.keys(selected);
         var emptyMsg = document.getElementById('poEmptyMsg');
         var rightList = document.getElementById('poRightList');
@@ -868,16 +877,32 @@ include '../../includes/header.php';
             var s = selected[id];
             var subtotal = (parseFloat(s.qty) || 0) * s.harga;
             total += subtotal;
-            html += '<div class="po-right-row">' +
-                '<div class="item-name">' + s.nama + '<br><span class="item-unit">' + s.satuan + (s.harga > 0 ? ' · Rp ' + Math.round(s.harga).toLocaleString('id-ID') : '') + '</span></div>' +
+            // Label manual items differently so they're visually distinct
+            var rowStyle = s.isManual ? 'background:#fffbeb;' : '';
+            html += '<div class="po-right-row" data-id=\'' + id + '\' style="' + rowStyle + '">' +
+                '<div class="item-name">' + s.nama +
+                (s.isManual ? '<span style="font-size:0.68rem;background:#f59e0b;color:#fff;padding:1px 5px;border-radius:4px;margin-left:4px;">Baru</span>' : '') +
+                '<br><span class="item-unit">' + s.satuan + (s.harga > 0 ? ' · Rp ' + Math.round(s.harga).toLocaleString('id-ID') : '') + '</span></div>' +
                 '<input type="number" class="form-control" style="width:80px;text-align:right;" placeholder="Qty" min="0.01" step="0.01" value="' + (s.qty || '') + '"' +
-                ' oninput="selected[' + id + '].qty=this.value;updateTotal()">' +
+                ' oninput="selected[\'' + id + '\'].qty=this.value;updateTotal()">' +
                 '<span class="item-unit">' + s.satuan + '</span>' +
-                '<button type="button" onclick="toggleItem(' + id + ')" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:1rem;padding:0 4px;">✕</button>' +
+                '<button type="button" onclick="removePoItem(\'' + id + '\')" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:1rem;padding:0 4px;">✕</button>' +
                 '</div>';
         });
         rightList.innerHTML = html;
         document.getElementById('poRightTotal').textContent = 'Rp ' + Math.round(total).toLocaleString('id-ID');
+    }
+
+    function removePoItem(key) {
+        // For DB items, uncheck in left panel; for manual items just delete
+        var numKey = parseInt(key, 10);
+        if (!isNaN(numKey) && !String(key).startsWith('manual_')) {
+            toggleItem(numKey);
+        } else {
+            delete selected[key];
+            renderRight();
+            document.getElementById('poSelectedCount').textContent = Object.keys(selected).length + ' dipilih';
+        }
     }
 
     function updateTotal() {
