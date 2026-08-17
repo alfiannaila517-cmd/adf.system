@@ -763,6 +763,13 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                                 <span>Transfer ke Bisnis</span>
                             </a>
                         </li>
+
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>/modules/procurement/gudang-tagihan.php" class="nav-link <?php echo activeMenu('gudang-tagihan.php'); ?>">
+                                <i data-feather="file-text" class="nav-icon"></i>
+                                <span>Tagihan</span>
+                            </a>
+                        </li>
                     <?php else: ?>
                         <?php if ($auth->hasPermission('dashboard')): ?>
                             <li class="nav-item">
