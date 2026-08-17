@@ -215,6 +215,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
             }
 
             $db->getConnection()->commit();
+
+            // Auto-register any new item names into gudang_nasita_barang
+            foreach ($validItems as $it) {
+                $nm = $it['item_name'];
+                $exists = $db->fetchOne('SELECT id FROM gudang_nasita_barang WHERE LOWER(nama_barang) = LOWER(?) AND COALESCE(is_active,1) = 1 LIMIT 1', [$nm]);
+                if (!$exists) {
+                    try {
+                        $prefix = 'BRG-';
+                        $last = $db->fetchOne('SELECT kode_barang FROM gudang_nasita_barang WHERE kode_barang LIKE ? ORDER BY kode_barang DESC LIMIT 1', [$prefix . '%']);
+                        $seq = $last ? ((int)substr($last['kode_barang'], -4) + 1) : 1;
+                        $db->insert('gudang_nasita_barang', [
+                            'kode_barang' => $prefix . str_pad($seq, 4, '0', STR_PAD_LEFT),
+                            'nama_barang' => $nm,
+                            'satuan'      => $it['unit'],
+                            'harga_beli'  => $it['unit_price'] > 0 ? $it['unit_price'] : 0,
+                            'is_active'   => 1,
+                        ]);
+                    } catch (Throwable $regErr) {
+                        error_log('Auto-register barang failed: ' . $regErr->getMessage());
+                    }
+                }
+            }
+
             $_SESSION['success'] = 'PO ' . $poNumber . ' berhasil dibuat (' . count($validItems) . ' item).';
             $poMode = $_POST['po_mode'] ?? 'save';
             if ($poMode === 'print') {
@@ -439,6 +462,16 @@ include '../../includes/header.php';
             <input type="text" id="poLeftSearch" class="form-control" placeholder="Cari nama barang..." autocomplete="off">
         </div>
         <div id="poLeftList" style="flex:1; overflow-y:auto; min-height:0;"></div>
+        <!-- Manual input for items not yet in database -->
+        <div style="padding:0.65rem 1rem; border-top:1px solid #fde68a; background:#fffbeb; flex-shrink:0;">
+            <div style="font-size:0.78rem; font-weight:700; color:#92400e; margin-bottom:0.4rem;">+ Tambah item baru (belum di database)</div>
+            <div style="display:flex; gap:0.4rem; flex-wrap:wrap;">
+                <input type="text" id="manualItemName" class="form-control" placeholder="Nama barang..." style="flex:1; min-width:140px; height:32px; font-size:0.82rem;">
+                <input type="text" id="manualItemSatuan" class="form-control" placeholder="Satuan" style="width:72px; height:32px; font-size:0.82rem;" value="pcs">
+                <input type="number" id="manualItemHarga" class="form-control" placeholder="Harga" style="width:90px; height:32px; font-size:0.82rem;" min="0" step="1">
+                <button type="button" class="btn btn-sm" style="background:#f59e0b;color:#fff;height:32px;padding:0 0.7rem;font-size:0.82rem;" onclick="addManualItem()">Tambah</button>
+            </div>
+        </div>
         <div style="padding:0.5rem 1rem; border-top:1px solid var(--border,#e2e8f0); font-size:0.78rem; color:var(--text-muted); flex-shrink:0;">
             <span id="poLeftCount">0 barang</span> &nbsp;·&nbsp; <span id="poSelectedCount" style="color:#0f9d6a; font-weight:700;">0 dipilih</span>
         </div>
@@ -918,6 +951,28 @@ include '../../includes/header.php';
             renderLeft(this.value.trim());
         });
     });
+
+    function addManualItem() {
+        var nama   = document.getElementById('manualItemName').value.trim();
+        var satuan = document.getElementById('manualItemSatuan').value.trim() || 'pcs';
+        var harga  = parseFloat(document.getElementById('manualItemHarga').value) || 0;
+        if (!nama) {
+            alert('Tulis nama barang terlebih dahulu.');
+            document.getElementById('manualItemName').focus();
+            return;
+        }
+        // Deduplicate by lowercased name
+        var key = 'manual_' + nama.toLowerCase().replace(/\s+/g, '_');
+        if (selected[key]) {
+            alert('"' + nama + '" sudah ada di daftar PO.');
+            return;
+        }
+        selected[key] = { nama: nama, satuan: satuan, harga: harga, qty: '', isManual: true };
+        renderRight();
+        document.getElementById('manualItemName').value = '';
+        document.getElementById('manualItemHarga').value = '';
+        document.getElementById('poSelectedCount').textContent = Object.keys(selected).length + ' dipilih';
+    }
 </script>
 
 <?php include '../../includes/footer.php'; ?>
