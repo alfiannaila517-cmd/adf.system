@@ -159,10 +159,11 @@ $registerStockMeta = function ($itemName, $unit) use (&$stockMetaMap, $buildKey)
     }
 };
 
-$computeVisibleQty = function ($itemName, $unit) use (&$rawStockMap, &$manualStockMap, &$baselineMap, &$dailyOutMap, $buildKey, $getMapQty) {
+$computeVisibleQty = function ($itemName, $unit) use (&$rawStockMap, &$manualStockMap, &$baselineMap, &$dailyOutMap, &$interTransferOutMap, $buildKey, $getMapQty) {
     $key = $buildKey($itemName, $unit);
     $gross = $getMapQty($rawStockMap, $key) + $getMapQty($manualStockMap, $key);
-    $visible = $gross - $getMapQty($baselineMap, $key) - $getMapQty($dailyOutMap, $key);
+    // Subtract daily usage, resets, and any stock transferred out to another business/gudang
+    $visible = $gross - $getMapQty($baselineMap, $key) - $getMapQty($dailyOutMap, $key) - $getMapQty($interTransferOutMap, $key);
     return $visible > 0 ? $visible : 0;
 };
 
