@@ -805,6 +805,9 @@ function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $op
         if ($reorderLevel !== null && $reorderLevel >= 0) {
             $updateData['reorder_level'] = $reorderLevel;
         }
+        // Only update columns that actually exist to prevent silent rollback from unknown-column errors
+        $existingCols = gudangNasitaStockColumns();
+        $updateData = array_intersect_key($updateData, array_flip($existingCols));
 
         $db->update('gudang_nasita_stock', $updateData, 'id = :id', ['id' => $stock['id']]);
 
