@@ -1063,33 +1063,31 @@ include '../../includes/header.php';
     </div>
 <?php endif; ?>
 
-<div style="display:grid; grid-template-columns: repeat(5, 1fr); gap: 0.6rem; margin-bottom: 1rem;">
-    <div class="card" style="padding:0.6rem 0.85rem; display:flex; flex-direction:column; gap:2px;">
-        <div style="font-size:0.72rem; color:var(--text-muted);">Total Item</div>
-        <div style="font-size:1.25rem; font-weight:800; color:var(--text-primary);"><?php echo $summary['items']; ?></div>
+<div style="display:flex; gap:0.5rem; margin-bottom:0.85rem; flex-wrap:wrap;">
+    <div class="card" style="padding:0.4rem 0.85rem; flex:1; min-width:90px; display:flex; flex-direction:column; gap:1px;">
+        <div style="font-size:0.68rem; color:var(--text-muted);">Total Item</div>
+        <div style="font-size:1rem; font-weight:800; color:var(--text-primary);"><?php echo $summary['items']; ?></div>
     </div>
-    <div class="card" style="padding:0.6rem 0.85rem; display:flex; flex-direction:column; gap:2px;">
-        <div style="font-size:0.72rem; color:var(--text-muted);">Total Qty</div>
-        <div style="font-size:1.25rem; font-weight:800; color:var(--text-primary);"><?php echo number_format($summary['qty'], 2); ?></div>
+    <div class="card" style="padding:0.4rem 0.85rem; flex:1; min-width:90px; display:flex; flex-direction:column; gap:1px;">
+        <div style="font-size:0.68rem; color:var(--text-muted);">Total Qty</div>
+        <div style="font-size:1rem; font-weight:800; color:var(--text-primary);"><?php echo number_format($summary['qty'], 2); ?></div>
     </div>
-    <div class="card" style="padding:0.6rem 0.85rem; display:flex; flex-direction:column; gap:2px;">
-        <div style="font-size:0.72rem; color:var(--text-muted);">Masuk Hari Ini</div>
-        <div style="font-size:1.25rem; font-weight:800; color:#0f9d6a;"><?php echo number_format($summary['incoming_today'], 2); ?></div>
-        <div style="font-size:0.68rem; color:var(--text-muted);">pcs masuk</div>
+    <div class="card" style="padding:0.4rem 0.85rem; flex:1; min-width:100px; display:flex; flex-direction:column; gap:1px;">
+        <div style="font-size:0.68rem; color:var(--text-muted);">Masuk Hari Ini</div>
+        <div style="font-size:1rem; font-weight:800; color:#0f9d6a;"><?php echo number_format($summary['incoming_today'], 2); ?> <span style="font-size:0.65rem; font-weight:400;">pcs</span></div>
     </div>
-    <div class="card" style="padding:0.6rem 0.85rem; display:flex; flex-direction:column; gap:2px;">
-        <div style="font-size:0.72rem; color:var(--text-muted);">Keluar Hari Ini</div>
-        <div style="font-size:1.25rem; font-weight:800; color:#d83a5b;"><?php echo number_format($summary['outgoing_today'], 2); ?></div>
-        <div style="font-size:0.68rem; color:var(--text-muted);">pcs keluar</div>
+    <div class="card" style="padding:0.4rem 0.85rem; flex:1; min-width:100px; display:flex; flex-direction:column; gap:1px;">
+        <div style="font-size:0.68rem; color:var(--text-muted);">Keluar Hari Ini</div>
+        <div style="font-size:1rem; font-weight:800; color:#d83a5b;"><?php echo number_format($summary['outgoing_today'], 2); ?> <span style="font-size:0.65rem; font-weight:400;">pcs</span></div>
     </div>
-    <div class="card" style="padding:0.6rem 0.85rem; display:flex; flex-direction:column; gap:2px;">
-        <div style="font-size:0.72rem; color:var(--text-muted);">Nilai Persediaan</div>
-        <div style="font-size:1.1rem; font-weight:800; color:#0f9d6a;">Rp <?php echo number_format($summary['value'], 0, ',', '.'); ?></div>
+    <div class="card" style="padding:0.4rem 0.85rem; flex:1.5; min-width:120px; display:flex; flex-direction:column; gap:1px;">
+        <div style="font-size:0.68rem; color:var(--text-muted);">Nilai Persediaan</div>
+        <div style="font-size:0.95rem; font-weight:800; color:#0f9d6a;">Rp <?php echo number_format($summary['value'], 0, ',', '.'); ?></div>
     </div>
 </div>
 
-<div style="display:grid; grid-template-columns: 2fr 1fr; gap: 1.25rem; align-items:start;">
-    <div class="card" style="display:flex; flex-direction:column; max-height:calc(100vh - 260px); overflow:hidden;">
+<div style="display:grid; grid-template-columns: 3fr 1fr; gap: 1rem; align-items:start;">
+    <div class="card" style="display:flex; flex-direction:column; height:calc(100vh - 230px); min-height:420px; overflow:hidden;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; gap:1rem; flex-wrap:wrap;">
             <h3 style="font-size:1rem; font-weight:700; margin:0;">Stok Gudang</h3>
             <form method="GET" id="stockFilterForm" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
@@ -1104,20 +1102,32 @@ include '../../includes/header.php';
         <?php if ($summary['low'] > 0): ?>
             <div style="margin-bottom:0.75rem;"><span class="badge badge-warning"><?php echo $summary['low']; ?> item di bawah reorder</span></div>
         <?php endif; ?>
-        <div class="table-responsive" style="flex:1; overflow-y:auto; overflow-x:auto;">
-            <table class="table" id="stockTable" style="min-width:750px;">
+        <div class="table-responsive" style="flex:1; overflow-y:auto; overflow-x:hidden;">
+            <table class="table" id="stockTable" style="table-layout:fixed; width:100%;">
                 <thead>
+                    <colgroup>
+                        <col style="width:90px;">
+                        <col style="width:80px;">
+                        <col>
+                        <col style="width:60px;">
+                        <col style="width:90px;">
+                        <col style="width:70px;">
+                        <col style="width:50px;">
+                        <col style="width:80px;">
+                        <col style="width:70px;">
+                        <col style="width:65px;">
+                    </colgroup>
                     <tr>
-                        <th>Kode</th>
-                        <th>Kategori</th>
-                        <th>Item</th>
-                        <th class="text-right">Qty</th>
-                        <th class="text-right">Harga/pcs</th>
-                        <th class="text-right">Nilai</th>
-                        <th>Unit</th>
-                        <th>Supplier</th>
-                        <th>Kadaluarsa</th>
-                        <th>Aksi</th>
+                        <th style="font-size:0.75rem;">Kode</th>
+                        <th style="font-size:0.75rem;">Kategori</th>
+                        <th style="font-size:0.75rem;">Item</th>
+                        <th class="text-right" style="font-size:0.75rem;">Qty</th>
+                        <th class="text-right" style="font-size:0.75rem;">Harga/pcs</th>
+                        <th class="text-right" style="font-size:0.75rem;">Nilai</th>
+                        <th style="font-size:0.75rem;">Unit</th>
+                        <th style="font-size:0.75rem;">Supplier</th>
+                        <th style="font-size:0.75rem;">Kadaluarsa</th>
+                        <th style="font-size:0.75rem;">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
