@@ -130,7 +130,7 @@ try {
             // Detect which qty column the live DB actually has (quantity vs legacy jumlah_stok)
             $stockCols = array_column($gudangDb->fetchAll('SHOW COLUMNS FROM gudang_nasita_stock') ?: [], 'Field');
             $qtyExpr   = in_array('quantity', $stockCols)    ? 'COALESCE(quantity, 0)'
-                       : (in_array('jumlah_stok', $stockCols) ? 'COALESCE(jumlah_stok, 0)' : '0');
+                : (in_array('jumlah_stok', $stockCols) ? 'COALESCE(jumlah_stok, 0)' : '0');
             $hargaExpr = in_array('harga_beli', $stockCols)  ? 'COALESCE(harga_beli, 0)' : '0';
 
             $gudangStockRows = $gudangDb->fetchAll(
