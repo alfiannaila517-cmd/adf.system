@@ -111,7 +111,7 @@ class Database
         $isMaster = in_array($dbName, $masterNames);
 
         // Only run once per session per database (version bump forces re-check)
-        $schemaVersion = 9; // v9: ensure users.last_login and users.updated_at exist on older databases
+        $schemaVersion = 10; // v10: add harga_beli/total_harga/barang_id to gudang_nasita_stock
         $sessionKey = '_schema_synced_v' . $schemaVersion . '_' . md5($dbName);
         if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION[$sessionKey])) return;
 

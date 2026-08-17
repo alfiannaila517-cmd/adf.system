@@ -1544,36 +1544,38 @@ function transferGudangNasitaStock($targetBusinessId, array $items, $createdBy, 
 
             $remaining = $available - $qty;
             $remainingValue = max(0, gudangNasitaCurrentStockValue($stock) - $lineSubtotal);
-            $db->update('gudang_nasita_stock', [
-                'quantity' => $remaining,
-                'harga_beli' => $remaining > 0 ? ($remainingValue / $remaining) : $unitPrice,
+            $stockUpdateData = [
+                'quantity'    => $remaining,
+                'harga_beli'  => $remaining > 0 ? ($remainingValue / $remaining) : $unitPrice,
                 'total_harga' => $remainingValue
-            ], 'id = :id', ['id' => $stockId]);
+            ];
+            // Only update columns that exist to prevent silent failure from unknown-column errors
+            $stockUpdateData = array_intersect_key($stockUpdateData, array_flip(gudangNasitaStockColumns()));
+            $db->update('gudang_nasita_stock', $stockUpdateData, 'id = :id', ['id' => $stockId]);
 
             $db->insert('gudang_nasita_transfer_items', [
                 'transfer_id' => $transferId,
-                'stock_id' => $stockId,
-                'item_name' => $stock['item_name'],
-                'unit' => $stock['unit'],
-                'quantity' => $qty,
-                'unit_price' => $unitPrice,
-                'subtotal' => $lineSubtotal,
-                'notes' => $item['notes'] ?? null
+                'stock_id'    => $stockId,
+                'item_name'   => $stock['item_name'],
+                'unit'        => $stock['unit'],
+                'quantity'    => $qty,
+                'unit_price'  => $unitPrice,
+                'subtotal'    => $lineSubtotal,
+                'notes'       => $item['notes'] ?? null
             ]);
 
+            // unit_price and subtotal are NOT in gudang_nasita_movements schema; omit to prevent rollback
             $db->insert('gudang_nasita_movements', [
-                'stock_id' => $stockId,
-                'movement_date' => date('Y-m-d'),
-                'movement_type' => 'out_transfer',
-                'quantity' => $qty,
-                'reference_type' => 'transfer',
-                'reference_id' => $transferId,
-                'reference_number' => $transferNumber,
+                'stock_id'           => $stockId,
+                'movement_date'      => date('Y-m-d'),
+                'movement_type'      => 'out_transfer',
+                'quantity'           => $qty,
+                'reference_type'     => 'transfer',
+                'reference_id'       => $transferId,
+                'reference_number'   => $transferNumber,
                 'target_business_id' => $targetBusinessId,
-                'unit_price' => $unitPrice,
-                'subtotal' => $lineSubtotal,
-                'notes' => $notes ?: ('Transfer ke ' . $business['business_name']),
-                'created_by' => $createdBy
+                'notes'              => $notes ?: ('Transfer ke ' . $business['business_name']),
+                'created_by'         => $createdBy
             ]);
 
             $totalQty += $qty;
