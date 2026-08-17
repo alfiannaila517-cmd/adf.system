@@ -1063,33 +1063,33 @@ include '../../includes/header.php';
     </div>
 <?php endif; ?>
 
-<div style="display:grid; grid-template-columns: repeat(5, 1fr); gap: 1rem; margin-bottom: 1.25rem;">
-    <div class="card" style="padding:1rem;">
-        <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.35rem;">Total Item</div>
-        <div style="font-size:1.75rem; font-weight:800; color:var(--text-primary);"><?php echo $summary['items']; ?></div>
+<div style="display:grid; grid-template-columns: repeat(5, 1fr); gap: 0.6rem; margin-bottom: 1rem;">
+    <div class="card" style="padding:0.6rem 0.85rem; display:flex; flex-direction:column; gap:2px;">
+        <div style="font-size:0.72rem; color:var(--text-muted);">Total Item</div>
+        <div style="font-size:1.25rem; font-weight:800; color:var(--text-primary);"><?php echo $summary['items']; ?></div>
     </div>
-    <div class="card" style="padding:1rem;">
-        <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.35rem;">Total Qty</div>
-        <div style="font-size:1.75rem; font-weight:800; color:var(--text-primary);"><?php echo number_format($summary['qty'], 2); ?></div>
+    <div class="card" style="padding:0.6rem 0.85rem; display:flex; flex-direction:column; gap:2px;">
+        <div style="font-size:0.72rem; color:var(--text-muted);">Total Qty</div>
+        <div style="font-size:1.25rem; font-weight:800; color:var(--text-primary);"><?php echo number_format($summary['qty'], 2); ?></div>
     </div>
-    <div class="card" style="padding:1rem;">
-        <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.35rem;">Masuk Hari Ini</div>
-        <div style="font-size:1.75rem; font-weight:800; color:#0f9d6a;"><?php echo number_format($summary['incoming_today'], 2); ?></div>
-        <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">pcs / qty masuk</div>
+    <div class="card" style="padding:0.6rem 0.85rem; display:flex; flex-direction:column; gap:2px;">
+        <div style="font-size:0.72rem; color:var(--text-muted);">Masuk Hari Ini</div>
+        <div style="font-size:1.25rem; font-weight:800; color:#0f9d6a;"><?php echo number_format($summary['incoming_today'], 2); ?></div>
+        <div style="font-size:0.68rem; color:var(--text-muted);">pcs masuk</div>
     </div>
-    <div class="card" style="padding:1rem;">
-        <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.35rem;">Keluar Hari Ini</div>
-        <div style="font-size:1.75rem; font-weight:800; color:#d83a5b;"><?php echo number_format($summary['outgoing_today'], 2); ?></div>
-        <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">pcs / qty keluar</div>
+    <div class="card" style="padding:0.6rem 0.85rem; display:flex; flex-direction:column; gap:2px;">
+        <div style="font-size:0.72rem; color:var(--text-muted);">Keluar Hari Ini</div>
+        <div style="font-size:1.25rem; font-weight:800; color:#d83a5b;"><?php echo number_format($summary['outgoing_today'], 2); ?></div>
+        <div style="font-size:0.68rem; color:var(--text-muted);">pcs keluar</div>
     </div>
-    <div class="card" style="padding:1rem;">
-        <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.35rem;">Nilai Persediaan</div>
-        <div style="font-size:1.75rem; font-weight:800; color:#0f9d6a;">Rp <?php echo number_format($summary['value'], 0, ',', '.'); ?></div>
+    <div class="card" style="padding:0.6rem 0.85rem; display:flex; flex-direction:column; gap:2px;">
+        <div style="font-size:0.72rem; color:var(--text-muted);">Nilai Persediaan</div>
+        <div style="font-size:1.1rem; font-weight:800; color:#0f9d6a;">Rp <?php echo number_format($summary['value'], 0, ',', '.'); ?></div>
     </div>
 </div>
 
 <div style="display:grid; grid-template-columns: 2fr 1fr; gap: 1.25rem; align-items:start;">
-    <div class="card">
+    <div class="card" style="display:flex; flex-direction:column; max-height:calc(100vh - 260px); overflow:hidden;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; gap:1rem; flex-wrap:wrap;">
             <h3 style="font-size:1rem; font-weight:700; margin:0;">Stok Gudang</h3>
             <form method="GET" id="stockFilterForm" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
@@ -1104,8 +1104,8 @@ include '../../includes/header.php';
         <?php if ($summary['low'] > 0): ?>
             <div style="margin-bottom:0.75rem;"><span class="badge badge-warning"><?php echo $summary['low']; ?> item di bawah reorder</span></div>
         <?php endif; ?>
-        <div class="table-responsive">
-            <table class="table" id="stockTable">
+        <div class="table-responsive" style="flex:1; overflow-y:auto; overflow-x:auto;">
+            <table class="table" id="stockTable" style="min-width:750px;">
                 <thead>
                     <tr>
                         <th>Kode</th>
