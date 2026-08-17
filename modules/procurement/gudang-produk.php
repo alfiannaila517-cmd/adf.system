@@ -90,6 +90,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $msg = 'Status produk diubah.';
         }
     }
+
+    if ($formAction === 'delete') {
+        $ids = $_POST['ids'] ?? ($_POST['id'] ?? []);
+        if (!is_array($ids)) {
+            $ids = [$ids];
+        }
+        $cleanIds = [];
+        foreach ($ids as $id) {
+            $v = (int)$id;
+            if ($v > 0) {
+                $cleanIds[] = $v;
+            }
+        }
+        $cleanIds = array_values(array_unique($cleanIds));
+
+        if (!empty($cleanIds)) {
+            $placeholders = implode(',', array_fill(0, count($cleanIds), '?'));
+            $db->query('DELETE FROM gudang_nasita_barang WHERE id IN (' . $placeholders . ')', $cleanIds);
+            $msg = 'Produk yang dipilih berhasil dihapus.';
+            $msgType = 'success';
+        } else {
+            $msg = 'Tidak ada produk yang dipilih untuk dihapus.';
+            $msgType = 'danger';
+        }
+    }
 }
 
 // Search & filter
@@ -149,11 +174,24 @@ include '../../includes/header.php';
     </form>
 </div>
 
+<div class="card" style="margin-bottom:1rem; padding:0.85rem 1rem;">
+    <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+        <label class="form-check" style="display:flex; align-items:center; gap:0.45rem; margin:0; font-size:0.85rem; color:var(--text-primary);">
+            <input type="checkbox" id="selectAllProduk" aria-label="Centang semua produk">
+            <span>Centang semua</span>
+        </label>
+        <button type="button" id="deleteSelectedProdukBtn" class="btn btn-sm btn-danger" disabled>Hapus yang ditandai</button>
+    </div>
+</div>
+
 <div class="card">
     <div class="table-responsive">
         <table class="table">
             <thead>
                 <tr>
+                    <th style="width:42px;">
+                        <input type="checkbox" id="selectAllProdukHeader" aria-label="Pilih semua produk" title="Pilih semua produk">
+                    </th>
                     <th>Kode</th>
                     <th>Nama Barang</th>
                     <th>Kategori</th>
@@ -167,11 +205,14 @@ include '../../includes/header.php';
             <tbody>
                 <?php if (empty($products)): ?>
                     <tr>
-                        <td colspan="8" style="text-align:center; padding:2rem; color:var(--text-muted);">Belum ada produk. Klik "Tambah Produk" untuk mulai.</td>
+                        <td colspan="9" style="text-align:center; padding:2rem; color:var(--text-muted);">Belum ada produk. Klik "Tambah Produk" untuk mulai.</td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($products as $p): ?>
                         <tr>
+                            <td>
+                                <input type="checkbox" class="produk-select-check" value="<?php echo (int)$p['id']; ?>" aria-label="Pilih produk <?php echo htmlspecialchars($p['nama_barang']); ?>">
+                            </td>
                             <td style="font-weight:600; font-size:0.82rem;"><?php echo htmlspecialchars($p['kode_barang'] ?? '-'); ?></td>
                             <td>
                                 <div style="font-weight:600;"><?php echo htmlspecialchars($p['nama_barang']); ?></div>
@@ -200,6 +241,14 @@ include '../../includes/header.php';
                                         onclick="openProdukModal(<?php echo (int)$p['id']; ?>, <?php echo htmlspecialchars(json_encode($p), ENT_QUOTES); ?>)">
                                         Edit
                                     </button>
+                                    <form method="POST" style="display:inline;">
+                                        <input type="hidden" name="form_action" value="delete">
+                                        <input type="hidden" name="ids[]" value="<?php echo (int)$p['id']; ?>">
+                                        <button type="submit" class="btn btn-sm btn-danger"
+                                            onclick="return confirm('Hapus produk <?php echo htmlspecialchars(addslashes($p['nama_barang'])); ?> dari database master?')">
+                                            Hapus
+                                        </button>
+                                    </form>
                                     <form method="POST" style="display:inline;">
                                         <input type="hidden" name="form_action" value="toggle">
                                         <input type="hidden" name="id" value="<?php echo (int)$p['id']; ?>">
@@ -374,6 +423,66 @@ include '../../includes/header.php';
             btn.textContent = 'Simpan Produk';
         }
     }
+
+    const selectAllCheckboxes = document.querySelectorAll('#selectAllProduk, #selectAllProdukHeader');
+    const produkCheckBoxes = () => Array.from(document.querySelectorAll('.produk-select-check'));
+
+    function syncSelectAllState() {
+        const checks = produkCheckBoxes();
+        const selected = checks.filter(cb => cb.checked).length;
+        const allChecked = checks.length > 0 && selected === checks.length;
+        selectAllCheckboxes.forEach(el => {
+            el.checked = allChecked;
+        });
+        const deleteBtn = document.getElementById('deleteSelectedProdukBtn');
+        if (deleteBtn) deleteBtn.disabled = selected === 0;
+    }
+
+    selectAllCheckboxes.forEach(el => {
+        el.addEventListener('change', () => {
+            const checked = el.checked;
+            produkCheckBoxes().forEach(cb => {
+                cb.checked = checked;
+            });
+            syncSelectAllState();
+        });
+    });
+
+    document.addEventListener('change', e => {
+        if (e.target && e.target.classList.contains('produk-select-check')) {
+            syncSelectAllState();
+        }
+    });
+
+    document.getElementById('deleteSelectedProdukBtn')?.addEventListener('click', async () => {
+        const ids = produkCheckBoxes().filter(cb => cb.checked).map(cb => Number(cb.value)).filter(Boolean);
+        if (!ids.length) return;
+
+        const confirmed = confirm(`Hapus ${ids.length} produk yang dipilih dari database master?`);
+        if (!confirmed) return;
+
+        const formData = new URLSearchParams();
+        formData.append('action', 'delete');
+        ids.forEach(id => formData.append('ids[]', String(id)));
+
+        try {
+            const response = await fetch(`${BASE}/api/gudang-produk-search.php?action=delete`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+                body: formData.toString()
+            });
+            const result = await response.json();
+
+            if (result.success) {
+                location.reload();
+                return;
+            }
+
+            alert(result.message || 'Gagal menghapus produk yang dipilih.');
+        } catch (error) {
+            alert('Gagal menghapus produk yang dipilih. Coba lagi.');
+        }
+    });
 
     document.addEventListener('click', e => {
         if (e.target === document.getElementById('produkModal')) closeProdukModal();

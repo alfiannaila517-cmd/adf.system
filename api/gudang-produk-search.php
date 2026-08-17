@@ -141,4 +141,31 @@ if ($action === 'toggle' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
+// ─── Delete selected products ────────────────────────────────────────────────
+if ($action === 'delete' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $ids = $_POST['ids'] ?? ($_POST['id'] ?? []);
+    if (!is_array($ids)) {
+        $ids = [$ids];
+    }
+
+    $cleanIds = [];
+    foreach ($ids as $id) {
+        $clean = (int)$id;
+        if ($clean > 0) {
+            $cleanIds[] = $clean;
+        }
+    }
+    $cleanIds = array_values(array_unique($cleanIds));
+
+    if (empty($cleanIds)) {
+        echo json_encode(['success' => false, 'message' => 'Tidak ada produk yang dipilih']);
+        exit;
+    }
+
+    $placeholders = implode(',', array_fill(0, count($cleanIds), '?'));
+    $db->query('DELETE FROM gudang_nasita_barang WHERE id IN (' . $placeholders . ')', $cleanIds);
+    echo json_encode(['success' => true, 'deleted' => count($cleanIds)]);
+    exit;
+}
+
 echo json_encode(['success' => false, 'message' => 'Unknown action']);
