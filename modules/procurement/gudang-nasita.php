@@ -1707,11 +1707,18 @@ include '../../includes/header.php';
     let acTimer;
     const acInput = document.querySelector('#manualStockModal [name="item_name"]');
     const acDrop = document.getElementById('produkAcDrop');
+    const acCategoryInput = acInput ? acInput.closest('form').querySelector('[name="category"]') : null;
 
     if (acInput && acDrop) {
         acInput.addEventListener('input', function() {
             clearTimeout(acTimer);
             const q = this.value.trim();
+            // Reset category visual indicator when user modifies item name
+            if (acCategoryInput) {
+                acCategoryInput.style.background = '';
+                acCategoryInput.style.borderColor = '';
+                acCategoryInput.title = '';
+            }
             if (q.length < 1) {
                 acDrop.style.display = 'none';
                 return;
@@ -1749,10 +1756,21 @@ include '../../includes/header.php';
     function selectAcItem(nama, kategori, satuan) {
         acInput.value = nama;
         var m = document.getElementById('manualStockModal');
-        m.querySelector('[name="category"]').value = kategori;
+        var categoryInput = m.querySelector('[name="category"]');
+        var oldCategory = categoryInput.value;
+        categoryInput.value = kategori;
+        
+        // Visual indicator if category changed
+        if (oldCategory && oldCategory !== kategori) {
+            categoryInput.style.background = '#fef08a';
+            categoryInput.style.borderColor = '#eab308';
+            categoryInput.title = 'Kategori diubah otomatis dari autocomplete. Edit jika diperlukan.';
+            console.log('[GUDANG] Category auto-set from autocomplete: ' + oldCategory + ' → ' + kategori);
+        }
+        
         m.querySelector('[name="unit"]').value = satuan;
         acDrop.style.display = 'none';
-        m.querySelector('[name="quantity"]').focus();
+        categoryInput.focus();  // Focus on category so user can verify/change if needed
     }
 </script>
 
