@@ -18,6 +18,20 @@ $db = Database::getInstance();
 $currentUser = $auth->getCurrentUser();
 $pageTitle = 'Gudang Nasita';
 
+// TEMP DIAGNOSTIC (auth-gated by the requireLogin()+hasPermission() checks above) — remove after debugging.
+if (($_GET['debug_bintang'] ?? '') === '1') {
+    header('Content-Type: application/json');
+    $stockRows = $db->fetchAll("SELECT id, stock_code, item_name, category, barang_id, quantity, is_active FROM gudang_nasita_stock WHERE item_name LIKE '%bintang%' ORDER BY id");
+    $barangRows = [];
+    try {
+        $barangRows = $db->fetchAll("SELECT id, kode_barang, nama_barang FROM gudang_nasita_barang WHERE nama_barang LIKE '%bintang%' ORDER BY id");
+    } catch (Throwable $e) {
+        $barangRows = ['error' => $e->getMessage()];
+    }
+    echo json_encode(['stock' => $stockRows, 'barang' => $barangRows], JSON_PRETTY_PRINT);
+    exit;
+}
+
 function gudangImportNormalizeHeader(string $value): string
 {
     $value = trim($value);
