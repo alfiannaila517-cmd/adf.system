@@ -1140,7 +1140,18 @@ include '../../includes/header.php';
         const categoryInput = document.getElementById('stockCategoryHidden');
         const categoryButtons = document.querySelectorAll('[data-gudang-category]');
         const tbody = document.querySelector('#stockTable tbody');
-        if (!inp || !tbody) return;
+        
+        console.log('[GUDANG FILTER DEBUG]', {
+            inp: !!inp,
+            tbody: !!tbody,
+            categoryButtons: categoryButtons.length,
+            categoryInput: !!categoryInput
+        });
+        
+        if (!inp || !tbody) {
+            console.error('[GUDANG FILTER] Missing required elements');
+            return;
+        }
 
         function normalizeText(value) {
             return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
@@ -1152,12 +1163,14 @@ include '../../includes/header.php';
 
         function setActiveCategory(value) {
             const normalized = normalizeText(value);
+            console.log('[GUDANG FILTER] setActiveCategory:', { raw: value, normalized });
             if (categoryInput) categoryInput.value = normalized;
             categoryButtons.forEach(btn => {
                 const btnValue = normalizeText(btn.getAttribute('data-gudang-category'));
                 const isActive = btnValue === normalized;
                 btn.classList.toggle('btn-primary', isActive);
                 btn.classList.toggle('btn-outline-secondary', !isActive);
+                if (isActive) console.log('[GUDANG FILTER] Button activated:', btnValue);
             });
             filterRows();
         }
@@ -1171,6 +1184,7 @@ include '../../includes/header.php';
 
             let catRow = null,
                 catVisible = false;
+            let totalRows = 0, visibleRows = 0;
 
             Array.from(tbody.rows).forEach(tr => {
                 if (tr.cells.length === 1 && tr.cells[0].colSpan > 1) {
@@ -1180,34 +1194,54 @@ include '../../includes/header.php';
                     return;
                 }
 
+                totalRows++;
                 const name = normalizeText(tr.dataset.item || '');
                 const rowCategory = normalizeText(tr.dataset.category || '');
                 const isLow = tr.dataset.low === '1';
                 const show = (!q || name.includes(q)) && (!low || isLow) && (!cat || rowCategory === cat);
                 tr.style.display = show ? '' : 'none';
-                if (show) catVisible = true;
+                
+                if (show) {
+                    visibleRows++;
+                    catVisible = true;
+                    if (cat && rowCategory !== cat) {
+                        console.warn('[GUDANG FILTER] Row shown but category mismatch:', { cat, rowCategory, item: tr.cells[2]?.innerText });
+                    }
+                }
             });
             if (catRow) catRow.style.display = catVisible ? '' : 'none';
+            
+            console.log('[GUDANG FILTER] filterRows result:', { q, cat, low, totalRows, visibleRows });
         }
 
-        inp.addEventListener('input', filterRows);
-        if (chk) chk.addEventListener('change', filterRows);
+        inp.addEventListener('input', () => {
+            console.log('[GUDANG FILTER] Search input changed');
+            filterRows();
+        });
+        if (chk) chk.addEventListener('change', () => {
+            console.log('[GUDANG FILTER] Low stock filter changed');
+            filterRows();
+        });
 
-        categoryButtons.forEach(btn => {
-            btn.addEventListener('click', function() {
+        categoryButtons.forEach((btn, idx) => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
                 const value = (this.getAttribute('data-gudang-category') || '').trim();
+                console.log('[GUDANG FILTER] Category button clicked:', { index: idx, value });
                 setActiveCategory(value);
             });
         });
 
         if (rst) {
             rst.addEventListener('click', function() {
+                console.log('[GUDANG FILTER] Reset button clicked');
                 inp.value = '';
                 if (chk) chk.checked = false;
                 setActiveCategory('');
             });
         }
 
+        console.log('[GUDANG FILTER] Initialization complete, running initial filter');
         filterRows();
     })();
 
