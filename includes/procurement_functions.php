@@ -836,10 +836,11 @@ function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $op
             'stock_id' => (int)$stock['id'],
             'new_qty' => (float)$updateData['quantity']
         ];
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         if ($db->getConnection()->inTransaction()) {
             $db->getConnection()->rollBack();
         }
+        error_log('[GUDANG] addGudangNasitaManualStock FAILED: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
         return [
             'success' => false,
             'message' => $e->getMessage()

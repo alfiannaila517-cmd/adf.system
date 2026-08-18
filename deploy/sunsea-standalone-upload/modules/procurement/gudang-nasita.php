@@ -1406,18 +1406,48 @@ include '../../includes/header.php';
         var categoryInput = m.querySelector('[name="category"]');
         var oldCategory = categoryInput.value;
         categoryInput.value = kategori;
-        
-        // Visual indicator if category changed
+
+        // Visual indicator only (non-blocking) if category changed
         if (oldCategory && oldCategory !== kategori) {
             categoryInput.style.background = '#fef08a';
             categoryInput.style.borderColor = '#eab308';
             categoryInput.title = 'Kategori diubah otomatis dari autocomplete. Edit jika diperlukan.';
             console.log('[GUDANG] Category auto-set from autocomplete: ' + oldCategory + ' → ' + kategori);
         }
-        
+
         m.querySelector('[name="unit"]').value = satuan;
         acDrop.style.display = 'none';
-        categoryInput.focus();  // Focus on category so user can verify/change if needed
+        m.querySelector('[name="quantity"]').focus();
+    }
+
+    function validateManualStockForm(form) {
+        const itemName = form.querySelector('[name="item_name"]').value.trim();
+        const category = form.querySelector('[name="category"]').value.trim();
+        const quantity = parseFloat(form.querySelector('[name="quantity"]').value);
+
+        if (!itemName) {
+            alert('Nama item wajib diisi.');
+            form.querySelector('[name="item_name"]').focus();
+            return false;
+        }
+        if (!category) {
+            alert('Kategori wajib diisi.');
+            form.querySelector('[name="category"]').focus();
+            return false;
+        }
+        if (!quantity || quantity <= 0) {
+            alert('Qty masuk harus lebih dari 0.');
+            form.querySelector('[name="quantity"]').focus();
+            return false;
+        }
+
+        console.log('[GUDANG] Submitting manual stock:', { itemName, category, quantity });
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Menyimpan...';
+        }
+        return true;
     }
 </script>
 
@@ -1533,7 +1563,7 @@ include '../../includes/header.php';
             <h3 style="font-size:1.05rem; margin:0;">Input Stock Manual</h3>
             <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('manualStockModal').style.display='none'">Tutup</button>
         </div>
-        <form method="POST">
+        <form method="POST" id="manualStockForm" onsubmit="return validateManualStockForm(this)">
             <input type="hidden" name="action" value="manual_stock_in">
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.9rem;">
                 <div style="grid-column:1/span 2; position:relative;">
