@@ -957,10 +957,11 @@ function recordGudangNasitaDailyStockOut($itemName, $quantity, $createdBy, $opti
                 'stock_id' => (int)$stock['id'],
                 'remaining_qty' => (float)$remainingQty,
             ];
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             if ($db->getConnection()->inTransaction()) {
                 $db->getConnection()->rollBack();
             }
+            error_log('recordGudangNasitaDailyStockOut failed: ' . $e->getMessage());
             return [
                 'success' => false,
                 'message' => $e->getMessage(),

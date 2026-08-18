@@ -356,22 +356,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'stock_out_daily') {
+    $isAjax = ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest';
     $itemName = trim((string)($_POST['item_name'] ?? ''));
     $quantity = (float)($_POST['quantity'] ?? 0);
     $notes = trim((string)($_POST['notes'] ?? ''));
 
     if ($itemName === '' || $quantity <= 0) {
-        $_SESSION['error'] = 'Nama item dan qty stock keluar wajib diisi.';
+        $result = ['success' => false, 'message' => 'Nama item dan qty stock keluar wajib diisi.'];
     } else {
         $result = recordGudangNasitaDailyStockOut($itemName, $quantity, (int)($currentUser['id'] ?? 0), [
             'notes' => $notes,
         ]);
-
         if ($result['success']) {
-            $_SESSION['success'] = $result['message'] . ' untuk ' . htmlspecialchars($itemName, ENT_QUOTES) . '.';
-        } else {
-            $_SESSION['error'] = $result['message'];
+            $result['message'] .= ' untuk ' . $itemName . '.';
         }
+    }
+
+    if ($isAjax) {
+        header('Content-Type: application/json');
+        echo json_encode($result);
+        exit;
+    }
+
+    if ($result['success']) {
+        $_SESSION['success'] = $result['message'];
+    } else {
+        $_SESSION['error'] = $result['message'];
     }
 
     header('Location: gudang-nasita.php');
@@ -1919,6 +1929,23 @@ include '../../includes/header.php';
         return false;
     }
 
+    function submitStockOut(form) {
+        const itemName = form.querySelector('[name="item_name"]').value.trim();
+        const quantity = parseFloat(form.querySelector('[name="quantity"]').value);
+        if (!itemName) {
+            alert('Nama item wajib diisi.');
+            form.querySelector('[name="item_name"]').focus();
+            return false;
+        }
+        if (!quantity || quantity <= 0) {
+            alert('Qty keluar harus lebih dari 0.');
+            form.querySelector('[name="quantity"]').focus();
+            return false;
+        }
+        submitStockFormAjax(form);
+        return false;
+    }
+
     function validateManualStockForm(form) {
         const itemName = form.querySelector('[name="item_name"]').value.trim();
         const category = form.querySelector('[name="category"]').value.trim();
@@ -2033,7 +2060,7 @@ include '../../includes/header.php';
         <div style="background:var(--bg-secondary); border-radius:0.5rem; padding:0.65rem 0.9rem; margin-bottom:1rem; font-size:0.875rem;">
             Stok saat ini: <strong id="doCurrentQty" style="color:#d97706;"></strong>
         </div>
-        <form method="POST">
+        <form method="POST" id="dailyOutForm" onsubmit="return submitStockOut(this)">
             <input type="hidden" name="action" value="stock_out_daily">
             <div style="margin-bottom:0.85rem;">
                 <label class="form-label">Nama Item *</label>
