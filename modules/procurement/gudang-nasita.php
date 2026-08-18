@@ -997,6 +997,23 @@ include '../../includes/header.php';
         border-radius: 1rem;
         padding: 0.5rem 0.75rem 0;
     }
+    .gudang-top-actions {
+        display:flex;
+        align-items:center;
+        flex-wrap:wrap;
+        gap:0.7rem;
+    }
+    .gudang-top-actions .btn {
+        min-height: 42px;
+        padding: 0.7rem 1rem;
+        border-radius: 0.8rem;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
+        box-shadow: 0 8px 18px rgba(37, 99, 235, 0.12);
+    }
     .gudang-chip {
         display:inline-flex;
         align-items:center;
@@ -1051,6 +1068,17 @@ include '../../includes/header.php';
         background:#f8fafc;
         border:1px solid rgba(148,163,184,0.35);
     }
+    .gudang-side-card {
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        border-radius: 1rem;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.03);
+        background: rgba(255,255,255,0.75);
+    }
+    .gudang-side-card .card-body,
+    .gudang-side-card > .p-3,
+    .gudang-side-card > .card-body {
+        padding: 0.9rem 0.95rem !important;
+    }
 </style>
 
 <div class="gudang-shell">
@@ -1064,7 +1092,7 @@ include '../../includes/header.php';
         </h2>
         <p style="color: var(--text-muted); font-size: 0.875rem;">Stok pusat, penerimaan supplier, dan kontrol barang keluar</p>
     </div>
-    <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
+    <div class="gudang-top-actions">
         <button type="button" class="btn btn-warning" onclick="document.getElementById('dailyOutModal').style.display='flex'">
             <i data-feather="minus-square" style="width: 16px; height: 16px;"></i>
             Stock Keluar
@@ -1073,11 +1101,11 @@ include '../../includes/header.php';
             <i data-feather="download" style="width: 16px; height: 16px;"></i>
             Import Stock
         </button>
-        <a href="gudang-nasita.php?export_excel=1&q_item=<?php echo urlencode($searchItemName); ?>&low_stock=<?php echo $filterLowStockOnly ? '1' : '0'; ?>" class="btn btn-success" style="font-weight:700;">
+        <a href="gudang-nasita.php?export_excel=1&q_item=<?php echo urlencode($searchItemName); ?>&low_stock=<?php echo $filterLowStockOnly ? '1' : '0'; ?>&category=<?php echo urlencode($selectedCategory); ?>" class="btn btn-success" style="font-weight:700;">
             <i data-feather="upload" style="width: 16px; height: 16px;"></i>
             Export Excel
         </a>
-        <a href="gudang-nasita.php?export_pdf=1&q_item=<?php echo urlencode($searchItemName); ?>&low_stock=<?php echo $filterLowStockOnly ? '1' : '0'; ?>" class="btn btn-danger" style="font-weight:700;">
+        <a href="gudang-nasita.php?export_pdf=1&q_item=<?php echo urlencode($searchItemName); ?>&low_stock=<?php echo $filterLowStockOnly ? '1' : '0'; ?>&category=<?php echo urlencode($selectedCategory); ?>" class="btn btn-danger" style="font-weight:700;">
             <i data-feather="file-text" style="width: 16px; height: 16px;"></i>
             Export PDF
         </a>
@@ -1178,7 +1206,7 @@ include '../../includes/header.php';
             <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; margin-bottom:0.8rem;">
                 <h3 style="font-size:1rem; font-weight:700; margin:0;">Stok Gudang</h3>
                 <form method="GET" id="stockFilterForm" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center; margin:0;">
-                    <input type="hidden" name="category" value="<?php echo htmlspecialchars($selectedCategory); ?>">
+                    <input type="hidden" id="stockCategoryHidden" name="category" value="<?php echo htmlspecialchars($selectedCategory); ?>">
                     <div class="gudang-search-wrap">
                         <i data-feather="search" style="width:15px; height:15px; color:#64748b;"></i>
                         <input type="text" name="q_item" id="stockSearchInput" class="form-control" placeholder="Cari nama item..." value="<?php echo htmlspecialchars($searchItemName); ?>" style="min-width:220px;" autocomplete="off">
@@ -1341,29 +1369,31 @@ include '../../includes/header.php';
     </div>
 
     <div style="display:grid; gap:1.25rem;">
-        <div class="card">
-            <h3 style="font-size:1rem; font-weight:700; margin-bottom:0.75rem; display:flex; align-items:center; justify-content:space-between; gap:0.5rem;">
-                <span>PO Bisnis Menunggu Proses Gudang</span>
-                <?php if ($pendingPoCount > 0): ?>
-                    <span style="background:#ef4444; color:#fff; min-width:22px; height:22px; border-radius:11px; display:inline-flex; align-items:center; justify-content:center; font-size:0.7rem; font-weight:800; padding:0 6px;"><?php echo (int)$pendingPoCount; ?></span>
-                <?php endif; ?>
-            </h3>
-            <div style="display:grid; gap:0.75rem;">
+        <div class="card gudang-side-card">
+            <div style="padding:0.9rem 1rem 0.75rem; border-bottom:1px solid rgba(148,163,184,0.18);">
+                <h3 style="font-size:1rem; font-weight:700; margin:0; display:flex; align-items:center; justify-content:space-between; gap:0.5rem;">
+                    <span>PO Bisnis Menunggu Proses Gudang</span>
+                    <?php if ($pendingPoCount > 0): ?>
+                        <span style="background:#ef4444; color:#fff; min-width:22px; height:22px; border-radius:11px; display:inline-flex; align-items:center; justify-content:center; font-size:0.7rem; font-weight:800; padding:0 6px;"><?php echo (int)$pendingPoCount; ?></span>
+                    <?php endif; ?>
+                </h3>
+            </div>
+            <div style="padding:0.95rem; display:grid; gap:0.75rem;">
                 <?php if (empty($pendingReceipts)): ?>
                     <div style="color:var(--text-muted); font-size:0.875rem;">Tidak ada PO bisnis yang perlu diproses gudang</div>
                 <?php else: ?>
                     <?php foreach ($pendingReceipts as $po): ?>
-                        <div style="padding:0.75rem; border:1px solid var(--border); border-radius:0.75rem; background: var(--bg-secondary);">
-                            <div style="font-weight:700;"><?php echo htmlspecialchars($po['po_number']); ?></div>
-                            <div style="font-size:0.812rem; color:#0f172a; font-weight:700;">
+                        <div style="padding:0.75rem; border:1px solid rgba(148,163,184,0.26); border-radius:0.75rem; background: linear-gradient(180deg, rgba(248,250,252,0.8), rgba(255,255,255,0.9));">
+                            <div style="font-weight:700; font-size:0.9rem; margin-bottom:0.2rem;"><?php echo htmlspecialchars($po['po_number']); ?></div>
+                            <div style="font-size:0.812rem; color:#0f172a; font-weight:700; margin-bottom:0.15rem;">
                                 <?php echo htmlspecialchars(($po['source_business_name'] ?: 'Business #' . (int)($po['source_business_id'] ?? 0)) . ' PO'); ?>
                             </div>
                             <div style="font-size:0.812rem; color:var(--text-muted);">Status: <?php echo htmlspecialchars($po['status']); ?></div>
-                            <div style="font-size:0.812rem; color:var(--text-muted);"><?php echo (int)$po['items_count']; ?> item</div>
-                            <div style="display:flex; gap:0.5rem; margin-top:0.5rem; flex-wrap:wrap;">
+                            <div style="font-size:0.812rem; color:var(--text-muted); margin-bottom:0.35rem;"><?php echo (int)$po['items_count']; ?> item</div>
+                            <div style="display:flex; gap:0.5rem; margin-top:0.2rem; flex-wrap:wrap;">
                                 <a href="view-po.php?id=<?php echo (int)$po['id']; ?>&po_business=<?php echo urlencode((string)($po['source_business_slug'] ?? '')); ?>" class="btn btn-sm btn-secondary">Lihat</a>
                                 <a href="view-po.php?id=<?php echo (int)$po['id']; ?>&po_business=<?php echo urlencode((string)($po['source_business_slug'] ?? '')); ?>&edit=1" class="btn btn-sm btn-warning">Edit</a>
-                                <a href="gudang-transfer.php?po_id=<?php echo (int)$po['id']; ?>&po_business=<?php echo urlencode((string)($po['source_business_slug'] ?? '')); ?>" class="btn btn-sm btn-success">Siapkan Transfer</a>
+                                <a href="gudang-transfer.php?po_id=<?php echo (int)$po['id']; ?>&po_business=<?php echo urlencode((string)($po['source_business_slug'] ?? '')); ?>" class="btn btn-sm btn-success">Transfer</a>
                                 <form method="POST" style="display:inline;" onsubmit="return confirm('Batalkan permintaan PO ini?')">
                                     <input type="hidden" name="action" value="cancel_pending_po">
                                     <input type="hidden" name="po_id" value="<?php echo (int)$po['id']; ?>">
@@ -1377,17 +1407,19 @@ include '../../includes/header.php';
             </div>
         </div>
 
-        <div class="card">
-            <h3 style="font-size:1rem; font-weight:700; margin-bottom:0.75rem;">Transfer Terakhir</h3>
-            <div style="display:grid; gap:0.75rem;">
+        <div class="card gudang-side-card">
+            <div style="padding:0.9rem 1rem 0.75rem; border-bottom:1px solid rgba(148,163,184,0.18);">
+                <h3 style="font-size:1rem; font-weight:700; margin:0;">Transfer Terakhir</h3>
+            </div>
+            <div style="padding:0.95rem; display:grid; gap:0.75rem;">
                 <?php if (empty($recentTransfers)): ?>
                     <div style="color:var(--text-muted); font-size:0.875rem;">Belum ada transfer keluar</div>
                 <?php else: ?>
                     <?php foreach ($recentTransfers as $transfer): ?>
-                        <div style="padding:0.75rem; border:1px solid var(--border); border-radius:0.75rem; background: var(--bg-secondary);">
-                            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div style="padding:0.75rem; border:1px solid rgba(148,163,184,0.26); border-radius:0.75rem; background: linear-gradient(180deg, rgba(248,250,252,0.8), rgba(255,255,255,0.9));">
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.5rem;">
                                 <div>
-                                    <div style="font-weight:700;"><?php echo htmlspecialchars($transfer['transfer_number']); ?></div>
+                                    <div style="font-weight:700; font-size:0.9rem; margin-bottom:0.2rem;"><?php echo htmlspecialchars($transfer['transfer_number']); ?></div>
                                     <div style="font-size:0.812rem; color:var(--text-muted);"><?php echo htmlspecialchars($transfer['target_business_name']); ?></div>
                                     <div style="font-size:0.812rem; color:var(--text-muted);"><?php echo (int)$transfer['items_count']; ?> item | <?php echo number_format((float)$transfer['total_qty'], 2); ?> qty</div>
                                 </div>
@@ -1455,7 +1487,7 @@ include '../../includes/header.php';
         const inp = document.getElementById('stockSearchInput');
         const chk = document.getElementById('stockLowFilter');
         const rst = document.getElementById('stockResetBtn');
-        const categoryInput = document.querySelector('input[name="category"]');
+        const categoryInput = document.getElementById('stockCategoryHidden');
         const categoryButtons = document.querySelectorAll('[data-gudang-category]');
         const tbody = document.querySelector('#stockTable tbody');
         if (!inp || !tbody) return;
@@ -1465,10 +1497,11 @@ include '../../includes/header.php';
         }
 
         function setActiveCategory(value) {
-            if (categoryInput) categoryInput.value = value || '';
+            const normalized = (value || '').trim();
+            if (categoryInput) categoryInput.value = normalized;
             categoryButtons.forEach(btn => {
                 const btnValue = (btn.getAttribute('data-gudang-category') || '').trim().toLowerCase();
-                btn.classList.toggle('active', btnValue === (value || '').trim().toLowerCase());
+                btn.classList.toggle('active', btnValue === normalized.toLowerCase());
             });
             filterRows();
         }
