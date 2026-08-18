@@ -960,6 +960,19 @@ $lowStockItems = array_values(array_filter($stockItems, function ($item) {
     return (float)($item['reorder_level'] ?? 0) > 0 && (float)$item['quantity'] <= (float)$item['reorder_level'];
 }));
 
+// Collect items expiring within 30 days (H-1 bulan) or already expired, for prominent alert
+$expiringItems = array_values(array_filter($stockItems, function ($item) {
+    $exp = $item['expiry_date'] ?? '';
+    if (!$exp || $exp === '0000-00-00') {
+        return false;
+    }
+    $diffDays = (int)floor((strtotime($exp) - time()) / 86400);
+    return $diffDays <= 30;
+}));
+usort($expiringItems, function ($a, $b) {
+    return strtotime($a['expiry_date']) <=> strtotime($b['expiry_date']);
+});
+
 // Load suppliers for the order-to-supplier modal
 $gudangSuppliers = $db->fetchAll("SELECT id, supplier_name FROM suppliers WHERE (is_active = 1 OR is_active IS NULL) ORDER BY supplier_name ASC");
 if (empty($gudangSuppliers)) {
@@ -1105,19 +1118,21 @@ include '../../includes/header.php';
 
 <style>
     .gudang-shell {
-        background: linear-gradient(180deg, rgba(248, 250, 252, 0.85), rgba(255,255,255,0.75));
+        background: linear-gradient(180deg, rgba(248, 250, 252, 0.85), rgba(255, 255, 255, 0.75));
         border-radius: 0;
         padding: 0.5rem 0.75rem 0.75rem;
         margin: 0 !important;
         max-width: 100% !important;
         width: 100% !important;
     }
+
     .gudang-top-actions {
-        display:flex;
-        align-items:center;
-        flex-wrap:wrap;
-        gap:0.7rem;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.7rem;
     }
+
     .gudang-top-actions .btn {
         min-height: 42px;
         padding: 0.7rem 1rem;
@@ -1129,1050 +1144,1109 @@ include '../../includes/header.php';
         gap: 0.45rem;
         box-shadow: 0 8px 18px rgba(37, 99, 235, 0.12);
     }
+
     .gudang-chip {
-        display:inline-flex;
-        align-items:center;
-        justify-content:center;
-        gap:0.38rem;
-        padding:0.52rem 0.9rem;
-        border-radius:999px;
-        border:1px solid rgba(148, 163, 184, 0.4);
-        background: rgba(255,255,255,0.72);
-        color:#334155;
-        font-size:0.77rem;
-        font-weight:700;
-        text-decoration:none;
-        transition:all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.38rem;
+        padding: 0.52rem 0.9rem;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        background: rgba(255, 255, 255, 0.72);
+        color: #334155;
+        font-size: 0.77rem;
+        font-weight: 700;
+        text-decoration: none;
+        transition: all 0.2s ease;
         box-shadow: 0 4px 10px rgba(15, 23, 42, 0.04);
     }
+
     .gudang-chip:hover {
         transform: translateY(-1px);
-        text-decoration:none;
-        color:#0f172a;
+        text-decoration: none;
+        color: #0f172a;
     }
+
     .gudang-chip.active {
         background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
         border-color: transparent;
-        color:#fff;
+        color: #fff;
         box-shadow: 0 10px 18px rgba(37, 99, 235, 0.22);
     }
+
     .gudang-toolbar {
-        background: rgba(255,255,255,0.76);
-        border:1px solid rgba(148,163,184,0.28);
+        background: rgba(255, 255, 255, 0.76);
+        border: 1px solid rgba(148, 163, 184, 0.28);
         border-radius: 1rem;
         padding: 0.9rem 1rem;
         box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
     }
+
     .gudang-search-wrap {
-        display:flex; gap:0.6rem; align-items:center; flex-wrap:wrap;
+        display: flex;
+        gap: 0.6rem;
+        align-items: center;
+        flex-wrap: wrap;
         min-width: 260px;
-        background: rgba(248,250,252,0.95);
-        border:1px solid rgba(148,163,184,0.24);
+        background: rgba(248, 250, 252, 0.95);
+        border: 1px solid rgba(148, 163, 184, 0.24);
         border-radius: 0.9rem;
         padding: 0.45rem 0.7rem;
         box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
     }
+
     .gudang-search-wrap .form-control {
-        border:none; box-shadow:none; background:transparent; padding:0.2rem 0; min-height: 32px;
+        border: none;
+        box-shadow: none;
+        background: transparent;
+        padding: 0.2rem 0;
+        min-height: 32px;
         font-size: 0.9rem;
     }
+
     #stockResetBtn {
         min-width: 72px;
-        font-weight:700;
-        color:#334155;
-        background:#f8fafc;
-        border:1px solid rgba(148,163,184,0.35);
+        font-weight: 700;
+        color: #334155;
+        background: #f8fafc;
+        border: 1px solid rgba(148, 163, 184, 0.35);
     }
+
     .gudang-side-card {
         border: 1px solid rgba(148, 163, 184, 0.3);
         border-radius: 1rem;
         box-shadow: 0 10px 24px rgba(15, 23, 42, 0.03);
-        background: rgba(255,255,255,0.75);
+        background: rgba(255, 255, 255, 0.75);
     }
+
     .gudang-side-card .card-body,
-    .gudang-side-card > .p-3,
-    .gudang-side-card > .card-body {
+    .gudang-side-card>.p-3,
+    .gudang-side-card>.card-body {
         padding: 0.9rem 0.95rem !important;
     }
 </style>
 
 <div class="gudang-shell">
-<div style="margin-bottom: 1.25rem; display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap;">
-    <div>
-        <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem; display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
-            Gudang Nasita
-            <?php if ($pendingPoCount > 0): ?>
-                <span style="background:#ef4444; color:#fff; border-radius:999px; padding:0.2rem 0.55rem; font-size:0.75rem; font-weight:800;">PO Masuk: <?php echo (int)$pendingPoCount; ?></span>
-            <?php endif; ?>
-        </h2>
-        <p style="color: var(--text-muted); font-size: 0.875rem;">Stok pusat, penerimaan supplier, dan kontrol barang keluar</p>
-    </div>
-    <div class="gudang-top-actions">
-        <button type="button" class="btn btn-warning" onclick="document.getElementById('doCurrentQty').textContent=''; document.getElementById('dailyOutModal').style.display='flex'">
-            <i data-feather="minus-square" style="width: 16px; height: 16px;"></i>
-            Stock Keluar
-        </button>
-        <button type="button" class="btn btn-primary" onclick="document.getElementById('importStockModal').style.display='flex'">
-            <i data-feather="download" style="width: 16px; height: 16px;"></i>
-            Import Stock
-        </button>
-        <a href="gudang-nasita.php?export_excel=1&q_item=<?php echo urlencode($searchItemName); ?>&low_stock=<?php echo $filterLowStockOnly ? '1' : '0'; ?>&category=<?php echo urlencode($selectedCategory); ?>" class="btn btn-success" style="font-weight:700;">
-            <i data-feather="upload" style="width: 16px; height: 16px;"></i>
-            Export Excel
-        </a>
-        <a href="gudang-nasita.php?export_pdf=1&q_item=<?php echo urlencode($searchItemName); ?>&low_stock=<?php echo $filterLowStockOnly ? '1' : '0'; ?>&category=<?php echo urlencode($selectedCategory); ?>" class="btn btn-danger" style="font-weight:700;">
-            <i data-feather="file-text" style="width: 16px; height: 16px;"></i>
-            Export PDF
-        </a>
-        <a href="gudang-nasita.php?print_stock=1" target="_blank" class="btn btn-primary" style="font-weight:700;">
-            <i data-feather="printer" style="width: 16px; height: 16px;"></i>
-            Print Semua Stock
-        </a>
-        <form method="GET" target="_blank" style="display:flex; gap:0.45rem; align-items:center; flex-wrap:wrap; margin:0;">
-            <input type="hidden" name="print_stock_out" value="1">
-            <input type="date" name="from_date" class="form-control" value="<?php echo htmlspecialchars(date('Y-m-d')); ?>" style="width: 130px; min-height: 38px;">
-            <span style="font-size:0.75rem; color:var(--text-muted);">s/d</span>
-            <input type="date" name="to_date" class="form-control" value="<?php echo htmlspecialchars(date('Y-m-d')); ?>" style="width: 130px; min-height: 38px;">
-            <button type="submit" class="btn btn-secondary" style="font-weight:700;">
+    <div style="margin-bottom: 1.25rem; display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap;">
+        <div>
+            <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem; display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+                Gudang Nasita
+                <?php if ($pendingPoCount > 0): ?>
+                    <span style="background:#ef4444; color:#fff; border-radius:999px; padding:0.2rem 0.55rem; font-size:0.75rem; font-weight:800;">PO Masuk: <?php echo (int)$pendingPoCount; ?></span>
+                <?php endif; ?>
+            </h2>
+            <p style="color: var(--text-muted); font-size: 0.875rem;">Stok pusat, penerimaan supplier, dan kontrol barang keluar</p>
+        </div>
+        <div class="gudang-top-actions">
+            <button type="button" class="btn btn-warning" onclick="document.getElementById('doCurrentQty').textContent=''; document.getElementById('dailyOutModal').style.display='flex'">
+                <i data-feather="minus-square" style="width: 16px; height: 16px;"></i>
+                Stock Keluar
+            </button>
+            <button type="button" class="btn btn-primary" onclick="document.getElementById('importStockModal').style.display='flex'">
+                <i data-feather="download" style="width: 16px; height: 16px;"></i>
+                Import Stock
+            </button>
+            <a href="gudang-nasita.php?export_excel=1&q_item=<?php echo urlencode($searchItemName); ?>&low_stock=<?php echo $filterLowStockOnly ? '1' : '0'; ?>&category=<?php echo urlencode($selectedCategory); ?>" class="btn btn-success" style="font-weight:700;">
+                <i data-feather="upload" style="width: 16px; height: 16px;"></i>
+                Export Excel
+            </a>
+            <a href="gudang-nasita.php?export_pdf=1&q_item=<?php echo urlencode($searchItemName); ?>&low_stock=<?php echo $filterLowStockOnly ? '1' : '0'; ?>&category=<?php echo urlencode($selectedCategory); ?>" class="btn btn-danger" style="font-weight:700;">
+                <i data-feather="file-text" style="width: 16px; height: 16px;"></i>
+                Export PDF
+            </a>
+            <a href="gudang-nasita.php?print_stock=1" target="_blank" class="btn btn-primary" style="font-weight:700;">
                 <i data-feather="printer" style="width: 16px; height: 16px;"></i>
-                Print
-            </button>
-        </form>
-        <a href="gudang-po-supplier.php" class="btn btn-primary" style="display:none;">
-            <i data-feather="file-plus" style="width: 16px; height: 16px;"></i>
-            PO Supplier
-        </a>
-        <a href="gudang-transfer.php" class="btn btn-secondary">
-            <i data-feather="shuffle" style="width: 16px; height: 16px;"></i>
-            Transfer ke Bisnis
-        </a>
-        <form method="POST" style="display:inline;" onsubmit="return confirm('Reset stok Gudang ke 0? Data item tetap ada, hanya qty di-nolkan.')">
-            <input type="hidden" name="action" value="reset_stock_zero">
-            <button type="submit" class="btn btn-danger">
-                <i data-feather="rotate-ccw" style="width: 16px; height: 16px;"></i>
-                Reset Stok 0
-            </button>
-        </form>
-    </div>
-</div>
-
-<?php if (isset($_SESSION['success'])): ?>
-    <div class="alert alert-success" style="margin-bottom:1rem;"><?php echo htmlspecialchars($_SESSION['success']);
-                                                                    unset($_SESSION['success']); ?></div>
-<?php endif; ?>
-<?php if (isset($_SESSION['error'])): ?>
-    <div class="alert alert-danger" style="margin-bottom:1rem;"><?php echo htmlspecialchars($_SESSION['error']);
-                                                                unset($_SESSION['error']); ?></div>
-<?php endif; ?>
-
-<?php if (!empty($lowStockItems)): ?>
-    <div style="background:#fef2f2; border:1.5px solid #fca5a5; border-radius:0.85rem; padding:0.75rem 1.25rem; margin-bottom:0.85rem;">
-        <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.5rem;">
-            <i data-feather="alert-triangle" style="width:16px; height:16px; color:#dc2626;"></i>
-            <strong style="color:#dc2626; font-size:0.875rem;">⚠️ <?php echo count($lowStockItems); ?> item stok menipis &mdash; perlu segera dipesan ke supplier</strong>
-        </div>
-        <!-- max-height shows ~3 items; rest scrollable -->
-        <div style="display:grid; gap:0.4rem; max-height:132px; overflow-y:auto; padding-right:4px;">
-            <?php foreach ($lowStockItems as $lwItem): ?>
-                <div style="display:flex; justify-content:space-between; align-items:center; gap:0.75rem; flex-wrap:wrap; background:#fff; border:1px solid #fca5a5; border-radius:0.5rem; padding:0.45rem 0.75rem;">
-                    <div>
-                        <span style="font-weight:700; color:#991b1b; font-size:0.875rem;"><?php echo htmlspecialchars($lwItem['item_name']); ?></span>
-                        <span style="font-size:0.78rem; color:#b91c1c; margin-left:0.4rem;">Sisa: <?php echo number_format((float)$lwItem['quantity'], 2); ?> <?php echo htmlspecialchars($lwItem['unit']); ?> &mdash; Reorder: <?php echo number_format((float)$lwItem['reorder_level'], 2); ?></span>
-                        <?php if (!empty($lwItem['supplier_name'])): ?>
-                            <span style="font-size:0.75rem; color:#6b7280; margin-left:0.4rem;">(<?php echo htmlspecialchars($lwItem['supplier_name']); ?>)</span>
-                        <?php endif; ?>
-                    </div>
-                    <button type="button" class="btn btn-sm" style="background:#dc2626 !important; color:#ffffff !important; border:none; font-size:0.75rem; padding:0.2rem 0.6rem; white-space:nowrap; font-weight:600;"
-                        onclick="window.location.href='gudang-po-supplier.php'">
-                        Pesan
-                    </button>
-                </div>
-            <?php endforeach; ?>
+                Print Semua Stock
+            </a>
+            <form method="GET" target="_blank" style="display:flex; gap:0.45rem; align-items:center; flex-wrap:wrap; margin:0;">
+                <input type="hidden" name="print_stock_out" value="1">
+                <input type="date" name="from_date" class="form-control" value="<?php echo htmlspecialchars(date('Y-m-d')); ?>" style="width: 130px; min-height: 38px;">
+                <span style="font-size:0.75rem; color:var(--text-muted);">s/d</span>
+                <input type="date" name="to_date" class="form-control" value="<?php echo htmlspecialchars(date('Y-m-d')); ?>" style="width: 130px; min-height: 38px;">
+                <button type="submit" class="btn btn-secondary" style="font-weight:700;">
+                    <i data-feather="printer" style="width: 16px; height: 16px;"></i>
+                    Print
+                </button>
+            </form>
+            <a href="gudang-po-supplier.php" class="btn btn-primary" style="display:none;">
+                <i data-feather="file-plus" style="width: 16px; height: 16px;"></i>
+                PO Supplier
+            </a>
+            <a href="gudang-transfer.php" class="btn btn-secondary">
+                <i data-feather="shuffle" style="width: 16px; height: 16px;"></i>
+                Transfer ke Bisnis
+            </a>
+            <form method="POST" style="display:inline;" onsubmit="return confirm('Reset stok Gudang ke 0? Data item tetap ada, hanya qty di-nolkan.')">
+                <input type="hidden" name="action" value="reset_stock_zero">
+                <button type="submit" class="btn btn-danger">
+                    <i data-feather="rotate-ccw" style="width: 16px; height: 16px;"></i>
+                    Reset Stok 0
+                </button>
+            </form>
         </div>
     </div>
-<?php endif; ?>
 
-<div style="display:flex; gap:0.5rem; margin-bottom:0.85rem; flex-wrap:wrap;">
-    <div class="card" style="padding:0.4rem 0.85rem; flex:1; min-width:90px; display:flex; flex-direction:column; gap:1px;">
-        <div style="font-size:0.68rem; color:var(--text-muted);">Total Item</div>
-        <div style="font-size:1rem; font-weight:800; color:var(--text-primary);"><?php echo $summary['items']; ?></div>
-    </div>
-    <div class="card" style="padding:0.4rem 0.85rem; flex:1; min-width:90px; display:flex; flex-direction:column; gap:1px;">
-        <div style="font-size:0.68rem; color:var(--text-muted);">Total Qty</div>
-        <div style="font-size:1rem; font-weight:800; color:var(--text-primary);"><?php echo number_format($summary['qty'], 2); ?></div>
-    </div>
-    <div class="card" style="padding:0.4rem 0.85rem; flex:1; min-width:100px; display:flex; flex-direction:column; gap:1px;">
-        <div style="font-size:0.68rem; color:var(--text-muted);">Masuk Hari Ini</div>
-        <div style="font-size:1rem; font-weight:800; color:#0f9d6a;"><?php echo number_format($summary['incoming_today'], 2); ?> <span style="font-size:0.65rem; font-weight:400;">pcs</span></div>
-    </div>
-    <div class="card" style="padding:0.4rem 0.85rem; flex:1; min-width:100px; display:flex; flex-direction:column; gap:1px;">
-        <div style="font-size:0.68rem; color:var(--text-muted);">Keluar Hari Ini</div>
-        <div style="font-size:1rem; font-weight:800; color:#d83a5b;"><?php echo number_format($summary['outgoing_today'], 2); ?> <span style="font-size:0.65rem; font-weight:400;">pcs</span></div>
-    </div>
-    <div class="card" style="padding:0.4rem 0.85rem; flex:1.5; min-width:120px; display:flex; flex-direction:column; gap:1px;">
-        <div style="font-size:0.68rem; color:var(--text-muted);">Nilai Persediaan</div>
-        <div style="font-size:0.95rem; font-weight:800; color:#0f9d6a;">Rp <?php echo number_format($summary['value'], 0, ',', '.'); ?></div>
-    </div>
-</div>
+    <?php if (isset($_SESSION['success'])): ?>
+        <div class="alert alert-success" style="margin-bottom:1rem;"><?php echo htmlspecialchars($_SESSION['success']);
+                                                                        unset($_SESSION['success']); ?></div>
+    <?php endif; ?>
+    <?php if (isset($_SESSION['error'])): ?>
+        <div class="alert alert-danger" style="margin-bottom:1rem;"><?php echo htmlspecialchars($_SESSION['error']);
+                                                                    unset($_SESSION['error']); ?></div>
+    <?php endif; ?>
 
-<div style="display:grid; grid-template-columns: 3fr 1fr; gap: 1rem; align-items:start;">
-    <div class="card" style="display:flex; flex-direction:column; height:calc(100vh - 230px); min-height:420px; overflow:hidden;">
-        <div class="gudang-toolbar" style="margin-bottom:1rem;">
-            <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; margin-bottom:0.8rem;">
-                <h3 style="font-size:1rem; font-weight:700; margin:0;">Stok Gudang</h3>
-                <form method="GET" id="stockFilterForm" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center; margin:0;">
-                    <input type="hidden" id="stockCategoryHidden" name="category" value="<?php echo htmlspecialchars($selectedCategory); ?>">
-                    <div class="gudang-search-wrap">
-                        <i data-feather="search" style="width:15px; height:15px; color:#64748b;"></i>
-                        <input type="text" name="q_item" id="stockSearchInput" class="form-control" placeholder="Cari nama item..." value="<?php echo htmlspecialchars($searchItemName); ?>" style="min-width:220px;" autocomplete="off">
-                    </div>
-                    <label style="display:flex; align-items:center; gap:0.35rem; font-size:0.82rem; color:var(--text-muted);">
-                        <input type="checkbox" name="low_stock" id="stockLowFilter" value="1" <?php echo $filterLowStockOnly ? 'checked' : ''; ?>>
-                        Stok menipis saja
-                    </label>
-                    <button type="submit" class="btn btn-primary btn-sm">Cari</button>
-                    <button type="button" class="btn btn-sm" id="stockResetBtn" style="<?php echo ($searchItemName || $filterLowStockOnly || $selectedCategory !== '') ? '' : 'display:none'; ?>">Clear</button>
-                </form>
+    <?php if (!empty($lowStockItems)): ?>
+        <div style="background:#fef2f2; border:1.5px solid #fca5a5; border-radius:0.85rem; padding:0.75rem 1.25rem; margin-bottom:0.85rem;">
+            <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.5rem;">
+                <i data-feather="alert-triangle" style="width:16px; height:16px; color:#dc2626;"></i>
+                <strong style="color:#dc2626; font-size:0.875rem;">⚠️ <?php echo count($lowStockItems); ?> item stok menipis &mdash; perlu segera dipesan ke supplier</strong>
             </div>
-            <div style="display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center;">
-                <?php
-                $categoryLinks = [];
-                $categoryLinks[] = [
-                    'label' => 'Semua',
-                    'value' => '',
-                    'button' => true,
-                ];
-                foreach ($stockCategories as $cat) {
-                    $categoryLinks[] = [
-                        'label' => htmlspecialchars($cat),
-                        'value' => $cat,
-                        'button' => true,
-                    ];
-                }
-                ?>
-                <?php foreach ($categoryLinks as $categoryLink): ?>
-                    <?php $isActive = ($selectedCategory === '' && $categoryLink['value'] === '') || ($selectedCategory !== '' && strtolower($categoryLink['value']) === strtolower($selectedCategory)); ?>
-                    <button type="button" class="gudang-chip <?php echo $isActive ? 'active' : ''; ?>" data-gudang-category="<?php echo htmlspecialchars((string)$categoryLink['value']); ?>">
-                        <?php echo $categoryLink['label']; ?>
-                    </button>
+            <!-- max-height shows ~3 items; rest scrollable -->
+            <div style="display:grid; gap:0.4rem; max-height:132px; overflow-y:auto; padding-right:4px;">
+                <?php foreach ($lowStockItems as $lwItem): ?>
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:0.75rem; flex-wrap:wrap; background:#fff; border:1px solid #fca5a5; border-radius:0.5rem; padding:0.45rem 0.75rem;">
+                        <div>
+                            <span style="font-weight:700; color:#991b1b; font-size:0.875rem;"><?php echo htmlspecialchars($lwItem['item_name']); ?></span>
+                            <span style="font-size:0.78rem; color:#b91c1c; margin-left:0.4rem;">Sisa: <?php echo number_format((float)$lwItem['quantity'], 2); ?> <?php echo htmlspecialchars($lwItem['unit']); ?> &mdash; Reorder: <?php echo number_format((float)$lwItem['reorder_level'], 2); ?></span>
+                            <?php if (!empty($lwItem['supplier_name'])): ?>
+                                <span style="font-size:0.75rem; color:#6b7280; margin-left:0.4rem;">(<?php echo htmlspecialchars($lwItem['supplier_name']); ?>)</span>
+                            <?php endif; ?>
+                        </div>
+                        <button type="button" class="btn btn-sm" style="background:#dc2626 !important; color:#ffffff !important; border:none; font-size:0.75rem; padding:0.2rem 0.6rem; white-space:nowrap; font-weight:600;"
+                            onclick="window.location.href='gudang-po-supplier.php'">
+                            Pesan
+                        </button>
+                    </div>
                 <?php endforeach; ?>
             </div>
         </div>
-        <?php if ($summary['low'] > 0): ?>
-            <div style="margin-bottom:0.75rem;"><span class="badge badge-warning"><?php echo $summary['low']; ?> item di bawah reorder</span></div>
-        <?php endif; ?>
-        <div class="table-responsive" style="flex:1; overflow-y:auto; overflow-x:hidden;">
-            <table class="table" id="stockTable" style="table-layout:fixed; width:100%;">
-                <thead>
-                    <colgroup>
-                        <col style="width:90px;">
-                        <col style="width:80px;">
-                        <col>
-                        <col style="width:60px;">
-                        <col style="width:90px;">
-                        <col style="width:70px;">
-                        <col style="width:50px;">
-                        <col style="width:80px;">
-                        <col style="width:70px;">
-                        <col style="width:65px;">
-                    </colgroup>
-                    <tr>
-                        <th style="font-size:0.75rem;">Kode</th>
-                        <th style="font-size:0.75rem;">Kategori</th>
-                        <th style="font-size:0.75rem;">Item</th>
-                        <th class="text-right" style="font-size:0.75rem;">Qty</th>
-                        <th class="text-right" style="font-size:0.75rem;">Harga/pcs</th>
-                        <th class="text-right" style="font-size:0.75rem;">Nilai</th>
-                        <th style="font-size:0.75rem;">Unit</th>
-                        <th style="font-size:0.75rem;">Supplier</th>
-                        <th style="font-size:0.75rem;">Kadaluarsa</th>
-                        <th style="font-size:0.75rem;">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if (empty($stockItems)): ?>
-                        <tr>
-                            <td colspan="10" style="text-align:center; padding: 2rem; color: var(--text-muted);">Belum ada stok gudang</td>
-                        </tr>
-                    <?php else: ?>
-                        <?php $currentCategory = null; ?>
-                        <?php foreach ($stockItems as $item): ?>
-                            <?php $rowCategory = trim((string)($item['category'] ?? '')); ?>
-                            <?php if ($rowCategory === '') {
-                                $rowCategory = 'lainnya';
-                            } ?>
-                            <?php if ($currentCategory !== $rowCategory): ?>
-                                <?php $currentCategory = $rowCategory; ?>
-                                <tr>
-                                    <td colspan="10" style="background:#f8fafc; font-weight:700; color:#334155; text-transform:capitalize; border-top:1px solid var(--border);">
-                                        Kategori: <?php echo htmlspecialchars($currentCategory); ?>
-                                    </td>
-                                </tr>
-                            <?php endif; ?>
-                            <?php $isLowRow = ((float)$item['quantity'] <= (float)($item['reorder_level'] ?? 0) && (float)($item['reorder_level'] ?? 0) > 0); ?>
-                            <tr data-item="<?php echo htmlspecialchars(strtolower((string)$item['item_name'])); ?>" data-low="<?php echo $isLowRow ? '1' : '0'; ?>" data-category="<?php echo htmlspecialchars(strtolower((string)$rowCategory)); ?>">
-                                <td style="font-weight:600;"><?php echo htmlspecialchars($item['stock_code'] ?? ('GN-LEGACY-' . str_pad((string)($item['id'] ?? 0), 4, '0', STR_PAD_LEFT))); ?></td>
-                                <td><span class="badge badge-info" style="text-transform:capitalize;"><?php echo htmlspecialchars($rowCategory); ?></span></td>
-                                <td>
-                                    <div style="font-weight:600;"><?php echo htmlspecialchars($item['item_name']); ?></div>
-                                    <?php if (!empty($item['notes'])): ?><div style="font-size:0.75rem; color: var(--text-muted);"><?php echo htmlspecialchars($item['notes']); ?></div><?php endif; ?>
-                                </td>
-                                <td class="text-right" style="font-weight:700; color:<?php echo ((float)$item['quantity'] <= (float)($item['reorder_level'] ?? 0) && (float)($item['reorder_level'] ?? 0) > 0) ? '#d97706' : 'var(--text-primary)'; ?>;"><?php echo number_format($item['quantity'], 2); ?></td>
-                                <td class="text-right">Rp <?php echo number_format((float)($item['harga_beli'] ?? 0), 0, ',', '.'); ?></td>
-                                <td class="text-right" style="font-weight:700; color:#0f9d6a;">Rp <?php echo number_format((float)($item['total_harga'] ?? ((float)$item['quantity'] * (float)($item['harga_beli'] ?? 0))), 0, ',', '.'); ?></td>
-                                <td><?php echo htmlspecialchars($item['unit']); ?></td>
-                                <td style="font-size:0.813rem;"><?php echo htmlspecialchars($item['supplier_name'] ?: '-'); ?></td>
-                                <td style="font-size:0.82rem; white-space:nowrap;"><?php
-                                                                                    $exp = $item['expiry_date'] ?? '';
-                                                                                    if ($exp && $exp !== '0000-00-00') {
-                                                                                        $expTs = strtotime($exp);
-                                                                                        $diffDays = (int)floor(($expTs - time()) / 86400);
-                                                                                        if ($diffDays < 0) {
-                                                                                            echo '<span style="color:#dc2626; font-weight:700;">&#9888; Kadaluarsa ' . date('d M Y', $expTs) . '</span>';
-                                                                                        } elseif ($diffDays <= 30) {
-                                                                                            echo '<span style="color:#d97706; font-weight:700;">&#9888; ' . date('d M Y', $expTs) . ' (' . $diffDays . ' hr)</span>';
-                                                                                        } else {
-                                                                                            echo '<span style="color:#64748b;">' . date('d M Y', $expTs) . '</span>';
-                                                                                        }
-                                                                                    } else {
-                                                                                        echo '<span style="color:#cbd5e1;">—</span>';
-                                                                                    }
-                                                                                    ?></td>
-                                <td>
-                                    <?php $stockIdInt = (int)($item['id'] ?? 0); ?>
-                                    <div class="dropdown" style="position:relative; display:inline-block;">
-                                        <button type="button" class="btn btn-sm btn-secondary" style="padding:0 0.55rem; height:30px;"
-                                            onclick="toggleStockDropdown(<?php echo $stockIdInt; ?>)">
-                                            Aksi ▾
-                                        </button>
-                                        <div id="sdrop-<?php echo $stockIdInt; ?>" style="display:none; position:absolute; right:0; top:100%; background:#fff; border:1px solid #e2e8f0; border-radius:0.6rem; box-shadow:0 6px 20px rgba(0,0,0,0.12); z-index:1000; min-width:210px; padding:0.4rem 0;">
-                                            <button type="button" style="display:block; width:100%; text-align:left; padding:0.5rem 0.9rem; font-size:0.83rem; background:none; border:none; cursor:pointer; color:#0f9d6a; font-weight:600;"
-                                                onclick="toggleStockDropdown(<?php echo $stockIdInt; ?>); openQuickStock(<?php echo htmlspecialchars(json_encode($item['item_name']), ENT_QUOTES); ?>, <?php echo htmlspecialchars(json_encode($item['category'] ?? 'lainnya'), ENT_QUOTES); ?>, <?php echo htmlspecialchars(json_encode($item['unit']), ENT_QUOTES); ?>, <?php echo (float)($item['quantity'] ?? 0); ?>)">
-                                                + Tambah Stok
-                                            </button>
-                                            <button type="button" style="display:block; width:100%; text-align:left; padding:0.5rem 0.9rem; font-size:0.83rem; background:none; border:none; cursor:pointer; color:#d97706; font-weight:600;"
-                                                onclick="toggleStockDropdown(<?php echo $stockIdInt; ?>); openStockOut(<?php echo htmlspecialchars(json_encode($item['item_name']), ENT_QUOTES); ?>, <?php echo htmlspecialchars(json_encode($item['unit']), ENT_QUOTES); ?>, <?php echo (float)($item['quantity'] ?? 0); ?>)">
-                                                − Kurangi Stok
-                                            </button>
-                                            <a href="gudang-transfer.php?stock_id=<?php echo $stockIdInt; ?>" style="display:block; padding:0.5rem 0.9rem; font-size:0.83rem; color:#3b82f6; font-weight:600; text-decoration:none;"
-                                                onclick="toggleStockDropdown(<?php echo $stockIdInt; ?>)">
-                                                ↗ Transfer ke Bisnis
-                                            </a>
-                                            <div style="border-top:1px solid #f1f5f9; margin:0.25rem 0;"></div>
-                                            <div style="padding:0.45rem 0.9rem;">
-                                                <div style="font-size:0.75rem; color:#64748b; margin-bottom:3px;">Edit Kadaluarsa</div>
-                                                <form method="POST" style="display:flex; gap:4px;" onsubmit="toggleStockDropdown(<?php echo $stockIdInt; ?>)">
-                                                    <input type="hidden" name="action" value="update_expiry">
-                                                    <input type="hidden" name="stock_id" value="<?php echo $stockIdInt; ?>">
-                                                    <input type="date" name="expiry_date" class="form-control" style="font-size:0.78rem; height:28px; padding:0 4px; flex:1;" value="<?php echo htmlspecialchars($exp ?? ''); ?>">
-                                                    <button type="submit" class="btn btn-sm" style="height:28px; padding:0 8px; font-size:0.75rem; background:#6366f1; color:#fff; white-space:nowrap;">Simpan</button>
-                                                </form>
-                                            </div>
-                                            <div style="border-top:1px solid #f1f5f9; margin:0.25rem 0;"></div>
-                                            <form method="POST" style="padding:0 0.9rem 0.4rem;" onsubmit="return confirm('Hapus item stok ini?')">
-                                                <input type="hidden" name="action" value="delete_stock">
-                                                <input type="hidden" name="stock_id" value="<?php echo $stockIdInt; ?>">
-                                                <button type="submit" style="display:block; width:100%; text-align:left; padding:0.3rem 0; font-size:0.83rem; background:none; border:none; cursor:pointer; color:#dc2626; font-weight:600;">
-                                                    🗑 Hapus Item Stok
-                                                </button>
-                                            </form>
-                                        </div>
-                                    </div>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </tbody>
-            </table>
+    <?php endif; ?>
+
+    <?php if (!empty($expiringItems)): ?>
+        <div style="background:#fffbeb; border:1.5px solid #fcd34d; border-radius:0.85rem; padding:0.75rem 1.25rem; margin-bottom:0.85rem;">
+            <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.5rem;">
+                <i data-feather="clock" style="width:16px; height:16px; color:#d97706;"></i>
+                <strong style="color:#b45309; font-size:0.875rem;">⏰ <?php echo count($expiringItems); ?> item mendekati/sudah kadaluarsa (H-1 bulan)</strong>
+            </div>
+            <div style="display:grid; gap:0.4rem; max-height:132px; overflow-y:auto; padding-right:4px;">
+                <?php foreach ($expiringItems as $exItem):
+                    $exDiffDays = (int)floor((strtotime($exItem['expiry_date']) - time()) / 86400);
+                    $exExpired = $exDiffDays < 0;
+                    ?>
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:0.75rem; flex-wrap:wrap; background:#fff; border:1px solid #fcd34d; border-radius:0.5rem; padding:0.45rem 0.75rem;">
+                        <div>
+                            <span style="font-weight:700; color:<?php echo $exExpired ? '#991b1b' : '#92400e'; ?>; font-size:0.875rem;"><?php echo htmlspecialchars($exItem['item_name']); ?></span>
+                            <span style="font-size:0.78rem; color:<?php echo $exExpired ? '#b91c1c' : '#b45309'; ?>; margin-left:0.4rem;">
+                                <?php echo $exExpired
+                                    ? 'Kadaluarsa ' . date('d M Y', strtotime($exItem['expiry_date']))
+                                    : date('d M Y', strtotime($exItem['expiry_date'])) . ' (' . $exDiffDays . ' hr lagi)'; ?>
+                            </span>
+                            <span style="font-size:0.75rem; color:#6b7280; margin-left:0.4rem;">Sisa: <?php echo number_format((float)$exItem['quantity'], 2); ?> <?php echo htmlspecialchars($exItem['unit']); ?></span>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    <?php endif; ?>
+
+    <div style="display:flex; gap:0.5rem; margin-bottom:0.85rem; flex-wrap:wrap;">
+        <div class="card" style="padding:0.4rem 0.85rem; flex:1; min-width:90px; display:flex; flex-direction:column; gap:1px;">
+            <div style="font-size:0.68rem; color:var(--text-muted);">Total Item</div>
+            <div style="font-size:1rem; font-weight:800; color:var(--text-primary);"><?php echo $summary['items']; ?></div>
+        </div>
+        <div class="card" style="padding:0.4rem 0.85rem; flex:1; min-width:90px; display:flex; flex-direction:column; gap:1px;">
+            <div style="font-size:0.68rem; color:var(--text-muted);">Total Qty</div>
+            <div style="font-size:1rem; font-weight:800; color:var(--text-primary);"><?php echo number_format($summary['qty'], 2); ?></div>
+        </div>
+        <div class="card" style="padding:0.4rem 0.85rem; flex:1; min-width:100px; display:flex; flex-direction:column; gap:1px;">
+            <div style="font-size:0.68rem; color:var(--text-muted);">Masuk Hari Ini</div>
+            <div style="font-size:1rem; font-weight:800; color:#0f9d6a;"><?php echo number_format($summary['incoming_today'], 2); ?> <span style="font-size:0.65rem; font-weight:400;">pcs</span></div>
+        </div>
+        <div class="card" style="padding:0.4rem 0.85rem; flex:1; min-width:100px; display:flex; flex-direction:column; gap:1px;">
+            <div style="font-size:0.68rem; color:var(--text-muted);">Keluar Hari Ini</div>
+            <div style="font-size:1rem; font-weight:800; color:#d83a5b;"><?php echo number_format($summary['outgoing_today'], 2); ?> <span style="font-size:0.65rem; font-weight:400;">pcs</span></div>
+        </div>
+        <div class="card" style="padding:0.4rem 0.85rem; flex:1.5; min-width:120px; display:flex; flex-direction:column; gap:1px;">
+            <div style="font-size:0.68rem; color:var(--text-muted);">Nilai Persediaan</div>
+            <div style="font-size:0.95rem; font-weight:800; color:#0f9d6a;">Rp <?php echo number_format($summary['value'], 0, ',', '.'); ?></div>
         </div>
     </div>
 
-    <div style="display:grid; gap:1.25rem;">
-        <div class="card gudang-side-card">
-            <div style="padding:0.9rem 1rem 0.75rem; border-bottom:1px solid rgba(148,163,184,0.18);">
-                <h3 style="font-size:1rem; font-weight:700; margin:0; display:flex; align-items:center; justify-content:space-between; gap:0.5rem;">
-                    <span>PO Bisnis Menunggu Proses Gudang</span>
-                    <?php if ($pendingPoCount > 0): ?>
-                        <span style="background:#ef4444; color:#fff; min-width:22px; height:22px; border-radius:11px; display:inline-flex; align-items:center; justify-content:center; font-size:0.7rem; font-weight:800; padding:0 6px;"><?php echo (int)$pendingPoCount; ?></span>
-                    <?php endif; ?>
-                </h3>
-            </div>
-            <div style="padding:0.95rem; display:grid; gap:0.75rem;">
-                <?php if (empty($pendingReceipts)): ?>
-                    <div style="color:var(--text-muted); font-size:0.875rem;">Tidak ada PO bisnis yang perlu diproses gudang</div>
-                <?php else: ?>
-                    <?php foreach ($pendingReceipts as $po): ?>
-                        <div style="padding:0.75rem; border:1px solid rgba(148,163,184,0.26); border-radius:0.75rem; background: linear-gradient(180deg, rgba(248,250,252,0.8), rgba(255,255,255,0.9));">
-                            <div style="font-weight:700; font-size:0.9rem; margin-bottom:0.2rem;"><?php echo htmlspecialchars($po['po_number']); ?></div>
-                            <div style="font-size:0.812rem; color:#0f172a; font-weight:700; margin-bottom:0.15rem;">
-                                <?php echo htmlspecialchars(($po['source_business_name'] ?: 'Business #' . (int)($po['source_business_id'] ?? 0)) . ' PO'); ?>
-                            </div>
-                            <div style="font-size:0.812rem; color:var(--text-muted);">Status: <?php echo htmlspecialchars($po['status']); ?></div>
-                            <div style="font-size:0.812rem; color:var(--text-muted); margin-bottom:0.35rem;"><?php echo (int)$po['items_count']; ?> item</div>
-                            <div style="display:flex; gap:0.5rem; margin-top:0.2rem; flex-wrap:wrap;">
-                                <a href="view-po.php?id=<?php echo (int)$po['id']; ?>&po_business=<?php echo urlencode((string)($po['source_business_slug'] ?? '')); ?>" class="btn btn-sm btn-secondary">Lihat</a>
-                                <a href="view-po.php?id=<?php echo (int)$po['id']; ?>&po_business=<?php echo urlencode((string)($po['source_business_slug'] ?? '')); ?>&edit=1" class="btn btn-sm btn-warning">Edit</a>
-                                <a href="gudang-transfer.php?po_id=<?php echo (int)$po['id']; ?>&po_business=<?php echo urlencode((string)($po['source_business_slug'] ?? '')); ?>" class="btn btn-sm btn-success">Transfer</a>
-                                <form method="POST" style="display:inline;" onsubmit="return confirm('Batalkan permintaan PO ini?')">
-                                    <input type="hidden" name="action" value="cancel_pending_po">
-                                    <input type="hidden" name="po_id" value="<?php echo (int)$po['id']; ?>">
-                                    <input type="hidden" name="po_slug" value="<?php echo htmlspecialchars((string)($po['source_business_slug'] ?? '')); ?>">
-                                    <button type="submit" class="btn btn-sm btn-danger">Hapus</button>
-                                </form>
-                            </div>
+    <div style="display:grid; grid-template-columns: 3fr 1fr; gap: 1rem; align-items:start;">
+        <div class="card" style="display:flex; flex-direction:column; height:calc(100vh - 230px); min-height:420px; overflow:hidden;">
+            <div class="gudang-toolbar" style="margin-bottom:1rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; margin-bottom:0.8rem;">
+                    <h3 style="font-size:1rem; font-weight:700; margin:0;">Stok Gudang</h3>
+                    <form method="GET" id="stockFilterForm" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center; margin:0;">
+                        <input type="hidden" id="stockCategoryHidden" name="category" value="<?php echo htmlspecialchars($selectedCategory); ?>">
+                        <div class="gudang-search-wrap">
+                            <i data-feather="search" style="width:15px; height:15px; color:#64748b;"></i>
+                            <input type="text" name="q_item" id="stockSearchInput" class="form-control" placeholder="Cari nama item..." value="<?php echo htmlspecialchars($searchItemName); ?>" style="min-width:220px;" autocomplete="off">
                         </div>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </div>
-        </div>
-
-        <div class="card gudang-side-card">
-            <div style="padding:0.9rem 1rem 0.75rem; border-bottom:1px solid rgba(148,163,184,0.18);">
-                <h3 style="font-size:1rem; font-weight:700; margin:0;">Transfer Terakhir</h3>
-            </div>
-            <div style="padding:0.95rem; display:grid; gap:0.75rem;">
-                <?php if (empty($recentTransfers)): ?>
-                    <div style="color:var(--text-muted); font-size:0.875rem;">Belum ada transfer keluar</div>
-                <?php else: ?>
-                    <?php foreach ($recentTransfers as $transfer): ?>
-                        <div style="padding:0.75rem; border:1px solid rgba(148,163,184,0.26); border-radius:0.75rem; background: linear-gradient(180deg, rgba(248,250,252,0.8), rgba(255,255,255,0.9));">
-                            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.5rem;">
-                                <div>
-                                    <div style="font-weight:700; font-size:0.9rem; margin-bottom:0.2rem;"><?php echo htmlspecialchars($transfer['transfer_number']); ?></div>
-                                    <div style="font-size:0.812rem; color:var(--text-muted);"><?php echo htmlspecialchars($transfer['target_business_name']); ?></div>
-                                    <div style="font-size:0.812rem; color:var(--text-muted);"><?php echo (int)$transfer['items_count']; ?> item | <?php echo number_format((float)$transfer['total_qty'], 2); ?> qty</div>
-                                </div>
-                                <form method="POST" style="margin:0;" onsubmit="return confirm('Hapus histori transfer ini?')">
-                                    <input type="hidden" name="action" value="delete_gudang_transfer">
-                                    <input type="hidden" name="transfer_id" value="<?php echo (int)$transfer['id']; ?>">
-                                    <button type="submit" class="btn btn-sm btn-danger" style="padding:2px 8px; font-size:0.72rem;">Hapus</button>
-                                </form>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </div>
-        </div>
-
-        <?php if (!empty($recentReturnFromBusiness)): ?>
-            <div class="card" style="margin-top:1rem;">
-                <h3 style="font-size:1rem; font-weight:700; margin-bottom:0.75rem; color:#7c3aed;">&#8617; Masuk dari Bisnis</h3>
-                <div style="display:grid; gap:0.65rem;">
-                    <?php foreach ($recentReturnFromBusiness as $ret): ?>
-                        <div style="padding:0.65rem 0.85rem; border:1px solid #ede9fe; border-radius:0.75rem; background:#faf5ff;">
-                            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.5rem;">
-                                <div style="flex:1; min-width:0;">
-                                    <div style="font-weight:700; font-size:0.875rem; color:#4c1d95;"><?php echo htmlspecialchars((string)($ret['item_name'] ?? '-')); ?></div>
-                                    <div style="font-size:0.8rem; color:#7c3aed; font-weight:600;"><?php echo number_format((float)($ret['quantity'] ?? 0), 2); ?> <?php echo htmlspecialchars((string)($ret['unit'] ?? '')); ?></div>
-                                    <div style="font-size:0.78rem; color:var(--text-muted);">dari <strong><?php echo htmlspecialchars((string)($ret['source_business_name'] ?? '-')); ?></strong></div>
-                                    <?php if (!empty($ret['notes'])): ?>
-                                        <div style="font-size:0.75rem; color:#64748b; margin-top:2px;"><?php echo htmlspecialchars($ret['notes']); ?></div>
-                                    <?php endif; ?>
-                                    <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;"><?php echo date('d M Y H:i', strtotime((string)($ret['created_at'] ?? date('Y-m-d')))); ?></div>
-                                </div>
-                                <form method="POST" style="margin:0; flex-shrink:0;" onsubmit="return confirm('Hapus histori penerimaan ini?')">
-                                    <input type="hidden" name="action" value="delete_bisnis_return">
-                                    <input type="hidden" name="return_id" value="<?php echo (int)$ret['id']; ?>">
-                                    <button type="submit" class="btn btn-sm btn-danger" style="padding:2px 8px; font-size:0.72rem;">Hapus</button>
-                                </form>
-                            </div>
-                        </div>
+                        <label style="display:flex; align-items:center; gap:0.35rem; font-size:0.82rem; color:var(--text-muted);">
+                            <input type="checkbox" name="low_stock" id="stockLowFilter" value="1" <?php echo $filterLowStockOnly ? 'checked' : ''; ?>>
+                            Stok menipis saja
+                        </label>
+                        <button type="submit" class="btn btn-primary btn-sm">Cari</button>
+                        <button type="button" class="btn btn-sm" id="stockResetBtn" style="<?php echo ($searchItemName || $filterLowStockOnly || $selectedCategory !== '') ? '' : 'display:none'; ?>">Clear</button>
+                    </form>
+                </div>
+                <div style="display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center;">
+                    <?php
+                    $categoryLinks = [];
+                    $categoryLinks[] = [
+                        'label' => 'Semua',
+                        'value' => '',
+                        'button' => true,
+                    ];
+                    foreach ($stockCategories as $cat) {
+                        $categoryLinks[] = [
+                            'label' => htmlspecialchars($cat),
+                            'value' => $cat,
+                            'button' => true,
+                        ];
+                    }
+                    ?>
+                    <?php foreach ($categoryLinks as $categoryLink): ?>
+                        <?php $isActive = ($selectedCategory === '' && $categoryLink['value'] === '') || ($selectedCategory !== '' && strtolower($categoryLink['value']) === strtolower($selectedCategory)); ?>
+                        <button type="button" class="gudang-chip <?php echo $isActive ? 'active' : ''; ?>" data-gudang-category="<?php echo htmlspecialchars((string)$categoryLink['value']); ?>">
+                            <?php echo $categoryLink['label']; ?>
+                        </button>
                     <?php endforeach; ?>
                 </div>
             </div>
-        <?php endif; ?>
+            <?php if ($summary['low'] > 0): ?>
+                <div style="margin-bottom:0.75rem;"><span class="badge badge-warning"><?php echo $summary['low']; ?> item di bawah reorder</span></div>
+            <?php endif; ?>
+            <div class="table-responsive" style="flex:1; overflow-y:auto; overflow-x:hidden;">
+                <table class="table" id="stockTable" style="table-layout:fixed; width:100%;">
+                    <thead>
+                        <colgroup>
+                            <col style="width:90px;">
+                            <col style="width:80px;">
+                            <col>
+                            <col style="width:60px;">
+                            <col style="width:90px;">
+                            <col style="width:70px;">
+                            <col style="width:50px;">
+                            <col style="width:80px;">
+                            <col style="width:70px;">
+                            <col style="width:65px;">
+                        </colgroup>
+                        <tr>
+                            <th style="font-size:0.75rem;">Kode</th>
+                            <th style="font-size:0.75rem;">Kategori</th>
+                            <th style="font-size:0.75rem;">Item</th>
+                            <th class="text-right" style="font-size:0.75rem;">Qty</th>
+                            <th class="text-right" style="font-size:0.75rem;">Harga/pcs</th>
+                            <th class="text-right" style="font-size:0.75rem;">Nilai</th>
+                            <th style="font-size:0.75rem;">Unit</th>
+                            <th style="font-size:0.75rem;">Supplier</th>
+                            <th style="font-size:0.75rem;">Kadaluarsa</th>
+                            <th style="font-size:0.75rem;">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($stockItems)): ?>
+                            <tr>
+                                <td colspan="10" style="text-align:center; padding: 2rem; color: var(--text-muted);">Belum ada stok gudang</td>
+                            </tr>
+                        <?php else: ?>
+                            <?php $currentCategory = null; ?>
+                            <?php foreach ($stockItems as $item): ?>
+                                <?php $rowCategory = trim((string)($item['category'] ?? '')); ?>
+                                <?php if ($rowCategory === '') {
+                                    $rowCategory = 'lainnya';
+                                } ?>
+                                <?php if ($currentCategory !== $rowCategory): ?>
+                                    <?php $currentCategory = $rowCategory; ?>
+                                    <tr>
+                                        <td colspan="10" style="background:#f8fafc; font-weight:700; color:#334155; text-transform:capitalize; border-top:1px solid var(--border);">
+                                            Kategori: <?php echo htmlspecialchars($currentCategory); ?>
+                                        </td>
+                                    </tr>
+                                <?php endif; ?>
+                                <?php $isLowRow = ((float)$item['quantity'] <= (float)($item['reorder_level'] ?? 0) && (float)($item['reorder_level'] ?? 0) > 0); ?>
+                                <tr data-item="<?php echo htmlspecialchars(strtolower((string)$item['item_name'])); ?>" data-low="<?php echo $isLowRow ? '1' : '0'; ?>" data-category="<?php echo htmlspecialchars(strtolower((string)$rowCategory)); ?>">
+                                    <td style="font-weight:600;"><?php echo htmlspecialchars($item['stock_code'] ?? ('GN-LEGACY-' . str_pad((string)($item['id'] ?? 0), 4, '0', STR_PAD_LEFT))); ?></td>
+                                    <td><span class="badge badge-info" style="text-transform:capitalize;"><?php echo htmlspecialchars($rowCategory); ?></span></td>
+                                    <td>
+                                        <div style="font-weight:600;"><?php echo htmlspecialchars($item['item_name']); ?></div>
+                                        <?php if (!empty($item['notes'])): ?><div style="font-size:0.75rem; color: var(--text-muted);"><?php echo htmlspecialchars($item['notes']); ?></div><?php endif; ?>
+                                    </td>
+                                    <td class="text-right" style="font-weight:700; color:<?php echo ((float)$item['quantity'] <= (float)($item['reorder_level'] ?? 0) && (float)($item['reorder_level'] ?? 0) > 0) ? '#d97706' : 'var(--text-primary)'; ?>;"><?php echo number_format($item['quantity'], 2); ?></td>
+                                    <td class="text-right">Rp <?php echo number_format((float)($item['harga_beli'] ?? 0), 0, ',', '.'); ?></td>
+                                    <td class="text-right" style="font-weight:700; color:#0f9d6a;">Rp <?php echo number_format((float)($item['total_harga'] ?? ((float)$item['quantity'] * (float)($item['harga_beli'] ?? 0))), 0, ',', '.'); ?></td>
+                                    <td><?php echo htmlspecialchars($item['unit']); ?></td>
+                                    <td style="font-size:0.813rem;"><?php echo htmlspecialchars($item['supplier_name'] ?: '-'); ?></td>
+                                    <td style="font-size:0.82rem; white-space:nowrap;"><?php
+                                                                                        $exp = $item['expiry_date'] ?? '';
+                                                                                        if ($exp && $exp !== '0000-00-00') {
+                                                                                            $expTs = strtotime($exp);
+                                                                                            $diffDays = (int)floor(($expTs - time()) / 86400);
+                                                                                            if ($diffDays < 0) {
+                                                                                                echo '<span style="color:#dc2626; font-weight:700;">&#9888; Kadaluarsa ' . date('d M Y', $expTs) . '</span>';
+                                                                                            } elseif ($diffDays <= 30) {
+                                                                                                echo '<span style="color:#d97706; font-weight:700;">&#9888; ' . date('d M Y', $expTs) . ' (' . $diffDays . ' hr)</span>';
+                                                                                            } else {
+                                                                                                echo '<span style="color:#64748b;">' . date('d M Y', $expTs) . '</span>';
+                                                                                            }
+                                                                                        } else {
+                                                                                            echo '<span style="color:#cbd5e1;">—</span>';
+                                                                                        }
+                                                                                        ?></td>
+                                    <td>
+                                        <?php $stockIdInt = (int)($item['id'] ?? 0); ?>
+                                        <div class="dropdown" style="position:relative; display:inline-block;">
+                                            <button type="button" class="btn btn-sm btn-secondary" style="padding:0 0.55rem; height:30px;"
+                                                onclick="toggleStockDropdown(<?php echo $stockIdInt; ?>)">
+                                                Aksi ▾
+                                            </button>
+                                            <div id="sdrop-<?php echo $stockIdInt; ?>" style="display:none; position:absolute; right:0; top:100%; background:#fff; border:1px solid #e2e8f0; border-radius:0.6rem; box-shadow:0 6px 20px rgba(0,0,0,0.12); z-index:1000; min-width:210px; padding:0.4rem 0;">
+                                                <button type="button" style="display:block; width:100%; text-align:left; padding:0.5rem 0.9rem; font-size:0.83rem; background:none; border:none; cursor:pointer; color:#0f9d6a; font-weight:600;"
+                                                    onclick="toggleStockDropdown(<?php echo $stockIdInt; ?>); openQuickStock(<?php echo htmlspecialchars(json_encode($item['item_name']), ENT_QUOTES); ?>, <?php echo htmlspecialchars(json_encode($item['category'] ?? 'lainnya'), ENT_QUOTES); ?>, <?php echo htmlspecialchars(json_encode($item['unit']), ENT_QUOTES); ?>, <?php echo (float)($item['quantity'] ?? 0); ?>)">
+                                                    + Tambah Stok
+                                                </button>
+                                                <button type="button" style="display:block; width:100%; text-align:left; padding:0.5rem 0.9rem; font-size:0.83rem; background:none; border:none; cursor:pointer; color:#d97706; font-weight:600;"
+                                                    onclick="toggleStockDropdown(<?php echo $stockIdInt; ?>); openStockOut(<?php echo htmlspecialchars(json_encode($item['item_name']), ENT_QUOTES); ?>, <?php echo htmlspecialchars(json_encode($item['unit']), ENT_QUOTES); ?>, <?php echo (float)($item['quantity'] ?? 0); ?>)">
+                                                    − Kurangi Stok
+                                                </button>
+                                                <a href="gudang-transfer.php?stock_id=<?php echo $stockIdInt; ?>" style="display:block; padding:0.5rem 0.9rem; font-size:0.83rem; color:#3b82f6; font-weight:600; text-decoration:none;"
+                                                    onclick="toggleStockDropdown(<?php echo $stockIdInt; ?>)">
+                                                    ↗ Transfer ke Bisnis
+                                                </a>
+                                                <div style="border-top:1px solid #f1f5f9; margin:0.25rem 0;"></div>
+                                                <div style="padding:0.45rem 0.9rem;">
+                                                    <div style="font-size:0.75rem; color:#64748b; margin-bottom:3px;">Edit Kadaluarsa</div>
+                                                    <form method="POST" style="display:flex; gap:4px;" onsubmit="toggleStockDropdown(<?php echo $stockIdInt; ?>)">
+                                                        <input type="hidden" name="action" value="update_expiry">
+                                                        <input type="hidden" name="stock_id" value="<?php echo $stockIdInt; ?>">
+                                                        <input type="date" name="expiry_date" class="form-control" style="font-size:0.78rem; height:28px; padding:0 4px; flex:1;" value="<?php echo htmlspecialchars($exp ?? ''); ?>">
+                                                        <button type="submit" class="btn btn-sm" style="height:28px; padding:0 8px; font-size:0.75rem; background:#6366f1; color:#fff; white-space:nowrap;">Simpan</button>
+                                                    </form>
+                                                </div>
+                                                <div style="border-top:1px solid #f1f5f9; margin:0.25rem 0;"></div>
+                                                <form method="POST" style="padding:0 0.9rem 0.4rem;" onsubmit="return confirm('Hapus item stok ini?')">
+                                                    <input type="hidden" name="action" value="delete_stock">
+                                                    <input type="hidden" name="stock_id" value="<?php echo $stockIdInt; ?>">
+                                                    <button type="submit" style="display:block; width:100%; text-align:left; padding:0.3rem 0; font-size:0.83rem; background:none; border:none; cursor:pointer; color:#dc2626; font-weight:600;">
+                                                        🗑 Hapus Item Stok
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div style="display:grid; gap:1.25rem;">
+            <div class="card gudang-side-card">
+                <div style="padding:0.9rem 1rem 0.75rem; border-bottom:1px solid rgba(148,163,184,0.18);">
+                    <h3 style="font-size:1rem; font-weight:700; margin:0; display:flex; align-items:center; justify-content:space-between; gap:0.5rem;">
+                        <span>PO Bisnis Menunggu Proses Gudang</span>
+                        <?php if ($pendingPoCount > 0): ?>
+                            <span style="background:#ef4444; color:#fff; min-width:22px; height:22px; border-radius:11px; display:inline-flex; align-items:center; justify-content:center; font-size:0.7rem; font-weight:800; padding:0 6px;"><?php echo (int)$pendingPoCount; ?></span>
+                        <?php endif; ?>
+                    </h3>
+                </div>
+                <div style="padding:0.95rem; display:grid; gap:0.75rem;">
+                    <?php if (empty($pendingReceipts)): ?>
+                        <div style="color:var(--text-muted); font-size:0.875rem;">Tidak ada PO bisnis yang perlu diproses gudang</div>
+                    <?php else: ?>
+                        <?php foreach ($pendingReceipts as $po): ?>
+                            <div style="padding:0.75rem; border:1px solid rgba(148,163,184,0.26); border-radius:0.75rem; background: linear-gradient(180deg, rgba(248,250,252,0.8), rgba(255,255,255,0.9));">
+                                <div style="font-weight:700; font-size:0.9rem; margin-bottom:0.2rem;"><?php echo htmlspecialchars($po['po_number']); ?></div>
+                                <div style="font-size:0.812rem; color:#0f172a; font-weight:700; margin-bottom:0.15rem;">
+                                    <?php echo htmlspecialchars(($po['source_business_name'] ?: 'Business #' . (int)($po['source_business_id'] ?? 0)) . ' PO'); ?>
+                                </div>
+                                <div style="font-size:0.812rem; color:var(--text-muted);">Status: <?php echo htmlspecialchars($po['status']); ?></div>
+                                <div style="font-size:0.812rem; color:var(--text-muted); margin-bottom:0.35rem;"><?php echo (int)$po['items_count']; ?> item</div>
+                                <div style="display:flex; gap:0.5rem; margin-top:0.2rem; flex-wrap:wrap;">
+                                    <a href="view-po.php?id=<?php echo (int)$po['id']; ?>&po_business=<?php echo urlencode((string)($po['source_business_slug'] ?? '')); ?>" class="btn btn-sm btn-secondary">Lihat</a>
+                                    <a href="view-po.php?id=<?php echo (int)$po['id']; ?>&po_business=<?php echo urlencode((string)($po['source_business_slug'] ?? '')); ?>&edit=1" class="btn btn-sm btn-warning">Edit</a>
+                                    <a href="gudang-transfer.php?po_id=<?php echo (int)$po['id']; ?>&po_business=<?php echo urlencode((string)($po['source_business_slug'] ?? '')); ?>" class="btn btn-sm btn-success">Transfer</a>
+                                    <form method="POST" style="display:inline;" onsubmit="return confirm('Batalkan permintaan PO ini?')">
+                                        <input type="hidden" name="action" value="cancel_pending_po">
+                                        <input type="hidden" name="po_id" value="<?php echo (int)$po['id']; ?>">
+                                        <input type="hidden" name="po_slug" value="<?php echo htmlspecialchars((string)($po['source_business_slug'] ?? '')); ?>">
+                                        <button type="submit" class="btn btn-sm btn-danger">Hapus</button>
+                                    </form>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <div class="card gudang-side-card">
+                <div style="padding:0.9rem 1rem 0.75rem; border-bottom:1px solid rgba(148,163,184,0.18);">
+                    <h3 style="font-size:1rem; font-weight:700; margin:0;">Transfer Terakhir</h3>
+                </div>
+                <div style="padding:0.95rem; display:grid; gap:0.75rem;">
+                    <?php if (empty($recentTransfers)): ?>
+                        <div style="color:var(--text-muted); font-size:0.875rem;">Belum ada transfer keluar</div>
+                    <?php else: ?>
+                        <?php foreach ($recentTransfers as $transfer): ?>
+                            <div style="padding:0.75rem; border:1px solid rgba(148,163,184,0.26); border-radius:0.75rem; background: linear-gradient(180deg, rgba(248,250,252,0.8), rgba(255,255,255,0.9));">
+                                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.5rem;">
+                                    <div>
+                                        <div style="font-weight:700; font-size:0.9rem; margin-bottom:0.2rem;"><?php echo htmlspecialchars($transfer['transfer_number']); ?></div>
+                                        <div style="font-size:0.812rem; color:var(--text-muted);"><?php echo htmlspecialchars($transfer['target_business_name']); ?></div>
+                                        <div style="font-size:0.812rem; color:var(--text-muted);"><?php echo (int)$transfer['items_count']; ?> item | <?php echo number_format((float)$transfer['total_qty'], 2); ?> qty</div>
+                                    </div>
+                                    <form method="POST" style="margin:0;" onsubmit="return confirm('Hapus histori transfer ini?')">
+                                        <input type="hidden" name="action" value="delete_gudang_transfer">
+                                        <input type="hidden" name="transfer_id" value="<?php echo (int)$transfer['id']; ?>">
+                                        <button type="submit" class="btn btn-sm btn-danger" style="padding:2px 8px; font-size:0.72rem;">Hapus</button>
+                                    </form>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <?php if (!empty($recentReturnFromBusiness)): ?>
+                <div class="card" style="margin-top:1rem;">
+                    <h3 style="font-size:1rem; font-weight:700; margin-bottom:0.75rem; color:#7c3aed;">&#8617; Masuk dari Bisnis</h3>
+                    <div style="display:grid; gap:0.65rem;">
+                        <?php foreach ($recentReturnFromBusiness as $ret): ?>
+                            <div style="padding:0.65rem 0.85rem; border:1px solid #ede9fe; border-radius:0.75rem; background:#faf5ff;">
+                                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.5rem;">
+                                    <div style="flex:1; min-width:0;">
+                                        <div style="font-weight:700; font-size:0.875rem; color:#4c1d95;"><?php echo htmlspecialchars((string)($ret['item_name'] ?? '-')); ?></div>
+                                        <div style="font-size:0.8rem; color:#7c3aed; font-weight:600;"><?php echo number_format((float)($ret['quantity'] ?? 0), 2); ?> <?php echo htmlspecialchars((string)($ret['unit'] ?? '')); ?></div>
+                                        <div style="font-size:0.78rem; color:var(--text-muted);">dari <strong><?php echo htmlspecialchars((string)($ret['source_business_name'] ?? '-')); ?></strong></div>
+                                        <?php if (!empty($ret['notes'])): ?>
+                                            <div style="font-size:0.75rem; color:#64748b; margin-top:2px;"><?php echo htmlspecialchars($ret['notes']); ?></div>
+                                        <?php endif; ?>
+                                        <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;"><?php echo date('d M Y H:i', strtotime((string)($ret['created_at'] ?? date('Y-m-d')))); ?></div>
+                                    </div>
+                                    <form method="POST" style="margin:0; flex-shrink:0;" onsubmit="return confirm('Hapus histori penerimaan ini?')">
+                                        <input type="hidden" name="action" value="delete_bisnis_return">
+                                        <input type="hidden" name="return_id" value="<?php echo (int)$ret['id']; ?>">
+                                        <button type="submit" class="btn btn-sm btn-danger" style="padding:2px 8px; font-size:0.72rem;">Hapus</button>
+                                    </form>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            <?php endif; ?>
+        </div>
     </div>
-</div>
 
-<script>
-    if (typeof feather !== 'undefined') feather.replace();
-    const GUDANG_BASE = '<?php echo BASE_URL; ?>';
+    <script>
+        if (typeof feather !== 'undefined') feather.replace();
+        const GUDANG_BASE = '<?php echo BASE_URL; ?>';
 
-    function toggleStockDropdown(id) {
-        const el = document.getElementById('sdrop-' + id);
-        if (!el) return;
-        const isOpen = el.style.display !== 'none';
-        document.querySelectorAll('[id^="sdrop-"]').forEach(d => d.style.display = 'none');
-        if (!isOpen) el.style.display = 'block';
-    }
-    document.addEventListener('click', e => {
-        if (!e.target.closest('.dropdown')) {
+        function toggleStockDropdown(id) {
+            const el = document.getElementById('sdrop-' + id);
+            if (!el) return;
+            const isOpen = el.style.display !== 'none';
             document.querySelectorAll('[id^="sdrop-"]').forEach(d => d.style.display = 'none');
+            if (!isOpen) el.style.display = 'block';
         }
-    });
+        document.addEventListener('click', e => {
+            if (!e.target.closest('.dropdown')) {
+                document.querySelectorAll('[id^="sdrop-"]').forEach(d => d.style.display = 'none');
+            }
+        });
 
-    // Live client-side stock filter without full page refresh
-    window.gudangFilterDebug = function() {
-        const inp = document.getElementById('stockSearchInput');
-        const chk = document.getElementById('stockLowFilter');
-        const rst = document.getElementById('stockResetBtn');
-        const categoryInput = document.getElementById('stockCategoryHidden');
-        const categoryButtons = document.querySelectorAll('[data-gudang-category]');
-        const tbody = document.querySelector('#stockTable tbody');
-        
-        console.log('=== GUDANG FILTER DIAGNOSTIC ===');
-        console.log('Elements found:', { inp: !!inp, chk: !!chk, rst: !!rst, categoryInput: !!categoryInput, tbody: !!tbody });
-        console.log('Category buttons found:', categoryButtons.length);
-        
-        if (categoryButtons.length > 0) {
-            console.log('Button values:');
-            categoryButtons.forEach((btn, i) => {
-                console.log(`  [${i}]`, btn.getAttribute('data-gudang-category'), '| active:', btn.classList.contains('active'));
+        // Live client-side stock filter without full page refresh
+        window.gudangFilterDebug = function() {
+            const inp = document.getElementById('stockSearchInput');
+            const chk = document.getElementById('stockLowFilter');
+            const rst = document.getElementById('stockResetBtn');
+            const categoryInput = document.getElementById('stockCategoryHidden');
+            const categoryButtons = document.querySelectorAll('[data-gudang-category]');
+            const tbody = document.querySelector('#stockTable tbody');
+
+            console.log('=== GUDANG FILTER DIAGNOSTIC ===');
+            console.log('Elements found:', {
+                inp: !!inp,
+                chk: !!chk,
+                rst: !!rst,
+                categoryInput: !!categoryInput,
+                tbody: !!tbody
             });
-        }
-        
-        if (tbody) {
-            console.log('Table rows (first 5):');
-            Array.from(tbody.rows).slice(0, 5).forEach((tr, i) => {
-                console.log(`  [${i}]`, { item: tr.dataset.item, category: tr.dataset.category, colSpan: tr.cells[0]?.colSpan });
-            });
-        }
-    };
-    
-    window.gudangFilterDebug();
-    
-    (function() {
-        const inp = document.getElementById('stockSearchInput');
-        const chk = document.getElementById('stockLowFilter');
-        const rst = document.getElementById('stockResetBtn');
-        const categoryInput = document.getElementById('stockCategoryHidden');
-        const categoryButtons = document.querySelectorAll('[data-gudang-category]');
-        const tbody = document.querySelector('#stockTable tbody');
-        
-        if (!inp || !tbody || categoryButtons.length === 0) {
-            console.error('[GUDANG] Missing required elements, filter disabled');
-            return;
-        }
+            console.log('Category buttons found:', categoryButtons.length);
 
-        function normalizeText(value) {
-            return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
-        }
+            if (categoryButtons.length > 0) {
+                console.log('Button values:');
+                categoryButtons.forEach((btn, i) => {
+                    console.log(`  [${i}]`, btn.getAttribute('data-gudang-category'), '| active:', btn.classList.contains('active'));
+                });
+            }
 
-        function filterRows() {
-            const searchText = normalizeText(inp.value);
-            const selectedCat = categoryInput ? normalizeText(categoryInput.value) : '';
-            const lowStockOnly = chk && chk.checked;
-            
-            let hiddenCount = 0;
+            if (tbody) {
+                console.log('Table rows (first 5):');
+                Array.from(tbody.rows).slice(0, 5).forEach((tr, i) => {
+                    console.log(`  [${i}]`, {
+                        item: tr.dataset.item,
+                        category: tr.dataset.category,
+                        colSpan: tr.cells[0]?.colSpan
+                    });
+                });
+            }
+        };
 
-            Array.from(tbody.rows).forEach(tr => {
-                // Category header rows
-                if (tr.cells.length === 1 && tr.cells[0].colSpan > 1) {
-                    // Will be shown/hidden based on following items
-                    return;
-                }
+        window.gudangFilterDebug();
 
-                const itemName = normalizeText(tr.dataset.item || '');
-                const rowCat = normalizeText(tr.dataset.category || '');
-                const isLow = tr.dataset.low === '1';
+        (function() {
+            const inp = document.getElementById('stockSearchInput');
+            const chk = document.getElementById('stockLowFilter');
+            const rst = document.getElementById('stockResetBtn');
+            const categoryInput = document.getElementById('stockCategoryHidden');
+            const categoryButtons = document.querySelectorAll('[data-gudang-category]');
+            const tbody = document.querySelector('#stockTable tbody');
 
-                // Apply all filters
-                let show = true;
-                if (searchText && !itemName.includes(searchText)) show = false;
-                if (lowStockOnly && !isLow) show = false;
-                if (selectedCat && rowCat !== selectedCat) show = false;
+            if (!inp || !tbody || categoryButtons.length === 0) {
+                console.error('[GUDANG] Missing required elements, filter disabled');
+                return;
+            }
 
-                tr.style.display = show ? '' : 'none';
-                if (!show) hiddenCount++;
-            });
+            function normalizeText(value) {
+                return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+            }
 
-            // Show/hide category header rows
-            let prevCatRow = null;
-            Array.from(tbody.rows).forEach(tr => {
-                if (tr.cells.length === 1 && tr.cells[0].colSpan > 1) {
-                    prevCatRow = tr;
-                } else if (prevCatRow) {
-                    if (tr.style.display !== 'none') {
-                        prevCatRow.style.display = '';
-                        prevCatRow = null;
+            function filterRows() {
+                const searchText = normalizeText(inp.value);
+                const selectedCat = categoryInput ? normalizeText(categoryInput.value) : '';
+                const lowStockOnly = chk && chk.checked;
+
+                let hiddenCount = 0;
+
+                Array.from(tbody.rows).forEach(tr => {
+                    // Category header rows
+                    if (tr.cells.length === 1 && tr.cells[0].colSpan > 1) {
+                        // Will be shown/hidden based on following items
+                        return;
+                    }
+
+                    const itemName = normalizeText(tr.dataset.item || '');
+                    const rowCat = normalizeText(tr.dataset.category || '');
+                    const isLow = tr.dataset.low === '1';
+
+                    // Apply all filters
+                    let show = true;
+                    if (searchText && !itemName.includes(searchText)) show = false;
+                    if (lowStockOnly && !isLow) show = false;
+                    if (selectedCat && rowCat !== selectedCat) show = false;
+
+                    tr.style.display = show ? '' : 'none';
+                    if (!show) hiddenCount++;
+                });
+
+                // Show/hide category header rows
+                let prevCatRow = null;
+                Array.from(tbody.rows).forEach(tr => {
+                    if (tr.cells.length === 1 && tr.cells[0].colSpan > 1) {
+                        prevCatRow = tr;
+                    } else if (prevCatRow) {
+                        if (tr.style.display !== 'none') {
+                            prevCatRow.style.display = '';
+                            prevCatRow = null;
+                        }
+                    }
+                });
+
+                // Hide category rows with no visible items
+                let nextVisible = false;
+                for (let i = tbody.rows.length - 1; i >= 0; i--) {
+                    const tr = tbody.rows[i];
+                    if (tr.cells.length === 1 && tr.cells[0].colSpan > 1) {
+                        tr.style.display = nextVisible ? '' : 'none';
+                        nextVisible = false;
+                    } else {
+                        if (tr.style.display !== 'none') nextVisible = true;
                     }
                 }
-            });
-            
-            // Hide category rows with no visible items
-            let nextVisible = false;
-            for (let i = tbody.rows.length - 1; i >= 0; i--) {
-                const tr = tbody.rows[i];
-                if (tr.cells.length === 1 && tr.cells[0].colSpan > 1) {
-                    tr.style.display = nextVisible ? '' : 'none';
-                    nextVisible = false;
-                } else {
-                    if (tr.style.display !== 'none') nextVisible = true;
-                }
-            }
-            
-            // Show/hide reset button
-            const hasFilter = searchText || lowStockOnly || selectedCat;
-            if (rst) rst.style.display = hasFilter ? '' : 'none';
-        }
 
-        // Category button click handler
-        categoryButtons.forEach(btn => {
-            btn.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                const clickedValue = this.getAttribute('data-gudang-category');
-                const normalized = normalizeText(clickedValue);
-                
-                // Update hidden input
-                if (categoryInput) categoryInput.value = normalized;
-                
-                // Update button active states
-                categoryButtons.forEach(b => {
-                    const btnVal = normalizeText(b.getAttribute('data-gudang-category'));
-                    b.classList.toggle('active', btnVal === normalized);
+                // Show/hide reset button
+                const hasFilter = searchText || lowStockOnly || selectedCat;
+                if (rst) rst.style.display = hasFilter ? '' : 'none';
+            }
+
+            // Category button click handler
+            categoryButtons.forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    const clickedValue = this.getAttribute('data-gudang-category');
+                    const normalized = normalizeText(clickedValue);
+
+                    // Update hidden input
+                    if (categoryInput) categoryInput.value = normalized;
+
+                    // Update button active states
+                    categoryButtons.forEach(b => {
+                        const btnVal = normalizeText(b.getAttribute('data-gudang-category'));
+                        b.classList.toggle('active', btnVal === normalized);
+                    });
+
+                    // Run filter
+                    filterRows();
+                    console.log('[GUDANG] Filter by category:', normalized);
                 });
-                
-                // Run filter
-                filterRows();
-                console.log('[GUDANG] Filter by category:', normalized);
             });
-        });
 
-        // Search input handler
-        if (inp) {
-            inp.addEventListener('input', function() {
-                filterRows();
-            });
-        }
-
-        // Low stock checkbox handler
-        if (chk) {
-            chk.addEventListener('change', function() {
-                filterRows();
-            });
-        }
-
-        // Reset button handler
-        if (rst) {
-            rst.addEventListener('click', function(e) {
-                e.preventDefault();
-                inp.value = '';
-                if (chk) chk.checked = false;
-                if (categoryInput) categoryInput.value = '';
-                
-                categoryButtons.forEach(btn => {
-                    btn.classList.toggle('active', btn.getAttribute('data-gudang-category') === '');
+            // Search input handler
+            if (inp) {
+                inp.addEventListener('input', function() {
+                    filterRows();
                 });
-                
-                filterRows();
-                console.log('[GUDANG] Filter reset');
-            });
-        }
-
-        // Initial filter
-        filterRows();
-        console.log('[GUDANG] Filter initialized');
-    })();
-
-    document.addEventListener('click', function(e) {
-        if (e.target === document.getElementById('manualStockModal')) document.getElementById('manualStockModal').style.display = 'none';
-        if (e.target === document.getElementById('importStockModal')) document.getElementById('importStockModal').style.display = 'none';
-        if (e.target === document.getElementById('orderSupplierModal')) document.getElementById('orderSupplierModal').style.display = 'none';
-        if (e.target === document.getElementById('quickStockModal')) document.getElementById('quickStockModal').style.display = 'none';
-        if (e.target === document.getElementById('dailyOutModal')) document.getElementById('dailyOutModal').style.display = 'none';
-    });
-
-    // Slim modal: tambah stok ke item yang sudah ada (dari tombol per baris)
-    function openQuickStock(itemName, category, unit, currentQty) {
-        var m = document.getElementById('quickStockModal');
-        m.querySelector('[name="item_name"]').value = itemName;
-        m.querySelector('[name="category"]').value = category || 'lainnya';
-        m.querySelector('[name="unit"]').value = unit || 'pcs';
-        m.querySelector('#qsTitle').textContent = itemName;
-        m.querySelector('#qsCurrentQty').textContent = parseFloat(currentQty).toLocaleString('id-ID', {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 2
-        }) + ' ' + (unit || 'pcs');
-        var qtyInput = m.querySelector('[name="quantity"]');
-        qtyInput.value = '';
-        m.style.display = 'flex';
-        setTimeout(() => qtyInput.focus(), 60);
-    }
-
-    // Opens the Stock Keluar modal pre-filled for a specific row (from the Aksi dropdown)
-    function openStockOut(itemName, unit, currentQty) {
-        var m = document.getElementById('dailyOutModal');
-        m.querySelector('[name="item_name"]').value = itemName;
-        m.querySelector('[name="quantity"]').value = '';
-        m.querySelector('[name="notes"]').value = '';
-        m.querySelector('#doCurrentQty').textContent = parseFloat(currentQty).toLocaleString('id-ID', {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 2
-        }) + ' ' + (unit || 'pcs');
-        m.style.display = 'flex';
-        setTimeout(() => m.querySelector('[name="quantity"]').focus(), 60);
-    }
-
-    function openOrderModal(itemName, unit, supplierHint) {
-        var m = document.getElementById('orderSupplierModal');
-        m.querySelector('[name="item_name"]').value = itemName;
-        m.querySelector('[name="unit"]').value = unit;
-        m.style.display = 'flex';
-        var sel = m.querySelector('[name="supplier_id"]');
-        if (supplierHint && sel) {
-            var hint = supplierHint.toLowerCase();
-            for (var i = 0; i < sel.options.length; i++) {
-                if (sel.options[i].text.toLowerCase().includes(hint)) {
-                    sel.selectedIndex = i;
-                    break;
-                }
             }
-        }
-    }
 
-    // Open manual stock modal pre-filled with existing item data
-    function openManualModalPreset(itemName, category, unit) {
-        var m = document.getElementById('manualStockModal');
-        m.querySelector('[name="item_name"]').value = itemName;
-        m.querySelector('[name="category"]').value = category || 'lainnya';
-        m.querySelector('[name="unit"]').value = unit || 'pcs';
-        m.querySelector('[name="quantity"]').value = '';
-        m.querySelector('[name="quantity"]').focus();
-        m.style.display = 'flex';
-    }
-
-    // Live autocomplete for item name in manual stock modal
-    let acTimer;
-    const acInput = document.querySelector('#manualStockModal [name="item_name"]');
-    const acDrop = document.getElementById('produkAcDrop');
-    const acCategoryInput = acInput ? acInput.closest('form').querySelector('[name="category"]') : null;
-
-    if (acInput && acDrop) {
-        acInput.addEventListener('input', function() {
-            clearTimeout(acTimer);
-            const q = this.value.trim();
-            // Reset category visual indicator when user modifies item name
-            if (acCategoryInput) {
-                acCategoryInput.style.background = '';
-                acCategoryInput.style.borderColor = '';
-                acCategoryInput.title = '';
+            // Low stock checkbox handler
+            if (chk) {
+                chk.addEventListener('change', function() {
+                    filterRows();
+                });
             }
-            if (q.length < 1) {
-                acDrop.style.display = 'none';
-                return;
+
+            // Reset button handler
+            if (rst) {
+                rst.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    inp.value = '';
+                    if (chk) chk.checked = false;
+                    if (categoryInput) categoryInput.value = '';
+
+                    categoryButtons.forEach(btn => {
+                        btn.classList.toggle('active', btn.getAttribute('data-gudang-category') === '');
+                    });
+
+                    filterRows();
+                    console.log('[GUDANG] Filter reset');
+                });
             }
-            acTimer = setTimeout(() => fetchAcResults(q), 280);
-        });
-        acInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') acDrop.style.display = 'none';
-        });
+
+            // Initial filter
+            filterRows();
+            console.log('[GUDANG] Filter initialized');
+        })();
+
         document.addEventListener('click', function(e) {
-            if (!acDrop.contains(e.target) && e.target !== acInput) acDrop.style.display = 'none';
+            if (e.target === document.getElementById('manualStockModal')) document.getElementById('manualStockModal').style.display = 'none';
+            if (e.target === document.getElementById('importStockModal')) document.getElementById('importStockModal').style.display = 'none';
+            if (e.target === document.getElementById('orderSupplierModal')) document.getElementById('orderSupplierModal').style.display = 'none';
+            if (e.target === document.getElementById('quickStockModal')) document.getElementById('quickStockModal').style.display = 'none';
+            if (e.target === document.getElementById('dailyOutModal')) document.getElementById('dailyOutModal').style.display = 'none';
         });
-    }
 
-    async function fetchAcResults(q) {
-        try {
-            const r = await fetch(`${GUDANG_BASE}/api/gudang-produk-search.php?action=search&q=${encodeURIComponent(q)}`);
-            const d = await r.json();
-            if (!d.success || !d.data.length) {
-                acDrop.style.display = 'none';
-                return;
+        // Slim modal: tambah stok ke item yang sudah ada (dari tombol per baris)
+        function openQuickStock(itemName, category, unit, currentQty) {
+            var m = document.getElementById('quickStockModal');
+            m.querySelector('[name="item_name"]').value = itemName;
+            m.querySelector('[name="category"]').value = category || 'lainnya';
+            m.querySelector('[name="unit"]').value = unit || 'pcs';
+            m.querySelector('#qsTitle').textContent = itemName;
+            m.querySelector('#qsCurrentQty').textContent = parseFloat(currentQty).toLocaleString('id-ID', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 2
+            }) + ' ' + (unit || 'pcs');
+            var qtyInput = m.querySelector('[name="quantity"]');
+            qtyInput.value = '';
+            m.style.display = 'flex';
+            setTimeout(() => qtyInput.focus(), 60);
+        }
+
+        // Opens the Stock Keluar modal pre-filled for a specific row (from the Aksi dropdown)
+        function openStockOut(itemName, unit, currentQty) {
+            var m = document.getElementById('dailyOutModal');
+            m.querySelector('[name="item_name"]').value = itemName;
+            m.querySelector('[name="quantity"]').value = '';
+            m.querySelector('[name="notes"]').value = '';
+            m.querySelector('#doCurrentQty').textContent = parseFloat(currentQty).toLocaleString('id-ID', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 2
+            }) + ' ' + (unit || 'pcs');
+            m.style.display = 'flex';
+            setTimeout(() => m.querySelector('[name="quantity"]').focus(), 60);
+        }
+
+        function openOrderModal(itemName, unit, supplierHint) {
+            var m = document.getElementById('orderSupplierModal');
+            m.querySelector('[name="item_name"]').value = itemName;
+            m.querySelector('[name="unit"]').value = unit;
+            m.style.display = 'flex';
+            var sel = m.querySelector('[name="supplier_id"]');
+            if (supplierHint && sel) {
+                var hint = supplierHint.toLowerCase();
+                for (var i = 0; i < sel.options.length; i++) {
+                    if (sel.options[i].text.toLowerCase().includes(hint)) {
+                        sel.selectedIndex = i;
+                        break;
+                    }
+                }
             }
-            acDrop.innerHTML = d.data.map(p =>
-                `<div class="ac-item" onclick="selectAcItem(${JSON.stringify(p.nama_barang)}, ${JSON.stringify(p.kategori||'lainnya')}, ${JSON.stringify(p.satuan||'pcs')})"
+        }
+
+        // Open manual stock modal pre-filled with existing item data
+        function openManualModalPreset(itemName, category, unit) {
+            var m = document.getElementById('manualStockModal');
+            m.querySelector('[name="item_name"]').value = itemName;
+            m.querySelector('[name="category"]').value = category || 'lainnya';
+            m.querySelector('[name="unit"]').value = unit || 'pcs';
+            m.querySelector('[name="quantity"]').value = '';
+            m.querySelector('[name="quantity"]').focus();
+            m.style.display = 'flex';
+        }
+
+        // Live autocomplete for item name in manual stock modal
+        let acTimer;
+        const acInput = document.querySelector('#manualStockModal [name="item_name"]');
+        const acDrop = document.getElementById('produkAcDrop');
+        const acCategoryInput = acInput ? acInput.closest('form').querySelector('[name="category"]') : null;
+
+        if (acInput && acDrop) {
+            acInput.addEventListener('input', function() {
+                clearTimeout(acTimer);
+                const q = this.value.trim();
+                // Reset category visual indicator when user modifies item name
+                if (acCategoryInput) {
+                    acCategoryInput.style.background = '';
+                    acCategoryInput.style.borderColor = '';
+                    acCategoryInput.title = '';
+                }
+                if (q.length < 1) {
+                    acDrop.style.display = 'none';
+                    return;
+                }
+                acTimer = setTimeout(() => fetchAcResults(q), 280);
+            });
+            acInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') acDrop.style.display = 'none';
+            });
+            document.addEventListener('click', function(e) {
+                if (!acDrop.contains(e.target) && e.target !== acInput) acDrop.style.display = 'none';
+            });
+        }
+
+        async function fetchAcResults(q) {
+            try {
+                const r = await fetch(`${GUDANG_BASE}/api/gudang-produk-search.php?action=search&q=${encodeURIComponent(q)}`);
+                const d = await r.json();
+                if (!d.success || !d.data.length) {
+                    acDrop.style.display = 'none';
+                    return;
+                }
+                acDrop.innerHTML = d.data.map(p =>
+                    `<div class="ac-item" onclick="selectAcItem(${JSON.stringify(p.nama_barang)}, ${JSON.stringify(p.kategori||'lainnya')}, ${JSON.stringify(p.satuan||'pcs')})"
                     style="padding:0.55rem 0.85rem; cursor:pointer; border-bottom:1px solid #e2e8f0; font-size:0.875rem;">
                     <span style="font-weight:600;">${p.nama_barang}</span>
                     <span style="color:#64748b; margin-left:0.5rem;">${p.kategori||''} · ${p.satuan||'pcs'}</span>
                     <span style="color:#94a3b8; font-size:0.75rem; margin-left:0.5rem;">${p.kode_barang||''}</span>
                 </div>`
-            ).join('');
-            acDrop.style.display = 'block';
-        } catch (e) {}
-    }
-
-    function selectAcItem(nama, kategori, satuan) {
-        acInput.value = nama;
-        var m = document.getElementById('manualStockModal');
-        var categoryInput = m.querySelector('[name="category"]');
-        var oldCategory = categoryInput.value;
-        categoryInput.value = kategori;
-
-        // Visual indicator only (non-blocking) if category changed
-        if (oldCategory && oldCategory !== kategori) {
-            categoryInput.style.background = '#fef08a';
-            categoryInput.style.borderColor = '#eab308';
-            categoryInput.title = 'Kategori diubah otomatis dari autocomplete. Edit jika diperlukan.';
-            console.log('[GUDANG] Category auto-set from autocomplete: ' + oldCategory + ' → ' + kategori);
+                ).join('');
+                acDrop.style.display = 'block';
+            } catch (e) {}
         }
 
-        m.querySelector('[name="unit"]').value = satuan;
-        acDrop.style.display = 'none';
-        m.querySelector('[name="quantity"]').focus();
-    }
+        function selectAcItem(nama, kategori, satuan) {
+            acInput.value = nama;
+            var m = document.getElementById('manualStockModal');
+            var categoryInput = m.querySelector('[name="category"]');
+            var oldCategory = categoryInput.value;
+            categoryInput.value = kategori;
 
-    // Submits the manual_stock_in form via fetch (AJAX) so a success/error popup is
-    // ALWAYS shown, regardless of session/redirect issues on the server.
-    async function submitStockFormAjax(form) {
-        const submitBtn = form.querySelector('button[type="submit"]');
-        const originalLabel = submitBtn ? submitBtn.textContent : '';
-        if (submitBtn) {
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Menyimpan...';
+            // Visual indicator only (non-blocking) if category changed
+            if (oldCategory && oldCategory !== kategori) {
+                categoryInput.style.background = '#fef08a';
+                categoryInput.style.borderColor = '#eab308';
+                categoryInput.title = 'Kategori diubah otomatis dari autocomplete. Edit jika diperlukan.';
+                console.log('[GUDANG] Category auto-set from autocomplete: ' + oldCategory + ' → ' + kategori);
+            }
+
+            m.querySelector('[name="unit"]').value = satuan;
+            acDrop.style.display = 'none';
+            m.querySelector('[name="quantity"]').focus();
         }
-        try {
-            const fd = new FormData(form);
-            const r = await fetch(window.location.pathname, {
-                method: 'POST',
-                headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                body: fd
-            });
-            let d;
-            try {
-                d = await r.json();
-            } catch (parseErr) {
-                alert('❌ Gagal: server memberi respon tidak terduga (HTTP ' + r.status + ').');
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = originalLabel;
-                }
-                return;
-            }
-            if (d && d.success) {
-                alert('✅ ' + (d.message || 'Stok berhasil ditambahkan.'));
-                window.location.reload();
-            } else {
-                alert('❌ Gagal: ' + (d && d.message ? d.message : 'Terjadi kesalahan tidak diketahui.'));
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = originalLabel;
-                }
-            }
-        } catch (e) {
-            alert('❌ Gagal terhubung ke server: ' + e.message);
+
+        // Submits the manual_stock_in form via fetch (AJAX) so a success/error popup is
+        // ALWAYS shown, regardless of session/redirect issues on the server.
+        async function submitStockFormAjax(form) {
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalLabel = submitBtn ? submitBtn.textContent : '';
             if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = originalLabel;
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Menyimpan...';
+            }
+            try {
+                const fd = new FormData(form);
+                const r = await fetch(window.location.pathname, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: fd
+                });
+                let d;
+                try {
+                    d = await r.json();
+                } catch (parseErr) {
+                    alert('❌ Gagal: server memberi respon tidak terduga (HTTP ' + r.status + ').');
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = originalLabel;
+                    }
+                    return;
+                }
+                if (d && d.success) {
+                    alert('✅ ' + (d.message || 'Stok berhasil ditambahkan.'));
+                    window.location.reload();
+                } else {
+                    alert('❌ Gagal: ' + (d && d.message ? d.message : 'Terjadi kesalahan tidak diketahui.'));
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = originalLabel;
+                    }
+                }
+            } catch (e) {
+                alert('❌ Gagal terhubung ke server: ' + e.message);
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalLabel;
+                }
             }
         }
-    }
 
-    function submitQuickStock(form) {
-        const quantity = parseFloat(form.querySelector('[name="quantity"]').value);
-        if (!quantity || quantity <= 0) {
-            alert('Qty masuk harus lebih dari 0.');
-            form.querySelector('[name="quantity"]').focus();
-            return false;
-        }
-        submitStockFormAjax(form);
-        return false;
-    }
-
-    function submitStockOut(form) {
-        const itemName = form.querySelector('[name="item_name"]').value.trim();
-        const quantity = parseFloat(form.querySelector('[name="quantity"]').value);
-        if (!itemName) {
-            alert('Nama item wajib diisi.');
-            form.querySelector('[name="item_name"]').focus();
-            return false;
-        }
-        if (!quantity || quantity <= 0) {
-            alert('Qty keluar harus lebih dari 0.');
-            form.querySelector('[name="quantity"]').focus();
-            return false;
-        }
-        submitStockFormAjax(form);
-        return false;
-    }
-
-    function validateManualStockForm(form) {
-        const itemName = form.querySelector('[name="item_name"]').value.trim();
-        const category = form.querySelector('[name="category"]').value.trim();
-        const quantity = parseFloat(form.querySelector('[name="quantity"]').value);
-
-        if (!itemName) {
-            alert('Nama item wajib diisi.');
-            form.querySelector('[name="item_name"]').focus();
-            return false;
-        }
-        if (!category) {
-            alert('Kategori wajib diisi.');
-            form.querySelector('[name="category"]').focus();
-            return false;
-        }
-        if (!quantity || quantity <= 0) {
-            alert('Qty masuk harus lebih dari 0.');
-            form.querySelector('[name="quantity"]').focus();
+        function submitQuickStock(form) {
+            const quantity = parseFloat(form.querySelector('[name="quantity"]').value);
+            if (!quantity || quantity <= 0) {
+                alert('Qty masuk harus lebih dari 0.');
+                form.querySelector('[name="quantity"]').focus();
+                return false;
+            }
+            submitStockFormAjax(form);
             return false;
         }
 
-        console.log('[GUDANG] Submitting manual stock:', { itemName, category, quantity });
-        submitStockFormAjax(form);
-        return false;
-    }
-</script>
+        function submitStockOut(form) {
+            const itemName = form.querySelector('[name="item_name"]').value.trim();
+            const quantity = parseFloat(form.querySelector('[name="quantity"]').value);
+            if (!itemName) {
+                alert('Nama item wajib diisi.');
+                form.querySelector('[name="item_name"]').focus();
+                return false;
+            }
+            if (!quantity || quantity <= 0) {
+                alert('Qty keluar harus lebih dari 0.');
+                form.querySelector('[name="quantity"]').focus();
+                return false;
+            }
+            submitStockFormAjax(form);
+            return false;
+        }
 
-<div id="importStockModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.45); z-index:2050; align-items:center; justify-content:center; padding:1rem;">
-    <div class="card" style="width:min(760px, 100%); max-height:90vh; overflow:auto;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; gap:1rem;">
-            <div>
-                <h3 style="font-size:1.05rem; margin:0;">Import Stock Gudang</h3>
-                <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.25rem;">Kolom minimal: NAMA BARANG, SATUAN, SALDO AWAL. Bisa upload CSV atau paste langsung dari Excel.</div>
+        function validateManualStockForm(form) {
+            const itemName = form.querySelector('[name="item_name"]').value.trim();
+            const category = form.querySelector('[name="category"]').value.trim();
+            const quantity = parseFloat(form.querySelector('[name="quantity"]').value);
+
+            if (!itemName) {
+                alert('Nama item wajib diisi.');
+                form.querySelector('[name="item_name"]').focus();
+                return false;
+            }
+            if (!category) {
+                alert('Kategori wajib diisi.');
+                form.querySelector('[name="category"]').focus();
+                return false;
+            }
+            if (!quantity || quantity <= 0) {
+                alert('Qty masuk harus lebih dari 0.');
+                form.querySelector('[name="quantity"]').focus();
+                return false;
+            }
+
+            console.log('[GUDANG] Submitting manual stock:', {
+                itemName,
+                category,
+                quantity
+            });
+            submitStockFormAjax(form);
+            return false;
+        }
+    </script>
+
+    <div id="importStockModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.45); z-index:2050; align-items:center; justify-content:center; padding:1rem;">
+        <div class="card" style="width:min(760px, 100%); max-height:90vh; overflow:auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; gap:1rem;">
+                <div>
+                    <h3 style="font-size:1.05rem; margin:0;">Import Stock Gudang</h3>
+                    <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.25rem;">Kolom minimal: NAMA BARANG, SATUAN, SALDO AWAL. Bisa upload CSV atau paste langsung dari Excel.</div>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('importStockModal').style.display='none'">Tutup</button>
             </div>
-            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('importStockModal').style.display='none'">Tutup</button>
-        </div>
-        <form method="POST" enctype="multipart/form-data">
-            <input type="hidden" name="action" value="import_stock_sheet">
+            <form method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="action" value="import_stock_sheet">
 
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.9rem;">
-                <div style="grid-column:1 / span 2;">
-                    <label class="form-label">Upload File CSV</label>
-                    <input type="file" name="import_stock_file" class="form-control" accept=".csv,.txt,.xlsx,.xls">
-                    <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.35rem;">Format `.xlsx` modern didukung jika server punya ekstensi ZIP. Format `.xls` lama tetap disarankan di-save sebagai `.xlsx` atau `CSV`. Alternatif paling cepat: copy dari Excel lalu paste ke kotak di bawah.</div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.9rem;">
+                    <div style="grid-column:1 / span 2;">
+                        <label class="form-label">Upload File CSV</label>
+                        <input type="file" name="import_stock_file" class="form-control" accept=".csv,.txt,.xlsx,.xls">
+                        <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.35rem;">Format `.xlsx` modern didukung jika server punya ekstensi ZIP. Format `.xls` lama tetap disarankan di-save sebagai `.xlsx` atau `CSV`. Alternatif paling cepat: copy dari Excel lalu paste ke kotak di bawah.</div>
+                    </div>
+                    <div>
+                        <label class="form-label">Default Kategori</label>
+                        <input type="text" name="default_category" class="form-control" value="lainnya" list="manualStockCategoryList">
+                    </div>
+                    <div>
+                        <label class="form-label">Default Supplier</label>
+                        <input type="text" name="default_supplier_name" class="form-control" placeholder="Opsional jika file tidak punya kolom supplier">
+                    </div>
+                    <div style="grid-column:1 / span 2;">
+                        <label class="form-label">Catatan Default</label>
+                        <input type="text" name="default_notes" class="form-control" value="Import stok awal gudang">
+                    </div>
+                    <div style="grid-column:1 / span 2;">
+                        <label class="form-label">Paste Data dari Excel</label>
+                        <textarea name="import_paste_data" class="form-control" rows="10" placeholder="Contoh header: NO[TAB]NAMA BARANG[TAB]Satuan[TAB]SALDO AWAL"></textarea>
+                        <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.35rem;">Import akan menambah qty ke stok yang sudah ada. Baris kosong atau qty 0 akan dilewati.</div>
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
+                    <button type="button" class="btn btn-secondary" onclick="document.getElementById('importStockModal').style.display='none'">Batal</button>
+                    <button type="submit" class="btn btn-primary">Import Sekarang</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="quickStockModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.55); z-index:2050; align-items:center; justify-content:center; padding:1rem;">
+        <div class="card" style="width:min(400px,100%);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                <div>
+                    <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.04em;">Tambah Stok</div>
+                    <h3 id="qsTitle" style="font-size:1.05rem; margin:0.15rem 0 0; font-weight:700;"></h3>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('quickStockModal').style.display='none'">✕</button>
+            </div>
+            <div style="background:var(--bg-secondary); border-radius:0.5rem; padding:0.65rem 0.9rem; margin-bottom:1rem; font-size:0.875rem;">
+                Stok saat ini: <strong id="qsCurrentQty" style="color:#0f9d6a;"></strong>
+            </div>
+            <form method="POST" id="quickStockForm" onsubmit="return submitQuickStock(this)">
+                <input type="hidden" name="action" value="manual_stock_in">
+                <input type="hidden" name="item_name">
+                <input type="hidden" name="category">
+                <input type="hidden" name="unit">
+                <input type="hidden" name="reorder_level" value="0">
+                <div style="margin-bottom:1rem;">
+                    <label class="form-label" style="font-weight:600;">Qty Masuk *</label>
+                    <input type="number" name="quantity" class="form-control" step="0.01" min="0.01" required placeholder="0" style="font-size:1.1rem; padding:0.65rem;">
+                </div>
+                <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+                    <button type="button" class="btn btn-secondary" onclick="document.getElementById('quickStockModal').style.display='none'">Batal</button>
+                    <button type="submit" class="btn btn-success" style="font-weight:700;">Simpan Stock</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="dailyOutModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.55); z-index:2055; align-items:center; justify-content:center; padding:1rem;">
+        <div class="card" style="width:min(420px,100%);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                <div>
+                    <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.04em;">Stock Keluar</div>
+                    <h3 style="font-size:1.05rem; margin:0.15rem 0 0; font-weight:700;">Catat Pengeluaran Harian</h3>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('dailyOutModal').style.display='none'">✕</button>
+            </div>
+            <div style="background:var(--bg-secondary); border-radius:0.5rem; padding:0.65rem 0.9rem; margin-bottom:1rem; font-size:0.875rem;">
+                Stok saat ini: <strong id="doCurrentQty" style="color:#d97706;"></strong>
+            </div>
+            <form method="POST" id="dailyOutForm" onsubmit="return submitStockOut(this)">
+                <input type="hidden" name="action" value="stock_out_daily">
+                <div style="margin-bottom:0.85rem;">
+                    <label class="form-label">Nama Item *</label>
+                    <input type="text" name="item_name" class="form-control" required placeholder="Masukkan nama item...">
+                </div>
+                <div style="margin-bottom:0.85rem;">
+                    <label class="form-label">Qty Keluar *</label>
+                    <input type="number" name="quantity" class="form-control" step="0.01" min="0.01" required placeholder="0">
+                </div>
+                <div style="margin-bottom:1rem;">
+                    <label class="form-label">Catatan</label>
+                    <textarea name="notes" class="form-control" rows="3" placeholder="Contoh: Barang dipakai operasional, rusak, atau dikirim ke cabang"></textarea>
+                </div>
+                <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+                    <button type="button" class="btn btn-secondary" onclick="document.getElementById('dailyOutModal').style.display='none'">Batal</button>
+                    <button type="submit" class="btn btn-warning" style="font-weight:700; color:#111827;">Simpan Stock Keluar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="manualStockModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.45); z-index:2000; align-items:center; justify-content:center; padding:1rem;">
+        <div class="card" style="width:min(640px, 100%); max-height:90vh; overflow:auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                <h3 style="font-size:1.05rem; margin:0;">Input Stock Manual</h3>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('manualStockModal').style.display='none'">Tutup</button>
+            </div>
+            <form method="POST" id="manualStockForm" onsubmit="return validateManualStockForm(this)">
+                <input type="hidden" name="action" value="manual_stock_in">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.9rem;">
+                    <div style="grid-column:1/span 2; position:relative;">
+                        <label class="form-label">Nama Item * <a href="gudang-produk.php" target="_blank" style="font-size:0.75rem; margin-left:0.5rem;">(kelola produk)</a></label>
+                        <input type="text" name="item_name" class="form-control" required autocomplete="off" placeholder="Ketik untuk cari atau isi nama baru...">
+                        <div id="produkAcDrop" style="display:none; position:absolute; left:0; right:0; top:100%; background:#fff; border:1px solid #e2e8f0; border-radius:0 0 0.5rem 0.5rem; max-height:200px; overflow-y:auto; z-index:9999; box-shadow:0 4px 16px rgba(0,0,0,0.12);"></div>
+                    </div>
                 </div>
                 <div>
-                    <label class="form-label">Default Kategori</label>
-                    <input type="text" name="default_category" class="form-control" value="lainnya" list="manualStockCategoryList">
+                    <label class="form-label">Kategori *</label>
+                    <input type="text" name="category" class="form-control" list="manualStockCategoryList" placeholder="Contoh: minuman" required>
+                    <datalist id="manualStockCategoryList">
+                        <option value="minuman"></option>
+                        <option value="frozen"></option>
+                        <option value="alat"></option>
+                        <option value="sayur"></option>
+                        <option value="daging"></option>
+                        <option value="sembako"></option>
+                        <option value="bumbu"></option>
+                        <option value="lainnya"></option>
+                    </datalist>
                 </div>
                 <div>
-                    <label class="form-label">Default Supplier</label>
-                    <input type="text" name="default_supplier_name" class="form-control" placeholder="Opsional jika file tidak punya kolom supplier">
+                    <label class="form-label">Unit *</label>
+                    <input type="text" name="unit" class="form-control" value="pcs" required>
+                </div>
+                <div>
+                    <label class="form-label">Qty Masuk *</label>
+                    <input type="number" name="quantity" class="form-control" step="0.01" min="0.01" required>
+                </div>
+                <div>
+                    <label class="form-label">Harga/pcs</label>
+                    <input type="number" name="unit_price" class="form-control" step="0.01" min="0" value="0">
+                </div>
+                <div>
+                    <label class="form-label">Reorder Level</label>
+                    <input type="number" name="reorder_level" class="form-control" step="0.01" min="0" value="0">
                 </div>
                 <div style="grid-column:1 / span 2;">
-                    <label class="form-label">Catatan Default</label>
-                    <input type="text" name="default_notes" class="form-control" value="Import stok awal gudang">
+                    <label class="form-label">Supplier (opsional)</label>
+                    <input type="text" name="supplier_name" class="form-control" placeholder="Contoh: CV Sumber Jaya">
                 </div>
                 <div style="grid-column:1 / span 2;">
-                    <label class="form-label">Paste Data dari Excel</label>
-                    <textarea name="import_paste_data" class="form-control" rows="10" placeholder="Contoh header: NO[TAB]NAMA BARANG[TAB]Satuan[TAB]SALDO AWAL"></textarea>
-                    <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.35rem;">Import akan menambah qty ke stok yang sudah ada. Baris kosong atau qty 0 akan dilewati.</div>
+                    <label class="form-label">Catatan</label>
+                    <textarea name="notes" class="form-control" rows="3" placeholder="Contoh: Stok awal sebelum sistem PO aktif"></textarea>
                 </div>
-            </div>
-
-            <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
-                <button type="button" class="btn btn-secondary" onclick="document.getElementById('importStockModal').style.display='none'">Batal</button>
-                <button type="submit" class="btn btn-primary">Import Sekarang</button>
-            </div>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
+            <button type="button" class="btn btn-secondary" onclick="document.getElementById('manualStockModal').style.display='none'">Batal</button>
+            <button type="submit" class="btn btn-success">Simpan Stock Manual</button>
+        </div>
         </form>
     </div>
-</div>
-
-<div id="quickStockModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.55); z-index:2050; align-items:center; justify-content:center; padding:1rem;">
-    <div class="card" style="width:min(400px,100%);">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-            <div>
-                <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.04em;">Tambah Stok</div>
-                <h3 id="qsTitle" style="font-size:1.05rem; margin:0.15rem 0 0; font-weight:700;"></h3>
-            </div>
-            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('quickStockModal').style.display='none'">✕</button>
-        </div>
-        <div style="background:var(--bg-secondary); border-radius:0.5rem; padding:0.65rem 0.9rem; margin-bottom:1rem; font-size:0.875rem;">
-            Stok saat ini: <strong id="qsCurrentQty" style="color:#0f9d6a;"></strong>
-        </div>
-        <form method="POST" id="quickStockForm" onsubmit="return submitQuickStock(this)">
-            <input type="hidden" name="action" value="manual_stock_in">
-            <input type="hidden" name="item_name">
-            <input type="hidden" name="category">
-            <input type="hidden" name="unit">
-            <input type="hidden" name="reorder_level" value="0">
-            <div style="margin-bottom:1rem;">
-                <label class="form-label" style="font-weight:600;">Qty Masuk *</label>
-                <input type="number" name="quantity" class="form-control" step="0.01" min="0.01" required placeholder="0" style="font-size:1.1rem; padding:0.65rem;">
-            </div>
-            <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
-                <button type="button" class="btn btn-secondary" onclick="document.getElementById('quickStockModal').style.display='none'">Batal</button>
-                <button type="submit" class="btn btn-success" style="font-weight:700;">Simpan Stock</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<div id="dailyOutModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.55); z-index:2055; align-items:center; justify-content:center; padding:1rem;">
-    <div class="card" style="width:min(420px,100%);">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-            <div>
-                <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.04em;">Stock Keluar</div>
-                <h3 style="font-size:1.05rem; margin:0.15rem 0 0; font-weight:700;">Catat Pengeluaran Harian</h3>
-            </div>
-            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('dailyOutModal').style.display='none'">✕</button>
-        </div>
-        <div style="background:var(--bg-secondary); border-radius:0.5rem; padding:0.65rem 0.9rem; margin-bottom:1rem; font-size:0.875rem;">
-            Stok saat ini: <strong id="doCurrentQty" style="color:#d97706;"></strong>
-        </div>
-        <form method="POST" id="dailyOutForm" onsubmit="return submitStockOut(this)">
-            <input type="hidden" name="action" value="stock_out_daily">
-            <div style="margin-bottom:0.85rem;">
-                <label class="form-label">Nama Item *</label>
-                <input type="text" name="item_name" class="form-control" required placeholder="Masukkan nama item...">
-            </div>
-            <div style="margin-bottom:0.85rem;">
-                <label class="form-label">Qty Keluar *</label>
-                <input type="number" name="quantity" class="form-control" step="0.01" min="0.01" required placeholder="0">
-            </div>
-            <div style="margin-bottom:1rem;">
-                <label class="form-label">Catatan</label>
-                <textarea name="notes" class="form-control" rows="3" placeholder="Contoh: Barang dipakai operasional, rusak, atau dikirim ke cabang"></textarea>
-            </div>
-            <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
-                <button type="button" class="btn btn-secondary" onclick="document.getElementById('dailyOutModal').style.display='none'">Batal</button>
-                <button type="submit" class="btn btn-warning" style="font-weight:700; color:#111827;">Simpan Stock Keluar</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<div id="manualStockModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.45); z-index:2000; align-items:center; justify-content:center; padding:1rem;">
-    <div class="card" style="width:min(640px, 100%); max-height:90vh; overflow:auto;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-            <h3 style="font-size:1.05rem; margin:0;">Input Stock Manual</h3>
-            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('manualStockModal').style.display='none'">Tutup</button>
-        </div>
-        <form method="POST" id="manualStockForm" onsubmit="return validateManualStockForm(this)">
-            <input type="hidden" name="action" value="manual_stock_in">
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.9rem;">
-                <div style="grid-column:1/span 2; position:relative;">
-                    <label class="form-label">Nama Item * <a href="gudang-produk.php" target="_blank" style="font-size:0.75rem; margin-left:0.5rem;">(kelola produk)</a></label>
-                    <input type="text" name="item_name" class="form-control" required autocomplete="off" placeholder="Ketik untuk cari atau isi nama baru...">
-                    <div id="produkAcDrop" style="display:none; position:absolute; left:0; right:0; top:100%; background:#fff; border:1px solid #e2e8f0; border-radius:0 0 0.5rem 0.5rem; max-height:200px; overflow-y:auto; z-index:9999; box-shadow:0 4px 16px rgba(0,0,0,0.12);"></div>
-                </div>
-            </div>
-            <div>
-                <label class="form-label">Kategori *</label>
-                <input type="text" name="category" class="form-control" list="manualStockCategoryList" placeholder="Contoh: minuman" required>
-                <datalist id="manualStockCategoryList">
-                    <option value="minuman"></option>
-                    <option value="frozen"></option>
-                    <option value="alat"></option>
-                    <option value="sayur"></option>
-                    <option value="daging"></option>
-                    <option value="sembako"></option>
-                    <option value="bumbu"></option>
-                    <option value="lainnya"></option>
-                </datalist>
-            </div>
-            <div>
-                <label class="form-label">Unit *</label>
-                <input type="text" name="unit" class="form-control" value="pcs" required>
-            </div>
-            <div>
-                <label class="form-label">Qty Masuk *</label>
-                <input type="number" name="quantity" class="form-control" step="0.01" min="0.01" required>
-            </div>
-            <div>
-                <label class="form-label">Harga/pcs</label>
-                <input type="number" name="unit_price" class="form-control" step="0.01" min="0" value="0">
-            </div>
-            <div>
-                <label class="form-label">Reorder Level</label>
-                <input type="number" name="reorder_level" class="form-control" step="0.01" min="0" value="0">
-            </div>
-            <div style="grid-column:1 / span 2;">
-                <label class="form-label">Supplier (opsional)</label>
-                <input type="text" name="supplier_name" class="form-control" placeholder="Contoh: CV Sumber Jaya">
-            </div>
-            <div style="grid-column:1 / span 2;">
-                <label class="form-label">Catatan</label>
-                <textarea name="notes" class="form-control" rows="3" placeholder="Contoh: Stok awal sebelum sistem PO aktif"></textarea>
-            </div>
-    </div>
-    <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
-        <button type="button" class="btn btn-secondary" onclick="document.getElementById('manualStockModal').style.display='none'">Batal</button>
-        <button type="submit" class="btn btn-success">Simpan Stock Manual</button>
-    </div>
-    </form>
-</div>
 </div>
 
 <!-- Modal: Pesan ke Supplier -->
@@ -2221,4 +2295,3 @@ include '../../includes/header.php';
         </form>
     </div>
 </div>
-
