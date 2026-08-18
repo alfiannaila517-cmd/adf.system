@@ -75,6 +75,37 @@ if (($_GET['debug_addstock'] ?? '') === '1') {
     exit;
 }
 
+// TEMP DIAGNOSTIC (auth-gated above) — searches stock rows by name and, if ?fix=1,
+// calls recordGudangNasitaDailyStockOut() directly to see the raw result/exception.
+// Remove after debugging the "kurangi stock belum berkurang" report.
+if (($_GET['debug_stockout'] ?? '') === '1') {
+    header('Content-Type: application/json');
+    $itemName = trim((string)($_GET['item_name'] ?? 'amer'));
+    $qty = (float)($_GET['qty'] ?? 1);
+    $response = [
+        'search_term' => $itemName,
+        'matches' => $db->fetchAll(
+            "SELECT id, stock_code, item_name, quantity, barang_id, is_active FROM gudang_nasita_stock WHERE item_name LIKE ? ORDER BY id",
+            ['%' . $itemName . '%']
+        ),
+    ];
+    if (($_GET['fix'] ?? '') === '1') {
+        try {
+            $response['result'] = recordGudangNasitaDailyStockOut($itemName, $qty, (int)($currentUser['id'] ?? 0), [
+                'notes' => 'debug_stockout',
+            ]);
+            $response['stock_after'] = $db->fetchOne(
+                "SELECT id, stock_code, item_name, quantity, barang_id, is_active FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) LIMIT 1",
+                [$itemName]
+            );
+        } catch (Throwable $e) {
+            $response['fatal_error'] = $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine();
+        }
+    }
+    echo json_encode($response, JSON_PRETTY_PRINT);
+    exit;
+}
+
 function gudangImportNormalizeHeader(string $value): string
 {
     $value = trim($value);
