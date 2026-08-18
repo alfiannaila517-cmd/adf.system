@@ -754,8 +754,15 @@ function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $op
                 $correctIdForConflictRow = ensureGudangNasitaBarangId($conflictRow['item_name'], $unit, $category, $notes);
                 if ($correctIdForConflictRow !== null && (int)$correctIdForConflictRow !== (int)$barangId) {
                     $db->update('gudang_nasita_stock', ['barang_id' => $correctIdForConflictRow], 'id = :id', ['id' => $conflictRow['id']]);
-                } else {
+                } elseif (gudangNasitaBarangIdIsNullable()) {
                     $barangId = null;
+                } else {
+                    // barang_id is NOT NULL here — inserting without it would fall back
+                    // to an invalid value (e.g. 0) and fail the foreign key constraint.
+                    // Surface a clear, actionable error instead.
+                    throw new Exception(
+                        "Item katalog \"$itemName\" bentrok dengan stok \"{$conflictRow['item_name']}\" (ID stok {$conflictRow['id']}), yang tidak punya kode katalog sendiri. Perbaiki dulu di menu Database Produk sebelum menambah stok item ini."
+                    );
                 }
             }
         }
@@ -1172,6 +1179,18 @@ function gudangNasitaStockHasColumn($columnName)
 function gudangNasitaStockRequiresBarangId()
 {
     return gudangNasitaStockHasColumn('barang_id');
+}
+
+function gudangNasitaBarangIdIsNullable()
+{
+    static $nullable = null;
+    if ($nullable !== null) {
+        return $nullable;
+    }
+    $db = Database::getInstance();
+    $col = $db->fetchOne("SHOW COLUMNS FROM gudang_nasita_stock LIKE 'barang_id'");
+    $nullable = $col && strtoupper((string)($col['Null'] ?? 'NO')) === 'YES';
+    return $nullable;
 }
 
 function gudangNasitaCurrentQty(array $stock)
