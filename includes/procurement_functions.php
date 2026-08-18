@@ -753,16 +753,19 @@ function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $op
             if ($conflictRow && strcasecmp((string)$conflictRow['item_name'], $itemName) !== 0) {
                 $correctIdForConflictRow = ensureGudangNasitaBarangId($conflictRow['item_name'], $unit, $category, $notes);
                 if ($correctIdForConflictRow !== null && (int)$correctIdForConflictRow !== (int)$barangId) {
+                    // Conflicting row has its OWN distinct catalog identity — just relink it there.
                     $db->update('gudang_nasita_stock', ['barang_id' => $correctIdForConflictRow], 'id = :id', ['id' => $conflictRow['id']]);
-                } elseif (gudangNasitaBarangIdIsNullable()) {
-                    $barangId = null;
                 } else {
-                    // barang_id is NOT NULL here — inserting without it would fall back
-                    // to an invalid value (e.g. 0) and fail the foreign key constraint.
-                    // Surface a clear, actionable error instead.
-                    throw new Exception(
-                        "Item katalog \"$itemName\" bentrok dengan stok \"{$conflictRow['item_name']}\" (ID stok {$conflictRow['id']}), yang tidak punya kode katalog sendiri. Perbaiki dulu di menu Database Produk sebelum menambah stok item ini."
-                    );
+                    // Conflicting row has NO catalog identity of its own (e.g. old informal
+                    // name like "Prost big" that was never properly cataloged) — it's just
+                    // a legacy alias for the SAME catalog product as $itemName. Rename it to
+                    // the current/correct name and reuse it as the target stock row, instead
+                    // of creating a duplicate.
+                    $db->update('gudang_nasita_stock', ['item_name' => $itemName], 'id = :id', ['id' => $conflictRow['id']]);
+                    $stock = $db->fetchOne('SELECT * FROM gudang_nasita_stock WHERE id = ? LIMIT 1', [$conflictRow['id']]);
+                    if ($stock && !(int)($stock['is_active'] ?? 1)) {
+                        $db->update('gudang_nasita_stock', ['is_active' => 1], 'id = :id', ['id' => $stock['id']]);
+                    }
                 }
             }
         }
@@ -1179,18 +1182,6 @@ function gudangNasitaStockHasColumn($columnName)
 function gudangNasitaStockRequiresBarangId()
 {
     return gudangNasitaStockHasColumn('barang_id');
-}
-
-function gudangNasitaBarangIdIsNullable()
-{
-    static $nullable = null;
-    if ($nullable !== null) {
-        return $nullable;
-    }
-    $db = Database::getInstance();
-    $col = $db->fetchOne("SHOW COLUMNS FROM gudang_nasita_stock LIKE 'barang_id'");
-    $nullable = $col && strtoupper((string)($col['Null'] ?? 'NO')) === 'YES';
-    return $nullable;
 }
 
 function gudangNasitaCurrentQty(array $stock)
