@@ -1142,16 +1142,20 @@ include '../../includes/header.php';
         const tbody = document.querySelector('#stockTable tbody');
         if (!inp || !tbody) return;
 
+        function normalizeText(value) {
+            return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+        }
+
         function getActiveCategory() {
-            return (categoryInput ? categoryInput.value : '').trim().toLowerCase();
+            return normalizeText(categoryInput ? categoryInput.value : '');
         }
 
         function setActiveCategory(value) {
-            const normalized = (value || '').trim();
+            const normalized = normalizeText(value);
             if (categoryInput) categoryInput.value = normalized;
             categoryButtons.forEach(btn => {
-                const btnValue = (btn.getAttribute('data-gudang-category') || '').trim().toLowerCase();
-                const isActive = btnValue === normalized.toLowerCase();
+                const btnValue = normalizeText(btn.getAttribute('data-gudang-category'));
+                const isActive = btnValue === normalized;
                 btn.classList.toggle('btn-primary', isActive);
                 btn.classList.toggle('btn-outline-secondary', !isActive);
             });
@@ -1159,7 +1163,7 @@ include '../../includes/header.php';
         }
 
         function filterRows() {
-            const q = inp.value.trim().toLowerCase();
+            const q = normalizeText(inp.value);
             const low = chk && chk.checked;
             const cat = getActiveCategory();
             const showReset = !!(q || low || cat);
@@ -1176,8 +1180,8 @@ include '../../includes/header.php';
                     return;
                 }
 
-                const name = (tr.dataset.item || '').toLowerCase();
-                const rowCategory = (tr.dataset.category || '').toLowerCase();
+                const name = normalizeText(tr.dataset.item || '');
+                const rowCategory = normalizeText(tr.dataset.category || '');
                 const isLow = tr.dataset.low === '1';
                 const show = (!q || name.includes(q)) && (!low || isLow) && (!cat || rowCategory === cat);
                 tr.style.display = show ? '' : 'none';
