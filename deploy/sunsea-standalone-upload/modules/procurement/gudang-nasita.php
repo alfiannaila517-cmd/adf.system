@@ -27,9 +27,11 @@ if (($_GET['debug_bintang'] ?? '') === '1') {
             $db->getConnection()->beginTransaction();
             // Row id=4 ("Bir Bintang", qty~1471) was wrongly linked to the "Bir Bintang Large"
             // catalog entry (id=3) instead of the correct "Bir Bintang" catalog entry (id=60).
-            $db->query("UPDATE gudang_nasita_stock SET barang_id = 60 WHERE id = 4 AND barang_id = 3");
-            // Deactivate duplicate/confusing "large" catalog entries so only BRG-0028 remains selectable.
-            $db->query("UPDATE gudang_nasita_barang SET is_active = 0 WHERE id IN (3, 25)");
+            // Force-correct the link and restore both rows to active (they got deactivated somewhere along the way).
+            $db->query("UPDATE gudang_nasita_stock SET barang_id = 60, is_active = 1 WHERE id = 4");
+            $db->query("UPDATE gudang_nasita_barang SET is_active = 1 WHERE id = 60");
+            // Deactivate duplicate/confusing "large"/"small" catalog entries so only BRG-0028/0029 remain selectable.
+            $db->query("UPDATE gudang_nasita_barang SET is_active = 0 WHERE id IN (3, 24, 25)");
             $db->getConnection()->commit();
             $fixResult = 'applied';
         } catch (Throwable $e) {
