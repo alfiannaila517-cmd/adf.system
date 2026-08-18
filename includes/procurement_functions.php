@@ -723,38 +723,21 @@ function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $op
 
         $db->getConnection()->beginTransaction();
 
-        // Match by EXACT item_name first — this is the most reliable signal since it's
-        // exactly what the user typed/selected. Prevents collisions when two different
-        // items (e.g. "Bir Bintang" vs "Bir Bintang large") share/collide on barang_id.
-        if (gudangNasitaStockRequiresBarangId()) {
-            $barangId = ensureGudangNasitaBarangId($itemName, $unit, $category, $notes);
-            $stock = $db->fetchOne(
-                "SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) LIMIT 1",
-                [$itemName]
-            );
-
-            // Fallback: match by barang_id only if no exact name match was found
-            // (covers products renamed in the master catalog).
-            if (!$stock && $barangId) {
-                $stock = $db->fetchOne(
-                    "SELECT * FROM gudang_nasita_stock WHERE barang_id = ? LIMIT 1",
-                    [$barangId]
-                );
-            }
-
-            // Reactivate soft-deleted row so we update instead of insert
-            if ($stock && !(int)($stock['is_active'] ?? 1)) {
-                $db->update('gudang_nasita_stock', ['is_active' => 1], 'id = :id', ['id' => $stock['id']]);
-            }
-        } else {
-            $barangId = null;
-            $stock = $db->fetchOne(
-                "SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) LIMIT 1",
-                [$itemName]
-            );
-            if ($stock && !(int)($stock['is_active'] ?? 1)) {
-                $db->update('gudang_nasita_stock', ['is_active' => 1], 'id = :id', ['id' => $stock['id']]);
-            }
+        // Match by EXACT item_name ONLY — never fall back to barang_id. A stock row's
+        // barang_id can be stale/wrong from historical bugs (e.g. linked to the wrong
+        // master product), and matching on it silently merges distinct items that only
+        // look similar (e.g. "Bir Bintang" vs "Bir Bintang large"). barang_id is still
+        // resolved below purely to tag NEW rows for catalog linkage/reporting.
+        $barangId = gudangNasitaStockRequiresBarangId()
+            ? ensureGudangNasitaBarangId($itemName, $unit, $category, $notes)
+            : null;
+        $stock = $db->fetchOne(
+            "SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) LIMIT 1",
+            [$itemName]
+        );
+        // Reactivate soft-deleted row so we update instead of insert
+        if ($stock && !(int)($stock['is_active'] ?? 1)) {
+            $db->update('gudang_nasita_stock', ['is_active' => 1], 'id = :id', ['id' => $stock['id']]);
         }
 
         if (!$stock) {
