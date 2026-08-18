@@ -994,8 +994,11 @@ include '../../includes/header.php';
 <style>
     .gudang-shell {
         background: linear-gradient(180deg, rgba(248, 250, 252, 0.85), rgba(255,255,255,0.75));
-        border-radius: 1rem;
-        padding: 0.5rem 0.75rem 0;
+        border-radius: 0;
+        padding: 0.5rem 0.75rem 0.75rem;
+        margin: 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
     }
     .gudang-top-actions {
         display:flex;
@@ -1881,4 +1884,3 @@ include '../../includes/header.php';
     </div>
 </div>
 
-<?php include '../../includes/footer.php'; ?>
