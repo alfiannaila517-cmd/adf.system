@@ -562,31 +562,28 @@ function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $op
 
         $db->getConnection()->beginTransaction();
 
-        // Match by barang_id first (no is_active filter — unique_barang constraint applies to ALL rows)
+        // Match by EXACT item_name first — this is the most reliable signal since it's
+        // exactly what the user typed/selected. Prevents collisions when two different
+        // items (e.g. "Bir Bintang" vs "Bir Bintang large") share/collide on barang_id.
         if (gudangNasitaStockRequiresBarangId()) {
             $barangId = ensureGudangNasitaBarangId($itemName, $unit, $category, $notes);
-            $stock = null;
-            if ($barangId) {
+            $stock = $db->fetchOne(
+                "SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) LIMIT 1",
+                [$itemName]
+            );
+
+            // Fallback: match by barang_id only if no exact name match was found
+            // (covers products renamed in the master catalog).
+            if (!$stock && $barangId) {
                 $stock = $db->fetchOne(
                     "SELECT * FROM gudang_nasita_stock WHERE barang_id = ? LIMIT 1",
                     [$barangId]
                 );
-                // Reactivate soft-deleted row so we update instead of insert
-                if ($stock && !(int)($stock['is_active'] ?? 1)) {
-                    $db->update('gudang_nasita_stock', ['is_active' => 1], 'id = :id', ['id' => $stock['id']]);
-                }
             }
-            if (!$stock) {
-                $stock = $db->fetchOne(
-                    "SELECT gs.* FROM gudang_nasita_stock gs
-                     LEFT JOIN gudang_nasita_barang gb ON gb.id = gs.barang_id
-                     WHERE LOWER(COALESCE(gs.item_name, gb.nama_barang, '')) = LOWER(?)
-                     LIMIT 1",
-                    [$itemName]
-                );
-                if ($stock && !(int)($stock['is_active'] ?? 1)) {
-                    $db->update('gudang_nasita_stock', ['is_active' => 1], 'id = :id', ['id' => $stock['id']]);
-                }
+
+            // Reactivate soft-deleted row so we update instead of insert
+            if ($stock && !(int)($stock['is_active'] ?? 1)) {
+                $db->update('gudang_nasita_stock', ['is_active' => 1], 'id = :id', ['id' => $stock['id']]);
             }
         } else {
             $barangId = null;
