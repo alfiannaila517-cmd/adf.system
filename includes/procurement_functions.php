@@ -822,7 +822,10 @@ function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $op
         $existingCols = gudangNasitaStockColumns();
         $updateData = array_intersect_key($updateData, array_flip($existingCols));
 
-        $db->update('gudang_nasita_stock', $updateData, 'id = :id', ['id' => $stock['id']]);
+        $updateResult = $db->update('gudang_nasita_stock', $updateData, 'id = :id', ['id' => $stock['id']]);
+        if ($updateResult === false) {
+            throw new Exception('Gagal update stok (cek error_log server untuk detail SQL).');
+        }
 
         $referenceNumber = 'MAN-' . date('YmdHis');
         // unit_price and subtotal are NOT in the gudang_nasita_movements schema; omit to prevent rollback
@@ -931,8 +934,16 @@ function recordGudangNasitaDailyStockOut($itemName, $quantity, $createdBy, $opti
             if (gudangNasitaStockHasColumn('jumlah_stok')) {
                 $updateData['jumlah_stok'] = $remainingQty;
             }
+            // Only update columns that actually exist — an unknown-column PDOException
+            // was previously being swallowed by Database::update()'s internal try/catch
+            // (it just returns false), so the caller never noticed the update never ran.
+            $existingCols = gudangNasitaStockColumns();
+            $updateData = array_intersect_key($updateData, array_flip($existingCols));
 
-            $db->update('gudang_nasita_stock', $updateData, 'id = :id', ['id' => $stock['id']]);
+            $updateResult = $db->update('gudang_nasita_stock', $updateData, 'id = :id', ['id' => $stock['id']]);
+            if ($updateResult === false) {
+                throw new Exception('Gagal update stok (cek error_log server untuk detail SQL).');
+            }
 
             $referenceNumber = 'OUT-' . date('YmdHis');
             $db->insert('gudang_nasita_movements', [
