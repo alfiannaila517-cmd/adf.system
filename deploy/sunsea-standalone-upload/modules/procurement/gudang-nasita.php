@@ -971,13 +971,30 @@ include '../../includes/header.php';
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; gap:1rem; flex-wrap:wrap;">
             <h3 style="font-size:1rem; font-weight:700; margin:0;">Stok Gudang</h3>
             <form method="GET" id="stockFilterForm" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+                <input type="hidden" id="stockCategoryHidden" name="category" value="<?php echo htmlspecialchars($selectedCategory); ?>">
                 <input type="text" name="q_item" id="stockSearchInput" class="form-control" placeholder="Cari nama item..." value="<?php echo htmlspecialchars($searchItemName); ?>" style="min-width:220px;" autocomplete="off">
                 <label style="display:flex; align-items:center; gap:0.35rem; font-size:0.82rem; color:var(--text-muted);">
                     <input type="checkbox" name="low_stock" id="stockLowFilter" value="1" <?php echo $filterLowStockOnly ? 'checked' : ''; ?>>
                     Stok menipis saja
                 </label>
-                <a href="gudang-nasita.php" class="btn btn-sm btn-secondary" id="stockResetBtn" style="<?php echo ($searchItemName || $filterLowStockOnly) ? '' : 'display:none'; ?>">Reset</a>
+                <button type="submit" class="btn btn-primary btn-sm">Cari</button>
+                <button type="button" class="btn btn-sm btn-secondary" id="stockResetBtn" style="<?php echo ($searchItemName || $filterLowStockOnly || $selectedCategory !== '') ? '' : 'display:none'; ?>">Clear</button>
             </form>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center; margin-bottom:0.85rem;">
+            <?php
+            $categoryLinks = [];
+            $categoryLinks[] = ['label' => 'Semua', 'value' => ''];
+            foreach ($stockCategories as $cat) {
+                $categoryLinks[] = ['label' => htmlspecialchars($cat), 'value' => $cat];
+            }
+            ?>
+            <?php foreach ($categoryLinks as $categoryLink): ?>
+                <?php $isActive = ($selectedCategory === '' && $categoryLink['value'] === '') || ($selectedCategory !== '' && strtolower((string)$categoryLink['value']) === strtolower($selectedCategory)); ?>
+                <button type="button" class="btn btn-sm <?php echo $isActive ? 'btn-primary' : 'btn-outline-secondary'; ?>" data-gudang-category="<?php echo htmlspecialchars((string)$categoryLink['value']); ?>">
+                    <?php echo $categoryLink['label']; ?>
+                </button>
+            <?php endforeach; ?>
         </div>
         <?php if ($summary['low'] > 0): ?>
             <div style="margin-bottom:0.75rem;"><span class="badge badge-warning"><?php echo $summary['low']; ?> item di bawah reorder</span></div>
@@ -1018,7 +1035,7 @@ include '../../includes/header.php';
                                 </tr>
                             <?php endif; ?>
                             <?php $isLowRow = ((float)$item['quantity'] <= (float)($item['reorder_level'] ?? 0) && (float)($item['reorder_level'] ?? 0) > 0); ?>
-                            <tr data-item="<?php echo htmlspecialchars(strtolower((string)$item['item_name'])); ?>" data-low="<?php echo $isLowRow ? '1' : '0'; ?>">
+                            <tr data-item="<?php echo htmlspecialchars(strtolower((string)$item['item_name'])); ?>" data-low="<?php echo $isLowRow ? '1' : '0'; ?>" data-category="<?php echo htmlspecialchars(strtolower((string)$rowCategory)); ?>">
                                 <td style="font-weight:600;"><?php echo htmlspecialchars($item['stock_code'] ?? ('GN-LEGACY-' . str_pad((string)($item['id'] ?? 0), 4, '0', STR_PAD_LEFT))); ?></td>
                                 <td><span class="badge badge-info" style="text-transform:capitalize;"><?php echo htmlspecialchars($rowCategory); ?></span></td>
                                 <td>
@@ -1115,35 +1132,54 @@ include '../../includes/header.php';
     if (typeof feather !== 'undefined') feather.replace();
     const GUDANG_BASE = '<?php echo BASE_URL; ?>';
 
-    // Live client-side stock filter
+    // Live client-side stock filter with category chips and text search
     (function() {
         const inp = document.getElementById('stockSearchInput');
         const chk = document.getElementById('stockLowFilter');
         const rst = document.getElementById('stockResetBtn');
+        const categoryInput = document.getElementById('stockCategoryHidden');
+        const categoryButtons = document.querySelectorAll('[data-gudang-category]');
         const tbody = document.querySelector('#stockTable tbody');
         if (!inp || !tbody) return;
+
+        function getActiveCategory() {
+            return (categoryInput ? categoryInput.value : '').trim().toLowerCase();
+        }
+
+        function setActiveCategory(value) {
+            const normalized = (value || '').trim();
+            if (categoryInput) categoryInput.value = normalized;
+            categoryButtons.forEach(btn => {
+                const btnValue = (btn.getAttribute('data-gudang-category') || '').trim().toLowerCase();
+                const isActive = btnValue === normalized.toLowerCase();
+                btn.classList.toggle('btn-primary', isActive);
+                btn.classList.toggle('btn-outline-secondary', !isActive);
+            });
+            filterRows();
+        }
 
         function filterRows() {
             const q = inp.value.trim().toLowerCase();
             const low = chk && chk.checked;
-            rst.style.display = (q || low) ? '' : 'none';
+            const cat = getActiveCategory();
+            const showReset = !!(q || low || cat);
+            if (rst) rst.style.display = showReset ? '' : 'none';
 
             let catRow = null,
                 catVisible = false;
 
             Array.from(tbody.rows).forEach(tr => {
-                // Category header row has colspan attribute
                 if (tr.cells.length === 1 && tr.cells[0].colSpan > 1) {
-                    // Finalise previous category visibility
                     if (catRow) catRow.style.display = catVisible ? '' : 'none';
                     catRow = tr;
                     catVisible = false;
                     return;
                 }
-                // Data row
+
                 const name = (tr.dataset.item || '').toLowerCase();
+                const rowCategory = (tr.dataset.category || '').toLowerCase();
                 const isLow = tr.dataset.low === '1';
-                const show = (!q || name.includes(q)) && (!low || isLow);
+                const show = (!q || name.includes(q)) && (!low || isLow) && (!cat || rowCategory === cat);
                 tr.style.display = show ? '' : 'none';
                 if (show) catVisible = true;
             });
@@ -1152,6 +1188,23 @@ include '../../includes/header.php';
 
         inp.addEventListener('input', filterRows);
         if (chk) chk.addEventListener('change', filterRows);
+
+        categoryButtons.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const value = (this.getAttribute('data-gudang-category') || '').trim();
+                setActiveCategory(value);
+            });
+        });
+
+        if (rst) {
+            rst.addEventListener('click', function() {
+                inp.value = '';
+                if (chk) chk.checked = false;
+                setActiveCategory('');
+            });
+        }
+
+        filterRows();
     })();
 
     document.addEventListener('click', function(e) {
