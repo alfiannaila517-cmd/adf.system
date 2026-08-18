@@ -782,8 +782,11 @@ function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $op
                 $insertData['jumlah_stok'] = 0;
             }
 
+            error_log('[GUDANG] Creating NEW item: ' . json_encode(['item' => $itemName, 'category' => $category]));
             $stockId = $db->insert('gudang_nasita_stock', $insertData);
             $stock = $db->fetchOne('SELECT * FROM gudang_nasita_stock WHERE id = ? LIMIT 1', [$stockId]);
+        } else {
+            error_log('[GUDANG] REUSING EXISTING item: ' . json_encode(['item' => $itemName, 'old_cat' => $stock['category'], 'new_cat' => $category]));
         }
 
         $newQty = gudangNasitaCurrentQty($stock) + $quantity;
