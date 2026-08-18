@@ -96,13 +96,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $msg = 'Tidak ada nama barang yang valid untuk diimport.';
             $msgType = 'danger';
         } else {
-            $added = 0; $skipped = 0;
+            $added = 0;
+            $skipped = 0;
             $prefix = 'BRG-';
             foreach ($lines as $line) {
                 $nama = trim((string)$line);
-                if ($nama === '') { $skipped++; continue; }
+                if ($nama === '') {
+                    $skipped++;
+                    continue;
+                }
                 $exist = $db->fetchOne('SELECT id FROM gudang_nasita_barang WHERE LOWER(nama_barang) = LOWER(?) LIMIT 1', [$nama]);
-                if ($exist) { $skipped++; continue; }
+                if ($exist) {
+                    $skipped++;
+                    continue;
+                }
                 $last = $db->fetchOne('SELECT kode_barang FROM gudang_nasita_barang WHERE kode_barang LIKE ? ORDER BY kode_barang DESC LIMIT 1', [$prefix . '%']);
                 $seq = $last ? ((int)substr($last['kode_barang'], -4) + 1) : 1;
                 $db->insert('gudang_nasita_barang', [

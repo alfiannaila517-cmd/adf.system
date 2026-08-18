@@ -399,10 +399,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     if ($tid > 0) {
         try {
             $db->query('DELETE FROM gudang_nasita_transfer_items WHERE transfer_id = ?', [$tid]);
-        } catch (Throwable $e) {}
+        } catch (Throwable $e) {
+        }
         try {
             $db->query('DELETE FROM gudang_nasita_transfers WHERE id = ?', [$tid]);
-        } catch (Throwable $e) {}
+        } catch (Throwable $e) {
+        }
         $_SESSION['success'] = 'Histori transfer dihapus.';
     }
     header('Location: gudang-nasita.php');
@@ -428,7 +430,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     if ($rid > 0) {
         try {
             $db->query("DELETE FROM business_inter_stock_transfers WHERE id = ? AND target_business_slug = 'gudang-nasita'", [$rid]);
-        } catch (Throwable $e) {}
+        } catch (Throwable $e) {
+        }
         $_SESSION['success'] = 'Histori penerimaan dari bisnis dihapus.';
     }
     header('Location: gudang-nasita.php');
@@ -594,12 +597,31 @@ try {
 }
 $searchItemName = trim((string)($_GET['q_item'] ?? ''));
 $filterLowStockOnly = (string)($_GET['low_stock'] ?? '') === '1';
+$selectedCategory = trim((string)($_GET['category'] ?? ''));
 
-$stockItems = array_values(array_filter($stockItemsAll, function ($item) use ($searchItemName, $filterLowStockOnly) {
+$stockCategories = [];
+foreach ($stockItemsAll as $item) {
+    $cat = trim((string)($item['category'] ?? ''));
+    if ($cat === '') {
+        $cat = 'lainnya';
+    }
+    $stockCategories[strtolower($cat)] = ucfirst(strtolower($cat));
+}
+ksort($stockCategories);
+$stockCategories = array_values($stockCategories);
+
+$stockItems = array_values(array_filter($stockItemsAll, function ($item) use ($searchItemName, $filterLowStockOnly, $selectedCategory) {
     $itemName = (string)($item['item_name'] ?? '');
+    $itemCategory = trim((string)($item['category'] ?? ''));
+    if ($itemCategory === '') {
+        $itemCategory = 'lainnya';
+    }
     $isLow = (float)($item['reorder_level'] ?? 0) > 0 && (float)$item['quantity'] <= (float)$item['reorder_level'];
 
     if ($searchItemName !== '' && stripos($itemName, $searchItemName) === false) {
+        return false;
+    }
+    if ($selectedCategory !== '' && strcasecmp($itemCategory, $selectedCategory) !== 0) {
         return false;
     }
     if ($filterLowStockOnly && !$isLow) {
@@ -969,6 +991,59 @@ $forceTheme = 'light';
 include '../../includes/header.php';
 ?>
 
+<style>
+    .gudang-shell {
+        background: linear-gradient(180deg, rgba(248, 250, 252, 0.85), rgba(255,255,255,0.75));
+        border-radius: 1rem;
+        padding: 0.5rem 0.75rem 0;
+    }
+    .gudang-chip {
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        gap:0.38rem;
+        padding:0.52rem 0.9rem;
+        border-radius:999px;
+        border:1px solid rgba(148, 163, 184, 0.4);
+        background: rgba(255,255,255,0.72);
+        color:#334155;
+        font-size:0.77rem;
+        font-weight:700;
+        text-decoration:none;
+        transition:all 0.2s ease;
+        box-shadow: 0 4px 10px rgba(15, 23, 42, 0.04);
+    }
+    .gudang-chip:hover {
+        transform: translateY(-1px);
+        text-decoration:none;
+        color:#0f172a;
+    }
+    .gudang-chip.active {
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        border-color: transparent;
+        color:#fff;
+        box-shadow: 0 10px 18px rgba(37, 99, 235, 0.22);
+    }
+    .gudang-toolbar {
+        background: rgba(255,255,255,0.76);
+        border:1px solid rgba(148,163,184,0.28);
+        border-radius: 1rem;
+        padding: 0.9rem 1rem;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
+    }
+    .gudang-search-wrap {
+        display:flex; gap:0.6rem; align-items:center; flex-wrap:wrap;
+        background: rgba(248,250,252,0.95);
+        border:1px solid rgba(148,163,184,0.24);
+        border-radius: 0.9rem;
+        padding: 0.4rem 0.55rem;
+    }
+    .gudang-search-wrap .form-control {
+        border:none; box-shadow:none; background:transparent;
+    }
+</style>
+
+<div class="gudang-shell">
 <div style="margin-bottom: 1.25rem; display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap;">
     <div>
         <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem; display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
@@ -1089,16 +1164,53 @@ include '../../includes/header.php';
 
 <div style="display:grid; grid-template-columns: 3fr 1fr; gap: 1rem; align-items:start;">
     <div class="card" style="display:flex; flex-direction:column; height:calc(100vh - 230px); min-height:420px; overflow:hidden;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; gap:1rem; flex-wrap:wrap;">
-            <h3 style="font-size:1rem; font-weight:700; margin:0;">Stok Gudang</h3>
-            <form method="GET" id="stockFilterForm" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
-                <input type="text" name="q_item" id="stockSearchInput" class="form-control" placeholder="Cari nama item..." value="<?php echo htmlspecialchars($searchItemName); ?>" style="min-width:220px;" autocomplete="off">
-                <label style="display:flex; align-items:center; gap:0.35rem; font-size:0.82rem; color:var(--text-muted);">
-                    <input type="checkbox" name="low_stock" id="stockLowFilter" value="1" <?php echo $filterLowStockOnly ? 'checked' : ''; ?>>
-                    Stok menipis saja
-                </label>
-                <a href="gudang-nasita.php" class="btn btn-sm btn-secondary" id="stockResetBtn" style="<?php echo ($searchItemName || $filterLowStockOnly) ? '' : 'display:none'; ?>">Reset</a>
-            </form>
+        <div class="gudang-toolbar" style="margin-bottom:1rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; margin-bottom:0.8rem;">
+                <h3 style="font-size:1rem; font-weight:700; margin:0;">Stok Gudang</h3>
+                <form method="GET" id="stockFilterForm" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center; margin:0;">
+                    <input type="hidden" name="category" value="<?php echo htmlspecialchars($selectedCategory); ?>">
+                    <div class="gudang-search-wrap">
+                        <i data-feather="search" style="width:15px; height:15px; color:#64748b;"></i>
+                        <input type="text" name="q_item" id="stockSearchInput" class="form-control" placeholder="Cari nama item..." value="<?php echo htmlspecialchars($searchItemName); ?>" style="min-width:220px;" autocomplete="off">
+                    </div>
+                    <label style="display:flex; align-items:center; gap:0.35rem; font-size:0.82rem; color:var(--text-muted);">
+                        <input type="checkbox" name="low_stock" id="stockLowFilter" value="1" <?php echo $filterLowStockOnly ? 'checked' : ''; ?>>
+                        Stok menipis saja
+                    </label>
+                    <button type="submit" class="btn btn-primary btn-sm">Cari</button>
+                    <a href="gudang-nasita.php" class="btn btn-sm btn-secondary" id="stockResetBtn" style="<?php echo ($searchItemName || $filterLowStockOnly || $selectedCategory !== '') ? '' : 'display:none'; ?>">Reset</a>
+                </form>
+            </div>
+            <div style="display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center;">
+                <?php
+                $categoryLinks = [];
+                $categoryLinks[] = [
+                    'label' => 'Semua',
+                    'value' => '',
+                    'url' => 'gudang-nasita.php?' . http_build_query([
+                        'q_item' => $searchItemName,
+                        'low_stock' => $filterLowStockOnly ? '1' : '0',
+                    ])
+                ];
+                foreach ($stockCategories as $cat) {
+                    $categoryLinks[] = [
+                        'label' => htmlspecialchars($cat),
+                        'value' => $cat,
+                        'url' => 'gudang-nasita.php?' . http_build_query([
+                            'q_item' => $searchItemName,
+                            'low_stock' => $filterLowStockOnly ? '1' : '0',
+                            'category' => $cat,
+                        ])
+                    ];
+                }
+                ?>
+                <?php foreach ($categoryLinks as $categoryLink): ?>
+                    <?php $isActive = ($selectedCategory === '' && $categoryLink['value'] === '') || ($selectedCategory !== '' && strtolower($categoryLink['value']) === strtolower($selectedCategory)); ?>
+                    <a href="<?php echo htmlspecialchars($categoryLink['url']); ?>" class="gudang-chip <?php echo $isActive ? 'active' : ''; ?>">
+                        <?php echo $categoryLink['label']; ?>
+                    </a>
+                <?php endforeach; ?>
+            </div>
         </div>
         <?php if ($summary['low'] > 0): ?>
             <div style="margin-bottom:0.75rem;"><span class="badge badge-warning"><?php echo $summary['low']; ?> item di bawah reorder</span></div>
@@ -1165,21 +1277,21 @@ include '../../includes/header.php';
                                 <td><?php echo htmlspecialchars($item['unit']); ?></td>
                                 <td style="font-size:0.813rem;"><?php echo htmlspecialchars($item['supplier_name'] ?: '-'); ?></td>
                                 <td style="font-size:0.82rem; white-space:nowrap;"><?php
-                                    $exp = $item['expiry_date'] ?? '';
-                                    if ($exp && $exp !== '0000-00-00') {
-                                        $expTs = strtotime($exp);
-                                        $diffDays = (int)floor(($expTs - time()) / 86400);
-                                        if ($diffDays < 0) {
-                                            echo '<span style="color:#dc2626; font-weight:700;">&#9888; Kadaluarsa ' . date('d M Y', $expTs) . '</span>';
-                                        } elseif ($diffDays <= 30) {
-                                            echo '<span style="color:#d97706; font-weight:700;">&#9888; ' . date('d M Y', $expTs) . ' (' . $diffDays . ' hr)</span>';
-                                        } else {
-                                            echo '<span style="color:#64748b;">' . date('d M Y', $expTs) . '</span>';
-                                        }
-                                    } else {
-                                        echo '<span style="color:#cbd5e1;">—</span>';
-                                    }
-                                ?></td>
+                                                                                    $exp = $item['expiry_date'] ?? '';
+                                                                                    if ($exp && $exp !== '0000-00-00') {
+                                                                                        $expTs = strtotime($exp);
+                                                                                        $diffDays = (int)floor(($expTs - time()) / 86400);
+                                                                                        if ($diffDays < 0) {
+                                                                                            echo '<span style="color:#dc2626; font-weight:700;">&#9888; Kadaluarsa ' . date('d M Y', $expTs) . '</span>';
+                                                                                        } elseif ($diffDays <= 30) {
+                                                                                            echo '<span style="color:#d97706; font-weight:700;">&#9888; ' . date('d M Y', $expTs) . ' (' . $diffDays . ' hr)</span>';
+                                                                                        } else {
+                                                                                            echo '<span style="color:#64748b;">' . date('d M Y', $expTs) . '</span>';
+                                                                                        }
+                                                                                    } else {
+                                                                                        echo '<span style="color:#cbd5e1;">—</span>';
+                                                                                    }
+                                                                                    ?></td>
                                 <td>
                                     <?php $stockIdInt = (int)($item['id'] ?? 0); ?>
                                     <div class="dropdown" style="position:relative; display:inline-block;">
@@ -1289,31 +1401,31 @@ include '../../includes/header.php';
         </div>
 
         <?php if (!empty($recentReturnFromBusiness)): ?>
-        <div class="card" style="margin-top:1rem;">
-            <h3 style="font-size:1rem; font-weight:700; margin-bottom:0.75rem; color:#7c3aed;">&#8617; Masuk dari Bisnis</h3>
-            <div style="display:grid; gap:0.65rem;">
-                <?php foreach ($recentReturnFromBusiness as $ret): ?>
-                    <div style="padding:0.65rem 0.85rem; border:1px solid #ede9fe; border-radius:0.75rem; background:#faf5ff;">
-                        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.5rem;">
-                            <div style="flex:1; min-width:0;">
-                                <div style="font-weight:700; font-size:0.875rem; color:#4c1d95;"><?php echo htmlspecialchars((string)($ret['item_name'] ?? '-')); ?></div>
-                                <div style="font-size:0.8rem; color:#7c3aed; font-weight:600;"><?php echo number_format((float)($ret['quantity'] ?? 0), 2); ?> <?php echo htmlspecialchars((string)($ret['unit'] ?? '')); ?></div>
-                                <div style="font-size:0.78rem; color:var(--text-muted);">dari <strong><?php echo htmlspecialchars((string)($ret['source_business_name'] ?? '-')); ?></strong></div>
-                                <?php if (!empty($ret['notes'])): ?>
-                                    <div style="font-size:0.75rem; color:#64748b; margin-top:2px;"><?php echo htmlspecialchars($ret['notes']); ?></div>
-                                <?php endif; ?>
-                                <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;"><?php echo date('d M Y H:i', strtotime((string)($ret['created_at'] ?? date('Y-m-d')))); ?></div>
+            <div class="card" style="margin-top:1rem;">
+                <h3 style="font-size:1rem; font-weight:700; margin-bottom:0.75rem; color:#7c3aed;">&#8617; Masuk dari Bisnis</h3>
+                <div style="display:grid; gap:0.65rem;">
+                    <?php foreach ($recentReturnFromBusiness as $ret): ?>
+                        <div style="padding:0.65rem 0.85rem; border:1px solid #ede9fe; border-radius:0.75rem; background:#faf5ff;">
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.5rem;">
+                                <div style="flex:1; min-width:0;">
+                                    <div style="font-weight:700; font-size:0.875rem; color:#4c1d95;"><?php echo htmlspecialchars((string)($ret['item_name'] ?? '-')); ?></div>
+                                    <div style="font-size:0.8rem; color:#7c3aed; font-weight:600;"><?php echo number_format((float)($ret['quantity'] ?? 0), 2); ?> <?php echo htmlspecialchars((string)($ret['unit'] ?? '')); ?></div>
+                                    <div style="font-size:0.78rem; color:var(--text-muted);">dari <strong><?php echo htmlspecialchars((string)($ret['source_business_name'] ?? '-')); ?></strong></div>
+                                    <?php if (!empty($ret['notes'])): ?>
+                                        <div style="font-size:0.75rem; color:#64748b; margin-top:2px;"><?php echo htmlspecialchars($ret['notes']); ?></div>
+                                    <?php endif; ?>
+                                    <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;"><?php echo date('d M Y H:i', strtotime((string)($ret['created_at'] ?? date('Y-m-d')))); ?></div>
+                                </div>
+                                <form method="POST" style="margin:0; flex-shrink:0;" onsubmit="return confirm('Hapus histori penerimaan ini?')">
+                                    <input type="hidden" name="action" value="delete_bisnis_return">
+                                    <input type="hidden" name="return_id" value="<?php echo (int)$ret['id']; ?>">
+                                    <button type="submit" class="btn btn-sm btn-danger" style="padding:2px 8px; font-size:0.72rem;">Hapus</button>
+                                </form>
                             </div>
-                            <form method="POST" style="margin:0; flex-shrink:0;" onsubmit="return confirm('Hapus histori penerimaan ini?')">
-                                <input type="hidden" name="action" value="delete_bisnis_return">
-                                <input type="hidden" name="return_id" value="<?php echo (int)$ret['id']; ?>">
-                                <button type="submit" class="btn btn-sm btn-danger" style="padding:2px 8px; font-size:0.72rem;">Hapus</button>
-                            </form>
                         </div>
-                    </div>
-                <?php endforeach; ?>
+                    <?php endforeach; ?>
+                </div>
             </div>
-        </div>
         <?php endif; ?>
     </div>
 </div>

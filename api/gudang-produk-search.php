@@ -124,11 +124,14 @@ if ($action === 'save' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             if (in_array('expiry_date', $stCols)) {
                 $barang = $db->fetchOne('SELECT nama_barang FROM gudang_nasita_barang WHERE id = ? LIMIT 1', [$id]);
                 if ($barang) {
-                    $db->query('UPDATE gudang_nasita_stock SET expiry_date = ? WHERE LOWER(item_name) = LOWER(?) AND COALESCE(is_active,1)=1',
-                        [$expiryDate, $barang['nama_barang']]);
+                    $db->query(
+                        'UPDATE gudang_nasita_stock SET expiry_date = ? WHERE LOWER(item_name) = LOWER(?) AND COALESCE(is_active,1)=1',
+                        [$expiryDate, $barang['nama_barang']]
+                    );
                 }
             }
-        } catch (Throwable $syncErr) {}
+        } catch (Throwable $syncErr) {
+        }
         echo json_encode(['success' => true, 'message' => 'Produk berhasil diperbarui', 'id' => $id]);
     } else {
         // Auto-generate kode_barang

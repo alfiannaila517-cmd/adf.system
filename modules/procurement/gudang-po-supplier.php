@@ -153,7 +153,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
         $un = trim($it['unit'] ?? 'pcs');
         $up = (float)($it['unit_price'] ?? 0);
         if ($nm !== '' && $qt > 0) {
-                    $validItems[] = ['item_name' => $nm, 'quantity' => $qt, 'unit' => $un, 'unit_price' => $up, 'expiry_date' => trim($it['expiry_date'] ?? '')];
+            $validItems[] = ['item_name' => $nm, 'quantity' => $qt, 'unit' => $un, 'unit_price' => $up, 'expiry_date' => trim($it['expiry_date'] ?? '')];
         }
     }
 
@@ -986,9 +986,9 @@ include '../../includes/header.php';
     });
 
     function addManualItem() {
-        var nama   = document.getElementById('manualItemName').value.trim();
+        var nama = document.getElementById('manualItemName').value.trim();
         var satuan = document.getElementById('manualItemSatuan').value.trim() || 'pcs';
-        var harga  = parseFloat(document.getElementById('manualItemHarga').value) || 0;
+        var harga = parseFloat(document.getElementById('manualItemHarga').value) || 0;
         if (!nama) {
             alert('Tulis nama barang terlebih dahulu.');
             document.getElementById('manualItemName').focus();
@@ -1000,7 +1000,13 @@ include '../../includes/header.php';
             alert('"' + nama + '" sudah ada di daftar PO.');
             return;
         }
-        selected[key] = { nama: nama, satuan: satuan, harga: harga, qty: '', isManual: true };
+        selected[key] = {
+            nama: nama,
+            satuan: satuan,
+            harga: harga,
+            qty: '',
+            isManual: true
+        };
         renderRight();
         document.getElementById('manualItemName').value = '';
         document.getElementById('manualItemHarga').value = '';
