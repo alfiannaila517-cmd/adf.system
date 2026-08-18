@@ -1167,7 +1167,7 @@ include '../../includes/header.php';
         <p style="color: var(--text-muted); font-size: 0.875rem;">Stok pusat, penerimaan supplier, dan kontrol barang keluar</p>
     </div>
     <div class="gudang-top-actions">
-        <button type="button" class="btn btn-warning" onclick="document.getElementById('dailyOutModal').style.display='flex'">
+        <button type="button" class="btn btn-warning" onclick="document.getElementById('doCurrentQty').textContent=''; document.getElementById('dailyOutModal').style.display='flex'">
             <i data-feather="minus-square" style="width: 16px; height: 16px;"></i>
             Stock Keluar
         </button>
@@ -1408,6 +1408,10 @@ include '../../includes/header.php';
                                             <button type="button" style="display:block; width:100%; text-align:left; padding:0.5rem 0.9rem; font-size:0.83rem; background:none; border:none; cursor:pointer; color:#0f9d6a; font-weight:600;"
                                                 onclick="toggleStockDropdown(<?php echo $stockIdInt; ?>); openQuickStock(<?php echo htmlspecialchars(json_encode($item['item_name']), ENT_QUOTES); ?>, <?php echo htmlspecialchars(json_encode($item['category'] ?? 'lainnya'), ENT_QUOTES); ?>, <?php echo htmlspecialchars(json_encode($item['unit']), ENT_QUOTES); ?>, <?php echo (float)($item['quantity'] ?? 0); ?>)">
                                                 + Tambah Stok
+                                            </button>
+                                            <button type="button" style="display:block; width:100%; text-align:left; padding:0.5rem 0.9rem; font-size:0.83rem; background:none; border:none; cursor:pointer; color:#d97706; font-weight:600;"
+                                                onclick="toggleStockDropdown(<?php echo $stockIdInt; ?>); openStockOut(<?php echo htmlspecialchars(json_encode($item['item_name']), ENT_QUOTES); ?>, <?php echo htmlspecialchars(json_encode($item['unit']), ENT_QUOTES); ?>, <?php echo (float)($item['quantity'] ?? 0); ?>)">
+                                                − Kurangi Stok
                                             </button>
                                             <a href="gudang-transfer.php?stock_id=<?php echo $stockIdInt; ?>" style="display:block; padding:0.5rem 0.9rem; font-size:0.83rem; color:#3b82f6; font-weight:600; text-decoration:none;"
                                                 onclick="toggleStockDropdown(<?php echo $stockIdInt; ?>)">
@@ -1746,6 +1750,20 @@ include '../../includes/header.php';
         setTimeout(() => qtyInput.focus(), 60);
     }
 
+    // Opens the Stock Keluar modal pre-filled for a specific row (from the Aksi dropdown)
+    function openStockOut(itemName, unit, currentQty) {
+        var m = document.getElementById('dailyOutModal');
+        m.querySelector('[name="item_name"]').value = itemName;
+        m.querySelector('[name="quantity"]').value = '';
+        m.querySelector('[name="notes"]').value = '';
+        m.querySelector('#doCurrentQty').textContent = parseFloat(currentQty).toLocaleString('id-ID', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2
+        }) + ' ' + (unit || 'pcs');
+        m.style.display = 'flex';
+        setTimeout(() => m.querySelector('[name="quantity"]').focus(), 60);
+    }
+
     function openOrderModal(itemName, unit, supplierHint) {
         var m = document.getElementById('orderSupplierModal');
         m.querySelector('[name="item_name"]').value = itemName;
@@ -2011,6 +2029,9 @@ include '../../includes/header.php';
                 <h3 style="font-size:1.05rem; margin:0.15rem 0 0; font-weight:700;">Catat Pengeluaran Harian</h3>
             </div>
             <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('dailyOutModal').style.display='none'">✕</button>
+        </div>
+        <div style="background:var(--bg-secondary); border-radius:0.5rem; padding:0.65rem 0.9rem; margin-bottom:1rem; font-size:0.875rem;">
+            Stok saat ini: <strong id="doCurrentQty" style="color:#d97706;"></strong>
         </div>
         <form method="POST">
             <input type="hidden" name="action" value="stock_out_daily">
