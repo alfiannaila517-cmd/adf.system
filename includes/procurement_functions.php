@@ -740,6 +740,26 @@ function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $op
             $db->update('gudang_nasita_stock', ['is_active' => 1], 'id = :id', ['id' => $stock['id']]);
         }
 
+        // Self-heal: barang_id is UNIQUE on gudang_nasita_stock, but historical bugs left
+        // some rows linked to the WRONG catalog product (e.g. "Bir Bintang" row pointing
+        // at "Bir Bintang Large"'s barang_id). If $barangId is already claimed by a row
+        // with a DIFFERENT item_name, re-resolve that row's OWN correct barang_id and free
+        // this one up, instead of letting the INSERT below fail on the unique constraint.
+        if (!$stock && $barangId !== null) {
+            $conflictRow = $db->fetchOne(
+                'SELECT id, item_name FROM gudang_nasita_stock WHERE barang_id = ? LIMIT 1',
+                [$barangId]
+            );
+            if ($conflictRow && strcasecmp((string)$conflictRow['item_name'], $itemName) !== 0) {
+                $correctIdForConflictRow = ensureGudangNasitaBarangId($conflictRow['item_name'], $unit, $category, $notes);
+                if ($correctIdForConflictRow !== null && (int)$correctIdForConflictRow !== (int)$barangId) {
+                    $db->update('gudang_nasita_stock', ['barang_id' => $correctIdForConflictRow], 'id = :id', ['id' => $conflictRow['id']]);
+                } else {
+                    $barangId = null;
+                }
+            }
+        }
+
         if (!$stock) {
             $insertData = [
                 'item_name' => $itemName,
@@ -754,9 +774,9 @@ function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $op
             if (gudangNasitaStockHasColumn('stock_code')) {
                 $insertData['stock_code'] = generateGudangNasitaStockCode();
             }
-            if (gudangNasitaStockRequiresBarangId()) {
-                // $barangId already resolved above; use it directly to avoid re-lookup
-                $insertData['barang_id'] = $barangId ?? ensureGudangNasitaBarangId($itemName, $unit, $category, $notes);
+            if (gudangNasitaStockRequiresBarangId() && $barangId !== null) {
+                // $barangId already resolved (and conflict-checked) above; use it directly.
+                $insertData['barang_id'] = $barangId;
             }
             if (gudangNasitaStockHasColumn('jumlah_stok')) {
                 $insertData['jumlah_stok'] = 0;
