@@ -323,13 +323,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $reorderLevel = isset($_POST['reorder_level']) ? (float)$_POST['reorder_level'] : null;
     $notes = trim($_POST['notes'] ?? '');
 
-    $result = addGudangNasitaManualStock($itemName, $unit, $quantity, $currentUser['id'], [
-        'category' => $category,
-        'unit_price' => $unitPrice,
-        'supplier_name' => $supplierName,
-        'reorder_level' => $reorderLevel,
-        'notes' => $notes,
-    ]);
+    try {
+        $result = addGudangNasitaManualStock($itemName, $unit, $quantity, $currentUser['id'], [
+            'category' => $category,
+            'unit_price' => $unitPrice,
+            'supplier_name' => $supplierName,
+            'reorder_level' => $reorderLevel,
+            'notes' => $notes,
+        ]);
+    } catch (Throwable $e) {
+        error_log('[GUDANG] manual_stock_in handler FATAL: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+        $result = ['success' => false, 'message' => 'Terjadi kesalahan server: ' . $e->getMessage()];
+    }
+
+    // AJAX callers (fetch from the modals below) get a JSON response so a popup can
+    // always be shown — avoids the old behavior where a broken session/redirect
+    // silently swallowed the success/error flash message.
+    if (($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest') {
+        header('Content-Type: application/json');
+        echo json_encode($result);
+        exit;
+    }
 
     if ($result['success']) {
         $_SESSION['success'] = $result['message'];
@@ -1830,6 +1844,63 @@ include '../../includes/header.php';
         m.querySelector('[name="quantity"]').focus();
     }
 
+    // Submits the manual_stock_in form via fetch (AJAX) so a success/error popup is
+    // ALWAYS shown, regardless of session/redirect issues on the server.
+    async function submitStockFormAjax(form) {
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalLabel = submitBtn ? submitBtn.textContent : '';
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Menyimpan...';
+        }
+        try {
+            const fd = new FormData(form);
+            const r = await fetch(window.location.pathname, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: fd
+            });
+            let d;
+            try {
+                d = await r.json();
+            } catch (parseErr) {
+                alert('❌ Gagal: server memberi respon tidak terduga (HTTP ' + r.status + ').');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalLabel;
+                }
+                return;
+            }
+            if (d && d.success) {
+                alert('✅ ' + (d.message || 'Stok berhasil ditambahkan.'));
+                window.location.reload();
+            } else {
+                alert('❌ Gagal: ' + (d && d.message ? d.message : 'Terjadi kesalahan tidak diketahui.'));
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalLabel;
+                }
+            }
+        } catch (e) {
+            alert('❌ Gagal terhubung ke server: ' + e.message);
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalLabel;
+            }
+        }
+    }
+
+    function submitQuickStock(form) {
+        const quantity = parseFloat(form.querySelector('[name="quantity"]').value);
+        if (!quantity || quantity <= 0) {
+            alert('Qty masuk harus lebih dari 0.');
+            form.querySelector('[name="quantity"]').focus();
+            return false;
+        }
+        submitStockFormAjax(form);
+        return false;
+    }
+
     function validateManualStockForm(form) {
         const itemName = form.querySelector('[name="item_name"]').value.trim();
         const category = form.querySelector('[name="category"]').value.trim();
@@ -1852,12 +1923,8 @@ include '../../includes/header.php';
         }
 
         console.log('[GUDANG] Submitting manual stock:', { itemName, category, quantity });
-        const submitBtn = form.querySelector('button[type="submit"]');
-        if (submitBtn) {
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Menyimpan...';
-        }
-        return true;
+        submitStockFormAjax(form);
+        return false;
     }
 </script>
 
@@ -1918,7 +1985,7 @@ include '../../includes/header.php';
         <div style="background:var(--bg-secondary); border-radius:0.5rem; padding:0.65rem 0.9rem; margin-bottom:1rem; font-size:0.875rem;">
             Stok saat ini: <strong id="qsCurrentQty" style="color:#0f9d6a;"></strong>
         </div>
-        <form method="POST">
+        <form method="POST" id="quickStockForm" onsubmit="return submitQuickStock(this)">
             <input type="hidden" name="action" value="manual_stock_in">
             <input type="hidden" name="item_name">
             <input type="hidden" name="category">
