@@ -1133,6 +1133,35 @@ include '../../includes/header.php';
     const GUDANG_BASE = '<?php echo BASE_URL; ?>';
 
     // Live client-side stock filter with category chips and text search
+    window.gudangFilterDebug = function() {
+        const inp = document.getElementById('stockSearchInput');
+        const chk = document.getElementById('stockLowFilter');
+        const rst = document.getElementById('stockResetBtn');
+        const categoryInput = document.getElementById('stockCategoryHidden');
+        const categoryButtons = document.querySelectorAll('[data-gudang-category]');
+        const tbody = document.querySelector('#stockTable tbody');
+        
+        console.log('=== GUDANG FILTER DIAGNOSTIC ===');
+        console.log('Elements found:', { inp: !!inp, chk: !!chk, rst: !!rst, categoryInput: !!categoryInput, tbody: !!tbody });
+        console.log('Category buttons found:', categoryButtons.length);
+        
+        if (categoryButtons.length > 0) {
+            console.log('Button values:');
+            categoryButtons.forEach((btn, i) => {
+                console.log(`  [${i}]`, btn.getAttribute('data-gudang-category'), '| active:', btn.classList.contains('active'));
+            });
+        }
+        
+        if (tbody) {
+            console.log('Table rows (first 5):');
+            Array.from(tbody.rows).slice(0, 5).forEach((tr, i) => {
+                console.log(`  [${i}]`, { item: tr.dataset.item, category: tr.dataset.category, colSpan: tr.cells[0]?.colSpan });
+            });
+        }
+    };
+    
+    window.gudangFilterDebug();
+    
     (function() {
         const inp = document.getElementById('stockSearchInput');
         const chk = document.getElementById('stockLowFilter');
@@ -1141,15 +1170,8 @@ include '../../includes/header.php';
         const categoryButtons = document.querySelectorAll('[data-gudang-category]');
         const tbody = document.querySelector('#stockTable tbody');
         
-        console.log('[GUDANG FILTER DEBUG]', {
-            inp: !!inp,
-            tbody: !!tbody,
-            categoryButtons: categoryButtons.length,
-            categoryInput: !!categoryInput
-        });
-        
-        if (!inp || !tbody) {
-            console.error('[GUDANG FILTER] Missing required elements');
+        if (!inp || !tbody || categoryButtons.length === 0) {
+            console.error('[GUDANG] Missing required elements, filter disabled');
             return;
         }
 
@@ -1157,92 +1179,122 @@ include '../../includes/header.php';
             return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
         }
 
-        function getActiveCategory() {
-            return normalizeText(categoryInput ? categoryInput.value : '');
-        }
-
-        function setActiveCategory(value) {
-            const normalized = normalizeText(value);
-            console.log('[GUDANG FILTER] setActiveCategory:', { raw: value, normalized });
-            if (categoryInput) categoryInput.value = normalized;
-            categoryButtons.forEach(btn => {
-                const btnValue = normalizeText(btn.getAttribute('data-gudang-category'));
-                const isActive = btnValue === normalized;
-                btn.classList.toggle('btn-primary', isActive);
-                btn.classList.toggle('btn-outline-secondary', !isActive);
-                if (isActive) console.log('[GUDANG FILTER] Button activated:', btnValue);
-            });
-            filterRows();
-        }
-
         function filterRows() {
-            const q = normalizeText(inp.value);
-            const low = chk && chk.checked;
-            const cat = getActiveCategory();
-            const showReset = !!(q || low || cat);
-            if (rst) rst.style.display = showReset ? '' : 'none';
-
-            let catRow = null,
-                catVisible = false;
-            let totalRows = 0, visibleRows = 0;
+            const searchText = normalizeText(inp.value);
+            const selectedCat = categoryInput ? normalizeText(categoryInput.value) : '';
+            const lowStockOnly = chk && chk.checked;
+            
+            let hiddenCount = 0;
 
             Array.from(tbody.rows).forEach(tr => {
+                // Category header rows
                 if (tr.cells.length === 1 && tr.cells[0].colSpan > 1) {
-                    if (catRow) catRow.style.display = catVisible ? '' : 'none';
-                    catRow = tr;
-                    catVisible = false;
+                    // Will be shown/hidden based on following items
                     return;
                 }
 
-                totalRows++;
-                const name = normalizeText(tr.dataset.item || '');
-                const rowCategory = normalizeText(tr.dataset.category || '');
+                const itemName = normalizeText(tr.dataset.item || '');
+                const rowCat = normalizeText(tr.dataset.category || '');
                 const isLow = tr.dataset.low === '1';
-                const show = (!q || name.includes(q)) && (!low || isLow) && (!cat || rowCategory === cat);
+
+                // Apply all filters
+                let show = true;
+                if (searchText && !itemName.includes(searchText)) show = false;
+                if (lowStockOnly && !isLow) show = false;
+                if (selectedCat && rowCat !== selectedCat) show = false;
+
                 tr.style.display = show ? '' : 'none';
-                
-                if (show) {
-                    visibleRows++;
-                    catVisible = true;
-                    if (cat && rowCategory !== cat) {
-                        console.warn('[GUDANG FILTER] Row shown but category mismatch:', { cat, rowCategory, item: tr.cells[2]?.innerText });
+                if (!show) hiddenCount++;
+            });
+
+            // Show/hide category header rows
+            let prevCatRow = null;
+            Array.from(tbody.rows).forEach(tr => {
+                if (tr.cells.length === 1 && tr.cells[0].colSpan > 1) {
+                    prevCatRow = tr;
+                } else if (prevCatRow) {
+                    if (tr.style.display !== 'none') {
+                        prevCatRow.style.display = '';
+                        prevCatRow = null;
                     }
                 }
             });
-            if (catRow) catRow.style.display = catVisible ? '' : 'none';
             
-            console.log('[GUDANG FILTER] filterRows result:', { q, cat, low, totalRows, visibleRows });
+            // Hide category rows with no visible items
+            let nextVisible = false;
+            for (let i = tbody.rows.length - 1; i >= 0; i--) {
+                const tr = tbody.rows[i];
+                if (tr.cells.length === 1 && tr.cells[0].colSpan > 1) {
+                    tr.style.display = nextVisible ? '' : 'none';
+                    nextVisible = false;
+                } else {
+                    if (tr.style.display !== 'none') nextVisible = true;
+                }
+            }
+            
+            // Show/hide reset button
+            const hasFilter = searchText || lowStockOnly || selectedCat;
+            if (rst) rst.style.display = hasFilter ? '' : 'none';
         }
 
-        inp.addEventListener('input', () => {
-            console.log('[GUDANG FILTER] Search input changed');
-            filterRows();
-        });
-        if (chk) chk.addEventListener('change', () => {
-            console.log('[GUDANG FILTER] Low stock filter changed');
-            filterRows();
-        });
-
-        categoryButtons.forEach((btn, idx) => {
+        // Category button click handler
+        categoryButtons.forEach(btn => {
             btn.addEventListener('click', function(e) {
                 e.preventDefault();
-                const value = (this.getAttribute('data-gudang-category') || '').trim();
-                console.log('[GUDANG FILTER] Category button clicked:', { index: idx, value });
-                setActiveCategory(value);
+                e.stopPropagation();
+                
+                const clickedValue = this.getAttribute('data-gudang-category');
+                const normalized = normalizeText(clickedValue);
+                
+                // Update hidden input
+                if (categoryInput) categoryInput.value = normalized;
+                
+                // Update button active states
+                categoryButtons.forEach(b => {
+                    const btnVal = normalizeText(b.getAttribute('data-gudang-category'));
+                    b.classList.toggle('active', btnVal === normalized);
+                });
+                
+                // Run filter
+                filterRows();
+                console.log('[GUDANG] Filter by category:', normalized);
             });
         });
 
-        if (rst) {
-            rst.addEventListener('click', function() {
-                console.log('[GUDANG FILTER] Reset button clicked');
-                inp.value = '';
-                if (chk) chk.checked = false;
-                setActiveCategory('');
+        // Search input handler
+        if (inp) {
+            inp.addEventListener('input', function() {
+                filterRows();
             });
         }
 
-        console.log('[GUDANG FILTER] Initialization complete, running initial filter');
+        // Low stock checkbox handler
+        if (chk) {
+            chk.addEventListener('change', function() {
+                filterRows();
+            });
+        }
+
+        // Reset button handler
+        if (rst) {
+            rst.addEventListener('click', function(e) {
+                e.preventDefault();
+                inp.value = '';
+                if (chk) chk.checked = false;
+                if (categoryInput) categoryInput.value = '';
+                
+                categoryButtons.forEach(btn => {
+                    btn.classList.toggle('active', btn.getAttribute('data-gudang-category') === '');
+                });
+                
+                filterRows();
+                console.log('[GUDANG] Filter reset');
+            });
+        }
+
+        // Initial filter
         filterRows();
+        console.log('[GUDANG] Filter initialized');
     })();
 
     document.addEventListener('click', function(e) {
