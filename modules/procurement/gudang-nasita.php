@@ -21,14 +21,32 @@ $pageTitle = 'Gudang Nasita';
 // TEMP DIAGNOSTIC (auth-gated by the requireLogin()+hasPermission() checks above) — remove after debugging.
 if (($_GET['debug_bintang'] ?? '') === '1') {
     header('Content-Type: application/json');
+    $fixResult = null;
+    if (($_GET['fix'] ?? '') === '1') {
+        try {
+            $db->getConnection()->beginTransaction();
+            // Row id=4 ("Bir Bintang", qty~1471) was wrongly linked to the "Bir Bintang Large"
+            // catalog entry (id=3) instead of the correct "Bir Bintang" catalog entry (id=60).
+            $db->query("UPDATE gudang_nasita_stock SET barang_id = 60 WHERE id = 4 AND barang_id = 3");
+            // Deactivate duplicate/confusing "large" catalog entries so only BRG-0028 remains selectable.
+            $db->query("UPDATE gudang_nasita_barang SET is_active = 0 WHERE id IN (3, 25)");
+            $db->getConnection()->commit();
+            $fixResult = 'applied';
+        } catch (Throwable $e) {
+            if ($db->getConnection()->inTransaction()) {
+                $db->getConnection()->rollBack();
+            }
+            $fixResult = 'error: ' . $e->getMessage();
+        }
+    }
     $stockRows = $db->fetchAll("SELECT id, stock_code, item_name, category, barang_id, quantity, is_active FROM gudang_nasita_stock WHERE item_name LIKE '%bintang%' ORDER BY id");
     $barangRows = [];
     try {
-        $barangRows = $db->fetchAll("SELECT id, kode_barang, nama_barang FROM gudang_nasita_barang WHERE nama_barang LIKE '%bintang%' ORDER BY id");
+        $barangRows = $db->fetchAll("SELECT id, kode_barang, nama_barang, is_active FROM gudang_nasita_barang WHERE nama_barang LIKE '%bintang%' ORDER BY id");
     } catch (Throwable $e) {
         $barangRows = ['error' => $e->getMessage()];
     }
-    echo json_encode(['stock' => $stockRows, 'barang' => $barangRows], JSON_PRETTY_PRINT);
+    echo json_encode(['fix' => $fixResult, 'stock' => $stockRows, 'barang' => $barangRows], JSON_PRETTY_PRINT);
     exit;
 }
 
