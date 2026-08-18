@@ -833,7 +833,7 @@ try {
 $recentReturnFromBusiness = [];
 try {
     $retStmt = $db->fetchAll(
-        "SELECT source_business_name, item_name, unit, quantity, notes, created_at
+        "SELECT id, source_business_name, item_name, unit, quantity, notes, created_at
          FROM business_inter_stock_transfers
          WHERE target_business_slug = 'gudang-nasita'
          ORDER BY created_at DESC LIMIT 30"
@@ -1033,13 +1033,23 @@ include '../../includes/header.php';
     }
     .gudang-search-wrap {
         display:flex; gap:0.6rem; align-items:center; flex-wrap:wrap;
+        min-width: 260px;
         background: rgba(248,250,252,0.95);
         border:1px solid rgba(148,163,184,0.24);
         border-radius: 0.9rem;
-        padding: 0.4rem 0.55rem;
+        padding: 0.45rem 0.7rem;
+        box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
     }
     .gudang-search-wrap .form-control {
-        border:none; box-shadow:none; background:transparent;
+        border:none; box-shadow:none; background:transparent; padding:0.2rem 0; min-height: 32px;
+        font-size: 0.9rem;
+    }
+    #stockResetBtn {
+        min-width: 72px;
+        font-weight:700;
+        color:#334155;
+        background:#f8fafc;
+        border:1px solid rgba(148,163,184,0.35);
     }
 </style>
 
@@ -1178,7 +1188,7 @@ include '../../includes/header.php';
                         Stok menipis saja
                     </label>
                     <button type="submit" class="btn btn-primary btn-sm">Cari</button>
-                    <a href="gudang-nasita.php" class="btn btn-sm btn-secondary" id="stockResetBtn" style="<?php echo ($searchItemName || $filterLowStockOnly || $selectedCategory !== '') ? '' : 'display:none'; ?>">Reset</a>
+                    <button type="button" class="btn btn-sm" id="stockResetBtn" style="<?php echo ($searchItemName || $filterLowStockOnly || $selectedCategory !== '') ? '' : 'display:none'; ?>">Clear</button>
                 </form>
             </div>
             <div style="display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center;">
@@ -1187,28 +1197,21 @@ include '../../includes/header.php';
                 $categoryLinks[] = [
                     'label' => 'Semua',
                     'value' => '',
-                    'url' => 'gudang-nasita.php?' . http_build_query([
-                        'q_item' => $searchItemName,
-                        'low_stock' => $filterLowStockOnly ? '1' : '0',
-                    ])
+                    'button' => true,
                 ];
                 foreach ($stockCategories as $cat) {
                     $categoryLinks[] = [
                         'label' => htmlspecialchars($cat),
                         'value' => $cat,
-                        'url' => 'gudang-nasita.php?' . http_build_query([
-                            'q_item' => $searchItemName,
-                            'low_stock' => $filterLowStockOnly ? '1' : '0',
-                            'category' => $cat,
-                        ])
+                        'button' => true,
                     ];
                 }
                 ?>
                 <?php foreach ($categoryLinks as $categoryLink): ?>
                     <?php $isActive = ($selectedCategory === '' && $categoryLink['value'] === '') || ($selectedCategory !== '' && strtolower($categoryLink['value']) === strtolower($selectedCategory)); ?>
-                    <a href="<?php echo htmlspecialchars($categoryLink['url']); ?>" class="gudang-chip <?php echo $isActive ? 'active' : ''; ?>">
+                    <button type="button" class="gudang-chip <?php echo $isActive ? 'active' : ''; ?>" data-gudang-category="<?php echo htmlspecialchars((string)$categoryLink['value']); ?>">
                         <?php echo $categoryLink['label']; ?>
-                    </a>
+                    </button>
                 <?php endforeach; ?>
             </div>
         </div>
@@ -1264,7 +1267,7 @@ include '../../includes/header.php';
                                 </tr>
                             <?php endif; ?>
                             <?php $isLowRow = ((float)$item['quantity'] <= (float)($item['reorder_level'] ?? 0) && (float)($item['reorder_level'] ?? 0) > 0); ?>
-                            <tr data-item="<?php echo htmlspecialchars(strtolower((string)$item['item_name'])); ?>" data-low="<?php echo $isLowRow ? '1' : '0'; ?>">
+                            <tr data-item="<?php echo htmlspecialchars(strtolower((string)$item['item_name'])); ?>" data-low="<?php echo $isLowRow ? '1' : '0'; ?>" data-category="<?php echo htmlspecialchars(strtolower((string)$rowCategory)); ?>">
                                 <td style="font-weight:600;"><?php echo htmlspecialchars($item['stock_code'] ?? ('GN-LEGACY-' . str_pad((string)($item['id'] ?? 0), 4, '0', STR_PAD_LEFT))); ?></td>
                                 <td><span class="badge badge-info" style="text-transform:capitalize;"><?php echo htmlspecialchars($rowCategory); ?></span></td>
                                 <td>
@@ -1447,35 +1450,51 @@ include '../../includes/header.php';
         }
     });
 
-    // Live client-side stock filter
+    // Live client-side stock filter without full page refresh
     (function() {
         const inp = document.getElementById('stockSearchInput');
         const chk = document.getElementById('stockLowFilter');
         const rst = document.getElementById('stockResetBtn');
+        const categoryInput = document.querySelector('input[name="category"]');
+        const categoryButtons = document.querySelectorAll('[data-gudang-category]');
         const tbody = document.querySelector('#stockTable tbody');
         if (!inp || !tbody) return;
+
+        function getActiveCategory() {
+            return (categoryInput ? categoryInput.value : '').trim().toLowerCase();
+        }
+
+        function setActiveCategory(value) {
+            if (categoryInput) categoryInput.value = value || '';
+            categoryButtons.forEach(btn => {
+                const btnValue = (btn.getAttribute('data-gudang-category') || '').trim().toLowerCase();
+                btn.classList.toggle('active', btnValue === (value || '').trim().toLowerCase());
+            });
+            filterRows();
+        }
 
         function filterRows() {
             const q = inp.value.trim().toLowerCase();
             const low = chk && chk.checked;
-            rst.style.display = (q || low) ? '' : 'none';
+            const cat = getActiveCategory();
+            const showReset = !!(q || low || cat);
+            if (rst) rst.style.display = showReset ? '' : 'none';
 
             let catRow = null,
                 catVisible = false;
 
             Array.from(tbody.rows).forEach(tr => {
-                // Category header row has colspan attribute
                 if (tr.cells.length === 1 && tr.cells[0].colSpan > 1) {
-                    // Finalise previous category visibility
                     if (catRow) catRow.style.display = catVisible ? '' : 'none';
                     catRow = tr;
                     catVisible = false;
                     return;
                 }
-                // Data row
+
                 const name = (tr.dataset.item || '').toLowerCase();
+                const rowCategory = (tr.dataset.category || '').toLowerCase();
                 const isLow = tr.dataset.low === '1';
-                const show = (!q || name.includes(q)) && (!low || isLow);
+                const show = (!q || name.includes(q)) && (!low || isLow) && (!cat || rowCategory === cat);
                 tr.style.display = show ? '' : 'none';
                 if (show) catVisible = true;
             });
@@ -1484,6 +1503,23 @@ include '../../includes/header.php';
 
         inp.addEventListener('input', filterRows);
         if (chk) chk.addEventListener('change', filterRows);
+
+        categoryButtons.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const value = (this.getAttribute('data-gudang-category') || '').trim();
+                setActiveCategory(value);
+            });
+        });
+
+        if (rst) {
+            rst.addEventListener('click', function() {
+                inp.value = '';
+                if (chk) chk.checked = false;
+                setActiveCategory('');
+            });
+        }
+
+        filterRows();
     })();
 
     document.addEventListener('click', function(e) {
