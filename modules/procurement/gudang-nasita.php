@@ -52,6 +52,29 @@ if (($_GET['debug_bintang'] ?? '') === '1') {
     exit;
 }
 
+// TEMP DIAGNOSTIC (auth-gated above) — calls addGudangNasitaManualStock() directly and
+// returns the raw result/exception, bypassing the session-flash redirect flow entirely.
+// Remove after debugging the "save shows no popup, stock doesn't increase" report.
+if (($_GET['debug_addstock'] ?? '') === '1') {
+    header('Content-Type: application/json');
+    $itemName = trim((string)($_GET['item_name'] ?? 'Bir Bintang large'));
+    $qty = (float)($_GET['qty'] ?? 1);
+    $response = ['item_name' => $itemName, 'qty' => $qty];
+    try {
+        $response['result'] = addGudangNasitaManualStock($itemName, 'botol', $qty, (int)($currentUser['id'] ?? 0), [
+            'category' => 'alkohol',
+        ]);
+        $response['stock_after'] = $db->fetchOne(
+            "SELECT id, stock_code, item_name, quantity, barang_id, is_active FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) LIMIT 1",
+            [$itemName]
+        );
+    } catch (Throwable $e) {
+        $response['fatal_error'] = $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine();
+    }
+    echo json_encode($response, JSON_PRETTY_PRINT);
+    exit;
+}
+
 function gudangImportNormalizeHeader(string $value): string
 {
     $value = trim($value);
