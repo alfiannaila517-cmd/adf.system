@@ -111,7 +111,7 @@ class Database
         $isMaster = in_array($dbName, $masterNames);
 
         // Only run once per session per database (version bump forces re-check)
-        $schemaVersion = 7; // v7: ensure users.last_login and users.updated_at exist on older databases
+        $schemaVersion = 8; // v8: create cash_book in master DB too (businesses sharing master DB need it)
         $sessionKey = '_schema_synced_v' . $schemaVersion . '_' . md5($dbName);
         if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION[$sessionKey])) return;
 
@@ -176,6 +176,23 @@ class Database
                             }
                         }
                     }
+                } catch (PDOException $e) {
+                }
+
+                // Some businesses (e.g. Gudang Nasita) share this master database.
+                // cash_book is normally only created in the non-master branch below,
+                // so ensure it exists here too (safe/idempotent, no data loss risk).
+                try {
+                    $this->connection->exec("CREATE TABLE IF NOT EXISTS cash_book (
+                        id INT AUTO_INCREMENT PRIMARY KEY, branch_id VARCHAR(50), transaction_date DATE NOT NULL, transaction_time TIME,
+                        division_id INT, category_id INT, category_name VARCHAR(100), description TEXT,
+                        transaction_type ENUM('income','expense') NOT NULL, amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+                        payment_method VARCHAR(30) DEFAULT 'cash', cash_account_id INT, notes TEXT,
+                        attachment VARCHAR(255), created_by INT, shift VARCHAR(20),
+                        source_type VARCHAR(30) DEFAULT 'manual', source_id INT NULL, reference_no VARCHAR(50) NULL,
+                        is_editable TINYINT(1) DEFAULT 1,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                    )");
                 } catch (PDOException $e) {
                 }
             } else {
