@@ -1133,16 +1133,16 @@ include '../../includes/header.php';
 ?>
 
 <style>
-    /* Narrower sidebar on this page only (desktop), freeing width so the Aksi column/button is fully visible */
+    /* Narrower sidebar on this page only (desktop); Aksi column is guaranteed reachable via the table's own horizontal scroll */
     @media (min-width: 769px) {
 
         body .sidebar {
-            width: 150px;
+            width: 190px;
         }
 
         body .main-content {
-            margin-left: 150px;
-            width: calc(100% - 150px);
+            margin-left: 190px;
+            width: calc(100% - 190px);
         }
     }
 
