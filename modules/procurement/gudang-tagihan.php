@@ -40,6 +40,11 @@ if (isset($_GET['debug_price'])) {
         }
     }
     echo "has barang_id col: " . ($hasBarangIdDbg ? 'YES' : 'NO') . "\n\n";
+    echo "--- ALL COLUMNS of gudang_nasita_stock ---\n";
+    foreach ($gudangDbDbg->fetchAll("SHOW COLUMNS FROM gudang_nasita_stock") as $c) {
+        echo "  " . ($c['Field'] ?? '?') . " (" . ($c['Type'] ?? '?') . ")\n";
+    }
+    echo "\n";
 
     echo "function_exists(gudangNasitaBackfillZeroPriceTransferItems): " . (function_exists('gudangNasitaBackfillZeroPriceTransferItems') ? 'YES' : 'NO') . "\n";
     if (isset($_GET['run_backfill']) && function_exists('gudangNasitaBackfillZeroPriceTransferItems')) {
