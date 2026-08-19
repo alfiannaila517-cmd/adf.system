@@ -1130,19 +1130,34 @@ include '../../includes/header.php';
         display: flex;
         align-items: center;
         flex-wrap: wrap;
-        gap: 0.7rem;
+        gap: 0.4rem;
     }
 
     .gudang-top-actions .btn {
-        min-height: 42px;
-        padding: 0.7rem 1rem;
-        border-radius: 0.8rem;
-        font-weight: 700;
+        min-height: 32px;
+        padding: 0.4rem 0.65rem;
+        border-radius: 0.6rem;
+        font-weight: 600;
+        font-size: 0.78rem;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: 0.45rem;
-        box-shadow: 0 8px 18px rgba(37, 99, 235, 0.12);
+        gap: 0.35rem;
+        white-space: nowrap;
+        box-shadow: 0 4px 10px rgba(37, 99, 235, 0.1);
+    }
+
+    .gudang-top-actions svg,
+    .gudang-top-actions i[data-feather] {
+        width: 13px !important;
+        height: 13px !important;
+    }
+
+    .gudang-top-actions input[type="date"] {
+        min-height: 32px !important;
+        width: 112px !important;
+        font-size: 0.75rem !important;
+        padding: 0 0.4rem !important;
     }
 
     .gudang-chip {
@@ -1228,59 +1243,59 @@ include '../../includes/header.php';
 </style>
 
 <div class="gudang-shell">
-    <div style="margin-bottom: 1.25rem; display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap;">
+    <div style="margin-bottom: 0.85rem; display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap;">
         <div>
-            <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem; display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+            <h2 style="font-size: 1.3rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.2rem; display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
                 Gudang Nasita
                 <?php if ($pendingPoCount > 0): ?>
                     <span style="background:#ef4444; color:#fff; border-radius:999px; padding:0.2rem 0.55rem; font-size:0.75rem; font-weight:800;">PO Masuk: <?php echo (int)$pendingPoCount; ?></span>
                 <?php endif; ?>
             </h2>
-            <p style="color: var(--text-muted); font-size: 0.875rem;">Stok pusat, penerimaan supplier, dan kontrol barang keluar</p>
+            <p style="color: var(--text-muted); font-size: 0.8rem; margin: 0;">Stok pusat, penerimaan supplier, dan kontrol barang keluar</p>
         </div>
         <div class="gudang-top-actions">
             <button type="button" class="btn btn-warning" onclick="document.getElementById('doCurrentQty').textContent=''; document.getElementById('dailyOutModal').style.display='flex'">
-                <i data-feather="minus-square" style="width: 16px; height: 16px;"></i>
+                <i data-feather="minus-square"></i>
                 Stock Keluar
             </button>
             <button type="button" class="btn btn-primary" onclick="document.getElementById('importStockModal').style.display='flex'">
-                <i data-feather="download" style="width: 16px; height: 16px;"></i>
+                <i data-feather="download"></i>
                 Import Stock
             </button>
-            <a href="gudang-nasita.php?export_excel=1&q_item=<?php echo urlencode($searchItemName); ?>&low_stock=<?php echo $filterLowStockOnly ? '1' : '0'; ?>&category=<?php echo urlencode($selectedCategory); ?>" class="btn btn-success" style="font-weight:700;">
-                <i data-feather="upload" style="width: 16px; height: 16px;"></i>
+            <a href="gudang-nasita.php?export_excel=1&q_item=<?php echo urlencode($searchItemName); ?>&low_stock=<?php echo $filterLowStockOnly ? '1' : '0'; ?>&category=<?php echo urlencode($selectedCategory); ?>" class="btn btn-success">
+                <i data-feather="upload"></i>
                 Export Excel
             </a>
-            <a href="gudang-nasita.php?export_pdf=1&q_item=<?php echo urlencode($searchItemName); ?>&low_stock=<?php echo $filterLowStockOnly ? '1' : '0'; ?>&category=<?php echo urlencode($selectedCategory); ?>" class="btn btn-danger" style="font-weight:700;">
-                <i data-feather="file-text" style="width: 16px; height: 16px;"></i>
+            <a href="gudang-nasita.php?export_pdf=1&q_item=<?php echo urlencode($searchItemName); ?>&low_stock=<?php echo $filterLowStockOnly ? '1' : '0'; ?>&category=<?php echo urlencode($selectedCategory); ?>" class="btn btn-danger">
+                <i data-feather="file-text"></i>
                 Export PDF
             </a>
-            <a href="gudang-nasita.php?print_stock=1" target="_blank" class="btn btn-primary" style="font-weight:700;">
-                <i data-feather="printer" style="width: 16px; height: 16px;"></i>
+            <a href="gudang-nasita.php?print_stock=1" target="_blank" class="btn btn-primary">
+                <i data-feather="printer"></i>
                 Print Semua Stock
             </a>
-            <form method="GET" target="_blank" style="display:flex; gap:0.45rem; align-items:center; flex-wrap:wrap; margin:0;">
+            <form method="GET" target="_blank" style="display:flex; gap:0.3rem; align-items:center; flex-wrap:wrap; margin:0;">
                 <input type="hidden" name="print_stock_out" value="1">
-                <input type="date" name="from_date" class="form-control" value="<?php echo htmlspecialchars(date('Y-m-d')); ?>" style="width: 130px; min-height: 38px;">
-                <span style="font-size:0.75rem; color:var(--text-muted);">s/d</span>
-                <input type="date" name="to_date" class="form-control" value="<?php echo htmlspecialchars(date('Y-m-d')); ?>" style="width: 130px; min-height: 38px;">
-                <button type="submit" class="btn btn-secondary" style="font-weight:700;">
-                    <i data-feather="printer" style="width: 16px; height: 16px;"></i>
+                <input type="date" name="from_date" class="form-control" value="<?php echo htmlspecialchars(date('Y-m-d')); ?>">
+                <span style="font-size:0.7rem; color:var(--text-muted);">s/d</span>
+                <input type="date" name="to_date" class="form-control" value="<?php echo htmlspecialchars(date('Y-m-d')); ?>">
+                <button type="submit" class="btn btn-secondary">
+                    <i data-feather="printer"></i>
                     Print
                 </button>
             </form>
             <a href="gudang-po-supplier.php" class="btn btn-primary" style="display:none;">
-                <i data-feather="file-plus" style="width: 16px; height: 16px;"></i>
+                <i data-feather="file-plus"></i>
                 PO Supplier
             </a>
             <a href="gudang-transfer.php" class="btn btn-secondary">
-                <i data-feather="shuffle" style="width: 16px; height: 16px;"></i>
+                <i data-feather="shuffle"></i>
                 Transfer ke Bisnis
             </a>
             <form method="POST" style="display:inline;" onsubmit="return confirm('Reset stok Gudang ke 0? Data item tetap ada, hanya qty di-nolkan.')">
                 <input type="hidden" name="action" value="reset_stock_zero">
                 <button type="submit" class="btn btn-danger">
-                    <i data-feather="rotate-ccw" style="width: 16px; height: 16px;"></i>
+                    <i data-feather="rotate-ccw"></i>
                     Reset Stok 0
                 </button>
             </form>
