@@ -528,9 +528,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $stockId = (int)($_POST['stock_id'] ?? 0);
     $expiry  = trim($_POST['expiry_date'] ?? '');
     if ($stockId > 0) {
-        $safeExpiry = ($expiry !== '' && strtotime($expiry)) ? $expiry : null;
-        $db->update('gudang_nasita_stock', ['expiry_date' => $safeExpiry], 'id = :id', ['id' => $stockId]);
-        $_SESSION['success'] = 'Tanggal kadaluarsa berhasil diperbarui.';
+        if ($expiry !== '' && !strtotime($expiry)) {
+            $_SESSION['error'] = 'Format tanggal kadaluarsa tidak valid.';
+        } else {
+            $safeExpiry = $expiry !== '' ? date('Y-m-d', strtotime($expiry)) : null;
+            $updateResult = $db->update('gudang_nasita_stock', ['expiry_date' => $safeExpiry], 'id = :id', ['id' => $stockId]);
+            if ($updateResult === false) {
+                error_log('update_expiry failed for stock_id=' . $stockId);
+                $_SESSION['error'] = 'Gagal memperbarui tanggal kadaluarsa (cek error_log server).';
+            } else {
+                $_SESSION['success'] = 'Tanggal kadaluarsa berhasil diperbarui.';
+            }
+        }
     }
     header('Location: gudang-nasita.php');
     exit;
@@ -1548,7 +1557,7 @@ include '../../includes/header.php';
                                                 onclick="toggleStockDropdown(<?php echo $stockIdInt; ?>)">
                                                 Aksi ▾
                                             </button>
-                                            <div id="sdrop-<?php echo $stockIdInt; ?>" style="display:none; position:absolute; right:0; top:100%; background:#fff; border:1px solid #e2e8f0; border-radius:0.6rem; box-shadow:0 6px 20px rgba(0,0,0,0.12); z-index:1000; min-width:210px; padding:0.4rem 0;">
+                                            <div id="sdrop-<?php echo $stockIdInt; ?>" style="display:none; position:absolute; right:0; top:100%; background:#fff; border:1px solid #e2e8f0; border-radius:0.6rem; box-shadow:0 6px 20px rgba(0,0,0,0.12); z-index:1000; min-width:230px; padding:0.4rem 0;">
                                                 <button type="button" style="display:block; width:100%; text-align:left; padding:0.5rem 0.9rem; font-size:0.83rem; background:none; border:none; cursor:pointer; color:#0f9d6a; font-weight:600;"
                                                     onclick="toggleStockDropdown(<?php echo $stockIdInt; ?>); openQuickStock(<?php echo htmlspecialchars(json_encode($item['item_name']), ENT_QUOTES); ?>, <?php echo htmlspecialchars(json_encode($item['category'] ?? 'lainnya'), ENT_QUOTES); ?>, <?php echo htmlspecialchars(json_encode($item['unit']), ENT_QUOTES); ?>, <?php echo (float)($item['quantity'] ?? 0); ?>)">
                                                     + Tambah Stok
@@ -1563,12 +1572,12 @@ include '../../includes/header.php';
                                                 </a>
                                                 <div style="border-top:1px solid #f1f5f9; margin:0.25rem 0;"></div>
                                                 <div style="padding:0.45rem 0.9rem;">
-                                                    <div style="font-size:0.75rem; color:#64748b; margin-bottom:3px;">Edit Kadaluarsa</div>
-                                                    <form method="POST" style="display:flex; gap:4px;" onsubmit="toggleStockDropdown(<?php echo $stockIdInt; ?>)">
+                                                    <div style="font-size:0.75rem; color:#64748b; margin-bottom:4px;">Edit Kadaluarsa</div>
+                                                    <form method="POST" style="display:flex; flex-direction:column; gap:6px;" onsubmit="toggleStockDropdown(<?php echo $stockIdInt; ?>)">
                                                         <input type="hidden" name="action" value="update_expiry">
                                                         <input type="hidden" name="stock_id" value="<?php echo $stockIdInt; ?>">
-                                                        <input type="date" name="expiry_date" class="form-control" style="font-size:0.78rem; height:28px; padding:0 4px; flex:1;" value="<?php echo htmlspecialchars($exp ?? ''); ?>">
-                                                        <button type="submit" class="btn btn-sm" style="height:28px; padding:0 8px; font-size:0.75rem; background:#6366f1; color:#fff; white-space:nowrap;">Simpan</button>
+                                                        <input type="date" name="expiry_date" class="form-control" style="font-size:0.82rem; height:32px; padding:0 6px; width:100%;" value="<?php echo htmlspecialchars($exp ?? ''); ?>">
+                                                        <button type="submit" class="btn btn-sm" style="height:30px; padding:0 8px; font-size:0.78rem; background:#6366f1; color:#fff; width:100%;">Simpan</button>
                                                     </form>
                                                 </div>
                                                 <div style="border-top:1px solid #f1f5f9; margin:0.25rem 0;"></div>
