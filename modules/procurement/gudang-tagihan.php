@@ -243,6 +243,287 @@ function gudangTagihanResolveBizLogoUrl(string $slug): ?string
     return $cache[$slug];
 }
 
+// ── Pembayaran Tagihan Bulanan (bisnis -> Gudang Nasita) ─────────────────────────
+// Ensures the tracking table exists (lives alongside gudang_nasita_transfers).
+function gudangTagihanEnsurePaymentsTable($gudangDb): void
+{
+    try {
+        $gudangDb->query("CREATE TABLE IF NOT EXISTS gudang_nasita_tagihan_payments (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            business_slug VARCHAR(50) NOT NULL,
+            bill_month CHAR(7) NOT NULL,
+            transfer_nilai DECIMAL(15,2) NOT NULL DEFAULT 0,
+            tkbm_share DECIMAL(15,2) NOT NULL DEFAULT 0,
+            amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+            business_cash_book_id INT NULL,
+            gudang_cash_book_id INT NULL,
+            paid_by INT NULL,
+            paid_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uniq_biz_month (business_slug, bill_month)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } catch (Throwable $e) {
+    }
+}
+
+// Returns [DatabaseInstance, originDbName, gudangDbName] for Gudang Nasita's own database.
+function gudangTagihanGetGudangDb(): array
+{
+    $cfgPath = __DIR__ . '/../../config/businesses/gudang-nasita.php';
+    $dbName = '';
+    if (file_exists($cfgPath)) {
+        $cfg = require $cfgPath;
+        $dbName = (string)($cfg['database'] ?? '');
+    }
+    $originDb = Database::getCurrentDatabase();
+    $gudangDb = ($dbName && $dbName !== $originDb) ? Database::switchDatabase($dbName) : Database::getInstance();
+    return [$gudangDb, $originDb, $dbName];
+}
+
+// Records a business paying its monthly bill: writes an expense to the business' own cash_book
+// (taken from its bank account), an income entry to Gudang Nasita's cash_book (money received),
+// moves both accounts' balances in the master ledger, and marks the bill as paid.
+function gudangTagihanPayMonthlyBill(string $slug, string $month, int $userId): string
+{
+    global $gudangMonthlyBizList;
+
+    $bizInfo = null;
+    foreach ($gudangMonthlyBizList as $b) {
+        if ($b['slug'] === $slug) {
+            $bizInfo = $b;
+            break;
+        }
+    }
+    if (!$bizInfo) {
+        throw new Exception('Bisnis tidak dikenali.');
+    }
+
+    $monthStart = $month . '-01';
+    $monthEnd = date('Y-m-t', strtotime($monthStart));
+    $periodLabel = date('F Y', strtotime($monthStart));
+
+    [$gudangDb, $originDb, $gudangDbName] = gudangTagihanGetGudangDb();
+    gudangTagihanEnsurePaymentsTable($gudangDb);
+
+    $existing = $gudangDb->fetchOne(
+        'SELECT id FROM gudang_nasita_tagihan_payments WHERE business_slug = ? AND bill_month = ? LIMIT 1',
+        [$slug, $month]
+    );
+    if ($existing) {
+        throw new Exception('Tagihan bulan ini untuk ' . $bizInfo['name'] . ' sudah dibayar.');
+    }
+
+    // Recompute the amount server-side (never trust the client) using the same logic as the recap.
+    $monthRows = $gudangDb->fetchAll(
+        "SELECT gt.target_business_name,
+                COALESCE(SUM(COALESCE(gti.subtotal, gti.quantity * COALESCE(gti.unit_price, 0))), 0) AS total_nilai
+         FROM gudang_nasita_transfers gt
+         LEFT JOIN gudang_nasita_transfer_items gti ON gti.transfer_id = gt.id
+         WHERE gt.status NOT IN ('cancelled') AND gt.created_at BETWEEN ? AND ?
+         GROUP BY gt.target_business_name",
+        [$monthStart . ' 00:00:00', $monthEnd . ' 23:59:59']
+    ) ?: [];
+    $transferNilai = 0.0;
+    foreach ($monthRows as $mr) {
+        if (gudangTagihanMatchBizSlug((string)($mr['target_business_name'] ?? '')) === $slug) {
+            $transferNilai += (float)$mr['total_nilai'];
+        }
+    }
+
+    $tkbmRow = $gudangDb->fetchOne(
+        'SELECT COALESCE(SUM(total_biaya), 0) AS t FROM gudang_nasita_tkbm WHERE tanggal BETWEEN ? AND ?',
+        [$monthStart, $monthEnd]
+    );
+    $tkbmShare = (float)($tkbmRow['t'] ?? 0) / count($gudangMonthlyBizList);
+    $totalAmount = $transferNilai + $tkbmShare;
+
+    if ($totalAmount <= 0) {
+        throw new Exception('Tidak ada tagihan untuk dibayarkan bulan ini.');
+    }
+
+    $bizCfgPath = __DIR__ . '/../../config/businesses/' . $slug . '.php';
+    if (!file_exists($bizCfgPath)) {
+        throw new Exception('Konfigurasi bisnis tidak ditemukan.');
+    }
+    $bizCfg = require $bizCfgPath;
+    $bizDbName = (string)($bizCfg['database'] ?? '');
+    if ($bizDbName === '') {
+        throw new Exception('Database bisnis tidak ditemukan.');
+    }
+
+    $bizNumericId = getNumericBusinessId($slug);
+    $gudangNumericId = getNumericBusinessId('gudang-nasita');
+    if (!$bizNumericId || !$gudangNumericId) {
+        throw new Exception('ID bisnis tidak ditemukan di master.');
+    }
+
+    $masterPdo = new PDO(
+        'mysql:host=' . DB_HOST . ';dbname=' . MASTER_DB_NAME . ';charset=' . DB_CHARSET,
+        DB_USER,
+        DB_PASS,
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+    );
+
+    $stmt = $masterPdo->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = 'bank' AND is_active = 1 ORDER BY id LIMIT 1");
+    $stmt->execute([$bizNumericId]);
+    $bizBankAccount = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$bizBankAccount) {
+        throw new Exception('Rekening bank untuk ' . $bizInfo['name'] . ' belum tersedia.');
+    }
+    $stmt->execute([$gudangNumericId]);
+    $gudangBankAccount = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$gudangBankAccount) {
+        throw new Exception('Rekening bank Gudang Nasita belum tersedia.');
+    }
+
+    $paymentDesc = 'Bayar Tagihan Gudang Nasita - Periode ' . $periodLabel;
+    $incomeDesc  = 'Diterima dari ' . $bizInfo['name'] . ' - Tagihan Bulan ' . $periodLabel;
+
+    // 1) Expense di buku kas bisnis pembayar, dipotong dari rekening bank bisnis tsb.
+    $bizDb = Database::switchDatabase($bizDbName);
+    try {
+        $bizDb->getConnection()->exec("ALTER TABLE `cash_book` DROP FOREIGN KEY `cash_book_ibfk_3`");
+    } catch (Throwable $e) {
+    }
+    try {
+        $bizDb->getConnection()->exec("ALTER TABLE `cash_book` MODIFY COLUMN `division_id` INT NULL");
+        $bizDb->getConnection()->exec("ALTER TABLE `cash_book` MODIFY COLUMN `category_id` INT NULL");
+    } catch (Throwable $e) {
+    }
+
+    $expCat = $bizDb->fetchOne("SELECT id FROM categories WHERE LOWER(category_name) = 'bayar tagihan gudang nasita' AND category_type = 'expense' LIMIT 1");
+    $expCategoryId = $expCat['id'] ?? null;
+    if (!$expCategoryId) {
+        $divForCat = $bizDb->fetchOne('SELECT id FROM divisions LIMIT 1');
+        $expCategoryId = $bizDb->insert('categories', [
+            'division_id'    => $divForCat['id'] ?? null,
+            'category_name'  => 'Bayar Tagihan Gudang Nasita',
+            'category_type'  => 'expense',
+            'is_active'      => 1,
+        ]);
+    }
+    $bizDiv = $bizDb->fetchOne('SELECT id FROM divisions LIMIT 1');
+
+    $bizCashBookId = $bizDb->insert('cash_book', [
+        'transaction_date' => date('Y-m-d'),
+        'transaction_time' => date('H:i:s'),
+        'division_id'      => $bizDiv['id'] ?? null,
+        'category_id'      => $expCategoryId,
+        'transaction_type' => 'expense',
+        'amount'           => $totalAmount,
+        'description'      => $paymentDesc,
+        'payment_method'   => 'transfer',
+        'cash_account_id'  => $bizBankAccount['id'],
+        'created_by'       => $userId ?: null,
+        'source_type'      => 'gudang_tagihan_payment',
+        'is_editable'      => 0,
+    ]);
+
+    // 2) Income di buku kas Gudang Nasita, masuk ke rekening bank Gudang Nasita.
+    $gudangDb = Database::switchDatabase($gudangDbName);
+    try {
+        $gudangDb->getConnection()->exec("ALTER TABLE `cash_book` DROP FOREIGN KEY `cash_book_ibfk_3`");
+    } catch (Throwable $e) {
+    }
+    try {
+        $gudangDb->getConnection()->exec("ALTER TABLE `cash_book` MODIFY COLUMN `division_id` INT NULL");
+        $gudangDb->getConnection()->exec("ALTER TABLE `cash_book` MODIFY COLUMN `category_id` INT NULL");
+    } catch (Throwable $e) {
+    }
+
+    $incCat = $gudangDb->fetchOne("SELECT id FROM categories WHERE LOWER(category_name) = 'pendapatan tagihan bisnis' AND category_type = 'income' LIMIT 1");
+    $incCategoryId = $incCat['id'] ?? null;
+    if (!$incCategoryId) {
+        $divForCat2 = $gudangDb->fetchOne('SELECT id FROM divisions LIMIT 1');
+        $incCategoryId = $gudangDb->insert('categories', [
+            'division_id'    => $divForCat2['id'] ?? null,
+            'category_name'  => 'Pendapatan Tagihan Bisnis',
+            'category_type'  => 'income',
+            'is_active'      => 1,
+        ]);
+    }
+    $gudangDiv = $gudangDb->fetchOne('SELECT id FROM divisions LIMIT 1');
+
+    $gudangCashBookId = $gudangDb->insert('cash_book', [
+        'transaction_date' => date('Y-m-d'),
+        'transaction_time' => date('H:i:s'),
+        'division_id'      => $gudangDiv['id'] ?? null,
+        'category_id'      => $incCategoryId,
+        'transaction_type' => 'income',
+        'amount'           => $totalAmount,
+        'description'      => $incomeDesc,
+        'payment_method'   => 'transfer',
+        'cash_account_id'  => $gudangBankAccount['id'],
+        'created_by'       => $userId ?: null,
+        'source_type'      => 'gudang_tagihan_income',
+        'is_editable'      => 0,
+    ]);
+
+    // 3) Pindahkan saldo di ledger master (rekening bank bisnis berkurang, rekening bank Gudang Nasita bertambah).
+    try {
+        $masterPdo->beginTransaction();
+        $trx = $masterPdo->prepare(
+            "INSERT INTO cash_account_transactions (cash_account_id, transaction_type, amount, description, transaction_date, created_at)
+             VALUES (?, 'expense', ?, ?, CURDATE(), NOW())"
+        );
+        $trx->execute([$bizBankAccount['id'], $totalAmount, $paymentDesc]);
+        $masterPdo->prepare('UPDATE cash_accounts SET current_balance = current_balance - ? WHERE id = ?')
+            ->execute([$totalAmount, $bizBankAccount['id']]);
+
+        $trx2 = $masterPdo->prepare(
+            "INSERT INTO cash_account_transactions (cash_account_id, transaction_type, amount, description, transaction_date, created_at)
+             VALUES (?, 'income', ?, ?, CURDATE(), NOW())"
+        );
+        $trx2->execute([$gudangBankAccount['id'], $totalAmount, $incomeDesc]);
+        $masterPdo->prepare('UPDATE cash_accounts SET current_balance = current_balance + ? WHERE id = ?')
+            ->execute([$totalAmount, $gudangBankAccount['id']]);
+
+        $masterPdo->commit();
+    } catch (Throwable $e) {
+        if ($masterPdo->inTransaction()) {
+            $masterPdo->rollBack();
+        }
+        throw new Exception('Gagal memindahkan saldo rekening: ' . $e->getMessage());
+    }
+
+    // 4) Catat status lunas supaya tidak bisa dibayar dobel.
+    $gudangDb->insert('gudang_nasita_tagihan_payments', [
+        'business_slug'         => $slug,
+        'bill_month'            => $month,
+        'transfer_nilai'        => $transferNilai,
+        'tkbm_share'            => $tkbmShare,
+        'amount'                => $totalAmount,
+        'business_cash_book_id' => $bizCashBookId ?: null,
+        'gudang_cash_book_id'   => $gudangCashBookId ?: null,
+        'paid_by'               => $userId ?: null,
+    ]);
+
+    if ($originDb) {
+        Database::switchDatabase($originDb);
+    }
+
+    return 'Tagihan ' . $bizInfo['name'] . ' bulan ' . $periodLabel . ' sebesar Rp ' . number_format($totalAmount, 0, ',', '.') . ' berhasil dibayar dan tercatat di buku kas.';
+}
+
+// ── POST: bayar tagihan bulanan (bisnis -> Gudang Nasita, potong rekening bank bisnis) ────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'pay_monthly_bill') {
+    $paySlug  = trim((string)($_POST['slug'] ?? ''));
+    $payMonth = trim((string)($_POST['bulan'] ?? ''));
+
+    if (!preg_match('/^\d{4}-\d{2}$/', $payMonth)) {
+        $payMonth = date('Y-m');
+    }
+
+    try {
+        $payMsg = gudangTagihanPayMonthlyBill($paySlug, $payMonth, (int)($currentUser['id'] ?? 0));
+        setFlash('success', $payMsg);
+    } catch (Throwable $e) {
+        error_log('gudang-tagihan pay monthly bill: ' . $e->getMessage());
+        setFlash('error', 'Gagal memproses pembayaran: ' . $e->getMessage());
+    }
+    header('Location: gudang-tagihan.php?bulan=' . urlencode($payMonth));
+    exit;
+}
+
 // ── Rekap Tagihan Bulanan per Bisnis (transfer bulan berjalan + share TKBM) ──────
 $selectedMonth = trim((string)($_GET['bulan'] ?? date('Y-m')));
 if (!preg_match('/^\d{4}-\d{2}$/', $selectedMonth)) {
@@ -325,6 +606,31 @@ try {
     error_log('gudang-tagihan monthly transfer per biz: ' . $e->getMessage());
 }
 
+// ── Status pembayaran tagihan bulanan (per bisnis) + total uang diterima Gudang Nasita ──
+$paidMapThisMonth = [];
+$totalReceivedFromBusinesses = 0.0;
+try {
+    [$gudangDb3, $originDb3, $gudangDbName3] = gudangTagihanGetGudangDb();
+    gudangTagihanEnsurePaymentsTable($gudangDb3);
+
+    $paidRows = $gudangDb3->fetchAll(
+        'SELECT business_slug, amount, paid_at FROM gudang_nasita_tagihan_payments WHERE bill_month = ?',
+        [$selectedMonth]
+    ) ?: [];
+    foreach ($paidRows as $pr) {
+        $paidMapThisMonth[$pr['business_slug']] = $pr;
+    }
+
+    $totalReceivedRow = $gudangDb3->fetchOne('SELECT COALESCE(SUM(amount), 0) AS t FROM gudang_nasita_tagihan_payments');
+    $totalReceivedFromBusinesses = (float)($totalReceivedRow['t'] ?? 0);
+
+    if ($gudangDbName3 && $gudangDbName3 !== $originDb3) {
+        Database::switchDatabase($originDb3);
+    }
+} catch (Throwable $e) {
+    error_log('gudang-tagihan paid status: ' . $e->getMessage());
+}
+
 $monthlyRecap = [];
 $monthlyRecapGrandTotal = 0.0;
 foreach ($gudangMonthlyBizList as $bizInfo) {
@@ -345,6 +651,8 @@ foreach ($gudangMonthlyBizList as $bizInfo) {
     }, $bizTransferRows);
     $detailRows[] = ['— Share TKBM —', '-', '-', 'Rp ' . number_format($tkbmShareThisMonth, 0, ',', '.'), 'TKBM'];
 
+    $paidInfo = $paidMapThisMonth[$bizInfo['slug']] ?? null;
+
     $monthlyRecap[] = [
         'slug'            => $bizInfo['slug'],
         'icon'            => $bizInfo['icon'],
@@ -356,6 +664,8 @@ foreach ($gudangMonthlyBizList as $bizInfo) {
         'tkbm_share'      => $tkbmShareThisMonth,
         'total'           => $total,
         'detail_rows'     => $detailRows,
+        'is_paid'         => $paidInfo !== null,
+        'paid_at'         => $paidInfo ? date('d M Y H:i', strtotime((string)$paidInfo['paid_at'])) : null,
     ];
 }
 
@@ -377,6 +687,14 @@ $statusColors = [
         <p style="color:var(--text-muted); font-size:0.875rem; margin:0.25rem 0 0;">Rekap tagihan ke supplier dan tagihan ke bisnis berdasarkan PO / transfer</p>
     </div>
     <a href="gudang-nasita.php" class="btn btn-secondary" style="font-size:0.85rem;">← Kembali ke Stock Gudang</a>
+</div>
+
+<div style="margin-bottom:1.25rem; padding:0.85rem 1.1rem; background:linear-gradient(135deg,#0f9d6a,#0b7a52); border-radius:0.75rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; color:#fff;">
+    <div>
+        <div style="font-size:0.8rem; font-weight:600; opacity:0.9;">💰 Total Uang Diterima Gudang Nasita (dari pembayaran tagihan bisnis)</div>
+        <div style="font-size:0.72rem; opacity:0.8; margin-top:0.15rem;">Uang ini tersedia di rekening bank Gudang Nasita untuk dibayarkan ke semua supplier</div>
+    </div>
+    <div style="font-size:1.3rem; font-weight:800;">Rp&nbsp;<?php echo number_format($totalReceivedFromBusinesses, 0, ',', '.'); ?></div>
 </div>
 
 <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; align-items:start;">
@@ -568,10 +886,17 @@ $statusColors = [
                 'columns'  => [['label' => 'No Transfer'], ['label' => 'Tanggal'], ['label' => 'Qty', 'right' => true], ['label' => 'Nilai', 'right' => true], ['label' => 'Status']],
                 'rows'     => $mrec['detail_rows'],
                 'total'    => 'Rp ' . number_format($mrec['total'], 0, ',', '.'),
+                'slug'     => $mrec['slug'],
+                'bulan'    => $selectedMonth,
+                'is_paid'  => $mrec['is_paid'],
+                'paid_at'  => $mrec['paid_at'],
             ];
         ?>
-            <div class="gt-monthly-card" style="padding:1rem; cursor:pointer; <?php echo $i > 0 ? 'border-left:1px solid #e2e8f0;' : ''; ?>"
+            <div class="gt-monthly-card" style="padding:1rem; cursor:pointer; position:relative; <?php echo $i > 0 ? 'border-left:1px solid #e2e8f0;' : ''; ?>"
                 data-detail="<?php echo htmlspecialchars(json_encode($mrDetail), ENT_QUOTES); ?>" onclick="openTagihanBulananDetail(this)">
+                <?php if ($mrec['is_paid']): ?>
+                    <span style="position:absolute; top:0.6rem; right:0.6rem; background:#d1fae5; color:#065f46; font-size:0.65rem; font-weight:700; padding:2px 8px; border-radius:999px;">✅ Lunas</span>
+                <?php endif; ?>
                 <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.75rem;">
                     <?php if ($mrec['logo_url']): ?>
                         <img src="<?php echo htmlspecialchars($mrec['logo_url']); ?>" alt="" style="width:32px; height:32px; object-fit:contain; border-radius:4px;">
@@ -592,7 +917,7 @@ $statusColors = [
                     <span style="font-size:0.82rem; font-weight:700;">Total Tagihan Bulan Ini</span>
                     <span style="font-size:1.05rem; font-weight:800; color:#0f9d6a;">Rp&nbsp;<?php echo number_format($mrec['total'], 0, ',', '.'); ?></span>
                 </div>
-                <div style="margin-top:0.5rem; font-size:0.7rem; color:#94a3b8; text-align:center;">Klik untuk lihat detail &amp; cetak tagihan</div>
+                <div style="margin-top:0.5rem; font-size:0.7rem; color:#94a3b8; text-align:center;"><?php echo $mrec['is_paid'] ? 'Klik untuk lihat detail &amp; cetak tagihan' : 'Klik untuk lihat detail, bayar &amp; cetak tagihan'; ?></div>
             </div>
         <?php endforeach; ?>
     </div>
@@ -711,11 +1036,21 @@ $statusColors = [
                 <span style="font-weight:800; color:#0f9d6a; font-size:1.05rem;" id="tbmTotal">-</span>
             </div>
         </div>
-        <div style="padding:0.85rem 1.25rem; border-top:1px solid #e2e8f0; text-align:right;">
-            <button type="button" class="btn btn-primary" onclick="printTagihanBulanan()">🖨️ Cetak Tagihan</button>
+        <div style="padding:0.85rem 1.25rem; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+            <span id="tbmPaidBadge" style="display:none; font-size:0.8rem; font-weight:700; color:#065f46; background:#d1fae5; padding:5px 12px; border-radius:999px;"></span>
+            <div style="margin-left:auto; display:flex; gap:0.5rem;">
+                <button type="button" id="tbmPayBtn" class="btn btn-success" onclick="bayarTagihanBulanan()">💰 Bayar Tagihan</button>
+                <button type="button" class="btn btn-primary" onclick="printTagihanBulanan()">🖨️ Cetak Tagihan</button>
+            </div>
         </div>
     </div>
 </div>
+
+<form id="tagihanBayarForm" method="POST" style="display:none;">
+    <input type="hidden" name="action" value="pay_monthly_bill">
+    <input type="hidden" name="slug" id="tbmPaySlug" value="">
+    <input type="hidden" name="bulan" id="tbmPayBulan" value="">
+</form>
 
 <script>
     let tbmCurrentDetail = null;
@@ -760,12 +1095,38 @@ $statusColors = [
             : rows.map(r => '<tr>' + r.map((v, i) => '<td' + (cols[i] && cols[i].right ? ' class="text-right"' : '') + '>' + tbmEscapeHtml(v) + '</td>').join('') + '</tr>').join('');
 
         document.getElementById('tbmTotal').textContent = detail.total || '-';
+
+        const payBtn = document.getElementById('tbmPayBtn');
+        const paidBadge = document.getElementById('tbmPaidBadge');
+        if (detail.is_paid) {
+            payBtn.style.display = 'none';
+            paidBadge.style.display = 'inline-block';
+            paidBadge.textContent = '✅ Lunas — dibayar ' + (detail.paid_at || '');
+        } else {
+            payBtn.style.display = 'inline-block';
+            paidBadge.style.display = 'none';
+        }
+
         document.getElementById('tagihanBulananModal').style.display = 'flex';
     }
 
     function closeTagihanBulananDetail() {
         document.getElementById('tagihanBulananModal').style.display = 'none';
     }
+
+    function bayarTagihanBulanan() {
+        const detail = tbmCurrentDetail;
+        if (!detail || !detail.slug || !detail.bulan) return;
+        if (detail.is_paid) return;
+        const confirmMsg = 'Konfirmasi bayar tagihan ' + (detail.title || '') + ' sebesar ' + (detail.total || '') + '?\n\n' +
+            'Uang akan dipotong dari rekening bank ' + (detail.title || '') + ' dan dicatat sebagai pemasukan Gudang Nasita.';
+        if (!confirm(confirmMsg)) return;
+
+        document.getElementById('tbmPaySlug').value = detail.slug;
+        document.getElementById('tbmPayBulan').value = detail.bulan;
+        document.getElementById('tagihanBayarForm').submit();
+    }
+
 
     function printTagihanBulanan() {
         const detail = tbmCurrentDetail;
