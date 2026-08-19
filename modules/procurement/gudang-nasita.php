@@ -1297,8 +1297,17 @@ include '../../includes/header.php';
         white-space: nowrap;
     }
 
-    #stockTable tbody tr:not(.gudang-cat-row) {
-        border-bottom: 1px solid rgba(148, 163, 184, 0.28);
+    #stockTable tbody tr:not(.gudang-cat-row) td {
+        border-bottom: 1px solid rgba(100, 116, 139, 0.35) !important;
+    }
+
+    #stockTable .gudang-price-cell {
+        font-size: 0.78rem;
+    }
+
+    #stockTable .gudang-expiry-cell,
+    #stockTable .gudang-expiry-cell span {
+        font-size: 0.78rem !important;
     }
 
     #stockTable .gudang-item-name,
@@ -1562,11 +1571,11 @@ include '../../includes/header.php';
                                         <?php if (!empty($item['notes'])): ?><div class="gudang-item-note" style="font-size:0.75rem; color: var(--text-muted);" title="<?php echo htmlspecialchars($item['notes']); ?>"><?php echo htmlspecialchars($item['notes']); ?></div><?php endif; ?>
                                     </td>
                                     <td class="text-right" style="font-weight:700; color:<?php echo ((float)$item['quantity'] <= (float)($item['reorder_level'] ?? 0) && (float)($item['reorder_level'] ?? 0) > 0) ? '#d97706' : 'var(--text-primary)'; ?>;"><?php echo number_format($item['quantity'], 2); ?></td>
-                                    <td class="text-right">Rp <?php echo number_format((float)($item['harga_beli'] ?? 0), 0, ',', '.'); ?></td>
-                                    <td class="text-right" style="font-weight:700; color:#0f9d6a;">Rp <?php echo number_format((float)($item['total_harga'] ?? ((float)$item['quantity'] * (float)($item['harga_beli'] ?? 0))), 0, ',', '.'); ?></td>
+                                    <td class="text-right gudang-price-cell">Rp <?php echo number_format((float)($item['harga_beli'] ?? 0), 0, ',', '.'); ?></td>
+                                    <td class="text-right gudang-price-cell" style="font-weight:700; color:#0f9d6a;">Rp <?php echo number_format((float)($item['total_harga'] ?? ((float)$item['quantity'] * (float)($item['harga_beli'] ?? 0))), 0, ',', '.'); ?></td>
                                     <td><?php echo htmlspecialchars($item['unit']); ?></td>
                                     <td><?php echo htmlspecialchars($item['supplier_name'] ?: '-'); ?></td>
-                                    <td style="white-space:nowrap;"><?php
+                                    <td class="gudang-expiry-cell" style="white-space:nowrap;"><?php
                                                                                         $exp = $item['expiry_date'] ?? '';
                                                                                         if ($exp && $exp !== '0000-00-00') {
                                                                                             $expTs = strtotime($exp);
