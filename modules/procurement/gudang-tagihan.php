@@ -18,6 +18,23 @@ $db = Database::getInstance();
 $pageTitle = 'Tagihan Gudang';
 $currentUser = $auth->getCurrentUser();
 
+// TEMPORARY diagnostic — remove after use. ?debug_month=1
+if (isset($_GET['debug_month'])) {
+    header('Content-Type: text/plain; charset=utf-8');
+    [$gudangDbDbg, $originDbDbg, $gudangDbNameDbg] = gudangTagihanGetGudangDb();
+    echo "gudang db: {$gudangDbNameDbg}\n\n";
+    $rows = $gudangDbDbg->fetchAll(
+        "SELECT gt.id, gt.transfer_number, gt.target_business_name, gt.status, gt.created_at
+         FROM gudang_nasita_transfers gt
+         WHERE gt.target_business_name LIKE '%ens%' OR gt.target_business_name LIKE '%afe%'
+         ORDER BY gt.created_at DESC"
+    );
+    foreach ($rows as $r) {
+        echo "id={$r['id']} no={$r['transfer_number']} biz=\"{$r['target_business_name']}\" status={$r['status']} created_at={$r['created_at']}\n";
+    }
+    exit;
+}
+
 // ── Ensure TKBM table exists ─────────────────────────────────────────────────
 try {
     $db->query("CREATE TABLE IF NOT EXISTS gudang_nasita_tkbm (
