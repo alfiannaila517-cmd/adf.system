@@ -48,6 +48,42 @@ if (isset($_GET['debug_month'])) {
     foreach ($monthRowsDbg as $mr) {
         echo "  biz=\"{$mr['target_business_name']}\" count={$mr['transfer_count']} qty={$mr['total_qty']} nilai={$mr['total_nilai']}\n";
     }
+
+    echo "\n--- Reproducing REAL code path (inline config-based db switch) ---\n";
+    try {
+        $gudangCfgPath2 = __DIR__ . '/../../config/businesses/gudang-nasita.php';
+        $gudangDbName2  = '';
+        if (file_exists($gudangCfgPath2)) {
+            $gc2 = require $gudangCfgPath2;
+            $gudangDbName2 = (string)($gc2['database'] ?? '');
+        }
+        echo "gudangDbName2: '{$gudangDbName2}'\n";
+        $originDb2 = Database::getCurrentDatabase();
+        echo "originDb2 (current db before switch): '{$originDb2}'\n";
+        $gudangDb2 = ($gudangDbName2 && $gudangDbName2 !== $originDb2)
+            ? Database::switchDatabase($gudangDbName2)
+            : $db;
+        echo "used \$db directly (no switch)? " . (($gudangDbName2 && $gudangDbName2 !== $originDb2) ? 'NO, switched' : 'YES') . "\n";
+        echo "Database::getCurrentDatabase() after switch: '" . Database::getCurrentDatabase() . "'\n";
+
+        $monthRows2 = $gudangDb2->fetchAll(
+            "SELECT gt.target_business_name,
+                    COUNT(DISTINCT gt.id) AS transfer_count,
+                    COALESCE(SUM(gti.quantity), 0) AS total_qty,
+                    COALESCE(SUM(COALESCE(gti.subtotal, gti.quantity * COALESCE(gti.unit_price, 0))), 0) AS total_nilai
+             FROM gudang_nasita_transfers gt
+             LEFT JOIN gudang_nasita_transfer_items gti ON gti.transfer_id = gt.id
+             WHERE gt.status NOT IN ('cancelled') AND gt.created_at BETWEEN ? AND ?
+             GROUP BY gt.target_business_name",
+            ['2026-08-01 00:00:00', '2026-08-31 23:59:59']
+        ) ?: [];
+        echo "monthRows2 count: " . count($monthRows2) . "\n";
+        foreach ($monthRows2 as $mr2) {
+            echo "  biz=\"{$mr2['target_business_name']}\" count={$mr2['transfer_count']} nilai={$mr2['total_nilai']}\n";
+        }
+    } catch (Throwable $e) {
+        echo "THREW: " . $e->getMessage() . "\n";
+    }
     exit;
 }
 
