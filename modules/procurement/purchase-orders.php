@@ -485,8 +485,18 @@ include '../../includes/header.php';
                             $statusText = strtoupper((string)($t['status'] ?? '-'));
                             $dateText = !empty($t['created_at']) ? date('d M Y H:i', strtotime((string)$t['created_at'])) : '-';
                             $searchText = strtolower(trim($transferNo . ' ' . $targetBiz . ' ' . $statusText . ' ' . $dateText));
+                            $transferItems = $db->fetchAll(
+                                'SELECT item_name, unit, quantity, unit_price, subtotal FROM gudang_nasita_transfer_items WHERE transfer_id = ? ORDER BY id ASC',
+                                [(int)($t['id'] ?? 0)]
+                            ) ?: [];
                             ?>
-                            <tr class="gudang-history-row" data-search="<?php echo htmlspecialchars($searchText); ?>">
+                            <tr class="gudang-history-row" data-search="<?php echo htmlspecialchars($searchText); ?>" style="cursor:pointer;"
+                                data-transfer-no="<?php echo htmlspecialchars($transferNo); ?>"
+                                data-biz="<?php echo htmlspecialchars($targetBiz); ?>"
+                                data-date="<?php echo htmlspecialchars($dateText); ?>"
+                                data-status="<?php echo htmlspecialchars($statusText); ?>"
+                                data-items="<?php echo htmlspecialchars(json_encode($transferItems), ENT_QUOTES); ?>"
+                                onclick="openGudangTransferDetail(this)">
                                 <td style="font-weight:700;"><?php echo htmlspecialchars((string)($t['transfer_number'] ?? $t['no_transfer'] ?? '-')); ?></td>
                                 <td><?php echo htmlspecialchars((string)($t['target_business_name'] ?? '-')); ?></td>
                                 <td><?php echo !empty($t['created_at']) ? date('d M Y H:i', strtotime((string)$t['created_at'])) : '-'; ?></td>
@@ -500,6 +510,36 @@ include '../../includes/header.php';
         </div>
     </div>
 <?php endif; ?>
+
+<!-- Detail transfer gudang modal -->
+<div id="gudangTransferDetailModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(15,23,42,0.55); z-index:9999; align-items:center; justify-content:center;">
+    <div style="background:#fff; border-radius:0.9rem; width:92%; max-width:520px; max-height:82vh; overflow-y:auto; box-shadow:0 20px 50px rgba(0,0,0,0.25);">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:1rem 1.25rem; border-bottom:1px solid #e2e8f0;">
+            <div>
+                <div style="font-weight:800; font-size:1rem;" id="gtdTransferNo">-</div>
+                <div style="font-size:0.8rem; color:var(--text-muted);" id="gtdMeta">-</div>
+            </div>
+            <button type="button" onclick="closeGudangTransferDetail()" style="background:none; border:none; font-size:1.3rem; line-height:1; cursor:pointer; color:#64748b;">&times;</button>
+        </div>
+        <div style="padding:1rem 1.25rem;">
+            <table class="table" style="width:100%; font-size:0.85rem;">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th class="text-right">Qty</th>
+                        <th class="text-right">Harga</th>
+                        <th class="text-right">Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody id="gtdItemsBody">
+                    <tr>
+                        <td colspan="4" style="text-align:center; color:var(--text-muted); padding:1rem;">Memuat...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
 
 <?php if (!$isGudang): ?>
     <!-- Filter Section -->
@@ -843,6 +883,55 @@ include '../../includes/header.php';
         input.addEventListener('input', filterGudangHistoryRows);
         filterGudangHistoryRows();
     })();
+
+    function openGudangTransferDetail(rowEl) {
+        const escapeHtml = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        }[c]));
+
+        const transferNo = rowEl.getAttribute('data-transfer-no') || '-';
+        const biz = rowEl.getAttribute('data-biz') || '-';
+        const date = rowEl.getAttribute('data-date') || '-';
+        const status = rowEl.getAttribute('data-status') || '-';
+        let items = [];
+        try {
+            items = JSON.parse(rowEl.getAttribute('data-items') || '[]');
+        } catch (e) {
+            items = [];
+        }
+
+        document.getElementById('gtdTransferNo').textContent = transferNo;
+        document.getElementById('gtdMeta').textContent = biz + ' • ' + date + ' • ' + status;
+
+        const body = document.getElementById('gtdItemsBody');
+        if (!items.length) {
+            body.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:1rem;">Tidak ada detail item untuk transfer ini.</td></tr>';
+        } else {
+            body.innerHTML = items.map(it => {
+                const qty = parseFloat(it.quantity || 0).toLocaleString('id-ID', {
+                    minimumFractionDigits: 2
+                });
+                const price = parseFloat(it.unit_price || 0);
+                const subtotal = parseFloat(it.subtotal || (price * parseFloat(it.quantity || 0)));
+                return '<tr>' +
+                    '<td>' + escapeHtml(it.item_name || '-') + '</td>' +
+                    '<td class="text-right">' + qty + ' ' + escapeHtml(it.unit || '') + '</td>' +
+                    '<td class="text-right">Rp ' + price.toLocaleString('id-ID') + '</td>' +
+                    '<td class="text-right">Rp ' + subtotal.toLocaleString('id-ID') + '</td>' +
+                    '</tr>';
+            }).join('');
+        }
+
+        document.getElementById('gudangTransferDetailModal').style.display = 'flex';
+    }
+
+    function closeGudangTransferDetail() {
+        document.getElementById('gudangTransferDetailModal').style.display = 'none';
+    }
 
     function openApproveDialog(poId, poNumber, amount) {
         document.getElementById('modalPoId').value = poId;
