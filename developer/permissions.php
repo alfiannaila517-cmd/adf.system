@@ -64,6 +64,23 @@ try {
         }
     }
 
+    // Cafe Invoice menu (Bens Cafe only) - previously had NO menu_items row at all, so it could
+    // never be configured/restricted here and always showed in the sidebar regardless of permissions.
+    $pdo->prepare("\n        INSERT INTO menu_items (menu_code, menu_name, menu_icon, menu_url, menu_order, is_active)\n        VALUES ('cafe_invoice', 'Invoice Cafe', 'bi-receipt', 'modules/cafe-invoice/index.php', 9, 1)\n        ON DUPLICATE KEY UPDATE\n            menu_name = VALUES(menu_name),\n            menu_icon = VALUES(menu_icon),\n            menu_url = VALUES(menu_url),\n            menu_order = VALUES(menu_order),\n            is_active = VALUES(is_active)\n    ")->execute();
+
+    $cafeInvoiceMenuIdRow = $pdo->query("SELECT id FROM menu_items WHERE menu_code = 'cafe_invoice' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+    if (!empty($cafeInvoiceMenuIdRow['id'])) {
+        $bizRows = $pdo->query("SELECT id, business_name FROM businesses WHERE is_active = 1")->fetchAll(PDO::FETCH_ASSOC);
+        $cfgStmt = $pdo->prepare("\n            INSERT INTO business_menu_config (business_id, menu_id, is_enabled)\n            VALUES (?, ?, 1)\n            ON DUPLICATE KEY UPDATE is_enabled = 1\n        ");
+
+        foreach ($bizRows as $biz) {
+            $nameNorm = strtolower((string)($biz['business_name'] ?? ''));
+            if (strpos($nameNorm, 'bens') !== false) {
+                $cfgStmt->execute([(int)$biz['id'], (int)$cafeInvoiceMenuIdRow['id']]);
+            }
+        }
+    }
+
     $pdo->commit();
 } catch (Exception $e) {
     if ($pdo->inTransaction()) {

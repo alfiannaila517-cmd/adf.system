@@ -972,7 +972,7 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                         <?php endif; ?>
 
                         <!-- Cafe Invoice Menu (Bens Cafe only) -->
-                        <?php if (isModuleEnabled('cafe-invoice')): ?>
+                        <?php if (isModuleEnabled('cafe-invoice') && $auth->hasPermission('cafe_invoice')): ?>
                             <li class="nav-item <?php echo (strpos($_SERVER['REQUEST_URI'], '/cafe-invoice/') !== false) ? 'open' : ''; ?>">
                                 <a href="<?php echo BASE_URL; ?>/modules/cafe-invoice/index.php" class="nav-link <?php echo activeMenu('cafe-invoice'); ?>">
                                     <i data-feather="file-text" class="nav-icon"></i>
