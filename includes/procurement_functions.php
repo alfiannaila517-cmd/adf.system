@@ -2602,11 +2602,26 @@ function gudangFetchPendingPoFromBusinessDb(string $dbName): array
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
     // Attach item-level detail per PO so callers (e.g. dashboard) can show "apa aja yang terkirim".
+    // NOTE: purchase_orders_detail schema differs between business DBs — Gudang Nasita's own
+    // (legacy) table uses `unit`/`total_price`, while newer procurement-module DBs (e.g. bens-cafe)
+    // use `unit_of_measure`/`subtotal`. Select * and normalize in PHP so this works for both,
+    // instead of hardcoding column names that don't exist in every schema.
     if (!empty($rows)) {
-        $itemsStmt = $pdo->prepare("SELECT item_name, quantity, unit, unit_price, total_price FROM purchase_orders_detail WHERE po_header_id = ? ORDER BY id ASC");
+        $itemsStmt = $pdo->prepare("SELECT * FROM purchase_orders_detail WHERE po_header_id = ? ORDER BY id ASC");
         foreach ($rows as &$row) {
             $itemsStmt->execute([(int)$row['id']]);
-            $row['items'] = $itemsStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            $rawItems = $itemsStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            $row['items'] = array_map(function ($it) {
+                $qty = (float)($it['quantity'] ?? 0);
+                $unitPrice = (float)($it['unit_price'] ?? 0);
+                return [
+                    'item_name' => $it['item_name'] ?? '',
+                    'quantity' => $it['quantity'] ?? 0,
+                    'unit' => $it['unit'] ?? ($it['unit_of_measure'] ?? ''),
+                    'unit_price' => $it['unit_price'] ?? 0,
+                    'total_price' => $it['total_price'] ?? ($it['subtotal'] ?? ($qty * $unitPrice)),
+                ];
+            }, $rawItems);
         }
         unset($row);
     }
