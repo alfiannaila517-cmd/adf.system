@@ -18,6 +18,52 @@ $db = Database::getInstance();
 $pageTitle = 'Tagihan Gudang';
 $currentUser = $auth->getCurrentUser();
 
+// TEMPORARY diagnostic — remove after use. ?debug_price=1&no=GNT-202608-0005
+if (isset($_GET['debug_price'])) {
+    header('Content-Type: text/plain; charset=utf-8');
+    $transferNumber = $_GET['no'] ?? 'GNT-202608-0005';
+    [$gudangDbDbg, $originDbDbg, $gudangDbNameDbg] = gudangTagihanGetGudangDb();
+
+    echo "gudang db: {$gudangDbNameDbg}\n";
+    $transferDbg = $gudangDbDbg->fetchOne('SELECT * FROM gudang_nasita_transfers WHERE transfer_number = ? LIMIT 1', [$transferNumber]);
+    if (!$transferDbg) {
+        echo "Transfer {$transferNumber} tidak ditemukan.\n";
+        exit;
+    }
+    echo "transfer id: {$transferDbg['id']}\n\n";
+
+    $hasBarangIdDbg = false;
+    foreach ($gudangDbDbg->fetchAll("SHOW COLUMNS FROM gudang_nasita_stock") as $c) {
+        if (strtolower((string)($c['Field'] ?? '')) === 'barang_id') {
+            $hasBarangIdDbg = true;
+            break;
+        }
+    }
+    echo "has barang_id col: " . ($hasBarangIdDbg ? 'YES' : 'NO') . "\n\n";
+
+    $itemsDbg = $gudangDbDbg->fetchAll('SELECT * FROM gudang_nasita_transfer_items WHERE transfer_id = ? ORDER BY id ASC', [$transferDbg['id']]);
+    foreach ($itemsDbg as $it) {
+        echo "--- item_id={$it['id']} stock_id=" . ($it['stock_id'] ?? 'NULL') . " name={$it['item_name']} qty={$it['quantity']} ---\n";
+        echo "  unit_price={$it['unit_price']} subtotal={$it['subtotal']}\n";
+        if (!empty($it['stock_id'])) {
+            $stockDbg = $gudangDbDbg->fetchOne('SELECT * FROM gudang_nasita_stock WHERE id = ?', [(int)$it['stock_id']]);
+            if ($stockDbg) {
+                echo "  stock.harga_beli=" . ($stockDbg['harga_beli'] ?? 'NULL') . " stock.total_harga=" . ($stockDbg['total_harga'] ?? 'NULL') . " stock.quantity=" . ($stockDbg['quantity'] ?? 'NULL') . " stock.barang_id=" . ($stockDbg['barang_id'] ?? 'NULL') . "\n";
+                if ($hasBarangIdDbg && !empty($stockDbg['barang_id'])) {
+                    $barangDbg = $gudangDbDbg->fetchOne('SELECT * FROM gudang_nasita_barang WHERE id = ?', [(int)$stockDbg['barang_id']]);
+                    echo "  barang: " . ($barangDbg ? json_encode($barangDbg) : 'NOT FOUND') . "\n";
+                }
+            } else {
+                echo "  stock NOT FOUND for stock_id={$it['stock_id']}\n";
+            }
+        } else {
+            echo "  stock_id kosong/null di item ini\n";
+        }
+        echo "\n";
+    }
+    exit;
+}
+
 // ── Ensure TKBM table exists ─────────────────────────────────────────────────
 try {
     $db->query("CREATE TABLE IF NOT EXISTS gudang_nasita_tkbm (
