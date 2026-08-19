@@ -668,6 +668,124 @@ function getGudangNasitaStock($limit = 200)
     return is_array($rows) ? $rows : [];
 }
 
+// Self-healing backfill: some historical gudang_nasita_transfer_items rows were saved with
+// unit_price/subtotal = 0 because the old transfer code did a plain "SELECT *" on
+// gudang_nasita_stock, missing the fallback to the master barang price (fixed in
+// transferGudangNasitaStock()). This re-resolves the price for any zero-priced item using the
+// item's CURRENT stock/barang cost basis (best effort — historical price at time of transfer
+// is not stored) so existing bills/history stop showing Rp 0 for items that clearly have a
+// real cost. Safe to call repeatedly; only touches rows still at 0.
+function gudangNasitaBackfillZeroPriceTransferItems($db = null): void
+{
+    $db = $db ?: Database::getInstance();
+    try {
+        $hasBarangIdCol = false;
+        $cols = $db->fetchAll("SHOW COLUMNS FROM gudang_nasita_stock");
+        foreach ($cols as $c) {
+            if (strtolower((string)($c['Field'] ?? '')) === 'barang_id') {
+                $hasBarangIdCol = true;
+                break;
+            }
+        }
+        $hargaExpr = $hasBarangIdCol
+            ? 'COALESCE(NULLIF(gs.harga_beli, 0), gb.harga_beli, 0)'
+            : 'COALESCE(gs.harga_beli, 0)';
+        $barangJoin = $hasBarangIdCol ? 'LEFT JOIN gudang_nasita_barang gb ON gb.id = gs.barang_id' : '';
+
+        $zeroItems = $db->fetchAll(
+            "SELECT gti.id, gti.stock_id, gti.quantity
+             FROM gudang_nasita_transfer_items gti
+             WHERE COALESCE(gti.unit_price, 0) <= 0 AND gti.stock_id IS NOT NULL AND gti.stock_id > 0"
+        ) ?: [];
+
+        foreach ($zeroItems as $row) {
+            $stock = $db->fetchOne(
+                "SELECT {$hargaExpr} AS resolved_price
+                 FROM gudang_nasita_stock gs
+                 {$barangJoin}
+                 WHERE gs.id = ? LIMIT 1",
+                [(int)$row['stock_id']]
+            );
+            $resolvedPrice = (float)($stock['resolved_price'] ?? 0);
+            if ($resolvedPrice > 0) {
+                $qty = (float)$row['quantity'];
+                $db->query(
+                    "UPDATE gudang_nasita_transfer_items SET unit_price = ?, subtotal = ? WHERE id = ?",
+                    [$resolvedPrice, $qty * $resolvedPrice, (int)$row['id']]
+                );
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('gudangNasitaBackfillZeroPriceTransferItems: ' . $e->getMessage());
+    }
+}
+
+// Net bill adjustment for direct business-to-business stock transfers (table
+// business_inter_stock_transfers, master DB — see modules/procurement/business-stock-incoming.php's
+// "Transfer Stock Antar Bisnis" feature). When Business A hands stock (originally received from
+// Gudang Nasita) directly to Business B, Gudang's billing must "follow" the goods: A's bill goes
+// DOWN by that value, B's bill goes UP by the same value. Returning stock to Gudang itself only
+// reduces the source business' bill (no one else gets billed for stock that came back to Gudang).
+// Returns [slug => netAdjustment] for the given tracked slugs, optionally restricted to a date range.
+function getBusinessInterStockTransferBillAdjustments(array $trackedSlugs, $fromDateTime = null, $toDateTime = null): array
+{
+    $adjustments = array_fill_keys($trackedSlugs, 0.0);
+    try {
+        $masterPdo = new PDO(
+            'mysql:host=' . DB_HOST . ';dbname=' . MASTER_DB_NAME . ';charset=' . DB_CHARSET,
+            DB_USER,
+            DB_PASS,
+            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
+        );
+
+        $hasTable = $masterPdo->query("SHOW TABLES LIKE 'business_inter_stock_transfers'")->fetch();
+        if (!$hasTable) {
+            return $adjustments;
+        }
+
+        $cols = $masterPdo->query("SHOW COLUMNS FROM business_inter_stock_transfers")->fetchAll();
+        $colNames = array_column($cols, 'Field');
+        $hasPriceCols = in_array('unit_price', $colNames, true) || in_array('subtotal', $colNames, true);
+        if (!$hasPriceCols) {
+            // Legacy rows have no price info at all — nothing reliable to adjust with.
+            return $adjustments;
+        }
+
+        $nilaiExpr = in_array('subtotal', $colNames, true)
+            ? 'COALESCE(subtotal, quantity * COALESCE(unit_price, 0))'
+            : 'quantity * COALESCE(unit_price, 0)';
+
+        $sql = "SELECT source_business_slug, target_business_slug, {$nilaiExpr} AS nilai
+                FROM business_inter_stock_transfers";
+        $params = [];
+        if ($fromDateTime !== null && $toDateTime !== null) {
+            $sql .= " WHERE created_at BETWEEN ? AND ?";
+            $params = [$fromDateTime, $toDateTime];
+        }
+        $stmt = $masterPdo->prepare($sql);
+        $stmt->execute($params);
+
+        foreach ($stmt->fetchAll() as $row) {
+            $nilai = (float)($row['nilai'] ?? 0);
+            if ($nilai <= 0) {
+                continue;
+            }
+            $sourceSlug = strtolower(trim((string)($row['source_business_slug'] ?? '')));
+            $targetSlug = strtolower(trim((string)($row['target_business_slug'] ?? '')));
+
+            if (isset($adjustments[$sourceSlug])) {
+                $adjustments[$sourceSlug] -= $nilai;
+            }
+            if ($targetSlug !== 'gudang-nasita' && isset($adjustments[$targetSlug])) {
+                $adjustments[$targetSlug] += $nilai;
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('getBusinessInterStockTransferBillAdjustments: ' . $e->getMessage());
+    }
+    return $adjustments;
+}
+
 function getGudangNasitaTransfers($limit = 50)
 {
     $db = Database::getInstance();
@@ -676,6 +794,11 @@ function getGudangNasitaTransfers($limit = 50)
         ensureGudangNasitaOperationalTablesCompatibility();
     } catch (Throwable $e) {
         error_log('getGudangNasitaTransfers schema bootstrap skipped: ' . $e->getMessage());
+    }
+    try {
+        gudangNasitaBackfillZeroPriceTransferItems($db);
+    } catch (Throwable $e) {
+        error_log('getGudangNasitaTransfers price backfill skipped: ' . $e->getMessage());
     }
     return $db->fetchAll("\n        SELECT\n            gt.*,\n            u.full_name AS created_by_name,\n            r.full_name AS received_by_name,\n            COUNT(gti.id) AS items_count,\n            COALESCE(SUM(gti.quantity), 0) AS total_qty\n        FROM gudang_nasita_transfers gt\n        LEFT JOIN users u ON gt.created_by = u.id\n        LEFT JOIN users r ON gt.received_by = r.id\n        LEFT JOIN gudang_nasita_transfer_items gti ON gti.transfer_id = gt.id\n        GROUP BY gt.id\n        ORDER BY gt.created_at DESC\n        LIMIT {$limit}\n    ");
 }
@@ -1563,7 +1686,22 @@ function transferGudangNasitaStock($targetBusinessId, array $items, $createdBy, 
                 continue;
             }
 
-            $stock = $db->fetchOne('SELECT * FROM gudang_nasita_stock WHERE id = ? LIMIT 1', [$stockId]);
+            // Resolve stock with the SAME price fallback used by the stock listing (getGudangNasitaStock):
+            // prefer stock-level harga_beli, fall back to the master barang price when stock price is 0/missing.
+            // A plain "SELECT *" here was the root cause of Rp 0 subtotals on transfers for items whose
+            // stock-level harga_beli was never set, even though a valid barang-level price existed.
+            $hasBarangIdCol = gudangNasitaStockHasColumn('barang_id');
+            $hargaFallbackExpr = $hasBarangIdCol
+                ? 'COALESCE(NULLIF(gs.harga_beli, 0), gb.harga_beli, 0)'
+                : 'COALESCE(gs.harga_beli, 0)';
+            $barangJoinSql = $hasBarangIdCol ? 'LEFT JOIN gudang_nasita_barang gb ON gb.id = gs.barang_id' : '';
+            $stock = $db->fetchOne(
+                "SELECT gs.*, {$hargaFallbackExpr} AS harga_beli
+                 FROM gudang_nasita_stock gs
+                 {$barangJoinSql}
+                 WHERE gs.id = ? LIMIT 1",
+                [$stockId]
+            );
             if (!$stock) {
                 throw new Exception('Stock tidak ditemukan');
             }

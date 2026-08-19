@@ -191,6 +191,21 @@ try {
         INDEX idx_source_item (source_business_slug, item_name, unit),
         INDEX idx_target_item (target_business_slug, item_name, unit)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    // Backfill: capture the item's monetary value so Gudang Nasita's billing can "follow" the
+    // goods when they move directly between businesses (instead of only tracking quantity).
+    try {
+        $interColsRaw = $masterPdo->query("SHOW COLUMNS FROM business_inter_stock_transfers")->fetchAll();
+        $interColNames = array_column($interColsRaw, 'Field');
+        if (!in_array('unit_price', $interColNames, true)) {
+            $masterPdo->exec("ALTER TABLE business_inter_stock_transfers ADD COLUMN unit_price DECIMAL(15,2) NULL AFTER quantity");
+        }
+        if (!in_array('subtotal', $interColNames, true)) {
+            $masterPdo->exec("ALTER TABLE business_inter_stock_transfers ADD COLUMN subtotal DECIMAL(15,2) NULL AFTER unit_price");
+        }
+    } catch (Throwable $e) {
+        error_log('business-stock-incoming inter transfer price backfill error: ' . $e->getMessage());
+    }
 } catch (Throwable $e) {
     $masterPdo = null;
     error_log('business-stock-incoming master transfer table error: ' . $e->getMessage());
@@ -791,6 +806,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     }
                 }
 
+                // Resolve the item's monetary value so Gudang Nasita's billing can follow the goods:
+                // look up this business' own most recent unit_price for the item from its Gudang-received
+                // transfers (falls back to 0/untracked if never received from Gudang, e.g. manual stock).
+                $unitPriceForTransfer = 0.0;
+                if ($gudangDbNameResolved !== '' && isset($targetFilterSql, $targetFilterParams)) {
+                    try {
+                        $originDbNamePrice = Database::getCurrentDatabase();
+                        $gudangDbPrice = Database::switchDatabase($gudangDbNameResolved);
+                        $priceRow = $gudangDbPrice->fetchOne(
+                            "SELECT gti.unit_price
+                             FROM gudang_nasita_transfer_items gti
+                             JOIN gudang_nasita_transfers gt ON gt.id = gti.transfer_id
+                             WHERE {$targetFilterSql}
+                                AND LOWER(TRIM(gti.item_name)) = LOWER(TRIM(?)) AND LOWER(TRIM(gti.unit)) = LOWER(TRIM(?))
+                                AND COALESCE(gti.unit_price, 0) > 0
+                             ORDER BY gti.id DESC LIMIT 1",
+                            array_merge($targetFilterParams, [$itemName, $unit])
+                        );
+                        $unitPriceForTransfer = (float)($priceRow['unit_price'] ?? 0);
+                        if (!empty($originDbNamePrice)) {
+                            Database::switchDatabase($originDbNamePrice);
+                            $db = Database::getInstance();
+                        }
+                    } catch (Throwable $e) {
+                        error_log('business-stock-incoming resolve inter-transfer price error: ' . $e->getMessage());
+                    }
+                }
+                $subtotalForTransfer = $unitPriceForTransfer * $qty;
+
                 $transferNo = 'BST-' . date('YmdHis');
                 if ($masterPdo) {
                     $prefix = 'BST-' . date('Ym') . '-';
@@ -804,8 +848,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     $transferNo = $prefix . str_pad((string)$next, 4, '0', STR_PAD_LEFT);
 
                     $ins = $masterPdo->prepare("INSERT INTO business_inter_stock_transfers
-                        (transfer_number, source_business_slug, source_business_name, target_business_slug, target_business_name, item_name, unit, quantity, notes, created_by)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                        (transfer_number, source_business_slug, source_business_name, target_business_slug, target_business_name, item_name, unit, quantity, unit_price, subtotal, notes, created_by)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                     $ins->execute([
                         $transferNo,
                         $activeBusinessSlug,
@@ -815,6 +859,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         $itemName,
                         $unit,
                         $qty,
+                        $unitPriceForTransfer,
+                        $subtotalForTransfer,
                         $notes,
                         (int)($currentUser['id'] ?? 0)
                     ]);

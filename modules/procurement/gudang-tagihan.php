@@ -112,6 +112,10 @@ try {
         $gudangDb = $db;
     }
 
+    // Self-heal historical transfer items that were stored with Rp 0 unit_price/subtotal
+    // (e.g. transfers created before the price-fallback fix in transferGudangNasitaStock()).
+    gudangNasitaBackfillZeroPriceTransferItems($gudangDb);
+
     $bizBills = $gudangDb->fetchAll(
         "SELECT gt.target_business_name,
                 COUNT(DISTINCT gt.id)                                                                    AS transfer_count,
@@ -158,6 +162,18 @@ $gudangMonthlyBizList = [
     ['slug' => 'bens-cafe',      'name' => 'Bens Cafe',      'icon' => '☕'],
     ['slug' => 'eaat-meet',      'name' => 'Eat Meet',       'icon' => '🍽️'],
 ];
+
+// Perpindahan barang ANTAR BISNIS (bukan dari Gudang) juga harus memindahkan tagihan:
+// bisnis pengirim dikurangi sebesar nilai barang, bisnis penerima ditambah sebesar nilai yang sama
+// (kecuali barang dikembalikan ke Gudang, yang hanya mengurangi tagihan pengirim).
+$interBizAdjAllTime = getBusinessInterStockTransferBillAdjustments(array_column($gudangMonthlyBizList, 'slug'));
+foreach ($bizBills as &$bizBillRow) {
+    $bizSlugForAdj = gudangTagihanMatchBizSlug((string)($bizBillRow['target_business_name'] ?? ''));
+    if ($bizSlugForAdj !== null && isset($interBizAdjAllTime[$bizSlugForAdj])) {
+        $bizBillRow['total_nilai'] = max(0, (float)$bizBillRow['total_nilai'] + $interBizAdjAllTime[$bizSlugForAdj]);
+    }
+}
+unset($bizBillRow);
 
 function gudangTagihanMatchBizSlug(string $businessName): ?string
 {
@@ -328,6 +344,14 @@ function gudangTagihanPayMonthlyBill(string $slug, string $month, int $userId): 
             $transferNilai += (float)$mr['total_nilai'];
         }
     }
+
+    // Perpindahan barang antar bisnis (di luar Gudang) juga ikut menggeser tagihan bulan ini.
+    $interBizAdj = getBusinessInterStockTransferBillAdjustments(
+        [$slug],
+        $monthStart . ' 00:00:00',
+        $monthEnd . ' 23:59:59'
+    );
+    $transferNilai = max(0, $transferNilai + ($interBizAdj[$slug] ?? 0.0));
 
     $tkbmRow = $gudangDb->fetchOne(
         'SELECT COALESCE(SUM(total_biaya), 0) AS t FROM gudang_nasita_tkbm WHERE tanggal BETWEEN ? AND ?',
@@ -595,6 +619,25 @@ try {
         $monthlyTransferBySlug[$slug] = $mr;
     }
 
+    // Terapkan penyesuaian tagihan dari transfer stok ANTAR BISNIS bulan ini (lihat catatan di
+    // getBusinessInterStockTransferBillAdjustments()) sehingga tagihan ikut pindah ke bisnis penerima.
+    $interBizAdjThisMonth = getBusinessInterStockTransferBillAdjustments(
+        array_column($gudangMonthlyBizList, 'slug'),
+        $monthStart . ' 00:00:00',
+        $monthEnd . ' 23:59:59'
+    );
+    foreach ($gudangMonthlyBizList as $bizForAdj) {
+        $slugForAdj = $bizForAdj['slug'];
+        $adj = $interBizAdjThisMonth[$slugForAdj] ?? 0.0;
+        if ($adj == 0.0) {
+            continue;
+        }
+        if (!isset($monthlyTransferBySlug[$slugForAdj])) {
+            $monthlyTransferBySlug[$slugForAdj] = ['total_nilai' => 0, 'total_qty' => 0, 'transfer_count' => 0];
+        }
+        $monthlyTransferBySlug[$slugForAdj]['total_nilai'] = max(0, (float)$monthlyTransferBySlug[$slugForAdj]['total_nilai'] + $adj);
+    }
+
     foreach ($monthTransferDetailRows as $tr) {
         $slug = gudangTagihanMatchBizSlug((string)($tr['target_business_name'] ?? ''));
         if ($slug === null) {
@@ -650,6 +693,17 @@ foreach ($gudangMonthlyBizList as $bizInfo) {
         ];
     }, $bizTransferRows);
     $detailRows[] = ['— Share TKBM —', '-', '-', 'Rp ' . number_format($tkbmShareThisMonth, 0, ',', '.'), 'TKBM'];
+
+    $bizInterAdj = $interBizAdjThisMonth[$bizInfo['slug']] ?? 0.0;
+    if ($bizInterAdj != 0.0) {
+        $detailRows[] = [
+            '— Transfer Antar Bisnis —',
+            '-',
+            '-',
+            ($bizInterAdj > 0 ? '+' : '') . 'Rp ' . number_format($bizInterAdj, 0, ',', '.'),
+            'ANTAR BISNIS',
+        ];
+    }
 
     $paidInfo = $paidMapThisMonth[$bizInfo['slug']] ?? null;
 
