@@ -856,6 +856,9 @@ function openPayModal (id, remaining, invNo) {
   document.getElementById('pRemaining').textContent =
     'Rp ' + Math.round(remaining).toLocaleString('id-ID')
   document.getElementById('pAmount').value = Math.round(remaining)
+  document.getElementById('pAmount2').value = 0
+  document.getElementById('pSplitToggle').checked = false
+  document.getElementById('pSplitRow').style.display = 'none'
   document.getElementById('payModal').classList.add('open')
 }
 
@@ -863,54 +866,82 @@ function closePayModal () {
   document.getElementById('payModal').classList.remove('open')
 }
 
-function submitPay () {
-  const id = document.getElementById('pInvId').value
-  const amount = document.getElementById('pAmount').value
-  if (!amount || parseFloat(amount) <= 0) {
-    alert('Enter valid amount')
-    return
-  }
-  const btn = document.getElementById('payBtn')
-  btn.disabled = true
-  btn.textContent = 'Saving...'
+function toggleSplitPay () {
+  const on = document.getElementById('pSplitToggle').checked
+  document.getElementById('pSplitRow').style.display = on ? 'flex' : 'none'
+}
+
+// Sends one add_payment request; resolves with the parsed JSON response.
+function sendAddPayment (id, amount, method) {
   const fd = new FormData()
   fd.append('action', 'add_payment')
   fd.append('id', id)
   fd.append('amount', amount)
-  fd.append('method', document.getElementById('pMethod').value)
-  fetch('hotel-services.php', {
+  fd.append('method', method)
+  return fetch('hotel-services.php', {
     method: 'POST',
     body: fd,
     credentials: 'include'
-  })
-    .then(r => r.json())
+  }).then(r => r.json())
+}
+
+function submitPay () {
+  const id = document.getElementById('pInvId').value
+  const amount = parseFloat(document.getElementById('pAmount').value) || 0
+  const method = document.getElementById('pMethod').value
+  const isSplit = document.getElementById('pSplitToggle').checked
+  const amount2 = isSplit ? parseFloat(document.getElementById('pAmount2').value) || 0 : 0
+  const method2 = document.getElementById('pMethod2').value
+
+  if (amount <= 0) {
+    alert('Enter valid amount')
+    return
+  }
+  if (isSplit && amount2 <= 0) {
+    alert('Isi nominal untuk metode ke-2, atau matikan opsi split.')
+    return
+  }
+
+  const btn = document.getElementById('payBtn')
+  btn.disabled = true
+  btn.textContent = 'Saving...'
+
+  sendAddPayment(id, amount, method)
     .then(res => {
-      if (res.success) {
-        closePayModal()
-        let msg =
-          'Payment saved! ' +
-          (res.cashbook
-            ? '✅ Tercatat di Buku Kas'
-            : '⚠️ Gagal sync ke Buku Kas')
-        if (res.motors_auto_returned && res.motors_auto_returned.length > 0) {
-          msg +=
-            '\n🏍️ ' +
-            res.motors_auto_returned.length +
-            ' motor otomatis ditandai sudah kembali (invoice lunas)'
-        }
-        if (res.cars_auto_returned && res.cars_auto_returned.length > 0) {
-          msg +=
-            '\n🚗 ' +
-            res.cars_auto_returned.length +
-            ' mobil otomatis ditandai sudah kembali (invoice lunas, tagihan driver otomatis update)'
-        }
-        alert(msg)
-        location.reload()
-      } else {
-        alert('Error: ' + (res.message || 'Unknown'))
-        btn.disabled = false
-        btn.textContent = '💾 Save & Sync to Cashbook'
+      if (!res.success) throw new Error(res.message || 'Unknown error (payment 1)')
+      if (!isSplit) return res
+      // Second leg of the split payment (e.g. sisanya via kartu/transfer)
+      return sendAddPayment(id, amount2, method2).then(res2 => {
+        if (!res2.success) throw new Error(res2.message || 'Unknown error (payment 2)')
+        return res2
+      })
+    })
+    .then(res => {
+      closePayModal()
+      let msg =
+        'Payment saved! ' +
+        (res.cashbook
+          ? '✅ Tercatat di Buku Kas'
+          : '⚠️ Gagal sync ke Buku Kas')
+      if (res.motors_auto_returned && res.motors_auto_returned.length > 0) {
+        msg +=
+          '\n🏍️ ' +
+          res.motors_auto_returned.length +
+          ' motor otomatis ditandai sudah kembali (invoice lunas)'
       }
+      if (res.cars_auto_returned && res.cars_auto_returned.length > 0) {
+        msg +=
+          '\n🚗 ' +
+          res.cars_auto_returned.length +
+          ' mobil otomatis ditandai sudah kembali (invoice lunas, tagihan driver otomatis update)'
+      }
+      alert(msg)
+      location.reload()
+    })
+    .catch(err => {
+      alert('Error: ' + err.message)
+      btn.disabled = false
+      btn.textContent = '💾 Save & Sync to Cashbook'
     })
 }
 
@@ -1851,6 +1882,7 @@ window.openEditModal = openEditModal
 window.closeEditModal = closeEditModal
 window.openPayModal = openPayModal
 window.closePayModal = closePayModal
+window.toggleSplitPay = toggleSplitPay
 window.openSettingsModal = openSettingsModal
 window.closeSettingsModal = closeSettingsModal
 window.addItemRow = addItemRow

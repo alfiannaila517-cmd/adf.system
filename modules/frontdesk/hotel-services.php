@@ -201,6 +201,18 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS hotel_invoice_items (
     KEY idx_inv (invoice_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+// ── Split-tender payment breakdown (e.g. sebagian cash, sebagian kartu, dalam 1 invoice) ──
+$pdo->exec("CREATE TABLE IF NOT EXISTS hotel_invoice_payments (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    invoice_id  INT NOT NULL,
+    business_id INT NOT NULL,
+    amount      DECIMAL(15,2) NOT NULL DEFAULT 0,
+    method      VARCHAR(20) NOT NULL DEFAULT 'cash',
+    created_by  INT DEFAULT NULL,
+    created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_inv (invoice_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
 $pdo->exec("CREATE TABLE IF NOT EXISTS hotel_service_catalog (
     id            INT AUTO_INCREMENT PRIMARY KEY,
     business_id   INT NOT NULL DEFAULT 1,
@@ -435,57 +447,81 @@ function syncInvoiceToCashbook($db, $businessId, $userId, array $invRow, array $
 {
     try {
         require_once '../../includes/CashbookHelper.php';
-        $helper  = new CashbookHelper($db, $businessId, $userId);
-        $account = $helper->getCashAccount($invRow['payment_method']);
-        if (!$account) return false;
+        $helper = new CashbookHelper($db, $businessId, $userId);
+        $hasCa  = $helper->hasCashAccountIdColumn();
+        $bPdo   = $db->getConnection();
+        $catId  = getHotelServiceCategoryId($bPdo);
+        $now    = date('Y-m-d H:i:s');
+        $invNo  = $invRow['invoice_number'];
+        $guest  = $invRow['guest_name'];
+        $totalAmt = (float)$invRow['total'];
 
-        $cbMethod  = $helper->mapPaymentMethod($invRow['payment_method']);
-        $hasCa     = $helper->hasCashAccountIdColumn();
-        $bPdo      = $db->getConnection();
-        $catId     = getHotelServiceCategoryId($bPdo);
-        $now       = date('Y-m-d H:i:s');
-        $invNo     = $invRow['invoice_number'];
-        $guest     = $invRow['guest_name'];
-        $paidAmt   = (float)$invRow['paid_amount'];
-        $totalAmt  = (float)$invRow['total'];
-        $totalInserted = 0;
-        $lastTransId   = 0;
-
-        foreach ($itemGroups as $group) {
-            $svcType   = $group['service_type'];
-            $svcLabel  = $serviceTypes[$svcType]['label'] ?? $svcType;
-            $proportion = $totalAmt > 0 ? ($group['type_total'] / $totalAmt) : (1 / count($itemGroups));
-            $svcAmount  = $group === end($itemGroups)
-                ? round($paidAmt - $totalInserted, 2)   // last item gets remainder to avoid rounding loss
-                : round($paidAmt * $proportion, 2);
-            if ($svcAmount <= 0) continue;
-            $totalInserted += $svcAmount;
-
-            $divId = getDivisionForService($bPdo, $svcType);
-            $desc  = "[{$invNo}] {$guest} - {$svcLabel}";
-
-            if ($hasCa) {
-                $stmt = $bPdo->prepare("INSERT INTO cash_book
-                    (transaction_date, transaction_time, division_id, category_id,
-                     description, transaction_type, amount, payment_method,
-                     cash_account_id, is_editable, created_by, created_at)
-                    VALUES (DATE(?), TIME(?), ?, ?, ?, 'income', ?, ?, ?, 1, ?, NOW())");
-                $stmt->execute([$now, $now, $divId, $catId, $desc, $svcAmount, $cbMethod, $account['id'], $userId]);
-            } else {
-                $stmt = $bPdo->prepare("INSERT INTO cash_book
-                    (transaction_date, transaction_time, division_id, category_id,
-                     description, transaction_type, amount, payment_method,
-                     is_editable, created_by, created_at)
-                    VALUES (DATE(?), TIME(?), ?, ?, ?, 'income', ?, ?, 1, ?, NOW())");
-                $stmt->execute([$now, $now, $divId, $catId, $desc, $svcAmount, $cbMethod, $userId]);
-            }
-            $lastTransId = (int)$bPdo->lastInsertId();
+        // Split-tender breakdown (cash + kartu dalam 1 nota); fallback to the single
+        // legacy payment_method for invoices created before the breakdown table existed.
+        $payStmt = $bPdo->prepare("SELECT amount, method FROM hotel_invoice_payments WHERE invoice_id=? ORDER BY id ASC");
+        $payStmt->execute([$invRow['id']]);
+        $payments = $payStmt->fetchAll(PDO::FETCH_ASSOC);
+        if (!$payments) {
+            $payments = [['amount' => (float)$invRow['paid_amount'], 'method' => $invRow['payment_method']]];
         }
 
-        // ── Master DB: one cash_account_transactions entry for total + balance update
+        $lastTransId   = 0;
+        $accountTotals = []; // account_id => ['account'=>row, 'amount'=>sum]
+
+        foreach ($payments as $payIdx => $pay) {
+            $payAmount = round((float)$pay['amount'], 2);
+            if ($payAmount <= 0) continue;
+
+            $account = $helper->getCashAccount($pay['method']);
+            if (!$account) continue;
+            $cbMethod = $helper->mapPaymentMethod($pay['method']);
+
+            $insertedForPay = 0;
+            $groupCount = count($itemGroups);
+            foreach ($itemGroups as $gIdx => $group) {
+                $svcType    = $group['service_type'];
+                $svcLabel   = $serviceTypes[$svcType]['label'] ?? $svcType;
+                $proportion = $totalAmt > 0 ? ($group['type_total'] / $totalAmt) : (1 / $groupCount);
+                $isLastGroup = ($gIdx === $groupCount - 1);
+                $svcAmount  = $isLastGroup
+                    ? round($payAmount - $insertedForPay, 2)   // last item gets remainder to avoid rounding loss
+                    : round($payAmount * $proportion, 2);
+                if ($svcAmount <= 0) continue;
+                $insertedForPay += $svcAmount;
+
+                $divId = getDivisionForService($bPdo, $svcType);
+                $desc  = "[{$invNo}] {$guest} - {$svcLabel}";
+
+                if ($hasCa) {
+                    $stmt = $bPdo->prepare("INSERT INTO cash_book
+                        (transaction_date, transaction_time, division_id, category_id,
+                         description, transaction_type, amount, payment_method,
+                         cash_account_id, is_editable, created_by, created_at)
+                        VALUES (DATE(?), TIME(?), ?, ?, ?, 'income', ?, ?, ?, 1, ?, NOW())");
+                    $stmt->execute([$now, $now, $divId, $catId, $desc, $svcAmount, $cbMethod, $account['id'], $userId]);
+                } else {
+                    $stmt = $bPdo->prepare("INSERT INTO cash_book
+                        (transaction_date, transaction_time, division_id, category_id,
+                         description, transaction_type, amount, payment_method,
+                         is_editable, created_by, created_at)
+                        VALUES (DATE(?), TIME(?), ?, ?, ?, 'income', ?, ?, 1, ?, NOW())");
+                    $stmt->execute([$now, $now, $divId, $catId, $desc, $svcAmount, $cbMethod, $userId]);
+                }
+                $lastTransId = (int)$bPdo->lastInsertId();
+            }
+
+            if ($insertedForPay > 0) {
+                if (!isset($accountTotals[$account['id']])) {
+                    $accountTotals[$account['id']] = ['account' => $account, 'amount' => 0];
+                }
+                $accountTotals[$account['id']]['amount'] += $insertedForPay;
+            }
+        }
+
+        // ── Master DB: one cash_account_transactions entry per account involved + balance update
         try {
             $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : (defined('DB_NAME') ? DB_NAME : null);
-            if ($masterDbName && $totalInserted > 0) {
+            if ($masterDbName && $accountTotals) {
                 $mPdo = new PDO(
                     "mysql:host=" . DB_HOST . ";dbname={$masterDbName};charset=" . DB_CHARSET,
                     DB_USER,
@@ -494,21 +530,25 @@ function syncInvoiceToCashbook($db, $businessId, $userId, array $invRow, array $
                 );
                 $masterDesc = "Hotel Services [{$invNo}] {$guest}";
                 $hasTxCol = (bool)$mPdo->query("SHOW COLUMNS FROM cash_account_transactions LIKE 'transaction_id'")->fetch();
-                if ($hasTxCol) {
-                    $mPdo->prepare("INSERT INTO cash_account_transactions
-                        (cash_account_id, transaction_id, transaction_date,
-                         description, amount, transaction_type, reference_number, created_by, created_at)
-                        VALUES (?, ?, DATE(?), ?, ?, 'income', ?, ?, NOW())")
-                        ->execute([$account['id'], $lastTransId, $now, $masterDesc, $paidAmt, $invNo, $userId]);
-                } else {
-                    $mPdo->prepare("INSERT INTO cash_account_transactions
-                        (cash_account_id, transaction_date,
-                         description, amount, transaction_type, reference_number, created_by, created_at)
-                        VALUES (?, DATE(?), ?, ?, 'income', ?, ?, NOW())")
-                        ->execute([$account['id'], $now, $masterDesc, $paidAmt, $invNo, $userId]);
+                foreach ($accountTotals as $accId => $data) {
+                    $accAmt = round($data['amount'], 2);
+                    if ($accAmt <= 0) continue;
+                    if ($hasTxCol) {
+                        $mPdo->prepare("INSERT INTO cash_account_transactions
+                            (cash_account_id, transaction_id, transaction_date,
+                             description, amount, transaction_type, reference_number, created_by, created_at)
+                            VALUES (?, ?, DATE(?), ?, ?, 'income', ?, ?, NOW())")
+                            ->execute([$accId, $lastTransId, $now, $masterDesc, $accAmt, $invNo, $userId]);
+                    } else {
+                        $mPdo->prepare("INSERT INTO cash_account_transactions
+                            (cash_account_id, transaction_date,
+                             description, amount, transaction_type, reference_number, created_by, created_at)
+                            VALUES (?, DATE(?), ?, ?, 'income', ?, ?, NOW())")
+                            ->execute([$accId, $now, $masterDesc, $accAmt, $invNo, $userId]);
+                    }
+                    $newBal = $data['account']['current_balance'] + $accAmt;
+                    $mPdo->prepare("UPDATE cash_accounts SET current_balance = ? WHERE id = ?")->execute([$newBal, $accId]);
                 }
-                $newBal = $account['current_balance'] + $paidAmt;
-                $mPdo->prepare("UPDATE cash_accounts SET current_balance = ? WHERE id = ?")->execute([$newBal, $account['id']]);
             }
         } catch (\Throwable $me) {
             error_log("Hotel svc cashbook master sync: " . $me->getMessage());
@@ -797,6 +837,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                     ]);
                 $invId = (int)$pdo->lastInsertId();
 
+                if ($paidAmount > 0) {
+                    $pdo->prepare("INSERT INTO hotel_invoice_payments (invoice_id, business_id, amount, method, created_by) VALUES (?,?,?,?,?)")
+                        ->execute([$invId, $businessId, $paidAmount, $payMethod, $currentUser['id'] ?? null]);
+                }
+
                 $iStmt = $pdo->prepare("INSERT INTO hotel_invoice_items
                     (invoice_id, service_type, trip_type, guide_id, guide_name, description, quantity, unit_price, total_price, owner_amount, hotel_commission, start_datetime, end_datetime)
                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)");
@@ -1052,8 +1097,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $remain   = $r['total'] - $newPaid;
             $payStatus = ($newPaid <= 0) ? 'unpaid' : ($remain <= 0 ? 'paid' : 'partial');
 
+            // Record this payment in the breakdown table (supports split cash+kartu in 1 invoice)
+            $pdo->prepare("INSERT INTO hotel_invoice_payments (invoice_id, business_id, amount, method, created_by) VALUES (?,?,?,?,?)")
+                ->execute([$id, $businessId, $amount, $method, $currentUser['id'] ?? null]);
+            $methodCountStmt = $pdo->prepare("SELECT COUNT(DISTINCT method) FROM hotel_invoice_payments WHERE invoice_id=?");
+            $methodCountStmt->execute([$id]);
+            $storedMethod = ((int)$methodCountStmt->fetchColumn() > 1) ? 'split' : $method;
+
             $pdo->prepare("UPDATE hotel_invoices SET paid_amount=?, payment_status=?, payment_method=?, updated_at=NOW() WHERE id=? AND business_id=?")
-                ->execute([$newPaid, $payStatus, $method, $id, $businessId]);
+                ->execute([$newPaid, $payStatus, $storedMethod, $id, $businessId]);
 
             // Motor Return Tracking: Instead of auto-returning, ask staff to confirm
             // whether motor is actually back. If not returned within 24h, system will notify.
@@ -1554,9 +1606,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $remaining  = $total - $paidAmount;
             $payStatus  = ($paidAmount <= 0) ? 'unpaid' : ($remaining <= 0 ? 'paid' : 'partial');
 
+            // Don't clobber an existing split cash+kartu breakdown if the paid amount
+            // wasn't actually changed by this edit (the edit form can only submit 1 method).
+            $existingPayStmt = $pdo->prepare("SELECT COALESCE(SUM(amount),0) as sum_amt, COUNT(DISTINCT method) as method_cnt FROM hotel_invoice_payments WHERE invoice_id=?");
+            $existingPayStmt->execute([$id]);
+            $existingPay = $existingPayStmt->fetch(PDO::FETCH_ASSOC);
+            $keepExistingBreakdown = $existingPay && (int)$existingPay['method_cnt'] > 1 && abs((float)$existingPay['sum_amt'] - $paidAmount) < 0.01;
+            if ($keepExistingBreakdown) {
+                $payMethod = 'split';
+            } elseif ($payMethod === 'split') {
+                $payMethod = 'cash'; // 'split' is only valid when a real multi-method breakdown exists
+            }
+
             $pdo->beginTransaction();
             $pdo->prepare("UPDATE hotel_invoices SET guest_name=?,guest_phone=?,room_number=?,total=?,paid_amount=?,payment_status=?,payment_method=?,notes=?,tax_rate=?,tax_amount=?,service_charge_rate=?,service_charge_amount=?,discount_rate=?,discount_amount=?,updated_at=NOW() WHERE id=?")
                 ->execute([$guestName, $guestPhone ?: null, $roomNumber ?: null, $total, $paidAmount, $payStatus, $payMethod, $notes ?: null, $taxRate, $taxAmount, $serviceChargeRate, $serviceChargeAmount, $discountRate, $discountAmount, $id]);
+            if (!$keepExistingBreakdown) {
+                $pdo->prepare("DELETE FROM hotel_invoice_payments WHERE invoice_id=?")->execute([$id]);
+                if ($paidAmount > 0) {
+                    $pdo->prepare("INSERT INTO hotel_invoice_payments (invoice_id, business_id, amount, method, created_by) VALUES (?,?,?,?,?)")
+                        ->execute([$id, $businessId, $paidAmount, $payMethod, $currentUser['id'] ?? null]);
+                }
+            }
             $pdo->prepare("DELETE FROM hotel_invoice_items WHERE invoice_id=?")->execute([$id]);
             $iStmt = $pdo->prepare("INSERT INTO hotel_invoice_items
                 (invoice_id,service_type,trip_type,guide_id,guide_name,description,quantity,unit_price,total_price,owner_amount,hotel_commission,start_datetime,end_datetime)
@@ -3130,6 +3201,20 @@ include '../../includes/header.php';
                 </select>
             </div>
         </div>
+        <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.78rem;color:#64748b;margin:0.4rem 0 0.2rem">
+            <input type="checkbox" id="pSplitToggle" onchange="toggleSplitPay()"> Split pembayaran (sebagian cash, sebagian kartu/transfer)?
+        </label>
+        <div id="pSplitRow" class="hs-form-row" style="display:none">
+            <div class="hs-field"><label>Amount ke-2 (Rp)</label><input type="number" id="pAmount2" value="0" min="0"></div>
+            <div class="hs-field"><label>Method ke-2</label>
+                <select id="pMethod2">
+                    <option value="transfer">Transfer</option>
+                    <option value="cash">Cash</option>
+                    <option value="qris">QRIS</option>
+                    <option value="card">Card</option>
+                </select>
+            </div>
+        </div>
         <div class="hs-modal-footer">
             <button class="btn-hs btn-hs-secondary" onclick="closePayModal()">Cancel</button>
             <button class="btn-hs btn-hs-primary" id="payBtn" onclick="submitPay()">💾 Save &amp; Sync to Cashbook</button>
@@ -3354,6 +3439,7 @@ include '../../includes/header.php';
                     <option value="transfer">Transfer</option>
                     <option value="qris">QRIS</option>
                     <option value="card">Card</option>
+                    <option value="split" disabled>Split (Cash + Kartu)</option>
                 </select>
             </div>
             <div class="hs-field"><label>DP / Down Payment (Rp)</label>

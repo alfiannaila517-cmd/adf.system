@@ -28,6 +28,20 @@ $istmt = $pdo->prepare("SELECT * FROM hotel_invoice_items WHERE invoice_id = ? O
 $istmt->execute([$id]);
 $items = $istmt->fetchAll(PDO::FETCH_ASSOC);
 
+// Payment method label (splits into "Cash Rp X + Transfer Rp Y" when split cash+kartu was used)
+$paymentMethodLabel = ucfirst($inv['payment_method']);
+if ($inv['payment_method'] === 'split') {
+    try {
+        $pStmt = $pdo->prepare("SELECT amount, method FROM hotel_invoice_payments WHERE invoice_id = ? ORDER BY id ASC");
+        $pStmt->execute([$id]);
+        $paymentParts = [];
+        foreach ($pStmt->fetchAll(PDO::FETCH_ASSOC) as $p) {
+            $paymentParts[] = ucfirst($p['method']) . ' Rp ' . number_format((float)$p['amount'], 0, ',', '.');
+        }
+        if ($paymentParts) $paymentMethodLabel = implode(' + ', $paymentParts);
+    } catch (\Throwable $e) {}
+}
+
 // Company settings
 $settings = [];
 try {
@@ -346,7 +360,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#eef1f5;color:#1e293
                 <div class="meta-label">Invoice Details</div>
                 <div class="meta-row"><span class="mk">Invoice No.</span><span class="mv highlight"><?php echo htmlspecialchars($inv['invoice_number']); ?></span></div>
                 <div class="meta-row"><span class="mk">Date</span><span class="mv"><?php echo date('d M Y', strtotime($inv['created_at'])); ?></span></div>
-                <div class="meta-row"><span class="mk">Payment Method</span><span class="mv"><?php echo ucfirst($inv['payment_method']); ?></span></div>
+                <div class="meta-row"><span class="mk">Payment Method</span><span class="mv"><?php echo htmlspecialchars($paymentMethodLabel); ?></span></div>
                 <div class="meta-row"><span class="mk">Status</span><span class="mv"><?php echo ucfirst($inv['status']); ?></span></div>
             </div>
         </div>
