@@ -1521,13 +1521,13 @@ include '../../includes/header.php';
                         <colgroup>
                             <col style="width:105px;">
                             <col style="width:90px;">
-                            <col>
+                            <col style="width:260px;">
                             <col style="width:65px;">
                             <col style="width:95px;">
                             <col style="width:75px;">
                             <col style="width:55px;">
                             <col style="width:75px;">
-                            <col style="width:65px;">
+                            <col style="width:60px;">
                         </colgroup>
                         <tr>
                             <th>Kode</th>
@@ -1579,11 +1579,11 @@ include '../../includes/header.php';
                                                                                             $expTs = strtotime($exp);
                                                                                             $diffDays = (int)floor(($expTs - time()) / 86400);
                                                                                             if ($diffDays < 0) {
-                                                                                                echo '<span style="color:#dc2626; font-weight:400;">&#9888; Kadaluarsa ' . date('d M Y', $expTs) . '</span>';
+                                                                                                echo '<span style="color:#ef4444; background:rgba(239,68,68,0.12); padding:1px 6px; border-radius:999px;">&#9888; Kadaluarsa ' . date('d M Y', $expTs) . '</span>';
                                                                                             } elseif ($diffDays <= 30) {
-                                                                                                echo '<span style="color:#d97706; font-weight:400;">&#9888; ' . date('d M Y', $expTs) . ' (' . $diffDays . ' hr)</span>';
+                                                                                                echo '<span style="color:#f59e0b; background:rgba(245,158,11,0.14); padding:1px 6px; border-radius:999px;">&#9888; ' . date('d M Y', $expTs) . ' (' . $diffDays . ' hr)</span>';
                                                                                             } else {
-                                                                                                echo '<span style="color:#94a3b8; font-weight:400;">' . date('d M Y', $expTs) . '</span>';
+                                                                                                echo '<span style="color:#94a3b8;">' . date('d M Y', $expTs) . '</span>';
                                                                                             }
                                                                                         } else {
                                                                                             echo '<span style="color:#cbd5e1;">—</span>';
@@ -1592,7 +1592,7 @@ include '../../includes/header.php';
                                     <td>
                                         <?php $stockIdInt = (int)($item['id'] ?? 0); ?>
                                         <div class="dropdown" style="position:relative; display:inline-block;">
-                                            <button type="button" class="btn btn-sm btn-secondary" style="padding:0 0.55rem; height:30px;"
+                                            <button type="button" class="btn btn-sm btn-secondary" style="padding:0 0.45rem; height:24px; font-size:0.72rem; border-radius:0.4rem;"
                                                 onclick="toggleStockDropdown(<?php echo $stockIdInt; ?>)">
                                                 Aksi ▾
                                             </button>
