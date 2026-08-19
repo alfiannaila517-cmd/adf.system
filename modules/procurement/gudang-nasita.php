@@ -1528,19 +1528,19 @@ include '../../includes/header.php';
             <?php if ($summary['low'] > 0): ?>
                 <div style="margin-bottom:0.75rem;"><span class="badge badge-warning"><?php echo $summary['low']; ?> item di bawah reorder</span></div>
             <?php endif; ?>
-            <div class="table-responsive" style="flex:1; overflow-y:auto; overflow-x:auto;">
+            <div class="table-responsive" style="flex:1; overflow-y:auto; overflow-x:auto; scrollbar-gutter: stable; padding-right:14px;">
                 <table class="table" id="stockTable" style="table-layout:fixed; width:100%;">
                     <thead>
                         <colgroup>
                             <col style="width:105px;">
                             <col style="width:90px;">
-                            <col style="width:190px;">
+                            <col style="width:150px;">
                             <col style="width:65px;">
                             <col style="width:95px;">
                             <col style="width:75px;">
                             <col style="width:55px;">
                             <col style="width:95px;">
-                            <col style="width:60px;">
+                            <col style="width:65px;">
                         </colgroup>
                         <tr>
                             <th>Kode</th>
