@@ -1133,6 +1133,19 @@ include '../../includes/header.php';
 ?>
 
 <style>
+    /* Narrower sidebar on this page only (desktop), freeing width so the Aksi column/button is fully visible */
+    @media (min-width: 769px) {
+
+        body .sidebar {
+            width: 168px;
+        }
+
+        body .main-content {
+            margin-left: 168px;
+            width: calc(100% - 168px);
+        }
+    }
+
     .gudang-shell {
         background: linear-gradient(180deg, rgba(248, 250, 252, 0.85), rgba(255, 255, 255, 0.75));
         border-radius: 0;
