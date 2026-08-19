@@ -1307,7 +1307,8 @@ include '../../includes/header.php';
 
     #stockTable .gudang-expiry-cell,
     #stockTable .gudang-expiry-cell span {
-        font-size: 0.78rem !important;
+        font-size: 0.72rem !important;
+        font-weight: 400 !important;
     }
 
     #stockTable .gudang-item-name,
@@ -1525,7 +1526,6 @@ include '../../includes/header.php';
                             <col style="width:95px;">
                             <col style="width:75px;">
                             <col style="width:55px;">
-                            <col style="width:85px;">
                             <col style="width:75px;">
                             <col style="width:65px;">
                         </colgroup>
@@ -1537,7 +1537,6 @@ include '../../includes/header.php';
                             <th class="text-right">Harga/pcs</th>
                             <th class="text-right">Nilai</th>
                             <th>Unit</th>
-                            <th>Supplier</th>
                             <th>Kadaluarsa</th>
                             <th>Aksi</th>
                         </tr>
@@ -1545,7 +1544,7 @@ include '../../includes/header.php';
                     <tbody>
                         <?php if (empty($stockItems)): ?>
                             <tr>
-                                <td colspan="10" style="text-align:center; padding: 2rem; color: var(--text-muted);">Belum ada stok gudang</td>
+                                <td colspan="9" style="text-align:center; padding: 2rem; color: var(--text-muted);">Belum ada stok gudang</td>
                             </tr>
                         <?php else: ?>
                             <?php $currentCategory = null; ?>
@@ -1557,7 +1556,7 @@ include '../../includes/header.php';
                                 <?php if ($currentCategory !== $rowCategory): ?>
                                     <?php $currentCategory = $rowCategory; ?>
                                     <tr class="gudang-cat-row">
-                                        <td colspan="10" style="background:#f8fafc; font-weight:700; color:#334155; text-transform:capitalize; border-top:1px solid var(--border);">
+                                        <td colspan="9" style="background:#f8fafc; font-weight:700; color:#334155; text-transform:capitalize; border-top:1px solid var(--border);">
                                             Kategori: <?php echo htmlspecialchars($currentCategory); ?>
                                         </td>
                                     </tr>
@@ -1572,20 +1571,19 @@ include '../../includes/header.php';
                                     </td>
                                     <td class="text-right" style="font-weight:700; color:<?php echo ((float)$item['quantity'] <= (float)($item['reorder_level'] ?? 0) && (float)($item['reorder_level'] ?? 0) > 0) ? '#d97706' : 'var(--text-primary)'; ?>;"><?php echo number_format($item['quantity'], 2); ?></td>
                                     <td class="text-right gudang-price-cell">Rp <?php echo number_format((float)($item['harga_beli'] ?? 0), 0, ',', '.'); ?></td>
-                                    <td class="text-right gudang-price-cell" style="font-weight:700; color:#0f9d6a;">Rp <?php echo number_format((float)($item['total_harga'] ?? ((float)$item['quantity'] * (float)($item['harga_beli'] ?? 0))), 0, ',', '.'); ?></td>
+                                    <td class="text-right gudang-price-cell" style="font-weight:400; color:#0f9d6a;">Rp <?php echo number_format((float)($item['total_harga'] ?? ((float)$item['quantity'] * (float)($item['harga_beli'] ?? 0))), 0, ',', '.'); ?></td>
                                     <td><?php echo htmlspecialchars($item['unit']); ?></td>
-                                    <td><?php echo htmlspecialchars($item['supplier_name'] ?: '-'); ?></td>
                                     <td class="gudang-expiry-cell" style="white-space:nowrap;"><?php
                                                                                         $exp = $item['expiry_date'] ?? '';
                                                                                         if ($exp && $exp !== '0000-00-00') {
                                                                                             $expTs = strtotime($exp);
                                                                                             $diffDays = (int)floor(($expTs - time()) / 86400);
                                                                                             if ($diffDays < 0) {
-                                                                                                echo '<span style="color:#dc2626; font-weight:700;">&#9888; Kadaluarsa ' . date('d M Y', $expTs) . '</span>';
+                                                                                                echo '<span style="color:#dc2626; font-weight:400;">&#9888; Kadaluarsa ' . date('d M Y', $expTs) . '</span>';
                                                                                             } elseif ($diffDays <= 30) {
-                                                                                                echo '<span style="color:#d97706; font-weight:700;">&#9888; ' . date('d M Y', $expTs) . ' (' . $diffDays . ' hr)</span>';
+                                                                                                echo '<span style="color:#d97706; font-weight:400;">&#9888; ' . date('d M Y', $expTs) . ' (' . $diffDays . ' hr)</span>';
                                                                                             } else {
-                                                                                                echo '<span style="color:#64748b;">' . date('d M Y', $expTs) . '</span>';
+                                                                                                echo '<span style="color:#94a3b8; font-weight:400;">' . date('d M Y', $expTs) . '</span>';
                                                                                             }
                                                                                         } else {
                                                                                             echo '<span style="color:#cbd5e1;">—</span>';
