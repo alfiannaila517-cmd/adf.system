@@ -373,10 +373,6 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#eef1f5;color:#1e293
                 <td><span class="svc-pill"><?php echo $svcInfo['icon']; ?> <?php echo $svcInfo['label']; ?></span></td>
                 <td>
                     <?php echo htmlspecialchars($item['description'] ?? ''); ?>
-                    <?php $itemDate = $item['created_at'] ?? $inv['created_at']; ?>
-                    <div style="font-size:0.68rem;color:#94a3b8;margin-top:2px">
-                        <?php echo date('d M Y', strtotime($itemDate)); ?>
-                    </div>
                 </td>
                 <td class="r" style="color:#64748b"><?php echo rtrim(rtrim(number_format($item['quantity'],2),'0'),'.'); ?></td>
                 <td class="r" style="color:#64748b">Rp <?php echo number_format($item['unit_price'],0,',','.'); ?></td>
