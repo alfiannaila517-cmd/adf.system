@@ -1889,10 +1889,44 @@ include '../../includes/header.php';
                         <span style="font-weight:700;">Total Tagihan Bulan Ini</span>
                         <span style="font-size:1.05rem;font-weight:800;color:#0f9d6a;">Rp ${formatNumber(r.total)}</span>
                     </div>
+                    ${r.is_paid ? '' : '<button type="button" class="btn btn-success" style="width:100%;margin-top:12px;" onclick="bayarTagihanGudang()">💰 Bayar Tagihan</button>'}
                 </div>`;
         } catch (error) {
             console.error('[GudangRecap] Error:', error);
             recapEl.innerHTML = `<p style="color: #d32f2f; text-align: center; padding: 20px;">❌ Error: ${error.message}</p>`;
+        }
+    }
+
+    async function bayarTagihanGudang() {
+        const month = document.getElementById('filterMonth').value;
+        if (!month) return;
+
+        if (!confirm('Konfirmasi bayar Tagihan Gudang Nasita bulan ini?\n\nJumlah akan dipotong dari rekening bank utama dan dicatat sebagai pengeluaran di Buku Kas Besar (kategori "Bayar Tagihan Gudang Nasita").')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(BASE_URL + '/api/pay-gudang-bill.php', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'month=' + encodeURIComponent(month)
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+
+            if (result.success) {
+                alert(`✅ ${result.message}`);
+                loadGudangRecap();
+            } else {
+                alert(`❌ ${result.message}`);
+            }
+        } catch (error) {
+            alert(`❌ Error: ${error.message}`);
         }
     }
 
