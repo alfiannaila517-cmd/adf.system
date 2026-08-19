@@ -289,11 +289,6 @@ class Auth
 
         $userRole = $_SESSION['role'] ?? 'staff';
 
-        // Admin and owner should not be blocked by per-menu entries.
-        if (in_array($userRole, ['admin', 'owner'], true)) {
-            return true;
-        }
-
         // Get username from session
         $username = $_SESSION['username'] ?? null;
         if (!$username) {
@@ -359,9 +354,12 @@ class Auth
                 return $this->hasPermissionFallback($module);
             }
 
-            // For developers: check if permissions have been configured for this business
-            // If no entries exist at all, grant full access (backward compatible)
-            if ($userRole === 'developer') {
+            // For developer/admin/owner: check if permissions have been configured for this business.
+            // If no entries exist at all, grant full access (backward compatible). This also lets
+            // a Developer restrict a specific admin/owner user via the Developer panel - previously
+            // 'admin'/'owner' short-circuited to full access BEFORE this check even ran, so configured
+            // per-menu permissions for those roles were silently ignored.
+            if (in_array($userRole, ['developer', 'admin', 'owner'], true)) {
                 $countStmt = $masterPdo->prepare("
                     SELECT COUNT(*) as total
                     FROM user_menu_permissions
@@ -371,7 +369,7 @@ class Auth
                 $countResult = $countStmt->fetch(PDO::FETCH_ASSOC);
 
                 if (!$countResult || (int)$countResult['total'] === 0) {
-                    // No permissions configured yet for this developer+business, grant full access
+                    // No permissions configured yet for this user+business, grant full access
                     return true;
                 }
             }
