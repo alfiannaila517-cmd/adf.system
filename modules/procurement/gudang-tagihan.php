@@ -152,6 +152,109 @@ foreach ($bizTransferDetail as $row) {
     $detailByBiz[$biz][] = $row;
 }
 
+// ── 3 bisnis operasional tetap (dengan ikon) yang menerima transfer dari Gudang Nasita ──
+$gudangMonthlyBizList = [
+    ['slug' => 'narayana-hotel', 'name' => 'Narayana Hotel', 'icon' => '🏨'],
+    ['slug' => 'bens-cafe',      'name' => 'Bens Cafe',      'icon' => '☕'],
+    ['slug' => 'eaat-meet',      'name' => 'Eat Meet',       'icon' => '🍽️'],
+];
+
+function gudangTagihanMatchBizSlug(string $businessName): ?string
+{
+    $norm = strtolower(preg_replace('/[^a-z0-9]/', '', $businessName));
+    if ($norm === '') {
+        return null;
+    }
+    if (strpos($norm, 'narayana') !== false || strpos($norm, 'hotel') !== false) {
+        return 'narayana-hotel';
+    }
+    if (strpos($norm, 'bens') !== false || strpos($norm, 'cafe') !== false) {
+        return 'bens-cafe';
+    }
+    if (strpos($norm, 'eat') !== false || strpos($norm, 'meet') !== false) {
+        return 'eaat-meet';
+    }
+    return null;
+}
+
+// ── Rekap Tagihan Bulanan per Bisnis (transfer bulan berjalan + share TKBM) ──────
+$selectedMonth = trim((string)($_GET['bulan'] ?? date('Y-m')));
+if (!preg_match('/^\d{4}-\d{2}$/', $selectedMonth)) {
+    $selectedMonth = date('Y-m');
+}
+$monthStart = $selectedMonth . '-01';
+$monthEnd = date('Y-m-t', strtotime($monthStart));
+
+$tkbmMonthTotal = 0.0;
+try {
+    $tkbmRow = $db->fetchOne(
+        'SELECT COALESCE(SUM(total_biaya), 0) AS t FROM gudang_nasita_tkbm WHERE tanggal BETWEEN ? AND ?',
+        [$monthStart, $monthEnd]
+    );
+    $tkbmMonthTotal = (float)($tkbmRow['t'] ?? 0);
+} catch (Throwable $e) {
+    error_log('gudang-tagihan tkbm month total: ' . $e->getMessage());
+}
+$tkbmShareThisMonth = $tkbmMonthTotal / count($gudangMonthlyBizList);
+
+$monthlyTransferBySlug = [];
+try {
+    $gudangCfgPath2 = __DIR__ . '/../../config/businesses/gudang-nasita.php';
+    $gudangDbName2  = '';
+    if (file_exists($gudangCfgPath2)) {
+        $gc2 = require $gudangCfgPath2;
+        $gudangDbName2 = (string)($gc2['database'] ?? '');
+    }
+    $originDb2 = Database::getCurrentDatabase();
+    $gudangDb2 = ($gudangDbName2 && $gudangDbName2 !== $originDb2)
+        ? Database::switchDatabase($gudangDbName2)
+        : $db;
+
+    $monthRows = $gudangDb2->fetchAll(
+        "SELECT gt.target_business_name,
+                COUNT(DISTINCT gt.id) AS transfer_count,
+                COALESCE(SUM(gti.quantity), 0) AS total_qty,
+                COALESCE(SUM(COALESCE(gti.subtotal, gti.quantity * COALESCE(gti.unit_price, 0))), 0) AS total_nilai
+         FROM gudang_nasita_transfers gt
+         LEFT JOIN gudang_nasita_transfer_items gti ON gti.transfer_id = gt.id
+         WHERE gt.status NOT IN ('cancelled') AND gt.created_at BETWEEN ? AND ?
+         GROUP BY gt.target_business_name",
+        [$monthStart . ' 00:00:00', $monthEnd . ' 23:59:59']
+    ) ?: [];
+
+    if ($gudangDbName2 && $gudangDbName2 !== $originDb2) {
+        Database::switchDatabase($originDb2);
+    }
+
+    foreach ($monthRows as $mr) {
+        $slug = gudangTagihanMatchBizSlug((string)($mr['target_business_name'] ?? ''));
+        if ($slug === null) {
+            continue;
+        }
+        $monthlyTransferBySlug[$slug] = $mr;
+    }
+} catch (Throwable $e) {
+    error_log('gudang-tagihan monthly transfer per biz: ' . $e->getMessage());
+}
+
+$monthlyRecap = [];
+$monthlyRecapGrandTotal = 0.0;
+foreach ($gudangMonthlyBizList as $bizInfo) {
+    $mr = $monthlyTransferBySlug[$bizInfo['slug']] ?? null;
+    $transferNilai = (float)($mr['total_nilai'] ?? 0);
+    $total = $transferNilai + $tkbmShareThisMonth;
+    $monthlyRecapGrandTotal += $total;
+    $monthlyRecap[] = [
+        'icon'            => $bizInfo['icon'],
+        'name'            => $bizInfo['name'],
+        'transfer_count'  => (int)($mr['transfer_count'] ?? 0),
+        'transfer_qty'    => (float)($mr['total_qty'] ?? 0),
+        'transfer_nilai'  => $transferNilai,
+        'tkbm_share'      => $tkbmShareThisMonth,
+        'total'           => $total,
+    ];
+}
+
 $forceTheme = 'light';
 include '../../includes/header.php';
 
@@ -261,8 +364,11 @@ $statusColors = [
                 <div style="display:grid; gap:0.75rem;">
                     <?php
                     $totalBizAll = 0;
+                    $gudangBizIcons = ['narayana-hotel' => '🏨', 'bens-cafe' => '☕', 'eaat-meet' => '🍽️'];
                     foreach ($bizBills as $biz):
                         $bizName = $biz['target_business_name'] ?? '-';
+                        $bizSlugMatch = gudangTagihanMatchBizSlug($bizName);
+                        $bizIcon = $gudangBizIcons[$bizSlugMatch] ?? '🏢';
                         $nilai = (float)$biz['total_nilai'];
                         $totalBizAll += $nilai;
                         $transfers = $detailByBiz[$bizName] ?? [];
@@ -270,9 +376,12 @@ $statusColors = [
                         <div style="border:1px solid var(--border); border-radius:0.75rem; overflow:hidden;">
                             <div style="display:flex; justify-content:space-between; align-items:center; padding:0.7rem 1rem; background:#f8fafc; cursor:pointer;"
                                 onclick="toggleBizDetail('biz-<?php echo htmlspecialchars(preg_replace('/[^a-z0-9]/i', '_', $bizName)); ?>')">
-                                <div>
-                                    <div style="font-weight:700; font-size:0.9rem;"><?php echo htmlspecialchars($bizName); ?></div>
-                                    <div style="font-size:0.75rem; color:var(--text-muted);"><?php echo (int)$biz['transfer_count']; ?> transfer &mdash; <?php echo number_format((float)$biz['total_qty'], 2); ?> qty total</div>
+                                <div style="display:flex; align-items:center; gap:0.6rem;">
+                                    <span style="font-size:1.3rem;"><?php echo $bizIcon; ?></span>
+                                    <div>
+                                        <div style="font-weight:700; font-size:0.9rem;"><?php echo htmlspecialchars($bizName); ?></div>
+                                        <div style="font-size:0.75rem; color:var(--text-muted);"><?php echo (int)$biz['transfer_count']; ?> transfer &mdash; <?php echo number_format((float)$biz['total_qty'], 2); ?> qty total</div>
+                                    </div>
                                 </div>
                                 <div style="text-align:right;">
                                     <div style="font-weight:800; color:#0f9d6a; font-size:0.95rem;"><?php echo $nilai > 0 ? 'Rp&nbsp;' . number_format($nilai, 0, ',', '.') : '—'; ?></div>
@@ -327,6 +436,48 @@ $statusColors = [
     }
     if (typeof feather !== 'undefined') feather.replace();
 </script>
+
+<!-- ── Tagihan Bulanan per Bisnis (transfer + share TKBM bulan berjalan) ─────── -->
+<div class="card" style="margin-top:1.5rem;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:0.75rem;">
+        <div>
+            <h3 style="font-size:1rem; font-weight:700; margin:0;">📅 Tagihan Bulanan per Bisnis</h3>
+            <p style="font-size:0.78rem; color:var(--text-muted); margin:0.15rem 0 0;">Total PO/transfer dari Gudang Nasita ke tiap bisnis bulan ini + bagian TKBM (dibagi 3 bisnis)</p>
+        </div>
+        <form method="GET" style="display:flex; gap:0.5rem; align-items:center;">
+            <input type="month" name="bulan" class="form-control" style="width:160px;" value="<?php echo htmlspecialchars($selectedMonth); ?>" onchange="this.form.submit()">
+            <button type="submit" class="btn btn-sm btn-secondary">Tampilkan</button>
+        </form>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:1rem;">
+        <?php foreach ($monthlyRecap as $mrec): ?>
+            <div style="border:1px solid var(--border); border-radius:0.75rem; padding:1rem;">
+                <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.75rem;">
+                    <span style="font-size:1.6rem;"><?php echo $mrec['icon']; ?></span>
+                    <div style="font-weight:700; font-size:0.95rem;"><?php echo htmlspecialchars($mrec['name']); ?></div>
+                </div>
+                <div style="font-size:0.78rem; color:var(--text-muted); display:flex; justify-content:space-between; margin-bottom:0.3rem;">
+                    <span>Transfer bulan ini (<?php echo $mrec['transfer_count']; ?>x, <?php echo number_format($mrec['transfer_qty'], 2); ?> qty)</span>
+                    <span style="font-weight:600; color:var(--text-primary);">Rp&nbsp;<?php echo number_format($mrec['transfer_nilai'], 0, ',', '.'); ?></span>
+                </div>
+                <div style="font-size:0.78rem; color:var(--text-muted); display:flex; justify-content:space-between; margin-bottom:0.6rem;">
+                    <span>Share TKBM bulan ini</span>
+                    <span style="font-weight:600; color:var(--text-primary);">Rp&nbsp;<?php echo number_format($mrec['tkbm_share'], 0, ',', '.'); ?></span>
+                </div>
+                <div style="border-top:1px dashed var(--border); padding-top:0.6rem; display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:0.82rem; font-weight:700;">Total Tagihan Bulan Ini</span>
+                    <span style="font-size:1.05rem; font-weight:800; color:#0f9d6a;">Rp&nbsp;<?php echo number_format($mrec['total'], 0, ',', '.'); ?></span>
+                </div>
+            </div>
+        <?php endforeach; ?>
+    </div>
+
+    <div style="margin-top:1rem; padding:0.65rem 1rem; background:#f0fdf4; border-radius:0.6rem; display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:0.85rem; font-weight:700; color:#065f46;">Total Tagihan Bulan Ini (3 Bisnis)</span>
+        <span style="font-size:1rem; font-weight:800; color:#0f9d6a;">Rp&nbsp;<?php echo number_format($monthlyRecapGrandTotal, 0, ',', '.'); ?></span>
+    </div>
+</div>
 
 <!-- ── TKBM Section ──────────────────────────────────────────────────────── -->
 <div class="card" style="margin-top:1.5rem;">
