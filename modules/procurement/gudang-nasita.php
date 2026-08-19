@@ -1717,36 +1717,36 @@ include '../../includes/header.php';
                     <?php endif; ?>
                 </div>
             </div>
-
-            <?php if (!empty($recentReturnFromBusiness)): ?>
-                <div class="card" style="margin-top:1rem;">
-                    <h3 style="font-size:1rem; font-weight:700; margin-bottom:0.75rem; color:#7c3aed;">&#8617; Masuk dari Bisnis</h3>
-                    <div style="display:grid; gap:0.65rem;">
-                        <?php foreach ($recentReturnFromBusiness as $ret): ?>
-                            <div style="padding:0.65rem 0.85rem; border:1px solid #ede9fe; border-radius:0.75rem; background:#faf5ff;">
-                                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.5rem;">
-                                    <div style="flex:1; min-width:0;">
-                                        <div style="font-weight:700; font-size:0.875rem; color:#4c1d95;"><?php echo htmlspecialchars((string)($ret['item_name'] ?? '-')); ?></div>
-                                        <div style="font-size:0.8rem; color:#7c3aed; font-weight:600;"><?php echo number_format((float)($ret['quantity'] ?? 0), 2); ?> <?php echo htmlspecialchars((string)($ret['unit'] ?? '')); ?></div>
-                                        <div style="font-size:0.78rem; color:var(--text-muted);">dari <strong><?php echo htmlspecialchars((string)($ret['source_business_name'] ?? '-')); ?></strong></div>
-                                        <?php if (!empty($ret['notes'])): ?>
-                                            <div style="font-size:0.75rem; color:#64748b; margin-top:2px;"><?php echo htmlspecialchars($ret['notes']); ?></div>
-                                        <?php endif; ?>
-                                        <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;"><?php echo date('d M Y H:i', strtotime((string)($ret['created_at'] ?? date('Y-m-d')))); ?></div>
-                                    </div>
-                                    <form method="POST" style="margin:0; flex-shrink:0;" onsubmit="return confirm('Hapus histori penerimaan ini?')">
-                                        <input type="hidden" name="action" value="delete_bisnis_return">
-                                        <input type="hidden" name="return_id" value="<?php echo (int)$ret['id']; ?>">
-                                        <button type="submit" class="btn btn-sm btn-danger" style="padding:2px 8px; font-size:0.72rem;">Hapus</button>
-                                    </form>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
-            <?php endif; ?>
         </div>
     </div>
+
+    <?php if (!empty($recentReturnFromBusiness)): ?>
+        <div class="card" style="margin-top:1rem;">
+            <h3 style="font-size:1rem; font-weight:700; margin-bottom:0.75rem; color:#7c3aed;">&#8617; Masuk dari Bisnis</h3>
+            <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap:0.65rem;">
+                <?php foreach ($recentReturnFromBusiness as $ret): ?>
+                    <div style="padding:0.65rem 0.85rem; border:1px solid #ede9fe; border-radius:0.75rem; background:#faf5ff;">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.5rem;">
+                            <div style="flex:1; min-width:0;">
+                                <div style="font-weight:700; font-size:0.875rem; color:#4c1d95;"><?php echo htmlspecialchars((string)($ret['item_name'] ?? '-')); ?></div>
+                                <div style="font-size:0.8rem; color:#7c3aed; font-weight:600;"><?php echo number_format((float)($ret['quantity'] ?? 0), 2); ?> <?php echo htmlspecialchars((string)($ret['unit'] ?? '')); ?></div>
+                                <div style="font-size:0.78rem; color:var(--text-muted);">dari <strong><?php echo htmlspecialchars((string)($ret['source_business_name'] ?? '-')); ?></strong></div>
+                                <?php if (!empty($ret['notes'])): ?>
+                                    <div style="font-size:0.75rem; color:#64748b; margin-top:2px;"><?php echo htmlspecialchars($ret['notes']); ?></div>
+                                <?php endif; ?>
+                                <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;"><?php echo date('d M Y H:i', strtotime((string)($ret['created_at'] ?? date('Y-m-d')))); ?></div>
+                            </div>
+                            <form method="POST" style="margin:0; flex-shrink:0;" onsubmit="return confirm('Hapus histori penerimaan ini?')">
+                                <input type="hidden" name="action" value="delete_bisnis_return">
+                                <input type="hidden" name="return_id" value="<?php echo (int)$ret['id']; ?>">
+                                <button type="submit" class="btn btn-sm btn-danger" style="padding:2px 8px; font-size:0.72rem;">Hapus</button>
+                            </form>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    <?php endif; ?>
 
     <script>
         if (typeof feather !== 'undefined') feather.replace();
