@@ -177,6 +177,72 @@ function gudangTagihanMatchBizSlug(string $businessName): ?string
     return null;
 }
 
+// Resolve each business' own company logo (from its own DB settings, config, or uploads/logos file) so
+// the billing cards show the real logo instead of a generic emoji.
+function gudangTagihanResolveBizLogoUrl(string $slug): ?string
+{
+    static $cache = [];
+    if (array_key_exists($slug, $cache)) {
+        return $cache[$slug];
+    }
+    $cache[$slug] = null;
+
+    $cfgPath = __DIR__ . '/../../config/businesses/' . $slug . '.php';
+    if (!file_exists($cfgPath)) {
+        return null;
+    }
+    $cfg = require $cfgPath;
+    $dbName = (string)($cfg['database'] ?? '');
+    if ($dbName === '') {
+        return null;
+    }
+
+    $originDb = Database::getCurrentDatabase();
+    try {
+        $bizDb = ($dbName !== $originDb) ? Database::switchDatabase($dbName) : Database::getInstance();
+
+        $val = null;
+        $row = $bizDb->fetchOne("SELECT setting_value FROM settings WHERE setting_key = ? LIMIT 1", ['company_logo_' . $slug]);
+        $val = $row['setting_value'] ?? null;
+        if (!$val) {
+            $row = $bizDb->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'company_logo' LIMIT 1");
+            $val = $row['setting_value'] ?? null;
+        }
+        if (!$val && !empty($cfg['logo'])) {
+            $val = $cfg['logo'];
+        }
+
+        if ($val) {
+            if (strpos($val, 'http') === 0) {
+                $cache[$slug] = $val;
+            } else {
+                $logoPath = __DIR__ . '/../../uploads/logos/' . $val;
+                if (file_exists($logoPath)) {
+                    $cache[$slug] = BASE_URL . '/uploads/logos/' . $val . '?v=' . filemtime($logoPath);
+                }
+            }
+        }
+
+        if ($cache[$slug] === null) {
+            foreach (['png', 'jpg', 'jpeg', 'gif'] as $ext) {
+                $defaultLogo = __DIR__ . '/../../uploads/logos/' . $slug . '_logo.' . $ext;
+                if (file_exists($defaultLogo)) {
+                    $cache[$slug] = BASE_URL . '/uploads/logos/' . $slug . '_logo.' . $ext . '?v=' . filemtime($defaultLogo);
+                    break;
+                }
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('gudang-tagihan biz logo [' . $slug . ']: ' . $e->getMessage());
+    } finally {
+        if ($dbName !== '' && $dbName !== $originDb) {
+            Database::switchDatabase($originDb);
+        }
+    }
+
+    return $cache[$slug];
+}
+
 // ── Rekap Tagihan Bulanan per Bisnis (transfer bulan berjalan + share TKBM) ──────
 $selectedMonth = trim((string)($_GET['bulan'] ?? date('Y-m')));
 if (!preg_match('/^\d{4}-\d{2}$/', $selectedMonth)) {
@@ -198,6 +264,7 @@ try {
 $tkbmShareThisMonth = $tkbmMonthTotal / count($gudangMonthlyBizList);
 
 $monthlyTransferBySlug = [];
+$monthlyTransferRowsBySlug = [];
 try {
     $gudangCfgPath2 = __DIR__ . '/../../config/businesses/gudang-nasita.php';
     $gudangDbName2  = '';
@@ -222,6 +289,19 @@ try {
         [$monthStart . ' 00:00:00', $monthEnd . ' 23:59:59']
     ) ?: [];
 
+    // Per-transfer breakdown for the month, used to build the click-to-view billing detail / print invoice.
+    $monthTransferDetailRows = $gudangDb2->fetchAll(
+        "SELECT gt.transfer_number, gt.target_business_name, gt.status, gt.created_at,
+                COALESCE(SUM(gti.quantity), 0) AS total_qty,
+                COALESCE(SUM(COALESCE(gti.subtotal, gti.quantity * COALESCE(gti.unit_price, 0))), 0) AS total_nilai
+         FROM gudang_nasita_transfers gt
+         LEFT JOIN gudang_nasita_transfer_items gti ON gti.transfer_id = gt.id
+         WHERE gt.status NOT IN ('cancelled') AND gt.created_at BETWEEN ? AND ?
+         GROUP BY gt.id
+         ORDER BY gt.target_business_name ASC, gt.created_at DESC",
+        [$monthStart . ' 00:00:00', $monthEnd . ' 23:59:59']
+    ) ?: [];
+
     if ($gudangDbName2 && $gudangDbName2 !== $originDb2) {
         Database::switchDatabase($originDb2);
     }
@@ -232,6 +312,14 @@ try {
             continue;
         }
         $monthlyTransferBySlug[$slug] = $mr;
+    }
+
+    foreach ($monthTransferDetailRows as $tr) {
+        $slug = gudangTagihanMatchBizSlug((string)($tr['target_business_name'] ?? ''));
+        if ($slug === null) {
+            continue;
+        }
+        $monthlyTransferRowsBySlug[$slug][] = $tr;
     }
 } catch (Throwable $e) {
     error_log('gudang-tagihan monthly transfer per biz: ' . $e->getMessage());
@@ -244,14 +332,30 @@ foreach ($gudangMonthlyBizList as $bizInfo) {
     $transferNilai = (float)($mr['total_nilai'] ?? 0);
     $total = $transferNilai + $tkbmShareThisMonth;
     $monthlyRecapGrandTotal += $total;
+
+    $bizTransferRows = $monthlyTransferRowsBySlug[$bizInfo['slug']] ?? [];
+    $detailRows = array_map(function ($tr) {
+        return [
+            (string)($tr['transfer_number'] ?? '-'),
+            $tr['created_at'] ? date('d M Y', strtotime((string)$tr['created_at'])) : '-',
+            number_format((float)($tr['total_qty'] ?? 0), 2),
+            'Rp ' . number_format((float)($tr['total_nilai'] ?? 0), 0, ',', '.'),
+            strtoupper((string)($tr['status'] ?? '-')),
+        ];
+    }, $bizTransferRows);
+    $detailRows[] = ['— Share TKBM —', '-', '-', 'Rp ' . number_format($tkbmShareThisMonth, 0, ',', '.'), 'TKBM'];
+
     $monthlyRecap[] = [
+        'slug'            => $bizInfo['slug'],
         'icon'            => $bizInfo['icon'],
         'name'            => $bizInfo['name'],
+        'logo_url'        => gudangTagihanResolveBizLogoUrl($bizInfo['slug']),
         'transfer_count'  => (int)($mr['transfer_count'] ?? 0),
         'transfer_qty'    => (float)($mr['total_qty'] ?? 0),
         'transfer_nilai'  => $transferNilai,
         'tkbm_share'      => $tkbmShareThisMonth,
         'total'           => $total,
+        'detail_rows'     => $detailRows,
     ];
 }
 
@@ -369,15 +473,20 @@ $statusColors = [
                         $bizName = $biz['target_business_name'] ?? '-';
                         $bizSlugMatch = gudangTagihanMatchBizSlug($bizName);
                         $bizIcon = $gudangBizIcons[$bizSlugMatch] ?? '🏢';
+                        $bizLogoUrl = $bizSlugMatch ? gudangTagihanResolveBizLogoUrl($bizSlugMatch) : null;
                         $nilai = (float)$biz['total_nilai'];
                         $totalBizAll += $nilai;
                         $transfers = $detailByBiz[$bizName] ?? [];
                     ?>
-                        <div style="border:1px solid var(--border); border-radius:0.75rem; overflow:hidden;">
+                        <div style="border:1px solid #e2e8f0; border-radius:0.75rem; overflow:hidden;">
                             <div style="display:flex; justify-content:space-between; align-items:center; padding:0.7rem 1rem; background:#f8fafc; cursor:pointer;"
                                 onclick="toggleBizDetail('biz-<?php echo htmlspecialchars(preg_replace('/[^a-z0-9]/i', '_', $bizName)); ?>')">
                                 <div style="display:flex; align-items:center; gap:0.6rem;">
-                                    <span style="font-size:1.3rem;"><?php echo $bizIcon; ?></span>
+                                    <?php if ($bizLogoUrl): ?>
+                                        <img src="<?php echo htmlspecialchars($bizLogoUrl); ?>" alt="" style="width:28px; height:28px; object-fit:contain; border-radius:4px;">
+                                    <?php else: ?>
+                                        <span style="font-size:1.3rem;"><?php echo $bizIcon; ?></span>
+                                    <?php endif; ?>
                                     <div>
                                         <div style="font-weight:700; font-size:0.9rem;"><?php echo htmlspecialchars($bizName); ?></div>
                                         <div style="font-size:0.75rem; color:var(--text-muted);"><?php echo (int)$biz['transfer_count']; ?> transfer &mdash; <?php echo number_format((float)$biz['total_qty'], 2); ?> qty total</div>
@@ -450,11 +559,25 @@ $statusColors = [
         </form>
     </div>
 
-    <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:1rem;">
-        <?php foreach ($monthlyRecap as $mrec): ?>
-            <div style="border:1px solid var(--border); border-radius:0.75rem; padding:1rem;">
+    <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:0; border:1px solid #e2e8f0; border-radius:0.75rem; overflow:hidden;">
+        <?php foreach ($monthlyRecap as $i => $mrec):
+            $mrDetail = [
+                'title'    => $mrec['name'],
+                'subtitle' => 'Periode ' . date('F Y', strtotime($monthStart)),
+                'logo_url' => $mrec['logo_url'],
+                'columns'  => [['label' => 'No Transfer'], ['label' => 'Tanggal'], ['label' => 'Qty', 'right' => true], ['label' => 'Nilai', 'right' => true], ['label' => 'Status']],
+                'rows'     => $mrec['detail_rows'],
+                'total'    => 'Rp ' . number_format($mrec['total'], 0, ',', '.'),
+            ];
+        ?>
+            <div class="gt-monthly-card" style="padding:1rem; cursor:pointer; <?php echo $i > 0 ? 'border-left:1px solid #e2e8f0;' : ''; ?>"
+                data-detail="<?php echo htmlspecialchars(json_encode($mrDetail), ENT_QUOTES); ?>" onclick="openTagihanBulananDetail(this)">
                 <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.75rem;">
-                    <span style="font-size:1.6rem;"><?php echo $mrec['icon']; ?></span>
+                    <?php if ($mrec['logo_url']): ?>
+                        <img src="<?php echo htmlspecialchars($mrec['logo_url']); ?>" alt="" style="width:32px; height:32px; object-fit:contain; border-radius:4px;">
+                    <?php else: ?>
+                        <span style="font-size:1.6rem;"><?php echo $mrec['icon']; ?></span>
+                    <?php endif; ?>
                     <div style="font-weight:700; font-size:0.95rem;"><?php echo htmlspecialchars($mrec['name']); ?></div>
                 </div>
                 <div style="font-size:0.78rem; color:var(--text-muted); display:flex; justify-content:space-between; margin-bottom:0.3rem;">
@@ -465,10 +588,11 @@ $statusColors = [
                     <span>Share TKBM bulan ini</span>
                     <span style="font-weight:600; color:var(--text-primary);">Rp&nbsp;<?php echo number_format($mrec['tkbm_share'], 0, ',', '.'); ?></span>
                 </div>
-                <div style="border-top:1px dashed var(--border); padding-top:0.6rem; display:flex; justify-content:space-between; align-items:center;">
+                <div style="border-top:1px dashed #e2e8f0; padding-top:0.6rem; display:flex; justify-content:space-between; align-items:center;">
                     <span style="font-size:0.82rem; font-weight:700;">Total Tagihan Bulan Ini</span>
                     <span style="font-size:1.05rem; font-weight:800; color:#0f9d6a;">Rp&nbsp;<?php echo number_format($mrec['total'], 0, ',', '.'); ?></span>
                 </div>
+                <div style="margin-top:0.5rem; font-size:0.7rem; color:#94a3b8; text-align:center;">Klik untuk lihat detail &amp; cetak tagihan</div>
             </div>
         <?php endforeach; ?>
     </div>
@@ -563,5 +687,127 @@ $statusColors = [
         </table>
     </div>
 </div>
+
+<!-- Detail tagihan bulanan / cetak tagihan modal -->
+<div id="tagihanBulananModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(15,23,42,0.55); z-index:9999; align-items:center; justify-content:center;">
+    <div style="background:#fff; border-radius:0.9rem; width:92%; max-width:640px; max-height:82vh; overflow-y:auto; box-shadow:0 20px 50px rgba(0,0,0,0.25);">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:1rem 1.25rem; border-bottom:1px solid #e2e8f0;">
+            <div style="display:flex; align-items:center; gap:0.6rem;">
+                <img id="tbmLogo" src="" alt="" style="width:34px; height:34px; object-fit:contain; border-radius:4px; display:none;">
+                <div>
+                    <div style="font-weight:800; font-size:1rem;" id="tbmTitle">-</div>
+                    <div style="font-size:0.8rem; color:var(--text-muted);" id="tbmSubtitle">-</div>
+                </div>
+            </div>
+            <button type="button" onclick="closeTagihanBulananDetail()" style="background:none; border:none; font-size:1.3rem; line-height:1; cursor:pointer; color:#64748b;">&times;</button>
+        </div>
+        <div style="padding:1rem 1.25rem;">
+            <table class="table" style="width:100%; font-size:0.83rem;">
+                <thead id="tbmThead"></thead>
+                <tbody id="tbmBody"></tbody>
+            </table>
+            <div style="margin-top:0.75rem; padding-top:0.75rem; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-weight:700;">Total Tagihan</span>
+                <span style="font-weight:800; color:#0f9d6a; font-size:1.05rem;" id="tbmTotal">-</span>
+            </div>
+        </div>
+        <div style="padding:0.85rem 1.25rem; border-top:1px solid #e2e8f0; text-align:right;">
+            <button type="button" class="btn btn-primary" onclick="printTagihanBulanan()">🖨️ Cetak Tagihan</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let tbmCurrentDetail = null;
+
+    function tbmEscapeHtml(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        }[c]));
+    }
+
+    function openTagihanBulananDetail(cardEl) {
+        let detail;
+        try {
+            detail = JSON.parse(cardEl.getAttribute('data-detail') || '{}');
+        } catch (e) {
+            detail = {};
+        }
+        tbmCurrentDetail = detail;
+
+        document.getElementById('tbmTitle').textContent = detail.title || '-';
+        document.getElementById('tbmSubtitle').textContent = detail.subtitle || '';
+
+        const logoEl = document.getElementById('tbmLogo');
+        if (detail.logo_url) {
+            logoEl.src = detail.logo_url;
+            logoEl.style.display = 'inline-block';
+        } else {
+            logoEl.style.display = 'none';
+        }
+
+        const cols = detail.columns || [];
+        document.getElementById('tbmThead').innerHTML = '<tr>' + cols.map(c => '<th' + (c.right ? ' class="text-right"' : '') + '>' + tbmEscapeHtml(c.label || '') + '</th>').join('') + '</tr>';
+
+        const rows = detail.rows || [];
+        const tbody = document.getElementById('tbmBody');
+        tbody.innerHTML = !rows.length
+            ? '<tr><td colspan="' + (cols.length || 1) + '" style="text-align:center; color:var(--text-muted); padding:1rem;">Tidak ada transfer bulan ini.</td></tr>'
+            : rows.map(r => '<tr>' + r.map((v, i) => '<td' + (cols[i] && cols[i].right ? ' class="text-right"' : '') + '>' + tbmEscapeHtml(v) + '</td>').join('') + '</tr>').join('');
+
+        document.getElementById('tbmTotal').textContent = detail.total || '-';
+        document.getElementById('tagihanBulananModal').style.display = 'flex';
+    }
+
+    function closeTagihanBulananDetail() {
+        document.getElementById('tagihanBulananModal').style.display = 'none';
+    }
+
+    function printTagihanBulanan() {
+        const detail = tbmCurrentDetail;
+        if (!detail) return;
+
+        const cols = detail.columns || [];
+        const rows = detail.rows || [];
+        const rowsHtml = rows.map(r => '<tr>' + r.map((v, i) => '<td style="' + (cols[i] && cols[i].right ? 'text-align:right;' : '') + 'padding:6px 10px; border-bottom:1px solid #e2e8f0;">' + tbmEscapeHtml(v) + '</td>').join('') + '</tr>').join('');
+        const theadHtml = '<tr>' + cols.map(c => '<th style="' + (c.right ? 'text-align:right;' : 'text-align:left;') + 'padding:6px 10px; border-bottom:2px solid #0f172a;">' + tbmEscapeHtml(c.label || '') + '</th>').join('') + '</tr>';
+        const logoHtml = detail.logo_url ? '<img src="' + detail.logo_url + '" alt="" style="width:48px;height:48px;object-fit:contain;border-radius:4px;margin-bottom:8px;">' : '';
+
+        const win = window.open('', '_blank', 'width=800,height=900');
+        win.document.write(`
+            <html>
+            <head>
+                <title>Tagihan - ${tbmEscapeHtml(detail.title || '')}</title>
+                <style>
+                    body { font-family: Arial, sans-serif; padding: 24px; color: #0f172a; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+                    .header { border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 12px; }
+                    .total-row { display:flex; justify-content:space-between; margin-top:14px; padding-top:10px; border-top:2px solid #0f172a; font-weight:bold; font-size:1.1rem; }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    ${logoHtml}
+                    <h2 style="margin:0;">Tagihan Gudang Nasita</h2>
+                    <div>${tbmEscapeHtml(detail.title || '')} &mdash; ${tbmEscapeHtml(detail.subtitle || '')}</div>
+                </div>
+                <table>
+                    <thead>${theadHtml}</thead>
+                    <tbody>${rowsHtml}</tbody>
+                </table>
+                <div class="total-row"><span>Total Tagihan</span><span>${tbmEscapeHtml(detail.total || '-')}</span></div>
+                <p style="margin-top:24px; font-size:0.8rem; color:#64748b;">Dicetak pada ${new Date().toLocaleString('id-ID')}</p>
+            </body>
+            </html>
+        `);
+        win.document.close();
+        win.focus();
+        win.print();
+    }
+</script>
 
 <?php include '../../includes/footer.php'; ?>
