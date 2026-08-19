@@ -131,11 +131,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $menuCodes[$row['id']] = $row['menu_code'];
                 }
 
-                // Add new permissions with menu_code
-                $permStmt = $pdo->prepare("INSERT INTO user_menu_permissions (user_id, business_id, menu_id, menu_code, can_view, can_create, can_edit, can_delete) VALUES (?, ?, ?, ?, 1, 1, 1, 1)");
-                foreach ($selectedMenus as $menuId) {
+                // Add new permissions with menu_code. Insert a row for EVERY business menu (not
+                // just checked ones) so an unchecked menu is an explicit deny (can_view=0) rather
+                // than "no row" - which hasPermission() treats as "never configured" = full access.
+                $allBizMenuStmt = $pdo->prepare("
+                    SELECT m.id FROM menu_items m
+                    JOIN business_menu_config bmc ON m.id = bmc.menu_id
+                    WHERE bmc.business_id = ? AND bmc.is_enabled = 1 AND m.is_active = 1
+                ");
+                $allBizMenuStmt->execute([$assignBusinessId]);
+                $allBizMenuIds = $allBizMenuStmt->fetchAll(PDO::FETCH_COLUMN);
+
+                $permStmt = $pdo->prepare("INSERT INTO user_menu_permissions (user_id, business_id, menu_id, menu_code, can_view, can_create, can_edit, can_delete) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                foreach ($allBizMenuIds as $menuId) {
                     $menuCode = $menuCodes[$menuId] ?? '';
-                    $permStmt->execute([$assignUserId, $assignBusinessId, $menuId, $menuCode]);
+                    $isSelected = in_array($menuId, $selectedMenus, true) || in_array((string)$menuId, $selectedMenus, true);
+                    $perm = $isSelected ? 1 : 0;
+                    $permStmt->execute([$assignUserId, $assignBusinessId, $menuId, $menuCode, $perm, $perm, $perm, $perm]);
                 }
 
                 $pdo->commit();
@@ -182,16 +194,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $menuCodes[$row['id']] = $row['menu_code'];
                 }
 
-                foreach ($permissions as $menuId => $perms) {
+                // Iterate over ALL menus enabled for this business (not just $_POST['permissions']
+                // keys) - a fully-unchecked checkbox row never appears in $_POST at all, so relying
+                // on $_POST alone would skip inserting a row for menus the developer explicitly
+                // wants to deny, leaving 0 rows saved = indistinguishable from "never configured"
+                // (which hasPermission() treats as full access for backward compatibility).
+                $bizMenuStmt = $pdo->prepare("
+                    SELECT m.id FROM menu_items m
+                    JOIN business_menu_config bmc ON m.id = bmc.menu_id
+                    WHERE bmc.business_id = ? AND bmc.is_enabled = 1 AND m.is_active = 1
+                ");
+                $bizMenuStmt->execute([$permBusinessId]);
+                $bizMenuIds = $bizMenuStmt->fetchAll(PDO::FETCH_COLUMN);
+
+                foreach ($bizMenuIds as $menuId) {
+                    $perms = $permissions[$menuId] ?? [];
                     $canView = isset($perms['view']) ? 1 : 0;
                     $canCreate = isset($perms['create']) ? 1 : 0;
                     $canEdit = isset($perms['edit']) ? 1 : 0;
                     $canDelete = isset($perms['delete']) ? 1 : 0;
                     $menuCode = $menuCodes[$menuId] ?? '';
 
-                    if ($canView || $canCreate || $canEdit || $canDelete) {
-                        $permStmt->execute([$permUserId, $permBusinessId, $menuId, $menuCode, $canView, $canCreate, $canEdit, $canDelete]);
-                    }
+                    $permStmt->execute([$permUserId, $permBusinessId, $menuId, $menuCode, $canView, $canCreate, $canEdit, $canDelete]);
                 }
 
                 $pdo->commit();
