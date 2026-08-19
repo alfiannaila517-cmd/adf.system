@@ -1196,18 +1196,19 @@ include '../../includes/header.php';
     }
 
     #stockTable thead th {
-        font-size: 0.875rem !important;
+        font-size: 0.82rem !important;
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        font-weight: 700;
-        color: #1e3a8a;
-        background: linear-gradient(180deg, #eff6ff 0%, #e0ecff 100%);
-        border-bottom: 2px solid #bfdbfe;
-        padding-top: 0.65rem;
-        padding-bottom: 0.65rem;
+        font-weight: 800;
+        color: #ffffff;
+        background: linear-gradient(180deg, #1e3a8a 0%, #1e2f6b 100%);
+        border-bottom: 2px solid #172554;
+        padding-top: 0.7rem;
+        padding-bottom: 0.7rem;
+        white-space: nowrap;
         position: sticky;
         top: 0;
-        z-index: 1;
+        z-index: 5;
     }
 
     #stockTable tbody td {
@@ -1448,18 +1449,18 @@ include '../../includes/header.php';
                             <col style="width:105px;">
                             <col style="width:90px;">
                             <col style="width:150px;">
-                            <col style="width:65px;">
+                            <col style="width:115px;">
                             <col style="width:95px;">
                             <col style="width:75px;">
                             <col style="width:55px;">
-                            <col style="width:95px;">
+                            <col style="width:85px;">
                             <col style="width:65px;">
                         </colgroup>
                         <tr>
                             <th>Kode</th>
                             <th>Kategori</th>
                             <th>Item</th>
-                            <th class="text-right">Qty</th>
+                            <th class="text-right">Stock Tersedia</th>
                             <th class="text-right">Harga/pcs</th>
                             <th class="text-right">Nilai</th>
                             <th>Unit</th>
