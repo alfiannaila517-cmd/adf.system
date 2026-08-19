@@ -1196,16 +1196,15 @@ include '../../includes/header.php';
     }
 
     #stockTable thead th {
-        font-size: 0.82rem !important;
+        font-size: 0.78rem !important;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
+        letter-spacing: 0.04em;
         font-weight: 800;
         color: #ffffff;
         background: linear-gradient(180deg, #1e3a8a 0%, #1e2f6b 100%);
         border-bottom: 2px solid #172554;
-        padding-top: 0.7rem;
-        padding-bottom: 0.7rem;
-        white-space: nowrap;
+        padding: 0.7rem 0.4rem;
+        line-height: 1.2;
         position: sticky;
         top: 0;
         z-index: 5;
@@ -1446,15 +1445,15 @@ include '../../includes/header.php';
                 <table class="table" id="stockTable" style="table-layout:fixed; width:100%;">
                     <thead>
                         <colgroup>
-                            <col style="width:105px;">
-                            <col style="width:90px;">
-                            <col style="width:150px;">
-                            <col style="width:115px;">
                             <col style="width:95px;">
-                            <col style="width:75px;">
-                            <col style="width:55px;">
-                            <col style="width:85px;">
-                            <col style="width:65px;">
+                            <col style="width:80px;">
+                            <col style="width:115px;">
+                            <col style="width:90px;">
+                            <col style="width:90px;">
+                            <col style="width:70px;">
+                            <col style="width:50px;">
+                            <col style="width:80px;">
+                            <col style="width:70px;">
                         </colgroup>
                         <tr>
                             <th>Kode</th>
