@@ -1240,6 +1240,21 @@ include '../../includes/header.php';
     .gudang-side-card>.card-body {
         padding: 0.9rem 0.95rem !important;
     }
+
+    #stockTable thead th {
+        font-size: 0.72rem !important;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 700;
+        color: #1e3a8a;
+        background: linear-gradient(180deg, #eff6ff 0%, #e0ecff 100%);
+        border-bottom: 2px solid #bfdbfe;
+        padding-top: 0.65rem;
+        padding-bottom: 0.65rem;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
 </style>
 
 <div class="gudang-shell">
@@ -1392,8 +1407,8 @@ include '../../includes/header.php';
         <div class="card" style="display:flex; flex-direction:column; height:calc(100vh - 170px); min-height:640px; overflow:hidden;">
             <div class="gudang-toolbar" style="margin-bottom:1rem;">
                 <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; margin-bottom:0.85rem; padding-bottom:0.75rem; border-bottom:1px solid rgba(148, 163, 184, 0.28);">
-                    <h3 style="font-size:1.05rem; font-weight:800; margin:0; color:#1e3a8a; display:flex; align-items:center; gap:0.5rem; letter-spacing:0.01em;">
-                        <i data-feather="box" style="width:17px; height:17px; color:#1e3a8a;"></i>
+                    <h3 style="font-size:1.45rem; font-weight:800; margin:0; color:#1e3a8a; display:flex; align-items:center; gap:0.55rem; letter-spacing:0.01em;">
+                        <i data-feather="box" style="width:22px; height:22px; color:#1e3a8a;"></i>
                         Stok Gudang
                     </h3>
                     <form method="GET" id="stockFilterForm" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center; margin:0;">
@@ -1818,10 +1833,17 @@ include '../../includes/header.php';
                 });
             });
 
-            // Search input handler
+            // Search input handler: instant visual filter + debounced reload so the
+            // server-side stripos search (authoritative) always confirms the result
             if (inp) {
+                let searchDebounce = null;
                 inp.addEventListener('input', function() {
                     filterRows();
+                    clearTimeout(searchDebounce);
+                    searchDebounce = setTimeout(function() {
+                        const form = document.getElementById('stockFilterForm');
+                        if (form) form.submit();
+                    }, 700);
                 });
             }
 
