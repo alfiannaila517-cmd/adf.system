@@ -51,6 +51,29 @@ if (isset($_GET['debug_price'])) {
             echo "Backfill THREW: " . $e->getMessage() . "\n";
         }
     }
+    if (isset($_GET['raw_update_test'])) {
+        echo "\n--- RAW UPDATE TEST on item_id=319 (Amer, stock_id=30) ---\n";
+        try {
+            $pdoDbg = $gudangDbDbg->getConnection();
+            $selDbg = $pdoDbg->prepare("SELECT COALESCE(NULLIF(gs.harga_beli,0), gb.harga_beli, 0) AS resolved_price FROM gudang_nasita_stock gs LEFT JOIN gudang_nasita_barang gb ON gb.id = gs.barang_id WHERE gs.id = ? LIMIT 1");
+            $selDbg->execute([30]);
+            $rowDbg = $selDbg->fetch(PDO::FETCH_ASSOC);
+            echo "resolved_price for stock_id=30: " . var_export($rowDbg['resolved_price'] ?? null, true) . "\n";
+
+            $updDbg = $pdoDbg->prepare("UPDATE gudang_nasita_transfer_items SET unit_price = ?, subtotal = ? WHERE id = ?");
+            $updOk = $updDbg->execute([100000, 500000, 319]);
+            echo "raw update execute() returned: " . var_export($updOk, true) . "\n";
+            echo "rowCount: " . $updDbg->rowCount() . "\n";
+            $errInfo = $updDbg->errorInfo();
+            echo "errorInfo: " . json_encode($errInfo) . "\n";
+
+            $recheck = $pdoDbg->prepare("SELECT id, unit_price, subtotal FROM gudang_nasita_transfer_items WHERE id = 319");
+            $recheck->execute();
+            echo "after update, row: " . json_encode($recheck->fetch(PDO::FETCH_ASSOC)) . "\n";
+        } catch (Throwable $e) {
+            echo "RAW UPDATE TEST THREW: " . $e->getMessage() . "\n";
+        }
+    }
     echo "\n";
 
     $itemsDbg = $gudangDbDbg->fetchAll('SELECT * FROM gudang_nasita_transfer_items WHERE transfer_id = ? ORDER BY id ASC', [$transferDbg['id']]);
