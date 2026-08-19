@@ -2396,3 +2396,108 @@ function getPurchases($filters = [], $limit = 100, $offset = 0)
 
     return $db->fetchAll($query, $params);
 }
+
+function gudangResolveBusinessDbName(string $dbName): string
+{
+    $isProduction = (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') === false &&
+        strpos($_SERVER['HTTP_HOST'] ?? '', '127.0.0.1') === false);
+
+    if (!$isProduction) {
+        return $dbName;
+    }
+
+    $dbMapping = [
+        'adf_system' => 'adfb2574_adf',
+        'adf_narayana_hotel' => 'adfb2574_narayana_hotel',
+        'adf_benscafe' => 'adfb2574_Adf_Bens',
+        'adf_eat_meet' => 'adfb2574_eat_meet',
+        'adf_demo' => 'adfb2574_demo',
+        'adf_cqc' => 'adfb2574_cqc',
+    ];
+
+    if (isset($dbMapping[$dbName])) {
+        return $dbMapping[$dbName];
+    }
+
+    if (strpos($dbName, 'adf_') === 0) {
+        $hostingPrefix = 'adfb2574_';
+        if (defined('DB_USER')) {
+            $parts = explode('_', DB_USER);
+            if (count($parts) >= 2) {
+                $hostingPrefix = $parts[0] . '_';
+            }
+        }
+        return $hostingPrefix . substr($dbName, 4);
+    }
+
+    return $dbName;
+}
+
+function gudangFetchPendingPoFromBusinessDb(string $dbName): array
+{
+    $resolvedDbName = gudangResolveBusinessDbName($dbName);
+    $pdo = new PDO(
+        'mysql:host=' . DB_HOST . ';dbname=' . $resolvedDbName . ';charset=utf8mb4',
+        DB_USER,
+        DB_PASS,
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+    );
+
+    $stmt = $pdo->query("
+        SELECT poh.id, poh.po_number, poh.po_date, poh.status,
+               poh.business_id AS source_business_id,
+               COUNT(pod.id) AS items_count,
+               poh.created_at
+        FROM purchase_orders_header poh
+        LEFT JOIN purchase_orders_detail pod ON pod.po_header_id = poh.id
+        WHERE poh.status IN ('submitted', 'approved', 'partially_received')
+        GROUP BY poh.id
+        ORDER BY poh.created_at DESC
+        LIMIT 20
+    ");
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+}
+
+/**
+ * Cross-database lookup of PO requests raised by businesses that Gudang Nasita still needs to process.
+ * Shared by gudang-nasita.php and the Gudang dashboard so the "PO Masuk" bell/count stays in sync.
+ */
+function getGudangNasitaPendingBusinessPo(): array
+{
+    $targetBusinessConfigs = ['narayana-hotel', 'bens-cafe', 'eaat-meet', 'eat-meet'];
+    $pendingReceipts = [];
+
+    foreach ($targetBusinessConfigs as $bizSlug) {
+        $cfgPath = __DIR__ . '/../config/businesses/' . $bizSlug . '.php';
+        if (!file_exists($cfgPath)) {
+            continue;
+        }
+
+        $bizCfg = require $cfgPath;
+        $bizDbName = (string)($bizCfg['database'] ?? '');
+        if ($bizDbName === '') {
+            continue;
+        }
+
+        try {
+            $rows = gudangFetchPendingPoFromBusinessDb($bizDbName);
+
+            foreach ($rows as $row) {
+                $row['source_business_name'] = (string)($bizCfg['name'] ?? $bizSlug);
+                $row['source_business_slug'] = $bizSlug;
+                $pendingReceipts[] = $row;
+            }
+        } catch (Throwable $e) {
+            error_log('Gudang pending PO cross-db error [' . $bizSlug . ']: ' . $e->getMessage());
+        }
+    }
+
+    usort($pendingReceipts, function ($a, $b) {
+        $ta = strtotime((string)($a['created_at'] ?? '')) ?: 0;
+        $tb = strtotime((string)($b['created_at'] ?? '')) ?: 0;
+        return $tb <=> $ta;
+    });
+
+    return array_slice($pendingReceipts, 0, 12);
+}
