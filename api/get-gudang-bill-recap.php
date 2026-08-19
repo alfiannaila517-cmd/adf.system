@@ -13,7 +13,7 @@ $auth = new Auth();
 $auth->requireLogin();
 
 $slug = (string)($_SESSION['active_business_id'] ?? '');
-$allowedSlugs = ['bens-cafe', 'eaat-meet'];
+$allowedSlugs = ['bens-cafe', 'eaat-meet', 'narayana-hotel'];
 if (!in_array($slug, $allowedSlugs, true)) {
     echo json_encode(['success' => false, 'message' => 'Tagihan Gudang tidak tersedia untuk bisnis ini']);
     exit;
@@ -31,6 +31,9 @@ $monthEnd = date('Y-m-t', strtotime($monthStart));
 function gudangBillNameMatchesSlug(string $businessName, string $slug): bool
 {
     $norm = preg_replace('/[^a-z0-9]/', '', strtolower($businessName));
+    if ($slug === 'narayana-hotel') {
+        return strpos($norm, 'narayana') !== false || strpos($norm, 'hotel') !== false;
+    }
     if ($slug === 'bens-cafe') {
         return strpos($norm, 'bens') !== false || strpos($norm, 'cafe') !== false;
     }

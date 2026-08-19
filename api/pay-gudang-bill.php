@@ -20,7 +20,7 @@ $auth = new Auth();
 $auth->requireLogin();
 
 $slug = (string)($_SESSION['active_business_id'] ?? '');
-$allowedSlugs = ['bens-cafe', 'eaat-meet'];
+$allowedSlugs = ['bens-cafe', 'eaat-meet', 'narayana-hotel'];
 if (!in_array($slug, $allowedSlugs, true)) {
     echo json_encode(['success' => false, 'message' => 'Tagihan Gudang tidak tersedia untuk bisnis ini']);
     exit;

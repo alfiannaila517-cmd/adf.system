@@ -21,7 +21,9 @@ $themeColor = $bizConfig['theme']['color_primary'] ?? '#0d1f3c';
 $themeSecondary = $bizConfig['theme']['color_secondary'] ?? '#1e3a5c';
 
 // Gudang Nasita monthly bill tab is only relevant for businesses that receive stock transfers from Gudang Nasita
-$showGudangBillTab = in_array($bizConfig['business_id'] ?? '', ['bens-cafe', 'eaat-meet'], true);
+$showGudangBillTab = in_array($bizConfig['business_id'] ?? '', ['bens-cafe', 'eaat-meet', 'narayana-hotel'], true);
+// Bens Cafe / Eat & Meet have no car rental division, so Driver/Motor/Trip tabs don't apply to them
+$hideDriverTabs = in_array($bizConfig['business_id'] ?? '', ['bens-cafe', 'eaat-meet'], true);
 
 // Cash accounts for the "Bayar" (pay driver trip) modal - same source used by modules/cashbook/add.php
 $cashAccounts = [];
@@ -1070,14 +1072,14 @@ include '../../includes/header.php';
             </div>
         </div>
         <div class="page-header-badges">
-            <?php if (!$showGudangBillTab): ?>
-            <span class="ph-badge">🚕 Driver</span>
-            <span class="ph-badge">🧭 Trip</span>
+            <?php if (!$hideDriverTabs): ?>
+                <span class="ph-badge">🚕 Driver</span>
+                <span class="ph-badge">🧭 Trip</span>
             <?php endif; ?>
             <span class="ph-badge">🧾 Manual</span>
             <span class="ph-badge">🔁 Bulanan</span>
             <?php if ($showGudangBillTab): ?>
-            <span class="ph-badge">📦 Gudang</span>
+                <span class="ph-badge">📦 Gudang</span>
             <?php endif; ?>
         </div>
     </div>
@@ -1104,15 +1106,15 @@ include '../../includes/header.php';
             </div>
 
             <div class="category-tabs">
-                <?php if (!$showGudangBillTab): ?>
-                <button class="category-btn active" data-cat="driver" onclick="switchCategory('driver')"><span class="ico">🚕</span> Driver</button>
-                <button class="category-btn" data-cat="motor" onclick="switchCategory('motor')"><span class="ico">🏍️</span> Motor</button>
-                <button class="category-btn" data-cat="trip" onclick="switchCategory('trip')"><span class="ico">🧭</span> Trip</button>
+                <?php if (!$hideDriverTabs): ?>
+                    <button class="category-btn active" data-cat="driver" onclick="switchCategory('driver')"><span class="ico">🚕</span> Driver</button>
+                    <button class="category-btn" data-cat="motor" onclick="switchCategory('motor')"><span class="ico">🏍️</span> Motor</button>
+                    <button class="category-btn" data-cat="trip" onclick="switchCategory('trip')"><span class="ico">🧭</span> Trip</button>
                 <?php endif; ?>
                 <button class="category-btn" data-cat="manual" onclick="switchCategory('manual')"><span class="ico">🧾</span> Manual</button>
                 <button class="category-btn" data-cat="bulanan" onclick="switchCategory('bulanan')"><span class="ico">🔁</span> Bulanan</button>
                 <?php if ($showGudangBillTab): ?>
-                <button class="category-btn active" data-cat="gudang" onclick="switchCategory('gudang')"><span class="ico">📦</span> Gudang</button>
+                    <button class="category-btn <?php echo $hideDriverTabs ? 'active' : ''; ?>" data-cat="gudang" onclick="switchCategory('gudang')"><span class="ico">📦</span> Gudang</button>
                 <?php endif; ?>
             </div>
 
@@ -1138,9 +1140,9 @@ include '../../includes/header.php';
             </div>
 
             <?php if ($showGudangBillTab): ?>
-            <div id="gudangRecapSection" class="bill-list" style="display:none;">
-                <p style="color: #999; text-align: center; padding: 40px 20px;">Loading...</p>
-            </div>
+                <div id="gudangRecapSection" class="bill-list" style="display:none;">
+                    <p style="color: #999; text-align: center; padding: 40px 20px;">Loading...</p>
+                </div>
             <?php endif; ?>
         </div>
     </div>
@@ -1356,7 +1358,7 @@ include '../../includes/header.php';
     });
 
     let currentTab = 'all';
-    let currentCategory = <?php echo json_encode($showGudangBillTab ? 'gudang' : 'driver'); ?>;
+    let currentCategory = <?php echo json_encode($hideDriverTabs ? 'gudang' : 'driver'); ?>;
 
     // Reload whichever category is currently active when the month filter changes
     function onMonthChange() {
@@ -1867,9 +1869,9 @@ include '../../includes/header.php';
             }
 
             const r = result.recap;
-            const paidBadge = r.is_paid
-                ? `<span style="background:#d1fae5;color:#065f46;font-size:0.7rem;font-weight:700;padding:2px 10px;border-radius:999px;">✅ Lunas${r.paid_at ? ' &middot; ' + r.paid_at : ''}</span>`
-                : `<span style="background:#fef3c7;color:#92400e;font-size:0.7rem;font-weight:700;padding:2px 10px;border-radius:999px;">⏳ Belum Dibayar</span>`;
+            const paidBadge = r.is_paid ?
+                `<span style="background:#d1fae5;color:#065f46;font-size:0.7rem;font-weight:700;padding:2px 10px;border-radius:999px;">✅ Lunas${r.paid_at ? ' &middot; ' + r.paid_at : ''}</span>` :
+                `<span style="background:#fef3c7;color:#92400e;font-size:0.7rem;font-weight:700;padding:2px 10px;border-radius:999px;">⏳ Belum Dibayar</span>`;
 
             recapEl.innerHTML = `
                 <div class="driver-recap-card">
@@ -1909,7 +1911,9 @@ include '../../includes/header.php';
             const response = await fetch(BASE_URL + '/api/pay-gudang-bill.php', {
                 method: 'POST',
                 credentials: 'include',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
                 body: 'month=' + encodeURIComponent(month)
             });
 
@@ -2950,7 +2954,7 @@ include '../../includes/header.php';
         const urlParams = new URLSearchParams(window.location.search);
         const reqCat = urlParams.get('cat');
         const allowed = ['driver', 'trip', 'manual', 'bulanan', 'motor', 'gudang'];
-        const defaultCat = <?php echo json_encode($showGudangBillTab ? 'gudang' : 'driver'); ?>;
+        const defaultCat = <?php echo json_encode($hideDriverTabs ? 'gudang' : 'driver'); ?>;
         switchCategory(allowed.includes(reqCat) ? reqCat : defaultCat);
     });
 </script>
