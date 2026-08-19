@@ -1070,10 +1070,15 @@ include '../../includes/header.php';
             </div>
         </div>
         <div class="page-header-badges">
+            <?php if (!$showGudangBillTab): ?>
             <span class="ph-badge">🚕 Driver</span>
             <span class="ph-badge">🧭 Trip</span>
+            <?php endif; ?>
             <span class="ph-badge">🧾 Manual</span>
             <span class="ph-badge">🔁 Bulanan</span>
+            <?php if ($showGudangBillTab): ?>
+            <span class="ph-badge">📦 Gudang</span>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -1099,13 +1104,15 @@ include '../../includes/header.php';
             </div>
 
             <div class="category-tabs">
+                <?php if (!$showGudangBillTab): ?>
                 <button class="category-btn active" data-cat="driver" onclick="switchCategory('driver')"><span class="ico">🚕</span> Driver</button>
                 <button class="category-btn" data-cat="motor" onclick="switchCategory('motor')"><span class="ico">🏍️</span> Motor</button>
                 <button class="category-btn" data-cat="trip" onclick="switchCategory('trip')"><span class="ico">🧭</span> Trip</button>
+                <?php endif; ?>
                 <button class="category-btn" data-cat="manual" onclick="switchCategory('manual')"><span class="ico">🧾</span> Manual</button>
                 <button class="category-btn" data-cat="bulanan" onclick="switchCategory('bulanan')"><span class="ico">🔁</span> Bulanan</button>
                 <?php if ($showGudangBillTab): ?>
-                <button class="category-btn" data-cat="gudang" onclick="switchCategory('gudang')"><span class="ico">📦</span> Gudang</button>
+                <button class="category-btn active" data-cat="gudang" onclick="switchCategory('gudang')"><span class="ico">📦</span> Gudang</button>
                 <?php endif; ?>
             </div>
 
@@ -1349,7 +1356,7 @@ include '../../includes/header.php';
     });
 
     let currentTab = 'all';
-    let currentCategory = 'driver';
+    let currentCategory = <?php echo json_encode($showGudangBillTab ? 'gudang' : 'driver'); ?>;
 
     // Reload whichever category is currently active when the month filter changes
     function onMonthChange() {
@@ -2909,7 +2916,8 @@ include '../../includes/header.php';
         const urlParams = new URLSearchParams(window.location.search);
         const reqCat = urlParams.get('cat');
         const allowed = ['driver', 'trip', 'manual', 'bulanan', 'motor', 'gudang'];
-        switchCategory(allowed.includes(reqCat) ? reqCat : 'driver');
+        const defaultCat = <?php echo json_encode($showGudangBillTab ? 'gudang' : 'driver'); ?>;
+        switchCategory(allowed.includes(reqCat) ? reqCat : defaultCat);
     });
 </script>
 
