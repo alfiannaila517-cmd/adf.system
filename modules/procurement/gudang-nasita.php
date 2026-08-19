@@ -1389,7 +1389,7 @@ include '../../includes/header.php';
     </div>
 
     <div style="display:grid; grid-template-columns: 3fr 1fr; gap: 1rem; align-items:start;">
-        <div class="card" style="display:flex; flex-direction:column; height:calc(100vh - 230px); min-height:420px; overflow:hidden;">
+        <div class="card" style="display:flex; flex-direction:column; height:calc(100vh - 170px); min-height:640px; overflow:hidden;">
             <div class="gudang-toolbar" style="margin-bottom:1rem;">
                 <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; margin-bottom:0.8rem;">
                     <h3 style="font-size:1rem; font-weight:700; margin:0;">Stok Gudang</h3>
