@@ -1127,7 +1127,7 @@ include '../../includes/header.php';
     <div class="alert alert-warning">Tidak ada bisnis aktif di sesi ini.</div>
 <?php else: ?>
 
-    <div style="display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:0.9rem; margin-bottom:1rem;">
+    <div style="display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:0.9rem; margin-bottom:1rem;">
         <div class="card" style="padding:0.9rem 1rem; border:1px solid #dbeafe; background:linear-gradient(145deg,#eff6ff,#ffffff);">
             <div style="font-size:0.75rem; color:#475569; margin-bottom:0.3rem;">Total Item Aktif</div>
             <div style="font-size:1.45rem; font-weight:800; color:#0f172a;"><?php echo count($stockSummary); ?></div>
@@ -1140,11 +1140,6 @@ include '../../includes/header.php';
         <div class="card" style="padding:0.9rem 1rem; border:1px solid #fef3c7; background:linear-gradient(145deg,#fffbeb,#ffffff);">
             <div style="font-size:0.75rem; color:#92400e; margin-bottom:0.3rem;">Histori Transfer</div>
             <div style="font-size:1.45rem; font-weight:800; color:#78350f;"><?php echo count($incomingTransfers); ?></div>
-        </div>
-        <div class="card" style="padding:0.9rem 1rem; border:1px solid #dcfce7; background:linear-gradient(145deg,#f0fdf4,#ffffff);">
-            <div style="font-size:0.75rem; color:#166534; margin-bottom:0.3rem;">Nilai Bulan Ini</div>
-            <div style="font-size:1.45rem; font-weight:800; color:#0f9d6a;">Rp <?php echo number_format($monthValueReceived, 0, ',', '.'); ?></div>
-            <div style="font-size:0.72rem; color:#4b5563; margin-top:0.2rem;">Total histori: Rp <?php echo number_format($totalValueReceived, 0, ',', '.'); ?></div>
         </div>
     </div>
 
