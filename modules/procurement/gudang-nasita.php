@@ -1270,7 +1270,7 @@ include '../../includes/header.php';
     }
 
     #stockTable thead th {
-        font-size: 0.72rem !important;
+        font-size: 0.875rem !important;
         text-transform: uppercase;
         letter-spacing: 0.05em;
         font-weight: 700;
@@ -1282,6 +1282,17 @@ include '../../includes/header.php';
         position: sticky;
         top: 0;
         z-index: 1;
+    }
+
+    #stockTable tbody td {
+        font-size: 0.875rem;
+    }
+
+    #stockTable tbody td:first-child {
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: #64748b;
+        white-space: nowrap;
     }
 </style>
 
@@ -1484,28 +1495,28 @@ include '../../includes/header.php';
                 <table class="table" id="stockTable" style="table-layout:fixed; width:100%;">
                     <thead>
                         <colgroup>
+                            <col style="width:105px;">
                             <col style="width:90px;">
-                            <col style="width:80px;">
                             <col>
-                            <col style="width:60px;">
-                            <col style="width:90px;">
-                            <col style="width:70px;">
-                            <col style="width:50px;">
-                            <col style="width:80px;">
-                            <col style="width:70px;">
+                            <col style="width:65px;">
+                            <col style="width:95px;">
+                            <col style="width:75px;">
+                            <col style="width:55px;">
+                            <col style="width:85px;">
+                            <col style="width:75px;">
                             <col style="width:65px;">
                         </colgroup>
                         <tr>
-                            <th style="font-size:0.75rem;">Kode</th>
-                            <th style="font-size:0.75rem;">Kategori</th>
-                            <th style="font-size:0.75rem;">Item</th>
-                            <th class="text-right" style="font-size:0.75rem;">Qty</th>
-                            <th class="text-right" style="font-size:0.75rem;">Harga/pcs</th>
-                            <th class="text-right" style="font-size:0.75rem;">Nilai</th>
-                            <th style="font-size:0.75rem;">Unit</th>
-                            <th style="font-size:0.75rem;">Supplier</th>
-                            <th style="font-size:0.75rem;">Kadaluarsa</th>
-                            <th style="font-size:0.75rem;">Aksi</th>
+                            <th>Kode</th>
+                            <th>Kategori</th>
+                            <th>Item</th>
+                            <th class="text-right">Qty</th>
+                            <th class="text-right">Harga/pcs</th>
+                            <th class="text-right">Nilai</th>
+                            <th>Unit</th>
+                            <th>Supplier</th>
+                            <th>Kadaluarsa</th>
+                            <th>Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1530,7 +1541,7 @@ include '../../includes/header.php';
                                 <?php endif; ?>
                                 <?php $isLowRow = ((float)$item['quantity'] <= (float)($item['reorder_level'] ?? 0) && (float)($item['reorder_level'] ?? 0) > 0); ?>
                                 <tr data-item="<?php echo htmlspecialchars(strtolower((string)$item['item_name'])); ?>" data-low="<?php echo $isLowRow ? '1' : '0'; ?>" data-category="<?php echo htmlspecialchars(strtolower((string)$rowCategory)); ?>">
-                                    <td style="font-weight:600;"><?php echo htmlspecialchars($item['stock_code'] ?? ('GN-LEGACY-' . str_pad((string)($item['id'] ?? 0), 4, '0', STR_PAD_LEFT))); ?></td>
+                                    <td><?php echo htmlspecialchars($item['stock_code'] ?? ('GN-LEGACY-' . str_pad((string)($item['id'] ?? 0), 4, '0', STR_PAD_LEFT))); ?></td>
                                     <td><span class="badge badge-info" style="text-transform:capitalize;"><?php echo htmlspecialchars($rowCategory); ?></span></td>
                                     <td>
                                         <div style="font-weight:600;"><?php echo htmlspecialchars($item['item_name']); ?></div>
@@ -1540,8 +1551,8 @@ include '../../includes/header.php';
                                     <td class="text-right">Rp <?php echo number_format((float)($item['harga_beli'] ?? 0), 0, ',', '.'); ?></td>
                                     <td class="text-right" style="font-weight:700; color:#0f9d6a;">Rp <?php echo number_format((float)($item['total_harga'] ?? ((float)$item['quantity'] * (float)($item['harga_beli'] ?? 0))), 0, ',', '.'); ?></td>
                                     <td><?php echo htmlspecialchars($item['unit']); ?></td>
-                                    <td style="font-size:0.813rem;"><?php echo htmlspecialchars($item['supplier_name'] ?: '-'); ?></td>
-                                    <td style="font-size:0.82rem; white-space:nowrap;"><?php
+                                    <td><?php echo htmlspecialchars($item['supplier_name'] ?: '-'); ?></td>
+                                    <td style="white-space:nowrap;"><?php
                                                                                         $exp = $item['expiry_date'] ?? '';
                                                                                         if ($exp && $exp !== '0000-00-00') {
                                                                                             $expTs = strtotime($exp);
