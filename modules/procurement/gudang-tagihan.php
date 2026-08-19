@@ -18,75 +18,6 @@ $db = Database::getInstance();
 $pageTitle = 'Tagihan Gudang';
 $currentUser = $auth->getCurrentUser();
 
-// TEMPORARY diagnostic — remove after use. ?debug_month=1
-if (isset($_GET['debug_month'])) {
-    header('Content-Type: text/plain; charset=utf-8');
-    [$gudangDbDbg, $originDbDbg, $gudangDbNameDbg] = gudangTagihanGetGudangDb();
-    echo "gudang db: {$gudangDbNameDbg}\n\n";
-    $rows = $gudangDbDbg->fetchAll(
-        "SELECT gt.id, gt.transfer_number, gt.target_business_name, gt.status, gt.created_at
-         FROM gudang_nasita_transfers gt
-         WHERE gt.target_business_name LIKE '%ens%' OR gt.target_business_name LIKE '%afe%'
-         ORDER BY gt.created_at DESC"
-    );
-    foreach ($rows as $r) {
-        echo "id={$r['id']} no={$r['transfer_number']} biz=\"{$r['target_business_name']}\" status={$r['status']} created_at={$r['created_at']}\n";
-    }
-    echo "\n--- Running EXACT monthly query (2026-08-01..2026-08-31) ---\n";
-    $monthRowsDbg = $gudangDbDbg->fetchAll(
-        "SELECT gt.target_business_name,
-                COUNT(DISTINCT gt.id) AS transfer_count,
-                COALESCE(SUM(gti.quantity), 0) AS total_qty,
-                COALESCE(SUM(COALESCE(gti.subtotal, gti.quantity * COALESCE(gti.unit_price, 0))), 0) AS total_nilai
-         FROM gudang_nasita_transfers gt
-         LEFT JOIN gudang_nasita_transfer_items gti ON gti.transfer_id = gt.id
-         WHERE gt.status NOT IN ('cancelled') AND gt.created_at BETWEEN ? AND ?
-         GROUP BY gt.target_business_name",
-        ['2026-08-01 00:00:00', '2026-08-31 23:59:59']
-    );
-    echo "rows returned: " . count($monthRowsDbg) . "\n";
-    foreach ($monthRowsDbg as $mr) {
-        echo "  biz=\"{$mr['target_business_name']}\" count={$mr['transfer_count']} qty={$mr['total_qty']} nilai={$mr['total_nilai']}\n";
-    }
-
-    echo "\n--- Reproducing REAL code path (inline config-based db switch) ---\n";
-    try {
-        $gudangCfgPath2 = __DIR__ . '/../../config/businesses/gudang-nasita.php';
-        $gudangDbName2  = '';
-        if (file_exists($gudangCfgPath2)) {
-            $gc2 = require $gudangCfgPath2;
-            $gudangDbName2 = (string)($gc2['database'] ?? '');
-        }
-        echo "gudangDbName2: '{$gudangDbName2}'\n";
-        $originDb2 = Database::getCurrentDatabase();
-        echo "originDb2 (current db before switch): '{$originDb2}'\n";
-        $gudangDb2 = ($gudangDbName2 && $gudangDbName2 !== $originDb2)
-            ? Database::switchDatabase($gudangDbName2)
-            : $db;
-        echo "used \$db directly (no switch)? " . (($gudangDbName2 && $gudangDbName2 !== $originDb2) ? 'NO, switched' : 'YES') . "\n";
-        echo "Database::getCurrentDatabase() after switch: '" . Database::getCurrentDatabase() . "'\n";
-
-        $monthRows2 = $gudangDb2->fetchAll(
-            "SELECT gt.target_business_name,
-                    COUNT(DISTINCT gt.id) AS transfer_count,
-                    COALESCE(SUM(gti.quantity), 0) AS total_qty,
-                    COALESCE(SUM(COALESCE(gti.subtotal, gti.quantity * COALESCE(gti.unit_price, 0))), 0) AS total_nilai
-             FROM gudang_nasita_transfers gt
-             LEFT JOIN gudang_nasita_transfer_items gti ON gti.transfer_id = gt.id
-             WHERE gt.status NOT IN ('cancelled') AND gt.created_at BETWEEN ? AND ?
-             GROUP BY gt.target_business_name",
-            ['2026-08-01 00:00:00', '2026-08-31 23:59:59']
-        ) ?: [];
-        echo "monthRows2 count: " . count($monthRows2) . "\n";
-        foreach ($monthRows2 as $mr2) {
-            echo "  biz=\"{$mr2['target_business_name']}\" count={$mr2['transfer_count']} nilai={$mr2['total_nilai']}\n";
-        }
-    } catch (Throwable $e) {
-        echo "THREW: " . $e->getMessage() . "\n";
-    }
-    exit;
-}
-
 // ── Ensure TKBM table exists ─────────────────────────────────────────────────
 try {
     $db->query("CREATE TABLE IF NOT EXISTS gudang_nasita_tkbm (
@@ -246,7 +177,7 @@ unset($bizBillRow);
 
 function gudangTagihanMatchBizSlug(string $businessName): ?string
 {
-    $norm = strtolower(preg_replace('/[^a-z0-9]/', '', $businessName));
+    $norm = preg_replace('/[^a-z0-9]/', '', strtolower($businessName));
     if ($norm === '') {
         return null;
     }
@@ -682,9 +613,6 @@ try {
 
     foreach ($monthRows as $mr) {
         $slug = gudangTagihanMatchBizSlug((string)($mr['target_business_name'] ?? ''));
-        if (isset($_GET['dump_mtbs'])) {
-            echo '<pre style="background:#fef9c3;padding:0.5rem;">LOOP: name="' . htmlspecialchars((string)($mr['target_business_name'] ?? '')) . '" -> slug=' . var_export($slug, true) . '</pre>';
-        }
         if ($slug === null) {
             continue;
         }
@@ -719,12 +647,6 @@ try {
     }
 } catch (Throwable $e) {
     error_log('gudang-tagihan monthly transfer per biz: ' . $e->getMessage());
-    if (isset($_GET['dump_mtbs'])) {
-        echo '<pre style="background:#fee2e2;padding:1rem;">CAUGHT EXCEPTION: ' . htmlspecialchars($e->getMessage()) . "\n" . htmlspecialchars($e->getTraceAsString()) . '</pre>';
-    }
-}
-if (isset($_GET['dump_mtbs'])) {
-    echo '<pre style="background:#f1f5f9;padding:1rem;">selectedMonth=' . htmlspecialchars($selectedMonth) . ' monthStart=' . htmlspecialchars($monthStart) . ' monthEnd=' . htmlspecialchars($monthEnd) . "\nmonthRows: " . htmlspecialchars(json_encode($monthRows ?? 'UNSET')) . "\nmonthlyTransferBySlug: " . htmlspecialchars(json_encode($monthlyTransferBySlug)) . '</pre>';
 }
 
 // ── Status pembayaran tagihan bulanan (per bisnis) + total uang diterima Gudang Nasita ──
