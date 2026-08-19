@@ -43,13 +43,29 @@ try {
     }
     if (!$sup) echo "(no gudang nasita supplier row found!)\n";
 
-    echo "\n=== gudangFetchPendingPoFromBusinessDb('{$dbName}') result (what Gudang dashboard uses) ===\n";
-    $pending = gudangFetchPendingPoFromBusinessDb($dbName);
-    foreach ($pending as $p) {
-        unset($p['items']);
-        echo json_encode($p) . "\n";
+    echo "\n=== purchase_orders_detail columns in {$resolvedDbName} ===\n";
+    $cols = $pdo->query("SHOW COLUMNS FROM purchase_orders_detail")->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($cols as $c) {
+        echo $c['Field'] . " (" . $c['Type'] . ")\n";
     }
-    if (!$pending) echo "(empty - none with status submitted/approved/partially_received)\n";
+
+    echo "\n=== purchase_orders_detail rows for po_header_id=31 ===\n";
+    $items = $pdo->query("SELECT * FROM purchase_orders_detail WHERE po_header_id = 31")->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($items as $it) {
+        echo json_encode($it) . "\n";
+    }
+
+    echo "\n=== gudangFetchPendingPoFromBusinessDb('{$dbName}') result (what Gudang dashboard uses) ===\n";
+    try {
+        $pending = gudangFetchPendingPoFromBusinessDb($dbName);
+        foreach ($pending as $p) {
+            unset($p['items']);
+            echo json_encode($p) . "\n";
+        }
+        if (!$pending) echo "(empty - none with status submitted/approved/partially_received)\n";
+    } catch (Throwable $e2) {
+        echo "ERROR calling gudangFetchPendingPoFromBusinessDb: " . $e2->getMessage() . "\n";
+    }
 
 } catch (Throwable $e) {
     echo "ERROR: " . $e->getMessage() . "\n";
