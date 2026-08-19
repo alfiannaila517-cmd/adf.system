@@ -682,6 +682,9 @@ try {
 
     foreach ($monthRows as $mr) {
         $slug = gudangTagihanMatchBizSlug((string)($mr['target_business_name'] ?? ''));
+        if (isset($_GET['dump_mtbs'])) {
+            echo '<pre style="background:#fef9c3;padding:0.5rem;">LOOP: name="' . htmlspecialchars((string)($mr['target_business_name'] ?? '')) . '" -> slug=' . var_export($slug, true) . '</pre>';
+        }
         if ($slug === null) {
             continue;
         }
