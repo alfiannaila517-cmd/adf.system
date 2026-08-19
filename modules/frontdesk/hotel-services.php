@@ -178,6 +178,16 @@ try {
     }
 }
 
+try {
+    $pdo->query("SELECT created_at FROM hotel_invoice_items LIMIT 1");
+} catch (\Throwable $e) {
+    try {
+        $pdo->exec("ALTER TABLE hotel_invoice_items ADD COLUMN created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP");
+    } catch (\Throwable $e2) {
+        error_log('hotel_invoice_items created_at migration: ' . $e2->getMessage());
+    }
+}
+
 $pdo->exec("CREATE TABLE IF NOT EXISTS hotel_invoice_items (
     id              INT AUTO_INCREMENT PRIMARY KEY,
     invoice_id      INT NOT NULL,
