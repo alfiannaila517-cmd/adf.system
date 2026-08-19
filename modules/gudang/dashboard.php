@@ -172,11 +172,17 @@ include __DIR__ . '/../../includes/header.php';
                             'subtitle' => trim(($bp['source_business_name'] ?? '-') . ' • ' . ($bp['po_date'] ? date('d M Y', strtotime($bp['po_date'])) : '-') . ' • ' . strtoupper(str_replace('_', ' ', $bp['status'] ?? '-'))),
                             'columns' => [['label' => 'Item'], ['label' => 'Qty', 'right' => true], ['label' => 'Harga', 'right' => true], ['label' => 'Subtotal', 'right' => true]],
                             'rows' => array_map(function ($it) {
+                                $qty = (float)($it['quantity'] ?? 0);
+                                $price = (float)($it['unit_price'] ?? 0);
+                                $subtotal = (float)($it['total_price'] ?? 0);
+                                if ($subtotal <= 0) {
+                                    $subtotal = $qty * $price;
+                                }
                                 return [
                                     (string)($it['item_name'] ?? '-'),
-                                    number_format((float)($it['quantity'] ?? 0), 2) . ' ' . (string)($it['unit'] ?? ''),
-                                    'Rp ' . number_format((float)($it['unit_price'] ?? 0), 0, ',', '.'),
-                                    'Rp ' . number_format((float)($it['total_price'] ?? 0), 0, ',', '.'),
+                                    number_format($qty, 2) . ' ' . (string)($it['unit'] ?? ''),
+                                    'Rp ' . number_format($price, 0, ',', '.'),
+                                    'Rp ' . number_format($subtotal, 0, ',', '.'),
                                 ];
                             }, $bp['items'] ?? []),
                         ];
@@ -227,11 +233,17 @@ include __DIR__ . '/../../includes/header.php';
                             'subtitle' => trim(($po['po_date'] ? date('d M Y', strtotime($po['po_date'])) : '-') . ' • ' . strtoupper(str_replace('_', ' ', $po['status'] ?? '-'))),
                             'columns' => [['label' => 'Item'], ['label' => 'Qty', 'right' => true], ['label' => 'Harga', 'right' => true], ['label' => 'Subtotal', 'right' => true]],
                             'rows' => array_map(function ($it) {
+                                $qty = (float)($it['quantity'] ?? 0);
+                                $price = (float)($it['unit_price'] ?? 0);
+                                $subtotal = (float)($it['total_price'] ?? 0);
+                                if ($subtotal <= 0) {
+                                    $subtotal = $qty * $price;
+                                }
                                 return [
                                     (string)($it['item_name'] ?? '-'),
-                                    number_format((float)($it['quantity'] ?? 0), 2) . ' ' . (string)($it['unit'] ?? ''),
-                                    'Rp ' . number_format((float)($it['unit_price'] ?? 0), 0, ',', '.'),
-                                    'Rp ' . number_format((float)($it['total_price'] ?? 0), 0, ',', '.'),
+                                    number_format($qty, 2) . ' ' . (string)($it['unit'] ?? ''),
+                                    'Rp ' . number_format($price, 0, ',', '.'),
+                                    'Rp ' . number_format($subtotal, 0, ',', '.'),
                                 ];
                             }, $poItems),
                         ];
