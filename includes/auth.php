@@ -412,9 +412,6 @@ class Auth
     {
         if (!$this->isLoggedIn()) return false;
         $userRole = $_SESSION['role'] ?? 'staff';
-        // Admin (system-wide) and Owner (business owner) always have full access -
-        // granular per-menu permissions only restrict staff/manager/accountant roles.
-        if (in_array($userRole, ['admin', 'owner'])) return true;
 
         $username = $_SESSION['username'] ?? null;
         if (!$username) return false;
@@ -445,8 +442,12 @@ class Auth
 
             $business = ['id' => $businessId];
 
-            // For developers: if no permissions configured for this business, allow all
-            if ($userRole === 'developer') {
+            // For developer/admin/owner: if no permissions configured for this business, allow all
+            // (backward compatible). If rows DO exist, fall through to the normal per-menu check
+            // below instead of short-circuiting to true - previously admin/owner always returned
+            // true here BEFORE this check ran, so configured can_delete/can_edit/can_create=0
+            // rows for those roles were silently ignored.
+            if (in_array($userRole, ['developer', 'admin', 'owner'], true)) {
                 $countStmt = $masterPdo->prepare("SELECT COUNT(*) as total FROM user_menu_permissions WHERE user_id = ? AND business_id = ?");
                 $countStmt->execute([$masterUser['id'], $business['id']]);
                 $countResult = $countStmt->fetch(PDO::FETCH_ASSOC);
