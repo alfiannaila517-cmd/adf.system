@@ -1137,12 +1137,12 @@ include '../../includes/header.php';
     @media (min-width: 769px) {
 
         body .sidebar {
-            width: 168px;
+            width: 150px;
         }
 
         body .main-content {
-            margin-left: 168px;
-            width: calc(100% - 168px);
+            margin-left: 150px;
+            width: calc(100% - 150px);
         }
     }
 
@@ -1479,7 +1479,7 @@ include '../../includes/header.php';
         </div>
     </div>
 
-    <div style="display:grid; grid-template-columns: 3fr 1fr; gap: 1rem; align-items:start;">
+    <div style="display:grid; grid-template-columns: minmax(0, 1fr) 250px; gap: 1rem; align-items:start;">
         <div class="card" style="display:flex; flex-direction:column; height:calc(100vh - 170px); min-height:640px; overflow:hidden;">
             <div class="gudang-toolbar" style="margin-bottom:1rem;">
                 <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; margin-bottom:0.85rem; padding-bottom:0.75rem; border-bottom:1px solid rgba(148, 163, 184, 0.28);">
@@ -1528,7 +1528,7 @@ include '../../includes/header.php';
             <?php if ($summary['low'] > 0): ?>
                 <div style="margin-bottom:0.75rem;"><span class="badge badge-warning"><?php echo $summary['low']; ?> item di bawah reorder</span></div>
             <?php endif; ?>
-            <div class="table-responsive" style="flex:1; overflow-y:auto; overflow-x:hidden;">
+            <div class="table-responsive" style="flex:1; overflow-y:auto; overflow-x:auto;">
                 <table class="table" id="stockTable" style="table-layout:fixed; width:100%;">
                     <thead>
                         <colgroup>
@@ -1539,7 +1539,7 @@ include '../../includes/header.php';
                             <col style="width:95px;">
                             <col style="width:75px;">
                             <col style="width:55px;">
-                            <col style="width:115px;">
+                            <col style="width:95px;">
                             <col style="width:60px;">
                         </colgroup>
                         <tr>
