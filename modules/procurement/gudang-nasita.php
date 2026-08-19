@@ -1200,24 +1200,36 @@ include '../../includes/header.php';
 
     .gudang-search-wrap {
         display: flex;
-        gap: 0.6rem;
+        gap: 0.45rem;
         align-items: center;
-        flex-wrap: wrap;
-        min-width: 260px;
+        flex-wrap: nowrap;
+        white-space: nowrap;
+        width: 200px;
         background: rgba(248, 250, 252, 0.95);
-        border: 1px solid rgba(148, 163, 184, 0.24);
-        border-radius: 0.9rem;
-        padding: 0.45rem 0.7rem;
+        border: 1px solid rgba(148, 163, 184, 0.32);
+        border-radius: 0.7rem;
+        padding: 0.35rem 0.65rem;
         box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .gudang-search-wrap:focus-within {
+        border-color: #93c5fd;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+    }
+
+    .gudang-search-wrap i[data-feather] {
+        flex-shrink: 0;
     }
 
     .gudang-search-wrap .form-control {
         border: none;
         box-shadow: none;
         background: transparent;
-        padding: 0.2rem 0;
-        min-height: 32px;
-        font-size: 0.9rem;
+        padding: 0.15rem 0;
+        min-height: 26px;
+        font-size: 0.82rem;
+        width: 100%;
     }
 
     #stockResetBtn {
@@ -1407,15 +1419,15 @@ include '../../includes/header.php';
         <div class="card" style="display:flex; flex-direction:column; height:calc(100vh - 170px); min-height:640px; overflow:hidden;">
             <div class="gudang-toolbar" style="margin-bottom:1rem;">
                 <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; margin-bottom:0.85rem; padding-bottom:0.75rem; border-bottom:1px solid rgba(148, 163, 184, 0.28);">
-                    <h3 style="font-size:1.45rem; font-weight:800; margin:0; color:#1e3a8a; display:flex; align-items:center; gap:0.55rem; letter-spacing:0.01em;">
-                        <i data-feather="box" style="width:22px; height:22px; color:#1e3a8a;"></i>
+                    <h3 style="font-size:1.75rem; font-weight:800; margin:0; color:#1e3a8a; display:flex; align-items:center; gap:0.6rem; letter-spacing:0.01em;">
+                        <i data-feather="box" style="width:26px; height:26px; color:#1e3a8a;"></i>
                         Stok Gudang
                     </h3>
                     <form method="GET" id="stockFilterForm" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center; margin:0;">
                         <input type="hidden" id="stockCategoryHidden" name="category" value="<?php echo htmlspecialchars($selectedCategory); ?>">
                         <div class="gudang-search-wrap">
-                            <i data-feather="search" style="width:15px; height:15px; color:#64748b;"></i>
-                            <input type="text" name="q_item" id="stockSearchInput" class="form-control" placeholder="Cari nama item..." value="<?php echo htmlspecialchars($searchItemName); ?>" style="min-width:220px;" autocomplete="off">
+                            <i data-feather="search" style="width:14px; height:14px; color:#64748b;"></i>
+                            <input type="text" name="q_item" id="stockSearchInput" class="form-control" placeholder="Cari nama item..." value="<?php echo htmlspecialchars($searchItemName); ?>" autocomplete="off">
                         </div>
                         <label style="display:flex; align-items:center; gap:0.35rem; font-size:0.82rem; color:var(--text-muted);">
                             <input type="checkbox" name="low_stock" id="stockLowFilter" value="1" <?php echo $filterLowStockOnly ? 'checked' : ''; ?>>
