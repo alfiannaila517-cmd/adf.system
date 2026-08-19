@@ -875,14 +875,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         error_log('Gagal tambah stok gudang saat kembalikan: nama database Gudang Nasita tidak ditemukan.');
                     } else {
                         $originDbNameForReturn = Database::getCurrentDatabase();
-                        Database::switchDatabase($gudangDbNameResolved);
+                        $gudangDbForReturn = Database::switchDatabase($gudangDbNameResolved);
                         try {
+                            // Preserve the item's EXISTING gudang category (e.g. "Alkohol") instead of
+                            // always forcing 'lainnya' — addGudangNasitaManualStock() overwrites category
+                            // on every call, so a hardcoded 'lainnya' here silently moved returned items
+                            // (e.g. Jack Daniel) out of their real category tab even though qty was correct.
+                            $existingGudangStock = $gudangDbForReturn->fetchOne(
+                                "SELECT category FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) LIMIT 1",
+                                [$itemName]
+                            );
+                            $returnCategory = ($existingGudangStock && !empty($existingGudangStock['category']))
+                                ? (string)$existingGudangStock['category']
+                                : 'lainnya';
+
                             $gudangResult = addGudangNasitaManualStock(
                                 $itemName,
                                 $unit,
                                 $qty,
                                 (int)($currentUser['id'] ?? 0),
-                                ['notes' => 'Dikembalikan dari ' . $activeBusinessName . ' — ' . $transferNo, 'category' => 'lainnya']
+                                ['notes' => 'Dikembalikan dari ' . $activeBusinessName . ' — ' . $transferNo, 'category' => $returnCategory]
                             );
                             if (!$gudangResult['success']) {
                                 error_log('Gagal tambah stok gudang saat kembalikan: ' . $gudangResult['message']);
