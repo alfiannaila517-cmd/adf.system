@@ -41,6 +41,18 @@ if (isset($_GET['debug_price'])) {
     }
     echo "has barang_id col: " . ($hasBarangIdDbg ? 'YES' : 'NO') . "\n\n";
 
+    echo "function_exists(gudangNasitaBackfillZeroPriceTransferItems): " . (function_exists('gudangNasitaBackfillZeroPriceTransferItems') ? 'YES' : 'NO') . "\n";
+    if (isset($_GET['run_backfill']) && function_exists('gudangNasitaBackfillZeroPriceTransferItems')) {
+        echo "Running backfill now...\n";
+        try {
+            gudangNasitaBackfillZeroPriceTransferItems($gudangDbDbg);
+            echo "Backfill call completed without throwing.\n";
+        } catch (Throwable $e) {
+            echo "Backfill THREW: " . $e->getMessage() . "\n";
+        }
+    }
+    echo "\n";
+
     $itemsDbg = $gudangDbDbg->fetchAll('SELECT * FROM gudang_nasita_transfer_items WHERE transfer_id = ? ORDER BY id ASC', [$transferDbg['id']]);
     foreach ($itemsDbg as $it) {
         echo "--- item_id={$it['id']} stock_id=" . ($it['stock_id'] ?? 'NULL') . " name={$it['item_name']} qty={$it['quantity']} ---\n";
