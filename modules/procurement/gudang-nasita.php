@@ -1286,6 +1286,8 @@ include '../../includes/header.php';
 
     #stockTable tbody td {
         font-size: 0.875rem;
+        padding: 0.5rem 0.65rem;
+        vertical-align: middle;
     }
 
     #stockTable tbody td:first-child {
@@ -1293,6 +1295,18 @@ include '../../includes/header.php';
         font-weight: 600;
         color: #64748b;
         white-space: nowrap;
+    }
+
+    #stockTable tbody tr:not(.gudang-cat-row) {
+        border-bottom: 1px solid rgba(148, 163, 184, 0.28);
+    }
+
+    #stockTable .gudang-item-name,
+    #stockTable .gudang-item-note {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
     }
 </style>
 
@@ -1533,7 +1547,7 @@ include '../../includes/header.php';
                                 } ?>
                                 <?php if ($currentCategory !== $rowCategory): ?>
                                     <?php $currentCategory = $rowCategory; ?>
-                                    <tr>
+                                    <tr class="gudang-cat-row">
                                         <td colspan="10" style="background:#f8fafc; font-weight:700; color:#334155; text-transform:capitalize; border-top:1px solid var(--border);">
                                             Kategori: <?php echo htmlspecialchars($currentCategory); ?>
                                         </td>
@@ -1544,8 +1558,8 @@ include '../../includes/header.php';
                                     <td><?php echo htmlspecialchars($item['stock_code'] ?? ('GN-LEGACY-' . str_pad((string)($item['id'] ?? 0), 4, '0', STR_PAD_LEFT))); ?></td>
                                     <td><span class="badge badge-info" style="text-transform:capitalize;"><?php echo htmlspecialchars($rowCategory); ?></span></td>
                                     <td>
-                                        <div style="font-weight:600;"><?php echo htmlspecialchars($item['item_name']); ?></div>
-                                        <?php if (!empty($item['notes'])): ?><div style="font-size:0.75rem; color: var(--text-muted);"><?php echo htmlspecialchars($item['notes']); ?></div><?php endif; ?>
+                                        <div class="gudang-item-name" style="font-weight:600;" title="<?php echo htmlspecialchars($item['item_name']); ?>"><?php echo htmlspecialchars($item['item_name']); ?></div>
+                                        <?php if (!empty($item['notes'])): ?><div class="gudang-item-note" style="font-size:0.75rem; color: var(--text-muted);" title="<?php echo htmlspecialchars($item['notes']); ?>"><?php echo htmlspecialchars($item['notes']); ?></div><?php endif; ?>
                                     </td>
                                     <td class="text-right" style="font-weight:700; color:<?php echo ((float)$item['quantity'] <= (float)($item['reorder_level'] ?? 0) && (float)($item['reorder_level'] ?? 0) > 0) ? '#d97706' : 'var(--text-primary)'; ?>;"><?php echo number_format($item['quantity'], 2); ?></td>
                                     <td class="text-right">Rp <?php echo number_format((float)($item['harga_beli'] ?? 0), 0, ',', '.'); ?></td>
