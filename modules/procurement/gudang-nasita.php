@@ -528,6 +528,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $stockId = (int)($_POST['stock_id'] ?? 0);
     $expiry  = trim($_POST['expiry_date'] ?? '');
     if ($stockId > 0) {
+        // Ensure the expiry_date column exists before attempting the update (it's
+        // normally added lazily by getGudangNasitaStock(), which hasn't run yet here).
+        try {
+            ensureGudangNasitaStockSchemaCompatibility();
+        } catch (Throwable $e) {
+            error_log('update_expiry schema ensure failed: ' . $e->getMessage());
+        }
         if ($expiry !== '' && !strtotime($expiry)) {
             $_SESSION['error'] = 'Format tanggal kadaluarsa tidak valid.';
         } else {

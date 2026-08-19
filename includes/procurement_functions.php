@@ -1276,6 +1276,7 @@ function ensureGudangNasitaStockSchemaCompatibility()
         'quantity' => "DECIMAL(15,2) NOT NULL DEFAULT 0",
         'reorder_level' => "DECIMAL(15,2) DEFAULT 0",
         'supplier_name' => "VARCHAR(150) NULL",
+        'expiry_date' => "DATE NULL",
         'notes' => "TEXT NULL",
         'is_active' => "TINYINT(1) DEFAULT 1",
         'created_at' => "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
