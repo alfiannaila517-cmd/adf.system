@@ -167,8 +167,21 @@ include __DIR__ . '/../../includes/header.php';
                             'approved', 'partially_received' => ['#dbeafe', '#1e40af'],
                             default => ['#fef3c7', '#92400e']
                         };
-                    ?>
-                        <tr>
+                        $bpDetail = [
+                            'title' => (string)($bp['po_number'] ?? '-'),
+                            'subtitle' => trim(($bp['source_business_name'] ?? '-') . ' • ' . ($bp['po_date'] ? date('d M Y', strtotime($bp['po_date'])) : '-') . ' • ' . strtoupper(str_replace('_', ' ', $bp['status'] ?? '-'))),
+                            'columns' => [['label' => 'Item'], ['label' => 'Qty', 'right' => true], ['label' => 'Harga', 'right' => true], ['label' => 'Subtotal', 'right' => true]],
+                            'rows' => array_map(function ($it) {
+                                return [
+                                    (string)($it['item_name'] ?? '-'),
+                                    number_format((float)($it['quantity'] ?? 0), 2) . ' ' . (string)($it['unit'] ?? ''),
+                                    'Rp ' . number_format((float)($it['unit_price'] ?? 0), 0, ',', '.'),
+                                    'Rp ' . number_format((float)($it['total_price'] ?? 0), 0, ',', '.'),
+                                ];
+                            }, $bp['items'] ?? []),
+                        ];
+                        ?>
+                        <tr class="gd-clickable-row" style="cursor:pointer;" data-detail="<?php echo htmlspecialchars(json_encode($bpDetail), ENT_QUOTES); ?>" onclick="openGudangDetailModal(this)">
                             <td style="font-weight:700;font-size:.81rem;"><?php echo htmlspecialchars($bp['po_number']); ?></td>
                             <td style="font-weight:600;"><?php echo htmlspecialchars($bp['source_business_name'] ?? '-'); ?></td>
                             <td style="font-size:.76rem;color:var(--text-muted);"><?php echo $bp['po_date'] ? date('d M Y', strtotime($bp['po_date'])) : '-'; ?></td>
@@ -208,8 +221,22 @@ include __DIR__ . '/../../includes/header.php';
                             'cancelled', 'rejected' => ['#fee2e2', '#991b1b'],
                             default => ['#e5e7eb', '#374151']
                         };
-                    ?>
-                        <tr>
+                        $poItems = $db->fetchAll("SELECT item_name, quantity, unit, unit_price, total_price FROM purchase_orders_detail WHERE po_header_id = ? ORDER BY id ASC", [(int)$po['id']]) ?: [];
+                        $poDetail = [
+                            'title' => (string)($po['po_number'] ?? '-'),
+                            'subtitle' => trim(($po['po_date'] ? date('d M Y', strtotime($po['po_date'])) : '-') . ' • ' . strtoupper(str_replace('_', ' ', $po['status'] ?? '-'))),
+                            'columns' => [['label' => 'Item'], ['label' => 'Qty', 'right' => true], ['label' => 'Harga', 'right' => true], ['label' => 'Subtotal', 'right' => true]],
+                            'rows' => array_map(function ($it) {
+                                return [
+                                    (string)($it['item_name'] ?? '-'),
+                                    number_format((float)($it['quantity'] ?? 0), 2) . ' ' . (string)($it['unit'] ?? ''),
+                                    'Rp ' . number_format((float)($it['unit_price'] ?? 0), 0, ',', '.'),
+                                    'Rp ' . number_format((float)($it['total_price'] ?? 0), 0, ',', '.'),
+                                ];
+                            }, $poItems),
+                        ];
+                        ?>
+                        <tr class="gd-clickable-row" style="cursor:pointer;" data-detail="<?php echo htmlspecialchars(json_encode($poDetail), ENT_QUOTES); ?>" onclick="openGudangDetailModal(this)">
                             <td>
                                 <div style="font-weight:700;font-size:.81rem;"><?php echo htmlspecialchars($po['po_number']); ?></div>
                                 <div style="font-size:.7rem;color:var(--text-muted);"><?php echo $po['po_date'] ? date('d M Y', strtotime($po['po_date'])) : '-'; ?></div>
@@ -238,8 +265,20 @@ include __DIR__ . '/../../includes/header.php';
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($barangDatangHistory as $bd): ?>
-                        <tr>
+                    <?php foreach ($barangDatangHistory as $bd):
+                        $bdDetail = [
+                            'title' => (string)($bd['item_name'] ?? '-'),
+                            'subtitle' => $bd['tgl'] ? date('d M Y H:i', strtotime($bd['tgl'])) : '-',
+                            'columns' => [['label' => 'Keterangan'], ['label' => 'Nilai']],
+                            'rows' => [
+                                ['Qty Masuk', '+' . number_format((float)($bd['quantity'] ?? 0), 2) . ' ' . (string)($bd['unit'] ?? '')],
+                                ['No PO', (string)($bd['po_number'] ?? '-')],
+                                ['Tanggal', $bd['tgl'] ? date('d M Y H:i', strtotime($bd['tgl'])) : '-'],
+                                ['Catatan', $bd['notes'] !== null && $bd['notes'] !== '' ? (string)$bd['notes'] : '-'],
+                            ],
+                        ];
+                        ?>
+                        <tr class="gd-clickable-row" style="cursor:pointer;" data-detail="<?php echo htmlspecialchars(json_encode($bdDetail), ENT_QUOTES); ?>" onclick="openGudangDetailModal(this)">
                             <td>
                                 <div style="font-weight:600;font-size:.81rem;"><?php echo htmlspecialchars($bd['item_name']); ?></div>
                                 <div style="font-size:.7rem;color:var(--text-muted);"><?php echo $bd['tgl'] ? date('d M Y', strtotime($bd['tgl'])) : '-'; ?></div>
@@ -271,8 +310,30 @@ include __DIR__ . '/../../includes/header.php';
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($terkirimPerBisnis as $tb): ?>
-                        <tr>
+                    <?php foreach ($terkirimPerBisnis as $tb):
+                        $tbItems = $db->fetchAll(
+                            "SELECT gt.transfer_number, gt.created_at, gti.item_name, gti.unit, gti.quantity
+                             FROM gudang_nasita_transfers gt
+                             JOIN gudang_nasita_transfer_items gti ON gti.transfer_id = gt.id
+                             WHERE COALESCE(gt.target_business_name, gt.bisnis_tujuan, 'Lainnya') = ?
+                             ORDER BY gt.created_at DESC, gti.id ASC LIMIT 50",
+                            [$tb['bisnis']]
+                        ) ?: [];
+                        $tbDetail = [
+                            'title' => (string)($tb['bisnis'] ?? '-'),
+                            'subtitle' => (int)$tb['total_transfer'] . ' transfer • total qty ' . number_format((float)$tb['total_qty'], 0, ',', '.'),
+                            'columns' => [['label' => 'Item'], ['label' => 'Qty', 'right' => true], ['label' => 'No Transfer'], ['label' => 'Tanggal']],
+                            'rows' => array_map(function ($it) {
+                                return [
+                                    (string)($it['item_name'] ?? '-'),
+                                    number_format((float)($it['quantity'] ?? 0), 2) . ' ' . (string)($it['unit'] ?? ''),
+                                    (string)($it['transfer_number'] ?? '-'),
+                                    $it['created_at'] ? date('d M Y', strtotime((string)$it['created_at'])) : '-',
+                                ];
+                            }, $tbItems),
+                        ];
+                        ?>
+                        <tr class="gd-clickable-row" style="cursor:pointer;" data-detail="<?php echo htmlspecialchars(json_encode($tbDetail), ENT_QUOTES); ?>" onclick="openGudangDetailModal(this)">
                             <td style="font-weight:600;"><?php echo htmlspecialchars($tb['bisnis']); ?></td>
                             <td class="text-right"><?php echo (int)$tb['total_transfer']; ?></td>
                             <td class="text-right" style="font-weight:700;"><?php echo number_format((float)$tb['total_qty'], 0, ',', '.'); ?></td>
@@ -284,5 +345,66 @@ include __DIR__ . '/../../includes/header.php';
         </div>
     <?php endif; ?>
 </div>
+
+<!-- Detail modal (shared by all clickable history sections) -->
+<div id="gudangDetailModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.55);z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:0.9rem;width:92%;max-width:560px;max-height:82vh;overflow-y:auto;box-shadow:0 20px 50px rgba(0,0,0,0.25);">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;border-bottom:1px solid var(--border);">
+            <div>
+                <div style="font-weight:800;font-size:1rem;" id="gdmTitle">-</div>
+                <div style="font-size:.8rem;color:var(--text-muted);" id="gdmSubtitle">-</div>
+            </div>
+            <button type="button" onclick="closeGudangDetailModal()" style="background:none;border:none;font-size:1.3rem;line-height:1;cursor:pointer;color:#64748b;">&times;</button>
+        </div>
+        <div style="padding:1rem 1.25rem;">
+            <table class="gd-table" id="gdmTable" style="width:100%;">
+                <thead id="gdmThead"></thead>
+                <tbody id="gdmBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    function gdmEscapeHtml(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        }[c]));
+    }
+
+    function openGudangDetailModal(rowEl) {
+        let detail;
+        try {
+            detail = JSON.parse(rowEl.getAttribute('data-detail') || '{}');
+        } catch (e) {
+            detail = {};
+        }
+
+        document.getElementById('gdmTitle').textContent = detail.title || '-';
+        document.getElementById('gdmSubtitle').textContent = detail.subtitle || '';
+
+        const cols = detail.columns || [];
+        const thead = document.getElementById('gdmThead');
+        thead.innerHTML = '<tr>' + cols.map(c => '<th' + (c.right ? ' class="text-right"' : '') + '>' + gdmEscapeHtml(c.label || '') + '</th>').join('') + '</tr>';
+
+        const rows = detail.rows || [];
+        const tbody = document.getElementById('gdmBody');
+        if (!rows.length) {
+            tbody.innerHTML = '<tr><td colspan="' + (cols.length || 1) + '" class="gd-empty">Tidak ada detail.</td></tr>';
+        } else {
+            tbody.innerHTML = rows.map(r => '<tr>' + r.map((v, i) => '<td' + (cols[i] && cols[i].right ? ' class="text-right"' : '') + '>' + gdmEscapeHtml(v) + '</td>').join('') + '</tr>').join('');
+        }
+
+        document.getElementById('gudangDetailModal').style.display = 'flex';
+    }
+
+    function closeGudangDetailModal() {
+        document.getElementById('gudangDetailModal').style.display = 'none';
+    }
+</script>
 
 <?php include __DIR__ . '/../../includes/footer.php'; ?>

@@ -2456,7 +2456,19 @@ function gudangFetchPendingPoFromBusinessDb(string $dbName): array
         LIMIT 20
     ");
 
-    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+    // Attach item-level detail per PO so callers (e.g. dashboard) can show "apa aja yang terkirim".
+    if (!empty($rows)) {
+        $itemsStmt = $pdo->prepare("SELECT item_name, quantity, unit, unit_price, total_price FROM purchase_orders_detail WHERE po_header_id = ? ORDER BY id ASC");
+        foreach ($rows as &$row) {
+            $itemsStmt->execute([(int)$row['id']]);
+            $row['items'] = $itemsStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        }
+        unset($row);
+    }
+
+    return $rows;
 }
 
 /**
