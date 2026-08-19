@@ -2519,7 +2519,7 @@ if ($trialStatus) {
                 type: 'doughnut',
                 data: {
                     labels: [
-                        <?php foreach ($divisionIncomeData as $index => $div): ?> '<?php echo $div['division_name']; ?>',
+                        <?php foreach ($divisionIncomeData as $index => $div): ?> <?php echo json_encode((string)$div['division_name'], JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE); ?>,
                         <?php endforeach; ?>
                     ],
                     datasets: [{
@@ -2610,7 +2610,7 @@ if ($trialStatus) {
                 type: 'doughnut',
                 data: {
                     labels: [
-                        <?php foreach ($expenseDivisionData as $index => $div): ?> '<?php echo $div['division_name']; ?>',
+                        <?php foreach ($expenseDivisionData as $index => $div): ?> <?php echo json_encode((string)$div['division_name'], JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE); ?>,
                         <?php endforeach; ?>
                     ],
                     datasets: [{
@@ -3600,7 +3600,7 @@ if ($trialStatus) {
                 type: 'bar',
                 data: {
                     labels: [
-                        <?php foreach ($topCategories as $cat): ?> '<?php echo $cat['category_name']; ?> (<?php echo $cat['division_name']; ?>)',
+                        <?php foreach ($topCategories as $cat): ?> <?php echo json_encode((string)$cat['category_name'] . ' (' . (string)$cat['division_name'] . ')', JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE); ?>,
                         <?php endforeach; ?>
                     ],
                     datasets: [{
