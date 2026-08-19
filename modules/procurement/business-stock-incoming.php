@@ -866,17 +866,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     ]);
                 }
 
-                // When returning to Gudang Nasita, credit the gudang stock
+                // When returning to Gudang Nasita, credit the gudang stock. addGudangNasitaManualStock()
+                // writes to Database::getInstance() (whatever DB is CURRENTLY active) — since this page
+                // runs on the business' own DB connection, we must switch to Gudang's own DB first, or
+                // the insert silently lands in the wrong database and the real gudang stock never moves.
                 if ($targetSlug === 'gudang-nasita') {
-                    $gudangResult = addGudangNasitaManualStock(
-                        $itemName,
-                        $unit,
-                        $qty,
-                        (int)($currentUser['id'] ?? 0),
-                        ['notes' => 'Dikembalikan dari ' . $activeBusinessName . ' — ' . $transferNo, 'category' => 'lainnya']
-                    );
-                    if (!$gudangResult['success']) {
-                        error_log('Gagal tambah stok gudang saat kembalikan: ' . $gudangResult['message']);
+                    if ($gudangDbNameResolved === '') {
+                        error_log('Gagal tambah stok gudang saat kembalikan: nama database Gudang Nasita tidak ditemukan.');
+                    } else {
+                        $originDbNameForReturn = Database::getCurrentDatabase();
+                        Database::switchDatabase($gudangDbNameResolved);
+                        try {
+                            $gudangResult = addGudangNasitaManualStock(
+                                $itemName,
+                                $unit,
+                                $qty,
+                                (int)($currentUser['id'] ?? 0),
+                                ['notes' => 'Dikembalikan dari ' . $activeBusinessName . ' — ' . $transferNo, 'category' => 'lainnya']
+                            );
+                            if (!$gudangResult['success']) {
+                                error_log('Gagal tambah stok gudang saat kembalikan: ' . $gudangResult['message']);
+                            }
+                        } finally {
+                            if ($originDbNameForReturn !== '') {
+                                Database::switchDatabase($originDbNameForReturn);
+                                $db = Database::getInstance();
+                            }
+                        }
                     }
                 }
 
