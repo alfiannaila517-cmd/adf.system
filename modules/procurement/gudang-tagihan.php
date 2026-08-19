@@ -716,6 +716,12 @@ try {
     }
 } catch (Throwable $e) {
     error_log('gudang-tagihan monthly transfer per biz: ' . $e->getMessage());
+    if (isset($_GET['dump_mtbs'])) {
+        echo '<pre style="background:#fee2e2;padding:1rem;">CAUGHT EXCEPTION: ' . htmlspecialchars($e->getMessage()) . "\n" . htmlspecialchars($e->getTraceAsString()) . '</pre>';
+    }
+}
+if (isset($_GET['dump_mtbs'])) {
+    echo '<pre style="background:#f1f5f9;padding:1rem;">selectedMonth=' . htmlspecialchars($selectedMonth) . ' monthStart=' . htmlspecialchars($monthStart) . ' monthEnd=' . htmlspecialchars($monthEnd) . "\nmonthRows: " . htmlspecialchars(json_encode($monthRows ?? 'UNSET')) . "\nmonthlyTransferBySlug: " . htmlspecialchars(json_encode($monthlyTransferBySlug)) . '</pre>';
 }
 
 // ── Status pembayaran tagihan bulanan (per bisnis) + total uang diterima Gudang Nasita ──
