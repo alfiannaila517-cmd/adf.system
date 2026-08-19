@@ -1534,12 +1534,12 @@ include '../../includes/header.php';
                         <colgroup>
                             <col style="width:105px;">
                             <col style="width:90px;">
-                            <col style="width:160px;">
+                            <col style="width:190px;">
                             <col style="width:65px;">
                             <col style="width:95px;">
                             <col style="width:75px;">
                             <col style="width:55px;">
-                            <col style="width:150px;">
+                            <col style="width:115px;">
                             <col style="width:60px;">
                         </colgroup>
                         <tr>
