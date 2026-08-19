@@ -20,6 +20,9 @@ $bizConfig = getActiveBusinessConfig();
 $themeColor = $bizConfig['theme']['color_primary'] ?? '#0d1f3c';
 $themeSecondary = $bizConfig['theme']['color_secondary'] ?? '#1e3a5c';
 
+// Gudang Nasita monthly bill tab is only relevant for businesses that receive stock transfers from Gudang Nasita
+$showGudangBillTab = in_array($bizConfig['business_id'] ?? '', ['bens-cafe', 'eaat-meet'], true);
+
 // Cash accounts for the "Bayar" (pay driver trip) modal - same source used by modules/cashbook/add.php
 $cashAccounts = [];
 try {
@@ -1101,6 +1104,9 @@ include '../../includes/header.php';
                 <button class="category-btn" data-cat="trip" onclick="switchCategory('trip')"><span class="ico">🧭</span> Trip</button>
                 <button class="category-btn" data-cat="manual" onclick="switchCategory('manual')"><span class="ico">🧾</span> Manual</button>
                 <button class="category-btn" data-cat="bulanan" onclick="switchCategory('bulanan')"><span class="ico">🔁</span> Bulanan</button>
+                <?php if ($showGudangBillTab): ?>
+                <button class="category-btn" data-cat="gudang" onclick="switchCategory('gudang')"><span class="ico">📦</span> Gudang</button>
+                <?php endif; ?>
             </div>
 
             <div id="manualBillsWrap">
@@ -1123,6 +1129,12 @@ include '../../includes/header.php';
             <div id="motorRecapSection" class="bill-list" style="display:none;">
                 <p style="color: #999; text-align: center; padding: 40px 20px;">Loading...</p>
             </div>
+
+            <?php if ($showGudangBillTab): ?>
+            <div id="gudangRecapSection" class="bill-list" style="display:none;">
+                <p style="color: #999; text-align: center; padding: 40px 20px;">Loading...</p>
+            </div>
+            <?php endif; ?>
         </div>
     </div>
 </div>
@@ -1345,12 +1357,14 @@ include '../../includes/header.php';
             loadDriverRecap();
         } else if (currentCategory === 'motor') {
             loadMotorRecap();
+        } else if (currentCategory === 'gudang') {
+            loadGudangRecap();
         } else {
             loadBills();
         }
     }
 
-    // SWITCH CATEGORY (Driver / Motor / Trip / Manual / Bulanan)
+    // SWITCH CATEGORY (Driver / Motor / Trip / Manual / Bulanan / Gudang)
     function switchCategory(cat) {
         currentCategory = cat;
         document.querySelectorAll('.category-btn').forEach(btn => {
@@ -1360,15 +1374,22 @@ include '../../includes/header.php';
         const isRecap = cat === 'driver' || cat === 'motor' || cat === 'trip';
         const isMotor = cat === 'motor';
         const isDriver = cat === 'driver' || cat === 'trip';
+        const isGudang = cat === 'gudang';
 
-        document.getElementById('manualBillsWrap').style.display = isRecap ? 'none' : 'block';
+        document.getElementById('manualBillsWrap').style.display = (isRecap || isGudang) ? 'none' : 'block';
         document.getElementById('driverRecapSection').style.display = isDriver ? 'block' : 'none';
         document.getElementById('motorRecapSection').style.display = isMotor ? 'block' : 'none';
+        const gudangSection = document.getElementById('gudangRecapSection');
+        if (gudangSection) {
+            gudangSection.style.display = isGudang ? 'block' : 'none';
+        }
 
         if (isDriver) {
             loadDriverRecap();
         } else if (isMotor) {
             loadMotorRecap();
+        } else if (isGudang) {
+            loadGudangRecap();
         } else {
             loadBills();
         }
@@ -1808,8 +1829,66 @@ include '../../includes/header.php';
         recapEl.innerHTML = html;
     }
 
-    let pendingMotorPay = null;
-    let pendingMotorEdit = null;
+    // TAGIHAN GUDANG NASITA (read-only recap of this business' own monthly bill)
+    async function loadGudangRecap() {
+        const month = document.getElementById('filterMonth').value;
+        const recapEl = document.getElementById('gudangRecapSection');
+        if (!recapEl) return;
+
+        if (!month) {
+            recapEl.innerHTML = '<p style="color: #999; text-align: center; padding: 40px;">Pilih bulan terlebih dahulu</p>';
+            return;
+        }
+
+        recapEl.innerHTML = '<p style="color: #999; text-align: center; padding: 40px 20px;">Loading...</p>';
+
+        try {
+            const response = await fetch(BASE_URL + `/api/get-gudang-bill-recap.php?month=${month}`, {
+                method: 'GET',
+                credentials: 'include'
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+
+            if (!result.success) {
+                recapEl.innerHTML = `<p style="color: #d32f2f; text-align: center; padding: 20px;">Error: ${result.message}</p>`;
+                return;
+            }
+
+            const r = result.recap;
+            const paidBadge = r.is_paid
+                ? `<span style="background:#d1fae5;color:#065f46;font-size:0.7rem;font-weight:700;padding:2px 10px;border-radius:999px;">✅ Lunas${r.paid_at ? ' &middot; ' + r.paid_at : ''}</span>`
+                : `<span style="background:#fef3c7;color:#92400e;font-size:0.7rem;font-weight:700;padding:2px 10px;border-radius:999px;">⏳ Belum Dibayar</span>`;
+
+            recapEl.innerHTML = `
+                <div class="driver-recap-card">
+                    <div class="dr-name">
+                        <span>📦 Tagihan Gudang Nasita</span>
+                        ${paidBadge}
+                    </div>
+                    <div style="font-size:0.85rem;color:#475569;display:flex;justify-content:space-between;margin:10px 0 6px;">
+                        <span>Transfer bulan ini (${r.transfer_count}x, ${Number(r.transfer_qty).toFixed(2)} qty)</span>
+                        <span style="font-weight:700;">Rp ${formatNumber(r.transfer_nilai)}</span>
+                    </div>
+                    <div style="font-size:0.85rem;color:#475569;display:flex;justify-content:space-between;margin-bottom:10px;">
+                        <span>Share TKBM bulan ini</span>
+                        <span style="font-weight:700;">Rp ${formatNumber(r.tkbm_share)}</span>
+                    </div>
+                    <div style="border-top:1px dashed #e2e8f0;padding-top:10px;display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-weight:700;">Total Tagihan Bulan Ini</span>
+                        <span style="font-size:1.05rem;font-weight:800;color:#0f9d6a;">Rp ${formatNumber(r.total)}</span>
+                    </div>
+                </div>`;
+        } catch (error) {
+            console.error('[GudangRecap] Error:', error);
+            recapEl.innerHTML = `<p style="color: #d32f2f; text-align: center; padding: 20px;">❌ Error: ${error.message}</p>`;
+        }
+    }
+
 
     function payMotorRental(rentalId, ownerAmount, mitraName) {
         pendingMotorPay = {
@@ -2829,7 +2908,7 @@ include '../../includes/header.php';
     window.addEventListener('load', () => {
         const urlParams = new URLSearchParams(window.location.search);
         const reqCat = urlParams.get('cat');
-        const allowed = ['driver', 'trip', 'manual', 'bulanan'];
+        const allowed = ['driver', 'trip', 'manual', 'bulanan', 'motor', 'gudang'];
         switchCategory(allowed.includes(reqCat) ? reqCat : 'driver');
     });
 </script>
