@@ -32,6 +32,22 @@ if (isset($_GET['debug_month'])) {
     foreach ($rows as $r) {
         echo "id={$r['id']} no={$r['transfer_number']} biz=\"{$r['target_business_name']}\" status={$r['status']} created_at={$r['created_at']}\n";
     }
+    echo "\n--- Running EXACT monthly query (2026-08-01..2026-08-31) ---\n";
+    $monthRowsDbg = $gudangDbDbg->fetchAll(
+        "SELECT gt.target_business_name,
+                COUNT(DISTINCT gt.id) AS transfer_count,
+                COALESCE(SUM(gti.quantity), 0) AS total_qty,
+                COALESCE(SUM(COALESCE(gti.subtotal, gti.quantity * COALESCE(gti.unit_price, 0))), 0) AS total_nilai
+         FROM gudang_nasita_transfers gt
+         LEFT JOIN gudang_nasita_transfer_items gti ON gti.transfer_id = gt.id
+         WHERE gt.status NOT IN ('cancelled') AND gt.created_at BETWEEN ? AND ?
+         GROUP BY gt.target_business_name",
+        ['2026-08-01 00:00:00', '2026-08-31 23:59:59']
+    );
+    echo "rows returned: " . count($monthRowsDbg) . "\n";
+    foreach ($monthRowsDbg as $mr) {
+        echo "  biz=\"{$mr['target_business_name']}\" count={$mr['transfer_count']} qty={$mr['total_qty']} nilai={$mr['total_nilai']}\n";
+    }
     exit;
 }
 
