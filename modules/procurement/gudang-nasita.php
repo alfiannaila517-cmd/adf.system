@@ -1391,8 +1391,11 @@ include '../../includes/header.php';
     <div style="display:grid; grid-template-columns: 3fr 1fr; gap: 1rem; align-items:start;">
         <div class="card" style="display:flex; flex-direction:column; height:calc(100vh - 170px); min-height:640px; overflow:hidden;">
             <div class="gudang-toolbar" style="margin-bottom:1rem;">
-                <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; margin-bottom:0.8rem;">
-                    <h3 style="font-size:1rem; font-weight:700; margin:0;">Stok Gudang</h3>
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; margin-bottom:0.85rem; padding-bottom:0.75rem; border-bottom:1px solid rgba(148, 163, 184, 0.28);">
+                    <h3 style="font-size:1.05rem; font-weight:800; margin:0; color:#1e3a8a; display:flex; align-items:center; gap:0.5rem; letter-spacing:0.01em;">
+                        <i data-feather="box" style="width:17px; height:17px; color:#1e3a8a;"></i>
+                        Stok Gudang
+                    </h3>
                     <form method="GET" id="stockFilterForm" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center; margin:0;">
                         <input type="hidden" id="stockCategoryHidden" name="category" value="<?php echo htmlspecialchars($selectedCategory); ?>">
                         <div class="gudang-search-wrap">
@@ -1407,7 +1410,7 @@ include '../../includes/header.php';
                         <button type="button" class="btn btn-sm" id="stockResetBtn" style="<?php echo ($searchItemName || $filterLowStockOnly || $selectedCategory !== '') ? '' : 'display:none'; ?>">Clear</button>
                     </form>
                 </div>
-                <div style="display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center;">
+                <div style="display:flex; flex-wrap:wrap; gap:0.45rem; align-items:center;">
                     <?php
                     $categoryLinks = [];
                     $categoryLinks[] = [
@@ -1789,27 +1792,29 @@ include '../../includes/header.php';
                 if (rst) rst.style.display = hasFilter ? '' : 'none';
             }
 
-            // Category button click handler
+            // Category button click handler: submit the filter form so the server
+            // renders the exact matching category (avoids client/server mismatch)
             categoryButtons.forEach(btn => {
                 btn.addEventListener('click', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
 
-                    const clickedValue = this.getAttribute('data-gudang-category');
+                    const clickedValue = this.getAttribute('data-gudang-category') || '';
+                    if (categoryInput) categoryInput.value = clickedValue;
+
+                    const form = document.getElementById('stockFilterForm');
+                    if (form) {
+                        form.submit();
+                        return;
+                    }
+
+                    // Fallback: client-side only filtering if form isn't found
                     const normalized = normalizeText(clickedValue);
-
-                    // Update hidden input
-                    if (categoryInput) categoryInput.value = normalized;
-
-                    // Update button active states
                     categoryButtons.forEach(b => {
                         const btnVal = normalizeText(b.getAttribute('data-gudang-category'));
                         b.classList.toggle('active', btnVal === normalized);
                     });
-
-                    // Run filter
                     filterRows();
-                    console.log('[GUDANG] Filter by category:', normalized);
                 });
             });
 
