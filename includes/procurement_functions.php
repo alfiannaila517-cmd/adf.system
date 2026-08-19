@@ -680,16 +680,20 @@ function gudangNasitaBackfillZeroPriceTransferItems($db = null): void
     $db = $db ?: Database::getInstance();
     try {
         $hasBarangIdCol = false;
+        $hasHargaBeliCol = false;
         $cols = $db->fetchAll("SHOW COLUMNS FROM gudang_nasita_stock");
         foreach ($cols as $c) {
-            if (strtolower((string)($c['Field'] ?? '')) === 'barang_id') {
+            $fieldName = strtolower((string)($c['Field'] ?? ''));
+            if ($fieldName === 'barang_id') {
                 $hasBarangIdCol = true;
-                break;
+            }
+            if ($fieldName === 'harga_beli') {
+                $hasHargaBeliCol = true;
             }
         }
-        $hargaExpr = $hasBarangIdCol
-            ? 'COALESCE(NULLIF(gs.harga_beli, 0), gb.harga_beli, 0)'
-            : 'COALESCE(gs.harga_beli, 0)';
+        $hargaExpr = $hasHargaBeliCol
+            ? ($hasBarangIdCol ? 'COALESCE(NULLIF(gs.harga_beli, 0), gb.harga_beli, 0)' : 'COALESCE(gs.harga_beli, 0)')
+            : ($hasBarangIdCol ? 'COALESCE(gb.harga_beli, 0)' : '0');
         $barangJoin = $hasBarangIdCol ? 'LEFT JOIN gudang_nasita_barang gb ON gb.id = gs.barang_id' : '';
 
         $zeroItems = $db->fetchAll(
@@ -1691,9 +1695,10 @@ function transferGudangNasitaStock($targetBusinessId, array $items, $createdBy, 
             // A plain "SELECT *" here was the root cause of Rp 0 subtotals on transfers for items whose
             // stock-level harga_beli was never set, even though a valid barang-level price existed.
             $hasBarangIdCol = gudangNasitaStockHasColumn('barang_id');
-            $hargaFallbackExpr = $hasBarangIdCol
-                ? 'COALESCE(NULLIF(gs.harga_beli, 0), gb.harga_beli, 0)'
-                : 'COALESCE(gs.harga_beli, 0)';
+            $hasHargaBeliCol = gudangNasitaStockHasColumn('harga_beli');
+            $hargaFallbackExpr = $hasHargaBeliCol
+                ? ($hasBarangIdCol ? 'COALESCE(NULLIF(gs.harga_beli, 0), gb.harga_beli, 0)' : 'COALESCE(gs.harga_beli, 0)')
+                : ($hasBarangIdCol ? 'COALESCE(gb.harga_beli, 0)' : '0');
             $barangJoinSql = $hasBarangIdCol ? 'LEFT JOIN gudang_nasita_barang gb ON gb.id = gs.barang_id' : '';
             $stock = $db->fetchOne(
                 "SELECT gs.*, {$hargaFallbackExpr} AS harga_beli
