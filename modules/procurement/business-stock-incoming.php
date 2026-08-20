@@ -118,6 +118,7 @@ if ($activeBusinessId > 0) {
 }
 
 $incomingTransfers = [];
+$interIncomingTransfers = [];
 $rawStockSummary = [];
 $stockSummary = [];
 $baselineMap = [];
@@ -159,9 +160,9 @@ $registerStockMeta = function ($itemName, $unit) use (&$stockMetaMap, $buildKey)
     }
 };
 
-$computeVisibleQty = function ($itemName, $unit) use (&$rawStockMap, &$manualStockMap, &$baselineMap, &$dailyOutMap, &$interTransferOutMap, $buildKey, $getMapQty) {
+$computeVisibleQty = function ($itemName, $unit) use (&$rawStockMap, &$manualStockMap, &$interTransferInMap, &$baselineMap, &$dailyOutMap, &$interTransferOutMap, $buildKey, $getMapQty) {
     $key = $buildKey($itemName, $unit);
-    $gross = $getMapQty($rawStockMap, $key) + $getMapQty($manualStockMap, $key);
+    $gross = $getMapQty($rawStockMap, $key) + $getMapQty($manualStockMap, $key) + $getMapQty($interTransferInMap, $key);
     // Subtract daily usage, resets, and any stock transferred out to another business/gudang
     $visible = $gross - $getMapQty($baselineMap, $key) - $getMapQty($dailyOutMap, $key) - $getMapQty($interTransferOutMap, $key);
     return $visible > 0 ? $visible : 0;
@@ -480,6 +481,47 @@ if ($masterPdo && $activeBusinessSlug !== '') {
         );
         $stmtOutRows->execute([$activeBusinessSlug]);
         $interTransferOutRows = $stmtOutRows->fetchAll();
+
+        // Direct business-to-business transfers are stored in the master DB,
+        // separately from Gudang Nasita transfers. Group their item rows so
+        // the receiving business sees one history row per shipment.
+        $stmtInRows = $masterPdo->prepare(
+            "SELECT transfer_number, source_business_name, item_name, unit, quantity,
+                    unit_price, subtotal, notes, created_at
+             FROM business_inter_stock_transfers
+             WHERE target_business_slug = ?
+             ORDER BY created_at DESC, id DESC"
+        );
+        $stmtInRows->execute([$activeBusinessSlug]);
+        $interIncomingByTransfer = [];
+        foreach ($stmtInRows->fetchAll() as $interRow) {
+            $transferNumber = (string)($interRow['transfer_number'] ?? '');
+            if ($transferNumber === '') {
+                continue;
+            }
+            if (!isset($interIncomingByTransfer[$transferNumber])) {
+                $interIncomingByTransfer[$transferNumber] = [
+                    'id' => 0,
+                    'transfer_number' => $transferNumber,
+                    'source_business_name' => $interRow['source_business_name'] ?? '',
+                    'created_at' => $interRow['created_at'] ?? null,
+                    'notes' => $interRow['notes'] ?? '',
+                    'items_count' => 0,
+                    'total_qty' => 0,
+                    'total_value' => 0,
+                    'created_by_name' => 'Sistem',
+                    'is_inter_business' => true,
+                ];
+            }
+            $interIncomingByTransfer[$transferNumber]['items_count']++;
+            $interIncomingByTransfer[$transferNumber]['total_qty'] += (float)($interRow['quantity'] ?? 0);
+            $interIncomingByTransfer[$transferNumber]['total_value'] += (float)($interRow['subtotal'] ?? 0);
+        }
+        $interIncomingTransfers = array_values($interIncomingByTransfer);
+        $incomingTransfers = array_merge($incomingTransfers, $interIncomingTransfers);
+        usort($incomingTransfers, function ($left, $right) {
+            return strcmp((string)($right['created_at'] ?? ''), (string)($left['created_at'] ?? ''));
+        });
     } catch (Throwable $e) {
         error_log('business-stock-incoming transfer aggregate error: ' . $e->getMessage());
     }
@@ -1287,7 +1329,7 @@ include '../../includes/header.php';
     </div>
 
     <div class="card">
-        <h3 style="font-size:1rem; font-weight:700; margin-bottom:1rem;">Histori Penerimaan dari Gudang</h3>
+        <h3 style="font-size:1rem; font-weight:700; margin-bottom:1rem;">Histori Penerimaan Barang</h3>
         <div class="table-responsive">
             <table class="table">
                 <thead>
@@ -1310,19 +1352,30 @@ include '../../includes/header.php';
                             <tr>
                                 <td style="font-weight:600;"><?php echo htmlspecialchars($transfer['transfer_number']); ?></td>
                                 <td style="font-size:0.875rem;"><?php echo !empty($transfer['created_at']) ? date('d M Y H:i', strtotime($transfer['created_at'])) : '-'; ?></td>
-                                <td><?php echo (int)$transfer['items_count']; ?> item</td>
+                                <td>
+                                    <?php echo (int)$transfer['items_count']; ?> item
+                                    <?php if (!empty($transfer['is_inter_business'])): ?>
+                                        <span style="display:inline-block; margin-left:0.35rem; padding:0.1rem 0.4rem; border-radius:4px; background:#dbeafe; color:#1d4ed8; font-size:0.68rem; font-weight:700;">ANTAR BISNIS</span>
+                                    <?php endif; ?>
+                                </td>
                                 <td class="text-right" style="font-weight:600;"><?php echo number_format((float)$transfer['total_qty'], 2); ?></td>
                                 <td class="text-right" style="font-weight:700; color:#0f9d6a;">Rp <?php echo number_format((float)$transfer['total_value'], 0, ',', '.'); ?></td>
-                                <td style="font-size:0.875rem;"><?php echo htmlspecialchars($transfer['created_by_name'] ?? '-'); ?></td>
+                                <td style="font-size:0.875rem;">
+                                    <?php echo htmlspecialchars($transfer['is_inter_business'] ? ($transfer['source_business_name'] ?? '-') : ($transfer['created_by_name'] ?? '-')); ?>
+                                </td>
                                 <td class="text-center">
-                                    <form method="POST" style="display:inline;" onsubmit="return confirm('Hapus histori transfer ini? Stok bisnis akan ikut berkurang.')">
-                                        <input type="hidden" name="action" value="delete_transfer_history">
-                                        <input type="hidden" name="transfer_id" value="<?php echo (int)$transfer['id']; ?>">
-                                        <button type="submit" class="btn btn-sm btn-danger" style="height:30px; padding:0 0.6rem;" title="Hapus histori">
-                                            <i data-feather="trash-2" style="width:12px; height:12px;"></i>
-                                            Hapus
-                                        </button>
-                                    </form>
+                                    <?php if (empty($transfer['is_inter_business'])): ?>
+                                        <form method="POST" style="display:inline;" onsubmit="return confirm('Hapus histori transfer ini? Stok bisnis akan ikut berkurang.')">
+                                            <input type="hidden" name="action" value="delete_transfer_history">
+                                            <input type="hidden" name="transfer_id" value="<?php echo (int)$transfer['id']; ?>">
+                                            <button type="submit" class="btn btn-sm btn-danger" style="height:30px; padding:0 0.6rem;" title="Hapus histori">
+                                                <i data-feather="trash-2" style="width:12px; height:12px;"></i>
+                                                Hapus
+                                            </button>
+                                        </form>
+                                    <?php else: ?>
+                                        <span style="font-size:0.75rem; color:#64748b;">Dari bisnis</span>
+                                    <?php endif; ?>
                                 </td>
                             </tr>
                     <?php endforeach;
