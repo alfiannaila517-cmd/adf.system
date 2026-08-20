@@ -875,6 +875,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         error_log('business-stock-incoming resolve inter-transfer price error: ' . $e->getMessage());
                     }
                 }
+
+                // Some stock was created or migrated without a transfer-item
+                // price. Use the Gudang master stock price when that column is
+                // available, so direct business transfers still carry value.
+                if ($unitPriceForTransfer <= 0 && $gudangDbNameResolved !== '') {
+                    try {
+                        $originDbNameStockPrice = Database::getCurrentDatabase();
+                        $gudangDbStockPrice = Database::switchDatabase($gudangDbNameResolved);
+                        $stockPriceColumns = $gudangDbStockPrice->fetchAll('SHOW COLUMNS FROM gudang_nasita_stock');
+                        $stockPriceColumnNames = array_column($stockPriceColumns, 'Field');
+                        $stockPriceColumn = null;
+                        foreach (['unit_price', 'purchase_price', 'harga_beli', 'cost_price'] as $candidatePriceColumn) {
+                            if (in_array($candidatePriceColumn, $stockPriceColumnNames, true)) {
+                                $stockPriceColumn = $candidatePriceColumn;
+                                break;
+                            }
+                        }
+                        if ($stockPriceColumn !== null) {
+                            $stockPriceRow = $gudangDbStockPrice->fetchOne(
+                                "SELECT `{$stockPriceColumn}` AS unit_price
+                                 FROM gudang_nasita_stock
+                                 WHERE LOWER(TRIM(item_name)) = LOWER(TRIM(?))
+                                   AND LOWER(TRIM(unit)) = LOWER(TRIM(?))
+                                 LIMIT 1",
+                                [$itemName, $unit]
+                            );
+                            $unitPriceForTransfer = (float)($stockPriceRow['unit_price'] ?? 0);
+                        }
+                        if (!empty($originDbNameStockPrice)) {
+                            Database::switchDatabase($originDbNameStockPrice);
+                            $db = Database::getInstance();
+                        }
+                    } catch (Throwable $e) {
+                        error_log('business-stock-incoming resolve stock price fallback error: ' . $e->getMessage());
+                    }
+                }
                 $subtotalForTransfer = $unitPriceForTransfer * $qty;
 
                 $transferNo = 'BST-' . date('YmdHis');
