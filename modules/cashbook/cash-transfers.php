@@ -192,6 +192,7 @@ $accounts = [];
 $totalAmount = 0;
 $totalOperationalExpense = 0;
 $netSetorAmount = 0;
+$operationalBankBalance = 0;
 $expenseDetails = [];
 
 // Backfill: older cash_transfers rows (created before the cash_book link
@@ -342,6 +343,16 @@ try {
         $accountNameById[(int)$ba['bank_account_id']] = $ba['account_name'];
     }
     $bankAccountIds = array_values(array_unique($bankAccountIds));
+
+    // Saldo rekening operasional adalah saldo aktual akun bank, bukan total
+    // setor dikurangi pengeluaran. Akun dapat memiliki saldo awal atau pemasukan
+    // lain yang tidak berasal dari setor tunai.
+    if (!empty($bankAccountIds)) {
+        $balancePh = implode(',', array_fill(0, count($bankAccountIds), '?'));
+        $balanceStmt = $masterDb->prepare("SELECT COALESCE(SUM(current_balance), 0) FROM cash_accounts WHERE business_id = ? AND id IN ($balancePh)");
+        $balanceStmt->execute(array_merge([$businessId], $bankAccountIds));
+        $operationalBankBalance = (float)$balanceStmt->fetchColumn();
+    }
 
     // Calculate expense usage from those operational bank accounts
     if (!empty($bankAccountIds)) {
@@ -673,9 +684,6 @@ include '../../includes/header.php';
     <?php endif; ?>
 
     <!-- Summary: always show, uses all-time totals so filter does not hide the balance -->
-    <?php
-    $netAllTime = $totalSetorAllTime - $totalOperationalExpense;
-    ?>
     <div class="summary-box">
         <div class="summary-item">
             <div class="summary-label">Total Setor (Semua)</div>
@@ -686,8 +694,8 @@ include '../../includes/header.php';
             <div class="summary-value" style="color:#b91c1c;">Rp <?php echo number_format($totalOperationalExpense, 0, ',', '.'); ?></div>
         </div>
         <div class="summary-item">
-            <div class="summary-label">Saldo Setor Bersih</div>
-            <div class="summary-value" style="color:<?php echo $netAllTime < 0 ? '#b91c1c' : '#0f766e'; ?>;">Rp <?php echo number_format($netAllTime, 0, ',', '.'); ?></div>
+            <div class="summary-label">Saldo Rek. Operasional</div>
+            <div class="summary-value" style="color:<?php echo $operationalBankBalance < 0 ? '#b91c1c' : '#0f766e'; ?>;">Rp <?php echo number_format($operationalBankBalance, 0, ',', '.'); ?></div>
         </div>
         <div class="summary-item">
             <div class="summary-label">Transaksi Setor (Perioda)</div>
@@ -699,7 +707,7 @@ include '../../includes/header.php';
         </div>
     </div>
     <div class="expense-summary-note">
-        Ringkasan ini memperhitungkan semua pengeluaran dari rekening bank operasional hasil setoran tunai (tidak termasuk transaksi internal Setor Tunai). Detail di bawah mengikuti filter tanggal.
+        Saldo rekening operasional di atas berasal dari saldo aktual akun bank. Pengeluaran di bawah hanya menampilkan transaksi dari rekening operasional hasil setoran tunai, tidak termasuk transaksi internal Setor Tunai. Detail mengikuti filter tanggal.
     </div>
 
     <!-- Filters -->
