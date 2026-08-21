@@ -18,6 +18,24 @@ $db = Database::getInstance();
 $currentUser = $auth->getCurrentUser();
 $pageTitle = 'PO Supplier Gudang';
 
+// TEMP DIAGNOSTIC (auth-gated above) — read-only, shows PO detail rows matching an item
+// name so we can see qty/received_quantity/status without guessing. Remove after debugging.
+if (($_GET['debug_po_item'] ?? '') === '1') {
+    header('Content-Type: application/json');
+    $itemName = trim((string)($_GET['item_name'] ?? 'amer'));
+    $rows = $db->fetchAll(
+        "SELECT poh.id AS po_id, poh.po_number, poh.status AS po_status, poh.created_at,
+                pod.id AS detail_id, pod.item_name, pod.quantity, pod.received_quantity, pod.unit_of_measure
+         FROM purchase_orders_detail pod
+         JOIN purchase_orders_header poh ON poh.id = pod.po_header_id
+         WHERE pod.item_name LIKE ?
+         ORDER BY poh.created_at DESC",
+        ['%' . $itemName . '%']
+    );
+    echo json_encode(['search_term' => $itemName, 'matches' => $rows], JSON_PRETTY_PRINT);
+    exit;
+}
+
 $normalizePoStatus = static function ($status): string {
     $statusText = trim((string)($status ?? ''));
     if ($statusText === '') {
