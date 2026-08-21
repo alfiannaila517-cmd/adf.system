@@ -836,7 +836,7 @@ $statusColors = [
             '>': '&gt;',
             '"': '&quot;',
             "'": '&#39;'
-        }[c]));
+        } [c]));
     }
 
     function openTagihanBulananDetail(cardEl) {
@@ -864,9 +864,9 @@ $statusColors = [
 
         const rows = detail.rows || [];
         const tbody = document.getElementById('tbmBody');
-        tbody.innerHTML = !rows.length
-            ? '<tr><td colspan="' + (cols.length || 1) + '" style="text-align:center; color:var(--text-muted); padding:1rem;">Tidak ada transfer bulan ini.</td></tr>'
-            : rows.map(r => '<tr>' + r.map((v, i) => '<td' + (cols[i] && cols[i].right ? ' class="text-right"' : '') + '>' + tbmEscapeHtml(v) + '</td>').join('') + '</tr>').join('');
+        tbody.innerHTML = !rows.length ?
+            '<tr><td colspan="' + (cols.length || 1) + '" style="text-align:center; color:var(--text-muted); padding:1rem;">Tidak ada transfer bulan ini.</td></tr>' :
+            rows.map(r => '<tr>' + r.map((v, i) => '<td' + (cols[i] && cols[i].right ? ' class="text-right"' : '') + '>' + tbmEscapeHtml(v) + '</td>').join('') + '</tr>').join('');
 
         document.getElementById('tbmTotal').textContent = detail.total || '-';
 

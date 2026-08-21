@@ -891,7 +891,7 @@ include '../../includes/header.php';
             '>': '&gt;',
             '"': '&quot;',
             "'": '&#39;'
-        }[c]));
+        } [c]));
 
         const transferNo = rowEl.getAttribute('data-transfer-no') || '-';
         const biz = rowEl.getAttribute('data-biz') || '-';

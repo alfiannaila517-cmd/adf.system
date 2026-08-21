@@ -1352,7 +1352,7 @@ include '../../includes/header.php';
                 <?php foreach ($expiringItems as $exItem):
                     $exDiffDays = (int)floor((strtotime($exItem['expiry_date']) - time()) / 86400);
                     $exExpired = $exDiffDays < 0;
-                    ?>
+                ?>
                     <div style="display:flex; justify-content:space-between; align-items:center; gap:0.75rem; flex-wrap:wrap; background:#fff; border:1px solid #fcd34d; border-radius:0.5rem; padding:0.45rem 0.75rem;">
                         <div>
                             <span style="font-weight:700; color:<?php echo $exExpired ? '#991b1b' : '#92400e'; ?>; font-size:0.875rem;"><?php echo htmlspecialchars($exItem['item_name']); ?></span>
@@ -1500,21 +1500,21 @@ include '../../includes/header.php';
                                     <td class="text-right gudang-price-cell" style="font-weight:400; color:#0f9d6a;">Rp <?php echo number_format((float)($item['total_harga'] ?? ((float)$item['quantity'] * (float)($item['harga_beli'] ?? 0))), 0, ',', '.'); ?></td>
                                     <td><?php echo htmlspecialchars($item['unit']); ?></td>
                                     <td class="gudang-expiry-cell" style="white-space:nowrap;"><?php
-                                                                                        $exp = $item['expiry_date'] ?? '';
-                                                                                        if ($exp && $exp !== '0000-00-00') {
-                                                                                            $expTs = strtotime($exp);
-                                                                                            $diffDays = (int)floor(($expTs - time()) / 86400);
-                                                                                            if ($diffDays < 0) {
-                                                                                                echo '<span style="color:#ef4444; background:rgba(239,68,68,0.12); padding:1px 6px; border-radius:999px;">&#9888; Kadaluarsa ' . date('d M Y', $expTs) . '</span>';
-                                                                                            } elseif ($diffDays <= 30) {
-                                                                                                echo '<span style="color:#f59e0b; background:rgba(245,158,11,0.14); padding:1px 6px; border-radius:999px;">&#9888; ' . date('d M Y', $expTs) . ' (' . $diffDays . ' hr)</span>';
-                                                                                            } else {
-                                                                                                echo '<span style="color:#94a3b8;">' . date('d M Y', $expTs) . '</span>';
-                                                                                            }
-                                                                                        } else {
-                                                                                            echo '<span style="color:#cbd5e1;">—</span>';
-                                                                                        }
-                                                                                        ?></td>
+                                                                                                $exp = $item['expiry_date'] ?? '';
+                                                                                                if ($exp && $exp !== '0000-00-00') {
+                                                                                                    $expTs = strtotime($exp);
+                                                                                                    $diffDays = (int)floor(($expTs - time()) / 86400);
+                                                                                                    if ($diffDays < 0) {
+                                                                                                        echo '<span style="color:#ef4444; background:rgba(239,68,68,0.12); padding:1px 6px; border-radius:999px;">&#9888; Kadaluarsa ' . date('d M Y', $expTs) . '</span>';
+                                                                                                    } elseif ($diffDays <= 30) {
+                                                                                                        echo '<span style="color:#f59e0b; background:rgba(245,158,11,0.14); padding:1px 6px; border-radius:999px;">&#9888; ' . date('d M Y', $expTs) . ' (' . $diffDays . ' hr)</span>';
+                                                                                                    } else {
+                                                                                                        echo '<span style="color:#94a3b8;">' . date('d M Y', $expTs) . '</span>';
+                                                                                                    }
+                                                                                                } else {
+                                                                                                    echo '<span style="color:#cbd5e1;">—</span>';
+                                                                                                }
+                                                                                                ?></td>
                                     <td>
                                         <?php $stockIdInt = (int)($item['id'] ?? 0); ?>
                                         <div class="dropdown" style="position:relative; display:inline-block;">

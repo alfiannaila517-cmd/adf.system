@@ -890,7 +890,9 @@ function submitPay () {
   const amount = parseFloat(document.getElementById('pAmount').value) || 0
   const method = document.getElementById('pMethod').value
   const isSplit = document.getElementById('pSplitToggle').checked
-  const amount2 = isSplit ? parseFloat(document.getElementById('pAmount2').value) || 0 : 0
+  const amount2 = isSplit
+    ? parseFloat(document.getElementById('pAmount2').value) || 0
+    : 0
   const method2 = document.getElementById('pMethod2').value
 
   if (amount <= 0) {
@@ -908,11 +910,13 @@ function submitPay () {
 
   sendAddPayment(id, amount, method)
     .then(res => {
-      if (!res.success) throw new Error(res.message || 'Unknown error (payment 1)')
+      if (!res.success)
+        throw new Error(res.message || 'Unknown error (payment 1)')
       if (!isSplit) return res
       // Second leg of the split payment (e.g. sisanya via kartu/transfer)
       return sendAddPayment(id, amount2, method2).then(res2 => {
-        if (!res2.success) throw new Error(res2.message || 'Unknown error (payment 2)')
+        if (!res2.success)
+          throw new Error(res2.message || 'Unknown error (payment 2)')
         return res2
       })
     })
@@ -920,9 +924,7 @@ function submitPay () {
       closePayModal()
       let msg =
         'Payment saved! ' +
-        (res.cashbook
-          ? '✅ Tercatat di Buku Kas'
-          : '⚠️ Gagal sync ke Buku Kas')
+        (res.cashbook ? '✅ Tercatat di Buku Kas' : '⚠️ Gagal sync ke Buku Kas')
       if (res.motors_auto_returned && res.motors_auto_returned.length > 0) {
         msg +=
           '\n🏍️ ' +

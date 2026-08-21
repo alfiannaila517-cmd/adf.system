@@ -1,7 +1,7 @@
 ---
 deployment:
   targets:
-    - deployment_target: 'public_html/adf.system'
+    - deployment_target: "public_html/adf.system"
       paths:
         - public_html/adf.system
       excluded_paths:

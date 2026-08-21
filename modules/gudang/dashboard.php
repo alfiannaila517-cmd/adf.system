@@ -186,7 +186,7 @@ include __DIR__ . '/../../includes/header.php';
                                 ];
                             }, $bp['items'] ?? []),
                         ];
-                        ?>
+                    ?>
                         <tr class="gd-clickable-row" style="cursor:pointer;" data-detail="<?php echo htmlspecialchars(json_encode($bpDetail), ENT_QUOTES); ?>" onclick="openGudangDetailModal(this)">
                             <td style="font-weight:700;font-size:.81rem;"><?php echo htmlspecialchars($bp['po_number']); ?></td>
                             <td style="font-weight:600;"><?php echo htmlspecialchars($bp['source_business_name'] ?? '-'); ?></td>
@@ -247,7 +247,7 @@ include __DIR__ . '/../../includes/header.php';
                                 ];
                             }, $poItems),
                         ];
-                        ?>
+                    ?>
                         <tr class="gd-clickable-row" style="cursor:pointer;" data-detail="<?php echo htmlspecialchars(json_encode($poDetail), ENT_QUOTES); ?>" onclick="openGudangDetailModal(this)">
                             <td>
                                 <div style="font-weight:700;font-size:.81rem;"><?php echo htmlspecialchars($po['po_number']); ?></div>
@@ -289,7 +289,7 @@ include __DIR__ . '/../../includes/header.php';
                                 ['Catatan', $bd['notes'] !== null && $bd['notes'] !== '' ? (string)$bd['notes'] : '-'],
                             ],
                         ];
-                        ?>
+                    ?>
                         <tr class="gd-clickable-row" style="cursor:pointer;" data-detail="<?php echo htmlspecialchars(json_encode($bdDetail), ENT_QUOTES); ?>" onclick="openGudangDetailModal(this)">
                             <td>
                                 <div style="font-weight:600;font-size:.81rem;"><?php echo htmlspecialchars($bd['item_name']); ?></div>
@@ -344,7 +344,7 @@ include __DIR__ . '/../../includes/header.php';
                                 ];
                             }, $tbItems),
                         ];
-                        ?>
+                    ?>
                         <tr class="gd-clickable-row" style="cursor:pointer;" data-detail="<?php echo htmlspecialchars(json_encode($tbDetail), ENT_QUOTES); ?>" onclick="openGudangDetailModal(this)">
                             <td style="font-weight:600;"><?php echo htmlspecialchars($tb['bisnis']); ?></td>
                             <td class="text-right"><?php echo (int)$tb['total_transfer']; ?></td>
@@ -385,7 +385,7 @@ include __DIR__ . '/../../includes/header.php';
             '>': '&gt;',
             '"': '&quot;',
             "'": '&#39;'
-        }[c]));
+        } [c]));
     }
 
     function openGudangDetailModal(rowEl) {

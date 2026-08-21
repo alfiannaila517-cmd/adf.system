@@ -48,7 +48,7 @@ if ($action === 'add') {
 $ctx = stream_context_create([
     'http' => [
         'header' => 'Authorization: Basic ' . base64_encode("{$u}:{$p}"),
-        'timeout' => 15,
+        'timeout' => 14,
     ],
     'ssl' => [
         'verify_peer' => false,
