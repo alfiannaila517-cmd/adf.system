@@ -380,6 +380,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
             $conn->beginTransaction();
             $db->query('DELETE FROM purchase_orders_detail WHERE po_header_id = ?', [$poId]);
             $db->query('DELETE FROM purchase_orders_header WHERE id = ?', [$poId]);
+            // Also remove the "Histori Barang Datang" trail on the Gudang dashboard tied to this PO
+            $db->query("DELETE FROM gudang_nasita_movements WHERE reference_type = 'purchase_order' AND reference_id = ?", [$poId]);
             $conn->commit();
 
             $_SESSION['success'] = 'PO ' . (string)($poRow['po_number'] ?? '') . ' berhasil dihapus dan hilang dari daftar Gudang Nasita.';
