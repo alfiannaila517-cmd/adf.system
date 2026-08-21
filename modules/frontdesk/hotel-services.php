@@ -455,6 +455,7 @@ function syncInvoiceToCashbook($db, $businessId, $userId, array $invRow, array $
         $invNo  = $invRow['invoice_number'];
         $guest  = $invRow['guest_name'];
         $totalAmt = (float)$invRow['total'];
+        $paidTotal = (float)$invRow['paid_amount'];
 
         // Split-tender breakdown (cash + kartu dalam 1 nota); fallback to the single
         // legacy payment_method for invoices created before the breakdown table existed.
@@ -490,7 +491,9 @@ function syncInvoiceToCashbook($db, $businessId, $userId, array $invRow, array $
                 $insertedForPay += $svcAmount;
 
                 $divId = getDivisionForService($bPdo, $svcType);
-                $desc  = "[{$invNo}] {$guest} - {$svcLabel}";
+                $desc  = "[{$invNo}] {$guest} - {$svcLabel} | Invoice Rp "
+                    . number_format($totalAmt, 0, ',', '.') . " | Dibayar Rp "
+                    . number_format($paidTotal, 0, ',', '.');
 
                 if ($hasCa) {
                     $stmt = $bPdo->prepare("INSERT INTO cash_book
