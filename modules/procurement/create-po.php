@@ -254,6 +254,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
 
         if ($result['success']) {
+            // Auto-register manually-typed item names into Gudang Nasita's item master
+            // so items ordered by Narayana/Eat & Meet/Bens that don't exist yet in the
+            // warehouse catalog become available for future PO's too.
+            try {
+                if (!empty($gudangDbName)) {
+                    $gudangDb = Database::switchDatabase($gudangDbName);
+                    foreach ($items as $it) {
+                        $nm = trim((string)($it['item_name'] ?? ''));
+                        if ($nm === '') {
+                            continue;
+                        }
+                        $exists = $gudangDb->fetchOne('SELECT id FROM gudang_nasita_barang WHERE LOWER(nama_barang) = LOWER(?) AND COALESCE(is_active,1) = 1 LIMIT 1', [$nm]);
+                        if ($exists) {
+                            continue;
+                        }
+                        $prefix = 'BRG-';
+                        $last = $gudangDb->fetchOne('SELECT kode_barang FROM gudang_nasita_barang WHERE kode_barang LIKE ? ORDER BY kode_barang DESC LIMIT 1', [$prefix . '%']);
+                        $seq = $last ? ((int)substr($last['kode_barang'], -4) + 1) : 1;
+                        $gudangDb->insert('gudang_nasita_barang', [
+                            'kode_barang' => $prefix . str_pad((string)$seq, 4, '0', STR_PAD_LEFT),
+                            'nama_barang' => $nm,
+                            'satuan'      => $it['unit_of_measure'] ?: 'pcs',
+                            'harga_beli'  => (float)($it['unit_price'] ?? 0),
+                            'is_active'   => 1,
+                        ]);
+                    }
+                }
+            } catch (Throwable $registerErr) {
+                error_log('create-po auto-register barang failed: ' . $registerErr->getMessage());
+            } finally {
+                if (!empty($originDbName)) {
+                    Database::switchDatabase($originDbName);
+                    $db = Database::getInstance();
+                }
+            }
+
             $_SESSION['success'] = '✅ ' . $result['message'];
             $redirectUrl = 'view-po.php?id=' . $result['po_id'];
             if (!empty($activeBusinessId)) {
@@ -570,6 +606,16 @@ include '../../includes/header.php';
                 <input type="text" id="poLeftSearch" class="po-search-wrap" placeholder="Cari nama barang..." autocomplete="off">
             </div>
             <div id="poLeftList" class="po-left-list" style="flex:1; overflow-y:auto; min-height:0;"></div>
+            <!-- Manual input for items not yet in Gudang Nasita database -->
+            <div style="padding:0.65rem 1rem; border-top:1px solid #fde68a; background:#fffbeb; flex-shrink:0;">
+                <div style="font-size:0.78rem; font-weight:700; color:#92400e; margin-bottom:0.4rem;">+ Tambah item baru (belum di database Gudang Nasita)</div>
+                <div style="display:flex; gap:0.4rem; flex-wrap:wrap;">
+                    <input type="text" id="manualItemName" class="form-control" placeholder="Nama barang..." style="flex:1; min-width:140px; height:32px; font-size:0.82rem;">
+                    <input type="text" id="manualItemSatuan" class="form-control" placeholder="Satuan" style="width:72px; height:32px; font-size:0.82rem;" value="pcs">
+                    <input type="number" id="manualItemHarga" class="form-control" placeholder="Harga" style="width:90px; height:32px; font-size:0.82rem;" min="0" step="1">
+                    <button type="button" class="btn btn-sm" style="background:#f59e0b;color:#fff;height:32px;padding:0 0.7rem;font-size:0.82rem;" onclick="addManualItem()">Tambah</button>
+                </div>
+            </div>
             <div style="padding:0.6rem 1rem; border-top:1px solid #e5edf7; font-size:0.78rem; color:#64748b; flex-shrink:0; background:#fbfdff;">
                 <span id="poLeftCount">0 barang</span> &nbsp;·&nbsp; <span id="poSelectedCount" style="color:#0f9d6a; font-weight:800;">0 dipilih</span>
             </div>
@@ -643,8 +689,8 @@ include '../../includes/header.php';
                 maximumFractionDigits: 2
             });
             var isSelected = !!selected[p.id];
-            return '<div class="po-chk-row' + (isSelected ? ' selected' : '') + '" data-id="' + p.id + '" onclick="toggleItem(' + p.id + ')">' +
-                '<input type="checkbox"' + (isSelected ? ' checked' : '') + ' onclick="event.stopPropagation();toggleItem(' + p.id + ')">' +
+            return '<div class="po-chk-row' + (isSelected ? ' selected' : '') + '" data-id="' + p.id + '" onclick="toggleItem(\'' + p.id + '\')">' +
+                '<input type="checkbox"' + (isSelected ? ' checked' : '') + ' onclick="event.stopPropagation();toggleItem(\'' + p.id + '\')">' +
                 '<div class="item-info">' +
                 '<strong>' + (p.nama_barang || '') + '</strong>' +
                 '<div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">' +
@@ -714,9 +760,9 @@ include '../../includes/header.php';
             total += subtotal;
             html += '<div class="po-right-row">' +
                 '<div class="item-name">' + s.nama + '<br><span class="item-unit">' + s.satuan + (s.harga > 0 ? ' · Rp ' + Math.round(s.harga).toLocaleString('id-ID') : '') + '</span></div>' +
-                '<input type="number" class="form-control" placeholder="Qty" min="0.01" step="0.01" value="' + (s.qty || '') + '" oninput="selected[' + id + '].qty=this.value;updateTotal()">' +
+                '<input type="number" class="form-control" placeholder="Qty" min="0.01" step="0.01" value="' + (s.qty || '') + '" oninput="selected[\'' + id + '\'].qty=this.value;updateTotal()">' +
                 '<span class="item-unit">' + s.satuan + '</span>' +
-                '<button type="button" class="remove-btn" onclick="toggleItem(' + id + ')">✕</button>' +
+                '<button type="button" class="remove-btn" onclick="removePoItem(\'' + id + '\')">✕</button>' +
                 '</div>';
         });
 
@@ -730,6 +776,44 @@ include '../../includes/header.php';
             total += (parseFloat(s.qty) || 0) * s.harga;
         });
         document.getElementById('poRightTotal').textContent = 'Rp ' + Math.round(total).toLocaleString('id-ID');
+    }
+
+    function addManualItem() {
+        var nama = document.getElementById('manualItemName').value.trim();
+        var satuan = document.getElementById('manualItemSatuan').value.trim() || 'pcs';
+        var harga = parseFloat(document.getElementById('manualItemHarga').value) || 0;
+        if (!nama) {
+            alert('Tulis nama barang terlebih dahulu.');
+            document.getElementById('manualItemName').focus();
+            return;
+        }
+        // Deduplicate by lowercased name
+        var key = 'manual_' + nama.toLowerCase().replace(/\s+/g, '_');
+        if (selected[key]) {
+            alert('"' + nama + '" sudah ada di daftar PO.');
+            return;
+        }
+        selected[key] = {
+            nama: nama,
+            satuan: satuan,
+            harga: harga,
+            qty: '',
+            isManual: true
+        };
+        renderRight();
+        document.getElementById('manualItemName').value = '';
+        document.getElementById('manualItemHarga').value = '';
+        document.getElementById('poSelectedCount').textContent = Object.keys(selected).length + ' dipilih';
+    }
+
+    function removePoItem(key) {
+        if (String(key).indexOf('manual_') === 0) {
+            delete selected[key];
+            renderRight();
+            document.getElementById('poSelectedCount').textContent = Object.keys(selected).length + ' dipilih';
+        } else {
+            toggleItem(key);
+        }
     }
 
     function submitSelectedPo() {
