@@ -133,6 +133,7 @@ $gudangDbNameResolved = '';
 $stockMetaMap = [];
 $manualCatalogByName = [];
 $manualItemSuggestions = [];
+$gudangMasterCatalog = [];
 
 // Build map by item+unit for precise adjustments
 $buildKey = function ($itemName, $unit) {
@@ -332,6 +333,31 @@ if ($activeBusinessId > 0) {
                 // Current warehouse stock is authoritative for available stock; transfer history stays as a separate audit trail only.
                 if (empty($rawStockSummary)) {
                     $rawStockSummary = [];
+                }
+
+                // Pull the FULL Gudang Nasita item master so "Tambah Stok Manual" can suggest
+                // names already known centrally (same catalog used by PO Bisnis) and avoid duplicates.
+                try {
+                    $gudangMasterRows = $gudangDb->fetchAll(
+                        "SELECT nama_barang, COALESCE(kategori,'') AS kategori, COALESCE(satuan,'pcs') AS satuan
+                         FROM gudang_nasita_barang
+                         WHERE COALESCE(is_active,1) = 1
+                         ORDER BY nama_barang ASC"
+                    ) ?: [];
+                    foreach ($gudangMasterRows as $gRow) {
+                        $gName = trim((string)($gRow['nama_barang'] ?? ''));
+                        $gNormalized = $normalizeItemName($gName);
+                        if ($gNormalized === '' || isset($gudangMasterCatalog[$gNormalized])) {
+                            continue;
+                        }
+                        $gudangMasterCatalog[$gNormalized] = [
+                            'item_name' => $gName,
+                            'category' => trim((string)($gRow['kategori'] ?? '')),
+                            'unit' => trim((string)($gRow['satuan'] ?? '')) !== '' ? trim((string)$gRow['satuan']) : 'pcs',
+                        ];
+                    }
+                } catch (Throwable $masterErr) {
+                    error_log('business-stock-incoming gudang master catalog error: ' . $masterErr->getMessage());
                 }
 
                 if (!empty($originDbName)) {
@@ -584,6 +610,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $category = $knownCategory;
             }
         }
+
+        // Also canonicalize against the central Gudang Nasita item master, so a name that
+        // already exists there (even if never received by this business) reuses the same
+        // spelling/unit/category instead of creating a near-duplicate.
+        if (isset($gudangMasterCatalog[$normalizedInputName])) {
+            $masterEntry = $gudangMasterCatalog[$normalizedInputName];
+            $itemName = (string)($masterEntry['item_name'] ?? $itemName);
+            if ($unit === '' || strtolower($unit) === 'pcs') {
+                $masterUnit = trim((string)($masterEntry['unit'] ?? ''));
+                if ($masterUnit !== '') {
+                    $unit = $masterUnit;
+                }
+            }
+            if ($category === '' || strtolower($category) === 'lainnya') {
+                $masterCategory = trim((string)($masterEntry['category'] ?? ''));
+                if ($masterCategory !== '') {
+                    $category = $masterCategory;
+                }
+            }
+        }
     }
 
     if ($activeBusinessId <= 0 || $itemName === '' || $qty <= 0) {
@@ -594,6 +640,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 'INSERT INTO business_manual_stock_entries (business_id, item_name, category, unit, quantity, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
                 [$activeBusinessId, $itemName, $category !== '' ? $category : null, $unit !== '' ? $unit : 'pcs', $qty, $notes, (int)($currentUser['id'] ?? 0)]
             );
+
+            // Auto-register item names not yet in Gudang Nasita's master, so future PO's and
+            // other businesses see this item too (prevents duplicate names being created later).
+            if (!isset($gudangMasterCatalog[$normalizedInputName]) && !empty($gudangDbNameResolved)) {
+                try {
+                    $originDbNameForRegister = Database::getCurrentDatabase();
+                    $gudangDbForRegister = Database::switchDatabase($gudangDbNameResolved);
+
+                    $exists = $gudangDbForRegister->fetchOne(
+                        'SELECT id FROM gudang_nasita_barang WHERE LOWER(nama_barang) = LOWER(?) AND COALESCE(is_active,1) = 1 LIMIT 1',
+                        [$itemName]
+                    );
+                    if (!$exists) {
+                        $prefix = 'BRG-';
+                        $last = $gudangDbForRegister->fetchOne('SELECT kode_barang FROM gudang_nasita_barang WHERE kode_barang LIKE ? ORDER BY kode_barang DESC LIMIT 1', [$prefix . '%']);
+                        $seq = $last ? ((int)substr((string)$last['kode_barang'], -4) + 1) : 1;
+                        $gudangDbForRegister->insert('gudang_nasita_barang', [
+                            'kode_barang' => $prefix . str_pad((string)$seq, 4, '0', STR_PAD_LEFT),
+                            'nama_barang' => $itemName,
+                            'kategori'    => $category !== '' ? $category : 'lainnya',
+                            'satuan'      => $unit !== '' ? $unit : 'pcs',
+                            'is_active'   => 1,
+                        ]);
+                    }
+
+                    if (!empty($originDbNameForRegister)) {
+                        Database::switchDatabase($originDbNameForRegister);
+                        $db = Database::getInstance();
+                    }
+                } catch (Throwable $registerErr) {
+                    error_log('business-stock-incoming auto-register barang failed: ' . $registerErr->getMessage());
+                    try {
+                        if (!empty($originDbNameForRegister)) {
+                            Database::switchDatabase($originDbNameForRegister);
+                            $db = Database::getInstance();
+                        }
+                    } catch (Throwable $restoreErr) {
+                    }
+                }
+            }
+
             $_SESSION['success'] = 'Stok manual berhasil ditambahkan.';
         } catch (Throwable $e) {
             $_SESSION['error'] = 'Gagal menambah stok manual: ' . $e->getMessage();
@@ -1134,6 +1221,15 @@ foreach ($stockMetaMap as $meta) {
             'unit' => $unit !== '' ? $unit : 'pcs',
         ];
     }
+}
+
+// Include the full Gudang Nasita item master too, so users pick names that already exist
+// centrally instead of accidentally typing a near-duplicate (e.g. "Kopi" vs "Kopi Bubuk").
+foreach ($gudangMasterCatalog as $normalizedName => $entry) {
+    if ($normalizedName === '' || isset($manualItemSuggestions[$normalizedName])) {
+        continue;
+    }
+    $manualItemSuggestions[$normalizedName] = $entry;
 }
 
 uasort($manualItemSuggestions, function ($a, $b) {
@@ -1773,7 +1869,7 @@ include '../../includes/header.php';
             <div class="manual-stock-grid">
                 <div>
                     <label class="form-label">Nama item</label>
-                    <input type="text" name="item_name" id="manual_item_name" class="form-control" list="manualStockItemList" autocomplete="off" placeholder="Contoh: Gula Pasir" required>
+                    <input type="text" name="item_name" id="manual_item_name" class="form-control" list="manualStockItemList" autocomplete="off" placeholder="Ketik atau pilih dari database Gudang Nasita" required>
                 </div>
                 <div>
                     <label class="form-label">Kategori</label>
@@ -1792,7 +1888,7 @@ include '../../includes/header.php';
             <div class="form-group manual-stock-notes">
                 <label class="form-label">Catatan (opsional)</label>
                 <textarea name="notes" class="form-control" placeholder="Misal: stok awal existing di outlet"></textarea>
-                <div class="manual-stock-help">Catatan membantu tim melacak asal stok manual.</div>
+                <div class="manual-stock-help">Nama item mengikuti database Gudang Nasita (jika belum ada, akan otomatis ditambahkan ke sana agar tidak dobel).</div>
             </div>
 
             <datalist id="manualStockCategoryList">
