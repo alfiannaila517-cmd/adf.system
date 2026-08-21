@@ -1205,13 +1205,17 @@ function receivePurchaseOrderToGudang($po_id, array $receivedItems, $receivedBy,
             }
 
             if (!$stock) {
+                if (gudangNasitaStockRequiresBarangId() && $barangId === null) {
+                    // barang_id is NOT NULL on gudang_nasita_stock — item must exist in the
+                    // Database Produk master catalog before it can be received into a NEW stock row.
+                    throw new Exception('Item "' . trim($item['item_name']) . '" belum terdaftar di Database Produk Gudang Nasita. Tambahkan dulu di menu Database Produk, baru terima barang ini.');
+                }
+
                 $insertData = [
                     'item_name' => trim($item['item_name']),
                     'category' => 'lainnya',
                     'unit' => $unit,
                     'quantity' => 0,
-                    'harga_beli' => isset($item['unit_price']) ? (float)$item['unit_price'] : 0,
-                    'total_harga' => 0,
                     'supplier_name' => $po['supplier_name'] ?? null,
                     'notes' => $notes ?: ('Auto created from PO ' . $po['po_number'])
                 ];
@@ -1219,7 +1223,7 @@ function receivePurchaseOrderToGudang($po_id, array $receivedItems, $receivedBy,
                 if (gudangNasitaStockHasColumn('stock_code')) {
                     $insertData['stock_code'] = generateGudangNasitaStockCode();
                 }
-                if (gudangNasitaStockRequiresBarangId() && $barangId !== null) {
+                if (gudangNasitaStockRequiresBarangId()) {
                     $insertData['barang_id'] = $barangId;
                 }
                 if (gudangNasitaStockHasColumn('jumlah_stok')) {
@@ -1228,6 +1232,9 @@ function receivePurchaseOrderToGudang($po_id, array $receivedItems, $receivedBy,
                 if (gudangNasitaStockHasColumn('expiry_date') && !empty($item['expiry_date'])) {
                     $insertData['expiry_date'] = $item['expiry_date'];
                 }
+                // Only insert columns that actually exist (e.g. harga_beli/total_harga live on
+                // gudang_nasita_barang, not on this table, in some deployments).
+                $insertData = array_intersect_key($insertData, array_flip(gudangNasitaStockColumns()));
 
                 $stockId = $db->insert('gudang_nasita_stock', $insertData);
                 $stock = $db->fetchOne('SELECT * FROM gudang_nasita_stock WHERE id = ? LIMIT 1', [$stockId]);
