@@ -1076,6 +1076,42 @@ if (isset($_GET['print_stock_out_business']) && (string)$_GET['print_stock_out_b
     exit;
 }
 
+if (isset($_GET['print_daily_stock_form']) && (string)$_GET['print_daily_stock_form'] === '1') {
+    $printFormDate = trim((string)($_GET['form_date'] ?? ''));
+    if ($printFormDate === '') {
+        $printFormDate = date('Y-m-d');
+    }
+
+    header('Content-Type: text/html; charset=utf-8');
+    echo '<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><title>Form Stock Keluar Harian</title>';
+    echo '<style>body{font-family:Arial,sans-serif;font-size:12px;margin:20px;}h2{margin:0 0 4px;}table{width:100%;border-collapse:collapse;margin-top:12px;}th,td{border:1px solid #999;padding:8px;text-align:left;}th{background:#f0f0f0;}td.blank{height:26px;}@media print{button{display:none}}</style>';
+    echo '</head><body>';
+    echo '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;">';
+    echo '<div><h2>FORM STOCK KELUAR HARIAN</h2><strong>' . htmlspecialchars($activeBusinessName ?: 'Bisnis') . '</strong><br>Tanggal: ' . htmlspecialchars($printFormDate) . '</div>';
+    echo '<div style="text-align:right;">Diisi oleh: __________________<br>Diperiksa oleh: __________________</div>';
+    echo '</div>';
+    echo '<table><thead><tr><th style="width:32px;">No</th><th>Nama Item</th><th style="width:70px;">Unit</th><th style="width:90px;">Stock Awal</th><th style="width:110px;">Qty Keluar</th><th>Catatan</th></tr></thead><tbody>';
+    if (empty($stockSummary)) {
+        echo '<tr><td colspan="6" style="text-align:center;">Belum ada item stok untuk bisnis ini.</td></tr>';
+    } else {
+        foreach ($stockSummary as $idx => $row) {
+            echo '<tr>';
+            echo '<td>' . ($idx + 1) . '</td>';
+            echo '<td>' . htmlspecialchars((string)($row['item_name'] ?? '-')) . '</td>';
+            echo '<td>' . htmlspecialchars((string)($row['unit'] ?? 'pcs')) . '</td>';
+            echo '<td>' . number_format((float)($row['current_qty'] ?? 0), 2) . '</td>';
+            echo '<td class="blank"></td>';
+            echo '<td class="blank"></td>';
+            echo '</tr>';
+        }
+    }
+    echo '</tbody></table>';
+    echo '<p style="font-size:11px;color:#555;margin-top:8px;">Catatan: Isi kolom "Qty Keluar" secara manual, lalu masukkan datanya ke sistem lewat tombol "Stock Keluar" di halaman Stock Gudang.</p>';
+    echo '<br><button onclick="window.print()">Cetak</button>';
+    echo '</body></html>';
+    exit;
+}
+
 // Build autocomplete source from manual entries + existing stock names.
 foreach ($manualCatalogByName as $normalizedName => $entry) {
     if ($normalizedName !== '') {
@@ -1178,6 +1214,10 @@ include '../../includes/header.php';
                 Print
             </button>
         </form>
+        <a href="?print_daily_stock_form=1&form_date=<?php echo urlencode(date('Y-m-d')); ?>" target="_blank" class="btn btn-secondary">
+            <i data-feather="file" style="width: 16px; height: 16px;"></i>
+            Form Cetak Stock Harian
+        </a>
         <button type="button" class="btn btn-primary" onclick="openManualStockModal()">
             <i data-feather="plus-square" style="width: 16px; height: 16px;"></i>
             Tambah Stok Manual
@@ -1265,6 +1305,10 @@ include '../../includes/header.php';
                                 </td>
                                 <td class="text-center">
                                     <div style="display:flex; gap:0.4rem; justify-content:center; flex-wrap:wrap;">
+                                        <button type="button" class="btn btn-sm btn-warning" style="height:32px; padding:0 0.7rem; color:#111827;" onclick="openDailyOutModalPreset('<?php echo htmlspecialchars(addslashes($item['item_name'])); ?>','<?php echo htmlspecialchars(addslashes($item['unit'])); ?>')">
+                                            <i data-feather="minus-square" style="width:13px; height:13px;"></i>
+                                            Stock Keluar
+                                        </button>
                                         <button type="button" class="btn btn-sm btn-primary" style="height:32px; padding:0 0.7rem;" onclick="openTransferModal('<?php echo htmlspecialchars(addslashes($item['item_name'])); ?>','<?php echo htmlspecialchars(addslashes($item['unit'])); ?>','<?php echo htmlspecialchars((string)number_format((float)($item['current_qty'] ?? 0), 2, '.', '')); ?>')">
                                             <i data-feather="send" style="width:13px; height:13px;"></i>
                                             Transfer
@@ -2049,6 +2093,31 @@ include '../../includes/header.php';
         if (itemInput) {
             setTimeout(function() {
                 itemInput.focus();
+            }, 80);
+        }
+    }
+
+    function openDailyOutModalPreset(itemName, unit) {
+        var modal = document.getElementById('dailyOutBusinessModal');
+        if (!modal) {
+            return;
+        }
+
+        var itemInput = document.getElementById('dailyOutItemName');
+        var unitInput = document.getElementById('dailyOutUnit');
+        if (itemInput) {
+            itemInput.value = itemName;
+        }
+        if (unitInput) {
+            unitInput.value = unit;
+        }
+
+        modal.style.display = 'flex';
+
+        var qtyInput = modal.querySelector('input[name="quantity"]');
+        if (qtyInput) {
+            setTimeout(function() {
+                qtyInput.focus();
             }, 80);
         }
     }
