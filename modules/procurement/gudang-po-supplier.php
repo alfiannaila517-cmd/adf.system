@@ -18,6 +18,25 @@ $db = Database::getInstance();
 $currentUser = $auth->getCurrentUser();
 $pageTitle = 'PO Supplier Gudang';
 
+// Read-only: item detail for a PO, shown in the "Hapus" confirmation modal so the user
+// can see exactly what they're about to delete before confirming.
+if (($_GET['ajax_po_items'] ?? '') === '1') {
+    header('Content-Type: application/json');
+    $poId = (int)($_GET['po_id'] ?? 0);
+    $poHeader = $db->fetchOne('SELECT id, po_number, status FROM purchase_orders_header WHERE id = ? LIMIT 1', [$poId]);
+    if (!$poHeader) {
+        echo json_encode(['success' => false, 'message' => 'PO tidak ditemukan.']);
+        exit;
+    }
+    $items = $db->fetchAll(
+        'SELECT item_name, quantity, unit_of_measure, unit, unit_price, subtotal, received_quantity
+         FROM purchase_orders_detail WHERE po_header_id = ? ORDER BY line_number ASC, id ASC',
+        [$poId]
+    );
+    echo json_encode(['success' => true, 'po_number' => $poHeader['po_number'], 'items' => $items]);
+    exit;
+}
+
 // TEMP DIAGNOSTIC (auth-gated above) — read-only, shows PO detail rows matching an item
 // name so we can see qty/received_quantity/status without guessing. Remove after debugging.
 if (($_GET['debug_po_item'] ?? '') === '1') {
@@ -352,7 +371,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
             }
 
             $poStatusKey = $normalizePoStatus($poRow['status'] ?? '');
-            $allowedStatuses = ['draft', 'submitted', 'approved', 'partially_received', 'cancelled', 'rejected', 'pending', 'waiting'];
+            $allowedStatuses = ['draft', 'submitted', 'approved', 'partially_received', 'cancelled', 'rejected', 'pending', 'waiting', 'completed', 'received'];
             if (!in_array($poStatusKey, $allowedStatuses, true)) {
                 throw new RuntimeException('Status PO ini tidak boleh dihapus.');
             }
@@ -708,7 +727,7 @@ include '../../includes/header.php';
                         $statusColor = ['submitted' => 'warning', 'pending' => 'warning', 'waiting' => 'warning', 'completed' => 'success', 'received' => 'success', 'cancelled' => 'danger', 'rejected' => 'danger', 'approved' => 'info', 'partially_received' => 'info'][$statusKey] ?? 'secondary';
                         $statusLabel = $poStatusLabelMap[$statusKey] ?? ucfirst(str_replace('_', ' ', $statusKey));
                         $canCancel = in_array($statusKey, ['submitted', 'partially_received', 'approved', 'draft', 'pending', 'waiting'], true);
-                        $canDelete = in_array($statusKey, ['draft', 'submitted', 'approved', 'partially_received', 'cancelled', 'rejected', 'pending', 'waiting'], true);
+                        $canDelete = in_array($statusKey, ['draft', 'submitted', 'approved', 'partially_received', 'cancelled', 'rejected', 'pending', 'waiting', 'completed', 'received'], true);
                     ?>
                         <tr>
                             <td style="font-weight:600;"><?php echo htmlspecialchars($po['po_number']); ?></td>
@@ -737,13 +756,14 @@ include '../../includes/header.php';
                                         </form>
                                     <?php endif; ?>
                                     <?php if ($canDelete): ?>
-                                        <form method="POST" style="display:inline;" onsubmit="return confirm('Hapus permanen PO ini? PO akan hilang dari daftar Gudang Nasita dan tidak bisa dikembalikan.')">
+                                        <form method="POST" id="deletePoForm<?php echo (int)$po['id']; ?>" style="display:inline;" onsubmit="return false;">
                                             <input type="hidden" name="action" value="delete_po">
                                             <input type="hidden" name="po_id" value="<?php echo (int)$po['id']; ?>">
-                                            <button type="submit" class="btn btn-sm btn-danger" title="Hapus Permanen">
-                                                <i data-feather="trash-2" style="width:13px;height:13px;"></i>
-                                            </button>
                                         </form>
+                                        <button type="button" class="btn btn-sm btn-danger" title="Hapus Permanen"
+                                            onclick="showDeletePoModal(<?php echo (int)$po['id']; ?>, '<?php echo htmlspecialchars($po['po_number'], ENT_QUOTES); ?>')">
+                                            <i data-feather="trash-2" style="width:13px;height:13px;"></i>
+                                        </button>
                                     <?php endif; ?>
                                 </div>
                             </td>
@@ -752,6 +772,29 @@ include '../../includes/header.php';
                 <?php endif; ?>
             </tbody>
         </table>
+    </div>
+</div>
+
+<!-- Detail Produk & Konfirmasi Hapus PO -->
+<div id="deletePoModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.55); z-index:2100; align-items:center; justify-content:center; padding:1rem;">
+    <div class="card" style="width:min(560px,100%); max-height:85vh; overflow:auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <div>
+                <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.04em;">Detail Produk</div>
+                <h3 id="dpTitle" style="font-size:1.05rem; margin:0.15rem 0 0; font-weight:700;"></h3>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('deletePoModal').style.display='none'">✕</button>
+        </div>
+        <div id="dpItemsWrap" style="margin-bottom:1rem;">
+            <div style="text-align:center; color:var(--text-muted); padding:1.5rem 0;">Memuat detail item...</div>
+        </div>
+        <div class="alert alert-danger" style="font-size:0.85rem; margin-bottom:1rem;">
+            ⚠️ PO beserta seluruh item di atas akan dihapus permanen dan tidak bisa dikembalikan.
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+            <button type="button" class="btn btn-secondary" onclick="document.getElementById('deletePoModal').style.display='none'">Batal</button>
+            <button type="button" id="dpConfirmBtn" class="btn btn-danger" style="font-weight:700;" onclick="confirmDeletePo()">Ya, Hapus Permanen</button>
+        </div>
     </div>
 </div>
 
@@ -1066,6 +1109,58 @@ include '../../includes/header.php';
         document.getElementById('manualItemName').value = '';
         document.getElementById('manualItemHarga').value = '';
         document.getElementById('poSelectedCount').textContent = Object.keys(selected).length + ' dipilih';
+    }
+
+    var deletePoTargetId = null;
+
+    function showDeletePoModal(poId, poNumber) {
+        deletePoTargetId = poId;
+        document.getElementById('dpTitle').textContent = poNumber;
+        var wrap = document.getElementById('dpItemsWrap');
+        wrap.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:1.5rem 0;">Memuat detail item...</div>';
+        document.getElementById('deletePoModal').style.display = 'flex';
+
+        fetch('gudang-po-supplier.php?ajax_po_items=1&po_id=' + encodeURIComponent(poId))
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (!data.success) {
+                    wrap.innerHTML = '<div class="alert alert-danger">' + (data.message || 'Gagal memuat detail.') + '</div>';
+                    return;
+                }
+                if (!data.items || !data.items.length) {
+                    wrap.innerHTML = '<div style="color:var(--text-muted);">Tidak ada item pada PO ini.</div>';
+                    return;
+                }
+                var rows = data.items.map(function(it) {
+                    var qty = parseFloat(it.quantity) || 0;
+                    var received = parseFloat(it.received_quantity) || 0;
+                    var unit = it.unit_of_measure || it.unit || '';
+                    return '<tr>' +
+                        '<td style="font-weight:600;">' + escapeHtml(it.item_name) + '</td>' +
+                        '<td class="text-right">' + qty.toLocaleString('id-ID', {minimumFractionDigits: 2}) + '</td>' +
+                        '<td>' + escapeHtml(unit) + '</td>' +
+                        '<td class="text-right">' + received.toLocaleString('id-ID', {minimumFractionDigits: 2}) + '</td>' +
+                        '</tr>';
+                }).join('');
+                wrap.innerHTML = '<div class="table-responsive"><table class="table" style="font-size:0.875rem;">' +
+                    '<thead><tr><th>Item</th><th class="text-right">Qty PO</th><th>Unit</th><th class="text-right">Sudah Diterima</th></tr></thead>' +
+                    '<tbody>' + rows + '</tbody></table></div>';
+            })
+            .catch(function() {
+                wrap.innerHTML = '<div class="alert alert-danger">Gagal memuat detail item.</div>';
+            });
+    }
+
+    function escapeHtml(str) {
+        var div = document.createElement('div');
+        div.textContent = str == null ? '' : String(str);
+        return div.innerHTML;
+    }
+
+    function confirmDeletePo() {
+        if (!deletePoTargetId) return;
+        var form = document.getElementById('deletePoForm' + deletePoTargetId);
+        if (form) form.submit();
     }
 </script>
 
