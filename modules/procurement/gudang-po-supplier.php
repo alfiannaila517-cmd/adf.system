@@ -36,6 +36,43 @@ if (($_GET['debug_po_item'] ?? '') === '1') {
     exit;
 }
 
+// TEMP DIAGNOSTIC (auth-gated above) — read-only: dumps gudang_nasita_stock columns and
+// replays the exact UPDATE statement receivePurchaseOrderToGudang() uses (rolled back, never
+// committed) so we can see the REAL PDO error instead of the silently-swallowed one from
+// Database::update(). Remove after debugging the "stock not increasing" report.
+if (($_GET['debug_stock_update'] ?? '') === '1') {
+    header('Content-Type: application/json');
+    $stockId = (int)($_GET['stock_id'] ?? 0);
+    $response = [
+        'columns' => $db->fetchAll('SHOW COLUMNS FROM gudang_nasita_stock'),
+        'stock_row' => $stockId > 0 ? $db->fetchOne('SELECT * FROM gudang_nasita_stock WHERE id = ?', [$stockId]) : null,
+    ];
+    if ($stockId > 0) {
+        try {
+            $conn = $db->getConnection();
+            $conn->beginTransaction();
+            $stmt = $conn->prepare("UPDATE gudang_nasita_stock SET quantity = :quantity, harga_beli = :harga_beli, total_harga = :total_harga, supplier_name = :supplier_name, notes = :notes WHERE id = :id");
+            $stmt->execute([
+                'quantity' => 2,
+                'harga_beli' => 1000,
+                'total_harga' => 2000,
+                'supplier_name' => 'Test Supplier',
+                'notes' => 'debug_stock_update test',
+                'id' => $stockId,
+            ]);
+            $response['replay_row_count'] = $stmt->rowCount();
+            $conn->rollBack();
+        } catch (Throwable $e) {
+            if ($db->getConnection()->inTransaction()) {
+                $db->getConnection()->rollBack();
+            }
+            $response['replay_error'] = $e->getMessage();
+        }
+    }
+    echo json_encode($response, JSON_PRETTY_PRINT);
+    exit;
+}
+
 $normalizePoStatus = static function ($status): string {
     $statusText = trim((string)($status ?? ''));
     if ($statusText === '') {

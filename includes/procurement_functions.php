@@ -1254,7 +1254,12 @@ function receivePurchaseOrderToGudang($po_id, array $receivedItems, $receivedBy,
             if (gudangNasitaStockHasColumn('expiry_date') && !empty($item['expiry_date'])) {
                 $stockUpdate['expiry_date'] = $item['expiry_date'];
             }
-            $db->update('gudang_nasita_stock', $stockUpdate, 'id = :id', ['id' => $stock['id']]);
+            // Only update columns that actually exist to prevent silent rollback from unknown-column errors.
+            $stockUpdate = array_intersect_key($stockUpdate, array_flip(gudangNasitaStockColumns()));
+            $updateResult = $db->update('gudang_nasita_stock', $stockUpdate, 'id = :id', ['id' => $stock['id']]);
+            if ($updateResult === false) {
+                throw new Exception('Gagal update stok gudang untuk ' . $item['item_name'] . ' (cek error_log server untuk detail SQL).');
+            }
 
             $db->insert('gudang_nasita_movements', [
                 'stock_id' => $stock['id'],
