@@ -134,6 +134,7 @@ $stockMetaMap = [];
 $manualCatalogByName = [];
 $manualItemSuggestions = [];
 $gudangMasterCatalog = [];
+$gudangStockCategoryMap = [];
 
 // Build map by item+unit for precise adjustments
 $buildKey = function ($itemName, $unit) {
@@ -358,6 +359,25 @@ if ($activeBusinessId > 0) {
                     }
                 } catch (Throwable $masterErr) {
                     error_log('business-stock-incoming gudang master catalog error: ' . $masterErr->getMessage());
+                }
+
+                // Categories from gudang_nasita_stock (Minuman/Alkohol/Makanan/etc.) are used to
+                // group the printable daily stock-out form into tidy sections.
+                try {
+                    $gudangStockCategoryRows = $gudangDb->fetchAll(
+                        "SELECT item_name, COALESCE(category,'') AS category FROM gudang_nasita_stock"
+                    ) ?: [];
+                    foreach ($gudangStockCategoryRows as $catRow) {
+                        $catName = trim((string)($catRow['item_name'] ?? ''));
+                        $catNormalized = $normalizeItemName($catName);
+                        $catValue = trim((string)($catRow['category'] ?? ''));
+                        if ($catNormalized === '' || $catValue === '' || isset($gudangStockCategoryMap[$catNormalized])) {
+                            continue;
+                        }
+                        $gudangStockCategoryMap[$catNormalized] = $catValue;
+                    }
+                } catch (Throwable $catErr) {
+                    error_log('business-stock-incoming gudang stock category error: ' . $catErr->getMessage());
                 }
 
                 if (!empty($originDbName)) {
@@ -1169,30 +1189,84 @@ if (isset($_GET['print_daily_stock_form']) && (string)$_GET['print_daily_stock_f
         $printFormDate = date('Y-m-d');
     }
 
+    // Best-known category per item: business's own manual entry > Gudang stock > Gudang master.
+    $itemCategoryMap = [];
+    foreach ($manualCatalogByName as $normalizedName => $entry) {
+        $catValue = trim((string)($entry['category'] ?? ''));
+        if ($catValue !== '') {
+            $itemCategoryMap[$normalizedName] = $catValue;
+        }
+    }
+    foreach ($gudangStockCategoryMap as $normalizedName => $catValue) {
+        if (!isset($itemCategoryMap[$normalizedName]) && $catValue !== '') {
+            $itemCategoryMap[$normalizedName] = $catValue;
+        }
+    }
+    foreach ($gudangMasterCatalog as $normalizedName => $entry) {
+        $catValue = trim((string)($entry['category'] ?? ''));
+        if (!isset($itemCategoryMap[$normalizedName]) && $catValue !== '') {
+            $itemCategoryMap[$normalizedName] = $catValue;
+        }
+    }
+
+    $isDrinkCategory = function ($category) {
+        $category = strtolower(trim((string)$category));
+        if ($category === '') {
+            return false;
+        }
+        foreach (['minum', 'beverage', 'alkohol', 'alcohol', 'wine', 'liquor', 'bir', 'kopi', 'coffee'] as $needle) {
+            if (strpos($category, $needle) !== false) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    $drinkItems = [];
+    $foodItems = [];
+    foreach ($stockSummary as $row) {
+        $normalizedName = $normalizeItemName((string)($row['item_name'] ?? ''));
+        $category = $itemCategoryMap[$normalizedName] ?? '';
+        if ($isDrinkCategory($category)) {
+            $drinkItems[] = $row;
+        } else {
+            $foodItems[] = $row;
+        }
+    }
+
+    $renderPrintStockTable = function ($rows, $startNo) {
+        echo '<table><thead><tr><th style="width:32px;">No</th><th>Nama Item</th><th style="width:70px;">Unit</th><th style="width:90px;">Stock Awal</th><th style="width:110px;">Qty Keluar</th><th>Catatan</th></tr></thead><tbody>';
+        if (empty($rows)) {
+            echo '<tr><td colspan="6" style="text-align:center;">Tidak ada item.</td></tr>';
+        } else {
+            $no = $startNo;
+            foreach ($rows as $row) {
+                echo '<tr>';
+                echo '<td>' . $no . '</td>';
+                echo '<td>' . htmlspecialchars((string)($row['item_name'] ?? '-')) . '</td>';
+                echo '<td>' . htmlspecialchars((string)($row['unit'] ?? 'pcs')) . '</td>';
+                echo '<td>' . number_format((float)($row['current_qty'] ?? 0), 2) . '</td>';
+                echo '<td class="blank"></td>';
+                echo '<td class="blank"></td>';
+                echo '</tr>';
+                $no++;
+            }
+        }
+        echo '</tbody></table>';
+    };
+
     header('Content-Type: text/html; charset=utf-8');
     echo '<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><title>Form Stock Keluar Harian</title>';
-    echo '<style>body{font-family:Arial,sans-serif;font-size:12px;margin:20px;}h2{margin:0 0 4px;}table{width:100%;border-collapse:collapse;margin-top:12px;}th,td{border:1px solid #999;padding:8px;text-align:left;}th{background:#f0f0f0;}td.blank{height:26px;}@media print{button{display:none}}</style>';
+    echo '<style>body{font-family:Arial,sans-serif;font-size:12px;margin:20px;}h2{margin:0 0 4px;}h3{margin:1.2rem 0 0.2rem;padding:6px 8px;background:#e5e7eb;border-radius:4px;}table{width:100%;border-collapse:collapse;margin-top:12px;}th,td{border:1px solid #999;padding:8px;text-align:left;}th{background:#f0f0f0;}td.blank{height:26px;}@media print{button{display:none}}</style>';
     echo '</head><body>';
     echo '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;">';
     echo '<div><h2>FORM STOCK KELUAR HARIAN</h2><strong>' . htmlspecialchars($activeBusinessName ?: 'Bisnis') . '</strong><br>Tanggal: ' . htmlspecialchars($printFormDate) . '</div>';
     echo '<div style="text-align:right;">Diisi oleh: __________________<br>Diperiksa oleh: __________________</div>';
     echo '</div>';
-    echo '<table><thead><tr><th style="width:32px;">No</th><th>Nama Item</th><th style="width:70px;">Unit</th><th style="width:90px;">Stock Awal</th><th style="width:110px;">Qty Keluar</th><th>Catatan</th></tr></thead><tbody>';
-    if (empty($stockSummary)) {
-        echo '<tr><td colspan="6" style="text-align:center;">Belum ada item stok untuk bisnis ini.</td></tr>';
-    } else {
-        foreach ($stockSummary as $idx => $row) {
-            echo '<tr>';
-            echo '<td>' . ($idx + 1) . '</td>';
-            echo '<td>' . htmlspecialchars((string)($row['item_name'] ?? '-')) . '</td>';
-            echo '<td>' . htmlspecialchars((string)($row['unit'] ?? 'pcs')) . '</td>';
-            echo '<td>' . number_format((float)($row['current_qty'] ?? 0), 2) . '</td>';
-            echo '<td class="blank"></td>';
-            echo '<td class="blank"></td>';
-            echo '</tr>';
-        }
-    }
-    echo '</tbody></table>';
+    echo '<h3>MINUMAN</h3>';
+    $renderPrintStockTable($drinkItems, 1);
+    echo '<h3>MAKANAN &amp; LAINNYA</h3>';
+    $renderPrintStockTable($foodItems, 1);
     echo '<p style="font-size:11px;color:#555;margin-top:8px;">Catatan: Isi kolom "Qty Keluar" secara manual, lalu masukkan datanya ke sistem lewat tombol "Stock Keluar" di halaman Stock Gudang.</p>';
     echo '<br><button onclick="window.print()">Cetak</button>';
     echo '</body></html>';
