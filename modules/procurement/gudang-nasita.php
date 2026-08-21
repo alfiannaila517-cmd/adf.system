@@ -1565,8 +1565,8 @@ include '../../includes/header.php';
         </div>
 
         <div style="display:grid; gap:1.25rem;">
-            <div class="card gudang-side-card">
-                <div style="padding:0.9rem 1rem 0.75rem; border-bottom:1px solid rgba(148,163,184,0.18);">
+            <div class="card gudang-side-card" style="display:flex; flex-direction:column; max-height:calc(100vh - 170px); overflow:hidden;">
+                <div style="padding:0.9rem 1rem 0.75rem; border-bottom:1px solid rgba(148,163,184,0.18); flex-shrink:0;">
                     <h3 style="font-size:1rem; font-weight:700; margin:0; display:flex; align-items:center; justify-content:space-between; gap:0.5rem;">
                         <span>PO Bisnis Menunggu Proses Gudang</span>
                         <?php if ($pendingPoCount > 0): ?>
@@ -1574,7 +1574,7 @@ include '../../includes/header.php';
                         <?php endif; ?>
                     </h3>
                 </div>
-                <div style="padding:0.95rem; display:grid; gap:0.75rem;">
+                <div style="padding:0.95rem; display:grid; gap:0.75rem; flex:1; min-height:0; overflow-y:auto; scrollbar-gutter: stable;">
                     <?php if (empty($pendingReceipts)): ?>
                         <div style="color:var(--text-muted); font-size:0.875rem;">Tidak ada PO bisnis yang perlu diproses gudang</div>
                     <?php else: ?>
