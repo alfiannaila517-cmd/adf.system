@@ -1153,22 +1153,55 @@ function receivePurchaseOrderToGudang($po_id, array $receivedItems, $receivedBy,
             }
 
             $unit = trim($item['unit_of_measure'] ?: 'pcs');
-            // Match by name only so existing stock is updated regardless of unit mismatch
+            // Match by name only so existing stock is updated regardless of unit mismatch.
+            // Do NOT filter by is_active here — a previously soft-deleted row must still be
+            // found so we can reactivate it instead of INSERTing a duplicate that collides
+            // on the UNIQUE barang_id constraint (see addGudangNasitaManualStock for the
+            // same self-heal pattern).
             if (gudangNasitaStockRequiresBarangId()) {
                 $stock = $db->fetchOne(
                     "SELECT gs.*, gb.nama_barang AS master_item_name
                      FROM gudang_nasita_stock gs
                      LEFT JOIN gudang_nasita_barang gb ON gb.id = gs.barang_id
                      WHERE LOWER(COALESCE(gs.item_name, gb.nama_barang, '')) = LOWER(?)
-                     AND COALESCE(gs.is_active, 1) = 1
                      LIMIT 1",
                     [$item['item_name']]
                 );
             } else {
-                $stock = $db->fetchOne("SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) AND is_active = 1 LIMIT 1", [$item['item_name']]);
+                $stock = $db->fetchOne("SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) LIMIT 1", [$item['item_name']]);
             }
             if (!$stock) {
-                $stock = $db->fetchOne("SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) LIKE LOWER(?) AND COALESCE(is_active,1) = 1 ORDER BY COALESCE(quantity, jumlah_stok, 0) DESC LIMIT 1", ['%' . trim($item['item_name']) . '%']);
+                $stock = $db->fetchOne("SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) LIKE LOWER(?) ORDER BY COALESCE(quantity, jumlah_stok, 0) DESC LIMIT 1", ['%' . trim($item['item_name']) . '%']);
+            }
+
+            if ($stock && !(int)($stock['is_active'] ?? 1)) {
+                $db->update('gudang_nasita_stock', ['is_active' => 1], 'id = :id', ['id' => $stock['id']]);
+                $stock['is_active'] = 1;
+            }
+
+            if (!$stock) {
+                $barangId = gudangNasitaStockRequiresBarangId()
+                    ? ensureGudangNasitaBarangId(trim($item['item_name']), $unit, 'lainnya', $notes ?: ('Auto created from PO ' . $po['po_number']))
+                    : null;
+
+                // Self-heal: barang_id is UNIQUE on gudang_nasita_stock. If it's already
+                // claimed by another row (e.g. a legacy/renamed alias), relink that row to
+                // its own correct barang_id instead of letting this INSERT fail outright.
+                if ($barangId !== null) {
+                    $conflictRow = $db->fetchOne('SELECT id, item_name FROM gudang_nasita_stock WHERE barang_id = ? LIMIT 1', [$barangId]);
+                    if ($conflictRow && strcasecmp((string)$conflictRow['item_name'], trim($item['item_name'])) !== 0) {
+                        $correctIdForConflictRow = ensureGudangNasitaBarangId($conflictRow['item_name'], $unit, 'lainnya', $notes);
+                        if ($correctIdForConflictRow !== null && (int)$correctIdForConflictRow !== (int)$barangId) {
+                            $db->update('gudang_nasita_stock', ['barang_id' => $correctIdForConflictRow], 'id = :id', ['id' => $conflictRow['id']]);
+                        } else {
+                            $db->update('gudang_nasita_stock', ['item_name' => trim($item['item_name'])], 'id = :id', ['id' => $conflictRow['id']]);
+                            $stock = $db->fetchOne('SELECT * FROM gudang_nasita_stock WHERE id = ? LIMIT 1', [$conflictRow['id']]);
+                            if ($stock && !(int)($stock['is_active'] ?? 1)) {
+                                $db->update('gudang_nasita_stock', ['is_active' => 1], 'id = :id', ['id' => $stock['id']]);
+                            }
+                        }
+                    }
+                }
             }
 
             if (!$stock) {
@@ -1186,8 +1219,8 @@ function receivePurchaseOrderToGudang($po_id, array $receivedItems, $receivedBy,
                 if (gudangNasitaStockHasColumn('stock_code')) {
                     $insertData['stock_code'] = generateGudangNasitaStockCode();
                 }
-                if (gudangNasitaStockRequiresBarangId()) {
-                    $insertData['barang_id'] = ensureGudangNasitaBarangId(trim($item['item_name']), $unit, 'lainnya', $notes ?: ('Auto created from PO ' . $po['po_number']));
+                if (gudangNasitaStockRequiresBarangId() && $barangId !== null) {
+                    $insertData['barang_id'] = $barangId;
                 }
                 if (gudangNasitaStockHasColumn('jumlah_stok')) {
                     $insertData['jumlah_stok'] = 0;
@@ -1269,10 +1302,12 @@ function receivePurchaseOrderToGudang($po_id, array $receivedItems, $receivedBy,
             'total_received' => $totalReceived,
             'all_completed' => $allCompleted
         ];
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         if ($db->getConnection()->inTransaction()) {
             $db->getConnection()->rollBack();
         }
+
+        error_log('[GUDANG] receivePurchaseOrderToGudang FAILED: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
 
         return [
             'success' => false,
