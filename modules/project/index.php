@@ -67,36 +67,41 @@ include $base_path . '/includes/header.php';
 }
 
 .page-header h1 {
-    font-size: 1.5rem;
+    font-size: 1.05rem;
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--secondary-color);
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.5rem;
+}
+
+.page-header h1 svg {
+    width: 18px;
+    height: 18px;
 }
 
 .btn {
-    padding: 0.6rem 1.2rem;
+    padding: 0.5rem 0.9rem;
     border-radius: 8px;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     font-weight: 500;
     cursor: pointer;
     border: none;
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.4rem;
     transition: all 0.2s;
     text-decoration: none;
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
     color: white;
 }
 
 .btn-primary:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    box-shadow: 0 4px 12px rgba(30, 64, 175, 0.3);
 }
 
 /* Summary Cards */
@@ -110,25 +115,25 @@ include $base_path . '/includes/header.php';
 .summary-card {
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 1.25rem;
+    border-radius: 10px;
+    padding: 0.9rem 1rem;
 }
 
 .summary-card .label {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: var(--text-muted);
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.35rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
 
 .summary-card .value {
-    font-size: 1.5rem;
+    font-size: 1.1rem;
     font-weight: 700;
     color: var(--text-primary);
 }
 
-.summary-card.budget .value { color: #6366f1; }
+.summary-card.budget .value { color: var(--secondary-color); }
 .summary-card.spent .value { color: #ef4444; }
 .summary-card.remaining .value { color: #10b981; }
 
@@ -142,8 +147,8 @@ include $base_path . '/includes/header.php';
 .project-card {
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 1.5rem;
+    border-radius: 10px;
+    padding: 1rem 1.1rem;
     cursor: pointer;
     transition: all 0.2s;
     text-decoration: none;
@@ -151,7 +156,7 @@ include $base_path . '/includes/header.php';
 }
 
 .project-card:hover {
-    border-color: #6366f1;
+    border-color: var(--primary-color);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
     transform: translateY(-2px);
 }
@@ -160,18 +165,18 @@ include $base_path . '/includes/header.php';
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
 }
 
 .project-card .name {
-    font-size: 1.15rem;
+    font-size: 0.95rem;
     font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 0.25rem;
+    color: var(--secondary-color);
+    margin-bottom: 0.2rem;
 }
 
 .project-card .description {
-    font-size: 0.85rem;
+    font-size: 0.78rem;
     color: var(--text-muted);
     line-height: 1.4;
 }
@@ -195,8 +200,8 @@ include $base_path . '/includes/header.php';
 }
 
 .status-badge.completed {
-    background: rgba(99, 102, 241, 0.15);
-    color: #6366f1;
+    background: rgba(30, 64, 175, 0.15);
+    color: var(--secondary-color);
 }
 
 .status-badge.cancelled {
@@ -218,19 +223,19 @@ include $base_path . '/includes/header.php';
 }
 
 .project-card .stat-value {
-    font-size: 1rem;
+    font-size: 0.88rem;
     font-weight: 700;
     color: var(--text-primary);
 }
 
 .project-card .stat-label {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     color: var(--text-muted);
     text-transform: uppercase;
     margin-top: 0.2rem;
 }
 
-.project-card .stat.budget .stat-value { color: #6366f1; }
+.project-card .stat.budget .stat-value { color: var(--secondary-color); }
 .project-card .stat.spent .stat-value { color: #ef4444; }
 .project-card .stat.remaining .stat-value { color: #10b981; }
 
@@ -376,8 +381,8 @@ include $base_path . '/includes/header.php';
 .form-group input:focus,
 .form-group select:focus {
     outline: none;
-    border-color: #6366f1;
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
 .form-row {

@@ -1130,16 +1130,6 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                             </li>
                         <?php endif; ?>
 
-                        <!-- Invest & Projek Menu -->
-                        <?php if ($auth->hasPermission('investor') && isModuleEnabled('investor')): ?>
-                            <li class="nav-item">
-                                <a href="<?php echo BASE_URL; ?>/modules/investor/" class="nav-link <?php echo activeMenu('investor'); ?>">
-                                    <i data-feather="briefcase" class="nav-icon"></i>
-                                    <span>Invest & Projek</span>
-                                </a>
-                            </li>
-                        <?php endif; ?>
-
                         <!-- Project Menu -->
                         <?php if ($auth->hasPermission('project')): ?>
                             <li class="nav-item">
@@ -1149,6 +1139,7 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                                 </a>
                             </li>
                         <?php endif; ?>
+
 
                         <!-- Finance Menu -->
                         <?php if ($auth->hasPermission('finance')): ?>

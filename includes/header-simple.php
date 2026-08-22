@@ -42,14 +42,6 @@ $is_owner = strpos($current_uri, '/modules/owner') !== false;
                     <i data-feather="home" style="width:20px;height:20px;margin-right:0.75rem;"></i>Dashboard
                 </a></li>
                 
-                <?php if ($auth->hasPermission('investor')): ?>
-                <li><a href="<?php echo BASE_URL; ?>/modules/investor/" 
-                    style="display:flex;align-items:center;padding:0.75rem 1.5rem;color:#e2e8f0;text-decoration:none;<?php echo $is_investor ? 'background:rgba(100,181,246,0.15);border-left:3px solid #64b5f6;' : ''; ?>"
-                    class="sidebar-link">
-                    <i data-feather="briefcase" style="width:20px;height:20px;margin-right:0.75rem;"></i>Investor
-                </a></li>
-                <?php endif; ?>
-                
                 <?php if ($auth->hasPermission('project')): ?>
                 <li><a href="<?php echo BASE_URL; ?>/modules/project/" 
                     style="display:flex;align-items:center;padding:0.75rem 1.5rem;color:#e2e8f0;text-decoration:none;<?php echo $is_project ? 'background:rgba(100,181,246,0.15);border-left:3px solid #64b5f6;' : ''; ?>"

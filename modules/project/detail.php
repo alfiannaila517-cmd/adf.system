@@ -104,22 +104,27 @@ include $base_path . '/includes/header.php';
 }
 
 .page-header .title-section h1 {
-    font-size: 1.5rem;
+    font-size: 1.05rem;
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--secondary-color);
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    margin-bottom: 0.5rem;
+    gap: 0.5rem;
+    margin-bottom: 0.35rem;
+}
+
+.page-header .title-section h1 svg {
+    width: 18px;
+    height: 18px;
 }
 
 .page-header .breadcrumb {
-    font-size: 0.85rem;
+    font-size: 0.78rem;
     color: var(--text-muted);
 }
 
 .page-header .breadcrumb a {
-    color: #6366f1;
+    color: var(--primary-color);
     text-decoration: none;
 }
 
@@ -129,21 +134,21 @@ include $base_path . '/includes/header.php';
 }
 
 .btn {
-    padding: 0.6rem 1.2rem;
+    padding: 0.5rem 0.9rem;
     border-radius: 8px;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     font-weight: 500;
     cursor: pointer;
     border: none;
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.4rem;
     transition: all 0.2s;
     text-decoration: none;
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
     color: white;
 }
 
@@ -179,28 +184,28 @@ include $base_path . '/includes/header.php';
 .dash-card {
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 1.25rem;
+    border-radius: 10px;
+    padding: 0.9rem 1rem;
 }
 
 .dash-card .icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
 }
 
 .dash-card .icon svg {
-    width: 20px;
-    height: 20px;
+    width: 16px;
+    height: 16px;
 }
 
 .dash-card.budget .icon {
-    background: rgba(99, 102, 241, 0.15);
-    color: #6366f1;
+    background: rgba(30, 64, 175, 0.15);
+    color: var(--secondary-color);
 }
 
 .dash-card.spent .icon {
@@ -219,20 +224,20 @@ include $base_path . '/includes/header.php';
 }
 
 .dash-card .label {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.2rem;
 }
 
 .dash-card .value {
-    font-size: 1.5rem;
+    font-size: 1.1rem;
     font-weight: 700;
     color: var(--text-primary);
 }
 
-.dash-card.budget .value { color: #6366f1; }
+.dash-card.budget .value { color: var(--secondary-color); }
 .dash-card.spent .value { color: #ef4444; }
 .dash-card.remaining .value { color: #10b981; }
 
@@ -240,22 +245,22 @@ include $base_path . '/includes/header.php';
 .progress-section {
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 1.5rem;
-    margin-bottom: 2rem;
+    border-radius: 10px;
+    padding: 1rem 1.1rem;
+    margin-bottom: 1.5rem;
 }
 
 .progress-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
 }
 
 .progress-header h3 {
-    font-size: 1rem;
+    font-size: 0.85rem;
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--secondary-color);
 }
 
 .progress-bar-large {
@@ -297,24 +302,24 @@ include $base_path . '/includes/header.php';
 .expense-section {
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 1.5rem;
+    border-radius: 10px;
+    padding: 1.1rem;
 }
 
 .section-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1rem;
+    margin-bottom: 0.9rem;
 }
 
 .section-header h3 {
-    font-size: 1rem;
+    font-size: 0.9rem;
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--secondary-color);
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.4rem;
 }
 
 .expense-table {
@@ -324,13 +329,13 @@ include $base_path . '/includes/header.php';
 
 .expense-table th,
 .expense-table td {
-    padding: 0.75rem;
+    padding: 0.6rem 0.65rem;
     text-align: left;
     border-bottom: 1px solid var(--border-color);
 }
 
 .expense-table th {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     font-weight: 600;
     color: var(--text-muted);
     text-transform: uppercase;
@@ -338,7 +343,7 @@ include $base_path . '/includes/header.php';
 }
 
 .expense-table td {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     color: var(--text-primary);
 }
 
@@ -355,10 +360,10 @@ include $base_path . '/includes/header.php';
 .category-badge {
     padding: 0.25rem 0.6rem;
     border-radius: 12px;
-    font-size: 0.7rem;
+    font-size: 0.68rem;
     font-weight: 500;
-    background: rgba(99, 102, 241, 0.1);
-    color: #6366f1;
+    background: rgba(30, 64, 175, 0.1);
+    color: var(--secondary-color);
 }
 
 .action-btn-sm {
@@ -380,18 +385,18 @@ include $base_path . '/includes/header.php';
 .quick-add-section {
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 1.5rem;
+    border-radius: 10px;
+    padding: 1.1rem;
 }
 
 .quick-add-section h3 {
-    font-size: 1rem;
+    font-size: 0.9rem;
     font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 1rem;
+    color: var(--secondary-color);
+    margin-bottom: 0.9rem;
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.4rem;
 }
 
 .form-group {
@@ -410,10 +415,10 @@ include $base_path . '/includes/header.php';
 .form-group select,
 .form-group textarea {
     width: 100%;
-    padding: 0.65rem 0.9rem;
+    padding: 0.55rem 0.75rem;
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     background: var(--bg-primary);
     color: var(--text-primary);
 }
@@ -421,8 +426,8 @@ include $base_path . '/includes/header.php';
 .form-group input:focus,
 .form-group select:focus {
     outline: none;
-    border-color: #6366f1;
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
 .form-row {
@@ -439,17 +444,17 @@ include $base_path . '/includes/header.php';
 }
 
 .category-summary h4 {
-    font-size: 0.85rem;
+    font-size: 0.78rem;
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--secondary-color);
     margin-bottom: 0.75rem;
 }
 
 .category-item {
     display: flex;
     justify-content: space-between;
-    padding: 0.5rem 0;
-    font-size: 0.8rem;
+    padding: 0.4rem 0;
+    font-size: 0.78rem;
 }
 
 .category-item .name {
