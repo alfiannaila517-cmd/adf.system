@@ -7,11 +7,12 @@
  * Marks a single trip (car rental / airport drop / harbor drop) as paid to
  * the driver/partner, and auto-syncs the expense to the cashbook - mirrors
  * the flow in pay-monthly-bill.php but operates on individual trip rows
- * (rental_car_bookings / hotel_invoice_items) instead of monthly_bills.
+ * instead of monthly_bills.
  * Used by the "Tagihan Driver" tab in modules/bills/index.php.
  *
  * POST data:
- * - trip_id: ID of the rental_car_bookings row OR hotel_invoice_items row
+ * - trip_id: hotel_invoice_items.id (both source='trip' and 'legacy' — see
+ *   api/get-driver-recap.php, which always selects "hii.id AS trip_id")
  * - source_type: car_rental | airport_drop | harbor_drop | narayana_trip
  * - payment_method: cash, transfer, card, other
  * - cash_account_id: Dari rekening mana (FK cash_accounts.id)
@@ -51,7 +52,7 @@ try {
 
     $tripId = (int)($_POST['trip_id'] ?? 0);
     $sourceType = trim($_POST['source_type'] ?? '');
-    $source = trim($_POST['source'] ?? 'trip'); // 'trip' = rental_car_bookings, 'legacy' = hotel_invoice_items (no linked driver car)
+    $source = trim($_POST['source'] ?? 'trip'); // both keyed by hotel_invoice_items.id; 'trip' also syncs a linked rental_car_bookings row, 'legacy' has none
     $paymentMethod = trim($_POST['payment_method'] ?? 'cash');
     $cashAccountId = (int)($_POST['cash_account_id'] ?? 0);
     $driverName = trim($_POST['driver_name'] ?? 'Driver');
@@ -61,13 +62,19 @@ try {
     }
 
     if ($source !== 'legacy') {
-        // car_rental, or airport_drop/harbor_drop with a linked driver car - all live in rental_car_bookings
+        // trip_id is hotel_invoice_items.id (see api/get-driver-recap.php, which always
+        // selects "hii.id AS trip_id") — NOT rental_car_bookings.id. Verify via hi join,
+        // and LEFT JOIN the linked booking/car only for the car label + later sync.
         $trip = $db->fetchOne(
-            "SELECT cb.id, cb.business_id, cb.owner_amount, cb.guest_name, cb.driver_paid, cb.trip_destination,
+            "SELECT hii.id, hii.owner_amount, hii.driver_paid, hii.description AS trip_destination,
+                    hi.business_id, hi.guest_name,
+                    cb.invoice_id AS cb_invoice_id, cb.service_type AS cb_service_type,
                     rc.car_name, rc.plate_number
-             FROM rental_car_bookings cb
-             JOIN rental_cars rc ON cb.car_id = rc.id
-             WHERE cb.id = ? AND cb.service_type = ? LIMIT 1",
+             FROM hotel_invoice_items hii
+             JOIN hotel_invoices hi ON hii.invoice_id = hi.id
+             LEFT JOIN rental_car_bookings cb ON cb.invoice_id = hii.invoice_id AND cb.service_type = hii.service_type AND cb.business_id = hi.business_id
+             LEFT JOIN rental_cars rc ON rc.id = cb.car_id
+             WHERE hii.id = ? AND hii.service_type = ? LIMIT 1",
             [$tripId, $sourceType]
         );
         if (!$trip) throw new Exception('Trip tidak ditemukan');
@@ -79,7 +86,9 @@ try {
         $serviceLabel = $sourceType === 'car_rental' ? 'Rental Mobil' : ($sourceType === 'airport_drop' ? 'Airport Drop' : 'Harbor Drop');
         $label = $sourceType === 'car_rental' ? "{$serviceLabel} {$carLabel}" : "{$serviceLabel}" . ($trip['trip_destination'] ? " - {$trip['trip_destination']}" : " - {$carLabel}");
         $guestLabel = $trip['guest_name'] ? " - {$trip['guest_name']}" : '';
-        $updateSql = "UPDATE rental_car_bookings SET driver_paid = 1, driver_paid_at = NOW(), driver_paid_cashbook_id = ? WHERE id = ?";
+        $updateSql = "UPDATE hotel_invoice_items SET driver_paid = 1, driver_paid_at = NOW(), driver_paid_cashbook_id = ? WHERE id = ?";
+        $syncBookingInvoiceId = $trip['cb_invoice_id'] ?? null;
+        $syncBookingServiceType = $trip['cb_service_type'] ?? null;
     } else {
         // Legacy airport/harbor drop trips logged before a driver car was linked - live in hotel_invoice_items
         $trip = $db->fetchOne(
@@ -150,6 +159,20 @@ try {
     $cashbookId = $db->getConnection()->lastInsertId();
 
     $db->query($updateSql, [$cashbookId, $tripId]);
+
+    // Best-effort: keep the linked rental_car_bookings row (Rental Mobil owner
+    // dashboard) in sync — matched via invoice_id + service_type, not by id.
+    if ($source !== 'legacy' && !empty($syncBookingInvoiceId) && !empty($syncBookingServiceType)) {
+        try {
+            $pdo->prepare(
+                "UPDATE rental_car_bookings
+                 SET driver_paid = 1, driver_paid_at = NOW(), driver_paid_cashbook_id = ?
+                 WHERE invoice_id = ? AND service_type = ? AND business_id = ?"
+            )->execute([$cashbookId, $syncBookingInvoiceId, $syncBookingServiceType, $businessId]);
+        } catch (Throwable $syncErr) {
+            error_log('pay-driver-trip rental_car_bookings sync failed: ' . $syncErr->getMessage());
+        }
+    }
 
     // ======================================
     // SYNC TO MASTER CASH ACCOUNT LEDGER
