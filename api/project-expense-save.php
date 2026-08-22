@@ -65,43 +65,38 @@ try {
     $stmt = $db->prepare("DESCRIBE project_expenses");
     $stmt->execute();
     $columns = $stmt->fetchAll(PDO::FETCH_COLUMN);
-    
-    // Build INSERT based on available columns
-    if (in_array('amount_idr', $columns)) {
-        // Old structure with amount_idr
-        $stmt = $db->prepare("
-            INSERT INTO project_expenses (
-                project_id, expense_date, category, amount_idr, 
-                description, reference_no, created_by, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
-        ");
-        $stmt->execute([
-            $project_id,
-            $expense_date,
-            $category,
-            $amount,
-            $description,
-            $receipt_number,
-            $_SESSION['user_id'] ?? 1
-        ]);
-    } else {
-        // Simpler structure
-        $stmt = $db->prepare("
-            INSERT INTO project_expenses (
-                project_id, expense_date, category, amount, 
-                description, receipt_number, created_by, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
-        ");
-        $stmt->execute([
-            $project_id,
-            $expense_date,
-            $category,
-            $amount,
-            $description,
-            $receipt_number,
-            $_SESSION['user_id'] ?? 1
-        ]);
+
+    $cols = ['project_id', 'expense_date', 'category', 'description'];
+    $params = [$project_id, $expense_date, $category, $description];
+
+    // Value is entered in Rupiah - store in whichever amount column(s) the table
+    // has so totals computed elsewhere (SUM(amount_idr), or amount fallback) stay correct.
+    if (in_array('amount', $columns)) {
+        $cols[] = 'amount';
+        $params[] = $amount;
     }
+    if (in_array('amount_idr', $columns)) {
+        $cols[] = 'amount_idr';
+        $params[] = $amount;
+    }
+
+    if (in_array('receipt_number', $columns)) {
+        $cols[] = 'receipt_number';
+        $params[] = $receipt_number;
+    } elseif (in_array('reference_no', $columns)) {
+        $cols[] = 'reference_no';
+        $params[] = $receipt_number;
+    }
+
+    if (in_array('created_by', $columns)) {
+        $cols[] = 'created_by';
+        $params[] = $_SESSION['user_id'] ?? 1;
+    }
+
+    $placeholders = implode(', ', array_fill(0, count($cols), '?'));
+    $colList = implode(', ', $cols) . ', created_at';
+    $stmt = $db->prepare("INSERT INTO project_expenses ($colList) VALUES ($placeholders, NOW())");
+    $stmt->execute($params);
 
     $expense_id = $db->lastInsertId();
 
