@@ -43,6 +43,13 @@ try {
     if ($ownerAmount > $totalPrice) throw new Exception('Bagian pemilik tidak boleh melebihi total tarif');
 
     if ($source === 'trip') {
+        // Check existence/ownership separately from the UPDATE — rowCount() on UPDATE only
+        // counts rows actually CHANGED (not matched), so resaving identical values would
+        // otherwise falsely report "trip not found" even though it belongs to this business.
+        $check = $pdo->prepare('SELECT id FROM rental_car_bookings WHERE id = ? AND business_id = ? LIMIT 1');
+        $check->execute([$tripId, $bizId]);
+        if (!$check->fetch()) throw new Exception('Trip tidak ditemukan atau bukan milik bisnis ini');
+
         $hotelCommission = $totalPrice - $ownerAmount;
         $stmt = $pdo->prepare(
             "UPDATE rental_car_bookings
@@ -50,7 +57,6 @@ try {
              WHERE id = ? AND business_id = ?"
         );
         $stmt->execute([$totalPrice, $ownerAmount, $hotelCommission, $tripId, $bizId]);
-        if ($stmt->rowCount() === 0) throw new Exception('Trip tidak ditemukan atau bukan milik bisnis ini');
     } else {
         // legacy: hotel_invoice_items — verify business via hotel_invoices join
         $check = $pdo->prepare(
