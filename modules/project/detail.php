@@ -84,6 +84,17 @@ $budget = $project['budget'] ?? 0;
 $remaining = $budget - $totalExpenses;
 $percentage = $budget > 0 ? min(100, ($totalExpenses / $budget) * 100) : 0;
 
+$expenseMap = [];
+foreach ($expenses as $exp) {
+    $expenseMap[$exp['id']] = [
+        'expense_date' => $exp['expense_date'] ?? date('Y-m-d', strtotime($exp['created_at'] ?? 'now')),
+        'category' => $exp['category'] ?? 'other',
+        'amount' => (float) ($exp['amount_idr'] ?? $exp['amount'] ?? 0),
+        'description' => $exp['description'] ?? '',
+        'receipt_number' => $exp['receipt_number'] ?? $exp['reference_no'] ?? ''
+    ];
+}
+
 $pageTitle = 'Keuangan: ' . $project['name'];
 include $base_path . '/includes/header.php';
 ?>
@@ -427,6 +438,83 @@ include $base_path . '/includes/header.php';
         color: #ef4444;
     }
 
+    .action-btn-sm.edit-btn:hover {
+        background: rgba(37, 99, 235, 0.1);
+        color: var(--primary-color);
+    }
+
+    .action-col {
+        display: flex;
+        gap: 0.35rem;
+    }
+
+    /* Modal */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+
+    .modal-overlay.active {
+        display: flex;
+    }
+
+    .modal-content {
+        background: var(--bg-secondary);
+        border-radius: 12px;
+        width: 100%;
+        max-width: 480px;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    .modal-header {
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .modal-header h3 {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 1.4rem;
+        color: var(--text-muted);
+        cursor: pointer;
+    }
+
+    .modal-body {
+        padding: 1.25rem;
+    }
+
+    .modal-footer {
+        padding: 0.9rem 1.25rem;
+        border-top: 1px solid var(--border-color);
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.6rem;
+    }
+
+    .btn-secondary {
+        background: var(--bg-tertiary);
+        color: var(--text-secondary);
+        border: 1px solid var(--border-color);
+    }
+
     /* Quick Add Form */
     .quick-add-section {
         background: var(--bg-secondary);
@@ -653,7 +741,13 @@ include $base_path . '/includes/header.php';
                                 </td>
                                 <td><?= htmlspecialchars($exp['description'] ?? '-') ?></td>
                                 <td class="amount-col">Rp <?= number_format($exp['amount_idr'] ?? $exp['amount'] ?? 0, 0, ',', '.') ?></td>
-                                <td>
+                                <td class="action-col">
+                                    <button class="action-btn-sm edit-btn" onclick="openEditExpenseModal(<?= $exp['id'] ?>)" title="Edit">
+                                        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z" />
+                                        </svg>
+                                    </button>
                                     <button class="action-btn-sm" onclick="deleteExpense(<?= $exp['id'] ?>)" title="Hapus">
                                         <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                             <polyline points="3,6 5,6 21,6" />
@@ -734,7 +828,101 @@ include $base_path . '/includes/header.php';
     </div>
 </div>
 
+<!-- Modal: Edit Pengeluaran -->
+<div class="modal-overlay" id="editExpenseModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Edit Pengeluaran</h3>
+            <button class="modal-close" onclick="closeModal('editExpenseModal')">&times;</button>
+        </div>
+        <form id="editExpenseForm" onsubmit="saveEditExpense(event)">
+            <input type="hidden" name="expense_id" id="editExpenseId">
+            <div class="modal-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Tanggal</label>
+                        <input type="date" name="expense_date" id="editExpenseDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Kategori</label>
+                        <select name="category" id="editExpenseCategory" required>
+                            <?php foreach ($categories as $key => $label): ?>
+                                <option value="<?= $key ?>"><?= $label ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Jumlah (Rp) *</label>
+                    <input type="number" name="amount" id="editExpenseAmount" required placeholder="0" min="1">
+                </div>
+                <div class="form-group">
+                    <label>Keterangan</label>
+                    <textarea name="description" id="editExpenseDescription" rows="2" placeholder="Deskripsi pengeluaran..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>No. Kwitansi/Nota</label>
+                    <input type="text" name="receipt_number" id="editExpenseReceipt" placeholder="Opsional">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('editExpenseModal')">Batal</button>
+                <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
+    const expensesData = <?= json_encode($expenseMap) ?>;
+
+    function openEditExpenseModal(expenseId) {
+        const data = expensesData[expenseId];
+        if (!data) return;
+
+        document.getElementById('editExpenseId').value = expenseId;
+        document.getElementById('editExpenseDate').value = data.expense_date;
+        document.getElementById('editExpenseCategory').value = data.category;
+        document.getElementById('editExpenseAmount').value = data.amount;
+        document.getElementById('editExpenseDescription').value = data.description;
+        document.getElementById('editExpenseReceipt').value = data.receipt_number;
+        document.getElementById('editExpenseModal').classList.add('active');
+    }
+
+    function closeModal(modalId) {
+        document.getElementById(modalId).classList.remove('active');
+    }
+
+    async function saveEditExpense(e) {
+        e.preventDefault();
+        const form = e.target;
+        const formData = new FormData(form);
+
+        try {
+            const response = await fetch('<?= $base_url ?>/api/project-expense-update.php', {
+                method: 'POST',
+                body: formData
+            });
+            const result = await response.json();
+
+            if (result.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + (result.message || 'Gagal menyimpan perubahan'));
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
+    }
+
+    document.querySelectorAll('.modal-overlay').forEach(modal => {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.classList.remove('active');
+            }
+        });
+    });
+
     async function saveExpense(e) {
         e.preventDefault();
         const form = e.target;
