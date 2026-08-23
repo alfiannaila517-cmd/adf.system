@@ -84,6 +84,19 @@ if ($activeBusinessId > 0) {
     }
 
     try {
+        $db->query("CREATE TABLE IF NOT EXISTS business_stock_hidden_items (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            business_id INT NOT NULL,
+            item_name VARCHAR(255) NOT NULL,
+            unit VARCHAR(50) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uniq_business_item_unit (business_id, item_name, unit)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } catch (Throwable $e) {
+        error_log('business-stock-incoming hidden items table error: ' . $e->getMessage());
+    }
+
+    try {
         $db->query("CREATE TABLE IF NOT EXISTS business_manual_stock_entries (
             id INT AUTO_INCREMENT PRIMARY KEY,
             business_id INT NOT NULL,
@@ -122,6 +135,7 @@ $interIncomingTransfers = [];
 $rawStockSummary = [];
 $stockSummary = [];
 $baselineMap = [];
+$hiddenItemsMap = [];
 $rawStockMap = [];
 $manualStockMap = [];
 $interTransferInMap = [];
@@ -472,6 +486,20 @@ if ($activeBusinessId > 0) {
         }
     } catch (Throwable $e) {
         $baselineMap = [];
+    }
+
+    try {
+        $hiddenRows = $db->fetchAll(
+            'SELECT item_name, unit FROM business_stock_hidden_items WHERE business_id = ?',
+            [$activeBusinessId]
+        );
+
+        foreach ($hiddenRows as $hRow) {
+            $key = $buildKey($hRow['item_name'] ?? '', $hRow['unit'] ?? '');
+            $hiddenItemsMap[$key] = true;
+        }
+    } catch (Throwable $e) {
+        $hiddenItemsMap = [];
     }
 
     try {
@@ -996,6 +1024,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                  ON DUPLICATE KEY UPDATE baseline_qty = VALUES(baseline_qty), updated_by = VALUES(updated_by)",
                 [$activeBusinessId, $itemName, $unit, $newBaseline, (int)($currentUser['id'] ?? 0)]
             );
+            // Also mark the item hidden so it disappears from the list entirely, not just zeroed to 0.
+            $db->query(
+                "INSERT INTO business_stock_hidden_items (business_id, item_name, unit)
+                 VALUES (?, ?, ?)
+                 ON DUPLICATE KEY UPDATE created_at = created_at",
+                [$activeBusinessId, $itemName, $unit]
+            );
             $_SESSION['success'] = 'Item stok bisnis berhasil dihapus.';
         } catch (Throwable $e) {
             $_SESSION['error'] = 'Gagal hapus item stok: ' . $e->getMessage();
@@ -1196,8 +1231,11 @@ if ($activeBusinessId > 0) {
         $everHadStock = $receivedQty > 0
             || $getMapQty($manualStockMap, $key) > 0
             || $getMapQty($interTransferInMap, $key) > 0;
+        // Items explicitly removed via "Hapus Item" stay hidden while at 0; they reappear
+        // automatically once restocked (currentQty > 0 bypasses this check below).
+        $isHidden = isset($hiddenItemsMap[$key]);
 
-        if ($currentQty <= 0 && !$everHadStock) {
+        if ($currentQty <= 0 && (!$everHadStock || $isHidden)) {
             continue;
         }
 
