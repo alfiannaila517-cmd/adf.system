@@ -3576,7 +3576,9 @@ header('Expires: 0');
                     <div style="text-align:right; margin-bottom:6px;">
                         <button type="button" onclick="loadStockGudang()" style="border:none; background:none; font-size:11px; color:#2563eb;">🔄 Refresh</button>
                     </div>
-                    <div id="stockGudangList" style="max-height:260px; overflow-y:auto;"><div class="loading"><span class="spin"></span> Memuat...</div></div>
+                    <div id="stockGudangList" style="max-height:260px; overflow-y:auto;">
+                        <div class="loading"><span class="spin"></span> Memuat...</div>
+                    </div>
                 </div>
             </div>
 
@@ -3592,34 +3594,44 @@ header('Expires: 0');
             </div>
 
             <div class="card" id="stockOutCard" style="display:none; margin-bottom:10px;">
-                <h4 style="margin:0 0 8px 0; font-size:13px;">📉 Kurangi Stock Harian</h4>
-                <input type="text" id="stockOutItem" class="fi" placeholder="Nama item" list="stockOutItemList" style="width:100%; margin-bottom:6px;">
-                <datalist id="stockOutItemList"></datalist>
-                <div style="display:flex; gap:6px; margin-bottom:6px;">
-                    <input type="number" id="stockOutQty" class="fi" placeholder="Qty" step="0.01" min="0" style="flex:1;">
-                    <input type="text" id="stockOutUnit" class="fi" placeholder="Satuan" value="pcs" style="width:80px;">
+                <button type="button" onclick="toggleStockOut()" style="width:100%; background:none; border:none; padding:0; display:flex; justify-content:space-between; align-items:center; cursor:pointer;">
+                    <h4 style="margin:0; font-size:13px;">📉 Kurangi Stock Harian</h4>
+                    <span id="stockOutToggleLabel" style="font-size:11px; color:#2563eb; font-weight:600;">Lihat ▾</span>
+                </button>
+                <div id="stockOutBody" style="display:none; margin-top:8px;">
+                    <input type="text" id="stockOutItem" class="fi" placeholder="Nama item" list="stockOutItemList" style="width:100%; margin-bottom:6px;">
+                    <datalist id="stockOutItemList"></datalist>
+                    <div style="display:flex; gap:6px; margin-bottom:6px;">
+                        <input type="number" id="stockOutQty" class="fi" placeholder="Qty" step="0.01" min="0" style="flex:1;">
+                        <input type="text" id="stockOutUnit" class="fi" placeholder="Satuan" value="pcs" style="width:80px;">
+                    </div>
+                    <input type="text" id="stockOutNotes" class="fi" placeholder="Catatan / tujuan (opsional)" style="width:100%; margin-bottom:8px;">
+                    <button onclick="submitStockOut()" style="width:100%; background:linear-gradient(135deg,#f59e0b,#d97706); color:#fff; border:none; padding:9px; border-radius:8px; font-weight:600; font-size:12px;">Catat Stock Keluar</button>
                 </div>
-                <input type="text" id="stockOutNotes" class="fi" placeholder="Catatan / tujuan (opsional)" style="width:100%; margin-bottom:8px;">
-                <button onclick="submitStockOut()" style="width:100%; background:linear-gradient(135deg,#f59e0b,#d97706); color:#fff; border:none; padding:9px; border-radius:8px; font-weight:600; font-size:12px;">Catat Stock Keluar</button>
             </div>
 
             <div class="card" id="stockPoCard" style="display:none; margin-bottom:10px;">
-                <h4 style="margin:0 0 8px 0; font-size:13px;">🧾 Buat PO ke Gudang Nasita</h4>
-                <input type="text" id="poCatalogSearch" class="fi" placeholder="🔍 Cari item, klik untuk tambah..." oninput="filterPoCatalog()" style="width:100%; margin-bottom:6px;">
-                <div id="poCatalogList" style="max-height:150px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:8px; margin-bottom:8px;">
-                    <div style="text-align:center; padding:10px; color:#94a3b8; font-size:11px;">Memuat daftar item...</div>
+                <button type="button" onclick="toggleStockPo()" style="width:100%; background:none; border:none; padding:0; display:flex; justify-content:space-between; align-items:center; cursor:pointer;">
+                    <h4 style="margin:0; font-size:13px;">🧾 Buat PO ke Gudang Nasita</h4>
+                    <span id="stockPoToggleLabel" style="font-size:11px; color:#2563eb; font-weight:600;">Lihat ▾</span>
+                </button>
+                <div id="stockPoBody" style="display:none; margin-top:8px;">
+                    <input type="text" id="poCatalogSearch" class="fi" placeholder="🔍 Cari item, klik untuk tambah..." oninput="filterPoCatalog()" style="width:100%; margin-bottom:6px;">
+                    <div id="poCatalogList" style="max-height:150px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:8px; margin-bottom:8px;">
+                        <div style="text-align:center; padding:10px; color:#94a3b8; font-size:11px;">Memuat daftar item...</div>
+                    </div>
+                    <div style="display:flex; gap:6px; margin-bottom:8px;">
+                        <input type="text" id="poManualName" class="fi" placeholder="Item baru (belum ada di daftar)" style="flex:2;">
+                        <input type="text" id="poManualUnit" class="fi" placeholder="Satuan" value="pcs" style="width:70px;">
+                        <button type="button" onclick="addManualPoItem()" style="border:none; background:#f59e0b; color:#fff; border-radius:6px; padding:0 10px; font-size:11px; font-weight:600;">+</button>
+                    </div>
+                    <div style="font-size:11px; font-weight:600; color:#64748b; margin-bottom:4px;">Item dipilih:</div>
+                    <div id="stockPoRows" style="margin-bottom:6px;">
+                        <div style="text-align:center; padding:8px; color:#94a3b8; font-size:11px;">Belum ada item dipilih.</div>
+                    </div>
+                    <input type="text" id="stockPoNotes" class="fi" placeholder="Catatan PO (opsional)" style="width:100%; margin-bottom:8px;">
+                    <button onclick="submitStockPo()" style="width:100%; background:linear-gradient(135deg,#059669,#047857); color:#fff; border:none; padding:9px; border-radius:8px; font-weight:600; font-size:12px;">Kirim PO</button>
                 </div>
-                <div style="display:flex; gap:6px; margin-bottom:8px;">
-                    <input type="text" id="poManualName" class="fi" placeholder="Item baru (belum ada di daftar)" style="flex:2;">
-                    <input type="text" id="poManualUnit" class="fi" placeholder="Satuan" value="pcs" style="width:70px;">
-                    <button type="button" onclick="addManualPoItem()" style="border:none; background:#f59e0b; color:#fff; border-radius:6px; padding:0 10px; font-size:11px; font-weight:600;">+</button>
-                </div>
-                <div style="font-size:11px; font-weight:600; color:#64748b; margin-bottom:4px;">Item dipilih:</div>
-                <div id="stockPoRows" style="margin-bottom:6px;">
-                    <div style="text-align:center; padding:8px; color:#94a3b8; font-size:11px;">Belum ada item dipilih.</div>
-                </div>
-                <input type="text" id="stockPoNotes" class="fi" placeholder="Catatan PO (opsional)" style="width:100%; margin-bottom:8px;">
-                <button onclick="submitStockPo()" style="width:100%; background:linear-gradient(135deg,#059669,#047857); color:#fff; border:none; padding:9px; border-radius:8px; font-weight:600; font-size:12px;">Kirim PO</button>
             </div>
         </div>
 
@@ -4032,9 +4044,6 @@ header('Expires: 0');
                     document.getElementById('stockGudangCard').style.display = STOCK_ACCESS.can_view_gudang_nasita ? 'block' : 'none';
                     document.getElementById('stockOutCard').style.display = STOCK_ACCESS.can_reduce_stock ? 'block' : 'none';
                     document.getElementById('stockPoCard').style.display = STOCK_ACCESS.can_create_po ? 'block' : 'none';
-                    if (STOCK_ACCESS.can_create_po && !STOCK_PO_CATALOG.length) {
-                        loadStockPoCatalog();
-                    }
                 } else {
                     quickMenuStock.style.display = 'none';
                 }
@@ -4053,14 +4062,31 @@ header('Expires: 0');
 
         // Stock Gudang Nasita starts collapsed behind a button; only load its (long) list on demand
         let STOCK_GUDANG_LOADED = false;
+
         function toggleStockGudang() {
-            const body = document.getElementById('stockGudangBody');
-            const label = document.getElementById('stockGudangToggleLabel');
+            toggleCollapsibleCard('stockGudangBody', 'stockGudangToggleLabel', function () {
+                if (!STOCK_GUDANG_LOADED) loadStockGudang();
+            });
+        }
+
+        function toggleStockOut() {
+            toggleCollapsibleCard('stockOutBody', 'stockOutToggleLabel');
+        }
+
+        function toggleStockPo() {
+            toggleCollapsibleCard('stockPoBody', 'stockPoToggleLabel', function () {
+                if (!STOCK_PO_CATALOG.length) loadStockPoCatalog();
+            });
+        }
+
+        function toggleCollapsibleCard(bodyId, labelId, onFirstOpen) {
+            const body = document.getElementById(bodyId);
+            const label = document.getElementById(labelId);
             const isHidden = body.style.display === 'none' || !body.style.display;
             if (isHidden) {
                 body.style.display = 'block';
                 label.textContent = 'Tutup ▴';
-                if (!STOCK_GUDANG_LOADED) loadStockGudang();
+                if (onFirstOpen) onFirstOpen();
             } else {
                 body.style.display = 'none';
                 label.textContent = 'Lihat ▾';
@@ -4150,7 +4176,10 @@ header('Expires: 0');
 
         function filterStockBusiness() {
             const q = document.getElementById('stockBusinessSearch').value.trim().toLowerCase();
-            if (!q) { renderStockBusinessList(STOCK_BUSINESS_ITEMS); return; }
+            if (!q) {
+                renderStockBusinessList(STOCK_BUSINESS_ITEMS);
+                return;
+            }
             const filtered = STOCK_BUSINESS_ITEMS.filter(it => it.item_name.toLowerCase().includes(q));
             if (!filtered.length) {
                 document.getElementById('stockBusinessList').innerHTML = '<div style="text-align:center; padding:12px; color:#94a3b8; font-size:11px;">Item tidak ditemukan.</div>';
@@ -4161,19 +4190,32 @@ header('Expires: 0');
 
         // Tap "Kurangi" on an item row instead of typing the item name manually
         function quickReduceStock(itemName, unit) {
+            const body = document.getElementById('stockOutBody');
+            if (body.style.display === 'none' || !body.style.display) {
+                toggleStockOut();
+            }
             document.getElementById('stockOutItem').value = itemName;
             document.getElementById('stockOutUnit').value = unit || 'pcs';
-            document.getElementById('stockOutCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            document.getElementById('stockOutCard').scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
             document.getElementById('stockOutQty').focus();
         }
 
         async function submitStockOut() {
-            if (!STOCK_SELECTED_SLUG) { alert('Pilih bisnis dulu.'); return; }
+            if (!STOCK_SELECTED_SLUG) {
+                alert('Pilih bisnis dulu.');
+                return;
+            }
             const itemName = document.getElementById('stockOutItem').value.trim();
             const qty = parseFloat(document.getElementById('stockOutQty').value || '0');
             const unit = document.getElementById('stockOutUnit').value.trim() || 'pcs';
             const notes = document.getElementById('stockOutNotes').value.trim();
-            if (!itemName || qty <= 0) { alert('Isi nama item dan qty dengan benar.'); return; }
+            if (!itemName || qty <= 0) {
+                alert('Isi nama item dan qty dengan benar.');
+                return;
+            }
 
             try {
                 const fd = new FormData();
@@ -4183,7 +4225,10 @@ header('Expires: 0');
                 fd.append('unit', unit);
                 fd.append('quantity', qty);
                 fd.append('notes', notes);
-                const res = await fetch(API, { method: 'POST', body: fd });
+                const res = await fetch(API, {
+                    method: 'POST',
+                    body: fd
+                });
                 const data = await res.json();
                 alert(data.message || (data.success ? 'Berhasil' : 'Gagal'));
                 if (data.success) {
@@ -4245,7 +4290,11 @@ header('Expires: 0');
         function addPoItemFromCatalog(name, unit) {
             const key = name.toLowerCase();
             if (STOCK_PO_SELECTED[key]) return;
-            STOCK_PO_SELECTED[key] = { name, unit: unit || 'pcs', qty: '' };
+            STOCK_PO_SELECTED[key] = {
+                name,
+                unit: unit || 'pcs',
+                qty: ''
+            };
             renderPoSelected();
             filterPoCatalog();
         }
@@ -4253,10 +4302,21 @@ header('Expires: 0');
         function addManualPoItem() {
             const name = document.getElementById('poManualName').value.trim();
             const unit = document.getElementById('poManualUnit').value.trim() || 'pcs';
-            if (!name) { alert('Tulis nama item terlebih dahulu.'); return; }
+            if (!name) {
+                alert('Tulis nama item terlebih dahulu.');
+                return;
+            }
             const key = name.toLowerCase();
-            if (STOCK_PO_SELECTED[key]) { alert(`"${name}" sudah ada di daftar PO.`); return; }
-            STOCK_PO_SELECTED[key] = { name, unit, qty: '', isManual: true };
+            if (STOCK_PO_SELECTED[key]) {
+                alert(`"${name}" sudah ada di daftar PO.`);
+                return;
+            }
+            STOCK_PO_SELECTED[key] = {
+                name,
+                unit,
+                qty: '',
+                isManual: true
+            };
             renderPoSelected();
             document.getElementById('poManualName').value = '';
             document.getElementById('poManualUnit').value = 'pcs';
@@ -4287,11 +4347,21 @@ header('Expires: 0');
         }
 
         async function submitStockPo() {
-            if (!STOCK_SELECTED_SLUG) { alert('Pilih bisnis dulu.'); return; }
+            if (!STOCK_SELECTED_SLUG) {
+                alert('Pilih bisnis dulu.');
+                return;
+            }
             const items = Object.values(STOCK_PO_SELECTED)
                 .filter(it => parseFloat(it.qty) > 0)
-                .map(it => ({ item_name: it.name, quantity: parseFloat(it.qty), unit: it.unit }));
-            if (!items.length) { alert('Pilih item dan isi qty dengan benar.'); return; }
+                .map(it => ({
+                    item_name: it.name,
+                    quantity: parseFloat(it.qty),
+                    unit: it.unit
+                }));
+            if (!items.length) {
+                alert('Pilih item dan isi qty dengan benar.');
+                return;
+            }
 
             try {
                 const fd = new FormData();
@@ -4299,7 +4369,10 @@ header('Expires: 0');
                 fd.append('slug', STOCK_SELECTED_SLUG);
                 fd.append('notes', document.getElementById('stockPoNotes').value.trim());
                 fd.append('items', JSON.stringify(items));
-                const res = await fetch(API, { method: 'POST', body: fd });
+                const res = await fetch(API, {
+                    method: 'POST',
+                    body: fd
+                });
                 const data = await res.json();
                 alert(data.message || (data.success ? 'Berhasil' : 'Gagal'));
                 if (data.success) {
