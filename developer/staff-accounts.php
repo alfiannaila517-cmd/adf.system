@@ -114,6 +114,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $bizDb) {
         exit;
     }
 
+    if ($formAction === 'update_email' && !empty($_POST['account_id'])) {
+        $accId = (int)$_POST['account_id'];
+        $newEmail = trim($_POST['new_email'] ?? '');
+        if (!$newEmail || !filter_var($newEmail, FILTER_VALIDATE_EMAIL)) {
+            $_SESSION['success_message'] = 'Email tidak valid.';
+        } else {
+            $dup = $bizPdo->prepare("SELECT id FROM staff_accounts WHERE LOWER(email) = LOWER(?) AND id != ?");
+            $dup->execute([$newEmail, $accId]);
+            if ($dup->fetch()) {
+                $_SESSION['success_message'] = 'Email sudah dipakai akun staff lain.';
+            } else {
+                $bizPdo->prepare("UPDATE staff_accounts SET email = ? WHERE id = ?")->execute([$newEmail, $accId]);
+                $auth->logAction('update_staff_email', 'staff_accounts', $accId, null, ['business' => $bizSlug, 'email' => $newEmail]);
+                $_SESSION['success_message'] = 'Email berhasil diperbarui.';
+            }
+        }
+        header('Location: staff-accounts.php?business=' . urlencode($selectedBiz));
+        exit;
+    }
+
     if ($formAction === 'create_account') {
         $empId = (int)($_POST['employee_id'] ?? 0);
         $username = trim($_POST['username'] ?? '');
@@ -386,6 +406,9 @@ require_once __DIR__ . '/includes/header.php';
                                             </td>
                                             <td><small><?php echo date('d M Y', strtotime($acc['created_at'])); ?></small></td>
                                             <td class="text-center">
+                                                <button class="btn btn-sm btn-outline-primary" onclick="editEmail(<?php echo $acc['id']; ?>, '<?php echo htmlspecialchars(addslashes($acc['email'] ?? '')); ?>', '<?php echo htmlspecialchars(addslashes($acc['full_name'] ?? '')); ?>')" title="Edit Email">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
                                                 <button class="btn btn-sm btn-outline-warning" onclick="resetPassword(<?php echo $acc['id']; ?>, '<?php echo htmlspecialchars(addslashes($acc['full_name'] ?? '')); ?>')" title="Reset Password">
                                                     <i class="bi bi-key"></i>
                                                 </button>
@@ -454,6 +477,31 @@ require_once __DIR__ . '/includes/header.php';
 
     <?php endif; ?>
 
+</div>
+
+<!-- Edit Email Modal -->
+<div class="modal fade" id="editEmailModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <form method="POST">
+                <input type="hidden" name="business" value="<?php echo htmlspecialchars($selectedBiz); ?>">
+                <input type="hidden" name="form_action" value="update_email">
+                <input type="hidden" name="account_id" id="editEmailAccountId">
+                <div class="modal-header">
+                    <h6 class="modal-title">✏️ Edit Email</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-2">Email untuk: <strong id="editEmailName"></strong></p>
+                    <input type="email" name="new_email" id="editEmailInput" class="form-control" placeholder="email@contoh.com" required>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary btn-sm">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
 <!-- Reset Password Modal -->
@@ -577,6 +625,13 @@ if ($showExport) {
         document.getElementById('resetAccountId').value = id;
         document.getElementById('resetName').textContent = name;
         new bootstrap.Modal(document.getElementById('resetModal')).show();
+    }
+
+    function editEmail(id, email, name) {
+        document.getElementById('editEmailAccountId').value = id;
+        document.getElementById('editEmailName').textContent = name;
+        document.getElementById('editEmailInput').value = email;
+        new bootstrap.Modal(document.getElementById('editEmailModal')).show();
     }
 
     <?php if ($showExport && !empty($exportData)): ?>
