@@ -374,6 +374,54 @@ if ($action === 'stock_gudang_view') {
     exit;
 }
 
+if ($action === 'stock_po_catalog') {
+    $grant = $staffEmailForStock !== '' ? getStaffStockAccessByEmail($staffEmailForStock) : null;
+    if (!$grant || !$grant['can_create_po']) {
+        echo json_encode(['success' => false, 'message' => 'Tidak ada akses membuat PO.']);
+        exit;
+    }
+
+    $originDbNameCatalog = Database::getCurrentDatabase();
+    $catalog = [];
+    try {
+        $gudangCfgPathCatalog = __DIR__ . '/../../config/businesses/gudang-nasita.php';
+        if (file_exists($gudangCfgPathCatalog)) {
+            $gudangCfgCatalog = require $gudangCfgPathCatalog;
+            $gudangDbNameCatalog = (string)($gudangCfgCatalog['database'] ?? '');
+            if ($gudangDbNameCatalog !== '') {
+                Database::switchDatabase($gudangDbNameCatalog);
+                $catalogDb = Database::getInstance();
+                $rows = $catalogDb->fetchAll(
+                    "SELECT gb.nama_barang AS item_name, COALESCE(gb.satuan, 'pcs') AS unit,
+                            COALESCE((
+                                SELECT SUM(gs.quantity) FROM gudang_nasita_stock gs
+                                WHERE LOWER(gs.item_name) = LOWER(gb.nama_barang) AND COALESCE(gs.is_active, 1) = 1
+                            ), 0) AS current_stock
+                     FROM gudang_nasita_barang gb
+                     WHERE COALESCE(gb.is_active, 1) = 1
+                     ORDER BY gb.nama_barang ASC"
+                ) ?: [];
+                $catalog = array_map(function ($r) {
+                    return [
+                        'item_name' => $r['item_name'] ?? '',
+                        'unit' => $r['unit'] ?? 'pcs',
+                        'current_stock' => (float)($r['current_stock'] ?? 0),
+                    ];
+                }, $rows);
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('stock_po_catalog error: ' . $e->getMessage());
+    } finally {
+        if ($originDbNameCatalog !== '') {
+            Database::switchDatabase($originDbNameCatalog);
+        }
+    }
+
+    echo json_encode(['success' => true, 'data' => $catalog]);
+    exit;
+}
+
 if ($action === 'stock_business_view') {
     $targetSlug = strtolower(trim((string)($_GET['slug'] ?? $_POST['slug'] ?? '')));
     $grant = $staffEmailForStock !== '' ? getStaffStockAccessByEmail($staffEmailForStock) : null;

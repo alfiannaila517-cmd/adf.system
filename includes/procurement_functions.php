@@ -3657,6 +3657,7 @@ function createStaffPoToGudang($businessSlug, array $items, $notes, $staffLabel)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
         // Resolve/create the "Gudang Nasita" internal supplier row in this business's own DB.
+        $fallbackUserId = resolveFallbackAdminUserId($db);
         $gudangSupplier = $db->fetchOne("SELECT id FROM suppliers WHERE LOWER(supplier_name) LIKE '%gudang nasita%' LIMIT 1");
         if (!$gudangSupplier) {
             $supplierColumns = $db->fetchAll("SHOW COLUMNS FROM suppliers");
@@ -3674,14 +3675,15 @@ function createStaffPoToGudang($businessSlug, array $items, $notes, $staffLabel)
             if (isset($colMap['is_active'])) {
                 $insertData['is_active'] = 1;
             }
+            if (isset($colMap['created_by']) && $fallbackUserId) {
+                $insertData['created_by'] = $fallbackUserId;
+            }
             $supplierId = $db->insert('suppliers', $insertData);
             $gudangSupplier = $supplierId ? ['id' => $supplierId] : null;
         }
         if (!$gudangSupplier) {
             return ['success' => false, 'message' => 'Supplier internal Gudang Nasita belum tersedia.'];
         }
-
-        $fallbackUserId = resolveFallbackAdminUserId($db);
 
         $poPrefix = 'GDN-' . date('Ymd') . '-';
         $lastPo = $db->fetchOne("SELECT po_number FROM purchase_orders_header WHERE po_number LIKE ? ORDER BY po_number DESC LIMIT 1", [$poPrefix . '%']);

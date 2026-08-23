@@ -3600,8 +3600,19 @@ header('Expires: 0');
 
             <div class="card" id="stockPoCard" style="display:none; margin-bottom:10px;">
                 <h4 style="margin:0 0 8px 0; font-size:13px;">🧾 Buat PO ke Gudang Nasita</h4>
-                <div id="stockPoRows"></div>
-                <button onclick="addStockPoRow()" style="width:100%; background:#f1f5f9; border:1px dashed #cbd5e1; padding:7px; border-radius:8px; font-size:11px; margin:6px 0;">+ Tambah Item</button>
+                <input type="text" id="poCatalogSearch" class="fi" placeholder="🔍 Cari item, klik untuk tambah..." oninput="filterPoCatalog()" style="width:100%; margin-bottom:6px;">
+                <div id="poCatalogList" style="max-height:150px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:8px; margin-bottom:8px;">
+                    <div style="text-align:center; padding:10px; color:#94a3b8; font-size:11px;">Memuat daftar item...</div>
+                </div>
+                <div style="display:flex; gap:6px; margin-bottom:8px;">
+                    <input type="text" id="poManualName" class="fi" placeholder="Item baru (belum ada di daftar)" style="flex:2;">
+                    <input type="text" id="poManualUnit" class="fi" placeholder="Satuan" value="pcs" style="width:70px;">
+                    <button type="button" onclick="addManualPoItem()" style="border:none; background:#f59e0b; color:#fff; border-radius:6px; padding:0 10px; font-size:11px; font-weight:600;">+</button>
+                </div>
+                <div style="font-size:11px; font-weight:600; color:#64748b; margin-bottom:4px;">Item dipilih:</div>
+                <div id="stockPoRows" style="margin-bottom:6px;">
+                    <div style="text-align:center; padding:8px; color:#94a3b8; font-size:11px;">Belum ada item dipilih.</div>
+                </div>
                 <input type="text" id="stockPoNotes" class="fi" placeholder="Catatan PO (opsional)" style="width:100%; margin-bottom:8px;">
                 <button onclick="submitStockPo()" style="width:100%; background:linear-gradient(135deg,#059669,#047857); color:#fff; border:none; padding:9px; border-radius:8px; font-weight:600; font-size:12px;">Kirim PO</button>
             </div>
@@ -4016,8 +4027,8 @@ header('Expires: 0');
                     document.getElementById('stockGudangCard').style.display = STOCK_ACCESS.can_view_gudang_nasita ? 'block' : 'none';
                     document.getElementById('stockOutCard').style.display = STOCK_ACCESS.can_reduce_stock ? 'block' : 'none';
                     document.getElementById('stockPoCard').style.display = STOCK_ACCESS.can_create_po ? 'block' : 'none';
-                    if (STOCK_ACCESS.can_create_po && !document.getElementById('stockPoRows').children.length) {
-                        addStockPoRow();
+                    if (STOCK_ACCESS.can_create_po && !STOCK_PO_CATALOG.length) {
+                        loadStockPoCatalog();
                     }
                 } else {
                     quickMenuStock.style.display = 'none';
@@ -4165,30 +4176,101 @@ header('Expires: 0');
             }
         }
 
-        function addStockPoRow() {
+        // Klik item dari katalog Gudang Nasita untuk ditambahkan ke PO (tidak perlu ketik nama)
+        let STOCK_PO_CATALOG = [];
+        let STOCK_PO_SELECTED = {};
+
+        async function loadStockPoCatalog() {
+            const el = document.getElementById('poCatalogList');
+            el.innerHTML = '<div class="loading"><span class="spin"></span> Memuat...</div>';
+            try {
+                const res = await fetch(API + '&action=stock_po_catalog');
+                const data = await res.json();
+                if (!data.success) {
+                    el.innerHTML = `<div style="color:#ef4444; font-size:11px; text-align:center; padding:10px;">${data.message || 'Gagal memuat'}</div>`;
+                    return;
+                }
+                STOCK_PO_CATALOG = data.data;
+                renderPoCatalog(STOCK_PO_CATALOG);
+            } catch (e) {
+                el.innerHTML = '<div style="color:#ef4444; font-size:11px; text-align:center; padding:10px;">Gagal memuat daftar item.</div>';
+            }
+        }
+
+        function renderPoCatalog(items) {
+            const el = document.getElementById('poCatalogList');
+            if (!items.length) {
+                el.innerHTML = '<div style="text-align:center; padding:10px; color:#94a3b8; font-size:11px;">Item tidak ditemukan.</div>';
+                return;
+            }
+            el.innerHTML = items.map(it => {
+                const key = it.item_name.toLowerCase();
+                const already = !!STOCK_PO_SELECTED[key];
+                const safeName = it.item_name.replace(/'/g, "\\'");
+                const safeUnit = (it.unit || 'pcs').replace(/'/g, "\\'");
+                return `<div onclick="${already ? '' : `addPoItemFromCatalog('${safeName}', '${safeUnit}')`}"
+                    style="display:flex; justify-content:space-between; align-items:center; padding:6px 8px; border-bottom:1px solid #f1f5f9; font-size:12px; ${already ? 'opacity:.45;' : 'cursor:pointer;'}">
+                    <span style="font-weight:600;">${it.item_name}</span>
+                    <span style="color:#94a3b8; font-size:10.5px;">${already ? 'Dipilih ✓' : (Number(it.current_stock).toLocaleString('id-ID') + ' ' + it.unit)}</span>
+                </div>`;
+            }).join('');
+        }
+
+        function filterPoCatalog() {
+            const q = document.getElementById('poCatalogSearch').value.trim().toLowerCase();
+            renderPoCatalog(q ? STOCK_PO_CATALOG.filter(it => it.item_name.toLowerCase().includes(q)) : STOCK_PO_CATALOG);
+        }
+
+        function addPoItemFromCatalog(name, unit) {
+            const key = name.toLowerCase();
+            if (STOCK_PO_SELECTED[key]) return;
+            STOCK_PO_SELECTED[key] = { name, unit: unit || 'pcs', qty: '' };
+            renderPoSelected();
+            filterPoCatalog();
+        }
+
+        function addManualPoItem() {
+            const name = document.getElementById('poManualName').value.trim();
+            const unit = document.getElementById('poManualUnit').value.trim() || 'pcs';
+            if (!name) { alert('Tulis nama item terlebih dahulu.'); return; }
+            const key = name.toLowerCase();
+            if (STOCK_PO_SELECTED[key]) { alert(`"${name}" sudah ada di daftar PO.`); return; }
+            STOCK_PO_SELECTED[key] = { name, unit, qty: '', isManual: true };
+            renderPoSelected();
+            document.getElementById('poManualName').value = '';
+            document.getElementById('poManualUnit').value = 'pcs';
+        }
+
+        function removePoSelectedItem(key) {
+            delete STOCK_PO_SELECTED[key];
+            renderPoSelected();
+            filterPoCatalog();
+        }
+
+        function renderPoSelected() {
             const wrap = document.getElementById('stockPoRows');
-            const row = document.createElement('div');
-            row.style.cssText = 'display:flex; gap:6px; margin-bottom:6px;';
-            row.innerHTML = `
-                <input type="text" class="fi po-item-name" placeholder="Nama item" list="stockOutItemList" style="flex:2;">
-                <input type="number" class="fi po-item-qty" placeholder="Qty" step="0.01" min="0" style="flex:1;">
-                <input type="text" class="fi po-item-unit" placeholder="Satuan" value="pcs" style="width:70px;">
-                <button type="button" onclick="this.parentElement.remove()" style="border:none; background:#fee2e2; color:#dc2626; border-radius:6px; width:28px;">✕</button>
-            `;
-            wrap.appendChild(row);
+            const keys = Object.keys(STOCK_PO_SELECTED);
+            if (!keys.length) {
+                wrap.innerHTML = '<div style="text-align:center; padding:8px; color:#94a3b8; font-size:11px;">Belum ada item dipilih.</div>';
+                return;
+            }
+            wrap.innerHTML = keys.map(key => {
+                const it = STOCK_PO_SELECTED[key];
+                return `<div style="display:flex; gap:6px; align-items:center; margin-bottom:6px; ${it.isManual ? 'background:#fffbeb; border-radius:6px; padding:4px;' : ''}">
+                    <div style="flex:2; font-size:12px; font-weight:600;">${it.name}${it.isManual ? ' <span style="font-size:9px; background:#f59e0b; color:#fff; padding:1px 5px; border-radius:4px;">Baru</span>' : ''}</div>
+                    <input type="number" class="fi" placeholder="Qty" step="0.01" min="0" value="${it.qty}" oninput="STOCK_PO_SELECTED['${key}'].qty=this.value" style="flex:1;">
+                    <span style="font-size:11px; color:#64748b; width:40px;">${it.unit}</span>
+                    <button type="button" onclick="removePoSelectedItem('${key}')" style="border:none; background:#fee2e2; color:#dc2626; border-radius:6px; width:28px;">✕</button>
+                </div>`;
+            }).join('');
         }
 
         async function submitStockPo() {
             if (!STOCK_SELECTED_SLUG) { alert('Pilih bisnis dulu.'); return; }
-            const rows = document.querySelectorAll('#stockPoRows > div');
-            const items = [];
-            rows.forEach(row => {
-                const name = row.querySelector('.po-item-name').value.trim();
-                const qty = parseFloat(row.querySelector('.po-item-qty').value || '0');
-                const unit = row.querySelector('.po-item-unit').value.trim() || 'pcs';
-                if (name && qty > 0) items.push({ item_name: name, quantity: qty, unit });
-            });
-            if (!items.length) { alert('Tambahkan minimal 1 item dengan qty valid.'); return; }
+            const items = Object.values(STOCK_PO_SELECTED)
+                .filter(it => parseFloat(it.qty) > 0)
+                .map(it => ({ item_name: it.name, quantity: parseFloat(it.qty), unit: it.unit }));
+            if (!items.length) { alert('Pilih item dan isi qty dengan benar.'); return; }
 
             try {
                 const fd = new FormData();
@@ -4200,9 +4282,10 @@ header('Expires: 0');
                 const data = await res.json();
                 alert(data.message || (data.success ? 'Berhasil' : 'Gagal'));
                 if (data.success) {
-                    document.getElementById('stockPoRows').innerHTML = '';
+                    STOCK_PO_SELECTED = {};
+                    renderPoSelected();
+                    filterPoCatalog();
                     document.getElementById('stockPoNotes').value = '';
-                    addStockPoRow();
                 }
             } catch (e) {
                 alert('Gagal mengirim PO.');
