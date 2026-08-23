@@ -3583,7 +3583,7 @@ header('Expires: 0');
             </div>
 
             <div class="card" id="stockBusinessCard" style="margin-bottom:10px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid #edf1f5;">
                     <h4 style="margin:0; font-size:13px;">🏬 Stock Bisnis</h4>
                     <button onclick="loadStockBusiness()" style="border:none; background:none; font-size:11px; color:#2563eb;">🔄</button>
                 </div>
@@ -4064,7 +4064,7 @@ header('Expires: 0');
         let STOCK_GUDANG_LOADED = false;
 
         function toggleStockGudang() {
-            toggleCollapsibleCard('stockGudangBody', 'stockGudangToggleLabel', function () {
+            toggleCollapsibleCard('stockGudangBody', 'stockGudangToggleLabel', function() {
                 if (!STOCK_GUDANG_LOADED) loadStockGudang();
             });
         }
@@ -4074,7 +4074,7 @@ header('Expires: 0');
         }
 
         function toggleStockPo() {
-            toggleCollapsibleCard('stockPoBody', 'stockPoToggleLabel', function () {
+            toggleCollapsibleCard('stockPoBody', 'stockPoToggleLabel', function() {
                 if (!STOCK_PO_CATALOG.length) loadStockPoCatalog();
             });
         }
@@ -4163,13 +4163,13 @@ header('Expires: 0');
                 el.innerHTML = '<div style="text-align:center; padding:12px; color:#94a3b8; font-size:11px;">Belum ada stock tercatat.</div>';
                 return;
             }
-            el.innerHTML = items.map(it => `
-                <div style="display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-bottom:1px solid #f1f5f9; gap:6px;">
-                    <div style="flex:1;">
-                        <div style="font-size:12px; font-weight:600;">${it.item_name}</div>
-                        <div style="font-size:12px; font-weight:700;">${Number(it.current_qty).toLocaleString('id-ID')} ${it.unit}</div>
+            el.innerHTML = items.map((it, idx) => `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 2px; gap:10px; ${idx < items.length - 1 ? 'border-bottom:1px solid #edf1f5;' : ''}">
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-size:13px; font-weight:600; color:#1e293b; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${it.item_name}</div>
+                        <div style="font-size:11px; color:#64748b; margin-top:2px;">${Number(it.current_qty).toLocaleString('id-ID')} ${it.unit}</div>
                     </div>
-                    ${STOCK_ACCESS && STOCK_ACCESS.can_reduce_stock ? `<button onclick="quickReduceStock('${it.item_name.replace(/'/g, "\\'")}', '${it.unit.replace(/'/g, "\\'")}')" style="border:none; background:#fef3c7; color:#92400e; font-size:11px; font-weight:600; padding:6px 10px; border-radius:6px; white-space:nowrap;">Kurangi</button>` : ''}
+                    ${STOCK_ACCESS && STOCK_ACCESS.can_reduce_stock ? `<button onclick="quickReduceStock('${it.item_name.replace(/'/g, "\\'")}', '${it.unit.replace(/'/g, "\\'")}')" style="flex-shrink:0; border:none; background:#fef3c7; color:#92400e; font-size:11px; font-weight:600; padding:7px 12px; border-radius:8px; white-space:nowrap;">Kurangi</button>` : ''}
                 </div>
             `).join('');
         }
