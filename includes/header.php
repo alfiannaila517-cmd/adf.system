@@ -851,11 +851,10 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                         <?php if ($auth->hasPermission('frontdesk') && isModuleEnabled('frontdesk')): ?>
                             <style>
                                 .fd-unpaid-dot {
-                                    position: absolute;
-                                    top: 2px;
-                                    right: 6px;
-                                    width: 10px;
-                                    height: 10px;
+                                    display: inline-block;
+                                    width: 9px;
+                                    height: 9px;
+                                    margin-right: 6px;
                                     background: #ef4444;
                                     border-radius: 50%;
                                     animation: fd-unpaid-blink 1.1s ease-in-out infinite;
@@ -876,12 +875,12 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                                 }
                             </style>
                             <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/frontdesk/') !== false && strpos($_SERVER['REQUEST_URI'], 'hotel-services.php') === false && strpos($_SERVER['REQUEST_URI'], 'rental-motor.php') === false) ? 'open' : ''; ?>">
-                                <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo (strpos($_SERVER['REQUEST_URI'], 'hotel-services.php') === false && strpos($_SERVER['REQUEST_URI'], 'rental-motor.php') === false) ? activeMenu('frontdesk') : ''; ?>" style="position:relative;">
-                                    <i data-feather="home" class="nav-icon"></i>
-                                    <span><?php echo __('menu.frontdesk'); ?></span>
+                                <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo (strpos($_SERVER['REQUEST_URI'], 'hotel-services.php') === false && strpos($_SERVER['REQUEST_URI'], 'rental-motor.php') === false) ? activeMenu('frontdesk') : ''; ?>">
                                     <?php if (!empty($unpaidGuestsCount)): ?>
                                         <span class="fd-unpaid-dot" title="<?php echo $unpaidGuestsCount; ?> tamu belum lunas"></span>
                                     <?php endif; ?>
+                                    <i data-feather="home" class="nav-icon"></i>
+                                    <span><?php echo __('menu.frontdesk'); ?></span>
                                 </a>
                                 <ul class="submenu">
                                     <li class="submenu-item">
