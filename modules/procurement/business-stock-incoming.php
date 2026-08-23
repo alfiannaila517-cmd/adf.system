@@ -1488,11 +1488,25 @@ include '../../includes/header.php';
 
     <style>
         @media (max-width: 992px) {
-            .biz-stock-layout { grid-template-columns: 1fr !important; }
-            .biz-scroll-table { max-height:340px !important; }
+            .biz-stock-layout {
+                grid-template-columns: 1fr !important;
+            }
+
+            .biz-scroll-table {
+                max-height: 340px !important;
+            }
         }
-        .biz-scroll-table { overflow-y:auto; }
-        .biz-scroll-table thead th { position:sticky; top:0; background:#fff; z-index:2; }
+
+        .biz-scroll-table {
+            overflow-y: auto;
+        }
+
+        .biz-scroll-table thead th {
+            position: sticky;
+            top: 0;
+            background: #fff;
+            z-index: 2;
+        }
     </style>
     <div class="biz-stock-layout" style="display:grid; grid-template-columns: 1fr 1fr; gap:1.25rem; align-items:start;">
         <div>
@@ -1544,169 +1558,169 @@ include '../../includes/header.php';
             </div>
 
             <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; margin-bottom:1rem;">
-            <h3 style="font-size:1rem; font-weight:700; margin:0;">Pengeluaran Harian &amp; Transfer Bisnis</h3>
-            <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
-                <div style="font-size:0.8rem; color:var(--text-muted);">Total hari ini: <?php echo number_format($dailyOutTotalQty, 2); ?> qty</div>
-                <?php if (!empty($dailyOutRows)): ?>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleDailyOutSelectAll()">Centang Semua</button>
-                    <form method="POST" style="display:inline; margin:0;" onsubmit="return confirm('Hapus pengeluaran harian yang dipilih? Stok Gudang Nasita akan dikembalikan.')">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; margin-bottom:1rem;">
+                    <h3 style="font-size:1rem; font-weight:700; margin:0;">Pengeluaran Harian &amp; Transfer Bisnis</h3>
+                    <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+                        <div style="font-size:0.8rem; color:var(--text-muted);">Total hari ini: <?php echo number_format($dailyOutTotalQty, 2); ?> qty</div>
+                        <?php if (!empty($dailyOutRows)): ?>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleDailyOutSelectAll()">Centang Semua</button>
+                            <form method="POST" style="display:inline; margin:0;" onsubmit="return confirm('Hapus pengeluaran harian yang dipilih? Stok Gudang Nasita akan dikembalikan.')">
+                                <input type="hidden" name="action" value="delete_daily_stock_out_business">
+                                <button type="submit" class="btn btn-sm btn-danger" id="deleteDailyOutSelectedBtn" disabled>Hapus Terpilih</button>
+                            </form>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <div class="table-responsive biz-scroll-table" style="max-height:300px;">
+                    <form method="POST" id="dailyOutBulkDeleteForm" onsubmit="return confirm('Hapus pengeluaran harian yang dipilih? Stok Gudang Nasita akan dikembalikan.')">
                         <input type="hidden" name="action" value="delete_daily_stock_out_business">
-                        <button type="submit" class="btn btn-sm btn-danger" id="deleteDailyOutSelectedBtn" disabled>Hapus Terpilih</button>
-                    </form>
-                <?php endif; ?>
-            </div>
-        </div>
-        <div class="table-responsive biz-scroll-table" style="max-height:300px;">
-            <form method="POST" id="dailyOutBulkDeleteForm" onsubmit="return confirm('Hapus pengeluaran harian yang dipilih? Stok Gudang Nasita akan dikembalikan.')">
-                <input type="hidden" name="action" value="delete_daily_stock_out_business">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th style="width:42px; text-align:center;">
-                                <?php if (!empty($dailyOutRows)): ?>
-                                    <input type="checkbox" id="dailyOutSelectAll" aria-label="Centang semua pengeluaran harian">
-                                <?php endif; ?>
-                            </th>
-                            <th>Item</th>
-                            <th>Unit</th>
-                            <th class="text-right">Qty</th>
-                            <th>Catatan / Tujuan</th>
-                            <th>Waktu</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (empty($dailyOutRows)): ?>
-                            <tr>
-                                <td colspan="6" style="text-align:center; padding:2rem; color:var(--text-muted);">Belum ada pengeluaran stok hari ini.</td>
-                            </tr>
-                            <?php else: foreach ($dailyOutRows as $dailyOutEntry): ?>
+                        <table class="table">
+                            <thead>
                                 <tr>
-                                    <td style="text-align:center;">
-                                        <input type="checkbox" class="daily-out-checkbox" name="daily_out_ids[]" value="<?php echo (int)($dailyOutEntry['id'] ?? 0); ?>" aria-label="Pilih pengeluaran <?php echo htmlspecialchars((string)($dailyOutEntry['item_name'] ?? '-')); ?>">
-                                    </td>
-                                    <td style="font-weight:600;"><?php echo htmlspecialchars((string)($dailyOutEntry['item_name'] ?? '-')); ?></td>
-                                    <td><?php echo htmlspecialchars((string)($dailyOutEntry['unit'] ?? 'pcs')); ?></td>
-                                    <td class="text-right" style="font-weight:700; color:#d97706;"><?php echo number_format((float)($dailyOutEntry['quantity'] ?? 0), 2); ?></td>
-                                    <td><?php echo htmlspecialchars((string)($dailyOutEntry['notes'] ?? '-')); ?></td>
-                                    <td style="font-size:0.82rem; color:var(--text-muted);"><?php echo date('d M Y H:i', strtotime((string)($dailyOutEntry['created_at'] ?? date('Y-m-d H:i:s')))); ?></td>
+                                    <th style="width:42px; text-align:center;">
+                                        <?php if (!empty($dailyOutRows)): ?>
+                                            <input type="checkbox" id="dailyOutSelectAll" aria-label="Centang semua pengeluaran harian">
+                                        <?php endif; ?>
+                                    </th>
+                                    <th>Item</th>
+                                    <th>Unit</th>
+                                    <th class="text-right">Qty</th>
+                                    <th>Catatan / Tujuan</th>
+                                    <th>Waktu</th>
                                 </tr>
-                        <?php endforeach;
-                        endif; ?>
-                        <?php foreach ($interTransferOutRows ?? [] as $tr): ?>
-                            <tr style="background:#fef3c7;">
-                                <td style="text-align:center;">
-                                    <form method="POST" style="margin:0;" onsubmit="return confirm('Hapus histori transfer ini?')">
-                                        <input type="hidden" name="action" value="delete_inter_transfer">
-                                        <input type="hidden" name="transfer_id" value="<?php echo (int)$tr['id']; ?>">
-                                        <button type="submit" class="btn btn-sm btn-danger" style="padding:2px 6px; font-size:0.7rem; height:24px;" title="Hapus">&times;</button>
-                                    </form>
-                                </td>
-                                <td style="font-weight:600;"><?php echo htmlspecialchars((string)($tr['item_name'] ?? '-')); ?></td>
-                                <td><?php echo htmlspecialchars((string)($tr['unit'] ?? 'pcs')); ?></td>
-                                <td class="text-right" style="font-weight:700; color:#b45309;"><?php echo number_format((float)($tr['quantity'] ?? 0), 2); ?></td>
-                                <td style="font-size:0.82rem;">
-                                    Transfer ke <strong><?php echo htmlspecialchars((string)($tr['target_business_name'] ?? '-')); ?></strong>
-                                    <?php if (!empty($tr['transfer_number'])): ?>&mdash; <?php echo htmlspecialchars($tr['transfer_number']); ?><?php endif; ?>
-                                    <?php if (!empty($tr['notes'])): ?><br><span style="color:#64748b;"><?php echo htmlspecialchars($tr['notes']); ?></span><?php endif; ?>
-                                </td>
-                                <td style="font-size:0.82rem; color:var(--text-muted);"><?php echo date('d M Y H:i', strtotime((string)($tr['created_at'] ?? date('Y-m-d H:i:s')))); ?></td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </form>
-        </div>
+                            </thead>
+                            <tbody>
+                                <?php if (empty($dailyOutRows)): ?>
+                                    <tr>
+                                        <td colspan="6" style="text-align:center; padding:2rem; color:var(--text-muted);">Belum ada pengeluaran stok hari ini.</td>
+                                    </tr>
+                                    <?php else: foreach ($dailyOutRows as $dailyOutEntry): ?>
+                                        <tr>
+                                            <td style="text-align:center;">
+                                                <input type="checkbox" class="daily-out-checkbox" name="daily_out_ids[]" value="<?php echo (int)($dailyOutEntry['id'] ?? 0); ?>" aria-label="Pilih pengeluaran <?php echo htmlspecialchars((string)($dailyOutEntry['item_name'] ?? '-')); ?>">
+                                            </td>
+                                            <td style="font-weight:600;"><?php echo htmlspecialchars((string)($dailyOutEntry['item_name'] ?? '-')); ?></td>
+                                            <td><?php echo htmlspecialchars((string)($dailyOutEntry['unit'] ?? 'pcs')); ?></td>
+                                            <td class="text-right" style="font-weight:700; color:#d97706;"><?php echo number_format((float)($dailyOutEntry['quantity'] ?? 0), 2); ?></td>
+                                            <td><?php echo htmlspecialchars((string)($dailyOutEntry['notes'] ?? '-')); ?></td>
+                                            <td style="font-size:0.82rem; color:var(--text-muted);"><?php echo date('d M Y H:i', strtotime((string)($dailyOutEntry['created_at'] ?? date('Y-m-d H:i:s')))); ?></td>
+                                        </tr>
+                                <?php endforeach;
+                                endif; ?>
+                                <?php foreach ($interTransferOutRows ?? [] as $tr): ?>
+                                    <tr style="background:#fef3c7;">
+                                        <td style="text-align:center;">
+                                            <form method="POST" style="margin:0;" onsubmit="return confirm('Hapus histori transfer ini?')">
+                                                <input type="hidden" name="action" value="delete_inter_transfer">
+                                                <input type="hidden" name="transfer_id" value="<?php echo (int)$tr['id']; ?>">
+                                                <button type="submit" class="btn btn-sm btn-danger" style="padding:2px 6px; font-size:0.7rem; height:24px;" title="Hapus">&times;</button>
+                                            </form>
+                                        </td>
+                                        <td style="font-weight:600;"><?php echo htmlspecialchars((string)($tr['item_name'] ?? '-')); ?></td>
+                                        <td><?php echo htmlspecialchars((string)($tr['unit'] ?? 'pcs')); ?></td>
+                                        <td class="text-right" style="font-weight:700; color:#b45309;"><?php echo number_format((float)($tr['quantity'] ?? 0), 2); ?></td>
+                                        <td style="font-size:0.82rem;">
+                                            Transfer ke <strong><?php echo htmlspecialchars((string)($tr['target_business_name'] ?? '-')); ?></strong>
+                                            <?php if (!empty($tr['transfer_number'])): ?>&mdash; <?php echo htmlspecialchars($tr['transfer_number']); ?><?php endif; ?>
+                                            <?php if (!empty($tr['notes'])): ?><br><span style="color:#64748b;"><?php echo htmlspecialchars($tr['notes']); ?></span><?php endif; ?>
+                                        </td>
+                                        <td style="font-size:0.82rem; color:var(--text-muted);"><?php echo date('d M Y H:i', strtotime((string)($tr['created_at'] ?? date('Y-m-d H:i:s')))); ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </form>
+                </div>
             </div>
         </div>
 
         <div>
             <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-            <h3 style="font-size:1rem; font-weight:700; margin:0;">Stok Bisnis (Stock Tersedia)</h3>
-            <span style="font-size:0.8rem; color:var(--text-muted);"><?php echo count($stockSummary); ?> item | Khusus bisnis aktif</span>
-        </div>
-        <div style="display:flex; gap:0.55rem; align-items:center; margin-bottom:0.9rem; flex-wrap:wrap;">
-            <div style="position:relative; min-width:280px; flex:1;">
-                <i data-feather="search" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); width:14px; height:14px; color:#64748b;"></i>
-                <input type="text" id="stockSearchInput" class="form-control" placeholder="Cari stok: nama barang / unit" style="padding-left:2rem;">
-            </div>
-            <button type="button" class="btn btn-secondary" style="height:38px;" onclick="clearStockSearch()">Reset Cari</button>
-            <span id="stockSearchCounter" style="font-size:0.8rem; color:#64748b;">Menampilkan <?php echo count($stockSummary); ?> item</span>
-        </div>
-        <div class="table-responsive biz-scroll-table" style="max-height:660px;">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Nama Item</th>
-                        <th>Unit</th>
-                        <th class="text-right">Stock Tersedia</th>
-                        <th class="text-center">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if (empty($stockSummary)): ?>
-                        <tr>
-                            <td colspan="4" style="text-align:center; padding:2rem; color:var(--text-muted);">Belum ada stok masuk dari gudang.</td>
-                        </tr>
-                        <?php else: $stockRowIdx = 0;
-                        foreach ($stockSummary as $item): $stockRowIdx++; ?>
-                            <tr class="stock-row" data-search="<?php echo htmlspecialchars(strtolower(trim((string)$item['item_name']) . ' ' . trim((string)$item['unit']))); ?>">
-                                <td style="font-weight:600;">
-                                    <?php echo htmlspecialchars($item['item_name']); ?>
-                                </td>
-                                <td><?php echo htmlspecialchars($item['unit']); ?></td>
-                                <td class="text-right" style="font-weight:700; color:#0f9d6a;">
-                                    <div><?php echo number_format((float)($item['current_qty'] ?? 0), 2); ?></div>
-                                    <div style="font-size:0.72rem; color:#64748b; font-weight:500;">Gudang + manual: <?php echo number_format((float)$item['total_received'], 2); ?></div>
-                                </td>
-                                <td class="text-center">
-                                    <div class="dropdown" style="position:relative; display:inline-block;">
-                                        <button type="button" class="btn btn-sm btn-secondary" style="padding:0 0.6rem; height:30px; font-size:0.78rem; border-radius:0.4rem;"
-                                            onclick="toggleBizStockDropdown(<?php echo $stockRowIdx; ?>)">
-                                            Aksi <i data-feather="chevron-down" style="width:12px; height:12px; vertical-align:-2px;"></i>
-                                        </button>
-                                        <div id="bizdrop-<?php echo $stockRowIdx; ?>" style="display:none; position:absolute; right:0; top:100%; background:#fff; border:1px solid #e2e8f0; border-radius:0.6rem; box-shadow:0 6px 20px rgba(0,0,0,0.12); z-index:1000; min-width:200px; padding:0.4rem 0;">
-                                            <button type="button" style="display:flex; align-items:center; gap:0.45rem; width:100%; text-align:left; padding:0.5rem 0.9rem; font-size:0.83rem; background:none; border:none; cursor:pointer; color:#0f9d6a; font-weight:600;"
-                                                onclick="toggleBizStockDropdown(<?php echo $stockRowIdx; ?>); openManualStockModalPreset('<?php echo htmlspecialchars(addslashes($item['item_name'])); ?>','<?php echo htmlspecialchars(addslashes($item['unit'])); ?>')">
-                                                <i data-feather="plus-circle" style="width:14px; height:14px;"></i>
-                                                Tambah Stok
-                                            </button>
-                                            <button type="button" style="display:flex; align-items:center; gap:0.45rem; width:100%; text-align:left; padding:0.5rem 0.9rem; font-size:0.83rem; background:none; border:none; cursor:pointer; color:#d97706; font-weight:600;"
-                                                onclick="toggleBizStockDropdown(<?php echo $stockRowIdx; ?>); openDailyOutModalPreset('<?php echo htmlspecialchars(addslashes($item['item_name'])); ?>','<?php echo htmlspecialchars(addslashes($item['unit'])); ?>')">
-                                                <i data-feather="minus-square" style="width:14px; height:14px;"></i>
-                                                Stock Keluar
-                                            </button>
-                                            <button type="button" style="display:flex; align-items:center; gap:0.45rem; width:100%; text-align:left; padding:0.5rem 0.9rem; font-size:0.83rem; background:none; border:none; cursor:pointer; color:#3b82f6; font-weight:600;"
-                                                onclick="toggleBizStockDropdown(<?php echo $stockRowIdx; ?>); openTransferModal('<?php echo htmlspecialchars(addslashes($item['item_name'])); ?>','<?php echo htmlspecialchars(addslashes($item['unit'])); ?>','<?php echo htmlspecialchars((string)number_format((float)($item['current_qty'] ?? 0), 2, '.', '')); ?>')">
-                                                <i data-feather="send" style="width:14px; height:14px;"></i>
-                                                Transfer
-                                            </button>
-                                            <div style="border-top:1px solid #f1f5f9; margin:0.25rem 0;"></div>
-                                            <button type="button" style="display:flex; align-items:center; gap:0.45rem; width:100%; text-align:left; padding:0.5rem 0.9rem; font-size:0.83rem; background:none; border:none; cursor:pointer; color:#475569; font-weight:600;" title="Koreksi stok (salah input, dsb.)"
-                                                onclick="toggleBizStockDropdown(<?php echo $stockRowIdx; ?>); openAdjustmentModalPreset('<?php echo htmlspecialchars(addslashes($item['item_name'])); ?>','<?php echo htmlspecialchars(addslashes($item['unit'])); ?>')">
-                                                <i data-feather="sliders" style="width:14px; height:14px;"></i>
-                                                Adjustment
-                                            </button>
-                                            <div style="border-top:1px solid #f1f5f9; margin:0.25rem 0;"></div>
-                                            <form method="POST" style="padding:0 0.9rem 0.2rem;" onsubmit="return confirm('Hapus item stok ini dari bisnis aktif?')">
-                                                <input type="hidden" name="action" value="delete_stock_item">
-                                                <input type="hidden" name="item_name" value="<?php echo htmlspecialchars($item['item_name']); ?>">
-                                                <input type="hidden" name="unit" value="<?php echo htmlspecialchars($item['unit']); ?>">
-                                                <button type="submit" style="display:flex; align-items:center; gap:0.45rem; width:100%; text-align:left; padding:0.3rem 0; font-size:0.83rem; background:none; border:none; cursor:pointer; color:#dc2626; font-weight:600;">
-                                                    <i data-feather="trash-2" style="width:14px; height:14px;"></i>
-                                                    Hapus Item
-                                                </button>
-                                            </form>
-                                        </div>
-                                    </div>
-                                </td>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                    <h3 style="font-size:1rem; font-weight:700; margin:0;">Stok Bisnis (Stock Tersedia)</h3>
+                    <span style="font-size:0.8rem; color:var(--text-muted);"><?php echo count($stockSummary); ?> item | Khusus bisnis aktif</span>
+                </div>
+                <div style="display:flex; gap:0.55rem; align-items:center; margin-bottom:0.9rem; flex-wrap:wrap;">
+                    <div style="position:relative; min-width:280px; flex:1;">
+                        <i data-feather="search" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); width:14px; height:14px; color:#64748b;"></i>
+                        <input type="text" id="stockSearchInput" class="form-control" placeholder="Cari stok: nama barang / unit" style="padding-left:2rem;">
+                    </div>
+                    <button type="button" class="btn btn-secondary" style="height:38px;" onclick="clearStockSearch()">Reset Cari</button>
+                    <span id="stockSearchCounter" style="font-size:0.8rem; color:#64748b;">Menampilkan <?php echo count($stockSummary); ?> item</span>
+                </div>
+                <div class="table-responsive biz-scroll-table" style="max-height:660px;">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Nama Item</th>
+                                <th>Unit</th>
+                                <th class="text-right">Stock Tersedia</th>
+                                <th class="text-center">Aksi</th>
                             </tr>
-                    <?php endforeach;
-                    endif; ?>
-                </tbody>
-            </table>
-        </div>
+                        </thead>
+                        <tbody>
+                            <?php if (empty($stockSummary)): ?>
+                                <tr>
+                                    <td colspan="4" style="text-align:center; padding:2rem; color:var(--text-muted);">Belum ada stok masuk dari gudang.</td>
+                                </tr>
+                                <?php else: $stockRowIdx = 0;
+                                foreach ($stockSummary as $item): $stockRowIdx++; ?>
+                                    <tr class="stock-row" data-search="<?php echo htmlspecialchars(strtolower(trim((string)$item['item_name']) . ' ' . trim((string)$item['unit']))); ?>">
+                                        <td style="font-weight:600;">
+                                            <?php echo htmlspecialchars($item['item_name']); ?>
+                                        </td>
+                                        <td><?php echo htmlspecialchars($item['unit']); ?></td>
+                                        <td class="text-right" style="font-weight:700; color:#0f9d6a;">
+                                            <div><?php echo number_format((float)($item['current_qty'] ?? 0), 2); ?></div>
+                                            <div style="font-size:0.72rem; color:#64748b; font-weight:500;">Gudang + manual: <?php echo number_format((float)$item['total_received'], 2); ?></div>
+                                        </td>
+                                        <td class="text-center">
+                                            <div class="dropdown" style="position:relative; display:inline-block;">
+                                                <button type="button" class="btn btn-sm btn-secondary" style="padding:0 0.6rem; height:30px; font-size:0.78rem; border-radius:0.4rem;"
+                                                    onclick="toggleBizStockDropdown(<?php echo $stockRowIdx; ?>)">
+                                                    Aksi <i data-feather="chevron-down" style="width:12px; height:12px; vertical-align:-2px;"></i>
+                                                </button>
+                                                <div id="bizdrop-<?php echo $stockRowIdx; ?>" style="display:none; position:absolute; right:0; top:100%; background:#fff; border:1px solid #e2e8f0; border-radius:0.6rem; box-shadow:0 6px 20px rgba(0,0,0,0.12); z-index:1000; min-width:200px; padding:0.4rem 0;">
+                                                    <button type="button" style="display:flex; align-items:center; gap:0.45rem; width:100%; text-align:left; padding:0.5rem 0.9rem; font-size:0.83rem; background:none; border:none; cursor:pointer; color:#0f9d6a; font-weight:600;"
+                                                        onclick="toggleBizStockDropdown(<?php echo $stockRowIdx; ?>); openManualStockModalPreset('<?php echo htmlspecialchars(addslashes($item['item_name'])); ?>','<?php echo htmlspecialchars(addslashes($item['unit'])); ?>')">
+                                                        <i data-feather="plus-circle" style="width:14px; height:14px;"></i>
+                                                        Tambah Stok
+                                                    </button>
+                                                    <button type="button" style="display:flex; align-items:center; gap:0.45rem; width:100%; text-align:left; padding:0.5rem 0.9rem; font-size:0.83rem; background:none; border:none; cursor:pointer; color:#d97706; font-weight:600;"
+                                                        onclick="toggleBizStockDropdown(<?php echo $stockRowIdx; ?>); openDailyOutModalPreset('<?php echo htmlspecialchars(addslashes($item['item_name'])); ?>','<?php echo htmlspecialchars(addslashes($item['unit'])); ?>')">
+                                                        <i data-feather="minus-square" style="width:14px; height:14px;"></i>
+                                                        Stock Keluar
+                                                    </button>
+                                                    <button type="button" style="display:flex; align-items:center; gap:0.45rem; width:100%; text-align:left; padding:0.5rem 0.9rem; font-size:0.83rem; background:none; border:none; cursor:pointer; color:#3b82f6; font-weight:600;"
+                                                        onclick="toggleBizStockDropdown(<?php echo $stockRowIdx; ?>); openTransferModal('<?php echo htmlspecialchars(addslashes($item['item_name'])); ?>','<?php echo htmlspecialchars(addslashes($item['unit'])); ?>','<?php echo htmlspecialchars((string)number_format((float)($item['current_qty'] ?? 0), 2, '.', '')); ?>')">
+                                                        <i data-feather="send" style="width:14px; height:14px;"></i>
+                                                        Transfer
+                                                    </button>
+                                                    <div style="border-top:1px solid #f1f5f9; margin:0.25rem 0;"></div>
+                                                    <button type="button" style="display:flex; align-items:center; gap:0.45rem; width:100%; text-align:left; padding:0.5rem 0.9rem; font-size:0.83rem; background:none; border:none; cursor:pointer; color:#475569; font-weight:600;" title="Koreksi stok (salah input, dsb.)"
+                                                        onclick="toggleBizStockDropdown(<?php echo $stockRowIdx; ?>); openAdjustmentModalPreset('<?php echo htmlspecialchars(addslashes($item['item_name'])); ?>','<?php echo htmlspecialchars(addslashes($item['unit'])); ?>')">
+                                                        <i data-feather="sliders" style="width:14px; height:14px;"></i>
+                                                        Adjustment
+                                                    </button>
+                                                    <div style="border-top:1px solid #f1f5f9; margin:0.25rem 0;"></div>
+                                                    <form method="POST" style="padding:0 0.9rem 0.2rem;" onsubmit="return confirm('Hapus item stok ini dari bisnis aktif?')">
+                                                        <input type="hidden" name="action" value="delete_stock_item">
+                                                        <input type="hidden" name="item_name" value="<?php echo htmlspecialchars($item['item_name']); ?>">
+                                                        <input type="hidden" name="unit" value="<?php echo htmlspecialchars($item['unit']); ?>">
+                                                        <button type="submit" style="display:flex; align-items:center; gap:0.45rem; width:100%; text-align:left; padding:0.3rem 0; font-size:0.83rem; background:none; border:none; cursor:pointer; color:#dc2626; font-weight:600;">
+                                                            <i data-feather="trash-2" style="width:14px; height:14px;"></i>
+                                                            Hapus Item
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                            <?php endforeach;
+                            endif; ?>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
