@@ -845,9 +845,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 continue;
             }
 
-            $restoreResult = addGudangNasitaManualStock($itemName, $unit, $qty, (int)($currentUser['id'] ?? 0), [
-                'notes' => 'Pembatalan pengeluaran harian bisnis',
-            ]);
+            // Entries submitted via Staff Portal's "Kurangi Stock Harian" never touched
+            // Gudang Nasita's stock in the first place (business-only ledger) — restoring
+            // Gudang stock here would incorrectly inflate it. Only restore for entries
+            // created by this admin page, which DO reduce Gudang Nasita stock on insert.
+            $rowNotes = (string)($row['notes'] ?? '');
+            if (strpos($rowNotes, 'via Staff Portal:') !== false) {
+                continue;
+            }
+
+            // addGudangNasitaManualStock() writes to Database::getInstance() (whatever DB is
+            // CURRENTLY active) — this page runs on the business' own DB connection, so we must
+            // switch to Gudang's own DB first or the restore silently lands in the wrong database
+            // and throws (aborting the whole delete since nothing was actually restored).
+            if ($gudangDbNameResolved === '') {
+                continue;
+            }
+            $originDbNameForRestore = Database::getCurrentDatabase();
+            Database::switchDatabase($gudangDbNameResolved);
+            try {
+                $restoreResult = addGudangNasitaManualStock($itemName, $unit, $qty, (int)($currentUser['id'] ?? 0), [
+                    'notes' => 'Pembatalan pengeluaran harian bisnis',
+                ]);
+            } finally {
+                if ($originDbNameForRestore !== '') {
+                    Database::switchDatabase($originDbNameForRestore);
+                    $db = Database::getInstance();
+                }
+            }
             if (!($restoreResult['success'] ?? false)) {
                 throw new Exception($restoreResult['message'] ?? 'Gagal mengembalikan stok Gudang Nasita.');
             }
