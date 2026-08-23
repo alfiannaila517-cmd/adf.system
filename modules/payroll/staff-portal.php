@@ -508,6 +508,13 @@ header('Expires: 0');
             padding: 4px 8px;
         }
 
+        .header-stock-btn {
+            position: relative;
+            cursor: pointer;
+            font-size: 18px;
+            padding: 4px 8px;
+        }
+
         .notif-dot {
             position: absolute;
             top: 2px;
@@ -3133,6 +3140,7 @@ header('Expires: 0');
             $headerLogo = $appLogo ?: (strpos($pwaIconUrl, 'absen-icon.php') === false ? $pwaIconUrl : null);
             if ($headerLogo): ?><img src="<?php echo htmlspecialchars($headerLogo); ?>" class="logo"><?php endif; ?>
             <span class="title"><?php echo $bizName; ?></span>
+            <div class="header-stock-btn" id="headerStockBtn" style="display:none;" onclick="goToStockPage()" title="Stock">📦</div>
             <div class="notif-bell" onclick="toggleNotifs()">
                 🔔
                 <div class="notif-dot" id="notifDot"></div>
@@ -3612,7 +3620,6 @@ header('Expires: 0');
             <?php elseif ($isCafe): ?>
                 <div class="nav-item" data-page="schedule"><span class="nav-icon">⏰</span><span class="nav-label">Jadwal</span></div>
             <?php endif; ?>
-            <div class="nav-item" id="navStock" data-page="stock" style="display:none;"><span class="nav-icon">📦</span><span class="nav-label">Stock</span></div>
             <div class="nav-item" data-page="slipgaji"><span class="nav-icon">💰</span><span class="nav-label">Slip Gaji</span></div>
         </div>
     </div>
@@ -4001,9 +4008,9 @@ header('Expires: 0');
                 if (!data.success) return;
                 STOCK_ACCESS = data.data;
 
-                const navStock = document.getElementById('navStock');
+                const headerStockBtn = document.getElementById('headerStockBtn');
                 if (STOCK_ACCESS.has_access) {
-                    navStock.style.display = 'flex';
+                    headerStockBtn.style.display = 'flex';
 
                     const sel = document.getElementById('stockBizSelect');
                     sel.innerHTML = '<option value="">-- Pilih Bisnis --</option>' +
@@ -4016,7 +4023,7 @@ header('Expires: 0');
                         addStockPoRow();
                     }
                 } else {
-                    navStock.style.display = 'none';
+                    headerStockBtn.style.display = 'none';
                 }
             } catch (e) {
                 console.warn('[Stock] initStockAccess failed', e);
@@ -4628,6 +4635,14 @@ header('Expires: 0');
                 if (page === 'stock') loadStockTab();
             });
         });
+
+        // Stock tab lives as a header icon (not bottom-nav) since it's only for staff with granted access
+        function goToStockPage() {
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById('page-stock').classList.add('active');
+            loadStockTab();
+        }
 
         // ═══ ABSEN PAGE ═══
         async function loadAbsen() {
