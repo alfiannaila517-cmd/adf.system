@@ -1,4 +1,5 @@
 <?php
+
 /**
  * API: Simpan Pengeluaran Projek (Simple Version)
  * Desain baru: Budget projek mandiri, tidak terhubung dengan investor
@@ -47,7 +48,7 @@ try {
         echo json_encode(['success' => false, 'message' => 'Project ID required']);
         exit;
     }
-    
+
     if ($amount <= 0) {
         echo json_encode(['success' => false, 'message' => 'Jumlah harus lebih dari 0']);
         exit;
@@ -115,11 +116,10 @@ try {
         'message' => 'Pengeluaran berhasil disimpan',
         'expense_id' => $expense_id
     ]);
-
 } catch (PDOException $e) {
     error_log('Project expense error: ' . $e->getMessage());
     echo json_encode([
-        'success' => false, 
+        'success' => false,
         'message' => 'Database error: ' . $e->getMessage()
     ]);
 } catch (Exception $e) {

@@ -1123,7 +1123,9 @@ include '../../includes/header.php';
         document.getElementById('deletePoModal').style.display = 'flex';
 
         fetch('gudang-po-supplier.php?ajax_po_items=1&po_id=' + encodeURIComponent(poId))
-            .then(function(res) { return res.json(); })
+            .then(function(res) {
+                return res.json();
+            })
             .then(function(data) {
                 if (!data.success) {
                     wrap.innerHTML = '<div class="alert alert-danger">' + (data.message || 'Gagal memuat detail.') + '</div>';
@@ -1139,9 +1141,13 @@ include '../../includes/header.php';
                     var unit = it.unit_of_measure || it.unit || '';
                     return '<tr>' +
                         '<td style="font-weight:600;">' + escapeHtml(it.item_name) + '</td>' +
-                        '<td class="text-right">' + qty.toLocaleString('id-ID', {minimumFractionDigits: 2}) + '</td>' +
+                        '<td class="text-right">' + qty.toLocaleString('id-ID', {
+                            minimumFractionDigits: 2
+                        }) + '</td>' +
                         '<td>' + escapeHtml(unit) + '</td>' +
-                        '<td class="text-right">' + received.toLocaleString('id-ID', {minimumFractionDigits: 2}) + '</td>' +
+                        '<td class="text-right">' + received.toLocaleString('id-ID', {
+                            minimumFractionDigits: 2
+                        }) + '</td>' +
                         '</tr>';
                 }).join('');
                 wrap.innerHTML = '<div class="table-responsive"><table class="table" style="font-size:0.875rem;">' +
