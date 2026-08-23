@@ -9,6 +9,8 @@ define('APP_ACCESS', true);
 require_once '../../config/config.php';
 require_once '../../config/database.php';
 require_once '../../includes/functions.php';
+require_once '../../includes/business_helper.php';
+require_once '../../includes/procurement_functions.php';
 
 header('Content-Type: application/json');
 
@@ -220,6 +222,7 @@ if ($action === 'login') {
     $_SESSION['staff_name'] = $account['full_name'];
     $_SESSION['staff_code'] = $account['employee_code'];
     $_SESSION['staff_position'] = $account['position'];
+    $_SESSION['staff_email'] = $account['email'];
     $_SESSION['staff_logged_in'] = true;
 
     echo json_encode(['success' => true, 'message' => 'Login berhasil', 'name' => $account['full_name'], 'employee_id' => (int)$account['employee_id']]);
@@ -296,6 +299,132 @@ if (empty($_SESSION['staff_logged_in'])) {
 }
 
 $empId = (int)$_SESSION['employee_id'];
+$staffEmailForStock = trim((string)($_SESSION['staff_email'] ?? ''));
+$staffNameForStock = trim((string)($_SESSION['staff_name'] ?? 'Staff'));
+
+// ══════════════════════════════════════
+// STOCK ACCESS — cross-business stock viewing/actions (permission-gated)
+// ══════════════════════════════════════
+if ($action === 'stock_access_info') {
+    $grant = $staffEmailForStock !== '' ? getStaffStockAccessByEmail($staffEmailForStock) : null;
+
+    if (!$grant) {
+        echo json_encode(['success' => true, 'data' => ['has_access' => false]]);
+        exit;
+    }
+
+    $businessNames = [];
+    foreach ($grant['allowed_businesses'] as $slug) {
+        $cfgPathForName = __DIR__ . '/../../config/businesses/' . $slug . '.php';
+        $bizNameForList = $slug;
+        if (file_exists($cfgPathForName)) {
+            $cfgForName = require $cfgPathForName;
+            $bizNameForList = (string)($cfgForName['name'] ?? $slug);
+        }
+        $businessNames[] = ['slug' => $slug, 'name' => $bizNameForList];
+    }
+
+    echo json_encode(['success' => true, 'data' => [
+        'has_access' => true,
+        'allowed_businesses' => $businessNames,
+        'can_view_gudang_nasita' => (bool)$grant['can_view_gudang_nasita'],
+        'can_reduce_stock' => (bool)$grant['can_reduce_stock'],
+        'can_create_po' => (bool)$grant['can_create_po'],
+    ]]);
+    exit;
+}
+
+if ($action === 'stock_gudang_view') {
+    $grant = $staffEmailForStock !== '' ? getStaffStockAccessByEmail($staffEmailForStock) : null;
+    if (!$grant || !$grant['can_view_gudang_nasita']) {
+        echo json_encode(['success' => false, 'message' => 'Tidak ada akses melihat stock Gudang Nasita.']);
+        exit;
+    }
+
+    $originDbNameStockView = Database::getCurrentDatabase();
+    $gudangRows = [];
+    try {
+        $gudangCfgPathView = __DIR__ . '/../../config/businesses/gudang-nasita.php';
+        if (file_exists($gudangCfgPathView)) {
+            $gudangCfgView = require $gudangCfgPathView;
+            $gudangDbNameView = (string)($gudangCfgView['database'] ?? '');
+            if ($gudangDbNameView !== '') {
+                Database::switchDatabase($gudangDbNameView);
+                $gudangRows = getGudangNasitaStock(300);
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('stock_gudang_view error: ' . $e->getMessage());
+    } finally {
+        if ($originDbNameStockView !== '') {
+            Database::switchDatabase($originDbNameStockView);
+        }
+    }
+
+    $simplified = array_map(function ($row) {
+        return [
+            'item_name' => $row['item_name'] ?? '',
+            'unit' => $row['unit'] ?? 'pcs',
+            'category' => $row['category'] ?? '',
+            'quantity' => (float)($row['quantity'] ?? 0),
+        ];
+    }, $gudangRows ?: []);
+
+    echo json_encode(['success' => true, 'data' => $simplified]);
+    exit;
+}
+
+if ($action === 'stock_business_view') {
+    $targetSlug = strtolower(trim((string)($_GET['slug'] ?? $_POST['slug'] ?? '')));
+    $grant = $staffEmailForStock !== '' ? getStaffStockAccessByEmail($staffEmailForStock) : null;
+
+    if (!$grant || !in_array($targetSlug, $grant['allowed_businesses'], true)) {
+        echo json_encode(['success' => false, 'message' => 'Tidak ada akses ke bisnis ini.']);
+        exit;
+    }
+
+    $summary = getBusinessStockSummaryForStaff($targetSlug);
+    echo json_encode(['success' => true, 'data' => $summary]);
+    exit;
+}
+
+if ($action === 'stock_daily_out_submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $targetSlug = strtolower(trim((string)($_POST['slug'] ?? '')));
+    $itemName = trim((string)($_POST['item_name'] ?? ''));
+    $unit = trim((string)($_POST['unit'] ?? 'pcs'));
+    $qty = (float)($_POST['quantity'] ?? 0);
+    $notes = trim((string)($_POST['notes'] ?? ''));
+
+    $grant = $staffEmailForStock !== '' ? getStaffStockAccessByEmail($staffEmailForStock) : null;
+    if (!$grant || !$grant['can_reduce_stock'] || !in_array($targetSlug, $grant['allowed_businesses'], true)) {
+        echo json_encode(['success' => false, 'message' => 'Tidak ada akses mengurangi stock untuk bisnis ini.']);
+        exit;
+    }
+
+    $result = recordStaffDailyStockOut($targetSlug, $itemName, $unit, $qty, $notes, $staffNameForStock);
+    echo json_encode($result);
+    exit;
+}
+
+if ($action === 'stock_po_submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $targetSlug = strtolower(trim((string)($_POST['slug'] ?? '')));
+    $notes = trim((string)($_POST['notes'] ?? ''));
+    $itemsRaw = $_POST['items'] ?? '[]';
+    $items = json_decode((string)$itemsRaw, true);
+    if (!is_array($items)) {
+        $items = [];
+    }
+
+    $grant = $staffEmailForStock !== '' ? getStaffStockAccessByEmail($staffEmailForStock) : null;
+    if (!$grant || !$grant['can_create_po'] || !in_array($targetSlug, $grant['allowed_businesses'], true)) {
+        echo json_encode(['success' => false, 'message' => 'Tidak ada akses membuat PO untuk bisnis ini.']);
+        exit;
+    }
+
+    $result = createStaffPoToGudang($targetSlug, $items, $notes, $staffNameForStock);
+    echo json_encode($result);
+    exit;
+}
 
 function isSplitShiftCheckIn($checkInTime)
 {

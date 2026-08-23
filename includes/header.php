@@ -1035,6 +1035,12 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                                                 <span>Stock Gudang</span>
                                             </a>
                                         </li>
+                                        <li class="submenu-item">
+                                            <a href="<?php echo BASE_URL; ?>/modules/procurement/staff-stock-access.php" class="submenu-link <?php echo activeMenu('staff-stock-access.php'); ?>">
+                                                <i data-feather="user-check" class="submenu-icon"></i>
+                                                <span>Akses Stock Staff</span>
+                                            </a>
+                                        </li>
                                     <?php endif; ?>
                                 </ul>
                             </li>

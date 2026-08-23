@@ -3554,6 +3554,54 @@ header('Expires: 0');
             </div>
         </div>
 
+        <!-- ═══ STOCK PAGE (shown only for staff granted cross-business stock access) ═══ -->
+        <div class="page" id="page-stock">
+            <div class="card" style="margin-bottom:10px;">
+                <label style="display:block; font-size:11px; font-weight:600; margin-bottom:5px; color:#64748b;">Pilih Bisnis</label>
+                <select id="stockBizSelect" class="fi" style="width:100%;" onchange="onStockBusinessChange()">
+                    <option value="">-- Pilih Bisnis --</option>
+                </select>
+            </div>
+
+            <div class="card" id="stockGudangCard" style="display:none; margin-bottom:10px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <h4 style="margin:0; font-size:13px;">📦 Stock Gudang Nasita</h4>
+                    <button onclick="loadStockGudang()" style="border:none; background:none; font-size:11px; color:#2563eb;">🔄</button>
+                </div>
+                <div id="stockGudangList" style="max-height:260px; overflow-y:auto;"><div class="loading"><span class="spin"></span> Memuat...</div></div>
+            </div>
+
+            <div class="card" id="stockBusinessCard" style="margin-bottom:10px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <h4 style="margin:0; font-size:13px;">🏬 Stock Bisnis</h4>
+                    <button onclick="loadStockBusiness()" style="border:none; background:none; font-size:11px; color:#2563eb;">🔄</button>
+                </div>
+                <div id="stockBusinessList" style="max-height:260px; overflow-y:auto;">
+                    <div style="text-align:center; padding:12px; color:#94a3b8; font-size:11px;">Pilih bisnis dulu di atas.</div>
+                </div>
+            </div>
+
+            <div class="card" id="stockOutCard" style="display:none; margin-bottom:10px;">
+                <h4 style="margin:0 0 8px 0; font-size:13px;">📉 Kurangi Stock Harian</h4>
+                <input type="text" id="stockOutItem" class="fi" placeholder="Nama item" list="stockOutItemList" style="width:100%; margin-bottom:6px;">
+                <datalist id="stockOutItemList"></datalist>
+                <div style="display:flex; gap:6px; margin-bottom:6px;">
+                    <input type="number" id="stockOutQty" class="fi" placeholder="Qty" step="0.01" min="0" style="flex:1;">
+                    <input type="text" id="stockOutUnit" class="fi" placeholder="Satuan" value="pcs" style="width:80px;">
+                </div>
+                <input type="text" id="stockOutNotes" class="fi" placeholder="Catatan / tujuan (opsional)" style="width:100%; margin-bottom:8px;">
+                <button onclick="submitStockOut()" style="width:100%; background:linear-gradient(135deg,#f59e0b,#d97706); color:#fff; border:none; padding:9px; border-radius:8px; font-weight:600; font-size:12px;">Catat Stock Keluar</button>
+            </div>
+
+            <div class="card" id="stockPoCard" style="display:none; margin-bottom:10px;">
+                <h4 style="margin:0 0 8px 0; font-size:13px;">🧾 Buat PO ke Gudang Nasita</h4>
+                <div id="stockPoRows"></div>
+                <button onclick="addStockPoRow()" style="width:100%; background:#f1f5f9; border:1px dashed #cbd5e1; padding:7px; border-radius:8px; font-size:11px; margin:6px 0;">+ Tambah Item</button>
+                <input type="text" id="stockPoNotes" class="fi" placeholder="Catatan PO (opsional)" style="width:100%; margin-bottom:8px;">
+                <button onclick="submitStockPo()" style="width:100%; background:linear-gradient(135deg,#059669,#047857); color:#fff; border:none; padding:9px; border-radius:8px; font-weight:600; font-size:12px;">Kirim PO</button>
+            </div>
+        </div>
+
         <!-- Bottom Navigation -->
         <div class="bottom-nav">
             <div class="nav-item active" data-page="home"><span class="nav-icon">🏠</span><span class="nav-label">Home</span></div>
@@ -3564,6 +3612,7 @@ header('Expires: 0');
             <?php elseif ($isCafe): ?>
                 <div class="nav-item" data-page="schedule"><span class="nav-icon">⏰</span><span class="nav-label">Jadwal</span></div>
             <?php endif; ?>
+            <div class="nav-item" id="navStock" data-page="stock" style="display:none;"><span class="nav-icon">📦</span><span class="nav-label">Stock</span></div>
             <div class="nav-item" data-page="slipgaji"><span class="nav-icon">💰</span><span class="nav-label">Slip Gaji</span></div>
         </div>
     </div>
@@ -3907,6 +3956,7 @@ header('Expires: 0');
             document.getElementById('headerName').textContent = name || 'Staff';
             loadHome();
             startLiveClock();
+            initStockAccess();
         }
 
         let liveClockTimer = null;
@@ -3938,6 +3988,189 @@ header('Expires: 0');
             if (IS_CAFE) loadSchedule();
             // Preload face models in background so Face Scan opens instantly
             preloadFaceModels();
+        }
+
+        // ═══ STOCK TAB (cross-business stock access, gated by admin-granted permission) ═══
+        let STOCK_ACCESS = null;
+        let STOCK_SELECTED_SLUG = '';
+
+        async function initStockAccess() {
+            try {
+                const res = await fetch(API + '&action=stock_access_info');
+                const data = await res.json();
+                if (!data.success) return;
+                STOCK_ACCESS = data.data;
+
+                const navStock = document.getElementById('navStock');
+                if (STOCK_ACCESS.has_access) {
+                    navStock.style.display = 'flex';
+
+                    const sel = document.getElementById('stockBizSelect');
+                    sel.innerHTML = '<option value="">-- Pilih Bisnis --</option>' +
+                        STOCK_ACCESS.allowed_businesses.map(b => `<option value="${b.slug}">${b.name}</option>`).join('');
+
+                    document.getElementById('stockGudangCard').style.display = STOCK_ACCESS.can_view_gudang_nasita ? 'block' : 'none';
+                    document.getElementById('stockOutCard').style.display = STOCK_ACCESS.can_reduce_stock ? 'block' : 'none';
+                    document.getElementById('stockPoCard').style.display = STOCK_ACCESS.can_create_po ? 'block' : 'none';
+                    if (STOCK_ACCESS.can_create_po && !document.getElementById('stockPoRows').children.length) {
+                        addStockPoRow();
+                    }
+                } else {
+                    navStock.style.display = 'none';
+                }
+            } catch (e) {
+                console.warn('[Stock] initStockAccess failed', e);
+            }
+        }
+
+        function loadStockTab() {
+            if (!STOCK_ACCESS) {
+                initStockAccess();
+                return;
+            }
+            if (STOCK_ACCESS.can_view_gudang_nasita) loadStockGudang();
+            if (STOCK_SELECTED_SLUG) loadStockBusiness();
+        }
+
+        function onStockBusinessChange() {
+            STOCK_SELECTED_SLUG = document.getElementById('stockBizSelect').value;
+            if (STOCK_SELECTED_SLUG) {
+                loadStockBusiness();
+            } else {
+                document.getElementById('stockBusinessList').innerHTML = '<div style="text-align:center; padding:12px; color:#94a3b8; font-size:11px;">Pilih bisnis dulu di atas.</div>';
+            }
+        }
+
+        async function loadStockGudang() {
+            const el = document.getElementById('stockGudangList');
+            el.innerHTML = '<div class="loading"><span class="spin"></span> Memuat...</div>';
+            try {
+                const res = await fetch(API + '&action=stock_gudang_view');
+                const data = await res.json();
+                if (!data.success) {
+                    el.innerHTML = `<div style="color:#ef4444; font-size:11px; text-align:center; padding:10px;">${data.message || 'Gagal memuat'}</div>`;
+                    return;
+                }
+                if (!data.data.length) {
+                    el.innerHTML = '<div style="text-align:center; padding:12px; color:#94a3b8; font-size:11px;">Stock Gudang Nasita kosong.</div>';
+                    return;
+                }
+                el.innerHTML = data.data.map(it => `
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-bottom:1px solid #f1f5f9;">
+                        <div>
+                            <div style="font-size:12px; font-weight:600;">${it.item_name}</div>
+                            <div style="font-size:10px; color:#94a3b8;">${it.category || '-'}</div>
+                        </div>
+                        <div style="font-size:12px; font-weight:700;">${Number(it.quantity).toLocaleString('id-ID')} ${it.unit}</div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                el.innerHTML = '<div style="color:#ef4444; font-size:11px; text-align:center; padding:10px;">Gagal memuat stock Gudang Nasita.</div>';
+            }
+        }
+
+        async function loadStockBusiness() {
+            const el = document.getElementById('stockBusinessList');
+            if (!STOCK_SELECTED_SLUG) return;
+            el.innerHTML = '<div class="loading"><span class="spin"></span> Memuat...</div>';
+            try {
+                const res = await fetch(API + '&action=stock_business_view&slug=' + encodeURIComponent(STOCK_SELECTED_SLUG));
+                const data = await res.json();
+                if (!data.success) {
+                    el.innerHTML = `<div style="color:#ef4444; font-size:11px; text-align:center; padding:10px;">${data.message || 'Gagal memuat'}</div>`;
+                    return;
+                }
+                const itemList = document.getElementById('stockOutItemList');
+                if (itemList) {
+                    itemList.innerHTML = data.data.map(it => `<option value="${it.item_name}">`).join('');
+                }
+                if (!data.data.length) {
+                    el.innerHTML = '<div style="text-align:center; padding:12px; color:#94a3b8; font-size:11px;">Belum ada stock tercatat.</div>';
+                    return;
+                }
+                el.innerHTML = data.data.map(it => `
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-bottom:1px solid #f1f5f9;">
+                        <div style="font-size:12px; font-weight:600;">${it.item_name}</div>
+                        <div style="font-size:12px; font-weight:700;">${Number(it.current_qty).toLocaleString('id-ID')} ${it.unit}</div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                el.innerHTML = '<div style="color:#ef4444; font-size:11px; text-align:center; padding:10px;">Gagal memuat stock bisnis.</div>';
+            }
+        }
+
+        async function submitStockOut() {
+            if (!STOCK_SELECTED_SLUG) { alert('Pilih bisnis dulu.'); return; }
+            const itemName = document.getElementById('stockOutItem').value.trim();
+            const qty = parseFloat(document.getElementById('stockOutQty').value || '0');
+            const unit = document.getElementById('stockOutUnit').value.trim() || 'pcs';
+            const notes = document.getElementById('stockOutNotes').value.trim();
+            if (!itemName || qty <= 0) { alert('Isi nama item dan qty dengan benar.'); return; }
+
+            try {
+                const fd = new FormData();
+                fd.append('action', 'stock_daily_out_submit');
+                fd.append('slug', STOCK_SELECTED_SLUG);
+                fd.append('item_name', itemName);
+                fd.append('unit', unit);
+                fd.append('quantity', qty);
+                fd.append('notes', notes);
+                const res = await fetch(API, { method: 'POST', body: fd });
+                const data = await res.json();
+                alert(data.message || (data.success ? 'Berhasil' : 'Gagal'));
+                if (data.success) {
+                    document.getElementById('stockOutItem').value = '';
+                    document.getElementById('stockOutQty').value = '';
+                    document.getElementById('stockOutNotes').value = '';
+                    loadStockBusiness();
+                }
+            } catch (e) {
+                alert('Gagal mengirim data stock keluar.');
+            }
+        }
+
+        function addStockPoRow() {
+            const wrap = document.getElementById('stockPoRows');
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex; gap:6px; margin-bottom:6px;';
+            row.innerHTML = `
+                <input type="text" class="fi po-item-name" placeholder="Nama item" list="stockOutItemList" style="flex:2;">
+                <input type="number" class="fi po-item-qty" placeholder="Qty" step="0.01" min="0" style="flex:1;">
+                <input type="text" class="fi po-item-unit" placeholder="Satuan" value="pcs" style="width:70px;">
+                <button type="button" onclick="this.parentElement.remove()" style="border:none; background:#fee2e2; color:#dc2626; border-radius:6px; width:28px;">✕</button>
+            `;
+            wrap.appendChild(row);
+        }
+
+        async function submitStockPo() {
+            if (!STOCK_SELECTED_SLUG) { alert('Pilih bisnis dulu.'); return; }
+            const rows = document.querySelectorAll('#stockPoRows > div');
+            const items = [];
+            rows.forEach(row => {
+                const name = row.querySelector('.po-item-name').value.trim();
+                const qty = parseFloat(row.querySelector('.po-item-qty').value || '0');
+                const unit = row.querySelector('.po-item-unit').value.trim() || 'pcs';
+                if (name && qty > 0) items.push({ item_name: name, quantity: qty, unit });
+            });
+            if (!items.length) { alert('Tambahkan minimal 1 item dengan qty valid.'); return; }
+
+            try {
+                const fd = new FormData();
+                fd.append('action', 'stock_po_submit');
+                fd.append('slug', STOCK_SELECTED_SLUG);
+                fd.append('notes', document.getElementById('stockPoNotes').value.trim());
+                fd.append('items', JSON.stringify(items));
+                const res = await fetch(API, { method: 'POST', body: fd });
+                const data = await res.json();
+                alert(data.message || (data.success ? 'Berhasil' : 'Gagal'));
+                if (data.success) {
+                    document.getElementById('stockPoRows').innerHTML = '';
+                    document.getElementById('stockPoNotes').value = '';
+                    addStockPoRow();
+                }
+            } catch (e) {
+                alert('Gagal mengirim PO.');
+            }
         }
 
         // ═══ Menu Cepat: toggle Lembur / Cuti / Jadwal Kerja / Detail Absensi / Jadwal Seragam sections ═══
@@ -4392,6 +4625,7 @@ header('Expires: 0');
                 if (page === 'hk' && IS_HOTEL) loadHkTasks();
                 if (page === 'breakfast' && IS_HOTEL) loadBreakfast();
                 if (page === 'schedule' && IS_CAFE) loadSchedule();
+                if (page === 'stock') loadStockTab();
             });
         });
 

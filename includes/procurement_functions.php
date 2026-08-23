@@ -3013,3 +3013,773 @@ function gudangTagihanPayMonthlyBill(string $slug, string $month, int $userId): 
 
     return 'Tagihan ' . $bizInfo['name'] . ' bulan ' . $periodLabel . ' sebesar Rp ' . number_format($totalAmount, 0, ',', '.') . ' berhasil dibayar dan tercatat di buku kas.';
 }
+
+/**
+ * ============================================================
+ * STAFF STOCK ACCESS — cross-business permission system
+ * Lets an admin grant specific Staff Portal users (identified by
+ * email) read access to Gudang Nasita + selected business stock,
+ * plus the ability to record daily stock-out and create PO's to
+ * Gudang Nasita, directly from the Staff Portal PWA (their phone).
+ * ============================================================
+ */
+
+/**
+ * Ensure the master `staff_stock_access` table exists.
+ * Stored in the MASTER DB so it's resolvable regardless of which
+ * business's staff-api.php instance is handling the request.
+ */
+function ensureStaffStockAccessTable()
+{
+    $originDbName = Database::getCurrentDatabase();
+    $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : DB_NAME;
+
+    try {
+        if ($originDbName !== $masterDbName) {
+            Database::switchDatabase($masterDbName);
+        }
+        $db = Database::getInstance();
+
+        $db->query("CREATE TABLE IF NOT EXISTS staff_stock_access (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            staff_email VARCHAR(255) NOT NULL,
+            staff_name VARCHAR(255) NULL,
+            allowed_businesses TEXT NULL,
+            can_view_gudang_nasita TINYINT(1) NOT NULL DEFAULT 0,
+            can_reduce_stock TINYINT(1) NOT NULL DEFAULT 0,
+            can_create_po TINYINT(1) NOT NULL DEFAULT 0,
+            is_active TINYINT(1) NOT NULL DEFAULT 1,
+            created_by INT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uniq_staff_email (staff_email)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } catch (Throwable $e) {
+        error_log('ensureStaffStockAccessTable error: ' . $e->getMessage());
+    } finally {
+        if ($originDbName !== '' && $originDbName !== $masterDbName) {
+            Database::switchDatabase($originDbName);
+        }
+    }
+}
+
+/**
+ * Fetch a staff's stock-access grant by email (case-insensitive).
+ * @return array|null Grant row with 'allowed_businesses' decoded to an array, or null.
+ */
+function getStaffStockAccessByEmail($email)
+{
+    $email = trim((string)$email);
+    if ($email === '') {
+        return null;
+    }
+
+    ensureStaffStockAccessTable();
+
+    $originDbName = Database::getCurrentDatabase();
+    $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : DB_NAME;
+
+    try {
+        if ($originDbName !== $masterDbName) {
+            Database::switchDatabase($masterDbName);
+        }
+        $db = Database::getInstance();
+
+        $row = $db->fetchOne(
+            "SELECT * FROM staff_stock_access WHERE LOWER(staff_email) = LOWER(?) AND is_active = 1 LIMIT 1",
+            [$email]
+        );
+
+        if (!$row) {
+            return null;
+        }
+
+        $decoded = json_decode((string)($row['allowed_businesses'] ?? '[]'), true);
+        $row['allowed_businesses'] = is_array($decoded) ? array_values($decoded) : [];
+
+        return $row;
+    } catch (Throwable $e) {
+        error_log('getStaffStockAccessByEmail error: ' . $e->getMessage());
+        return null;
+    } finally {
+        if ($originDbName !== '' && $originDbName !== $masterDbName) {
+            Database::switchDatabase($originDbName);
+        }
+    }
+}
+
+/**
+ * List every stock-access grant (for the admin management page).
+ */
+function getAllStaffStockAccessGrants()
+{
+    ensureStaffStockAccessTable();
+
+    $originDbName = Database::getCurrentDatabase();
+    $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : DB_NAME;
+
+    try {
+        if ($originDbName !== $masterDbName) {
+            Database::switchDatabase($masterDbName);
+        }
+        $db = Database::getInstance();
+
+        $rows = $db->fetchAll("SELECT * FROM staff_stock_access ORDER BY staff_name ASC, staff_email ASC") ?: [];
+        foreach ($rows as &$row) {
+            $decoded = json_decode((string)($row['allowed_businesses'] ?? '[]'), true);
+            $row['allowed_businesses'] = is_array($decoded) ? array_values($decoded) : [];
+        }
+        unset($row);
+
+        return $rows;
+    } catch (Throwable $e) {
+        error_log('getAllStaffStockAccessGrants error: ' . $e->getMessage());
+        return [];
+    } finally {
+        if ($originDbName !== '' && $originDbName !== $masterDbName) {
+            Database::switchDatabase($originDbName);
+        }
+    }
+}
+
+/**
+ * Create/update (upsert by email) a staff stock-access grant.
+ */
+function saveStaffStockAccessGrant($email, $name, array $allowedBusinesses, $canViewGudang, $canReduceStock, $canCreatePo, $createdBy = null)
+{
+    $email = strtolower(trim((string)$email));
+    if ($email === '') {
+        return ['success' => false, 'message' => 'Email staff wajib diisi.'];
+    }
+
+    ensureStaffStockAccessTable();
+
+    $originDbName = Database::getCurrentDatabase();
+    $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : DB_NAME;
+
+    try {
+        if ($originDbName !== $masterDbName) {
+            Database::switchDatabase($masterDbName);
+        }
+        $db = Database::getInstance();
+
+        $db->query(
+            "INSERT INTO staff_stock_access
+                (staff_email, staff_name, allowed_businesses, can_view_gudang_nasita, can_reduce_stock, can_create_po, is_active, created_by)
+             VALUES (?, ?, ?, ?, ?, ?, 1, ?)
+             ON DUPLICATE KEY UPDATE
+                staff_name = VALUES(staff_name),
+                allowed_businesses = VALUES(allowed_businesses),
+                can_view_gudang_nasita = VALUES(can_view_gudang_nasita),
+                can_reduce_stock = VALUES(can_reduce_stock),
+                can_create_po = VALUES(can_create_po),
+                is_active = 1",
+            [
+                $email,
+                trim((string)$name),
+                json_encode(array_values($allowedBusinesses)),
+                $canViewGudang ? 1 : 0,
+                $canReduceStock ? 1 : 0,
+                $canCreatePo ? 1 : 0,
+                $createdBy,
+            ]
+        );
+
+        return ['success' => true, 'message' => 'Akses stock staff berhasil disimpan.'];
+    } catch (Throwable $e) {
+        error_log('saveStaffStockAccessGrant error: ' . $e->getMessage());
+        return ['success' => false, 'message' => 'Gagal menyimpan akses: ' . $e->getMessage()];
+    } finally {
+        if ($originDbName !== '' && $originDbName !== $masterDbName) {
+            Database::switchDatabase($originDbName);
+        }
+    }
+}
+
+/**
+ * Deactivate/delete a staff stock-access grant by its numeric id.
+ */
+function deleteStaffStockAccessGrant($id)
+{
+    $id = (int)$id;
+    if ($id <= 0) {
+        return false;
+    }
+
+    $originDbName = Database::getCurrentDatabase();
+    $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : DB_NAME;
+
+    try {
+        if ($originDbName !== $masterDbName) {
+            Database::switchDatabase($masterDbName);
+        }
+        $db = Database::getInstance();
+        $db->query("DELETE FROM staff_stock_access WHERE id = ?", [$id]);
+        return true;
+    } catch (Throwable $e) {
+        error_log('deleteStaffStockAccessGrant error: ' . $e->getMessage());
+        return false;
+    } finally {
+        if ($originDbName !== '' && $originDbName !== $masterDbName) {
+            Database::switchDatabase($originDbName);
+        }
+    }
+}
+
+/**
+ * Resolve a safe fallback `created_by` user id for the CURRENTLY connected DB
+ * (used when the actor is a staff-portal account, which isn't in `users`).
+ */
+function resolveFallbackAdminUserId($db)
+{
+    try {
+        $admin = $db->fetchOne("SELECT id FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1");
+        if ($admin) {
+            return (int)$admin['id'];
+        }
+        $fallback = $db->fetchOne("SELECT id FROM users ORDER BY id ASC LIMIT 1");
+        return $fallback ? (int)$fallback['id'] : 1;
+    } catch (Throwable $e) {
+        return 1;
+    }
+}
+
+/**
+ * Compute a simplified, read-only stock summary for a given business slug —
+ * safe to call for ANY business (not just the caller's session business).
+ * Mirrors the core computation used in modules/procurement/business-stock-incoming.php.
+ *
+ * @param string $businessSlug e.g. 'narayana-hotel', 'bens-cafe', 'eaat-meet'
+ * @return array List of ['item_name','unit','current_qty','total_received']
+ */
+function getBusinessStockSummaryForStaff($businessSlug)
+{
+    $businessSlug = strtolower(trim((string)$businessSlug));
+    $cfgPath = __DIR__ . '/../config/businesses/' . $businessSlug . '.php';
+    if ($businessSlug === '' || !file_exists($cfgPath)) {
+        return [];
+    }
+
+    $cfg = require $cfgPath;
+    $bizDbName = trim((string)($cfg['database'] ?? ''));
+    $bizName = trim((string)($cfg['name'] ?? ''));
+    if ($bizDbName === '') {
+        return [];
+    }
+
+    $activeBusinessId = (int)getNumericBusinessId($businessSlug);
+
+    $targetBusinessNames = array_values(array_unique(array_filter([$bizName])));
+    if (in_array(preg_replace('/[^a-z0-9]/', '', $businessSlug), ['eatmeet', 'eaatmeet'], true)) {
+        $targetBusinessNames = array_values(array_unique(array_merge($targetBusinessNames, ['Eat Meet', 'Eaat Meet', 'Eat & Meet'])));
+    }
+
+    $buildKey = function ($itemName, $unit) {
+        return strtolower(trim((string)$itemName)) . '||' . strtolower(trim((string)$unit));
+    };
+    $getMapQty = function ($map, $key) {
+        return isset($map[$key]) ? (float)$map[$key] : 0;
+    };
+
+    $rawStockMap = [];
+    $manualStockMap = [];
+    $baselineMap = [];
+    $dailyOutMap = [];
+    $interTransferInMap = [];
+    $interTransferOutMap = [];
+    $stockMetaMap = [];
+
+    $registerStockMeta = function ($itemName, $unit) use (&$stockMetaMap, $buildKey) {
+        $itemName = (string)$itemName;
+        $unit = (string)$unit;
+        $key = $buildKey($itemName, $unit);
+        if ($key !== '||' && !isset($stockMetaMap[$key])) {
+            $stockMetaMap[$key] = ['item_name' => $itemName, 'unit' => $unit];
+        }
+    };
+
+    $originDbName = Database::getCurrentDatabase();
+
+    try {
+        // 1) Gudang Nasita cross-DB read: total received via transfers targeted at this business.
+        $gudangCfgPath = __DIR__ . '/../config/businesses/gudang-nasita.php';
+        if (file_exists($gudangCfgPath)) {
+            $gudangCfg = require $gudangCfgPath;
+            $gudangDbName = (string)($gudangCfg['database'] ?? '');
+            if ($gudangDbName !== '') {
+                try {
+                    $gudangDb = Database::switchDatabase($gudangDbName);
+
+                    $hasTargetBusinessId = false;
+                    try {
+                        $transferCols = $gudangDb->fetchAll('SHOW COLUMNS FROM gudang_nasita_transfers');
+                        foreach ($transferCols as $col) {
+                            if (strtolower((string)($col['Field'] ?? '')) === 'target_business_id') {
+                                $hasTargetBusinessId = true;
+                                break;
+                            }
+                        }
+                    } catch (Throwable $e) {
+                    }
+
+                    $targetNamePredicates = [];
+                    $targetNameParams = [];
+                    foreach ($targetBusinessNames as $targetName) {
+                        $targetNamePredicates[] = 'LOWER(TRIM(gt.target_business_name)) LIKE LOWER(?)';
+                        $targetNameParams[] = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $targetName) . '%';
+                    }
+                    $targetNameSql = $targetNamePredicates ? implode(' OR ', $targetNamePredicates) : '1 = 0';
+                    $targetFilterSql = $hasTargetBusinessId
+                        ? '(gt.target_business_id = ? OR (' . $targetNameSql . '))'
+                        : '(' . $targetNameSql . ')';
+                    $targetFilterParams = $hasTargetBusinessId
+                        ? array_merge([$activeBusinessId], $targetNameParams)
+                        : $targetNameParams;
+
+                    $rawStockSummary = $gudangDb->fetchAll(
+                        "SELECT gti.item_name, gti.unit, COALESCE(SUM(gti.quantity), 0) AS total_received
+                         FROM gudang_nasita_transfer_items gti
+                         JOIN gudang_nasita_transfers gt ON gt.id = gti.transfer_id
+                         WHERE {$targetFilterSql}
+                         GROUP BY gti.item_name, gti.unit
+                         ORDER BY gti.item_name ASC",
+                        $targetFilterParams
+                    ) ?: [];
+
+                    foreach ($rawStockSummary as $row) {
+                        $itemName = (string)($row['item_name'] ?? '');
+                        $unit = (string)($row['unit'] ?? 'pcs');
+                        $key = $buildKey($itemName, $unit);
+                        $rawStockMap[$key] = (float)($row['total_received'] ?? 0);
+                        $registerStockMeta($itemName, $unit);
+                    }
+                } catch (Throwable $e) {
+                    error_log('getBusinessStockSummaryForStaff gudang read error: ' . $e->getMessage());
+                }
+            }
+        }
+
+        // 2) Switch to the target business's own DB for manual entries, baselines, daily-out.
+        Database::switchDatabase($bizDbName);
+        $db = Database::getInstance();
+
+        if ($activeBusinessId > 0) {
+            try {
+                $manualRows = $db->fetchAll(
+                    'SELECT item_name, unit, COALESCE(SUM(quantity),0) AS total_manual FROM business_manual_stock_entries WHERE business_id = ? GROUP BY item_name, unit',
+                    [$activeBusinessId]
+                );
+                foreach ($manualRows as $mRow) {
+                    $itemName = (string)($mRow['item_name'] ?? '');
+                    $unit = (string)($mRow['unit'] ?? 'pcs');
+                    $key = $buildKey($itemName, $unit);
+                    $manualStockMap[$key] = (float)($mRow['total_manual'] ?? 0);
+                    $registerStockMeta($itemName, $unit);
+                }
+            } catch (Throwable $e) {
+            }
+
+            try {
+                $baselineRows = $db->fetchAll(
+                    'SELECT item_name, unit, baseline_qty FROM business_stock_reset_baseline WHERE business_id = ?',
+                    [$activeBusinessId]
+                );
+                foreach ($baselineRows as $bRow) {
+                    $key = $buildKey($bRow['item_name'] ?? '', $bRow['unit'] ?? '');
+                    $baselineMap[$key] = (float)($bRow['baseline_qty'] ?? 0);
+                    $registerStockMeta($bRow['item_name'] ?? '', $bRow['unit'] ?? '');
+                }
+            } catch (Throwable $e) {
+            }
+
+            try {
+                $dailyOutRowsForSummary = $db->fetchAll(
+                    'SELECT item_name, unit, quantity FROM business_stock_daily_out WHERE business_id = ? AND DATE(created_at) = CURDATE()',
+                    [$activeBusinessId]
+                );
+                foreach ($dailyOutRowsForSummary as $dailyRow) {
+                    $itemName = trim((string)($dailyRow['item_name'] ?? ''));
+                    $unit = trim((string)($dailyRow['unit'] ?? 'pcs'));
+                    $qty = (float)($dailyRow['quantity'] ?? 0);
+                    if ($itemName === '' || $qty <= 0) {
+                        continue;
+                    }
+                    $key = $buildKey($itemName, $unit);
+                    $dailyOutMap[$key] = ($dailyOutMap[$key] ?? 0) + $qty;
+                    $registerStockMeta($itemName, $unit);
+                }
+            } catch (Throwable $e) {
+            }
+        }
+
+        // 3) Master DB read: direct inter-business transfers in/out.
+        try {
+            $masterDsn = 'mysql:host=' . DB_HOST . ';dbname=' . (defined('MASTER_DB_NAME') ? MASTER_DB_NAME : DB_NAME) . ';charset=' . DB_CHARSET;
+            $masterPdo = new PDO($masterDsn, DB_USER, DB_PASS, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            ]);
+
+            $hasInterTable = $masterPdo->query("SHOW TABLES LIKE 'business_inter_stock_transfers'")->fetch();
+            if ($hasInterTable && $businessSlug !== '') {
+                $stmtIn = $masterPdo->prepare("SELECT item_name, unit, SUM(quantity) AS qty FROM business_inter_stock_transfers WHERE target_business_slug = ? GROUP BY item_name, unit");
+                $stmtIn->execute([$businessSlug]);
+                foreach ($stmtIn->fetchAll() as $row) {
+                    $interTransferInMap[$buildKey($row['item_name'] ?? '', $row['unit'] ?? '')] = (float)($row['qty'] ?? 0);
+                    $registerStockMeta($row['item_name'] ?? '', $row['unit'] ?? '');
+                }
+
+                $stmtOut = $masterPdo->prepare("SELECT item_name, unit, SUM(quantity) AS qty FROM business_inter_stock_transfers WHERE source_business_slug = ? GROUP BY item_name, unit");
+                $stmtOut->execute([$businessSlug]);
+                foreach ($stmtOut->fetchAll() as $row) {
+                    $interTransferOutMap[$buildKey($row['item_name'] ?? '', $row['unit'] ?? '')] = (float)($row['qty'] ?? 0);
+                    $registerStockMeta($row['item_name'] ?? '', $row['unit'] ?? '');
+                }
+            }
+        } catch (Throwable $e) {
+            error_log('getBusinessStockSummaryForStaff master transfer read error: ' . $e->getMessage());
+        }
+
+        $stockSummary = [];
+        foreach ($stockMetaMap as $meta) {
+            $itemName = (string)($meta['item_name'] ?? '');
+            $unit = (string)($meta['unit'] ?? 'pcs');
+            $key = $buildKey($itemName, $unit);
+            $receivedQty = $getMapQty($rawStockMap, $key);
+            $gross = $receivedQty + $getMapQty($manualStockMap, $key) + $getMapQty($interTransferInMap, $key);
+            $currentQty = $gross - $getMapQty($baselineMap, $key) - $getMapQty($dailyOutMap, $key) - $getMapQty($interTransferOutMap, $key);
+            $currentQty = $currentQty > 0 ? $currentQty : 0;
+
+            if ($currentQty <= 0 && $receivedQty <= 0) {
+                continue;
+            }
+
+            $stockSummary[] = [
+                'item_name' => $itemName,
+                'unit' => $unit,
+                'current_qty' => $currentQty,
+                'total_received' => $receivedQty,
+            ];
+        }
+
+        usort($stockSummary, function ($a, $b) {
+            return strcasecmp((string)$a['item_name'], (string)$b['item_name']);
+        });
+
+        return $stockSummary;
+    } catch (Throwable $e) {
+        error_log('getBusinessStockSummaryForStaff error: ' . $e->getMessage());
+        return [];
+    } finally {
+        if ($originDbName !== '') {
+            Database::switchDatabase($originDbName);
+        }
+    }
+}
+
+/**
+ * Record a staff-submitted daily stock-out for a specific business: decreases
+ * Gudang Nasita's central stock (via recordGudangNasitaDailyStockOut) and logs
+ * the same entry into that business's own business_stock_daily_out table.
+ *
+ * @return array ['success' => bool, 'message' => string]
+ */
+function recordStaffDailyStockOut($businessSlug, $itemName, $unit, $qty, $notes, $staffLabel)
+{
+    $businessSlug = strtolower(trim((string)$businessSlug));
+    $cfgPath = __DIR__ . '/../config/businesses/' . $businessSlug . '.php';
+    if ($businessSlug === '' || !file_exists($cfgPath)) {
+        return ['success' => false, 'message' => 'Bisnis tidak valid.'];
+    }
+
+    $cfg = require $cfgPath;
+    $bizDbName = trim((string)($cfg['database'] ?? ''));
+    if ($bizDbName === '') {
+        return ['success' => false, 'message' => 'Database bisnis tidak ditemukan.'];
+    }
+
+    $itemName = trim((string)$itemName);
+    $unit = trim((string)$unit) !== '' ? trim((string)$unit) : 'pcs';
+    $qty = (float)$qty;
+    $notes = trim((string)$notes);
+    $staffLabel = trim((string)$staffLabel);
+
+    if ($itemName === '' || $qty <= 0) {
+        return ['success' => false, 'message' => 'Data stock keluar tidak valid.'];
+    }
+
+    $activeBusinessId = (int)getNumericBusinessId($businessSlug);
+    if ($activeBusinessId <= 0) {
+        return ['success' => false, 'message' => 'Business ID tidak ditemukan.'];
+    }
+
+    $originDbName = Database::getCurrentDatabase();
+
+    try {
+        Database::switchDatabase($bizDbName);
+        $db = Database::getInstance();
+
+        $db->query("CREATE TABLE IF NOT EXISTS business_stock_daily_out (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            business_id INT NOT NULL,
+            item_name VARCHAR(255) NOT NULL,
+            unit VARCHAR(50) NOT NULL,
+            quantity DECIMAL(15,2) NOT NULL DEFAULT 0,
+            notes TEXT NULL,
+            created_by INT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_business_item_unit (business_id, item_name, unit),
+            INDEX idx_business_created_at (business_id, created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $fallbackUserId = resolveFallbackAdminUserId($db);
+
+        $warehouseNote = 'Bisnis: ' . ($notes !== '' ? $notes : 'Pengeluaran stok harian') . ' (Staff Portal: ' . ($staffLabel !== '' ? $staffLabel : 'Staff') . ')';
+        $warehouseResult = recordGudangNasitaDailyStockOut($itemName, $qty, $fallbackUserId, [
+            'notes' => $warehouseNote,
+        ]);
+
+        if (!($warehouseResult['success'] ?? false)) {
+            return ['success' => false, 'message' => $warehouseResult['message'] ?? 'Gudang Nasita tidak bisa mengurangi stok untuk item ini.'];
+        }
+
+        // recordGudangNasitaDailyStockOut() restores the DB context back to $bizDbName
+        // in its own finally block, so $db here is still safely pointed at the business DB.
+        $db = Database::getInstance();
+        $db->insert('business_stock_daily_out', [
+            'business_id' => $activeBusinessId,
+            'item_name' => $itemName,
+            'unit' => $unit,
+            'quantity' => $qty,
+            'notes' => ($notes !== '' ? $notes : 'Pengeluaran stok harian') . ' (via Staff Portal: ' . ($staffLabel !== '' ? $staffLabel : 'Staff') . ')',
+            'created_by' => $fallbackUserId,
+        ]);
+
+        return ['success' => true, 'message' => 'Stock keluar berhasil dicatat dan stok Gudang Nasita telah berkurang.'];
+    } catch (Throwable $e) {
+        error_log('recordStaffDailyStockOut error: ' . $e->getMessage());
+        return ['success' => false, 'message' => 'Gagal catat stock keluar: ' . $e->getMessage()];
+    } finally {
+        if ($originDbName !== '') {
+            Database::switchDatabase($originDbName);
+        }
+    }
+}
+
+/**
+ * Create a Purchase Order to Gudang Nasita on behalf of a staff-portal user,
+ * for a specific business. Mirrors modules/procurement/create-po.php's flow
+ * (PO header stored in the BUSINESS's own DB, addressed to an auto-resolved
+ * "Gudang Nasita" internal supplier row) but without any Auth/session
+ * dependency, since staff accounts aren't in the `users` table.
+ *
+ * @param string $businessSlug
+ * @param array $items List of ['item_name' => string, 'quantity' => float, 'unit' => string]
+ * @param string $notes
+ * @param string $staffLabel Display name recorded in the PO notes for traceability
+ * @return array ['success' => bool, 'message' => string, 'po_number' => string]
+ */
+function createStaffPoToGudang($businessSlug, array $items, $notes, $staffLabel)
+{
+    $businessSlug = strtolower(trim((string)$businessSlug));
+    $cfgPath = __DIR__ . '/../config/businesses/' . $businessSlug . '.php';
+    if ($businessSlug === '' || !file_exists($cfgPath)) {
+        return ['success' => false, 'message' => 'Bisnis tidak valid.'];
+    }
+
+    $cfg = require $cfgPath;
+    $bizDbName = trim((string)($cfg['database'] ?? ''));
+    if ($bizDbName === '') {
+        return ['success' => false, 'message' => 'Database bisnis tidak ditemukan.'];
+    }
+
+    $notes = trim((string)$notes);
+    $staffLabel = trim((string)$staffLabel);
+
+    $validItems = [];
+    foreach ($items as $it) {
+        $nm = trim((string)($it['item_name'] ?? ''));
+        $qt = (float)($it['quantity'] ?? 0);
+        $un = trim((string)($it['unit'] ?? 'pcs'));
+        if ($nm !== '' && $qt > 0) {
+            $validItems[] = ['item_name' => $nm, 'quantity' => $qt, 'unit' => $un !== '' ? $un : 'pcs'];
+        }
+    }
+
+    if (empty($validItems)) {
+        return ['success' => false, 'message' => 'Tambahkan minimal 1 item dengan qty yang valid.'];
+    }
+
+    $originDbName = Database::getCurrentDatabase();
+
+    try {
+        Database::switchDatabase($bizDbName);
+        $db = Database::getInstance();
+
+        // Ensure PO tables exist (same schema/backfill as gudang-po-supplier.php / create-po.php).
+        $db->query("CREATE TABLE IF NOT EXISTS purchase_orders_header (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            business_id INT NULL,
+            po_number VARCHAR(30) UNIQUE,
+            supplier_id INT,
+            po_date DATE NOT NULL,
+            delivery_date DATE NULL,
+            status VARCHAR(30) DEFAULT 'draft',
+            total_amount DECIMAL(15,2) DEFAULT 0,
+            notes TEXT,
+            created_by INT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_po_number (po_number),
+            INDEX idx_supplier (supplier_id),
+            INDEX idx_status (status),
+            INDEX idx_po_date (po_date)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $db->query("CREATE TABLE IF NOT EXISTS purchase_orders_detail (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            po_header_id INT NOT NULL,
+            line_number INT NULL,
+            item_name VARCHAR(200) NOT NULL,
+            item_description TEXT NULL,
+            unit_of_measure VARCHAR(20) DEFAULT 'pcs',
+            unit VARCHAR(20) NULL,
+            quantity DECIMAL(15,2) NOT NULL DEFAULT 0,
+            unit_price DECIMAL(15,2) NOT NULL DEFAULT 0,
+            subtotal DECIMAL(15,2) NOT NULL DEFAULT 0,
+            total_price DECIMAL(15,2) NULL,
+            received_quantity DECIMAL(15,2) NOT NULL DEFAULT 0,
+            division_id INT NULL,
+            notes TEXT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_po_header (po_header_id),
+            INDEX idx_item_name (item_name)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        // Resolve/create the "Gudang Nasita" internal supplier row in this business's own DB.
+        $gudangSupplier = $db->fetchOne("SELECT id FROM suppliers WHERE LOWER(supplier_name) LIKE '%gudang nasita%' LIMIT 1");
+        if (!$gudangSupplier) {
+            $supplierColumns = $db->fetchAll("SHOW COLUMNS FROM suppliers");
+            $colMap = [];
+            foreach ($supplierColumns as $col) {
+                $field = strtolower((string)($col['Field'] ?? ''));
+                if ($field !== '') {
+                    $colMap[$field] = true;
+                }
+            }
+            $insertData = ['supplier_name' => 'Gudang Nasita'];
+            if (isset($colMap['contact_person'])) {
+                $insertData['contact_person'] = 'Internal Warehouse';
+            }
+            if (isset($colMap['is_active'])) {
+                $insertData['is_active'] = 1;
+            }
+            $supplierId = $db->insert('suppliers', $insertData);
+            $gudangSupplier = $supplierId ? ['id' => $supplierId] : null;
+        }
+        if (!$gudangSupplier) {
+            return ['success' => false, 'message' => 'Supplier internal Gudang Nasita belum tersedia.'];
+        }
+
+        $fallbackUserId = resolveFallbackAdminUserId($db);
+
+        $poPrefix = 'GDN-' . date('Ymd') . '-';
+        $lastPo = $db->fetchOne("SELECT po_number FROM purchase_orders_header WHERE po_number LIKE ? ORDER BY po_number DESC LIMIT 1", [$poPrefix . '%']);
+        $poSeq = $lastPo ? ((int)substr((string)$lastPo['po_number'], -3) + 1) : 1;
+        $poNumber = $poPrefix . str_pad((string)$poSeq, 3, '0', STR_PAD_LEFT);
+
+        $fullNotes = ($notes !== '' ? $notes : 'Permintaan stok dari Staff Portal') . ' (Diajukan oleh: ' . ($staffLabel !== '' ? $staffLabel : 'Staff') . ')';
+
+        $db->getConnection()->beginTransaction();
+
+        $poHeaderId = $db->insert('purchase_orders_header', [
+            'business_id' => null,
+            'po_number' => $poNumber,
+            'supplier_id' => (int)$gudangSupplier['id'],
+            'po_date' => date('Y-m-d'),
+            'status' => 'submitted',
+            'total_amount' => 0,
+            'notes' => $fullNotes,
+            'created_by' => $fallbackUserId,
+        ]);
+        if (!$poHeaderId) {
+            throw new Exception('Gagal membuat header PO.');
+        }
+
+        $detailCols = $db->fetchAll("SHOW COLUMNS FROM purchase_orders_detail");
+        $detailColNames = array_column($detailCols, 'Field');
+        $firstDiv = in_array('division_id', $detailColNames, true)
+            ? $db->fetchOne("SELECT id FROM divisions ORDER BY id ASC LIMIT 1")
+            : null;
+
+        foreach ($validItems as $idx => $it) {
+            $detailData = [
+                'po_header_id' => $poHeaderId,
+                'item_name' => $it['item_name'],
+                'unit_of_measure' => $it['unit'],
+                'quantity' => $it['quantity'],
+                'unit_price' => 0,
+                'subtotal' => 0,
+                'received_quantity' => 0,
+            ];
+            if (in_array('line_number', $detailColNames, true)) {
+                $detailData['line_number'] = $idx + 1;
+            }
+            if ($firstDiv) {
+                $detailData['division_id'] = (int)$firstDiv['id'];
+            }
+            $insertedId = $db->insert('purchase_orders_detail', $detailData);
+            if (!$insertedId) {
+                throw new Exception('Gagal menyimpan item: ' . $it['item_name']);
+            }
+        }
+
+        $db->getConnection()->commit();
+
+        // Auto-register new item names into Gudang Nasita's item master.
+        try {
+            $gudangCfgPath = __DIR__ . '/../config/businesses/gudang-nasita.php';
+            if (file_exists($gudangCfgPath)) {
+                $gudangCfg = require $gudangCfgPath;
+                $gudangDbName = (string)($gudangCfg['database'] ?? '');
+                if ($gudangDbName !== '') {
+                    $gudangDb = Database::switchDatabase($gudangDbName);
+                    foreach ($validItems as $it) {
+                        $exists = $gudangDb->fetchOne('SELECT id FROM gudang_nasita_barang WHERE LOWER(nama_barang) = LOWER(?) AND COALESCE(is_active,1) = 1 LIMIT 1', [$it['item_name']]);
+                        if ($exists) {
+                            continue;
+                        }
+                        $prefix = 'BRG-';
+                        $last = $gudangDb->fetchOne('SELECT kode_barang FROM gudang_nasita_barang WHERE kode_barang LIKE ? ORDER BY kode_barang DESC LIMIT 1', [$prefix . '%']);
+                        $seq = $last ? ((int)substr((string)$last['kode_barang'], -4) + 1) : 1;
+                        $gudangDb->insert('gudang_nasita_barang', [
+                            'kode_barang' => $prefix . str_pad((string)$seq, 4, '0', STR_PAD_LEFT),
+                            'nama_barang' => $it['item_name'],
+                            'satuan' => $it['unit'],
+                            'is_active' => 1,
+                        ]);
+                    }
+                    Database::switchDatabase($bizDbName);
+                }
+            }
+        } catch (Throwable $regErr) {
+            error_log('createStaffPoToGudang item auto-register error: ' . $regErr->getMessage());
+        }
+
+        return ['success' => true, 'message' => 'PO berhasil dibuat: ' . $poNumber, 'po_number' => $poNumber];
+    } catch (Throwable $e) {
+        try {
+            $db = Database::getInstance();
+            if ($db->getConnection()->inTransaction()) {
+                $db->getConnection()->rollBack();
+            }
+        } catch (Throwable $rbErr) {
+        }
+        error_log('createStaffPoToGudang error: ' . $e->getMessage());
+        return ['success' => false, 'message' => 'Gagal membuat PO: ' . $e->getMessage()];
+    } finally {
+        if ($originDbName !== '') {
+            Database::switchDatabase($originDbName);
+        }
+    }
+}
