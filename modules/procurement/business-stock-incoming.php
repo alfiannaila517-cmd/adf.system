@@ -1166,8 +1166,13 @@ if ($activeBusinessId > 0) {
         $key = $buildKey($itemName, $unit);
         $receivedQty = $getMapQty($rawStockMap, $key);
         $currentQty = $computeVisibleQty($itemName, $unit);
+        // Only Gudang receipts counted toward "receivedQty" before; items that only ever
+        // came from manual entry or inter-business transfer were wrongly hidden once used up.
+        $everHadStock = $receivedQty > 0
+            || $getMapQty($manualStockMap, $key) > 0
+            || $getMapQty($interTransferInMap, $key) > 0;
 
-        if ($currentQty <= 0 && $receivedQty <= 0) {
+        if ($currentQty <= 0 && !$everHadStock) {
             continue;
         }
 
