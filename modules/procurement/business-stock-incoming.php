@@ -1489,16 +1489,19 @@ include '../../includes/header.php';
     <style>
         @media (max-width: 992px) {
             .biz-stock-layout { grid-template-columns: 1fr !important; }
+            .biz-stock-layout > div { height:auto !important; }
         }
+        .biz-scroll-table { overflow-y:auto; }
+        .biz-scroll-table thead th { position:sticky; top:0; background:#fff; z-index:2; }
     </style>
-    <div class="biz-stock-layout" style="display:grid; grid-template-columns: 1fr 1fr; gap:1.25rem; align-items:start;">
-        <div>
+    <div class="biz-stock-layout" style="display:grid; grid-template-columns: 1fr 1fr; gap:1.25rem; align-items:stretch;">
+        <div style="display:flex; flex-direction:column; height:100%;">
             <div class="card" style="margin-bottom: 1.25rem;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
                     <h3 style="font-size:1rem; font-weight:700; margin:0;">Histori Adjustment</h3>
                     <span style="font-size:0.8rem; color:var(--text-muted);"><?php echo count($adjustmentRows); ?> koreksi</span>
                 </div>
-                <div class="table-responsive">
+                <div class="table-responsive biz-scroll-table" style="max-height:300px;">
                     <table class="table">
                         <thead>
                             <tr>
@@ -1540,7 +1543,7 @@ include '../../includes/header.php';
                 </div>
             </div>
 
-            <div class="card">
+            <div class="card" style="flex:1; display:flex; flex-direction:column; min-height:0;">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; margin-bottom:1rem;">
             <h3 style="font-size:1rem; font-weight:700; margin:0;">Pengeluaran Harian &amp; Transfer Bisnis</h3>
             <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
@@ -1554,7 +1557,7 @@ include '../../includes/header.php';
                 <?php endif; ?>
             </div>
         </div>
-        <div class="table-responsive">
+        <div class="table-responsive biz-scroll-table" style="flex:1; min-height:0;">
             <form method="POST" id="dailyOutBulkDeleteForm" onsubmit="return confirm('Hapus pengeluaran harian yang dipilih? Stok Gudang Nasita akan dikembalikan.')">
                 <input type="hidden" name="action" value="delete_daily_stock_out_business">
                 <table class="table">
@@ -1617,8 +1620,8 @@ include '../../includes/header.php';
             </div>
         </div>
 
-        <div>
-            <div class="card" style="margin-bottom: 1.25rem;">
+        <div style="display:flex; flex-direction:column; height:100%;">
+            <div class="card" style="flex:1; display:flex; flex-direction:column; min-height:0;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
             <h3 style="font-size:1rem; font-weight:700; margin:0;">Stok Bisnis (Stock Tersedia)</h3>
             <span style="font-size:0.8rem; color:var(--text-muted);"><?php echo count($stockSummary); ?> item | Khusus bisnis aktif</span>
@@ -1631,7 +1634,7 @@ include '../../includes/header.php';
             <button type="button" class="btn btn-secondary" style="height:38px;" onclick="clearStockSearch()">Reset Cari</button>
             <span id="stockSearchCounter" style="font-size:0.8rem; color:#64748b;">Menampilkan <?php echo count($stockSummary); ?> item</span>
         </div>
-        <div class="table-responsive">
+        <div class="table-responsive biz-scroll-table" style="flex:1; min-height:0;">
             <table class="table">
                 <thead>
                     <tr>
