@@ -3568,11 +3568,16 @@ header('Expires: 0');
             </div>
 
             <div class="card" id="stockGudangCard" style="display:none; margin-bottom:10px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <button type="button" onclick="toggleStockGudang()" style="width:100%; background:none; border:none; padding:0; display:flex; justify-content:space-between; align-items:center; cursor:pointer;">
                     <h4 style="margin:0; font-size:13px;">📦 Stock Gudang Nasita</h4>
-                    <button onclick="loadStockGudang()" style="border:none; background:none; font-size:11px; color:#2563eb;">🔄</button>
+                    <span id="stockGudangToggleLabel" style="font-size:11px; color:#2563eb; font-weight:600;">Lihat ▾</span>
+                </button>
+                <div id="stockGudangBody" style="display:none; margin-top:8px;">
+                    <div style="text-align:right; margin-bottom:6px;">
+                        <button type="button" onclick="loadStockGudang()" style="border:none; background:none; font-size:11px; color:#2563eb;">🔄 Refresh</button>
+                    </div>
+                    <div id="stockGudangList" style="max-height:260px; overflow-y:auto;"><div class="loading"><span class="spin"></span> Memuat...</div></div>
                 </div>
-                <div id="stockGudangList" style="max-height:260px; overflow-y:auto;"><div class="loading"><span class="spin"></span> Memuat...</div></div>
             </div>
 
             <div class="card" id="stockBusinessCard" style="margin-bottom:10px;">
@@ -4043,8 +4048,23 @@ header('Expires: 0');
                 initStockAccess();
                 return;
             }
-            if (STOCK_ACCESS.can_view_gudang_nasita) loadStockGudang();
             if (STOCK_SELECTED_SLUG) loadStockBusiness();
+        }
+
+        // Stock Gudang Nasita starts collapsed behind a button; only load its (long) list on demand
+        let STOCK_GUDANG_LOADED = false;
+        function toggleStockGudang() {
+            const body = document.getElementById('stockGudangBody');
+            const label = document.getElementById('stockGudangToggleLabel');
+            const isHidden = body.style.display === 'none' || !body.style.display;
+            if (isHidden) {
+                body.style.display = 'block';
+                label.textContent = 'Tutup ▴';
+                if (!STOCK_GUDANG_LOADED) loadStockGudang();
+            } else {
+                body.style.display = 'none';
+                label.textContent = 'Lihat ▾';
+            }
         }
 
         function onStockBusinessChange() {
@@ -4059,6 +4079,7 @@ header('Expires: 0');
         async function loadStockGudang() {
             const el = document.getElementById('stockGudangList');
             el.innerHTML = '<div class="loading"><span class="spin"></span> Memuat...</div>';
+            STOCK_GUDANG_LOADED = true;
             try {
                 const res = await fetch(API + '&action=stock_gudang_view');
                 const data = await res.json();
