@@ -3537,61 +3537,10 @@ include '../../includes/header.php';
             return;
         }
 
-        // Isi data ke modal
-        document.getElementById('ciGuestInfo').textContent =
-            (b.guest_name || '-') + ' · #' + (b.booking_code || b.id);
-        document.getElementById('ciRoom').textContent = 'Room ' + (b.room_number || '-');
-        document.getElementById('ciTotal').textContent = 'Rp ' + total.toLocaleString('id-ID');
-        document.getElementById('ciPaid').textContent = 'Rp ' + paid.toLocaleString('id-ID');
-        document.getElementById('ciRemaining').textContent = 'Rp ' + remaining.toLocaleString('id-ID');
-        document.getElementById('ciPayAmount').value = remaining;
-
-        // Reset ke state default
-        hideCiPayForm();
-
-        // Tampilkan modal
-        const modal = document.getElementById('checkinPaymentModal');
-        modal.classList.add('active');
-        modal.style.cssText = 'display:flex;position:fixed;top:0;left:0;right:0;bottom:0;align-items:center;justify-content:center;z-index:99999;background:rgba(0,0,0,0.5)';
-    }
-
-    function closeCheckinPaymentModal() {
-        const modal = document.getElementById('checkinPaymentModal');
-        modal.classList.remove('active');
-        modal.style.display = 'none';
-    }
-
-    function showCiPayForm() {
-        document.getElementById('ciPayForm').style.display = 'block';
-        document.getElementById('ciDefaultBtns').style.display = 'none';
-        document.getElementById('ciPayBtns').style.display = 'flex';
-    }
-
-    function hideCiPayForm() {
-        document.getElementById('ciPayForm').style.display = 'none';
-        document.getElementById('ciDefaultBtns').style.display = 'block';
-        document.getElementById('ciPayBtns').style.display = 'none';
-        // Reset method ke cash
-        document.querySelectorAll('#checkinPaymentModal [data-ci-method]').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.ciMethod === 'cash');
-        });
-        const ciMethodInput = document.getElementById('ciPayMethod');
-        if (ciMethodInput) ciMethodInput.value = 'cash';
-    }
-
-    function doCheckin(payNow) {
-        let payAmount = 0,
-            payMethod = 'cash';
-        if (payNow) {
-            payAmount = parseFloat(document.getElementById('ciPayAmount').value) || 0;
-            payMethod = document.getElementById('ciPayMethod').value || 'cash';
-            if (payAmount <= 0) {
-                alert('Masukkan jumlah pembayaran yang valid');
-                return;
-            }
-        }
-        closeCheckinPaymentModal();
-        performCheckin(payAmount, payMethod, payNow);
+        // Belum lunas tetap boleh check-in langsung, tanpa modal/reminder pembayaran di sini —
+        // status belum lunas otomatis muncul di banner notifikasi & badge sidebar Front Desk.
+        if (!confirm(`Check-in ${b.guest_name} ke Room ${b.room_number}?`)) return;
+        performCheckin(0, null, false);
     }
 
     function performCheckin(payAmount, payMethod, payNow) {
@@ -3682,16 +3631,8 @@ include '../../includes/header.php';
         const guestName = booking.guest_name;
         const roomNumber = booking.room_number;
 
-        // Check payment status before checkout
-        if (booking.payment_status !== 'paid') {
-            const remaining = (parseFloat(booking.total_price) - parseFloat(booking.amount_paid)).toLocaleString('id-ID');
-            const proceed = confirm(`Pembayaran belum lunas (Sisa: Rp ${remaining}). Lanjut check-out?`);
-            if (!proceed) {
-                openBookingPaymentModal();
-                return;
-            }
-        }
-
+        // Belum lunas tetap boleh check-out; status belum lunas sudah tampil di banner
+        // notifikasi & badge sidebar Front Desk, tidak perlu reminder tambahan di sini.
         if (confirm(`Check-out ${guestName} dari Room ${roomNumber} sekarang?`)) {
             // Show loading state
             const checkOutBtn = document.querySelector('.qv-checkout-btn');
@@ -5442,16 +5383,6 @@ include '../../includes/header.php';
                 });
             });
 
-            // Check-in Payment Modal - method buttons
-            document.querySelectorAll('#checkinPaymentModal [data-ci-method]').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    document.querySelectorAll('#checkinPaymentModal [data-ci-method]').forEach(b => b.classList.remove('active'));
-                    this.classList.add('active');
-                    const ciMethod = document.getElementById('ciPayMethod');
-                    if (ciMethod) ciMethod.value = this.dataset.ciMethod;
-                });
-            });
-
             // Setup Booking Source Logic
             const sourceSelect = document.getElementById('bookingSource');
             if (sourceSelect) {
@@ -6379,69 +6310,6 @@ include '../../includes/header.php';
                 <button type="button" class="btn-secondary" onclick="closeBookingPaymentModal()">Cancel</button>
                 <button type="button" class="btn-primary" onclick="submitBookingPayment()">Pay</button>
             </div>
-        </div>
-    </div>
-</div>
-
-<!-- CHECK-IN PAYMENT MODAL -->
-<div id="checkinPaymentModal" class="modal-overlay" onclick="if(event.target===this)closeCheckinPaymentModal()">
-    <div class="payment-modal" style="max-width:460px">
-        <button class="payment-modal-close" onclick="closeCheckinPaymentModal()">×</button>
-        <div style="text-align:center;margin-bottom:1rem">
-            <div style="font-size:2rem;margin-bottom:0.25rem">🏨</div>
-            <h3 style="margin:0;font-size:1.1rem;font-weight:700">Check-in Tamu</h3>
-            <p id="ciGuestInfo" style="margin:0.25rem 0 0;font-size:0.8rem;color:var(--text-secondary)"></p>
-        </div>
-        <!-- Ringkasan tagihan -->
-        <div class="payment-info" style="margin-bottom:0.75rem">
-            <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem">
-                <span>Kamar</span><strong id="ciRoom">-</strong>
-            </div>
-            <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem">
-                <span>Total Tagihan</span><strong id="ciTotal" style="color:#ef4444">Rp 0</strong>
-            </div>
-            <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem">
-                <span>Sudah Dibayar</span><strong id="ciPaid" style="color:#10b981">Rp 0</strong>
-            </div>
-            <div style="display:flex;justify-content:space-between;border-top:1px solid rgba(99,102,241,0.2);padding-top:0.4rem;margin-top:0.2rem">
-                <span style="font-weight:600">Sisa Tagihan</span>
-                <strong id="ciRemaining" style="font-size:1.1em;color:#f59e0b">Rp 0</strong>
-            </div>
-        </div>
-        <!-- Form pembayaran (tampil saat klik bayar) -->
-        <div id="ciPayForm" style="display:none;margin-bottom:0.75rem">
-            <div style="margin-bottom:0.6rem">
-                <label style="font-size:0.78rem;font-weight:600;margin-bottom:0.3rem;display:block">Metode Pembayaran</label>
-                <input type="hidden" id="ciPayMethod" value="cash">
-                <div class="payment-method-group">
-                    <button type="button" class="payment-method-btn active" data-ci-method="cash">Cash</button>
-                    <button type="button" class="payment-method-btn" data-ci-method="transfer">Transfer</button>
-                    <button type="button" class="payment-method-btn" data-ci-method="qris">QRIS</button>
-                    <button type="button" class="payment-method-btn" data-ci-method="card">Card</button>
-                </div>
-            </div>
-            <div>
-                <label style="font-size:0.78rem;font-weight:600;margin-bottom:0.3rem;display:block">Jumlah Bayar (Rp)</label>
-                <input type="number" id="ciPayAmount" min="0" value="0"
-                    style="width:100%;padding:0.5rem;border:1px solid #e2e8f0;border-radius:6px;font-size:0.9rem;box-sizing:border-box">
-            </div>
-        </div>
-        <!-- Tombol aksi default -->
-        <div id="ciDefaultBtns">
-            <button type="button" onclick="showCiPayForm()"
-                style="width:100%;padding:0.75rem;background:var(--primary,#6366f1);color:white;border:none;border-radius:8px;font-weight:600;font-size:0.9rem;cursor:pointer;margin-bottom:0.5rem;transition:opacity 0.2s"
-                onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
-                💳 Bayar Tagihan Sekarang
-            </button>
-            <button type="button" onclick="doCheckin(false)"
-                style="width:100%;padding:0.65rem;background:transparent;color:var(--text-secondary,#6b7280);border:1px solid #e2e8f0;border-radius:8px;font-size:0.85rem;cursor:pointer">
-                ⏰ Check-in Dulu, Bayar Nanti
-            </button>
-        </div>
-        <!-- Tombol saat form pembayaran tampil -->
-        <div id="ciPayBtns" class="payment-modal-actions" style="display:none">
-            <button type="button" class="btn-secondary" onclick="hideCiPayForm()">← Kembali</button>
-            <button type="button" class="btn-primary" onclick="doCheckin(true)">✅ Bayar &amp; Check-in</button>
         </div>
     </div>
 </div>

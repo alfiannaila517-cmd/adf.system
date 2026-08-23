@@ -370,11 +370,9 @@ try {
         }
     } elseif ($payNow && !$cashbookSynced) {
         $successMessage .= "\n\n⚠️ Pembayaran tersimpan namun gagal sync ke buku kas";
-    } elseif (!$payNow && $remaining > 0) {
-        $successMessage .= "\n\n⏰ Sisa tagihan Rp " . number_format($remaining, 0, ',', '.') . " belum dibayar";
-        if ($invoiceNumber) $successMessage .= "\n📋 Invoice #{$invoiceNumber} telah dibuat";
-        $successMessage .= "\nHarap lunasi sebelum CHECK-OUT!";
     }
+    // Belum lunas & tidak bayar sekarang: check-in tetap lanjut tanpa reminder di sini —
+    // status belum lunas ditampilkan lewat banner notifikasi & badge sidebar Front Desk.
 
     // ═══ PUSH NOTIFICATION: Check-In ═══
     try {

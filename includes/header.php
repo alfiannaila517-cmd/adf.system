@@ -8,6 +8,9 @@ require_once __DIR__ . '/language.php';
 // Load motor notification system
 require_once __DIR__ . '/MotorNotificationHelper.php';
 
+// Load unpaid checked-in guest notification system
+require_once __DIR__ . '/UnpaidGuestNotificationHelper.php';
+
 // Sunsea must use its own custom UI/module stack.
 // If a generic module tries to render with this global header, redirect to Sunsea dashboard.
 if (defined('ACTIVE_BUSINESS_ID') && ACTIVE_BUSINESS_ID === 'sunsea') {
@@ -508,17 +511,21 @@ if (isset($forceTheme) && is_string($forceTheme)) {
         <!-- Theme Load Warning: <?php echo htmlspecialchars($themeError); ?> -->
     <?php endif; ?>
 
-    <!-- Motor Overdue Notification Banner -->
+    <!-- Motor Overdue & Unpaid Guest Notification Banner -->
     <?php
+    $unpaidGuestsCount = 0;
     try {
         $businessId = $_SESSION['business_id'] ?? 1;
         $overdueMotors = getOverdueMotorsForNotification($db->getConnection(), $businessId);
-        if (!empty($overdueMotors)):
-            $messages = formatOverdueMotorMessages($overdueMotors);
-            $count = count($overdueMotors);
-            $notificationText = implode('          ', $messages);
+        $unpaidGuests = getUnpaidCheckedInGuests($db->getConnection());
+        $unpaidGuestsCount = count($unpaidGuests);
+        $bannerMessages = array_merge(formatOverdueMotorMessages($overdueMotors), formatUnpaidGuestMessages($unpaidGuests));
+        if (!empty($bannerMessages)):
+            $count = count($bannerMessages);
+            $notificationText = implode('          ', $bannerMessages);
             // Slow down ticker for readability.
             $scrollDuration = max(30, $count * 14);
+            $bannerClickTarget = !empty($unpaidGuests) ? (BASE_URL . '/modules/frontdesk/in-house.php') : (BASE_URL . '/modules/frontdesk/rental-motor.php');
     ?>
             <style>
                 .motor-overdue-banner {
@@ -626,10 +633,10 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                     animation-play-state: paused;
                 }
             </style>
-            <div class="motor-overdue-banner" onclick="window.location.href='<?php echo BASE_URL; ?>/modules/frontdesk/rental-motor.php'" title="Klik untuk lihat rental motor">
+            <div class="motor-overdue-banner" onclick="window.location.href='<?php echo $bannerClickTarget; ?>'" title="Klik untuk lihat detail">
                 <span class="ob-label">
                     <span class="flash">🚨</span>
-                    OVERDUE (<?php echo $count; ?>)
+                    PERHATIAN (<?php echo $count; ?>)
                 </span>
                 <span class="ob-ticker">
                     <?php echo htmlspecialchars($notificationText); ?>
@@ -833,10 +840,39 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                         <?php endif; ?>
 
                         <?php if ($auth->hasPermission('frontdesk') && isModuleEnabled('frontdesk')): ?>
+                            <style>
+                                .fd-unpaid-dot {
+                                    position: absolute;
+                                    top: 2px;
+                                    right: 6px;
+                                    width: 10px;
+                                    height: 10px;
+                                    background: #ef4444;
+                                    border-radius: 50%;
+                                    animation: fd-unpaid-blink 1.1s ease-in-out infinite;
+                                }
+
+                                @keyframes fd-unpaid-blink {
+
+                                    0%,
+                                    100% {
+                                        opacity: 1;
+                                        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6);
+                                    }
+
+                                    50% {
+                                        opacity: 0.35;
+                                        box-shadow: 0 0 6px 3px rgba(239, 68, 68, 0.6);
+                                    }
+                                }
+                            </style>
                             <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/frontdesk/') !== false && strpos($_SERVER['REQUEST_URI'], 'hotel-services.php') === false && strpos($_SERVER['REQUEST_URI'], 'rental-motor.php') === false) ? 'open' : ''; ?>">
-                                <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo (strpos($_SERVER['REQUEST_URI'], 'hotel-services.php') === false && strpos($_SERVER['REQUEST_URI'], 'rental-motor.php') === false) ? activeMenu('frontdesk') : ''; ?>">
+                                <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo (strpos($_SERVER['REQUEST_URI'], 'hotel-services.php') === false && strpos($_SERVER['REQUEST_URI'], 'rental-motor.php') === false) ? activeMenu('frontdesk') : ''; ?>" style="position:relative;">
                                     <i data-feather="home" class="nav-icon"></i>
                                     <span><?php echo __('menu.frontdesk'); ?></span>
+                                    <?php if (!empty($unpaidGuestsCount)): ?>
+                                        <span class="fd-unpaid-dot" title="<?php echo $unpaidGuestsCount; ?> tamu belum lunas"></span>
+                                    <?php endif; ?>
                                 </a>
                                 <ul class="submenu">
                                     <li class="submenu-item">
