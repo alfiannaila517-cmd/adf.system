@@ -508,13 +508,6 @@ header('Expires: 0');
             padding: 4px 8px;
         }
 
-        .header-stock-btn {
-            position: relative;
-            cursor: pointer;
-            font-size: 18px;
-            padding: 4px 8px;
-        }
-
         .notif-dot {
             position: absolute;
             top: 2px;
@@ -3140,7 +3133,6 @@ header('Expires: 0');
             $headerLogo = $appLogo ?: (strpos($pwaIconUrl, 'absen-icon.php') === false ? $pwaIconUrl : null);
             if ($headerLogo): ?><img src="<?php echo htmlspecialchars($headerLogo); ?>" class="logo"><?php endif; ?>
             <span class="title"><?php echo $bizName; ?></span>
-            <div class="header-stock-btn" id="headerStockBtn" style="display:none;" onclick="goToStockPage()" title="Stock">📦</div>
             <div class="notif-bell" onclick="toggleNotifs()">
                 🔔
                 <div class="notif-dot" id="notifDot"></div>
@@ -3246,9 +3238,9 @@ header('Expires: 0');
                 </button>
             </div>
 
-            <!-- Menu Cepat: Lembur / Cuti / Jadwal Kerja / Detail Absensi / Jadwal Seragam -->
+            <!-- Menu Cepat: Lembur / Cuti / Jadwal Kerja / Detail Absensi / Jadwal Seragam / Stock -->
             <div class="card" style="padding:14px 8px;">
-                <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;text-align:center;">
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center;">
                     <div onclick="openStaffSection('lemburSection')" style="cursor:pointer;">
                         <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;font-size:18px;margin:0 auto 6px;color:#fff;box-shadow:0 4px 10px rgba(217,119,6,.3);">⏰</div>
                         <div style="font-size:9.5px;font-weight:600;color:var(--navy);line-height:1.3;">Ajukan<br>Lembur</div>
@@ -3268,6 +3260,10 @@ header('Expires: 0');
                     <div onclick="openStaffSection('uniformSection')" style="cursor:pointer;">
                         <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#059669,#047857);display:flex;align-items:center;justify-content:center;font-size:18px;margin:0 auto 6px;color:#fff;box-shadow:0 4px 10px rgba(4,120,87,.3);">👔</div>
                         <div style="font-size:9.5px;font-weight:600;color:var(--navy);line-height:1.3;">Jadwal<br>Seragam</div>
+                    </div>
+                    <div id="quickMenuStock" onclick="goToStockPage()" style="display:none;cursor:pointer;">
+                        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#2563eb,#1e40af);display:flex;align-items:center;justify-content:center;font-size:18px;margin:0 auto 6px;color:#fff;box-shadow:0 4px 10px rgba(30,64,175,.3);">📦</div>
+                        <div style="font-size:9.5px;font-weight:600;color:var(--navy);line-height:1.3;">Stock</div>
                     </div>
                 </div>
             </div>
@@ -4008,9 +4004,9 @@ header('Expires: 0');
                 if (!data.success) return;
                 STOCK_ACCESS = data.data;
 
-                const headerStockBtn = document.getElementById('headerStockBtn');
+                const quickMenuStock = document.getElementById('quickMenuStock');
                 if (STOCK_ACCESS.has_access) {
-                    headerStockBtn.style.display = 'flex';
+                    quickMenuStock.style.display = 'block';
 
                     const sel = document.getElementById('stockBizSelect');
                     sel.innerHTML = '<option value="">-- Pilih Bisnis --</option>' +
@@ -4023,7 +4019,7 @@ header('Expires: 0');
                         addStockPoRow();
                     }
                 } else {
-                    headerStockBtn.style.display = 'none';
+                    quickMenuStock.style.display = 'none';
                 }
             } catch (e) {
                 console.warn('[Stock] initStockAccess failed', e);
@@ -4096,14 +4092,25 @@ header('Expires: 0');
                     return;
                 }
                 el.innerHTML = data.data.map(it => `
-                    <div style="display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-bottom:1px solid #f1f5f9;">
-                        <div style="font-size:12px; font-weight:600;">${it.item_name}</div>
-                        <div style="font-size:12px; font-weight:700;">${Number(it.current_qty).toLocaleString('id-ID')} ${it.unit}</div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-bottom:1px solid #f1f5f9; gap:6px;">
+                        <div style="flex:1;">
+                            <div style="font-size:12px; font-weight:600;">${it.item_name}</div>
+                            <div style="font-size:12px; font-weight:700;">${Number(it.current_qty).toLocaleString('id-ID')} ${it.unit}</div>
+                        </div>
+                        ${STOCK_ACCESS && STOCK_ACCESS.can_reduce_stock ? `<button onclick="quickReduceStock('${it.item_name.replace(/'/g, "\\'")}', '${it.unit.replace(/'/g, "\\'")}')" style="border:none; background:#fef3c7; color:#92400e; font-size:11px; font-weight:600; padding:6px 10px; border-radius:6px; white-space:nowrap;">Kurangi</button>` : ''}
                     </div>
                 `).join('');
             } catch (e) {
                 el.innerHTML = '<div style="color:#ef4444; font-size:11px; text-align:center; padding:10px;">Gagal memuat stock bisnis.</div>';
             }
+        }
+
+        // Tap "Kurangi" on an item row instead of typing the item name manually
+        function quickReduceStock(itemName, unit) {
+            document.getElementById('stockOutItem').value = itemName;
+            document.getElementById('stockOutUnit').value = unit || 'pcs';
+            document.getElementById('stockOutCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            document.getElementById('stockOutQty').focus();
         }
 
         async function submitStockOut() {
