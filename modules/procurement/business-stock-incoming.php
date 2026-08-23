@@ -128,6 +128,7 @@ $interTransferInMap = [];
 $interTransferOutMap = [];
 $dailyOutMap = [];
 $dailyOutRows = [];
+$adjustmentRows = [];
 $masterPdo = null;
 $gudangDbNameResolved = '';
 $stockMetaMap = [];
@@ -494,6 +495,15 @@ if ($activeBusinessId > 0) {
         $dailyOutRows = [];
         $dailyOutMap = [];
     }
+
+    try {
+        $adjustmentRows = $db->fetchAll(
+            "SELECT * FROM business_manual_stock_entries WHERE business_id = ? AND notes LIKE '[Adjustment]%' ORDER BY created_at DESC LIMIT 100",
+            [$activeBusinessId]
+        );
+    } catch (Throwable $e) {
+        $adjustmentRows = [];
+    }
 }
 
 if ($masterPdo && $activeBusinessSlug !== '') {
@@ -728,6 +738,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $_SESSION['success'] = 'Stok berhasil disesuaikan (adjustment).';
         } catch (Throwable $e) {
             $_SESSION['error'] = 'Gagal menyimpan adjustment: ' . $e->getMessage();
+        }
+    }
+
+    header('Location: business-stock-incoming.php');
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_adjustment_entry') {
+    $entryId = (int)($_POST['entry_id'] ?? 0);
+
+    if ($activeBusinessId <= 0 || $entryId <= 0) {
+        $_SESSION['error'] = 'Data adjustment tidak valid.';
+    } else {
+        try {
+            $db->query(
+                "DELETE FROM business_manual_stock_entries WHERE id = ? AND business_id = ? AND notes LIKE '[Adjustment]%'",
+                [$entryId, $activeBusinessId]
+            );
+            $_SESSION['success'] = 'Histori adjustment berhasil dihapus.';
+        } catch (Throwable $e) {
+            $_SESSION['error'] = 'Gagal menghapus histori adjustment: ' . $e->getMessage();
         }
     }
 
@@ -1455,7 +1486,139 @@ include '../../includes/header.php';
         </div>
     </div>
 
-    <div class="card" style="margin-bottom: 1.25rem;">
+    <style>
+        @media (max-width: 992px) {
+            .biz-stock-layout { grid-template-columns: 1fr !important; }
+        }
+    </style>
+    <div class="biz-stock-layout" style="display:grid; grid-template-columns: 1fr 1fr; gap:1.25rem; align-items:start;">
+        <div>
+            <div class="card" style="margin-bottom: 1.25rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                    <h3 style="font-size:1rem; font-weight:700; margin:0;">Histori Adjustment</h3>
+                    <span style="font-size:0.8rem; color:var(--text-muted);"><?php echo count($adjustmentRows); ?> koreksi</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th class="text-right">Qty Dikurangi</th>
+                                <th>Alasan</th>
+                                <th>Waktu</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (empty($adjustmentRows)): ?>
+                                <tr>
+                                    <td colspan="5" style="text-align:center; padding:1.5rem; color:var(--text-muted);">Belum ada histori adjustment.</td>
+                                </tr>
+                                <?php else: foreach ($adjustmentRows as $adjRow):
+                                    $adjReason = preg_replace('/^\[Adjustment\]\s*/', '', (string)($adjRow['notes'] ?? ''));
+                                ?>
+                                    <tr>
+                                        <td style="font-weight:600;">
+                                            <?php echo htmlspecialchars((string)($adjRow['item_name'] ?? '-')); ?>
+                                            <div style="font-size:0.72rem; color:#64748b; font-weight:500;"><?php echo htmlspecialchars((string)($adjRow['unit'] ?? 'pcs')); ?></div>
+                                        </td>
+                                        <td class="text-right" style="font-weight:700; color:#dc2626;">-<?php echo number_format(abs((float)($adjRow['quantity'] ?? 0)), 2); ?></td>
+                                        <td style="font-size:0.85rem;"><?php echo htmlspecialchars($adjReason !== '' ? $adjReason : '-'); ?></td>
+                                        <td style="font-size:0.8rem; color:var(--text-muted);"><?php echo date('d M Y H:i', strtotime((string)($adjRow['created_at'] ?? date('Y-m-d H:i:s')))); ?></td>
+                                        <td>
+                                            <form method="POST" style="margin:0;" onsubmit="return confirm('Hapus histori adjustment ini?')">
+                                                <input type="hidden" name="action" value="delete_adjustment_entry">
+                                                <input type="hidden" name="entry_id" value="<?php echo (int)($adjRow['id'] ?? 0); ?>">
+                                                <button type="submit" class="btn btn-sm btn-danger" style="padding:2px 6px; font-size:0.7rem; height:24px;" title="Hapus">&times;</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                            <?php endforeach;
+                            endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; margin-bottom:1rem;">
+            <h3 style="font-size:1rem; font-weight:700; margin:0;">Pengeluaran Harian &amp; Transfer Bisnis</h3>
+            <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+                <div style="font-size:0.8rem; color:var(--text-muted);">Total hari ini: <?php echo number_format($dailyOutTotalQty, 2); ?> qty</div>
+                <?php if (!empty($dailyOutRows)): ?>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleDailyOutSelectAll()">Centang Semua</button>
+                    <form method="POST" style="display:inline; margin:0;" onsubmit="return confirm('Hapus pengeluaran harian yang dipilih? Stok Gudang Nasita akan dikembalikan.')">
+                        <input type="hidden" name="action" value="delete_daily_stock_out_business">
+                        <button type="submit" class="btn btn-sm btn-danger" id="deleteDailyOutSelectedBtn" disabled>Hapus Terpilih</button>
+                    </form>
+                <?php endif; ?>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <form method="POST" id="dailyOutBulkDeleteForm" onsubmit="return confirm('Hapus pengeluaran harian yang dipilih? Stok Gudang Nasita akan dikembalikan.')">
+                <input type="hidden" name="action" value="delete_daily_stock_out_business">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th style="width:42px; text-align:center;">
+                                <?php if (!empty($dailyOutRows)): ?>
+                                    <input type="checkbox" id="dailyOutSelectAll" aria-label="Centang semua pengeluaran harian">
+                                <?php endif; ?>
+                            </th>
+                            <th>Item</th>
+                            <th>Unit</th>
+                            <th class="text-right">Qty</th>
+                            <th>Catatan / Tujuan</th>
+                            <th>Waktu</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($dailyOutRows)): ?>
+                            <tr>
+                                <td colspan="6" style="text-align:center; padding:2rem; color:var(--text-muted);">Belum ada pengeluaran stok hari ini.</td>
+                            </tr>
+                            <?php else: foreach ($dailyOutRows as $dailyOutEntry): ?>
+                                <tr>
+                                    <td style="text-align:center;">
+                                        <input type="checkbox" class="daily-out-checkbox" name="daily_out_ids[]" value="<?php echo (int)($dailyOutEntry['id'] ?? 0); ?>" aria-label="Pilih pengeluaran <?php echo htmlspecialchars((string)($dailyOutEntry['item_name'] ?? '-')); ?>">
+                                    </td>
+                                    <td style="font-weight:600;"><?php echo htmlspecialchars((string)($dailyOutEntry['item_name'] ?? '-')); ?></td>
+                                    <td><?php echo htmlspecialchars((string)($dailyOutEntry['unit'] ?? 'pcs')); ?></td>
+                                    <td class="text-right" style="font-weight:700; color:#d97706;"><?php echo number_format((float)($dailyOutEntry['quantity'] ?? 0), 2); ?></td>
+                                    <td><?php echo htmlspecialchars((string)($dailyOutEntry['notes'] ?? '-')); ?></td>
+                                    <td style="font-size:0.82rem; color:var(--text-muted);"><?php echo date('d M Y H:i', strtotime((string)($dailyOutEntry['created_at'] ?? date('Y-m-d H:i:s')))); ?></td>
+                                </tr>
+                        <?php endforeach;
+                        endif; ?>
+                        <?php foreach ($interTransferOutRows ?? [] as $tr): ?>
+                            <tr style="background:#fef3c7;">
+                                <td style="text-align:center;">
+                                    <form method="POST" style="margin:0;" onsubmit="return confirm('Hapus histori transfer ini?')">
+                                        <input type="hidden" name="action" value="delete_inter_transfer">
+                                        <input type="hidden" name="transfer_id" value="<?php echo (int)$tr['id']; ?>">
+                                        <button type="submit" class="btn btn-sm btn-danger" style="padding:2px 6px; font-size:0.7rem; height:24px;" title="Hapus">&times;</button>
+                                    </form>
+                                </td>
+                                <td style="font-weight:600;"><?php echo htmlspecialchars((string)($tr['item_name'] ?? '-')); ?></td>
+                                <td><?php echo htmlspecialchars((string)($tr['unit'] ?? 'pcs')); ?></td>
+                                <td class="text-right" style="font-weight:700; color:#b45309;"><?php echo number_format((float)($tr['quantity'] ?? 0), 2); ?></td>
+                                <td style="font-size:0.82rem;">
+                                    Transfer ke <strong><?php echo htmlspecialchars((string)($tr['target_business_name'] ?? '-')); ?></strong>
+                                    <?php if (!empty($tr['transfer_number'])): ?>&mdash; <?php echo htmlspecialchars($tr['transfer_number']); ?><?php endif; ?>
+                                    <?php if (!empty($tr['notes'])): ?><br><span style="color:#64748b;"><?php echo htmlspecialchars($tr['notes']); ?></span><?php endif; ?>
+                                </td>
+                                <td style="font-size:0.82rem; color:var(--text-muted);"><?php echo date('d M Y H:i', strtotime((string)($tr['created_at'] ?? date('Y-m-d H:i:s')))); ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </form>
+        </div>
+            </div>
+        </div>
+
+        <div>
+            <div class="card" style="margin-bottom: 1.25rem;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
             <h3 style="font-size:1rem; font-weight:700; margin:0;">Stok Bisnis (Stock Tersedia)</h3>
             <span style="font-size:0.8rem; color:var(--text-muted);"><?php echo count($stockSummary); ?> item | Khusus bisnis aktif</span>
@@ -1541,81 +1704,7 @@ include '../../includes/header.php';
                 </tbody>
             </table>
         </div>
-    </div>
-
-    <div class="card" style="margin-bottom:1.25rem;">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; margin-bottom:1rem;">
-            <h3 style="font-size:1rem; font-weight:700; margin:0;">Pengeluaran Harian</h3>
-            <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
-                <div style="font-size:0.8rem; color:var(--text-muted);">Total hari ini: <?php echo number_format($dailyOutTotalQty, 2); ?> qty</div>
-                <?php if (!empty($dailyOutRows)): ?>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleDailyOutSelectAll()">Centang Semua</button>
-                    <form method="POST" style="display:inline; margin:0;" onsubmit="return confirm('Hapus pengeluaran harian yang dipilih? Stok Gudang Nasita akan dikembalikan.')">
-                        <input type="hidden" name="action" value="delete_daily_stock_out_business">
-                        <button type="submit" class="btn btn-sm btn-danger" id="deleteDailyOutSelectedBtn" disabled>Hapus Terpilih</button>
-                    </form>
-                <?php endif; ?>
             </div>
-        </div>
-        <div class="table-responsive">
-            <form method="POST" id="dailyOutBulkDeleteForm" onsubmit="return confirm('Hapus pengeluaran harian yang dipilih? Stok Gudang Nasita akan dikembalikan.')">
-                <input type="hidden" name="action" value="delete_daily_stock_out_business">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th style="width:42px; text-align:center;">
-                                <?php if (!empty($dailyOutRows)): ?>
-                                    <input type="checkbox" id="dailyOutSelectAll" aria-label="Centang semua pengeluaran harian">
-                                <?php endif; ?>
-                            </th>
-                            <th>Item</th>
-                            <th>Unit</th>
-                            <th class="text-right">Qty</th>
-                            <th>Catatan / Tujuan</th>
-                            <th>Waktu</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (empty($dailyOutRows)): ?>
-                            <tr>
-                                <td colspan="6" style="text-align:center; padding:2rem; color:var(--text-muted);">Belum ada pengeluaran stok hari ini.</td>
-                            </tr>
-                            <?php else: foreach ($dailyOutRows as $dailyOutEntry): ?>
-                                <tr>
-                                    <td style="text-align:center;">
-                                        <input type="checkbox" class="daily-out-checkbox" name="daily_out_ids[]" value="<?php echo (int)($dailyOutEntry['id'] ?? 0); ?>" aria-label="Pilih pengeluaran <?php echo htmlspecialchars((string)($dailyOutEntry['item_name'] ?? '-')); ?>">
-                                    </td>
-                                    <td style="font-weight:600;"><?php echo htmlspecialchars((string)($dailyOutEntry['item_name'] ?? '-')); ?></td>
-                                    <td><?php echo htmlspecialchars((string)($dailyOutEntry['unit'] ?? 'pcs')); ?></td>
-                                    <td class="text-right" style="font-weight:700; color:#d97706;"><?php echo number_format((float)($dailyOutEntry['quantity'] ?? 0), 2); ?></td>
-                                    <td><?php echo htmlspecialchars((string)($dailyOutEntry['notes'] ?? '-')); ?></td>
-                                    <td style="font-size:0.82rem; color:var(--text-muted);"><?php echo date('d M Y H:i', strtotime((string)($dailyOutEntry['created_at'] ?? date('Y-m-d H:i:s')))); ?></td>
-                                </tr>
-                        <?php endforeach;
-                        endif; ?>
-                        <?php foreach ($interTransferOutRows ?? [] as $tr): ?>
-                            <tr style="background:#fef3c7;">
-                                <td style="text-align:center;">
-                                    <form method="POST" style="margin:0;" onsubmit="return confirm('Hapus histori transfer ini?')">
-                                        <input type="hidden" name="action" value="delete_inter_transfer">
-                                        <input type="hidden" name="transfer_id" value="<?php echo (int)$tr['id']; ?>">
-                                        <button type="submit" class="btn btn-sm btn-danger" style="padding:2px 6px; font-size:0.7rem; height:24px;" title="Hapus">&times;</button>
-                                    </form>
-                                </td>
-                                <td style="font-weight:600;"><?php echo htmlspecialchars((string)($tr['item_name'] ?? '-')); ?></td>
-                                <td><?php echo htmlspecialchars((string)($tr['unit'] ?? 'pcs')); ?></td>
-                                <td class="text-right" style="font-weight:700; color:#b45309;"><?php echo number_format((float)($tr['quantity'] ?? 0), 2); ?></td>
-                                <td style="font-size:0.82rem;">
-                                    Transfer ke <strong><?php echo htmlspecialchars((string)($tr['target_business_name'] ?? '-')); ?></strong>
-                                    <?php if (!empty($tr['transfer_number'])): ?>&mdash; <?php echo htmlspecialchars($tr['transfer_number']); ?><?php endif; ?>
-                                    <?php if (!empty($tr['notes'])): ?><br><span style="color:#64748b;"><?php echo htmlspecialchars($tr['notes']); ?></span><?php endif; ?>
-                                </td>
-                                <td style="font-size:0.82rem; color:var(--text-muted);"><?php echo date('d M Y H:i', strtotime((string)($tr['created_at'] ?? date('Y-m-d H:i:s')))); ?></td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </form>
         </div>
     </div>
 
