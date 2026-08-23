@@ -120,19 +120,19 @@ include $base_path . '/includes/header.php';
     /* Summary Cards */
     .summary-cards {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1rem;
-        margin-bottom: 2rem;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
     }
 
     .summary-card {
         background: var(--bg-secondary);
         border: 1px solid var(--border-color);
-        border-radius: 10px;
-        padding: 0.9rem 1rem;
+        border-radius: 8px;
+        padding: 0.65rem 0.75rem;
         display: flex;
         align-items: center;
-        gap: 0.75rem;
+        gap: 0.6rem;
         box-shadow: var(--shadow-sm);
         transition: all 0.2s;
     }
@@ -143,9 +143,9 @@ include $base_path . '/includes/header.php';
     }
 
     .summary-card .icon {
-        width: 38px;
-        height: 38px;
-        border-radius: 10px;
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -153,8 +153,8 @@ include $base_path . '/includes/header.php';
     }
 
     .summary-card .icon svg {
-        width: 18px;
-        height: 18px;
+        width: 14px;
+        height: 14px;
     }
 
     .summary-card.total .icon {
@@ -183,15 +183,15 @@ include $base_path . '/includes/header.php';
     }
 
     .summary-card .label {
-        font-size: 0.7rem;
+        font-size: 0.62rem;
         color: var(--text-muted);
-        margin-bottom: 0.3rem;
+        margin-bottom: 0.15rem;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
+        letter-spacing: 0.4px;
     }
 
     .summary-card .value {
-        font-size: 1.15rem;
+        font-size: 0.95rem;
         font-weight: 700;
         color: var(--text-primary);
     }
@@ -211,16 +211,16 @@ include $base_path . '/includes/header.php';
     /* Project Grid */
     .project-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-        gap: 1.25rem;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 0.9rem;
     }
 
     .project-card {
         background: var(--bg-secondary);
         border: 1px solid var(--border-color);
         border-top: 3px solid var(--border-color);
-        border-radius: 10px;
-        padding: 1rem 1.1rem;
+        border-radius: 8px;
+        padding: 0.75rem 0.85rem;
         cursor: pointer;
         transition: all 0.2s;
         text-decoration: none;
@@ -255,26 +255,26 @@ include $base_path . '/includes/header.php';
         display: flex;
         justify-content: space-between;
         align-items: flex-start;
-        margin-bottom: 0.75rem;
+        margin-bottom: 0.5rem;
     }
 
     .project-card .name {
-        font-size: 0.95rem;
+        font-size: 0.85rem;
         font-weight: 600;
         color: var(--secondary-color);
-        margin-bottom: 0.2rem;
+        margin-bottom: 0.15rem;
     }
 
     .project-card .description {
-        font-size: 0.78rem;
+        font-size: 0.72rem;
         color: var(--text-muted);
-        line-height: 1.4;
+        line-height: 1.35;
     }
 
     .status-badge {
-        padding: 0.3rem 0.7rem;
+        padding: 0.22rem 0.55rem;
         border-radius: 20px;
-        font-size: 0.7rem;
+        font-size: 0.62rem;
         font-weight: 600;
         text-transform: uppercase;
     }
@@ -302,9 +302,9 @@ include $base_path . '/includes/header.php';
     .project-card .stats {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
-        gap: 1rem;
-        margin-top: 1rem;
-        padding-top: 1rem;
+        gap: 0.5rem;
+        margin-top: 0.6rem;
+        padding-top: 0.6rem;
         border-top: 1px solid var(--border-color);
     }
 
@@ -313,16 +313,16 @@ include $base_path . '/includes/header.php';
     }
 
     .project-card .stat-value {
-        font-size: 0.88rem;
+        font-size: 0.75rem;
         font-weight: 700;
         color: var(--text-primary);
     }
 
     .project-card .stat-label {
-        font-size: 0.65rem;
+        font-size: 0.58rem;
         color: var(--text-muted);
         text-transform: uppercase;
-        margin-top: 0.2rem;
+        margin-top: 0.15rem;
     }
 
     .project-card .stat.budget .stat-value {
@@ -339,11 +339,11 @@ include $base_path . '/includes/header.php';
 
     /* Progress Bar */
     .progress-container {
-        margin-top: 1rem;
+        margin-top: 0.6rem;
     }
 
     .progress-bar {
-        height: 6px;
+        height: 5px;
         background: var(--border-color);
         border-radius: 3px;
         overflow: hidden;
@@ -367,9 +367,9 @@ include $base_path . '/includes/header.php';
     .progress-label {
         display: flex;
         justify-content: space-between;
-        font-size: 0.75rem;
+        font-size: 0.68rem;
         color: var(--text-muted);
-        margin-top: 0.5rem;
+        margin-top: 0.4rem;
     }
 
     /* Empty State */
