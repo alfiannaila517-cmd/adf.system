@@ -711,6 +711,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'adjustment_stock_business') {
+    $itemName = trim((string)($_POST['item_name'] ?? ''));
+    $unit = trim((string)($_POST['unit'] ?? 'pcs'));
+    $qty = (float)($_POST['quantity'] ?? 0);
+    $reason = trim((string)($_POST['reason'] ?? ''));
+
+    if ($activeBusinessId <= 0 || $itemName === '' || $qty <= 0 || $reason === '') {
+        $_SESSION['error'] = 'Data adjustment tidak valid. Nama item, qty, dan alasan wajib diisi.';
+    } else {
+        try {
+            $db->query(
+                'INSERT INTO business_manual_stock_entries (business_id, item_name, category, unit, quantity, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [$activeBusinessId, $itemName, null, $unit !== '' ? $unit : 'pcs', -abs($qty), '[Adjustment] ' . $reason, (int)($currentUser['id'] ?? 0)]
+            );
+            $_SESSION['success'] = 'Stok berhasil disesuaikan (adjustment).';
+        } catch (Throwable $e) {
+            $_SESSION['error'] = 'Gagal menyimpan adjustment: ' . $e->getMessage();
+        }
+    }
+
+    header('Location: business-stock-incoming.php');
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'record_daily_stock_out_business') {
     $itemName = trim((string)($_POST['item_name'] ?? ''));
     $unit = trim((string)($_POST['unit'] ?? 'pcs'));
@@ -1482,6 +1506,10 @@ include '../../includes/header.php';
                                         <button type="button" class="btn btn-sm btn-primary" style="height:32px; padding:0 0.7rem;" onclick="openTransferModal('<?php echo htmlspecialchars(addslashes($item['item_name'])); ?>','<?php echo htmlspecialchars(addslashes($item['unit'])); ?>','<?php echo htmlspecialchars((string)number_format((float)($item['current_qty'] ?? 0), 2, '.', '')); ?>')">
                                             <i data-feather="send" style="width:13px; height:13px;"></i>
                                             Transfer
+                                        </button>
+                                        <button type="button" class="btn btn-sm" style="height:32px; padding:0 0.7rem; background:#475569; color:#fff;" title="Koreksi stok (salah input, dsb.)" onclick="openAdjustmentModalPreset('<?php echo htmlspecialchars(addslashes($item['item_name'])); ?>','<?php echo htmlspecialchars(addslashes($item['unit'])); ?>')">
+                                            <i data-feather="sliders" style="width:13px; height:13px;"></i>
+                                            Adjustment
                                         </button>
                                         <form method="POST" style="display:inline;" onsubmit="return confirm('Hapus item stok ini dari bisnis aktif?')">
                                             <input type="hidden" name="action" value="delete_stock_item">
@@ -2299,6 +2327,38 @@ include '../../includes/header.php';
         }
     }
 
+    function openAdjustmentModalPreset(itemName, unit) {
+        var modal = document.getElementById('adjustmentStockModal');
+        if (!modal) {
+            return;
+        }
+
+        var itemInput = document.getElementById('adjustmentItemName');
+        var unitInput = document.getElementById('adjustmentUnit');
+        if (itemInput) {
+            itemInput.value = itemName;
+        }
+        if (unitInput) {
+            unitInput.value = unit;
+        }
+
+        modal.style.display = 'flex';
+
+        var qtyInput = modal.querySelector('input[name="quantity"]');
+        if (qtyInput) {
+            setTimeout(function() {
+                qtyInput.focus();
+            }, 80);
+        }
+    }
+
+    function closeAdjustmentModal() {
+        var modal = document.getElementById('adjustmentStockModal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+
     (function bindDailyOutAutocomplete() {
         var itemInput = document.getElementById('dailyOutItemName');
         var unitInput = document.getElementById('dailyOutUnit');
@@ -2314,6 +2374,7 @@ include '../../includes/header.php';
         var manualModal = document.getElementById('manualStockModal');
         var modal = document.getElementById('transferStockModal');
         var dailyModal = document.getElementById('dailyOutBusinessModal');
+        var adjustmentModal = document.getElementById('adjustmentStockModal');
         if (e.target === manualModal) {
             closeManualStockModal();
         }
@@ -2322,6 +2383,9 @@ include '../../includes/header.php';
         }
         if (e.target === dailyModal) {
             closeDailyOutModal();
+        }
+        if (e.target === adjustmentModal) {
+            closeAdjustmentModal();
         }
     });
 </script>
@@ -2361,6 +2425,41 @@ include '../../includes/header.php';
             <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
                 <button type="button" class="btn btn-secondary" onclick="closeDailyOutModal()">Batal</button>
                 <button type="submit" class="btn btn-warning" style="font-weight:700; color:#111827;">Simpan Stock Keluar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="adjustmentStockModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.55); z-index:2055; align-items:center; justify-content:center; padding:1rem;">
+    <div class="card" style="width:min(420px,100%);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <div>
+                <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.04em;">Adjustment</div>
+                <h3 style="font-size:1.05rem; margin:0.15rem 0 0; font-weight:700;">Koreksi Stok (Kurangi)</h3>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="closeAdjustmentModal()">✕</button>
+        </div>
+        <form method="POST">
+            <input type="hidden" name="action" value="adjustment_stock_business">
+            <div style="margin-bottom:0.85rem;">
+                <label class="form-label">Nama Item *</label>
+                <input type="text" id="adjustmentItemName" name="item_name" class="form-control" list="dailyOutItemList" autocomplete="off" required placeholder="Ketik 1-3 huruf...">
+            </div>
+            <div style="margin-bottom:0.85rem;">
+                <label class="form-label">Unit *</label>
+                <input type="text" name="unit" id="adjustmentUnit" class="form-control" value="pcs" required>
+            </div>
+            <div style="margin-bottom:0.85rem;">
+                <label class="form-label">Qty Dikurangi *</label>
+                <input type="number" name="quantity" class="form-control" step="0.01" min="0.01" required placeholder="0">
+            </div>
+            <div style="margin-bottom:1rem;">
+                <label class="form-label">Alasan *</label>
+                <textarea name="reason" class="form-control" rows="3" required placeholder="Misal: salah input, stok rusak, selisih fisik, dll."></textarea>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+                <button type="button" class="btn btn-secondary" onclick="closeAdjustmentModal()">Batal</button>
+                <button type="submit" class="btn btn-sm" style="background:#475569; color:#fff; font-weight:700; padding:0.5rem 1rem;">Simpan Adjustment</button>
             </div>
         </form>
     </div>
