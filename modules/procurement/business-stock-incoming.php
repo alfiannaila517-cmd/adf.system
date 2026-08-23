@@ -1483,14 +1483,11 @@ include '../../includes/header.php';
                         <tr>
                             <td colspan="4" style="text-align:center; padding:2rem; color:var(--text-muted);">Belum ada stok masuk dari gudang.</td>
                         </tr>
-                        <?php else: foreach ($stockSummary as $item): ?>
+                        <?php else: $stockRowIdx = 0;
+                        foreach ($stockSummary as $item): $stockRowIdx++; ?>
                             <tr class="stock-row" data-search="<?php echo htmlspecialchars(strtolower(trim((string)$item['item_name']) . ' ' . trim((string)$item['unit']))); ?>">
                                 <td style="font-weight:600;">
                                     <?php echo htmlspecialchars($item['item_name']); ?>
-                                    <button type="button" class="btn btn-sm btn-secondary" style="height:26px; margin-left:0.45rem; padding:0 0.5rem;" onclick="openManualStockModalPreset('<?php echo htmlspecialchars(addslashes($item['item_name'])); ?>','<?php echo htmlspecialchars(addslashes($item['unit'])); ?>')">
-                                        <i data-feather="plus-circle" style="width:12px; height:12px;"></i>
-                                        Tambah
-                                    </button>
                                 </td>
                                 <td><?php echo htmlspecialchars($item['unit']); ?></td>
                                 <td class="text-right" style="font-weight:700; color:#0f9d6a;">
@@ -1498,28 +1495,44 @@ include '../../includes/header.php';
                                     <div style="font-size:0.72rem; color:#64748b; font-weight:500;">Gudang + manual: <?php echo number_format((float)$item['total_received'], 2); ?></div>
                                 </td>
                                 <td class="text-center">
-                                    <div style="display:flex; gap:0.4rem; justify-content:center; flex-wrap:wrap;">
-                                        <button type="button" class="btn btn-sm btn-warning" style="height:32px; padding:0 0.7rem; color:#111827;" onclick="openDailyOutModalPreset('<?php echo htmlspecialchars(addslashes($item['item_name'])); ?>','<?php echo htmlspecialchars(addslashes($item['unit'])); ?>')">
-                                            <i data-feather="minus-square" style="width:13px; height:13px;"></i>
-                                            Stock Keluar
+                                    <div class="dropdown" style="position:relative; display:inline-block;">
+                                        <button type="button" class="btn btn-sm btn-secondary" style="padding:0 0.6rem; height:30px; font-size:0.78rem; border-radius:0.4rem;"
+                                            onclick="toggleBizStockDropdown(<?php echo $stockRowIdx; ?>)">
+                                            Aksi <i data-feather="chevron-down" style="width:12px; height:12px; vertical-align:-2px;"></i>
                                         </button>
-                                        <button type="button" class="btn btn-sm btn-primary" style="height:32px; padding:0 0.7rem;" onclick="openTransferModal('<?php echo htmlspecialchars(addslashes($item['item_name'])); ?>','<?php echo htmlspecialchars(addslashes($item['unit'])); ?>','<?php echo htmlspecialchars((string)number_format((float)($item['current_qty'] ?? 0), 2, '.', '')); ?>')">
-                                            <i data-feather="send" style="width:13px; height:13px;"></i>
-                                            Transfer
-                                        </button>
-                                        <button type="button" class="btn btn-sm" style="height:32px; padding:0 0.7rem; background:#475569; color:#fff;" title="Koreksi stok (salah input, dsb.)" onclick="openAdjustmentModalPreset('<?php echo htmlspecialchars(addslashes($item['item_name'])); ?>','<?php echo htmlspecialchars(addslashes($item['unit'])); ?>')">
-                                            <i data-feather="sliders" style="width:13px; height:13px;"></i>
-                                            Adjustment
-                                        </button>
-                                        <form method="POST" style="display:inline;" onsubmit="return confirm('Hapus item stok ini dari bisnis aktif?')">
-                                            <input type="hidden" name="action" value="delete_stock_item">
-                                            <input type="hidden" name="item_name" value="<?php echo htmlspecialchars($item['item_name']); ?>">
-                                            <input type="hidden" name="unit" value="<?php echo htmlspecialchars($item['unit']); ?>">
-                                            <button type="submit" class="btn btn-sm btn-danger" style="height:32px; padding:0 0.7rem;" title="Hapus item">
-                                                <i data-feather="trash-2" style="width:13px; height:13px;"></i>
-                                                Hapus
+                                        <div id="bizdrop-<?php echo $stockRowIdx; ?>" style="display:none; position:absolute; right:0; top:100%; background:#fff; border:1px solid #e2e8f0; border-radius:0.6rem; box-shadow:0 6px 20px rgba(0,0,0,0.12); z-index:1000; min-width:200px; padding:0.4rem 0;">
+                                            <button type="button" style="display:flex; align-items:center; gap:0.45rem; width:100%; text-align:left; padding:0.5rem 0.9rem; font-size:0.83rem; background:none; border:none; cursor:pointer; color:#0f9d6a; font-weight:600;"
+                                                onclick="toggleBizStockDropdown(<?php echo $stockRowIdx; ?>); openManualStockModalPreset('<?php echo htmlspecialchars(addslashes($item['item_name'])); ?>','<?php echo htmlspecialchars(addslashes($item['unit'])); ?>')">
+                                                <i data-feather="plus-circle" style="width:14px; height:14px;"></i>
+                                                Tambah Stok
                                             </button>
-                                        </form>
+                                            <button type="button" style="display:flex; align-items:center; gap:0.45rem; width:100%; text-align:left; padding:0.5rem 0.9rem; font-size:0.83rem; background:none; border:none; cursor:pointer; color:#d97706; font-weight:600;"
+                                                onclick="toggleBizStockDropdown(<?php echo $stockRowIdx; ?>); openDailyOutModalPreset('<?php echo htmlspecialchars(addslashes($item['item_name'])); ?>','<?php echo htmlspecialchars(addslashes($item['unit'])); ?>')">
+                                                <i data-feather="minus-square" style="width:14px; height:14px;"></i>
+                                                Stock Keluar
+                                            </button>
+                                            <button type="button" style="display:flex; align-items:center; gap:0.45rem; width:100%; text-align:left; padding:0.5rem 0.9rem; font-size:0.83rem; background:none; border:none; cursor:pointer; color:#3b82f6; font-weight:600;"
+                                                onclick="toggleBizStockDropdown(<?php echo $stockRowIdx; ?>); openTransferModal('<?php echo htmlspecialchars(addslashes($item['item_name'])); ?>','<?php echo htmlspecialchars(addslashes($item['unit'])); ?>','<?php echo htmlspecialchars((string)number_format((float)($item['current_qty'] ?? 0), 2, '.', '')); ?>')">
+                                                <i data-feather="send" style="width:14px; height:14px;"></i>
+                                                Transfer
+                                            </button>
+                                            <div style="border-top:1px solid #f1f5f9; margin:0.25rem 0;"></div>
+                                            <button type="button" style="display:flex; align-items:center; gap:0.45rem; width:100%; text-align:left; padding:0.5rem 0.9rem; font-size:0.83rem; background:none; border:none; cursor:pointer; color:#475569; font-weight:600;" title="Koreksi stok (salah input, dsb.)"
+                                                onclick="toggleBizStockDropdown(<?php echo $stockRowIdx; ?>); openAdjustmentModalPreset('<?php echo htmlspecialchars(addslashes($item['item_name'])); ?>','<?php echo htmlspecialchars(addslashes($item['unit'])); ?>')">
+                                                <i data-feather="sliders" style="width:14px; height:14px;"></i>
+                                                Adjustment
+                                            </button>
+                                            <div style="border-top:1px solid #f1f5f9; margin:0.25rem 0;"></div>
+                                            <form method="POST" style="padding:0 0.9rem 0.2rem;" onsubmit="return confirm('Hapus item stok ini dari bisnis aktif?')">
+                                                <input type="hidden" name="action" value="delete_stock_item">
+                                                <input type="hidden" name="item_name" value="<?php echo htmlspecialchars($item['item_name']); ?>">
+                                                <input type="hidden" name="unit" value="<?php echo htmlspecialchars($item['unit']); ?>">
+                                                <button type="submit" style="display:flex; align-items:center; gap:0.45rem; width:100%; text-align:left; padding:0.3rem 0; font-size:0.83rem; background:none; border:none; cursor:pointer; color:#dc2626; font-weight:600;">
+                                                    <i data-feather="trash-2" style="width:14px; height:14px;"></i>
+                                                    Hapus Item
+                                                </button>
+                                            </form>
+                                        </div>
                                     </div>
                                 </td>
                             </tr>
@@ -2082,6 +2095,23 @@ include '../../includes/header.php';
     function normalizeManualName(value) {
         return String(value || '').toLowerCase().trim().replace(/\s+/g, ' ');
     }
+
+    function toggleBizStockDropdown(id) {
+        var el = document.getElementById('bizdrop-' + id);
+        if (!el) return;
+        var isOpen = el.style.display !== 'none';
+        document.querySelectorAll('[id^="bizdrop-"]').forEach(function(d) {
+            d.style.display = 'none';
+        });
+        if (!isOpen) el.style.display = 'block';
+    }
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.dropdown')) {
+            document.querySelectorAll('[id^="bizdrop-"]').forEach(function(d) {
+                d.style.display = 'none';
+            });
+        }
+    });
 
     function applyDailyOutMeta() {
         var itemInput = document.getElementById('dailyOutItemName');
