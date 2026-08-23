@@ -511,7 +511,7 @@ if (isset($forceTheme) && is_string($forceTheme)) {
         <!-- Theme Load Warning: <?php echo htmlspecialchars($themeError); ?> -->
     <?php endif; ?>
 
-    <!-- Motor Overdue & Unpaid Guest Notification Banner -->
+    <!-- Motor Overdue / Unpaid Guest / Hotel Service Notification Banner -->
     <?php
     $unpaidGuestsCount = 0;
     try {
@@ -519,13 +519,21 @@ if (isset($forceTheme) && is_string($forceTheme)) {
         $overdueMotors = getOverdueMotorsForNotification($db->getConnection(), $businessId);
         $unpaidGuests = getUnpaidCheckedInGuests($db->getConnection());
         $unpaidGuestsCount = count($unpaidGuests);
-        $bannerMessages = array_merge(formatOverdueMotorMessages($overdueMotors), formatUnpaidGuestMessages($unpaidGuests));
+        $unpaidHotelServices = getUnpaidHotelServiceInvoices($db->getConnection(), $businessId);
+
+        // Pesan room/motor pakai warna default (putih), pesan hotel service diberi warna beda (kuning keemasan)
+        $plainMessages = array_merge(formatOverdueMotorMessages($overdueMotors), formatUnpaidGuestMessages($unpaidGuests));
+        $hsMessages = formatUnpaidHotelServiceMessages($unpaidHotelServices);
+        $bannerMessages = array_merge(
+            array_map(fn($m) => htmlspecialchars($m), $plainMessages),
+            array_map(fn($m) => '<span style="color:#fde047;">' . htmlspecialchars($m) . '</span>', $hsMessages)
+        );
         if (!empty($bannerMessages)):
             $count = count($bannerMessages);
-            $notificationText = implode('          ', $bannerMessages);
+            $notificationText = implode('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;', $bannerMessages);
             // Slow down ticker for readability.
-            $scrollDuration = max(12, $count * 6);
-            $bannerClickTarget = !empty($unpaidGuests) ? (BASE_URL . '/modules/frontdesk/in-house.php') : (BASE_URL . '/modules/frontdesk/rental-motor.php');
+            $scrollDuration = max(25, $count * 12);
+            $bannerClickTarget = !empty($unpaidGuests) ? (BASE_URL . '/modules/frontdesk/in-house.php') : (!empty($unpaidHotelServices) ? (BASE_URL . '/modules/frontdesk/hotel-services.php') : (BASE_URL . '/modules/frontdesk/rental-motor.php'));
     ?>
             <style>
                 .motor-overdue-banner {
@@ -550,9 +558,8 @@ if (isset($forceTheme) && is_string($forceTheme)) {
 
                 .motor-overdue-banner,
                 .motor-overdue-banner * {
-                    color: #ffffff !important;
-                    -webkit-text-fill-color: #ffffff !important;
-                    text-fill-color: #ffffff !important;
+                    -webkit-text-fill-color: unset;
+                    text-fill-color: unset;
                     opacity: 1 !important;
                     mix-blend-mode: normal !important;
                 }
@@ -593,6 +600,7 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                     gap: 0.3rem;
                     z-index: 1;
                     border-right: 1px solid rgba(255, 255, 255, 0.2);
+                    color: #ffffff;
                 }
 
                 .motor-overdue-banner .ob-label .flash {
@@ -616,6 +624,7 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                     display: block;
                     white-space: nowrap;
                     padding-left: 160px;
+                    color: #ffffff;
                     animation: ticker-scroll <?php echo $scrollDuration; ?>s linear infinite;
                 }
 
@@ -639,100 +648,9 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                     PERHATIAN (<?php echo $count; ?>)
                 </span>
                 <span class="ob-ticker">
-                    <?php echo htmlspecialchars($notificationText); ?>
+                    <?php echo $notificationText; ?>
                     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                    <?php echo htmlspecialchars($notificationText); ?>
-                </span>
-            </div>
-        <?php endif; ?>
-    <?php } catch (\Throwable $e) {
-        // Silent fail if notification fails
-    } ?>
-
-    <!-- Hotel Service Unpaid Invoices Notification Banner -->
-    <?php
-    try {
-        $businessId = $_SESSION['business_id'] ?? 1;
-        $unpaidHotelServices = getUnpaidHotelServiceInvoices($db->getConnection(), $businessId);
-        $hsMessages = formatUnpaidHotelServiceMessages($unpaidHotelServices);
-        if (!empty($hsMessages)):
-            $hsCount = count($hsMessages);
-            $hsNotificationText = implode('          ', $hsMessages);
-            $hsScrollDuration = max(12, $hsCount * 6);
-    ?>
-            <style>
-                .hotel-service-unpaid-banner {
-                    background: #9a3412;
-                    color: #ffffff !important;
-                    -webkit-text-fill-color: #ffffff !important;
-                    text-fill-color: #ffffff !important;
-                    padding: 0.5rem 0;
-                    overflow: hidden;
-                    position: relative;
-                    font-weight: 700;
-                    font-size: 0.84rem;
-                    letter-spacing: 0.01em;
-                    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
-                    box-shadow: 0 3px 10px rgba(154, 52, 18, 0.5);
-                    border-bottom: 2px solid #fdba74;
-                    z-index: 998;
-                    cursor: pointer;
-                }
-
-                .hotel-service-unpaid-banner,
-                .hotel-service-unpaid-banner * {
-                    color: #ffffff !important;
-                    -webkit-text-fill-color: #ffffff !important;
-                    text-fill-color: #ffffff !important;
-                    opacity: 1 !important;
-                    mix-blend-mode: normal !important;
-                }
-
-                .hotel-service-unpaid-banner .hs-label {
-                    position: absolute;
-                    left: 0;
-                    top: 0;
-                    bottom: 0;
-                    display: flex;
-                    align-items: center;
-                    padding: 0 0.75rem;
-                    background: rgba(0, 0, 0, 0.35);
-                    white-space: nowrap;
-                    font-size: 0.78rem;
-                    gap: 0.3rem;
-                    z-index: 1;
-                    border-right: 1px solid rgba(255, 255, 255, 0.2);
-                }
-
-                .hotel-service-unpaid-banner .hs-ticker {
-                    display: block;
-                    white-space: nowrap;
-                    padding-left: 160px;
-                    animation: hs-ticker-scroll <?php echo $hsScrollDuration; ?>s linear infinite;
-                }
-
-                @keyframes hs-ticker-scroll {
-                    0% {
-                        transform: translateX(100vw);
-                    }
-
-                    100% {
-                        transform: translateX(-100%);
-                    }
-                }
-
-                .hotel-service-unpaid-banner:hover .hs-ticker {
-                    animation-play-state: paused;
-                }
-            </style>
-            <div class="hotel-service-unpaid-banner" onclick="window.location.href='<?php echo BASE_URL; ?>/modules/frontdesk/hotel-services.php'" title="Klik untuk lihat hotel service">
-                <span class="hs-label">
-                    🛎️ HOTEL SERVICE (<?php echo $hsCount; ?>)
-                </span>
-                <span class="hs-ticker">
-                    <?php echo htmlspecialchars($hsNotificationText); ?>
-                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                    <?php echo htmlspecialchars($hsNotificationText); ?>
+                    <?php echo $notificationText; ?>
                 </span>
             </div>
         <?php endif; ?>
