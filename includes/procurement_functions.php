@@ -3478,9 +3478,9 @@ function getBusinessStockSummaryForStaff($businessSlug)
 }
 
 /**
- * Record a staff-submitted daily stock-out for a specific business: decreases
- * Gudang Nasita's central stock (via recordGudangNasitaDailyStockOut) and logs
- * the same entry into that business's own business_stock_daily_out table.
+ * Record a staff-submitted daily stock-out for a specific business: logs the
+ * entry into that business's own business_stock_daily_out table only. Does
+ * NOT touch Gudang Nasita's central warehouse stock.
  *
  * @return array ['success' => bool, 'message' => string]
  */
@@ -3534,18 +3534,8 @@ function recordStaffDailyStockOut($businessSlug, $itemName, $unit, $qty, $notes,
 
         $fallbackUserId = resolveFallbackAdminUserId($db);
 
-        $warehouseNote = 'Bisnis: ' . ($notes !== '' ? $notes : 'Pengeluaran stok harian') . ' (Staff Portal: ' . ($staffLabel !== '' ? $staffLabel : 'Staff') . ')';
-        $warehouseResult = recordGudangNasitaDailyStockOut($itemName, $qty, $fallbackUserId, [
-            'notes' => $warehouseNote,
-        ]);
-
-        if (!($warehouseResult['success'] ?? false)) {
-            return ['success' => false, 'message' => $warehouseResult['message'] ?? 'Gudang Nasita tidak bisa mengurangi stok untuk item ini.'];
-        }
-
-        // recordGudangNasitaDailyStockOut() restores the DB context back to $bizDbName
-        // in its own finally block, so $db here is still safely pointed at the business DB.
-        $db = Database::getInstance();
+        // Only reduces this business's own stock ledger (business_stock_daily_out) —
+        // does NOT touch Gudang Nasita's central warehouse stock.
         $db->insert('business_stock_daily_out', [
             'business_id' => $activeBusinessId,
             'item_name' => $itemName,
@@ -3555,7 +3545,7 @@ function recordStaffDailyStockOut($businessSlug, $itemName, $unit, $qty, $notes,
             'created_by' => $fallbackUserId,
         ]);
 
-        return ['success' => true, 'message' => 'Stock keluar berhasil dicatat dan stok Gudang Nasita telah berkurang.'];
+        return ['success' => true, 'message' => 'Stock keluar berhasil dicatat.'];
     } catch (Throwable $e) {
         error_log('recordStaffDailyStockOut error: ' . $e->getMessage());
         return ['success' => false, 'message' => 'Gagal catat stock keluar: ' . $e->getMessage()];
