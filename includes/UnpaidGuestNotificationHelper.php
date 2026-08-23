@@ -29,7 +29,7 @@ function getUnpaidCheckedInGuests($pdo)
             WHERE b.status = 'checked_in'
             AND b.payment_status != 'paid'
             ORDER BY b.actual_checkin_time ASC
-            LIMIT 15
+            LIMIT 50
         ");
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -45,13 +45,28 @@ function formatUnpaidGuestMessages($unpaidGuests)
         return [];
     }
 
-    $messages = [];
+    // Gabungkan tamu dengan nama persis sama jadi satu baris (total tagihan digabung)
+    $grouped = [];
     foreach ($unpaidGuests as $guest) {
+        $name = trim($guest['guest_name'] ?? '-');
+        $key = mb_strtolower($name);
         $total = (float)($guest['final_price'] ?? 0);
         $paid = (float)($guest['total_paid'] ?? 0);
         $remaining = max(0, $total - $paid);
 
-        $messages[] = "💰 Room {$guest['room_number']} — {$guest['guest_name']} — BELUM LUNAS (Sisa Rp " . number_format($remaining, 0, ',', '.') . ") — #{$guest['booking_code']}";
+        if (!isset($grouped[$key])) {
+            $grouped[$key] = ['name' => $name, 'rooms' => [], 'remaining' => 0];
+        }
+        $grouped[$key]['rooms'][] = $guest['room_number'];
+        $grouped[$key]['remaining'] += $remaining;
+    }
+
+    $messages = [];
+    foreach ($grouped as $g) {
+        $roomLabel = count($g['rooms']) > 1
+            ? count($g['rooms']) . ' Kamar (' . implode(', ', $g['rooms']) . ')'
+            : 'Room ' . $g['rooms'][0];
+        $messages[] = "💰 {$roomLabel} — {$g['name']} — BELUM LUNAS (Sisa Rp " . number_format($g['remaining'], 0, ',', '.') . ")";
     }
 
     return $messages;
