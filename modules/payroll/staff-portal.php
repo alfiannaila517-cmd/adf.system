@@ -3580,6 +3580,7 @@ header('Expires: 0');
                     <h4 style="margin:0; font-size:13px;">🏬 Stock Bisnis</h4>
                     <button onclick="loadStockBusiness()" style="border:none; background:none; font-size:11px; color:#2563eb;">🔄</button>
                 </div>
+                <input type="text" id="stockBusinessSearch" class="fi" placeholder="🔍 Cari nama item..." oninput="filterStockBusiness()" style="width:100%; margin-bottom:8px;">
                 <div id="stockBusinessList" style="max-height:260px; overflow-y:auto;">
                     <div style="text-align:center; padding:12px; color:#94a3b8; font-size:11px;">Pilih bisnis dulu di atas.</div>
                 </div>
@@ -4072,10 +4073,14 @@ header('Expires: 0');
             }
         }
 
+        let STOCK_BUSINESS_ITEMS = [];
+
         async function loadStockBusiness() {
             const el = document.getElementById('stockBusinessList');
             if (!STOCK_SELECTED_SLUG) return;
             el.innerHTML = '<div class="loading"><span class="spin"></span> Memuat...</div>';
+            const searchInput = document.getElementById('stockBusinessSearch');
+            if (searchInput) searchInput.value = '';
             try {
                 const res = await fetch(API + '&action=stock_business_view&slug=' + encodeURIComponent(STOCK_SELECTED_SLUG));
                 const data = await res.json();
@@ -4087,22 +4092,39 @@ header('Expires: 0');
                 if (itemList) {
                     itemList.innerHTML = data.data.map(it => `<option value="${it.item_name}">`).join('');
                 }
-                if (!data.data.length) {
-                    el.innerHTML = '<div style="text-align:center; padding:12px; color:#94a3b8; font-size:11px;">Belum ada stock tercatat.</div>';
-                    return;
-                }
-                el.innerHTML = data.data.map(it => `
-                    <div style="display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-bottom:1px solid #f1f5f9; gap:6px;">
-                        <div style="flex:1;">
-                            <div style="font-size:12px; font-weight:600;">${it.item_name}</div>
-                            <div style="font-size:12px; font-weight:700;">${Number(it.current_qty).toLocaleString('id-ID')} ${it.unit}</div>
-                        </div>
-                        ${STOCK_ACCESS && STOCK_ACCESS.can_reduce_stock ? `<button onclick="quickReduceStock('${it.item_name.replace(/'/g, "\\'")}', '${it.unit.replace(/'/g, "\\'")}')" style="border:none; background:#fef3c7; color:#92400e; font-size:11px; font-weight:600; padding:6px 10px; border-radius:6px; white-space:nowrap;">Kurangi</button>` : ''}
-                    </div>
-                `).join('');
+                STOCK_BUSINESS_ITEMS = data.data;
+                renderStockBusinessList(STOCK_BUSINESS_ITEMS);
             } catch (e) {
                 el.innerHTML = '<div style="color:#ef4444; font-size:11px; text-align:center; padding:10px;">Gagal memuat stock bisnis.</div>';
             }
+        }
+
+        function renderStockBusinessList(items) {
+            const el = document.getElementById('stockBusinessList');
+            if (!items.length) {
+                el.innerHTML = '<div style="text-align:center; padding:12px; color:#94a3b8; font-size:11px;">Belum ada stock tercatat.</div>';
+                return;
+            }
+            el.innerHTML = items.map(it => `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-bottom:1px solid #f1f5f9; gap:6px;">
+                    <div style="flex:1;">
+                        <div style="font-size:12px; font-weight:600;">${it.item_name}</div>
+                        <div style="font-size:12px; font-weight:700;">${Number(it.current_qty).toLocaleString('id-ID')} ${it.unit}</div>
+                    </div>
+                    ${STOCK_ACCESS && STOCK_ACCESS.can_reduce_stock ? `<button onclick="quickReduceStock('${it.item_name.replace(/'/g, "\\'")}', '${it.unit.replace(/'/g, "\\'")}')" style="border:none; background:#fef3c7; color:#92400e; font-size:11px; font-weight:600; padding:6px 10px; border-radius:6px; white-space:nowrap;">Kurangi</button>` : ''}
+                </div>
+            `).join('');
+        }
+
+        function filterStockBusiness() {
+            const q = document.getElementById('stockBusinessSearch').value.trim().toLowerCase();
+            if (!q) { renderStockBusinessList(STOCK_BUSINESS_ITEMS); return; }
+            const filtered = STOCK_BUSINESS_ITEMS.filter(it => it.item_name.toLowerCase().includes(q));
+            if (!filtered.length) {
+                document.getElementById('stockBusinessList').innerHTML = '<div style="text-align:center; padding:12px; color:#94a3b8; font-size:11px;">Item tidak ditemukan.</div>';
+                return;
+            }
+            renderStockBusinessList(filtered);
         }
 
         // Tap "Kurangi" on an item row instead of typing the item name manually
