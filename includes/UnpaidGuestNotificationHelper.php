@@ -71,3 +71,57 @@ function formatUnpaidGuestMessages($unpaidGuests)
 
     return $messages;
 }
+
+function getUnpaidHotelServiceInvoices($pdo, $businessId)
+{
+    try {
+        $stmt = $pdo->prepare("
+            SELECT invoice_number, guest_name, room_number, total, paid_amount
+            FROM hotel_invoices
+            WHERE business_id = ?
+            AND payment_status != 'paid'
+            AND status != 'cancelled'
+            ORDER BY created_at ASC
+            LIMIT 50
+        ");
+        $stmt->execute([$businessId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (\Throwable $e) {
+        error_log("Unpaid hotel service invoices query failed: " . $e->getMessage());
+        return [];
+    }
+}
+
+function formatUnpaidHotelServiceMessages($unpaidInvoices)
+{
+    if (empty($unpaidInvoices)) {
+        return [];
+    }
+
+    // Gabungkan tamu dengan nama persis sama jadi satu baris (total tagihan digabung)
+    $grouped = [];
+    foreach ($unpaidInvoices as $invoice) {
+        $name = trim($invoice['guest_name'] ?? '-');
+        $key = mb_strtolower($name);
+        $remaining = max(0, (float)($invoice['total'] ?? 0) - (float)($invoice['paid_amount'] ?? 0));
+
+        if (!isset($grouped[$key])) {
+            $grouped[$key] = ['name' => $name, 'rooms' => [], 'remaining' => 0];
+        }
+        if (!empty($invoice['room_number'])) {
+            $grouped[$key]['rooms'][] = $invoice['room_number'];
+        }
+        $grouped[$key]['remaining'] += $remaining;
+    }
+
+    $messages = [];
+    foreach ($grouped as $g) {
+        $rooms = array_unique($g['rooms']);
+        $roomLabel = count($rooms) > 1
+            ? count($rooms) . ' Kamar (' . implode(', ', $rooms) . ')'
+            : (count($rooms) === 1 ? 'Room ' . reset($rooms) : '-');
+        $messages[] = "🛎️ {$roomLabel} — {$g['name']} — Hotel Service BELUM LUNAS (Sisa Rp " . number_format($g['remaining'], 0, ',', '.') . ")";
+    }
+
+    return $messages;
+}
