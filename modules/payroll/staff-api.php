@@ -351,16 +351,15 @@ if ($action === 'stock_masuk_gudang_catalog') {
             $gudangDbNameMasuk = (string)($gudangCfgMasuk['database'] ?? '');
             if ($gudangDbNameMasuk !== '') {
                 Database::switchDatabase($gudangDbNameMasuk);
-                $masukDb = Database::getInstance();
-                $masukRows = $masukDb->fetchAll(
-                    "SELECT nama_barang AS item_name, COALESCE(satuan, 'pcs') AS unit
-                     FROM gudang_nasita_barang
-                     WHERE COALESCE(is_active, 1) = 1
-                     ORDER BY nama_barang ASC"
-                ) ?: [];
+                $masukRows = getGudangNasitaStock(300);
                 $masukCatalog = array_map(function ($r) {
-                    return ['item_name' => $r['item_name'] ?? '', 'unit' => $r['unit'] ?? 'pcs'];
-                }, $masukRows);
+                    return [
+                        'item_name' => $r['item_name'] ?? '',
+                        'unit' => $r['unit'] ?? 'pcs',
+                        'category' => $r['category'] ?? '',
+                        'quantity' => (float)($r['quantity'] ?? 0),
+                    ];
+                }, $masukRows ?: []);
             }
         }
     } catch (Throwable $e) {

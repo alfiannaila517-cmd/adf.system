@@ -3640,18 +3640,30 @@ header('Expires: 0');
                     <span id="stockMasukToggleLabel" style="font-size:11px; color:#2563eb; font-weight:600;">Lihat ▾</span>
                 </button>
                 <div id="stockMasukBody" style="display:none; margin-top:8px;">
-                    <input type="text" id="stockMasukItem" class="fi" placeholder="Nama item" list="stockMasukItemList" style="width:100%; margin-bottom:6px;">
-                    <datalist id="stockMasukItemList"></datalist>
-                    <div style="display:flex; gap:6px; margin-bottom:6px;">
-                        <input type="number" id="stockMasukQty" class="fi" placeholder="Qty" step="0.01" min="0" style="flex:1;">
-                        <input type="text" id="stockMasukUnit" class="fi" placeholder="Satuan" value="pcs" style="width:80px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                        <div style="font-size:11px; font-weight:600; color:#64748b;">Stock Gudang Nasita</div>
+                        <button type="button" onclick="loadStockMasukCatalog()" style="border:none; background:none; font-size:11px; color:#2563eb;">🔄 Refresh</button>
                     </div>
-                    <div style="display:flex; gap:6px; margin-bottom:6px;">
-                        <input type="number" id="stockMasukPrice" class="fi" placeholder="Harga/unit (opsional)" step="0.01" min="0" style="flex:1;">
-                        <input type="text" id="stockMasukSupplier" class="fi" placeholder="Supplier (opsional)" style="flex:1;">
+                    <input type="text" id="stockMasukSearch" class="fi" placeholder="🔍 Cari item..." oninput="filterStockMasukList()" style="width:100%; margin-bottom:6px;">
+                    <div id="stockMasukList" style="max-height:200px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:8px; margin-bottom:8px;">
+                        <div style="text-align:center; padding:10px; color:#94a3b8; font-size:11px;">Memuat stock gudang...</div>
                     </div>
-                    <input type="text" id="stockMasukNotes" class="fi" placeholder="Catatan (opsional)" style="width:100%; margin-bottom:8px;">
-                    <button onclick="submitStockMasuk()" style="width:100%; background:linear-gradient(135deg,#059669,#047857); color:#fff; border:none; padding:9px; border-radius:8px; font-weight:600; font-size:12px;">Catat Stock Masuk</button>
+                    <button type="button" onclick="openStockMasukForm('', 'pcs')" style="width:100%; background:none; border:1px dashed #94a3b8; color:#475569; border-radius:8px; padding:8px; font-size:12px; font-weight:600; margin-bottom:8px;">+ Tambah Item Baru</button>
+
+                    <div id="stockMasukForm" style="display:none; border-top:1px solid #edf1f5; padding-top:8px;">
+                        <div id="stockMasukFormTitle" style="font-size:12px; font-weight:700; margin-bottom:6px;"></div>
+                        <input type="text" id="stockMasukItem" class="fi" placeholder="Nama item" style="width:100%; margin-bottom:6px;">
+                        <div style="display:flex; gap:6px; margin-bottom:6px;">
+                            <input type="number" id="stockMasukQty" class="fi" placeholder="Qty" step="0.01" min="0" style="flex:1;">
+                            <input type="text" id="stockMasukUnit" class="fi" placeholder="Satuan" value="pcs" style="width:80px;">
+                        </div>
+                        <div style="display:flex; gap:6px; margin-bottom:6px;">
+                            <input type="number" id="stockMasukPrice" class="fi" placeholder="Harga/unit (opsional)" step="0.01" min="0" style="flex:1;">
+                            <input type="text" id="stockMasukSupplier" class="fi" placeholder="Supplier (opsional)" style="flex:1;">
+                        </div>
+                        <input type="text" id="stockMasukNotes" class="fi" placeholder="Catatan (opsional)" style="width:100%; margin-bottom:8px;">
+                        <button onclick="submitStockMasuk()" style="width:100%; background:linear-gradient(135deg,#059669,#047857); color:#fff; border:none; padding:9px; border-radius:8px; font-weight:600; font-size:12px;">Catat Stock Masuk</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -4113,17 +4125,57 @@ header('Expires: 0');
         let STOCK_MASUK_CATALOG = [];
 
         async function loadStockMasukCatalog() {
-            const list = document.getElementById('stockMasukItemList');
+            const el = document.getElementById('stockMasukList');
+            el.innerHTML = '<div class="loading"><span class="spin"></span> Memuat...</div>';
             try {
                 const res = await fetch(API + '&action=stock_masuk_gudang_catalog');
                 const data = await res.json();
-                if (data.success) {
-                    STOCK_MASUK_CATALOG = data.data;
-                    list.innerHTML = STOCK_MASUK_CATALOG.map(it => `<option value="${it.item_name}">`).join('');
+                if (!data.success) {
+                    el.innerHTML = `<div style="color:#ef4444; font-size:11px; text-align:center; padding:10px;">${data.message || 'Gagal memuat'}</div>`;
+                    return;
                 }
+                STOCK_MASUK_CATALOG = data.data || [];
+                renderStockMasukList(STOCK_MASUK_CATALOG);
             } catch (e) {
-                console.warn('[Stock] loadStockMasukCatalog failed', e);
+                el.innerHTML = '<div style="color:#ef4444; font-size:11px; text-align:center; padding:10px;">Gagal memuat stock Gudang Nasita.</div>';
             }
+        }
+
+        function renderStockMasukList(items) {
+            const el = document.getElementById('stockMasukList');
+            if (!items.length) {
+                el.innerHTML = '<div style="text-align:center; padding:12px; color:#94a3b8; font-size:11px;">Stock Gudang Nasita kosong.</div>';
+                return;
+            }
+            el.innerHTML = items.map((it, i) => `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:7px 8px; border-bottom:1px solid #f1f5f9;">
+                    <div>
+                        <div style="font-size:12px; font-weight:600;">${it.item_name}</div>
+                        <div style="font-size:10px; color:#94a3b8;">${it.category || '-'} · ${Number(it.quantity).toLocaleString('id-ID')} ${it.unit}</div>
+                    </div>
+                    <button type="button" onclick="openStockMasukForm(${JSON.stringify(it.item_name)}, ${JSON.stringify(it.unit)})" style="border:none; background:#2563eb; color:#fff; border-radius:6px; padding:5px 10px; font-size:11px; font-weight:600;">+ Tambah</button>
+                </div>
+            `).join('');
+        }
+
+        function filterStockMasukList() {
+            const q = document.getElementById('stockMasukSearch').value.trim().toLowerCase();
+            renderStockMasukList(!q ? STOCK_MASUK_CATALOG : STOCK_MASUK_CATALOG.filter(it => it.item_name.toLowerCase().includes(q)));
+        }
+
+        function openStockMasukForm(itemName, unit) {
+            document.getElementById('stockMasukForm').style.display = 'block';
+            document.getElementById('stockMasukFormTitle').textContent = itemName ? ('Tambah Stock: ' + itemName) : 'Tambah Item Baru';
+            document.getElementById('stockMasukItem').value = itemName || '';
+            document.getElementById('stockMasukUnit').value = unit || 'pcs';
+            document.getElementById('stockMasukQty').value = '';
+            document.getElementById('stockMasukPrice').value = '';
+            document.getElementById('stockMasukSupplier').value = '';
+            document.getElementById('stockMasukNotes').value = '';
+            document.getElementById('stockMasukForm').scrollIntoView({
+                behavior: 'smooth',
+                block: 'center'
+            });
         }
 
         async function submitStockMasuk() {
@@ -4154,12 +4206,8 @@ header('Expires: 0');
                 const data = await res.json();
                 alert(data.message || (data.success ? 'Berhasil' : 'Gagal'));
                 if (data.success) {
-                    document.getElementById('stockMasukItem').value = '';
-                    document.getElementById('stockMasukQty').value = '';
-                    document.getElementById('stockMasukPrice').value = '';
-                    document.getElementById('stockMasukSupplier').value = '';
-                    document.getElementById('stockMasukNotes').value = '';
-                    STOCK_MASUK_CATALOG = [];
+                    document.getElementById('stockMasukForm').style.display = 'none';
+                    loadStockMasukCatalog();
                     if (STOCK_GUDANG_LOADED) loadStockGudang();
                 }
             } catch (e) {
