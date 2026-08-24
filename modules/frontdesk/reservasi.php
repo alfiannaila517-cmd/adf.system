@@ -787,10 +787,7 @@ include '../../includes/header.php';
                             </td>
                             <!-- Booking Code -->
                             <td>
-                                <strong><?php echo htmlspecialchars($booking['booking_code']); ?></strong>
-                                <?php if ($isGrouped): ?>
-                                    <div style="font-size: 0.65rem; color: #6366f1; margin-top: 2px;">📦 <?php echo $roomCount; ?> rooms</div>
-                                <?php endif; ?>
+                                <strong style="font-size: 0.72rem;"><?php echo htmlspecialchars($booking['booking_code']); ?></strong>
                             </td>
 
                             <!-- Guest -->
