@@ -290,34 +290,67 @@ include '../../includes/header.php';
 
     .filter-section {
         display: flex;
-        gap: 1rem;
-        margin-bottom: 1.5rem;
-        align-items: flex-end;
+        gap: 1.25rem;
+        margin: 0 auto 1.75rem;
+        align-items: center;
+        justify-content: center;
         flex-wrap: wrap;
+        background: var(--card-bg, #fff);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 1.1rem 1.75rem;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+        max-width: 760px;
     }
 
     .filter-group {
         display: flex;
         flex-direction: column;
-        gap: 0.3rem;
+        gap: 0.35rem;
     }
 
     .filter-group label {
         font-weight: 600;
-        font-size: 0.8rem;
+        font-size: 0.7rem;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
+        letter-spacing: 0.6px;
         color: var(--text-secondary);
+    }
+
+    .filter-group .search-wrapper {
+        position: relative;
+    }
+
+    .filter-group .search-wrapper .search-icon {
+        position: absolute;
+        left: 0.85rem;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 0.85rem;
+        opacity: 0.5;
+        pointer-events: none;
+    }
+
+    .filter-group .search-wrapper input {
+        padding-left: 2.2rem;
     }
 
     .filter-group select,
     .filter-group input {
-        padding: 0.5rem 0.75rem;
-        border: 1px solid var(--border-color);
-        border-radius: 4px;
+        padding: 0.6rem 1rem;
+        border: 1.5px solid var(--border-color);
+        border-radius: 999px;
         font-size: 0.85rem;
         background: var(--bg-secondary);
         color: var(--text-primary);
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .filter-group select:focus,
+    .filter-group input:focus {
+        outline: none;
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
     }
 
     /* Bookings Table */
@@ -727,7 +760,10 @@ include '../../includes/header.php';
     <div class="filter-section">
         <div class="filter-group">
             <label>Cari Tamu</label>
-            <input type="text" id="searchGuest" placeholder="Nama tamu, kode booking, no kamar..." oninput="searchBookings(this.value)" style="min-width: 280px;">
+            <div class="search-wrapper">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="searchGuest" placeholder="Nama tamu, kode booking, no kamar..." oninput="searchBookings(this.value)" style="min-width: 300px;">
+            </div>
         </div>
         <div class="filter-group">
             <label>Status Filter</label>
