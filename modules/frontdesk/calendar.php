@@ -140,6 +140,8 @@ try {
             b.room_price, 
             b.booking_source,
             b.payment_status,
+            b.special_request,
+            (SELECT COUNT(*) FROM booking_extras be WHERE be.booking_id = b.id) as extras_count,
             g.guest_name, 
             g.phone
         FROM bookings b
@@ -1354,6 +1356,52 @@ include '../../includes/header.php';
 
     .booking-bar:hover .bar-action-btn {
         opacity: 1;
+    }
+
+    /* Cloudbeds-style payment/request status dots on booking bars */
+    .booking-status-dots {
+        position: absolute;
+        top: -4px;
+        right: -3px;
+        transform: skewX(20deg);
+        display: flex;
+        gap: 2px;
+        z-index: 16;
+        pointer-events: none;
+    }
+
+    .status-dot {
+        display: inline-block;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        border: 1.5px solid #ffffff;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+    }
+
+    .status-dot.dot-red {
+        background: #ef4444;
+        animation: dotGlowRed 1.4s ease-in-out infinite;
+    }
+
+    .status-dot.dot-green {
+        background: #22c55e;
+    }
+
+    .status-dot.dot-yellow {
+        background: #f59e0b;
+    }
+
+    @keyframes dotGlowRed {
+
+        0%,
+        100% {
+            box-shadow: 0 0 2px 0 rgba(239, 68, 68, 0.6);
+        }
+
+        50% {
+            box-shadow: 0 0 6px 3px rgba(239, 68, 68, 0.9);
+        }
     }
 
     .bar-action-btn:hover {
@@ -2705,6 +2753,10 @@ include '../../includes/header.php';
                                             $bookingCode = htmlspecialchars($booking['booking_code']);
                                             $shortCode = substr($bookingCode, 0, 8); // Show first 8 chars
                                             $statusText = ucfirst(str_replace('_', ' ', $booking['status']));
+
+                                            // Cloudbeds-style status dots: red=belum lunas, green=lunas, yellow=ada request tamu
+                                            $isPaidFull = ($booking['payment_status'] ?? '') === 'paid';
+                                            $hasGuestRequest = trim((string)($booking['special_request'] ?? '')) !== '' || (int)($booking['extras_count'] ?? 0) > 0;
                                         ?>
                                             <div class="booking-bar-container" style="left: 50%; width: <?php echo $barWidth; ?>px;"
                                                 data-booking-id="<?php echo $booking['id']; ?>"
@@ -2717,7 +2769,15 @@ include '../../includes/header.php';
                                                 <?php if (!$isPastBooking && !$isCheckedOut): ?>draggable="true" <?php endif; ?>>
                                                 <div class="booking-bar <?php echo $statusClass; ?>"
                                                     onclick="event.stopPropagation(); viewBooking(<?php echo $booking['id']; ?>, event);"
-                                                    title="<?php echo $statusIcon . $guestName; ?> (<?php echo $bookingCode; ?>) - <?php echo $statusText; ?><?php echo $isPastBooking ? ' [PAST]' : ''; ?>">
+                                                    title="<?php echo $statusIcon . $guestName; ?> (<?php echo $bookingCode; ?>) - <?php echo $statusText; ?><?php echo $isPastBooking ? ' [PAST]' : ''; ?><?php echo $isPaidFull ? ' - LUNAS' : ' - BELUM LUNAS'; ?><?php echo $hasGuestRequest ? ' - Ada Request Tamu' : ''; ?>">
+                                                    <?php if (!$isPastBooking): ?>
+                                                        <span class="booking-status-dots">
+                                                            <span class="status-dot <?php echo $isPaidFull ? 'dot-green' : 'dot-red'; ?>" title="<?php echo $isPaidFull ? 'Lunas' : 'Belum Lunas'; ?>"></span>
+                                                            <?php if ($hasGuestRequest): ?>
+                                                                <span class="status-dot dot-yellow" title="Ada request tamu (extra bed/trip/dll)"></span>
+                                                            <?php endif; ?>
+                                                        </span>
+                                                    <?php endif; ?>
                                                     <span><?php echo $statusIcon . $guestName; ?> • <?php echo $shortCode; ?></span>
                                                     <?php if ($isCheckedIn && !$isPastBooking): ?>
                                                         <button class="bar-action-btn bar-extend-btn" onclick="event.stopPropagation(); openExtendModal(<?php echo $booking['id']; ?>, '<?php echo $guestName; ?>', '<?php echo $booking['check_out_date']; ?>', <?php echo $totalNights; ?>)" title="Extend Stay">+</button>
@@ -2775,6 +2835,18 @@ include '../../includes/header.php';
         <div class="legend-item">
             <div class="legend-color" style="background: linear-gradient(135deg, #9ca3af, #d1d5db); opacity: 0.4;"></div>
             <span class="legend-label">📭 Past Booking (History)</span>
+        </div>
+        <div class="legend-item">
+            <span class="status-dot dot-red" style="position:static; animation:none;"></span>
+            <span class="legend-label">Belum Lunas</span>
+        </div>
+        <div class="legend-item">
+            <span class="status-dot dot-green" style="position:static;"></span>
+            <span class="legend-label">Lunas</span>
+        </div>
+        <div class="legend-item">
+            <span class="status-dot dot-yellow" style="position:static;"></span>
+            <span class="legend-label">Ada Request Tamu (Extra Bed/Trip/dll)</span>
         </div>
     </div>
 
