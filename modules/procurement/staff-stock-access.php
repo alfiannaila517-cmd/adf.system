@@ -85,11 +85,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form_action'] ?? '') === '
     $canViewGudang = !empty($_POST['can_view_gudang_nasita']);
     $canReduceStock = !empty($_POST['can_reduce_stock']);
     $canCreatePo = !empty($_POST['can_create_po']);
+    $canInputStockMasuk = !empty($_POST['can_input_stock_masuk']);
 
     if ($email === '') {
         $_SESSION['error'] = 'Email staff wajib diisi.';
     } else {
-        $result = saveStaffStockAccessGrant($email, $name, $allowed, $canViewGudang, $canReduceStock, $canCreatePo, (int)($currentUser['id'] ?? 0));
+        $result = saveStaffStockAccessGrant($email, $name, $allowed, $canViewGudang, $canReduceStock, $canCreatePo, (int)($currentUser['id'] ?? 0), $canInputStockMasuk);
         $_SESSION[$result['success'] ? 'success' : 'error'] = $result['message'];
     }
 
@@ -175,8 +176,11 @@ include '../../includes/header.php';
                 <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; margin-bottom:0.3rem;">
                     <input type="checkbox" id="permReduce" name="can_reduce_stock" value="1"> Bisa Kurangi Stock Harian
                 </label>
-                <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem;">
+                <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; margin-bottom:0.3rem;">
                     <input type="checkbox" id="permPo" name="can_create_po" value="1"> Bisa Buat PO ke Gudang Nasita
+                </label>
+                <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem;">
+                    <input type="checkbox" id="permInputMasuk" name="can_input_stock_masuk" value="1"> Bisa Input Stock Barang Datang (Gudang Nasita)
                 </label>
             </div>
 
@@ -204,43 +208,45 @@ include '../../includes/header.php';
                         <tr>
                             <td colspan="4" style="text-align:center; padding:1.5rem; color:var(--text-muted);">Belum ada staff dengan akses stock.</td>
                         </tr>
-                    <?php else: foreach ($grants as $grant): ?>
-                        <tr>
-                            <td>
-                                <div style="font-weight:600;"><?php echo htmlspecialchars($grant['staff_name'] !== '' ? $grant['staff_name'] : $grant['staff_email']); ?></div>
-                                <div style="font-size:0.75rem; color:var(--text-muted);"><?php echo htmlspecialchars($grant['staff_email']); ?></div>
-                            </td>
-                            <td style="font-size:0.82rem;">
-                                <?php
-                                $names = [];
-                                foreach ($grant['allowed_businesses'] as $slug) {
-                                    $names[] = $availableBusinesses[$slug] ?? $slug;
-                                }
-                                echo htmlspecialchars(implode(', ', $names) ?: '-');
-                                ?>
-                            </td>
-                            <td style="font-size:0.78rem;">
-                                <?php if ($grant['can_view_gudang_nasita']): ?><span style="display:inline-block; background:#e0f2fe; color:#075985; padding:2px 6px; border-radius:6px; margin:1px;">Lihat Gudang</span><?php endif; ?>
-                                <?php if ($grant['can_reduce_stock']): ?><span style="display:inline-block; background:#fef3c7; color:#92400e; padding:2px 6px; border-radius:6px; margin:1px;">Kurangi Stock</span><?php endif; ?>
-                                <?php if ($grant['can_create_po']): ?><span style="display:inline-block; background:#dcfce7; color:#166534; padding:2px 6px; border-radius:6px; margin:1px;">Buat PO</span><?php endif; ?>
-                            </td>
-                            <td style="white-space:nowrap;">
-                                <button type="button" class="btn btn-sm btn-secondary" style="padding:2px 8px; font-size:0.7rem; margin-right:4px;"
-                                    onclick='editGrant(<?php echo json_encode([
-                                        "email" => $grant["staff_email"],
-                                        "name" => $grant["staff_name"],
-                                        "businesses" => $grant["allowed_businesses"],
-                                        "gudang" => (bool)$grant["can_view_gudang_nasita"],
-                                        "reduce" => (bool)$grant["can_reduce_stock"],
-                                        "po" => (bool)$grant["can_create_po"],
-                                    ], JSON_HEX_APOS | JSON_HEX_QUOT); ?>)'>Edit</button>
-                                <form method="POST" style="margin:0; display:inline;" onsubmit="return confirm('Hapus akses stock staff ini?')">
-                                    <input type="hidden" name="form_action" value="delete_grant">
-                                    <input type="hidden" name="grant_id" value="<?php echo (int)$grant['id']; ?>">
-                                    <button type="submit" class="btn btn-sm btn-danger" style="padding:2px 8px; font-size:0.7rem;">Hapus</button>
-                                </form>
-                            </td>
-                        </tr>
+                        <?php else: foreach ($grants as $grant): ?>
+                            <tr>
+                                <td>
+                                    <div style="font-weight:600;"><?php echo htmlspecialchars($grant['staff_name'] !== '' ? $grant['staff_name'] : $grant['staff_email']); ?></div>
+                                    <div style="font-size:0.75rem; color:var(--text-muted);"><?php echo htmlspecialchars($grant['staff_email']); ?></div>
+                                </td>
+                                <td style="font-size:0.82rem;">
+                                    <?php
+                                    $names = [];
+                                    foreach ($grant['allowed_businesses'] as $slug) {
+                                        $names[] = $availableBusinesses[$slug] ?? $slug;
+                                    }
+                                    echo htmlspecialchars(implode(', ', $names) ?: '-');
+                                    ?>
+                                </td>
+                                <td style="font-size:0.78rem;">
+                                    <?php if ($grant['can_view_gudang_nasita']): ?><span style="display:inline-block; background:#e0f2fe; color:#075985; padding:2px 6px; border-radius:6px; margin:1px;">Lihat Gudang</span><?php endif; ?>
+                                    <?php if ($grant['can_reduce_stock']): ?><span style="display:inline-block; background:#fef3c7; color:#92400e; padding:2px 6px; border-radius:6px; margin:1px;">Kurangi Stock</span><?php endif; ?>
+                                    <?php if ($grant['can_create_po']): ?><span style="display:inline-block; background:#dcfce7; color:#166534; padding:2px 6px; border-radius:6px; margin:1px;">Buat PO</span><?php endif; ?>
+                                    <?php if (!empty($grant['can_input_stock_masuk'])): ?><span style="display:inline-block; background:#ede9fe; color:#5b21b6; padding:2px 6px; border-radius:6px; margin:1px;">Input Barang Datang</span><?php endif; ?>
+                                </td>
+                                <td style="white-space:nowrap;">
+                                    <button type="button" class="btn btn-sm btn-secondary" style="padding:2px 8px; font-size:0.7rem; margin-right:4px;"
+                                        onclick='editGrant(<?php echo json_encode([
+                                                                "email" => $grant["staff_email"],
+                                                                "name" => $grant["staff_name"],
+                                                                "businesses" => $grant["allowed_businesses"],
+                                                                "gudang" => (bool)$grant["can_view_gudang_nasita"],
+                                                                "reduce" => (bool)$grant["can_reduce_stock"],
+                                                                "po" => (bool)$grant["can_create_po"],
+                                                                "inputMasuk" => (bool)($grant["can_input_stock_masuk"] ?? false),
+                                                            ], JSON_HEX_APOS | JSON_HEX_QUOT); ?>)'>Edit</button>
+                                    <form method="POST" style="margin:0; display:inline;" onsubmit="return confirm('Hapus akses stock staff ini?')">
+                                        <input type="hidden" name="form_action" value="delete_grant">
+                                        <input type="hidden" name="grant_id" value="<?php echo (int)$grant['id']; ?>">
+                                        <button type="submit" class="btn btn-sm btn-danger" style="padding:2px 8px; font-size:0.7rem;">Hapus</button>
+                                    </form>
+                                </td>
+                            </tr>
                     <?php endforeach;
                     endif; ?>
                 </tbody>
@@ -250,34 +256,38 @@ include '../../includes/header.php';
 </div>
 
 <style>
-@media (max-width: 992px) {
-    div[style*="grid-template-columns: 1fr 1.4fr"] {
-        grid-template-columns: 1fr !important;
+    @media (max-width: 992px) {
+        div[style*="grid-template-columns: 1fr 1.4fr"] {
+            grid-template-columns: 1fr !important;
+        }
     }
-}
 </style>
 
 <script>
-function editGrant(grant) {
-    document.getElementById('staffEmailInput').value = grant.email || '';
-    document.getElementById('staffNameInput').value = grant.name || '';
-    document.querySelectorAll('.biz-checkbox').forEach(function (cb) {
-        cb.checked = (grant.businesses || []).indexOf(cb.value) !== -1;
-    });
-    document.getElementById('permGudang').checked = !!grant.gudang;
-    document.getElementById('permReduce').checked = !!grant.reduce;
-    document.getElementById('permPo').checked = !!grant.po;
+    function editGrant(grant) {
+        document.getElementById('staffEmailInput').value = grant.email || '';
+        document.getElementById('staffNameInput').value = grant.name || '';
+        document.querySelectorAll('.biz-checkbox').forEach(function(cb) {
+            cb.checked = (grant.businesses || []).indexOf(cb.value) !== -1;
+        });
+        document.getElementById('permGudang').checked = !!grant.gudang;
+        document.getElementById('permReduce').checked = !!grant.reduce;
+        document.getElementById('permPo').checked = !!grant.po;
+        document.getElementById('permInputMasuk').checked = !!grant.inputMasuk;
 
-    document.getElementById('grantFormTitle').textContent = 'Edit Akses: ' + (grant.name || grant.email);
-    document.getElementById('editingBadge').style.display = 'inline';
-    document.getElementById('staffEmailInput').scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
+        document.getElementById('grantFormTitle').textContent = 'Edit Akses: ' + (grant.name || grant.email);
+        document.getElementById('editingBadge').style.display = 'inline';
+        document.getElementById('staffEmailInput').scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
+        });
+    }
 
-function cancelEditGrant() {
-    document.getElementById('staffEmailInput').closest('form').reset();
-    document.getElementById('grantFormTitle').textContent = 'Tambah / Update Akses';
-    document.getElementById('editingBadge').style.display = 'none';
-}
+    function cancelEditGrant() {
+        document.getElementById('staffEmailInput').closest('form').reset();
+        document.getElementById('grantFormTitle').textContent = 'Tambah / Update Akses';
+        document.getElementById('editingBadge').style.display = 'none';
+    }
 </script>
 
 <?php include '../../includes/footer.php'; ?>

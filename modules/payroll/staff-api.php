@@ -330,7 +330,67 @@ if ($action === 'stock_access_info') {
         'can_view_gudang_nasita' => (bool)$grant['can_view_gudang_nasita'],
         'can_reduce_stock' => (bool)$grant['can_reduce_stock'],
         'can_create_po' => (bool)$grant['can_create_po'],
+        'can_input_stock_masuk' => (bool)($grant['can_input_stock_masuk'] ?? false),
     ]]);
+    exit;
+}
+
+if ($action === 'stock_masuk_gudang_catalog') {
+    $grant = $staffEmailForStock !== '' ? getStaffStockAccessByEmail($staffEmailForStock) : null;
+    if (!$grant || empty($grant['can_input_stock_masuk'])) {
+        echo json_encode(['success' => false, 'message' => 'Tidak ada akses input stock barang datang.']);
+        exit;
+    }
+
+    $originDbNameMasukCatalog = Database::getCurrentDatabase();
+    $masukCatalog = [];
+    try {
+        $gudangCfgPathMasuk = __DIR__ . '/../../config/businesses/gudang-nasita.php';
+        if (file_exists($gudangCfgPathMasuk)) {
+            $gudangCfgMasuk = require $gudangCfgPathMasuk;
+            $gudangDbNameMasuk = (string)($gudangCfgMasuk['database'] ?? '');
+            if ($gudangDbNameMasuk !== '') {
+                Database::switchDatabase($gudangDbNameMasuk);
+                $masukDb = Database::getInstance();
+                $masukRows = $masukDb->fetchAll(
+                    "SELECT nama_barang AS item_name, COALESCE(satuan, 'pcs') AS unit
+                     FROM gudang_nasita_barang
+                     WHERE COALESCE(is_active, 1) = 1
+                     ORDER BY nama_barang ASC"
+                ) ?: [];
+                $masukCatalog = array_map(function ($r) {
+                    return ['item_name' => $r['item_name'] ?? '', 'unit' => $r['unit'] ?? 'pcs'];
+                }, $masukRows);
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('stock_masuk_gudang_catalog error: ' . $e->getMessage());
+    } finally {
+        if ($originDbNameMasukCatalog !== '') {
+            Database::switchDatabase($originDbNameMasukCatalog);
+        }
+    }
+
+    echo json_encode(['success' => true, 'data' => $masukCatalog]);
+    exit;
+}
+
+if ($action === 'stock_masuk_gudang_submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $itemName = trim((string)($_POST['item_name'] ?? ''));
+    $unit = trim((string)($_POST['unit'] ?? 'pcs'));
+    $qty = (float)($_POST['quantity'] ?? 0);
+    $unitPrice = (float)($_POST['unit_price'] ?? 0);
+    $supplierName = trim((string)($_POST['supplier_name'] ?? ''));
+    $notes = trim((string)($_POST['notes'] ?? ''));
+
+    $grant = $staffEmailForStock !== '' ? getStaffStockAccessByEmail($staffEmailForStock) : null;
+    if (!$grant || empty($grant['can_input_stock_masuk'])) {
+        echo json_encode(['success' => false, 'message' => 'Tidak ada akses input stock barang datang.']);
+        exit;
+    }
+
+    $result = recordStaffStockMasukToGudang($itemName, $unit, $qty, $unitPrice, $supplierName, $notes, $staffNameForStock);
+    echo json_encode($result);
     exit;
 }
 

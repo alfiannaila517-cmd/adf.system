@@ -3048,12 +3048,19 @@ function ensureStaffStockAccessTable()
             can_view_gudang_nasita TINYINT(1) NOT NULL DEFAULT 0,
             can_reduce_stock TINYINT(1) NOT NULL DEFAULT 0,
             can_create_po TINYINT(1) NOT NULL DEFAULT 0,
+            can_input_stock_masuk TINYINT(1) NOT NULL DEFAULT 0,
             is_active TINYINT(1) NOT NULL DEFAULT 1,
             created_by INT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             UNIQUE KEY uniq_staff_email (staff_email)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        // Lazily add the column for installs where the table already existed pre-feature.
+        $existingCols = array_column($db->fetchAll('SHOW COLUMNS FROM staff_stock_access') ?: [], 'Field');
+        if (!in_array('can_input_stock_masuk', $existingCols, true)) {
+            $db->query('ALTER TABLE staff_stock_access ADD COLUMN can_input_stock_masuk TINYINT(1) NOT NULL DEFAULT 0 AFTER can_create_po');
+        }
     } catch (Throwable $e) {
         error_log('ensureStaffStockAccessTable error: ' . $e->getMessage());
     } finally {
@@ -3145,7 +3152,7 @@ function getAllStaffStockAccessGrants()
 /**
  * Create/update (upsert by email) a staff stock-access grant.
  */
-function saveStaffStockAccessGrant($email, $name, array $allowedBusinesses, $canViewGudang, $canReduceStock, $canCreatePo, $createdBy = null)
+function saveStaffStockAccessGrant($email, $name, array $allowedBusinesses, $canViewGudang, $canReduceStock, $canCreatePo, $createdBy = null, $canInputStockMasuk = false)
 {
     $email = strtolower(trim((string)$email));
     if ($email === '') {
@@ -3165,14 +3172,15 @@ function saveStaffStockAccessGrant($email, $name, array $allowedBusinesses, $can
 
         $db->query(
             "INSERT INTO staff_stock_access
-                (staff_email, staff_name, allowed_businesses, can_view_gudang_nasita, can_reduce_stock, can_create_po, is_active, created_by)
-             VALUES (?, ?, ?, ?, ?, ?, 1, ?)
+                (staff_email, staff_name, allowed_businesses, can_view_gudang_nasita, can_reduce_stock, can_create_po, can_input_stock_masuk, is_active, created_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)
              ON DUPLICATE KEY UPDATE
                 staff_name = VALUES(staff_name),
                 allowed_businesses = VALUES(allowed_businesses),
                 can_view_gudang_nasita = VALUES(can_view_gudang_nasita),
                 can_reduce_stock = VALUES(can_reduce_stock),
                 can_create_po = VALUES(can_create_po),
+                can_input_stock_masuk = VALUES(can_input_stock_masuk),
                 is_active = 1",
             [
                 $email,
@@ -3181,6 +3189,7 @@ function saveStaffStockAccessGrant($email, $name, array $allowedBusinesses, $can
                 $canViewGudang ? 1 : 0,
                 $canReduceStock ? 1 : 0,
                 $canCreatePo ? 1 : 0,
+                $canInputStockMasuk ? 1 : 0,
                 $createdBy,
             ]
         );
@@ -3769,6 +3778,73 @@ function createStaffPoToGudang($businessSlug, array $items, $notes, $staffLabel)
         }
         error_log('createStaffPoToGudang error: ' . $e->getMessage());
         return ['success' => false, 'message' => 'Gagal membuat PO: ' . $e->getMessage()];
+    } finally {
+        if ($originDbName !== '') {
+            Database::switchDatabase($originDbName);
+        }
+    }
+}
+
+/**
+ * Record incoming stock ("barang datang") directly into Gudang Nasita's central
+ * warehouse stock, on behalf of a staff-portal user. Reuses the same tested logic
+ * as the "Input Stok Manual" flow in modules/procurement/gudang-nasita.php
+ * (addGudangNasitaManualStock), without any Auth/session dependency since staff
+ * accounts aren't in the `users` table.
+ *
+ * @return array ['success' => bool, 'message' => string, ...]
+ */
+function recordStaffStockMasukToGudang($itemName, $unit, $qty, $unitPrice, $supplierName, $notes, $staffLabel)
+{
+    $gudangCfgPath = __DIR__ . '/../config/businesses/gudang-nasita.php';
+    if (!file_exists($gudangCfgPath)) {
+        return ['success' => false, 'message' => 'Konfigurasi Gudang Nasita tidak ditemukan.'];
+    }
+    $gudangCfg = require $gudangCfgPath;
+    $gudangDbName = trim((string)($gudangCfg['database'] ?? ''));
+    if ($gudangDbName === '') {
+        return ['success' => false, 'message' => 'Database Gudang Nasita tidak ditemukan.'];
+    }
+
+    $itemName = trim((string)$itemName);
+    $unit = trim((string)$unit) !== '' ? trim((string)$unit) : 'pcs';
+    $qty = (float)$qty;
+    $unitPrice = (float)$unitPrice;
+    $supplierName = trim((string)$supplierName);
+    $notes = trim((string)$notes);
+    $staffLabel = trim((string)$staffLabel);
+
+    if ($itemName === '' || $qty <= 0) {
+        return ['success' => false, 'message' => 'Data stock barang datang tidak valid.'];
+    }
+
+    $originDbName = Database::getCurrentDatabase();
+
+    try {
+        Database::switchDatabase($gudangDbName);
+        $db = Database::getInstance();
+
+        // Preserve the item's existing catalog category (if any) instead of always
+        // resetting it to 'lainnya' — the staff-portal form doesn't ask for category.
+        $category = 'lainnya';
+        $existingStock = $db->fetchOne("SELECT category FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) LIMIT 1", [$itemName]);
+        if ($existingStock && trim((string)($existingStock['category'] ?? '')) !== '') {
+            $category = trim((string)$existingStock['category']);
+        }
+
+        $fallbackUserId = resolveFallbackAdminUserId($db);
+
+        $result = addGudangNasitaManualStock($itemName, $unit, $qty, $fallbackUserId, [
+            'category' => $category,
+            'unit_price' => $unitPrice,
+            'supplier_name' => $supplierName,
+            'notes' => ($notes !== '' ? $notes : 'Input stok barang datang') . ' (via Staff Portal: ' . ($staffLabel !== '' ? $staffLabel : 'Staff') . ')',
+        ]);
+
+        return $result;
+    } catch (Throwable $e) {
+        error_log('recordStaffStockMasukToGudang error: ' . $e->getMessage());
+        return ['success' => false, 'message' => 'Gagal catat stock barang datang: ' . $e->getMessage()];
     } finally {
         if ($originDbName !== '') {
             Database::switchDatabase($originDbName);

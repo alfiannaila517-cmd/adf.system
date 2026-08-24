@@ -3633,6 +3633,27 @@ header('Expires: 0');
                     <button onclick="submitStockPo()" style="width:100%; background:linear-gradient(135deg,#059669,#047857); color:#fff; border:none; padding:9px; border-radius:8px; font-weight:600; font-size:12px;">Kirim PO</button>
                 </div>
             </div>
+
+            <div class="card" id="stockMasukCard" style="display:none; margin-bottom:10px;">
+                <button type="button" onclick="toggleStockMasuk()" style="width:100%; background:none; border:none; padding:0; display:flex; justify-content:space-between; align-items:center; cursor:pointer;">
+                    <h4 style="margin:0; font-size:13px;">📥 Input Stock Barang Datang (Gudang Nasita)</h4>
+                    <span id="stockMasukToggleLabel" style="font-size:11px; color:#2563eb; font-weight:600;">Lihat ▾</span>
+                </button>
+                <div id="stockMasukBody" style="display:none; margin-top:8px;">
+                    <input type="text" id="stockMasukItem" class="fi" placeholder="Nama item" list="stockMasukItemList" style="width:100%; margin-bottom:6px;">
+                    <datalist id="stockMasukItemList"></datalist>
+                    <div style="display:flex; gap:6px; margin-bottom:6px;">
+                        <input type="number" id="stockMasukQty" class="fi" placeholder="Qty" step="0.01" min="0" style="flex:1;">
+                        <input type="text" id="stockMasukUnit" class="fi" placeholder="Satuan" value="pcs" style="width:80px;">
+                    </div>
+                    <div style="display:flex; gap:6px; margin-bottom:6px;">
+                        <input type="number" id="stockMasukPrice" class="fi" placeholder="Harga/unit (opsional)" step="0.01" min="0" style="flex:1;">
+                        <input type="text" id="stockMasukSupplier" class="fi" placeholder="Supplier (opsional)" style="flex:1;">
+                    </div>
+                    <input type="text" id="stockMasukNotes" class="fi" placeholder="Catatan (opsional)" style="width:100%; margin-bottom:8px;">
+                    <button onclick="submitStockMasuk()" style="width:100%; background:linear-gradient(135deg,#059669,#047857); color:#fff; border:none; padding:9px; border-radius:8px; font-weight:600; font-size:12px;">Catat Stock Masuk</button>
+                </div>
+            </div>
         </div>
 
         <!-- Bottom Navigation -->
@@ -4044,6 +4065,7 @@ header('Expires: 0');
                     document.getElementById('stockGudangCard').style.display = STOCK_ACCESS.can_view_gudang_nasita ? 'block' : 'none';
                     document.getElementById('stockOutCard').style.display = STOCK_ACCESS.can_reduce_stock ? 'block' : 'none';
                     document.getElementById('stockPoCard').style.display = STOCK_ACCESS.can_create_po ? 'block' : 'none';
+                    document.getElementById('stockMasukCard').style.display = STOCK_ACCESS.can_input_stock_masuk ? 'block' : 'none';
                 } else {
                     quickMenuStock.style.display = 'none';
                 }
@@ -4077,6 +4099,69 @@ header('Expires: 0');
             toggleCollapsibleCard('stockPoBody', 'stockPoToggleLabel', function() {
                 if (!STOCK_PO_CATALOG.length) loadStockPoCatalog();
             });
+        }
+
+        function toggleStockMasuk() {
+            toggleCollapsibleCard('stockMasukBody', 'stockMasukToggleLabel', function() {
+                if (!STOCK_MASUK_CATALOG.length) loadStockMasukCatalog();
+            });
+        }
+
+        let STOCK_MASUK_CATALOG = [];
+
+        async function loadStockMasukCatalog() {
+            const list = document.getElementById('stockMasukItemList');
+            try {
+                const res = await fetch(API + '&action=stock_masuk_gudang_catalog');
+                const data = await res.json();
+                if (data.success) {
+                    STOCK_MASUK_CATALOG = data.data;
+                    list.innerHTML = STOCK_MASUK_CATALOG.map(it => `<option value="${it.item_name}">`).join('');
+                }
+            } catch (e) {
+                console.warn('[Stock] loadStockMasukCatalog failed', e);
+            }
+        }
+
+        async function submitStockMasuk() {
+            const itemName = document.getElementById('stockMasukItem').value.trim();
+            const qty = parseFloat(document.getElementById('stockMasukQty').value || '0');
+            const unit = document.getElementById('stockMasukUnit').value.trim() || 'pcs';
+            const unitPrice = parseFloat(document.getElementById('stockMasukPrice').value || '0');
+            const supplierName = document.getElementById('stockMasukSupplier').value.trim();
+            const notes = document.getElementById('stockMasukNotes').value.trim();
+            if (!itemName || qty <= 0) {
+                alert('Isi nama item dan qty dengan benar.');
+                return;
+            }
+
+            try {
+                const fd = new FormData();
+                fd.append('action', 'stock_masuk_gudang_submit');
+                fd.append('item_name', itemName);
+                fd.append('unit', unit);
+                fd.append('quantity', qty);
+                fd.append('unit_price', unitPrice);
+                fd.append('supplier_name', supplierName);
+                fd.append('notes', notes);
+                const res = await fetch(API, {
+                    method: 'POST',
+                    body: fd
+                });
+                const data = await res.json();
+                alert(data.message || (data.success ? 'Berhasil' : 'Gagal'));
+                if (data.success) {
+                    document.getElementById('stockMasukItem').value = '';
+                    document.getElementById('stockMasukQty').value = '';
+                    document.getElementById('stockMasukPrice').value = '';
+                    document.getElementById('stockMasukSupplier').value = '';
+                    document.getElementById('stockMasukNotes').value = '';
+                    STOCK_MASUK_CATALOG = [];
+                    if (STOCK_GUDANG_LOADED) loadStockGudang();
+                }
+            } catch (e) {
+                alert('Gagal mengirim data stock barang datang.');
+            }
         }
 
         function toggleCollapsibleCard(bodyId, labelId, onFirstOpen) {
