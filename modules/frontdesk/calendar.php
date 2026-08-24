@@ -1225,7 +1225,7 @@ include '../../includes/header.php';
         border-radius: 3px;
         white-space: nowrap;
         transform: skewX(-20deg);
-        background: linear-gradient(135deg, #1e3a8a, #1d4ed8) !important;
+        background: linear-gradient(135deg, #3d5a99, #5b82d1) !important;
         color: #ffffff !important;
     }
 
@@ -1298,15 +1298,15 @@ include '../../includes/header.php';
 
     /* Status specific bars */
     .booking-confirmed {
-        background: linear-gradient(135deg, #1e3a8a, #1d4ed8) !important;
-        border-right-color: #1e3a8a;
-        border-left-color: #1d4ed8;
+        background: linear-gradient(135deg, #3d5a99, #5b82d1) !important;
+        border-right-color: #3d5a99;
+        border-left-color: #5b82d1;
     }
 
     .booking-pending {
-        background: linear-gradient(135deg, #1e3a8a, #1d4ed8) !important;
-        border-right-color: #1e3a8a;
-        border-left-color: #1d4ed8;
+        background: linear-gradient(135deg, #3d5a99, #5b82d1) !important;
+        border-right-color: #3d5a99;
+        border-left-color: #5b82d1;
     }
 
     .booking-checked-in {
@@ -1381,7 +1381,6 @@ include '../../includes/header.php';
 
     .status-dot.dot-red {
         background: #ef4444;
-        animation: dotGlowRed 1.4s ease-in-out infinite;
     }
 
     .status-dot.dot-green {
@@ -1390,18 +1389,6 @@ include '../../includes/header.php';
 
     .status-dot.dot-yellow {
         background: #f59e0b;
-    }
-
-    @keyframes dotGlowRed {
-
-        0%,
-        100% {
-            box-shadow: 0 0 2px 0 rgba(239, 68, 68, 0.6);
-        }
-
-        50% {
-            box-shadow: 0 0 6px 3px rgba(239, 68, 68, 0.9);
-        }
     }
 
     .bar-action-btn:hover {
@@ -2821,7 +2808,7 @@ include '../../includes/header.php';
     <!-- Legend -->
     <div class="legend">
         <div class="legend-item">
-            <div class="legend-color" style="background: linear-gradient(135deg, #1e2a5a, #1e3a8a);"></div>
+            <div class="legend-color" style="background: linear-gradient(135deg, #3d5a99, #5b82d1);"></div>
             <span class="legend-label">📋 Booking (Confirmed/Pending)</span>
         </div>
         <div class="legend-item">
