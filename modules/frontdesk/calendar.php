@@ -3039,6 +3039,60 @@ include '../../includes/header.php';
     }
 
     let currentPaymentBooking = null;
+    let currentGroupRoomsMap = {};
+
+    function escHtml(str) {
+        return String(str || '').replace(/[&<>"']/g, function(ch) {
+            return ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            })[ch];
+        });
+    }
+
+    window.openRoomNoteEditor = function openRoomNoteEditor(bookingId) {
+        const gb = currentGroupRoomsMap[bookingId];
+        let roomLabel = '#' + bookingId;
+        let existingNote = '';
+        if (gb) {
+            roomLabel = gb.room_number;
+            existingNote = gb.special_request || '';
+        } else if (currentPaymentBooking && currentPaymentBooking.id === bookingId) {
+            roomLabel = currentPaymentBooking.room_number || roomLabel;
+            existingNote = currentPaymentBooking.special_requests || '';
+        }
+        const note = prompt('Catatan / Request Tamu untuk Room ' + roomLabel + ':', existingNote);
+        if (note === null) return;
+
+        fetch('<?php echo BASE_URL; ?>/api/update-booking-note.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                credentials: 'include',
+                body: 'booking_id=' + encodeURIComponent(bookingId) + '&note=' + encodeURIComponent(note)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (!data.success) {
+                    alert('Error: ' + (data.message || 'Gagal menyimpan catatan'));
+                    return;
+                }
+                if (!currentPaymentBooking) return;
+                return fetch('../../api/get-booking-details.php?id=' + currentPaymentBooking.id)
+                    .then(res => res.json())
+                    .then(updated => {
+                        if (updated.success) showBookingQuickView(updated.booking);
+                    });
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Gagal menyimpan catatan');
+            });
+    }
 
     // Side Panel - populate and show (Cloudbed-style)
     function showBookingQuickView(booking) {
@@ -3269,14 +3323,22 @@ include '../../includes/header.php';
         if (booking.group_bookings && booking.group_bookings.length > 1) {
             console.log('✅ Showing group bookings section with ' + booking.group_bookings.length + ' rooms');
             let html = '';
+            currentGroupRoomsMap = {};
             booking.group_bookings.forEach(function(gb, idx) {
                 console.log('  Room ' + (idx + 1) + ':', gb);
+                currentGroupRoomsMap[gb.id] = gb;
                 const isActive = gb.id === booking.id;
+                const hasNote = !!(gb.special_request && gb.special_request.trim() !== '');
                 html += `<div style="padding:0.6rem;background:${isActive ? 'rgba(16,185,129,0.08)' : 'rgba(99,102,241,0.05)'};border-radius:6px;border-left:3px solid ${isActive ? '#10b981' : '#6366f1'};cursor:pointer;transition:all 0.2s;" onclick="if(event.target.closest('div') && ${gb.id} !== ${booking.id}) { console.log('Switching to room', ${gb.id}); closeBookingQuickView(); setTimeout(() => viewBooking(${gb.id}, event), 100); }">`;
-                html += `<div style="font-weight:600;font-size:0.9rem;color:var(--text-primary);">🚪 ${gb.room_number} <span style="font-weight:400;color:var(--text-secondary);font-size:0.8rem;">${gb.type_name}</span>`;
+                html += `<div style="display:flex;align-items:center;justify-content:space-between;">`;
+                html += `<div style="font-weight:600;font-size:0.9rem;color:var(--text-primary);">🚪 ${escHtml(gb.room_number)} <span style="font-weight:400;color:var(--text-secondary);font-size:0.8rem;">${escHtml(gb.type_name)}</span>`;
                 if (isActive) html += ` <span style="color:#10b981;font-size:0.7rem;font-weight:700;margin-left:0.4rem;">● AKTIF</span>`;
+                if (hasNote) html += ` <span class="status-dot dot-yellow" style="position:static;margin-left:0.4rem;" title="${escHtml(gb.special_request)}"></span>`;
+                html += `</div>`;
+                html += `<button type="button" onclick="event.stopPropagation(); openRoomNoteEditor(${gb.id})" title="Masukkan catatan/request tamu" style="border:none;background:rgba(99,102,241,0.1);color:#6366f1;font-size:0.7rem;font-weight:600;padding:3px 8px;border-radius:12px;cursor:pointer;white-space:nowrap;">📝 Catatan</button>`;
                 html += `</div>`;
                 html += `<div style="font-size:0.8rem;color:var(--text-secondary);margin-top:0.3rem;">Harga: ${fmtR(gb.room_price)} | Diskon: ${fmtR(gb.discount)} | Total: ${fmtR(gb.final_price)}</div>`;
+                if (hasNote) html += `<div style="font-size:0.78rem;color:#b45309;margin-top:0.3rem;font-style:italic;">📌 ${escHtml(gb.special_request)}</div>`;
                 html += `</div>`;
             });
             groupRoomsList.innerHTML = html;
@@ -3284,6 +3346,7 @@ include '../../includes/header.php';
             console.log('✅ Group section rendered with HTML:', html);
         } else {
             console.log('⚠️ Not showing group section - count:', booking.group_bookings ? booking.group_bookings.length : 0);
+            currentGroupRoomsMap = {};
             groupRoomsSection.style.display = 'none';
         }
 
@@ -6365,6 +6428,7 @@ include '../../includes/header.php';
                 <div class="sp-detail-row"><span>Nights</span><strong id="sp-detail-nights">-</strong></div>
                 <div class="sp-detail-row"><span>Guests</span><strong id="sp-detail-guests">-</strong></div>
                 <div class="sp-detail-row"><span>Special Request</span><strong id="sp-detail-notes" style="font-style:italic;font-weight:400;">-</strong></div>
+                <div class="sp-detail-row"><span></span><button type="button" class="sp-action-btn" style="padding:4px 10px;font-size:0.75rem;" onclick="openRoomNoteEditor(currentPaymentBooking.id)">📝 Masukkan Catatan</button></div>
             </div>
             <div class="sp-detail-section" id="sp-extras-section" style="display:none;">
                 <h4>Extras</h4>
