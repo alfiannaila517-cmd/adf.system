@@ -90,8 +90,18 @@ try {
     $prevMonth = date('Y-m', strtotime($monthStartDate . ' -1 month'));
     $nextMonth = date('Y-m', strtotime($monthStartDate . ' +1 month'));
     $indoMonths = [
-        1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April', 5 => 'Mei', 6 => 'Juni',
-        7 => 'Juli', 8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+        1 => 'Januari',
+        2 => 'Februari',
+        3 => 'Maret',
+        4 => 'April',
+        5 => 'Mei',
+        6 => 'Juni',
+        7 => 'Juli',
+        8 => 'Agustus',
+        9 => 'September',
+        10 => 'Oktober',
+        11 => 'November',
+        12 => 'Desember'
     ];
     $monthLabel = $indoMonths[(int)date('n', strtotime($monthStartDate))] . ' ' . date('Y', strtotime($monthStartDate));
     $isCurrentMonth = $month_filter === date('Y-m');
