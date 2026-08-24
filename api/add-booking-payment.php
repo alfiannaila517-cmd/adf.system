@@ -48,51 +48,115 @@ try {
         $paymentMethod = 'cash';
     }
 
-    $booking = $db->fetchOne("SELECT id, final_price, paid_amount FROM bookings WHERE id = ?", [$bookingId]);
+    $booking = $db->fetchOne("SELECT id, final_price, paid_amount, group_id FROM bookings WHERE id = ?", [$bookingId]);
     if (!$booking) {
         throw new Exception('Booking not found');
     }
 
     $db->beginTransaction();
 
-    // INSERT ke booking_payments - coba dengan created_at, fallback tanpa
-    try {
-        $db->query("INSERT INTO booking_payments (booking_id, amount, payment_method, processed_by, payment_date, created_at) VALUES (?, ?, ?, ?, NOW(), NOW())", [
-            $bookingId, $amount, $paymentMethod, $currentUser['id']
-        ]);
-    } catch (\Throwable $e) {
-        // Fallback: kolom created_at mungkin tidak ada
+    // Insert a booking_payments row for one specific booking id and refresh its own
+    // paid_amount/payment_status. Returns the room's own post-payment figures.
+    $applyPayment = function ($targetId, $finalPrice, $oldPaidAmount, $portion) use ($db, $paymentMethod, $currentUser) {
         try {
-            $db->query("INSERT INTO booking_payments (booking_id, amount, payment_method, processed_by, payment_date) VALUES (?, ?, ?, ?, NOW())", [
-                $bookingId, $amount, $paymentMethod, $currentUser['id']
+            $db->query("INSERT INTO booking_payments (booking_id, amount, payment_method, processed_by, payment_date, created_at) VALUES (?, ?, ?, ?, NOW(), NOW())", [
+                $targetId, $portion, $paymentMethod, $currentUser['id']
             ]);
-        } catch (\Throwable $e2) {
-            // booking_payments tidak ada - lanjutkan, update langsung di bookings saja
-            error_log("booking_payments insert failed: " . $e2->getMessage());
+        } catch (\Throwable $e) {
+            // Fallback: kolom created_at mungkin tidak ada
+            try {
+                $db->query("INSERT INTO booking_payments (booking_id, amount, payment_method, processed_by, payment_date) VALUES (?, ?, ?, ?, NOW())", [
+                    $targetId, $portion, $paymentMethod, $currentUser['id']
+                ]);
+            } catch (\Throwable $e2) {
+                // booking_payments tidak ada - lanjutkan, update langsung di bookings saja
+                error_log("booking_payments insert failed: " . $e2->getMessage());
+            }
+        }
+
+        $paidRow = $db->fetchOne("SELECT COALESCE(SUM(amount), 0) as paid FROM booking_payments WHERE booking_id = ?", [$targetId]);
+        $bpTotal = (float)($paidRow['paid'] ?? 0);
+        // Gunakan nilai terbesar antara booking_payments sum dan paid_amount lama + amount baru
+        $newTotalPaid = max($bpTotal, (float)$oldPaidAmount + $portion);
+        $newRemaining = max(0, (float)$finalPrice - $newTotalPaid);
+
+        if ($newTotalPaid <= 0) {
+            $status = 'unpaid';
+        } elseif ($newRemaining <= 0) {
+            $status = 'paid';
+        } else {
+            $status = 'partial';
+        }
+
+        $db->query("UPDATE bookings SET paid_amount = ?, payment_status = ?, updated_at = NOW() WHERE id = ?", [
+            $newTotalPaid, $status, $targetId
+        ]);
+
+        return ['total_paid' => $newTotalPaid, 'remaining' => $newRemaining, 'status' => $status];
+    };
+
+    // Grouped (multi-room) bookings share ONE combined balance in the Reservasi view
+    // (see reservasi.php _combined_final_price/_combined_total_paid), so a payment made
+    // against any room in the group must settle the group's OTHER unpaid rooms too -
+    // otherwise Calendar's checkout validation (which only checks the single room being
+    // checked out) still blocks checkout even though Reservasi already shows "Lunas".
+    // The originally clicked booking is always paid first; only the leftover amount
+    // spills over to sibling rooms (ascending id) so a room-specific payment made from
+    // Calendar never gets redirected away from the room the user actually intended to pay.
+    $targets = [$booking];
+    if (!empty($booking['group_id'])) {
+        $siblings = $db->fetchAll(
+            "SELECT id, final_price, paid_amount FROM bookings WHERE group_id = ? AND id != ? ORDER BY id ASC",
+            [$booking['group_id'], $bookingId]
+        );
+        $targets = array_merge($targets, $siblings);
+    }
+
+    $leftover = $amount;
+    $primaryResult = null;
+    $combinedFinalPrice = 0.0;
+    $combinedTotalPaid = 0.0;
+
+    foreach ($targets as $target) {
+        $targetId = (int)$target['id'];
+        $finalPrice = (float)$target['final_price'];
+        $oldPaid = (float)$target['paid_amount'];
+        $combinedFinalPrice += $finalPrice;
+
+        $ownRemaining = max(0, $finalPrice - $oldPaid);
+        $portion = min($leftover, $ownRemaining);
+
+        if ($portion > 0) {
+            $result = $applyPayment($targetId, $finalPrice, $oldPaid, $portion);
+            $leftover -= $portion;
+        } else {
+            $result = [
+                'total_paid' => $oldPaid,
+                'remaining' => $ownRemaining,
+                'status' => $ownRemaining <= 0 ? 'paid' : ($oldPaid > 0 ? 'partial' : 'unpaid'),
+            ];
+        }
+
+        $combinedTotalPaid += $result['total_paid'];
+
+        if ($targetId === (int)$bookingId) {
+            $primaryResult = $result;
         }
     }
 
-    // Hitung total dari booking_payments + paid_amount yang sudah ada
-    $payment = $db->fetchOne("SELECT COALESCE(SUM(amount), 0) as paid FROM booking_payments WHERE booking_id = ?", [$bookingId]);
-    $bpTotal  = (float)($payment['paid'] ?? 0);
-    // Gunakan nilai terbesar antara booking_payments sum dan paid_amount lama + amount baru
-    $totalPaid = max($bpTotal, (float)$booking['paid_amount'] + $amount);
-    $remaining = max(0, (float)$booking['final_price'] - $totalPaid);
-
-    if ($totalPaid <= 0) {
-        $paymentStatus = 'unpaid';
-    } elseif ($remaining <= 0) {
-        $paymentStatus = 'paid';
-    } else {
-        $paymentStatus = 'partial';
+    // Overpayment beyond the whole group's combined balance: still record the extra
+    // cash against the originally clicked booking instead of silently dropping it.
+    if ($leftover > 0) {
+        $primaryResult = $applyPayment((int)$bookingId, (float)$booking['final_price'], (float)$primaryResult['total_paid'], $leftover);
+        $combinedTotalPaid += $leftover;
+        $leftover = 0;
     }
 
-    // Selalu update langsung ke bookings - ini yang dibaca oleh Pay button
-    $db->query("UPDATE bookings SET paid_amount = ?, payment_status = ?, updated_at = NOW() WHERE id = ?", [
-        $totalPaid,
-        $paymentStatus,
-        $bookingId
-    ]);
+    $isGroupPayment = count($targets) > 1;
+    $totalPaid = $primaryResult['total_paid'];
+    $remaining = $primaryResult['remaining'];
+    $paymentStatus = $primaryResult['status'];
+    $combinedRemaining = max(0, $combinedFinalPrice - $combinedTotalPaid);
 
     // ==========================================
     // AUTO-INSERT TO CASHBOOK SYSTEM (via Helper)
@@ -164,8 +228,8 @@ try {
                 'booking_code'   => $bookingDetails['booking_code'] ?? '',
                 'room_number'    => $bookingDetails['room_number'] ?? '',
                 'booking_source' => $bookingDetails['booking_source'] ?? 'direct',
-                'final_price'    => $bookingDetails['final_price'] ?? 0,
-                'total_paid'     => $totalPaid,
+                'final_price'    => $isGroupPayment ? $combinedFinalPrice : ($bookingDetails['final_price'] ?? 0),
+                'total_paid'     => $isGroupPayment ? $combinedTotalPaid : $totalPaid,
                 'is_new_reservation' => false,
                 'is_ota_checkin' => false
             ]);
@@ -195,9 +259,15 @@ try {
     }
 
     $db->commit();
-    
+
+    // For grouped (multi-room) bookings, report the combined group status so it matches
+    // what Reservasi shows - the individual room's own status may already read 'paid'
+    // while sibling rooms still have a balance, or vice versa.
+    $displayRemaining = $isGroupPayment ? $combinedRemaining : $remaining;
+    $displayStatus = $isGroupPayment ? ($combinedRemaining <= 0 ? 'paid' : ($combinedTotalPaid > 0 ? 'partial' : 'unpaid')) : $paymentStatus;
+
     // Prepare success message
-    $statusLabel = $paymentStatus === 'paid' ? 'LUNAS ✅' : 'PARTIAL - Sisa: Rp ' . number_format($remaining, 0, ',', '.');
+    $statusLabel = $displayStatus === 'paid' ? 'LUNAS ✅' : 'PARTIAL - Sisa: Rp ' . number_format($displayRemaining, 0, ',', '.');
     $successMessage = "Pembayaran tersimpan ✅";
     $successMessage .= "\nRp " . number_format($amount, 0, ',', '.') . " dicatat untuk booking " . ($bookingDetails['booking_code'] ?? '');
     
@@ -213,9 +283,9 @@ try {
     echo json_encode([
         'success' => true,
         'message' => $successMessage,
-        'total_paid' => $totalPaid,
-        'remaining' => $remaining,
-        'payment_status' => $paymentStatus,
+        'total_paid' => $isGroupPayment ? $combinedTotalPaid : $totalPaid,
+        'remaining' => $displayRemaining,
+        'payment_status' => $displayStatus,
         'cashbook_inserted' => $cashbookInserted,
         'cashbook_at_checkin' => $isOTA,
         'is_ota' => $isOTA
