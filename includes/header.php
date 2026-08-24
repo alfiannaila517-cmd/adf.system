@@ -683,13 +683,13 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                                 <img src="<?php echo $logoPath; ?>" alt="CQC" style="width: 100%; max-height: 48px; border-radius: 4px; object-fit: contain;">
                             </div>
                         <?php else: ?>
-                            <div style="width: 58px; height: 58px; border-radius: 50%; overflow: hidden; flex-shrink: 0;">
+                            <div style="width: 76px; height: 76px; border-radius: 50%; overflow: hidden; flex-shrink: 0;">
                                 <img src="<?php echo $logoPath; ?>" alt="<?php echo htmlspecialchars($displayCompanyName); ?>" style="width: 100%; height: 100%; object-fit: cover; display: block;">
                             </div>
                         <?php endif; ?>
                     <?php else: ?>
-                        <div style="width: 58px; height: 58px; border-radius: 50%; background: linear-gradient(135deg, <?php echo BUSINESS_COLOR; ?>, <?php echo BUSINESS_COLOR; ?>dd); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                            <span style="font-size: 1.6rem; font-weight: 800; color: white;"><?php echo BUSINESS_ICON; ?></span>
+                        <div style="width: 76px; height: 76px; border-radius: 50%; background: linear-gradient(135deg, <?php echo BUSINESS_COLOR; ?>, <?php echo BUSINESS_COLOR; ?>dd); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            <span style="font-size: 2rem; font-weight: 800; color: white;"><?php echo BUSINESS_ICON; ?></span>
                         </div>
                     <?php endif; ?>
                     <?php if (ACTIVE_BUSINESS_ID !== 'cqc'): ?>
@@ -720,18 +720,6 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                         </select>
                     </div>
                 <?php endif; ?>
-
-                <!-- Database Indicator -->
-                <div style="margin-top: 0.75rem; padding: 0.625rem; background: #f8fafc; border: 1px solid #dbe4ee; border-radius: var(--radius-md);">
-                    <div style="font-size: 0.7rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.25rem;">Database</div>
-                    <div style="font-size: 0.75rem; color: #334155; font-weight: 600; word-break: break-all;">
-                        <?php
-                        require_once __DIR__ . '/../config/database.php';
-                        $currentDb = Database::getCurrentDatabase();
-                        echo htmlspecialchars($currentDb);
-                        ?>
-                    </div>
-                </div>
             </div>
 
             <nav style="flex: 1; overflow-y: auto; overflow-x: hidden;">

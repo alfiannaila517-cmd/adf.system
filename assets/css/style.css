@@ -149,7 +149,7 @@ body[data-theme="light"] .sidebar ::-webkit-scrollbar-track {
 }
 
 body[data-theme="light"] .sidebar ::-webkit-scrollbar-thumb {
-  background: #94a3b8 !important;
+  background: #1e3a8a !important;
   border-color: #e2e8f0 !important;
 }
 
@@ -526,8 +526,8 @@ body[data-theme="light"] select:focus {
 .sidebar::-webkit-scrollbar-thumb {
   background: linear-gradient(
     135deg,
-    rgba(99, 102, 241, 0.6) 0%,
-    rgba(139, 92, 246, 0.6) 100%
+    #1e3a8a 0%,
+    #1d4ed8 100%
   );
   border-radius: 10px;
   border: 2px solid var(--bg-secondary);
@@ -537,10 +537,10 @@ body[data-theme="light"] select:focus {
 .sidebar::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(
     135deg,
-    rgba(99, 102, 241, 0.9) 0%,
-    rgba(139, 92, 246, 0.9) 100%
+    #1e3a8a 0%,
+    #1e3a8a 100%
   );
-  box-shadow: 0 0 8px rgba(99, 102, 241, 0.5);
+  box-shadow: 0 0 8px rgba(30, 58, 138, 0.6);
 }
 
 /* Scrollbar untuk table wrapper */
