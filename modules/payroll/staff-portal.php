@@ -4147,15 +4147,19 @@ header('Expires: 0');
                 el.innerHTML = '<div style="text-align:center; padding:12px; color:#94a3b8; font-size:11px;">Stock Gudang Nasita kosong.</div>';
                 return;
             }
+            const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
             el.innerHTML = items.map((it, i) => `
                 <div style="display:flex; justify-content:space-between; align-items:center; padding:7px 8px; border-bottom:1px solid #f1f5f9;">
                     <div>
-                        <div style="font-size:12px; font-weight:600;">${it.item_name}</div>
-                        <div style="font-size:10px; color:#94a3b8;">${it.category || '-'} · ${Number(it.quantity).toLocaleString('id-ID')} ${it.unit}</div>
+                        <div style="font-size:12px; font-weight:600;">${esc(it.item_name)}</div>
+                        <div style="font-size:10px; color:#94a3b8;">${esc(it.category || '-')} · ${Number(it.quantity).toLocaleString('id-ID')} ${esc(it.unit)}</div>
                     </div>
-                    <button type="button" onclick="openStockMasukForm(${JSON.stringify(it.item_name)}, ${JSON.stringify(it.unit)})" style="border:none; background:#2563eb; color:#fff; border-radius:6px; padding:5px 10px; font-size:11px; font-weight:600;">+ Tambah</button>
+                    <button type="button" class="btn-stock-masuk-add" data-item-name="${esc(it.item_name)}" data-unit="${esc(it.unit)}" style="border:none; background:#2563eb; color:#fff; border-radius:6px; padding:5px 10px; font-size:11px; font-weight:600;">+ Tambah</button>
                 </div>
             `).join('');
+            el.querySelectorAll('.btn-stock-masuk-add').forEach(btn => {
+                btn.addEventListener('click', () => openStockMasukForm(btn.dataset.itemName, btn.dataset.unit));
+            });
         }
 
         function filterStockMasukList() {
