@@ -3284,10 +3284,18 @@ include '../../includes/header.php';
         document.getElementById('sp-detail-nights').textContent = (booking.total_nights || '-') + ' night(s)';
         document.getElementById('sp-detail-guests').textContent = (booking.adults || 1) + ' adult(s)' + (booking.children > 0 ? ', ' + booking.children + ' child(ren)' : '');
         // Notes: for a group booking, show requests from ALL rooms (not just the one clicked)
-        if (isGroup && booking.combined_notes && booking.combined_notes.length > 0) {
-            document.getElementById('sp-detail-notes').textContent = booking.combined_notes.join(' | ');
+        const noteDisplay = (isGroup && booking.combined_notes && booking.combined_notes.length > 0) ?
+            booking.combined_notes.join(' | ') : (booking.special_requests || '');
+        document.getElementById('sp-detail-notes').textContent = noteDisplay || '-';
+
+        // Folio tab: surface the note right where it's first seen (one click = you know there's a note)
+        const folioNoteBanner = document.getElementById('sp-folio-note-banner');
+        const folioNoteText = document.getElementById('sp-folio-note-text');
+        if (noteDisplay) {
+            folioNoteBanner.style.display = 'flex';
+            folioNoteText.textContent = noteDisplay;
         } else {
-            document.getElementById('sp-detail-notes').textContent = booking.special_requests || '-';
+            folioNoteBanner.style.display = 'none';
         }
 
         // Extras in details
@@ -6396,6 +6404,13 @@ include '../../includes/header.php';
                 <div class="sp-balance-label">Balance due</div>
                 <div class="sp-balance-amount" id="sp-balance">Rp0</div>
             </div>
+            <div id="sp-folio-note-banner" style="display:none;align-items:flex-start;gap:0.5rem;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:0.6rem 0.8rem;margin-bottom:0.8rem;">
+                <span class="status-dot dot-yellow" style="position:static;margin-top:3px;flex-shrink:0;"></span>
+                <span id="sp-folio-note-text" style="font-size:0.82rem;color:#92400e;font-style:italic;"></span>
+            </div>
+            <div style="display:flex;justify-content:flex-end;margin-bottom:0.6rem;">
+                <button type="button" class="sp-action-btn" style="padding:5px 12px;font-size:0.75rem;" onclick="openRoomNoteEditor(currentPaymentBooking.id)">📝 Catatan</button>
+            </div>
             <table class="sp-folio-table">
                 <thead>
                     <tr>
@@ -6428,7 +6443,6 @@ include '../../includes/header.php';
                 <div class="sp-detail-row"><span>Nights</span><strong id="sp-detail-nights">-</strong></div>
                 <div class="sp-detail-row"><span>Guests</span><strong id="sp-detail-guests">-</strong></div>
                 <div class="sp-detail-row"><span>Special Request</span><strong id="sp-detail-notes" style="font-style:italic;font-weight:400;">-</strong></div>
-                <div class="sp-detail-row"><span></span><button type="button" class="sp-action-btn" style="padding:4px 10px;font-size:0.75rem;" onclick="openRoomNoteEditor(currentPaymentBooking.id)">📝 Masukkan Catatan</button></div>
             </div>
             <div class="sp-detail-section" id="sp-extras-section" style="display:none;">
                 <h4>Extras</h4>
