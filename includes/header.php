@@ -999,6 +999,12 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                                             <span>Template Rutin</span>
                                         </a>
                                     </li>
+                                    <li class="submenu-item">
+                                        <a href="<?php echo BASE_URL; ?>/modules/bills/business-warehouse.php" class="submenu-link <?php echo activeMenu('business-warehouse'); ?>">
+                                            <i data-feather="repeat" class="submenu-icon"></i>
+                                            <span>Tagihan Bisnis & Gudang</span>
+                                        </a>
+                                    </li>
                                 </ul>
                             </li>
                         <?php endif; ?>
