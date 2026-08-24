@@ -2396,6 +2396,144 @@ include '../../includes/header.php';
         opacity: 0.8;
     }
 
+    .hs-room-badge {
+        display: inline-block;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
+        padding: 0.2rem 0.55rem;
+        border-radius: 5px;
+        font-weight: 700;
+        font-size: 0.75rem;
+        white-space: nowrap;
+    }
+
+    .hs-price-breakdown {
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+        font-size: 0.72rem;
+        white-space: nowrap;
+    }
+
+    .hs-price-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.6rem;
+        color: var(--text-secondary);
+    }
+
+    .hs-price-row.hs-price-disc {
+        color: #dc2626;
+    }
+
+    .hs-price-row.hs-price-total {
+        font-weight: 700;
+        color: #059669;
+        border-top: 1px dashed #e2e8f0;
+        padding-top: 0.15rem;
+        margin-top: 0.1rem;
+    }
+
+    /* Actions dropdown */
+    .hs-action-dropdown {
+        position: relative;
+        display: inline-block;
+    }
+
+    .hs-action-dropdown-btn {
+        padding: 0.4rem 0.8rem;
+        background: #6366f1;
+        color: white;
+        border: 1px solid #4f46e5;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.75rem;
+        font-weight: 600;
+        white-space: nowrap;
+        transition: background 0.15s;
+    }
+
+    .hs-action-dropdown-btn:hover {
+        background: #4f46e5;
+    }
+
+    .hs-action-dropdown-menu {
+        display: none;
+        position: fixed;
+        background: var(--card-bg, #fff);
+        border: 1px solid rgba(99, 102, 241, 0.15);
+        border-radius: 8px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        min-width: 180px;
+        z-index: 9999;
+        overflow: hidden;
+    }
+
+    .hs-action-dropdown.open .hs-action-dropdown-menu {
+        display: block;
+    }
+
+    .hs-action-dropdown-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        width: 100%;
+        padding: 0.55rem 0.85rem;
+        border: none;
+        background: none;
+        cursor: pointer;
+        font-size: 0.78rem;
+        color: var(--text-primary, #1e293b);
+        text-align: left;
+        text-decoration: none;
+        transition: background 0.1s;
+        white-space: nowrap;
+        box-sizing: border-box;
+    }
+
+    .hs-action-dropdown-item:hover {
+        background: rgba(99, 102, 241, 0.08);
+    }
+
+    .hs-action-dropdown-item.hs-item-pay {
+        color: #15803d;
+        font-weight: 600;
+    }
+
+    .hs-action-dropdown-item.hs-item-delete {
+        color: #dc2626;
+    }
+
+    .hs-action-dropdown-divider {
+        height: 1px;
+        background: rgba(0, 0, 0, 0.08);
+        margin: 2px 0;
+    }
+
+    .hs-action-dropdown-status {
+        padding: 0.4rem 0.85rem 0.55rem;
+    }
+
+    .hs-action-dropdown-status span {
+        display: block;
+        font-size: 0.68rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        margin-bottom: 3px;
+    }
+
+    .hs-action-dropdown-status select {
+        width: 100%;
+        padding: 0.35rem 0.5rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        background: #fff;
+        box-sizing: border-box;
+    }
+
     /* Modal */
     .hs-modal-overlay {
         display: none;
@@ -3006,8 +3144,9 @@ include '../../includes/header.php';
                         <th>Guest</th>
                         <th>Room</th>
                         <th>Services</th>
-                        <th>Total</th>
-                        <th>Paid</th>
+                        <th>Price Breakdown</th>
+                        <th>DP</th>
+                        <th>Balance Due</th>
                         <th>Pay Status</th>
                         <th>Status</th>
                         <th>Date</th>
@@ -3015,14 +3154,23 @@ include '../../includes/header.php';
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($invoices as $inv): ?>
+                    <?php foreach ($invoices as $inv):
+                        $hsSubtotal = (float)$inv['total'] - (float)$inv['tax_amount'] - (float)$inv['service_charge_amount'] + (float)$inv['discount_amount'];
+                        $hsBalanceDue = max(0, (float)$inv['total'] - (float)$inv['paid_amount']);
+                    ?>
                         <tr>
                             <td style="font-weight:700;color:#4338ca;white-space:nowrap"><?php echo htmlspecialchars($inv['invoice_number']); ?></td>
                             <td>
                                 <div style="font-weight:600"><?php echo htmlspecialchars($inv['guest_name']); ?></div>
                                 <?php if ($inv['guest_phone']): ?><div style="font-size:0.7rem;color:var(--text-secondary)"><?php echo htmlspecialchars($inv['guest_phone']); ?></div><?php endif; ?>
                             </td>
-                            <td><?php echo $inv['room_number'] ? htmlspecialchars($inv['room_number']) : '<span style="color:#d1d5db">—</span>'; ?></td>
+                            <td>
+                                <?php if ($inv['room_number']): ?>
+                                    <span class="hs-room-badge"><?php echo htmlspecialchars($inv['room_number']); ?></span>
+                                <?php else: ?>
+                                    <span style="color:#d1d5db">—</span>
+                                <?php endif; ?>
+                            </td>
                             <td>
                                 <?php if (!empty($inv['service_type_counts'])): ?>
                                     <?php foreach ($inv['service_type_counts'] as $typeCount): ?>
@@ -3034,33 +3182,50 @@ include '../../includes/header.php';
                                     <span style="color:#d1d5db">No items</span>
                                 <?php endif; ?>
                             </td>
-                            <td style="font-weight:700;white-space:nowrap">Rp <?php echo number_format($inv['total'], 0, ',', '.'); ?></td>
-                            <td style="color:#10b981;font-weight:600;white-space:nowrap">Rp <?php echo number_format($inv['paid_amount'], 0, ',', '.'); ?></td>
+                            <td>
+                                <div class="hs-price-breakdown">
+                                    <div class="hs-price-row"><span>Harga Asli:</span><span>Rp <?php echo number_format($hsSubtotal, 0, ',', '.'); ?></span></div>
+                                    <?php if ($inv['discount_amount'] > 0): ?>
+                                        <div class="hs-price-row hs-price-disc"><span>Disc (<?php echo rtrim(rtrim(number_format($inv['discount_rate'], 1), '0'), '.'); ?>%):</span><span>-Rp <?php echo number_format($inv['discount_amount'], 0, ',', '.'); ?></span></div>
+                                    <?php endif; ?>
+                                    <div class="hs-price-row hs-price-total"><span>Total:</span><span>Rp <?php echo number_format($inv['total'], 0, ',', '.'); ?></span></div>
+                                </div>
+                            </td>
+                            <td style="color:#10b981;font-weight:700;white-space:nowrap">Rp <?php echo number_format($inv['paid_amount'], 0, ',', '.'); ?></td>
+                            <td style="font-weight:700;white-space:nowrap;color:<?php echo $hsBalanceDue > 0 ? '#dc2626' : '#10b981'; ?>">
+                                <?php echo $hsBalanceDue > 0 ? 'Rp ' . number_format($hsBalanceDue, 0, ',', '.') : '✓ Lunas'; ?>
+                            </td>
                             <td><span class="hs-badge" style="background:<?php echo $payStatusColors[$inv['payment_status']]; ?>"><span class="hs-badge-text"><?php echo strtoupper($inv['payment_status']); ?></span></span></td>
                             <td><span class="hs-badge" style="background:<?php echo $statusColors[$inv['status']]; ?>"><span class="hs-badge-text"><?php echo strtoupper($inv['status']); ?></span></span></td>
                             <td style="font-size:0.72rem;color:var(--text-secondary);white-space:nowrap"><?php echo date('d M Y', strtotime($inv['service_date'] ?? $inv['created_at'])); ?></td>
                             <td>
-                                <div style="display:flex;gap:0.3rem;flex-wrap:wrap;min-width:160px">
-                                    <?php if ($auth->canEdit('frontdesk')): ?>
-                                        <button class="hs-action-btn" style="background:#e0f2fe;color:#0277bd;text-decoration:none" onclick="openEditModal(<?php echo $inv['id']; ?>)">✏️ Edit</button>
-                                    <?php endif; ?>
-                                    <a href="hotel-service-invoice.php?id=<?php echo $inv['id']; ?>" target="_blank" class="hs-action-btn" style="background:#e0f2fe;color:#0277bd;text-decoration:none">🖨️ Invoice</a>
-                                    <?php if ($inv['payment_status'] !== 'paid'): ?>
-                                        <button class="hs-action-btn" style="background:#dcfce7;color:#15803d"
-                                            onclick="openPayModal(<?php echo $inv['id']; ?>,<?php echo $inv['total'] - $inv['paid_amount']; ?>,'<?php echo htmlspecialchars($inv['invoice_number'], ENT_QUOTES); ?>')">💳 Pay</button>
-                                    <?php endif; ?>
-                                    <?php if ($auth->canEdit('frontdesk')): ?>
-                                        <select class="hs-action-btn" style="background:#f3f4f6;color:#374151"
-                                            onchange="updateStatus(<?php echo $inv['id']; ?>,this.value);this.blur()">
-                                            <?php foreach (['pending', 'confirmed', 'completed', 'cancelled'] as $s): ?>
-                                                <option value="<?php echo $s; ?>" <?php echo $inv['status'] === $s ? 'selected' : ''; ?>><?php echo ucfirst($s); ?></option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                    <?php endif; ?>
-                                    <?php if ($auth->canDelete('frontdesk')): ?>
-                                        <button class="hs-action-btn" style="background:#fee2e2;color:#b91c1c"
-                                            onclick="deleteInvoice(<?php echo $inv['id']; ?>,'<?php echo htmlspecialchars($inv['invoice_number'], ENT_QUOTES); ?>')">✕</button>
-                                    <?php endif; ?>
+                                <div class="hs-action-dropdown">
+                                    <button type="button" class="hs-action-dropdown-btn" onclick="toggleHsActionMenu(event)">Aksi ▾</button>
+                                    <div class="hs-action-dropdown-menu">
+                                        <?php if ($inv['payment_status'] !== 'paid'): ?>
+                                            <button class="hs-action-dropdown-item hs-item-pay"
+                                                onclick="openPayModal(<?php echo $inv['id']; ?>,<?php echo $inv['total'] - $inv['paid_amount']; ?>,'<?php echo htmlspecialchars($inv['invoice_number'], ENT_QUOTES); ?>')">💳 Bayar</button>
+                                        <?php endif; ?>
+                                        <a href="hotel-service-invoice.php?id=<?php echo $inv['id']; ?>" target="_blank" class="hs-action-dropdown-item">🖨️ Invoice</a>
+                                        <?php if ($auth->canEdit('frontdesk')): ?>
+                                            <button class="hs-action-dropdown-item" onclick="openEditModal(<?php echo $inv['id']; ?>)">✏️ Edit</button>
+                                        <?php endif; ?>
+                                        <?php if ($auth->canEdit('frontdesk')): ?>
+                                            <div class="hs-action-dropdown-divider"></div>
+                                            <div class="hs-action-dropdown-status">
+                                                <span>Ubah Status</span>
+                                                <select onchange="updateStatus(<?php echo $inv['id']; ?>,this.value);this.blur()">
+                                                    <?php foreach (['pending', 'confirmed', 'completed', 'cancelled'] as $s): ?>
+                                                        <option value="<?php echo $s; ?>" <?php echo $inv['status'] === $s ? 'selected' : ''; ?>><?php echo ucfirst($s); ?></option>
+                                                    <?php endforeach; ?>
+                                                </select>
+                                            </div>
+                                        <?php endif; ?>
+                                        <?php if ($auth->canDelete('frontdesk')): ?>
+                                            <div class="hs-action-dropdown-divider"></div>
+                                            <button class="hs-action-dropdown-item hs-item-delete" onclick="deleteInvoice(<?php echo $inv['id']; ?>,'<?php echo htmlspecialchars($inv['invoice_number'], ENT_QUOTES); ?>')">🗑️ Hapus</button>
+                                        <?php endif; ?>
+                                    </div>
                                 </div>
                             </td>
                         </tr>
@@ -3492,6 +3657,38 @@ include '../../includes/header.php';
     } catch (e) {
         console.error('[hs-data] failed:', e);
     }
+</script>
+<script>
+    function toggleHsActionMenu(e) {
+        e = e || window.event;
+        e.stopPropagation();
+        e.preventDefault();
+        var btn = e.currentTarget || e.target;
+        var dropdown = btn.closest('.hs-action-dropdown');
+        var wasOpen = dropdown.classList.contains('open');
+        document.querySelectorAll('.hs-action-dropdown.open').forEach(function(d) {
+            d.classList.remove('open');
+        });
+        if (!wasOpen) {
+            var menu = dropdown.querySelector('.hs-action-dropdown-menu');
+            var rect = btn.getBoundingClientRect();
+            menu.style.top = (rect.bottom + 4) + 'px';
+            menu.style.left = Math.max(8, rect.right - 190) + 'px';
+            dropdown.classList.add('open');
+        }
+    }
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.hs-action-dropdown')) {
+            document.querySelectorAll('.hs-action-dropdown.open').forEach(function(d) {
+                d.classList.remove('open');
+            });
+        }
+    });
+    document.addEventListener('scroll', function() {
+        document.querySelectorAll('.hs-action-dropdown.open').forEach(function(d) {
+            d.classList.remove('open');
+        });
+    }, true);
 </script>
 <script src="../../assets/js/hotel-services-fn.js?v=20260807"></script>
 
