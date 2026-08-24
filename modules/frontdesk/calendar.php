@@ -1216,7 +1216,7 @@ include '../../includes/header.php';
         border-radius: 3px;
         white-space: nowrap;
         transform: skewX(-20deg);
-        background: linear-gradient(135deg, #2a3552, #37476b) !important;
+        background: linear-gradient(135deg, #1e3a8a, #1d4ed8) !important;
         color: #ffffff !important;
     }
 
@@ -1289,15 +1289,15 @@ include '../../includes/header.php';
 
     /* Status specific bars */
     .booking-confirmed {
-        background: linear-gradient(135deg, #2a3552, #37476b) !important;
-        border-right-color: #2a3552;
-        border-left-color: #37476b;
+        background: linear-gradient(135deg, #1e3a8a, #1d4ed8) !important;
+        border-right-color: #1e3a8a;
+        border-left-color: #1d4ed8;
     }
 
     .booking-pending {
-        background: linear-gradient(135deg, #314166, #415787) !important;
-        border-right-color: #314166;
-        border-left-color: #415787;
+        background: linear-gradient(135deg, #1e3a8a, #1d4ed8) !important;
+        border-right-color: #1e3a8a;
+        border-left-color: #1d4ed8;
     }
 
     .booking-checked-in {
