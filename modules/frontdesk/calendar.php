@@ -959,34 +959,41 @@ include '../../includes/header.php';
         background: linear-gradient(135deg, #fde68a 0%, #fcd34d 100%) !important;
     }
 
+    .room-dirty-row {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        margin-top: 1px;
+    }
+
     .room-dirty-tag {
         display: inline-block;
         background: #d97706;
         color: #fff;
-        font-size: 0.55rem;
+        font-size: 0.48rem;
         font-weight: 800;
-        letter-spacing: 0.5px;
-        padding: 1px 6px;
-        border-radius: 6px;
-        margin-top: 2px;
+        letter-spacing: 0.2px;
+        padding: 0 3px;
+        border-radius: 4px;
         line-height: 1.3;
         text-transform: uppercase;
+        white-space: nowrap;
     }
 
     .room-clean-btn {
-        margin-top: 3px;
         background: #16a34a;
         color: #fff;
         border: none;
-        border-radius: 6px;
-        padding: 2px 8px;
-        font-size: 0.6rem;
+        border-radius: 4px;
+        padding: 0 4px;
+        font-size: 0.48rem;
         font-weight: 700;
         cursor: pointer;
-        letter-spacing: 0.3px;
+        letter-spacing: 0.2px;
         text-transform: uppercase;
         box-shadow: 0 1px 2px rgba(22, 163, 74, 0.35);
         transition: transform 0.12s, box-shadow 0.12s;
+        white-space: nowrap;
     }
 
     .room-clean-btn:hover {
@@ -2578,8 +2585,10 @@ include '../../includes/header.php';
                             <span class="grid-room-type-label"><?php echo htmlspecialchars($room['type_name']); ?></span>
                             <span class="grid-room-number"><?php echo htmlspecialchars($room['room_number']); ?></span>
                             <?php if ($isDirty): ?>
-                                <span class="room-dirty-tag" title="Kamar perlu dibersihkan">🧹 Dirty</span>
-                                <button type="button" class="room-clean-btn" onclick="event.stopPropagation(); markRoomClean(<?php echo (int)$room['id']; ?>, '<?php echo htmlspecialchars($room['room_number'], ENT_QUOTES); ?>');">✓ Clean</button>
+                                <div class="room-dirty-row">
+                                    <span class="room-dirty-tag" title="Kamar perlu dibersihkan">🧹 Dirty</span>
+                                    <button type="button" class="room-clean-btn" onclick="event.stopPropagation(); markRoomClean(<?php echo (int)$room['id']; ?>, '<?php echo htmlspecialchars($room['room_number'], ENT_QUOTES); ?>');">✓ Clean</button>
+                                </div>
                             <?php endif; ?>
                         </div>
 
