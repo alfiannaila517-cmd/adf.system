@@ -80,6 +80,22 @@ try {
 
     $status_filter = $_GET['status'] ?? 'all';
 
+    // Month navigation (browse previous/next months, still keeping full history accessible)
+    $month_filter = $_GET['month'] ?? '';
+    if (!preg_match('/^\d{4}-\d{2}$/', $month_filter)) {
+        $month_filter = date('Y-m');
+    }
+    $monthStartDate = $month_filter . '-01';
+    $monthEndDate = date('Y-m-t', strtotime($monthStartDate));
+    $prevMonth = date('Y-m', strtotime($monthStartDate . ' -1 month'));
+    $nextMonth = date('Y-m', strtotime($monthStartDate . ' +1 month'));
+    $indoMonths = [
+        1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April', 5 => 'Mei', 6 => 'Juni',
+        7 => 'Juli', 8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+    ];
+    $monthLabel = $indoMonths[(int)date('n', strtotime($monthStartDate))] . ' ' . date('Y', strtotime($monthStartDate));
+    $isCurrentMonth = $month_filter === date('Y-m');
+
     $query = "
         SELECT 
             b.id, b.booking_code, b.group_id, b.check_in_date, b.check_out_date,
@@ -105,6 +121,12 @@ try {
         $params[] = $status_filter;
     }
 
+    $query .= " AND (b.check_in_date BETWEEN ? AND ? OR b.check_out_date BETWEEN ? AND ?)";
+    $params[] = $monthStartDate;
+    $params[] = $monthEndDate;
+    $params[] = $monthStartDate;
+    $params[] = $monthEndDate;
+
     $query .= " GROUP BY b.id
     ORDER BY 
         CASE 
@@ -118,7 +140,7 @@ try {
         b.check_in_date ASC,
         b.group_id ASC,
         b.id ASC
-    LIMIT 100";
+    LIMIT 200";
 
     $rawBookings = $db->fetchAll($query, $params);
 
@@ -351,6 +373,59 @@ include '../../includes/header.php';
         outline: none;
         border-color: #6366f1;
         box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    }
+
+    .month-nav {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+
+    .month-nav-btn {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        border: 1.5px solid var(--border-color);
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        font-size: 1rem;
+        font-weight: 700;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .month-nav-btn:hover {
+        background: #6366f1;
+        border-color: #6366f1;
+        color: #ffffff;
+    }
+
+    .month-nav-label {
+        font-weight: 700;
+        font-size: 0.85rem;
+        color: var(--text-primary);
+        min-width: 120px;
+        text-align: center;
+    }
+
+    .month-nav-today {
+        padding: 0.4rem 0.75rem;
+        border-radius: 999px;
+        border: 1.5px solid #6366f1;
+        background: transparent;
+        color: #6366f1;
+        font-size: 0.7rem;
+        font-weight: 700;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+
+    .month-nav-today:hover {
+        background: #6366f1;
+        color: #ffffff;
     }
 
     /* Bookings Table */
@@ -776,6 +851,17 @@ include '../../includes/header.php';
                 <option value="cancelled" <?php echo $status_filter === 'cancelled' ? 'selected' : ''; ?>>Cancelled</option>
             </select>
         </div>
+        <div class="filter-group">
+            <label>Bulan</label>
+            <div class="month-nav">
+                <button type="button" class="month-nav-btn" onclick="changeMonth('<?php echo $prevMonth; ?>')" title="Bulan sebelumnya">&#8249;</button>
+                <span class="month-nav-label"><?php echo $monthLabel; ?></span>
+                <button type="button" class="month-nav-btn" onclick="changeMonth('<?php echo $nextMonth; ?>')" title="Bulan selanjutnya">&#8250;</button>
+                <?php if (!$isCurrentMonth): ?>
+                    <button type="button" class="month-nav-today" onclick="changeMonth('<?php echo date('Y-m'); ?>')">Hari Ini</button>
+                <?php endif; ?>
+            </div>
+        </div>
     </div>
 
     <!-- Bookings Table -->
@@ -976,7 +1062,7 @@ include '../../includes/header.php';
             </table>
         <?php else: ?>
             <div class="empty-state">
-                <p style="font-size: 1.1rem;">Tidak ada reservasi</p>
+                <p style="font-size: 1.1rem;">Tidak ada reservasi di <?php echo $monthLabel; ?></p>
             </div>
         <?php endif; ?>
     </div>
@@ -1570,7 +1656,15 @@ include '../../includes/header.php';
     }
 
     function filterBookings(value) {
-        window.location.search = '?status=' + value;
+        const params = new URLSearchParams(window.location.search);
+        params.set('status', value);
+        window.location.search = params.toString();
+    }
+
+    function changeMonth(monthValue) {
+        const params = new URLSearchParams(window.location.search);
+        params.set('month', monthValue);
+        window.location.search = params.toString();
     }
 
     function searchBookings(keyword) {
