@@ -3143,8 +3143,12 @@ include '../../includes/header.php';
         document.getElementById('sp-adults').textContent = booking.adults || 1;
         document.getElementById('sp-children').textContent = booking.children || 0;
 
+        // Multi-room group booking (e.g. Mrs Hilda 10 rooms) -> show ONE consolidated tagihan
+        // regardless of which room's bar was clicked.
+        const isGroup = !!(booking.is_group_booking && booking.group_bookings && booking.group_bookings.length > 1);
+
         // Balance
-        const balance = (booking.final_price || 0) - (booking.paid_amount || 0);
+        const balance = isGroup ? (booking.combined_balance || 0) : ((booking.final_price || 0) - (booking.paid_amount || 0));
         const fmtR = (v) => 'Rp' + new Intl.NumberFormat('id-ID').format(v || 0);
         document.getElementById('sp-balance').textContent = fmtR(Math.max(0, balance));
 
@@ -3153,40 +3157,65 @@ include '../../includes/header.php';
         let totalDebit = 0,
             totalCredit = 0;
 
-        // Room charge as debit
-        const roomTotal = (booking.room_price || 0) * (booking.total_nights || 1);
-        totalDebit += parseFloat(booking.final_price || roomTotal);
-        folioRows += '<tr><td><div class="folio-desc-title">Room Charge - ' + (booking.room_type || '') + ' (' + (booking.room_number || '') + ')</div><div class="folio-desc-sub">' + fmtD(booking.check_in_date) + ' → ' + fmtD(booking.check_out_date) + ' • ' + (booking.total_nights || 1) + ' night(s)</div></td><td class="text-right">' + fmtR(booking.final_price || roomTotal) + '</td><td class="text-right">-</td></tr>';
+        const pmLabel = (p) => (p.payment_method || 'cash').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        const pdLabel = (p) => new Date(p.payment_date).toLocaleDateString('id-ID', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+        }) + ' ' + new Date(p.payment_date).toLocaleTimeString('id-ID', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
 
-        // Extras as debit
-        if (booking.extras && booking.extras.length > 0) {
-            booking.extras.forEach(function(ex) {
+        if (isGroup) {
+            // Room charge per room in the group
+            booking.group_bookings.forEach(function(gb) {
+                totalDebit += parseFloat(gb.final_price || 0);
+                folioRows += '<tr><td><div class="folio-desc-title">Room Charge - ' + (gb.type_name || '') + ' (' + (gb.room_number || '') + ')</div><div class="folio-desc-sub">' + fmtD(booking.check_in_date) + ' → ' + fmtD(booking.check_out_date) + ' • ' + (booking.total_nights || 1) + ' night(s)</div></td><td class="text-right">' + fmtR(gb.final_price) + '</td><td class="text-right">-</td></tr>';
+                if (parseFloat(gb.discount) > 0) {
+                    totalCredit += parseFloat(gb.discount);
+                    folioRows += '<tr><td><div class="folio-desc-title">Promo Discount (' + (gb.room_number || '') + ')</div></td><td class="text-right">-</td><td class="text-right">' + fmtR(gb.discount) + '</td></tr>';
+                }
+            });
+
+            // Extras across ALL rooms in the group
+            (booking.group_extras || []).forEach(function(ex) {
                 totalDebit += parseFloat(ex.total_price || 0);
-                folioRows += '<tr><td><div class="folio-desc-title">' + ex.item_name + ' (' + ex.quantity + 'x)</div><div class="folio-desc-sub">' + (ex.notes || '') + '</div></td><td class="text-right">' + fmtR(ex.total_price) + '</td><td class="text-right">-</td></tr>';
+                folioRows += '<tr><td><div class="folio-desc-title">' + ex.item_name + ' (' + ex.quantity + 'x) - Room ' + (ex.room_number || '') + '</div><div class="folio-desc-sub">' + (ex.notes || '') + '</div></td><td class="text-right">' + fmtR(ex.total_price) + '</td><td class="text-right">-</td></tr>';
             });
-        }
 
-        // Discount as credit if any
-        if (parseFloat(booking.discount) > 0) {
-            totalCredit += parseFloat(booking.discount);
-            folioRows += '<tr><td><div class="folio-desc-title">Promo Discount</div></td><td class="text-right">-</td><td class="text-right">' + fmtR(booking.discount) + '</td></tr>';
-        }
-
-        // Payments as credit
-        if (booking.payments && booking.payments.length > 0) {
-            booking.payments.forEach(function(p) {
+            // Payments recorded against ANY room in the group
+            (booking.group_payments || []).forEach(function(p) {
                 totalCredit += parseFloat(p.amount || 0);
-                const pd = new Date(p.payment_date).toLocaleDateString('id-ID', {
-                    day: '2-digit',
-                    month: 'short',
-                    year: 'numeric'
-                }) + ' ' + new Date(p.payment_date).toLocaleTimeString('id-ID', {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
-                const pm = (p.payment_method || 'cash').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-                folioRows += '<tr><td><div class="folio-desc-title">' + pm + ' - Payment Recorded</div><div class="folio-desc-sub">' + pd + '</div></td><td class="text-right">-</td><td class="text-right">' + fmtR(p.amount) + '</td></tr>';
+                folioRows += '<tr><td><div class="folio-desc-title">' + pmLabel(p) + ' - Payment Recorded (Room ' + (p.room_number || '') + ')</div><div class="folio-desc-sub">' + pdLabel(p) + '</div></td><td class="text-right">-</td><td class="text-right">' + fmtR(p.amount) + '</td></tr>';
             });
+        } else {
+            // Room charge as debit
+            const roomTotal = (booking.room_price || 0) * (booking.total_nights || 1);
+            totalDebit += parseFloat(booking.final_price || roomTotal);
+            folioRows += '<tr><td><div class="folio-desc-title">Room Charge - ' + (booking.room_type || '') + ' (' + (booking.room_number || '') + ')</div><div class="folio-desc-sub">' + fmtD(booking.check_in_date) + ' → ' + fmtD(booking.check_out_date) + ' • ' + (booking.total_nights || 1) + ' night(s)</div></td><td class="text-right">' + fmtR(booking.final_price || roomTotal) + '</td><td class="text-right">-</td></tr>';
+
+            // Extras as debit
+            if (booking.extras && booking.extras.length > 0) {
+                booking.extras.forEach(function(ex) {
+                    totalDebit += parseFloat(ex.total_price || 0);
+                    folioRows += '<tr><td><div class="folio-desc-title">' + ex.item_name + ' (' + ex.quantity + 'x)</div><div class="folio-desc-sub">' + (ex.notes || '') + '</div></td><td class="text-right">' + fmtR(ex.total_price) + '</td><td class="text-right">-</td></tr>';
+                });
+            }
+
+            // Discount as credit if any
+            if (parseFloat(booking.discount) > 0) {
+                totalCredit += parseFloat(booking.discount);
+                folioRows += '<tr><td><div class="folio-desc-title">Promo Discount</div></td><td class="text-right">-</td><td class="text-right">' + fmtR(booking.discount) + '</td></tr>';
+            }
+
+            // Payments as credit
+            if (booking.payments && booking.payments.length > 0) {
+                booking.payments.forEach(function(p) {
+                    totalCredit += parseFloat(p.amount || 0);
+                    folioRows += '<tr><td><div class="folio-desc-title">' + pmLabel(p) + ' - Payment Recorded</div><div class="folio-desc-sub">' + pdLabel(p) + '</div></td><td class="text-right">-</td><td class="text-right">' + fmtR(p.amount) + '</td></tr>';
+                });
+            }
         }
 
         document.getElementById('sp-folio-body').innerHTML = folioRows;
@@ -3200,14 +3229,21 @@ include '../../includes/header.php';
         document.getElementById('sp-detail-checkout').textContent = fmtD(booking.check_out_date);
         document.getElementById('sp-detail-nights').textContent = (booking.total_nights || '-') + ' night(s)';
         document.getElementById('sp-detail-guests').textContent = (booking.adults || 1) + ' adult(s)' + (booking.children > 0 ? ', ' + booking.children + ' child(ren)' : '');
-        document.getElementById('sp-detail-notes').textContent = booking.special_requests || '-';
+        // Notes: for a group booking, show requests from ALL rooms (not just the one clicked)
+        if (isGroup && booking.combined_notes && booking.combined_notes.length > 0) {
+            document.getElementById('sp-detail-notes').textContent = booking.combined_notes.join(' | ');
+        } else {
+            document.getElementById('sp-detail-notes').textContent = booking.special_requests || '-';
+        }
 
         // Extras in details
         const extSec = document.getElementById('sp-extras-section');
-        if (booking.extras && booking.extras.length > 0) {
+        const extrasForDisplay = isGroup ? (booking.group_extras || []) : (booking.extras || []);
+        if (extrasForDisplay.length > 0) {
             extSec.style.display = '';
-            document.getElementById('sp-extras-list').innerHTML = booking.extras.map(function(ex) {
-                return '<div class="sp-detail-row"><span>' + ex.item_name + ' (' + ex.quantity + 'x)</span><strong>Rp' + new Intl.NumberFormat('id-ID').format(ex.total_price) + '</strong></div>';
+            document.getElementById('sp-extras-list').innerHTML = extrasForDisplay.map(function(ex) {
+                const roomLabel = (isGroup && ex.room_number) ? ' - Room ' + ex.room_number : '';
+                return '<div class="sp-detail-row"><span>' + ex.item_name + ' (' + ex.quantity + 'x)' + roomLabel + '</span><strong>Rp' + new Intl.NumberFormat('id-ID').format(ex.total_price) + '</strong></div>';
             }).join('');
         } else {
             extSec.style.display = 'none';
@@ -3253,7 +3289,8 @@ include '../../includes/header.php';
 
         // Action buttons
         let actions = '';
-        if (booking.payment_status !== 'paid') {
+        const outstandingBalance = isGroup ? (booking.combined_balance || 0) : Math.max(0, (booking.final_price || 0) - (booking.paid_amount || 0));
+        if (booking.payment_status !== 'paid' || outstandingBalance > 0) {
             actions += '<button class="sp-action-btn success" onclick="openBookingPaymentModal()">💳 Payment</button>';
         }
         if (booking.status === 'confirmed' || booking.status === 'pending') {
@@ -3785,8 +3822,9 @@ include '../../includes/header.php';
             return;
         }
 
-        const total = parseFloat(currentPaymentBooking.final_price) || 0;
-        const paid = parseFloat(currentPaymentBooking.paid_amount) || 0;
+        const isGroup = !!(currentPaymentBooking.is_group_booking && currentPaymentBooking.group_bookings && currentPaymentBooking.group_bookings.length > 1);
+        const total = isGroup ? (parseFloat(currentPaymentBooking.combined_final_price) || 0) : (parseFloat(currentPaymentBooking.final_price) || 0);
+        const paid = isGroup ? (parseFloat(currentPaymentBooking.combined_paid_amount) || 0) : (parseFloat(currentPaymentBooking.paid_amount) || 0);
         const remaining = Math.max(0, total - paid);
 
         document.getElementById('paymentTotal').textContent = 'Rp ' + total.toLocaleString('id-ID');

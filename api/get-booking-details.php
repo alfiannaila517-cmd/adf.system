@@ -160,6 +160,9 @@ try {
                         b.room_price,
                         COALESCE(b.discount, 0) as discount,
                         b.final_price,
+                        b.paid_amount,
+                        b.payment_status,
+                        COALESCE(b.special_request, '') as special_request,
                         b.status,
                         r.room_number,
                         rt.type_name
@@ -185,6 +188,9 @@ try {
                         b.room_price,
                         COALESCE(b.discount, 0) as discount,
                         b.final_price,
+                        b.paid_amount,
+                        b.payment_status,
+                        COALESCE(b.special_request, '') as special_request,
                         b.status,
                         r.room_number,
                         rt.type_name
@@ -207,6 +213,60 @@ try {
     }
 
     $booking['group_bookings'] = $groupBookings;
+
+    // If this is a multi-room group booking, combine billing across ALL rooms in the group
+    // so the guest sees ONE consolidated tagihan regardless of which room bar was clicked.
+    $booking['is_group_booking'] = count($groupBookings) > 1;
+    if ($booking['is_group_booking']) {
+        $combinedFinalPrice = 0;
+        $combinedPaidAmount = 0;
+        $combinedNotes = [];
+        $groupIds = [];
+        foreach ($groupBookings as $gb) {
+            $combinedFinalPrice += (float)($gb['final_price'] ?? 0);
+            $combinedPaidAmount += (float)($gb['paid_amount'] ?? 0);
+            $groupIds[] = (int)$gb['id'];
+            $noteText = trim((string)($gb['special_request'] ?? ''));
+            if ($noteText !== '') {
+                $combinedNotes[] = ($gb['room_number'] ?? ('Room #' . $gb['id'])) . ': ' . $noteText;
+            }
+        }
+        $booking['combined_final_price'] = $combinedFinalPrice;
+        $booking['combined_paid_amount'] = $combinedPaidAmount;
+        $booking['combined_balance'] = max(0, $combinedFinalPrice - $combinedPaidAmount);
+        $booking['combined_notes'] = $combinedNotes;
+
+        try {
+            $placeholders = implode(',', array_fill(0, count($groupIds), '?'));
+
+            $geStmt = $conn->prepare("
+                SELECT be.*, r.room_number
+                FROM booking_extras be
+                JOIN bookings b2 ON be.booking_id = b2.id
+                LEFT JOIN rooms r ON b2.room_id = r.id
+                WHERE be.booking_id IN ($placeholders)
+                ORDER BY be.created_at ASC
+            ");
+            $geStmt->execute($groupIds);
+            $groupExtras = $geStmt->fetchAll(PDO::FETCH_ASSOC);
+            $booking['group_extras'] = $groupExtras;
+            $booking['total_extras'] = array_sum(array_column($groupExtras, 'total_price'));
+
+            $gpStmt = $conn->prepare("
+                SELECT bp.*, r.room_number
+                FROM booking_payments bp
+                JOIN bookings b2 ON bp.booking_id = b2.id
+                LEFT JOIN rooms r ON b2.room_id = r.id
+                WHERE bp.booking_id IN ($placeholders)
+                ORDER BY bp.payment_date DESC
+            ");
+            $gpStmt->execute($groupIds);
+            $booking['group_payments'] = $gpStmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Exception $e) {
+            $booking['group_extras'] = $extras;
+            $booking['group_payments'] = $payments;
+        }
+    }
 
     // Return JSON response
     ob_clean();
