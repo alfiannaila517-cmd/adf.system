@@ -391,12 +391,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $itemName = trim((string)($_POST['item_name'] ?? ''));
     $quantity = (float)($_POST['quantity'] ?? 0);
     $notes = trim((string)($_POST['notes'] ?? ''));
+    $reduceType = trim((string)($_POST['reduce_type'] ?? 'out_transfer'));
+    if (!in_array($reduceType, ['out_transfer', 'adjustment'], true)) {
+        $reduceType = 'out_transfer';
+    }
 
     if ($itemName === '' || $quantity <= 0) {
         $result = ['success' => false, 'message' => 'Nama item dan qty stock keluar wajib diisi.'];
     } else {
         $result = recordGudangNasitaDailyStockOut($itemName, $quantity, (int)($currentUser['id'] ?? 0), [
             'notes' => $notes,
+            'movement_type' => $reduceType,
         ]);
         if ($result['success']) {
             $result['message'] .= ' untuk ' . $itemName . '.';
@@ -2202,6 +2207,13 @@ include '../../includes/header.php';
                 <div style="margin-bottom:0.85rem;">
                     <label class="form-label">Qty Keluar *</label>
                     <input type="number" name="quantity" class="form-control" step="0.01" min="0.01" required placeholder="0">
+                </div>
+                <div style="margin-bottom:0.85rem;">
+                    <label class="form-label">Tipe Pengurangan *</label>
+                    <select name="reduce_type" class="form-control" required>
+                        <option value="out_transfer">Operasional / Terjual / Rusak</option>
+                        <option value="adjustment">Koreksi Stok (Salah Input)</option>
+                    </select>
                 </div>
                 <div style="margin-bottom:1rem;">
                     <label class="form-label">Catatan</label>

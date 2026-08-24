@@ -1039,9 +1039,14 @@ function recordGudangNasitaDailyStockOut($itemName, $quantity, $createdBy, $opti
 
             $db->getConnection()->beginTransaction();
 
+            // Deterministic match: prefer exact (binary) name match, then the active row
+            // with the highest quantity — a bare LIMIT 1 with no ORDER BY can silently
+            // land on a hidden duplicate row instead of the one the user sees.
             $stock = $db->fetchOne(
-                "SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) AND COALESCE(is_active,1) = 1 LIMIT 1",
-                [$itemName]
+                "SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) AND COALESCE(is_active,1) = 1
+                 ORDER BY (BINARY item_name = ?) DESC, quantity DESC, id ASC
+                 LIMIT 1",
+                [$itemName, $itemName]
             );
 
             if (!$stock) {
@@ -1078,11 +1083,16 @@ function recordGudangNasitaDailyStockOut($itemName, $quantity, $createdBy, $opti
                 throw new Exception('Gagal update stok (cek error_log server untuk detail SQL).');
             }
 
+            $movementType = trim((string)($options['movement_type'] ?? 'out_transfer'));
+            if (!in_array($movementType, ['out_transfer', 'adjustment'], true)) {
+                $movementType = 'out_transfer';
+            }
+
             $referenceNumber = 'OUT-' . date('YmdHis');
             $db->insert('gudang_nasita_movements', [
                 'stock_id' => $stock['id'],
                 'movement_date' => date('Y-m-d'),
-                'movement_type' => 'out_transfer',
+                'movement_type' => $movementType,
                 'quantity' => $quantity,
                 'reference_type' => 'daily_stock_out',
                 'reference_id' => null,
