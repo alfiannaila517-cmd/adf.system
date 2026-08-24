@@ -3560,7 +3560,7 @@ header('Expires: 0');
 
         <!-- ═══ STOCK PAGE (shown only for staff granted cross-business stock access) ═══ -->
         <div class="page" id="page-stock">
-            <div class="card" style="margin-bottom:10px;">
+            <div class="card" id="stockBizPickerCard" style="display:none; margin-bottom:10px;">
                 <label style="display:block; font-size:11px; font-weight:600; margin-bottom:5px; color:#64748b;">Pilih Bisnis</label>
                 <select id="stockBizSelect" class="fi" style="width:100%;" onchange="onStockBusinessChange()">
                     <option value="">-- Pilih Bisnis --</option>
@@ -3582,7 +3582,7 @@ header('Expires: 0');
                 </div>
             </div>
 
-            <div class="card" id="stockBusinessCard" style="margin-bottom:10px;">
+            <div class="card" id="stockBusinessCard" style="display:none; margin-bottom:10px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid #edf1f5;">
                     <h4 style="margin:0; font-size:13px;">🏬 Stock Bisnis</h4>
                     <button onclick="loadStockBusiness()" style="border:none; background:none; font-size:11px; color:#2563eb;">🔄</button>
@@ -4058,9 +4058,12 @@ header('Expires: 0');
                 if (STOCK_ACCESS.has_access) {
                     quickMenuStock.style.display = 'block';
 
+                    const hasBusinesses = (STOCK_ACCESS.allowed_businesses || []).length > 0;
                     const sel = document.getElementById('stockBizSelect');
                     sel.innerHTML = '<option value="">-- Pilih Bisnis --</option>' +
                         STOCK_ACCESS.allowed_businesses.map(b => `<option value="${b.slug}">${b.name}</option>`).join('');
+                    document.getElementById('stockBizPickerCard').style.display = hasBusinesses ? 'block' : 'none';
+                    document.getElementById('stockBusinessCard').style.display = hasBusinesses ? 'block' : 'none';
 
                     document.getElementById('stockGudangCard').style.display = STOCK_ACCESS.can_view_gudang_nasita ? 'block' : 'none';
                     document.getElementById('stockOutCard').style.display = STOCK_ACCESS.can_reduce_stock ? 'block' : 'none';
