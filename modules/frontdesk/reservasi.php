@@ -760,7 +760,7 @@ include '../../includes/header.php';
                         <th>Check-in / Check-out</th>
                         <th>Nights</th>
                         <th>OTA Source</th>
-                        <th>Price Breakdown</th>
+                        <th>Price</th>
                         <th>DP</th>
                         <th>Balance Due</th>
                         <th>Status</th>
@@ -806,13 +806,20 @@ include '../../includes/header.php';
                             <!-- Room -->
                             <td>
                                 <?php if ($isGrouped): ?>
-                                    <?php foreach ($booking['_rooms'] as $rm): ?>
-                                        <span class="room-badge" style="background:linear-gradient(135deg,#6366f1,#8b5cf6) !important;color:#ffffff !important;padding:0.15rem 0.4rem;border-radius:4px;font-weight:600;font-size:0.72rem;display:inline-block;margin:1px;">
-                                            <?php echo htmlspecialchars($rm['room_number']); ?>
-                                        </span>
-                                    <?php endforeach; ?>
-                                    <div style="font-size: 0.7rem; margin-top: 0.25rem;">
-                                        <?php echo htmlspecialchars($booking['type_name']); ?>
+                                    <div class="action-dropdown">
+                                        <button type="button" class="action-dropdown-btn" onclick="toggleActionMenu(event)"><?php echo $roomCount; ?> Rooms &#9662;</button>
+                                        <div class="action-dropdown-menu">
+                                            <div style="padding:0.5rem 0.65rem; display:flex; flex-wrap:wrap; gap:3px; max-width:220px;">
+                                                <?php foreach ($booking['_rooms'] as $rm): ?>
+                                                    <span class="room-badge" style="background:linear-gradient(135deg,#6366f1,#8b5cf6) !important;color:#ffffff !important;padding:0.15rem 0.4rem;border-radius:4px;font-weight:600;font-size:0.72rem;display:inline-block;margin:1px;">
+                                                        <?php echo htmlspecialchars($rm['room_number']); ?>
+                                                    </span>
+                                                <?php endforeach; ?>
+                                            </div>
+                                            <div style="padding:0 0.65rem 0.5rem; font-size:0.7rem; color:var(--text-secondary);">
+                                                <?php echo htmlspecialchars($booking['type_name']); ?>
+                                            </div>
+                                        </div>
                                     </div>
                                 <?php else: ?>
                                     <span class="room-badge" style="background:linear-gradient(135deg,#6366f1,#8b5cf6) !important;color:#ffffff !important;padding:0.2rem 0.5rem;border-radius:4px;font-weight:600;">
@@ -847,49 +854,9 @@ include '../../includes/header.php';
                                 </span>
                             </td>
 
-                            <!-- Price Breakdown -->
+                            <!-- Price -->
                             <td>
-                                <?php if ($isGrouped): ?>
-                                    <div class="price-breakdown" style="font-size: 0.72rem;">
-                                        <div class="price-item price-gross">
-                                            <span>Total:</span>
-                                            <span>Rp <?php echo number_format($booking['_combined_total_price'], 0, ',', '.'); ?></span>
-                                        </div>
-                                        <?php if ($booking['_combined_discount'] > 0): ?>
-                                            <div class="price-item price-fee">
-                                                <span>Disc:</span>
-                                                <span>-Rp <?php echo number_format($booking['_combined_discount'], 0, ',', '.'); ?></span>
-                                            </div>
-                                        <?php endif; ?>
-                                        <?php if ($otaFee > 0): ?>
-                                            <div class="price-item price-fee">
-                                                <span>Fee (<?php echo $otaFee; ?>%):</span>
-                                                <span>-Rp <?php echo number_format(round($booking['_combined_total_price'] * $otaFee / 100), 0, ',', '.'); ?></span>
-                                            </div>
-                                        <?php endif; ?>
-                                        <div class="price-item price-net">
-                                            <span>Net:</span>
-                                            <span>Rp <?php echo number_format($booking['_combined_final_price'], 0, ',', '.'); ?></span>
-                                        </div>
-                                    </div>
-                                <?php else: ?>
-                                    <div class="price-breakdown" style="font-size: 0.72rem;">
-                                        <div class="price-item price-gross">
-                                            <span>Gross:</span>
-                                            <span>Rp <?php echo number_format($netIncome['gross'], 0, ',', '.'); ?></span>
-                                        </div>
-                                        <?php if ($netIncome['fee_percent'] > 0): ?>
-                                            <div class="price-item price-fee">
-                                                <span>Fee (<?php echo $netIncome['fee_percent']; ?>%):</span>
-                                                <span>-Rp <?php echo number_format($netIncome['fee_amount'], 0, ',', '.'); ?></span>
-                                            </div>
-                                        <?php endif; ?>
-                                        <div class="price-item price-net">
-                                            <span>Net:</span>
-                                            <span>Rp <?php echo number_format($netIncome['net'], 0, ',', '.'); ?></span>
-                                        </div>
-                                    </div>
-                                <?php endif; ?>
+                                <strong style="font-size: 0.8rem; color: #059669;">Rp <?php echo number_format($booking['_combined_final_price'], 0, ',', '.'); ?></strong>
                             </td>
 
                             <?php
