@@ -4208,7 +4208,11 @@ header('Expires: 0');
                     body: fd
                 });
                 const data = await res.json();
-                alert(data.message || (data.success ? 'Berhasil' : 'Gagal'));
+                let msg = data.message || (data.success ? 'Berhasil' : 'Gagal');
+                if (data.success && typeof data.new_qty !== 'undefined') {
+                    msg += '\nQty terbaru: ' + Number(data.new_qty).toLocaleString('id-ID') + ' ' + unit;
+                }
+                alert(msg);
                 if (data.success) {
                     document.getElementById('stockMasukForm').style.display = 'none';
                     loadStockMasukCatalog();

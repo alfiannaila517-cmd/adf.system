@@ -858,9 +858,15 @@ function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $op
         $barangId = gudangNasitaStockRequiresBarangId()
             ? ensureGudangNasitaBarangId($itemName, $unit, $category, $notes)
             : null;
+        // Deterministic match: if duplicate rows exist with the same name in different
+        // case/whitespace, always prefer the EXACT (binary) match, then the active row
+        // with the highest quantity — otherwise a bare LIMIT 1 with no ORDER BY can land
+        // on an unrelated/hidden duplicate, silently updating a row the user never sees.
         $stock = $db->fetchOne(
-            "SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) LIMIT 1",
-            [$itemName]
+            "SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?)
+             ORDER BY (BINARY item_name = ?) DESC, COALESCE(is_active,1) DESC, quantity DESC, id ASC
+             LIMIT 1",
+            [$itemName, $itemName]
         );
         // Reactivate soft-deleted row so we update instead of insert
         if ($stock && !(int)($stock['is_active'] ?? 1)) {
@@ -3827,9 +3833,21 @@ function recordStaffStockMasukToGudang($itemName, $unit, $qty, $unitPrice, $supp
         // Preserve the item's existing catalog category (if any) instead of always
         // resetting it to 'lainnya' — the staff-portal form doesn't ask for category.
         $category = 'lainnya';
-        $existingStock = $db->fetchOne("SELECT category FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) LIMIT 1", [$itemName]);
+        $existingStock = $db->fetchOne(
+            "SELECT category FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?)
+             ORDER BY (BINARY item_name = ?) DESC, COALESCE(is_active,1) DESC, quantity DESC, id ASC
+             LIMIT 1",
+            [$itemName, $itemName]
+        );
         if ($existingStock && trim((string)($existingStock['category'] ?? '')) !== '') {
             $category = trim((string)$existingStock['category']);
+        }
+
+        // Diagnostic: surface duplicate rows sharing the same name (case/whitespace-insensitive) —
+        // these cause the write to silently land on a hidden duplicate instead of the visible one.
+        $dupCount = $db->fetchOne("SELECT COUNT(*) AS c FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?)", [$itemName]);
+        if ($dupCount && (int)$dupCount['c'] > 1) {
+            error_log('[GUDANG] DUPLICATE item_name detected for "' . $itemName . '": ' . (int)$dupCount['c'] . ' rows');
         }
 
         $fallbackUserId = resolveFallbackAdminUserId($db);
