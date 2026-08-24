@@ -328,7 +328,7 @@ include '../../includes/header.php';
     .bookings-table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 0.875rem;
+        font-size: 0.78rem;
     }
 
     .bookings-table thead {
@@ -342,7 +342,7 @@ include '../../includes/header.php';
         font-weight: 700;
         color: var(--text-primary);
         text-transform: uppercase;
-        font-size: 0.78rem;
+        font-size: 0.68rem;
         letter-spacing: 0.3px;
     }
 
@@ -366,7 +366,7 @@ include '../../includes/header.php';
         padding: 0.25rem 0.6rem;
         border-radius: 4px;
         font-weight: 600;
-        font-size: 0.78rem;
+        font-size: 0.68rem;
         text-transform: uppercase;
     }
 
@@ -407,13 +407,13 @@ include '../../includes/header.php';
     }
 
     .action-dropdown-btn {
-        padding: 0.4rem 0.8rem;
+        padding: 0.35rem 0.7rem;
         background: #6366f1;
         color: white;
         border: 1px solid #4f46e5;
         border-radius: 6px;
         cursor: pointer;
-        font-size: 0.85rem;
+        font-size: 0.72rem;
         font-weight: 600;
         display: flex;
         align-items: center;
@@ -447,11 +447,11 @@ include '../../includes/header.php';
         align-items: center;
         gap: 0.5rem;
         width: 100%;
-        padding: 0.55rem 0.85rem;
+        padding: 0.5rem 0.8rem;
         border: none;
         background: none;
         cursor: pointer;
-        font-size: 0.85rem;
+        font-size: 0.72rem;
         color: var(--text-primary, #1e293b);
         text-align: left;
         transition: background 0.1s;
@@ -498,7 +498,7 @@ include '../../includes/header.php';
         padding: 0.2rem 0.5rem;
         border-radius: 4px;
         font-weight: 600;
-        font-size: 0.8rem;
+        font-size: 0.72rem;
         color: #ffffff !important;
     }
 
@@ -507,7 +507,7 @@ include '../../includes/header.php';
         padding: 0.2rem 0.5rem;
         border-radius: 4px;
         font-weight: 600;
-        font-size: 0.78rem;
+        font-size: 0.68rem;
         background: #dbeafe;
         color: #1e40af;
     }
@@ -761,9 +761,9 @@ include '../../includes/header.php';
                         <th>Nights</th>
                         <th>OTA Source</th>
                         <th>Price Breakdown</th>
-                        <th>Status</th>
                         <th>DP</th>
                         <th>Balance Due</th>
+                        <th>Status</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -797,7 +797,7 @@ include '../../includes/header.php';
                             <td>
                                 <div>
                                     <strong><?php echo htmlspecialchars($booking['guest_name']); ?></strong>
-                                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem;">
+                                    <div style="font-size: 0.72rem; color: var(--text-secondary); margin-top: 0.25rem;">
                                         <?php echo htmlspecialchars($booking['phone'] ?? '-'); ?>
                                     </div>
                                 </div>
@@ -807,18 +807,18 @@ include '../../includes/header.php';
                             <td>
                                 <?php if ($isGrouped): ?>
                                     <?php foreach ($booking['_rooms'] as $rm): ?>
-                                        <span class="room-badge" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:0.15rem 0.4rem;border-radius:4px;font-weight:600;font-size:0.8rem;display:inline-block;margin:1px;">
+                                        <span class="room-badge" style="background:linear-gradient(135deg,#6366f1,#8b5cf6) !important;color:#ffffff !important;padding:0.15rem 0.4rem;border-radius:4px;font-weight:600;font-size:0.72rem;display:inline-block;margin:1px;">
                                             <?php echo htmlspecialchars($rm['room_number']); ?>
                                         </span>
                                     <?php endforeach; ?>
-                                    <div style="font-size: 0.78rem; margin-top: 0.25rem;">
+                                    <div style="font-size: 0.7rem; margin-top: 0.25rem;">
                                         <?php echo htmlspecialchars($booking['type_name']); ?>
                                     </div>
                                 <?php else: ?>
-                                    <span class="room-badge" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:0.2rem 0.5rem;border-radius:4px;font-weight:600;">
+                                    <span class="room-badge" style="background:linear-gradient(135deg,#6366f1,#8b5cf6) !important;color:#ffffff !important;padding:0.2rem 0.5rem;border-radius:4px;font-weight:600;">
                                         <?php echo htmlspecialchars($booking['room_number']); ?>
                                     </span>
-                                    <div style="font-size: 0.78rem; margin-top: 0.25rem;">
+                                    <div style="font-size: 0.7rem; margin-top: 0.25rem;">
                                         <?php echo htmlspecialchars($booking['type_name']); ?>
                                     </div>
                                 <?php endif; ?>
@@ -826,7 +826,7 @@ include '../../includes/header.php';
 
                             <!-- Dates -->
                             <td>
-                                <div style="font-size: 0.8rem;">
+                                <div style="font-size: 0.72rem;">
                                     <?php echo date('d M', strtotime($booking['check_in_date'])); ?> -
                                     <?php echo date('d M', strtotime($booking['check_out_date'])); ?>
                                 </div>
@@ -850,7 +850,7 @@ include '../../includes/header.php';
                             <!-- Price Breakdown -->
                             <td>
                                 <?php if ($isGrouped): ?>
-                                    <div class="price-breakdown" style="font-size: 0.8rem;">
+                                    <div class="price-breakdown" style="font-size: 0.72rem;">
                                         <div class="price-item price-gross">
                                             <span>Total:</span>
                                             <span>Rp <?php echo number_format($booking['_combined_total_price'], 0, ',', '.'); ?></span>
@@ -873,7 +873,7 @@ include '../../includes/header.php';
                                         </div>
                                     </div>
                                 <?php else: ?>
-                                    <div class="price-breakdown" style="font-size: 0.8rem;">
+                                    <div class="price-breakdown" style="font-size: 0.72rem;">
                                         <div class="price-item price-gross">
                                             <span>Gross:</span>
                                             <span>Rp <?php echo number_format($netIncome['gross'], 0, ',', '.'); ?></span>
@@ -890,13 +890,6 @@ include '../../includes/header.php';
                                         </div>
                                     </div>
                                 <?php endif; ?>
-                            </td>
-
-                            <!-- Status -->
-                            <td>
-                                <span class="badge badge-status badge-<?php echo str_replace('_', '-', $booking['status']); ?>">
-                                    <?php echo ucfirst(str_replace('_', ' ', $booking['status'])); ?>
-                                </span>
                             </td>
 
                             <?php
@@ -918,7 +911,7 @@ include '../../includes/header.php';
                                 <span class="badge badge-payment-<?php echo str_replace('_', '-', $cPayStatus); ?>">
                                     <?php echo $cPayLabel; ?>
                                 </span>
-                                <div style="font-size: 0.8rem; margin-top: 0.3rem; font-weight: 700; color: #10b981;">
+                                <div style="font-size: 0.72rem; margin-top: 0.3rem; font-weight: 700; color: #10b981;">
                                     Rp <?php echo number_format($cPaid, 0, ',', '.'); ?>
                                 </div>
                             </td>
@@ -926,10 +919,17 @@ include '../../includes/header.php';
                             <!-- Balance Due -->
                             <td>
                                 <?php if ($cRemaining > 0): ?>
-                                    <strong style="color: #ef4444; font-size: 0.85rem;">Rp <?php echo number_format($cRemaining, 0, ',', '.'); ?></strong>
+                                    <strong style="color: #ef4444; font-size: 0.75rem;">Rp <?php echo number_format($cRemaining, 0, ',', '.'); ?></strong>
                                 <?php else: ?>
-                                    <strong style="color: #10b981; font-size: 0.85rem;">✓ Lunas</strong>
+                                    <strong style="color: #10b981; font-size: 0.75rem;">✓ Lunas</strong>
                                 <?php endif; ?>
+                            </td>
+
+                            <!-- Status -->
+                            <td>
+                                <span class="badge badge-status badge-<?php echo str_replace('_', '-', $booking['status']); ?>">
+                                    <?php echo ucfirst(str_replace('_', ' ', $booking['status'])); ?>
+                                </span>
                             </td>
 
                             <!-- Actions -->
