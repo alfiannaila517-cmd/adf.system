@@ -1554,37 +1554,37 @@ if ($trialStatus) {
     </div>
 
     <!-- DAILY CASH Widget -->
-    <div class="card fade-in" style="margin-bottom: 1rem; background: #fff; border: 1px solid #e5e7eb;">
-        <div style="padding: 0.875rem 1rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.625rem;">
-                <h3 style="font-size: 0.85rem; color: #1e293b; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+    <div class="card fade-in" style="margin-bottom: 0.75rem; background: #fff; border: 1px solid #e5e7eb;">
+        <div style="padding: 0.6rem 0.75rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <h3 style="font-size: 0.75rem; color: #1e293b; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 0.4rem;">
                     Daily Cash
-                    <span style="font-size: 0.7rem; color: #94a3b8; font-weight: 500;"><?php echo date('M Y', strtotime($selected_dashboard_month . '-01')); ?></span>
+                    <span style="font-size: 0.62rem; color: #94a3b8; font-weight: 500;"><?php echo date('M Y', strtotime($selected_dashboard_month . '-01')); ?></span>
                 </h3>
-                <a href="modules/owner/owner-capital-monitor.php" style="padding: 0.4rem 0.75rem; background: #1e3a8a; color: white; border-radius: 6px; text-decoration: none; font-size: 0.7rem; font-weight: 600; transition: all 0.2s ease; border: 1px solid #1e40af;" onmouseover="this.style.background='#1e40af'" onmouseout="this.style.background='#1e3a8a'">
+                <a href="modules/owner/owner-capital-monitor.php" style="padding: 0.32rem 0.65rem; background: #1e3a8a; color: #ffffff !important; border-radius: 6px; text-decoration: none; font-size: 0.65rem; font-weight: 600; transition: all 0.2s ease; border: 1px solid #1e40af;" onmouseover="this.style.background='#1e40af'" onmouseout="this.style.background='#1e3a8a'">
                     Detail
                 </a>
             </div>
 
             <!-- Compact Kas Summary -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.5rem;">
                 <!-- Start Cash -->
-                <div style="background: #f8fafc; padding: 0.875rem 1rem; border-radius: 10px; border: 1px solid #e2e8f0;">
-                    <div style="font-size: 0.65rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 0.25rem;">Start Cash (<?php echo date('M', strtotime($selected_dashboard_month . '-01')); ?>)</div>
-                    <div style="font-size: 1.125rem; font-weight: 700; color: #1e293b; font-family: 'Monaco', 'Courier New', monospace;"><?php echo formatCurrency($startKasHariIni); ?></div>
+                <div style="background: #f8fafc; padding: 0.6rem 0.7rem; border-radius: 8px; border: 1px solid #e2e8f0;">
+                    <div style="font-size: 0.6rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 0.2rem;">Start Cash (<?php echo date('M', strtotime($selected_dashboard_month . '-01')); ?>)</div>
+                    <div style="font-size: 0.92rem; font-weight: 700; color: #1e293b; font-family: 'Monaco', 'Courier New', monospace;"><?php echo formatCurrency($startKasHariIni); ?></div>
                 </div>
                 <!-- Cash Available -->
-                <div style="background: #f8fafc; padding: 0.875rem 1rem; border-radius: 10px; border: 1px solid <?php echo $dashCashAvailable >= 0 ? '#e2e8f0' : '#fecaca'; ?>; border-left: 3px solid <?php echo $dashCashAvailable >= 0 ? '#1e3a8a' : '#dc2626'; ?>;">
-                    <div style="font-size: 0.65rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 0.25rem;">Cash Available</div>
-                    <div style="font-size: 1.125rem; font-weight: 700; color: <?php echo $dashCashAvailable >= 0 ? '#1e293b' : '#dc2626'; ?>; font-family: 'Monaco', 'Courier New', monospace;"><?php echo formatCurrency($dashCashAvailable); ?></div>
+                <div style="background: #f8fafc; padding: 0.6rem 0.7rem; border-radius: 8px; border: 1px solid <?php echo $dashCashAvailable >= 0 ? '#e2e8f0' : '#fecaca'; ?>; border-left: 3px solid <?php echo $dashCashAvailable >= 0 ? '#1e3a8a' : '#dc2626'; ?>;">
+                    <div style="font-size: 0.6rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 0.2rem;">Cash Available</div>
+                    <div style="font-size: 0.92rem; font-weight: 700; color: <?php echo $dashCashAvailable >= 0 ? '#1e293b' : '#dc2626'; ?>; font-family: 'Monaco', 'Courier New', monospace;"><?php echo formatCurrency($dashCashAvailable); ?></div>
                 </div>
             </div>
 
             <!-- Guest Cash Income -->
             <?php if ($guestCashIncome > 0): ?>
-                <div style="margin-bottom: 0.75rem; padding: 0.75rem 1rem; background: #eff6ff; border-radius: 10px; border: 1px solid #dbeafe; display: flex; align-items: center; gap: 0.75rem;">
-                    <div style="width: 36px; height: 36px; border-radius: 10px; background: #1e3a8a; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5">
+                <div style="margin-bottom: 0.5rem; padding: 0.55rem 0.7rem; background: #eff6ff; border-radius: 8px; border: 1px solid #dbeafe; display: flex; align-items: center; gap: 0.6rem;">
+                    <div style="width: 30px; height: 30px; border-radius: 8px; background: #1e3a8a; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5">
                             <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
                             <circle cx="9" cy="7" r="4" />
                             <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
@@ -1592,51 +1592,51 @@ if ($trialStatus) {
                         </svg>
                     </div>
                     <div style="flex: 1;">
-                        <div style="font-size: 0.6rem; color: #1e40af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;">Cash Income</div>
-                        <div style="font-size: 1.1rem; font-weight: 700; color: #1e3a8a; font-family: 'Monaco', monospace; display: flex; align-items: center; gap: 0.35rem;">
+                        <div style="font-size: 0.58rem; color: #1e40af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;">Cash Income</div>
+                        <div style="font-size: 0.92rem; font-weight: 700; color: #1e3a8a; font-family: 'Monaco', monospace; display: flex; align-items: center; gap: 0.3rem;">
                             <span>+</span><?php echo formatCurrency($guestCashIncome); ?>
                         </div>
                     </div>
-                    <div style="font-size: 0.65rem; color: #1e3a8a; background: #fff; padding: 0.25rem 0.5rem; border-radius: 4px; font-weight: 600;">Cash</div>
+                    <div style="font-size: 0.6rem; color: #1e3a8a; background: #fff; padding: 0.2rem 0.45rem; border-radius: 4px; font-weight: 600;">Cash</div>
                 </div>
             <?php endif; ?>
 
             <!-- Detail: 2 compact cards (expense card intentionally hidden) -->
-            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.625rem;">
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem;">
                 <!-- Owner Transfer This Month -->
-                <div style="background: #fff; padding: 0.75rem 0.875rem; border-radius: 8px; border: 1px solid #e5e7eb; display: flex; align-items: center; gap: 0.625rem;">
-                    <div style="width: 32px; height: 32px; border-radius: 8px; background: #1e3a8a; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5">
+                <div style="background: #fff; padding: 0.55rem 0.7rem; border-radius: 8px; border: 1px solid #e5e7eb; display: flex; align-items: center; gap: 0.55rem;">
+                    <div style="width: 28px; height: 28px; border-radius: 7px; background: #1e3a8a; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5">
                             <rect x="2" y="6" width="20" height="12" rx="2" />
                             <circle cx="12" cy="12" r="3" />
                         </svg>
                     </div>
                     <div>
-                        <div style="font-size: 0.6rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;">Owner Transfer</div>
-                        <div style="font-size: 1rem; font-weight: 700; color: #1e293b; font-family: 'Monaco', monospace;"><?php echo formatCurrency($ownerTransferThisMonth); ?></div>
+                        <div style="font-size: 0.58rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;">Owner Transfer</div>
+                        <div style="font-size: 0.85rem; font-weight: 700; color: #1e293b; font-family: 'Monaco', monospace;"><?php echo formatCurrency($ownerTransferThisMonth); ?></div>
                     </div>
                 </div>
                 <!-- Income (Owner + Guest Cash) -->
-                <div style="background: #fff; padding: 0.75rem 0.875rem; border-radius: 8px; border: 1px solid #e5e7eb; display: flex; align-items: center; gap: 0.625rem;">
-                    <div style="width: 32px; height: 32px; border-radius: 8px; background: #1e3a8a; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5">
+                <div style="background: #fff; padding: 0.55rem 0.7rem; border-radius: 8px; border: 1px solid #e5e7eb; display: flex; align-items: center; gap: 0.55rem;">
+                    <div style="width: 28px; height: 28px; border-radius: 7px; background: #1e3a8a; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5">
                             <polyline points="7 13 12 8 17 13" />
                             <line x1="12" y1="8" x2="12" y2="20" />
                         </svg>
                     </div>
                     <div>
-                        <div style="font-size: 0.6rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;">Owner + Guest</div>
-                        <div style="font-size: 1rem; font-weight: 700; color: #1e293b; font-family: 'Monaco', monospace;"><?php echo formatCurrency($ownerTransferThisMonth + $guestCashIncome); ?></div>
+                        <div style="font-size: 0.58rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;">Owner + Guest</div>
+                        <div style="font-size: 0.85rem; font-weight: 700; color: #1e293b; font-family: 'Monaco', monospace;"><?php echo formatCurrency($ownerTransferThisMonth + $guestCashIncome); ?></div>
                     </div>
                 </div>
             </div>
-            <div style="margin-top: 0.5rem; font-size: 0.65rem; color: #94a3b8;">
+            <div style="margin-top: 0.4rem; font-size: 0.6rem; color: #94a3b8;">
                 * Angka di atas hanya kas fisik (Petty Cash + Modal Owner), tidak termasuk transaksi Rekening Bank. Total pengeluaran seluruh akun ada di Buku Kas.
             </div>
 
             <?php if ($dashCashAvailable < 0): ?>
-                <div style="margin-top: 0.5rem; padding: 0.4rem 0.75rem; background: #fef2f2; border-left: 2px solid #dc2626; border-radius: 4px;">
-                    <div style="font-size: 0.7rem; color: #dc2626; font-weight: 600;">⚠️ Negative cash!</div>
+                <div style="margin-top: 0.4rem; padding: 0.35rem 0.65rem; background: #fef2f2; border-left: 2px solid #dc2626; border-radius: 4px;">
+                    <div style="font-size: 0.65rem; color: #dc2626; font-weight: 600;">⚠️ Negative cash!</div>
                 </div>
             <?php endif; ?>
         </div>
