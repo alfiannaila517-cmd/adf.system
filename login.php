@@ -556,7 +556,7 @@ if (isset($_GET['biz'])) {
             flex-direction: column;
             align-items: flex-end;
             justify-content: center;
-            padding: 1.25rem 8vw 1.25rem 1.25rem;
+            padding: 1.25rem 14vw 1.25rem 1.25rem;
             position: relative;
             overflow: hidden;
             <?php if ($bgUrl): ?>background-image: linear-gradient(165deg, rgba(1, 2, 8, 0.9), rgba(2, 6, 20, 0.84)), url('<?php echo $bgUrl; ?>?v=<?php echo time(); ?>');
@@ -1007,26 +1007,11 @@ if (isset($_GET['biz'])) {
 
 <body>
     <div class="login-container">
-        <div class="developer-logo-top">
-            <?php if ($loginLogoUrl): ?>
-                <img src="<?php echo htmlspecialchars($loginLogoUrl); ?>" alt="System Logo">
-            <?php else: ?>
-                <img src="<?php echo BASE_URL; ?>/assets/img/developer-logo.png" alt="Developer Logo">
-            <?php endif; ?>
-        </div>
         <div class="login-shell">
             <div class="login-box">
                 <div class="login-header">
                     <h2 class="login-logo">Sign in to Dashboard</h2>
                     <p class="login-subtitle"><?php echo $displayInfo['subtitle']; ?><?php if (isset($_GET['biz'])): ?> • Hotel System<?php endif; ?></p>
-                </div>
-
-                <div class="database-status">
-                    <div class="status-indicator"></div>
-                    <div class="db-info">
-                        <div class="db-label">DATABASE</div>
-                        <div class="db-name"><?php echo $displayInfo['db_name']; ?></div>
-                    </div>
                 </div>
 
                 <?php if (isset($error)): ?>
@@ -1035,7 +1020,7 @@ if (isset($_GET['biz'])) {
                     </div>
                 <?php endif; ?>
 
-                <form method="POST" action="" autocomplete="on">
+                <form method="POST" action="" autocomplete="on" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('btnSystemLogin').click();}">
                     <div class="form-group">
                         <label class="form-label">Username</label>
                         <input type="text" name="username" autocomplete="username" class="form-control" placeholder="Enter username" required autofocus value="<?= htmlspecialchars($savedUser) ?>">
@@ -1059,7 +1044,7 @@ if (isset($_GET['biz'])) {
 
                     <div class="login-buttons">
                         <button type="submit" name="login_type" value="owner" class="btn-owner">Owner Login</button>
-                        <button type="submit" name="login_type" value="normal" class="btn-primary">System Login</button>
+                        <button type="submit" name="login_type" value="normal" class="btn-primary" id="btnSystemLogin">System Login</button>
                     </div>
                 </form>
 
