@@ -554,9 +554,9 @@ if (isset($_GET['biz'])) {
             min-height: 100vh;
             display: flex;
             flex-direction: column;
-            align-items: flex-start;
+            align-items: flex-end;
             justify-content: center;
-            padding: 1.25rem 1.25rem 1.25rem 8vw;
+            padding: 1.25rem 8vw 1.25rem 1.25rem;
             position: relative;
             overflow: hidden;
             <?php if ($bgUrl): ?>background-image: linear-gradient(165deg, rgba(1, 2, 8, 0.9), rgba(2, 6, 20, 0.84)), url('<?php echo $bgUrl; ?>?v=<?php echo time(); ?>');
@@ -618,14 +618,14 @@ if (isset($_GET['biz'])) {
         .developer-logo-top {
             width: 100%;
             display: flex;
-            justify-content: flex-start;
-            margin-bottom: 1.1rem;
+            justify-content: flex-end;
+            margin-bottom: 0.9rem;
             position: relative;
             z-index: 2;
         }
 
         .developer-logo-top img {
-            width: 58px;
+            width: 46px;
             height: auto;
             opacity: 0.92;
             filter: drop-shadow(0 0 18px rgba(34, 211, 238, 0.35)) drop-shadow(0 6px 20px rgba(0, 4, 16, 0.7));
@@ -633,8 +633,8 @@ if (isset($_GET['biz'])) {
 
         /* Narrow, elongated shell with a slow-rotating neon gradient ring */
         .login-shell {
-            width: min(318px, 88vw);
-            border-radius: 26px;
+            width: min(272px, 86vw);
+            border-radius: 22px;
             position: relative;
             z-index: 1;
             animation: riseIn 0.45s ease;
@@ -665,8 +665,8 @@ if (isset($_GET['biz'])) {
         .login-box {
             background: linear-gradient(170deg, rgba(9, 13, 28, 0.86), rgba(6, 9, 20, 0.9));
             backdrop-filter: blur(28px) saturate(160%);
-            border-radius: 25px;
-            padding: 2.15rem 1.5rem 1.75rem;
+            border-radius: 21px;
+            padding: 1.5rem 1.15rem 1.3rem;
             display: flex;
             flex-direction: column;
             color: #f6f8fc !important;
@@ -679,13 +679,13 @@ if (isset($_GET['biz'])) {
         }
 
         .login-header {
-            margin-bottom: 1.3rem;
+            margin-bottom: 0.95rem;
             text-align: center;
         }
 
         .login-logo {
             font-family: 'Space Grotesk', sans-serif;
-            font-size: 1.4rem;
+            font-size: 1.12rem;
             font-weight: 700;
             line-height: 1.2;
             letter-spacing: -0.4px;
@@ -697,8 +697,8 @@ if (isset($_GET['biz'])) {
 
         .login-subtitle {
             color: var(--ink-700);
-            font-size: 0.78rem;
-            margin-top: 0.4rem;
+            font-size: 0.7rem;
+            margin-top: 0.3rem;
         }
 
         .login-box .login-subtitle {
@@ -707,13 +707,13 @@ if (isset($_GET['biz'])) {
 
         .database-status {
             display: flex;
-            gap: 0.55rem;
+            gap: 0.5rem;
             align-items: center;
             border: 1px solid rgba(255, 255, 255, 0.07);
             background: rgba(255, 255, 255, 0.03);
             border-radius: 999px;
-            padding: 0.5rem 0.8rem;
-            margin-bottom: 1.3rem;
+            padding: 0.42rem 0.7rem;
+            margin-bottom: 0.95rem;
         }
 
         .status-indicator {
@@ -765,15 +765,15 @@ if (isset($_GET['biz'])) {
         }
 
         .form-group {
-            margin-bottom: 0.95rem;
+            margin-bottom: 0.7rem;
         }
 
         .form-label {
             display: block;
             color: rgba(168, 192, 232, 0.75);
-            font-size: 0.66rem;
+            font-size: 0.62rem;
             font-weight: 600;
-            margin-bottom: 0.35rem;
+            margin-bottom: 0.3rem;
             text-transform: uppercase;
             letter-spacing: 0.6px;
         }
@@ -804,12 +804,12 @@ if (isset($_GET['biz'])) {
 
         .form-control {
             width: 100%;
-            padding: 0.66rem 0.8rem;
+            padding: 0.54rem 0.7rem;
             background: rgba(255, 255, 255, 0.04);
             border: 1px solid rgba(255, 255, 255, 0.09);
-            border-radius: 13px;
+            border-radius: 11px;
             color: #e8eeff;
-            font-size: 0.88rem;
+            font-size: 0.82rem;
             font-weight: 500;
             transition: border-color 0.22s, box-shadow 0.22s, background 0.22s;
         }
@@ -916,15 +916,15 @@ if (isset($_GET['biz'])) {
 
         .login-buttons {
             display: grid;
-            gap: 0.55rem;
-            margin-top: 0.3rem;
+            gap: 0.5rem;
+            margin-top: 0.25rem;
             grid-template-columns: 1fr 1.45fr;
         }
 
         .login-buttons button {
-            padding: 0.72rem 0.7rem;
-            border-radius: 13px;
-            font-size: 0.82rem;
+            padding: 0.6rem 0.6rem;
+            border-radius: 11px;
+            font-size: 0.78rem;
             font-weight: 700;
             cursor: pointer;
             border: none;
@@ -976,12 +976,12 @@ if (isset($_GET['biz'])) {
 
         @media (max-width: 860px) {
             .login-shell {
-                width: min(318px, 90vw);
+                width: min(272px, 90vw);
             }
 
             .login-container {
                 align-items: center;
-                padding-left: 1.25rem;
+                padding-right: 1.25rem;
             }
 
             .developer-logo-top {
@@ -1008,7 +1008,11 @@ if (isset($_GET['biz'])) {
 <body>
     <div class="login-container">
         <div class="developer-logo-top">
-            <img src="<?php echo BASE_URL; ?>/assets/img/developer-logo.png" alt="Developer Logo">
+            <?php if ($loginLogoUrl): ?>
+                <img src="<?php echo htmlspecialchars($loginLogoUrl); ?>" alt="System Logo">
+            <?php else: ?>
+                <img src="<?php echo BASE_URL; ?>/assets/img/developer-logo.png" alt="Developer Logo">
+            <?php endif; ?>
         </div>
         <div class="login-shell">
             <div class="login-box">
