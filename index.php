@@ -2251,19 +2251,20 @@ if ($trialStatus) {
     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1rem;">
 
         <!-- Pie Chart 1 - Income per Division -->
-        <div class="card">
-            <div style="padding: 0.75rem; border-bottom: 1px solid var(--bg-tertiary);">
-                <h3 style="font-size: 0.875rem; color: var(--text-primary); font-weight: 600; display: flex; align-items: center; gap: 0.4rem;">
-                    <i data-feather="pie-chart" style="width: 16px; height: 16px; color: var(--success);"></i>
+        <div class="card" style="overflow: hidden;">
+            <div style="padding: 0.6rem 0.7rem; border-bottom: 1px solid var(--bg-tertiary); position: relative;">
+                <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: linear-gradient(180deg, #10b981, #34d399);"></div>
+                <h3 style="font-size: 0.76rem; color: var(--text-primary); font-weight: 700; display: flex; align-items: center; gap: 0.35rem; letter-spacing: 0.01em;">
+                    <i data-feather="pie-chart" style="width: 13px; height: 13px; color: var(--success);"></i>
                     Pemasukan per Divisi
                 </h3>
-                <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                <div style="display: flex; gap: 0.5rem; margin-top: 0.4rem;">
                     <input type="month" id="divisionIncomeMonth" value="<?php echo $selected_dashboard_month; ?>"
-                        class="form-control" style="font-size: 0.75rem; height: 32px; padding: 0.25rem 0.5rem; flex: 1;"
+                        class="form-control" style="font-size: 0.68rem; height: 26px; padding: 0.2rem 0.45rem; flex: 1;"
                         onchange="updateDivisionIncomeChart(this.value)">
                 </div>
             </div>
-            <div style="position: relative; height: 280px; padding: 1rem;">
+            <div style="position: relative; height: 205px; padding: 0.6rem;">
                 <?php if (empty($divisionIncomeData)): ?>
                     <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--text-muted);">
                         <i data-feather="inbox" style="width: 40px; height: 40px; margin-bottom: 0.5rem;"></i>
@@ -2276,19 +2277,20 @@ if ($trialStatus) {
         </div>
 
         <!-- Pie Chart 2 - Expense per Division (NEW) -->
-        <div class="card">
-            <div style="padding: 0.75rem; border-bottom: 1px solid var(--bg-tertiary);">
-                <h3 style="font-size: 0.875rem; color: var(--text-primary); font-weight: 600; display: flex; align-items: center; gap: 0.4rem;">
-                    <i data-feather="pie-chart" style="width: 16px; height: 16px; color: var(--danger);"></i>
+        <div class="card" style="overflow: hidden;">
+            <div style="padding: 0.6rem 0.7rem; border-bottom: 1px solid var(--bg-tertiary); position: relative;">
+                <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: linear-gradient(180deg, #f43f5e, #fb7185);"></div>
+                <h3 style="font-size: 0.76rem; color: var(--text-primary); font-weight: 700; display: flex; align-items: center; gap: 0.35rem; letter-spacing: 0.01em;">
+                    <i data-feather="pie-chart" style="width: 13px; height: 13px; color: var(--danger);"></i>
                     Pengeluaran per Divisi
                 </h3>
-                <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                <div style="display: flex; gap: 0.5rem; margin-top: 0.4rem;">
                     <input type="month" id="expenseCategoryMonth" value="<?php echo $selected_dashboard_month; ?>"
-                        class="form-control" style="font-size: 0.75rem; height: 32px; padding: 0.25rem 0.5rem; flex: 1;"
+                        class="form-control" style="font-size: 0.68rem; height: 26px; padding: 0.2rem 0.45rem; flex: 1;"
                         onchange="updateExpenseCategoryChart(this.value)">
                 </div>
             </div>
-            <div style="position: relative; height: 280px; padding: 1rem;">
+            <div style="position: relative; height: 205px; padding: 0.6rem;">
                 <?php if (empty($expenseDivisionData)): ?>
                     <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--text-muted);">
                         <i data-feather="inbox" style="width: 40px; height: 40px; margin-bottom: 0.5rem;"></i>
@@ -2533,18 +2535,18 @@ if ($trialStatus) {
                             <?php foreach ($divisionIncomeData as $index => $div): ?> '<?php echo $divisionColors[$index % count($divisionColors)]; ?>',
                             <?php endforeach; ?>
                         ],
-                        borderWidth: 2,
-                        borderColor: 'rgba(255,255,255,0.15)',
-                        hoverOffset: 12,
-                        hoverBorderWidth: 3,
+                        borderWidth: 1.5,
+                        borderColor: 'rgba(255,255,255,0.2)',
+                        hoverOffset: 8,
+                        hoverBorderWidth: 2,
                         hoverBorderColor: '#fff'
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    cutout: '50%',
-                    radius: '95%',
+                    cutout: '74%',
+                    radius: '90%',
                     animation: {
                         animateScale: true,
                         animateRotate: true,
@@ -2555,17 +2557,17 @@ if ($trialStatus) {
                         legend: {
                             position: 'bottom',
                             labels: {
-                                padding: 10,
+                                padding: 6,
                                 font: {
-                                    size: 10,
+                                    size: 8.5,
                                     weight: '600',
                                     family: "'Inter', sans-serif"
                                 },
                                 color: getLegendTextColor(),
                                 usePointStyle: true,
-                                pointStyle: 'rectRounded',
-                                boxWidth: 10,
-                                boxHeight: 10
+                                pointStyle: 'circle',
+                                boxWidth: 6,
+                                boxHeight: 6
                             }
                         },
                         tooltip: {
@@ -2634,18 +2636,18 @@ if ($trialStatus) {
                             '#3AE374',
                             '#FF4757'
                         ],
-                        borderWidth: 2,
-                        borderColor: 'rgba(255,255,255,0.15)',
-                        hoverOffset: 12,
-                        hoverBorderWidth: 3,
+                        borderWidth: 1.5,
+                        borderColor: 'rgba(255,255,255,0.2)',
+                        hoverOffset: 8,
+                        hoverBorderWidth: 2,
                         hoverBorderColor: '#fff'
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    cutout: '50%',
-                    radius: '95%',
+                    cutout: '74%',
+                    radius: '90%',
                     animation: {
                         animateScale: true,
                         animateRotate: true,
@@ -2656,16 +2658,16 @@ if ($trialStatus) {
                         legend: {
                             position: 'bottom',
                             labels: {
-                                padding: 10,
+                                padding: 6,
                                 font: {
-                                    size: 10,
+                                    size: 8.5,
                                     weight: '600'
                                 },
                                 color: getLegendTextColor(),
                                 usePointStyle: true,
-                                pointStyle: 'rectRounded',
-                                boxWidth: 10,
-                                boxHeight: 10
+                                pointStyle: 'circle',
+                                boxWidth: 6,
+                                boxHeight: 6
                             }
                         },
                         tooltip: {
