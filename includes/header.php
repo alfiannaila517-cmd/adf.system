@@ -214,24 +214,8 @@ if (isset($_POST['__upload_topbar_avatar']) && $_POST['__upload_topbar_avatar'] 
     exit;
 }
 
-// Get favicon from settings
-$faviconUrl = null;
-try {
-    if (class_exists('Database')) {
-        $db = Database::getInstance();
-        $faviconSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'site_favicon'");
-        $faviconFile = $faviconSetting['setting_value'] ?? null;
-        if ($faviconFile) {
-            if (strpos($faviconFile, 'http') === 0) {
-                $faviconUrl = $faviconFile;
-            } elseif (file_exists(BASE_PATH . '/uploads/icons/' . $faviconFile)) {
-                $faviconUrl = BASE_URL . '/uploads/icons/' . $faviconFile;
-            }
-        }
-    }
-} catch (Exception $e) {
-    // Silent fail
-}
+// Favicon: always use the ADF System logo (business icon must never override it)
+$faviconUrl = BASE_URL . '/assets/img/developer-logo.png';
 ?>
 <!DOCTYPE html>
 <html lang="<?php echo $_SESSION['user_language'] ?? 'id'; ?>">
@@ -242,11 +226,9 @@ try {
     <title><?php echo isset($pageTitle) ? $pageTitle . ' - ' : ''; ?><?php echo APP_NAME; ?></title>
 
     <!-- Favicon -->
-    <?php if ($faviconUrl): ?>
-        <link rel="icon" type="image/png" sizes="192x192" href="<?php echo $faviconUrl; ?>?v=<?php echo time(); ?>">
-        <link rel="shortcut icon" href="<?php echo $faviconUrl; ?>?v=<?php echo time(); ?>">
-        <link rel="apple-touch-icon" sizes="180x180" href="<?php echo $faviconUrl; ?>?v=<?php echo time(); ?>">
-    <?php endif; ?>
+    <link rel="icon" type="image/png" sizes="500x500" href="<?php echo $faviconUrl; ?>?v=<?php echo time(); ?>">
+    <link rel="shortcut icon" href="<?php echo $faviconUrl; ?>?v=<?php echo time(); ?>">
+    <link rel="apple-touch-icon" sizes="500x500" href="<?php echo $faviconUrl; ?>?v=<?php echo time(); ?>">
 
     <!-- Preconnect for performance -->
     <link rel="preconnect" href="https://fonts.googleapis.com">

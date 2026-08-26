@@ -47,10 +47,6 @@ try {
     $loginLogo = $loginLogoSetting['setting_value'] ?? null;
     $loginLogoUrl = $loginLogo ? $cl->getDisplayUrl($loginLogo, 'uploads/logos/') : null;
 
-    $faviconSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'site_favicon'");
-    $faviconFile = $faviconSetting['setting_value'] ?? null;
-    $faviconUrl = $faviconFile ? $cl->getDisplayUrl($faviconFile, 'uploads/icons/') : null;
-
     // Get demo credentials from settings
     $demoUsernameSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'demo_username'");
     $demoUsername = $demoUsernameSetting['setting_value'] ?? 'admin';
@@ -508,11 +504,9 @@ if (isset($_GET['biz'])) {
     <meta http-equiv="Expires" content="0">
     <title>Login - <?php echo APP_NAME; ?></title>
 
-    <!-- Favicon -->
-    <?php if ($faviconUrl): ?>
-        <link rel="icon" type="image/x-icon" href="<?php echo $faviconUrl; ?>?v=<?php echo time(); ?>">
-        <link rel="shortcut icon" href="<?php echo $faviconUrl; ?>?v=<?php echo time(); ?>">
-    <?php endif; ?>
+    <!-- Favicon: always the ADF System logo, never the business icon -->
+    <link rel="icon" type="image/png" sizes="500x500" href="<?php echo BASE_URL; ?>/assets/img/developer-logo.png?v=<?php echo time(); ?>">
+    <link rel="shortcut icon" href="<?php echo BASE_URL; ?>/assets/img/developer-logo.png?v=<?php echo time(); ?>">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
