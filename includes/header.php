@@ -696,7 +696,7 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                                 $selected = ($bizId === ACTIVE_BUSINESS_ID) ? 'selected' : '';
                             ?>
                                 <option value="<?php echo htmlspecialchars($bizId); ?>" <?php echo $selected; ?>>
-                                    <?php echo htmlspecialchars($bizConfig['theme']['icon'] . ' ' . $bizConfig['name']); ?>
+                                    <?php echo htmlspecialchars($bizConfig['name']); ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
