@@ -2303,26 +2303,27 @@ if ($trialStatus) {
         </div>
 
         <!-- Daily Activity Summary -->
-        <div class="card">
-            <div style="padding: 0.65rem 0 0.4rem 0; border-bottom: 1px solid var(--bg-tertiary);">
-                <h3 style="font-size: 0.875rem; color: var(--text-primary); font-weight: 600; display: flex; align-items: center; gap: 0.4rem;">
-                    <i data-feather="activity" style="width: 16px; height: 16px; color: var(--primary-color);"></i>
+        <div class="card" style="overflow: hidden;">
+            <div style="padding: 0.6rem 0.7rem; border-bottom: 1px solid var(--bg-tertiary); position: relative;">
+                <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: linear-gradient(180deg, var(--primary-color), var(--primary-dark));"></div>
+                <h3 style="font-size: 0.76rem; color: var(--text-primary); font-weight: 700; display: flex; align-items: center; gap: 0.35rem; letter-spacing: 0.01em;">
+                    <i data-feather="activity" style="width: 13px; height: 13px; color: var(--primary-color);"></i>
                     Ringkasan Aktivitas Bulan Ini
                 </h3>
             </div>
-            <div style="padding: 1rem;">
-                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: var(--bg-tertiary); border-radius: 8px;">
-                        <span style="font-size: 0.875rem; color: var(--text-muted);">Total Hari Transaksi</span>
-                        <span style="font-size: 1.25rem; font-weight: 800; color: var(--primary-color);">
+            <div style="padding: 0.6rem 0.7rem; height: 205px; display: flex; flex-direction: column; justify-content: center;">
+                <div style="display: flex; flex-direction: column; gap: 0.4rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.6rem; background: var(--bg-tertiary); border-radius: 8px;">
+                        <span style="font-size: 0.68rem; color: var(--text-muted);">Total Hari Transaksi</span>
+                        <span style="font-size: 0.9rem; font-weight: 800; color: var(--primary-color);">
                             <?php echo count(array_filter($dailyData, function ($d) {
                                 return $d['income'] > 0 || $d['expense'] > 0;
                             })); ?> hari
                         </span>
                     </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05)); border-radius: 8px;">
-                        <span style="font-size: 0.875rem; color: var(--success);">Rata-rata Pemasukan/Hari</span>
-                        <span style="font-size: 1.25rem; font-weight: 800; color: var(--success);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.6rem; background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05)); border-radius: 8px;">
+                        <span style="font-size: 0.68rem; color: var(--success);">Rata-rata Pemasukan/Hari</span>
+                        <span style="font-size: 0.82rem; font-weight: 800; color: var(--success);">
                             <?php
                             $activeDays = count(array_filter($dailyData, function ($d) {
                                 return $d['income'] > 0 || $d['expense'] > 0;
@@ -2331,9 +2332,9 @@ if ($trialStatus) {
                             ?>
                         </span>
                     </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.05)); border-radius: 8px;">
-                        <span style="font-size: 0.875rem; color: var(--danger);">Rata-rata Pengeluaran/Hari</span>
-                        <span style="font-size: 1.25rem; font-weight: 800; color: var(--danger);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.6rem; background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.05)); border-radius: 8px;">
+                        <span style="font-size: 0.68rem; color: var(--danger);">Rata-rata Pengeluaran/Hari</span>
+                        <span style="font-size: 0.82rem; font-weight: 800; color: var(--danger);">
                             <?php
                             echo formatCurrency($activeDays > 0 ? array_sum(array_column($dailyData, 'expense')) / $activeDays : 0);
                             ?>
@@ -2545,8 +2546,8 @@ if ($trialStatus) {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    cutout: '74%',
-                    radius: '90%',
+                    cutout: '58%',
+                    radius: '92%',
                     animation: {
                         animateScale: true,
                         animateRotate: true,
@@ -2646,8 +2647,8 @@ if ($trialStatus) {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    cutout: '74%',
-                    radius: '90%',
+                    cutout: '58%',
+                    radius: '92%',
                     animation: {
                         animateScale: true,
                         animateRotate: true,
