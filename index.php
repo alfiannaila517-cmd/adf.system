@@ -2546,7 +2546,7 @@ if ($trialStatus) {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    cutout: '58%',
+                    cutout: '40%',
                     radius: '92%',
                     animation: {
                         animateScale: true,
@@ -2647,7 +2647,7 @@ if ($trialStatus) {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    cutout: '58%',
+                    cutout: '40%',
                     radius: '92%',
                     animation: {
                         animateScale: true,
