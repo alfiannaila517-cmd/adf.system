@@ -2200,31 +2200,31 @@ include '../../includes/header.php';
 
     .hs-stats {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-        gap: 0.75rem;
-        margin-bottom: 0.85rem;
+        grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+        gap: 0.55rem;
+        margin-bottom: 0.65rem;
     }
 
     .hs-stat {
         background: white;
-        border-radius: 10px;
-        padding: 0.7rem 0.85rem;
-        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
-        border-top: 3px solid var(--c);
+        border-radius: 8px;
+        padding: 0.5rem 0.65rem;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+        border-top: 2px solid var(--c);
         border: 1px solid #eef2f7;
     }
 
     .hs-stat .val {
-        font-size: 1.02rem;
+        font-size: 0.88rem;
         font-weight: 800;
         color: var(--c);
-        line-height: 1.25;
+        line-height: 1.2;
     }
 
     .hs-stat .lbl {
-        font-size: 0.75rem;
+        font-size: 0.66rem;
         color: var(--text-secondary);
-        margin-top: 0.15rem;
+        margin-top: 0.1rem;
     }
 
     .hs-filters {
@@ -2265,15 +2265,15 @@ include '../../includes/header.php';
     }
 
     .hs-table th {
-        background: #f8fafc;
+        background: rgba(30, 58, 138, 0.08);
         padding: 0.55rem 0.75rem;
-        text-align: left;
-        font-weight: 600;
-        color: var(--text-secondary);
+        text-align: center;
+        font-weight: 700;
+        color: #1e3a8a;
         font-size: 0.75rem;
         text-transform: uppercase;
         letter-spacing: 0.03em;
-        border-bottom: 1px solid #e2e8f0;
+        border-bottom: 1px solid rgba(30, 58, 138, 0.15);
     }
 
     .hs-table td {
@@ -3090,11 +3090,11 @@ include '../../includes/header.php';
 
     <!-- Revenue per Service Type (this month) -->
     <?php if (!empty($svcRevStats)): ?>
-        <div style="background:white;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,0.07);padding:0.85rem 1rem;margin-bottom:1rem;">
-            <div style="font-size:0.72rem;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.65rem;">
+        <div style="background:white;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.06);padding:0.55rem 0.7rem;margin-bottom:0.7rem;">
+            <div style="font-size:0.64rem;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.45rem;">
                 📊 Revenue per Service — This Month
             </div>
-            <div style="display:flex;flex-wrap:wrap;gap:0.6rem;">
+            <div style="display:flex;flex-wrap:wrap;gap:0.45rem;">
                 <?php
                 $svcColors = ['motor_rental' => '#f59e0b', 'car_rental' => '#0f766e', 'laundry' => '#3b82f6', 'service' => '#10b981', 'airport_drop' => '#8b5cf6', 'harbor_drop' => '#06b6d4', 'narayana_trip' => '#ec4899', 'lain_lain' => '#78716c'];
                 foreach ($svcRevStats as $sr):
@@ -3102,10 +3102,10 @@ include '../../includes/header.php';
                     $svcInfo = $serviceTypes[$svcKey] ?? ['label' => $svcKey, 'icon' => '🔹'];
                     $color   = $svcColors[$svcKey] ?? '#6366f1';
                 ?>
-                    <div style="flex:1;min-width:130px;border-left:3px solid <?php echo $color; ?>;padding:0.5rem 0.75rem;background:#fafbff;border-radius:0 7px 7px 0;">
-                        <div style="font-size:0.8rem;font-weight:700;color:<?php echo $color; ?>"><?php echo $svcInfo['icon']; ?> <?php echo htmlspecialchars($svcInfo['label']); ?></div>
-                        <div style="font-size:0.95rem;font-weight:800;color:#1e293b;margin-top:0.15rem">Rp <?php echo number_format($sr['total_revenue'], 0, ',', '.'); ?></div>
-                        <div style="font-size:0.68rem;color:var(--text-secondary)"><?php echo $sr['invoice_count']; ?> invoice<?php echo $sr['invoice_count'] != 1 ? 's' : ''; ?></div>
+                    <div style="flex:1;min-width:110px;border-left:3px solid <?php echo $color; ?>;padding:0.4rem 0.6rem;background:#fafbff;border-radius:0 6px 6px 0;">
+                        <div style="font-size:0.7rem;font-weight:700;color:<?php echo $color; ?>"><?php echo $svcInfo['icon']; ?> <?php echo htmlspecialchars($svcInfo['label']); ?></div>
+                        <div style="font-size:0.82rem;font-weight:800;color:#1e293b;margin-top:0.1rem">Rp <?php echo number_format($sr['total_revenue'], 0, ',', '.'); ?></div>
+                        <div style="font-size:0.6rem;color:var(--text-secondary)"><?php echo $sr['invoice_count']; ?> invoice<?php echo $sr['invoice_count'] != 1 ? 's' : ''; ?></div>
                     </div>
                 <?php endforeach; ?>
             </div>
