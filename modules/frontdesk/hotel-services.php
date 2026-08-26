@@ -1950,7 +1950,7 @@ $stmt = $pdo->prepare("SELECT hi.*,
 $stmt->execute($params);
 $invoices = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// For each invoice, get service type breakdown (count per type)
+// For each invoice, get service type breakdown (count per type) + full item detail (for the row-click detail popup)
 foreach ($invoices as &$inv) {
     $typeCountStmt = $pdo->prepare("SELECT hii.service_type, COUNT(*) as cnt
         FROM hotel_invoice_items hii
@@ -1959,8 +1959,49 @@ foreach ($invoices as &$inv) {
         ORDER BY hii.service_type");
     $typeCountStmt->execute([$inv['id']]);
     $inv['service_type_counts'] = $typeCountStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $itemDetailStmt = $pdo->prepare("SELECT service_type, description, quantity, unit_price, total_price, start_datetime, end_datetime
+        FROM hotel_invoice_items WHERE invoice_id = ? ORDER BY id ASC");
+    $itemDetailStmt->execute([$inv['id']]);
+    $inv['items_detail'] = $itemDetailStmt->fetchAll(PDO::FETCH_ASSOC);
 }
 unset($inv);
+
+// Build a lightweight JSON payload (per invoice) for the row-click detail popup
+$hsDetailsForJs = [];
+foreach ($invoices as $inv) {
+    $itemsForJs = [];
+    foreach ($inv['items_detail'] as $it) {
+        $svcInfo = $serviceTypes[$it['service_type']] ?? ['label' => $it['service_type'], 'icon' => '🔹'];
+        $itemsForJs[] = [
+            'icon'        => $svcInfo['icon'] ?? '🔹',
+            'label'       => $svcInfo['label'] ?? $it['service_type'],
+            'description' => $it['description'],
+            'quantity'    => (float)$it['quantity'],
+            'unit_price'  => (float)$it['unit_price'],
+            'total_price' => (float)$it['total_price'],
+        ];
+    }
+    $hsBalDue = max(0, (float)$inv['total'] - (float)$inv['paid_amount']);
+    $hsDetailsForJs[$inv['id']] = [
+        'invoice_number' => $inv['invoice_number'],
+        'guest_name'     => $inv['guest_name'],
+        'guest_phone'    => $inv['guest_phone'],
+        'room_number'    => $inv['room_number'],
+        'inhouse'        => !empty($inv['booking_id']) && isset($inhouseBookingIds[$inv['booking_id']]),
+        'date'           => date('d M Y, H:i', strtotime($inv['service_date'] ?? $inv['created_at'])),
+        'status'         => $inv['status'],
+        'payment_status' => $inv['payment_status'],
+        'discount_amount' => (float)$inv['discount_amount'],
+        'discount_rate'  => (float)$inv['discount_rate'],
+        'tax_amount'     => (float)$inv['tax_amount'],
+        'service_charge_amount' => (float)$inv['service_charge_amount'],
+        'total'          => (float)$inv['total'],
+        'paid_amount'    => (float)$inv['paid_amount'],
+        'balance_due'    => $hsBalDue,
+        'items'          => $itemsForJs,
+    ];
+}
 
 // Stats — today totals
 $stats = $pdo->prepare("SELECT COUNT(*) as total,
@@ -2000,6 +2041,8 @@ try {
 } catch (\Throwable $e) {
     $inHouseGuests = [];
 }
+// booking_id set for checked-in guests, used to flag invoice rows with a green "in-house" dot
+$inhouseBookingIds = array_flip(array_filter(array_column($inHouseGuests, 'booking_id')));
 
 try {
     $motorStmt = $pdo->prepare("SELECT id, plate_number, motor_name, daily_rate, partner_owner, owner_phone, owner_commission_pct, driver_daily_rate FROM rental_motors WHERE business_id=? AND status='available' ORDER BY motor_name ASC, plate_number ASC");
@@ -2288,6 +2331,113 @@ include '../../includes/header.php';
 
     .hs-table tr:hover td {
         background: #fafbff;
+    }
+
+    .hs-row-clickable {
+        cursor: pointer;
+    }
+
+    .hs-inhouse-dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #22c55e;
+        box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.25);
+        flex-shrink: 0;
+    }
+
+    /* Invoice detail popup */
+    .hs-detail-modal {
+        max-width: 460px;
+    }
+
+    .hs-detail-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        margin-bottom: 0.15rem;
+    }
+
+    .hs-detail-head h3 {
+        margin: 0;
+        font-size: 1.02rem;
+        color: #1e3a8a;
+    }
+
+    .hs-detail-sub {
+        font-size: 0.78rem;
+        color: var(--text-secondary);
+        margin-bottom: 0.85rem;
+    }
+
+    .hs-detail-items {
+        border: 1px solid #eef2f7;
+        border-radius: 8px;
+        overflow: hidden;
+        margin-bottom: 0.85rem;
+    }
+
+    .hs-detail-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 0.6rem;
+        padding: 0.55rem 0.75rem;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 0.82rem;
+    }
+
+    .hs-detail-item:last-child {
+        border-bottom: none;
+    }
+
+    .hs-detail-item-name {
+        font-weight: 600;
+        color: #1e293b;
+    }
+
+    .hs-detail-item-desc {
+        font-size: 0.7rem;
+        color: var(--text-secondary);
+        margin-top: 1px;
+    }
+
+    .hs-detail-item-amt {
+        text-align: right;
+        white-space: nowrap;
+        font-weight: 700;
+        color: #1e293b;
+    }
+
+    .hs-detail-item-qty {
+        font-size: 0.68rem;
+        color: var(--text-secondary);
+        font-weight: 400;
+    }
+
+    .hs-detail-totals {
+        background: rgba(30, 58, 138, 0.04);
+        border-radius: 8px;
+        padding: 0.65rem 0.85rem;
+    }
+
+    .hs-detail-total-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.82rem;
+        padding: 0.15rem 0;
+        color: #475569;
+    }
+
+    .hs-detail-total-row.grand {
+        border-top: 1px solid rgba(30, 58, 138, 0.15);
+        margin-top: 0.3rem;
+        padding-top: 0.45rem;
+        font-size: 0.95rem;
+        font-weight: 800;
+        color: #1e3a8a;
     }
 
     .hs-badge {
@@ -3158,10 +3308,15 @@ include '../../includes/header.php';
                         $hsSubtotal = (float)$inv['total'] - (float)$inv['tax_amount'] - (float)$inv['service_charge_amount'] + (float)$inv['discount_amount'];
                         $hsBalanceDue = max(0, (float)$inv['total'] - (float)$inv['paid_amount']);
                     ?>
-                        <tr>
+                        <tr class="hs-row-clickable" onclick="showInvoiceDetail(<?php echo $inv['id']; ?>)">
                             <td style="font-weight:700;color:#4338ca;white-space:nowrap"><?php echo htmlspecialchars($inv['invoice_number']); ?></td>
                             <td>
-                                <div style="font-weight:600"><?php echo htmlspecialchars($inv['guest_name']); ?></div>
+                                <div style="font-weight:600;display:flex;align-items:center;gap:5px">
+                                    <?php if (!empty($inv['booking_id']) && isset($inhouseBookingIds[$inv['booking_id']])): ?>
+                                        <span class="hs-inhouse-dot" title="Tamu masih in-house"></span>
+                                    <?php endif; ?>
+                                    <?php echo htmlspecialchars($inv['guest_name']); ?>
+                                </div>
                                 <?php if ($inv['guest_phone']): ?><div style="font-size:0.7rem;color:var(--text-secondary)"><?php echo htmlspecialchars($inv['guest_phone']); ?></div><?php endif; ?>
                             </td>
                             <td>
@@ -3198,7 +3353,7 @@ include '../../includes/header.php';
                             <td><span class="hs-badge" style="background:<?php echo $payStatusColors[$inv['payment_status']]; ?>"><span class="hs-badge-text"><?php echo strtoupper($inv['payment_status']); ?></span></span></td>
                             <td><span class="hs-badge" style="background:<?php echo $statusColors[$inv['status']]; ?>"><span class="hs-badge-text"><?php echo strtoupper($inv['status']); ?></span></span></td>
                             <td style="font-size:0.72rem;color:var(--text-secondary);white-space:nowrap"><?php echo date('d M Y', strtotime($inv['service_date'] ?? $inv['created_at'])); ?></td>
-                            <td>
+                            <td onclick="event.stopPropagation()">
                                 <div class="hs-action-dropdown">
                                     <button type="button" class="hs-action-dropdown-btn" onclick="toggleHsActionMenu(event)">Aksi ▾</button>
                                     <div class="hs-action-dropdown-menu">
@@ -3234,6 +3389,11 @@ include '../../includes/header.php';
             </table>
         <?php endif; ?>
     </div>
+</div>
+
+<!-- ══ INVOICE DETAIL POPUP ════════════════════════════════════════════════════ -->
+<div id="invoiceDetailOverlay" class="hs-modal-overlay" onclick="if(event.target===this)closeInvoiceDetail()">
+    <div class="hs-modal hs-detail-modal" id="invoiceDetailModal"></div>
 </div>
 
 <!-- ══ CREATE MODAL ════════════════════════════════════════════════════════════ -->
@@ -3654,6 +3814,7 @@ include '../../includes/header.php';
         window.SVC_OPTIONS = <?php echo json_encode(array_map(fn($k, $v) => ['val' => $k, 'lbl' => ($v['icon'] ?? '') . ' ' . ($v['label'] ?? '')], array_keys($serviceTypes), $serviceTypes), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
         window.CATALOG_LIST = <?php echo json_encode(array_map(fn($r) => ['stype' => $r['service_type'], 'name' => $r['item_name'], 'price' => (float)$r['default_price'], 'unit' => $r['unit'] ?? 'unit'], $catalogRows), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
         window.ACTIVE_BIZ_ID = <?php echo (int)$businessId; ?>;
+        window.HS_DETAILS = <?php echo json_encode($hsDetailsForJs, JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '{}'; ?>;
     } catch (e) {
         console.error('[hs-data] failed:', e);
     }
@@ -3689,6 +3850,46 @@ include '../../includes/header.php';
             d.classList.remove('open');
         });
     }, true);
+
+    function fmtRp(n) {
+        return 'Rp ' + Math.round(n).toLocaleString('id-ID');
+    }
+
+    function showInvoiceDetail(id) {
+        var d = (window.HS_DETAILS || {})[id];
+        if (!d) return;
+        var box = document.getElementById('invoiceDetailModal');
+        var itemsHtml = (d.items || []).map(function(it) {
+            return '<div class="hs-detail-item">' +
+                '<div><div class="hs-detail-item-name">' + it.icon + ' ' + it.label + '</div>' +
+                (it.description ? '<div class="hs-detail-item-desc">' + it.description + '</div>' : '') + '</div>' +
+                '<div class="hs-detail-item-amt">' + fmtRp(it.total_price) + '<div class="hs-detail-item-qty">' + it.quantity + ' x ' + fmtRp(it.unit_price) + '</div></div>' +
+                '</div>';
+        }).join('') || '<div class="hs-detail-item"><span style="color:#d1d5db">No items</span></div>';
+
+        var subtotal = d.total - d.tax_amount - d.service_charge_amount + d.discount_amount;
+        var totalsHtml = '<div class="hs-detail-total-row"><span>Harga Asli</span><span>' + fmtRp(subtotal) + '</span></div>' +
+            (d.discount_amount > 0 ? '<div class="hs-detail-total-row"><span>Diskon</span><span>-' + fmtRp(d.discount_amount) + '</span></div>' : '') +
+            (d.service_charge_amount > 0 ? '<div class="hs-detail-total-row"><span>Service Charge</span><span>' + fmtRp(d.service_charge_amount) + '</span></div>' : '') +
+            (d.tax_amount > 0 ? '<div class="hs-detail-total-row"><span>PPN</span><span>' + fmtRp(d.tax_amount) + '</span></div>' : '') +
+            '<div class="hs-detail-total-row"><span>Sudah Dibayar</span><span style="color:#10b981;font-weight:700">' + fmtRp(d.paid_amount) + '</span></div>' +
+            '<div class="hs-detail-total-row grand"><span>' + (d.balance_due > 0 ? 'Sisa Tagihan' : 'Total (Lunas)') + '</span><span>' + (d.balance_due > 0 ? fmtRp(d.balance_due) : fmtRp(d.total)) + '</span></div>';
+
+        box.innerHTML =
+            '<div class="hs-detail-head"><h3>🧾 ' + d.invoice_number + '</h3>' +
+            '<button type="button" onclick="closeInvoiceDetail()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#94a3b8;line-height:1">✕</button></div>' +
+            '<div class="hs-detail-sub">' +
+            (d.inhouse ? '<span class="hs-inhouse-dot" style="margin-right:4px"></span>' : '') +
+            '<strong>' + d.guest_name + '</strong>' + (d.room_number ? ' · Room ' + d.room_number : '') + (d.guest_phone ? ' · ' + d.guest_phone : '') +
+            '<br>' + d.date + ' · ' + d.status.toUpperCase() + '</div>' +
+            '<div class="hs-detail-items">' + itemsHtml + '</div>' +
+            '<div class="hs-detail-totals">' + totalsHtml + '</div>';
+        document.getElementById('invoiceDetailOverlay').classList.add('open');
+    }
+
+    function closeInvoiceDetail() {
+        document.getElementById('invoiceDetailOverlay').classList.remove('open');
+    }
 </script>
 <script src="../../assets/js/hotel-services-fn.js?v=20260807"></script>
 
