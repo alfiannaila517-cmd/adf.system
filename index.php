@@ -1147,13 +1147,13 @@ if ($trialStatus) {
     .chart-summary-grid {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 0.62rem;
-        margin-bottom: 0.95rem;
+        gap: 0.5rem;
+        margin-bottom: 0.7rem;
     }
 
     .chart-metric-card {
-        padding: 0.72rem 0.88rem;
-        border-radius: 12px;
+        padding: 0.5rem 0.65rem;
+        border-radius: 10px;
         background: var(--chart-metric-bg);
         border: 1px solid var(--chart-metric-border);
         transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
@@ -1202,7 +1202,7 @@ if ($trialStatus) {
     }
 
     .chart-metric-amount {
-        font-size: 1.16rem;
+        font-size: 0.98rem;
         font-weight: 800;
         color: var(--text-primary);
         line-height: 1.25;
@@ -1253,7 +1253,7 @@ if ($trialStatus) {
 
     .chart-canvas-inner {
         position: relative;
-        height: 300px;
+        height: 220px;
         padding: 0.5rem 0.82rem 0.3rem;
         z-index: 1;
     }
@@ -1284,7 +1284,7 @@ if ($trialStatus) {
         background: var(--chart-wrap-bg);
         border-radius: 12px;
         border: 1px solid var(--chart-wrap-border);
-        padding: 1.2rem;
+        padding: 0.75rem;
         display: flex;
         flex-direction: column;
         height: 100%;
@@ -1293,9 +1293,9 @@ if ($trialStatus) {
     .chart-pie-header {
         display: flex;
         flex-direction: column;
-        gap: 0.25rem;
-        margin-bottom: 1.2rem;
-        padding-bottom: 1rem;
+        gap: 0.2rem;
+        margin-bottom: 0.6rem;
+        padding-bottom: 0.6rem;
         border-bottom: 1px solid var(--chart-wrap-border);
     }
 
@@ -1303,24 +1303,24 @@ if ($trialStatus) {
     .chart-pie-container {
         flex: 1;
         position: relative;
-        min-height: 200px;
+        min-height: 130px;
         display: flex;
         align-items: center;
         justify-content: center;
-        margin-bottom: 1rem;
+        margin-bottom: 0.6rem;
     }
 
     .chart-pie-container canvas {
-        max-width: 160px;
-        max-height: 160px;
+        max-width: 115px;
+        max-height: 115px;
     }
 
     /* Pie chart legend */
     .chart-pie-legend {
         display: flex;
         flex-direction: column;
-        gap: 0.6rem;
-        padding-top: 0.8rem;
+        gap: 0.4rem;
+        padding-top: 0.55rem;
         border-top: 1px solid var(--chart-wrap-border);
     }
 
