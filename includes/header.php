@@ -558,7 +558,7 @@ if (isset($forceTheme) && is_string($forceTheme)) {
 
                 .motor-overdue-banner .ob-label {
                     position: absolute;
-                    left: 0;
+                    left: 210px;
                     top: 0;
                     bottom: 0;
                     display: flex;
@@ -568,9 +568,15 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                     white-space: nowrap;
                     font-size: 0.78rem;
                     gap: 0.3rem;
-                    z-index: 1;
+                    z-index: 2;
                     border-right: 1px solid rgba(255, 255, 255, 0.2);
                     color: #ffffff;
+                }
+
+                @media (max-width: 768px) {
+                    .motor-overdue-banner .ob-label {
+                        left: 0;
+                    }
                 }
 
                 .motor-overdue-banner .ob-label .notif-dot {
@@ -600,9 +606,15 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                 .motor-overdue-banner .ob-ticker {
                     display: block;
                     white-space: nowrap;
-                    padding-left: 160px;
+                    padding-left: 370px;
                     color: #ffffff;
                     animation: ticker-scroll <?php echo $scrollDuration; ?>s linear infinite;
+                }
+
+                @media (max-width: 768px) {
+                    .motor-overdue-banner .ob-ticker {
+                        padding-left: 160px;
+                    }
                 }
 
                 @keyframes ticker-scroll {
@@ -908,12 +920,18 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                                 <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo (activeMenu('hotel-services.php') || activeMenu('rental-motor.php') || activeMenu('rental-motor-dashboard.php')) ? 'active' : ''; ?>">
                                     <i data-feather="briefcase" class="nav-icon"></i>
                                     <span>Hotel Services</span>
+                                    <?php if (!empty($unpaidHotelServices)): ?>
+                                        <span class="nav-menu-dot" title="Ada tagihan belum lunas"></span>
+                                    <?php endif; ?>
                                 </a>
                                 <ul class="submenu">
                                     <li class="submenu-item">
                                         <a href="<?php echo BASE_URL; ?>/modules/frontdesk/hotel-services.php" class="submenu-link <?php echo activeMenu('hotel-services.php'); ?>">
                                             <i data-feather="file-text" class="submenu-icon"></i>
                                             <span>Invoice & Layanan</span>
+                                            <?php if (!empty($unpaidHotelServices)): ?>
+                                                <span class="nav-menu-dot" title="Ada tagihan belum lunas"></span>
+                                            <?php endif; ?>
                                         </a>
                                     </li>
                                     <li class="submenu-item">
