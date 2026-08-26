@@ -2151,9 +2151,9 @@ include '../../includes/header.php';
 <!-- HS-VERSION:20260729-v3-split -->
 <style>
     .hs-page {
-        max-width: 1140px;
-        margin: 0 auto;
-        padding: 0.65rem 0.85rem 1rem;
+        max-width: 100%;
+        margin: 0;
+        padding: 0.65rem 0.5rem 1rem;
     }
 
     .hs-topbar {
@@ -2442,13 +2442,13 @@ include '../../includes/header.php';
     }
 
     .hs-action-dropdown-btn {
-        padding: 0.4rem 0.8rem;
+        padding: 0.2rem 0.5rem;
         background: #6366f1;
         color: white;
         border: 1px solid #4f46e5;
-        border-radius: 6px;
+        border-radius: 5px;
         cursor: pointer;
-        font-size: 0.75rem;
+        font-size: 0.68rem;
         font-weight: 600;
         white-space: nowrap;
         transition: background 0.15s;
