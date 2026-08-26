@@ -194,7 +194,9 @@
                    }
 
                    .admin-chat-fab,
-                   .admin-chat-fab * {
+                   .admin-chat-fab *,
+                   body[data-theme="light"] .admin-chat-fab,
+                   body[data-theme="light"] .admin-chat-fab * {
                        color: #ffffff !important;
                    }
 
