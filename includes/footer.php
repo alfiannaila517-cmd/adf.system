@@ -193,6 +193,11 @@
                        transition: transform .16s ease, box-shadow .16s ease, filter .16s ease;
                    }
 
+                   .admin-chat-fab,
+                   .admin-chat-fab * {
+                       color: #ffffff !important;
+                   }
+
                    .admin-chat-fab .fab-chat-icon {
                        width: 18px;
                        height: 18px;

@@ -3024,9 +3024,10 @@ include '../../includes/header.php';
         font-size: 0.875rem;
     }
 
-    .btn-hs-primary {
+    .btn-hs-primary,
+    .btn-hs-primary * {
         background: var(--primary, #6366f1);
-        color: white;
+        color: #ffffff !important;
     }
 
     .btn-hs-secondary {
