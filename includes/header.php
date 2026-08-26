@@ -519,9 +519,9 @@ if (isset($forceTheme) && is_string($forceTheme)) {
     ?>
             <style>
                 .motor-overdue-banner {
-                    background: linear-gradient(90deg, #7f1d1d, #dc2626, #7f1d1d);
+                    background: linear-gradient(90deg, var(--primary-dark), var(--primary-color), var(--primary-dark));
                     background-size: 200% 100%;
-                    animation: banner-pulse 3s ease infinite, banner-bg 4s linear infinite;
+                    animation: banner-bg 4s linear infinite;
                     color: #ffffff !important;
                     -webkit-text-fill-color: #ffffff !important;
                     text-fill-color: #ffffff !important;
@@ -532,8 +532,8 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                     font-size: 0.84rem;
                     letter-spacing: 0.01em;
                     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
-                    box-shadow: 0 3px 10px rgba(220, 38, 38, 0.5);
-                    border-bottom: 2px solid #fca5a5;
+                    box-shadow: var(--shadow-glow);
+                    border-bottom: 2px solid var(--primary-dark);
                     z-index: 999;
                     cursor: pointer;
                 }
@@ -556,18 +556,6 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                     }
                 }
 
-                @keyframes banner-pulse {
-
-                    0%,
-                    100% {
-                        box-shadow: 0 3px 10px rgba(220, 38, 38, 0.5);
-                    }
-
-                    50% {
-                        box-shadow: 0 3px 20px rgba(220, 38, 38, 0.9);
-                    }
-                }
-
                 .motor-overdue-banner .ob-label {
                     position: absolute;
                     left: 0;
@@ -585,20 +573,27 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                     color: #ffffff;
                 }
 
-                .motor-overdue-banner .ob-label .flash {
-                    animation: flash-icon 1s step-start infinite;
-                    font-size: 1rem;
+                .motor-overdue-banner .ob-label .notif-dot {
+                    width: 9px;
+                    height: 9px;
+                    border-radius: 50%;
+                    background: #ef4444;
+                    box-shadow: 0 0 0 rgba(239, 68, 68, 0.7);
+                    animation: notif-dot-pulse 1.4s ease-out infinite;
+                    flex-shrink: 0;
                 }
 
-                @keyframes flash-icon {
-
-                    0%,
-                    100% {
-                        opacity: 1;
+                @keyframes notif-dot-pulse {
+                    0% {
+                        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
                     }
 
-                    50% {
-                        opacity: 0;
+                    70% {
+                        box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
+                    }
+
+                    100% {
+                        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
                     }
                 }
 
@@ -626,7 +621,7 @@ if (isset($forceTheme) && is_string($forceTheme)) {
             </style>
             <div class="motor-overdue-banner" onclick="window.location.href='<?php echo $bannerClickTarget; ?>'" title="Klik untuk lihat detail">
                 <span class="ob-label">
-                    <span class="flash">🚨</span>
+                    <span class="notif-dot"></span>
                     PERHATIAN (<?php echo $count; ?>)
                 </span>
                 <span class="ob-ticker">
