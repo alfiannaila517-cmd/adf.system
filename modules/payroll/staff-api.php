@@ -351,7 +351,7 @@ if ($action === 'stock_masuk_gudang_catalog') {
             $gudangDbNameMasuk = (string)($gudangCfgMasuk['database'] ?? '');
             if ($gudangDbNameMasuk !== '') {
                 Database::switchDatabase($gudangDbNameMasuk);
-                $masukRows = getGudangNasitaStock(300);
+                $masukRows = getGudangNasitaStock(1000);
                 $masukCatalog = array_map(function ($r) {
                     return [
                         'item_name' => $r['item_name'] ?? '',
@@ -409,7 +409,7 @@ if ($action === 'stock_gudang_view') {
             $gudangDbNameView = (string)($gudangCfgView['database'] ?? '');
             if ($gudangDbNameView !== '') {
                 Database::switchDatabase($gudangDbNameView);
-                $gudangRows = getGudangNasitaStock(300);
+                $gudangRows = getGudangNasitaStock(1000);
             }
         }
     } catch (Throwable $e) {
