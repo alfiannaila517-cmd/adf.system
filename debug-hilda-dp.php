@@ -16,24 +16,68 @@ $pdo = $db->getConnection();
 
 $search = $_GET['q'] ?? 'Hilda';
 $code = $_GET['code'] ?? null;
+$roomsParam = $_GET['rooms'] ?? null;
 
 header('Content-Type: text/plain; charset=utf-8');
 
-echo "=== RAW bookings + payments for guest LIKE '%$search%' ===\n\n";
+if ($roomsParam) {
+    $roomList = array_filter(array_map('trim', explode(',', $roomsParam)));
+    echo "=== Lookup by room_number IN (" . implode(',', $roomList) . ") + guest LIKE '%$search%' ===\n\n";
+    $placeholders = implode(',', array_fill(0, count($roomList), '?'));
+    $sql = "
+        SELECT b.id, b.booking_code, b.group_id, b.status, b.payment_status,
+               b.final_price, b.paid_amount, g.guest_name, r.room_number,
+               b.check_in_date, b.check_out_date, b.actual_checkin_time,
+               (SELECT COALESCE(SUM(amount),0) FROM booking_payments WHERE booking_id = b.id) AS bp_sum
+        FROM bookings b
+        LEFT JOIN guests g ON b.guest_id = g.id
+        LEFT JOIN rooms r ON b.room_id = r.id
+        WHERE r.room_number IN ($placeholders) AND g.guest_name LIKE ?
+        ORDER BY b.group_id, r.room_number, b.check_in_date
+    ";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([...$roomList, "%$search%"]);
+} elseif ($code) {
+    echo "=== Lookup by booking_code = '$code' ===\n\n";
+    $ref = $pdo->prepare("SELECT id, group_id, guest_id FROM bookings WHERE booking_code = ?");
+    $ref->execute([$code]);
+    $refRow = $ref->fetch(PDO::FETCH_ASSOC);
+    print_r($refRow);
+    if (!$refRow) {
+        echo "Booking code not found. Stopping.\n";
+        exit;
+    }
+    echo "\n=== All sibling rows sharing group_id='" . $refRow['group_id'] . "' ===\n\n";
+    $sql = "
+        SELECT b.id, b.booking_code, b.group_id, b.status, b.payment_status,
+               b.final_price, b.paid_amount, g.guest_name, r.room_number,
+               b.actual_checkin_time,
+               (SELECT COALESCE(SUM(amount),0) FROM booking_payments WHERE booking_id = b.id) AS bp_sum
+        FROM bookings b
+        LEFT JOIN guests g ON b.guest_id = g.id
+        LEFT JOIN rooms r ON b.room_id = r.id
+        WHERE b.group_id = ?
+        ORDER BY r.room_number
+    ";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$refRow['group_id']]);
+} else {
+    echo "=== RAW bookings + payments for guest LIKE '%$search%' ===\n\n";
 
-$sql = "
-    SELECT b.id, b.booking_code, b.group_id, b.status, b.payment_status,
-           b.final_price, b.paid_amount, g.guest_name, r.room_number,
-           b.actual_checkin_time,
-           (SELECT COALESCE(SUM(amount),0) FROM booking_payments WHERE booking_id = b.id) AS bp_sum
-    FROM bookings b
-    LEFT JOIN guests g ON b.guest_id = g.id
-    LEFT JOIN rooms r ON b.room_id = r.id
-    WHERE g.guest_name LIKE ?
-    ORDER BY b.group_id, r.room_number
-";
-$stmt = $pdo->prepare($sql);
-$stmt->execute(["%$search%"]);
+    $sql = "
+        SELECT b.id, b.booking_code, b.group_id, b.status, b.payment_status,
+               b.final_price, b.paid_amount, g.guest_name, r.room_number,
+               b.actual_checkin_time,
+               (SELECT COALESCE(SUM(amount),0) FROM booking_payments WHERE booking_id = b.id) AS bp_sum
+        FROM bookings b
+        LEFT JOIN guests g ON b.guest_id = g.id
+        LEFT JOIN rooms r ON b.room_id = r.id
+        WHERE g.guest_name LIKE ?
+        ORDER BY b.group_id, r.room_number
+    ";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute(["%$search%"]);
+}
 $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $totalFinal = 0;
