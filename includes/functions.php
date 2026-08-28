@@ -18,15 +18,58 @@ defined('APP_ACCESS') or define('APP_ACCESS', true);
  *   180-224 menit-> 4 jam
  *
  * @param float|int|string|null $hours Jumlah jam lembur mentah (boleh desimal)
+ * @param int $roundMinutes Threshold pembulatan dalam menit (default 45, bisa diseting per-bisnis)
  * @return float Jam lembur penuh setelah dibulatkan (integer dalam tipe float)
  */
-function roundOT45($hours)
+function roundOT45($hours, $roundMinutes = 45)
 {
     $h = (float)$hours;
+    $roundMinutes = (int)$roundMinutes > 0 ? (int)$roundMinutes : 45;
     if ($h <= 0) return 0.0;
     $minutes = (int)floor($h * 60 + 0.5); // round to nearest minute first
-    if ($minutes < 45) return 0.0;
-    return (float) intdiv($minutes, 45); // 45→1, 89→1, 90→2, 134→2, 135→3
+    if ($minutes < $roundMinutes) return 0.0;
+    return (float) intdiv($minutes, $roundMinutes);
+}
+
+/**
+ * Ambil pengaturan payroll per-bisnis (target jam kerja/bulan & threshold
+ * pembulatan lembur), self-healing kolomnya di `payroll_attendance_config`.
+ * Aman dipanggil dari halaman manapun yang sudah terhubung ke DB bisnis aktif
+ * (mis. process.php, print-submission.php) — TIDAK bergantung pada attendance.php
+ * sudah pernah dibuka duluan.
+ *
+ * @return array{monthly_target_hours:int, ot_round_minutes:int}
+ */
+function getPayrollBusinessSettings($db)
+{
+    $defaults = ['monthly_target_hours' => 208, 'ot_round_minutes' => 45];
+    try {
+        $pdo = $db->getConnection();
+        $pdo->exec("CREATE TABLE IF NOT EXISTS `payroll_attendance_config` (
+            `id` INT AUTO_INCREMENT PRIMARY KEY,
+            `monthly_target_hours` INT NOT NULL DEFAULT 208,
+            `ot_round_minutes` INT NOT NULL DEFAULT 45
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        $pdo->exec("INSERT IGNORE INTO `payroll_attendance_config` (`id`) VALUES (1)");
+        foreach ($defaults as $col => $def) {
+            try {
+                $pdo->query("SELECT `$col` FROM payroll_attendance_config LIMIT 0");
+            } catch (PDOException $e) {
+                $pdo->exec("ALTER TABLE payroll_attendance_config ADD COLUMN `$col` INT NOT NULL DEFAULT $def");
+            }
+        }
+        $row = $db->fetchOne("SELECT monthly_target_hours, ot_round_minutes FROM payroll_attendance_config WHERE id = 1");
+        if ($row) {
+            $target = (int)($row['monthly_target_hours'] ?? 0);
+            $otRound = (int)($row['ot_round_minutes'] ?? 0);
+            return [
+                'monthly_target_hours' => $target > 0 ? $target : $defaults['monthly_target_hours'],
+                'ot_round_minutes' => $otRound > 0 ? $otRound : $defaults['ot_round_minutes'],
+            ];
+        }
+    } catch (Throwable $e) {
+    }
+    return $defaults;
 }
 
 /**
@@ -69,7 +112,7 @@ if (!function_exists('payrollAttendanceHours')) {
      * modules/payroll/process.php::getAttendanceHours() — dikutip ke sini
      * agar bisa dipakai dari halaman lain (mis. print-submission).
      */
-    function payrollAttendanceHours($db, $empId, $month, $year)
+    function payrollAttendanceHours($db, $empId, $month, $year, $otRoundMinutes = 45)
     {
         $monthStr = sprintf('%04d-%02d', $year, $month);
         $rows = $db->fetchAll(
@@ -134,10 +177,10 @@ if (!function_exists('payrollAttendanceHours')) {
 
             $attDate = $r['attendance_date'] ?? '';
             if ($manualOT > 0) {
-                $totalOvertimeHours += roundOT45($manualOT);
+                $totalOvertimeHours += roundOT45($manualOT, $otRoundMinutes);
             } elseif (isset($approvedOTDates[$attDate])) {
                 $rawOT = max(0, $wh - 8);
-                $totalOvertimeHours += roundOT45($rawOT);
+                $totalOvertimeHours += roundOT45($rawOT, $otRoundMinutes);
             }
         }
 

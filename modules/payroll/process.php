@@ -28,6 +28,11 @@ if (!isModuleEnabled('payroll')) {
 $db = Database::getInstance();
 $pageTitle = 'Process Salary';
 
+// Per-business payroll rules (target jam kerja/bulan & threshold pembulatan lembur)
+$payrollSettings = getPayrollBusinessSettings($db);
+$monthlyTargetHours = $payrollSettings['monthly_target_hours'];
+$otRoundMinutes = $payrollSettings['ot_round_minutes'];
+
 // ═══ AJAX: Get Monthly Attendance Detail ═══
 if (isset($_GET['ajax_attendance']) && isset($_GET['emp_id'])) {
     header('Content-Type: application/json');
@@ -77,9 +82,9 @@ if (isset($_GET['ajax_attendance']) && isset($_GET['emp_id'])) {
 
             $rawHours = (float)($a['work_hours'] ?? 0);
             $regularHours = min(max(0, $rawHours), 8);
-            $manualOT = roundOT45((float)($a['overtime_hours'] ?? 0));
+            $manualOT = roundOT45((float)($a['overtime_hours'] ?? 0), $otRoundMinutes);
             $hasApprovedOT = !empty($approvedOTDates[(string)($a['attendance_date'] ?? '')]);
-            $approvedOT = $hasApprovedOT ? roundOT45(max(0, $rawHours - 8)) : 0.0;
+            $approvedOT = $hasApprovedOT ? roundOT45(max(0, $rawHours - 8), $otRoundMinutes) : 0.0;
             $effectiveOT = $manualOT > 0 ? $manualOT : $approvedOT;
 
             // Rule detail modal:
@@ -133,7 +138,7 @@ if (isset($_GET['ajax_attendance']) && isset($_GET['emp_id'])) {
             'summary' => [
                 'total_days' => $presentCount,
                 'total_hours' => round($totalHours, 1),
-                'target_hours' => (int)($emp['monthly_target_hours'] ?? 208),
+                'target_hours' => (int)($emp['monthly_target_hours'] ?? $monthlyTargetHours),
                 'late_count' => $lateCount,
                 'absent_count' => $absentCount,
                 'days_in_month' => $daysInMonth
@@ -267,6 +272,7 @@ function recalcAttendanceHours($db, $month, $year)
 //                    Hari extra dibayar dgn rate jam = base/208, bukan butuh approval.
 function getAttendanceHours($db, $empId, $month, $year)
 {
+    $otRoundMinutes = getPayrollBusinessSettings($db)['ot_round_minutes'];
     $monthStr = sprintf('%04d-%02d', $year, $month);
     $rows = $db->fetchAll(
         "SELECT work_hours, overtime_hours, shift_1_hours, shift_2_hours, check_in_time, check_out_time, scan_3, scan_4, attendance_date
@@ -339,10 +345,10 @@ function getAttendanceHours($db, $empId, $month, $year)
         // Rule: OT dibulatkan ke jam penuh (threshold 45 menit).
         $attDate = $r['attendance_date'] ?? '';
         if ($manualOT > 0) {
-            $totalOvertimeHours += roundOT45($manualOT);
+            $totalOvertimeHours += roundOT45($manualOT, $otRoundMinutes);
         } elseif (isset($approvedOTDates[$attDate])) {
             $rawOT = max(0, $wh - 8);
-            $totalOvertimeHours += roundOT45($rawOT);
+            $totalOvertimeHours += roundOT45($rawOT, $otRoundMinutes);
         }
     }
 
@@ -362,6 +368,7 @@ function getAttendanceHours($db, $empId, $month, $year)
 // hanya ditambahkan kalau admin klik tombol "Refresh" secara manual.
 function autoAddMissingPayrollEmployees($db, $periodId, $month, $year)
 {
+    $monthlyTargetHours = getPayrollBusinessSettings($db)['monthly_target_hours'];
     $employees = $db->fetchAll("SELECT * FROM payroll_employees WHERE is_active = 1");
     $existingEmpIds = array_column(
         $db->fetchAll("SELECT employee_id FROM payroll_slips WHERE period_id = ?", [$periodId]),
@@ -373,8 +380,8 @@ function autoAddMissingPayrollEmployees($db, $periodId, $month, $year)
         $att = getAttendanceHours($db, $emp['id'], $month, $year);
         $workH = $att['work_hours'] > 0 ? $att['work_hours'] : 0;
         $baseSalary = (float)$emp['base_salary'];
-        $hourlyRate = $baseSalary / 208;
-        $actualBase = ($workH >= 208) ? $baseSalary : round($workH * $hourlyRate, 2); // gaji pokok diprorata sesuai jam kerja
+        $hourlyRate = $baseSalary / $monthlyTargetHours;
+        $actualBase = ($workH >= $monthlyTargetHours) ? $baseSalary : round($workH * $hourlyRate, 2); // gaji pokok diprorata sesuai jam kerja
         dbExec(
             $db,
             "INSERT INTO payroll_slips (period_id, employee_id, employee_name, position, base_salary, work_hours, actual_base, overtime_hours, overtime_rate, overtime_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -388,6 +395,7 @@ function autoAddMissingPayrollEmployees($db, $periodId, $month, $year)
 // ── Helper: Sync all slips with attendance data ──
 function syncSlipsWithAttendance($db, $periodId, $month, $year)
 {
+    $monthlyTargetHours = getPayrollBusinessSettings($db)['monthly_target_hours'];
     // Only sync slips that are NOT manually edited (hours_locked = 0)
     $slipsToSync = $db->fetchAll("SELECT id, employee_id, base_salary, hours_locked, work_hours, overtime_hours FROM payroll_slips WHERE period_id = ? AND hours_locked = 0", [$periodId]);
     foreach ($slipsToSync as $slip) {
@@ -396,9 +404,9 @@ function syncSlipsWithAttendance($db, $periodId, $month, $year)
         $workH = $att['work_hours'];
         // ONLY update work_hours from attendance — keep all other fields (overtime, incentive, etc.) as-is
         $baseSalary = (float)$slip['base_salary'];
-        $hourlyRate = $baseSalary / 208;
-        // Gaji pokok diprorata sesuai jam kerja (penuh hanya jika >= 208 jam/bulan)
-        $actualBase = ($workH >= 208) ? $baseSalary : round($workH * $hourlyRate, 2);
+        $hourlyRate = $baseSalary / $monthlyTargetHours;
+        // Gaji pokok diprorata sesuai jam kerja (penuh hanya jika >= target jam/bulan)
+        $actualBase = ($workH >= $monthlyTargetHours) ? $baseSalary : round($workH * $hourlyRate, 2);
 
         // Read current addon values via direct PDO (preserve them, don't overwrite)
         $pdo = $db->getConnection();
@@ -472,9 +480,9 @@ if (!$period && isset($_POST['create_period'])) {
             $workH = $att['work_hours'] > 0 ? $att['work_hours'] : 0;
             $otH = $att['overtime_hours'];
             $baseSalary = (float)$emp['base_salary'];
-            $hourlyRate = $baseSalary / 208;
-            // Gaji pokok diprorata sesuai jam kerja (penuh hanya jika >= 208 jam/bulan)
-            $actualBase = ($workH >= 208) ? $baseSalary : round($workH * $hourlyRate, 2);
+            $hourlyRate = $baseSalary / $monthlyTargetHours;
+            // Gaji pokok diprorata sesuai jam kerja (penuh hanya jika >= target jam/bulan)
+            $actualBase = ($workH >= $monthlyTargetHours) ? $baseSalary : round($workH * $hourlyRate, 2);
             $otRate = $hourlyRate;
             $otAmount = round($otH * $otRate, 2);
             $totalEarn = $actualBase + $otAmount;
@@ -530,9 +538,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_update'])) {
     $bpjs = (float)$_POST['deduction_bpjs'];
     $ded_other = (float)$_POST['deduction_other'];
 
-    // Gaji pokok diprorata sesuai jam kerja (penuh hanya jika >= 208 jam/bulan)
-    $hourly_rate = $base_salary / 208;
-    $actual_base = ($work_hours >= 208) ? $base_salary : round($work_hours * $hourly_rate, 2);
+    // Gaji pokok diprorata sesuai jam kerja (penuh hanya jika >= target jam/bulan)
+    $hourly_rate = $base_salary / $monthlyTargetHours;
+    $actual_base = ($work_hours >= $monthlyTargetHours) ? $base_salary : round($work_hours * $hourly_rate, 2);
 
     // Overtime still uses same rate; Extra Hari pakai rate yg sama
     $overtime_rate = $hourly_rate;
@@ -700,8 +708,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_save_daily_atten
                 $workH = $att['work_hours'];
                 $otH = $att['overtime_hours'];
                 $baseSalary = (float)$slip['base_salary'];
-                $hourlyRate = $baseSalary / 208;
-                $actualBase = ($workH >= 208) ? $baseSalary : round($workH * $hourlyRate, 2);
+                $hourlyRate = $baseSalary / $monthlyTargetHours;
+                $actualBase = ($workH >= $monthlyTargetHours) ? $baseSalary : round($workH * $hourlyRate, 2);
                 $otAmount = round($otH * $hourlyRate, 2);
                 $totalEarn = $actualBase + $otAmount + (float)($slip['incentive'] ?? 0) + (float)($slip['allowance'] ?? 0) + (float)($slip['uang_makan'] ?? 0) + (float)($slip['bonus'] ?? 0) + (float)($slip['other_income'] ?? 0);
                 $totalDed = (float)($slip['deduction_loan'] ?? 0) + (float)($slip['deduction_absence'] ?? 0) + (float)($slip['deduction_tax'] ?? 0) + (float)($slip['deduction_bpjs'] ?? 0) + (float)($slip['deduction_other'] ?? 0);
@@ -783,8 +791,8 @@ if ($period) {
         $masterBase = (float)$s['base_salary']; // sudah COALESCE master
         $wh = (float)$s['work_hours'];
         $oh = (float)$s['overtime_hours'];
-        $hourly = $masterBase > 0 ? $masterBase / 208 : 0;
-        $actualBase = ($wh >= 208) ? $masterBase : round($wh * $hourly, 2);
+        $hourly = $masterBase > 0 ? $masterBase / $monthlyTargetHours : 0;
+        $actualBase = ($wh >= $monthlyTargetHours) ? $masterBase : round($wh * $hourly, 2);
         $otAmount   = round($oh * $hourly, 2);
         $autoExtraH  = (float)($extraMap[(int)$s['employee_id']]['hours'] ?? 0);
         $extraLocked = !empty($s['extra_locked']);
@@ -875,8 +883,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_proses'])) {
             $tax = (float)$slip['deduction_tax'];
             $bpjs = (float)$slip['deduction_bpjs'];
             $ded_other = (float)$slip['deduction_other'];
-            $hourly_rate = $base_salary / 208;
-            $actual_base = ($work_hours >= 208) ? $base_salary : $work_hours * $hourly_rate;
+            $hourly_rate = $base_salary / $monthlyTargetHours;
+            $actual_base = ($work_hours >= $monthlyTargetHours) ? $base_salary : $work_hours * $hourly_rate;
             $overtime_rate = $hourly_rate;
             $overtime_amount = $overtime_hours * $overtime_rate;
             $total_earnings = $actual_base + $overtime_amount + $incentive + $allowance + $uang_makan + $bonus + $other;
@@ -969,8 +977,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['quick_pay'])) {
         foreach ($allSlips as $sl) {
             $bs = (float)$sl['base_salary'];
             $wh = (float)$sl['work_hours'];
-            $hr = $bs / 208;
-            $ab = ($wh >= 208) ? $bs : round($wh * $hr, 2);
+            $hr = $bs / $monthlyTargetHours;
+            $ab = ($wh >= $monthlyTargetHours) ? $bs : round($wh * $hr, 2);
             $oH = (float)$sl['overtime_hours'];
             $oA = round($oH * $hr, 2);
             $tE = $ab + $oA + (float)($sl['incentive'] ?? 0) + (float)($sl['allowance'] ?? 0) + (float)($sl['uang_makan'] ?? 0) + (float)($sl['bonus'] ?? 0) + (float)($sl['other_income'] ?? 0);
@@ -1053,8 +1061,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['quick_pay_selected'])
             if (!$sl) continue;
             $bs = (float)$sl['base_salary'];
             $wh = (float)$sl['work_hours'];
-            $hr = $bs / 208;
-            $ab = ($wh >= 208) ? $bs : round($wh * $hr, 2);
+            $hr = $bs / $monthlyTargetHours;
+            $ab = ($wh >= $monthlyTargetHours) ? $bs : round($wh * $hr, 2);
             $oH = (float)$sl['overtime_hours'];
             $oA = round($oH * $hr, 2);
             $tE = $ab + $oA + (float)($sl['incentive'] ?? 0) + (float)($sl['allowance'] ?? 0) + (float)($sl['uang_makan'] ?? 0) + (float)($sl['bonus'] ?? 0) + (float)($sl['other_income'] ?? 0);
@@ -1182,8 +1190,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['refresh_employees']))
             $att = getAttendanceHours($db, $emp['id'], $month, $year);
             $workH = $att['work_hours'] > 0 ? $att['work_hours'] : 0;
             $baseSalary = (float)$emp['base_salary'];
-            $hourlyRate = $baseSalary / 208;
-            $actualBase = ($workH >= 208) ? $baseSalary : round($workH * $hourlyRate, 2);
+            $hourlyRate = $baseSalary / $monthlyTargetHours;
+            $actualBase = ($workH >= $monthlyTargetHours) ? $baseSalary : round($workH * $hourlyRate, 2);
             dbExec(
                 $db,
                 "INSERT INTO payroll_slips (period_id, employee_id, employee_name, position, base_salary, work_hours, actual_base, overtime_hours, overtime_rate, overtime_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -2477,7 +2485,7 @@ include '../../includes/header.php';
             </div>
         <?php else: ?>
             <div style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 10px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.8rem; color: #1e40af;">
-                <strong>💾 Auto-Save:</strong> <strong>OT</strong> = lembur dgn approval (dibulatkan jam penuh, threshold 45 menit). <strong style="color:#b91c1c;">Extra (&gt;26hr)</strong> = hari kerja ke-27+ dlm sebulan (auto). <strong>OT Rp Harian</strong> = OT jam × (base÷208). <strong>Extra Rp</strong> = Extra jam × (base÷208). <strong>Net</strong> = Actual Base + OT Rp Harian + Extra Rp + Service + Allowance + Bonus − Deduction.
+                <strong>💾 Auto-Save:</strong> <strong>OT</strong> = lembur dgn approval (dibulatkan jam penuh, threshold <?php echo (int)$otRoundMinutes; ?> menit). <strong style="color:#b91c1c;">Extra (&gt;26hr)</strong> = hari kerja ke-27+ dlm sebulan (auto). <strong>OT Rp Harian</strong> = OT jam × (base÷<?php echo (int)$monthlyTargetHours; ?>). <strong>Extra Rp</strong> = Extra jam × (base÷<?php echo (int)$monthlyTargetHours; ?>). <strong>Net</strong> = Actual Base + OT Rp Harian + Extra Rp + Service + Allowance + Bonus − Deduction.
             </div>
         <?php endif; ?>
 
@@ -2491,15 +2499,15 @@ include '../../includes/header.php';
                             <th class="col-employee">Employee</th>
                             <th style="width: 88px;">Base<div class="ps-info">Full</div>
                             </th>
-                            <th style="width: 72px; background: rgba(245,158,11,0.1); padding: 0.52rem 0.28rem; font-size: 0.74rem;">Hours<div class="ps-info" style="font-size: 0.62rem; margin-top: 2px;">208</div>
+                            <th style="width: 72px; background: rgba(245,158,11,0.1); padding: 0.52rem 0.28rem; font-size: 0.74rem;">Hours<div class="ps-info" style="font-size: 0.62rem; margin-top: 2px;"><?php echo (int)$monthlyTargetHours; ?></div>
                             </th>
                             <th style="width: 98px; padding: 0.52rem 0.28rem; font-size: 0.74rem;">Actual<div class="ps-info" style="font-size: 0.62rem; margin-top: 2px;">Calc</div>
                             </th>
                             <th style="width: 54px; background: rgba(59,130,246,0.1); padding: 0.52rem 0.28rem; font-size: 0.74rem;">OT</th>
                             <th style="width: 82px; background: rgba(220,38,38,0.08); padding: 0.52rem 0.28rem; font-size: 0.72rem; color:#b91c1c;" title="Tambahan dari hari kerja melebihi 26 hari/bulan (auto, dibayar pakai rate jam-OT)">Extra<div class="ps-info" style="font-size:0.58rem;color:#b91c1c;margin-top:2px;">&gt;26hr</div>
                             </th>
-                            <th style="width: 84px;" title="Uang lembur harian (OT approved) × rate jam (base÷208)">OT Rp Harian</th>
-                            <th style="width: 84px;" title="Uang extra hari kerja ke-27+ × rate jam (base÷208)">Extra Rp</th>
+                            <th style="width: 84px;" title="Uang lembur harian (OT approved) × rate jam (base÷<?php echo (int)$monthlyTargetHours; ?>)">OT Rp Harian</th>
+                            <th style="width: 84px;" title="Uang extra hari kerja ke-27+ × rate jam (base÷<?php echo (int)$monthlyTargetHours; ?>)">Extra Rp</th>
                             <th style="width: 70px;">Service</th>
                             <th style="width: 68px;">Allowc</th>
                             <th style="width: 68px;">Bonus</th>
@@ -2512,8 +2520,8 @@ include '../../includes/header.php';
                         <?php foreach ($slips as $slip):
                             $workHours = round((float)$slip['work_hours'], 1);
                             $baseSalary = (float)$slip['base_salary'];
-                            $hourlyRate = $baseSalary / 208;
-                            $actualBase = ($workHours >= 208) ? $baseSalary : round($workHours * $hourlyRate, 2);
+                            $hourlyRate = $baseSalary / $monthlyTargetHours;
+                            $actualBase = ($workHours >= $monthlyTargetHours) ? $baseSalary : round($workHours * $hourlyRate, 2);
                             $isHoursLocked = !empty($slip['hours_locked']);
                         ?>
                             <tr id="row-<?php echo $slip['id']; ?>"
@@ -2584,7 +2592,7 @@ include '../../includes/header.php';
                                     <input type="number" class="ps-input" style="background: rgba(59,130,246,0.1);"
                                         value="<?php echo $slip['overtime_hours']; ?>" step="1" min="0"
                                         data-field="overtime_hours" data-id="<?php echo $slip['id']; ?>"
-                                        title="OT yang disetujui / dimasukkan manual (jam penuh, kelipatan 1 jam dgn threshold 45 menit)"
+                                        title="OT yang disetujui / dimasukkan manual (jam penuh, kelipatan 1 jam dgn threshold <?php echo (int)$otRoundMinutes; ?> menit)"
                                         oninput="calculateRow(<?php echo $slip['id']; ?>); saveRow(<?php echo $slip['id']; ?>)">
                                 </td>
 
@@ -2767,6 +2775,10 @@ include '../../includes/header.php';
 </style>
 
 <script>
+    // Per-business payroll rules (dari settingan di menu Absensi > Pengaturan Waktu)
+    const PAYROLL_TARGET_HOURS = <?php echo (int)$monthlyTargetHours; ?>;
+    const PAYROLL_OT_ROUND_MINUTES = <?php echo (int)$otRoundMinutes; ?>;
+
     // Format Currency Input on keyup
     document.querySelectorAll('.currency-input').forEach(input => {
         input.addEventListener('keyup', function(e) {
@@ -2814,11 +2826,11 @@ include '../../includes/header.php';
         let workHours = getValByRow(id, 'work_hours');
         let otHours = getValByRow(id, 'overtime_hours');
 
-        // Hourly rate = Base / 208
-        let hourlyRate = base / 208;
+        // Hourly rate = Base / target jam bulanan (configurable per bisnis)
+        let hourlyRate = base / PAYROLL_TARGET_HOURS;
 
-        // Gaji pokok diprorata sesuai jam kerja (penuh hanya jika >= 208 jam/bulan)
-        let actualBase = (workHours >= 208) ? base : Math.round(workHours * hourlyRate);
+        // Gaji pokok diprorata sesuai jam kerja (penuh hanya jika >= target jam/bulan)
+        let actualBase = (workHours >= PAYROLL_TARGET_HOURS) ? base : Math.round(workHours * hourlyRate);
 
         // Update Actual Base Display
         document.getElementById(`actual-base-${id}`).innerText = new Intl.NumberFormat('id-ID').format(actualBase);
@@ -3479,13 +3491,13 @@ include '../../includes/header.php';
         }
         const rawTotal = sh1 + sh2;
 
-        // Sama dgn rule backend: OT dibulatkan threshold 45 menit.
+        // Sama dgn rule backend: OT dibulatkan sesuai threshold yg diset per bisnis.
         const roundOT45 = (hours) => {
             const h = parseFloat(hours) || 0;
             if (h <= 0) return 0;
             const minutes = Math.floor(h * 60 + 0.5);
-            if (minutes < 45) return 0;
-            return Math.floor(minutes / 45);
+            if (minutes < PAYROLL_OT_ROUND_MINUTES) return 0;
+            return Math.floor(minutes / PAYROLL_OT_ROUND_MINUTES);
         };
 
         const regular = Math.min(Math.max(0, rawTotal), 8);
@@ -3507,7 +3519,7 @@ include '../../includes/header.php';
         if (thEl) thEl.textContent = grandTotal.toFixed(1);
         const phEl = document.getElementById('attProgressHours');
         if (phEl) phEl.textContent = grandTotal.toFixed(1);
-        const targetH = 208;
+        const targetH = PAYROLL_TARGET_HOURS;
         const pct = Math.min((grandTotal / targetH) * 100, 100);
         const ppEl = document.getElementById('attProgressPct');
         if (ppEl) ppEl.textContent = pct.toFixed(0);

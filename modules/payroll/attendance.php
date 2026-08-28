@@ -249,6 +249,8 @@
                         ['payroll_attendance_config', 'fingerspot_cloud_id', "VARCHAR(50) DEFAULT NULL"],
                         ['payroll_attendance_config', 'fingerspot_enabled', "TINYINT(1) DEFAULT 0"],
                         ['payroll_attendance_config', 'app_logo', "VARCHAR(255) DEFAULT NULL"],
+                        ['payroll_attendance_config', 'monthly_target_hours', "INT NOT NULL DEFAULT 208"],
+                        ['payroll_attendance_config', 'ot_round_minutes', "INT NOT NULL DEFAULT 45"],
                         ['payroll_employees', 'attendance_pin', "VARCHAR(6) DEFAULT NULL"],
                         ['payroll_employees', 'finger_id', "VARCHAR(20) DEFAULT NULL"],
                         ['payroll_employees', 'monthly_target_hours', "INT DEFAULT 208"],
@@ -350,9 +352,11 @@
                             $ciEnd   = $_POST['checkin_end'] ?? '10:00';
                             $coStart = $_POST['checkout_start'] ?? '16:00';
                             $allowOut = isset($_POST['allow_outside']) ? 1 : 0;
+                            $monthlyTargetHours = max(1, (int)($_POST['monthly_target_hours'] ?? 208));
+                            $otRoundMinutes = max(1, (int)($_POST['ot_round_minutes'] ?? 45));
                             $db->query(
-                                "UPDATE payroll_attendance_config SET checkin_start=?, checkin_end=?, checkout_start=?, allow_outside=?, updated_by=? WHERE id=1",
-                                [$ciStart, $ciEnd, $coStart, $allowOut, $currentUser['id']]
+                                "UPDATE payroll_attendance_config SET checkin_start=?, checkin_end=?, checkout_start=?, allow_outside=?, monthly_target_hours=?, ot_round_minutes=?, updated_by=? WHERE id=1",
+                                [$ciStart, $ciEnd, $coStart, $allowOut, $monthlyTargetHours, $otRoundMinutes, $currentUser['id']]
                             );
                             $msg = 'Pengaturan waktu berhasil disimpan.';
                             $msgType = 'success';
@@ -2497,6 +2501,14 @@
                                                 </div>
                                             </div>
                                             <div class="fg"><label class="fl">Checkout Mulai Jam</label><input type="time" name="checkout_start" class="fi" value="<?php echo $config['checkout_start'] ?? '16:00'; ?>"></div>
+                                            <div class="fgrid">
+                                                <div class="fg"><label class="fl">Target Jam Kerja / Bulan</label><input type="number" name="monthly_target_hours" class="fi" min="1" step="1" value="<?php echo (int)($config['monthly_target_hours'] ?? 208); ?>">
+                                                    <div style="font-size:9px;color:var(--muted);margin-top:2px;">Dipakai sbg pembagi gaji pokok (Base ÷ Target)</div>
+                                                </div>
+                                                <div class="fg"><label class="fl">Threshold Lembur (menit)</label><input type="number" name="ot_round_minutes" class="fi" min="1" step="1" value="<?php echo (int)($config['ot_round_minutes'] ?? 45); ?>">
+                                                    <div style="font-size:9px;color:var(--muted);margin-top:2px;">Menit minimum sebelum dibulatkan ke 1 jam lembur</div>
+                                                </div>
+                                            </div>
                                             <div class="fg" style="display:flex; align-items:center; gap:6px;">
                                                 <input type="checkbox" name="allow_outside" id="allowOut" <?php echo ($config['allow_outside'] ?? 0) ? 'checked' : ''; ?>>
                                                 <label for="allowOut" style="font-size:11px;">Izinkan absen di luar radius</label>
