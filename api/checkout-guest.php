@@ -116,19 +116,28 @@ try {
 
     // If payment_status already marked as 'paid', skip amount validation
     if ($booking['payment_status'] !== 'paid') {
-        // Grouped (multi-room) bookings share ONE combined balance in Reservasi
-        // (see reservasi.php _combined_final_price/_combined_total_paid) and a DP
-        // payment can settle other rooms in the group before this one (see
-        // add-booking-payment.php's spillover logic) - so validate against the
-        // WHOLE group's balance, not just this single room, otherwise checkout
-        // gets blocked here even though Reservasi already shows "Lunas".
-        $groupTargets = [$booking];
+        // Grouped (multi-room) bookings share ONE combined balance, same detection
+        // logic as get-booking-details.php (group_id, else guest_id+dates fallback),
+        // excluding cancelled siblings - a DP payment can settle other rooms in the
+        // group before this one (see add-booking-payment.php's spillover logic) so
+        // validate against the WHOLE group's balance, not just this single room,
+        // otherwise checkout gets blocked here even though Calendar/Reservasi already
+        // shows "Lunas" / "Balance due: Rp0".
+        $groupTargets = [];
         if (!empty($booking['group_id'])) {
-            $siblings = $db->fetchAll(
-                "SELECT * FROM bookings WHERE group_id = ? AND id != ?",
-                [$booking['group_id'], $bookingId]
+            $groupTargets = $db->fetchAll(
+                "SELECT * FROM bookings WHERE group_id = ? AND status NOT IN ('cancelled')",
+                [$booking['group_id']]
             );
-            $groupTargets = array_merge($groupTargets, $siblings);
+        }
+        if (empty($groupTargets) && !empty($booking['guest_id']) && !empty($booking['check_in_date']) && !empty($booking['check_out_date'])) {
+            $groupTargets = $db->fetchAll(
+                "SELECT * FROM bookings WHERE guest_id = ? AND DATE(check_in_date) = DATE(?) AND DATE(check_out_date) = DATE(?) AND status NOT IN ('cancelled')",
+                [$booking['guest_id'], $booking['check_in_date'], $booking['check_out_date']]
+            );
+        }
+        if (empty($groupTargets)) {
+            $groupTargets = [$booking];
         }
 
         $combinedFinalPrice = 0.0;
