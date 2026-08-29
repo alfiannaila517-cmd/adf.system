@@ -114,67 +114,9 @@ try {
         exit;
     }
 
-    // If payment_status already marked as 'paid', skip amount validation
-    if ($booking['payment_status'] !== 'paid') {
-        // Grouped (multi-room) bookings share ONE combined balance, same detection
-        // logic as get-booking-details.php (group_id, else guest_id+dates fallback),
-        // excluding cancelled siblings - a DP payment can settle other rooms in the
-        // group before this one (see add-booking-payment.php's spillover logic) so
-        // validate against the WHOLE group's balance, not just this single room,
-        // otherwise checkout gets blocked here even though Calendar/Reservasi already
-        // shows "Lunas" / "Balance due: Rp0".
-        $groupTargets = [];
-        if (!empty($booking['group_id'])) {
-            $groupTargets = $db->fetchAll(
-                "SELECT * FROM bookings WHERE group_id = ? AND status NOT IN ('cancelled')",
-                [$booking['group_id']]
-            );
-        }
-        if (empty($groupTargets) && !empty($booking['guest_id']) && !empty($booking['check_in_date']) && !empty($booking['check_out_date'])) {
-            $groupTargets = $db->fetchAll(
-                "SELECT * FROM bookings WHERE guest_id = ? AND DATE(check_in_date) = DATE(?) AND DATE(check_out_date) = DATE(?) AND status NOT IN ('cancelled')",
-                [$booking['guest_id'], $booking['check_in_date'], $booking['check_out_date']]
-            );
-        }
-        if (empty($groupTargets)) {
-            $groupTargets = [$booking];
-        }
-
-        $combinedFinalPrice = 0.0;
-        $combinedPaidAmount = 0.0;
-        foreach ($groupTargets as $target) {
-            $targetFinalPrice = (float)($target['final_price'] ?? 0);
-            $totalPaid = $db->fetchOne("
-                SELECT COALESCE(SUM(amount), 0) as total 
-                FROM booking_payments 
-                WHERE booking_id = ?
-            ", [$target['id']]);
-            $bpTotal = (float)($totalPaid['total'] ?? 0);
-            // Use max of booking_payments sum and bookings.paid_amount (consistent with add-booking-payment logic)
-            $targetPaidAmount = max($bpTotal, (float)($target['paid_amount'] ?? 0));
-
-            $combinedFinalPrice += $targetFinalPrice;
-            $combinedPaidAmount += $targetPaidAmount;
-        }
-
-        $remainingBalance = $combinedFinalPrice - $combinedPaidAmount;
-
-        // Toleransi 1000 rupiah untuk pembulatan
-        if ($remainingBalance > 1000) {
-            echo json_encode([
-                'success' => false,
-                'type'    => 'unpaid',
-                'message' => "Tidak bisa check-out! Tagihan belum LUNAS.\n\nTotal Tagihan: Rp " . number_format($combinedFinalPrice, 0, ',', '.') .
-                    "\nSudah Dibayar: Rp " . number_format($combinedPaidAmount, 0, ',', '.') .
-                    "\nKekurangan: Rp " . number_format($remainingBalance, 0, ',', '.') .
-                    "\n\nSilakan selesaikan pembayaran terlebih dahulu.",
-                'remaining_balance' => $remainingBalance,
-                'final_price' => $combinedFinalPrice,
-                'paid_amount' => $combinedPaidAmount
-            ]);
-            exit;
-        }
-    }
+    // Checkout is always allowed even with an outstanding balance - the debt stays
+    // visible in Reservasi and the header running-text notification (both now include
+    // 'checked_out' bookings with payment_status != 'paid') until it's actually paid off.
 
     // Start transaction
     $db->beginTransaction();

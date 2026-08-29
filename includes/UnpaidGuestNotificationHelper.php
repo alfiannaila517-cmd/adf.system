@@ -26,7 +26,7 @@ function getUnpaidCheckedInGuests($pdo)
                 FROM booking_payments
                 GROUP BY booking_id
             ) bp ON bp.booking_id = b.id
-            WHERE b.status = 'checked_in'
+            WHERE b.status IN ('checked_in', 'checked_out')
             AND b.payment_status != 'paid'
             ORDER BY b.actual_checkin_time ASC
             LIMIT 50
