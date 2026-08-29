@@ -116,30 +116,52 @@ try {
 
     // If payment_status already marked as 'paid', skip amount validation
     if ($booking['payment_status'] !== 'paid') {
-        $totalPaid = $db->fetchOne("
-            SELECT COALESCE(SUM(amount), 0) as total 
-            FROM booking_payments 
-            WHERE booking_id = ?
-        ", [$bookingId]);
-        $bpTotal = (float)($totalPaid['total'] ?? 0);
+        // Grouped (multi-room) bookings share ONE combined balance in Reservasi
+        // (see reservasi.php _combined_final_price/_combined_total_paid) and a DP
+        // payment can settle other rooms in the group before this one (see
+        // add-booking-payment.php's spillover logic) - so validate against the
+        // WHOLE group's balance, not just this single room, otherwise checkout
+        // gets blocked here even though Reservasi already shows "Lunas".
+        $groupTargets = [$booking];
+        if (!empty($booking['group_id'])) {
+            $siblings = $db->fetchAll(
+                "SELECT * FROM bookings WHERE group_id = ? AND id != ?",
+                [$booking['group_id'], $bookingId]
+            );
+            $groupTargets = array_merge($groupTargets, $siblings);
+        }
 
-        // Use max of booking_payments sum and bookings.paid_amount (consistent with add-booking-payment logic)
-        $paidAmount = max($bpTotal, (float)($booking['paid_amount'] ?? 0));
+        $combinedFinalPrice = 0.0;
+        $combinedPaidAmount = 0.0;
+        foreach ($groupTargets as $target) {
+            $targetFinalPrice = (float)($target['final_price'] ?? 0);
+            $totalPaid = $db->fetchOne("
+                SELECT COALESCE(SUM(amount), 0) as total 
+                FROM booking_payments 
+                WHERE booking_id = ?
+            ", [$target['id']]);
+            $bpTotal = (float)($totalPaid['total'] ?? 0);
+            // Use max of booking_payments sum and bookings.paid_amount (consistent with add-booking-payment logic)
+            $targetPaidAmount = max($bpTotal, (float)($target['paid_amount'] ?? 0));
 
-        $remainingBalance = $finalPrice - $paidAmount;
+            $combinedFinalPrice += $targetFinalPrice;
+            $combinedPaidAmount += $targetPaidAmount;
+        }
+
+        $remainingBalance = $combinedFinalPrice - $combinedPaidAmount;
 
         // Toleransi 1000 rupiah untuk pembulatan
         if ($remainingBalance > 1000) {
             echo json_encode([
                 'success' => false,
                 'type'    => 'unpaid',
-                'message' => "Tidak bisa check-out! Tagihan belum LUNAS.\n\nTotal Tagihan: Rp " . number_format($finalPrice, 0, ',', '.') .
-                    "\nSudah Dibayar: Rp " . number_format($paidAmount, 0, ',', '.') .
+                'message' => "Tidak bisa check-out! Tagihan belum LUNAS.\n\nTotal Tagihan: Rp " . number_format($combinedFinalPrice, 0, ',', '.') .
+                    "\nSudah Dibayar: Rp " . number_format($combinedPaidAmount, 0, ',', '.') .
                     "\nKekurangan: Rp " . number_format($remainingBalance, 0, ',', '.') .
                     "\n\nSilakan selesaikan pembayaran terlebih dahulu.",
                 'remaining_balance' => $remainingBalance,
-                'final_price' => $finalPrice,
-                'paid_amount' => $paidAmount
+                'final_price' => $combinedFinalPrice,
+                'paid_amount' => $combinedPaidAmount
             ]);
             exit;
         }
