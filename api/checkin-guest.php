@@ -296,10 +296,23 @@ try {
     // SYNC TO CASHBOOK:
     // - OTA: sync saat check-in (uang baru tercatat masuk kas saat tamu datang)
     // - Direct bayar sekarang saat check-in: sync jumlah yang baru dibayar
-    // - Direct sudah bayar sebelumnya: sudah di-sync saat pembayaran, skip (dedup di CashbookHelper)
+    // - Direct sudah bayar sebelumnya: sudah di-sync saat pembayaran itu sendiri
+    //   (add-booking-payment.php/create-reservation.php), jadi di sini hanya sync
+    //   sisa yang BELUM ter-sync (synced_to_cashbook=0) - bukan total keseluruhan lagi,
+    //   supaya DP yang sudah tercatat tidak masuk buku kas dua kali saat check-in.
     // ==========================================
     $cashbookSynced = false;
-    $directAlreadyPaid = (!$isOTA && !$payNow && $totalPaid > 0);
+    $directAlreadyPaid = false;
+    $unsyncedAmount = 0.0;
+    if (!$isOTA && !$payNow && $totalPaid > 0) {
+        $unsyncedPaid = $db->fetchOne("
+            SELECT COALESCE(SUM(amount), 0) as total 
+            FROM booking_payments 
+            WHERE booking_id = ? AND (synced_to_cashbook IS NULL OR synced_to_cashbook = 0)
+        ", [$bookingId]);
+        $unsyncedAmount = (float)($unsyncedPaid['total'] ?? 0);
+        $directAlreadyPaid = $unsyncedAmount > 0;
+    }
     if ($isOTA || $payNow || $directAlreadyPaid) {
         try {
             require_once '../includes/CashbookHelper.php';
@@ -309,8 +322,12 @@ try {
                 // Direct/OTA bayar sekarang: sync jumlah yang baru dibayar
                 $syncAmount = $payAmount;
                 $syncMethod = $payMethod;
+            } elseif ($directAlreadyPaid) {
+                // Hanya sync bagian yang belum pernah tercatat di buku kas
+                $syncAmount = $unsyncedAmount;
+                $syncMethod = 'transfer';
             } else {
-                // OTA atau direct yang sudah bayar sebelumnya: sync total yang sudah dibayar
+                // OTA: sync total yang sudah dibayar (baru pertama kali sync saat check-in)
                 $totalPayment = $db->fetchOne("SELECT COALESCE(SUM(amount), 0) as total FROM booking_payments WHERE booking_id = ?", [$bookingId]);
                 $syncAmount = (float)$totalPayment['total'];
                 // Fallback: gunakan paid_amount dari bookings
