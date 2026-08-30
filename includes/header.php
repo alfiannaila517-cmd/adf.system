@@ -514,7 +514,7 @@ if (isset($forceTheme) && is_string($forceTheme)) {
             $count = count($bannerMessages);
             $notificationText = implode('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;', $bannerMessages);
             // Ticker speed - lower duration = faster scroll.
-            $scrollDuration = max(8, $count * 4);
+            $scrollDuration = max(4, $count * 2);
             $bannerClickTarget = !empty($unpaidGuests) ? (BASE_URL . '/modules/frontdesk/in-house.php') : (!empty($unpaidHotelServices) ? (BASE_URL . '/modules/frontdesk/hotel-services.php') : (BASE_URL . '/modules/frontdesk/rental-motor.php'));
     ?>
             <style>
