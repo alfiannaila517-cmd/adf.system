@@ -135,16 +135,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $ipAddress = $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
             $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown';
             
-            $db->insert('audit_logs', [
-                'table_name' => 'cash_book',
-                'record_id' => $id,
-                'action' => 'UPDATE',
-                'old_data' => $oldData,
-                'user_id' => $currentUser['id'],
-                'user_name' => $currentUser['full_name'],
-                'ip_address' => $ipAddress,
-                'user_agent' => $userAgent
-            ]);
+            // Audit logging must never block the actual transaction update (e.g. schema drift on this business's DB)
+            try {
+                $db->insert('audit_logs', [
+                    'table_name' => 'cash_book',
+                    'record_id' => $id,
+                    'action' => 'UPDATE',
+                    'old_data' => $oldData,
+                    'user_id' => $currentUser['id'],
+                    'user_name' => $currentUser['full_name'],
+                    'ip_address' => $ipAddress,
+                    'user_agent' => $userAgent
+                ]);
+            } catch (Exception $auditErr) {
+                error_log("Edit cashbook audit_logs insert failed: " . $auditErr->getMessage());
+            }
             
             // Determine source_type
             $newSourceType = $transaction['source_type']; // keep original by default
