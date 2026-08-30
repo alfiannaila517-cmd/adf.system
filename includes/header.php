@@ -514,7 +514,7 @@ if (isset($forceTheme) && is_string($forceTheme)) {
             $count = count($bannerMessages);
             $notificationText = implode('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;', $bannerMessages);
             // Ticker speed - lower duration = faster scroll.
-            $scrollDuration = max(12, $count * 6);
+            $scrollDuration = max(8, $count * 4);
             $bannerClickTarget = !empty($unpaidGuests) ? (BASE_URL . '/modules/frontdesk/in-house.php') : (!empty($unpaidHotelServices) ? (BASE_URL . '/modules/frontdesk/hotel-services.php') : (BASE_URL . '/modules/frontdesk/rental-motor.php'));
     ?>
             <style>
@@ -619,7 +619,7 @@ if (isset($forceTheme) && is_string($forceTheme)) {
 
                 @keyframes ticker-scroll {
                     0% {
-                        transform: translateX(100vw);
+                        transform: translateX(0);
                     }
 
                     100% {
