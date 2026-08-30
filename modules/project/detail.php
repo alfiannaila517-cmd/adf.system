@@ -141,11 +141,18 @@ include $base_path . '/includes/header.php';
 
     .page-header {
         display: flex;
+        flex-wrap: wrap;
         justify-content: space-between;
         align-items: flex-start;
+        gap: 0.75rem;
         margin-bottom: 2rem;
         padding-bottom: 1rem;
         border-bottom: 1px solid var(--border-color);
+    }
+
+    .page-header .title-section {
+        min-width: 0;
+        flex: 1 1 auto;
     }
 
     .page-header .title-section h1 {
@@ -156,6 +163,8 @@ include $base_path . '/includes/header.php';
         align-items: center;
         gap: 0.65rem;
         margin-bottom: 0.35rem;
+        white-space: normal;
+        overflow-wrap: break-word;
     }
 
     .page-header .title-section h1 .title-icon {
@@ -187,6 +196,8 @@ include $base_path . '/includes/header.php';
 
     .header-actions {
         display: flex;
+        flex-shrink: 0;
+        flex-wrap: wrap;
         gap: 0.75rem;
     }
 
