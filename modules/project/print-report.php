@@ -176,6 +176,7 @@ $filterLabel = $paymentStatuses[$statusFilter] ?? 'Semua';
                 <th>Tanggal</th>
                 <th>Kategori</th>
                 <th>Sumber</th>
+                <th>Pemborong</th>
                 <th>Keterangan</th>
                 <th class="text-right">Jumlah</th>
                 <th>Status</th>
@@ -184,18 +185,20 @@ $filterLabel = $paymentStatuses[$statusFilter] ?? 'Semua';
         <tbody>
             <?php if (empty($expenses)): ?>
                 <tr>
-                    <td colspan="6" style="text-align:center; color:#6b7280;">Tidak ada data pengeluaran</td>
+                    <td colspan="7" style="text-align:center; color:#6b7280;">Tidak ada data pengeluaran</td>
                 </tr>
             <?php else: ?>
                 <?php foreach ($expenses as $exp):
                     $paySt = $exp['payment_status'] ?? 'belum_lunas';
                     $src = $exp['purchase_source'] ?? '';
+                    $contractor = trim($exp['contractor_name'] ?? '');
                     $amount = (float)($exp['amount_idr'] ?? $exp['amount'] ?? 0);
                 ?>
                     <tr>
                         <td><?= date('d M Y', strtotime($exp['expense_date'] ?? $exp['created_at'])) ?></td>
                         <td><?= $categories[$exp['category'] ?? 'other'] ?? $exp['category'] ?></td>
                         <td><?= $src ? ($purchaseSources[$src] ?? $src) : '-' ?></td>
+                        <td><?= $contractor !== '' ? htmlspecialchars($contractor) : '-' ?></td>
                         <td><?= htmlspecialchars($exp['description'] ?? '-') ?></td>
                         <td class="text-right">Rp <?= number_format($amount, 0, ',', '.') ?></td>
                         <td><span class="badge <?= $paySt ?>"><?= $paymentStatuses[$paySt] ?? $paySt ?></span></td>
@@ -205,7 +208,7 @@ $filterLabel = $paymentStatuses[$statusFilter] ?? 'Semua';
         </tbody>
         <tfoot>
             <tr>
-                <td colspan="4">TOTAL</td>
+                <td colspan="5">TOTAL</td>
                 <td class="text-right">Rp <?= number_format($total, 0, ',', '.') ?></td>
                 <td></td>
             </tr>

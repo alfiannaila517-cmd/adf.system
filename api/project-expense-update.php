@@ -43,6 +43,7 @@ try {
     $receipt_number = $_POST['receipt_number'] ?? null;
     $purchase_source = in_array($_POST['purchase_source'] ?? '', ['jepara', 'karimunjawa']) ? $_POST['purchase_source'] : null;
     $payment_status = ($_POST['payment_status'] ?? '') === 'lunas' ? 'lunas' : 'belum_lunas';
+    $contractor_name = trim($_POST['contractor_name'] ?? '') !== '' ? trim($_POST['contractor_name']) : null;
 
     if (!$expense_id) {
         echo json_encode(['success' => false, 'message' => 'Expense ID required']);
@@ -93,6 +94,10 @@ try {
     if (in_array('payment_status', $columns)) {
         $sets[] = 'payment_status = ?';
         $params[] = $payment_status;
+    }
+    if (in_array('contractor_name', $columns)) {
+        $sets[] = 'contractor_name = ?';
+        $params[] = $contractor_name;
     }
 
     if (in_array('updated_at', $columns)) {

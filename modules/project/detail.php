@@ -50,6 +50,9 @@ if (!in_array('purchase_source', $expenseCols)) {
 if (!in_array('payment_status', $expenseCols)) {
     $db->exec("ALTER TABLE project_expenses ADD COLUMN payment_status ENUM('belum_lunas','lunas') NOT NULL DEFAULT 'belum_lunas'");
 }
+if (!in_array('contractor_name', $expenseCols)) {
+    $db->exec("ALTER TABLE project_expenses ADD COLUMN contractor_name VARCHAR(150) DEFAULT NULL AFTER purchase_source");
+}
 
 $purchaseSources = ['jepara' => 'Jepara', 'karimunjawa' => 'Karimunjawa'];
 $paymentStatuses = ['belum_lunas' => 'Belum Lunas', 'lunas' => 'Lunas'];
@@ -111,6 +114,28 @@ foreach ($allExpenses as $exp) {
     $expenseByCategory[$cat] += $amount;
 }
 
+// Total tagihan per pemborong (hanya baris yang punya nama pemborong diisi)
+$expenseByContractor = [];
+$contractorNames = [];
+foreach ($allExpenses as $exp) {
+    $contractor = trim($exp['contractor_name'] ?? '');
+    if ($contractor === '') {
+        continue;
+    }
+    $contractorNames[$contractor] = true;
+    $amount = $exp['amount_idr'] ?? $exp['amount'] ?? 0;
+    if (!isset($expenseByContractor[$contractor])) {
+        $expenseByContractor[$contractor] = ['total' => 0, 'unpaid' => 0];
+    }
+    $expenseByContractor[$contractor]['total'] += $amount;
+    if (($exp['payment_status'] ?? 'belum_lunas') !== 'lunas') {
+        $expenseByContractor[$contractor]['unpaid'] += $amount;
+    }
+}
+ksort($expenseByContractor);
+$contractorNames = array_keys($contractorNames);
+sort($contractorNames);
+
 $budget = $project['budget'] ?? 0;
 $remaining = $budget - $totalExpenses;
 $percentage = $budget > 0 ? min(100, ($totalExpenses / $budget) * 100) : 0;
@@ -122,6 +147,7 @@ foreach ($expenses as $exp) {
         'category' => $exp['category'] ?? 'other',
         'purchase_source' => $exp['purchase_source'] ?? '',
         'payment_status' => $exp['payment_status'] ?? 'belum_lunas',
+        'contractor_name' => $exp['contractor_name'] ?? '',
         'amount' => (float) ($exp['amount_idr'] ?? $exp['amount'] ?? 0),
         'description' => $exp['description'] ?? '',
         'receipt_number' => $exp['receipt_number'] ?? $exp['reference_no'] ?? ''
@@ -867,6 +893,7 @@ include $base_path . '/includes/header.php';
                             <th>Tanggal</th>
                             <th>Kategori</th>
                             <th>Sumber</th>
+                            <th>Pemborong</th>
                             <th>Keterangan</th>
                             <th>Jumlah</th>
                             <th>Status</th>
@@ -877,6 +904,7 @@ include $base_path . '/includes/header.php';
                         <?php foreach ($expenses as $exp):
                             $paySt = $exp['payment_status'] ?? 'belum_lunas';
                             $src = $exp['purchase_source'] ?? '';
+                            $contractor = trim($exp['contractor_name'] ?? '');
                         ?>
                             <tr>
                                 <td class="date-col"><?= date('d M Y', strtotime($exp['expense_date'] ?? $exp['created_at'])) ?></td>
@@ -884,6 +912,7 @@ include $base_path . '/includes/header.php';
                                     <span class="category-badge"><?= $categories[$exp['category'] ?? 'other'] ?? $exp['category'] ?></span>
                                 </td>
                                 <td><?php if ($src): ?><span class="source-badge"><?= $purchaseSources[$src] ?? $src ?></span><?php else: ?>-<?php endif; ?></td>
+                                <td><?= $contractor ? htmlspecialchars($contractor) : '-' ?></td>
                                 <td><?= htmlspecialchars($exp['description'] ?? '-') ?></td>
                                 <td class="amount-col">Rp <?= number_format($exp['amount_idr'] ?? $exp['amount'] ?? 0, 0, ',', '.') ?></td>
                                 <td><span class="paystatus-badge <?= $paySt ?>"><?= $paymentStatuses[$paySt] ?? $paySt ?></span></td>
@@ -955,6 +984,11 @@ include $base_path . '/includes/header.php';
                 </div>
 
                 <div class="form-group">
+                    <label>Pemborong</label>
+                    <input type="text" name="contractor_name" list="contractorList" placeholder="Nama pemborong, cth: Moyong">
+                </div>
+
+                <div class="form-group">
                     <label>Jumlah (Rp) *</label>
                     <input type="number" name="amount" required placeholder="0" min="1">
                 </div>
@@ -977,6 +1011,12 @@ include $base_path . '/includes/header.php';
                 </button>
             </form>
 
+            <datalist id="contractorList">
+                <?php foreach ($contractorNames as $name): ?>
+                    <option value="<?= htmlspecialchars($name) ?>"></option>
+                <?php endforeach; ?>
+            </datalist>
+
             <!-- Category Summary -->
             <?php if (!empty($expenseByCategory)): ?>
                 <div class="category-summary">
@@ -985,6 +1025,23 @@ include $base_path . '/includes/header.php';
                         <div class="category-item">
                             <span class="name"><?= $categories[$cat] ?? $cat ?></span>
                             <span class="amount">Rp <?= number_format($amount, 0, ',', '.') ?></span>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+
+            <?php if (!empty($expenseByContractor)): ?>
+                <div class="category-summary">
+                    <h4>Total Tagihan per Pemborong</h4>
+                    <?php foreach ($expenseByContractor as $contractor => $data): ?>
+                        <div class="category-item">
+                            <span class="name"><?= htmlspecialchars($contractor) ?></span>
+                            <span class="amount">
+                                Rp <?= number_format($data['total'], 0, ',', '.') ?>
+                                <?php if ($data['unpaid'] > 0): ?>
+                                    <small style="color:#ef4444; font-weight:600;">(Belum Lunas Rp <?= number_format($data['unpaid'], 0, ',', '.') ?>)</small>
+                                <?php endif; ?>
+                            </span>
                         </div>
                     <?php endforeach; ?>
                 </div>
@@ -1036,6 +1093,10 @@ include $base_path . '/includes/header.php';
                     </div>
                 </div>
                 <div class="form-group">
+                    <label>Pemborong</label>
+                    <input type="text" name="contractor_name" id="editExpenseContractor" list="contractorList" placeholder="Nama pemborong, cth: Moyong">
+                </div>
+                <div class="form-group">
                     <label>Jumlah (Rp) *</label>
                     <input type="number" name="amount" id="editExpenseAmount" required placeholder="0" min="1">
                 </div>
@@ -1068,6 +1129,7 @@ include $base_path . '/includes/header.php';
         document.getElementById('editExpenseCategory').value = data.category;
         document.getElementById('editExpenseSource').value = data.purchase_source || 'karimunjawa';
         document.getElementById('editExpensePayStatus').value = data.payment_status || 'belum_lunas';
+        document.getElementById('editExpenseContractor').value = data.contractor_name || '';
         document.getElementById('editExpenseAmount').value = data.amount;
         document.getElementById('editExpenseDescription').value = data.description;
         document.getElementById('editExpenseReceipt').value = data.receipt_number;

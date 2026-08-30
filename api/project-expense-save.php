@@ -44,6 +44,7 @@ try {
     $receipt_number = $_POST['receipt_number'] ?? null;
     $purchase_source = in_array($_POST['purchase_source'] ?? '', ['jepara', 'karimunjawa']) ? $_POST['purchase_source'] : null;
     $payment_status = ($_POST['payment_status'] ?? '') === 'lunas' ? 'lunas' : 'belum_lunas';
+    $contractor_name = trim($_POST['contractor_name'] ?? '') !== '' ? trim($_POST['contractor_name']) : null;
 
     // Validate
     if (!$project_id) {
@@ -98,6 +99,10 @@ try {
     if (in_array('payment_status', $columns)) {
         $cols[] = 'payment_status';
         $params[] = $payment_status;
+    }
+    if (in_array('contractor_name', $columns)) {
+        $cols[] = 'contractor_name';
+        $params[] = $contractor_name;
     }
 
     if (in_array('created_by', $columns)) {
