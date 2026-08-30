@@ -81,8 +81,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
     switch ($action) {
         case 'edit_po':
-            if (!($auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse'))) {
-                $result = ['success' => false, 'message' => 'Akses Gudang Nasita ditolak'];
+            $poForEditCheck = getPurchaseOrder($po_id);
+            $isGudangEditor = $auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse');
+            $poNotYetProcessed = $poForEditCheck && in_array($poForEditCheck['status'], ['draft', 'submitted'], true);
+            if (!$isGudangEditor && !$poNotYetProcessed) {
+                $result = ['success' => false, 'message' => 'PO sudah diproses Gudang, qty tidak bisa diubah lagi'];
                 break;
             }
             $editItems = [];
@@ -289,17 +292,25 @@ include '../../includes/header.php';
                     <input type="hidden" name="action" value="submit">
                     <button type="submit" class="btn btn-primary btn-sm">Submit PO</button>
                 </form>
-            <?php elseif (in_array($po['status'], ['submitted', 'approved']) && $isGudangContext): ?>
                 <a href="view-po.php?id=<?php echo (int)$po['id']; ?><?php echo $poBizSlug !== '' ? '&po_business=' . urlencode($poBizSlug) : ''; ?>&edit=1" class="btn btn-warning btn-sm">
                     <i data-feather="edit-3" style="width: 14px; height: 14px;"></i>
                     Edit PO
                 </a>
-                <a href="gudang-transfer.php?po_id=<?php echo (int)$po['id']; ?><?php echo $poBizSlug !== '' ? '&po_business=' . urlencode($poBizSlug) : ''; ?>" class="btn btn-success btn-sm">
-                    <i data-feather="send" style="width: 14px; height: 14px;"></i>
-                    Siapkan Transfer Gudang
-                </a>
             <?php elseif (in_array($po['status'], ['submitted', 'approved'])): ?>
-                <span class="badge badge-warning" style="font-size:0.8rem;">⏳ Menunggu diproses Gudang</span>
+                <?php if ($po['status'] === 'submitted'): ?>
+                    <a href="view-po.php?id=<?php echo (int)$po['id']; ?><?php echo $poBizSlug !== '' ? '&po_business=' . urlencode($poBizSlug) : ''; ?>&edit=1" class="btn btn-warning btn-sm">
+                        <i data-feather="edit-3" style="width: 14px; height: 14px;"></i>
+                        Edit PO
+                    </a>
+                <?php endif; ?>
+                <?php if ($isGudangContext): ?>
+                    <a href="gudang-transfer.php?po_id=<?php echo (int)$po['id']; ?><?php echo $poBizSlug !== '' ? '&po_business=' . urlencode($poBizSlug) : ''; ?>" class="btn btn-success btn-sm">
+                        <i data-feather="send" style="width: 14px; height: 14px;"></i>
+                        Siapkan Transfer Gudang
+                    </a>
+                <?php else: ?>
+                    <span class="badge badge-warning" style="font-size:0.8rem;">⏳ Menunggu diproses Gudang</span>
+                <?php endif; ?>
             <?php endif; ?>
             <button onclick="window.print()" class="btn btn-secondary btn-sm">
                 <i data-feather="printer" style="width: 14px; height: 14px;"></i> Print
@@ -384,7 +395,7 @@ include '../../includes/header.php';
     </div>
 </div>
 
-<?php if ($isGudangContext && in_array($po['status'], ['draft', 'submitted'], true) && !empty($_GET['edit'])): ?>
+<?php if (in_array($po['status'], ['draft', 'submitted'], true) && !empty($_GET['edit'])): ?>
     <div class="card" style="margin-bottom: 1.25rem; border: 1px solid #fde68a; background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; margin-bottom:1rem;">
             <h3 style="font-size: 1rem; font-weight: 700; margin:0; color:#78350f;">Edit PO yang belum diproses</h3>
