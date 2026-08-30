@@ -42,17 +42,48 @@ try {
     exit;
 }
 
-// Get expenses for this project
+// Auto-migrate: sumber belanja & status pembayaran (dibuat idempotent, aman dipanggil berulang)
+$expenseCols = $db->query("DESCRIBE project_expenses")->fetchAll(PDO::FETCH_COLUMN);
+if (!in_array('purchase_source', $expenseCols)) {
+    $db->exec("ALTER TABLE project_expenses ADD COLUMN purchase_source ENUM('jepara','karimunjawa') DEFAULT NULL AFTER category");
+}
+if (!in_array('payment_status', $expenseCols)) {
+    $db->exec("ALTER TABLE project_expenses ADD COLUMN payment_status ENUM('belum_lunas','lunas') NOT NULL DEFAULT 'belum_lunas'");
+}
+
+$purchaseSources = ['jepara' => 'Jepara', 'karimunjawa' => 'Karimunjawa'];
+$paymentStatuses = ['belum_lunas' => 'Belum Lunas', 'lunas' => 'Lunas'];
+
+// Filter by payment status (untuk daftar & laporan cetak)
+$statusFilter = $_GET['payment_status'] ?? 'all';
+if (!isset($paymentStatuses[$statusFilter])) {
+    $statusFilter = 'all';
+}
+
+// Get expenses for this project (filtered list, for the table)
 try {
-    $stmt = $db->prepare("
-        SELECT * FROM project_expenses 
-        WHERE project_id = ? 
-        ORDER BY expense_date DESC, created_at DESC
-    ");
-    $stmt->execute([$projectId]);
+    $sql = "SELECT * FROM project_expenses WHERE project_id = ?";
+    $params = [$projectId];
+    if ($statusFilter !== 'all') {
+        $sql .= " AND payment_status = ?";
+        $params[] = $statusFilter;
+    }
+    $sql .= " ORDER BY expense_date DESC, created_at DESC";
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
     $expenses = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (Exception $e) {
     $expenses = [];
+}
+
+// Get ALL expenses (unfiltered) for the dashboard totals - these must reflect the
+// whole project regardless of which payment_status filter is currently selected.
+try {
+    $stmt = $db->prepare("SELECT * FROM project_expenses WHERE project_id = ? ORDER BY expense_date DESC, created_at DESC");
+    $stmt->execute([$projectId]);
+    $allExpenses = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    $allExpenses = [];
 }
 
 // Get expense categories (predefined)
@@ -65,11 +96,11 @@ $categories = [
     'other' => 'Lainnya'
 ];
 
-// Calculate totals
+// Calculate totals (dari SELURUH pengeluaran, bukan hasil filter)
 $totalExpenses = 0;
 $expenseByCategory = [];
 
-foreach ($expenses as $exp) {
+foreach ($allExpenses as $exp) {
     $amount = $exp['amount_idr'] ?? $exp['amount'] ?? 0;
     $totalExpenses += $amount;
 
@@ -89,6 +120,8 @@ foreach ($expenses as $exp) {
     $expenseMap[$exp['id']] = [
         'expense_date' => $exp['expense_date'] ?? date('Y-m-d', strtotime($exp['created_at'] ?? 'now')),
         'category' => $exp['category'] ?? 'other',
+        'purchase_source' => $exp['purchase_source'] ?? '',
+        'payment_status' => $exp['payment_status'] ?? 'belum_lunas',
         'amount' => (float) ($exp['amount_idr'] ?? $exp['amount'] ?? 0),
         'description' => $exp['description'] ?? '',
         'receipt_number' => $exp['receipt_number'] ?? $exp['reference_no'] ?? ''
@@ -615,6 +648,55 @@ include $base_path . '/includes/header.php';
         margin-bottom: 1rem;
         opacity: 0.5;
     }
+
+    .source-badge {
+        padding: 0.25rem 0.6rem;
+        border-radius: 12px;
+        font-size: 0.68rem;
+        font-weight: 500;
+        background: rgba(107, 114, 128, 0.12);
+        color: var(--text-secondary);
+    }
+
+    .paystatus-badge {
+        padding: 0.25rem 0.6rem;
+        border-radius: 12px;
+        font-size: 0.68rem;
+        font-weight: 600;
+    }
+
+    .paystatus-badge.lunas {
+        background: rgba(16, 185, 129, 0.15);
+        color: #10b981;
+    }
+
+    .paystatus-badge.belum_lunas {
+        background: rgba(239, 68, 68, 0.15);
+        color: #ef4444;
+    }
+
+    .filter-tabs {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .filter-tabs a {
+        padding: 0.4rem 0.85rem;
+        border-radius: 8px;
+        font-size: 0.78rem;
+        font-weight: 500;
+        text-decoration: none;
+        color: var(--text-secondary);
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+    }
+
+    .filter-tabs a.active {
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        color: #fff;
+        border-color: transparent;
+    }
 </style>
 
 <div class="detail-page">
@@ -634,6 +716,14 @@ include $base_path . '/includes/header.php';
             </h1>
         </div>
         <div class="header-actions">
+            <a href="print-report.php?id=<?= $projectId ?>&payment_status=<?= $statusFilter ?>" target="_blank" class="btn btn-outline">
+                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <polyline points="6,9 6,2 18,2 18,9" />
+                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                    <rect x="6" y="14" width="12" height="8" />
+                </svg>
+                Cetak Laporan
+            </a>
             <a href="index.php" class="btn btn-outline">
                 <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path d="M19 12H5M12 19l-7-7 7-7" />
@@ -714,6 +804,12 @@ include $base_path . '/includes/header.php';
                 </h3>
             </div>
 
+            <div class="filter-tabs">
+                <a href="?id=<?= $projectId ?>&payment_status=all" class="<?= $statusFilter === 'all' ? 'active' : '' ?>">Semua</a>
+                <a href="?id=<?= $projectId ?>&payment_status=belum_lunas" class="<?= $statusFilter === 'belum_lunas' ? 'active' : '' ?>">Belum Lunas</a>
+                <a href="?id=<?= $projectId ?>&payment_status=lunas" class="<?= $statusFilter === 'lunas' ? 'active' : '' ?>">Lunas</a>
+            </div>
+
             <?php if (empty($expenses)): ?>
                 <div class="empty-state">
                     <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
@@ -727,20 +823,27 @@ include $base_path . '/includes/header.php';
                         <tr>
                             <th>Tanggal</th>
                             <th>Kategori</th>
+                            <th>Sumber</th>
                             <th>Keterangan</th>
                             <th>Jumlah</th>
+                            <th>Status</th>
                             <th></th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($expenses as $exp): ?>
+                        <?php foreach ($expenses as $exp):
+                            $paySt = $exp['payment_status'] ?? 'belum_lunas';
+                            $src = $exp['purchase_source'] ?? '';
+                        ?>
                             <tr>
                                 <td class="date-col"><?= date('d M Y', strtotime($exp['expense_date'] ?? $exp['created_at'])) ?></td>
                                 <td>
                                     <span class="category-badge"><?= $categories[$exp['category'] ?? 'other'] ?? $exp['category'] ?></span>
                                 </td>
+                                <td><?php if ($src): ?><span class="source-badge"><?= $purchaseSources[$src] ?? $src ?></span><?php else: ?>-<?php endif; ?></td>
                                 <td><?= htmlspecialchars($exp['description'] ?? '-') ?></td>
                                 <td class="amount-col">Rp <?= number_format($exp['amount_idr'] ?? $exp['amount'] ?? 0, 0, ',', '.') ?></td>
+                                <td><span class="paystatus-badge <?= $paySt ?>"><?= $paymentStatuses[$paySt] ?? $paySt ?></span></td>
                                 <td class="action-col">
                                     <button class="action-btn-sm edit-btn" onclick="openEditExpenseModal(<?= $exp['id'] ?>)" title="Edit">
                                         <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -783,6 +886,25 @@ include $base_path . '/includes/header.php';
                         <label>Kategori</label>
                         <select name="category" required>
                             <?php foreach ($categories as $key => $label): ?>
+                                <option value="<?= $key ?>"><?= $label ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Sumber Belanja</label>
+                        <select name="purchase_source">
+                            <?php foreach ($purchaseSources as $key => $label): ?>
+                                <option value="<?= $key ?>"><?= $label ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Status Pembayaran</label>
+                        <select name="payment_status" required>
+                            <?php foreach ($paymentStatuses as $key => $label): ?>
                                 <option value="<?= $key ?>"><?= $label ?></option>
                             <?php endforeach; ?>
                         </select>
@@ -852,6 +974,24 @@ include $base_path . '/includes/header.php';
                         </select>
                     </div>
                 </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Sumber Belanja</label>
+                        <select name="purchase_source" id="editExpenseSource">
+                            <?php foreach ($purchaseSources as $key => $label): ?>
+                                <option value="<?= $key ?>"><?= $label ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Status Pembayaran</label>
+                        <select name="payment_status" id="editExpensePayStatus" required>
+                            <?php foreach ($paymentStatuses as $key => $label): ?>
+                                <option value="<?= $key ?>"><?= $label ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
                 <div class="form-group">
                     <label>Jumlah (Rp) *</label>
                     <input type="number" name="amount" id="editExpenseAmount" required placeholder="0" min="1">
@@ -883,6 +1023,8 @@ include $base_path . '/includes/header.php';
         document.getElementById('editExpenseId').value = expenseId;
         document.getElementById('editExpenseDate').value = data.expense_date;
         document.getElementById('editExpenseCategory').value = data.category;
+        document.getElementById('editExpenseSource').value = data.purchase_source || 'karimunjawa';
+        document.getElementById('editExpensePayStatus').value = data.payment_status || 'belum_lunas';
         document.getElementById('editExpenseAmount').value = data.amount;
         document.getElementById('editExpenseDescription').value = data.description;
         document.getElementById('editExpenseReceipt').value = data.receipt_number;

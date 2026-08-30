@@ -42,6 +42,8 @@ try {
     $amount = floatval($_POST['amount'] ?? 0);
     $description = $_POST['description'] ?? '';
     $receipt_number = $_POST['receipt_number'] ?? null;
+    $purchase_source = in_array($_POST['purchase_source'] ?? '', ['jepara', 'karimunjawa']) ? $_POST['purchase_source'] : null;
+    $payment_status = ($_POST['payment_status'] ?? '') === 'lunas' ? 'lunas' : 'belum_lunas';
 
     // Validate
     if (!$project_id) {
@@ -87,6 +89,15 @@ try {
     } elseif (in_array('reference_no', $columns)) {
         $cols[] = 'reference_no';
         $params[] = $receipt_number;
+    }
+
+    if (in_array('purchase_source', $columns)) {
+        $cols[] = 'purchase_source';
+        $params[] = $purchase_source;
+    }
+    if (in_array('payment_status', $columns)) {
+        $cols[] = 'payment_status';
+        $params[] = $payment_status;
     }
 
     if (in_array('created_by', $columns)) {

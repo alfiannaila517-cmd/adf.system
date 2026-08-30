@@ -41,6 +41,8 @@ try {
     $amount = floatval($_POST['amount'] ?? 0);
     $description = $_POST['description'] ?? '';
     $receipt_number = $_POST['receipt_number'] ?? null;
+    $purchase_source = in_array($_POST['purchase_source'] ?? '', ['jepara', 'karimunjawa']) ? $_POST['purchase_source'] : null;
+    $payment_status = ($_POST['payment_status'] ?? '') === 'lunas' ? 'lunas' : 'belum_lunas';
 
     if (!$expense_id) {
         echo json_encode(['success' => false, 'message' => 'Expense ID required']);
@@ -82,6 +84,15 @@ try {
     } elseif (in_array('reference_no', $columns)) {
         $sets[] = 'reference_no = ?';
         $params[] = $receipt_number;
+    }
+
+    if (in_array('purchase_source', $columns)) {
+        $sets[] = 'purchase_source = ?';
+        $params[] = $purchase_source;
+    }
+    if (in_array('payment_status', $columns)) {
+        $sets[] = 'payment_status = ?';
+        $params[] = $payment_status;
     }
 
     if (in_array('updated_at', $columns)) {
