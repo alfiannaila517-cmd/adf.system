@@ -513,8 +513,8 @@ if (isset($forceTheme) && is_string($forceTheme)) {
         if (!empty($bannerMessages)):
             $count = count($bannerMessages);
             $notificationText = implode('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;', $bannerMessages);
-            // Slow down ticker for readability.
-            $scrollDuration = max(25, $count * 12);
+            // Ticker speed - lower duration = faster scroll.
+            $scrollDuration = max(12, $count * 6);
             $bannerClickTarget = !empty($unpaidGuests) ? (BASE_URL . '/modules/frontdesk/in-house.php') : (!empty($unpaidHotelServices) ? (BASE_URL . '/modules/frontdesk/hotel-services.php') : (BASE_URL . '/modules/frontdesk/rental-motor.php'));
     ?>
             <style>
