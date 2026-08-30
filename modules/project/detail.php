@@ -688,8 +688,30 @@ include $base_path . '/includes/header.php';
 
     .filter-tabs {
         display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
         gap: 0.5rem;
         margin-bottom: 1rem;
+    }
+
+    .filter-tabs .filter-tabs-left {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .filter-tabs .btn-print-filtered {
+        padding: 0.4rem 0.85rem;
+        border-radius: 8px;
+        font-size: 0.78rem;
+        font-weight: 500;
+        text-decoration: none;
+        color: #fff;
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
     }
 
     .filter-tabs a {
@@ -816,9 +838,19 @@ include $base_path . '/includes/header.php';
             </div>
 
             <div class="filter-tabs">
-                <a href="?id=<?= $projectId ?>&payment_status=all" class="<?= $statusFilter === 'all' ? 'active' : '' ?>">Semua</a>
-                <a href="?id=<?= $projectId ?>&payment_status=belum_lunas" class="<?= $statusFilter === 'belum_lunas' ? 'active' : '' ?>">Belum Lunas</a>
-                <a href="?id=<?= $projectId ?>&payment_status=lunas" class="<?= $statusFilter === 'lunas' ? 'active' : '' ?>">Lunas</a>
+                <div class="filter-tabs-left">
+                    <a href="?id=<?= $projectId ?>&payment_status=all" class="<?= $statusFilter === 'all' ? 'active' : '' ?>">Semua</a>
+                    <a href="?id=<?= $projectId ?>&payment_status=belum_lunas" class="<?= $statusFilter === 'belum_lunas' ? 'active' : '' ?>">Belum Lunas</a>
+                    <a href="?id=<?= $projectId ?>&payment_status=lunas" class="<?= $statusFilter === 'lunas' ? 'active' : '' ?>">Lunas</a>
+                </div>
+                <a href="print-report.php?id=<?= $projectId ?>&payment_status=<?= $statusFilter ?>" target="_blank" class="btn-print-filtered">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <polyline points="6,9 6,2 18,2 18,9" />
+                        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                        <rect x="6" y="14" width="12" height="8" />
+                    </svg>
+                    Cetak <?= $statusFilter === 'all' ? 'Semua' : ($statusFilter === 'belum_lunas' ? 'Belum Lunas' : 'Lunas') ?>
+                </a>
             </div>
 
             <?php if (empty($expenses)): ?>
