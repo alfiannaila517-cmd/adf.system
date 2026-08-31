@@ -1308,6 +1308,7 @@ if ($action === 'face_register') {
 if ($action === 'face_clock') {
     $lat = (float)($_POST['lat'] ?? 0);
     $lng = (float)($_POST['lng'] ?? 0);
+    $accuracy = (float)($_POST['accuracy'] ?? 0);
     $address = substr(trim($_POST['address'] ?? ''), 0, 255);
     // 'manual' = fallback button when Face ID is slow/unavailable. GPS radius check
     // below is NOT skipped for manual mode - it is exactly the same mandatory check.
@@ -1341,7 +1342,9 @@ if ($action === 'face_clock') {
             }
         }
         $distance = $nearestDist;
-        $isOutside = $distance > (int)$nearest['radius_m'];
+        // Toleransi radius mengikuti akurasi sinyal GPS (maks +50m) supaya tidak salah tolak saat GPS kurang presisi
+        $tolerance = min(max($accuracy, 0), 50);
+        $isOutside = $distance > ((int)$nearest['radius_m'] + $tolerance);
         if ($isOutside && !$allowOutside) {
             echo json_encode(['success' => false, 'message' => "Di luar radius {$nearest['location_name']} ({$distance}m, maks {$nearest['radius_m']}m)"]);
             exit;

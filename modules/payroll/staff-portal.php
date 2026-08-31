@@ -6597,6 +6597,7 @@ header('Expires: 0');
         let faceStoredDescriptor = null;
         let faceVerifyMode = false;
         let faceGps = null;
+        let faceGpsBest = null;
         let faceGpsWatcher = null;
         let faceConfig = null;
         let faceDetected = false;
@@ -6878,11 +6879,17 @@ header('Expires: 0');
 
         function startFaceGps() {
             if (!navigator.geolocation) return;
+            faceGpsBest = null;
             faceGpsWatcher = navigator.geolocation.watchPosition(
                 pos => {
                     faceGps = pos;
+                    // Simpan fix dengan akurasi terbaik (nilai accuracy terkecil), bukan sekadar yang terakhir
+                    if (!faceGpsBest || pos.coords.accuracy < faceGpsBest.coords.accuracy) {
+                        faceGpsBest = pos;
+                    }
                     const acc = Math.round(pos.coords.accuracy);
-                    let info = '📍 ±' + acc + 'm';
+                    const quality = acc <= 15 ? '🟢' : (acc <= 30 ? '🟡' : '🔴');
+                    let info = quality + ' ±' + acc + 'm';
                     const locs = faceConfig?.locations || [];
                     if (locs.length > 0) {
                         let nearest = null,
@@ -6904,7 +6911,8 @@ header('Expires: 0');
                     document.getElementById('faceGpsInfo').textContent = '📍 GPS tidak tersedia';
                 }, {
                     enableHighAccuracy: true,
-                    maximumAge: 5000
+                    maximumAge: 0,
+                    timeout: 15000
                 }
             );
         }
@@ -7103,10 +7111,13 @@ header('Expires: 0');
         async function doFaceClock() {
             setFaceStatus('Menyimpan absensi...', 'Mengirim ke server');
 
+            // Pakai fix GPS dengan akurasi terbaik yang terkumpul selama scan, bukan sekadar fix terakhir
+            const gpsFix = faceGpsBest || faceGps;
+
             let address = '';
-            if (faceGps) {
+            if (gpsFix) {
                 try {
-                    const r = await fetch('https://nominatim.openstreetmap.org/reverse?lat=' + faceGps.coords.latitude + '&lon=' + faceGps.coords.longitude + '&format=json');
+                    const r = await fetch('https://nominatim.openstreetmap.org/reverse?lat=' + gpsFix.coords.latitude + '&lon=' + gpsFix.coords.longitude + '&format=json');
                     const g = await r.json();
                     address = g.display_name || '';
                 } catch (e) {}
@@ -7114,8 +7125,9 @@ header('Expires: 0');
 
             const fd = new FormData();
             fd.append('action', 'face_clock');
-            fd.append('lat', faceGps ? faceGps.coords.latitude : 0);
-            fd.append('lng', faceGps ? faceGps.coords.longitude : 0);
+            fd.append('lat', gpsFix ? gpsFix.coords.latitude : 0);
+            fd.append('lng', gpsFix ? gpsFix.coords.longitude : 0);
+            fd.append('accuracy', gpsFix ? Math.round(gpsFix.coords.accuracy) : '');
             fd.append('address', address);
 
             try {
