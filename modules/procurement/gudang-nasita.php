@@ -18,94 +18,6 @@ $db = Database::getInstance();
 $currentUser = $auth->getCurrentUser();
 $pageTitle = 'Gudang Nasita';
 
-// TEMP DIAGNOSTIC (auth-gated by the requireLogin()+hasPermission() checks above) — remove after debugging.
-if (($_GET['debug_bintang'] ?? '') === '1') {
-    header('Content-Type: application/json');
-    $fixResult = null;
-    if (($_GET['fix'] ?? '') === '1') {
-        try {
-            $db->getConnection()->beginTransaction();
-            // Row id=4 ("Bir Bintang", qty~1471) was wrongly linked to the "Bir Bintang Large"
-            // catalog entry (id=3) instead of the correct "Bir Bintang" catalog entry (id=60).
-            // Force-correct the link and restore both rows to active (they got deactivated somewhere along the way).
-            $db->query("UPDATE gudang_nasita_stock SET barang_id = 60, is_active = 1 WHERE id = 4");
-            $db->query("UPDATE gudang_nasita_barang SET is_active = 1 WHERE id = 60");
-            // Deactivate duplicate/confusing "large"/"small" catalog entries so only BRG-0028/0029 remain selectable.
-            $db->query("UPDATE gudang_nasita_barang SET is_active = 0 WHERE id IN (3, 24, 25)");
-            $db->getConnection()->commit();
-            $fixResult = 'applied';
-        } catch (Throwable $e) {
-            if ($db->getConnection()->inTransaction()) {
-                $db->getConnection()->rollBack();
-            }
-            $fixResult = 'error: ' . $e->getMessage();
-        }
-    }
-    $stockRows = $db->fetchAll("SELECT id, stock_code, item_name, category, barang_id, quantity, is_active FROM gudang_nasita_stock WHERE item_name LIKE '%bintang%' ORDER BY id");
-    $barangRows = [];
-    try {
-        $barangRows = $db->fetchAll("SELECT id, kode_barang, nama_barang, is_active FROM gudang_nasita_barang WHERE nama_barang LIKE '%bintang%' ORDER BY id");
-    } catch (Throwable $e) {
-        $barangRows = ['error' => $e->getMessage()];
-    }
-    echo json_encode(['fix' => $fixResult, 'stock' => $stockRows, 'barang' => $barangRows], JSON_PRETTY_PRINT);
-    exit;
-}
-
-// TEMP DIAGNOSTIC (auth-gated above) — calls addGudangNasitaManualStock() directly and
-// returns the raw result/exception, bypassing the session-flash redirect flow entirely.
-// Remove after debugging the "save shows no popup, stock doesn't increase" report.
-if (($_GET['debug_addstock'] ?? '') === '1') {
-    header('Content-Type: application/json');
-    $itemName = trim((string)($_GET['item_name'] ?? 'Bir Bintang large'));
-    $qty = (float)($_GET['qty'] ?? 1);
-    $response = ['item_name' => $itemName, 'qty' => $qty];
-    try {
-        $response['result'] = addGudangNasitaManualStock($itemName, 'botol', $qty, (int)($currentUser['id'] ?? 0), [
-            'category' => 'alkohol',
-        ]);
-        $response['stock_after'] = $db->fetchOne(
-            "SELECT id, stock_code, item_name, quantity, barang_id, is_active FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) LIMIT 1",
-            [$itemName]
-        );
-    } catch (Throwable $e) {
-        $response['fatal_error'] = $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine();
-    }
-    echo json_encode($response, JSON_PRETTY_PRINT);
-    exit;
-}
-
-// TEMP DIAGNOSTIC (auth-gated above) — searches stock rows by name and, if ?fix=1,
-// calls recordGudangNasitaDailyStockOut() directly to see the raw result/exception.
-// Remove after debugging the "kurangi stock belum berkurang" report.
-if (($_GET['debug_stockout'] ?? '') === '1') {
-    header('Content-Type: application/json');
-    $itemName = trim((string)($_GET['item_name'] ?? 'amer'));
-    $qty = (float)($_GET['qty'] ?? 1);
-    $response = [
-        'search_term' => $itemName,
-        'matches' => $db->fetchAll(
-            "SELECT id, stock_code, item_name, quantity, barang_id, is_active FROM gudang_nasita_stock WHERE item_name LIKE ? ORDER BY id",
-            ['%' . $itemName . '%']
-        ),
-    ];
-    if (($_GET['fix'] ?? '') === '1') {
-        try {
-            $response['result'] = recordGudangNasitaDailyStockOut($itemName, $qty, (int)($currentUser['id'] ?? 0), [
-                'notes' => 'debug_stockout',
-            ]);
-            $response['stock_after'] = $db->fetchOne(
-                "SELECT id, stock_code, item_name, quantity, barang_id, is_active FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) LIMIT 1",
-                [$itemName]
-            );
-        } catch (Throwable $e) {
-            $response['fatal_error'] = $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine();
-        }
-    }
-    echo json_encode($response, JSON_PRETTY_PRINT);
-    exit;
-}
-
 function gudangImportNormalizeHeader(string $value): string
 {
     $value = trim($value);
@@ -1608,11 +1520,11 @@ include '../../includes/header.php';
                 </div>
             </div>
 
-            <div class="card gudang-side-card">
-                <div style="padding:0.9rem 1rem 0.75rem; border-bottom:1px solid rgba(148,163,184,0.18);">
+            <div class="card gudang-side-card" style="display:flex; flex-direction:column; max-height:calc(100vh - 170px); overflow:hidden;">
+                <div style="padding:0.9rem 1rem 0.75rem; border-bottom:1px solid rgba(148,163,184,0.18); flex-shrink:0;">
                     <h3 style="font-size:1rem; font-weight:700; margin:0;">Transfer Terakhir</h3>
                 </div>
-                <div style="padding:0.95rem; display:grid; gap:0.75rem;">
+                <div style="padding:0.95rem; display:grid; gap:0.75rem; flex:1; min-height:0; overflow-y:auto; scrollbar-gutter: stable;">
                     <?php if (empty($recentTransfers)): ?>
                         <div style="color:var(--text-muted); font-size:0.875rem;">Belum ada transfer keluar</div>
                     <?php else: ?>
