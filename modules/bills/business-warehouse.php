@@ -72,13 +72,59 @@ $hutangByPartner = [];
 $piutangTotal = 0.0;
 $hutangTotal = 0.0;
 
+// Nama database Gudang Nasita, dipakai untuk menebak harga item yang belum
+// punya unit_price/subtotal (mis. barang baru seperti "roti" yang belum
+// pernah diberi harga saat dikirim). Tanpa ini, transfer dengan harga 0
+// disembunyikan total dari daftar tagihan padahal transfernya nyata terjadi.
+$gudangDbNameForPricing = '';
+try {
+    $gudangCfgPathForPricing = __DIR__ . '/../../config/businesses/gudang-nasita.php';
+    if (file_exists($gudangCfgPathForPricing)) {
+        $gudangCfgForPricing = include $gudangCfgPathForPricing;
+        $gudangDbNameForPricing = (string)($gudangCfgForPricing['database'] ?? '');
+    }
+} catch (Throwable $e) {
+    $gudangDbNameForPricing = '';
+}
+
 foreach ($transfers as $t) {
     $qty = (float)($t['quantity'] ?? 0);
     $unitPrice = (float)($t['unit_price'] ?? 0);
     $value = isset($t['subtotal']) && $t['subtotal'] !== null ? (float)$t['subtotal'] : ($qty * $unitPrice);
-    if ($value <= 0) {
-        continue;
+    $isEstimated = false;
+
+    if ($value <= 0 && $gudangDbNameForPricing !== '') {
+        try {
+            $originDbForPricing = Database::getCurrentDatabase();
+            $gudangDbForPricing = Database::switchDatabase($gudangDbNameForPricing);
+            $stockCols = $gudangDbForPricing->fetchAll("SHOW COLUMNS FROM gudang_nasita_stock");
+            $stockColNames = array_column($stockCols, 'Field');
+            $hasBarangId = in_array('barang_id', $stockColNames, true);
+            $barangJoin = $hasBarangId ? 'LEFT JOIN gudang_nasita_barang gb ON gb.id = gs.barang_id' : '';
+            $priceExpr = $hasBarangId ? 'COALESCE(NULLIF(gs.harga_beli, 0), gb.harga_beli, 0)' : 'COALESCE(gs.harga_beli, 0)';
+            $stockPriceRow = $gudangDbForPricing->fetchOne(
+                "SELECT {$priceExpr} AS harga_beli
+                 FROM gudang_nasita_stock gs
+                 {$barangJoin}
+                 WHERE LOWER(TRIM(gs.item_name)) = LOWER(TRIM(?)) AND LOWER(TRIM(gs.unit)) = LOWER(TRIM(?))
+                 LIMIT 1",
+                [(string)($t['item_name'] ?? ''), (string)($t['unit'] ?? '')]
+            );
+            $estimatedPrice = (float)($stockPriceRow['harga_beli'] ?? 0);
+            if ($estimatedPrice > 0) {
+                $value = $estimatedPrice * $qty;
+                $isEstimated = true;
+            }
+            if ($originDbForPricing !== '') {
+                Database::switchDatabase($originDbForPricing);
+            }
+        } catch (Throwable $e) {
+            error_log('business-warehouse estimasi harga error: ' . $e->getMessage());
+        }
     }
+
+    $t['_bw_value'] = $value;
+    $t['_bw_estimated'] = $isEstimated;
 
     $sourceSlug = strtolower((string)($t['source_business_slug'] ?? ''));
     $targetSlug = strtolower((string)($t['target_business_slug'] ?? ''));
@@ -325,11 +371,11 @@ include '../../includes/header.php';
                 </div>
                 <div class="bw-partner-items">
                     <?php foreach ($partner['items'] as $item): ?>
-                        <?php $itemValue = isset($item['subtotal']) && $item['subtotal'] !== null ? (float)$item['subtotal'] : ((float)$item['quantity'] * (float)($item['unit_price'] ?? 0)); ?>
+                        <?php $itemValue = (float)($item['_bw_value'] ?? 0); ?>
                         <div class="bw-item-row">
                             <div>
                                 <div class="bw-item-name"><?php echo htmlspecialchars($item['item_name']); ?></div>
-                                <div class="bw-item-meta"><?php echo number_format((float)$item['quantity'], 0, ',', '.'); ?> <?php echo htmlspecialchars($item['unit']); ?> &middot; <?php echo date('d M Y', strtotime($item['created_at'])); ?></div>
+                                <div class="bw-item-meta"><?php echo number_format((float)$item['quantity'], 0, ',', '.'); ?> <?php echo htmlspecialchars($item['unit']); ?> &middot; <?php echo date('d M Y', strtotime($item['created_at'])); ?><?php if (!empty($item['_bw_estimated'])): ?> &middot; <span style="color:#b45309;">harga diperkirakan</span><?php endif; ?><?php if ($itemValue <= 0): ?> &middot; <span style="color:#b45309;">belum ada harga</span><?php endif; ?></div>
                             </div>
                             <div class="bw-item-value">Rp <?php echo number_format($itemValue, 0, ',', '.'); ?></div>
                         </div>
@@ -354,11 +400,11 @@ include '../../includes/header.php';
                 </div>
                 <div class="bw-partner-items">
                     <?php foreach ($partner['items'] as $item): ?>
-                        <?php $itemValue = isset($item['subtotal']) && $item['subtotal'] !== null ? (float)$item['subtotal'] : ((float)$item['quantity'] * (float)($item['unit_price'] ?? 0)); ?>
+                        <?php $itemValue = (float)($item['_bw_value'] ?? 0); ?>
                         <div class="bw-item-row">
                             <div>
                                 <div class="bw-item-name"><?php echo htmlspecialchars($item['item_name']); ?></div>
-                                <div class="bw-item-meta"><?php echo number_format((float)$item['quantity'], 0, ',', '.'); ?> <?php echo htmlspecialchars($item['unit']); ?> &middot; <?php echo date('d M Y', strtotime($item['created_at'])); ?></div>
+                                <div class="bw-item-meta"><?php echo number_format((float)$item['quantity'], 0, ',', '.'); ?> <?php echo htmlspecialchars($item['unit']); ?> &middot; <?php echo date('d M Y', strtotime($item['created_at'])); ?><?php if (!empty($item['_bw_estimated'])): ?> &middot; <span style="color:#b45309;">harga diperkirakan</span><?php endif; ?><?php if ($itemValue <= 0): ?> &middot; <span style="color:#b45309;">belum ada harga</span><?php endif; ?></div>
                             </div>
                             <div class="bw-item-value">Rp <?php echo number_format($itemValue, 0, ',', '.'); ?></div>
                         </div>
