@@ -108,6 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $result = updatePurchaseOrderItems($po_id, $editItems, [
                 'notes' => trim((string)($_POST['notes'] ?? '')),
                 'expected_delivery_date' => trim((string)($_POST['expected_delivery_date'] ?? '')),
+                'po_date' => trim((string)($_POST['po_date'] ?? '')),
             ]);
             break;
         case 'receive_warehouse':
@@ -404,6 +405,12 @@ include '../../includes/header.php';
         <form method="POST">
             <input type="hidden" name="action" value="edit_po">
             <input type="hidden" name="expected_delivery_date" value="<?php echo htmlspecialchars((string)($po['expected_delivery_date'] ?? '')); ?>">
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:0.75rem; margin-bottom:0.9rem;">
+                <div>
+                    <label class="form-label">Tanggal PO (untuk pembukuan tagihan)</label>
+                    <input type="date" name="po_date" class="form-control" value="<?php echo htmlspecialchars(date('Y-m-d', strtotime((string)($po['po_date'] ?? 'now')))); ?>">
+                </div>
+            </div>
             <div style="display:grid; gap:0.9rem;">
                 <?php foreach ($po['items'] as $index => $item): ?>
                     <div style="padding:0.9rem; border:1px solid #fcd34d; border-radius:0.8rem; background: rgba(255,255,255,0.6);">

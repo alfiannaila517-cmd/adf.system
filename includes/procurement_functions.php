@@ -186,6 +186,9 @@ function updatePurchaseOrderItems($po_id, $items, $options = [])
         if (in_array('expected_delivery_date', $headerFieldNames, true) && isset($options['expected_delivery_date'])) {
             $headerData['expected_delivery_date'] = $options['expected_delivery_date'];
         }
+        if (in_array('po_date', $headerFieldNames, true) && !empty($options['po_date']) && strtotime((string)$options['po_date'])) {
+            $headerData['po_date'] = date('Y-m-d', strtotime((string)$options['po_date']));
+        }
         if (in_array('updated_at', $headerFieldNames, true)) {
             $headerData['updated_at'] = date('Y-m-d H:i:s');
         }
