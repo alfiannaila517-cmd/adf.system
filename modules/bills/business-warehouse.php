@@ -192,6 +192,84 @@ foreach ($transfers as $t) {
     }
 }
 
+// Barang yang diterima lewat alur transfer resmi Gudang Nasita (tabel
+// gudang_nasita_transfers/gudang_nasita_transfer_items, tersimpan di database
+// Gudang sendiri) TIDAK pernah masuk ke business_inter_stock_transfers, jadi
+// tanpa blok ini "Hutang" bisnis penerima akan diam-diam melewatkan barang
+// yang benar-benar sudah diterima dari Gudang Nasita.
+if ($activeSlug !== 'gudang-nasita' && $activeSlug !== '') {
+    try {
+        $gudangCfgPathForTransfers = __DIR__ . '/../../config/businesses/gudang-nasita.php';
+        if (file_exists($gudangCfgPathForTransfers)) {
+            $gudangCfgForTransfers = require $gudangCfgPathForTransfers;
+            $gudangDbNameForTransfers = (string)($gudangCfgForTransfers['database'] ?? '');
+            if ($gudangDbNameForTransfers !== '') {
+                $originDbForGudangTransfers = Database::getCurrentDatabase();
+                $gudangDbForTransfers = Database::switchDatabase($gudangDbNameForTransfers);
+
+                $activeBusinessNumericId = (int)getNumericBusinessId($activeSlug);
+
+                $hasTargetBusinessIdCol = false;
+                foreach ($gudangDbForTransfers->fetchAll('SHOW COLUMNS FROM gudang_nasita_transfers') as $col) {
+                    if (strtolower((string)($col['Field'] ?? '')) === 'target_business_id') {
+                        $hasTargetBusinessIdCol = true;
+                        break;
+                    }
+                }
+
+                $targetNamePredicate = 'LOWER(TRIM(gt.target_business_name)) LIKE LOWER(?)';
+                $targetNameParam = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $activeName) . '%';
+                $targetFilterSql = $hasTargetBusinessIdCol
+                    ? '(gt.target_business_id = ? OR (' . $targetNamePredicate . '))'
+                    : '(' . $targetNamePredicate . ')';
+                $targetFilterParams = $hasTargetBusinessIdCol
+                    ? [$activeBusinessNumericId, $targetNameParam]
+                    : [$targetNameParam];
+
+                $gudangTransferRows = $gudangDbForTransfers->fetchAll(
+                    "SELECT gti.id, gti.item_name, gti.unit, gti.quantity, gti.unit_price, gti.subtotal,
+                            COALESCE(gt.tanggal_transfer, gt.created_at) AS created_at
+                     FROM gudang_nasita_transfer_items gti
+                     JOIN gudang_nasita_transfers gt ON gt.id = gti.transfer_id
+                     WHERE {$targetFilterSql}
+                     ORDER BY gt.id DESC
+                     LIMIT 300",
+                    $targetFilterParams
+                ) ?: [];
+
+                foreach ($gudangTransferRows as $row) {
+                    $qty = (float)($row['quantity'] ?? 0);
+                    $value = isset($row['subtotal']) && $row['subtotal'] !== null
+                        ? (float)$row['subtotal']
+                        : $qty * (float)($row['unit_price'] ?? 0);
+
+                    if (!isset($hutangByPartner['gudang-nasita'])) {
+                        $hutangByPartner['gudang-nasita'] = ['name' => 'Gudang Nasita', 'total' => 0.0, 'items' => []];
+                    }
+                    $hutangByPartner['gudang-nasita']['total'] += $value;
+                    $hutangByPartner['gudang-nasita']['items'][] = [
+                        'id' => (int)$row['id'],
+                        'item_name' => $row['item_name'],
+                        'unit' => $row['unit'],
+                        'quantity' => $qty,
+                        'created_at' => $row['created_at'] ?: date('Y-m-d'),
+                        '_bw_value' => $value,
+                        '_bw_estimated' => false,
+                        '_bw_from_gudang_transfer' => true,
+                    ];
+                    $hutangTotal += $value;
+                }
+
+                if ($originDbForGudangTransfers !== '') {
+                    Database::switchDatabase($originDbForGudangTransfers);
+                }
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('business-warehouse gudang transfer read error: ' . $e->getMessage());
+    }
+}
+
 uasort($piutangByPartner, function ($a, $b) {
     return $b['total'] <=> $a['total'];
 });
@@ -626,7 +704,7 @@ include '../../includes/header.php';
                                             <?php if (!empty($item['_bw_estimated'])): ?><span class="bw-badge warn">Harga diperkirakan</span><?php endif; ?>
                                             <?php if ($itemValue <= 0): ?><span class="bw-badge danger">Belum ada harga</span><?php endif; ?>
                                         </div>
-                                        <?php if ($itemValue <= 0): ?>
+                                        <?php if ($itemValue <= 0 && empty($item['_bw_from_gudang_transfer'])): ?>
                                         <form method="post" class="bw-price-form">
                                             <input type="hidden" name="action" value="set_transfer_price">
                                             <input type="hidden" name="transfer_id" value="<?php echo (int)$item['id']; ?>">
@@ -677,7 +755,7 @@ include '../../includes/header.php';
                                             <?php if (!empty($item['_bw_estimated'])): ?><span class="bw-badge warn">Harga diperkirakan</span><?php endif; ?>
                                             <?php if ($itemValue <= 0): ?><span class="bw-badge danger">Belum ada harga</span><?php endif; ?>
                                         </div>
-                                        <?php if ($itemValue <= 0): ?>
+                                        <?php if ($itemValue <= 0 && empty($item['_bw_from_gudang_transfer'])): ?>
                                         <form method="post" class="bw-price-form">
                                             <input type="hidden" name="action" value="set_transfer_price">
                                             <input type="hidden" name="transfer_id" value="<?php echo (int)$item['id']; ?>">
