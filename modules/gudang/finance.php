@@ -107,16 +107,57 @@ include __DIR__ . '/../../includes/header.php';
 
 <style>
     .fin-card {
-        border-radius: 1rem;
-        padding: 1.25rem;
+        border-radius: .75rem;
+        padding: .9rem 1rem;
         background: var(--card-bg, #fff);
         border: 1px solid var(--border);
     }
 
     .fin-stat {
-        border-radius: .85rem;
-        padding: 1rem 1.1rem;
-        color: #fff;
+        border-radius: .65rem;
+        padding: .75rem .9rem;
+        background: var(--card-bg, #fff);
+        border: 1px solid var(--border);
+    }
+
+    .fin-stat-label {
+        font-size: .7rem;
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        gap: .35rem;
+    }
+
+    .fin-stat-value {
+        font-size: 1.15rem;
+        font-weight: 800;
+        color: var(--text-primary);
+        margin-top: .15rem;
+    }
+
+    .fin-stat-sub {
+        font-size: .68rem;
+        color: var(--text-muted);
+        margin-top: .1rem;
+    }
+
+    .fin-dot {
+        width: .5rem;
+        height: .5rem;
+        border-radius: 50%;
+        display: inline-block;
+        flex-shrink: 0;
+    }
+
+    .fin-badge {
+        display: inline-block;
+        padding: .12rem .5rem;
+        border-radius: 999px;
+        font-size: .68rem;
+        font-weight: 600;
+        background: var(--bg-secondary, #f1f5f9);
+        color: var(--text-muted);
+        border: 1px solid var(--border);
     }
 
     .fin-table {
@@ -126,19 +167,19 @@ include __DIR__ . '/../../includes/header.php';
     }
 
     .fin-table th {
-        font-size: .7rem;
+        font-size: .68rem;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: .05em;
         color: var(--text-muted);
-        padding: .5rem .7rem;
+        padding: .4rem .6rem;
         border-bottom: 1px solid var(--border);
         white-space: nowrap;
         text-align: left;
     }
 
     .fin-table td {
-        padding: .55rem .7rem;
+        padding: .45rem .6rem;
         border-bottom: 1px solid var(--border);
     }
 
@@ -148,16 +189,16 @@ include __DIR__ . '/../../includes/header.php';
 
     .fin-empty {
         text-align: center;
-        padding: 1.75rem 1rem;
+        padding: 1.25rem 1rem;
         color: var(--text-muted);
-        font-size: .85rem;
+        font-size: .82rem;
     }
 
     .fin-section-title {
-        font-size: .95rem;
+        font-size: .9rem;
         font-weight: 700;
         color: var(--text-primary);
-        margin: 0 0 .85rem;
+        margin: 0 0 .65rem;
         display: flex;
         align-items: center;
         gap: .5rem;
@@ -178,25 +219,25 @@ include __DIR__ . '/../../includes/header.php';
 </div>
 
 <!-- ── Ringkasan Laporan Keuangan (3) ──────────────────────────────────── -->
-<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin-bottom:1.5rem;">
-    <div class="fin-stat" style="background:linear-gradient(135deg,#0f9d6a,#0c7a53);">
-        <div style="font-size:.75rem;opacity:.85;">Pemasukan (<?php echo $monthLabel; ?>)</div>
-        <div style="font-size:1.4rem;font-weight:800;">Rp <?php echo number_format($summary['income_total'], 0, ',', '.'); ?></div>
-        <div style="font-size:.72rem;opacity:.85;margin-top:.2rem;">Dari tagihan bisnis: Rp <?php echo number_format($summary['income_tagihan'], 0, ',', '.'); ?></div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.75rem;margin-bottom:1.25rem;">
+    <div class="fin-stat">
+        <div class="fin-stat-label"><span class="fin-dot" style="background:#0f9d6a;"></span> Pemasukan (<?php echo $monthLabel; ?>)</div>
+        <div class="fin-stat-value">Rp <?php echo number_format($summary['income_total'], 0, ',', '.'); ?></div>
+        <div class="fin-stat-sub">Dari tagihan bisnis: Rp <?php echo number_format($summary['income_tagihan'], 0, ',', '.'); ?></div>
     </div>
-    <div class="fin-stat" style="background:linear-gradient(135deg,#e11d48,#be123c);">
-        <div style="font-size:.75rem;opacity:.85;">Pengeluaran (<?php echo $monthLabel; ?>)</div>
-        <div style="font-size:1.4rem;font-weight:800;">Rp <?php echo number_format($summary['expense_total'], 0, ',', '.'); ?></div>
-        <div style="font-size:.72rem;opacity:.85;margin-top:.2rem;">TKBM: Rp <?php echo number_format($summary['expense_tkbm'], 0, ',', '.'); ?></div>
+    <div class="fin-stat">
+        <div class="fin-stat-label"><span class="fin-dot" style="background:#e11d48;"></span> Pengeluaran (<?php echo $monthLabel; ?>)</div>
+        <div class="fin-stat-value">Rp <?php echo number_format($summary['expense_total'], 0, ',', '.'); ?></div>
+        <div class="fin-stat-sub">TKBM: Rp <?php echo number_format($summary['expense_tkbm'], 0, ',', '.'); ?></div>
     </div>
-    <div class="fin-stat" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);">
-        <div style="font-size:.75rem;opacity:.85;">Saldo (<?php echo $monthLabel; ?>)</div>
-        <div style="font-size:1.4rem;font-weight:800;">Rp <?php echo number_format($summary['saldo'], 0, ',', '.'); ?></div>
-        <div style="font-size:.72rem;opacity:.85;margin-top:.2rem;">Pemasukan &minus; Pengeluaran</div>
+    <div class="fin-stat">
+        <div class="fin-stat-label"><span class="fin-dot" style="background:#2563eb;"></span> Saldo (<?php echo $monthLabel; ?>)</div>
+        <div class="fin-stat-value">Rp <?php echo number_format($summary['saldo'], 0, ',', '.'); ?></div>
+        <div class="fin-stat-sub">Pemasukan &minus; Pengeluaran</div>
     </div>
 </div>
 
-<div class="fin-card" style="margin-bottom:1.5rem;">
+<div class="fin-card" style="margin-bottom:1rem;">
     <h3 class="fin-section-title"><i data-feather="pie-chart"></i> Laporan Keuangan Gudang — Rincian per Kategori</h3>
     <?php if (empty($summary['by_category'])): ?>
         <div class="fin-empty">Belum ada transaksi pada bulan ini.</div>
@@ -214,7 +255,8 @@ include __DIR__ . '/../../includes/header.php';
                     <tr>
                         <td><?php echo htmlspecialchars($cat['category_name']); ?></td>
                         <td>
-                            <span class="gd-badge" style="background:<?php echo $cat['transaction_type'] === 'income' ? '#dcfce7;color:#166534' : '#fee2e2;color:#991b1b'; ?>;">
+                            <span class="fin-badge">
+                                <span class="fin-dot" style="background:<?php echo $cat['transaction_type'] === 'income' ? '#0f9d6a' : '#e11d48'; ?>;"></span>
                                 <?php echo $cat['transaction_type'] === 'income' ? 'Pemasukan' : 'Pengeluaran'; ?>
                             </span>
                         </td>
@@ -227,7 +269,7 @@ include __DIR__ . '/../../includes/header.php';
 </div>
 
 <!-- ── 1) Uang Masuk dari Bisnis yang Bayar Tagihan ────────────────────── -->
-<div class="fin-card" style="margin-bottom:1.5rem;">
+<div class="fin-card" style="margin-bottom:1rem;">
     <h3 class="fin-section-title"><i data-feather="arrow-down-circle"></i> Uang Masuk dari Tagihan Bisnis</h3>
     <?php if (empty($incomeRows)): ?>
         <div class="fin-empty">Belum ada pembayaran tagihan dari bisnis pada bulan ini. Pembayaran tercatat otomatis saat bisnis membayar tagihan bulanan di menu Tagihan.</div>
