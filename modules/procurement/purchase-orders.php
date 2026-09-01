@@ -537,6 +537,16 @@ include '../../includes/header.php';
                     </tr>
                 </tbody>
             </table>
+            <div style="display:flex; justify-content:flex-end; gap:0.75rem; align-items:center; padding-top:0.75rem; border-top:1px solid #e2e8f0; margin-top:0.5rem;">
+                <span style="font-size:0.85rem; font-weight:700; color:var(--text-muted);">Total Tagihan</span>
+                <span id="gtdTotal" style="font-size:1.05rem; font-weight:800;">Rp 0</span>
+            </div>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:0.6rem; padding:0.9rem 1.25rem; border-top:1px solid #e2e8f0;">
+            <button type="button" onclick="closeGudangTransferDetail()" class="btn btn-secondary">Tutup</button>
+            <button type="button" onclick="printGudangTransferDetail()" class="btn btn-primary">
+                <i data-feather="printer" style="width:16px; height:16px;"></i> Print
+            </button>
         </div>
     </div>
 </div>
@@ -908,6 +918,7 @@ include '../../includes/header.php';
         document.getElementById('gtdMeta').textContent = biz + ' • ' + date + ' • ' + status;
 
         const body = document.getElementById('gtdItemsBody');
+        let grandTotal = 0;
         if (!items.length) {
             body.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:1rem;">Tidak ada detail item untuk transfer ini.</td></tr>';
         } else {
@@ -917,6 +928,7 @@ include '../../includes/header.php';
                 });
                 const price = parseFloat(it.unit_price || 0);
                 const subtotal = parseFloat(it.subtotal || (price * parseFloat(it.quantity || 0)));
+                grandTotal += subtotal;
                 return '<tr>' +
                     '<td>' + escapeHtml(it.item_name || '-') + '</td>' +
                     '<td class="text-right">' + qty + ' ' + escapeHtml(it.unit || '') + '</td>' +
@@ -926,11 +938,43 @@ include '../../includes/header.php';
             }).join('');
         }
 
+        document.getElementById('gtdTotal').textContent = 'Rp ' + grandTotal.toLocaleString('id-ID');
         document.getElementById('gudangTransferDetailModal').style.display = 'flex';
     }
 
     function closeGudangTransferDetail() {
         document.getElementById('gudangTransferDetailModal').style.display = 'none';
+    }
+
+    function printGudangTransferDetail() {
+        const transferNo = document.getElementById('gtdTransferNo').textContent;
+        const meta = document.getElementById('gtdMeta').textContent;
+        const total = document.getElementById('gtdTotal').textContent;
+        const itemsHtml = document.getElementById('gtdItemsBody').innerHTML;
+
+        const printWindow = window.open('', '_blank', 'width=700,height=900');
+        printWindow.document.write(
+            '<html><head><title>Transfer ' + transferNo + '</title>' +
+            '<style>' +
+            'body{font-family:Arial,Helvetica,sans-serif; padding:24px; color:#0f172a;}' +
+            'h2{margin:0 0 4px;} p{margin:0 0 16px; color:#475569; font-size:0.85rem;}' +
+            'table{width:100%; border-collapse:collapse; font-size:0.85rem;}' +
+            'th,td{padding:8px 10px; border-bottom:1px solid #e2e8f0; text-align:left;}' +
+            'th{background:#f1f5f9;} .text-right{text-align:right;}' +
+            '.total-row td{font-weight:800; border-top:2px solid #0f172a; border-bottom:none; padding-top:12px;}' +
+            '</style></head><body>' +
+            '<h2>Riwayat Transfer Gudang</h2>' +
+            '<p>' + transferNo + ' &middot; ' + meta + '</p>' +
+            '<table><thead><tr><th>Item</th><th class="text-right">Qty</th><th class="text-right">Harga</th><th class="text-right">Subtotal</th></tr></thead>' +
+            '<tbody>' + itemsHtml + '</tbody>' +
+            '<tfoot><tr class="total-row"><td colspan="3" class="text-right">Total Tagihan</td><td class="text-right">' + total + '</td></tr></tfoot>' +
+            '</table></body></html>'
+        );
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.onload = function () {
+            printWindow.print();
+        };
     }
 
     function openApproveDialog(poId, poNumber, amount) {
