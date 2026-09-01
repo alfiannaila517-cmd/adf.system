@@ -147,6 +147,66 @@ if (isset($_GET['ajax'])) {
         exit;
     }
 
+    // Edit a cash transfer's date & amount: adjusts both linked cash_accounts
+    // balances by the difference and keeps the linked cash_book row in sync.
+    if ($_GET['ajax'] === 'update' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        if (!$auth->canEdit('cashbook')) {
+            echo json_encode(['success' => false, 'message' => 'Anda tidak memiliki izin untuk mengedit.']);
+            exit;
+        }
+
+        $id = intval($_POST['id'] ?? 0);
+        $newDate = trim($_POST['transfer_date'] ?? '');
+        $newAmount = (float)($_POST['amount'] ?? 0);
+
+        if (!$id || !$newDate || $newAmount <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Data tidak valid']);
+            exit;
+        }
+
+        try {
+            $stmt = $masterDb->prepare("SELECT * FROM cash_transfers WHERE id = ? AND business_id = ?");
+            $stmt->execute([$id, $businessId]);
+            $tr = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$tr) {
+                echo json_encode(['success' => false, 'message' => 'Data setor tunai tidak ditemukan']);
+                exit;
+            }
+
+            $masterDb->beginTransaction();
+
+            $diff = $newAmount - (float)$tr['amount'];
+            if ($diff != 0) {
+                $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance - ? WHERE id = ?")
+                    ->execute([$diff, $tr['cash_account_id']]);
+                $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance + ? WHERE id = ?")
+                    ->execute([$diff, $tr['bank_account_id']]);
+            }
+
+            $masterDb->prepare("UPDATE cash_transfers SET transfer_date = ?, amount = ? WHERE id = ?")
+                ->execute([$newDate, $newAmount, $id]);
+
+            if (!empty($tr['cash_book_id'])) {
+                try {
+                    $db->update('cash_book', ['transaction_date' => $newDate, 'amount' => $newAmount], 'id = :id', ['id' => $tr['cash_book_id']]);
+                } catch (Exception $cbEx) {
+                    error_log("cash-transfers.php update: failed syncing linked cash_book row: " . $cbEx->getMessage());
+                }
+            }
+
+            $masterDb->commit();
+            echo json_encode(['success' => true, 'message' => '✅ Setor tunai berhasil diupdate']);
+        } catch (Exception $e) {
+            if ($masterDb->inTransaction()) {
+                $masterDb->rollBack();
+            }
+            error_log("cash-transfers.php update error: " . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
+        }
+        exit;
+    }
+
     echo json_encode(['success' => false, 'message' => 'Invalid action']);
     exit;
 }
@@ -820,6 +880,12 @@ include '../../includes/header.php';
                             </div>
                             <?php if ($isSetor): ?>
                                 <div class="tx-actions">
+                                    <?php if ($auth->canEdit('cashbook')): ?>
+                                        <button class="tx-btn"
+                                            onclick="openEditTransfer(<?php echo $t['id']; ?>, '<?php echo date('Y-m-d', strtotime($txDate)); ?>', <?php echo (float)$t['amount']; ?>)"
+                                            style="color:#7c3aed"
+                                            title="Edit tanggal & nominal">✏️</button>
+                                    <?php endif; ?>
                                     <button class="tx-btn"
                                         onclick="toggleArchive(<?php echo $t['id']; ?>, <?php echo $t['is_archived'] ? '0' : '1'; ?>)"
                                         style="color:<?php echo $t['is_archived'] ? '#059669' : '#0284c7'; ?>"
@@ -840,6 +906,31 @@ include '../../includes/header.php';
         <a href="index.php" class="btn btn-secondary" style="margin-top: 1.5rem; text-decoration: none; display: inline-block; padding: 0.625rem 1.25rem; font-size: 0.875rem;">
             ← Kembali ke Buku Kas
         </a>
+    </div>
+
+    <!-- Modal Edit Setor Tunai -->
+    <div id="editTransferModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.55);z-index:9999;align-items:center;justify-content:center;">
+        <div style="background:#fff;border-radius:0.9rem;width:92%;max-width:380px;box-shadow:0 20px 50px rgba(0,0,0,0.25);">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;border-bottom:1px solid var(--border);">
+                <div style="font-weight:800;font-size:1rem;">Edit Setor Tunai</div>
+                <button type="button" onclick="closeEditTransfer()" style="background:none;border:none;font-size:1.3rem;line-height:1;cursor:pointer;color:#64748b;">&times;</button>
+            </div>
+            <div style="padding:1.1rem 1.25rem;">
+                <input type="hidden" id="editTransferId">
+                <div style="margin-bottom:.9rem;">
+                    <label style="display:block;font-size:.78rem;font-weight:700;color:var(--text-secondary);margin-bottom:.3rem;">Tanggal Setoran</label>
+                    <input type="date" id="editTransferDate" class="form-control" style="width:100%;">
+                </div>
+                <div style="margin-bottom:.4rem;">
+                    <label style="display:block;font-size:.78rem;font-weight:700;color:var(--text-secondary);margin-bottom:.3rem;">Nominal Setoran (Rp)</label>
+                    <input type="number" id="editTransferAmount" class="form-control" style="width:100%;" min="1" step="1">
+                </div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:.5rem;padding:.9rem 1.25rem;border-top:1px solid var(--border);">
+                <button type="button" class="btn btn-secondary" onclick="closeEditTransfer()">Batal</button>
+                <button type="button" class="btn btn-primary" onclick="saveEditTransfer()">Simpan</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -880,6 +971,51 @@ include '../../includes/header.php';
             formData.append('id', id);
 
             fetch('cash-transfers.php?ajax=delete', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                })
+                .catch(err => alert('Error: ' + err.message));
+        }
+
+        function openEditTransfer(id, transferDate, amount) {
+            document.getElementById('editTransferId').value = id;
+            document.getElementById('editTransferDate').value = transferDate;
+            document.getElementById('editTransferAmount').value = amount;
+            document.getElementById('editTransferModal').style.display = 'flex';
+        }
+
+        function closeEditTransfer() {
+            document.getElementById('editTransferModal').style.display = 'none';
+        }
+
+        function saveEditTransfer() {
+            const id = document.getElementById('editTransferId').value;
+            const transferDate = document.getElementById('editTransferDate').value;
+            const amount = parseFloat(document.getElementById('editTransferAmount').value);
+
+            if (!transferDate) {
+                alert('Tanggal wajib diisi');
+                return;
+            }
+            if (!amount || amount <= 0) {
+                alert('Nominal wajib diisi dan harus lebih dari 0');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('id', id);
+            formData.append('transfer_date', transferDate);
+            formData.append('amount', amount);
+
+            fetch('cash-transfers.php?ajax=update', {
                     method: 'POST',
                     body: formData
                 })
