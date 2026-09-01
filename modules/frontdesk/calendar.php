@@ -141,6 +141,9 @@ try {
             b.booking_source,
             b.payment_status,
             b.special_request,
+            b.group_id,
+            b.final_price,
+            b.paid_amount,
             (SELECT COUNT(*) FROM booking_extras be WHERE be.booking_id = b.id) as extras_count,
             g.guest_name, 
             g.phone
@@ -156,6 +159,33 @@ try {
 } catch (Exception $e) {
     error_log("Bookings Error: " . $e->getMessage());
     $bookings = [];
+}
+
+// Group-booking (multi-room) reservations share ONE combined balance, exactly like
+// Reservasi's _combined_final_price/_combined_total_paid — a room can still carry its
+// OWN payment_status = 'unpaid' in the DB even after the group's total bill is fully
+// settled (payment gets applied to whichever rooms had remaining balance first). Without
+// this, the calendar's red dot only reflects that one room's leftover DB flag instead of
+// the group's real payment status.
+$groupPaymentStatus = [];
+try {
+    $groupIds = array_values(array_unique(array_filter(array_column($bookings, 'group_id'))));
+    if (!empty($groupIds)) {
+        $placeholders = implode(',', array_fill(0, count($groupIds), '?'));
+        $groupTotals = $db->fetchAll(
+            "SELECT group_id, SUM(final_price) AS total_final, SUM(paid_amount) AS total_paid
+             FROM bookings
+             WHERE group_id IN ({$placeholders})
+             GROUP BY group_id",
+            $groupIds
+        );
+        foreach ($groupTotals as $gt) {
+            $groupPaymentStatus[$gt['group_id']] = ((float)$gt['total_paid'] + 0.01) >= (float)$gt['total_final'];
+        }
+    }
+} catch (Exception $e) {
+    error_log("Group payment status error: " . $e->getMessage());
+    $groupPaymentStatus = [];
 }
 
 // ============================================
@@ -2742,7 +2772,13 @@ include '../../includes/header.php';
                                             $statusText = ucfirst(str_replace('_', ' ', $booking['status']));
 
                                             // Cloudbeds-style status dots: red=belum lunas, green=lunas, yellow=ada request tamu
-                                            $isPaidFull = ($booking['payment_status'] ?? '') === 'paid';
+                                            // Group bookings (multi-room) share one combined balance — use the group's
+                                            // total paid/final price so every room shows green once the group is settled,
+                                            // instead of relying on this one room's own possibly-stale payment_status.
+                                            $bookingGroupId = $booking['group_id'] ?? null;
+                                            $isPaidFull = $bookingGroupId && isset($groupPaymentStatus[$bookingGroupId])
+                                                ? $groupPaymentStatus[$bookingGroupId]
+                                                : (($booking['payment_status'] ?? '') === 'paid');
                                             $hasGuestRequest = trim((string)($booking['special_request'] ?? '')) !== '' || (int)($booking['extras_count'] ?? 0) > 0;
                                         ?>
                                             <div class="booking-bar-container" style="left: 50%; width: <?php echo $barWidth; ?>px;"
