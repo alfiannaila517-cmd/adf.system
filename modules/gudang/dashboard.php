@@ -67,6 +67,13 @@ $fastMovingItems = $db->fetchAll(
      LIMIT 10"
 ) ?: [];
 
+// ── Top 3 bisnis dengan barang masuk terbanyak (dari histori terkirim) ────────
+$topBiz = array_slice($terkirimPerBisnis, 0, 3);
+$topBizColors = ['#0ea5b7', '#8b5cf6', '#e0a020'];
+$topBizLabels = array_map(fn($r) => $r['bisnis'], $topBiz);
+$topBizValues = array_map(fn($r) => (float)$r['total_qty'], $topBiz);
+$topBizColorsUsed = array_slice($topBizColors, 0, count($topBiz));
+
 // ── Lonceng PO: PO masuk dari bisnis yang belum diproses gudang ───────────────
 $pendingBusinessPo = [];
 try {
@@ -290,12 +297,22 @@ include __DIR__ . '/../../includes/header.php';
         $fmValues = array_map(fn($r) => (float)$r['total_out'], $fastMovingItems);
         $fmColorsUsed = array_slice($fmColors, 0, count($fastMovingItems));
         ?>
-        <div style="display:grid;grid-template-columns:170px minmax(0,440px);gap:1.5rem;align-items:center;">
+        <div style="display:grid;grid-template-columns:170px minmax(0,440px) 170px;gap:1.5rem;align-items:center;">
             <div style="position:relative;height:170px;">
                 <canvas id="fastMovingPieChart"></canvas>
             </div>
             <div style="position:relative;height:170px;">
                 <canvas id="fastMovingBarChart"></canvas>
+            </div>
+            <div>
+                <div style="font-size:.66rem;font-weight:700;color:var(--text-muted);text-align:center;margin-bottom:.35rem;">Top 3 Bisnis &middot; Barang Masuk</div>
+                <?php if (empty($topBiz)): ?>
+                    <div class="gd-fm-empty" style="padding:1.5rem .5rem;font-size:.72rem;">Belum ada data</div>
+                <?php else: ?>
+                    <div style="position:relative;height:140px;">
+                        <canvas id="topBizPieChart"></canvas>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
         <ul class="gd-fm-list">
@@ -307,6 +324,17 @@ include __DIR__ . '/../../includes/header.php';
                 </li>
             <?php endforeach; ?>
         </ul>
+        <?php if (!empty($topBiz)): ?>
+            <ul class="gd-fm-list" style="margin-top:.5rem;padding-top:.5rem;">
+                <?php foreach ($topBiz as $i => $tb): ?>
+                    <li>
+                        <span class="gd-fm-dot" style="background:<?php echo $topBizColorsUsed[$i]; ?>;"></span>
+                        <span class="gd-fm-name"><?php echo htmlspecialchars($tb['bisnis']); ?></span>
+                        <span class="gd-fm-value"><?php echo number_format((float)$tb['total_qty'], 0, ',', '.'); ?> qty</span>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+        <?php endif; ?>
     <?php endif; ?>
 </div>
 
@@ -528,8 +556,11 @@ include __DIR__ . '/../../includes/header.php';
     }
 </script>
 
-<?php if (!empty($fastMovingItems)): ?>
+<?php if (!empty($fastMovingItems) || !empty($topBiz)): ?>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<?php endif; ?>
+
+<?php if (!empty($fastMovingItems)): ?>
 <script>
     const fmLabels = <?php echo json_encode($fmLabels); ?>;
     const fmValues = <?php echo json_encode($fmValues); ?>;
@@ -601,6 +632,42 @@ include __DIR__ . '/../../includes/header.php';
                     beginAtZero: true,
                     grid: { color: 'rgba(148,163,184,0.12)' },
                     ticks: { font: { size: 9 }, color: '#94a3b8' }
+                }
+            }
+        }
+    });
+</script>
+<?php endif; ?>
+
+<?php if (!empty($topBiz)): ?>
+<script>
+    new Chart(document.getElementById('topBizPieChart').getContext('2d'), {
+        type: 'doughnut',
+        data: {
+            labels: <?php echo json_encode($topBizLabels); ?>,
+            datasets: [{
+                data: <?php echo json_encode($topBizValues); ?>,
+                backgroundColor: <?php echo json_encode($topBizColorsUsed); ?>,
+                borderColor: '#fff',
+                borderWidth: 2,
+                borderRadius: 6,
+                spacing: 3,
+                hoverOffset: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '52%',
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#1e293b',
+                    padding: 8,
+                    bodyFont: { size: 11 },
+                    callbacks: {
+                        label: (ctx) => ctx.label + ': ' + ctx.parsed.toLocaleString('id-ID') + ' qty'
+                    }
                 }
             }
         }
