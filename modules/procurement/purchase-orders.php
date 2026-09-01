@@ -951,24 +951,30 @@ include '../../includes/header.php';
         const meta = document.getElementById('gtdMeta').textContent;
         const total = document.getElementById('gtdTotal').textContent;
         const itemsHtml = document.getElementById('gtdItemsBody').innerHTML;
+        const printedAt = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
 
         const printWindow = window.open('', '_blank', 'width=700,height=900');
         printWindow.document.write(
             '<html><head><title>Transfer ' + transferNo + '</title>' +
             '<style>' +
-            'body{font-family:Arial,Helvetica,sans-serif; padding:24px; color:#0f172a;}' +
-            'h2{margin:0 0 4px;} p{margin:0 0 16px; color:#475569; font-size:0.85rem;}' +
-            'table{width:100%; border-collapse:collapse; font-size:0.85rem;}' +
-            'th,td{padding:8px 10px; border-bottom:1px solid #e2e8f0; text-align:left;}' +
-            'th{background:#f1f5f9;} .text-right{text-align:right;}' +
-            '.total-row td{font-weight:800; border-top:2px solid #0f172a; border-bottom:none; padding-top:12px;}' +
+            '*{box-sizing:border-box;}' +
+            'body{font-family:Arial,Helvetica,sans-serif; padding:16px 20px; color:#0f172a; font-size:11px;}' +
+            'h2{margin:0 0 2px; font-size:14px;} p{margin:0 0 10px; color:#475569; font-size:10.5px;}' +
+            'table{width:100%; border-collapse:collapse; font-size:10.5px;}' +
+            'th,td{padding:4px 6px; border-bottom:1px solid #e2e8f0; text-align:left;}' +
+            'th{background:#f1f5f9; font-size:10px; text-transform:uppercase; letter-spacing:0.3px;}' +
+            '.text-right{text-align:right;}' +
+            '.total-row td{font-weight:800; border-top:2px solid #0f172a; border-bottom:none; padding-top:8px; font-size:11px;}' +
+            'footer{margin-top:18px; padding-top:8px; border-top:1px solid #e2e8f0; font-size:9px; color:#94a3b8; text-align:center;}' +
             '</style></head><body>' +
             '<h2>Riwayat Transfer Gudang</h2>' +
             '<p>' + transferNo + ' &middot; ' + meta + '</p>' +
             '<table><thead><tr><th>Item</th><th class="text-right">Qty</th><th class="text-right">Harga</th><th class="text-right">Subtotal</th></tr></thead>' +
             '<tbody>' + itemsHtml + '</tbody>' +
             '<tfoot><tr class="total-row"><td colspan="3" class="text-right">Total Tagihan</td><td class="text-right">' + total + '</td></tr></tfoot>' +
-            '</table></body></html>'
+            '</table>' +
+            '<footer>Dokumen ini dicetak otomatis dari ADF System pada ' + printedAt + '. Sah tanpa tanda tangan basah.</footer>' +
+            '</body></html>'
         );
         printWindow.document.close();
         printWindow.focus();
