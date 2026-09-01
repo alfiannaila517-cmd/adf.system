@@ -128,20 +128,31 @@ foreach ($transfers as $t) {
         try {
             $originDbForPricing = Database::getCurrentDatabase();
             $gudangDbForPricing = Database::switchDatabase($gudangDbNameForPricing);
-            $stockCols = $gudangDbForPricing->fetchAll("SHOW COLUMNS FROM gudang_nasita_stock");
-            $stockColNames = array_column($stockCols, 'Field');
-            $hasBarangId = in_array('barang_id', $stockColNames, true);
-            $barangJoin = $hasBarangId ? 'LEFT JOIN gudang_nasita_barang gb ON gb.id = gs.barang_id' : '';
-            $priceExpr = $hasBarangId ? 'COALESCE(NULLIF(gs.harga_beli, 0), gb.harga_beli, 0)' : 'COALESCE(gs.harga_beli, 0)';
-            $stockPriceRow = $gudangDbForPricing->fetchOne(
-                "SELECT {$priceExpr} AS harga_beli
-                 FROM gudang_nasita_stock gs
-                 {$barangJoin}
-                 WHERE LOWER(TRIM(gs.item_name)) = LOWER(TRIM(?)) AND LOWER(TRIM(gs.unit)) = LOWER(TRIM(?))
-                 LIMIT 1",
-                [(string)($t['item_name'] ?? ''), (string)($t['unit'] ?? '')]
-            );
-            $estimatedPrice = (float)($stockPriceRow['harga_beli'] ?? 0);
+
+            // Cari dulu di katalog master "Database Produk" (gudang_nasita_barang) berdasarkan
+            // NAMA barang langsung — jangan mengandalkan barang_id di gudang_nasita_stock, karena
+            // link itu bisa kosong/salah meski harga aslinya sudah ada di katalog.
+            $estimatedPrice = 0.0;
+            $hasBarangTable = (bool)$gudangDbForPricing->fetchOne("SHOW TABLES LIKE 'gudang_nasita_barang'");
+            if ($hasBarangTable) {
+                $barangPriceRow = $gudangDbForPricing->fetchOne(
+                    "SELECT harga_beli FROM gudang_nasita_barang WHERE LOWER(TRIM(nama_barang)) = LOWER(TRIM(?)) LIMIT 1",
+                    [(string)($t['item_name'] ?? '')]
+                );
+                $estimatedPrice = (float)($barangPriceRow['harga_beli'] ?? 0);
+            }
+
+            // Fallback: harga_beli yang tersimpan di stok gudang saat ini.
+            if ($estimatedPrice <= 0) {
+                $stockPriceRow = $gudangDbForPricing->fetchOne(
+                    "SELECT harga_beli FROM gudang_nasita_stock
+                     WHERE LOWER(TRIM(item_name)) = LOWER(TRIM(?)) AND LOWER(TRIM(unit)) = LOWER(TRIM(?))
+                     LIMIT 1",
+                    [(string)($t['item_name'] ?? ''), (string)($t['unit'] ?? '')]
+                );
+                $estimatedPrice = (float)($stockPriceRow['harga_beli'] ?? 0);
+            }
+
             if ($estimatedPrice > 0) {
                 $value = $estimatedPrice * $qty;
                 $isEstimated = true;
