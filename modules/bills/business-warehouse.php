@@ -209,6 +209,7 @@ include '../../includes/header.php';
         max-width: 1280px;
         margin: 0 auto;
         padding: 1.25rem 1rem 2rem;
+        font-size: 0.875rem;
     }
 
     .bw-header {
@@ -223,7 +224,7 @@ include '../../includes/header.php';
         width: 44px;
         height: 44px;
         border-radius: 12px;
-        background: linear-gradient(135deg, #6366f1, #4f46e5);
+        background: linear-gradient(135deg, var(--primary-color), var(--primary-dark, var(--primary-color)));
         display: flex;
         align-items: center;
         justify-content: center;
@@ -240,10 +241,10 @@ include '../../includes/header.php';
 
     .bw-header p {
         color: var(--text-secondary);
-        font-size: 0.82rem;
+        font-size: 0.875rem;
         margin: 0;
         max-width: 620px;
-        line-height: 1.45;
+        line-height: 1.5;
     }
 
     .bw-summary {
@@ -293,10 +294,8 @@ include '../../includes/header.php';
         display: flex;
         align-items: center;
         gap: 0.4rem;
-        font-size: 0.7rem;
+        font-size: 0.875rem;
         font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
         color: var(--text-secondary);
         margin-bottom: 0.5rem;
     }
@@ -308,7 +307,7 @@ include '../../includes/header.php';
     }
 
     .bw-summary-card .sub {
-        font-size: 0.72rem;
+        font-size: 0.875rem;
         color: var(--text-secondary);
         margin-top: 0.25rem;
     }
@@ -342,7 +341,7 @@ include '../../includes/header.php';
         display: flex;
         align-items: center;
         gap: 0.5rem;
-        font-size: 0.95rem;
+        font-size: 0.875rem;
         font-weight: 800;
         margin: 0 0 0.9rem;
         padding-bottom: 0.6rem;
@@ -351,7 +350,7 @@ include '../../includes/header.php';
 
     .bw-section-title .count {
         font-weight: 600;
-        font-size: 0.72rem;
+        font-size: 0.875rem;
         color: var(--text-secondary);
         background: var(--card-bg, #f3f4f6);
         border: 1px solid var(--border-color);
@@ -371,14 +370,14 @@ include '../../includes/header.php';
     .bw-partner-card {
         background: var(--card-bg, #fff);
         border: 1px solid var(--border-color);
-        border-radius: 14px;
+        border-radius: 16px;
         margin-bottom: 0.75rem;
         overflow: hidden;
-        transition: box-shadow 0.15s ease;
+        transition: box-shadow 0.15s ease, transform 0.15s ease;
     }
 
     .bw-partner-card.open {
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
     }
 
     .bw-partner-header {
@@ -406,7 +405,7 @@ include '../../includes/header.php';
         align-items: center;
         justify-content: center;
         font-weight: 800;
-        font-size: 0.8rem;
+        font-size: 0.875rem;
         color: #fff;
     }
 
@@ -420,7 +419,7 @@ include '../../includes/header.php';
 
     .bw-partner-name {
         font-weight: 700;
-        font-size: 0.88rem;
+        font-size: 0.875rem;
         color: var(--text-primary);
         white-space: nowrap;
         overflow: hidden;
@@ -430,13 +429,13 @@ include '../../includes/header.php';
     .bw-partner-name small {
         display: block;
         font-weight: 500;
-        font-size: 0.68rem;
+        font-size: 0.875rem;
         color: var(--text-secondary);
     }
 
     .bw-partner-total {
         font-weight: 800;
-        font-size: 0.95rem;
+        font-size: 0.875rem;
         white-space: nowrap;
     }
 
@@ -463,7 +462,7 @@ include '../../includes/header.php';
         align-items: center;
         justify-content: space-between;
         padding: 0.65rem 1rem;
-        font-size: 0.8rem;
+        font-size: 0.875rem;
         border-bottom: 1px solid var(--border-color);
         gap: 0.75rem;
     }
@@ -483,7 +482,7 @@ include '../../includes/header.php';
         align-items: center;
         gap: 0.35rem;
         color: var(--text-secondary);
-        font-size: 0.72rem;
+        font-size: 0.875rem;
         margin-top: 0.15rem;
     }
 
@@ -491,9 +490,9 @@ include '../../includes/header.php';
         display: inline-flex;
         align-items: center;
         gap: 0.25rem;
-        font-size: 0.65rem;
+        font-size: 0.875rem;
         font-weight: 700;
-        padding: 0.1rem 0.45rem;
+        padding: 0.1rem 0.55rem;
         border-radius: 999px;
         white-space: nowrap;
     }
@@ -524,29 +523,30 @@ include '../../includes/header.php';
     .bw-price-form input[type="text"] {
         width: 120px;
         padding: 0.3rem 0.55rem;
-        font-size: 0.75rem;
+        font-size: 0.875rem;
         border: 1px solid var(--border-color);
         border-radius: 8px;
     }
 
     .bw-price-form button {
-        font-size: 0.72rem;
+        font-size: 0.875rem;
         font-weight: 700;
-        padding: 0.3rem 0.65rem;
+        padding: 0.3rem 0.75rem;
         border-radius: 8px;
-        border: 1px solid #4f46e5;
-        background: #4f46e5;
+        border: 1px solid var(--primary-color);
+        background: var(--primary-color);
         color: #fff;
         cursor: pointer;
+        transition: opacity 0.15s ease;
     }
 
     .bw-price-form button:hover {
-        background: #4338ca;
+        opacity: 0.88;
     }
 
     .bw-empty {
         color: var(--text-secondary);
-        font-size: 0.82rem;
+        font-size: 0.875rem;
         padding: 1.5rem 1rem;
         background: var(--card-bg, #fff);
         border: 1px dashed var(--border-color);
