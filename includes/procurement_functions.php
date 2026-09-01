@@ -3156,18 +3156,41 @@ function getGudangNasitaIncomingSupplyBills(): array
             return [];
         }
 
+        // Fetch item-level rows instead of a pre-aggregated SUM: many legacy/manual transfers
+        // were recorded with unit_price = 0 (item had no known price yet at transfer time), which
+        // silently dropped them out of the recap entirely. We enrich those rows below using
+        // Gudang's CURRENT stock price, so real transfers are never hidden just because the price
+        // was learned later.
         $rows = $masterPdo->query(
-            "SELECT source_business_slug, source_business_name,
-                    COUNT(*) AS total_items,
-                    COALESCE(SUM(COALESCE(subtotal, quantity * COALESCE(unit_price, 0))), 0) AS total_nilai,
-                    MAX(created_at) AS last_created_at
+            "SELECT source_business_slug, source_business_name, item_name, unit, quantity, unit_price, subtotal, created_at
              FROM business_inter_stock_transfers
              WHERE target_business_slug = 'gudang-nasita'
                AND source_business_slug IS NOT NULL AND source_business_slug <> ''
-             GROUP BY source_business_slug, source_business_name
-             HAVING total_nilai > 0
-             ORDER BY total_nilai DESC"
+             ORDER BY created_at DESC"
         )->fetchAll();
+
+        // Build a live item price map from Gudang's own stock, for rows missing a stored price.
+        $livePriceMap = [];
+        try {
+            $stockCols = array_column($gudangDb->fetchAll('SHOW COLUMNS FROM gudang_nasita_stock'), 'Field');
+            $priceCol = null;
+            foreach (['unit_price', 'purchase_price', 'harga_beli', 'cost_price'] as $candidate) {
+                if (in_array($candidate, $stockCols, true)) {
+                    $priceCol = $candidate;
+                    break;
+                }
+            }
+            if ($priceCol !== null) {
+                $stockPriceRows = $gudangDb->fetchAll("SELECT item_name, unit, `{$priceCol}` AS unit_price FROM gudang_nasita_stock") ?: [];
+                foreach ($stockPriceRows as $sp) {
+                    $key = strtolower(trim((string)$sp['item_name'])) . '||' . strtolower(trim((string)$sp['unit']));
+                    if ((float)$sp['unit_price'] > 0) {
+                        $livePriceMap[$key] = (float)$sp['unit_price'];
+                    }
+                }
+            }
+        } catch (Throwable $e) {
+        }
 
         $paidTotals = [];
         $paidRows = $gudangDb->fetchAll('SELECT source_business_slug, COALESCE(SUM(amount),0) AS total_paid FROM gudang_nasita_supply_payments GROUP BY source_business_slug') ?: [];
@@ -3175,21 +3198,52 @@ function getGudangNasitaIncomingSupplyBills(): array
             $paidTotals[$pr['source_business_slug']] = (float)$pr['total_paid'];
         }
 
+        $grouped = [];
         foreach ($rows as $row) {
             $slug = (string)$row['source_business_slug'];
-            $totalNilai = (float)$row['total_nilai'];
+            $qty = (float)$row['quantity'];
+            $value = (float)($row['subtotal'] ?? 0);
+            if ($value <= 0) {
+                $value = (float)($row['unit_price'] ?? 0) * $qty;
+            }
+            if ($value <= 0) {
+                $key = strtolower(trim((string)$row['item_name'])) . '||' . strtolower(trim((string)$row['unit']));
+                if (isset($livePriceMap[$key])) {
+                    $value = $livePriceMap[$key] * $qty;
+                }
+            }
+            if (!isset($grouped[$slug])) {
+                $grouped[$slug] = [
+                    'slug'            => $slug,
+                    'name'            => (string)($row['source_business_name'] ?: $slug),
+                    'total_items'     => 0,
+                    'total_nilai'     => 0.0,
+                    'last_created_at' => $row['created_at'],
+                ];
+            }
+            $grouped[$slug]['total_items']++;
+            $grouped[$slug]['total_nilai'] += $value;
+            if ($row['created_at'] > $grouped[$slug]['last_created_at']) {
+                $grouped[$slug]['last_created_at'] = $row['created_at'];
+            }
+        }
+
+        foreach ($grouped as $slug => $g) {
             $totalPaid = $paidTotals[$slug] ?? 0.0;
-            $outstanding = max(0, $totalNilai - $totalPaid);
+            $outstanding = max(0, $g['total_nilai'] - $totalPaid);
             $result[] = [
-                'slug'            => $slug,
-                'name'            => (string)($row['source_business_name'] ?: $slug),
-                'total_items'     => (int)$row['total_items'],
-                'total_nilai'     => $totalNilai,
+                'slug'            => $g['slug'],
+                'name'            => $g['name'],
+                'total_items'     => $g['total_items'],
+                'total_nilai'     => $g['total_nilai'],
                 'total_paid'      => $totalPaid,
                 'outstanding'     => $outstanding,
-                'last_created_at' => $row['last_created_at'],
+                'last_created_at' => $g['last_created_at'],
             ];
         }
+        usort($result, function ($a, $b) {
+            return $b['total_nilai'] <=> $a['total_nilai'];
+        });
     } catch (Throwable $e) {
         error_log('getGudangNasitaIncomingSupplyBills: ' . $e->getMessage());
     }
