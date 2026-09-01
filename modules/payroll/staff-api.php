@@ -327,109 +327,31 @@ if ($action === 'stock_access_info') {
     echo json_encode(['success' => true, 'data' => [
         'has_access' => true,
         'allowed_businesses' => $businessNames,
-        'can_view_gudang_nasita' => (bool)$grant['can_view_gudang_nasita'],
+        // Staff portal is restricted to PO creation + daily stock-out only;
+        // central-warehouse viewing/input is a Gudang Nasita-only feature now.
+        'can_view_gudang_nasita' => false,
         'can_reduce_stock' => (bool)$grant['can_reduce_stock'],
         'can_create_po' => (bool)$grant['can_create_po'],
-        'can_input_stock_masuk' => (bool)($grant['can_input_stock_masuk'] ?? false),
+        'can_input_stock_masuk' => false,
     ]]);
     exit;
 }
 
 if ($action === 'stock_masuk_gudang_catalog') {
-    $grant = $staffEmailForStock !== '' ? getStaffStockAccessByEmail($staffEmailForStock) : null;
-    if (!$grant || empty($grant['can_input_stock_masuk'])) {
-        echo json_encode(['success' => false, 'message' => 'Tidak ada akses input stock barang datang.']);
-        exit;
-    }
-
-    $originDbNameMasukCatalog = Database::getCurrentDatabase();
-    $masukCatalog = [];
-    try {
-        $gudangCfgPathMasuk = __DIR__ . '/../../config/businesses/gudang-nasita.php';
-        if (file_exists($gudangCfgPathMasuk)) {
-            $gudangCfgMasuk = require $gudangCfgPathMasuk;
-            $gudangDbNameMasuk = (string)($gudangCfgMasuk['database'] ?? '');
-            if ($gudangDbNameMasuk !== '') {
-                Database::switchDatabase($gudangDbNameMasuk);
-                $masukRows = getGudangNasitaStock(1000);
-                $masukCatalog = array_map(function ($r) {
-                    return [
-                        'item_name' => $r['item_name'] ?? '',
-                        'unit' => $r['unit'] ?? 'pcs',
-                        'category' => $r['category'] ?? '',
-                        'quantity' => (float)($r['quantity'] ?? 0),
-                    ];
-                }, $masukRows ?: []);
-            }
-        }
-    } catch (Throwable $e) {
-        error_log('stock_masuk_gudang_catalog error: ' . $e->getMessage());
-    } finally {
-        if ($originDbNameMasukCatalog !== '') {
-            Database::switchDatabase($originDbNameMasukCatalog);
-        }
-    }
-
-    echo json_encode(['success' => true, 'data' => $masukCatalog]);
+    // Feature disabled for staff portal: warehouse input stays Gudang Nasita-only.
+    echo json_encode(['success' => false, 'message' => 'Fitur ini tidak tersedia di Staff Portal.']);
     exit;
 }
 
-if ($action === 'stock_masuk_gudang_submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
-    $itemName = trim((string)($_POST['item_name'] ?? ''));
-    $unit = trim((string)($_POST['unit'] ?? 'pcs'));
-    $qty = (float)($_POST['quantity'] ?? 0);
-    $unitPrice = (float)($_POST['unit_price'] ?? 0);
-    $supplierName = trim((string)($_POST['supplier_name'] ?? ''));
-    $notes = trim((string)($_POST['notes'] ?? ''));
-
-    $grant = $staffEmailForStock !== '' ? getStaffStockAccessByEmail($staffEmailForStock) : null;
-    if (!$grant || empty($grant['can_input_stock_masuk'])) {
-        echo json_encode(['success' => false, 'message' => 'Tidak ada akses input stock barang datang.']);
-        exit;
-    }
-
-    $result = recordStaffStockMasukToGudang($itemName, $unit, $qty, $unitPrice, $supplierName, $notes, $staffNameForStock);
-    echo json_encode($result);
+if ($action === 'stock_masuk_gudang_submit') {
+    // Feature disabled for staff portal: warehouse input stays Gudang Nasita-only.
+    echo json_encode(['success' => false, 'message' => 'Fitur ini tidak tersedia di Staff Portal.']);
     exit;
 }
 
 if ($action === 'stock_gudang_view') {
-    $grant = $staffEmailForStock !== '' ? getStaffStockAccessByEmail($staffEmailForStock) : null;
-    if (!$grant || !$grant['can_view_gudang_nasita']) {
-        echo json_encode(['success' => false, 'message' => 'Tidak ada akses melihat stock Gudang Nasita.']);
-        exit;
-    }
-
-    $originDbNameStockView = Database::getCurrentDatabase();
-    $gudangRows = [];
-    try {
-        $gudangCfgPathView = __DIR__ . '/../../config/businesses/gudang-nasita.php';
-        if (file_exists($gudangCfgPathView)) {
-            $gudangCfgView = require $gudangCfgPathView;
-            $gudangDbNameView = (string)($gudangCfgView['database'] ?? '');
-            if ($gudangDbNameView !== '') {
-                Database::switchDatabase($gudangDbNameView);
-                $gudangRows = getGudangNasitaStock(1000);
-            }
-        }
-    } catch (Throwable $e) {
-        error_log('stock_gudang_view error: ' . $e->getMessage());
-    } finally {
-        if ($originDbNameStockView !== '') {
-            Database::switchDatabase($originDbNameStockView);
-        }
-    }
-
-    $simplified = array_map(function ($row) {
-        return [
-            'item_name' => $row['item_name'] ?? '',
-            'unit' => $row['unit'] ?? 'pcs',
-            'category' => $row['category'] ?? '',
-            'quantity' => (float)($row['quantity'] ?? 0),
-        ];
-    }, $gudangRows ?: []);
-
-    echo json_encode(['success' => true, 'data' => $simplified]);
+    // Feature disabled for staff portal: central warehouse view stays Gudang Nasita-only.
+    echo json_encode(['success' => false, 'message' => 'Fitur ini tidak tersedia di Staff Portal.']);
     exit;
 }
 
