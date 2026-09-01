@@ -53,6 +53,20 @@ $terkirimPerBisnis = $db->fetchAll(
      ORDER BY total_qty DESC"
 ) ?: [];
 
+// ── Top 10 barang paling sering keluar (fast moving) — 30 hari terakhir ───────
+$fastMovingItems = $db->fetchAll(
+    "SELECT gs.item_name, gs.unit,
+            SUM(gm.quantity) AS total_out,
+            COUNT(*) AS total_transaksi
+     FROM gudang_nasita_movements gm
+     JOIN gudang_nasita_stock gs ON gm.stock_id = gs.id
+     WHERE gm.movement_type = 'out_transfer'
+       AND COALESCE(gm.movement_date, gm.created_at) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+     GROUP BY gs.id, gs.item_name, gs.unit
+     ORDER BY total_out DESC
+     LIMIT 10"
+) ?: [];
+
 // ── Lonceng PO: PO masuk dari bisnis yang belum diproses gudang ───────────────
 $pendingBusinessPo = [];
 try {
@@ -121,6 +135,70 @@ include __DIR__ . '/../../includes/header.php';
     .gd-card {
         border-radius: 1rem;
         padding: 1.25rem;
+    }
+
+    .gd-fm-empty {
+        text-align: center;
+        padding: 2.5rem 1rem;
+        color: var(--text-muted);
+        font-size: .85rem;
+    }
+
+    .gd-fm-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+    }
+
+    .gd-fm-list li {
+        display: flex;
+        align-items: center;
+        gap: .6rem;
+        padding: .5rem 0;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .gd-fm-list li:last-child {
+        border-bottom: none;
+    }
+
+    .gd-fm-rank {
+        width: 1.6rem;
+        height: 1.6rem;
+        border-radius: 50%;
+        background: var(--bg-secondary, #f1f5f9);
+        color: var(--text-primary);
+        font-size: .72rem;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .gd-fm-dot {
+        width: .6rem;
+        height: .6rem;
+        border-radius: 999px;
+        flex-shrink: 0;
+    }
+
+    .gd-fm-name {
+        flex: 1;
+        min-width: 0;
+        font-size: .82rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .gd-fm-value {
+        font-size: .8rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        white-space: nowrap;
     }
 </style>
 
@@ -197,6 +275,42 @@ include __DIR__ . '/../../includes/header.php';
                     <?php endforeach; ?>
                 </tbody>
             </table>
+        </div>
+    <?php endif; ?>
+</div>
+
+<!-- Barang Fast Moving (10 teratas keluar 30 hari terakhir) -->
+<div class="card gd-card" style="margin-bottom:1.25rem;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.9rem;flex-wrap:wrap;gap:.5rem;">
+        <div class="gd-section-title" style="margin:0;color:#0891b2;">📊 Barang Paling Sering Keluar (Fast Moving)</div>
+        <span style="font-size:.72rem;color:var(--text-muted);">30 hari terakhir &middot; Top 10</span>
+    </div>
+    <?php if (empty($fastMovingItems)): ?>
+        <div class="gd-fm-empty">Belum ada data barang keluar dalam 30 hari terakhir</div>
+    <?php else: ?>
+        <?php
+        $fmColors = ['#0891b2', '#7c3aed', '#16a34a', '#f59e0b', '#ef4444', '#2563eb', '#db2777', '#059669', '#9333ea', '#64748b'];
+        $fmLabels = array_map(fn($r) => $r['item_name'], $fastMovingItems);
+        $fmValues = array_map(fn($r) => (float)$r['total_out'], $fastMovingItems);
+        $fmColorsUsed = array_slice($fmColors, 0, count($fastMovingItems));
+        ?>
+        <div style="display:grid;grid-template-columns:280px 1fr;gap:1.75rem;align-items:center;">
+            <div style="position:relative;height:260px;">
+                <canvas id="fastMovingPieChart"></canvas>
+            </div>
+            <ul class="gd-fm-list">
+                <?php foreach ($fastMovingItems as $i => $fm): ?>
+                    <li>
+                        <span class="gd-fm-rank"><?php echo $i + 1; ?></span>
+                        <span class="gd-fm-dot" style="background:<?php echo $fmColorsUsed[$i]; ?>;"></span>
+                        <span class="gd-fm-name"><?php echo htmlspecialchars($fm['item_name']); ?></span>
+                        <span class="gd-fm-value"><?php echo number_format((float)$fm['total_out'], 0, ',', '.') . ' ' . htmlspecialchars($fm['unit'] ?? ''); ?></span>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
+        <div style="margin-top:1.5rem;position:relative;height:260px;">
+            <canvas id="fastMovingBarChart"></canvas>
         </div>
     <?php endif; ?>
 </div>
@@ -418,5 +532,63 @@ include __DIR__ . '/../../includes/header.php';
         document.getElementById('gudangDetailModal').style.display = 'none';
     }
 </script>
+
+<?php if (!empty($fastMovingItems)): ?>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const fmLabels = <?php echo json_encode($fmLabels); ?>;
+    const fmValues = <?php echo json_encode($fmValues); ?>;
+    const fmColors = <?php echo json_encode($fmColorsUsed); ?>;
+
+    new Chart(document.getElementById('fastMovingPieChart').getContext('2d'), {
+        type: 'doughnut',
+        data: {
+            labels: fmLabels,
+            datasets: [{
+                data: fmValues,
+                backgroundColor: fmColors,
+                borderColor: '#fff',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '62%',
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => ctx.label + ': ' + ctx.parsed.toLocaleString('id-ID')
+                    }
+                }
+            }
+        }
+    });
+
+    new Chart(document.getElementById('fastMovingBarChart').getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: fmLabels,
+            datasets: [{
+                label: 'Qty Keluar',
+                data: fmValues,
+                backgroundColor: fmColors,
+                borderRadius: 6,
+                maxBarThickness: 36
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { grid: { display: false } },
+                y: { beginAtZero: true, grid: { color: 'rgba(148,163,184,0.15)' } }
+            }
+        }
+    });
+</script>
+<?php endif; ?>
 
 <?php include __DIR__ . '/../../includes/footer.php'; ?>
