@@ -146,19 +146,19 @@ include __DIR__ . '/../../includes/header.php';
 
     .gd-fm-list {
         list-style: none;
-        margin: 0;
-        padding: 0;
+        margin: 1.1rem 0 0;
+        padding: .75rem 0 0;
+        border-top: 1px solid var(--border);
+        display: flex;
+        flex-wrap: wrap;
+        gap: .4rem .9rem;
     }
 
     .gd-fm-list li {
         display: flex;
         align-items: center;
-        gap: .6rem;
-        padding: .5rem 0;
-        border-bottom: 1px solid var(--border);
-    }
-
-    .gd-fm-list li:last-child {
+        gap: .35rem;
+        padding: 0;
         border-bottom: none;
     }
 
@@ -177,25 +177,21 @@ include __DIR__ . '/../../includes/header.php';
     }
 
     .gd-fm-dot {
-        width: .6rem;
-        height: .6rem;
+        width: .5rem;
+        height: .5rem;
         border-radius: 999px;
         flex-shrink: 0;
     }
 
     .gd-fm-name {
-        flex: 1;
-        min-width: 0;
-        font-size: .82rem;
+        font-size: .72rem;
         font-weight: 600;
-        color: var(--text-primary);
-        overflow: hidden;
-        text-overflow: ellipsis;
+        color: var(--text-muted);
         white-space: nowrap;
     }
 
     .gd-fm-value {
-        font-size: .8rem;
+        font-size: .72rem;
         font-weight: 700;
         color: var(--text-primary);
         white-space: nowrap;
@@ -289,29 +285,28 @@ include __DIR__ . '/../../includes/header.php';
         <div class="gd-fm-empty">Belum ada data barang keluar dalam 30 hari terakhir</div>
     <?php else: ?>
         <?php
-        $fmColors = ['#0891b2', '#7c3aed', '#16a34a', '#f59e0b', '#ef4444', '#2563eb', '#db2777', '#059669', '#9333ea', '#64748b'];
+        $fmColors = ['#0ea5b7', '#8b5cf6', '#34a373', '#e0a020', '#e2634f', '#4a7fd6', '#d0568c', '#2f9e7a', '#a855c7', '#94a3b8'];
         $fmLabels = array_map(fn($r) => $r['item_name'], $fastMovingItems);
         $fmValues = array_map(fn($r) => (float)$r['total_out'], $fastMovingItems);
         $fmColorsUsed = array_slice($fmColors, 0, count($fastMovingItems));
         ?>
-        <div style="display:grid;grid-template-columns:280px 1fr;gap:1.75rem;align-items:center;">
-            <div style="position:relative;height:260px;">
+        <div style="display:grid;grid-template-columns:180px 1fr;gap:1.25rem;align-items:center;">
+            <div style="position:relative;height:180px;">
                 <canvas id="fastMovingPieChart"></canvas>
             </div>
-            <ul class="gd-fm-list">
-                <?php foreach ($fastMovingItems as $i => $fm): ?>
-                    <li>
-                        <span class="gd-fm-rank"><?php echo $i + 1; ?></span>
-                        <span class="gd-fm-dot" style="background:<?php echo $fmColorsUsed[$i]; ?>;"></span>
-                        <span class="gd-fm-name"><?php echo htmlspecialchars($fm['item_name']); ?></span>
-                        <span class="gd-fm-value"><?php echo number_format((float)$fm['total_out'], 0, ',', '.') . ' ' . htmlspecialchars($fm['unit'] ?? ''); ?></span>
-                    </li>
-                <?php endforeach; ?>
-            </ul>
+            <div style="position:relative;height:180px;">
+                <canvas id="fastMovingBarChart"></canvas>
+            </div>
         </div>
-        <div style="margin-top:1.5rem;position:relative;height:260px;">
-            <canvas id="fastMovingBarChart"></canvas>
-        </div>
+        <ul class="gd-fm-list">
+            <?php foreach ($fastMovingItems as $i => $fm): ?>
+                <li>
+                    <span class="gd-fm-dot" style="background:<?php echo $fmColorsUsed[$i]; ?>;"></span>
+                    <span class="gd-fm-name"><?php echo htmlspecialchars($fm['item_name']); ?></span>
+                    <span class="gd-fm-value"><?php echo number_format((float)$fm['total_out'], 0, ',', '.') . ' ' . htmlspecialchars($fm['unit'] ?? ''); ?></span>
+                </li>
+            <?php endforeach; ?>
+        </ul>
     <?php endif; ?>
 </div>
 
@@ -548,16 +543,20 @@ include __DIR__ . '/../../includes/header.php';
                 data: fmValues,
                 backgroundColor: fmColors,
                 borderColor: '#fff',
-                borderWidth: 2
+                borderWidth: 3,
+                hoverOffset: 4
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            cutout: '62%',
+            cutout: '72%',
             plugins: {
                 legend: { display: false },
                 tooltip: {
+                    backgroundColor: '#1e293b',
+                    padding: 8,
+                    bodyFont: { size: 11 },
                     callbacks: {
                         label: (ctx) => ctx.label + ': ' + ctx.parsed.toLocaleString('id-ID')
                     }
@@ -574,17 +573,31 @@ include __DIR__ . '/../../includes/header.php';
                 label: 'Qty Keluar',
                 data: fmValues,
                 backgroundColor: fmColors,
-                borderRadius: 6,
-                maxBarThickness: 36
+                borderRadius: 4,
+                maxBarThickness: 18
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#1e293b',
+                    padding: 8,
+                    bodyFont: { size: 11 }
+                }
+            },
             scales: {
-                x: { grid: { display: false } },
-                y: { beginAtZero: true, grid: { color: 'rgba(148,163,184,0.15)' } }
+                x: {
+                    grid: { display: false },
+                    ticks: { font: { size: 9 }, maxRotation: 0, autoSkip: true, color: '#94a3b8' }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(148,163,184,0.12)' },
+                    ticks: { font: { size: 9 }, color: '#94a3b8' }
+                }
             }
         }
     });
