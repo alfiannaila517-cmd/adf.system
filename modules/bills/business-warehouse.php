@@ -35,6 +35,37 @@ $bizConfig = getActiveBusinessConfig();
 $activeSlug = strtolower(trim((string)($bizConfig['business_id'] ?? '')));
 $activeName = (string)($bizConfig['name'] ?? '');
 
+// Banyak transfer lama tersimpan dengan unit_price/subtotal = 0 (barang belum
+// pernah diberi harga saat dikirim). Izinkan siapa saja dari bisnis terkait
+// (pengirim atau penerima) mengisi harga langsung dari halaman ini.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'set_transfer_price') {
+    $transferId = (int)($_POST['transfer_id'] ?? 0);
+    $newUnitPrice = (float)str_replace(['.', ','], ['', '.'], (string)($_POST['unit_price'] ?? '0'));
+    if ($transferId > 0 && $newUnitPrice > 0) {
+        try {
+            $masterDsnSet = 'mysql:host=' . DB_HOST . ';dbname=' . (defined('MASTER_DB_NAME') ? MASTER_DB_NAME : DB_NAME) . ';charset=' . DB_CHARSET;
+            $masterPdoSet = new PDO($masterDsnSet, DB_USER, DB_PASS, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            ]);
+            $rowToUpdate = $masterPdoSet->prepare(
+                "SELECT * FROM business_inter_stock_transfers WHERE id = ? AND (source_business_slug = ? OR target_business_slug = ?) LIMIT 1"
+            );
+            $rowToUpdate->execute([$transferId, $activeSlug, $activeSlug]);
+            $row = $rowToUpdate->fetch();
+            if ($row) {
+                $newSubtotal = $newUnitPrice * (float)($row['quantity'] ?? 0);
+                $upd = $masterPdoSet->prepare("UPDATE business_inter_stock_transfers SET unit_price = ?, subtotal = ? WHERE id = ?");
+                $upd->execute([$newUnitPrice, $newSubtotal, $transferId]);
+            }
+        } catch (Throwable $e) {
+            error_log('business-warehouse set_transfer_price error: ' . $e->getMessage());
+        }
+    }
+    header('Location: business-warehouse.php');
+    exit;
+}
+
 // Friendly names for every known business, used as fallback when a transfer's
 // stored name is missing/blank.
 $knownBusinessNames = [];
@@ -375,7 +406,16 @@ include '../../includes/header.php';
                         <div class="bw-item-row">
                             <div>
                                 <div class="bw-item-name"><?php echo htmlspecialchars($item['item_name']); ?></div>
-                                <div class="bw-item-meta"><?php echo number_format((float)$item['quantity'], 0, ',', '.'); ?> <?php echo htmlspecialchars($item['unit']); ?> &middot; <?php echo date('d M Y', strtotime($item['created_at'])); ?><?php if (!empty($item['_bw_estimated'])): ?> &middot; <span style="color:#b45309;">harga diperkirakan</span><?php endif; ?><?php if ($itemValue <= 0): ?> &middot; <span style="color:#b45309;">belum ada harga</span><?php endif; ?></div>
+                                <div class="bw-item-meta"><?php echo number_format((float)$item['quantity'], 0, ',', '.'); ?> <?php echo htmlspecialchars($item['unit']); ?> &middot; <?php echo date('d M Y', strtotime($item['created_at'])); ?><?php if (!empty($item['_bw_estimated'])): ?> &middot; <span style="color:#b45309;">harga diperkirakan</span><?php endif; ?></div>
+                                <?php if ($itemValue <= 0): ?>
+                                <form method="post" style="display:flex; align-items:center; gap:0.35rem; margin-top:0.35rem;">
+                                    <input type="hidden" name="action" value="set_transfer_price">
+                                    <input type="hidden" name="transfer_id" value="<?php echo (int)$item['id']; ?>">
+                                    <span style="font-size:0.72rem; color:#b45309;">belum ada harga —</span>
+                                    <input type="text" name="unit_price" placeholder="harga/unit" required style="width:110px; padding:0.2rem 0.4rem; font-size:0.75rem; border:1px solid var(--border-color); border-radius:6px;">
+                                    <button type="submit" style="font-size:0.72rem; padding:0.2rem 0.5rem; border-radius:6px; border:1px solid var(--border-color); background:#f3f4f6; cursor:pointer;">Simpan</button>
+                                </form>
+                                <?php endif; ?>
                             </div>
                             <div class="bw-item-value">Rp <?php echo number_format($itemValue, 0, ',', '.'); ?></div>
                         </div>
@@ -404,7 +444,16 @@ include '../../includes/header.php';
                         <div class="bw-item-row">
                             <div>
                                 <div class="bw-item-name"><?php echo htmlspecialchars($item['item_name']); ?></div>
-                                <div class="bw-item-meta"><?php echo number_format((float)$item['quantity'], 0, ',', '.'); ?> <?php echo htmlspecialchars($item['unit']); ?> &middot; <?php echo date('d M Y', strtotime($item['created_at'])); ?><?php if (!empty($item['_bw_estimated'])): ?> &middot; <span style="color:#b45309;">harga diperkirakan</span><?php endif; ?><?php if ($itemValue <= 0): ?> &middot; <span style="color:#b45309;">belum ada harga</span><?php endif; ?></div>
+                                <div class="bw-item-meta"><?php echo number_format((float)$item['quantity'], 0, ',', '.'); ?> <?php echo htmlspecialchars($item['unit']); ?> &middot; <?php echo date('d M Y', strtotime($item['created_at'])); ?><?php if (!empty($item['_bw_estimated'])): ?> &middot; <span style="color:#b45309;">harga diperkirakan</span><?php endif; ?></div>
+                                <?php if ($itemValue <= 0): ?>
+                                <form method="post" style="display:flex; align-items:center; gap:0.35rem; margin-top:0.35rem;">
+                                    <input type="hidden" name="action" value="set_transfer_price">
+                                    <input type="hidden" name="transfer_id" value="<?php echo (int)$item['id']; ?>">
+                                    <span style="font-size:0.72rem; color:#b45309;">belum ada harga —</span>
+                                    <input type="text" name="unit_price" placeholder="harga/unit" required style="width:110px; padding:0.2rem 0.4rem; font-size:0.75rem; border:1px solid var(--border-color); border-radius:6px;">
+                                    <button type="submit" style="font-size:0.72rem; padding:0.2rem 0.5rem; border-radius:6px; border:1px solid var(--border-color); background:#f3f4f6; cursor:pointer;">Simpan</button>
+                                </form>
+                                <?php endif; ?>
                             </div>
                             <div class="bw-item-value">Rp <?php echo number_format($itemValue, 0, ',', '.'); ?></div>
                         </div>
