@@ -763,6 +763,15 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                                 <span>Tagihan</span>
                             </a>
                         </li>
+
+                        <?php if ($auth->hasPermission('gudang_finance') || $auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse')): ?>
+                            <li class="nav-item">
+                                <a href="<?php echo BASE_URL; ?>/modules/gudang/finance.php" class="nav-link <?php echo activeMenu('finance.php'); ?>">
+                                    <i data-feather="dollar-sign" class="nav-icon"></i>
+                                    <span>Finance</span>
+                                </a>
+                            </li>
+                        <?php endif; ?>
                     <?php else: ?>
                         <?php if ($auth->hasPermission('dashboard')): ?>
                             <li class="nav-item">

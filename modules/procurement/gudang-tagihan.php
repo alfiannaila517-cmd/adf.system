@@ -32,21 +32,15 @@ try {
 } catch (Throwable $e) {
 }
 
-// ── POST: tambah TKBM ────────────────────────────────────────────────────────
+// ── POST: tambah TKBM (sekaligus dicatat sebagai pengeluaran di Finance) ────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_tkbm') {
     $tanggal    = trim($_POST['tanggal'] ?? date('Y-m-d'));
     $biaya      = (float)($_POST['total_biaya'] ?? 0);
     $ket        = trim($_POST['keterangan'] ?? '');
     $jmlBisnis  = max(1, (int)($_POST['jumlah_bisnis'] ?? 3));
     if ($biaya > 0) {
-        $db->insert('gudang_nasita_tkbm', [
-            'tanggal'       => $tanggal,
-            'total_biaya'   => $biaya,
-            'keterangan'    => $ket ?: null,
-            'jumlah_bisnis' => $jmlBisnis,
-            'created_by'    => (int)($currentUser['id'] ?? 0),
-        ]);
-        $_SESSION['success'] = 'TKBM berhasil ditambahkan.';
+        gudangNasitaTkbmAdd($tanggal, $biaya, $ket, $jmlBisnis, (int)($currentUser['id'] ?? 0));
+        $_SESSION['success'] = 'TKBM berhasil ditambahkan dan tercatat di Finance.';
     }
     header('Location: gudang-tagihan.php');
     exit;
@@ -56,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_t
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete_tkbm') {
     $tid = (int)($_POST['tkbm_id'] ?? 0);
     if ($tid > 0) {
-        $db->query('DELETE FROM gudang_nasita_tkbm WHERE id = ?', [$tid]);
+        gudangNasitaTkbmDelete($tid);
         $_SESSION['success'] = 'TKBM dihapus.';
     }
     header('Location: gudang-tagihan.php');

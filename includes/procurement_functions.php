@@ -3035,6 +3035,176 @@ function gudangTagihanPayMonthlyBill(string $slug, string $month, int $userId): 
 
 /**
  * ============================================================
+ * GUDANG NASITA — FINANCE MODULE (TKBM ↔ cash_book integration)
+ * Shared helpers used by both modules/procurement/gudang-tagihan.php
+ * (existing "Tagihan" page TKBM widget) and modules/gudang/finance.php
+ * (new consolidated Finance menu) so a TKBM entry only ever gets
+ * recorded once and always stays in sync with Gudang Nasita's own
+ * buku kas (cash_book).
+ * ============================================================
+ */
+
+// Ensures gudang_nasita_tkbm has a cash_book_id link column so a TKBM row can be
+// traced to (and cleaned up from) Gudang Nasita's own Finance ledger.
+function gudangNasitaTkbmEnsureCashBookColumn($db): void
+{
+    try {
+        $db->query("ALTER TABLE gudang_nasita_tkbm ADD COLUMN cash_book_id INT NULL AFTER jumlah_bisnis");
+    } catch (Throwable $e) {
+        // Column already exists — ignore.
+    }
+}
+
+/**
+ * Records a TKBM (Tenaga Kerja Bongkar Muat / dock-labor) cost entry AND posts it
+ * as a real expense into Gudang Nasita's own cash_book, so the cost is visible in
+ * the Finance menu's ledger/report (previously it only lived in the isolated
+ * gudang_nasita_tkbm table with no financial trail).
+ *
+ * Must be called while the active DB connection ($db = Database::getInstance())
+ * is already Gudang Nasita's own database.
+ */
+function gudangNasitaTkbmAdd(string $tanggal, float $biaya, string $keterangan, int $jumlahBisnis, int $userId): int
+{
+    $db = Database::getInstance();
+    gudangNasitaTkbmEnsureCashBookColumn($db);
+
+    $cashBookId = null;
+    if ($biaya > 0) {
+        try {
+            $db->getConnection()->exec("ALTER TABLE `cash_book` DROP FOREIGN KEY `cash_book_ibfk_3`");
+        } catch (Throwable $e) {
+        }
+        try {
+            $db->getConnection()->exec("ALTER TABLE `cash_book` MODIFY COLUMN `division_id` INT NULL");
+            $db->getConnection()->exec("ALTER TABLE `cash_book` MODIFY COLUMN `category_id` INT NULL");
+        } catch (Throwable $e) {
+        }
+
+        try {
+            $expCat = $db->fetchOne("SELECT id FROM categories WHERE LOWER(category_name) = 'biaya tkbm (bongkar muat)' AND category_type = 'expense' LIMIT 1");
+            $expCategoryId = $expCat['id'] ?? null;
+            if (!$expCategoryId) {
+                $divForCat = $db->fetchOne('SELECT id FROM divisions LIMIT 1');
+                $expCategoryId = $db->insert('categories', [
+                    'division_id'   => $divForCat['id'] ?? null,
+                    'category_name' => 'Biaya TKBM (Bongkar Muat)',
+                    'category_type' => 'expense',
+                    'is_active'     => 1,
+                ]);
+            }
+            $div = $db->fetchOne('SELECT id FROM divisions LIMIT 1');
+
+            $cashBookId = $db->insert('cash_book', [
+                'transaction_date' => $tanggal,
+                'transaction_time' => date('H:i:s'),
+                'division_id'      => $div['id'] ?? null,
+                'category_id'      => $expCategoryId,
+                'transaction_type' => 'expense',
+                'amount'           => $biaya,
+                'description'      => 'Biaya TKBM (Bongkar Muat)' . ($keterangan !== '' ? ' - ' . $keterangan : ''),
+                'payment_method'   => 'cash',
+                'created_by'       => $userId ?: null,
+                'source_type'      => 'gudang_tkbm',
+                'is_editable'      => 0,
+            ]);
+        } catch (Throwable $e) {
+            error_log('gudangNasitaTkbmAdd cash_book insert: ' . $e->getMessage());
+            $cashBookId = null;
+        }
+    }
+
+    return (int)$db->insert('gudang_nasita_tkbm', [
+        'tanggal'       => $tanggal,
+        'total_biaya'   => $biaya,
+        'keterangan'    => $keterangan !== '' ? $keterangan : null,
+        'jumlah_bisnis' => $jumlahBisnis,
+        'cash_book_id'  => $cashBookId,
+        'created_by'    => $userId ?: null,
+    ]);
+}
+
+/**
+ * Deletes a TKBM entry and, if it was linked to a Finance/cash_book expense row,
+ * removes that row too so Finance stays in sync.
+ */
+function gudangNasitaTkbmDelete(int $tkbmId): void
+{
+    $db = Database::getInstance();
+    gudangNasitaTkbmEnsureCashBookColumn($db);
+
+    $row = $db->fetchOne('SELECT * FROM gudang_nasita_tkbm WHERE id = ?', [$tkbmId]);
+    if (!$row) {
+        return;
+    }
+    if (!empty($row['cash_book_id'])) {
+        try {
+            $db->query('DELETE FROM cash_book WHERE id = ? AND source_type = \'gudang_tkbm\'', [$row['cash_book_id']]);
+        } catch (Throwable $e) {
+        }
+    }
+    $db->query('DELETE FROM gudang_nasita_tkbm WHERE id = ?', [$tkbmId]);
+}
+
+/**
+ * Returns a Finance summary for Gudang Nasita's own cash_book for a given month
+ * (Y-m). Used by modules/gudang/finance.php's "Laporan Keuangan Gudang" section.
+ * Must be called while the active DB is Gudang Nasita's own database.
+ */
+function getGudangNasitaFinanceSummary(string $month): array
+{
+    $db = Database::getInstance();
+    $monthStart = $month . '-01';
+    $monthEnd = date('Y-m-t', strtotime($monthStart));
+
+    $summary = [
+        'income_total'   => 0.0,
+        'expense_total'  => 0.0,
+        'saldo'          => 0.0,
+        'income_tagihan' => 0.0,
+        'expense_tkbm'   => 0.0,
+        'by_category'    => [],
+    ];
+
+    try {
+        $row = $db->fetchOne(
+            "SELECT
+                COALESCE(SUM(CASE WHEN transaction_type = 'income' THEN amount ELSE 0 END), 0) AS income_total,
+                COALESCE(SUM(CASE WHEN transaction_type = 'expense' AND source_type != 'cash_transfer' THEN amount ELSE 0 END), 0) AS expense_total,
+                COALESCE(SUM(CASE WHEN source_type = 'gudang_tagihan_income' THEN amount ELSE 0 END), 0) AS income_tagihan,
+                COALESCE(SUM(CASE WHEN source_type = 'gudang_tkbm' THEN amount ELSE 0 END), 0) AS expense_tkbm
+             FROM cash_book
+             WHERE transaction_date BETWEEN ? AND ?",
+            [$monthStart, $monthEnd]
+        );
+        if ($row) {
+            $summary['income_total']   = (float)$row['income_total'];
+            $summary['expense_total']  = (float)$row['expense_total'];
+            $summary['income_tagihan'] = (float)$row['income_tagihan'];
+            $summary['expense_tkbm']   = (float)$row['expense_tkbm'];
+            $summary['saldo']          = $summary['income_total'] - $summary['expense_total'];
+        }
+
+        $summary['by_category'] = $db->fetchAll(
+            "SELECT COALESCE(c.category_name, '(Tanpa Kategori)') AS category_name,
+                    cb.transaction_type,
+                    COALESCE(SUM(cb.amount), 0) AS total
+             FROM cash_book cb
+             LEFT JOIN categories c ON c.id = cb.category_id
+             WHERE cb.transaction_date BETWEEN ? AND ? AND cb.source_type != 'cash_transfer'
+             GROUP BY cb.category_id, cb.transaction_type
+             ORDER BY total DESC",
+            [$monthStart, $monthEnd]
+        ) ?: [];
+    } catch (Throwable $e) {
+        error_log('getGudangNasitaFinanceSummary: ' . $e->getMessage());
+    }
+
+    return $summary;
+}
+
+/**
+ * ============================================================
  * STAFF STOCK ACCESS — cross-business permission system
  * Lets an admin grant specific Staff Portal users (identified by
  * email) read access to Gudang Nasita + selected business stock,

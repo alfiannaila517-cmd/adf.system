@@ -36,6 +36,7 @@ return [
         'gudang_transfers',
         'gudang_minimum_stock',
         'gudang_reports',
+        'gudang_finance',
     ],
 
     // Permissions for warehouse operations
@@ -49,5 +50,6 @@ return [
         'gudang_transfer_view',
         'gudang_transfer_create',
         'gudang_reports_view',
+        'gudang_finance',
     ],
 ];
