@@ -66,6 +66,8 @@ foreach ($slips as $i => $s) {
     $totalEarn = $actualBase + $otAmount + $extraAmount
         + (float)($s['incentive'] ?? 0) + (float)($s['allowance'] ?? 0)
         + (float)($s['bonus'] ?? 0) + (float)($s['other_income'] ?? 0);
+    $netRaw = $totalEarn - $totalDed;
+    $round = applyPayrollRounding($netRaw);
     $slips[$i]['hourly_rate']      = $hourly;
     $slips[$i]['actual_base']      = $actualBase;
     $slips[$i]['overtime_amount']  = $otAmount;
@@ -74,7 +76,8 @@ foreach ($slips as $i => $s) {
     $slips[$i]['ot_total_rp']      = $otAmount + $extraAmount;
     $slips[$i]['total_deductions'] = $totalDed;
     $slips[$i]['total_earnings']   = $totalEarn;
-    $slips[$i]['net_salary']       = $totalEarn - $totalDed;
+    $slips[$i]['net_salary']       = $round['net'];
+    $slips[$i]['rounding_adjustment'] = $round['adjustment'];
 }
 
 // Calculate totals
@@ -90,6 +93,7 @@ $totalOther      = array_sum(array_column($slips, 'other_income'));
 $totalDeductions = array_sum(array_column($slips, 'total_deductions'));
 $totalNet        = array_sum(array_column($slips, 'net_salary'));
 $totalGross      = array_sum(array_column($slips, 'total_earnings'));
+$totalRounding   = array_sum(array_column($slips, 'rounding_adjustment'));
 
 // Build shareable URL
 $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
@@ -572,6 +576,7 @@ $periodLabel = $monthNames[$period['period_month']] . ' ' . $period['period_year
                             <th class="text-right">Allowc</th>
                             <th class="text-right">Bonus</th>
                             <th class="text-right" style="color:#ef4444;">Deduct</th>
+                            <th class="text-right" style="color:#0ea5e9;" title="Pembulatan ke kelipatan Rp 1.000 (ke atas)">Bulat</th>
                             <th class="text-right">Net</th>
                         </tr>
                     </thead>
@@ -597,6 +602,7 @@ $periodLabel = $monthNames[$period['period_month']] . ' ' . $period['period_year
                                 <td class="text-right"><span class="amount"><?php echo number_format($slip['allowance'], 0, ',', '.'); ?></span></td>
                                 <td class="text-right"><span class="amount"><?php echo number_format($bonusAll, 0, ',', '.'); ?></span></td>
                                 <td class="text-right"><span class="amount negative"><?php echo number_format($slip['total_deductions'], 0, ',', '.'); ?></span></td>
+                                <td class="text-right"><span class="amount" style="color:#0ea5e9;"><?php echo number_format($slip['rounding_adjustment'], 0, ',', '.'); ?></span></td>
                                 <td class="text-right"><span class="amount net"><?php echo number_format($slip['net_salary'], 0, ',', '.'); ?></span></td>
                             </tr>
                         <?php endforeach; ?>
@@ -611,6 +617,7 @@ $periodLabel = $monthNames[$period['period_month']] . ' ' . $period['period_year
                             <td class="text-right"><span class="amount"><?php echo number_format($totalAllowance, 0, ',', '.'); ?></span></td>
                             <td class="text-right"><span class="amount"><?php echo number_format($totalBonus + $totalOther, 0, ',', '.'); ?></span></td>
                             <td class="text-right"><span class="amount"><?php echo number_format($totalDeductions, 0, ',', '.'); ?></span></td>
+                            <td class="text-right"><span class="amount" style="color:#0ea5e9;"><?php echo number_format($totalRounding, 0, ',', '.'); ?></span></td>
                             <td class="text-right"><span class="amount"><?php echo number_format($totalNet, 0, ',', '.'); ?></span></td>
                         </tr>
                     </tfoot>

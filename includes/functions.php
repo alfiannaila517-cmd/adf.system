@@ -73,6 +73,22 @@ function getPayrollBusinessSettings($db)
 }
 
 /**
+ * Round net salary UP to the nearest Rp 1.000 so it's easy to transfer via
+ * bank (no odd cents like Rp 2.688.577). Returns the rounded net plus the
+ * "Pembulatan" adjustment amount to show as its own line item on the slip.
+ */
+function applyPayrollRounding($netSalary, $increment = 1000)
+{
+    $netSalary = (float)$netSalary;
+    $increment = $increment > 0 ? $increment : 1000;
+    $rounded = (float)(ceil($netSalary / $increment) * $increment);
+    return [
+        'net' => $rounded,
+        'adjustment' => round($rounded - $netSalary, 2),
+    ];
+}
+
+/**
  * Deteksi status "Terlambat" berdasarkan jam scan masuk (check-in), terlepas
  * dari status yang tersimpan di database (yang seringkali masih 'present'
  * karena threshold jadwal per-staff tidak pernah di-setup — jadwal staff

@@ -582,6 +582,12 @@ $waLink = $waNumber ? "https://wa.me/{$waNumber}?text={$waMessage}" : '';
                         <span class="salary-label">Bonus / Lainnya</span>
                         <span class="salary-value"><?php echo number_format($slip['bonus'] + $slip['other_income'], 0, ',', '.'); ?></span>
                     </div>
+                    <?php if ((float)($slip['rounding_adjustment'] ?? 0) > 0): ?>
+                    <div class="salary-row">
+                        <span class="salary-label">Pembulatan</span>
+                        <span class="salary-value"><?php echo number_format($slip['rounding_adjustment'], 0, ',', '.'); ?></span>
+                    </div>
+                    <?php endif; ?>
                     <div class="salary-row salary-total">
                         <span class="salary-label">Total Pendapatan</span>
                         <span class="salary-value" style="color: #10b981;"><?php echo number_format($slip['total_earnings'], 0, ',', '.'); ?></span>

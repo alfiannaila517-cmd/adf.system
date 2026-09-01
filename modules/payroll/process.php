@@ -175,6 +175,7 @@ try {
         "ADD COLUMN IF NOT EXISTS locked TINYINT(1) NOT NULL DEFAULT 0",
         "ADD COLUMN IF NOT EXISTS extra_hours DECIMAL(10,2) NOT NULL DEFAULT 0.00",
         "ADD COLUMN IF NOT EXISTS extra_locked TINYINT(1) NOT NULL DEFAULT 0",
+        "ADD COLUMN IF NOT EXISTS rounding_adjustment DECIMAL(15,2) NOT NULL DEFAULT 0.00",
     ];
     foreach ($cols as $c) {
         try {
@@ -431,6 +432,9 @@ function syncSlipsWithAttendance($db, $periodId, $month, $year)
         $dedOther = (float)($cur['deduction_other'] ?? 0);
         $totalDed = $loan + $absence + $tax + $bpjs + $dedOther;
         $netSalary = $totalEarn - $totalDed;
+        $round = applyPayrollRounding($netSalary);
+        $netSalary = $round['net'];
+        $roundingAdj = $round['adjustment'];
 
         // Update via direct PDO to avoid silent error swallowing
         // Sync overtime_hours too so the input field reflects the true total
@@ -438,8 +442,8 @@ function syncSlipsWithAttendance($db, $periodId, $month, $year)
         // with the overtime_amount that's actually paid.
         dbExec(
             $db,
-            "UPDATE payroll_slips SET work_hours=?, overtime_hours=?, actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=? WHERE id=?",
-            [$workH, $otH, $actualBase, $otRate, $otAmount, $totalEarn, $totalDed, $netSalary, $slip['id']]
+            "UPDATE payroll_slips SET work_hours=?, overtime_hours=?, actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=?, rounding_adjustment=? WHERE id=?",
+            [$workH, $otH, $actualBase, $otRate, $otAmount, $totalEarn, $totalDed, $netSalary, $roundingAdj, $slip['id']]
         );
     }
     // Update period totals
@@ -487,10 +491,12 @@ if (!$period && isset($_POST['create_period'])) {
             $otAmount = round($otH * $otRate, 2);
             $totalEarn = $actualBase + $otAmount;
             $netSalary = $totalEarn;
+            $round = applyPayrollRounding($netSalary);
+            $netSalary = $round['net'];
             dbExec(
                 $db,
-                "INSERT INTO payroll_slips (period_id, employee_id, employee_name, position, base_salary, work_hours, actual_base, overtime_hours, overtime_rate, overtime_amount, total_earnings, net_salary) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                [$period['id'], $emp['id'], $emp['full_name'], $emp['position'], $baseSalary, $workH, $actualBase, $otH, $otRate, $otAmount, $totalEarn, $netSalary]
+                "INSERT INTO payroll_slips (period_id, employee_id, employee_name, position, base_salary, work_hours, actual_base, overtime_hours, overtime_rate, overtime_amount, total_earnings, net_salary, rounding_adjustment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [$period['id'], $emp['id'], $emp['full_name'], $emp['position'], $baseSalary, $workH, $actualBase, $otH, $otRate, $otAmount, $totalEarn, $netSalary, $round['adjustment']]
             );
         }
 
@@ -550,6 +556,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_update'])) {
     $total_earnings = $actual_base + $overtime_amount + $extra_amount + $incentive + $allowance + $uang_makan + $bonus + $other;
     $total_deductions = $loan + $absence + $tax + $bpjs + $ded_other;
     $net_salary = $total_earnings - $total_deductions;
+    $round = applyPayrollRounding($net_salary);
+    $net_salary = $round['net'];
+    $rounding_adjustment = $round['adjustment'];
 
     try {
         $extraLockedFlag = $extra_was_posted ? 1 : 0;
@@ -559,7 +568,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_update'])) {
                 extra_hours = ?, extra_locked = GREATEST(extra_locked, ?),
                 incentive = ?, allowance = ?, uang_makan = ?, bonus = ?, other_income = ?,
                 deduction_loan = ?, deduction_absence = ?, deduction_tax = ?, deduction_bpjs = ?, deduction_other = ?,
-                total_earnings = ?, total_deductions = ?, net_salary = ?,
+                total_earnings = ?, total_deductions = ?, net_salary = ?, rounding_adjustment = ?,
                 hours_locked = 1
                 WHERE id = ?";
 
@@ -585,6 +594,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_update'])) {
             $total_earnings,
             $total_deductions,
             $net_salary,
+            $rounding_adjustment,
             $slip_id
         ]);
 
@@ -714,11 +724,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_save_daily_atten
                 $totalEarn = $actualBase + $otAmount + (float)($slip['incentive'] ?? 0) + (float)($slip['allowance'] ?? 0) + (float)($slip['uang_makan'] ?? 0) + (float)($slip['bonus'] ?? 0) + (float)($slip['other_income'] ?? 0);
                 $totalDed = (float)($slip['deduction_loan'] ?? 0) + (float)($slip['deduction_absence'] ?? 0) + (float)($slip['deduction_tax'] ?? 0) + (float)($slip['deduction_bpjs'] ?? 0) + (float)($slip['deduction_other'] ?? 0);
                 $netSalary = $totalEarn - $totalDed;
+                $round = applyPayrollRounding($netSalary);
+                $netSalary = $round['net'];
                 // Only update work_hours and recalculated totals — preserve hours_locked state
                 dbExec(
                     $db,
-                    "UPDATE payroll_slips SET work_hours=?, overtime_hours=?, actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=? WHERE id=?",
-                    [$workH, $otH, $actualBase, $hourlyRate, $otAmount, $totalEarn, $totalDed, $netSalary, $slip['id']]
+                    "UPDATE payroll_slips SET work_hours=?, overtime_hours=?, actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=?, rounding_adjustment=? WHERE id=?",
+                    [$workH, $otH, $actualBase, $hourlyRate, $otAmount, $totalEarn, $totalDed, $netSalary, $round['adjustment'], $slip['id']]
                 );
                 $slipData = ['slip_id' => $slip['id'], 'work_hours' => $workH, 'overtime_hours' => $otH, 'actual_base' => $actualBase, 'net_salary' => $netSalary];
             }
@@ -811,6 +823,9 @@ if ($period) {
         $totalDed   = $loan + $absence + $tax + $bpjs + $dedOther;
         $totalEarn  = $actualBase + $otAmount + $extraAmount + $incentive + $allowance + $uangMakan + $bonus + $otherInc;
         $netSal     = $totalEarn - $totalDed;
+        $round      = applyPayrollRounding($netSal);
+        $netSal     = $round['net'];
+        $roundingAdj = $round['adjustment'];
 
         // Update display values
         $slips[$i]['actual_base']      = $actualBase;
@@ -821,6 +836,7 @@ if ($period) {
         $slips[$i]['total_earnings']   = $totalEarn;
         $slips[$i]['total_deductions'] = $totalDed;
         $slips[$i]['net_salary']       = $netSal;
+        $slips[$i]['rounding_adjustment'] = $roundingAdj;
 
         // Tulis ke DB HANYA bila tidak frozen
         if (!$isFrozen) {
@@ -839,9 +855,9 @@ if ($period) {
                         "UPDATE payroll_slips
                          SET base_salary=?, actual_base=?, overtime_rate=?, overtime_amount=?,
                              extra_hours=?,
-                             total_earnings=?, total_deductions=?, net_salary=?, uang_makan=0
+                             total_earnings=?, total_deductions=?, net_salary=?, rounding_adjustment=?, uang_makan=0
                          WHERE id=?",
-                        [$masterBase, $actualBase, $hourly, $otAmount, $extraH, $totalEarn, $totalDed, $netSal, $s['id']]
+                        [$masterBase, $actualBase, $hourly, $otAmount, $extraH, $totalEarn, $totalDed, $netSal, $roundingAdj, $s['id']]
                     );
                 } catch (Exception $e) { /* abaikan */
                 }
@@ -890,10 +906,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_proses'])) {
             $total_earnings = $actual_base + $overtime_amount + $incentive + $allowance + $uang_makan + $bonus + $other;
             $total_deductions = $loan + $absence + $tax + $bpjs + $ded_other;
             $net_salary = $total_earnings - $total_deductions;
+            $round = applyPayrollRounding($net_salary);
+            $net_salary = $round['net'];
             dbExec(
                 $db,
-                "UPDATE payroll_slips SET actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=?, uang_makan=? WHERE id=?",
-                [$actual_base, $overtime_rate, $overtime_amount, $total_earnings, $total_deductions, $net_salary, $uang_makan, $slip['id']]
+                "UPDATE payroll_slips SET actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=?, rounding_adjustment=?, uang_makan=? WHERE id=?",
+                [$actual_base, $overtime_rate, $overtime_amount, $total_earnings, $total_deductions, $net_salary, $round['adjustment'], $uang_makan, $slip['id']]
             );
         }
         $period_id = $period['id'];
@@ -984,10 +1002,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['quick_pay'])) {
             $tE = $ab + $oA + (float)($sl['incentive'] ?? 0) + (float)($sl['allowance'] ?? 0) + (float)($sl['uang_makan'] ?? 0) + (float)($sl['bonus'] ?? 0) + (float)($sl['other_income'] ?? 0);
             $tD = (float)($sl['deduction_loan'] ?? 0) + (float)($sl['deduction_absence'] ?? 0) + (float)($sl['deduction_tax'] ?? 0) + (float)($sl['deduction_bpjs'] ?? 0) + (float)($sl['deduction_other'] ?? 0);
             $nS = $tE - $tD;
+            $round = applyPayrollRounding($nS);
+            $nS = $round['net'];
             dbExec(
                 $db,
-                "UPDATE payroll_slips SET actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=? WHERE id=?",
-                [$ab, $hr, $oA, $tE, $tD, $nS, $sl['id']]
+                "UPDATE payroll_slips SET actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=?, rounding_adjustment=? WHERE id=?",
+                [$ab, $hr, $oA, $tE, $tD, $nS, $round['adjustment'], $sl['id']]
             );
             $totalNet += $nS;
         }
@@ -1068,10 +1088,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['quick_pay_selected'])
             $tE = $ab + $oA + (float)($sl['incentive'] ?? 0) + (float)($sl['allowance'] ?? 0) + (float)($sl['uang_makan'] ?? 0) + (float)($sl['bonus'] ?? 0) + (float)($sl['other_income'] ?? 0);
             $tD = (float)($sl['deduction_loan'] ?? 0) + (float)($sl['deduction_absence'] ?? 0) + (float)($sl['deduction_tax'] ?? 0) + (float)($sl['deduction_bpjs'] ?? 0) + (float)($sl['deduction_other'] ?? 0);
             $nS = $tE - $tD;
+            $round = applyPayrollRounding($nS);
+            $nS = $round['net'];
             dbExec(
                 $db,
-                "UPDATE payroll_slips SET actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=? WHERE id=?",
-                [$ab, $hr, $oA, $tE, $tD, $nS, $sid]
+                "UPDATE payroll_slips SET actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=?, rounding_adjustment=? WHERE id=?",
+                [$ab, $hr, $oA, $tE, $tD, $nS, $round['adjustment'], $sid]
             );
         }
 
