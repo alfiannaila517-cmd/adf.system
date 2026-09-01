@@ -206,50 +206,111 @@ include '../../includes/header.php';
 
 <style>
     .bw-container {
-        max-width: 1200px;
+        max-width: 1280px;
         margin: 0 auto;
-        padding: 1rem;
+        padding: 1.25rem 1rem 2rem;
+    }
+
+    .bw-header {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.85rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .bw-header .bw-header-icon {
+        flex-shrink: 0;
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #6366f1, #4f46e5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.3rem;
     }
 
     .bw-header h1 {
-        font-size: 1.4rem;
-        font-weight: 700;
+        font-size: 1.35rem;
+        font-weight: 800;
         color: var(--text-primary);
-        margin: 0 0 0.25rem;
+        margin: 0 0 0.2rem;
+        letter-spacing: -0.01em;
     }
 
     .bw-header p {
         color: var(--text-secondary);
-        font-size: 0.85rem;
-        margin: 0 0 1.25rem;
+        font-size: 0.82rem;
+        margin: 0;
+        max-width: 620px;
+        line-height: 1.45;
     }
 
     .bw-summary {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        grid-template-columns: repeat(3, 1fr);
         gap: 1rem;
-        margin-bottom: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    @media (max-width: 760px) {
+        .bw-summary {
+            grid-template-columns: 1fr;
+        }
     }
 
     .bw-summary-card {
+        position: relative;
         background: var(--card-bg, #fff);
         border: 1px solid var(--border-color);
-        border-radius: 12px;
-        padding: 1rem 1.25rem;
+        border-radius: 16px;
+        padding: 1.1rem 1.25rem;
+        overflow: hidden;
+    }
+
+    .bw-summary-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+    }
+
+    .bw-summary-card.piutang::before {
+        background: #059669;
+    }
+
+    .bw-summary-card.hutang::before {
+        background: #dc2626;
+    }
+
+    .bw-summary-card.net::before {
+        background: <?php echo $netPosition >= 0 ? '#059669' : '#dc2626'; ?>;
     }
 
     .bw-summary-card .label {
-        font-size: 0.72rem;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.7rem;
         font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: 0.4px;
+        letter-spacing: 0.5px;
         color: var(--text-secondary);
-        margin-bottom: 0.35rem;
+        margin-bottom: 0.5rem;
     }
 
     .bw-summary-card .value {
-        font-size: 1.3rem;
+        font-size: 1.5rem;
         font-weight: 800;
+        letter-spacing: -0.01em;
+    }
+
+    .bw-summary-card .sub {
+        font-size: 0.72rem;
+        color: var(--text-secondary);
+        margin-top: 0.25rem;
     }
 
     .bw-summary-card.piutang .value {
@@ -264,14 +325,39 @@ include '../../includes/header.php';
         color: <?php echo $netPosition >= 0 ? '#059669' : '#dc2626'; ?>;
     }
 
+    .bw-columns {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+        align-items: start;
+    }
+
+    @media (max-width: 900px) {
+        .bw-columns {
+            grid-template-columns: 1fr;
+        }
+    }
+
     .bw-section-title {
         display: flex;
         align-items: center;
         gap: 0.5rem;
-        font-size: 1rem;
-        font-weight: 700;
-        margin: 1.5rem 0 0.75rem;
-        color: var(--text-primary);
+        font-size: 0.95rem;
+        font-weight: 800;
+        margin: 0 0 0.9rem;
+        padding-bottom: 0.6rem;
+        border-bottom: 2px solid var(--border-color);
+    }
+
+    .bw-section-title .count {
+        font-weight: 600;
+        font-size: 0.72rem;
+        color: var(--text-secondary);
+        background: var(--card-bg, #f3f4f6);
+        border: 1px solid var(--border-color);
+        border-radius: 999px;
+        padding: 0.1rem 0.55rem;
+        margin-left: auto;
     }
 
     .bw-section-title.piutang {
@@ -285,24 +371,67 @@ include '../../includes/header.php';
     .bw-partner-card {
         background: var(--card-bg, #fff);
         border: 1px solid var(--border-color);
-        border-radius: 12px;
-        margin-bottom: 0.85rem;
+        border-radius: 14px;
+        margin-bottom: 0.75rem;
         overflow: hidden;
+        transition: box-shadow 0.15s ease;
+    }
+
+    .bw-partner-card.open {
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
     }
 
     .bw-partner-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0.75rem 1rem;
+        padding: 0.85rem 1rem;
         cursor: pointer;
         gap: 0.75rem;
     }
 
+    .bw-partner-name-wrap {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        min-width: 0;
+    }
+
+    .bw-partner-avatar {
+        flex-shrink: 0;
+        width: 32px;
+        height: 32px;
+        border-radius: 9px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 0.8rem;
+        color: #fff;
+    }
+
+    .bw-partner-card.piutang .bw-partner-avatar {
+        background: #059669;
+    }
+
+    .bw-partner-card.hutang .bw-partner-avatar {
+        background: #dc2626;
+    }
+
     .bw-partner-name {
         font-weight: 700;
-        font-size: 0.9rem;
+        font-size: 0.88rem;
         color: var(--text-primary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .bw-partner-name small {
+        display: block;
+        font-weight: 500;
+        font-size: 0.68rem;
+        color: var(--text-secondary);
     }
 
     .bw-partner-total {
@@ -322,6 +451,7 @@ include '../../includes/header.php';
     .bw-partner-items {
         display: none;
         border-top: 1px solid var(--border-color);
+        background: rgba(0, 0, 0, 0.012);
     }
 
     .bw-partner-card.open .bw-partner-items {
@@ -332,8 +462,8 @@ include '../../includes/header.php';
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0.55rem 1rem;
-        font-size: 0.78rem;
+        padding: 0.65rem 1rem;
+        font-size: 0.8rem;
         border-bottom: 1px solid var(--border-color);
         gap: 0.75rem;
     }
@@ -348,28 +478,86 @@ include '../../includes/header.php';
     }
 
     .bw-item-meta {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.35rem;
         color: var(--text-secondary);
         font-size: 0.72rem;
+        margin-top: 0.15rem;
+    }
+
+    .bw-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        font-size: 0.65rem;
+        font-weight: 700;
+        padding: 0.1rem 0.45rem;
+        border-radius: 999px;
+        white-space: nowrap;
+    }
+
+    .bw-badge.warn {
+        background: #fef3c7;
+        color: #b45309;
+    }
+
+    .bw-badge.danger {
+        background: #fee2e2;
+        color: #b91c1c;
     }
 
     .bw-item-value {
         font-weight: 700;
         white-space: nowrap;
+        flex-shrink: 0;
+    }
+
+    .bw-price-form {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        margin-top: 0.5rem;
+    }
+
+    .bw-price-form input[type="text"] {
+        width: 120px;
+        padding: 0.3rem 0.55rem;
+        font-size: 0.75rem;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+    }
+
+    .bw-price-form button {
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 0.3rem 0.65rem;
+        border-radius: 8px;
+        border: 1px solid #4f46e5;
+        background: #4f46e5;
+        color: #fff;
+        cursor: pointer;
+    }
+
+    .bw-price-form button:hover {
+        background: #4338ca;
     }
 
     .bw-empty {
         color: var(--text-secondary);
-        font-size: 0.85rem;
-        padding: 1rem;
+        font-size: 0.82rem;
+        padding: 1.5rem 1rem;
         background: var(--card-bg, #fff);
         border: 1px dashed var(--border-color);
-        border-radius: 12px;
+        border-radius: 14px;
         text-align: center;
     }
 
     .bw-chevron {
         transition: transform 0.15s ease;
         color: var(--text-secondary);
+        flex-shrink: 0;
     }
 
     .bw-partner-card.open .bw-chevron {
@@ -379,100 +567,134 @@ include '../../includes/header.php';
 
 <div class="bw-container">
     <div class="bw-header">
-        <h1>Tagihan Bisnis & Gudang</h1>
-        <p>Rekap piutang &amp; hutang antar bisnis dari transfer barang <?php echo htmlspecialchars($activeName); ?> ke/dari bisnis lain (termasuk Gudang Nasita).</p>
+        <div class="bw-header-icon">📊</div>
+        <div>
+            <h1>Tagihan Bisnis &amp; Gudang</h1>
+            <p>Rekap piutang &amp; hutang antar bisnis dari transfer barang <strong><?php echo htmlspecialchars($activeName); ?></strong> ke/dari bisnis lain (termasuk Gudang Nasita).</p>
+        </div>
     </div>
 
     <div class="bw-summary">
         <div class="bw-summary-card piutang">
-            <div class="label">Total Piutang (Ditagih)</div>
+            <div class="label">💰 Total Piutang (Ditagih)</div>
             <div class="value">Rp <?php echo number_format($piutangTotal, 0, ',', '.'); ?></div>
+            <div class="sub">Bisnis lain berhutang ke kami</div>
         </div>
         <div class="bw-summary-card hutang">
-            <div class="label">Total Hutang (Harus Dibayar)</div>
+            <div class="label">📥 Total Hutang (Harus Dibayar)</div>
             <div class="value">Rp <?php echo number_format($hutangTotal, 0, ',', '.'); ?></div>
+            <div class="sub">Kami berhutang ke bisnis lain</div>
         </div>
         <div class="bw-summary-card net">
-            <div class="label">Posisi Bersih</div>
-            <div class="value">Rp <?php echo number_format(abs($netPosition), 0, ',', '.'); ?> <?php echo $netPosition >= 0 ? '(Piutang)' : '(Hutang)'; ?></div>
+            <div class="label">⚖️ Posisi Bersih</div>
+            <div class="value">Rp <?php echo number_format(abs($netPosition), 0, ',', '.'); ?></div>
+            <div class="sub"><?php echo $netPosition >= 0 ? 'Bersih menerima (Piutang)' : 'Bersih membayar (Hutang)'; ?></div>
         </div>
     </div>
 
-    <div class="bw-section-title piutang">💰 Piutang — Bisnis Lain Berhutang ke Kami</div>
-    <?php if (empty($piutangByPartner)): ?>
-        <div class="bw-empty">Belum ada barang yang kami kirim ke bisnis lain.</div>
-    <?php else: ?>
-        <?php foreach ($piutangByPartner as $partner): ?>
-            <div class="bw-partner-card piutang">
-                <div class="bw-partner-header" onclick="this.closest('.bw-partner-card').classList.toggle('open')">
-                    <span class="bw-partner-name"><?php echo htmlspecialchars($partner['name']); ?></span>
-                    <span style="display:flex; align-items:center; gap:0.5rem;">
-                        <span class="bw-partner-total">Rp <?php echo number_format($partner['total'], 0, ',', '.'); ?></span>
-                        <span class="bw-chevron">&#9662;</span>
-                    </span>
-                </div>
-                <div class="bw-partner-items">
-                    <?php foreach ($partner['items'] as $item): ?>
-                        <?php $itemValue = (float)($item['_bw_value'] ?? 0); ?>
-                        <div class="bw-item-row">
-                            <div>
-                                <div class="bw-item-name"><?php echo htmlspecialchars($item['item_name']); ?></div>
-                                <div class="bw-item-meta"><?php echo number_format((float)$item['quantity'], 0, ',', '.'); ?> <?php echo htmlspecialchars($item['unit']); ?> &middot; <?php echo date('d M Y', strtotime($item['created_at'])); ?><?php if (!empty($item['_bw_estimated'])): ?> &middot; <span style="color:#b45309;">harga diperkirakan</span><?php endif; ?></div>
-                                <?php if ($itemValue <= 0): ?>
-                                <form method="post" style="display:flex; align-items:center; gap:0.35rem; margin-top:0.35rem;">
-                                    <input type="hidden" name="action" value="set_transfer_price">
-                                    <input type="hidden" name="transfer_id" value="<?php echo (int)$item['id']; ?>">
-                                    <span style="font-size:0.72rem; color:#b45309;">belum ada harga —</span>
-                                    <input type="text" name="unit_price" placeholder="harga/unit" required style="width:110px; padding:0.2rem 0.4rem; font-size:0.75rem; border:1px solid var(--border-color); border-radius:6px;">
-                                    <button type="submit" style="font-size:0.72rem; padding:0.2rem 0.5rem; border-radius:6px; border:1px solid var(--border-color); background:#f3f4f6; cursor:pointer;">Simpan</button>
-                                </form>
-                                <?php endif; ?>
+    <div class="bw-columns">
+        <div>
+            <div class="bw-section-title piutang">💰 Piutang — Berhutang ke Kami <span class="count"><?php echo count($piutangByPartner); ?> mitra</span></div>
+            <?php if (empty($piutangByPartner)): ?>
+                <div class="bw-empty">Belum ada barang yang kami kirim ke bisnis lain.</div>
+            <?php else: ?>
+                <?php foreach ($piutangByPartner as $partner): ?>
+                    <div class="bw-partner-card piutang">
+                        <div class="bw-partner-header" onclick="this.closest('.bw-partner-card').classList.toggle('open')">
+                            <div class="bw-partner-name-wrap">
+                                <div class="bw-partner-avatar"><?php echo htmlspecialchars(strtoupper(substr($partner['name'], 0, 1))); ?></div>
+                                <div class="bw-partner-name">
+                                    <?php echo htmlspecialchars($partner['name']); ?>
+                                    <small><?php echo count($partner['items']); ?> item transfer</small>
+                                </div>
                             </div>
-                            <div class="bw-item-value">Rp <?php echo number_format($itemValue, 0, ',', '.'); ?></div>
+                            <span style="display:flex; align-items:center; gap:0.5rem;">
+                                <span class="bw-partner-total">Rp <?php echo number_format($partner['total'], 0, ',', '.'); ?></span>
+                                <span class="bw-chevron">&#9662;</span>
+                            </span>
                         </div>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-        <?php endforeach; ?>
-    <?php endif; ?>
+                        <div class="bw-partner-items">
+                            <?php foreach ($partner['items'] as $item): ?>
+                                <?php $itemValue = (float)($item['_bw_value'] ?? 0); ?>
+                                <div class="bw-item-row">
+                                    <div style="min-width:0;">
+                                        <div class="bw-item-name"><?php echo htmlspecialchars($item['item_name']); ?></div>
+                                        <div class="bw-item-meta">
+                                            <span><?php echo number_format((float)$item['quantity'], 0, ',', '.'); ?> <?php echo htmlspecialchars($item['unit']); ?></span>
+                                            <span>&middot;</span>
+                                            <span><?php echo date('d M Y', strtotime($item['created_at'])); ?></span>
+                                            <?php if (!empty($item['_bw_estimated'])): ?><span class="bw-badge warn">Harga diperkirakan</span><?php endif; ?>
+                                            <?php if ($itemValue <= 0): ?><span class="bw-badge danger">Belum ada harga</span><?php endif; ?>
+                                        </div>
+                                        <?php if ($itemValue <= 0): ?>
+                                        <form method="post" class="bw-price-form">
+                                            <input type="hidden" name="action" value="set_transfer_price">
+                                            <input type="hidden" name="transfer_id" value="<?php echo (int)$item['id']; ?>">
+                                            <input type="text" name="unit_price" placeholder="Harga per unit" required>
+                                            <button type="submit">Simpan</button>
+                                        </form>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div class="bw-item-value">Rp <?php echo number_format($itemValue, 0, ',', '.'); ?></div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </div>
 
-    <div class="bw-section-title hutang">📥 Hutang — Kami Berhutang ke Bisnis Lain</div>
-    <?php if (empty($hutangByPartner)): ?>
-        <div class="bw-empty">Belum ada barang yang kami terima dari bisnis lain.</div>
-    <?php else: ?>
-        <?php foreach ($hutangByPartner as $partner): ?>
-            <div class="bw-partner-card hutang">
-                <div class="bw-partner-header" onclick="this.closest('.bw-partner-card').classList.toggle('open')">
-                    <span class="bw-partner-name"><?php echo htmlspecialchars($partner['name']); ?></span>
-                    <span style="display:flex; align-items:center; gap:0.5rem;">
-                        <span class="bw-partner-total">Rp <?php echo number_format($partner['total'], 0, ',', '.'); ?></span>
-                        <span class="bw-chevron">&#9662;</span>
-                    </span>
-                </div>
-                <div class="bw-partner-items">
-                    <?php foreach ($partner['items'] as $item): ?>
-                        <?php $itemValue = (float)($item['_bw_value'] ?? 0); ?>
-                        <div class="bw-item-row">
-                            <div>
-                                <div class="bw-item-name"><?php echo htmlspecialchars($item['item_name']); ?></div>
-                                <div class="bw-item-meta"><?php echo number_format((float)$item['quantity'], 0, ',', '.'); ?> <?php echo htmlspecialchars($item['unit']); ?> &middot; <?php echo date('d M Y', strtotime($item['created_at'])); ?><?php if (!empty($item['_bw_estimated'])): ?> &middot; <span style="color:#b45309;">harga diperkirakan</span><?php endif; ?></div>
-                                <?php if ($itemValue <= 0): ?>
-                                <form method="post" style="display:flex; align-items:center; gap:0.35rem; margin-top:0.35rem;">
-                                    <input type="hidden" name="action" value="set_transfer_price">
-                                    <input type="hidden" name="transfer_id" value="<?php echo (int)$item['id']; ?>">
-                                    <span style="font-size:0.72rem; color:#b45309;">belum ada harga —</span>
-                                    <input type="text" name="unit_price" placeholder="harga/unit" required style="width:110px; padding:0.2rem 0.4rem; font-size:0.75rem; border:1px solid var(--border-color); border-radius:6px;">
-                                    <button type="submit" style="font-size:0.72rem; padding:0.2rem 0.5rem; border-radius:6px; border:1px solid var(--border-color); background:#f3f4f6; cursor:pointer;">Simpan</button>
-                                </form>
-                                <?php endif; ?>
+        <div>
+            <div class="bw-section-title hutang">📥 Hutang — Kami Berhutang <span class="count"><?php echo count($hutangByPartner); ?> mitra</span></div>
+            <?php if (empty($hutangByPartner)): ?>
+                <div class="bw-empty">Belum ada barang yang kami terima dari bisnis lain.</div>
+            <?php else: ?>
+                <?php foreach ($hutangByPartner as $partner): ?>
+                    <div class="bw-partner-card hutang">
+                        <div class="bw-partner-header" onclick="this.closest('.bw-partner-card').classList.toggle('open')">
+                            <div class="bw-partner-name-wrap">
+                                <div class="bw-partner-avatar"><?php echo htmlspecialchars(strtoupper(substr($partner['name'], 0, 1))); ?></div>
+                                <div class="bw-partner-name">
+                                    <?php echo htmlspecialchars($partner['name']); ?>
+                                    <small><?php echo count($partner['items']); ?> item transfer</small>
+                                </div>
                             </div>
-                            <div class="bw-item-value">Rp <?php echo number_format($itemValue, 0, ',', '.'); ?></div>
+                            <span style="display:flex; align-items:center; gap:0.5rem;">
+                                <span class="bw-partner-total">Rp <?php echo number_format($partner['total'], 0, ',', '.'); ?></span>
+                                <span class="bw-chevron">&#9662;</span>
+                            </span>
                         </div>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-        <?php endforeach; ?>
-    <?php endif; ?>
+                        <div class="bw-partner-items">
+                            <?php foreach ($partner['items'] as $item): ?>
+                                <?php $itemValue = (float)($item['_bw_value'] ?? 0); ?>
+                                <div class="bw-item-row">
+                                    <div style="min-width:0;">
+                                        <div class="bw-item-name"><?php echo htmlspecialchars($item['item_name']); ?></div>
+                                        <div class="bw-item-meta">
+                                            <span><?php echo number_format((float)$item['quantity'], 0, ',', '.'); ?> <?php echo htmlspecialchars($item['unit']); ?></span>
+                                            <span>&middot;</span>
+                                            <span><?php echo date('d M Y', strtotime($item['created_at'])); ?></span>
+                                            <?php if (!empty($item['_bw_estimated'])): ?><span class="bw-badge warn">Harga diperkirakan</span><?php endif; ?>
+                                            <?php if ($itemValue <= 0): ?><span class="bw-badge danger">Belum ada harga</span><?php endif; ?>
+                                        </div>
+                                        <?php if ($itemValue <= 0): ?>
+                                        <form method="post" class="bw-price-form">
+                                            <input type="hidden" name="action" value="set_transfer_price">
+                                            <input type="hidden" name="transfer_id" value="<?php echo (int)$item['id']; ?>">
+                                            <input type="text" name="unit_price" placeholder="Harga per unit" required>
+                                            <button type="submit">Simpan</button>
+                                        </form>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div class="bw-item-value">Rp <?php echo number_format($itemValue, 0, ',', '.'); ?></div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </div>
+    </div>
 </div>
 
 <?php include '../../includes/footer.php'; ?>
