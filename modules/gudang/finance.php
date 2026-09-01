@@ -100,7 +100,40 @@ try {
 }
 $tkbmTotal = array_sum(array_column($tkbmRows, 'total_biaya'));
 
-// 3) Laporan keuangan gudang — ringkasan bulan berjalan
+// 3) Tagihan ke Supplier (uang keluar untuk bayar supplier) — direkap per supplier,
+// dihitung dari barang yang sudah diterima (received_quantity × unit_price), bukan seluruh PO.
+$supplierBillsAgg = [];
+try {
+    $supplierBillsAgg = $db->fetchAll(
+        "SELECT COALESCE(s.supplier_name, '-') AS supplier_name,
+                COUNT(DISTINCT poh.id) AS po_count,
+                COALESCE(SUM(pod.received_quantity * pod.unit_price), 0) AS total_amount
+         FROM purchase_orders_header poh
+         LEFT JOIN suppliers s ON s.id = poh.supplier_id
+         LEFT JOIN purchase_orders_detail pod ON pod.po_header_id = poh.id
+         WHERE poh.status NOT IN ('cancelled', 'draft')
+         GROUP BY poh.supplier_id
+         HAVING total_amount > 0
+         ORDER BY total_amount DESC
+         LIMIT 50"
+    ) ?: [];
+} catch (Throwable $e) {
+    error_log('gudang finance supplier bills: ' . $e->getMessage());
+}
+$supplierBillsTotal = array_sum(array_column($supplierBillsAgg, 'total_amount'));
+// Tandai supplier utama: yang namanya mengandung "jepara", atau kalau tidak ada, supplier dengan tagihan terbesar.
+$mainSupplierIndex = null;
+foreach ($supplierBillsAgg as $i => $sb) {
+    if (stripos($sb['supplier_name'], 'jepara') !== false) {
+        $mainSupplierIndex = $i;
+        break;
+    }
+}
+if ($mainSupplierIndex === null && !empty($supplierBillsAgg)) {
+    $mainSupplierIndex = 0;
+}
+
+// 4) Laporan keuangan gudang — ringkasan bulan berjalan
 $summary = getGudangNasitaFinanceSummary($selectedMonth);
 
 $forceTheme = 'light';
@@ -110,49 +143,54 @@ include __DIR__ . '/../../includes/header.php';
 <style>
     .fin-card {
         border-radius: .75rem;
-        padding: .9rem 1rem;
+        padding: 1rem 1.1rem;
         background: var(--card-bg, #fff);
         border: 1px solid var(--border);
+        box-shadow: 0 1px 2px rgba(16, 24, 40, .04);
     }
 
     .fin-stat {
         border-radius: .65rem;
-        padding: .75rem .9rem;
+        padding: .8rem 1rem;
         background: var(--card-bg, #fff);
         border: 1px solid var(--border);
+        border-left: 3px solid var(--fin-accent, #94a3b8);
     }
 
     .fin-stat-label {
         font-size: .7rem;
         color: var(--text-muted);
-        display: flex;
-        align-items: center;
-        gap: .35rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: .03em;
     }
 
     .fin-stat-value {
-        font-size: 1.15rem;
+        font-size: 1.25rem;
         font-weight: 800;
         color: var(--text-primary);
-        margin-top: .15rem;
+        margin-top: .3rem;
+        line-height: 1.2;
     }
 
     .fin-stat-sub {
-        font-size: .68rem;
+        font-size: .7rem;
         color: var(--text-muted);
-        margin-top: .1rem;
+        margin-top: .3rem;
     }
 
     .fin-dot {
-        width: .5rem;
-        height: .5rem;
+        width: .45rem;
+        height: .45rem;
         border-radius: 50%;
         display: inline-block;
         flex-shrink: 0;
     }
 
     .fin-badge {
-        display: inline-block;
+        display: inline-flex;
+        align-items: center;
+        gap: .3rem;
         padding: .12rem .5rem;
         border-radius: 999px;
         font-size: .68rem;
@@ -160,33 +198,49 @@ include __DIR__ . '/../../includes/header.php';
         background: var(--bg-secondary, #f1f5f9);
         color: var(--text-muted);
         border: 1px solid var(--border);
+        white-space: nowrap;
+    }
+
+    .fin-badge-highlight {
+        background: #fff7ed;
+        color: #c2410c;
+        border-color: #fed7aa;
     }
 
     .fin-table {
         width: 100%;
         border-collapse: collapse;
-        font-size: .83rem;
+        font-size: .82rem;
     }
 
     .fin-table th {
-        font-size: .68rem;
+        font-size: .66rem;
         font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: .05em;
+        letter-spacing: .04em;
         color: var(--text-muted);
-        padding: .4rem .6rem;
+        padding: .4rem .55rem;
         border-bottom: 1px solid var(--border);
         white-space: nowrap;
         text-align: left;
     }
 
     .fin-table td {
-        padding: .45rem .6rem;
+        padding: .45rem .55rem;
         border-bottom: 1px solid var(--border);
+    }
+
+    .fin-table tbody tr:hover td {
+        background: var(--bg-secondary, #f8fafc);
     }
 
     .fin-table tr:last-child td {
         border-bottom: none;
+    }
+
+    .fin-table tfoot td {
+        background: var(--bg-secondary, #f8fafc);
+        font-weight: 700;
     }
 
     .fin-empty {
@@ -197,22 +251,44 @@ include __DIR__ . '/../../includes/header.php';
     }
 
     .fin-section-title {
-        font-size: .9rem;
+        font-size: .88rem;
         font-weight: 700;
         color: var(--text-primary);
-        margin: 0 0 .65rem;
+        margin: 0;
         display: flex;
         align-items: center;
+        gap: .45rem;
+    }
+
+    .fin-section-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
         gap: .5rem;
+        margin-bottom: .75rem;
+    }
+
+    .fin-section-sub {
+        font-size: .74rem;
+        color: var(--text-muted);
+        font-weight: 400;
+        margin: .15rem 0 0 1.35rem;
+    }
+
+    .fin-grid-2 {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+        gap: 1rem;
     }
 </style>
 
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:.75rem;">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap;gap:.75rem;">
     <div>
-        <h2 style="font-size:1.45rem;font-weight:800;margin:0;color:var(--text-primary);display:flex;align-items:center;gap:.6rem;">
+        <h2 style="font-size:1.4rem;font-weight:800;margin:0;color:var(--text-primary);display:flex;align-items:center;gap:.55rem;">
             <i data-feather="dollar-sign"></i> Finance Gudang Nasita
         </h2>
-        <p style="font-size:.85rem;color:var(--text-muted);margin:.25rem 0 0;">Pemasukan dari tagihan bisnis, biaya TKBM, dan laporan keuangan gudang.</p>
+        <p style="font-size:.82rem;color:var(--text-muted);margin:.2rem 0 0;">Pemasukan tagihan bisnis, biaya TKBM, tagihan supplier, dan laporan keuangan gudang.</p>
     </div>
     <form method="GET" style="display:flex;align-items:center;gap:.5rem;">
         <input type="month" name="bulan" value="<?php echo htmlspecialchars($selectedMonth); ?>" class="form-control" style="width:auto;">
@@ -220,27 +296,34 @@ include __DIR__ . '/../../includes/header.php';
     </form>
 </div>
 
-<!-- ── Ringkasan Laporan Keuangan (3) ──────────────────────────────────── -->
-<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.75rem;margin-bottom:1.25rem;">
-    <div class="fin-stat">
-        <div class="fin-stat-label"><span class="fin-dot" style="background:#0f9d6a;"></span> Pemasukan (<?php echo $monthLabel; ?>)</div>
+<!-- ── Ringkasan ──────────────────────────────────────────────────────── -->
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:.75rem;margin-bottom:1.25rem;">
+    <div class="fin-stat" style="--fin-accent:#0f9d6a;">
+        <div class="fin-stat-label">Pemasukan &middot; <?php echo $monthLabel; ?></div>
         <div class="fin-stat-value">Rp <?php echo number_format($summary['income_total'], 0, ',', '.'); ?></div>
-        <div class="fin-stat-sub">Dari tagihan bisnis: Rp <?php echo number_format($summary['income_tagihan'], 0, ',', '.'); ?></div>
+        <div class="fin-stat-sub">Tagihan bisnis: Rp <?php echo number_format($summary['income_tagihan'], 0, ',', '.'); ?></div>
     </div>
-    <div class="fin-stat">
-        <div class="fin-stat-label"><span class="fin-dot" style="background:#e11d48;"></span> Pengeluaran (<?php echo $monthLabel; ?>)</div>
+    <div class="fin-stat" style="--fin-accent:#e11d48;">
+        <div class="fin-stat-label">Pengeluaran &middot; <?php echo $monthLabel; ?></div>
         <div class="fin-stat-value">Rp <?php echo number_format($summary['expense_total'], 0, ',', '.'); ?></div>
         <div class="fin-stat-sub">TKBM: Rp <?php echo number_format($summary['expense_tkbm'], 0, ',', '.'); ?></div>
     </div>
-    <div class="fin-stat">
-        <div class="fin-stat-label"><span class="fin-dot" style="background:#2563eb;"></span> Saldo (<?php echo $monthLabel; ?>)</div>
+    <div class="fin-stat" style="--fin-accent:#d97706;">
+        <div class="fin-stat-label">Tagihan Supplier</div>
+        <div class="fin-stat-value">Rp <?php echo number_format($supplierBillsTotal, 0, ',', '.'); ?></div>
+        <div class="fin-stat-sub">Belum dibayar &middot; semua periode</div>
+    </div>
+    <div class="fin-stat" style="--fin-accent:#2563eb;">
+        <div class="fin-stat-label">Saldo &middot; <?php echo $monthLabel; ?></div>
         <div class="fin-stat-value">Rp <?php echo number_format($summary['saldo'], 0, ',', '.'); ?></div>
         <div class="fin-stat-sub">Pemasukan &minus; Pengeluaran</div>
     </div>
 </div>
 
 <div class="fin-card" style="margin-bottom:1rem;">
-    <h3 class="fin-section-title"><i data-feather="pie-chart"></i> Laporan Keuangan Gudang — Rincian per Kategori</h3>
+    <div class="fin-section-head">
+        <h3 class="fin-section-title"><i data-feather="pie-chart" style="width:16px;height:16px;"></i> Laporan Keuangan Gudang</h3>
+    </div>
     <?php if (empty($summary['by_category'])): ?>
         <div class="fin-empty">Belum ada transaksi pada bulan ini.</div>
     <?php else: ?>
@@ -270,47 +353,94 @@ include __DIR__ . '/../../includes/header.php';
     <?php endif; ?>
 </div>
 
-<!-- ── 1) Uang Masuk dari Bisnis yang Bayar Tagihan ────────────────────── -->
-<div class="fin-card" style="margin-bottom:1rem;">
-    <h3 class="fin-section-title"><i data-feather="arrow-down-circle"></i> Uang Masuk dari Tagihan Bisnis</h3>
-    <?php if (empty($incomeRows)): ?>
-        <div class="fin-empty">Belum ada pembayaran tagihan dari bisnis pada bulan ini. Pembayaran tercatat otomatis saat bisnis membayar tagihan bulanan di menu Tagihan.</div>
-    <?php else: ?>
-        <table class="fin-table">
-            <thead>
-                <tr>
-                    <th>Tanggal</th>
-                    <th>Keterangan</th>
-                    <th style="text-align:right;">Nominal</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($incomeRows as $row): ?>
+<!-- ── Uang Masuk & Uang Keluar berdampingan ────────────────────────────── -->
+<div class="fin-grid-2" style="margin-bottom:1rem;">
+    <div class="fin-card">
+        <div class="fin-section-head">
+            <h3 class="fin-section-title"><i data-feather="arrow-down-circle" style="width:16px;height:16px;color:#0f9d6a;"></i> Uang Masuk — Tagihan Bisnis</h3>
+        </div>
+        <?php if (empty($incomeRows)): ?>
+            <div class="fin-empty">Belum ada pembayaran tagihan dari bisnis pada bulan ini.</div>
+        <?php else: ?>
+            <table class="fin-table">
+                <thead>
                     <tr>
-                        <td><?php echo date('d M Y', strtotime($row['transaction_date'])); ?></td>
-                        <td><?php echo htmlspecialchars($row['description']); ?></td>
-                        <td style="text-align:right;font-weight:700;color:#0f9d6a;">Rp <?php echo number_format((float)$row['amount'], 0, ',', '.'); ?></td>
+                        <th>Tanggal</th>
+                        <th>Keterangan</th>
+                        <th style="text-align:right;">Nominal</th>
                     </tr>
-                <?php endforeach; ?>
-            </tbody>
-            <tfoot>
-                <tr style="font-weight:800;background:#f8fafc;">
-                    <td colspan="2">Total Pemasukan Tagihan</td>
-                    <td style="text-align:right;color:#0f9d6a;">Rp <?php echo number_format($incomeTotal, 0, ',', '.'); ?></td>
-                </tr>
-            </tfoot>
-        </table>
-    <?php endif; ?>
+                </thead>
+                <tbody>
+                    <?php foreach ($incomeRows as $row): ?>
+                        <tr>
+                            <td style="white-space:nowrap;"><?php echo date('d M Y', strtotime($row['transaction_date'])); ?></td>
+                            <td><?php echo htmlspecialchars($row['description']); ?></td>
+                            <td style="text-align:right;font-weight:700;color:#0f9d6a;">Rp <?php echo number_format((float)$row['amount'], 0, ',', '.'); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="2">Total Pemasukan</td>
+                        <td style="text-align:right;color:#0f9d6a;">Rp <?php echo number_format($incomeTotal, 0, ',', '.'); ?></td>
+                    </tr>
+                </tfoot>
+            </table>
+        <?php endif; ?>
+    </div>
+
+    <div class="fin-card">
+        <div class="fin-section-head">
+            <h3 class="fin-section-title"><i data-feather="arrow-up-circle" style="width:16px;height:16px;color:#d97706;"></i> Uang Keluar — Tagihan Supplier</h3>
+            <a href="<?php echo BASE_URL; ?>/modules/procurement/gudang-tagihan.php" class="btn btn-sm btn-secondary">Detail per PO</a>
+        </div>
+        <?php if (empty($supplierBillsAgg)): ?>
+            <div class="fin-empty">Belum ada tagihan supplier.</div>
+        <?php else: ?>
+            <table class="fin-table">
+                <thead>
+                    <tr>
+                        <th>Supplier</th>
+                        <th style="text-align:center;">PO</th>
+                        <th style="text-align:right;">Tagihan</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($supplierBillsAgg as $i => $sb): ?>
+                        <tr>
+                            <td>
+                                <?php echo htmlspecialchars($sb['supplier_name']); ?>
+                                <?php if ($i === $mainSupplierIndex): ?>
+                                    <span class="fin-badge fin-badge-highlight">Supplier Utama</span>
+                                <?php endif; ?>
+                            </td>
+                            <td style="text-align:center;color:#64748b;"><?php echo (int)$sb['po_count']; ?></td>
+                            <td style="text-align:right;font-weight:700;color:#d97706;">Rp <?php echo number_format((float)$sb['total_amount'], 0, ',', '.'); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="2">Total Tagihan Supplier</td>
+                        <td style="text-align:right;color:#d97706;">Rp <?php echo number_format($supplierBillsTotal, 0, ',', '.'); ?></td>
+                    </tr>
+                </tfoot>
+            </table>
+        <?php endif; ?>
+    </div>
 </div>
 
-<!-- ── 2) Pembagian Biaya TKBM ke Finance ───────────────────────────────── -->
+<!-- ── Biaya TKBM ─────────────────────────────────────────────────────── -->
 <div class="fin-card">
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;margin-bottom:.85rem;">
-        <h3 class="fin-section-title" style="margin:0;"><i data-feather="users"></i> Biaya TKBM <span style="font-size:.78rem;color:var(--text-muted);font-weight:400;">(Tenaga Kerja Bongkar Muat — otomatis tercatat sebagai pengeluaran Finance)</span></h3>
+    <div class="fin-section-head">
+        <div>
+            <h3 class="fin-section-title"><i data-feather="users" style="width:16px;height:16px;"></i> Biaya TKBM</h3>
+            <p class="fin-section-sub">Tenaga Kerja Bongkar Muat — otomatis tercatat sebagai pengeluaran Finance</p>
+        </div>
         <button type="button" class="btn btn-sm btn-primary" onclick="document.getElementById('finTkbmForm').style.display='flex'">+ Tambah TKBM</button>
     </div>
 
-    <form id="finTkbmForm" method="POST" style="display:none;gap:.65rem;flex-wrap:wrap;align-items:flex-end;background:#f8fafc;padding:.85rem 1rem;border-radius:.65rem;margin-bottom:1rem;">
+    <form id="finTkbmForm" method="POST" style="display:none;gap:.65rem;flex-wrap:wrap;align-items:flex-end;background:var(--bg-secondary,#f8fafc);padding:.85rem 1rem;border-radius:.65rem;margin-bottom:1rem;">
         <input type="hidden" name="action" value="add_tkbm">
         <div>
             <label class="form-label" style="font-size:.78rem;">Tanggal</label>
@@ -353,7 +483,7 @@ include __DIR__ . '/../../includes/header.php';
             <?php else: foreach ($tkbmRows as $tkbm):
                 $perBisnis = (float)$tkbm['total_biaya'] / max(1, (int)$tkbm['jumlah_bisnis']); ?>
                 <tr>
-                    <td><?php echo date('d M Y', strtotime($tkbm['tanggal'])); ?></td>
+                    <td style="white-space:nowrap;"><?php echo date('d M Y', strtotime($tkbm['tanggal'])); ?></td>
                     <td><?php echo htmlspecialchars($tkbm['keterangan'] ?? '-'); ?></td>
                     <td style="text-align:right;font-weight:700;">Rp <?php echo number_format((float)$tkbm['total_biaya'], 0, ',', '.'); ?></td>
                     <td style="text-align:center;color:#64748b;"><?php echo (int)$tkbm['jumlah_bisnis']; ?> bisnis</td>
@@ -370,7 +500,7 @@ include __DIR__ . '/../../includes/header.php';
         </tbody>
         <?php if ($tkbmTotal > 0): ?>
             <tfoot>
-                <tr style="font-weight:800;background:#f8fafc;">
+                <tr>
                     <td colspan="2">Total TKBM</td>
                     <td style="text-align:right;color:#e11d48;">Rp <?php echo number_format($tkbmTotal, 0, ',', '.'); ?></td>
                     <td colspan="3"></td>
@@ -381,3 +511,4 @@ include __DIR__ . '/../../includes/header.php';
 </div>
 
 <?php include __DIR__ . '/../../includes/footer.php'; ?>
+
