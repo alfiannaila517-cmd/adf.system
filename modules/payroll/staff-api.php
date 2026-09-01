@@ -417,6 +417,20 @@ if ($action === 'stock_business_view') {
     exit;
 }
 
+if ($action === 'stock_po_history') {
+    $targetSlug = strtolower(trim((string)($_GET['slug'] ?? $_POST['slug'] ?? '')));
+    $grant = $staffEmailForStock !== '' ? getStaffStockAccessByEmail($staffEmailForStock) : null;
+
+    if (!$grant || !$grant['can_create_po'] || !in_array($targetSlug, $grant['allowed_businesses'], true)) {
+        echo json_encode(['success' => false, 'message' => 'Tidak ada akses ke histori PO bisnis ini.']);
+        exit;
+    }
+
+    $history = getStaffPoHistory($targetSlug, 30);
+    echo json_encode(['success' => true, 'data' => $history]);
+    exit;
+}
+
 if ($action === 'stock_daily_out_submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $targetSlug = strtolower(trim((string)($_POST['slug'] ?? '')));
     $itemName = trim((string)($_POST['item_name'] ?? ''));

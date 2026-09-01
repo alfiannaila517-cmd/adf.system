@@ -3619,6 +3619,21 @@ header('Expires: 0');
                 </div>
             </div>
 
+            <div class="card" id="stockPoHistoryCard" style="display:none; margin-bottom:10px;">
+                <button type="button" onclick="toggleStockPoHistory()" style="width:100%; background:none; border:none; padding:0; display:flex; justify-content:space-between; align-items:center; cursor:pointer;">
+                    <h4 style="margin:0; font-size:13px;">📜 Histori PO ke Gudang Nasita</h4>
+                    <span id="stockPoHistoryToggleLabel" style="font-size:11px; color:#2563eb; font-weight:600;">Lihat ▾</span>
+                </button>
+                <div id="stockPoHistoryBody" style="display:none; margin-top:8px;">
+                    <div style="text-align:right; margin-bottom:6px;">
+                        <button type="button" onclick="loadStockPoHistory()" style="border:none; background:none; font-size:11px; color:#2563eb;">🔄 Refresh</button>
+                    </div>
+                    <div id="stockPoHistoryList" style="max-height:320px; overflow-y:auto;">
+                        <div style="text-align:center; padding:12px; color:#94a3b8; font-size:11px;">Pilih bisnis dulu di atas.</div>
+                    </div>
+                </div>
+            </div>
+
         </div>
 
         <!-- Bottom Navigation -->
@@ -4032,6 +4047,7 @@ header('Expires: 0');
 
                     document.getElementById('stockOutCard').style.display = STOCK_ACCESS.can_reduce_stock ? 'block' : 'none';
                     document.getElementById('stockPoCard').style.display = STOCK_ACCESS.can_create_po ? 'block' : 'none';
+                    document.getElementById('stockPoHistoryCard').style.display = STOCK_ACCESS.can_create_po ? 'block' : 'none';
                 } else {
                     quickMenuStock.style.display = 'none';
                 }
@@ -4058,6 +4074,12 @@ header('Expires: 0');
             });
         }
 
+        function toggleStockPoHistory() {
+            toggleCollapsibleCard('stockPoHistoryBody', 'stockPoHistoryToggleLabel', function() {
+                loadStockPoHistory();
+            });
+        }
+
         function toggleCollapsibleCard(bodyId, labelId, onFirstOpen) {
             const body = document.getElementById(bodyId);
             const label = document.getElementById(labelId);
@@ -4076,8 +4098,65 @@ header('Expires: 0');
             STOCK_SELECTED_SLUG = document.getElementById('stockBizSelect').value;
             if (STOCK_SELECTED_SLUG) {
                 loadStockBusiness();
+                const historyBody = document.getElementById('stockPoHistoryBody');
+                if (historyBody && historyBody.style.display === 'block') loadStockPoHistory();
             } else {
                 document.getElementById('stockBusinessList').innerHTML = '<div style="text-align:center; padding:12px; color:#94a3b8; font-size:11px;">Pilih bisnis dulu di atas.</div>';
+                document.getElementById('stockPoHistoryList').innerHTML = '<div style="text-align:center; padding:12px; color:#94a3b8; font-size:11px;">Pilih bisnis dulu di atas.</div>';
+            }
+        }
+
+        async function loadStockPoHistory() {
+            const el = document.getElementById('stockPoHistoryList');
+            if (!STOCK_SELECTED_SLUG) {
+                el.innerHTML = '<div style="text-align:center; padding:12px; color:#94a3b8; font-size:11px;">Pilih bisnis dulu di atas.</div>';
+                return;
+            }
+            el.innerHTML = '<div class="loading"><span class="spin"></span> Memuat...</div>';
+            try {
+                const res = await fetch(API + '&action=stock_po_history&slug=' + encodeURIComponent(STOCK_SELECTED_SLUG));
+                const data = await res.json();
+                if (!data.success) {
+                    el.innerHTML = `<div style="color:#ef4444; font-size:11px; text-align:center; padding:10px;">${data.message || 'Gagal memuat'}</div>`;
+                    return;
+                }
+                if (!data.data.length) {
+                    el.innerHTML = '<div style="text-align:center; padding:12px; color:#94a3b8; font-size:11px;">Belum ada PO yang diajukan.</div>';
+                    return;
+                }
+                const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                const statusLabel = {
+                    draft: 'Draft',
+                    submitted: 'Diajukan',
+                    approved: 'Disetujui',
+                    partially_received: 'Sebagian Diterima',
+                    received: 'Diterima',
+                    cancelled: 'Dibatalkan'
+                };
+                el.innerHTML = data.data.map(po => {
+                    const itemsHtml = (po.items || []).map(it => `
+                        <div style="display:flex; justify-content:space-between; font-size:11px; padding:3px 0; border-bottom:1px dashed #f1f5f9;">
+                            <span>${esc(it.item_name)} (${Number(it.quantity).toLocaleString('id-ID')} ${esc(it.unit)})</span>
+                            <span>Rp ${Number(it.subtotal).toLocaleString('id-ID')}</span>
+                        </div>
+                    `).join('');
+                    return `
+                        <div style="border:1px solid #e2e8f0; border-radius:8px; padding:8px 10px; margin-bottom:8px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                                <div style="font-size:12px; font-weight:700;">${esc(po.po_number)}</div>
+                                <span style="font-size:10px; font-weight:600; background:#eff6ff; color:#2563eb; padding:2px 8px; border-radius:6px;">${esc(statusLabel[po.status] || po.status)}</span>
+                            </div>
+                            <div style="font-size:10px; color:#94a3b8; margin-bottom:6px;">${esc(po.po_date)}</div>
+                            ${itemsHtml}
+                            <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:700; margin-top:6px; padding-top:6px; border-top:1px solid #edf1f5;">
+                                <span>Total</span>
+                                <span>Rp ${Number(po.total_amount).toLocaleString('id-ID')}</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (e) {
+                el.innerHTML = '<div style="color:#ef4444; font-size:11px; text-align:center; padding:10px;">Gagal memuat histori PO.</div>';
             }
         }
 

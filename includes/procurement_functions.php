@@ -3708,9 +3708,49 @@ function createStaffPoToGudang($businessSlug, array $items, $notes, $staffLabel)
         $poSeq = $lastPo ? ((int)substr((string)$lastPo['po_number'], -3) + 1) : 1;
         $poNumber = $poPrefix . str_pad((string)$poSeq, 3, '0', STR_PAD_LEFT);
 
+        // Look up each item's current catalog price from Gudang Nasita so the PO
+        // (and every "History Terkirim" view of it) shows a real nominal amount
+        // instead of Rp 0 — staff placing the request never enter a price.
+        $catalogPriceByName = [];
+        try {
+            $gudangCfgPathForPrice = __DIR__ . '/../config/businesses/gudang-nasita.php';
+            if (file_exists($gudangCfgPathForPrice)) {
+                $gudangCfgForPrice = require $gudangCfgPathForPrice;
+                $gudangDbNameForPrice = (string)($gudangCfgForPrice['database'] ?? '');
+                if ($gudangDbNameForPrice !== '') {
+                    $gudangDbForPrice = Database::switchDatabase($gudangDbNameForPrice);
+                    foreach ($validItems as $it) {
+                        $priceRow = $gudangDbForPrice->fetchOne(
+                            'SELECT harga_beli FROM gudang_nasita_barang WHERE LOWER(TRIM(nama_barang)) = LOWER(TRIM(?)) LIMIT 1',
+                            [$it['item_name']]
+                        );
+                        $price = (float)($priceRow['harga_beli'] ?? 0);
+                        if ($price <= 0) {
+                            $stockPriceRow = $gudangDbForPrice->fetchOne(
+                                'SELECT harga_beli FROM gudang_nasita_stock WHERE LOWER(TRIM(item_name)) = LOWER(TRIM(?)) LIMIT 1',
+                                [$it['item_name']]
+                            );
+                            $price = (float)($stockPriceRow['harga_beli'] ?? 0);
+                        }
+                        $catalogPriceByName[strtolower(trim($it['item_name']))] = $price;
+                    }
+                    $db = Database::switchDatabase($bizDbName);
+                }
+            }
+        } catch (Throwable $priceErr) {
+            error_log('createStaffPoToGudang price lookup error: ' . $priceErr->getMessage());
+            $db = Database::switchDatabase($bizDbName);
+        }
+
         $fullNotes = ($notes !== '' ? $notes : 'Permintaan stok dari Staff Portal') . ' (Diajukan oleh: ' . ($staffLabel !== '' ? $staffLabel : 'Staff') . ')';
 
         $db->getConnection()->beginTransaction();
+
+        $totalAmount = 0.0;
+        foreach ($validItems as $it) {
+            $unitPrice = $catalogPriceByName[strtolower(trim($it['item_name']))] ?? 0;
+            $totalAmount += $unitPrice * (float)$it['quantity'];
+        }
 
         $poHeaderId = $db->insert('purchase_orders_header', [
             'business_id' => null,
@@ -3718,7 +3758,7 @@ function createStaffPoToGudang($businessSlug, array $items, $notes, $staffLabel)
             'supplier_id' => (int)$gudangSupplier['id'],
             'po_date' => date('Y-m-d'),
             'status' => 'submitted',
-            'total_amount' => 0,
+            'total_amount' => $totalAmount,
             'notes' => $fullNotes,
             'created_by' => $fallbackUserId,
         ]);
@@ -3733,13 +3773,15 @@ function createStaffPoToGudang($businessSlug, array $items, $notes, $staffLabel)
             : null;
 
         foreach ($validItems as $idx => $it) {
+            $unitPrice = $catalogPriceByName[strtolower(trim($it['item_name']))] ?? 0;
+            $subtotal = $unitPrice * (float)$it['quantity'];
             $detailData = [
                 'po_header_id' => $poHeaderId,
                 'item_name' => $it['item_name'],
                 'unit_of_measure' => $it['unit'],
                 'quantity' => $it['quantity'],
-                'unit_price' => 0,
-                'subtotal' => 0,
+                'unit_price' => $unitPrice,
+                'subtotal' => $subtotal,
                 'received_quantity' => 0,
             ];
             if (in_array('line_number', $detailColNames, true)) {
@@ -3797,6 +3839,86 @@ function createStaffPoToGudang($businessSlug, array $items, $notes, $staffLabel)
         }
         error_log('createStaffPoToGudang error: ' . $e->getMessage());
         return ['success' => false, 'message' => 'Gagal membuat PO: ' . $e->getMessage()];
+    } finally {
+        if ($originDbName !== '') {
+            Database::switchDatabase($originDbName);
+        }
+    }
+}
+
+/**
+ * List Purchase Orders sent to Gudang Nasita for a business, for the Staff
+ * Portal's "Histori PO" card. Each row includes its item list and nominal
+ * totals (unit_price/subtotal), same values shown in the desktop "History
+ * Terkirim" page.
+ *
+ * @return array List of ['po_number','po_date','status','total_amount','items' => [...]]
+ */
+function getStaffPoHistory($businessSlug, $limit = 30)
+{
+    $businessSlug = strtolower(trim((string)$businessSlug));
+    $cfgPath = __DIR__ . '/../config/businesses/' . $businessSlug . '.php';
+    if ($businessSlug === '' || !file_exists($cfgPath)) {
+        return [];
+    }
+
+    $cfg = require $cfgPath;
+    $bizDbName = trim((string)($cfg['database'] ?? ''));
+    if ($bizDbName === '') {
+        return [];
+    }
+
+    $limit = max(1, min(100, (int)$limit));
+    $originDbName = Database::getCurrentDatabase();
+
+    try {
+        Database::switchDatabase($bizDbName);
+        $db = Database::getInstance();
+
+        $gudangSupplier = $db->fetchOne("SELECT id FROM suppliers WHERE LOWER(supplier_name) LIKE '%gudang nasita%' LIMIT 1");
+        if (!$gudangSupplier) {
+            return [];
+        }
+
+        $headers = $db->fetchAll(
+            "SELECT id, po_number, po_date, status, total_amount, created_at
+             FROM purchase_orders_header
+             WHERE supplier_id = ?
+             ORDER BY id DESC
+             LIMIT {$limit}",
+            [(int)$gudangSupplier['id']]
+        ) ?: [];
+
+        $result = [];
+        foreach ($headers as $h) {
+            $items = $db->fetchAll(
+                "SELECT item_name, COALESCE(unit, unit_of_measure) AS unit, quantity, unit_price, subtotal, received_quantity
+                 FROM purchase_orders_detail WHERE po_header_id = ? ORDER BY id ASC",
+                [(int)$h['id']]
+            ) ?: [];
+
+            $result[] = [
+                'po_number' => $h['po_number'],
+                'po_date' => $h['po_date'] ?: $h['created_at'],
+                'status' => $h['status'],
+                'total_amount' => (float)($h['total_amount'] ?? 0),
+                'items' => array_map(function ($it) {
+                    return [
+                        'item_name' => $it['item_name'],
+                        'unit' => $it['unit'] ?: 'pcs',
+                        'quantity' => (float)($it['quantity'] ?? 0),
+                        'unit_price' => (float)($it['unit_price'] ?? 0),
+                        'subtotal' => (float)($it['subtotal'] ?? 0),
+                        'received_quantity' => (float)($it['received_quantity'] ?? 0),
+                    ];
+                }, $items),
+            ];
+        }
+
+        return $result;
+    } catch (Throwable $e) {
+        error_log('getStaffPoHistory error: ' . $e->getMessage());
+        return [];
     } finally {
         if ($originDbName !== '') {
             Database::switchDatabase($originDbName);
