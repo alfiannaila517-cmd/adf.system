@@ -290,11 +290,11 @@ include __DIR__ . '/../../includes/header.php';
         $fmValues = array_map(fn($r) => (float)$r['total_out'], $fastMovingItems);
         $fmColorsUsed = array_slice($fmColors, 0, count($fastMovingItems));
         ?>
-        <div style="display:grid;grid-template-columns:180px 1fr;gap:1.25rem;align-items:center;">
-            <div style="position:relative;height:180px;">
+        <div style="display:grid;grid-template-columns:170px minmax(0,440px);gap:1.5rem;align-items:center;">
+            <div style="position:relative;height:170px;">
                 <canvas id="fastMovingPieChart"></canvas>
             </div>
-            <div style="position:relative;height:180px;">
+            <div style="position:relative;height:170px;">
                 <canvas id="fastMovingBarChart"></canvas>
             </div>
         </div>
@@ -543,14 +543,16 @@ include __DIR__ . '/../../includes/header.php';
                 data: fmValues,
                 backgroundColor: fmColors,
                 borderColor: '#fff',
-                borderWidth: 3,
-                hoverOffset: 4
+                borderWidth: 2,
+                borderRadius: 6,
+                spacing: 3,
+                hoverOffset: 6
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            cutout: '72%',
+            cutout: '52%',
             plugins: {
                 legend: { display: false },
                 tooltip: {
@@ -574,7 +576,9 @@ include __DIR__ . '/../../includes/header.php';
                 data: fmValues,
                 backgroundColor: fmColors,
                 borderRadius: 4,
-                maxBarThickness: 18
+                maxBarThickness: 22,
+                categoryPercentage: 0.55,
+                barPercentage: 0.9
             }]
         },
         options: {
