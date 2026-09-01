@@ -25,6 +25,8 @@ $db = Database::getInstance();
 $currentUser = $auth->getCurrentUser();
 $pageTitle = 'Finance Gudang';
 
+gudangNasitaEnsureAccountingTables($db);
+
 // Make sure cash_book accepts null division/category (same auto-fix used across the app).
 try {
     $db->getConnection()->exec("ALTER TABLE `cash_book` DROP FOREIGN KEY `cash_book_ibfk_3`");

@@ -2782,6 +2782,76 @@ function gudangTagihanEnsurePaymentsTable($gudangDb): void
     }
 }
 
+// Some warehouse-only databases (e.g. Gudang Nasita's production DB) were never provisioned
+// with the standard accounting tables (divisions/categories/cash_book), since the warehouse
+// module was built purely around stock/PO tables. Create them on demand, without foreign
+// keys (this DB is queried cross-business, so FK constraints referencing other DBs would fail).
+function gudangNasitaEnsureAccountingTables($db): void
+{
+    try {
+        $db->query("CREATE TABLE IF NOT EXISTS divisions (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            division_code VARCHAR(20) UNIQUE NOT NULL,
+            division_name VARCHAR(100) NOT NULL,
+            division_type ENUM('income', 'expense', 'both') DEFAULT 'both',
+            description TEXT,
+            is_active TINYINT(1) DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } catch (Throwable $e) {
+    }
+    try {
+        $db->query("CREATE TABLE IF NOT EXISTS categories (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            division_id INT NULL,
+            category_name VARCHAR(100) NOT NULL,
+            category_type ENUM('income', 'expense') NOT NULL,
+            description TEXT,
+            is_active TINYINT(1) DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } catch (Throwable $e) {
+    }
+    try {
+        $db->query("CREATE TABLE IF NOT EXISTS cash_book (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            transaction_date DATE NOT NULL,
+            transaction_time TIME NOT NULL,
+            division_id INT NULL,
+            category_id INT NULL,
+            transaction_type ENUM('income', 'expense') NOT NULL,
+            amount DECIMAL(15,2) NOT NULL,
+            description TEXT,
+            reference_no VARCHAR(50),
+            payment_method VARCHAR(50) DEFAULT 'cash',
+            cash_account_id INT NULL,
+            created_by INT NULL,
+            source_type VARCHAR(50) DEFAULT 'manual',
+            is_editable TINYINT(1) DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_date (transaction_date),
+            INDEX idx_type (transaction_type)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } catch (Throwable $e) {
+    }
+    // Ensure a fallback division exists so category creation never fails on a fresh DB.
+    try {
+        $has = $db->fetchOne('SELECT id FROM divisions LIMIT 1');
+        if (!$has) {
+            $db->insert('divisions', [
+                'division_code' => 'GDN',
+                'division_name' => 'Gudang Nasita',
+                'division_type' => 'both',
+                'description'   => 'Divisi umum Gudang Nasita',
+            ]);
+        }
+    } catch (Throwable $e) {
+    }
+}
+
 // Returns [DatabaseInstance, originDbName, gudangDbName] for Gudang Nasita's own database.
 function gudangTagihanGetGudangDb(): array
 {
@@ -2909,6 +2979,7 @@ function gudangTagihanPayMonthlyBill(string $slug, string $month, int $userId): 
 
     // 1) Expense di buku kas bisnis pembayar, dipotong dari rekening bank bisnis tsb.
     $bizDb = Database::switchDatabase($bizDbName);
+    gudangNasitaEnsureAccountingTables($bizDb);
     try {
         $bizDb->getConnection()->exec("ALTER TABLE `cash_book` DROP FOREIGN KEY `cash_book_ibfk_3`");
     } catch (Throwable $e) {
@@ -2949,6 +3020,7 @@ function gudangTagihanPayMonthlyBill(string $slug, string $month, int $userId): 
 
     // 2) Income di buku kas Gudang Nasita, masuk ke rekening bank Gudang Nasita.
     $gudangDb = Database::switchDatabase($gudangDbName);
+    gudangNasitaEnsureAccountingTables($gudangDb);
     try {
         $gudangDb->getConnection()->exec("ALTER TABLE `cash_book` DROP FOREIGN KEY `cash_book_ibfk_3`");
     } catch (Throwable $e) {
@@ -3067,6 +3139,7 @@ function gudangNasitaTkbmEnsureCashBookColumn($db): void
 function gudangNasitaTkbmAdd(string $tanggal, float $biaya, string $keterangan, int $jumlahBisnis, int $userId): int
 {
     $db = Database::getInstance();
+    gudangNasitaEnsureAccountingTables($db);
     gudangNasitaTkbmEnsureCashBookColumn($db);
 
     $cashBookId = null;
@@ -3154,6 +3227,7 @@ function gudangNasitaTkbmDelete(int $tkbmId): void
 function getGudangNasitaFinanceSummary(string $month): array
 {
     $db = Database::getInstance();
+    gudangNasitaEnsureAccountingTables($db);
     $monthStart = $month . '-01';
     $monthEnd = date('Y-m-t', strtotime($monthStart));
 
