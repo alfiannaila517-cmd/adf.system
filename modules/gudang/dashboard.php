@@ -67,12 +67,14 @@ $fastMovingItems = $db->fetchAll(
      LIMIT 10"
 ) ?: [];
 
-// ── Top 3 bisnis dengan barang masuk terbanyak (dari histori terkirim) ────────
+// ── Top 3 bisnis dengan barang terkirim terbanyak (share 100% dari 3 bisnis) ──
 $topBiz = array_slice($terkirimPerBisnis, 0, 3);
 $topBizColors = ['#0ea5b7', '#8b5cf6', '#e0a020'];
 $topBizLabels = array_map(fn($r) => $r['bisnis'], $topBiz);
 $topBizValues = array_map(fn($r) => (float)$r['total_qty'], $topBiz);
 $topBizColorsUsed = array_slice($topBizColors, 0, count($topBiz));
+$topBizGrandTotal = array_sum($topBizValues);
+$topBizPercents = array_map(fn($v) => $topBizGrandTotal > 0 ? round($v / $topBizGrandTotal * 100, 1) : 0, $topBizValues);
 
 // ── Lonceng PO: PO masuk dari bisnis yang belum diproses gudang ───────────────
 $pendingBusinessPo = [];
@@ -305,7 +307,7 @@ include __DIR__ . '/../../includes/header.php';
                 <canvas id="fastMovingBarChart"></canvas>
             </div>
             <div>
-                <div style="font-size:.66rem;font-weight:700;color:var(--text-muted);text-align:center;margin-bottom:.35rem;">Top 3 Bisnis &middot; Barang Masuk</div>
+                <div style="font-size:.66rem;font-weight:700;color:var(--text-muted);text-align:center;margin-bottom:.35rem;">Top 3 Bisnis &middot; Barang Terkirim</div>
                 <?php if (empty($topBiz)): ?>
                     <div class="gd-fm-empty" style="padding:1.5rem .5rem;font-size:.72rem;">Belum ada data</div>
                 <?php else: ?>
@@ -330,7 +332,7 @@ include __DIR__ . '/../../includes/header.php';
                     <li>
                         <span class="gd-fm-dot" style="background:<?php echo $topBizColorsUsed[$i]; ?>;"></span>
                         <span class="gd-fm-name"><?php echo htmlspecialchars($tb['bisnis']); ?></span>
-                        <span class="gd-fm-value"><?php echo number_format((float)$tb['total_qty'], 0, ',', '.'); ?> qty</span>
+                        <span class="gd-fm-value"><?php echo $topBizPercents[$i]; ?>% &middot; <?php echo number_format((float)$tb['total_qty'], 0, ',', '.'); ?> qty</span>
                     </li>
                 <?php endforeach; ?>
             </ul>
@@ -666,7 +668,11 @@ include __DIR__ . '/../../includes/header.php';
                     padding: 8,
                     bodyFont: { size: 11 },
                     callbacks: {
-                        label: (ctx) => ctx.label + ': ' + ctx.parsed.toLocaleString('id-ID') + ' qty'
+                        label: (ctx) => {
+                            const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                            const pct = total > 0 ? (ctx.parsed / total * 100).toFixed(1) : 0;
+                            return ctx.label + ': ' + pct + '% (' + ctx.parsed.toLocaleString('id-ID') + ' qty)';
+                        }
                     }
                 }
             }
