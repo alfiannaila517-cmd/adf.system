@@ -30,6 +30,17 @@ if (!file_exists($filePath)) {
     die('File tidak ditemukan.');
 }
 
+// Large backups (e.g. Bens Cafe) can take a while to stream out.
+@set_time_limit(300);
+@ini_set('zlib.output_compression', 'Off');
+
+// config.php's global ob_start() (plus session/gzip buffers) can leave extra
+// bytes ahead of the file content, making the real body size no longer match
+// the Content-Length header below -> browser aborts with ERR_INVALID_RESPONSE.
+while (ob_get_level() > 0) {
+    ob_end_clean();
+}
+
 // Force download
 header('Content-Description: File Transfer');
 header('Content-Type: application/sql');
@@ -39,10 +50,6 @@ header('Expires: 0');
 header('Cache-Control: must-revalidate');
 header('Pragma: public');
 header('Content-Length: ' . filesize($filePath));
-
-// Clear output buffer
-ob_clean();
-flush();
 
 // Read file and send to output
 readfile($filePath);
