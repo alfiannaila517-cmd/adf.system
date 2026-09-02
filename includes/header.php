@@ -1433,7 +1433,7 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                                     if (data.success) {
                                         // Redirect to business landing page for clearer workflow
                                         if (businessId === 'gudang-nasita') {
-                                            window.location.href = '<?php echo BASE_URL; ?>/modules/procurement/gudang-nasita.php';
+                                            window.location.href = '<?php echo BASE_URL; ?>/modules/gudang/dashboard.php';
                                         } else {
                                             window.location.href = '<?php echo BASE_URL; ?>/index.php';
                                         }
