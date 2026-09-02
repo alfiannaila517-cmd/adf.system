@@ -120,14 +120,11 @@ try {
             
             // Also reset cash accounting tables in MASTER database
             try {
-                // Connect to master database
+                // Connect to master database (MASTER_DB_NAME already resolves to the correct
+                // per-hosting-account DB name, e.g. adfb2574_adf on the main site - don't
+                // hardcode it, or this breaks on other cPanel deployments like Sunsea).
                 $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : 'adf_system';
-                $isProduction = (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') === false && 
-                                strpos($_SERVER['HTTP_HOST'] ?? '', '127.0.0.1') === false);
-                if ($isProduction) {
-                    $masterDbName = 'adfb2574_adf';
-                }
-                
+
                 $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . $masterDbName, DB_USER, DB_PASS);
                 $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
                 
@@ -407,14 +404,10 @@ try {
                     $tables[] = 'cash_balance';
                 }
                 
-                // Also reset from master database for CQC business
+                // Also reset from master database for CQC business (MASTER_DB_NAME already
+                // resolves to the correct per-hosting-account DB name - don't hardcode it).
                 $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : 'adf_system';
-                $isProduction = (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') === false && 
-                                strpos($_SERVER['HTTP_HOST'] ?? '', '127.0.0.1') === false);
-                if ($isProduction) {
-                    $masterDbName = 'adfb2574_adf';
-                }
-                
+
                 $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . $masterDbName, DB_USER, DB_PASS);
                 $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
                 
@@ -503,8 +496,12 @@ try {
             exit;
     }
     
-    // Filter out empty tables
+    // Filter out empty tables (skip descriptive entries like "cash_book (master db: N records)"
+    // since tableExists() would never match those and silently drop real info from the response).
     $tables = array_filter($tables, function($t) use ($conn) {
+        if (strpos($t, ' ') !== false) {
+            return true;
+        }
         return tableExists($conn, $t);
     });
     
