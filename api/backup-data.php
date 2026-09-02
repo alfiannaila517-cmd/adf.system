@@ -6,6 +6,13 @@ require_once '../includes/business_helper.php';
 
 header('Content-Type: application/json');
 
+// Dumping a full database (esp. one with many rows, e.g. Bens Cafe) can take
+// longer than the default 30s script limit, which previously killed the
+// request mid-write and returned a truncated/empty body ("Unexpected end of
+// JSON input" on the client).
+@set_time_limit(180);
+@ini_set('memory_limit', '512M');
+
 $auth = new Auth();
 $auth->requireLogin();
 
@@ -172,6 +179,9 @@ try {
     fclose($handle);
     
     // Return download URL
+    if (ob_get_level() > 0) {
+        ob_clean();
+    }
     echo json_encode([
         'success' => true,
         'message' => 'Backup berhasil dibuat!',
@@ -179,8 +189,14 @@ try {
         'download_url' => BASE_URL . '/api/download-backup.php?file=' . urlencode($backupFile),
         'file_size' => round(filesize($backupPath) / 1024, 2) . ' KB'
     ]);
-    
-} catch (Exception $e) {
+
+// Catch Throwable (not just Exception) so a fatal/TypeError during the dump
+// still returns valid JSON instead of a blank/HTML body that breaks the
+// frontend's response.json() parsing.
+} catch (Throwable $e) {
+    if (ob_get_level() > 0) {
+        ob_clean();
+    }
     http_response_code(500);
     echo json_encode([
         'success' => false,

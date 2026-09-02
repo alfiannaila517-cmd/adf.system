@@ -25,6 +25,13 @@ $hasProjectModule = in_array('cqc-projects', $businessConfig['enabled_modules'] 
 $isContractor = ($businessConfig['business_type'] ?? '') === 'contractor';
 $isCQC = $hasProjectModule; // Legacy compatibility
 
+// Only show reset options that actually apply to this business, so hotel-only
+// (booking/tamu) or invoice-only checkboxes don't show up for businesses that
+// don't have those modules enabled (e.g. Bens Cafe has no frontdesk module).
+$enabledModules = $businessConfig['enabled_modules'] ?? [];
+$hasFrontdeskModule = in_array('frontdesk', $enabledModules);
+$hasInvoiceModule = in_array('sales', $enabledModules) || in_array('cafe-invoice', $enabledModules) || in_array('sales_invoice', $enabledModules);
+
 include '../../includes/header.php';
 ?>
 
@@ -289,6 +296,7 @@ include '../../includes/header.php';
                 </div>
             </label>
             
+            <?php if ($hasFrontdeskModule): ?>
             <label class="checkbox-label">
                 <input type="checkbox" name="reset_type" value="bookings">
                 <div>
@@ -300,7 +308,9 @@ include '../../includes/header.php';
                     </div>
                 </div>
             </label>
+            <?php endif; ?>
             
+            <?php if ($hasInvoiceModule): ?>
             <label class="checkbox-label">
                 <input type="checkbox" name="reset_type" value="invoices">
                 <div>
@@ -312,6 +322,7 @@ include '../../includes/header.php';
                     </div>
                 </div>
             </label>
+            <?php endif; ?>
             
             <label class="checkbox-label">
                 <input type="checkbox" name="reset_type" value="procurement">
@@ -349,6 +360,7 @@ include '../../includes/header.php';
                 </div>
             </label>
             
+            <?php if ($hasFrontdeskModule): ?>
             <label class="checkbox-label">
                 <input type="checkbox" name="reset_type" value="guests">
                 <div>
@@ -360,6 +372,7 @@ include '../../includes/header.php';
                     </div>
                 </div>
             </label>
+            <?php endif; ?>
             
             <label class="checkbox-label">
                 <input type="checkbox" name="reset_type" value="employees">
@@ -373,17 +386,10 @@ include '../../includes/header.php';
                 </div>
             </label>
             
-            <label class="checkbox-label">
-                <input type="checkbox" name="reset_type" value="users">
-                <div>
-                    <div style="font-weight: 600; font-size: 0.875rem; color: var(--text-primary);">
-                        Data User (kecuali admin)
-                    </div>
-                    <div style="font-size: 0.75rem; color: var(--text-muted);">
-                        Hapus user dengan role non-admin
-                    </div>
-                </div>
-            </label>
+            <!-- 'Data User' checkbox removed: the backend deleted rows from this business'
+                 own local `users` table, which isn't the real shared login table (that lives
+                 in the master DB and is shared across businesses), so it gave a false
+                 "success" without actually resetting any real staff account. -->
             
             <label class="checkbox-label">
                 <input type="checkbox" name="reset_type" value="logs">
