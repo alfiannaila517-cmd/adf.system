@@ -207,6 +207,51 @@ if (isset($_GET['ajax'])) {
         exit;
     }
 
+    // Reset ALL cash transfer history for this business: reverses every
+    // transfer's effect on cash_accounts balances and removes the linked
+    // cash_book rows, same as single delete but looped over every record.
+    if ($_GET['ajax'] === 'reset_all' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        if (!$auth->canDelete('cashbook')) {
+            echo json_encode(['success' => false, 'message' => 'Anda tidak memiliki izin untuk menghapus.']);
+            exit;
+        }
+
+        try {
+            $stmt = $masterDb->prepare("SELECT * FROM cash_transfers WHERE business_id = ?");
+            $stmt->execute([$businessId]);
+            $allTransfers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $masterDb->beginTransaction();
+
+            foreach ($allTransfers as $tr) {
+                $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance + ? WHERE id = ?")
+                    ->execute([$tr['amount'], $tr['cash_account_id']]);
+                $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance - ? WHERE id = ?")
+                    ->execute([$tr['amount'], $tr['bank_account_id']]);
+
+                if (!empty($tr['cash_book_id'])) {
+                    try {
+                        $db->delete('cash_book', 'id = :id', ['id' => $tr['cash_book_id']]);
+                    } catch (Exception $cbEx) {
+                        error_log("cash-transfers.php reset_all: failed removing linked cash_book row: " . $cbEx->getMessage());
+                    }
+                }
+            }
+
+            $masterDb->prepare("DELETE FROM cash_transfers WHERE business_id = ?")->execute([$businessId]);
+
+            $masterDb->commit();
+            echo json_encode(['success' => true, 'message' => '✅ Histori setor tunai berhasil direset (' . count($allTransfers) . ' data dihapus & saldo dikembalikan)']);
+        } catch (Exception $e) {
+            if ($masterDb->inTransaction()) {
+                $masterDb->rollBack();
+            }
+            error_log("cash-transfers.php reset_all error: " . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
+        }
+        exit;
+    }
+
     echo json_encode(['success' => false, 'message' => 'Invalid action']);
     exit;
 }
@@ -716,9 +761,16 @@ include '../../includes/header.php';
                 <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Tracking transfer ke rekening operasional</p>
             </div>
         </div>
-        <a href="add.php" class="btn btn-primary" style="padding: 0.5rem 1rem; font-size: 0.85rem; text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem;">
-            <i data-feather="plus" style="width: 14px; height: 14px;"></i> Setor Tunai Baru
-        </a>
+        <div style="display:flex;gap:0.5rem;">
+            <?php if ($auth->canDelete('cashbook')): ?>
+            <button type="button" onclick="resetHistory()" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; color:#b91c1c; border-color:#fecaca;">
+                🗑️ Reset Histori Setor Tunai
+            </button>
+            <?php endif; ?>
+            <a href="add.php" class="btn btn-primary" style="padding: 0.5rem 1rem; font-size: 0.85rem; text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem;">
+                <i data-feather="plus" style="width: 14px; height: 14px;"></i> Setor Tunai Baru
+            </a>
+        </div>
     </div>
 
     <!-- Quick toggle: Aktif <-> Arsipan (clears date/account filters so archived
@@ -960,6 +1012,21 @@ include '../../includes/header.php';
                     } else {
                         alert('Error: ' + data.message);
                     }
+                })
+                .catch(err => alert('Error: ' + err.message));
+        }
+
+        function resetHistory() {
+            if (!confirm('Reset SEMUA histori Setor Tunai?\n\nSeluruh data setor tunai (aktif maupun arsip) akan DIHAPUS PERMANEN dan saldo kas/bank akan dikembalikan seperti semula. Tindakan ini tidak bisa dibatalkan.')) return;
+            if (!confirm('Konfirmasi sekali lagi: benar-benar ingin menghapus SEMUA histori setor tunai?')) return;
+
+            fetch('cash-transfers.php?ajax=reset_all', {
+                    method: 'POST'
+                })
+                .then(r => r.json())
+                .then(data => {
+                    alert(data.success ? data.message : 'Error: ' + data.message);
+                    if (data.success) location.reload();
                 })
                 .catch(err => alert('Error: ' + err.message));
         }
