@@ -20,6 +20,7 @@ try {
     require_once '../config/database.php';
     require_once '../includes/auth.php';
     require_once '../includes/CashbookHelper.php';
+    require_once '../includes/monthly_bills_migrate.php';
 
     // Start session if needed
     if (session_status() === PHP_SESSION_NONE) {
@@ -36,6 +37,7 @@ try {
 
     $db = Database::getInstance();
     $currentUser = $auth->getCurrentUser();
+    ensureMonthlyBillsTables($db);
 
     // Validate required fields
     $required = ['bill_name', 'bill_month', 'amount'];

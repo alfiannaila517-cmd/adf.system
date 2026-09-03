@@ -31,6 +31,7 @@ try {
     require_once '../config/config.php';
     require_once '../config/database.php';
     require_once '../includes/auth.php';
+    require_once '../includes/monthly_bills_migrate.php';
 
     $auth = new Auth();
     if (!$auth->isLoggedIn()) {
@@ -44,12 +45,9 @@ try {
         throw new Exception('Database connection failed');
     }
 
-    // Test if tables exist before querying
-    try {
-        $db->query("SELECT 1 FROM monthly_bills LIMIT 1")->fetch();
-    } catch (Exception $tableError) {
-        throw new Exception('monthly_bills table does not exist. Please run migrations first.');
-    }
+    // Creates monthly_bills/bill_payments on-demand for businesses that never had them set up
+    ensureMonthlyBillsTables($db);
+
     $month = $_GET['month'] ?? date('Y-m');
     $status = $_GET['status'] ?? null;
     $divisionId = $_GET['division_id'] ?? null;
@@ -79,14 +77,11 @@ try {
             d.division_name,
             c.category_name,
             COUNT(bp.id) as payment_count,
-            SUM(bp.amount) as total_payments,
-            rcb.total_price as trip_total,
-            rcb.hotel_commission as hotel_profit
+            SUM(bp.amount) as total_payments
         FROM monthly_bills mb
         LEFT JOIN divisions d ON mb.division_id = d.id
         LEFT JOIN categories c ON mb.category_id = c.id
         LEFT JOIN bill_payments bp ON mb.id = bp.bill_id
-        LEFT JOIN rental_car_bookings rcb ON mb.source_type = 'driver_trip' AND mb.source_ref_id = rcb.id
         WHERE $whereClause
         GROUP BY mb.id
         ORDER BY mb.bill_month DESC, mb.created_at DESC
@@ -125,10 +120,7 @@ try {
             'due_date' => $bill['due_date'],
             'is_recurring' => (int)$bill['is_recurring'],
             'payment_count' => (int)$bill['payment_count'],
-            'notes' => $bill['notes'],
-            'source_type' => $bill['source_type'] ?? null,
-            'trip_total' => isset($bill['trip_total']) ? (float)$bill['trip_total'] : null,
-            'hotel_profit' => isset($bill['hotel_profit']) ? (float)$bill['hotel_profit'] : null
+            'notes' => $bill['notes']
         ];
     }
 
