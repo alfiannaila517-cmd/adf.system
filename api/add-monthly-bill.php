@@ -58,6 +58,27 @@ try {
     $isRecurring = (int)($_POST['is_recurring'] ?? 0);
     $notes = trim($_POST['notes'] ?? '');
 
+    // Optional per-date item breakdown (e.g. supplier recap) - if given, amount is recomputed from items
+    $items = [];
+    if (!empty($_POST['items'])) {
+        $decoded = json_decode($_POST['items'], true);
+        if (is_array($decoded)) {
+            foreach ($decoded as $it) {
+                $itemAmount = (float)($it['amount'] ?? 0);
+                $itemName = trim($it['item_name'] ?? '');
+                if ($itemName === '' && $itemAmount <= 0) continue;
+                $items[] = [
+                    'item_date' => !empty($it['item_date']) ? $it['item_date'] : null,
+                    'item_name' => $itemName,
+                    'amount' => $itemAmount
+                ];
+            }
+        }
+        if (!empty($items)) {
+            $amount = array_sum(array_column($items, 'amount'));
+        }
+    }
+
     // Validate month format (YYYY-MM)
     if (!preg_match('/^\d{4}-\d{2}$/', $billMonth)) {
         throw new Exception('Month format harus YYYY-MM');
@@ -94,11 +115,20 @@ try {
         throw new Exception('Failed to create bill');
     }
 
+    $newBillId = $db->getConnection()->lastInsertId();
+
+    foreach ($items as $it) {
+        $db->query(
+            "INSERT INTO bill_items (bill_id, item_date, item_name, amount) VALUES (?, ?, ?, ?)",
+            [$newBillId, $it['item_date'], $it['item_name'], $it['amount']]
+        );
+    }
+
     echo json_encode([
         'success' => true,
         'message' => 'Tagihan berhasil dibuat',
         'bill_code' => $billCode,
-        'bill_id' => $db->getConnection()->lastInsertId()
+        'bill_id' => $newBillId
     ]);
 } catch (Exception $e) {
     echo json_encode([

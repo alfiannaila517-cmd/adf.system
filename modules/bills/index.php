@@ -271,6 +271,87 @@ include '../../includes/header.php';
         box-shadow: 0 0 0 3px rgba(13, 31, 60, 0.1);
     }
 
+    .form-group input[readonly] {
+        background: #eef2f9;
+        color: #1e293b;
+        font-weight: 700;
+    }
+
+    .items-section {
+        border: 1px solid #e3e8f3;
+        border-radius: 8px;
+        padding: 10px 12px;
+        background: #fafcff;
+    }
+
+    .bill-items-wrap {
+        margin-top: 4px;
+    }
+
+    .bill-item-row {
+        display: grid;
+        grid-template-columns: 1fr 1.6fr 1fr 30px;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 6px;
+    }
+
+    .bill-item-row-head {
+        margin-bottom: 8px;
+        font-size: 11px;
+        font-weight: 700;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: .3px;
+    }
+
+    .bill-item-row input {
+        width: 100%;
+        padding: 8px 9px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        font-size: 13px;
+        font-family: inherit;
+    }
+
+    .btn-remove-item {
+        width: 26px;
+        height: 26px;
+        border: none;
+        border-radius: 6px;
+        background: #fee2e2;
+        color: #b91c1c;
+        font-weight: 700;
+        cursor: pointer;
+        line-height: 1;
+    }
+
+    .btn-remove-item:hover {
+        background: #fecaca;
+    }
+
+    .btn-add-item {
+        margin-top: 4px;
+        padding: 7px 12px;
+        border: 1px dashed var(--navy);
+        border-radius: 6px;
+        background: #fff;
+        color: var(--navy) !important;
+        font-size: 12.5px;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .btn-add-item:hover {
+        background: #f0f4ff;
+    }
+
+    .bill-items-empty {
+        font-size: 12px;
+        color: #94a3b8;
+        padding: 4px 2px 8px;
+    }
+
     .form-row {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -281,7 +362,7 @@ include '../../includes/header.php';
         width: 100%;
         padding: 12px;
         background: linear-gradient(135deg, var(--navy), var(--navy2));
-        color: white;
+        color: #fff !important;
         border: none;
         border-radius: 8px;
         font-weight: 600;
@@ -291,6 +372,7 @@ include '../../includes/header.php';
     }
 
     .btn-submit:hover {
+        color: #fff !important;
         transform: translateY(-2px);
         box-shadow: 0 6px 14px rgba(13, 31, 60, 0.35);
     }
@@ -1024,6 +1106,10 @@ include '../../includes/header.php';
         padding: 16px;
     }
 
+    .bill-form-modal-sm {
+        width: min(440px, 100%);
+    }
+
     .bill-form-modal-head {
         display: flex;
         justify-content: space-between;
@@ -1133,6 +1219,7 @@ include '../../includes/header.php';
                             class="bill-toolbar-month-input">
                     </div>
                     <button type="button" class="btn-print-all" onclick="printAllBills()">🖨️ Cetak Semua</button>
+                    <button type="button" class="btn-print-all" onclick="openPrintByStoreModal()">🖨️ Cetak per Toko/Minggu</button>
                     <button type="button" class="btn-open-bill-modal" onclick="openBillFormModal()">＋ Tambah Tagihan</button>
                 </div>
             </div>
@@ -1203,12 +1290,26 @@ include '../../includes/header.php';
             </div>
 
             <div class="form-group">
-                <label for="customerName">Nama Customer</label>
+                <label for="customerName">Nama Customer / Toko</label>
                 <input
                     type="text"
                     id="customerName"
                     name="customer_name"
-                    placeholder="Contoh: Bapak Andi (opsional)">
+                    placeholder="Contoh: Toko Sinar Jaya (opsional)">
+            </div>
+
+            <div class="form-group items-section">
+                <label>Item Tagihan (opsional - rincian per tanggal untuk rekap supplier)</label>
+                <div id="billItemsWrap" class="bill-items-wrap">
+                    <div class="bill-item-row bill-item-row-head">
+                        <span>Tanggal</span>
+                        <span>Nama Item</span>
+                        <span>Jumlah (Rp)</span>
+                        <span></span>
+                    </div>
+                    <div id="billItemsRows"></div>
+                </div>
+                <button type="button" class="btn-add-item" onclick="addBillItemRow()">+ Tambah Item</button>
             </div>
 
             <div class="form-row">
@@ -1284,6 +1385,37 @@ include '../../includes/header.php';
 
             <button type="submit" id="billFormSubmitBtn" class="btn-submit">💾 Simpan Tagihan</button>
         </form>
+    </div>
+</div>
+
+<!-- PRINT PER TOKO/MINGGU MODAL -->
+<div id="printStoreModalOverlay" class="bill-form-modal-overlay" onclick="if(event.target===this)closePrintByStoreModal()">
+    <div class="bill-form-modal bill-form-modal-sm">
+        <div class="bill-form-modal-head">
+            <h2>🖨️ Cetak Rekap per Toko</h2>
+            <button type="button" class="bill-form-modal-close" onclick="closePrintByStoreModal()">&times;</button>
+        </div>
+
+        <div id="printStoreMessage"></div>
+
+        <div class="form-group">
+            <label for="printStoreCustomer">Nama Customer / Toko *</label>
+            <input type="text" id="printStoreCustomer" list="customerNameList" placeholder="Contoh: Toko Sinar Jaya">
+            <datalist id="customerNameList"></datalist>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="printStoreFrom">Dari Tanggal *</label>
+                <input type="date" id="printStoreFrom">
+            </div>
+            <div class="form-group">
+                <label for="printStoreTo">Sampai Tanggal *</label>
+                <input type="date" id="printStoreTo">
+            </div>
+        </div>
+
+        <button type="button" class="btn-submit" onclick="submitPrintByStore()">🖨️ Cetak Rekap</button>
     </div>
 </div>
 
@@ -1384,6 +1516,7 @@ include '../../includes/header.php';
         document.getElementById('billFormModalTitle').textContent = '➕ Tambah Tagihan Baru';
         document.getElementById('billFormSubmitBtn').textContent = '💾 Simpan Tagihan';
         document.getElementById('billMonth').valueAsDate = new Date();
+        clearBillItemRows();
         filterBillCategories();
         showBillFormModal();
     }
@@ -1463,6 +1596,69 @@ include '../../includes/header.php';
         el.value = digits ? parseInt(digits, 10).toLocaleString('en-US') : '';
     }
 
+    // BILL ITEMS (per-date rincian, e.g. supplier recap) --------------------
+    function addBillItemRow(itemDate = '', itemName = '', amount = '') {
+        const rowsWrap = document.getElementById('billItemsRows');
+        const row = document.createElement('div');
+        row.className = 'bill-item-row';
+        row.innerHTML = `
+            <input type="date" class="item-date" value="${escHtml(itemDate)}">
+            <input type="text" class="item-name" placeholder="Nama barang/item" value="${escHtml(itemName)}">
+            <input type="text" inputmode="numeric" class="item-amount" placeholder="0" value="${escHtml(amount)}">
+            <button type="button" class="btn-remove-item" onclick="removeBillItemRow(this)">&times;</button>
+        `;
+        rowsWrap.appendChild(row);
+
+        const amountEl = row.querySelector('.item-amount');
+        amountEl.addEventListener('input', () => {
+            formatAmountInput(amountEl);
+            recomputeBillTotal();
+        });
+        recomputeBillTotal();
+    }
+
+    function removeBillItemRow(btn) {
+        btn.closest('.bill-item-row').remove();
+        recomputeBillTotal();
+    }
+
+    function clearBillItemRows() {
+        document.getElementById('billItemsRows').innerHTML = '';
+        recomputeBillTotal();
+    }
+
+    // Sums item rows into the Jumlah field; falls back to manual entry when there are no items
+    function recomputeBillTotal() {
+        const amountRows = document.querySelectorAll('#billItemsRows .item-amount');
+        const amountEl = document.getElementById('amount');
+
+        if (amountRows.length === 0) {
+            amountEl.readOnly = false;
+            return;
+        }
+
+        let total = 0;
+        amountRows.forEach(el => {
+            total += parseInt(el.value.replace(/\D/g, ''), 10) || 0;
+        });
+        amountEl.value = total.toLocaleString('en-US');
+        amountEl.readOnly = true;
+    }
+
+    function collectBillItems() {
+        const rows = document.querySelectorAll('#billItemsRows .bill-item-row');
+        const items = [];
+        rows.forEach(row => {
+            const itemDate = row.querySelector('.item-date').value;
+            const itemName = row.querySelector('.item-name').value.trim();
+            const amount = parseInt(row.querySelector('.item-amount').value.replace(/\D/g, ''), 10) || 0;
+            if (itemName || amount > 0) {
+                items.push({ item_date: itemDate || null, item_name: itemName, amount });
+            }
+        });
+        return items;
+    }
+
     function escHtml(str) {
         return String(str ?? '').replace(/[&<>"']/g, c => ({
             '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -1497,6 +1693,12 @@ include '../../includes/header.php';
         const editBillId = document.getElementById('editBillId').value;
         const formData = new FormData(document.getElementById('billForm'));
         formData.append('business', ACTIVE_BUSINESS);
+
+        const items = collectBillItems();
+        if (items.length > 0) {
+            formData.set('items', JSON.stringify(items));
+        }
+
         if (editBillId) {
             // Unchecked checkboxes are omitted from FormData - force it so "un-recurring" saves correctly
             formData.set('is_recurring', document.getElementById('isRecurring').checked ? '1' : '0');
@@ -1518,6 +1720,7 @@ include '../../includes/header.php';
                 msgEl.innerHTML = `<div class="alert alert-success">✅ ${result.message}${codeSuffix}</div>`;
                 document.getElementById('billForm').reset();
                 document.getElementById('editBillId').value = '';
+                clearBillItemRows();
                 document.getElementById('billMonth').valueAsDate = new Date();
                 filterBillCategories();
                 setTimeout(() => closeBillFormModal(), 900);
@@ -1692,6 +1895,110 @@ include '../../includes/header.php';
                             <td class="right">Rp ${formatNumber(totalRemaining)}</td>
                             <td></td>
                         </tr>
+                    </tfoot>
+                </table>
+            </body>
+            </html>
+        `);
+        win.document.close();
+        win.focus();
+        setTimeout(() => win.print(), 300);
+    }
+
+    // PRINT PER TOKO/MINGGU: recap of dated bill_items for one customer/supplier across a date range
+    function openPrintByStoreModal() {
+        document.getElementById('printStoreMessage').innerHTML = '';
+        document.getElementById('printStoreCustomer').value = '';
+
+        const list = document.getElementById('customerNameList');
+        const names = [...new Set(currentBillsList.map(b => b.customer_name).filter(Boolean))];
+        list.innerHTML = names.map(n => `<option value="${escHtml(n)}">`).join('');
+
+        const today = new Date();
+        const weekAgo = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000);
+        document.getElementById('printStoreFrom').valueAsDate = weekAgo;
+        document.getElementById('printStoreTo').valueAsDate = today;
+
+        document.getElementById('printStoreModalOverlay').style.display = 'flex';
+    }
+
+    function closePrintByStoreModal() {
+        document.getElementById('printStoreModalOverlay').style.display = 'none';
+    }
+
+    async function submitPrintByStore() {
+        const customerName = document.getElementById('printStoreCustomer').value.trim();
+        const from = document.getElementById('printStoreFrom').value;
+        const to = document.getElementById('printStoreTo').value;
+        const msgEl = document.getElementById('printStoreMessage');
+
+        if (!customerName || !from || !to) {
+            msgEl.innerHTML = `<div class="alert alert-error">❌ Nama toko dan rentang tanggal wajib diisi</div>`;
+            return;
+        }
+
+        try {
+            const res = await fetch(
+                BASE_URL + `/api/get-customer-bill-items.php?customer_name=${encodeURIComponent(customerName)}&from=${from}&to=${to}`,
+                { credentials: 'include' }
+            );
+            const data = await res.json();
+            if (!data.success) {
+                msgEl.innerHTML = `<div class="alert alert-error">❌ ${data.message}</div>`;
+                return;
+            }
+            if (data.items.length === 0) {
+                msgEl.innerHTML = `<div class="alert alert-error">❌ Tidak ada item tagihan untuk toko ini pada rentang tanggal tersebut</div>`;
+                return;
+            }
+
+            printCustomerRecap(data);
+            closePrintByStoreModal();
+        } catch (error) {
+            msgEl.innerHTML = `<div class="alert alert-error">❌ Error: ${error.message}</div>`;
+        }
+    }
+
+    function printCustomerRecap(data) {
+        const fromLabel = new Date(data.from).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+        const toLabel = new Date(data.to).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+
+        const rows = data.items.map((it, idx) => `
+            <tr>
+                <td>${idx + 1}</td>
+                <td>${it.item_date ? new Date(it.item_date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</td>
+                <td>${escHtml(it.item_name) || '-'}</td>
+                <td>${escHtml(it.bill_name)}</td>
+                <td class="right">Rp ${formatNumber(it.amount)}</td>
+            </tr>
+        `).join('');
+
+        const win = window.open('', '_blank');
+        win.document.write(`
+            <html>
+            <head>
+                <title>Rekap Tagihan - ${escHtml(data.customer_name)}</title>
+                <style>
+                    body { font-family: Arial, sans-serif; padding: 24px; color: #1a2540; }
+                    h1 { font-size: 18px; margin-bottom: 2px; }
+                    p.sub { margin-top: 0; color: #5a6478; font-size: 12px; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 12px; }
+                    th, td { border: 1px solid #d7dfef; padding: 6px 8px; text-align: left; }
+                    th { background: #f1f5fb; }
+                    td.right, th.right { text-align: right; }
+                    tfoot td { font-weight: 700; background: #f8faff; }
+                </style>
+            </head>
+            <body>
+                <h1>Rekap Tagihan - ${escHtml(data.customer_name)}</h1>
+                <p class="sub">Periode: ${fromLabel} - ${toLabel} &middot; Dicetak: ${new Date().toLocaleString('id-ID')}</p>
+                <table>
+                    <thead>
+                        <tr><th>#</th><th>Tanggal</th><th>Item</th><th>Tagihan</th><th class="right">Jumlah</th></tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                    <tfoot>
+                        <tr><td colspan="4">Total</td><td class="right">Rp ${formatNumber(data.total)}</td></tr>
                     </tfoot>
                 </table>
             </body>
@@ -3042,7 +3349,7 @@ include '../../includes/header.php';
     }
 
     // EDIT BILL (placeholder)
-    function editBill(billId) {
+    async function editBill(billId) {
         const bill = currentBillsList.find(b => b.id === billId);
         if (!bill) {
             alert('Data tagihan tidak ditemukan, silakan muat ulang daftar.');
@@ -3064,6 +3371,21 @@ include '../../includes/header.php';
         document.getElementById('category').value = bill.category_id || '';
         document.getElementById('notes').value = bill.notes || '';
         document.getElementById('isRecurring').checked = bill.is_recurring === 1;
+
+        clearBillItemRows();
+        try {
+            const res = await fetch(BASE_URL + '/api/get-bill-items.php?bill_id=' + encodeURIComponent(bill.id), {
+                credentials: 'include'
+            });
+            const data = await res.json();
+            if (data.success && Array.isArray(data.items)) {
+                data.items.forEach(it => {
+                    addBillItemRow(it.item_date ? it.item_date.slice(0, 10) : '', it.item_name || '', Math.round(it.amount).toLocaleString('en-US'));
+                });
+            }
+        } catch (err) {
+            // No items yet or fetch failed - keep the simple single-amount mode
+        }
 
         showBillFormModal();
     }

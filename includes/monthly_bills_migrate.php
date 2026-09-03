@@ -74,4 +74,22 @@ function ensureMonthlyBillsTables($db)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
     }
+
+    // Per-date line items inside a bill (e.g. supplier recap: multiple deliveries/dates rolled into one bill/toko)
+    $check3 = $pdo->query("SHOW TABLES LIKE 'bill_items'");
+    if ($check3->rowCount() === 0) {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `bill_items` (
+              `id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+              `bill_id` int(11) NOT NULL,
+              `item_date` date DEFAULT NULL,
+              `item_name` varchar(150) DEFAULT NULL,
+              `amount` decimal(12,2) NOT NULL DEFAULT 0.00,
+              `created_at` timestamp DEFAULT CURRENT_TIMESTAMP,
+              FOREIGN KEY (`bill_id`) REFERENCES `monthly_bills`(`id`) ON DELETE CASCADE,
+              KEY `idx_bill_id` (`bill_id`),
+              KEY `idx_item_date` (`item_date`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+    }
 }

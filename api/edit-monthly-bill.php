@@ -9,6 +9,7 @@ define('APP_ACCESS', true);
 require_once '../config/config.php';
 require_once '../config/database.php';
 require_once '../includes/auth.php';
+require_once '../includes/monthly_bills_migrate.php';
 
 ob_start();
 error_reporting(0);
@@ -25,6 +26,7 @@ if (!$auth->isLoggedIn()) {
 }
 
 $db = Database::getInstance();
+ensureMonthlyBillsTables($db);
 
 try {
     $billId = (int)$_POST['bill_id'];
@@ -56,6 +58,30 @@ try {
     if (isset($_POST['amount']) && $_POST['amount'] > 0) {
         $updates[] = "amount = ?";
         $params[] = (float)$_POST['amount'];
+    }
+
+    // Optional per-date item breakdown (e.g. supplier recap) - replaces existing items and recomputes amount
+    $items = null;
+    if (isset($_POST['items'])) {
+        $decoded = json_decode($_POST['items'], true);
+        $items = [];
+        if (is_array($decoded)) {
+            foreach ($decoded as $it) {
+                $itemAmount = (float)($it['amount'] ?? 0);
+                $itemName = trim($it['item_name'] ?? '');
+                if ($itemName === '' && $itemAmount <= 0) continue;
+                $items[] = [
+                    'item_date' => !empty($it['item_date']) ? $it['item_date'] : null,
+                    'item_name' => $itemName,
+                    'amount' => $itemAmount
+                ];
+            }
+        }
+        if (!empty($items)) {
+            // items sum overrides whatever was in the amount field above
+            $updates[] = "amount = ?";
+            $params[] = array_sum(array_column($items, 'amount'));
+        }
     }
 
     if (isset($_POST['bill_month']) && preg_match('/^\d{4}-\d{2}$/', $_POST['bill_month'])) {
@@ -98,6 +124,16 @@ try {
     $result = $db->query($query, $params);
     if (!$result) {
         throw new Exception('Failed to update bill');
+    }
+
+    if ($items !== null) {
+        $db->query("DELETE FROM bill_items WHERE bill_id = ?", [$billId]);
+        foreach ($items as $it) {
+            $db->query(
+                "INSERT INTO bill_items (bill_id, item_date, item_name, amount) VALUES (?, ?, ?, ?)",
+                [$billId, $it['item_date'], $it['item_name'], $it['amount']]
+            );
+        }
     }
 
     echo json_encode([
