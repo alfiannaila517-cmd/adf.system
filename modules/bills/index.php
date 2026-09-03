@@ -1181,12 +1181,12 @@ include '../../includes/header.php';
                 <div class="form-group">
                     <label for="amount">Jumlah (Rp) *</label>
                     <input
-                        type="number"
+                        type="text"
+                        inputmode="numeric"
                         id="amount"
                         name="amount"
-                        placeholder="500000"
-                        min="0"
-                        step="1000"
+                        placeholder="500.000"
+                        oninput="formatAmountInput(this)"
                         required>
                 </div>
             </div>
@@ -1404,6 +1404,12 @@ include '../../includes/header.php';
         }
     }
 
+    // FORMAT "JUMLAH" INPUT WITH THOUSAND SEPARATORS AS THE USER TYPES
+    function formatAmountInput(el) {
+        const digits = el.value.replace(/\D/g, '');
+        el.value = digits ? parseInt(digits, 10).toLocaleString('en-US') : '';
+    }
+
     // SHOW ONLY CATEGORIES BELONGING TO THE SELECTED DIVISION
     function filterBillCategories() {
         const divisionId = document.getElementById('divisionId').value;
@@ -1425,6 +1431,9 @@ include '../../includes/header.php';
     // SUBMIT FORM
     async function submitBill(e) {
         e.preventDefault();
+
+        const amountEl = document.getElementById('amount');
+        amountEl.value = amountEl.value.replace(/\D/g, '');
 
         const formData = new FormData(document.getElementById('billForm'));
         formData.append('business', ACTIVE_BUSINESS);
