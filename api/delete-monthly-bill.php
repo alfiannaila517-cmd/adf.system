@@ -9,6 +9,7 @@ define('APP_ACCESS', true);
 require_once '../config/config.php';
 require_once '../config/database.php';
 require_once '../includes/auth.php';
+require_once '../includes/monthly_bills_migrate.php';
 
 ob_start();
 error_reporting(0);
@@ -25,6 +26,7 @@ if (!$auth->isLoggedIn()) {
 }
 
 $db = Database::getInstance();
+ensureMonthlyBillsTables($db);
 
 try {
     $billId = (int)$_POST['bill_id'];

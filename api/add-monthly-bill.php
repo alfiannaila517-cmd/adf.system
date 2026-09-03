@@ -57,6 +57,7 @@ try {
     $categoryId = (int)($_POST['category_id'] ?? 0);
     $isRecurring = (int)($_POST['is_recurring'] ?? 0);
     $notes = trim($_POST['notes'] ?? '');
+    $bankAccount = trim($_POST['bank_account'] ?? '');
 
     // Optional per-date item breakdown (e.g. supplier recap) - if given, amount is recomputed from items
     $items = [];
@@ -94,8 +95,8 @@ try {
     // Insert into monthly_bills
     $result = $db->query(
         "INSERT INTO monthly_bills 
-        (bill_code, division_id, category_id, bill_name, customer_name, bill_month, amount, due_date, is_recurring, notes, created_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (bill_code, division_id, category_id, bill_name, customer_name, bill_month, amount, due_date, is_recurring, notes, bank_account, created_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         [
             $billCode,
             $divisionId ?: null,
@@ -107,6 +108,7 @@ try {
             $dueDate ?: null,
             $isRecurring,
             $notes,
+            $bankAccount ?: null,
             $currentUser['id']
         ]
     );

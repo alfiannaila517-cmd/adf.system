@@ -33,6 +33,7 @@ function ensureMonthlyBillsTables($db)
               `payment_method` varchar(50) DEFAULT NULL,
               `cash_account_id_source` int(11) DEFAULT NULL,
               `notes` text,
+              `bank_account` varchar(150) DEFAULT NULL,
               `is_recurring` tinyint(1) DEFAULT 0,
               `created_by` int(11),
               `created_at` timestamp DEFAULT CURRENT_TIMESTAMP,
@@ -49,6 +50,12 @@ function ensureMonthlyBillsTables($db)
     $col = $pdo->query("SHOW COLUMNS FROM monthly_bills LIKE 'customer_name'");
     if ($col->rowCount() === 0) {
         $pdo->exec("ALTER TABLE monthly_bills ADD COLUMN `customer_name` varchar(150) DEFAULT NULL AFTER `bill_name`");
+    }
+
+    // Bank account to transfer payment to for this bill (shown on the owner approval PDF)
+    $colBank = $pdo->query("SHOW COLUMNS FROM monthly_bills LIKE 'bank_account'");
+    if ($colBank->rowCount() === 0) {
+        $pdo->exec("ALTER TABLE monthly_bills ADD COLUMN `bank_account` varchar(150) DEFAULT NULL AFTER `notes`");
     }
 
     $check2 = $pdo->query("SHOW TABLES LIKE 'bill_payments'");

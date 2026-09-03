@@ -114,6 +114,11 @@ try {
         $params[] = trim($_POST['notes']);
     }
 
+    if (isset($_POST['bank_account'])) {
+        $updates[] = "bank_account = ?";
+        $params[] = trim($_POST['bank_account']) ?: null;
+    }
+
     if (empty($updates)) {
         throw new Exception('Tidak ada field untuk di-update');
     }

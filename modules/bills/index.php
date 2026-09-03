@@ -21,6 +21,13 @@ $bizConfig = getActiveBusinessConfig();
 $themeColor = $bizConfig['theme']['color_primary'] ?? '#0d1f3c';
 $themeSecondary = $bizConfig['theme']['color_secondary'] ?? '#1e3a5c';
 
+// Correct logo/name of the CURRENTLY ACTIVE business, for the simple bill-approval PDF header
+// (deliberately separate from $driverReceiptMeta below, which is tailored for driver receipts)
+$billPdfMeta = [
+    'companyName' => $bizConfig['name'] ?? 'Perusahaan',
+    'companyLogo' => getBusinessLogo() ?? '',
+];
+
 // Gudang Nasita monthly bill tab is only relevant for businesses that receive stock transfers from Gudang Nasita
 $showGudangBillTab = in_array($bizConfig['business_id'] ?? '', ['bens-cafe', 'eaat-meet', 'narayana-hotel'], true);
 // Bens Cafe / Eat & Meet have no car rental division, so Driver/Motor/Trip tabs don't apply to them
@@ -530,6 +537,17 @@ include '../../includes/header.php';
         background: linear-gradient(135deg, #1e293b, #0f172a);
         color: #fff !important;
         box-shadow: 0 4px 9px rgba(30, 41, 59, 0.32);
+    }
+
+    .btn-delete {
+        background: #fff;
+        color: #dc2626 !important;
+        border-color: #f3c6c6;
+    }
+
+    .btn-delete:hover {
+        background: #fef2f2;
+        border-color: #dc2626;
     }
 
     .tabs {
@@ -1421,6 +1439,15 @@ include '../../includes/header.php';
                 </label>
             </div>
 
+            <div class="form-group">
+                <label for="bankAccount">Nomor Rekening Pembayaran</label>
+                <input
+                    type="text"
+                    id="bankAccount"
+                    name="bank_account"
+                    placeholder="Contoh: BCA 1234567890 a.n. Toko Sinar Jaya (opsional)">
+            </div>
+
             <button type="submit" id="billFormSubmitBtn" class="btn-submit">💾 Simpan Tagihan</button>
         </form>
     </div>
@@ -1527,6 +1554,7 @@ include '../../includes/header.php';
     const ACTIVE_BUSINESS = '<?php echo $_SESSION['active_business_id'] ?? 'narayana-hotel'; ?>';
     let DRIVER_DROP_PARTNER_NAME = <?php echo json_encode($driverDropPartnerName, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE); ?>;
     const DRIVER_RECEIPT_META = <?php echo json_encode($driverReceiptMeta, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE); ?>;
+    const BILL_PDF_META = <?php echo json_encode($billPdfMeta, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE); ?>;
     const CURRENT_STAFF_NAME = <?php echo json_encode($currentUser['full_name'] ?? $currentUser['username'] ?? 'Staff', JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE); ?>;
     // Catalog data for driver split suggestions in edit modal
     window.CATALOG_DATA_BILLS = <?php
@@ -1799,6 +1827,30 @@ include '../../includes/header.php';
         }
     }
 
+    async function deleteBill(billId) {
+        const bill = currentBillsList.find(b => b.id === billId);
+        const label = bill ? `"${bill.bill_name}"` : 'ini';
+        if (!confirm(`Yakin ingin menghapus tagihan ${label}? Tindakan ini tidak bisa dibatalkan.`)) return;
+
+        try {
+            const formData = new FormData();
+            formData.append('bill_id', billId);
+            const response = await fetch(BASE_URL + '/api/delete-monthly-bill.php', {
+                method: 'POST',
+                body: formData,
+                credentials: 'include'
+            });
+            const result = await response.json();
+            if (result.success) {
+                loadBills();
+            } else {
+                alert('❌ ' + result.message);
+            }
+        } catch (error) {
+            alert('❌ Error: ' + error.message);
+        }
+    }
+
     // LOAD BILLS LIST
     let currentBillsList = [];
     async function loadBills() {
@@ -1883,6 +1935,7 @@ include '../../includes/header.php';
                             <button onclick="editBill(${bill.id})" class="btn-action btn-edit">Edit</button>
                             <button onclick="printBillApproval(${bill.id})" class="btn-action btn-print-single" title="Cetak Pengajuan Pembayaran">🖨️ PDF</button>
                             <button onclick="openPayment(${bill.id}, '${bill.bill_name}', ${bill.amount}, ${bill.paid_amount})" class="btn-action btn-pay">Bayar</button>
+                            <button onclick="deleteBill(${bill.id})" class="btn-action btn-delete" title="Hapus Tagihan">🗑️</button>
                         </div>
                     </div>
                 </div>
@@ -2955,13 +3008,8 @@ include '../../includes/header.php';
             // No items breakdown available - fall back to the single bill amount below
         }
 
-        const companyName = DRIVER_RECEIPT_META.companyName || 'Narayana Hotel';
-        const companyTagline = DRIVER_RECEIPT_META.companyTagline || '';
-        const companyAddress = DRIVER_RECEIPT_META.companyAddress || '';
-        const companyPhone = DRIVER_RECEIPT_META.companyPhone || '';
-        const companyEmail = DRIVER_RECEIPT_META.companyEmail || '';
-        const companyWebsite = DRIVER_RECEIPT_META.companyWebsite || '';
-        const logoUrl = resolveAssetUrl(DRIVER_RECEIPT_META.companyLogo || '');
+        const companyName = BILL_PDF_META.companyName || 'Perusahaan';
+        const logoUrl = resolveAssetUrl(BILL_PDF_META.companyLogo || '');
         const monthLabel = bill.bill_month ? new Date(bill.bill_month).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }) : '-';
         const dueLabel = bill.due_date ? new Date(bill.due_date).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : '-';
         const printedAt = formatLongDateTime(new Date().toISOString());
@@ -3028,24 +3076,18 @@ include '../../includes/header.php';
                     }
                     .paper { padding: 20px 24px 28px; }
                     .header {
-                        display: grid;
-                        grid-template-columns: minmax(0, 1fr) 220px;
-                        gap: 14px;
+                        display: flex;
                         align-items: center;
+                        gap: 12px;
                         border-bottom: 1px solid #ccd6e2;
                         padding-bottom: 12px;
                     }
-                    .brand { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 16px; align-items: center; }
-                    .logo { width: 76px; height: 76px; border-radius: 16px; object-fit: contain; background: #fff; border: 1px solid var(--line); padding: 8px; }
-                    .logo-fallback { width: 76px; height: 76px; border-radius: 16px; background: linear-gradient(135deg, #0f172a, #334155); color: #fff; display: flex; align-items: center; justify-content: center; font: 700 20px Arial, sans-serif; }
-                    .brand h1 { margin: 0; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; }
-                    .brand p { margin: 3px 0 0; color: var(--muted); font: 10px/1.55 Arial, sans-serif; }
-                    .doc-meta { min-width: 220px; border-left: 1px solid #d8e1ec; padding: 4px 0 4px 16px; }
-                    .doc-meta .eyebrow { color: var(--muted); font: 700 9px/1 Arial, sans-serif; letter-spacing: 0.22em; text-transform: uppercase; margin-bottom: 5px; }
-                    .doc-meta h2 { margin: 0 0 7px; font-size: 10.5px; line-height: 1.45; letter-spacing: 0.02em; }
-                    .meta-row { display: flex; justify-content: space-between; gap: 8px; margin-top: 5px; font: 10px/1.45 Arial, sans-serif; }
-                    .meta-row strong { text-align: right; }
-                    .meta-row span:first-child { color: var(--muted); }
+                    .logo { width: 48px; height: 48px; border-radius: 10px; object-fit: contain; background: #fff; border: 1px solid var(--line); padding: 5px; }
+                    .logo-fallback { width: 48px; height: 48px; border-radius: 10px; background: linear-gradient(135deg, #0f172a, #334155); color: #fff; display: flex; align-items: center; justify-content: center; font: 700 16px Arial, sans-serif; flex-shrink: 0; }
+                    .header h1 { margin: 0; font-size: 14px; letter-spacing: 0.04em; }
+                    .header p { margin: 2px 0 0; color: var(--muted); font: 700 9px/1 Arial, sans-serif; letter-spacing: 0.2em; text-transform: uppercase; }
+                    .doc-title { text-align: center; margin: 16px 0 4px; font-size: 15px; font-weight: 700; letter-spacing: 0.03em; }
+                    .doc-code { text-align: center; color: var(--muted); font: 10px Arial, sans-serif; margin-bottom: 14px; }
                     .section { margin-top: 18px; }
                     .section-title { font: 700 9px/1 Arial, sans-serif; letter-spacing: 0.24em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
                     .statement { border: 1px solid var(--line); background: linear-gradient(180deg, #fff, #f8fbff); border-radius: 14px; padding: 12px 14px; font: 10px/1.8 Arial, sans-serif; }
@@ -3070,10 +3112,6 @@ include '../../includes/header.php';
                         .toolbar { display: none; }
                         .paper { padding: 0; }
                     }
-                    @media (max-width: 720px) {
-                        .header { grid-template-columns: 1fr; }
-                        .doc-meta { border-left: 0; border-top: 1px solid #d8e1ec; padding: 12px 0 0; }
-                    }
                 </style>
             </head>
             <body>
@@ -3081,23 +3119,15 @@ include '../../includes/header.php';
                     <div class="toolbar"><button class="print-btn" onclick="window.print()">Cetak / Simpan PDF</button></div>
                     <div class="paper">
                         <div class="header">
-                            <div class="brand">
-                                ${logoUrl ? `<img src="${escapeHtml(logoUrl)}" alt="Logo" class="logo">` : `<div class="logo-fallback">${escapeHtml((companyName || 'NH').slice(0, 2).toUpperCase())}</div>`}
-                                <div>
-                                    <h1>${escapeHtml(companyName)}</h1>
-                                    ${companyTagline ? `<p>${escapeHtml(companyTagline)}</p>` : ''}
-                                    ${(companyAddress || companyPhone || companyEmail || companyWebsite) ? `<p>${escapeHtml([companyAddress, companyPhone, companyEmail, companyWebsite].filter(Boolean).join(' | '))}</p>` : ''}
-                                </div>
-                            </div>
-                            <div class="doc-meta">
-                                <div class="eyebrow">Dokumen Pengajuan</div>
-                                <h2>Pengajuan Pembayaran Tagihan</h2>
-                                <div class="meta-row"><span>No. Tagihan</span><strong>${escapeHtml(bill.bill_code)}</strong></div>
-                                <div class="meta-row"><span>Bulan</span><strong>${escapeHtml(monthLabel)}</strong></div>
-                                <div class="meta-row"><span>Jatuh Tempo</span><strong>${escapeHtml(dueLabel)}</strong></div>
-                                <div class="meta-row"><span>Status</span><strong>${escapeHtml(statusLabels[bill.status] || bill.status)}</strong></div>
+                            ${logoUrl ? `<img src="${escapeHtml(logoUrl)}" alt="Logo" class="logo">` : `<div class="logo-fallback">${escapeHtml((companyName || 'PR').slice(0, 2).toUpperCase())}</div>`}
+                            <div>
+                                <h1>${escapeHtml(companyName)}</h1>
+                                <p>Dicetak: ${escapeHtml(printedAt)}</p>
                             </div>
                         </div>
+
+                        <div class="doc-title">Pengajuan Pembayaran Tagihan</div>
+                        <div class="doc-code">No. ${escapeHtml(bill.bill_code)} &middot; Bulan ${escapeHtml(monthLabel)} &middot; Jatuh Tempo ${escapeHtml(dueLabel)} &middot; ${escapeHtml(statusLabels[bill.status] || bill.status)}</div>
 
                         <div class="section">
                             <div class="section-title">Pernyataan</div>
@@ -3116,6 +3146,14 @@ include '../../includes/header.php';
                                 <div class="sub">Sudah dibayar: Rp ${formatNumber(bill.paid_amount)}</div>
                             </div>
                         </div>
+
+                        ${bill.bank_account ? `
+                        <div class="section">
+                            <div class="info-box">
+                                <span class="label">Transfer Pembayaran Ke</span>
+                                <div class="value">${escapeHtml(bill.bank_account)}</div>
+                            </div>
+                        </div>` : ''}
 
                         <div class="section">
                             <div class="section-title">Rincian Tagihan</div>
@@ -3722,6 +3760,7 @@ include '../../includes/header.php';
         document.getElementById('category').value = bill.category_id || '';
         document.getElementById('notes').value = bill.notes || '';
         document.getElementById('isRecurring').checked = bill.is_recurring === 1;
+        document.getElementById('bankAccount').value = bill.bank_account || '';
 
         clearBillItemRows();
         try {
