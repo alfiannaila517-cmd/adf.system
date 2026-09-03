@@ -330,26 +330,44 @@ include '../../includes/header.php';
         background: #fecaca;
     }
 
-    .btn-add-item {
-        margin-top: 4px;
-        padding: 7px 12px;
-        border: 1px dashed var(--navy);
+    .btn-add-item-inline {
+        width: 100%;
+        height: 34px;
+        border: none;
         border-radius: 6px;
-        background: #fff;
-        color: var(--navy) !important;
-        font-size: 12.5px;
+        background: var(--navy);
+        color: #fff !important;
         font-weight: 700;
+        font-size: 16px;
         cursor: pointer;
+        line-height: 1;
     }
 
-    .btn-add-item:hover {
-        background: #f0f4ff;
+    .btn-add-item-inline:hover {
+        background: var(--navy2);
+    }
+
+    .bill-item-entry-row {
+        background: #eef2ff;
+        border-radius: 6px;
+        padding: 6px;
+        margin: 0 0 10px;
     }
 
     .bill-items-empty {
         font-size: 12px;
         color: #94a3b8;
         padding: 4px 2px 8px;
+    }
+
+    .bill-items-total {
+        text-align: right;
+        font-size: 13px;
+        font-weight: 700;
+        color: #1e293b;
+        padding: 6px 2px 0;
+        border-top: 1px dashed #d7def1;
+        margin-top: 4px;
     }
 
     .form-row {
@@ -1218,6 +1236,7 @@ include '../../includes/header.php';
                             onchange="onMonthChange()"
                             class="bill-toolbar-month-input">
                     </div>
+                    <button type="button" class="btn-print-all" onclick="printBillsByCustomer()">🖨️ Cetak per Nama</button>
                     <button type="button" class="btn-print-all" onclick="printAllBills()">🖨️ Cetak Semua</button>
                     <button type="button" class="btn-print-all" onclick="openPrintByStoreModal()">🖨️ Cetak per Toko/Minggu</button>
                     <button type="button" class="btn-open-bill-modal" onclick="openBillFormModal()">＋ Tambah Tagihan</button>
@@ -1307,9 +1326,15 @@ include '../../includes/header.php';
                         <span>Jumlah (Rp)</span>
                         <span></span>
                     </div>
+                    <div class="bill-item-row bill-item-entry-row">
+                        <input type="date" id="itemEntryDate">
+                        <input type="text" id="itemEntryName" placeholder="Nama barang/item" onkeydown="if(event.key==='Enter'){event.preventDefault();addBillItemFromEntry();}">
+                        <input type="text" inputmode="numeric" id="itemEntryAmount" placeholder="0" oninput="formatAmountInput(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();addBillItemFromEntry();}">
+                        <button type="button" class="btn-add-item-inline" onclick="addBillItemFromEntry()" title="Tambah item">+</button>
+                    </div>
                     <div id="billItemsRows"></div>
+                    <div id="billItemsTotal" class="bill-items-total"></div>
                 </div>
-                <button type="button" class="btn-add-item" onclick="addBillItemRow()">+ Tambah Item</button>
             </div>
 
             <div class="form-row">
@@ -1597,6 +1622,7 @@ include '../../includes/header.php';
     }
 
     // BILL ITEMS (per-date rincian, e.g. supplier recap) --------------------
+    // Newly saved items are appended below (rowsWrap.appendChild = bottom), keeping the entry row free at the top for the next one
     function addBillItemRow(itemDate = '', itemName = '', amount = '') {
         const rowsWrap = document.getElementById('billItemsRows');
         const row = document.createElement('div');
@@ -1614,7 +1640,25 @@ include '../../includes/header.php';
             formatAmountInput(amountEl);
             recomputeBillTotal();
         });
+        row.querySelector('.item-name').addEventListener('input', recomputeBillTotal);
         recomputeBillTotal();
+    }
+
+    // Reads the top entry row, drops it into the saved-items list below, then clears the entry row for the next item
+    function addBillItemFromEntry() {
+        const dateEl = document.getElementById('itemEntryDate');
+        const nameEl = document.getElementById('itemEntryName');
+        const amountEl = document.getElementById('itemEntryAmount');
+
+        const itemName = nameEl.value.trim();
+        const amount = amountEl.value.replace(/\D/g, '');
+        if (!itemName && !amount) return;
+
+        addBillItemRow(dateEl.value, itemName, amount);
+
+        nameEl.value = '';
+        amountEl.value = '';
+        nameEl.focus();
     }
 
     function removeBillItemRow(btn) {
@@ -1624,6 +1668,9 @@ include '../../includes/header.php';
 
     function clearBillItemRows() {
         document.getElementById('billItemsRows').innerHTML = '';
+        document.getElementById('itemEntryDate').value = '';
+        document.getElementById('itemEntryName').value = '';
+        document.getElementById('itemEntryAmount').value = '';
         recomputeBillTotal();
     }
 
@@ -1631,9 +1678,11 @@ include '../../includes/header.php';
     function recomputeBillTotal() {
         const amountRows = document.querySelectorAll('#billItemsRows .item-amount');
         const amountEl = document.getElementById('amount');
+        const totalEl = document.getElementById('billItemsTotal');
 
         if (amountRows.length === 0) {
             amountEl.readOnly = false;
+            totalEl.textContent = '';
             return;
         }
 
@@ -1643,6 +1692,7 @@ include '../../includes/header.php';
         });
         amountEl.value = total.toLocaleString('en-US');
         amountEl.readOnly = true;
+        totalEl.textContent = `Total ${amountRows.length} item: Rp ${total.toLocaleString('en-US')}`;
     }
 
     function collectBillItems() {
@@ -1829,6 +1879,81 @@ include '../../includes/header.php';
             console.error('[Bills] Error:', error);
             listEl.innerHTML = `<p style="color: #d32f2f; text-align: center; padding: 20px;">❌ Error: ${error.message}</p>`;
         }
+    }
+
+    // PRINT BILLS GROUPED BY CUSTOMER NAME (respects active month/category/status filter)
+    function printBillsByCustomer() {
+        if (!currentBillsList || currentBillsList.length === 0) {
+            alert('Tidak ada tagihan untuk dicetak. Pilih bulan/kategori yang memiliki data terlebih dahulu.');
+            return;
+        }
+
+        const month = document.getElementById('filterMonth').value;
+        const monthLabel = month ? new Date(month + '-01').toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }) : '-';
+
+        const groups = {};
+        currentBillsList.forEach(bill => {
+            const name = bill.customer_name || 'Tanpa Nama Customer';
+            if (!groups[name]) groups[name] = [];
+            groups[name].push(bill);
+        });
+
+        let grandTotal = 0;
+        const sections = Object.keys(groups).sort().map(name => {
+            const bills = groups[name];
+            let subtotal = 0;
+            const rows = bills.map((bill, idx) => {
+                subtotal += bill.amount;
+                return `
+                    <tr>
+                        <td>${idx + 1}</td>
+                        <td>${escHtml(bill.bill_name)}<br><small>${bill.bill_code}</small></td>
+                        <td class="right">Rp ${formatNumber(bill.amount)}</td>
+                        <td>${bill.status.toUpperCase()}</td>
+                    </tr>
+                `;
+            }).join('');
+            grandTotal += subtotal;
+
+            return `
+                <h2>${escHtml(name)}</h2>
+                <table>
+                    <thead><tr><th>#</th><th>Nama Tagihan</th><th class="right">Jumlah</th><th>Status</th></tr></thead>
+                    <tbody>${rows}</tbody>
+                    <tfoot><tr><td colspan="2">Subtotal</td><td class="right">Rp ${formatNumber(subtotal)}</td><td></td></tr></tfoot>
+                </table>
+            `;
+        }).join('');
+
+        const win = window.open('', '_blank');
+        win.document.write(`
+            <html>
+            <head>
+                <title>Tagihan per Nama Customer - ${monthLabel}</title>
+                <style>
+                    body { font-family: Arial, sans-serif; padding: 24px; color: #1a2540; }
+                    h1 { font-size: 18px; margin-bottom: 2px; }
+                    h2 { font-size: 14px; margin: 22px 0 4px; color: #1e3a8a; }
+                    p.sub { margin-top: 0; color: #5a6478; font-size: 12px; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 12px; }
+                    th, td { border: 1px solid #d7dfef; padding: 6px 8px; text-align: left; }
+                    th { background: #f1f5fb; }
+                    td.right, th.right { text-align: right; }
+                    tfoot td { font-weight: 700; background: #f8faff; }
+                    .grand-total { margin-top: 24px; font-size: 14px; font-weight: 700; text-align: right; }
+                </style>
+            </head>
+            <body>
+                <h1>Tagihan per Nama Customer</h1>
+                <p class="sub">Bulan: ${monthLabel} &middot; Dicetak: ${new Date().toLocaleString('id-ID')}</p>
+                ${sections}
+                <div class="grand-total">Grand Total: Rp ${formatNumber(grandTotal)}</div>
+            </body>
+            </html>
+        `);
+        win.document.close();
+        win.focus();
+        setTimeout(() => win.print(), 300);
     }
 
     // PRINT ALL BILLS CURRENTLY SHOWN IN THE LIST (respects active month/category/status filter)
