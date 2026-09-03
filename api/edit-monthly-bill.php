@@ -58,6 +58,26 @@ try {
         $params[] = (float)$_POST['amount'];
     }
 
+    if (isset($_POST['bill_month']) && preg_match('/^\d{4}-\d{2}$/', $_POST['bill_month'])) {
+        $updates[] = "bill_month = ?";
+        $params[] = $_POST['bill_month'] . '-01';
+    }
+
+    if (isset($_POST['division_id'])) {
+        $updates[] = "division_id = ?";
+        $params[] = (int)$_POST['division_id'] ?: null;
+    }
+
+    if (isset($_POST['category_id'])) {
+        $updates[] = "category_id = ?";
+        $params[] = (int)$_POST['category_id'] ?: null;
+    }
+
+    if (isset($_POST['is_recurring'])) {
+        $updates[] = "is_recurring = ?";
+        $params[] = (int)$_POST['is_recurring'];
+    }
+
     if (isset($_POST['due_date'])) {
         $updates[] = "due_date = ?";
         $params[] = $_POST['due_date'] ?: null;

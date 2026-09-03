@@ -398,12 +398,13 @@ include '../../includes/header.php';
 
     .btn-pay {
         background: linear-gradient(135deg, #16a34a, #15803d);
-        color: #fff;
+        color: #fff !important;
         box-shadow: 0 3px 7px rgba(21, 128, 61, 0.25);
     }
 
     .btn-pay:hover {
         background: linear-gradient(135deg, #15803d, #14672f);
+        color: #fff !important;
         box-shadow: 0 4px 9px rgba(21, 128, 61, 0.32);
     }
 
@@ -1179,17 +1180,18 @@ include '../../includes/header.php';
     </div>
 </div>
 
-<!-- ADD BILL MODAL -->
+<!-- ADD/EDIT BILL MODAL -->
 <div id="billFormModalOverlay" class="bill-form-modal-overlay" onclick="if(event.target===this)closeBillFormModal()">
     <div class="bill-form-modal">
         <div class="bill-form-modal-head">
-            <h2>➕ Tambah Tagihan Baru</h2>
+            <h2 id="billFormModalTitle">➕ Tambah Tagihan Baru</h2>
             <button type="button" class="bill-form-modal-close" onclick="closeBillFormModal()">&times;</button>
         </div>
 
         <div id="formMessage"></div>
 
         <form id="billForm" onsubmit="submitBill(event)">
+            <input type="hidden" id="editBillId" name="bill_id" value="">
             <div class="form-group">
                 <label for="billName">Nama Tagihan *</label>
                 <input
@@ -1280,7 +1282,7 @@ include '../../includes/header.php';
                 </label>
             </div>
 
-            <button type="submit" class="btn-submit">💾 Simpan Tagihan</button>
+            <button type="submit" id="billFormSubmitBtn" class="btn-submit">💾 Simpan Tagihan</button>
         </form>
     </div>
 </div>
@@ -1376,6 +1378,17 @@ include '../../includes/header.php';
     document.getElementById('filterMonth').valueAsDate = new Date();
 
     function openBillFormModal() {
+        // Reset to "add new" mode (editBill() populates fields then calls showBillFormModal directly)
+        document.getElementById('billForm').reset();
+        document.getElementById('editBillId').value = '';
+        document.getElementById('billFormModalTitle').textContent = '➕ Tambah Tagihan Baru';
+        document.getElementById('billFormSubmitBtn').textContent = '💾 Simpan Tagihan';
+        document.getElementById('billMonth').valueAsDate = new Date();
+        filterBillCategories();
+        showBillFormModal();
+    }
+
+    function showBillFormModal() {
         const overlay = document.getElementById('billFormModalOverlay');
         if (!overlay) return;
         overlay.style.display = 'flex';
@@ -1474,17 +1487,24 @@ include '../../includes/header.php';
         }
     }
 
-    // SUBMIT FORM
+    // SUBMIT FORM (add new bill, or update it when editBillId is set)
     async function submitBill(e) {
         e.preventDefault();
 
         const amountEl = document.getElementById('amount');
         amountEl.value = amountEl.value.replace(/\D/g, '');
 
+        const editBillId = document.getElementById('editBillId').value;
         const formData = new FormData(document.getElementById('billForm'));
         formData.append('business', ACTIVE_BUSINESS);
+        if (editBillId) {
+            // Unchecked checkboxes are omitted from FormData - force it so "un-recurring" saves correctly
+            formData.set('is_recurring', document.getElementById('isRecurring').checked ? '1' : '0');
+        }
+
+        const endpoint = editBillId ? '/api/edit-monthly-bill.php' : '/api/add-monthly-bill.php';
         try {
-            const response = await fetch(BASE_URL + '/api/add-monthly-bill.php', {
+            const response = await fetch(BASE_URL + endpoint, {
                 method: 'POST',
                 body: formData,
                 credentials: 'include' // Include cookies for authentication
@@ -1494,8 +1514,10 @@ include '../../includes/header.php';
             const msgEl = document.getElementById('formMessage');
 
             if (result.success) {
-                msgEl.innerHTML = `<div class="alert alert-success">✅ ${result.message} (${result.bill_code})</div>`;
+                const codeSuffix = result.bill_code ? ` (${result.bill_code})` : '';
+                msgEl.innerHTML = `<div class="alert alert-success">✅ ${result.message}${codeSuffix}</div>`;
                 document.getElementById('billForm').reset();
+                document.getElementById('editBillId').value = '';
                 document.getElementById('billMonth').valueAsDate = new Date();
                 filterBillCategories();
                 setTimeout(() => closeBillFormModal(), 900);
@@ -3021,7 +3043,29 @@ include '../../includes/header.php';
 
     // EDIT BILL (placeholder)
     function editBill(billId) {
-        alert(`Edit bill ${billId} - Coming soon!`);
+        const bill = currentBillsList.find(b => b.id === billId);
+        if (!bill) {
+            alert('Data tagihan tidak ditemukan, silakan muat ulang daftar.');
+            return;
+        }
+
+        document.getElementById('billForm').reset();
+        document.getElementById('editBillId').value = bill.id;
+        document.getElementById('billFormModalTitle').textContent = '✏️ Edit Tagihan';
+        document.getElementById('billFormSubmitBtn').textContent = '💾 Simpan Perubahan';
+
+        document.getElementById('billName').value = bill.bill_name || '';
+        document.getElementById('customerName').value = bill.customer_name || '';
+        document.getElementById('billMonth').value = (bill.bill_month || '').slice(0, 7);
+        document.getElementById('amount').value = Math.round(bill.amount).toLocaleString('en-US');
+        document.getElementById('dueDate').value = bill.due_date ? bill.due_date.slice(0, 10) : '';
+        document.getElementById('divisionId').value = bill.division_id || '';
+        filterBillCategories();
+        document.getElementById('category').value = bill.category_id || '';
+        document.getElementById('notes').value = bill.notes || '';
+        document.getElementById('isRecurring').checked = bill.is_recurring === 1;
+
+        showBillFormModal();
     }
 
     // OPEN PAYMENT MODAL
