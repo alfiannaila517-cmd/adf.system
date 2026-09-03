@@ -15,6 +15,7 @@ if (!$auth->isLoggedIn()) {
     header('Location: ../../login.php');
     exit;
 }
+$currentUser = $auth->getCurrentUser();
 
 $bizConfig = getActiveBusinessConfig();
 $themeColor = $bizConfig['theme']['color_primary'] ?? '#0d1f3c';
@@ -517,6 +518,18 @@ include '../../includes/header.php';
     .btn-edit:hover {
         background: #eef2fb;
         border-color: var(--navy);
+    }
+
+    .btn-print-single {
+        background: linear-gradient(135deg, #334155, #1e293b);
+        color: #fff !important;
+        box-shadow: 0 3px 7px rgba(30, 41, 59, 0.25);
+    }
+
+    .btn-print-single:hover {
+        background: linear-gradient(135deg, #1e293b, #0f172a);
+        color: #fff !important;
+        box-shadow: 0 4px 9px rgba(30, 41, 59, 0.32);
     }
 
     .tabs {
@@ -1514,6 +1527,7 @@ include '../../includes/header.php';
     const ACTIVE_BUSINESS = '<?php echo $_SESSION['active_business_id'] ?? 'narayana-hotel'; ?>';
     let DRIVER_DROP_PARTNER_NAME = <?php echo json_encode($driverDropPartnerName, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE); ?>;
     const DRIVER_RECEIPT_META = <?php echo json_encode($driverReceiptMeta, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE); ?>;
+    const CURRENT_STAFF_NAME = <?php echo json_encode($currentUser['full_name'] ?? $currentUser['username'] ?? 'Staff', JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE); ?>;
     // Catalog data for driver split suggestions in edit modal
     window.CATALOG_DATA_BILLS = <?php
                                 try {
@@ -1867,6 +1881,7 @@ include '../../includes/header.php';
                         </div>
                         <div style="margin-top: 6px;">
                             <button onclick="editBill(${bill.id})" class="btn-action btn-edit">Edit</button>
+                            <button onclick="printBillApproval(${bill.id})" class="btn-action btn-print-single" title="Cetak Pengajuan Pembayaran">🖨️ PDF</button>
                             <button onclick="openPayment(${bill.id}, '${bill.bill_name}', ${bill.amount}, ${bill.paid_amount})" class="btn-action btn-pay">Bayar</button>
                         </div>
                     </div>
@@ -2919,6 +2934,217 @@ include '../../includes/header.php';
             hour: '2-digit',
             minute: '2-digit'
         });
+    }
+
+    // PRINT "PENGAJUAN PEMBAYARAN TAGIHAN" - elegant approval document for the owner to sign off on a single bill
+    async function printBillApproval(billId) {
+        const bill = currentBillsList.find(b => b.id === billId);
+        if (!bill) {
+            alert('Data tagihan tidak ditemukan, silakan muat ulang daftar.');
+            return;
+        }
+
+        let items = [];
+        try {
+            const res = await fetch(BASE_URL + '/api/get-bill-items.php?bill_id=' + encodeURIComponent(billId), {
+                credentials: 'include'
+            });
+            const data = await res.json();
+            if (data.success && Array.isArray(data.items)) items = data.items;
+        } catch (err) {
+            // No items breakdown available - fall back to the single bill amount below
+        }
+
+        const companyName = DRIVER_RECEIPT_META.companyName || 'Narayana Hotel';
+        const companyTagline = DRIVER_RECEIPT_META.companyTagline || '';
+        const companyAddress = DRIVER_RECEIPT_META.companyAddress || '';
+        const companyPhone = DRIVER_RECEIPT_META.companyPhone || '';
+        const companyEmail = DRIVER_RECEIPT_META.companyEmail || '';
+        const companyWebsite = DRIVER_RECEIPT_META.companyWebsite || '';
+        const logoUrl = resolveAssetUrl(DRIVER_RECEIPT_META.companyLogo || '');
+        const monthLabel = bill.bill_month ? new Date(bill.bill_month).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }) : '-';
+        const dueLabel = bill.due_date ? new Date(bill.due_date).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : '-';
+        const printedAt = formatLongDateTime(new Date().toISOString());
+        const statusLabels = { pending: 'Belum Dibayar', partial: 'Dibayar Sebagian', paid: 'Lunas', cancelled: 'Dibatalkan' };
+        const statement = `Dengan ini kami mengajukan permohonan persetujuan pembayaran tagihan berikut kepada Owner/Pimpinan untuk direalisasikan.`;
+
+        const itemRows = items.length > 0
+            ? items.map(it => `
+                <tr>
+                    <td>${it.item_date ? new Date(it.item_date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</td>
+                    <td>${escapeHtml(it.item_name) || '-'}</td>
+                    <td>Rp ${formatNumber(it.amount)}</td>
+                </tr>
+            `).join('')
+            : `
+                <tr>
+                    <td>${monthLabel}</td>
+                    <td>${escapeHtml(bill.bill_name)}</td>
+                    <td>Rp ${formatNumber(bill.amount)}</td>
+                </tr>
+            `;
+
+        const printWindow = window.open('', '_blank', 'width=960,height=760');
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <title>Pengajuan Pembayaran - ${escapeHtml(bill.bill_code)}</title>
+                <style>
+                    :root {
+                        --ink: #14213d;
+                        --muted: #64748b;
+                        --line: #dbe4f0;
+                        --soft: #f8fafc;
+                        --accent: #0f172a;
+                        --accent2: #334155;
+                    }
+                    * { box-sizing: border-box; }
+                    body {
+                        margin: 0;
+                        background: #eef3f8;
+                        font-family: Georgia, 'Times New Roman', serif;
+                        color: var(--ink);
+                        padding: 20px;
+                    }
+                    .sheet {
+                        max-width: 760px;
+                        margin: 0 auto;
+                        background: #fff;
+                        border: 1px solid #d6dee8;
+                        box-shadow: 0 14px 32px rgba(15, 23, 42, 0.1);
+                    }
+                    .toolbar { padding: 12px 16px 0; text-align: right; }
+                    .print-btn {
+                        padding: 7px 14px;
+                        border: 0;
+                        border-radius: 999px;
+                        background: linear-gradient(135deg, #1e293b, #334155);
+                        color: #fff;
+                        font: 600 11px Arial, sans-serif;
+                        letter-spacing: 0.03em;
+                        cursor: pointer;
+                    }
+                    .paper { padding: 20px 24px 28px; }
+                    .header {
+                        display: grid;
+                        grid-template-columns: minmax(0, 1fr) 220px;
+                        gap: 14px;
+                        align-items: center;
+                        border-bottom: 1px solid #ccd6e2;
+                        padding-bottom: 12px;
+                    }
+                    .brand { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 16px; align-items: center; }
+                    .logo { width: 76px; height: 76px; border-radius: 16px; object-fit: contain; background: #fff; border: 1px solid var(--line); padding: 8px; }
+                    .logo-fallback { width: 76px; height: 76px; border-radius: 16px; background: linear-gradient(135deg, #0f172a, #334155); color: #fff; display: flex; align-items: center; justify-content: center; font: 700 20px Arial, sans-serif; }
+                    .brand h1 { margin: 0; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; }
+                    .brand p { margin: 3px 0 0; color: var(--muted); font: 10px/1.55 Arial, sans-serif; }
+                    .doc-meta { min-width: 220px; border-left: 1px solid #d8e1ec; padding: 4px 0 4px 16px; }
+                    .doc-meta .eyebrow { color: var(--muted); font: 700 9px/1 Arial, sans-serif; letter-spacing: 0.22em; text-transform: uppercase; margin-bottom: 5px; }
+                    .doc-meta h2 { margin: 0 0 7px; font-size: 10.5px; line-height: 1.45; letter-spacing: 0.02em; }
+                    .meta-row { display: flex; justify-content: space-between; gap: 8px; margin-top: 5px; font: 10px/1.45 Arial, sans-serif; }
+                    .meta-row strong { text-align: right; }
+                    .meta-row span:first-child { color: var(--muted); }
+                    .section { margin-top: 18px; }
+                    .section-title { font: 700 9px/1 Arial, sans-serif; letter-spacing: 0.24em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+                    .statement { border: 1px solid var(--line); background: linear-gradient(180deg, #fff, #f8fbff); border-radius: 14px; padding: 12px 14px; font: 10px/1.8 Arial, sans-serif; }
+                    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+                    .info-box { border: 1px solid var(--line); border-radius: 13px; padding: 12px 14px; background: #fff; }
+                    .info-box .label { display: block; color: var(--muted); font: 700 8.5px/1 Arial, sans-serif; letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 7px; }
+                    .info-box .value { font: 700 11px/1.4 Arial, sans-serif; color: var(--accent); }
+                    .info-box .sub { margin-top: 4px; color: var(--muted); font: 9.5px/1.55 Arial, sans-serif; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 6px; font: 10px/1.5 Arial, sans-serif; }
+                    th, td { border-bottom: 1px solid var(--line); padding: 8px 6px; vertical-align: top; }
+                    th { color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em; font-size: 8.5px; text-align: left; }
+                    td:last-child, th:last-child { text-align: right; }
+                    tfoot td { font-weight: 700; }
+                    .signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; margin-top: 28px; }
+                    .sign-box { text-align: center; }
+                    .sign-title { font: 700 9px/1 Arial, sans-serif; color: var(--muted); text-transform: uppercase; letter-spacing: 0.16em; }
+                    .sign-line { margin-top: 48px; border-top: 1px solid #23324d; padding-top: 6px; font: 700 10px/1.4 Arial, sans-serif; }
+                    .footnote { margin-top: 18px; text-align: center; color: var(--muted); font: italic 9px/1.6 Arial, sans-serif; }
+                    @media print {
+                        body { background: #fff; padding: 0; }
+                        .sheet { box-shadow: none; border: none; max-width: none; }
+                        .toolbar { display: none; }
+                        .paper { padding: 0; }
+                    }
+                    @media (max-width: 720px) {
+                        .header { grid-template-columns: 1fr; }
+                        .doc-meta { border-left: 0; border-top: 1px solid #d8e1ec; padding: 12px 0 0; }
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="sheet">
+                    <div class="toolbar"><button class="print-btn" onclick="window.print()">Cetak / Simpan PDF</button></div>
+                    <div class="paper">
+                        <div class="header">
+                            <div class="brand">
+                                ${logoUrl ? `<img src="${escapeHtml(logoUrl)}" alt="Logo" class="logo">` : `<div class="logo-fallback">${escapeHtml((companyName || 'NH').slice(0, 2).toUpperCase())}</div>`}
+                                <div>
+                                    <h1>${escapeHtml(companyName)}</h1>
+                                    ${companyTagline ? `<p>${escapeHtml(companyTagline)}</p>` : ''}
+                                    ${(companyAddress || companyPhone || companyEmail || companyWebsite) ? `<p>${escapeHtml([companyAddress, companyPhone, companyEmail, companyWebsite].filter(Boolean).join(' | '))}</p>` : ''}
+                                </div>
+                            </div>
+                            <div class="doc-meta">
+                                <div class="eyebrow">Dokumen Pengajuan</div>
+                                <h2>Pengajuan Pembayaran Tagihan</h2>
+                                <div class="meta-row"><span>No. Tagihan</span><strong>${escapeHtml(bill.bill_code)}</strong></div>
+                                <div class="meta-row"><span>Bulan</span><strong>${escapeHtml(monthLabel)}</strong></div>
+                                <div class="meta-row"><span>Jatuh Tempo</span><strong>${escapeHtml(dueLabel)}</strong></div>
+                                <div class="meta-row"><span>Status</span><strong>${escapeHtml(statusLabels[bill.status] || bill.status)}</strong></div>
+                            </div>
+                        </div>
+
+                        <div class="section">
+                            <div class="section-title">Pernyataan</div>
+                            <div class="statement">${escapeHtml(statement)}</div>
+                        </div>
+
+                        <div class="section grid">
+                            <div class="info-box">
+                                <span class="label">Ditagihkan Oleh / Toko</span>
+                                <div class="value">${escapeHtml(bill.customer_name) || escapeHtml(bill.bill_name)}</div>
+                                <div class="sub">${escapeHtml(bill.category_name) || 'Umum'}</div>
+                            </div>
+                            <div class="info-box">
+                                <span class="label">Jumlah Diajukan</span>
+                                <div class="value">Rp ${formatNumber(bill.amount)}</div>
+                                <div class="sub">Sudah dibayar: Rp ${formatNumber(bill.paid_amount)}</div>
+                            </div>
+                        </div>
+
+                        <div class="section">
+                            <div class="section-title">Rincian Tagihan</div>
+                            <table>
+                                <thead><tr><th>Tanggal</th><th>Keterangan</th><th>Jumlah</th></tr></thead>
+                                <tbody>${itemRows}</tbody>
+                                <tfoot><tr><td colspan="2">Total Pengajuan</td><td>Rp ${formatNumber(bill.amount)}</td></tr></tfoot>
+                            </table>
+                        </div>
+
+                        <div class="signatures">
+                            <div class="sign-box">
+                                <div class="sign-title">Diajukan Oleh</div>
+                                <div class="sign-line">${escapeHtml(CURRENT_STAFF_NAME)}</div>
+                            </div>
+                            <div class="sign-box">
+                                <div class="sign-title">Disetujui Oleh (Owner)</div>
+                                <div class="sign-line">&nbsp;</div>
+                            </div>
+                        </div>
+
+                        <div class="footnote">Dokumen ini dicetak dari sistem sebagai bahan pengajuan persetujuan pembayaran tagihan kepada Owner.</div>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.focus();
     }
 
     function printDriverTripReceipt(driverIdx, tripId, source) {
