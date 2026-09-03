@@ -24,6 +24,7 @@ function ensureMonthlyBillsTables($db)
               `division_id` int(11) DEFAULT NULL,
               `category_id` int(11) DEFAULT NULL,
               `bill_name` varchar(100) NOT NULL,
+              `customer_name` varchar(150) DEFAULT NULL,
               `bill_month` date NOT NULL,
               `amount` decimal(12,2) NOT NULL,
               `due_date` date DEFAULT NULL,
@@ -42,6 +43,12 @@ function ensureMonthlyBillsTables($db)
               KEY `idx_category_id` (`category_id`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
+    }
+
+    // monthly_bills created before customer_name existed (e.g. narayana-hotel) needs it added separately
+    $col = $pdo->query("SHOW COLUMNS FROM monthly_bills LIKE 'customer_name'");
+    if ($col->rowCount() === 0) {
+        $pdo->exec("ALTER TABLE monthly_bills ADD COLUMN `customer_name` varchar(150) DEFAULT NULL AFTER `bill_name`");
     }
 
     $check2 = $pdo->query("SHOW TABLES LIKE 'bill_payments'");

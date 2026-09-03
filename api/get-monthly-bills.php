@@ -110,6 +110,7 @@ try {
             'id' => (int)$bill['id'],
             'bill_code' => $bill['bill_code'],
             'bill_name' => $bill['bill_name'],
+            'customer_name' => $bill['customer_name'] ?? null,
             'bill_month' => $bill['bill_month'],
             'amount' => (float)$bill['amount'],
             'paid_amount' => (float)$bill['paid_amount'],

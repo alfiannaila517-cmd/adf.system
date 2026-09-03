@@ -48,6 +48,11 @@ try {
         $params[] = trim($_POST['bill_name']);
     }
 
+    if (isset($_POST['customer_name'])) {
+        $updates[] = "customer_name = ?";
+        $params[] = trim($_POST['customer_name']) ?: null;
+    }
+
     if (isset($_POST['amount']) && $_POST['amount'] > 0) {
         $updates[] = "amount = ?";
         $params[] = (float)$_POST['amount'];

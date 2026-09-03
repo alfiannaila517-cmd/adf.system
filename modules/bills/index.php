@@ -385,31 +385,37 @@ include '../../includes/header.php';
     }
 
     .btn-action {
-        padding: 4px 9px;
+        padding: 5px 11px;
         margin-left: 5px;
-        border: none;
-        border-radius: 4px;
+        border: 1px solid transparent;
+        border-radius: 5px;
         cursor: pointer;
         font-size: 10.5px;
-        font-weight: 600;
+        font-weight: 700;
+        letter-spacing: .1px;
+        transition: all .15s ease;
     }
 
     .btn-pay {
-        background: #22c55e;
-        color: white;
+        background: linear-gradient(135deg, #16a34a, #15803d);
+        color: #fff;
+        box-shadow: 0 3px 7px rgba(21, 128, 61, 0.25);
     }
 
     .btn-pay:hover {
-        background: #16a34a;
+        background: linear-gradient(135deg, #15803d, #14672f);
+        box-shadow: 0 4px 9px rgba(21, 128, 61, 0.32);
     }
 
     .btn-edit {
-        background: var(--navy);
-        color: #fff;
+        background: #fff;
+        color: var(--navy);
+        border-color: #c9d3e6;
     }
 
     .btn-edit:hover {
-        background: var(--navy2);
+        background: #eef2fb;
+        border-color: var(--navy);
     }
 
     .tabs {
@@ -976,6 +982,26 @@ include '../../includes/header.php';
         box-shadow: 0 8px 14px rgba(13, 31, 60, 0.26);
     }
 
+    .btn-print-all {
+        width: auto;
+        min-width: 120px;
+        padding: 8px 12px;
+        border: 1px solid #c9d3e6;
+        border-radius: 8px;
+        background: #fff;
+        color: #334155 !important;
+        font-size: 11px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all .2s ease;
+    }
+
+    .btn-print-all:hover {
+        background: #eef2fb;
+        border-color: var(--navy);
+        color: var(--navy) !important;
+    }
+
     .bill-form-modal-overlay {
         position: fixed;
         inset: 0;
@@ -1055,6 +1081,10 @@ include '../../includes/header.php';
             width: 100%;
         }
 
+        .btn-print-all {
+            width: 100%;
+        }
+
         .form-row {
             grid-template-columns: 1fr;
         }
@@ -1101,6 +1131,7 @@ include '../../includes/header.php';
                             onchange="onMonthChange()"
                             class="bill-toolbar-month-input">
                     </div>
+                    <button type="button" class="btn-print-all" onclick="printAllBills()">🖨️ Cetak Semua</button>
                     <button type="button" class="btn-open-bill-modal" onclick="openBillFormModal()">＋ Tambah Tagihan</button>
                 </div>
             </div>
@@ -1167,6 +1198,15 @@ include '../../includes/header.php';
                     name="bill_name"
                     placeholder="Contoh: Listrik, Air, Gaji, Sewa"
                     required>
+            </div>
+
+            <div class="form-group">
+                <label for="customerName">Nama Customer</label>
+                <input
+                    type="text"
+                    id="customerName"
+                    name="customer_name"
+                    placeholder="Contoh: Bapak Andi (opsional)">
             </div>
 
             <div class="form-row">
@@ -1410,6 +1450,12 @@ include '../../includes/header.php';
         el.value = digits ? parseInt(digits, 10).toLocaleString('en-US') : '';
     }
 
+    function escHtml(str) {
+        return String(str ?? '').replace(/[&<>"']/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[c]));
+    }
+
     // SHOW ONLY CATEGORIES BELONGING TO THE SELECTED DIVISION
     function filterBillCategories() {
         const divisionId = document.getElementById('divisionId').value;
@@ -1465,6 +1511,7 @@ include '../../includes/header.php';
     }
 
     // LOAD BILLS LIST
+    let currentBillsList = [];
     async function loadBills() {
         const month = document.getElementById('filterMonth').value;
         const listEl = document.getElementById('billsList');
@@ -1517,19 +1564,23 @@ include '../../includes/header.php';
 
             if (filtered.length === 0) {
                 listEl.innerHTML = `<p style="color: #999; text-align: center; padding: 40px;">Tidak ada tagihan dengan status ini</p>`;
+                currentBillsList = [];
                 return;
             }
+
+            currentBillsList = filtered;
 
             let html = '';
             filtered.forEach(bill => {
                 const statusClass = `status-${bill.status}`;
                 const progress = bill.amount > 0 ? Math.round((bill.paid_amount / bill.amount) * 100) : 0;
+                const customerLine = bill.customer_name ? `${escHtml(bill.customer_name)} &middot; ` : '';
 
                 html += `
                 <div class="bill-row">
                     <div class="bill-info">
-                        <h4>${bill.bill_name} <small>(${bill.bill_code})</small></h4>
-                        <p>${bill.category_name || 'Umum'} &middot; Rp ${formatNumber(bill.paid_amount)} / Rp ${formatNumber(bill.amount)}</p>
+                        <h4>${escHtml(bill.bill_name)} <small>(${bill.bill_code})</small></h4>
+                        <p>${customerLine}${escHtml(bill.category_name) || 'Umum'} &middot; Rp ${formatNumber(bill.paid_amount)} / Rp ${formatNumber(bill.amount)}</p>
                         <div style="margin-top: 4px; background: #dfe4f0; height: 4px; border-radius: 3px; overflow: hidden; width: 100%;">
                             <div style="background: var(--navy); height: 100%; width: ${progress}%;"></div>
                         </div>
@@ -1553,6 +1604,80 @@ include '../../includes/header.php';
             console.error('[Bills] Error:', error);
             listEl.innerHTML = `<p style="color: #d32f2f; text-align: center; padding: 20px;">❌ Error: ${error.message}</p>`;
         }
+    }
+
+    // PRINT ALL BILLS CURRENTLY SHOWN IN THE LIST (respects active month/category/status filter)
+    function printAllBills() {
+        if (!currentBillsList || currentBillsList.length === 0) {
+            alert('Tidak ada tagihan untuk dicetak. Pilih bulan/kategori yang memiliki data terlebih dahulu.');
+            return;
+        }
+
+        const month = document.getElementById('filterMonth').value;
+        const monthLabel = month ? new Date(month + '-01').toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }) : '-';
+
+        let totalAmount = 0, totalPaid = 0;
+        const rows = currentBillsList.map((bill, idx) => {
+            totalAmount += bill.amount;
+            totalPaid += bill.paid_amount;
+            return `
+                <tr>
+                    <td>${idx + 1}</td>
+                    <td>${escHtml(bill.bill_name)}<br><small>${bill.bill_code}</small></td>
+                    <td>${escHtml(bill.customer_name) || '-'}</td>
+                    <td>${escHtml(bill.category_name) || 'Umum'}</td>
+                    <td class="right">Rp ${formatNumber(bill.amount)}</td>
+                    <td class="right">Rp ${formatNumber(bill.paid_amount)}</td>
+                    <td class="right">Rp ${formatNumber(bill.amount - bill.paid_amount)}</td>
+                    <td>${bill.status.toUpperCase()}</td>
+                </tr>
+            `;
+        }).join('');
+        const totalRemaining = totalAmount - totalPaid;
+
+        const win = window.open('', '_blank');
+        win.document.write(`
+            <html>
+            <head>
+                <title>Daftar Tagihan - ${monthLabel}</title>
+                <style>
+                    body { font-family: Arial, sans-serif; padding: 24px; color: #1a2540; }
+                    h1 { font-size: 18px; margin-bottom: 2px; }
+                    p.sub { margin-top: 0; color: #5a6478; font-size: 12px; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 12px; }
+                    th, td { border: 1px solid #d7dfef; padding: 6px 8px; text-align: left; }
+                    th { background: #f1f5fb; }
+                    td.right, th.right { text-align: right; }
+                    tfoot td { font-weight: 700; background: #f8faff; }
+                </style>
+            </head>
+            <body>
+                <h1>Daftar Tagihan Manual</h1>
+                <p class="sub">Bulan: ${monthLabel} &middot; Dicetak: ${new Date().toLocaleString('id-ID')}</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th><th>Nama Tagihan</th><th>Customer</th><th>Kategori</th>
+                            <th class="right">Jumlah</th><th class="right">Terbayar</th><th class="right">Sisa</th><th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="4">Total</td>
+                            <td class="right">Rp ${formatNumber(totalAmount)}</td>
+                            <td class="right">Rp ${formatNumber(totalPaid)}</td>
+                            <td class="right">Rp ${formatNumber(totalRemaining)}</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </body>
+            </html>
+        `);
+        win.document.close();
+        win.focus();
+        setTimeout(() => win.print(), 300);
     }
 
     // LOAD DRIVER/MITRA RECAP (Tagihan Driver tab)

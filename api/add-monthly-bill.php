@@ -49,6 +49,7 @@ try {
 
     // Get POST data
     $billName = trim($_POST['bill_name']);
+    $customerName = trim($_POST['customer_name'] ?? '');
     $billMonth = $_POST['bill_month']; // Format: 2026-04
     $amount = (float)$_POST['amount'];
     $dueDate = $_POST['due_date'] ?? null;
@@ -72,13 +73,14 @@ try {
     // Insert into monthly_bills
     $result = $db->query(
         "INSERT INTO monthly_bills 
-        (bill_code, division_id, category_id, bill_name, bill_month, amount, due_date, is_recurring, notes, created_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (bill_code, division_id, category_id, bill_name, customer_name, bill_month, amount, due_date, is_recurring, notes, created_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         [
             $billCode,
             $divisionId ?: null,
             $categoryId ?: null,
             $billName,
+            $customerName ?: null,
             $billMonthDate,
             $amount,
             $dueDate ?: null,
