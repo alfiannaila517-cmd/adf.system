@@ -239,6 +239,16 @@ class EmailHelper
         ];
     }
 
+    public function deleteMessage(int $uid): void
+    {
+        $msgno = imap_msgno($this->conn, $uid);
+        if (!$msgno) {
+            throw new RuntimeException('Email tidak ditemukan.');
+        }
+        imap_delete($this->conn, (string)$msgno);
+        imap_expunge($this->conn);
+    }
+
     private function getBody($msgno, $structure): array
     {
         $html = '';

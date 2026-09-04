@@ -37,6 +37,17 @@ $emailConfig = EmailHelper::resolveConfig($db);
 if ($emailConfig === null) {
     $errorMsg = 'Pengaturan email belum diisi. Buka menu Pengaturan Email untuk mengisi host, user dan password.';
 } else {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete') {
+        try {
+            $emailHelper = new EmailHelper($emailConfig);
+            $emailHelper->deleteMessage($uid);
+            header('Location: ' . BASE_URL . '/modules/email/index.php');
+            exit;
+        } catch (Throwable $e) {
+            $errorMsg = 'Gagal menghapus email: ' . $e->getMessage();
+        }
+    }
+
     try {
         $emailHelper = new EmailHelper($emailConfig);
         $mail = $emailHelper->getMessageByUid($uid);
@@ -125,9 +136,13 @@ include '../../includes/header.php';
                 <pre style="white-space: pre-wrap; font-family: inherit; font-size: 0.9rem; color: #1e293b;"><?php echo htmlspecialchars($mail['body_plain']); ?></pre>
             <?php endif; ?>
 
-            <div style="margin-top:16px;padding-top:14px;border-top:1px solid #eef2f7;">
+            <div style="margin-top:16px;padding-top:14px;border-top:1px solid #eef2f7;display:flex;gap:10px;">
                 <a href="<?php echo BASE_URL; ?>/modules/email/compose.php?reply_uid=<?php echo (int)$uid; ?>"
                    style="text-decoration:none;padding:8px 18px;background:#1e3a8a;color:#fff;border-radius:6px;font-size:0.85rem;font-weight:600;">&#8617; Balas</a>
+                <form method="post" onsubmit="return confirm('Hapus email ini?');" style="margin:0;">
+                    <input type="hidden" name="action" value="delete">
+                    <button type="submit" style="padding:8px 18px;background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:6px;font-size:0.85rem;font-weight:600;cursor:pointer;">&#128465; Hapus</button>
+                </form>
             </div>
         </div>
     <?php endif; ?>

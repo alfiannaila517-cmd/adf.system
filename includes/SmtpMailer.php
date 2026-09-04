@@ -55,12 +55,14 @@ class SmtpMailer
         $this->command($sock, 'RCPT TO:<' . $to . '>', [250, 251]);
         $this->command($sock, 'DATA', 354);
 
-        $boundary = 'adf-' . bin2hex(random_bytes(8));
         $headers = [];
         $headers[] = 'From: ' . $this->encodeHeader($fromName) . ' <' . $this->user . '>';
+        $headers[] = 'Reply-To: ' . $this->user;
         $headers[] = 'To: <' . $to . '>';
         $headers[] = 'Subject: ' . $this->encodeHeader($subject);
         $headers[] = 'Date: ' . date('r');
+        $domain = substr(strrchr($this->user, '@'), 1) ?: 'localhost';
+        $headers[] = 'Message-ID: <' . bin2hex(random_bytes(16)) . '@' . $domain . '>';
         $headers[] = 'MIME-Version: 1.0';
         $headers[] = 'Content-Type: text/html; charset=UTF-8';
         $headers[] = 'Content-Transfer-Encoding: 8bit';

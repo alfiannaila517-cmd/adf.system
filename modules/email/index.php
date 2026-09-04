@@ -79,11 +79,23 @@ $offset = ($page - 1) * $perPage;
 $errorMsg = null;
 $total = 0;
 $messages = [];
+$deleteMsg = null;
 $emailConfig = EmailHelper::resolveConfig($db);
 
 if ($emailConfig === null) {
     $errorMsg = 'Pengaturan email belum diisi. Klik "Pengaturan Email" di atas untuk mengisi host, user dan password.';
 } else {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete') {
+        $deleteUid = (int)($_POST['uid'] ?? 0);
+        try {
+            $emailHelper = new EmailHelper($emailConfig);
+            $emailHelper->deleteMessage($deleteUid);
+            $deleteMsg = 'Email berhasil dihapus.';
+        } catch (Throwable $e) {
+            $errorMsg = 'Gagal menghapus email: ' . $e->getMessage();
+        }
+    }
+
     try {
         $emailHelper = new EmailHelper($emailConfig);
         $result = $emailHelper->listMessages($perPage, $offset);
@@ -193,6 +205,8 @@ include '../../includes/header.php';
 </style>
 
 <div class="em-wrap">
+    <a href="<?php echo BASE_URL; ?>/index.php" style="display:inline-block;margin-bottom:12px;text-decoration:none;color:#1e3a8a;font-size:0.9rem;">&larr; Kembali ke Dashboard</a>
+
     <div class="em-toolbar">
         <div style="font-size:0.85rem;color:#64748b;">Inbox: office@narayanakarimunjawa.com &bull; <?php echo (int)$total; ?> email</div>
         <div style="display:flex;gap:8px;">
@@ -201,6 +215,10 @@ include '../../includes/header.php';
             <a href="<?php echo BASE_URL; ?>/modules/email/index.php" style="text-decoration:none;padding:6px 14px;border:1px solid #dbe4ee;border-radius:6px;font-size:0.85rem;color:#334155;">Refresh</a>
         </div>
     </div>
+
+    <?php if ($deleteMsg): ?>
+        <div style="background:#f0fdf4;border:1px solid #bbf7d0;color:#15803d;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:0.9rem;"><?php echo htmlspecialchars($deleteMsg); ?></div>
+    <?php endif; ?>
 
     <?php if ($errorMsg): ?>
         <div class="em-error">
@@ -215,12 +233,18 @@ include '../../includes/header.php';
         <?php endif; ?>
 
         <?php foreach ($messages as $m): ?>
-            <a class="em-row <?php echo $m['seen'] ? '' : 'unread'; ?>"
-               href="<?php echo BASE_URL; ?>/modules/email/view.php?uid=<?php echo (int)$m['uid']; ?>">
-                <div class="em-from"><?php echo htmlspecialchars($m['from']); ?></div>
-                <div class="em-subject"><?php echo htmlspecialchars($m['subject']); ?></div>
-                <div class="em-date"><?php echo htmlspecialchars($m['date'] !== '' ? date('d M Y H:i', strtotime($m['date'])) : ''); ?></div>
-            </a>
+            <div class="em-row <?php echo $m['seen'] ? '' : 'unread'; ?>">
+                <a href="<?php echo BASE_URL; ?>/modules/email/view.php?uid=<?php echo (int)$m['uid']; ?>" style="display:flex;flex:1;gap:12px;align-items:center;text-decoration:none;color:inherit;min-width:0;">
+                    <div class="em-from"><?php echo htmlspecialchars($m['from']); ?></div>
+                    <div class="em-subject"><?php echo htmlspecialchars($m['subject']); ?></div>
+                    <div class="em-date"><?php echo htmlspecialchars($m['date'] !== '' ? date('d M Y H:i', strtotime($m['date'])) : ''); ?></div>
+                </a>
+                <form method="post" onsubmit="return confirm('Hapus email ini?');" style="flex-shrink:0;margin:0;">
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="uid" value="<?php echo (int)$m['uid']; ?>">
+                    <button type="submit" title="Hapus" style="background:none;border:none;color:#b91c1c;cursor:pointer;font-size:0.9rem;padding:6px 8px;">&#128465;</button>
+                </form>
+            </div>
         <?php endforeach; ?>
     </div>
 
