@@ -52,7 +52,29 @@ try {
         $emailConfig['pass']
     );
     $htmlBody = nl2br(htmlspecialchars($body));
-    $mailer->send($to, $subject, $htmlBody);
+
+    $attachments = [];
+    $maxTotalBytes = 15 * 1024 * 1024;
+    $totalBytes = 0;
+    if (!empty($_FILES['attachments']['name'][0] ?? null)) {
+        foreach ($_FILES['attachments']['name'] as $i => $name) {
+            if ($_FILES['attachments']['error'][$i] !== UPLOAD_ERR_OK || $name === '') {
+                continue;
+            }
+            $totalBytes += (int)$_FILES['attachments']['size'][$i];
+            if ($totalBytes > $maxTotalBytes) {
+                echo json_encode(['success' => false, 'message' => 'Total lampiran maksimal 15MB.']);
+                exit;
+            }
+            $attachments[] = [
+                'name' => basename($name),
+                'type' => $_FILES['attachments']['type'][$i] ?: 'application/octet-stream',
+                'data' => file_get_contents($_FILES['attachments']['tmp_name'][$i]),
+            ];
+        }
+    }
+
+    $mailer->send($to, $subject, $htmlBody, 'Narayana Karimunjawa', $attachments);
     echo json_encode(['success' => true, 'message' => 'Email berhasil dikirim ke ' . $to . '.']);
 } catch (Throwable $e) {
     echo json_encode(['success' => false, 'message' => 'Gagal mengirim: ' . $e->getMessage()]);

@@ -26,8 +26,9 @@ class SmtpMailer
      * @param string $subject
      * @param string $bodyHtml Rendered as the email body (converted from plain text with nl2br if needed).
      * @param string $fromName Display name used in the From header.
+     * @param array<int,array{name:string,type:string,data:string}> $attachments Raw binary content per file.
      */
-    public function send(string $to, string $subject, string $bodyHtml, string $fromName = 'Narayana Karimunjawa'): void
+    public function send(string $to, string $subject, string $bodyHtml, string $fromName = 'Narayana Karimunjawa', array $attachments = []): void
     {
         $transport = $this->encryption === 'ssl' ? 'ssl://' : '';
         $sock = @fsockopen($transport . $this->host, $this->port, $errno, $errstr, 15);
@@ -64,10 +65,32 @@ class SmtpMailer
         $domain = substr(strrchr($this->user, '@'), 1) ?: 'localhost';
         $headers[] = 'Message-ID: <' . bin2hex(random_bytes(16)) . '@' . $domain . '>';
         $headers[] = 'MIME-Version: 1.0';
-        $headers[] = 'Content-Type: text/html; charset=UTF-8';
-        $headers[] = 'Content-Transfer-Encoding: 8bit';
 
-        $data = implode("\r\n", $headers) . "\r\n\r\n" . $this->dotStuff($bodyHtml) . "\r\n.";
+        if (empty($attachments)) {
+            $headers[] = 'Content-Type: text/html; charset=UTF-8';
+            $headers[] = 'Content-Transfer-Encoding: 8bit';
+            $data = implode("\r\n", $headers) . "\r\n\r\n" . $this->dotStuff($bodyHtml) . "\r\n.";
+        } else {
+            $boundary = 'b' . bin2hex(random_bytes(12));
+            $headers[] = 'Content-Type: multipart/mixed; boundary="' . $boundary . '"';
+
+            $parts = "--{$boundary}\r\n";
+            $parts .= "Content-Type: text/html; charset=UTF-8\r\n";
+            $parts .= "Content-Transfer-Encoding: 8bit\r\n\r\n";
+            $parts .= $bodyHtml . "\r\n";
+
+            foreach ($attachments as $file) {
+                $parts .= "--{$boundary}\r\n";
+                $parts .= 'Content-Type: ' . ($file['type'] ?: 'application/octet-stream') . '; name="' . $this->encodeHeader($file['name']) . "\"\r\n";
+                $parts .= 'Content-Disposition: attachment; filename="' . $this->encodeHeader($file['name']) . "\"\r\n";
+                $parts .= "Content-Transfer-Encoding: base64\r\n\r\n";
+                $parts .= chunk_split(base64_encode($file['data']));
+            }
+            $parts .= "--{$boundary}--";
+
+            $data = implode("\r\n", $headers) . "\r\n\r\n" . $this->dotStuff($parts) . "\r\n.";
+        }
+
         fwrite($sock, $data . "\r\n");
         $this->expect($sock, 250);
 

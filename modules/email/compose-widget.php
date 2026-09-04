@@ -21,10 +21,12 @@
     </div>
     <div style="padding:12px;">
         <div id="emFabMsg" style="display:none;padding:8px 10px;border-radius:6px;margin-bottom:10px;font-size:0.82rem;"></div>
-        <input id="emFabTo" type="email" placeholder="Kepada" style="width:100%;padding:8px;margin-bottom:8px;border:1px solid #dbe4ee;border-radius:6px;font-size:0.85rem;">
-        <input id="emFabSubject" type="text" placeholder="Subjek" style="width:100%;padding:8px;margin-bottom:8px;border:1px solid #dbe4ee;border-radius:6px;font-size:0.85rem;">
+        <input id="emFabTo" type="email" placeholder="Kepada" autocomplete="off" name="em_to_dest" style="width:100%;padding:8px;margin-bottom:8px;border:1px solid #dbe4ee;border-radius:6px;font-size:0.85rem;">
+        <input id="emFabSubject" type="text" placeholder="Subjek" autocomplete="off" style="width:100%;padding:8px;margin-bottom:8px;border:1px solid #dbe4ee;border-radius:6px;font-size:0.85rem;">
         <textarea id="emFabBody" placeholder="Tulis pesan..." style="width:100%;min-height:140px;padding:8px;border:1px solid #dbe4ee;border-radius:6px;font-size:0.85rem;resize:vertical;"></textarea>
-        <button id="emFabSend" style="margin-top:10px;width:100%;padding:9px;background:#1e3a8a;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:0.85rem;">Kirim</button>
+        <input id="emFabFiles" type="file" multiple style="width:100%;margin-top:8px;font-size:0.78rem;">
+        <div id="emFabFileList" style="font-size:0.75rem;color:#64748b;margin-top:4px;"></div>
+        <button id="emFabSend" style="margin-top:10px;width:100%;padding:9px;background:#1e3a8a;color:#ffffff !important;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:0.85rem;">Kirim</button>
     </div>
 </div>
 
@@ -35,26 +37,50 @@
     const closeBtn = document.getElementById('emFabClose');
     const sendBtn = document.getElementById('emFabSend');
     const msgBox = document.getElementById('emFabMsg');
+    const filesInput = document.getElementById('emFabFiles');
+    const fileList = document.getElementById('emFabFileList');
 
     fab.addEventListener('click', () => {
         panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
     });
     closeBtn.addEventListener('click', () => { panel.style.display = 'none'; });
 
+    filesInput.addEventListener('change', () => {
+        const names = Array.from(filesInput.files).map(f => f.name);
+        fileList.textContent = names.length ? ('Lampiran: ' + names.join(', ')) : '';
+    });
+
     sendBtn.addEventListener('click', async () => {
         const to = document.getElementById('emFabTo').value.trim();
         const subject = document.getElementById('emFabSubject').value.trim();
         const body = document.getElementById('emFabBody').value;
 
+        if (to === '' || subject === '' || body.trim() === '') {
+            msgBox.style.display = 'block';
+            msgBox.textContent = 'Penerima, subjek dan isi email wajib diisi.';
+            msgBox.style.background = '#fef2f2';
+            msgBox.style.color = '#b91c1c';
+            msgBox.style.border = '1px solid #fecaca';
+            return;
+        }
+        if (!confirm('Kirim email ke: ' + to + ' ?')) {
+            return;
+        }
+
         msgBox.style.display = 'none';
         sendBtn.disabled = true;
         sendBtn.textContent = 'Mengirim...';
 
+        const formData = new FormData();
+        formData.append('to', to);
+        formData.append('subject', subject);
+        formData.append('body', body);
+        Array.from(filesInput.files).forEach(f => formData.append('attachments[]', f));
+
         try {
             const res = await fetch('<?php echo BASE_URL; ?>/modules/email/send-ajax.php', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: 'to=' + encodeURIComponent(to) + '&subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body)
+                body: formData
             });
             const data = await res.json();
             msgBox.style.display = 'block';
@@ -67,6 +93,8 @@
                 document.getElementById('emFabTo').value = '';
                 document.getElementById('emFabSubject').value = '';
                 document.getElementById('emFabBody').value = '';
+                filesInput.value = '';
+                fileList.textContent = '';
                 setTimeout(() => { panel.style.display = 'none'; msgBox.style.display = 'none'; }, 1800);
             }
         } catch (e) {
