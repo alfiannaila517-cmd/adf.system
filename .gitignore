@@ -156,3 +156,8 @@ config/backup-secrets.php
 # Per-hosting DB override (standalone deployments, e.g. Sunsea)
 # =============================================
 config/local-db-config.php
+
+# =============================================
+# Mailbox credentials (office@narayanakarimunjawa.com IMAP login)
+# =============================================
+config/email-narayana.php

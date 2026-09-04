@@ -1295,6 +1295,16 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                                 </a>
                             </li>
                         <?php endif; ?>
+
+                        <!-- Email Kantor (office@narayanakarimunjawa.com) -->
+                        <?php if ($activeBizNorm === 'narayanahotel' && ($isDeveloperRole || $auth->hasPermission('email'))): ?>
+                            <li class="nav-item">
+                                <a href="<?php echo BASE_URL; ?>/modules/email/index.php" class="nav-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/modules/email/') !== false) ? 'active' : ''; ?>">
+                                    <i data-feather="mail" class="nav-icon"></i>
+                                    <span>Email Kantor</span>
+                                </a>
+                            </li>
+                        <?php endif; ?>
                     <?php endif; ?>
 
                     <li class="nav-item" style="margin-top: 2rem;">
