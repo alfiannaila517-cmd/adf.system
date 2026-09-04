@@ -37,6 +37,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $encryption = ($_POST['encryption'] ?? 'ssl') === 'tls' ? 'tls' : 'ssl';
     $user = trim((string)($_POST['user'] ?? ''));
     $pass = (string)($_POST['pass'] ?? '');
+    $smtpPort = (int)($_POST['smtp_port'] ?? 465);
+    $smtpEncryption = ($_POST['smtp_encryption'] ?? 'ssl') === 'tls' ? 'tls' : 'ssl';
 
     if ($host === '' || $user === '') {
         $msg = 'Host dan Username wajib diisi.';
@@ -49,6 +51,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'encryption' => $encryption,
                 'user' => $user,
                 'pass' => $pass,
+                'smtp_port' => $smtpPort,
+                'smtp_encryption' => $smtpEncryption,
             ]);
             $msg = 'Pengaturan email berhasil disimpan.';
             $msgType = 'success';
@@ -65,6 +69,8 @@ $current = EmailHelper::resolveConfig($db) ?? [
     'encryption' => 'ssl',
     'user' => 'office@narayanakarimunjawa.com',
     'pass' => '',
+    'smtp_port' => 465,
+    'smtp_encryption' => 'ssl',
 ];
 
 include '../../includes/header.php';
@@ -182,6 +188,20 @@ include '../../includes/header.php';
                 <label>Password</label>
                 <input type="password" name="pass" value="" placeholder="<?php echo $current['pass'] !== '' ? '•••••••• (sudah tersimpan, kosongkan jika tidak ingin diubah)' : 'Masukkan password email'; ?>" autocomplete="new-password">
                 <div class="es-hint">Password disimpan terenkripsi di database bisnis ini.</div>
+            </div>
+
+            <div class="es-field">
+                <label>Outgoing Server Port (SMTP, untuk kirim email)</label>
+                <input type="number" name="smtp_port" value="<?php echo (int)($current['smtp_port'] ?? 465); ?>" required>
+                <div class="es-hint">465 untuk SSL, 587 untuk TLS/STARTTLS. Host SMTP sama dengan Incoming Server di atas.</div>
+            </div>
+
+            <div class="es-field">
+                <label>Enkripsi SMTP</label>
+                <select name="smtp_encryption">
+                    <option value="ssl" <?php echo ($current['smtp_encryption'] ?? 'ssl') === 'ssl' ? 'selected' : ''; ?>>SSL (port 465)</option>
+                    <option value="tls" <?php echo ($current['smtp_encryption'] ?? 'ssl') === 'tls' ? 'selected' : ''; ?>>TLS/STARTTLS (port 587)</option>
+                </select>
             </div>
 
             <button type="submit" class="es-btn">Simpan Pengaturan</button>

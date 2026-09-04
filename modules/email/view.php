@@ -124,6 +124,11 @@ include '../../includes/header.php';
             <?php else: ?>
                 <pre style="white-space: pre-wrap; font-family: inherit; font-size: 0.9rem; color: #1e293b;"><?php echo htmlspecialchars($mail['body_plain']); ?></pre>
             <?php endif; ?>
+
+            <div style="margin-top:16px;padding-top:14px;border-top:1px solid #eef2f7;">
+                <a href="<?php echo BASE_URL; ?>/modules/email/compose.php?reply_uid=<?php echo (int)$uid; ?>"
+                   style="text-decoration:none;padding:8px 18px;background:#1e3a8a;color:#fff;border-radius:6px;font-size:0.85rem;font-weight:600;">&#8617; Balas</a>
+            </div>
         </div>
     <?php endif; ?>
 </div>

@@ -77,6 +77,8 @@ class EmailHelper
             'encryption' => $get(self::SETTINGS_PREFIX . 'encryption') ?: 'ssl',
             'user' => $get(self::SETTINGS_PREFIX . 'user'),
             'pass' => $encPass !== '' ? self::decryptSecret($encPass) : '',
+            'smtp_port' => (int)($get(self::SETTINGS_PREFIX . 'smtp_port') ?: 465),
+            'smtp_encryption' => $get(self::SETTINGS_PREFIX . 'smtp_encryption') ?: 'ssl',
         ];
     }
 
@@ -90,6 +92,8 @@ class EmailHelper
             self::SETTINGS_PREFIX . 'port' => (string)(int)$data['port'],
             self::SETTINGS_PREFIX . 'encryption' => (string)$data['encryption'],
             self::SETTINGS_PREFIX . 'user' => (string)$data['user'],
+            self::SETTINGS_PREFIX . 'smtp_port' => (string)(int)($data['smtp_port'] ?? 465),
+            self::SETTINGS_PREFIX . 'smtp_encryption' => (string)($data['smtp_encryption'] ?? 'ssl'),
         ];
         if (!empty($data['pass'])) {
             $values[self::SETTINGS_PREFIX . 'pass'] = self::encryptSecret((string)$data['pass']);
@@ -157,6 +161,8 @@ class EmailHelper
                 'encryption' => defined('EMAIL_IMAP_ENCRYPTION') ? EMAIL_IMAP_ENCRYPTION : 'ssl',
                 'user' => EMAIL_IMAP_USER,
                 'pass' => EMAIL_IMAP_PASS,
+                'smtp_port' => 465,
+                'smtp_encryption' => 'ssl',
             ];
         }
 

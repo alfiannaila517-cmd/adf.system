@@ -196,6 +196,7 @@ include '../../includes/header.php';
     <div class="em-toolbar">
         <div style="font-size:0.85rem;color:#64748b;">Inbox: office@narayanakarimunjawa.com &bull; <?php echo (int)$total; ?> email</div>
         <div style="display:flex;gap:8px;">
+            <a href="<?php echo BASE_URL; ?>/modules/email/compose.php" style="text-decoration:none;padding:6px 14px;background:#1e3a8a;border-radius:6px;font-size:0.85rem;color:#fff;font-weight:600;">+ Tulis Email</a>
             <a href="<?php echo BASE_URL; ?>/modules/email/settings.php" style="text-decoration:none;padding:6px 14px;border:1px solid #dbe4ee;border-radius:6px;font-size:0.85rem;color:#334155;">Pengaturan Email</a>
             <a href="<?php echo BASE_URL; ?>/modules/email/index.php" style="text-decoration:none;padding:6px 14px;border:1px solid #dbe4ee;border-radius:6px;font-size:0.85rem;color:#334155;">Refresh</a>
         </div>
