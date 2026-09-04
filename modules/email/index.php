@@ -68,6 +68,7 @@ function ensureEmailMenuRegistered(): void
 }
 ensureEmailMenuRegistered();
 
+$db = Database::getInstance();
 $pageTitle = 'Email Kantor';
 $currentUser = $auth->getCurrentUser();
 
@@ -78,14 +79,19 @@ $offset = ($page - 1) * $perPage;
 $errorMsg = null;
 $total = 0;
 $messages = [];
+$emailConfig = EmailHelper::resolveConfig($db);
 
-try {
-    $emailHelper = new EmailHelper();
-    $result = $emailHelper->listMessages($perPage, $offset);
-    $total = $result['total'];
-    $messages = $result['messages'];
-} catch (Throwable $e) {
-    $errorMsg = $e->getMessage();
+if ($emailConfig === null) {
+    $errorMsg = 'Pengaturan email belum diisi. Klik "Pengaturan Email" di atas untuk mengisi host, user dan password.';
+} else {
+    try {
+        $emailHelper = new EmailHelper($emailConfig);
+        $result = $emailHelper->listMessages($perPage, $offset);
+        $total = $result['total'];
+        $messages = $result['messages'];
+    } catch (Throwable $e) {
+        $errorMsg = $e->getMessage();
+    }
 }
 
 $totalPages = $perPage > 0 ? (int)ceil($total / $perPage) : 1;
@@ -189,7 +195,10 @@ include '../../includes/header.php';
 <div class="em-wrap">
     <div class="em-toolbar">
         <div style="font-size:0.85rem;color:#64748b;">Inbox: office@narayanakarimunjawa.com &bull; <?php echo (int)$total; ?> email</div>
-        <a href="<?php echo BASE_URL; ?>/modules/email/index.php" class="mb-input" style="text-decoration:none;padding:6px 14px;border:1px solid #dbe4ee;border-radius:6px;font-size:0.85rem;color:#334155;">Refresh</a>
+        <div style="display:flex;gap:8px;">
+            <a href="<?php echo BASE_URL; ?>/modules/email/settings.php" style="text-decoration:none;padding:6px 14px;border:1px solid #dbe4ee;border-radius:6px;font-size:0.85rem;color:#334155;">Pengaturan Email</a>
+            <a href="<?php echo BASE_URL; ?>/modules/email/index.php" style="text-decoration:none;padding:6px 14px;border:1px solid #dbe4ee;border-radius:6px;font-size:0.85rem;color:#334155;">Refresh</a>
+        </div>
     </div>
 
     <?php if ($errorMsg): ?>

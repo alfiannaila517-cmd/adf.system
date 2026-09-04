@@ -6,33 +6,161 @@
  */
 class EmailHelper
 {
+    const SETTINGS_PREFIX = 'email_imap_';
+
     /** @var resource|\IMAP\Connection|null */
     private $conn = null;
     private string $mailbox;
 
-    public function __construct()
+    /**
+     * @param array{host:string,port:int,encryption:string,user:string,pass:string}|null $config
+     *   If null, falls back to EMAIL_IMAP_* constants (config/email-narayana.php) for
+     *   backward compatibility with the file-based setup.
+     */
+    public function __construct(?array $config = null)
     {
         if (!extension_loaded('imap')) {
             throw new RuntimeException('Ekstensi PHP IMAP belum aktif di server ini. Hubungi developer untuk mengaktifkan ext-imap.');
         }
-        if (!defined('EMAIL_IMAP_HOST') || !defined('EMAIL_IMAP_USER') || !defined('EMAIL_IMAP_PASS')) {
-            throw new RuntimeException('Konfigurasi email (config/email-narayana.php) belum dibuat.');
-        }
-        if (EMAIL_IMAP_PASS === 'GANTI_password_email_disini' || EMAIL_IMAP_PASS === '') {
-            throw new RuntimeException('Password email belum diisi di config/email-narayana.php.');
+
+        if ($config === null) {
+            if (!defined('EMAIL_IMAP_HOST') || !defined('EMAIL_IMAP_USER') || !defined('EMAIL_IMAP_PASS')) {
+                throw new RuntimeException('Pengaturan email belum diisi. Buka menu "Pengaturan Email" untuk mengisi host, user dan password.');
+            }
+            $config = [
+                'host' => EMAIL_IMAP_HOST,
+                'port' => defined('EMAIL_IMAP_PORT') ? EMAIL_IMAP_PORT : 993,
+                'encryption' => defined('EMAIL_IMAP_ENCRYPTION') ? EMAIL_IMAP_ENCRYPTION : 'ssl',
+                'user' => EMAIL_IMAP_USER,
+                'pass' => EMAIL_IMAP_PASS,
+            ];
         }
 
-        $encryption = defined('EMAIL_IMAP_ENCRYPTION') ? EMAIL_IMAP_ENCRYPTION : 'ssl';
-        $port = defined('EMAIL_IMAP_PORT') ? EMAIL_IMAP_PORT : 993;
+        if (empty($config['host']) || empty($config['user']) || empty($config['pass'])) {
+            throw new RuntimeException('Pengaturan email belum lengkap. Buka menu "Pengaturan Email" untuk mengisi host, user dan password.');
+        }
+
+        $encryption = $config['encryption'] ?? 'ssl';
+        $port = (int)($config['port'] ?? 993);
         $flag = $encryption === 'tls' ? '/imap/tls' : '/imap/ssl';
 
-        $this->mailbox = '{' . EMAIL_IMAP_HOST . ':' . $port . $flag . '/novalidate-cert}INBOX';
+        $this->mailbox = '{' . $config['host'] . ':' . $port . $flag . '/novalidate-cert}INBOX';
 
-        $conn = @imap_open($this->mailbox, EMAIL_IMAP_USER, EMAIL_IMAP_PASS);
+        $conn = @imap_open($this->mailbox, $config['user'], $config['pass']);
         if ($conn === false) {
             throw new RuntimeException('Gagal konek ke email: ' . imap_last_error());
         }
         $this->conn = $conn;
+    }
+
+    /**
+     * Load saved IMAP settings from the active business's `settings` table.
+     * Returns null if nothing has been saved yet.
+     */
+    public static function loadDbSettings(Database $db): ?array
+    {
+        $host = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'email_imap_host'");
+        if (!$host || $host['setting_value'] === '') {
+            return null;
+        }
+
+        $get = function (string $key) use ($db) {
+            $row = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = :k", ['k' => $key]);
+            return $row['setting_value'] ?? '';
+        };
+
+        $encPass = $get(self::SETTINGS_PREFIX . 'pass');
+
+        return [
+            'host' => $get(self::SETTINGS_PREFIX . 'host'),
+            'port' => (int)($get(self::SETTINGS_PREFIX . 'port') ?: 993),
+            'encryption' => $get(self::SETTINGS_PREFIX . 'encryption') ?: 'ssl',
+            'user' => $get(self::SETTINGS_PREFIX . 'user'),
+            'pass' => $encPass !== '' ? self::decryptSecret($encPass) : '',
+        ];
+    }
+
+    /**
+     * Save IMAP settings into the active business's `settings` table (password encrypted at rest).
+     */
+    public static function saveDbSettings(Database $db, array $data): void
+    {
+        $values = [
+            self::SETTINGS_PREFIX . 'host' => (string)$data['host'],
+            self::SETTINGS_PREFIX . 'port' => (string)(int)$data['port'],
+            self::SETTINGS_PREFIX . 'encryption' => (string)$data['encryption'],
+            self::SETTINGS_PREFIX . 'user' => (string)$data['user'],
+        ];
+        if (!empty($data['pass'])) {
+            $values[self::SETTINGS_PREFIX . 'pass'] = self::encryptSecret((string)$data['pass']);
+        }
+
+        foreach ($values as $key => $value) {
+            $exists = $db->fetchOne("SELECT id FROM settings WHERE setting_key = :k", ['k' => $key]);
+            if ($exists) {
+                $db->query("UPDATE settings SET setting_value = :v WHERE setting_key = :k", ['v' => $value, 'k' => $key]);
+            } else {
+                $db->insert('settings', [
+                    'setting_key' => $key,
+                    'setting_value' => $value,
+                    'setting_type' => 'text',
+                    'description' => 'Email Kantor IMAP setting',
+                ]);
+            }
+        }
+    }
+
+    private static function secretKey(): string
+    {
+        $seed = defined('DB_PASS') ? DB_PASS : 'adf-email-secret';
+        return hash('sha256', $seed . '|adf-email-narayana', true);
+    }
+
+    private static function encryptSecret(string $plain): string
+    {
+        $iv = random_bytes(16);
+        $cipher = openssl_encrypt($plain, 'aes-256-cbc', self::secretKey(), OPENSSL_RAW_DATA, $iv);
+        return base64_encode($iv . $cipher);
+    }
+
+    private static function decryptSecret(string $encoded): string
+    {
+        $raw = base64_decode($encoded, true);
+        if ($raw === false || strlen($raw) <= 16) {
+            return '';
+        }
+        $iv = substr($raw, 0, 16);
+        $cipher = substr($raw, 16);
+        $plain = openssl_decrypt($cipher, 'aes-256-cbc', self::secretKey(), OPENSSL_RAW_DATA, $iv);
+        return $plain !== false ? $plain : '';
+    }
+
+    /**
+     * Resolve the active IMAP config: DB settings (input via the "Pengaturan Email" page)
+     * take priority, falling back to config/email-narayana.php constants if present.
+     */
+    public static function resolveConfig(Database $db): ?array
+    {
+        $config = self::loadDbSettings($db);
+        if ($config !== null) {
+            return $config;
+        }
+
+        $fileConfig = __DIR__ . '/../config/email-narayana.php';
+        if (is_file($fileConfig)) {
+            require_once $fileConfig;
+        }
+        if (defined('EMAIL_IMAP_HOST') && defined('EMAIL_IMAP_USER') && defined('EMAIL_IMAP_PASS')) {
+            return [
+                'host' => EMAIL_IMAP_HOST,
+                'port' => defined('EMAIL_IMAP_PORT') ? EMAIL_IMAP_PORT : 993,
+                'encryption' => defined('EMAIL_IMAP_ENCRYPTION') ? EMAIL_IMAP_ENCRYPTION : 'ssl',
+                'user' => EMAIL_IMAP_USER,
+                'pass' => EMAIL_IMAP_PASS,
+            ];
+        }
+
+        return null;
     }
 
     public function __destruct()

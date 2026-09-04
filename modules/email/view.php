@@ -24,9 +24,7 @@ if (!$isDeveloperRole && !$auth->hasPermission('email')) {
     exit;
 }
 
-if (is_file(__DIR__ . '/../../config/email-narayana.php')) {
-    require_once __DIR__ . '/../../config/email-narayana.php';
-}
+$db = Database::getInstance();
 
 $uid = (int)($_GET['uid'] ?? 0);
 $pageTitle = 'Email Kantor';
@@ -34,12 +32,17 @@ $currentUser = $auth->getCurrentUser();
 
 $errorMsg = null;
 $mail = null;
+$emailConfig = EmailHelper::resolveConfig($db);
 
-try {
-    $emailHelper = new EmailHelper();
-    $mail = $emailHelper->getMessageByUid($uid);
-} catch (Throwable $e) {
-    $errorMsg = $e->getMessage();
+if ($emailConfig === null) {
+    $errorMsg = 'Pengaturan email belum diisi. Buka menu Pengaturan Email untuk mengisi host, user dan password.';
+} else {
+    try {
+        $emailHelper = new EmailHelper($emailConfig);
+        $mail = $emailHelper->getMessageByUid($uid);
+    } catch (Throwable $e) {
+        $errorMsg = $e->getMessage();
+    }
 }
 
 include '../../includes/header.php';
