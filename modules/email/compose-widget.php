@@ -7,13 +7,13 @@
 <button id="emFabCompose" title="Tulis Email"
         style="position:fixed;right:24px;bottom:24px;width:56px;height:56px;border-radius:50%;
                background:#1e3a8a;color:#fff;border:none;box-shadow:0 4px 14px rgba(30,58,138,0.4);
-               font-size:22px;cursor:pointer;z-index:1000;">&#9998;</button>
+               font-size:22px;cursor:pointer;z-index:9995;">&#9998;</button>
 
 <div id="emFabPanel" style="display:none;position:fixed;right:24px;bottom:92px;width:340px;max-width:90vw;
-     background:#fff;border:1px solid #dbe4ee;border-radius:10px 10px 0 0;box-shadow:0 8px 30px rgba(0,0,0,0.2);z-index:1000;overflow:hidden;">
-    <div style="background:#1e3a8a;color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;font-size:0.9rem;font-weight:600;">
-        <span>Pesan Baru</span>
-        <span id="emFabClose" style="cursor:pointer;">&times;</span>
+     background:#fff;border:1px solid #dbe4ee;border-radius:10px 10px 0 0;box-shadow:0 8px 30px rgba(0,0,0,0.2);z-index:9995;overflow:hidden;">
+    <div style="background:#1e3a8a;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">
+        <span style="color:#fff !important;font-size:0.9rem;font-weight:600;">Pesan Baru</span>
+        <span id="emFabClose" style="color:#fff !important;cursor:pointer;font-size:1.1rem;line-height:1;">&times;</span>
     </div>
     <div style="padding:12px;">
         <div id="emFabMsg" style="display:none;padding:8px 10px;border-radius:6px;margin-bottom:10px;font-size:0.82rem;"></div>

@@ -175,14 +175,15 @@
                    .admin-chat-fab {
                        position: fixed;
                        bottom: 24px;
-                       right: 24px;
-                       z-index: 9999;
+                       right: 92px;
+                       z-index: 9990;
                        display: inline-flex;
                        align-items: center;
                        justify-content: center;
-                       gap: 8px;
-                       padding: 0.7rem 1rem;
-                       border-radius: 10px;
+                       width: 44px;
+                       height: 44px;
+                       padding: 0;
+                       border-radius: 50%;
                        border: none;
                        background: linear-gradient(145deg, #2563eb 0%, #1d4ed8 100%);
                        color: #ffffff;
@@ -191,6 +192,10 @@
                        box-shadow: 0 10px 22px rgba(37, 99, 235, 0.28);
                        cursor: pointer;
                        transition: transform .16s ease, box-shadow .16s ease, filter .16s ease;
+                   }
+
+                   .admin-chat-fab span:not(.fab-chat-icon) {
+                       display: none;
                    }
 
                    .admin-chat-fab,
@@ -229,8 +234,8 @@
 
                    .admin-chat-panel {
                        position: fixed;
-                       bottom: 92px;
-                       right: 24px;
+                       bottom: 78px;
+                       right: 92px;
                        width: 356px;
                        max-width: calc(100vw - 48px);
                        max-height: 60vh;
@@ -238,7 +243,7 @@
                        border-radius: 18px;
                        border: 1px solid #dbe3f1;
                        box-shadow: 0 20px 40px rgba(15, 23, 42, 0.22);
-                       z-index: 9999;
+                       z-index: 9990;
                        display: none;
                        flex-direction: column;
                        overflow: hidden;
@@ -400,15 +405,15 @@
                    @media (max-width: 640px) {
                        .admin-chat-fab {
                            bottom: 18px;
-                           right: 16px;
-                           padding: 0.7rem 0.9rem;
-                           font-size: 0.76rem;
+                           right: 78px;
+                           width: 40px;
+                           height: 40px;
                        }
 
                        .admin-chat-panel {
                            right: 12px;
                            left: 12px;
-                           bottom: 82px;
+                           bottom: 68px;
                            width: auto;
                            max-width: none;
                        }
