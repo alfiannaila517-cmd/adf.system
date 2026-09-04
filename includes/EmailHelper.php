@@ -212,6 +212,12 @@ class EmailHelper
         return ['total' => $total, 'messages' => $messages];
     }
 
+    public function countUnread(): int
+    {
+        $unseen = @imap_search($this->conn, 'UNSEEN');
+        return $unseen ? count($unseen) : 0;
+    }
+
     public function getMessageByUid(int $uid): array
     {
         $msgno = imap_msgno($this->conn, $uid);

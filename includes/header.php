@@ -1299,9 +1299,10 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                         <!-- Email Kantor (office@narayanakarimunjawa.com) -->
                         <?php if ($activeBizNorm === 'narayanahotel' && ($isDeveloperRole || $auth->hasPermission('email'))): ?>
                             <li class="nav-item">
-                                <a href="<?php echo BASE_URL; ?>/modules/email/index.php" class="nav-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/modules/email/') !== false) ? 'active' : ''; ?>">
+                                <a href="<?php echo BASE_URL; ?>/modules/email/index.php" class="nav-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/modules/email/') !== false) ? 'active' : ''; ?>" style="position:relative;">
                                     <i data-feather="mail" class="nav-icon"></i>
                                     <span>Email Kantor</span>
+                                    <span id="emailUnreadDot" style="display:none;position:absolute;left:26px;top:10px;width:9px;height:9px;border-radius:50%;background:#ef4444;border:1.5px solid #fff;"></span>
                                 </a>
                             </li>
                         <?php endif; ?>
@@ -1611,4 +1612,18 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                     }
                     checkAdminNotifs();
                     setInterval(checkAdminNotifs, 15000);
+
+                    (function () {
+                        const dot = document.getElementById('emailUnreadDot');
+                        if (!dot) return;
+                        async function checkEmailUnread() {
+                            try {
+                                const res = await fetch('<?php echo BASE_URL; ?>/modules/email/unread-count.php');
+                                const data = await res.json();
+                                dot.style.display = (data.unread > 0) ? 'block' : 'none';
+                            } catch (e) { /* ignore */ }
+                        }
+                        checkEmailUnread();
+                        setInterval(checkEmailUnread, 30000);
+                    })();
                 </script>

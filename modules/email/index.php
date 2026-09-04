@@ -257,4 +257,5 @@ include '../../includes/header.php';
     <?php endif; ?>
 </div>
 
+<?php include __DIR__ . '/compose-widget.php'; ?>
 <?php include '../../includes/footer.php'; ?>

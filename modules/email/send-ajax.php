@@ -1,0 +1,59 @@
+<?php
+
+define('APP_ACCESS', true);
+require_once '../../config/config.php';
+require_once '../../config/database.php';
+require_once '../../includes/auth.php';
+require_once '../../includes/EmailHelper.php';
+require_once '../../includes/SmtpMailer.php';
+
+header('Content-Type: application/json');
+
+$auth = new Auth();
+if (!$auth->isLoggedIn()) {
+    echo json_encode(['success' => false, 'message' => 'Sesi login berakhir, silakan muat ulang halaman.']);
+    exit;
+}
+
+$activeBizRaw = (string)($_SESSION['active_business_id'] ?? (defined('ACTIVE_BUSINESS_ID') ? ACTIVE_BUSINESS_ID : ''));
+$activeBizNorm = strtolower((string)preg_replace('/[^a-z0-9]/', '', $activeBizRaw));
+$isDeveloperRole = (($_SESSION['role'] ?? '') === 'developer');
+if ($activeBizNorm !== 'narayanahotel' || (!$isDeveloperRole && !$auth->hasPermission('email'))) {
+    echo json_encode(['success' => false, 'message' => 'Akses ditolak.']);
+    exit;
+}
+
+$to = trim((string)($_POST['to'] ?? ''));
+$subject = trim((string)($_POST['subject'] ?? ''));
+$body = (string)($_POST['body'] ?? '');
+
+if ($to === '' || $subject === '' || trim($body) === '') {
+    echo json_encode(['success' => false, 'message' => 'Penerima, subjek dan isi email wajib diisi.']);
+    exit;
+}
+if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+    echo json_encode(['success' => false, 'message' => 'Alamat email penerima tidak valid.']);
+    exit;
+}
+
+$db = Database::getInstance();
+$emailConfig = EmailHelper::resolveConfig($db);
+if ($emailConfig === null) {
+    echo json_encode(['success' => false, 'message' => 'Pengaturan email belum diisi. Buka menu Pengaturan Email.']);
+    exit;
+}
+
+try {
+    $mailer = new SmtpMailer(
+        $emailConfig['host'],
+        (int)($emailConfig['smtp_port'] ?? 465),
+        $emailConfig['smtp_encryption'] ?? 'ssl',
+        $emailConfig['user'],
+        $emailConfig['pass']
+    );
+    $htmlBody = nl2br(htmlspecialchars($body));
+    $mailer->send($to, $subject, $htmlBody);
+    echo json_encode(['success' => true, 'message' => 'Email berhasil dikirim ke ' . $to . '.']);
+} catch (Throwable $e) {
+    echo json_encode(['success' => false, 'message' => 'Gagal mengirim: ' . $e->getMessage()]);
+}
