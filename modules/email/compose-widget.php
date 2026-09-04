@@ -7,7 +7,11 @@
 <button id="emFabCompose" title="Tulis Email"
         style="position:fixed;right:24px;bottom:24px;width:56px;height:56px;border-radius:50%;
                background:#1e3a8a;color:#fff;border:none;box-shadow:0 4px 14px rgba(30,58,138,0.4);
-               font-size:22px;cursor:pointer;z-index:9995;">&#9998;</button>
+               display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:9995;">
+    <svg viewBox="0 0 24 24" width="22" height="22" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path fill="#ffffff" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+    </svg>
+</button>
 
 <div id="emFabPanel" style="display:none;position:fixed;right:24px;bottom:92px;width:340px;max-width:90vw;
      background:#fff;border:1px solid #dbe4ee;border-radius:10px 10px 0 0;box-shadow:0 8px 30px rgba(0,0,0,0.2);z-index:9995;overflow:hidden;">
