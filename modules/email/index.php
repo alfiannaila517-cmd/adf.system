@@ -118,9 +118,69 @@ include '../../includes/header.php';
 
 <style>
     .em-wrap {
-        max-width: 1000px;
+        max-width: 1180px;
         margin: 0 auto;
         padding: 14px;
+    }
+
+    .em-layout {
+        display: flex;
+        gap: 18px;
+        align-items: flex-start;
+    }
+
+    .em-sidebar {
+        width: 170px;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .em-sidebar a {
+        display: block;
+        padding: 10px 14px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-size: 0.85rem;
+        font-weight: 600;
+        background: #334155 !important;
+        color: #ffffff !important;
+    }
+
+    .em-sidebar a span {
+        color: #ffffff !important;
+    }
+
+    .em-sidebar a.active {
+        background: #1e3a8a !important;
+    }
+
+    .em-sidebar a:hover {
+        background: #1e293b !important;
+    }
+
+    .em-main {
+        flex: 1;
+        min-width: 0;
+    }
+
+    @media (max-width: 720px) {
+        .em-layout {
+            flex-direction: column;
+        }
+
+        .em-sidebar {
+            width: 100%;
+            flex-direction: row;
+            flex-wrap: wrap;
+        }
+
+        .em-sidebar a {
+            flex: 1;
+            text-align: center;
+            min-width: 90px;
+        }
     }
 
     .em-card {
@@ -207,29 +267,6 @@ include '../../includes/header.php';
         color: #334155;
         font-size: 0.85rem;
     }
-
-    .em-folders {
-        display: flex;
-        gap: 6px;
-        flex-wrap: wrap;
-        margin-bottom: 12px;
-    }
-
-    .em-folders a {
-        padding: 6px 14px;
-        border: 1px solid #dbe4ee;
-        border-radius: 999px;
-        text-decoration: none;
-        color: #334155;
-        font-size: 0.82rem;
-        font-weight: 600;
-    }
-
-    .em-folders a.active {
-        background: #1e3a8a;
-        border-color: #1e3a8a;
-        color: #fff;
-    }
 </style>
 
 <div class="em-wrap">
@@ -238,16 +275,10 @@ include '../../includes/header.php';
     <div class="em-toolbar">
         <div style="font-size:0.85rem;color:#64748b;"><?php echo htmlspecialchars(EmailHelper::FOLDERS[$folder]); ?>: office@narayanakarimunjawa.com &bull; <?php echo (int)$total; ?> email</div>
         <div style="display:flex;gap:8px;">
-            <a href="<?php echo BASE_URL; ?>/modules/email/compose.php" style="text-decoration:none;padding:6px 14px;background:#1e3a8a;border-radius:6px;font-size:0.85rem;color:#fff;font-weight:600;">+ Tulis Email</a>
+            <a href="<?php echo BASE_URL; ?>/modules/email/compose.php" style="text-decoration:none;padding:6px 14px;background:#1e3a8a;border-radius:6px;font-size:0.85rem;color:#ffffff !important;font-weight:600;">+ Tulis Email</a>
             <a href="<?php echo BASE_URL; ?>/modules/email/settings.php" style="text-decoration:none;padding:6px 14px;border:1px solid #dbe4ee;border-radius:6px;font-size:0.85rem;color:#334155;">Pengaturan Email</a>
             <a href="<?php echo BASE_URL; ?>/modules/email/index.php?folder=<?php echo urlencode($folder); ?>" style="text-decoration:none;padding:6px 14px;border:1px solid #dbe4ee;border-radius:6px;font-size:0.85rem;color:#334155;">Refresh</a>
         </div>
-    </div>
-
-    <div class="em-folders">
-        <?php foreach (EmailHelper::FOLDERS as $key => $label): ?>
-            <a href="?folder=<?php echo urlencode($key); ?>" class="<?php echo $key === $folder ? 'active' : ''; ?>"><?php echo htmlspecialchars($label); ?></a>
-        <?php endforeach; ?>
     </div>
 
     <?php if ($deleteMsg): ?>
@@ -261,34 +292,44 @@ include '../../includes/header.php';
         </div>
     <?php endif; ?>
 
-    <div class="em-card">
-        <?php if (!$errorMsg && empty($messages)): ?>
-            <div style="padding:24px;text-align:center;color:#64748b;">Tidak ada email.</div>
-        <?php endif; ?>
-
-        <?php foreach ($messages as $m): ?>
-            <div class="em-row <?php echo $m['seen'] ? '' : 'unread'; ?>">
-                <a href="<?php echo BASE_URL; ?>/modules/email/view.php?uid=<?php echo (int)$m['uid']; ?>&folder=<?php echo urlencode($folder); ?>" style="display:flex;flex:1;gap:12px;align-items:center;text-decoration:none;color:inherit;min-width:0;">
-                    <div class="em-from"><?php echo htmlspecialchars($m['from']); ?></div>
-                    <div class="em-subject"><?php echo htmlspecialchars($m['subject']); ?></div>
-                    <div class="em-date"><?php echo htmlspecialchars($m['date'] !== '' ? date('d M Y H:i', strtotime($m['date'])) : ''); ?></div>
-                </a>
-                <form method="post" onsubmit="return confirm('<?php echo $folder === 'INBOX.Trash' ? 'Hapus permanen email ini?' : 'Pindahkan email ini ke Sampah?'; ?>');" style="flex-shrink:0;margin:0;">
-                    <input type="hidden" name="action" value="delete">
-                    <input type="hidden" name="uid" value="<?php echo (int)$m['uid']; ?>">
-                    <button type="submit" title="Hapus" style="background:none;border:none;color:#b91c1c;cursor:pointer;font-size:0.9rem;padding:6px 8px;">&#128465;</button>
-                </form>
-            </div>
-        <?php endforeach; ?>
-    </div>
-
-    <?php if ($totalPages > 1): ?>
-        <div class="em-pager">
-            <?php for ($p = 1; $p <= $totalPages; $p++): ?>
-                <a href="?folder=<?php echo urlencode($folder); ?>&page=<?php echo $p; ?>" style="<?php echo $p === $page ? 'background:#1e3a8a;color:#fff;border-color:#1e3a8a;' : ''; ?>"><?php echo $p; ?></a>
-            <?php endfor; ?>
+    <div class="em-layout">
+        <div class="em-sidebar">
+            <?php foreach (EmailHelper::FOLDERS as $key => $label): ?>
+                <a href="?folder=<?php echo urlencode($key); ?>" class="<?php echo $key === $folder ? 'active' : ''; ?>"><span><?php echo htmlspecialchars($label); ?></span></a>
+            <?php endforeach; ?>
         </div>
-    <?php endif; ?>
+
+        <div class="em-main">
+            <div class="em-card">
+                <?php if (!$errorMsg && empty($messages)): ?>
+                    <div style="padding:24px;text-align:center;color:#64748b;">Tidak ada email.</div>
+                <?php endif; ?>
+
+                <?php foreach ($messages as $m): ?>
+                    <div class="em-row <?php echo $m['seen'] ? '' : 'unread'; ?>">
+                        <a href="<?php echo BASE_URL; ?>/modules/email/view.php?uid=<?php echo (int)$m['uid']; ?>&folder=<?php echo urlencode($folder); ?>" style="display:flex;flex:1;gap:12px;align-items:center;text-decoration:none;color:inherit;min-width:0;">
+                            <div class="em-from"><?php echo htmlspecialchars($m['from']); ?></div>
+                            <div class="em-subject"><?php echo htmlspecialchars($m['subject']); ?></div>
+                            <div class="em-date"><?php echo htmlspecialchars($m['date'] !== '' ? date('d M Y H:i', strtotime($m['date'])) : ''); ?></div>
+                        </a>
+                        <form method="post" onsubmit="return confirm('<?php echo $folder === 'INBOX.Trash' ? 'Hapus permanen email ini?' : 'Pindahkan email ini ke Sampah?'; ?>');" style="flex-shrink:0;margin:0;">
+                            <input type="hidden" name="action" value="delete">
+                            <input type="hidden" name="uid" value="<?php echo (int)$m['uid']; ?>">
+                            <button type="submit" title="Hapus" style="background:none;border:none;color:#b91c1c;cursor:pointer;font-size:0.9rem;padding:6px 8px;">&#128465;</button>
+                        </form>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+
+            <?php if ($totalPages > 1): ?>
+                <div class="em-pager">
+                    <?php for ($p = 1; $p <= $totalPages; $p++): ?>
+                        <a href="?folder=<?php echo urlencode($folder); ?>&page=<?php echo $p; ?>" style="<?php echo $p === $page ? 'background:#1e3a8a;color:#ffffff !important;border-color:#1e3a8a;' : ''; ?>"><?php echo $p; ?></a>
+                    <?php endfor; ?>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
 </div>
 
 <?php include __DIR__ . '/compose-widget.php'; ?>
