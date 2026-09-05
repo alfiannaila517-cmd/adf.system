@@ -26,6 +26,36 @@ require_once 'includes/trial_check.php';
 
 $auth = new Auth();
 $auth->requireLogin();
+
+// Users without Dashboard access should land on the first module they CAN
+// see instead of this page (e.g. a PO-only staff account).
+if (!$auth->hasPermission('dashboard')) {
+    $fallbackMenus = [
+        'production'      => 'modules/production/index.php',
+        'cashbook'        => 'modules/cashbook/index.php',
+        'divisions'       => 'modules/divisions/index.php',
+        'frontdesk'       => 'modules/frontdesk/index.php',
+        'sales_invoice'   => 'modules/sales/index.php',
+        'bills'           => 'modules/bills/index.php',
+        'cafe_invoice'    => 'modules/cafe-invoice/index.php',
+        'payroll'         => 'modules/payroll/index.php',
+        'procurement_po'  => 'modules/procurement/purchase-orders.php',
+        'procurement_stock' => 'modules/procurement/business-stock-incoming.php',
+        'gudang_view'     => 'modules/procurement/gudang-nasita.php',
+        'reports'         => 'modules/reports/index.php',
+        'project'         => 'modules/project/index.php',
+        'finance'         => 'modules/finance/index.php',
+        'database'        => 'modules/database/index.php',
+        'settings'        => 'modules/settings/index.php',
+    ];
+    foreach ($fallbackMenus as $menuCode => $url) {
+        if ($auth->hasPermission($menuCode) && file_exists(__DIR__ . '/' . $url)) {
+            header('Location: ' . BASE_URL . '/' . $url);
+            exit;
+        }
+    }
+}
+
 $db = Database::getInstance();
 
 // Load business configuration (already loaded in config.php, use safe fallback)
