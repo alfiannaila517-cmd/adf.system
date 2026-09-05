@@ -74,7 +74,8 @@ try {
         }
     }
 
-    $mailer->send($to, $subject, $htmlBody, 'Narayana Karimunjawa', $attachments);
+    $rawSent = $mailer->send($to, $subject, $htmlBody, 'Narayana Karimunjawa', $attachments);
+    EmailHelper::appendMessageToFolder($emailConfig, 'INBOX.Sent', $rawSent);
     echo json_encode(['success' => true, 'message' => 'Email berhasil dikirim ke ' . $to . '.']);
 } catch (Throwable $e) {
     echo json_encode(['success' => false, 'message' => 'Gagal mengirim: ' . $e->getMessage()]);

@@ -27,8 +27,9 @@ class SmtpMailer
      * @param string $bodyHtml Rendered as the email body (converted from plain text with nl2br if needed).
      * @param string $fromName Display name used in the From header.
      * @param array<int,array{name:string,type:string,data:string}> $attachments Raw binary content per file.
+     * @return string The raw RFC822 message that was sent (for filing a copy into the Sent folder).
      */
-    public function send(string $to, string $subject, string $bodyHtml, string $fromName = 'Narayana Karimunjawa', array $attachments = []): void
+    public function send(string $to, string $subject, string $bodyHtml, string $fromName = 'Narayana Karimunjawa', array $attachments = []): string
     {
         $transport = $this->encryption === 'ssl' ? 'ssl://' : '';
         $sock = @fsockopen($transport . $this->host, $this->port, $errno, $errstr, 15);
@@ -91,11 +92,15 @@ class SmtpMailer
             $data = implode("\r\n", $headers) . "\r\n\r\n" . $this->dotStuff($parts) . "\r\n.";
         }
 
+        $rawMessage = implode("\r\n", $headers) . "\r\n\r\n" . ($attachments ? $parts : $bodyHtml);
+
         fwrite($sock, $data . "\r\n");
         $this->expect($sock, 250);
 
         fwrite($sock, "QUIT\r\n");
         fclose($sock);
+
+        return $rawMessage;
     }
 
     private function dotStuff(string $body): string

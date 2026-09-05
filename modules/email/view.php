@@ -27,6 +27,10 @@ if (!$isDeveloperRole && !$auth->hasPermission('email')) {
 $db = Database::getInstance();
 
 $uid = (int)($_GET['uid'] ?? 0);
+$folder = (string)($_GET['folder'] ?? 'INBOX');
+if (!array_key_exists($folder, EmailHelper::FOLDERS)) {
+    $folder = 'INBOX';
+}
 $pageTitle = 'Email Kantor';
 $currentUser = $auth->getCurrentUser();
 
@@ -39,9 +43,9 @@ if ($emailConfig === null) {
 } else {
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete') {
         try {
-            $emailHelper = new EmailHelper($emailConfig);
+            $emailHelper = new EmailHelper($emailConfig, $folder);
             $emailHelper->deleteMessage($uid);
-            header('Location: ' . BASE_URL . '/modules/email/index.php');
+            header('Location: ' . BASE_URL . '/modules/email/index.php?folder=' . urlencode($folder));
             exit;
         } catch (Throwable $e) {
             $errorMsg = 'Gagal menghapus email: ' . $e->getMessage();
@@ -49,7 +53,7 @@ if ($emailConfig === null) {
     }
 
     try {
-        $emailHelper = new EmailHelper($emailConfig);
+        $emailHelper = new EmailHelper($emailConfig, $folder);
         $mail = $emailHelper->getMessageByUid($uid);
     } catch (Throwable $e) {
         $errorMsg = $e->getMessage();
@@ -117,7 +121,7 @@ include '../../includes/header.php';
 </style>
 
 <div class="em-wrap">
-    <a class="em-back" href="<?php echo BASE_URL; ?>/modules/email/index.php">&larr; Kembali ke Inbox</a>
+    <a class="em-back" href="<?php echo BASE_URL; ?>/modules/email/index.php?folder=<?php echo urlencode($folder); ?>">&larr; Kembali ke <?php echo htmlspecialchars(EmailHelper::FOLDERS[$folder]); ?></a>
 
     <?php if ($errorMsg): ?>
         <div class="em-error"><?php echo htmlspecialchars($errorMsg); ?></div>
@@ -137,9 +141,9 @@ include '../../includes/header.php';
             <?php endif; ?>
 
             <div style="margin-top:16px;padding-top:14px;border-top:1px solid #eef2f7;display:flex;gap:10px;">
-                <a href="<?php echo BASE_URL; ?>/modules/email/compose.php?reply_uid=<?php echo (int)$uid; ?>"
+                <a href="<?php echo BASE_URL; ?>/modules/email/compose.php?reply_uid=<?php echo (int)$uid; ?>&folder=<?php echo urlencode($folder); ?>"
                    style="text-decoration:none;padding:8px 18px;background:#1e3a8a;color:#fff;border-radius:6px;font-size:0.85rem;font-weight:600;">&#8617; Balas</a>
-                <form method="post" onsubmit="return confirm('Hapus email ini?');" style="margin:0;">
+                <form method="post" onsubmit="return confirm('<?php echo $folder === 'INBOX.Trash' ? 'Hapus permanen email ini?' : 'Pindahkan email ini ke Sampah?'; ?>');" style="margin:0;">
                     <input type="hidden" name="action" value="delete">
                     <button type="submit" style="padding:8px 18px;background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:6px;font-size:0.85rem;font-weight:600;cursor:pointer;">&#128465; Hapus</button>
                 </form>

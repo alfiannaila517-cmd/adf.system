@@ -76,6 +76,11 @@ $page = max(1, (int)($_GET['page'] ?? 1));
 $perPage = 25;
 $offset = ($page - 1) * $perPage;
 
+$folder = (string)($_GET['folder'] ?? 'INBOX');
+if (!array_key_exists($folder, EmailHelper::FOLDERS)) {
+    $folder = 'INBOX';
+}
+
 $errorMsg = null;
 $total = 0;
 $messages = [];
@@ -88,16 +93,16 @@ if ($emailConfig === null) {
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete') {
         $deleteUid = (int)($_POST['uid'] ?? 0);
         try {
-            $emailHelper = new EmailHelper($emailConfig);
+            $emailHelper = new EmailHelper($emailConfig, $folder);
             $emailHelper->deleteMessage($deleteUid);
-            $deleteMsg = 'Email berhasil dihapus.';
+            $deleteMsg = $folder === 'INBOX.Trash' ? 'Email berhasil dihapus permanen.' : 'Email dipindahkan ke Sampah.';
         } catch (Throwable $e) {
             $errorMsg = 'Gagal menghapus email: ' . $e->getMessage();
         }
     }
 
     try {
-        $emailHelper = new EmailHelper($emailConfig);
+        $emailHelper = new EmailHelper($emailConfig, $folder);
         $result = $emailHelper->listMessages($perPage, $offset);
         $total = $result['total'];
         $messages = $result['messages'];
@@ -202,18 +207,47 @@ include '../../includes/header.php';
         color: #334155;
         font-size: 0.85rem;
     }
+
+    .em-folders {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+    }
+
+    .em-folders a {
+        padding: 6px 14px;
+        border: 1px solid #dbe4ee;
+        border-radius: 999px;
+        text-decoration: none;
+        color: #334155;
+        font-size: 0.82rem;
+        font-weight: 600;
+    }
+
+    .em-folders a.active {
+        background: #1e3a8a;
+        border-color: #1e3a8a;
+        color: #fff;
+    }
 </style>
 
 <div class="em-wrap">
     <a href="<?php echo BASE_URL; ?>/index.php" style="display:inline-block;margin-bottom:12px;text-decoration:none;color:#1e3a8a;font-size:0.9rem;">&larr; Kembali ke Dashboard</a>
 
     <div class="em-toolbar">
-        <div style="font-size:0.85rem;color:#64748b;">Inbox: office@narayanakarimunjawa.com &bull; <?php echo (int)$total; ?> email</div>
+        <div style="font-size:0.85rem;color:#64748b;"><?php echo htmlspecialchars(EmailHelper::FOLDERS[$folder]); ?>: office@narayanakarimunjawa.com &bull; <?php echo (int)$total; ?> email</div>
         <div style="display:flex;gap:8px;">
             <a href="<?php echo BASE_URL; ?>/modules/email/compose.php" style="text-decoration:none;padding:6px 14px;background:#1e3a8a;border-radius:6px;font-size:0.85rem;color:#fff;font-weight:600;">+ Tulis Email</a>
             <a href="<?php echo BASE_URL; ?>/modules/email/settings.php" style="text-decoration:none;padding:6px 14px;border:1px solid #dbe4ee;border-radius:6px;font-size:0.85rem;color:#334155;">Pengaturan Email</a>
-            <a href="<?php echo BASE_URL; ?>/modules/email/index.php" style="text-decoration:none;padding:6px 14px;border:1px solid #dbe4ee;border-radius:6px;font-size:0.85rem;color:#334155;">Refresh</a>
+            <a href="<?php echo BASE_URL; ?>/modules/email/index.php?folder=<?php echo urlencode($folder); ?>" style="text-decoration:none;padding:6px 14px;border:1px solid #dbe4ee;border-radius:6px;font-size:0.85rem;color:#334155;">Refresh</a>
         </div>
+    </div>
+
+    <div class="em-folders">
+        <?php foreach (EmailHelper::FOLDERS as $key => $label): ?>
+            <a href="?folder=<?php echo urlencode($key); ?>" class="<?php echo $key === $folder ? 'active' : ''; ?>"><?php echo htmlspecialchars($label); ?></a>
+        <?php endforeach; ?>
     </div>
 
     <?php if ($deleteMsg): ?>
@@ -234,12 +268,12 @@ include '../../includes/header.php';
 
         <?php foreach ($messages as $m): ?>
             <div class="em-row <?php echo $m['seen'] ? '' : 'unread'; ?>">
-                <a href="<?php echo BASE_URL; ?>/modules/email/view.php?uid=<?php echo (int)$m['uid']; ?>" style="display:flex;flex:1;gap:12px;align-items:center;text-decoration:none;color:inherit;min-width:0;">
+                <a href="<?php echo BASE_URL; ?>/modules/email/view.php?uid=<?php echo (int)$m['uid']; ?>&folder=<?php echo urlencode($folder); ?>" style="display:flex;flex:1;gap:12px;align-items:center;text-decoration:none;color:inherit;min-width:0;">
                     <div class="em-from"><?php echo htmlspecialchars($m['from']); ?></div>
                     <div class="em-subject"><?php echo htmlspecialchars($m['subject']); ?></div>
                     <div class="em-date"><?php echo htmlspecialchars($m['date'] !== '' ? date('d M Y H:i', strtotime($m['date'])) : ''); ?></div>
                 </a>
-                <form method="post" onsubmit="return confirm('Hapus email ini?');" style="flex-shrink:0;margin:0;">
+                <form method="post" onsubmit="return confirm('<?php echo $folder === 'INBOX.Trash' ? 'Hapus permanen email ini?' : 'Pindahkan email ini ke Sampah?'; ?>');" style="flex-shrink:0;margin:0;">
                     <input type="hidden" name="action" value="delete">
                     <input type="hidden" name="uid" value="<?php echo (int)$m['uid']; ?>">
                     <button type="submit" title="Hapus" style="background:none;border:none;color:#b91c1c;cursor:pointer;font-size:0.9rem;padding:6px 8px;">&#128465;</button>
@@ -251,7 +285,7 @@ include '../../includes/header.php';
     <?php if ($totalPages > 1): ?>
         <div class="em-pager">
             <?php for ($p = 1; $p <= $totalPages; $p++): ?>
-                <a href="?page=<?php echo $p; ?>" style="<?php echo $p === $page ? 'background:#1e3a8a;color:#fff;border-color:#1e3a8a;' : ''; ?>"><?php echo $p; ?></a>
+                <a href="?folder=<?php echo urlencode($folder); ?>&page=<?php echo $p; ?>" style="<?php echo $p === $page ? 'background:#1e3a8a;color:#fff;border-color:#1e3a8a;' : ''; ?>"><?php echo $p; ?></a>
             <?php endfor; ?>
         </div>
     <?php endif; ?>

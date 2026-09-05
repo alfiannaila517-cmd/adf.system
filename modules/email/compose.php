@@ -39,9 +39,13 @@ $body = (string)($_POST['body'] ?? '');
 
 // Pre-fill quoted reply body when opened via "Balas" from view.php
 $replyUid = (int)($_GET['reply_uid'] ?? 0);
+$replyFolder = (string)($_GET['folder'] ?? 'INBOX');
+if (!array_key_exists($replyFolder, EmailHelper::FOLDERS)) {
+    $replyFolder = 'INBOX';
+}
 if ($replyUid > 0 && $_SERVER['REQUEST_METHOD'] !== 'POST' && $emailConfig !== null) {
     try {
-        $helper = new EmailHelper($emailConfig);
+        $helper = new EmailHelper($emailConfig, $replyFolder);
         $original = $helper->getMessageByUid($replyUid);
         $to = $to !== '' ? $to : $original['from'];
         $subject = $subject !== '' ? $subject : (stripos($original['subject'], 're:') === 0 ? $original['subject'] : 'Re: ' . $original['subject']);
@@ -70,7 +74,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $emailConfig['pass']
             );
             $htmlBody = nl2br(htmlspecialchars($body));
-            $mailer->send($to, $subject, $htmlBody);
+            $rawSent = $mailer->send($to, $subject, $htmlBody);
+            EmailHelper::appendMessageToFolder($emailConfig, 'INBOX.Sent', $rawSent);
             $successMsg = 'Email berhasil dikirim ke ' . htmlspecialchars($to) . '.';
             $to = $subject = $body = '';
         } catch (Throwable $e) {

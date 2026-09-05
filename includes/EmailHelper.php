@@ -8,17 +8,30 @@ class EmailHelper
 {
     const SETTINGS_PREFIX = 'email_imap_';
 
+    /** Folders exposed in the "Email Kantor" UI, matching this mail server's real folder names. */
+    const FOLDERS = [
+        'INBOX' => 'Inbox',
+        'INBOX.Sent' => 'Terkirim',
+        'INBOX.Drafts' => 'Draft',
+        'INBOX.Trash' => 'Sampah',
+        'INBOX.Junk' => 'Spam',
+    ];
+
     /** @var resource|\IMAP\Connection|null */
     private $conn = null;
     private string $mailbox;
+    private string $folder;
 
     /**
      * @param array{host:string,port:int,encryption:string,user:string,pass:string}|null $config
      *   If null, falls back to EMAIL_IMAP_* constants (config/email-narayana.php) for
      *   backward compatibility with the file-based setup.
+     * @param string $folder One of the keys in self::FOLDERS.
      */
-    public function __construct(?array $config = null)
+    public function __construct(?array $config = null, string $folder = 'INBOX')
     {
+        $this->folder = array_key_exists($folder, self::FOLDERS) ? $folder : 'INBOX';
+
         if (!extension_loaded('imap')) {
             throw new RuntimeException('Ekstensi PHP IMAP belum aktif di server ini. Hubungi developer untuk mengaktifkan ext-imap.');
         }
@@ -44,13 +57,32 @@ class EmailHelper
         $port = (int)($config['port'] ?? 993);
         $flag = $encryption === 'tls' ? '/imap/tls' : '/imap/ssl';
 
-        $this->mailbox = '{' . $config['host'] . ':' . $port . $flag . '/novalidate-cert}INBOX';
+        $this->mailbox = '{' . $config['host'] . ':' . $port . $flag . '/novalidate-cert}' . $this->folder;
 
         $conn = @imap_open($this->mailbox, $config['user'], $config['pass']);
         if ($conn === false) {
             throw new RuntimeException('Gagal konek ke email: ' . imap_last_error());
         }
         $this->conn = $conn;
+    }
+
+    /**
+     * Append a raw RFC822 message into a folder (used to save a copy of sent mail into
+     * INBOX.Sent, since SMTP sending alone does not file a copy anywhere).
+     */
+    public static function appendMessageToFolder(array $config, string $folder, string $rawMessage): void
+    {
+        $encryption = $config['encryption'] ?? 'ssl';
+        $port = (int)($config['port'] ?? 993);
+        $flag = $encryption === 'tls' ? '/imap/tls' : '/imap/ssl';
+        $mailbox = '{' . $config['host'] . ':' . $port . $flag . '/novalidate-cert}' . $folder;
+
+        $conn = @imap_open($mailbox, $config['user'], $config['pass']);
+        if ($conn === false) {
+            return;
+        }
+        @imap_append($conn, $mailbox, str_replace("\n", "\r\n", str_replace("\r\n", "\n", $rawMessage)), '\\Seen');
+        imap_close($conn);
     }
 
     /**
@@ -251,7 +283,14 @@ class EmailHelper
         if (!$msgno) {
             throw new RuntimeException('Email tidak ditemukan.');
         }
-        imap_delete($this->conn, (string)$msgno);
+
+        if ($this->folder === 'INBOX.Trash') {
+            // Already in Trash: this is a permanent delete.
+            imap_delete($this->conn, (string)$msgno);
+        } else {
+            // Move to Trash instead of hard-deleting, like a normal mail client.
+            imap_mail_move($this->conn, (string)$msgno, 'INBOX.Trash');
+        }
         imap_expunge($this->conn);
     }
 
