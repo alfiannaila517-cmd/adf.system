@@ -402,6 +402,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
 $viewPoId = (int)($_GET['view'] ?? 0);
 $printPoId = (int)($_GET['print'] ?? 0);
 
+// Filter: bulan (YYYY-MM) atau rentang tanggal (dari/sampai)
+$filterMonth = trim($_GET['filter_month'] ?? '');
+$dateFrom = trim($_GET['date_from'] ?? '');
+$dateTo = trim($_GET['date_to'] ?? '');
+if ($filterMonth !== '' && !preg_match('/^\d{4}-\d{2}$/', $filterMonth)) {
+    $filterMonth = '';
+}
+if ($dateFrom !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateFrom)) {
+    $dateFrom = '';
+}
+if ($dateTo !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateTo)) {
+    $dateTo = '';
+}
+
+$poWhere = ["poh.business_id IS NULL", "poh.po_number LIKE 'GDN-%'"];
+$poParams = [];
+if ($dateFrom !== '' && $dateTo !== '') {
+    $poWhere[] = 'poh.po_date BETWEEN ? AND ?';
+    $poParams[] = $dateFrom;
+    $poParams[] = $dateTo;
+} elseif ($filterMonth !== '') {
+    $poWhere[] = "DATE_FORMAT(poh.po_date, '%Y-%m') = ?";
+    $poParams[] = $filterMonth;
+}
+$poWhereSql = implode(' AND ', $poWhere);
+
 $gudangPOs = $db->fetchAll("
     SELECT poh.*, s.supplier_name,
            COUNT(pod.id) AS items_count,
@@ -410,11 +436,11 @@ $gudangPOs = $db->fetchAll("
     FROM purchase_orders_header poh
     LEFT JOIN suppliers s ON poh.supplier_id = s.id
     LEFT JOIN purchase_orders_detail pod ON pod.po_header_id = poh.id
-    WHERE poh.business_id IS NULL AND poh.po_number LIKE 'GDN-%'
+    WHERE $poWhereSql
     GROUP BY poh.id
-    ORDER BY poh.created_at DESC
-    LIMIT 100
-");
+    ORDER BY poh.po_date DESC, poh.created_at DESC
+    LIMIT 200
+", $poParams);
 
 $suppliers = $db->fetchAll("SELECT id, supplier_name FROM suppliers WHERE is_active = 1 OR is_active IS NULL ORDER BY supplier_name ASC");
 if (empty($suppliers)) {
@@ -468,6 +494,85 @@ if ($printPo) {
     echo '<div><strong>Diterima:</strong><br><br><br>___________________________<br>Supplier</div></div>';
     echo '<br><button onclick="window.print()">🖨️ Cetak</button>';
     echo '</body></html>';
+    exit;
+}
+
+// ─── Cetak Tagihan PDF (berdasarkan filter bulan/tanggal aktif) ─────────────
+if (isset($_GET['export_tagihan_pdf']) && (string)$_GET['export_tagihan_pdf'] === '1') {
+    $tagihanRows = $db->fetchAll("
+        SELECT poh.id, poh.po_number, poh.po_date, poh.status,
+               COALESCE(s.supplier_name, '-') AS supplier_name,
+               COALESCE(SUM(pod.received_quantity), 0) AS received_qty,
+               COALESCE(SUM(pod.received_quantity * pod.unit_price), 0) AS total_tagihan
+        FROM purchase_orders_header poh
+        LEFT JOIN suppliers s ON s.id = poh.supplier_id
+        LEFT JOIN purchase_orders_detail pod ON pod.po_header_id = poh.id
+        WHERE $poWhereSql AND poh.status NOT IN ('cancelled', 'draft')
+        GROUP BY poh.id
+        HAVING received_qty > 0
+        ORDER BY poh.po_date ASC, poh.id ASC
+    ", $poParams) ?: [];
+
+    $periodLabel = 'Semua Periode';
+    if ($dateFrom !== '' && $dateTo !== '') {
+        $periodLabel = date('d M Y', strtotime($dateFrom)) . ' - ' . date('d M Y', strtotime($dateTo));
+    } elseif ($filterMonth !== '') {
+        $periodLabel = date('F Y', strtotime($filterMonth . '-01'));
+    }
+
+    $pdfLib = __DIR__ . '/../../vendor/tecnickcom/tcpdf/tcpdf.php';
+    if (file_exists($pdfLib)) {
+        require_once $pdfLib;
+
+        $pdf = new TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
+        $pdf->SetCreator('ADF System');
+        $pdf->SetAuthor('Gudang Nasita');
+        $pdf->SetTitle('Tagihan PO Supplier Gudang Nasita');
+        $pdf->SetMargins(10, 10, 10);
+        $pdf->setPrintHeader(false);
+        $pdf->setPrintFooter(false);
+        $pdf->AddPage();
+
+        $html = '<h2 style="margin:0;">Tagihan PO Supplier — Gudang Nasita</h2>';
+        $html .= '<p style="font-size:11px; margin:4px 0 10px;">Periode: ' . htmlspecialchars($periodLabel) . ' &nbsp;|&nbsp; Tanggal cetak: ' . date('d M Y H:i') . '</p>';
+        $html .= '<table border="1" cellpadding="4">';
+        $html .= '<tr style="font-weight:bold;background-color:#f1f5f9;">'
+            . '<th width="14">No</th>'
+            . '<th width="70">No PO</th>'
+            . '<th width="55">Tanggal</th>'
+            . '<th width="120">Supplier</th>'
+            . '<th width="55" align="right">Qty Diterima</th>'
+            . '<th width="70" align="right">Total Tagihan</th>'
+            . '</tr>';
+
+        $grandTotal = 0;
+        foreach ($tagihanRows as $idx => $row) {
+            $grandTotal += (float)$row['total_tagihan'];
+            $html .= '<tr>'
+                . '<td>' . ($idx + 1) . '</td>'
+                . '<td>' . htmlspecialchars($row['po_number']) . '</td>'
+                . '<td>' . date('d/m/Y', strtotime($row['po_date'])) . '</td>'
+                . '<td>' . htmlspecialchars($row['supplier_name']) . '</td>'
+                . '<td align="right">' . number_format((float)$row['received_qty'], 2) . '</td>'
+                . '<td align="right">Rp ' . number_format((float)$row['total_tagihan'], 0, ',', '.') . '</td>'
+                . '</tr>';
+        }
+        if (empty($tagihanRows)) {
+            $html .= '<tr><td colspan="6" align="center">Tidak ada tagihan pada periode ini.</td></tr>';
+        }
+        $html .= '<tr style="font-weight:bold;background-color:#f8fafc;">'
+            . '<td colspan="5" align="right">GRAND TOTAL</td>'
+            . '<td align="right">Rp ' . number_format($grandTotal, 0, ',', '.') . '</td>'
+            . '</tr>';
+        $html .= '</table>';
+
+        $pdf->writeHTML($html, true, false, true, false, '');
+        $pdf->Output('tagihan-po-supplier-' . date('Ymd-His') . '.pdf', 'D');
+        exit;
+    }
+
+    header('Content-Type: text/html; charset=utf-8');
+    echo '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><script>window.print();</script><h3>TCPDF tidak tersedia. Gunakan Save as PDF dari dialog print.</h3></body></html>';
     exit;
 }
 
@@ -703,6 +808,34 @@ include '../../includes/header.php';
 <?php endif; ?>
 
 <!-- Daftar PO Gudang -->
+<div class="card" style="margin-bottom:1.25rem;">
+    <h3 style="font-size:1rem; font-weight:700; margin-bottom:1rem;">Filter Periode PO</h3>
+    <form method="GET" style="display:flex; gap:0.75rem; flex-wrap:wrap; align-items:end;">
+        <div class="form-group" style="margin:0;">
+            <label class="form-label" style="font-size:0.75rem;">Filter Bulan</label>
+            <input type="month" name="filter_month" class="form-control" value="<?php echo htmlspecialchars($filterMonth); ?>" style="width:160px;">
+        </div>
+        <div class="form-group" style="margin:0;">
+            <label class="form-label" style="font-size:0.75rem;">Dari Tanggal</label>
+            <input type="date" name="date_from" class="form-control" value="<?php echo htmlspecialchars($dateFrom); ?>" style="width:160px;">
+        </div>
+        <div class="form-group" style="margin:0;">
+            <label class="form-label" style="font-size:0.75rem;">Sampai Tanggal</label>
+            <input type="date" name="date_to" class="form-control" value="<?php echo htmlspecialchars($dateTo); ?>" style="width:160px;">
+        </div>
+        <button type="submit" class="btn btn-primary">
+            <i data-feather="filter" style="width:14px;height:14px;"></i> Terapkan
+        </button>
+        <?php if ($filterMonth !== '' || $dateFrom !== '' || $dateTo !== ''): ?>
+            <a href="gudang-po-supplier.php" class="btn btn-secondary">Reset</a>
+        <?php endif; ?>
+        <a href="gudang-po-supplier.php?export_tagihan_pdf=1&filter_month=<?php echo urlencode($filterMonth); ?>&date_from=<?php echo urlencode($dateFrom); ?>&date_to=<?php echo urlencode($dateTo); ?>"
+            target="_blank" class="btn btn-danger" style="margin-left:auto; font-weight:700;">
+            <i data-feather="file-text" style="width:14px;height:14px;"></i> Cetak Tagihan PDF
+        </a>
+    </form>
+</div>
+
 <div class="card">
     <h3 style="font-size:1rem; font-weight:700; margin-bottom:1rem;">Daftar PO Supplier Gudang</h3>
     <div class="table-responsive">
