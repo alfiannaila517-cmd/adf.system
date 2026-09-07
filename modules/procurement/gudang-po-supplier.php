@@ -528,46 +528,87 @@ if (isset($_GET['export_tagihan_pdf']) && (string)$_GET['export_tagihan_pdf'] ==
         $pdf->SetCreator('ADF System');
         $pdf->SetAuthor('Gudang Nasita');
         $pdf->SetTitle('Tagihan PO Supplier Gudang Nasita');
-        $pdf->SetMargins(10, 10, 10);
+        $pdf->SetMargins(12, 12, 12);
+        $pdf->SetAutoPageBreak(true, 16);
         $pdf->setPrintHeader(false);
         $pdf->setPrintFooter(false);
         $pdf->AddPage();
 
-        $html = '<h2 style="margin:0;">Tagihan PO Supplier — Gudang Nasita</h2>';
-        $html .= '<p style="font-size:11px; margin:4px 0 10px;">Periode: ' . htmlspecialchars($periodLabel) . ' &nbsp;|&nbsp; Tanggal cetak: ' . date('d M Y H:i') . '</p>';
-        $html .= '<table border="1" cellpadding="4">';
-        $html .= '<tr style="font-weight:bold;background-color:#f1f5f9;">'
-            . '<th width="14">No</th>'
-            . '<th width="70">No PO</th>'
-            . '<th width="55">Tanggal</th>'
-            . '<th width="120">Supplier</th>'
-            . '<th width="55" align="right">Qty Diterima</th>'
-            . '<th width="70" align="right">Total Tagihan</th>'
+        $rowCount = count($tagihanRows);
+        $poCount = count(array_unique(array_column($tagihanRows, 'id')));
+
+        $html = '<table cellpadding="0" cellspacing="0" style="width:100%;">'
+            . '<tr>'
+            . '<td style="width:60%;">'
+            . '<span style="font-size:16px;font-weight:bold;color:#0f172a;">GUDANG NASITA</span><br>'
+            . '<span style="font-size:9px;color:#64748b;">Narayana Hotel Karimunjawa</span>'
+            . '</td>'
+            . '<td style="width:40%;text-align:right;">'
+            . '<span style="font-size:14px;font-weight:bold;color:#0f9d6a;">TAGIHAN PO SUPPLIER</span><br>'
+            . '<span style="font-size:9px;color:#64748b;">Dicetak: ' . date('d M Y, H:i') . ' WIB</span>'
+            . '</td>'
+            . '</tr>'
+            . '</table>';
+        $html .= '<div style="border-bottom:2px solid #0f9d6a;margin:6px 0 10px;height:1px;"></div>';
+
+        $html .= '<table cellpadding="0" cellspacing="0" style="width:100%;margin-bottom:10px;">'
+            . '<tr>'
+            . '<td style="width:33%;background-color:#f1f5f9;padding:6px 8px;border-radius:3px;">'
+            . '<span style="font-size:8px;color:#64748b;">PERIODE</span><br>'
+            . '<span style="font-size:10px;font-weight:bold;color:#0f172a;">' . htmlspecialchars($periodLabel) . '</span>'
+            . '</td><td style="width:2%;"></td>'
+            . '<td style="width:32%;background-color:#f1f5f9;padding:6px 8px;border-radius:3px;">'
+            . '<span style="font-size:8px;color:#64748b;">JUMLAH PO</span><br>'
+            . '<span style="font-size:10px;font-weight:bold;color:#0f172a;">' . $poCount . ' Purchase Order</span>'
+            . '</td><td style="width:2%;"></td>'
+            . '<td style="width:31%;background-color:#f1f5f9;padding:6px 8px;border-radius:3px;">'
+            . '<span style="font-size:8px;color:#64748b;">TOTAL BARIS</span><br>'
+            . '<span style="font-size:10px;font-weight:bold;color:#0f172a;">' . $rowCount . ' Item Tagihan</span>'
+            . '</td>'
+            . '</tr>'
+            . '</table>';
+
+        $html .= '<table border="0" cellpadding="6" cellspacing="0" style="width:100%;">';
+        $html .= '<tr style="background-color:#0f9d6a;color:#ffffff;font-weight:bold;font-size:9.5px;">'
+            . '<th width="7%" style="border-radius:3px 0 0 0;">No</th>'
+            . '<th width="18%">No PO</th>'
+            . '<th width="13%">Tanggal</th>'
+            . '<th width="30%">Supplier</th>'
+            . '<th width="14%" align="right">Qty Diterima</th>'
+            . '<th width="18%" align="right" style="border-radius:0 3px 0 0;">Total Tagihan</th>'
             . '</tr>';
 
         $grandTotal = 0;
         foreach ($tagihanRows as $idx => $row) {
             $grandTotal += (float)$row['total_tagihan'];
-            $html .= '<tr>'
-                . '<td>' . ($idx + 1) . '</td>'
-                . '<td>' . htmlspecialchars($row['po_number']) . '</td>'
-                . '<td>' . date('d/m/Y', strtotime($row['po_date'])) . '</td>'
-                . '<td>' . htmlspecialchars($row['supplier_name']) . '</td>'
-                . '<td align="right">' . number_format((float)$row['received_qty'], 2) . '</td>'
-                . '<td align="right">Rp ' . number_format((float)$row['total_tagihan'], 0, ',', '.') . '</td>'
+            $bg = ($idx % 2 === 0) ? '#ffffff' : '#f8fafc';
+            $html .= '<tr style="background-color:' . $bg . ';font-size:9.5px;">'
+                . '<td style="border-bottom:1px solid #e2e8f0;">' . ($idx + 1) . '</td>'
+                . '<td style="border-bottom:1px solid #e2e8f0;font-weight:bold;color:#0f172a;">' . htmlspecialchars($row['po_number']) . '</td>'
+                . '<td style="border-bottom:1px solid #e2e8f0;">' . date('d/m/Y', strtotime($row['po_date'])) . '</td>'
+                . '<td style="border-bottom:1px solid #e2e8f0;">' . htmlspecialchars($row['supplier_name']) . '</td>'
+                . '<td align="right" style="border-bottom:1px solid #e2e8f0;">' . number_format((float)$row['received_qty'], 2) . '</td>'
+                . '<td align="right" style="border-bottom:1px solid #e2e8f0;font-weight:bold;">Rp ' . number_format((float)$row['total_tagihan'], 0, ',', '.') . '</td>'
                 . '</tr>';
         }
         if (empty($tagihanRows)) {
-            $html .= '<tr><td colspan="6" align="center">Tidak ada tagihan pada periode ini.</td></tr>';
+            $html .= '<tr><td colspan="6" align="center" style="padding:14px;color:#94a3b8;">Tidak ada tagihan pada periode ini.</td></tr>';
         }
-        $html .= '<tr style="font-weight:bold;background-color:#f8fafc;">'
-            . '<td colspan="5" align="right">GRAND TOTAL</td>'
-            . '<td align="right">Rp ' . number_format($grandTotal, 0, ',', '.') . '</td>'
-            . '</tr>';
         $html .= '</table>';
 
+        $html .= '<table cellpadding="6" cellspacing="0" style="width:100%;margin-top:2px;">'
+            . '<tr style="background-color:#0f172a;color:#ffffff;font-weight:bold;font-size:11px;">'
+            . '<td width="82%" align="right" style="border-radius:3px 0 0 3px;">GRAND TOTAL TAGIHAN</td>'
+            . '<td width="18%" align="right" style="border-radius:0 3px 3px 0;">Rp ' . number_format($grandTotal, 0, ',', '.') . '</td>'
+            . '</tr>'
+            . '</table>';
+
+        $html .= '<div style="margin-top:18px;font-size:8px;color:#94a3b8;text-align:center;">Dokumen ini dibuat otomatis oleh ADF System — Gudang Nasita</div>';
+
         $pdf->writeHTML($html, true, false, true, false, '');
-        $pdf->Output('tagihan-po-supplier-' . date('Ymd-His') . '.pdf', 'D');
+
+        // Tampilkan preview di browser (opsi Cetak/Save PDF tersedia di viewer PDF bawaan browser)
+        $pdf->Output('tagihan-po-supplier-' . date('Ymd-His') . '.pdf', 'I');
         exit;
     }
 
