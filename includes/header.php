@@ -744,6 +744,13 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                         </li>
 
                         <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>/modules/procurement/gudang-riwayat-masuk.php" class="nav-link <?php echo activeMenu('gudang-riwayat-masuk.php'); ?>">
+                                <i data-feather="log-in" class="nav-icon"></i>
+                                <span>Histori Barang Masuk</span>
+                            </a>
+                        </li>
+
+                        <li class="nav-item">
                             <a href="<?php echo BASE_URL; ?>/modules/procurement/purchase-orders.php" class="nav-link <?php echo activeMenu('purchase-orders.php'); ?>">
                                 <i data-feather="send" class="nav-icon"></i>
                                 <span>History Terkirim</span>
