@@ -1044,14 +1044,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'transfer_stock_business') {
     $itemName = trim((string)($_POST['item_name'] ?? ''));
     $unit = trim((string)($_POST['unit'] ?? 'pcs'));
-    $targetSlug = strtolower(trim((string)($_POST['target_business_slug'] ?? '')));
+    $targetSlugRaw = strtolower(trim((string)($_POST['target_business_slug'] ?? '')));
+    // "gudang-nasita-supply" = bisnis MENGIRIM/MENYUPLAI barang produksinya sendiri ke Gudang
+    // (mis. roti burger produksi Narayana) -> Gudang yang berhutang ke bisnis ini, BUKAN retur.
+    $isSupplyToGudang = ($targetSlugRaw === 'gudang-nasita-supply');
+    $targetSlug = $isSupplyToGudang ? 'gudang-nasita' : $targetSlugRaw;
     $qty = (float)($_POST['transfer_qty'] ?? 0);
     $notes = trim((string)($_POST['notes'] ?? ''));
+    $supplyUnitPrice = $isSupplyToGudang ? (float)str_replace(['.', ','], ['', '.'], (string)($_POST['supply_unit_price'] ?? '0')) : 0.0;
 
     if ($activeBusinessSlug === '' || $itemName === '' || $qty <= 0 || $targetSlug === '' || $targetSlug === $activeBusinessSlug) {
         $_SESSION['error'] = 'Data transfer tidak valid.';
     } elseif ($targetSlug === 'gudang-nasita' && !$masterPdo) {
-        $_SESSION['error'] = 'Koneksi master DB gagal untuk kembalikan ke gudang.';
+        $_SESSION['error'] = 'Koneksi master DB gagal untuk kirim ke gudang.';
+    } elseif ($isSupplyToGudang && $supplyUnitPrice <= 0) {
+        $_SESSION['error'] = 'Harga satuan wajib diisi untuk suplai ke Gudang (agar Gudang tercatat berhutang).';
     } else {
         $availableQty = $computeVisibleQty($itemName, $unit);
         if ($qty > $availableQty) {
@@ -1073,8 +1080,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 // Resolve the item's monetary value so Gudang Nasita's billing can follow the goods:
                 // look up this business' own most recent unit_price for the item from its Gudang-received
                 // transfers (falls back to 0/untracked if never received from Gudang, e.g. manual stock).
-                $unitPriceForTransfer = 0.0;
-                if ($gudangDbNameResolved !== '' && isset($targetFilterSql, $targetFilterParams)) {
+                // Suplai ke Gudang pakai harga yang diinput manual (barang produksi sendiri tidak punya
+                // riwayat harga dari Gudang untuk dicari), supaya hutang Gudang tercatat dengan benar.
+                $unitPriceForTransfer = $isSupplyToGudang ? $supplyUnitPrice : 0.0;
+                if (!$isSupplyToGudang && $gudangDbNameResolved !== '' && isset($targetFilterSql, $targetFilterParams)) {
                     try {
                         $originDbNamePrice = Database::getCurrentDatabase();
                         $gudangDbPrice = Database::switchDatabase($gudangDbNameResolved);
@@ -1101,7 +1110,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 // Some stock was created or migrated without a transfer-item
                 // price. Use the Gudang master stock price when that column is
                 // available, so direct business transfers still carry value.
-                if ($unitPriceForTransfer <= 0 && $gudangDbNameResolved !== '') {
+                if (!$isSupplyToGudang && $unitPriceForTransfer <= 0 && $gudangDbNameResolved !== '') {
                     try {
                         $originDbNameStockPrice = Database::getCurrentDatabase();
                         $gudangDbStockPrice = Database::switchDatabase($gudangDbNameResolved);
@@ -1166,13 +1175,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     ]);
                 }
 
-                // When returning to Gudang Nasita, credit the gudang stock. addGudangNasitaManualStock()
+                // When returning/suplai to Gudang Nasita, credit the gudang stock. addGudangNasitaManualStock()
                 // writes to Database::getInstance() (whatever DB is CURRENTLY active) — since this page
                 // runs on the business' own DB connection, we must switch to Gudang's own DB first, or
                 // the insert silently lands in the wrong database and the real gudang stock never moves.
                 if ($targetSlug === 'gudang-nasita') {
                     if ($gudangDbNameResolved === '') {
-                        error_log('Gagal tambah stok gudang saat kembalikan: nama database Gudang Nasita tidak ditemukan.');
+                        error_log('Gagal tambah stok gudang saat kembalikan/suplai: nama database Gudang Nasita tidak ditemukan.');
                     } else {
                         $originDbNameForReturn = Database::getCurrentDatabase();
                         $gudangDbForReturn = Database::switchDatabase($gudangDbNameResolved);
@@ -1189,15 +1198,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                                 ? (string)$existingGudangStock['category']
                                 : 'lainnya';
 
+                            $gudangStockNotes = $isSupplyToGudang
+                                ? ('Suplai/produksi dari ' . $activeBusinessName . ' — ' . $transferNo . ' (Gudang berhutang)')
+                                : ('Dikembalikan dari ' . $activeBusinessName . ' — ' . $transferNo);
+
                             $gudangResult = addGudangNasitaManualStock(
                                 $itemName,
                                 $unit,
                                 $qty,
                                 (int)($currentUser['id'] ?? 0),
-                                ['notes' => 'Dikembalikan dari ' . $activeBusinessName . ' — ' . $transferNo, 'category' => $returnCategory]
+                                ['notes' => $gudangStockNotes, 'category' => $returnCategory]
                             );
                             if (!$gudangResult['success']) {
-                                error_log('Gagal tambah stok gudang saat kembalikan: ' . $gudangResult['message']);
+                                error_log('Gagal tambah stok gudang saat kembalikan/suplai: ' . $gudangResult['message']);
                             }
                         } finally {
                             if ($originDbNameForReturn !== '') {
@@ -1208,7 +1221,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     }
                 }
 
-                $_SESSION['success'] = 'Transfer stok berhasil: ' . $transferNo;
+                $_SESSION['success'] = $isSupplyToGudang
+                    ? ('Suplai ke Gudang berhasil: ' . $transferNo . '. Gudang tercatat berhutang Rp ' . number_format($subtotalForTransfer, 0, ',', '.') . ' ke ' . $activeBusinessName . '.')
+                    : ('Transfer stok berhasil: ' . $transferNo);
             } catch (Throwable $e) {
                 $_SESSION['error'] = 'Gagal transfer stok antar bisnis: ' . $e->getMessage();
             }
@@ -2227,20 +2242,26 @@ include '../../includes/header.php';
             <div style="display:grid; grid-template-columns:1fr 140px; gap:0.75rem; margin-bottom:0.85rem;">
                 <div>
                     <label class="form-label">Tujuan bisnis</label>
-                    <select name="target_business_slug" class="form-control" required>
+                    <select name="target_business_slug" id="transfer_target_slug" class="form-control" onchange="toggleSupplyPriceField()" required>
                         <option value="">Pilih bisnis tujuan</option>
                         <?php foreach ($transferBusinessOptions as $slug => $biz): ?>
                             <?php if (strtolower($slug) === $activeBusinessSlug): continue;
                             endif; ?>
                             <option value="<?php echo htmlspecialchars($slug); ?>"><?php echo htmlspecialchars($biz['name']); ?></option>
                         <?php endforeach; ?>
-                        <option value="gudang-nasita" style="color:#7c3aed; font-weight:600;">↩ Kembalikan ke Gudang Nasita</option>
+                        <option value="gudang-nasita" style="color:#7c3aed; font-weight:600;">↩ Kembalikan ke Gudang Nasita (Retur, tanpa tagihan)</option>
+                        <option value="gudang-nasita-supply" style="color:#b45309; font-weight:600;">📦 Suplai ke Gudang Nasita (Produksi Bisnis — Gudang Berhutang)</option>
                     </select>
                 </div>
                 <div>
                     <label class="form-label">Qty</label>
                     <input type="number" name="transfer_qty" id="transfer_qty" min="0.01" step="0.01" class="form-control" placeholder="Qty" required>
                 </div>
+            </div>
+
+            <div class="form-group" id="supplyPriceGroup" style="display:none; margin-bottom:0.75rem;">
+                <label class="form-label">Harga Satuan (Rp) — dipakai untuk hitung hutang Gudang</label>
+                <input type="number" name="supply_unit_price" id="supply_unit_price" min="1" step="1" class="form-control" placeholder="Misal: 5000">
             </div>
 
             <div class="form-group" style="margin-bottom:0.75rem;">
@@ -2467,6 +2488,7 @@ include '../../includes/header.php';
         var qtyInput = document.getElementById('transfer_qty');
         var label = document.getElementById('transferModalItemLabel');
         var qtyInfo = document.getElementById('transferQtyInfo');
+        var targetSelect = document.getElementById('transfer_target_slug');
 
         itemInput.value = itemName;
         unitInput.value = unit;
@@ -2474,8 +2496,29 @@ include '../../includes/header.php';
         qtyInput.max = maxQty;
         label.textContent = itemName + ' (' + unit + ')';
         qtyInfo.textContent = 'Stok tersedia: ' + maxQty + ' ' + unit;
+        if (targetSelect) {
+            targetSelect.value = '';
+        }
+        toggleSupplyPriceField();
 
         modal.style.display = 'flex';
+    }
+
+    function toggleSupplyPriceField() {
+        var targetSelect = document.getElementById('transfer_target_slug');
+        var priceGroup = document.getElementById('supplyPriceGroup');
+        var priceInput = document.getElementById('supply_unit_price');
+        var isSupply = targetSelect && targetSelect.value === 'gudang-nasita-supply';
+
+        if (priceGroup) {
+            priceGroup.style.display = isSupply ? 'block' : 'none';
+        }
+        if (priceInput) {
+            priceInput.required = isSupply;
+            if (!isSupply) {
+                priceInput.value = '';
+            }
+        }
     }
 
     function closeTransferModal() {
