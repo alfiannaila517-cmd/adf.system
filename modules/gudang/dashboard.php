@@ -32,14 +32,16 @@ $poSupplierHistory = $db->fetchAll(
 ) ?: [];
 
 // ── Histori Barang Datang (penerimaan dari PO supplier) ───────────────────────
+// LEFT JOIN (bukan INNER) supaya baris penerimaan tidak hilang dari histori
+// walau stock_id-nya sempat ter-relink/berubah oleh proses self-heal stok.
 $barangDatangHistory = $db->fetchAll(
     "SELECT gm.quantity, gm.reference_number AS po_number, gm.notes,
             COALESCE(gm.movement_date, gm.created_at) AS tgl,
-            gs.item_name, gs.unit
+            COALESCE(gs.item_name, gm.notes, '-') AS item_name, COALESCE(gs.unit, '') AS unit
      FROM gudang_nasita_movements gm
-     JOIN gudang_nasita_stock gs ON gm.stock_id = gs.id
+     LEFT JOIN gudang_nasita_stock gs ON gm.stock_id = gs.id
      WHERE gm.movement_type = 'in_supplier'
-     ORDER BY COALESCE(gm.movement_date, gm.created_at) DESC LIMIT 8"
+     ORDER BY COALESCE(gm.movement_date, gm.created_at) DESC, gm.id DESC LIMIT 8"
 ) ?: [];
 
 // ── Histori terkirim per bisnis (ringkasan) ───────────────────────────────────
