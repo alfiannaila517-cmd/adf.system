@@ -1179,9 +1179,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 // writes to Database::getInstance() (whatever DB is CURRENTLY active) — since this page
                 // runs on the business' own DB connection, we must switch to Gudang's own DB first, or
                 // the insert silently lands in the wrong database and the real gudang stock never moves.
+                $gudangCreditFailedMessage = '';
                 if ($targetSlug === 'gudang-nasita') {
                     if ($gudangDbNameResolved === '') {
-                        error_log('Gagal tambah stok gudang saat kembalikan/suplai: nama database Gudang Nasita tidak ditemukan.');
+                        $gudangCreditFailedMessage = 'Nama database Gudang Nasita tidak ditemukan.';
+                        error_log('Gagal tambah stok gudang saat kembalikan/suplai: ' . $gudangCreditFailedMessage);
                     } else {
                         $originDbNameForReturn = Database::getCurrentDatabase();
                         $gudangDbForReturn = Database::switchDatabase($gudangDbNameResolved);
@@ -1210,7 +1212,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                                 ['notes' => $gudangStockNotes, 'category' => $returnCategory]
                             );
                             if (!$gudangResult['success']) {
-                                error_log('Gagal tambah stok gudang saat kembalikan/suplai: ' . $gudangResult['message']);
+                                $gudangCreditFailedMessage = (string)($gudangResult['message'] ?? 'Gagal tidak diketahui');
+                                error_log('Gagal tambah stok gudang saat kembalikan/suplai: ' . $gudangCreditFailedMessage);
                             }
                         } finally {
                             if ($originDbNameForReturn !== '') {
@@ -1221,9 +1224,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     }
                 }
 
-                $_SESSION['success'] = $isSupplyToGudang
-                    ? ('Suplai ke Gudang berhasil: ' . $transferNo . '. Gudang tercatat berhutang Rp ' . number_format($subtotalForTransfer, 0, ',', '.') . ' ke ' . $activeBusinessName . '.')
-                    : ('Transfer stok berhasil: ' . $transferNo);
+                // Jangan tampilkan pesan sukses palsu — kalau stok gudang gagal ditambahkan,
+                // transfer sudah tercatat (dan mungkin sudah jadi hutang) tapi barangnya belum
+                // benar-benar masuk, jadi user WAJIB tahu supaya tidak dianggap selesai.
+                if ($gudangCreditFailedMessage !== '') {
+                    $_SESSION['error'] = 'Transfer ' . $transferNo . ' tercatat, TAPI stok Gudang Nasita GAGAL ditambahkan: ' . $gudangCreditFailedMessage . ' (hubungi admin, jangan input ulang).';
+                } else {
+                    $_SESSION['success'] = $isSupplyToGudang
+                        ? ('Suplai ke Gudang berhasil: ' . $transferNo . '. Gudang tercatat berhutang Rp ' . number_format($subtotalForTransfer, 0, ',', '.') . ' ke ' . $activeBusinessName . '.')
+                        : ('Transfer stok berhasil: ' . $transferNo);
+                }
             } catch (Throwable $e) {
                 $_SESSION['error'] = 'Gagal transfer stok antar bisnis: ' . $e->getMessage();
             }

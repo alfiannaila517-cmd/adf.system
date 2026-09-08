@@ -483,6 +483,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
+// Perbaiki kasus transfer bisnis->Gudang yang tercatat di business_inter_stock_transfers
+// tapi GAGAL menambah stok Gudang (mis. karena error saat itu tidak terlihat oleh user).
+// Idempoten: dicek dulu apakah gudang_nasita_movements sudah punya baris yang mereferensikan
+// nomor transfer ini di catatan sebelum menambah stok lagi, supaya tidak dobel.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'retry_credit_bisnis_return') {
+    $rid = (int)($_POST['return_id'] ?? 0);
+    if ($rid <= 0) {
+        $_SESSION['error'] = 'Data tidak valid.';
+    } else {
+        try {
+            $retRow = $db->fetchOne(
+                "SELECT * FROM business_inter_stock_transfers WHERE id = ? AND target_business_slug = 'gudang-nasita' LIMIT 1",
+                [$rid]
+            );
+            if (!$retRow) {
+                $_SESSION['error'] = 'Data transfer tidak ditemukan.';
+            } else {
+                $transferNoForRetry = (string)($retRow['transfer_number'] ?? '');
+                $alreadyCredited = false;
+                if ($transferNoForRetry !== '') {
+                    $existingMovement = $db->fetchOne(
+                        "SELECT id FROM gudang_nasita_movements WHERE notes LIKE ? LIMIT 1",
+                        ['%' . $transferNoForRetry . '%']
+                    );
+                    $alreadyCredited = (bool)$existingMovement;
+                }
+                if ($alreadyCredited) {
+                    $_SESSION['success'] = 'Transfer ' . $transferNoForRetry . ' sudah pernah tercatat di stok Gudang, tidak perlu diulang.';
+                } else {
+                    $retryResult = addGudangNasitaManualStock(
+                        (string)($retRow['item_name'] ?? ''),
+                        (string)($retRow['unit'] ?? 'pcs'),
+                        (float)($retRow['quantity'] ?? 0),
+                        (int)($currentUser['id'] ?? 0),
+                        ['notes' => 'Retry sinkron dari ' . (string)($retRow['source_business_name'] ?? '-') . ' — ' . ($transferNoForRetry !== '' ? $transferNoForRetry : ('ID-' . $rid))]
+                    );
+                    if ($retryResult['success']) {
+                        $_SESSION['success'] = 'Stok Gudang berhasil disinkron untuk ' . (string)($retRow['item_name'] ?? '-') . ' (' . number_format((float)($retRow['quantity'] ?? 0), 2) . ' ' . (string)($retRow['unit'] ?? '') . ').';
+                    } else {
+                        $_SESSION['error'] = 'Gagal sinkron stok: ' . $retryResult['message'];
+                    }
+                }
+            }
+        } catch (Throwable $e) {
+            $_SESSION['error'] = 'Gagal sinkron stok: ' . $e->getMessage();
+        }
+    }
+    header('Location: gudang-nasita.php');
+    exit;
+}
+
 // Handle hapus stock item (soft delete)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_stock') {
     $stockId = (int)($_POST['stock_id'] ?? 0);
@@ -878,12 +929,23 @@ try {
 $recentReturnFromBusiness = [];
 try {
     $retStmt = $db->fetchAll(
-        "SELECT id, source_business_name, item_name, unit, quantity, notes, created_at
+        "SELECT id, transfer_number, source_business_name, item_name, unit, quantity, notes, created_at
          FROM business_inter_stock_transfers
          WHERE target_business_slug = 'gudang-nasita'
          ORDER BY created_at DESC LIMIT 30"
     );
     $recentReturnFromBusiness = $retStmt ?: [];
+    // Tandai transfer yang BELUM tercermin di gudang_nasita_movements (mis. gagal saat
+    // proses awal) supaya bisa ditampilkan dengan tombol "Sinkron Stok" di UI.
+    foreach ($recentReturnFromBusiness as &$retCheck) {
+        $tno = (string)($retCheck['transfer_number'] ?? '');
+        $retCheck['_credited'] = true;
+        if ($tno !== '') {
+            $movementCheck = $db->fetchOne("SELECT id FROM gudang_nasita_movements WHERE notes LIKE ? LIMIT 1", ['%' . $tno . '%']);
+            $retCheck['_credited'] = (bool)$movementCheck;
+        }
+    }
+    unset($retCheck);
 } catch (Throwable $e) {
     $recentReturnFromBusiness = [];
 }
@@ -1555,7 +1617,7 @@ include '../../includes/header.php';
             <h3 style="font-size:1rem; font-weight:700; margin-bottom:0.75rem; color:#7c3aed;">&#8617; Masuk dari Bisnis</h3>
             <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap:0.65rem;">
                 <?php foreach ($recentReturnFromBusiness as $ret): ?>
-                    <div style="padding:0.65rem 0.85rem; border:1px solid #ede9fe; border-radius:0.75rem; background:#faf5ff;">
+                    <div style="padding:0.65rem 0.85rem; border:1px solid <?php echo empty($ret['_credited']) ? '#fecaca' : '#ede9fe'; ?>; border-radius:0.75rem; background:<?php echo empty($ret['_credited']) ? '#fef2f2' : '#faf5ff'; ?>;">
                         <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.5rem;">
                             <div style="flex:1; min-width:0;">
                                 <div style="font-weight:700; font-size:0.875rem; color:#4c1d95;"><?php echo htmlspecialchars((string)($ret['item_name'] ?? '-')); ?></div>
@@ -1565,12 +1627,24 @@ include '../../includes/header.php';
                                     <div style="font-size:0.75rem; color:#64748b; margin-top:2px;"><?php echo htmlspecialchars($ret['notes']); ?></div>
                                 <?php endif; ?>
                                 <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;"><?php echo date('d M Y H:i', strtotime((string)($ret['created_at'] ?? date('Y-m-d')))); ?></div>
+                                <?php if (empty($ret['_credited'])): ?>
+                                    <div style="font-size:0.72rem; color:#b91c1c; font-weight:700; margin-top:4px;">⚠ Belum masuk ke stok Gudang</div>
+                                <?php endif; ?>
                             </div>
-                            <form method="POST" style="margin:0; flex-shrink:0;" onsubmit="return confirm('Hapus histori penerimaan ini?')">
-                                <input type="hidden" name="action" value="delete_bisnis_return">
-                                <input type="hidden" name="return_id" value="<?php echo (int)$ret['id']; ?>">
-                                <button type="submit" class="btn btn-sm btn-danger" style="padding:2px 8px; font-size:0.72rem;">Hapus</button>
-                            </form>
+                            <div style="display:flex; flex-direction:column; gap:4px; flex-shrink:0;">
+                                <?php if (empty($ret['_credited'])): ?>
+                                    <form method="POST" style="margin:0;" onsubmit="return confirm('Sinkron ulang stok Gudang untuk barang ini?')">
+                                        <input type="hidden" name="action" value="retry_credit_bisnis_return">
+                                        <input type="hidden" name="return_id" value="<?php echo (int)$ret['id']; ?>">
+                                        <button type="submit" class="btn btn-sm" style="padding:2px 8px; font-size:0.72rem; background:#16a34a; color:#fff; border:none; border-radius:0.35rem;">Sinkron Stok</button>
+                                    </form>
+                                <?php endif; ?>
+                                <form method="POST" style="margin:0;" onsubmit="return confirm('Hapus histori penerimaan ini?')">
+                                    <input type="hidden" name="action" value="delete_bisnis_return">
+                                    <input type="hidden" name="return_id" value="<?php echo (int)$ret['id']; ?>">
+                                    <button type="submit" class="btn btn-sm btn-danger" style="padding:2px 8px; font-size:0.72rem;">Hapus</button>
+                                </form>
+                            </div>
                         </div>
                     </div>
                 <?php endforeach; ?>
