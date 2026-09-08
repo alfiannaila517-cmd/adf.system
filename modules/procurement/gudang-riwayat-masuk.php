@@ -25,12 +25,10 @@ $dateFrom = trim($_GET['date_from'] ?? '');
 $dateTo   = trim($_GET['date_to'] ?? '');
 $search   = trim($_GET['q'] ?? '');
 
-// "Barang masuk" mencakup penerimaan resmi dari PO Supplier (in_supplier) DAN
-// penambahan stok manual di gudang (adjustment, reference_type='manual_stock').
-// reference_type='daily_stock_out' juga bisa memakai movement_type 'adjustment'
-// (lihat recordGudangNasitaDailyStockOut) tapi itu barang KELUAR, jadi harus dikecualikan
-// supaya histori ini tidak ikut menampilkan stock keluar.
-$where  = ["gm.movement_type IN ('in_supplier','adjustment')", "(gm.reference_type IS NULL OR gm.reference_type != 'daily_stock_out')"];
+// "Barang masuk" di sini KHUSUS penerimaan resmi dari PO Supplier (movement_type=
+// in_supplier, reference_type=purchase_order). Input stok manual (adjustment/
+// manual_stock) sengaja TIDAK dimasukkan — itu bukan pengiriman dari supplier via PO.
+$where  = ["gm.movement_type = 'in_supplier'", "gm.reference_type = 'purchase_order'"];
 $params = [];
 
 if ($dateFrom !== '') {
