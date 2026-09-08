@@ -21,8 +21,8 @@ if (function_exists('ensureGudangNasitaOperationalTablesCompatibility')) {
     ensureGudangNasitaOperationalTablesCompatibility();
 }
 
-$dateFrom = trim($_GET['date_from'] ?? date('Y-m-01'));
-$dateTo   = trim($_GET['date_to'] ?? date('Y-m-t'));
+$dateFrom = trim($_GET['date_from'] ?? '');
+$dateTo   = trim($_GET['date_to'] ?? '');
 $search   = trim($_GET['q'] ?? '');
 
 // "Barang masuk" mencakup penerimaan resmi dari PO Supplier (in_supplier) DAN
@@ -51,11 +51,12 @@ $rows = $db->fetchAll("
         gm.reference_id, gm.reference_number, gm.notes, gm.created_at,
         gm.movement_type, gm.reference_type,
         gs.item_name, gs.unit,
-        po.supplier_name,
+        sup.supplier_name,
         u.full_name AS received_by_name
     FROM gudang_nasita_movements gm
     LEFT JOIN gudang_nasita_stock gs ON gs.id = gm.stock_id
     LEFT JOIN purchase_orders_header po ON po.id = gm.reference_id AND gm.reference_type = 'purchase_order'
+    LEFT JOIN suppliers sup ON sup.id = po.supplier_id
     LEFT JOIN users u ON u.id = gm.created_by
     WHERE {$whereClause}
     ORDER BY gm.created_at DESC, gm.id DESC
