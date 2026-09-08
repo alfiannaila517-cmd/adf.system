@@ -55,6 +55,31 @@ if (($_GET['debug_po_item'] ?? '') === '1') {
     exit;
 }
 
+// TEMP DIAGNOSTIC (auth-gated above) — read-only: shows PO header/detail plus every
+// gudang_nasita_movements row tied to it, so we can tell whether receive_goods actually
+// wrote anything for a specific po_number. Remove after debugging "history not showing".
+if (($_GET['debug_po_movements'] ?? '') === '1') {
+    header('Content-Type: application/json');
+    $poNumber = trim((string)($_GET['po_number'] ?? ''));
+    $poHeader = $db->fetchOne('SELECT * FROM purchase_orders_header WHERE po_number = ? LIMIT 1', [$poNumber]);
+    $response = ['po_number_searched' => $poNumber, 'po_header' => $poHeader];
+    if ($poHeader) {
+        $response['detail_items'] = $db->fetchAll(
+            'SELECT id, item_name, quantity, received_quantity FROM purchase_orders_detail WHERE po_header_id = ?',
+            [$poHeader['id']]
+        );
+        $response['movements'] = $db->fetchAll(
+            "SELECT * FROM gudang_nasita_movements WHERE reference_type = 'purchase_order' AND reference_id = ? ORDER BY id DESC",
+            [$poHeader['id']]
+        );
+    }
+    $response['total_in_supplier_movements_all_time'] = (int)($db->fetchOne(
+        "SELECT COUNT(*) AS c FROM gudang_nasita_movements WHERE movement_type = 'in_supplier' AND reference_type = 'purchase_order'"
+    )['c'] ?? 0);
+    echo json_encode($response, JSON_PRETTY_PRINT);
+    exit;
+}
+
 // TEMP DIAGNOSTIC (auth-gated above) — read-only: dumps gudang_nasita_stock columns and
 // replays the exact UPDATE statement receivePurchaseOrderToGudang() uses (rolled back, never
 // committed) so we can see the REAL PDO error instead of the silently-swallowed one from
@@ -777,13 +802,13 @@ include '../../includes/header.php';
         </div>
 
         <?php
-            $viewPoHasUnreceived = false;
-            foreach ($viewPo['items'] ?? [] as $viewPoItem) {
-                if ((float)$viewPoItem['quantity'] > (float)($viewPoItem['received_quantity'] ?? 0)) {
-                    $viewPoHasUnreceived = true;
-                    break;
-                }
+        $viewPoHasUnreceived = false;
+        foreach ($viewPo['items'] ?? [] as $viewPoItem) {
+            if ((float)$viewPoItem['quantity'] > (float)($viewPoItem['received_quantity'] ?? 0)) {
+                $viewPoHasUnreceived = true;
+                break;
             }
+        }
         ?>
         <?php if (in_array($viewPo['status'], ['submitted', 'approved', 'partially_received']) || ($viewPo['status'] === 'completed' && $viewPoHasUnreceived)): ?>
             <?php if ($viewPo['status'] === 'completed'): ?>
@@ -928,10 +953,10 @@ include '../../includes/header.php';
                             <td class="text-right">Rp <?php echo number_format((float)($po['total_amount'] ?? 0), 0, ',', '.'); ?></td>
                             <td>
                                 <?php
-                                    // PO bisa berstatus 'completed' padahal barangnya belum pernah benar-benar
-                                    // masuk ke stok Gudang (mis. di-approve lewat alur lain yang tidak memanggil
-                                    // receivePurchaseOrderToGudang) — tetap tampilkan tombol Terima Barang untuk kasus itu.
-                                    $poHasUnreceived = (float)($po['total_received'] ?? 0) < (float)($po['total_ordered'] ?? 0);
+                                // PO bisa berstatus 'completed' padahal barangnya belum pernah benar-benar
+                                // masuk ke stok Gudang (mis. di-approve lewat alur lain yang tidak memanggil
+                                // receivePurchaseOrderToGudang) — tetap tampilkan tombol Terima Barang untuk kasus itu.
+                                $poHasUnreceived = (float)($po['total_received'] ?? 0) < (float)($po['total_ordered'] ?? 0);
                                 ?>
                                 <div style="display:flex; gap:0.35rem; justify-content:center; flex-wrap:wrap;">
                                     <?php if (in_array($statusKey, ['submitted', 'partially_received', 'approved', 'pending', 'waiting'], true) || ($statusKey === 'completed' && $poHasUnreceived)): ?>
