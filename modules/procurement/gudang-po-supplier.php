@@ -776,7 +776,21 @@ include '../../includes/header.php';
             </div>
         </div>
 
-        <?php if (in_array($viewPo['status'], ['submitted', 'approved', 'partially_received'])): ?>
+        <?php
+            $viewPoHasUnreceived = false;
+            foreach ($viewPo['items'] ?? [] as $viewPoItem) {
+                if ((float)$viewPoItem['quantity'] > (float)($viewPoItem['received_quantity'] ?? 0)) {
+                    $viewPoHasUnreceived = true;
+                    break;
+                }
+            }
+        ?>
+        <?php if (in_array($viewPo['status'], ['submitted', 'approved', 'partially_received']) || ($viewPo['status'] === 'completed' && $viewPoHasUnreceived)): ?>
+            <?php if ($viewPo['status'] === 'completed'): ?>
+                <div class="alert alert-warning" style="margin-bottom:1rem;">
+                    ⚠️ PO ini berstatus Selesai tapi sebagian/semua qty belum pernah masuk ke stok Gudang. Isi qty di bawah untuk menyinkronkan stok.
+                </div>
+            <?php endif; ?>
             <?php if (empty($viewPo['items'])): ?>
                 <div class="alert alert-danger" style="margin-bottom:1rem;">
                     ⚠️ PO ini tidak memiliki detail item — kemungkinan dibuat saat terjadi error database sebelumnya.<br>
@@ -913,10 +927,16 @@ include '../../includes/header.php';
                             <td><span class="badge badge-<?php echo $statusColor; ?>"><?php echo $statusLabel; ?></span></td>
                             <td class="text-right">Rp <?php echo number_format((float)($po['total_amount'] ?? 0), 0, ',', '.'); ?></td>
                             <td>
+                                <?php
+                                    // PO bisa berstatus 'completed' padahal barangnya belum pernah benar-benar
+                                    // masuk ke stok Gudang (mis. di-approve lewat alur lain yang tidak memanggil
+                                    // receivePurchaseOrderToGudang) — tetap tampilkan tombol Terima Barang untuk kasus itu.
+                                    $poHasUnreceived = (float)($po['total_received'] ?? 0) < (float)($po['total_ordered'] ?? 0);
+                                ?>
                                 <div style="display:flex; gap:0.35rem; justify-content:center; flex-wrap:wrap;">
-                                    <?php if (in_array($statusKey, ['submitted', 'partially_received', 'approved', 'pending', 'waiting'], true)): ?>
+                                    <?php if (in_array($statusKey, ['submitted', 'partially_received', 'approved', 'pending', 'waiting'], true) || ($statusKey === 'completed' && $poHasUnreceived)): ?>
                                         <a href="gudang-po-supplier.php?view=<?php echo (int)$po['id']; ?>" class="btn btn-sm btn-success">
-                                            <i data-feather="package" style="width:13px;height:13px;"></i> Terima Barang
+                                            <i data-feather="package" style="width:13px;height:13px;"></i> <?php echo $poHasUnreceived && $statusKey === 'completed' ? 'Sinkron Stok' : 'Terima Barang'; ?>
                                         </a>
                                     <?php endif; ?>
                                     <a href="gudang-po-supplier.php?print=<?php echo (int)$po['id']; ?>" target="_blank" class="btn btn-sm btn-primary" style="font-weight:700;">
