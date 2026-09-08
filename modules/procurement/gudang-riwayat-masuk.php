@@ -25,7 +25,9 @@ $dateFrom = trim($_GET['date_from'] ?? date('Y-m-01'));
 $dateTo   = trim($_GET['date_to'] ?? date('Y-m-t'));
 $search   = trim($_GET['q'] ?? '');
 
-$where  = ["gm.movement_type = 'in_supplier'"];
+// "Barang masuk" mencakup penerimaan resmi dari PO Supplier (in_supplier) DAN
+// penambahan stok manual di gudang (adjustment) — keduanya sama-sama menambah stok.
+$where  = ["gm.movement_type IN ('in_supplier','adjustment')"];
 $params = [];
 
 if ($dateFrom !== '') {
@@ -47,6 +49,7 @@ $rows = $db->fetchAll("
     SELECT
         gm.id, gm.movement_date, gm.quantity, gm.unit_price, gm.subtotal,
         gm.reference_id, gm.reference_number, gm.notes, gm.created_at,
+        gm.movement_type, gm.reference_type,
         gs.item_name, gs.unit,
         po.supplier_name,
         u.full_name AS received_by_name
@@ -121,7 +124,7 @@ include '../../includes/header.php';
             <tr>
                 <th>Tanggal</th>
                 <th>Nama Barang</th>
-                <th>No. PO</th>
+                <th>Sumber</th>
                 <th>Supplier</th>
                 <th class="text-center">Qty</th>
                 <th class="text-right">Harga Satuan</th>
@@ -143,7 +146,13 @@ include '../../includes/header.php';
                     <tr>
                         <td><?php echo date('d M Y', strtotime($r['movement_date'])); ?></td>
                         <td style="font-weight:600; color:var(--text-primary);"><?php echo htmlspecialchars($r['item_name'] ?? '-'); ?></td>
-                        <td><?php echo htmlspecialchars($r['reference_number'] ?? '-'); ?></td>
+                        <td>
+                            <?php if ($r['movement_type'] === 'in_supplier'): ?>
+                                <span style="font-size:0.75rem;">PO <?php echo htmlspecialchars($r['reference_number'] ?? '-'); ?></span>
+                            <?php else: ?>
+                                <span style="background:#e0e7ff; color:#3730a3; padding:0.2rem 0.5rem; border-radius:4px; font-size:0.72rem; font-weight:600;">+ Manual</span>
+                            <?php endif; ?>
+                        </td>
                         <td><?php echo htmlspecialchars($r['supplier_name'] ?? '-'); ?></td>
                         <td class="text-center"><?php echo number_format((float)$r['quantity'], 2); ?> <?php echo htmlspecialchars($r['unit'] ?? ''); ?></td>
                         <td class="text-right">Rp <?php echo number_format((float)$r['unit_price'], 0, ',', '.'); ?></td>
