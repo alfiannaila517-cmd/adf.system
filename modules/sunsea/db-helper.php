@@ -108,6 +108,8 @@ function sunseaEnsureBookingSchema(PDO $pdo): void
             'created_by' => "ALTER TABLE booking_orders ADD COLUMN created_by VARCHAR(100) NULL AFTER notes",
             'ticket_kapal_booked' => "ALTER TABLE booking_orders ADD COLUMN ticket_kapal_booked TINYINT(1) DEFAULT 0 AFTER ticket_kapal_type",
             'driver_name' => "ALTER TABLE booking_orders ADD COLUMN driver_name VARCHAR(150) NULL AFTER guide_laut_id",
+            'quotation_id' => "ALTER TABLE booking_orders ADD COLUMN quotation_id INT NULL AFTER id",
+            'accommodation_manual' => "ALTER TABLE booking_orders ADD COLUMN accommodation_manual VARCHAR(200) NULL AFTER meal_notes",
         ];
 
         $columnCheck = $pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'booking_orders' AND COLUMN_NAME = ?");
@@ -141,6 +143,28 @@ function sunseaEnsureBookingSchema(PDO $pdo): void
         if ((int)$itemColumnCheck->fetchColumn() === 0) {
             $pdo->exec("ALTER TABLE booking_order_items ADD COLUMN is_done TINYINT(1) DEFAULT 0 AFTER sort_order");
         }
+        $itemColumnCheck->execute(['is_paid_mitra']);
+        if ((int)$itemColumnCheck->fetchColumn() === 0) {
+            $pdo->exec("ALTER TABLE booking_order_items ADD COLUMN is_paid_mitra TINYINT(1) DEFAULT 0 AFTER is_done");
+        }
+        $itemColumnCheck->execute(['item_type']);
+        if ((int)$itemColumnCheck->fetchColumn() === 0) {
+            $pdo->exec("ALTER TABLE booking_order_items ADD COLUMN item_type VARCHAR(30) NULL AFTER component_code");
+        }
+
+        // Backfill item_type utk baris pkg_detail lama (sebelum kolom ini ada) supaya fitur
+        // "Ganti Penginapan/Transport" bisa mengenali & menghapus baris lama dari paket, bukan cuma dari mode ecer.
+        // Terpisah dari try/catch utama: kalau trip_package_items belum ada, jangan gagalkan setup tabel lain di bawah.
+        try {
+            $pdo->exec("UPDATE booking_order_items boi
+                JOIN booking_orders bo ON bo.id = boi.booking_id
+                JOIN trip_package_items tpi ON tpi.package_id = bo.package_id AND tpi.item_name = boi.component_name COLLATE utf8mb4_general_ci
+                SET boi.item_type = tpi.item_type
+                WHERE boi.component_code = 'pkg_detail' AND boi.item_type IS NULL");
+        } catch (Exception $e) {
+            error_log('sunseaEnsureBookingSchema backfill item_type error: ' . $e->getMessage());
+        }
+
 
         $pdo->exec("CREATE TABLE IF NOT EXISTS booking_schedule (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -155,6 +179,46 @@ function sunseaEnsureBookingSchema(PDO $pdo): void
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     } catch (Exception $e) {
         error_log('sunseaEnsureBookingSchema error: ' . $e->getMessage());
+    }
+}
+
+/**
+ * Ensure the trip_package_items table exists (detail layanan per paket:
+ * tiket kapal, penginapan, transport, guide, catering, dll) so that when a
+ * booking uses a paket, the real mitra obligations/tagihan can be tracked
+ * per booking instead of guessed from Finance expense text.
+ */
+function sunseaEnsurePackageItemsSchema(PDO $pdo): void
+{
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS trip_package_items (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            package_id INT NOT NULL,
+            item_type ENUM('tiket_kapal','penginapan','transport','guide','catering','fasilitas','dokumentasi','lainnya') DEFAULT 'lainnya',
+            item_name VARCHAR(200) NOT NULL,
+            cost_basis ENUM('per_pax','flat') DEFAULT 'per_pax',
+            estimated_cost DECIMAL(15,2) DEFAULT 0.00,
+            estimated_sell DECIMAL(15,2) DEFAULT 0.00,
+            notes VARCHAR(255) NULL,
+            sort_order INT DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_pkgitems_package (package_id),
+            CONSTRAINT fk_pkgitems_package FOREIGN KEY (package_id) REFERENCES trip_packages(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $check = $pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'trip_package_items' AND COLUMN_NAME = 'estimated_sell'");
+        $check->execute();
+        if ((int)$check->fetchColumn() === 0) {
+            $pdo->exec("ALTER TABLE trip_package_items ADD COLUMN estimated_sell DECIMAL(15,2) DEFAULT 0.00 AFTER estimated_cost");
+        }
+
+        $checkQty = $pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'trip_package_items' AND COLUMN_NAME = 'qty'");
+        $checkQty->execute();
+        if ((int)$checkQty->fetchColumn() === 0) {
+            $pdo->exec("ALTER TABLE trip_package_items ADD COLUMN qty DECIMAL(10,2) NOT NULL DEFAULT 1.00 AFTER cost_basis");
+        }
+    } catch (Exception $e) {
+        error_log('sunseaEnsurePackageItemsSchema error: ' . $e->getMessage());
     }
 }
 
@@ -374,6 +438,122 @@ function sunseaEnsureAccommodationSchema(PDO $pdo): void
 }
 
 /**
+ * Ensure quotations table has an itinerary column (added after initial deploy).
+ */
+function sunseaEnsureQuotationItinerarySchema(PDO $pdo): void
+{
+    try {
+        $check = $pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'quotations' AND COLUMN_NAME = ?");
+        $check->execute(['itinerary']);
+        if ((int)$check->fetchColumn() === 0) {
+            $pdo->exec("ALTER TABLE quotations ADD COLUMN itinerary TEXT NULL AFTER trip_end_date");
+        }
+        // Label penginapan manual, dipakai saat tidak memilih dari database Penginapan.
+        $check->execute(['accommodation_manual']);
+        if ((int)$check->fetchColumn() === 0) {
+            $pdo->exec("ALTER TABLE quotations ADD COLUMN accommodation_manual VARCHAR(200) NULL AFTER trip_end_date");
+        }
+        // Kapan penawaran pertama kali dibuka admin, untuk dot notifikasi "belum dibaca".
+        $check->execute(['viewed_at']);
+        if ((int)$check->fetchColumn() === 0) {
+            $pdo->exec("ALTER TABLE quotations ADD COLUMN viewed_at DATETIME NULL DEFAULT NULL AFTER status");
+        }
+    } catch (Exception $e) {
+        error_log('sunseaEnsureQuotationItinerarySchema error: ' . $e->getMessage());
+    }
+}
+
+/**
+ * Ensure cash_book (Buku Kas Operasional) exists and supports linking an
+ * expense/income entry to a specific booking (trip), on top of customer_id.
+ */
+function sunseaEnsureFinanceSchema(PDO $pdo): void
+{
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS `cash_book` (
+            `id`               INT AUTO_INCREMENT PRIMARY KEY,
+            `cash_account_id`  INT,
+            `transaction_date` DATE NOT NULL,
+            `transaction_time` TIME DEFAULT '00:00:00',
+            `type`             ENUM('income','expense') NOT NULL,
+            `category`         VARCHAR(100),
+            `description`      VARCHAR(255) NOT NULL,
+            `amount`           DECIMAL(15,2) NOT NULL,
+            `reference`        VARCHAR(100),
+            `customer_id`      INT NULL,
+            `invoice_id`       INT NULL,
+            `created_by`       VARCHAR(100),
+            `created_at`       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            `updated_at`       TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_date (`transaction_date`),
+            INDEX idx_type (`type`),
+            INDEX idx_account (`cash_account_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+        $requiredColumns = [
+            'booking_id' => "ALTER TABLE cash_book ADD COLUMN booking_id INT NULL AFTER customer_id",
+            'booking_item_id' => "ALTER TABLE cash_book ADD COLUMN booking_item_id INT NULL AFTER booking_id",
+        ];
+        $check = $pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'cash_book' AND COLUMN_NAME = ?");
+        foreach ($requiredColumns as $column => $alterSql) {
+            $check->execute([$column]);
+            if ((int)$check->fetchColumn() === 0) {
+                $pdo->exec($alterSql);
+            }
+        }
+
+        // Backfill: transaksi pemasukan lama dari pembayaran invoice belum tercatat nama tamunya, jadi tak bisa difilter per tamu.
+        $pdo->exec("
+            UPDATE cash_book cb
+            JOIN invoices i ON i.id = cb.invoice_id
+            SET cb.customer_id = i.customer_id
+            WHERE cb.customer_id IS NULL AND cb.invoice_id IS NOT NULL
+        ");
+    } catch (Exception $e) {
+        error_log('sunseaEnsureFinanceSchema error: ' . $e->getMessage());
+    }
+}
+
+/**
+ * Ensure the `roles` and `users` (login) tables exist.
+ * These already exist on standalone Sunsea hosting, but this guards
+ * fresh installs and keeps the pattern consistent with other modules.
+ */
+function sunseaEnsureUserSchema(PDO $pdo): void
+{
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS `roles` (
+            `id`         INT AUTO_INCREMENT PRIMARY KEY,
+            `role_code`  VARCHAR(30) NOT NULL UNIQUE,
+            `role_name`  VARCHAR(100) NOT NULL,
+            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+        $pdo->exec("INSERT IGNORE INTO `roles` (`id`, `role_code`, `role_name`) VALUES
+            (1, 'developer', 'Developer / Owner'),
+            (2, 'manager',   'Manager'),
+            (3, 'staff',     'Staff')");
+
+        $pdo->exec("CREATE TABLE IF NOT EXISTS `users` (
+            `id`              INT AUTO_INCREMENT PRIMARY KEY,
+            `username`        VARCHAR(50) NOT NULL UNIQUE,
+            `password`        VARCHAR(255) NOT NULL,
+            `full_name`       VARCHAR(150) NOT NULL,
+            `email`           VARCHAR(150),
+            `role_id`         INT DEFAULT 3,
+            `business_access` VARCHAR(20) DEFAULT 'all',
+            `is_active`       TINYINT(1) DEFAULT 1,
+            `last_login`      TIMESTAMP NULL,
+            `created_at`      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            `updated_at`      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_username (`username`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    } catch (Exception $e) {
+        error_log('sunseaEnsureUserSchema error: ' . $e->getMessage());
+    }
+}
+
+/**
  * Get next auto-number for quotation / invoice.
  * Format: SS-QUO-2026-001
  *
@@ -421,6 +601,71 @@ function sunseaRupiah(float $amount, bool $short = false): string
 }
 
 /**
+ * Ensure trip_packages has a cover_image column and the trip_package_gallery table exists.
+ */
+function sunseaEnsurePackageMediaSchema(PDO $pdo): void
+{
+    try {
+        $check = $pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'trip_packages' AND COLUMN_NAME = 'cover_image'");
+        $check->execute();
+        if ((int)$check->fetchColumn() === 0) {
+            $pdo->exec("ALTER TABLE trip_packages ADD COLUMN cover_image VARCHAR(255) NULL AFTER base_price");
+        }
+
+        $checkOrder = $pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'trip_packages' AND COLUMN_NAME = 'display_order'");
+        $checkOrder->execute();
+        if ((int)$checkOrder->fetchColumn() === 0) {
+            $pdo->exec("ALTER TABLE trip_packages ADD COLUMN display_order INT NOT NULL DEFAULT 0 AFTER is_active");
+            $pdo->exec("UPDATE trip_packages SET display_order = id");
+        }
+
+        $pdo->exec("CREATE TABLE IF NOT EXISTS `trip_package_gallery` (
+            `id`          INT AUTO_INCREMENT PRIMARY KEY,
+            `package_id`  INT NOT NULL,
+            `image_path`  VARCHAR(255) NOT NULL,
+            `caption`     VARCHAR(150) NULL,
+            `sort_order`  INT DEFAULT 0,
+            `created_at`  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_pkggallery_package (`package_id`),
+            CONSTRAINT fk_pkggallery_package FOREIGN KEY (`package_id`) REFERENCES `trip_packages`(`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    } catch (Exception $e) {
+        @error_log('sunseaEnsurePackageMediaSchema: ' . $e->getMessage());
+    }
+}
+
+/**
+ * Ensure tables used by the public website CMS (gallery + blog) exist.
+ */
+function sunseaEnsureWebsiteContentSchema(PDO $pdo): void
+{
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS `website_gallery` (
+            `id`          INT AUTO_INCREMENT PRIMARY KEY,
+            `image_path`  VARCHAR(255) NOT NULL,
+            `caption`     VARCHAR(150) NULL,
+            `sort_order`  INT DEFAULT 0,
+            `is_active`   TINYINT(1) DEFAULT 1,
+            `created_at`  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+        $pdo->exec("CREATE TABLE IF NOT EXISTS `website_blog` (
+            `id`             INT AUTO_INCREMENT PRIMARY KEY,
+            `title`          VARCHAR(200) NOT NULL,
+            `slug`           VARCHAR(220) NOT NULL UNIQUE,
+            `excerpt`        VARCHAR(300) NULL,
+            `content`        TEXT NULL,
+            `cover_image`    VARCHAR(255) NULL,
+            `is_published`   TINYINT(1) DEFAULT 1,
+            `created_at`     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            `updated_at`     TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    } catch (Exception $e) {
+        @error_log('sunseaEnsureWebsiteContentSchema: ' . $e->getMessage());
+    }
+}
+
+/**
  * Get Sunsea setting value from settings table.
  */
 function sunseaSetting(PDO $pdo, string $key, string $default = ''): string
@@ -433,4 +678,111 @@ function sunseaSetting(PDO $pdo, string $key, string $default = ''): string
     } catch (Exception $e) {
         return $default;
     }
+}
+
+/**
+ * Save a Sunsea setting value into the settings table (insert or update).
+ */
+function sunseaSetSetting(PDO $pdo, string $key, string $value): void
+{
+    $pdo->prepare("INSERT INTO settings (setting_key, setting_value) VALUES (?, ?)
+        ON DUPLICATE KEY UPDATE setting_value = ?, updated_at = NOW()")
+        ->execute([$key, $value, $value]);
+}
+
+/**
+ * Build a cache-busted BASE_URL for a stored uploads-relative path so a re-uploaded
+ * file (same filename) shows immediately instead of a stale browser-cached version.
+ */
+function sunseaAssetUrl(string $relPath): string
+{
+    if ($relPath === '') return '';
+    $relPath = ltrim($relPath, '/');
+    $localFile = __DIR__ . '/../../' . $relPath;
+    $v = file_exists($localFile) ? filemtime($localFile) : time();
+    return BASE_URL . '/' . $relPath . '?v=' . $v;
+}
+
+/**
+ * Build a wa.me link from a local phone number (e.g. 08123456789) with an optional prefilled message.
+ */
+function sunseaWaLink(string $phone, string $message = ''): string
+{
+    $digits = preg_replace('/\D/', '', $phone);
+    if ($digits === '') return '';
+    if (substr($digits, 0, 1) === '0') {
+        $digits = '62' . substr($digits, 1);
+    } elseif (substr($digits, 0, 2) !== '62') {
+        $digits = '62' . $digits;
+    }
+    $url = 'https://wa.me/' . $digits;
+    if ($message !== '') {
+        $url .= '?text=' . rawurlencode($message);
+    }
+    return $url;
+}
+
+/**
+ * Parse the "company_whatsapp_admins" setting into a list of ['label' => ..., 'wa' => wa.me base
+ * link] for the website chat widget. Accepts "Nama|NomorWA" (preferred) or a looser "Nama NomorWA"
+ * (name then phone at the end, no pipe) so admins who forget the "|" still get their own name
+ * instead of a generic "Admin N" fallback. Falls back to a single entry built from company_phone
+ * when the multi-admin setting is empty.
+ */
+function sunseaWaAdminList(PDO $pdo): array
+{
+    $raw = sunseaSetting($pdo, 'company_whatsapp_admins', '');
+    $admins = [];
+    $lineNo = 0;
+    foreach (preg_split('/\r\n|\r|\n/', trim($raw)) as $line) {
+        $line = trim($line);
+        if ($line === '') continue;
+        $lineNo++;
+
+        $label = '';
+        $phone = '';
+        if (strpos($line, '|') !== false) {
+            $parts = explode('|', $line, 2);
+            $label = trim($parts[0]);
+            $phone = trim($parts[1]);
+        } elseif (preg_match('/^(.*?)[\s,;-]+(\+?\d[\d\s\-]{6,}\d)$/', $line, $m)) {
+            $label = trim($m[1]);
+            $phone = trim($m[2]);
+        } else {
+            $phone = $line;
+        }
+        if ($label === '') $label = 'Admin ' . $lineNo;
+
+        $wa = sunseaWaLink($phone);
+        if ($wa !== '') $admins[] = ['label' => $label, 'wa' => $wa];
+    }
+
+    if (!$admins) {
+        $companyPhone = sunseaSetting($pdo, 'company_phone', '');
+        $wa = $companyPhone ? sunseaWaLink($companyPhone) : '';
+        if ($wa !== '') $admins[] = ['label' => 'Admin', 'wa' => $wa];
+    }
+
+    return $admins;
+}
+
+/**
+ * List of all company contact phone numbers: primary "company_phone" plus any lines in the
+ * "company_phone_extra" setting (one number per line). Used everywhere contact info is shown
+ * (invoice/quotation print header, website footer, kontak page) so adding a number in Pengaturan
+ * updates all of them at once.
+ */
+function sunseaCompanyPhones(PDO $pdo): array
+{
+    $phones = [];
+    $primary = trim(sunseaSetting($pdo, 'company_phone', ''));
+    if ($primary !== '') $phones[] = $primary;
+
+    $extraRaw = sunseaSetting($pdo, 'company_phone_extra', '');
+    foreach (preg_split('/\r\n|\r|\n/', trim($extraRaw)) as $line) {
+        $line = trim($line);
+        if ($line !== '' && !in_array($line, $phones, true)) $phones[] = $line;
+    }
+
+    return $phones;
 }

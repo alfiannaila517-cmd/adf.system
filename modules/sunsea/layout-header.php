@@ -11,28 +11,56 @@
  */
 if (!defined('APP_ACCESS')) define('APP_ACCESS', true);
 
+// Absolute (BASE_URL-prefixed) so the nav still works from other module folders (e.g. modules/email/).
 $sunseaNavItems = [
-    'dashboard'     => ['icon' => 'home',       'label' => 'Dashboard',         'url' => 'dashboard.php'],
-    'database'      => ['icon' => 'database',   'label' => 'Database',          'url' => 'database.php'],
-    'bookings'      => ['icon' => 'briefcase',  'label' => 'Booking',           'url' => 'bookings.php'],
-    'calendar'      => ['icon' => 'calendar',   'label' => 'Kalender Booking',  'url' => 'calendar.php'],
-    'coordinators'  => ['icon' => 'user-check', 'label' => 'Koordinator',       'url' => 'coordinators.php'],
-    'packages'      => ['icon' => 'package',    'label' => 'Paket Wisata',      'url' => 'packages.php'],
-    'rab'           => ['icon' => 'file-minus', 'label' => 'Cetak RAB',         'url' => 'rab.php'],
-    'quotations'    => ['icon' => 'file-text',  'label' => 'Penawaran',         'url' => 'quotations.php'],
-    'invoices'      => ['icon' => 'credit-card', 'label' => 'Invoice',          'url' => 'invoices.php'],
-    'settings'      => ['icon' => 'settings',   'label' => 'Pengaturan',        'url' => 'settings.php'],
+    'dashboard'     => ['icon' => 'home',       'label' => 'Dashboard',         'url' => BASE_URL . '/modules/sunsea/dashboard.php'],
+    'owner_dashboard' => ['icon' => 'smartphone', 'label' => 'Owner Dashboard', 'url' => BASE_URL . '/modules/sunsea/owner-dashboard.php'],
+    'database'      => ['icon' => 'database',   'label' => 'Database',          'url' => BASE_URL . '/modules/sunsea/database.php'],
+    'bookings'      => ['icon' => 'briefcase',  'label' => 'Booking',           'url' => BASE_URL . '/modules/sunsea/bookings.php'],
+    'calendar'      => ['icon' => 'calendar',   'label' => 'Kalender Booking',  'url' => BASE_URL . '/modules/sunsea/calendar.php'],
+    'coordinators'  => ['icon' => 'user-check', 'label' => 'Koordinator',       'url' => BASE_URL . '/modules/sunsea/coordinators.php'],
+    'packages'      => ['icon' => 'package',    'label' => 'Paket Wisata',      'url' => BASE_URL . '/modules/sunsea/packages.php'],
+    'quotations'    => ['icon' => 'file-text',  'label' => 'Penawaran',         'url' => BASE_URL . '/modules/sunsea/quotations.php'],
+    'invoices'      => ['icon' => 'credit-card', 'label' => 'Invoice',          'url' => BASE_URL . '/modules/sunsea/invoices.php'],
+    'finance'       => ['icon' => 'dollar-sign', 'label' => 'Finance',          'url' => BASE_URL . '/modules/sunsea/finance.php'],
+    'laporan'       => ['icon' => 'bar-chart-2', 'label' => 'Laporan',          'url' => BASE_URL . '/modules/sunsea/laporan.php'],
+    'email'         => ['icon' => 'mail',        'label' => 'Email Kantor',     'url' => BASE_URL . '/modules/email/index.php'],
+    'settings'      => ['icon' => 'settings',   'label' => 'Pengaturan',        'url' => BASE_URL . '/modules/sunsea/settings.php'],
+];
+
+// Sub-menu grouping: parent key => list of child keys shown in a collapsible dropdown
+$sunseaNavGroups = [
+    'bookings' => ['calendar', 'packages'],
+    'settings' => ['database', 'coordinators'],
 ];
 
 $activePage = $activePage ?? '';
 $currentUser = isset($auth) ? $auth->getCurrentUser() : [];
 $userName    = $currentUser['full_name'] ?? $currentUser['username'] ?? 'User';
 
+// Notifikasi dot merah untuk permintaan penawaran baru dari website (form quick-quote
+// di beranda) yang belum ditindaklanjuti admin (masih status 'draft').
+$sunseaNewQuotationCount = 0;
+if (isset($pdo)) {
+    try {
+        $sunseaNewQuotationCount = (int)$pdo->query(
+            "SELECT COUNT(*) FROM quotations WHERE created_by = 'website' AND status = 'draft'"
+        )->fetchColumn();
+    } catch (Exception $e) {
+        $sunseaNewQuotationCount = 0;
+    }
+}
+
+// Owner Dashboard menu hanya untuk role Developer/Owner
+if (!in_array($currentUser['role'] ?? '', ['developer', 'owner'], true)) {
+    unset($sunseaNavItems['owner_dashboard']);
+}
+
 $visibleMenuKeys = array_keys($sunseaNavItems);
 
 // Load company settings for sidebar
 $_sidebarLogoSrc = '';
-$_sidebarCompanyName = 'Explore Karimunjawa';
+$_sidebarCompanyName = 'Karimunjawa Explore';
 if (isset($pdo)) {
     try {
         $__s = $pdo->query("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('company_logo','company_name')");
@@ -53,6 +81,12 @@ if (isset($pdo)) {
             $__selected = json_decode((string)$__menuJson, true);
             if (is_array($__selected) && !empty($__selected)) {
                 $visibleMenuKeys = array_values(array_intersect(array_keys($sunseaNavItems), $__selected));
+                // Always show newly-added menus even for sidebar configs saved before they existed.
+                foreach (['email', 'laporan'] as $__newKey) {
+                    if (isset($sunseaNavItems[$__newKey]) && !in_array($__newKey, $visibleMenuKeys, true)) {
+                        $visibleMenuKeys[] = $__newKey;
+                    }
+                }
             }
         }
     } catch (Exception $__e) { /* settings table may not exist yet */
@@ -84,7 +118,13 @@ if (empty($sunseaNavItemsVisible)) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo htmlspecialchars($pageTitle ?? 'Explore Karimunjawa'); ?> — Explore Karimunjawa</title>
+    <title><?php echo htmlspecialchars($pageTitle ?? 'Karimunjawa Explore'); ?> — Karimunjawa Explore</title>
+    <?php if (isset($pdo)):
+        $__systemFavicon = sunseaSetting($pdo, 'system_favicon', '');
+        if ($__systemFavicon): ?>
+            <link rel="icon" href="<?php echo htmlspecialchars(sunseaAssetUrl($__systemFavicon)); ?>">
+    <?php endif;
+    endif; ?>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -137,8 +177,10 @@ if (empty($sunseaNavItemsVisible)) {
             font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
             background: var(--ss-sky);
             color: var(--ss-text);
+            font-size: 13px;
             min-height: 100vh;
             display: flex;
+            zoom: 80%;
         }
 
         /* ---- SIDEBAR ---- */
@@ -236,7 +278,7 @@ if (empty($sunseaNavItemsVisible)) {
             border-radius: 8px;
             text-decoration: none;
             color: var(--ss-muted);
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 500;
             margin-bottom: 2px;
             transition: all .2s;
@@ -257,6 +299,67 @@ if (empty($sunseaNavItemsVisible)) {
             width: 16px;
             height: 16px;
             flex-shrink: 0;
+        }
+
+        .ss-nav-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: var(--ss-danger);
+            margin-left: auto;
+            box-shadow: 0 0 0 2px rgba(239, 68, 68, .25);
+            flex-shrink: 0;
+        }
+
+        .ss-nav-group-row {
+            display: flex;
+            align-items: center;
+            border-radius: 8px;
+            margin-bottom: 2px;
+        }
+
+        .ss-nav-group-row .ss-nav-item {
+            flex: 1;
+            margin-bottom: 0;
+        }
+
+        .ss-nav-group-row:hover .ss-nav-item:not(.active) {
+            background: var(--ss-sky);
+            color: var(--ss-ocean);
+        }
+
+        .ss-nav-caret-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 8px 10px;
+            color: var(--ss-muted);
+            display: flex;
+            align-items: center;
+        }
+
+        .ss-nav-caret-btn svg {
+            width: 14px;
+            height: 14px;
+            transition: transform .2s;
+        }
+
+        .ss-nav-group.open .ss-nav-caret-btn svg {
+            transform: rotate(180deg);
+        }
+
+        .ss-nav-submenu {
+            display: none;
+            padding-left: 14px;
+        }
+
+        .ss-nav-group.open .ss-nav-submenu {
+            display: block;
+        }
+
+        .ss-nav-submenu .ss-nav-item {
+            font-size: 13px;
+            padding: 8px 12px;
         }
 
         .ss-sidebar-footer {
@@ -321,10 +424,36 @@ if (empty($sunseaNavItemsVisible)) {
             height: 14px;
         }
 
+        .ss-website-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 9px 10px;
+            border-radius: 8px;
+            text-decoration: none;
+            color: var(--ss-white);
+            font-size: 12.5px;
+            font-weight: 600;
+            background: linear-gradient(135deg, var(--ss-ocean), var(--ss-cyan));
+            margin-bottom: 10px;
+            transition: .2s;
+        }
+
+        .ss-website-btn:hover {
+            opacity: .9;
+        }
+
+        .ss-website-btn svg {
+            width: 14px;
+            height: 14px;
+        }
+
         /* ---- MAIN CONTENT ---- */
         .ss-main {
             margin-left: var(--sidebar-w);
             flex: 1;
+            min-width: 0;
             display: flex;
             flex-direction: column;
             min-height: 100vh;
@@ -523,6 +652,8 @@ if (empty($sunseaNavItemsVisible)) {
             border: none;
             text-decoration: none;
             transition: .2s;
+            white-space: nowrap;
+            flex-shrink: 0;
         }
 
         .ss-btn svg {
@@ -565,6 +696,72 @@ if (empty($sunseaNavItemsVisible)) {
         .ss-btn-sm {
             padding: 5px 10px;
             font-size: 12px;
+        }
+
+        /* ---- PACKAGE CARD (Paket Wisata admin list) ---- */
+        .ss-pkg-card {
+            background: var(--ss-white);
+            border-radius: 14px;
+            border: 1px solid var(--ss-gray-2);
+            box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+            padding: 16px;
+            transition: box-shadow .2s, transform .2s;
+        }
+
+        .ss-pkg-card:hover {
+            box-shadow: var(--ss-shadow-md);
+            transform: translateY(-2px);
+        }
+
+        .ss-pkg-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding-top: 12px;
+            border-top: 1px solid var(--ss-gray-1);
+        }
+
+        .ss-pkg-actions-order {
+            display: flex;
+            gap: 6px;
+        }
+
+        .ss-pkg-actions-order form {
+            display: contents;
+        }
+
+        .ss-pkg-actions-main {
+            display: flex;
+            gap: 6px;
+        }
+
+        .ss-pkg-actions-main a {
+            font-size: 11.5px;
+            padding: 6px 8px;
+        }
+
+        .ss-pkg-icon-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: 7px;
+            border: 1.5px solid var(--ss-gray-2);
+            background: transparent;
+            color: var(--ss-muted);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: .2s;
+        }
+
+        .ss-pkg-icon-btn svg {
+            width: 13px;
+            height: 13px;
+        }
+
+        .ss-pkg-icon-btn:hover {
+            border-color: var(--ss-ocean);
+            color: var(--ss-ocean);
         }
 
         /* ---- QUICK ACTION GRID ---- */
@@ -837,8 +1034,20 @@ if (empty($sunseaNavItemsVisible)) {
         }
 
         /* ---- MOBILE ---- */
+        .ss-sidebar-overlay {
+            display: none;
+        }
+
         @media (max-width: 768px) {
+            body {
+                zoom: 100%;
+            }
+
             .ss-sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                z-index: 200;
                 transform: translateX(-100%);
                 transition: transform .3s;
             }
@@ -847,17 +1056,73 @@ if (empty($sunseaNavItemsVisible)) {
                 transform: translateX(0);
             }
 
+            .ss-sidebar-overlay.open {
+                display: block;
+                position: fixed;
+                inset: 0;
+                background: rgba(15, 23, 42, .45);
+                z-index: 150;
+            }
+
             .ss-main {
                 margin-left: 0;
             }
 
+            #sidebarToggle {
+                display: block !important;
+            }
+
+            .ss-topbar {
+                padding: 0 14px;
+            }
+
             .ss-content {
-                padding: 16px;
+                padding: 14px;
             }
 
             .ss-form-grid.cols-2,
             .ss-form-grid.cols-3 {
-                grid-template-columns: 1fr;
+                grid-template-columns: minmax(0, 1fr);
+            }
+
+            div[style*="grid-template-columns:1fr 320px"],
+            div[style*="grid-template-columns:1fr 300px"] {
+                grid-template-columns: minmax(0, 1fr) !important;
+            }
+
+            /* Any inline 3/4-column stat-card grid: shrink to 2 columns so numbers/labels don't get squeezed off-screen */
+            div[style*="grid-template-columns:repeat(3"],
+            div[style*="grid-template-columns:repeat(4"] {
+                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+            }
+
+            /* Any inline 2-column grid (e.g. dashboard chart cards) stacks to 1 column on mobile.
+               minmax(0,1fr) (not bare 1fr) is required so the track actually respects the
+               container width instead of growing to fit a wide child's min-content (e.g. a table
+               or chart canvas), same underlying issue as flex items needing min-width:0. */
+            div[style*="grid-template-columns:1fr 1fr"] {
+                grid-template-columns: minmax(0, 1fr) !important;
+            }
+
+            /* Chart.js / canvas widgets must not force their container wider than the viewport */
+            canvas {
+                max-width: 100% !important;
+                height: auto !important;
+            }
+
+            /* Safety net: force any table wrapper to actually scroll horizontally on mobile,
+               even if a page explicitly set overflow:visible (e.g. to avoid clipping an
+               actions dropdown) — without this, wide tables blow up the whole page width. */
+            .ss-table-wrap {
+                overflow-x: auto !important;
+            }
+        }
+
+        @media (max-width: 480px) {
+            /* On very small phones, drop stat-card grids to a single column for legibility */
+            div[style*="grid-template-columns:repeat(3"],
+            div[style*="grid-template-columns:repeat(4"] {
+                grid-template-columns: minmax(0, 1fr) !important;
             }
         }
     </style>
@@ -866,21 +1131,22 @@ if (empty($sunseaNavItemsVisible)) {
 <body>
 
     <!-- ==================== SIDEBAR ==================== -->
+    <div class="ss-sidebar-overlay" id="sunseaSidebarOverlay" onclick="document.getElementById('sunseaSidebar').classList.remove('open');this.classList.remove('open');"></div>
     <aside class="ss-sidebar" id="sunseaSidebar">
         <div class="ss-brand">
             <?php if ($_sidebarLogoSrc): ?>
-                <a href="dashboard.php" class="ss-brand-logo-wrap">
+                <a href="<?php echo BASE_URL; ?>/modules/sunsea/dashboard.php" class="ss-brand-logo-wrap">
                     <img src="<?php echo htmlspecialchars($_sidebarLogoSrc); ?>" alt="Logo" class="ss-brand-logo-img">
                     <div style="text-align:center;">
                         <div class="ss-brand-sub"><?php echo htmlspecialchars($_sidebarCompanyName); ?></div>
                     </div>
                 </a>
             <?php else: ?>
-                <a href="dashboard.php" class="ss-brand-logo">
+                <a href="<?php echo BASE_URL; ?>/modules/sunsea/dashboard.php" class="ss-brand-logo">
                     <div class="ss-brand-icon">🌊</div>
                     <div>
                         <div class="ss-brand-name"><?php echo htmlspecialchars($_sidebarCompanyName); ?></div>
-                        <div class="ss-brand-sub">Explore Karimunjawa</div>
+                        <div class="ss-brand-sub">Karimunjawa Explore</div>
                     </div>
                 </a>
             <?php endif; ?>
@@ -888,22 +1154,79 @@ if (empty($sunseaNavItemsVisible)) {
 
         <nav class="ss-nav">
             <div class="ss-nav-label">Menu Utama</div>
-            <?php foreach ($sunseaNavItemsVisible as $key => $item): ?>
-                <a href="<?php echo $item['url']; ?>"
-                    class="ss-nav-item <?php echo ($activePage === $key) ? 'active' : ''; ?>">
-                    <i data-feather="<?php echo $item['icon']; ?>"></i>
-                    <?php echo $item['label']; ?>
-                </a>
-            <?php endforeach; ?>
+            <?php
+            $__childOfGroup = [];
+            foreach ($sunseaNavGroups as $__gk => $__children) {
+                foreach ($__children as $__c) $__childOfGroup[$__c] = $__gk;
+            }
+            foreach ($sunseaNavItemsVisible as $key => $item):
+                if (isset($__childOfGroup[$key])) continue; // rendered nested under its parent group below
+
+                if (isset($sunseaNavGroups[$key])) {
+                    $__childKeys = array_values(array_intersect($sunseaNavGroups[$key], array_keys($sunseaNavItemsVisible)));
+                    if (empty($__childKeys)) {
+                        // No visible children for this user -> render as a plain link
+            ?>
+                        <a href="<?php echo $item['url']; ?>"
+                            class="ss-nav-item <?php echo ($activePage === $key) ? 'active' : ''; ?>">
+                            <i data-feather="<?php echo $item['icon']; ?>"></i>
+                            <?php echo $item['label']; ?>
+                        </a>
+                    <?php
+                    } else {
+                        $__isOpen = ($activePage === $key) || in_array($activePage, $__childKeys);
+                    ?>
+                        <div class="ss-nav-group <?php echo $__isOpen ? 'open' : ''; ?>">
+                            <div class="ss-nav-group-row">
+                                <a href="<?php echo $item['url']; ?>"
+                                    class="ss-nav-item <?php echo ($activePage === $key) ? 'active' : ''; ?>">
+                                    <i data-feather="<?php echo $item['icon']; ?>"></i>
+                                    <?php echo $item['label']; ?>
+                                </a>
+                                <button type="button" class="ss-nav-caret-btn" onclick="this.closest('.ss-nav-group').classList.toggle('open')">
+                                    <i data-feather="chevron-down"></i>
+                                </button>
+                            </div>
+                            <div class="ss-nav-submenu">
+                                <?php foreach ($__childKeys as $__ck): $__child = $sunseaNavItemsVisible[$__ck]; ?>
+                                    <a href="<?php echo $__child['url']; ?>"
+                                        class="ss-nav-item <?php echo ($activePage === $__ck) ? 'active' : ''; ?>">
+                                        <i data-feather="<?php echo $__child['icon']; ?>"></i>
+                                        <?php echo $__child['label']; ?>
+                                    </a>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    <?php
+                    }
+                } else {
+                    ?>
+                    <a href="<?php echo $item['url']; ?>"
+                        class="ss-nav-item <?php echo ($activePage === $key) ? 'active' : ''; ?>">
+                        <i data-feather="<?php echo $item['icon']; ?>"></i>
+                        <?php echo $item['label']; ?>
+                        <?php if ($key === 'quotations' && $sunseaNewQuotationCount > 0): ?>
+                            <span class="ss-nav-dot" title="<?php echo (int)$sunseaNewQuotationCount; ?> penawaran baru dari website"></span>
+                        <?php endif; ?>
+                        <?php if ($key === 'email'): ?>
+                            <span class="ss-nav-dot" id="sunseaEmailUnreadDot" style="display:none;" title="Email belum dibaca"></span>
+                        <?php endif; ?>
+                    </a>
+            <?php
+                }
+            endforeach; ?>
 
         </nav>
 
         <div class="ss-sidebar-footer">
+            <a href="<?php echo BASE_URL; ?>/home.php" target="_blank" rel="noopener" class="ss-website-btn">
+                <i data-feather="external-link"></i> Buka Website
+            </a>
             <div class="ss-user-block">
                 <div class="ss-user-avatar"><?php echo strtoupper(substr($userName, 0, 1)); ?></div>
                 <div>
                     <div class="ss-user-name"><?php echo htmlspecialchars($userName); ?></div>
-                    <div class="ss-user-role">Explore Karimunjawa</div>
+                    <div class="ss-user-role">Karimunjawa Explore</div>
                 </div>
             </div>
             <a href="<?php echo BASE_URL; ?>/logout.php" class="ss-logout-btn">
@@ -916,20 +1239,35 @@ if (empty($sunseaNavItemsVisible)) {
     <div class="ss-main">
         <header class="ss-topbar">
             <div style="display:flex;align-items:center;gap:12px;">
-                <button onclick="document.getElementById('sunseaSidebar').classList.toggle('open')"
+                <button onclick="document.getElementById('sunseaSidebar').classList.toggle('open');document.getElementById('sunseaSidebarOverlay').classList.toggle('open');"
                     style="display:none;background:none;border:none;cursor:pointer;padding:4px;"
                     id="sidebarToggle">
                     <i data-feather="menu" style="width:20px;height:20px;"></i>
                 </button>
-                <span class="ss-page-title"><?php echo htmlspecialchars($pageTitle ?? 'Explore Karimunjawa'); ?></span>
+                <span class="ss-page-title"><?php echo htmlspecialchars($pageTitle ?? 'Karimunjawa Explore'); ?></span>
             </div>
             <div class="ss-topbar-actions">
-                <span class="ss-badge ss-badge-ocean">🌊 Explore Karimunjawa</span>
+                <span class="ss-badge ss-badge-ocean" id="ssLiveClock">🕒 --:--:--</span>
+                <span class="ss-badge ss-badge-ocean">🌊 Karimunjawa Explore</span>
                 <a href="<?php echo BASE_URL; ?>/logout.php" style="color:var(--ss-muted);text-decoration:none;font-size:12px;">
                     <i data-feather="log-out" style="width:15px;height:15px;vertical-align:middle;"></i>
                 </a>
             </div>
         </header>
+
+        <script>
+        (function () {
+            var el = document.getElementById('ssLiveClock');
+            if (!el) return;
+            function tick() {
+                var d = new Date();
+                var pad = function (n) { return String(n).padStart(2, '0'); };
+                el.textContent = '🕒 ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+            }
+            tick();
+            setInterval(tick, 1000);
+        })();
+        </script>
 
         <div class="ss-content">
             <?php

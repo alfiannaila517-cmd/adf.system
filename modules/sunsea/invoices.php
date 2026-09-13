@@ -15,6 +15,25 @@ $auth = new Auth();
 $auth->requireLogin();
 
 $pdo    = getSunseaConnection();
+
+// Self-heal: status/remaining_amount kadang jadi stale (mis. invoice di-edit setelah dibayar,
+// atau proses lama yang belum sempat recalc) - selalu samakan dengan paid_amount vs total_amount
+// tiap kali halaman ini dibuka, supaya "Lunas"/"Partial" di layar selalu benar tanpa perlu tool manual.
+try {
+    $pdo->exec("
+        UPDATE invoices
+        SET remaining_amount = GREATEST(total_amount - paid_amount, 0),
+            status = CASE
+                WHEN paid_amount >= total_amount THEN 'paid'
+                WHEN paid_amount > 0 THEN 'partial'
+                ELSE 'issued'
+            END
+        WHERE status IN ('issued','partial','paid')
+    ");
+} catch (Exception $e) {
+    error_log('invoices.php status self-heal error: ' . $e->getMessage());
+}
+
 $action = $_GET['action'] ?? 'list';
 $invId  = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
@@ -54,23 +73,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ->execute([$paid, $remaining, $newStatus, $iId]);
 
             // Add to cashbook automatically
-            $custRow = $pdo->prepare("SELECT c.name FROM invoices i JOIN customers c ON c.id=i.customer_id WHERE i.id=?");
+            $custRow = $pdo->prepare("SELECT c.id AS customer_id, c.name, i.internal_notes FROM invoices i JOIN customers c ON c.id=i.customer_id WHERE i.id=?");
             $custRow->execute([$iId]);
-            $custName = $custRow->fetchColumn();
+            $custInfo = $custRow->fetch();
+            $custId   = $custInfo ? (int)$custInfo['customer_id'] : null;
+            $custName = $custInfo['name'] ?? '';
+
+            // Cari booking terkait (kalau invoice ini berasal dari booking) supaya tercatat & bisa difilter per trip juga.
+            $linkedBookingId = null;
+            if (preg_match('/Generated from Reservasi:\s*(\S+)/', (string)($custInfo['internal_notes'] ?? ''), $mBk)) {
+                $bkStmt = $pdo->prepare("SELECT id FROM booking_orders WHERE booking_no=?");
+                $bkStmt->execute([$mBk[1]]);
+                $linkedBookingId = $bkStmt->fetchColumn() ?: null;
+            } elseif (preg_match('/^booking_id:(\d+)$/', (string)($custInfo['internal_notes'] ?? ''), $mBk)) {
+                $linkedBookingId = (int)$mBk[1];
+            }
+
             $invRow = $pdo->prepare("SELECT invoice_no FROM invoices WHERE id=?");
             $invRow->execute([$iId]);
             $invNo = $invRow->fetchColumn();
             $pdo->prepare("
-                INSERT INTO cash_book (transaction_date, type, category, description, amount, reference, invoice_id, created_by)
-                VALUES (?,?,?,?,?,?,?,?)
+                INSERT INTO cash_book (transaction_date, transaction_time, type, category, description, amount, reference, invoice_id, customer_id, booking_id, created_by)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?)
             ")->execute([
                 $date,
+                date('H:i:s'),
                 'income',
                 'Penerimaan Trip',
                 "Pembayaran Invoice $invNo — $custName",
                 $amount,
                 $ref ?: $invNo,
                 $iId,
+                $custId,
+                $linkedBookingId,
                 $user
             ]);
 
@@ -84,6 +119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($postAction === 'save') {
         $id         = (int)($_POST['id'] ?? 0);
         $customerId = (int)($_POST['customer_id'] ?? 0);
+        $newCustomerName = trim($_POST['new_customer_name'] ?? '');
         $taxPct     = (float)($_POST['tax_pct'] ?? 11);
         $discount   = (float)str_replace(['.', ','], ['', '.'], $_POST['discount_amount'] ?? '0');
         $tripDate   = $_POST['trip_date']     ?: null;
@@ -93,6 +129,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $invoiceDate = $_POST['invoice_date']  ?: date('Y-m-d');
         $notes      = trim($_POST['notes'] ?? '');
         $user       = $auth->getCurrentUser()['username'] ?? 'system';
+
+        // Buat customer baru inline jika panel "Tambah Customer Baru" dipakai.
+        if ($customerId <= 0 && $newCustomerName !== '') {
+            $lastCode = $pdo->query("SELECT code FROM customers ORDER BY id DESC LIMIT 1")->fetchColumn();
+            $nextNum = 1;
+            if ($lastCode && preg_match('/(\d+)$/', $lastCode, $mCode)) $nextNum = (int)$mCode[1] + 1;
+            $newCode = 'SS-CUST-' . str_pad($nextNum, 3, '0', STR_PAD_LEFT);
+            $pdo->prepare("INSERT INTO customers (code, name, type, email, phone, whatsapp, country) VALUES (?,?,?,?,?,?,?)")
+                ->execute([
+                    $newCode,
+                    $newCustomerName,
+                    'individual',
+                    trim($_POST['new_customer_email'] ?? ''),
+                    trim($_POST['new_customer_phone'] ?? ''),
+                    trim($_POST['new_customer_phone'] ?? ''),
+                    'Indonesia'
+                ]);
+            $customerId = (int)$pdo->lastInsertId();
+        }
+
+        if ($customerId <= 0) {
+            $_SESSION['flash_message'] = 'Customer wajib dipilih atau diisi datanya.';
+            $_SESSION['flash_type']    = 'error';
+            header('Location: invoices.php?action=' . ($id > 0 ? 'edit&id=' . $id : 'add'));
+            exit;
+        }
 
         $descriptions = $_POST['item_description'] ?? [];
         $itemTypes    = $_POST['item_type']         ?? [];
@@ -124,10 +186,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $remaining = $total;
 
         if ($id > 0) {
+            // Total bisa berubah (edit item/diskon) setelah invoice sudah sebagian/lunas dibayar,
+            // jadi sisa tagihan & status harus dihitung ulang dari paid_amount yang SUDAH ada,
+            // bukan cuma disamakan dengan total baru (itu bug lama - bikin invoice yang sudah
+            // lunas balik kelihatan "belum dibayar sama sekali").
+            $paidChk = $pdo->prepare("SELECT paid_amount FROM invoices WHERE id=?");
+            $paidChk->execute([$id]);
+            $alreadyPaid = (float)$paidChk->fetchColumn();
+            $remaining = max(0, $total - $alreadyPaid);
+            $newStatus = $remaining <= 0.01 ? 'paid' : ($alreadyPaid > 0 ? 'partial' : 'issued');
+
             $pdo->prepare("
                 UPDATE invoices SET customer_id=?, trip_date=?, trip_end_date=?, pax_count=?,
                 subtotal=?, tax_pct=?, tax_amount=?, discount_amount=?, total_amount=?,
-                remaining_amount=?, due_date=?, notes=?, issued_at=?, updated_at=NOW() WHERE id=?
+                remaining_amount=?, status=?, due_date=?, notes=?, issued_at=?, updated_at=NOW() WHERE id=?
             ")->execute([
                 $customerId,
                 $tripDate,
@@ -139,6 +211,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $discount,
                 $total,
                 $remaining,
+                $newStatus,
                 $dueDate,
                 $notes,
                 $invoiceDate,
@@ -181,7 +254,145 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['flash_type']    = 'success';
         header('Location: invoices.php?action=view&id=' . $id);
         exit;
+
+        // Konfirmasi invoice manual jadi Booking, supaya operasional & keuangan ikut tercatat
+    } elseif ($postAction === 'convert_to_booking') {
+        $iId = (int)($_POST['invoice_id'] ?? 0);
+        $user = $auth->getCurrentUser()['username'] ?? 'system';
+        $invRow = $pdo->prepare("SELECT * FROM invoices WHERE id=?");
+        $invRow->execute([$iId]);
+        $inv = $invRow->fetch(PDO::FETCH_ASSOC);
+
+        if (!$inv) {
+            $_SESSION['flash_message'] = 'Invoice tidak ditemukan.';
+            $_SESSION['flash_type']    = 'error';
+        } elseif (
+            preg_match('/Generated from Reservasi:/', (string)($inv['internal_notes'] ?? ''))
+            || preg_match('/^booking_id:\d+$/', (string)($inv['internal_notes'] ?? ''))
+        ) {
+            // Invoice ini sudah otomatis dibuat DARI booking yang ada (lihat ensureInvoiceFromBooking
+            // di bookings.php) atau sebelumnya sudah dikonfirmasi jadi booking — jangan buat duplikat.
+            $_SESSION['flash_message'] = 'Invoice ini sudah terhubung ke booking.';
+            $_SESSION['flash_type']    = 'error';
+        } elseif (empty($inv['trip_date']) || empty($inv['trip_end_date'])) {
+            $_SESSION['flash_message'] = 'Isi Tanggal Trip & Tanggal Selesai di invoice ini dulu sebelum dikonfirmasi jadi booking.';
+            $_SESSION['flash_type']    = 'error';
+        } else {
+            sunseaEnsureBookingSchema($pdo);
+            $itemsStmt = $pdo->prepare("SELECT * FROM invoice_items WHERE invoice_id=? ORDER BY sort_order");
+            $itemsStmt->execute([$iId]);
+            $iiRows = $itemsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $pdo->beginTransaction();
+            try {
+                $bookingNo = sunseaNextNumber($pdo, 'booking');
+                $pdo->prepare("INSERT INTO booking_orders
+                    (booking_no, customer_id, booking_mode, start_date, end_date, pax_count, status, cost_total, sell_total, margin_amount, notes, created_by)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)")
+                    ->execute([
+                        $bookingNo,
+                        (int)$inv['customer_id'],
+                        'ecer',
+                        $inv['trip_date'],
+                        $inv['trip_end_date'],
+                        (int)$inv['pax_count'],
+                        'confirmed',
+                        0,
+                        (float)$inv['total_amount'],
+                        (float)$inv['total_amount'],
+                        'Dibuat dari Invoice ' . $inv['invoice_no'],
+                        $user,
+                    ]);
+                $bookingId = (int)$pdo->lastInsertId();
+
+                $insItem = $pdo->prepare("INSERT INTO booking_order_items
+                    (booking_id, component_code, component_name, qty, unit, price_cost, price_sell, total_cost, total_sell, sort_order)
+                    VALUES (?,?,?,?,?,?,?,?,?,?)");
+                foreach ($iiRows as $idx => $ii) {
+                    $insItem->execute([
+                        $bookingId,
+                        'manual',
+                        (string)$ii['description'],
+                        (float)$ii['qty'],
+                        (string)$ii['unit'],
+                        0,
+                        (float)$ii['unit_price'],
+                        0,
+                        (float)$ii['subtotal'],
+                        $idx,
+                    ]);
+                }
+
+                $pdo->prepare("UPDATE invoices SET internal_notes=? WHERE id=?")
+                    ->execute(['Generated from Reservasi: ' . $bookingNo, $iId]);
+
+                $pdo->commit();
+                $_SESSION['flash_message'] = "Booking $bookingNo berhasil dibuat dari invoice ini.";
+                $_SESSION['flash_type']    = 'success';
+            } catch (Exception $e) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                $_SESSION['flash_message'] = 'Gagal membuat booking: ' . $e->getMessage();
+                $_SESSION['flash_type']    = 'error';
+            }
+        }
+        header('Location: invoices.php?action=view&id=' . $iId);
+        exit;
+    } elseif ($postAction === 'delete_invoice') {
+        $iId = (int)($_POST['invoice_id'] ?? 0);
+        $chk = $pdo->prepare("SELECT paid_amount FROM invoices WHERE id=?");
+        $chk->execute([$iId]);
+        $paidChk = $chk->fetchColumn();
+
+        if ($paidChk === false) {
+            $_SESSION['flash_message'] = 'Invoice tidak ditemukan.';
+            $_SESSION['flash_type']    = 'error';
+        } elseif ((float)$paidChk > 0) {
+            $_SESSION['flash_message'] = 'Invoice yang sudah ada pembayaran tidak bisa dihapus.';
+            $_SESSION['flash_type']    = 'error';
+        } else {
+            sunseaDeleteInvoiceCascade($pdo, $iId);
+            $_SESSION['flash_message'] = 'Invoice berhasil dihapus.';
+            $_SESSION['flash_type']    = 'success';
+        }
+        header('Location: invoices.php');
+        exit;
+    } elseif ($postAction === 'bulk_delete_invoice') {
+        $ids = array_filter(array_map('intval', $_POST['ids'] ?? []));
+        $deleted = 0;
+        $skipped = 0;
+        foreach ($ids as $iId) {
+            $chk = $pdo->prepare("SELECT paid_amount FROM invoices WHERE id=?");
+            $chk->execute([$iId]);
+            $paidChk = $chk->fetchColumn();
+            if ($paidChk === false || (float)$paidChk > 0) {
+                $skipped++;
+                continue;
+            }
+            sunseaDeleteInvoiceCascade($pdo, $iId);
+            $deleted++;
+        }
+        $msg = $deleted . ' invoice berhasil dihapus.';
+        if ($skipped > 0) {
+            $msg .= ' ' . $skipped . ' dilewati (sudah ada pembayaran).';
+        }
+        $_SESSION['flash_message'] = $msg;
+        $_SESSION['flash_type'] = $deleted > 0 ? 'success' : 'error';
+        header('Location: invoices.php');
+        exit;
     }
+}
+
+/**
+ * Hapus invoice beserta item/payment-nya, dan lepas link dari quotation yang sudah dikonversi ke invoice ini.
+ */
+function sunseaDeleteInvoiceCascade(PDO $pdo, int $invoiceId): void
+{
+    $pdo->prepare("UPDATE quotations SET status='approved', converted_invoice_id=NULL WHERE converted_invoice_id=?")->execute([$invoiceId]);
+    $pdo->prepare("DELETE FROM payments WHERE invoice_id=?")->execute([$invoiceId]);
+    $pdo->prepare("DELETE FROM invoice_items WHERE invoice_id=?")->execute([$invoiceId]);
+    $pdo->prepare("DELETE FROM invoices WHERE id=?")->execute([$invoiceId]);
 }
 
 // ---- LOAD DATA ----
@@ -205,9 +416,45 @@ if (in_array($action, ['view', 'print']) && $invId > 0) {
     $si->execute([$invId]);
     $invItems = $si->fetchAll();
 
+    // Invoice dari booking paket: sembunyikan rincian modal internal (harga Rp 0) yang sudah terlanjur
+    // tersimpan dari sebelum fix, cukup tampilkan baris "Paket: ..." + fasilitas/manual bernilai > 0.
+    $linkedBooking = null;
+    if (preg_match('/Generated from Reservasi:\s*(\S+)/', (string)($invoice['internal_notes'] ?? ''), $m)) {
+        $boStmt = $pdo->prepare("SELECT id, booking_mode FROM booking_orders WHERE booking_no=?");
+        $boStmt->execute([$m[1]]);
+        $bo = $boStmt->fetch(PDO::FETCH_ASSOC);
+        if ($bo) {
+            $linkedBooking = ['id' => (int)$bo['id'], 'booking_no' => $m[1]];
+        }
+    } elseif (preg_match('/^booking_id:(\d+)$/', (string)($invoice['internal_notes'] ?? ''), $m)) {
+        // Invoice ini dibuat OTOMATIS dari booking yang sudah ada (lihat ensureInvoiceFromBooking
+        // di bookings.php) — bukan invoice manual yang belum terhubung booking mana pun.
+        $boStmt = $pdo->prepare("SELECT id, booking_no, booking_mode FROM booking_orders WHERE id=?");
+        $boStmt->execute([(int)$m[1]]);
+        $bo = $boStmt->fetch(PDO::FETCH_ASSOC);
+        if ($bo) {
+            $linkedBooking = ['id' => (int)$bo['id'], 'booking_no' => $bo['booking_no']];
+        }
+    }
+    if ($linkedBooking) {
+        $boModeStmt = $pdo->prepare("SELECT booking_mode FROM booking_orders WHERE id=?");
+        $boModeStmt->execute([$linkedBooking['id']]);
+        $linkedBookingMode = $boModeStmt->fetchColumn();
+        if ($linkedBookingMode === 'paket') {
+            $invItems = array_values(array_filter($invItems, function ($it) {
+                $isZero = (float)$it['unit_price'] === 0.0 && (float)$it['subtotal'] === 0.0;
+                $isPaketLine = stripos((string)$it['description'], 'Paket:') === 0;
+                return !$isZero || $isPaketLine;
+            }));
+        }
+    }
+
     $sp = $pdo->prepare("SELECT * FROM payments WHERE invoice_id=? ORDER BY payment_date");
     $sp->execute([$invId]);
     $payments = $sp->fetchAll();
+
+    // Hitung ulang sisa tagihan dari total-terbayar, jangan percaya kolom remaining_amount yang bisa basi.
+    $invoice['remaining_amount'] = max(0, (float)$invoice['total_amount'] - (float)$invoice['paid_amount']);
 }
 
 $editInvoice = null;
@@ -224,7 +471,9 @@ $customers = $pdo->query("SELECT id, name FROM customers WHERE is_active=1 ORDER
 
 // List
 $statusFilter = $_GET['status'] ?? '';
-$wh = $statusFilter ? "WHERE i.status=?" : "";
+$outstandingFilter = ($_GET['filter'] ?? '') === 'outstanding';
+// Invoice cancelled (mis. duplikat lama) selalu disembunyikan dari daftar utama.
+$wh = $statusFilter ? "WHERE i.status=?" : "WHERE i.status != 'cancelled'";
 $lp = $statusFilter ? [$statusFilter] : [];
 $invoiceList = $pdo->prepare("
     SELECT i.id, i.invoice_no, i.status, i.total_amount, i.paid_amount, i.remaining_amount, i.due_date, i.created_at,
@@ -234,9 +483,17 @@ $invoiceList = $pdo->prepare("
 ");
 $invoiceList->execute($lp);
 $invoiceList = $invoiceList->fetchAll();
+foreach ($invoiceList as &$_invRow) {
+    // Hitung ulang sisa tagihan dari total-terbayar, jangan percaya kolom remaining_amount yang bisa basi.
+    $_invRow['remaining_amount'] = max(0, (float)$_invRow['total_amount'] - (float)$_invRow['paid_amount']);
+}
+unset($_invRow);
+if ($outstandingFilter) {
+    $invoiceList = array_values(array_filter($invoiceList, fn($r) => $r['remaining_amount'] > 0 && $r['status'] !== 'cancelled'));
+}
 
 $invoiceLogoPath = sunseaSetting($pdo, 'invoice_logo', '') ?: sunseaSetting($pdo, 'company_logo', '');
-$invoiceLogoSrc = $invoiceLogoPath ? BASE_URL . '/' . ltrim($invoiceLogoPath, '/') : '';
+$invoiceLogoSrc = sunseaAssetUrl($invoiceLogoPath);
 
 $pageTitle  = match ($action) {
     'add'   => 'Buat Invoice Baru',
@@ -249,11 +506,14 @@ $activePage = 'invoices';
 
 // ---- PRINT ----
 if ($action === 'print' && $invoice):
-    $companyName    = sunseaSetting($pdo, 'company_name', 'Explore Karimunjawa');
+    $companyName    = sunseaSetting($pdo, 'company_name', 'Karimunjawa Explore');
     $companyAddress = sunseaSetting($pdo, 'company_address', '');
-    $companyPhone   = sunseaSetting($pdo, 'company_phone', '');
+    $companyPhone   = implode(' / ', sunseaCompanyPhones($pdo));
+    $companyEmail   = sunseaSetting($pdo, 'company_email', '');
     $printLogoPath  = sunseaSetting($pdo, 'invoice_logo', '') ?: sunseaSetting($pdo, 'company_logo', '');
-    $printLogoSrc   = $printLogoPath ? BASE_URL . '/' . ltrim($printLogoPath, '/') : '';
+    $printLogoSrc   = sunseaAssetUrl($printLogoPath);
+    $stampPath      = sunseaSetting($pdo, 'invoice_stamp', '');
+    $stampSrc       = sunseaAssetUrl($stampPath);
     $bankName       = sunseaSetting($pdo, 'bank_name', '');
     $bankAccount    = sunseaSetting($pdo, 'bank_account', '');
     $bankHolder     = sunseaSetting($pdo, 'bank_holder', '');
@@ -263,17 +523,26 @@ if ($action === 'print' && $invoice):
     $invoiceNotes   = sunseaSetting($pdo, 'invoice_notes', '');
     $footer         = sunseaSetting($pdo, 'invoice_footer', '');
 
+    // Sisa tagihan sudah dihitung ulang dari total-terbayar di LOAD DATA (lihat $invoice['remaining_amount']).
+    $computedRemaining = (float)$invoice['remaining_amount'];
+
     $statusLabel = 'BELUM LUNAS';
     $statusBg    = '#FEE2E2';
     $statusColor = '#B91C1C';
-    if ((float)$invoice['remaining_amount'] <= 0 || $invoice['status'] === 'paid') {
+    $watermarkLabel = 'UNPAID';
+    $watermarkColor = '#DC2626';
+    if ($computedRemaining <= 0 || $invoice['status'] === 'paid') {
         $statusLabel = 'LUNAS';
         $statusBg    = '#DCFCE7';
         $statusColor = '#15803D';
+        $watermarkLabel = 'PAID';
+        $watermarkColor = '#16A34A';
     } elseif ((float)$invoice['paid_amount'] > 0 || $invoice['status'] === 'partial') {
         $statusLabel = 'DP / PARTIAL';
         $statusBg    = '#FEF3C7';
         $statusColor = '#B45309';
+        $watermarkLabel = 'DOWN PAYMENT';
+        $watermarkColor = '#D97706';
     }
 ?>
     <!DOCTYPE html>
@@ -283,167 +552,571 @@ if ($action === 'print' && $invoice):
         <meta charset="UTF-8">
         <title>Invoice <?php echo htmlspecialchars($invoice['invoice_no']); ?></title>
         <style>
+            * {
+                box-sizing: border-box;
+            }
+
+            @page {
+                size: A4 portrait;
+                margin: 14mm 12mm;
+            }
+
+            html,
             body {
-                font-family: 'Segoe UI', sans-serif;
-                font-size: 12px;
-                padding: 24px;
-                color: #0f172a
+                background: #E2E8F0;
             }
 
-            h1 {
-                font-size: 22px;
-                margin: 0;
-                color: #7C2D12
+            body {
+                font-family: 'Segoe UI', Arial, sans-serif;
+                font-size: 12.5px;
+                color: #1e293b;
             }
 
-            .brand-logo {
-                width: 72px;
-                height: 72px;
+            .page {
+                width: 210mm;
+                min-height: 297mm;
+                margin: 12px auto;
+                background: #fff;
+                padding: 16mm 14mm;
+                box-shadow: 0 4px 18px rgba(15, 23, 42, .12);
+                position: relative;
+                overflow: hidden;
+            }
+
+            .watermark {
+                position: absolute;
+                top: 45%;
+                left: 50%;
+                transform: translate(-50%, -50%) rotate(-28deg);
+                font-size: 70px;
+                font-weight: 800;
+                letter-spacing: 4px;
+                text-transform: uppercase;
+                opacity: .13;
+                white-space: nowrap;
+                pointer-events: none;
+                z-index: 0;
+            }
+
+            .page>*:not(.watermark) {
+                position: relative;
+                z-index: 1;
+            }
+
+            .accent-bar {
+                height: 6px;
+                border-radius: 4px;
+                background: linear-gradient(90deg, #7C2D12, #C2410C 55%, #EA580C);
+                margin-bottom: 20px;
+            }
+
+            .head {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                padding-bottom: 16px;
+                border-bottom: 2px solid #E2E8F0;
+            }
+
+            .brand-row {
+                display: flex;
+                align-items: center;
+                gap: 14px;
+            }
+
+            .brand-logo-box {
+                width: 66px;
+                height: 66px;
+                flex-shrink: 0;
+                border: 1px solid #E2E8F0;
+                border-radius: 10px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                overflow: hidden;
+                background: #fff;
+            }
+
+            .brand-logo-box img {
+                width: 100%;
+                height: 100%;
                 object-fit: contain;
-                margin-right: 14px;
             }
 
-            h2 {
-                font-size: 14px;
-                margin: 2px 0 16px;
-                color: #64748B
+            .brand-name {
+                font-size: 20px;
+                font-weight: 800;
+                margin: 0;
+                color: #7C2D12;
+                letter-spacing: .2px;
+                line-height: 1.25;
+            }
+
+            .brand-meta {
+                font-size: 10.5px;
+                color: #64748B;
+                margin-top: 4px;
+                line-height: 1.6;
+                max-width: 320px;
+            }
+
+            .invoice-tag {
+                font-size: 25px;
+                font-weight: 800;
+                letter-spacing: 2.5px;
+                color: #C2410C;
+                margin: 0;
+            }
+
+            .invoice-no {
+                font-size: 12px;
+                color: #64748B;
+                margin-top: 5px;
+                font-weight: 700;
+            }
+
+            .status-badge {
+                display: inline-block;
+                font-size: 10.5px;
+                font-weight: 700;
+                padding: 4px 14px;
+                border-radius: 20px;
+                letter-spacing: .3px;
+                margin-top: 9px;
+            }
+
+            .info-cols {
+                display: flex;
+                justify-content: space-between;
+                gap: 20px;
+                margin-top: 18px;
+            }
+
+            .info-box {
+                flex: 1;
+                border: 1px solid #E2E8F0;
+                border-radius: 8px;
+                padding: 12px 16px;
+            }
+
+            .info-box .info-title {
+                font-size: 10px;
+                color: #94a3b8;
+                text-transform: uppercase;
+                letter-spacing: .5px;
+                font-weight: 700;
+                margin-bottom: 6px;
+            }
+
+            .info-box .cust-name {
+                font-size: 14.5px;
+                font-weight: 700;
+                color: #1e293b;
+                margin-bottom: 3px;
+            }
+
+            .info-box .cust-detail {
+                font-size: 11px;
+                color: #475569;
+                line-height: 1.6;
+            }
+
+            .meta-list .meta-row {
+                display: flex;
+                justify-content: space-between;
+                font-size: 11.5px;
+                padding: 3px 0;
+                color: #475569;
+            }
+
+            .meta-list .meta-row b {
+                color: #1e293b;
+                font-weight: 700;
             }
 
             table {
                 width: 100%;
                 border-collapse: collapse;
-                margin-top: 12px
+                margin-top: 18px;
             }
 
-            th,
-            td {
-                border: 1px solid #E2E8F0;
-                padding: 8px;
-                text-align: left
+            thead th {
+                background: #7C2D12;
+                color: #fff;
+                font-size: 10.5px;
+                text-transform: uppercase;
+                letter-spacing: .4px;
+                padding: 9px 10px;
+                text-align: left;
             }
 
-            th {
-                background: #FFF7ED;
+            thead th:first-child {
+                border-radius: 6px 0 0 0;
+                width: 26px;
+                text-align: center;
+            }
+
+            thead th:last-child {
+                border-radius: 0 6px 0 0;
+            }
+
+            thead th:nth-child(3),
+            thead th:nth-child(4),
+            thead th:nth-child(5) {
+                text-align: right;
+            }
+
+            tbody td {
+                padding: 8px 10px;
+                border-bottom: 1px solid #EEF2F7;
+                font-size: 12px;
+            }
+
+            tbody td:first-child {
+                text-align: center;
+                color: #94a3b8;
+            }
+
+            tbody td:nth-child(3),
+            tbody td:nth-child(4),
+            tbody td:nth-child(5) {
+                text-align: right;
+                white-space: nowrap;
+            }
+
+            tbody tr:nth-child(even) {
+                background: #FAFBFC;
+            }
+
+            tbody tr:last-child td {
+                border-bottom: 2px solid #E2E8F0;
+            }
+
+            .bottom-flex {
+                display: flex;
+                justify-content: space-between;
+                gap: 24px;
+                margin-top: 18px;
+            }
+
+            .bank-box {
+                flex: 1;
                 font-size: 11px;
-                color: #64748B
+                color: #475569;
+            }
+
+            .bank-card {
+                background: #F8FAFC;
+                border: 1px solid #E2E8F0;
+                border-radius: 8px;
+                padding: 10px 14px;
+                margin-bottom: 8px;
+            }
+
+            .bank-card b {
+                color: #1e293b;
             }
 
             .total {
-                margin-top: 16px;
-                max-width: 360px;
-                float: right
+                width: 300px;
+                flex-shrink: 0;
             }
 
             .row {
                 display: flex;
                 justify-content: space-between;
-                padding: 4px 0
+                padding: 5px 0;
+                font-size: 12px;
             }
 
             .final {
-                font-size: 16px;
-                font-weight: 700;
+                font-size: 17px;
+                font-weight: 800;
                 border-top: 2px solid #C2410C;
-                padding-top: 8px;
-                color: #C2410C
+                margin-top: 4px;
+                padding-top: 10px;
+                color: #C2410C;
             }
 
-            .status-badge {
-                display: inline-block;
-                font-size: 11px;
+            .terms-box {
+                margin-top: 22px;
+                background: #F8FAFC;
+                border: 1px solid #E2E8F0;
+                border-radius: 8px;
+                padding: 12px 16px;
+            }
+
+            .terms-box .terms-title {
+                font-size: 10.5px;
                 font-weight: 700;
-                padding: 4px 12px;
-                border-radius: 20px;
-                margin-left: 10px;
-                vertical-align: middle;
+                text-transform: uppercase;
+                letter-spacing: .4px;
+                color: #7C2D12;
+                margin-bottom: 6px;
             }
 
-            .bank-box {
-                clear: both;
-                margin-top: 70px;
-                padding-top: 12px;
-                border-top: 1px solid #E2E8F0;
+            .terms-box ol {
+                margin: 0;
+                padding-left: 16px;
+                font-size: 10.5px;
+                color: #475569;
+                line-height: 1.7;
+            }
+
+            .signature-area {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-end;
+                margin-top: 36px;
+                gap: 24px;
+            }
+
+            .notes-col {
+                flex: 1;
                 font-size: 11px;
                 color: #475569;
-                max-width: 55%;
+            }
+
+            .sign-col {
+                width: 220px;
+                text-align: center;
+                position: relative;
+            }
+
+            .sign-col .sign-place {
+                font-size: 11px;
+                color: #64748B;
+                margin-bottom: 4px;
+            }
+
+            .stamp-img {
+                max-width: 110px;
+                max-height: 110px;
+                object-fit: contain;
+                opacity: .88;
+                margin: 6px auto -18px;
+                display: block;
+                mix-blend-mode: multiply;
+            }
+
+            .sign-line {
+                margin-top: 58px;
+                border-top: 1px solid #94a3b8;
+                padding-top: 6px;
+                font-size: 11.5px;
+                font-weight: 700;
+                color: #1e293b;
+            }
+
+            .footer-note {
+                clear: both;
+                margin-top: 60px;
+                padding-top: 12px;
+                border-top: 1px dashed #E2E8F0;
+                font-size: 10.5px;
+                color: #94a3b8;
+                text-align: left;
+                font-style: italic;
+            }
+
+            .footer-contact {
+                margin-top: 6px;
+                font-style: normal;
+                font-weight: 700;
+                color: #475569;
+                display: flex;
+                flex-direction: column;
+                gap: 3px;
+            }
+
+            .footer-contact-name {
+                margin-bottom: 2px;
+            }
+
+            .footer-adf-system {
+                margin-top: 14px;
+                font-size: 8px;
+                font-style: normal;
+                color: #cbd5e1;
+                text-align: center;
+            }
+
+            .thanks-note {
+                text-align: center;
+                margin-top: 10px;
+                font-size: 12px;
+                font-weight: 700;
+                color: #7C2D12;
             }
 
             @media print {
+
+                html,
                 body {
-                    padding: 8px
+                    background: #fff;
+                }
+
+                .page {
+                    width: auto;
+                    min-height: 0;
+                    margin: 0;
+                    padding: 0;
+                    box-shadow: none;
                 }
             }
         </style>
     </head>
 
     <body onload="window.print()">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #C2410C;padding-bottom:16px;">
-            <div style="display:flex;align-items:center;">
-                <?php if ($printLogoSrc): ?><img class="brand-logo" src="<?php echo htmlspecialchars($printLogoSrc); ?>" alt="Logo"> <?php endif; ?>
-                <div>
-                    <h1><?php echo htmlspecialchars($companyName); ?></h1>
-                    <div style="font-size:11px;color:#64748B;margin-top:2px;">
-                        <?php echo htmlspecialchars($companyAddress); ?><?php echo ($companyAddress && $companyPhone) ? ' &middot; ' : ''; ?><?php echo htmlspecialchars($companyPhone); ?>
+        <div class="page">
+            <div class="watermark" style="color:<?php echo $watermarkColor; ?>;<?php echo strlen($watermarkLabel) > 6 ? 'font-size:52px;letter-spacing:2px;' : ''; ?>"><?php echo htmlspecialchars($watermarkLabel); ?></div>
+            <div class="accent-bar"></div>
+            <div class="head">
+                <div class="brand-row">
+                    <?php if ($printLogoSrc): ?><div class="brand-logo-box"><img src="<?php echo htmlspecialchars($printLogoSrc); ?>" alt="Logo"></div><?php endif; ?>
+                    <div>
+                        <p class="brand-name"><?php echo htmlspecialchars($companyName); ?></p>
+                        <div class="brand-meta">
+                            <?php if ($companyAddress): ?><div><?php echo htmlspecialchars($companyAddress); ?></div><?php endif; ?>
+                            <div>
+                                <?php echo htmlspecialchars($companyPhone); ?><?php echo ($companyPhone && $companyEmail) ? ' &middot; ' : ''; ?><?php echo htmlspecialchars($companyEmail); ?>
+                            </div>
+                        </div>
                     </div>
                 </div>
+                <div style="text-align:right;">
+                    <p class="invoice-tag">INVOICE</p>
+                    <div class="invoice-no">No. <?php echo htmlspecialchars($invoice['invoice_no']); ?></div>
+                    <div><span class="status-badge" style="background:<?php echo $statusBg; ?>;color:<?php echo $statusColor; ?>;"><?php echo $statusLabel; ?></span></div>
+                </div>
             </div>
-            <div style="text-align:right;">
-                <h1 style="font-size:20px;">INVOICE</h1>
-                <div style="font-size:11px;color:#64748B;margin-top:2px;"><?php echo htmlspecialchars($invoice['invoice_no']); ?></div>
+
+            <div class="info-cols">
+                <div class="info-box">
+                    <div class="info-title">Ditagihkan Kepada</div>
+                    <div class="cust-name"><?php echo htmlspecialchars($invoice['customer_name']); ?></div>
+                    <div class="cust-detail">
+                        <?php if (!empty($invoice['customer_phone'])): ?><?php echo htmlspecialchars($invoice['customer_phone']); ?><br><?php endif; ?>
+                    <?php if (!empty($invoice['customer_email'])): ?><?php echo htmlspecialchars($invoice['customer_email']); ?><br><?php endif; ?>
+                <?php if (!empty($invoice['customer_address']) || !empty($invoice['customer_city'])): ?>
+                    <?php echo htmlspecialchars(trim($invoice['customer_address'] . ' ' . $invoice['customer_city'])); ?>
+                <?php endif; ?>
+                    </div>
+                </div>
+                <div class="info-box meta-list">
+                    <div class="info-title">Detail Invoice</div>
+                    <div class="meta-row"><span>Tanggal Invoice</span><b><?php echo date('d M Y', strtotime($invoice['issued_at'] ?: $invoice['created_at'])); ?></b></div>
+                    <div class="meta-row"><span>Jatuh Tempo</span><b><?php echo $invoice['due_date'] ? date('d M Y', strtotime($invoice['due_date'])) : '-'; ?></b></div>
+                    <div class="meta-row"><span>Jumlah Pax</span><b><?php echo (int)$invoice['pax_count']; ?> orang</b></div>
+                    <?php if ($invoice['trip_date']): ?>
+                        <div class="meta-row"><span>Tanggal Trip</span><b><?php echo date('d M Y', strtotime($invoice['trip_date'])); ?><?php echo $invoice['trip_end_date'] ? ' - ' . date('d M Y', strtotime($invoice['trip_end_date'])) : ''; ?></b></div>
+                    <?php endif; ?>
+                    <?php if ($linkedBooking): ?>
+                        <div class="meta-row"><span>No. Booking</span><b><?php echo htmlspecialchars($linkedBooking['booking_no']); ?></b></div>
+                    <?php endif; ?>
+                </div>
             </div>
-        </div>
-        <h2>
-            <?php echo htmlspecialchars($invoice['customer_name']); ?>
-            <span class="status-badge" style="background:<?php echo $statusBg; ?>;color:<?php echo $statusColor; ?>;"><?php echo $statusLabel; ?></span>
-        </h2>
-        <div>
-            Tanggal: <?php echo date('d M Y', strtotime($invoice['issued_at'] ?: $invoice['created_at'])); ?>
-            | Jatuh Tempo: <?php echo $invoice['due_date'] ? date('d M Y', strtotime($invoice['due_date'])) : '-'; ?>
-            | Pax: <?php echo (int)$invoice['pax_count']; ?>
-            <?php if ($invoice['trip_date']): ?> | Trip: <?php echo date('d M Y', strtotime($invoice['trip_date'])); ?><?php echo $invoice['trip_end_date'] ? ' - ' . date('d M Y', strtotime($invoice['trip_end_date'])) : ''; ?><?php endif; ?>
-        </div>
-        <table>
-            <thead>
-                <tr>
-                    <th>Keterangan</th>
-                    <th>Qty</th>
-                    <th>Harga</th>
-                    <th>Subtotal</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($invItems as $item): ?>
+
+            <table>
+                <thead>
                     <tr>
-                        <td><?php echo htmlspecialchars($item['description']); ?></td>
-                        <td><?php echo $item['qty'] == (int)$item['qty'] ? (int)$item['qty'] : (float)$item['qty']; ?> <?php echo htmlspecialchars($item['unit']); ?></td>
-                        <td><?php echo sunseaRupiah((float)$item['unit_price']); ?></td>
-                        <td><?php echo sunseaRupiah((float)$item['subtotal']); ?></td>
+                        <th>#</th>
+                        <th>Keterangan</th>
+                        <th>Qty</th>
+                        <th>Harga</th>
+                        <th>Subtotal</th>
                     </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-        <div class="total">
-            <div class="row"><span>Subtotal</span><strong><?php echo sunseaRupiah((float)$invoice['subtotal']); ?></strong></div>
-            <?php if ($invoice['discount_amount'] > 0): ?>
-                <div class="row"><span>Diskon</span><strong>-<?php echo sunseaRupiah((float)$invoice['discount_amount']); ?></strong></div>
+                </thead>
+                <tbody>
+                    <?php foreach ($invItems as $idx => $item): ?>
+                        <tr>
+                            <td><?php echo $idx + 1; ?></td>
+                            <td><?php echo htmlspecialchars($item['description']); ?></td>
+                            <td><?php echo $item['qty'] == (int)$item['qty'] ? (int)$item['qty'] : (float)$item['qty']; ?> <?php echo htmlspecialchars($item['unit']); ?></td>
+                            <td><?php echo sunseaRupiah((float)$item['unit_price']); ?></td>
+                            <td><?php echo sunseaRupiah((float)$item['subtotal']); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    <?php if (empty($invItems)): ?>
+                        <tr>
+                            <td colspan="5" style="text-align:center;color:#94a3b8;">Belum ada item.</td>
+                        </tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+
+            <div class="bottom-flex">
+                <div class="bank-box">
+                    <?php if ($bankName || $bankAccount): ?>
+                        <div class="bank-card"><b>Transfer ke:</b> <?php echo htmlspecialchars($bankName ?: '-'); ?> &mdash; <?php echo htmlspecialchars($bankAccount ?: '-'); ?> a.n. <?php echo htmlspecialchars($bankHolder ?: '-'); ?></div>
+                    <?php endif; ?>
+                    <?php if ($bankName2 || $bankAccount2): ?>
+                        <div class="bank-card"><b>Transfer ke:</b> <?php echo htmlspecialchars($bankName2 ?: '-'); ?> &mdash; <?php echo htmlspecialchars($bankAccount2 ?: '-'); ?> a.n. <?php echo htmlspecialchars($bankHolder2 ?: '-'); ?></div>
+                    <?php endif; ?>
+                    <?php if ($invoice['notes']): ?><div style="margin-top:6px;"><strong>Catatan:</strong> <?php echo nl2br(htmlspecialchars($invoice['notes'])); ?></div><?php endif; ?>
+                </div>
+                <div class="total">
+                    <div class="row"><span>Subtotal</span><strong><?php echo sunseaRupiah((float)$invoice['subtotal']); ?></strong></div>
+                    <?php if ($invoice['discount_amount'] > 0): ?>
+                        <div class="row"><span>Diskon</span><strong>-<?php echo sunseaRupiah((float)$invoice['discount_amount']); ?></strong></div>
+                    <?php endif; ?>
+                    <div class="row"><span>PPN <?php echo (float)$invoice['tax_pct']; ?>%</span><strong><?php echo sunseaRupiah((float)$invoice['tax_amount']); ?></strong></div>
+                    <div class="row final"><span>TOTAL</span><strong><?php echo sunseaRupiah((float)$invoice['total_amount']); ?></strong></div>
+                    <?php if ($invoice['paid_amount'] > 0): ?>
+                        <div class="row" style="margin-top:8px;"><span>Terbayar</span><strong style="color:#15803D;"><?php echo sunseaRupiah((float)$invoice['paid_amount']); ?></strong></div>
+                        <div class="row"><span><?php echo $computedRemaining > 0 ? 'Sisa Tagihan' : '&check; Lunas'; ?></span><strong style="color:<?php echo $computedRemaining > 0 ? '#B91C1C' : '#15803D'; ?>;"><?php echo sunseaRupiah($computedRemaining); ?></strong></div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <?php if (!empty($payments)): ?>
+                <div style="font-weight:700;font-size:12px;margin-top:14px;color:#334155;">Detail Pembayaran (DP)</div>
+                <table class="items" style="margin-top:6px;">
+                    <thead>
+                        <tr>
+                            <th style="width:90px;">Tahap</th>
+                            <th>Tanggal</th>
+                            <th>Metode</th>
+                            <th>Referensi</th>
+                            <th>Jumlah</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($payments as $ppIdx => $pp):
+                            $ppIsLast = $ppIdx === count($payments) - 1;
+                            $ppStage = ($ppIsLast && $computedRemaining <= 0) ? 'Pelunasan' : ($ppIdx === 0 ? 'DP 1' : 'DP ' . ($ppIdx + 1));
+                        ?>
+                            <tr>
+                                <td><?php echo $ppStage; ?></td>
+                                <td><?php echo date('d M Y', strtotime($pp['payment_date'])); ?></td>
+                                <td><?php echo htmlspecialchars(ucfirst($pp['method'] ?: '-')); ?></td>
+                                <td><?php echo htmlspecialchars($pp['reference'] ?: '-'); ?></td>
+                                <td><?php echo sunseaRupiah((float)$pp['amount']); ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
             <?php endif; ?>
-            <div class="row"><span>PPN <?php echo (float)$invoice['tax_pct']; ?>%</span><strong><?php echo sunseaRupiah((float)$invoice['tax_amount']); ?></strong></div>
-            <div class="row final"><span>TOTAL</span><strong><?php echo sunseaRupiah((float)$invoice['total_amount']); ?></strong></div>
-            <?php if ($invoice['paid_amount'] > 0): ?>
-                <div class="row" style="margin-top:8px;"><span>Terbayar</span><strong style="color:#15803D;"><?php echo sunseaRupiah((float)$invoice['paid_amount']); ?></strong></div>
-                <div class="row"><span><?php echo $invoice['remaining_amount'] > 0 ? 'Sisa Tagihan' : '&check; Lunas'; ?></span><strong style="color:<?php echo $invoice['remaining_amount'] > 0 ? '#B91C1C' : '#15803D'; ?>;"><?php echo sunseaRupiah((float)$invoice['remaining_amount']); ?></strong></div>
+
+            <?php if ($invoiceNotes): ?>
+                <div class="terms-box">
+                    <div class="terms-title">Ketentuan &amp; Catatan</div>
+                    <div style="font-size:10.5px;color:#475569;line-height:1.7;"><?php echo nl2br(htmlspecialchars($invoiceNotes)); ?></div>
+                </div>
             <?php endif; ?>
-        </div>
-        <div class="bank-box">
-            <?php if ($bankName || $bankAccount): ?>
-                <div><strong>Transfer ke:</strong> <?php echo htmlspecialchars($bankName ?: '-'); ?> &mdash; <?php echo htmlspecialchars($bankAccount ?: '-'); ?> a.n. <?php echo htmlspecialchars($bankHolder ?: '-'); ?></div>
-            <?php endif; ?>
-            <?php if ($bankName2 || $bankAccount2): ?>
-                <div><strong>Transfer ke:</strong> <?php echo htmlspecialchars($bankName2 ?: '-'); ?> &mdash; <?php echo htmlspecialchars($bankAccount2 ?: '-'); ?> a.n. <?php echo htmlspecialchars($bankHolder2 ?: '-'); ?></div>
-            <?php endif; ?>
-            <?php if ($invoiceNotes): ?><div style="margin-top:6px;"><?php echo nl2br(htmlspecialchars($invoiceNotes)); ?></div><?php endif; ?>
-            <?php if ($invoice['notes']): ?><div style="margin-top:6px;"><strong>Catatan:</strong> <?php echo nl2br(htmlspecialchars($invoice['notes'])); ?></div><?php endif; ?>
-            <?php if ($footer): ?><div style="margin-top:6px;"><?php echo nl2br(htmlspecialchars($footer)); ?></div><?php endif; ?>
+
+            <div class="thanks-note">Terima kasih atas kepercayaan Anda memilih <?php echo htmlspecialchars($companyName); ?></div>
+
+            <div class="footer-note">
+                <div>Dokumen ini merupakan bukti pembayaran yang sah dan dicetak melalui sistem Karimunjawa Explore. Jika Anda mengalami kendala atau membutuhkan bantuan, silakan hubungi:</div>
+                <div class="footer-contact">
+                    <div class="footer-contact-name">Karimunjawa Explore</div>
+                    <?php if ($companyPhone): ?><div>&#9742; <?php echo htmlspecialchars($companyPhone); ?></div><?php endif; ?>
+                    <?php if ($companyEmail): ?><div>&#9993; <?php echo htmlspecialchars($companyEmail); ?></div><?php endif; ?>
+                </div>
+                <?php if ($footer): ?><div style="margin-top:6px;"><?php echo nl2br(htmlspecialchars($footer)); ?></div><?php endif; ?>
+                <div class="footer-adf-system">Powered by &copy; AdFsystem.online 2026</div>
+            </div>
         </div>
     </body>
 
@@ -480,9 +1153,18 @@ $prefillPaxCount = max(1, (int)($_GET['pax_count'] ?? 1));
                 <i data-feather="dollar-sign"></i> Catat Pembayaran
             </button>
         <?php endif; ?>
+        <?php if ($linkedBooking): ?>
+            <a href="bookings.php?view=<?php echo $linkedBooking['id']; ?>" class="ss-btn ss-btn-outline ss-btn-sm" style="color:#15803D;border-color:#15803D;"><i data-feather="check-circle"></i> Terhubung Booking <?php echo htmlspecialchars($linkedBooking['booking_no']); ?></a>
+        <?php else: ?>
+            <form method="POST" style="display:inline;" onsubmit="return confirm('Konfirmasi invoice ini jadi Booking? Data akan masuk ke menu Booking agar operasional & keuangan tercatat.');">
+                <input type="hidden" name="action" value="convert_to_booking">
+                <input type="hidden" name="invoice_id" value="<?php echo $invoice['id']; ?>">
+                <button type="submit" class="ss-btn ss-btn-outline ss-btn-sm" style="color:#C2410C;border-color:#C2410C;"><i data-feather="check-square"></i> Konfirmasi jadi Booking</button>
+            </form>
+        <?php endif; ?>
     </div>
 
-    <!-- Card style modelled directly after rab.php's "Cetak RAB" on-screen layout -->
+
     <div class="ss-card" style="max-width:900px;margin-bottom:16px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
             <div>
@@ -548,11 +1230,12 @@ $prefillPaxCount = max(1, (int)($_GET['pax_count'] ?? 1));
 
     <?php if (!empty($payments)): ?>
         <div class="ss-card" style="max-width:900px;">
-            <div class="ss-card-title" style="margin-bottom:14px;">Riwayat Pembayaran</div>
+            <div class="ss-card-title" style="margin-bottom:14px;">Riwayat Pembayaran (Rekap DP)</div>
             <div class="ss-table-wrap">
                 <table class="ss-table">
                     <thead>
                         <tr>
+                            <th>Tahap</th>
                             <th>Tanggal</th>
                             <th>Jumlah</th>
                             <th>Metode</th>
@@ -560,8 +1243,12 @@ $prefillPaxCount = max(1, (int)($_GET['pax_count'] ?? 1));
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($payments as $p): ?>
+                        <?php foreach ($payments as $pIdx => $p):
+                            $isLastPayment = $pIdx === count($payments) - 1;
+                            $payStage = ($isLastPayment && (float)$invoice['remaining_amount'] <= 0) ? 'Pelunasan' : ($pIdx === 0 ? 'DP 1' : 'DP ' . ($pIdx + 1));
+                        ?>
                             <tr>
+                                <td><strong><?php echo $payStage; ?></strong></td>
                                 <td><?php echo date('d M Y', strtotime($p['payment_date'])); ?></td>
                                 <td style="font-weight:600;color:var(--ss-success);"><?php echo sunseaRupiah((float)$p['amount']); ?></td>
                                 <td><?php echo ucfirst($p['method']); ?></td>
@@ -569,6 +1256,16 @@ $prefillPaxCount = max(1, (int)($_GET['pax_count'] ?? 1));
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
+                    <tfoot>
+                        <tr style="border-top:2px solid var(--ss-gray-2);">
+                            <td colspan="2" style="text-align:right;"><strong>Total Dibayar</strong></td>
+                            <td colspan="3" style="font-weight:700;color:var(--ss-success);"><?php echo sunseaRupiah((float)$invoice['paid_amount']); ?></td>
+                        </tr>
+                        <tr>
+                            <td colspan="2" style="text-align:right;"><strong><?php echo (float)$invoice['remaining_amount'] > 0 ? 'Sisa Tagihan' : 'Status'; ?></strong></td>
+                            <td colspan="3" style="font-weight:700;color:<?php echo (float)$invoice['remaining_amount'] > 0 ? 'var(--ss-danger)' : 'var(--ss-success)'; ?>;"><?php echo (float)$invoice['remaining_amount'] > 0 ? sunseaRupiah((float)$invoice['remaining_amount']) : '✓ Lunas'; ?></td>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
         </div>
@@ -693,8 +1390,11 @@ $prefillPaxCount = max(1, (int)($_GET['pax_count'] ?? 1));
                 <div class="ss-card-title">Informasi Invoice</div>
                 <div class="ss-form-grid cols-2">
                     <div class="ss-form-group" style="grid-column:1/-1;">
-                        <label class="ss-label">Customer *</label>
-                        <select name="customer_id" class="ss-select" required>
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <label class="ss-label">Customer *</label>
+                            <a href="javascript:void(0)" onclick="toggleNewInvoiceCustomer()" id="newInvCustomerToggleLink" style="font-size:11.5px;color:#C2410C;font-weight:600;text-decoration:none;">+ Tambah Customer Baru</a>
+                        </div>
+                        <select name="customer_id" id="invCustomerSelect" class="ss-select" required>
                             <option value="">-- Pilih Customer --</option>
                             <?php foreach ($customers as $c): ?>
                                 <option value="<?php echo $c['id']; ?>" <?php echo ($editInvoice['customer_id'] ?? $_GET['customer_id'] ?? 0) == $c['id'] ? 'selected' : ''; ?>>
@@ -702,6 +1402,23 @@ $prefillPaxCount = max(1, (int)($_GET['pax_count'] ?? 1));
                                 </option>
                             <?php endforeach; ?>
                         </select>
+                        <div id="newInvCustomerBox" style="display:none;margin-top:8px;padding:10px;background:#FFF7ED;border:1px solid #FDE4CC;border-radius:6px;">
+                            <div class="ss-form-grid cols-2" style="gap:8px;">
+                                <div class="ss-form-group" style="grid-column:1/-1;margin:0;">
+                                    <label class="ss-label">Nama Customer *</label>
+                                    <input type="text" name="new_customer_name" id="newInvCustomerName" class="ss-input" placeholder="Nama lengkap tamu">
+                                </div>
+                                <div class="ss-form-group" style="margin:0;">
+                                    <label class="ss-label">No. HP / WA</label>
+                                    <input type="text" name="new_customer_phone" class="ss-input" placeholder="08xxxxxxxxxx">
+                                </div>
+                                <div class="ss-form-group" style="margin:0;">
+                                    <label class="ss-label">Email (opsional)</label>
+                                    <input type="email" name="new_customer_email" class="ss-input" placeholder="email@contoh.com">
+                                </div>
+                            </div>
+                            <div style="font-size:10.5px;color:#888;margin-top:5px;">* Otomatis tersimpan ke database Pelanggan saat invoice disimpan.</div>
+                        </div>
                     </div>
                     <div class="ss-form-group"><label class="ss-label">Tanggal Invoice *</label><input type="date" name="invoice_date" class="ss-input" value="<?php echo htmlspecialchars(substr($editInvoice['issued_at'] ?? $editInvoice['created_at'] ?? '', 0, 10) ?: date('Y-m-d')); ?>" required></div>
                     <div class="ss-form-group"><label class="ss-label">Jatuh Tempo</label><input type="date" name="due_date" class="ss-input" value="<?php echo $editInvoice['due_date'] ?? date('Y-m-d', strtotime('+14 days')); ?>"></div>
@@ -797,14 +1514,21 @@ $prefillPaxCount = max(1, (int)($_GET['pax_count'] ?? 1));
         <div class="ss-card invoice-list-card">
             <div class="ss-card-header">
                 <div>
-                    <div class="ss-card-title">Semua Invoice</div>
+                    <div class="ss-card-title">Semua Invoice<?php echo $outstandingFilter ? ' — Piutang Belum Lunas' : ''; ?></div>
                     <div class="ss-card-sub"><?php echo count($invoiceList); ?> invoice</div>
                 </div>
+                <button type="button" id="bulkDeleteInvoiceBtn" class="ss-btn ss-btn-outline" style="display:none;color:#dc2626;border-color:#dc2626;" onclick="submitBulkDeleteInvoice()">
+                    <i data-feather="trash-2"></i> Hapus Terpilih (<span id="bulkDeleteInvoiceCount">0</span>)
+                </button>
             </div>
+            <form method="POST" id="bulkDeleteInvoiceForm" style="display:none;">
+                <input type="hidden" name="action" value="bulk_delete_invoice">
+            </form>
             <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
                 <?php foreach (['' => 'Semua', 'issued' => 'Issued', 'partial' => 'Partial', 'paid' => 'Lunas', 'overdue' => 'Overdue'] as $st => $lbl): ?>
-                    <a href="invoices.php?status=<?php echo $st; ?>" class="ss-btn ss-btn-sm <?php echo $statusFilter === $st ? 'ss-btn-primary' : 'ss-btn-outline'; ?>"><?php echo $lbl; ?></a>
+                    <a href="invoices.php?status=<?php echo $st; ?>" class="ss-btn ss-btn-sm <?php echo (!$outstandingFilter && $statusFilter === $st) ? 'ss-btn-primary' : 'ss-btn-outline'; ?>"><?php echo $lbl; ?></a>
                 <?php endforeach; ?>
+                <a href="invoices.php?filter=outstanding" class="ss-btn ss-btn-sm <?php echo $outstandingFilter ? 'ss-btn-primary' : 'ss-btn-outline'; ?>" style="<?php echo $outstandingFilter ? '' : 'color:#dc2626;border-color:#dc2626;'; ?>">Piutang Belum Lunas</a>
             </div>
             <?php if (empty($invoiceList)): ?>
                 <div class="ss-empty">
@@ -816,6 +1540,7 @@ $prefillPaxCount = max(1, (int)($_GET['pax_count'] ?? 1));
                     <table class="ss-table">
                         <thead>
                             <tr>
+                                <th style="width:32px;"><input type="checkbox" id="checkAllInvoice" onchange="toggleAllInvoiceRows(this)"></th>
                                 <th>No. Invoice</th>
                                 <th>Customer</th>
                                 <th>Total</th>
@@ -829,6 +1554,11 @@ $prefillPaxCount = max(1, (int)($_GET['pax_count'] ?? 1));
                         <tbody>
                             <?php foreach ($invoiceList as $inv): ?>
                                 <tr>
+                                    <td>
+                                        <?php if ((float)$inv['paid_amount'] <= 0): ?>
+                                            <input type="checkbox" class="invoice-row-check" value="<?php echo $inv['id']; ?>" onchange="updateBulkDeleteInvoiceBtn()">
+                                        <?php endif; ?>
+                                    </td>
                                     <td><a href="invoices.php?action=view&id=<?php echo $inv['id']; ?>" style="color:var(--ss-ocean);font-weight:600;text-decoration:none;"><?php echo htmlspecialchars($inv['invoice_no']); ?></a></td>
                                     <td><?php echo htmlspecialchars($inv['customer_name']); ?></td>
                                     <td style="font-weight:600;"><?php echo sunseaRupiah((float)$inv['total_amount']); ?></td>
@@ -841,6 +1571,13 @@ $prefillPaxCount = max(1, (int)($_GET['pax_count'] ?? 1));
                                             <a href="invoices.php?action=view&id=<?php echo $inv['id']; ?>" class="ss-btn ss-btn-outline ss-btn-sm" title="Lihat invoice"><i data-feather="eye"></i></a>
                                             <a href="invoices.php?action=edit&id=<?php echo $inv['id']; ?>" class="ss-btn ss-btn-primary ss-btn-sm" title="Edit invoice"><i data-feather="edit-3"></i></a>
                                             <a href="invoices.php?action=print&id=<?php echo $inv['id']; ?>" target="_blank" class="ss-btn ss-btn-outline ss-btn-sm"><i data-feather="printer"></i></a>
+                                            <?php if ((float)$inv['paid_amount'] <= 0): ?>
+                                                <form method="POST" style="display:inline;" onsubmit="return confirm('Hapus invoice <?php echo htmlspecialchars(addslashes($inv['invoice_no'])); ?>? Tindakan ini tidak bisa dibatalkan.');">
+                                                    <input type="hidden" name="action" value="delete_invoice">
+                                                    <input type="hidden" name="invoice_id" value="<?php echo (int)$inv['id']; ?>">
+                                                    <button type="submit" class="ss-btn ss-btn-outline ss-btn-sm" style="color:#dc2626;border-color:#dc2626;" title="Hapus invoice"><i data-feather="trash-2"></i></button>
+                                                </form>
+                                            <?php endif; ?>
                                         </div>
                                     </td>
                                 </tr>
@@ -855,7 +1592,7 @@ $prefillPaxCount = max(1, (int)($_GET['pax_count'] ?? 1));
 
 <style>
     .invoice-page-shell {
-        max-width: 1180px;
+        max-width: 100%;
     }
 
     .invoice-page-heading {
@@ -989,6 +1726,25 @@ function invItemRow($type = '', $desc = '', $qty = 1, $unit = 'pax', $price = 0)
         calcTotals2();
     }
 
+    function toggleNewInvoiceCustomer() {
+        var box = document.getElementById('newInvCustomerBox');
+        var select = document.getElementById('invCustomerSelect');
+        var link = document.getElementById('newInvCustomerToggleLink');
+        var showing = box.style.display !== 'none';
+        if (showing) {
+            box.style.display = 'none';
+            select.required = true;
+            select.disabled = false;
+            link.textContent = '+ Tambah Customer Baru';
+        } else {
+            box.style.display = 'block';
+            select.value = '';
+            select.required = false;
+            select.disabled = true;
+            link.textContent = '← Pilih dari Daftar Customer';
+        }
+    }
+
     function prepareInvoiceSubmit() {
         if (document.getElementById('modeSimple') && document.getElementById('modeSimple').checked) {
             var desc = (document.getElementById('simpleDesc')?.value || '').trim() || 'Invoice';
@@ -1043,6 +1799,41 @@ function invItemRow($type = '', $desc = '', $qty = 1, $unit = 'pax', $price = 0)
         switchInvoiceMode(document.getElementById('modeSimple').checked ? 'simple' : 'items');
     }
     calcTotals2();
+
+    // Bulk select/delete on the invoice list page
+    function toggleAllInvoiceRows(checkAllBox) {
+        document.querySelectorAll('.invoice-row-check').forEach(function(cb) {
+            cb.checked = checkAllBox.checked;
+        });
+        updateBulkDeleteInvoiceBtn();
+    }
+
+    function updateBulkDeleteInvoiceBtn() {
+        var checked = document.querySelectorAll('.invoice-row-check:checked');
+        var btn = document.getElementById('bulkDeleteInvoiceBtn');
+        var countEl = document.getElementById('bulkDeleteInvoiceCount');
+        if (!btn || !countEl) return;
+        countEl.textContent = checked.length;
+        btn.style.display = checked.length > 0 ? '' : 'none';
+    }
+
+    function submitBulkDeleteInvoice() {
+        var checked = document.querySelectorAll('.invoice-row-check:checked');
+        if (!checked.length) return;
+        if (!confirm('Hapus ' + checked.length + ' invoice terpilih? Tindakan ini tidak bisa dibatalkan.')) return;
+        var form = document.getElementById('bulkDeleteInvoiceForm');
+        form.querySelectorAll('input[name="ids[]"]').forEach(function(el) {
+            el.remove();
+        });
+        checked.forEach(function(cb) {
+            var input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'ids[]';
+            input.value = cb.value;
+            form.appendChild(input);
+        });
+        form.submit();
+    }
 </script>
 
 <?php include 'layout-footer.php'; ?>

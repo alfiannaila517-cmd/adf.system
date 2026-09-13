@@ -16,6 +16,7 @@ $pdo = getSunseaConnection();
 sunseaEnsureBookingSchema($pdo);
 sunseaEnsureMasterDataSchema($pdo);
 sunseaEnsureAccommodationSchema($pdo);
+sunseaEnsurePackageItemsSchema($pdo);
 
 // Fail-safe query agar halaman tidak blank jika tabel layanan optional belum ada.
 $pageWarnings = [];
@@ -45,7 +46,7 @@ function safeQueryPrice(PDO $pdo, string $sql, array $params): ?array
 
 // Load data dari database
 $customers = safeQueryAll($pdo, "SELECT id, name, phone FROM customers WHERE is_active=1 ORDER BY name", 'customer', $pageWarnings);
-$packages = safeQueryAll($pdo, "SELECT id, name, base_price FROM trip_packages WHERE is_active=1 ORDER BY name", 'paket', $pageWarnings);
+$packages = safeQueryAll($pdo, "SELECT id, name, base_price, duration_days, duration_nights FROM trip_packages WHERE is_active=1 ORDER BY name", 'paket', $pageWarnings);
 $tickets = safeQueryAll($pdo, "SELECT id, ticket_name, ticket_type, price_cost, price_sell FROM tickets WHERE is_active=1 ORDER BY ticket_name", 'tiket', $pageWarnings);
 $rooms = safeQueryAll($pdo, "SELECT r.id, r.room_type, r.price_cost, r.price_sell, p.name as partner_name FROM accommodation_rooms r JOIN accommodation_partners p ON p.id=r.partner_id WHERE r.is_active=1 AND p.is_active=1 ORDER BY p.name, r.room_type", 'penginapan', $pageWarnings);
 $caterings = safeQueryAll($pdo, "SELECT id, menu_name, vendor_name, price_cost, price_sell, portion_unit FROM caterings WHERE is_active=1 ORDER BY vendor_name, menu_name", 'catering', $pageWarnings);
@@ -89,10 +90,30 @@ if ($_GET['action'] ?? '' === 'get_price') {
 // Handle form POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_booking') {
     $customerId = (int)($_POST['customer_id'] ?? 0);
+    $newCustomerName = trim($_POST['new_customer_name'] ?? '');
     $bookingMode = $_POST['booking_mode'] ?? 'paket';
     $startDate = $_POST['start_date'] ?? '';
     $endDate = $_POST['end_date'] ?? '';
     $pax = max(1, (int)($_POST['pax_count'] ?? 1));
+
+    // Create the customer inline if the "Tambah Customer Baru" panel was used.
+    if ($customerId <= 0 && $newCustomerName !== '') {
+        $lastCode = $pdo->query("SELECT code FROM customers ORDER BY id DESC LIMIT 1")->fetchColumn();
+        $nextNum = 1;
+        if ($lastCode && preg_match('/(\d+)$/', $lastCode, $m)) $nextNum = (int)$m[1] + 1;
+        $newCode = 'SS-CUST-' . str_pad($nextNum, 3, '0', STR_PAD_LEFT);
+        $pdo->prepare("INSERT INTO customers (code, name, type, email, phone, whatsapp, country) VALUES (?,?,?,?,?,?,?)")
+            ->execute([
+                $newCode,
+                $newCustomerName,
+                'individual',
+                trim($_POST['new_customer_email'] ?? ''),
+                trim($_POST['new_customer_phone'] ?? ''),
+                trim($_POST['new_customer_phone'] ?? ''),
+                'Indonesia'
+            ]);
+        $customerId = (int)$pdo->lastInsertId();
+    }
 
     if ($customerId <= 0 || $startDate === '' || $endDate === '') {
         $_SESSION['flash_message'] = 'Customer, tanggal mulai, dan tanggal selesai wajib diisi.';
@@ -106,13 +127,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
     $sellTotal = 0.0;
 
     // Helper function untuk tambah komponen
-    $addComponent = function ($code, $name, $qty, $unit, $costPrice, $sellPrice) use (&$components, &$costTotal, &$sellTotal) {
+    $addComponent = function ($code, $name, $qty, $unit, $costPrice, $sellPrice, $itemType = null) use (&$components, &$costTotal, &$sellTotal) {
         $totalCost = $qty * $costPrice;
         $totalSell = $qty * $sellPrice;
         $costTotal += $totalCost;
         $sellTotal += $totalSell;
         $components[] = [
             'component_code' => $code,
+            'item_type' => $itemType,
             'component_name' => $name,
             'qty' => $qty,
             'unit' => $unit,
@@ -131,6 +153,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
         $pkg = $pkgStmt->fetch(PDO::FETCH_ASSOC);
         if ($pkg) {
             $addComponent('paket', 'Paket: ' . $pkg['name'], $pax, 'pax', 0, (float)$pkg['base_price']);
+
+            // Pecah detail layanan paket (tiket kapal, penginapan, transport, dll) jadi
+            // item modal terpisah supaya tagihan mitra yang belum dibayar bisa dicek akurat.
+            $pkgItemsStmt = $pdo->prepare("SELECT item_type, item_name, cost_basis, qty, estimated_cost FROM trip_package_items WHERE package_id=? ORDER BY sort_order");
+            $pkgItemsStmt->execute([$packageId]);
+            foreach ($pkgItemsStmt->fetchAll(PDO::FETCH_ASSOC) as $pi) {
+                $itemQty = (float)($pi['qty'] ?? 1);
+                if ($itemQty <= 0) $itemQty = 1;
+                $qty = ($pi['cost_basis'] === 'flat' ? 1 : $pax) * $itemQty;
+                // component_code 'pkg_detail' = rincian modal internal paket, disembunyikan dari invoice pelanggan
+                // item_type dibawa dari trip_package_items supaya fitur ganti penginapan/transport bisa mengenali baris ini walau berasal dari paket.
+                $addComponent('pkg_detail', $pi['item_name'], $qty, $pi['cost_basis'] === 'flat' ? 'paket' : 'pax', (float)$pi['estimated_cost'], 0, $pi['item_type']);
+            }
+        }
+    }
+
+    // 0b. Booking Manual (input ringkas: tipe trip, harga jual; nama hotel hanya catatan)
+    if ($bookingMode === 'cepat') {
+        $cepatTripType = ($_POST['cepat_trip_type'] ?? 'open') === 'private' ? 'Private Trip' : 'Open Trip';
+        $cepatHarga = (float)str_replace(['.', ','], ['', '.'], $_POST['cepat_harga'] ?? '0');
+
+        if ($cepatHarga > 0) {
+            $addComponent('manual', 'Paket Trip (' . $cepatTripType . ')', 1, 'paket', 0, $cepatHarga);
         }
     }
 
@@ -147,7 +192,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
         $tkt = $tktStmt->fetch(PDO::FETCH_ASSOC);
         if ($tkt) {
             $label = 'Tiket: ' . $tkt['ticket_name'] . ($tripType === 'pp' ? ' (PP)' : ' (Sekali Jalan)');
-            $addComponent('ticket', $label, $ticketQty, 'pax', (float)$tkt['price_cost'], (float)$tkt['price_sell']);
+            $addComponent('ticket', $label, $ticketQty, 'pax', (float)$tkt['price_cost'], (float)$tkt['price_sell'], 'tiket_kapal');
         }
     }
 
@@ -159,7 +204,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
         $trStmt->execute([$transportId]);
         $tr = $trStmt->fetch(PDO::FETCH_ASSOC);
         if ($tr) {
-            $addComponent('transport', 'Transportasi: ' . $tr['name'], $transportQty, $tr['unit'] ?: 'trip', (float)$tr['price_cost'], (float)$tr['price_sell']);
+            $addComponent('transport', 'Transportasi: ' . $tr['name'], $transportQty, $tr['unit'] ?: 'trip', (float)$tr['price_cost'], (float)$tr['price_sell'], 'transport');
         }
     }
 
@@ -173,7 +218,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
         $rm = $rmStmt->fetch(PDO::FETCH_ASSOC);
         if ($rm) {
             $unitQty = $nights * $roomQty;
-            $addComponent('penginapan', 'Penginapan: ' . $rm['name'] . ' - ' . $rm['room_type'], $unitQty, 'room-night', (float)$rm['price_cost'], (float)$rm['price_sell']);
+            $addComponent('penginapan', 'Penginapan: ' . $rm['name'] . ' - ' . $rm['room_type'], $unitQty, 'room-night', (float)$rm['price_cost'], (float)$rm['price_sell'], 'penginapan');
         }
     }
 
@@ -185,7 +230,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
         $catStmt->execute([$cateringId]);
         $cat = $catStmt->fetch(PDO::FETCH_ASSOC);
         if ($cat) {
-            $addComponent('catering', 'Catering: ' . $cat['vendor_name'] . ' - ' . $cat['menu_name'], $cateringQty, $cat['portion_unit'], (float)$cat['price_cost'], (float)$cat['price_sell']);
+            $addComponent('catering', 'Catering: ' . $cat['vendor_name'] . ' - ' . $cat['menu_name'], $cateringQty, $cat['portion_unit'], (float)$cat['price_cost'], (float)$cat['price_sell'], 'catering');
         }
     }
 
@@ -198,7 +243,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
         $gdStmt->execute([$guideId]);
         $gd = $gdStmt->fetch(PDO::FETCH_ASSOC);
         if ($gd) {
-            $addComponent('guide_darat', 'Guide Darat: ' . $gd['name'] . $tripType, $days, 'hari', (float)$gd['daily_rate_cost'], (float)$gd['daily_rate_sell']);
+            $addComponent('guide_darat', 'Guide Darat: ' . $gd['name'] . $tripType, $days, 'hari', (float)$gd['daily_rate_cost'], (float)$gd['daily_rate_sell'], 'guide');
         }
     }
 
@@ -211,7 +256,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
         $glStmt->execute([$guideId]);
         $gl = $glStmt->fetch(PDO::FETCH_ASSOC);
         if ($gl) {
-            $addComponent('guide_laut', 'Guide Laut: ' . $gl['name'] . $tripType, $days, 'hari', (float)$gl['daily_rate_cost'], (float)$gl['daily_rate_sell']);
+            $addComponent('guide_laut', 'Guide Laut: ' . $gl['name'] . $tripType, $days, 'hari', (float)$gl['daily_rate_cost'], (float)$gl['daily_rate_sell'], 'guide');
         }
     }
 
@@ -224,7 +269,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
             $facStmt->execute([$fid]);
             if ($fac = $facStmt->fetch()) {
                 $qty = max(1, (float)($_POST['facility_qty_' . $fid] ?? 1));
-                $addComponent('fasilitas', 'Fasilitas: ' . $fac['name'], $qty, $fac['unit'], (float)$fac['price_cost'], (float)$fac['price_sell']);
+                $addComponent('fasilitas', 'Fasilitas: ' . $fac['name'], $qty, $fac['unit'], (float)$fac['price_cost'], (float)$fac['price_sell'], 'fasilitas');
             }
         }
     }
@@ -237,8 +282,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
             $mQty = max(0, (float)($_POST['manual_qty'][$i] ?? 1));
             if ($mQty <= 0) continue;
             $mUnit = trim($_POST['manual_unit'][$i] ?? 'pax') ?: 'pax';
+            $mCost = (float)str_replace(['.', ','], ['', '.'], $_POST['manual_cost'][$i] ?? '0');
             $mPrice = (float)str_replace(['.', ','], ['', '.'], $_POST['manual_price'][$i] ?? '0');
-            $addComponent('manual', $mName, $mQty, $mUnit, 0, $mPrice);
+            $addComponent('manual', $mName, $mQty, $mUnit, $mCost, $mPrice);
         }
     }
 
@@ -254,6 +300,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
     $bookingNo = sunseaNextNumber($pdo, 'booking');
     $coordId = (int)($_POST['coordinator_id'] ?? 0) ?: null;
     $packageId = ($bookingMode === 'paket') ? ((int)($_POST['package_id'] ?? 0) ?: null) : null;
+
+    // Kolom booking_mode di database hanya mengenal 'paket'/'ecer'; Booking Manual disimpan sebagai 'ecer'.
+    $notes = trim($_POST['notes'] ?? '');
+    if ($bookingMode === 'cepat') {
+        $cepatTripTypeLabel = ($_POST['cepat_trip_type'] ?? 'open') === 'private' ? 'Private Trip' : 'Open Trip';
+        $cepatHotelName = trim($_POST['cepat_hotel_name'] ?? '');
+        $notes = trim('✍️ Booking Manual (' . $cepatTripTypeLabel . ')' . ($cepatHotelName !== '' ? ' - Hotel: ' . $cepatHotelName : '') . ' ' . $notes);
+        $bookingMode = 'ecer';
+    }
 
     $pdo->beginTransaction();
     try {
@@ -274,19 +329,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
                 $costTotal,
                 $sellTotal,
                 $margin,
-                trim($_POST['notes'] ?? ''),
+                $notes,
                 $createdBy
             ]);
         $bookingId = (int)$pdo->lastInsertId();
 
         $ins = $pdo->prepare("INSERT INTO booking_order_items
-            (booking_id, component_code, component_name, qty, unit, price_cost, price_sell, total_cost, total_sell, sort_order)
-            VALUES (?,?,?,?,?,?,?,?,?,?)");
+            (booking_id, component_code, item_type, component_name, qty, unit, price_cost, price_sell, total_cost, total_sell, sort_order)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?)");
 
         foreach ($components as $idx => $c) {
             $ins->execute([
                 $bookingId,
                 $c['component_code'],
+                $c['item_type'],
                 $c['component_name'],
                 $c['qty'],
                 $c['unit'],
@@ -327,7 +383,7 @@ $activePage = 'bookings';
 include 'layout-header.php';
 ?>
 
-<div style="max-width:880px;padding:12px;">
+<div style="padding:12px;">
     <?php if (!empty($pageWarnings)): ?>
         <div style="margin-bottom:10px;padding:8px 10px;border:1px solid #f59e0b;background:#fffbeb;color:#92400e;border-radius:6px;">
             <div style="font-weight:600;margin-bottom:3px;font-size:12.5px;">Sebagian data layanan belum tersedia</div>
@@ -347,12 +403,32 @@ include 'layout-header.php';
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;">
                 <div style="grid-column:1/-1;">
                     <label style="display:block;margin-bottom:3px;font-weight:500;font-size:12px;">Customer *</label>
-                    <select name="customer_id" required style="width:100%;padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
-                        <option value="">-- Pilih Customer --</option>
-                        <?php foreach ($customers as $c): ?>
-                            <option value="<?php echo $c['id']; ?>"><?php echo htmlspecialchars($c['name'] . ' (' . $c['phone'] . ')'); ?></option>
-                        <?php endforeach; ?>
-                    </select>
+                    <div style="display:flex;gap:6px;align-items:stretch;">
+                        <select name="customer_id" id="customerSelect" required style="flex:1;min-width:0;padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
+                            <option value="">-- Pilih Customer --</option>
+                            <?php foreach ($customers as $c): ?>
+                                <option value="<?php echo $c['id']; ?>"><?php echo htmlspecialchars($c['name'] . ' (' . $c['phone'] . ')'); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <button type="button" onclick="toggleNewCustomer()" id="newCustomerToggleLink" style="flex-shrink:0;display:inline-flex;align-items:center;gap:5px;padding:5px 12px;background:#C2410C;color:#fff;border:1px solid #C2410C;border-radius:4px;font-weight:600;font-size:12px;cursor:pointer;white-space:nowrap;">➕ Customer Baru</button>
+                    </div>
+                    <div id="newCustomerBox" style="display:none;margin-top:6px;padding:8px;background:#FFF7ED;border:1px solid #FDE4CC;border-radius:6px;">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;">
+                            <div style="grid-column:1/-1;">
+                                <label style="display:block;margin-bottom:3px;font-weight:500;font-size:11.5px;">Nama Customer *</label>
+                                <input type="text" name="new_customer_name" id="newCustomerName" placeholder="Nama lengkap tamu" style="width:100%;padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
+                            </div>
+                            <div>
+                                <label style="display:block;margin-bottom:3px;font-weight:500;font-size:11.5px;">No. HP / WA</label>
+                                <input type="text" name="new_customer_phone" placeholder="08xxxxxxxxxx" style="width:100%;padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
+                            </div>
+                            <div>
+                                <label style="display:block;margin-bottom:3px;font-weight:500;font-size:11.5px;">Email (opsional)</label>
+                                <input type="email" name="new_customer_email" placeholder="email@contoh.com" style="width:100%;padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
+                            </div>
+                        </div>
+                        <div style="font-size:10.5px;color:#888;margin-top:5px;">* Otomatis tersimpan ke database Pelanggan saat pesanan disimpan.</div>
+                    </div>
                 </div>
                 <div>
                     <label style="display:block;margin-bottom:3px;font-weight:500;font-size:12px;">Jumlah Pax *</label>
@@ -369,7 +445,7 @@ include 'layout-header.php';
                 </div>
                 <div>
                     <label style="display:block;margin-bottom:3px;font-weight:500;font-size:12px;">Tanggal Mulai *</label>
-                    <input type="date" name="start_date" id="startDate" required onchange="syncStayNights(); calculateTotal();" style="width:100%;padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
+                    <input type="date" name="start_date" id="startDate" required onchange="autoSetEndDate(); syncStayNights(); calculateTotal();" style="width:100%;padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
                 </div>
                 <div>
                     <label style="display:block;margin-bottom:3px;font-weight:500;font-size:12px;">Tanggal Selesai *</label>
@@ -387,34 +463,63 @@ include 'layout-header.php';
             <select name="booking_mode" id="bookingModeSelect" style="display:none;">
                 <option value="paket">Paket</option>
                 <option value="ecer" selected>Ecer</option>
+                <option value="cepat">Cepat</option>
             </select>
             <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <div class="mode-card" data-mode="ecer" onclick="selectMode('ecer')" style="flex:1;min-width:160px;padding:8px;text-align:center;border:2px solid #ddd;border-radius:8px;cursor:pointer;">
+                    <div style="font-size:18px;">🧩</div>
+                    <div style="font-weight:700;margin-top:3px;color:#7C2D12;font-size:12px;">Ecer</div>
+                    <div style="font-size:10.5px;color:#777;margin-top:1px;">Susun sendiri per komponen (tiket, transport, dll)</div>
+                </div>
                 <div class="mode-card" data-mode="paket" onclick="selectMode('paket')" style="flex:1;min-width:160px;padding:8px;text-align:center;border:2px solid #ddd;border-radius:8px;cursor:pointer;">
                     <div style="font-size:18px;">📦</div>
-                    <div style="font-weight:700;margin-top:3px;color:#7C2D12;font-size:12px;">Paket (Sudah Jadi)</div>
+                    <div style="font-weight:700;margin-top:3px;color:#7C2D12;font-size:12px;">Paket</div>
                     <div style="font-size:10.5px;color:#777;margin-top:1px;">Pilih 1 paket trip yang sudah lengkap</div>
                 </div>
-                <div class="mode-card" data-mode="ecer" onclick="selectMode('ecer')" style="flex:1;min-width:160px;padding:8px;text-align:center;border:2px solid #C2410C;background:#FFF7ED;border-radius:8px;cursor:pointer;">
-                    <div style="font-size:18px;">🧩</div>
-                    <div style="font-weight:700;margin-top:3px;color:#7C2D12;font-size:12px;">Ecer (Custom)</div>
-                    <div style="font-size:10.5px;color:#777;margin-top:1px;">Susun sendiri per komponen (tiket, transport, dll)</div>
+                <div class="mode-card" data-mode="cepat" onclick="selectMode('cepat')" style="flex:1;min-width:160px;padding:8px;text-align:center;border:2px solid #ddd;border-radius:8px;cursor:pointer;">
+                    <div style="font-size:18px;">✍️</div>
+                    <div style="font-weight:700;margin-top:3px;color:#7C2D12;font-size:12px;">Manual</div>
+                    <div style="font-size:10.5px;color:#777;margin-top:1px;">Cukup isi tipe trip, harga jual &amp; nama hotel (opsional)</div>
                 </div>
             </div>
         </div>
 
         <div id="pkgSection" style="display:none;padding:8px 10px;background:#ffffff;border:1px solid #ddd;border-radius:6px;">
             <div style="margin-bottom:6px;font-size:13px;font-weight:600;color:#7C2D12;">📦 3. Pilih Paket</div>
-            <select name="package_id" onchange="calculateTotal()" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
+            <select name="package_id" id="packageSelect" onchange="autoSetEndDate(); calculateTotal();" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:inherit;box-sizing:border-box;">
                 <option value="">-- Pilih Paket --</option>
                 <?php foreach ($packages as $p): ?>
-                    <option value="<?php echo $p['id']; ?>"><?php echo htmlspecialchars($p['name']) . ' - Rp ' . number_format((float)($p['base_price'] ?? 0), 0, ',', '.'); ?></option>
+                    <option value="<?php echo $p['id']; ?>" data-nights="<?php echo (int)($p['duration_nights'] ?? 0); ?>"><?php echo htmlspecialchars($p['name']) . ' - Rp ' . number_format((float)($p['base_price'] ?? 0), 0, ',', '.') . ' (' . (int)($p['duration_days'] ?? 1) . 'H' . (int)($p['duration_nights'] ?? 0) . 'M)'; ?></option>
                 <?php endforeach; ?>
             </select>
-            <div style="font-size:11px;color:#888;margin-top:4px;">* Harga paket dikalikan jumlah pax. Detail komponen paket bisa diatur di menu Paket Trip.</div>
+            <div style="font-size:11px;color:#888;margin-top:4px;">* Tanggal selesai otomatis mengikuti durasi paket setelah tanggal mulai diisi. Harga paket dikalikan jumlah pax. Detail komponen paket bisa diatur di menu Paket Trip.</div>
             <div style="text-align:right;margin-top:6px;font-size:11px;">Subtotal: <strong id="pkgSubtotal" style="color:#7C2D12;">Rp 0</strong></div>
         </div>
 
-        <div id="ecerSection" style="padding:10px 12px;background:#ffffff;border:1px solid #ddd;border-radius:6px;">
+        <div id="cepatSection" style="display:none;padding:10px 12px;background:#ffffff;border:1px solid #ddd;border-radius:6px;">
+            <div style="margin-bottom:6px;font-size:13px;font-weight:600;color:#7C2D12;">✍️ 3. Booking Manual</div>
+            <div style="font-size:11px;color:#888;margin-bottom:8px;">* Cukup isi tipe trip dan harga jual paket. Nama hotel opsional, hanya sebagai catatan (tidak punya harga/modal). Tanggal &amp; jumlah pax mengikuti bagian atas.</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;">
+                <div>
+                    <label style="display:block;margin-bottom:3px;font-weight:500;font-size:12px;">Tipe Trip *</label>
+                    <select name="cepat_trip_type" onchange="calculateTotal()" style="width:100%;padding:6px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
+                        <option value="open">Open Trip</option>
+                        <option value="private">Private Trip</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display:block;margin-bottom:3px;font-weight:500;font-size:12px;">Harga Jual Paket (Rp) *</label>
+                    <input type="text" name="cepat_harga" id="cepatHarga" placeholder="0" oninput="calculateTotal()" style="width:100%;padding:6px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
+                </div>
+                <div style="grid-column:1 / -1;">
+                    <label style="display:block;margin-bottom:3px;font-weight:500;font-size:12px;">Nama Hotel (opsional, catatan saja)</label>
+                    <input type="text" name="cepat_hotel_name" id="cepatHotelName" placeholder="mis. Hotel Wisata Karimunjawa" style="width:100%;padding:6px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12.5px;box-sizing:border-box;">
+                </div>
+            </div>
+            <div style="text-align:right;margin-top:6px;font-size:11px;">Subtotal Harga Jual: <strong id="cepatSubtotal" style="color:#7C2D12;">Rp 0</strong></div>
+        </div>
+
+        <div id="ecerSection" style="display:none;padding:10px 12px;background:#ffffff;border:1px solid #ddd;border-radius:6px;">
             <div style="margin-bottom:6px;font-size:13px;font-weight:600;color:#7C2D12;">🧩 3. Pilih Komponen dari Database</div>
 
             <!-- Tiket -->
@@ -602,16 +707,19 @@ include 'layout-header.php';
                 </div>
                 <div style="text-align:right;margin-top:4px;font-size:11px;">Subtotal: <strong id="guideLautSubtotal" style="color:#7C2D12;">Rp 0</strong></div>
             </div>
+        </div>
 
-            <!-- Fasilitas -->
+        <div style="padding:8px 10px;background:#ffffff;border:1px solid #ddd;border-radius:6px;">
+            <div style="margin-bottom:6px;font-size:13px;font-weight:600;color:#7C2D12;">🎒 4. Fasilitas &amp; Item Tambahan (Di Luar Paket)</div>
+            <div style="font-size:11px;color:#888;margin-bottom:6px;">* Berlaku untuk mode Paket maupun Ecer. Gunakan ini untuk menambah biaya di luar isi paket, misalnya tiket destinasi tambahan, sewa alat, atau retribusi.</div>
             <div style="margin-bottom:6px;padding:7px 9px;background:#f8fbff;border:1px solid #d0e8ff;border-radius:6px;">
-                <label style="display:block;margin-bottom:4px;font-weight:600;color:#7C2D12;font-size:12.5px;">🎒 Fasilitas Tambahan</label>
+                <label style="display:block;margin-bottom:4px;font-weight:600;color:#7C2D12;font-size:12.5px;">🎒 Fasilitas Tambahan (dari Database)</label>
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:6px;">
                     <?php foreach ($facilities as $f): ?>
                         <label style="display:flex;align-items:center;gap:6px;padding:6px 8px;background:#ffffff;border:1px solid #e0e0e0;border-radius:4px;cursor:pointer;">
                             <input type="checkbox" name="facility_ids[]" value="<?php echo $f['id']; ?>" onchange="calculateTotal()" style="width:14px;height:14px;cursor:pointer;">
                             <span style="flex:1;font-size:12px;"><?php echo htmlspecialchars($f['name'] . ' (' . $f['unit'] . ')'); ?></span>
-                            <span class="fac-price" style="color:#C2410C;font-weight:600;min-width:90px;text-align:right;font-size:11px;">Rp <?php echo number_format((float)$f['price_sell'], 0, ',', '.'); ?></span>
+                            <span class="fac-price" data-cost="<?php echo (float)$f['price_cost']; ?>" style="color:#C2410C;font-weight:600;min-width:90px;text-align:right;font-size:11px;">Rp <?php echo number_format((float)$f['price_sell'], 0, ',', '.'); ?></span>
                             <input type="number" name="facility_qty_<?php echo $f['id']; ?>" placeholder="Qty" value="1" min="0" step="0.01" onchange="calculateTotal()" style="width:50px;padding:3px;border:1px solid #ccc;border-radius:3px;font-family:inherit;font-size:11px;">
                         </label>
                     <?php endforeach; ?>
@@ -632,7 +740,7 @@ include 'layout-header.php';
         </div>
 
         <div style="padding:8px 10px;background:#ffffff;border:1px solid #ddd;border-radius:6px;">
-            <div style="margin-bottom:6px;font-size:13px;font-weight:600;color:#7C2D12;">💰 4. Estimasi Harga</div>
+            <div style="margin-bottom:6px;font-size:13px;font-weight:600;color:#7C2D12;">💰 5. Estimasi Harga</div>
             <div style="max-width:260px;margin-left:auto;">
                 <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #eee;font-size:12.5px;">
                     <span style="color:#666;">Total Modal</span>
@@ -656,6 +764,31 @@ include 'layout-header.php';
 </div>
 
 <script>
+    function toggleNewCustomer() {
+        var box = document.getElementById('newCustomerBox');
+        var select = document.getElementById('customerSelect');
+        var btn = document.getElementById('newCustomerToggleLink');
+        var showing = box.style.display !== 'none';
+        if (showing) {
+            box.style.display = 'none';
+            select.required = true;
+            select.disabled = false;
+            btn.innerHTML = '➕ Customer Baru';
+            btn.style.background = '#C2410C';
+            btn.style.borderColor = '#C2410C';
+            btn.style.color = '#fff';
+        } else {
+            box.style.display = 'block';
+            select.value = '';
+            select.required = false;
+            select.disabled = true;
+            btn.innerHTML = '← Pilih dari Daftar';
+            btn.style.background = '#fff';
+            btn.style.borderColor = '#C2410C';
+            btn.style.color = '#C2410C';
+        }
+    }
+
     function selectMode(mode) {
         document.getElementById('bookingModeSelect').value = mode;
         document.querySelectorAll('.mode-card').forEach(card => {
@@ -665,7 +798,23 @@ include 'layout-header.php';
         });
         document.getElementById('pkgSection').style.display = mode === 'paket' ? 'block' : 'none';
         document.getElementById('ecerSection').style.display = mode === 'ecer' ? 'block' : 'none';
+        document.getElementById('cepatSection').style.display = mode === 'cepat' ? 'block' : 'none';
+        autoSetEndDate();
         calculateTotal();
+    }
+
+    // Paket punya durasi tetap (mis. 3H2M) - tanggal selesai mengikuti tanggal mulai + jumlah malam.
+    function autoSetEndDate() {
+        const mode = document.getElementById('bookingModeSelect').value;
+        if (mode !== 'paket') return;
+        const pkgSelect = document.getElementById('packageSelect');
+        const startInput = document.getElementById('startDate');
+        if (!pkgSelect || !pkgSelect.value || !startInput.value) return;
+        const nights = parseInt(pkgSelect.options[pkgSelect.selectedIndex].dataset.nights || '0', 10);
+        const start = new Date(startInput.value);
+        start.setDate(start.getDate() + nights);
+        document.getElementById('endDate').value = start.toISOString().slice(0, 10);
+        syncStayNights();
     }
 
     function syncTicketQty() {
@@ -692,11 +841,12 @@ include 'layout-header.php';
 
     function addManualItem() {
         const row = document.createElement('div');
-        row.style.cssText = 'display:grid;grid-template-columns:1fr 60px 80px 110px 26px;gap:6px;margin-bottom:5px;align-items:center;';
+        row.style.cssText = 'display:grid;grid-template-columns:1fr 55px 70px 100px 100px 26px;gap:6px;margin-bottom:5px;align-items:center;';
         row.innerHTML = '<input type="text" name="manual_name[]" placeholder="Nama item" onchange="calculateTotal()" style="padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12px;box-sizing:border-box;">' +
             '<input type="number" name="manual_qty[]" placeholder="Qty" value="1" min="0" step="0.01" onchange="calculateTotal()" style="padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12px;box-sizing:border-box;">' +
             '<input type="text" name="manual_unit[]" placeholder="Satuan" value="pax" style="padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12px;box-sizing:border-box;">' +
-            '<input type="text" name="manual_price[]" placeholder="Harga (Rp)" onchange="calculateTotal()" style="padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12px;box-sizing:border-box;">' +
+            '<input type="text" name="manual_cost[]" placeholder="Harga Modal" onchange="calculateTotal()" style="padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12px;box-sizing:border-box;">' +
+            '<input type="text" name="manual_price[]" placeholder="Harga Jual" onchange="calculateTotal()" style="padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-family:inherit;font-size:12px;box-sizing:border-box;">' +
             '<button type="button" onclick="this.parentElement.remove(); calculateTotal();" style="background:#fee;color:#c00;border:1px solid #fbb;border-radius:4px;cursor:pointer;padding:5px;font-size:12px;">✕</button>';
         document.getElementById('manualItemsBody').appendChild(row);
     }
@@ -707,14 +857,18 @@ include 'layout-header.php';
 
     function loadPrice(type, id, displayId) {
         if (!id) {
-            document.getElementById(displayId).textContent = '-';
+            const el = document.getElementById(displayId);
+            el.textContent = '-';
+            el.dataset.cost = '0';
             calculateTotal();
             return;
         }
         fetch('bookings-new.php?action=get_price&type=' + type + '&id=' + id)
             .then(r => r.json())
             .then(data => {
-                document.getElementById(displayId).textContent = rupiah(data.sell);
+                const el = document.getElementById(displayId);
+                el.textContent = rupiah(data.sell);
+                el.dataset.cost = data.cost;
                 calculateTotal();
             })
             .catch(e => console.error(e));
@@ -755,11 +909,14 @@ include 'layout-header.php';
         // Tiket (bisa PP / sekali jalan)
         let ticketSubtotal = 0;
         if (document.querySelector('select[name="ticket_id"]').value) {
-            const price = parseRupiah(document.getElementById('ticketPrice').textContent);
+            const priceEl = document.getElementById('ticketPrice');
+            const price = parseRupiah(priceEl.textContent);
+            const cost = parseFloat(priceEl.dataset.cost) || 0;
             const qty = parseFloat(document.getElementById('ticketQty').value) || 0;
             const tripType = document.querySelector('select[name="ticket_trip_type"]').value;
             const multiplier = tripType === 'pp' ? 2 : 1;
             ticketSubtotal = price * qty * multiplier;
+            costTotal += cost * qty * multiplier;
             sellTotal += ticketSubtotal;
         }
         setSubtotal('ticketSubtotal', ticketSubtotal);
@@ -767,9 +924,12 @@ include 'layout-header.php';
         // Transportasi
         let transportSubtotal = 0;
         if (document.querySelector('select[name="transport_id"]').value) {
-            const price = parseRupiah(document.getElementById('transportPrice').textContent);
+            const priceEl = document.getElementById('transportPrice');
+            const price = parseRupiah(priceEl.textContent);
+            const cost = parseFloat(priceEl.dataset.cost) || 0;
             const qty = parseFloat(document.querySelector('input[name="transport_qty"]').value) || 0;
             transportSubtotal = price * qty;
+            costTotal += cost * qty;
             sellTotal += transportSubtotal;
         }
         setSubtotal('transportSubtotal', transportSubtotal);
@@ -777,10 +937,13 @@ include 'layout-header.php';
         // Penginapan
         let roomSubtotal = 0;
         if (document.querySelector('select[name="room_id"]').value) {
-            const price = parseRupiah(document.getElementById('roomPrice').textContent);
+            const priceEl = document.getElementById('roomPrice');
+            const price = parseRupiah(priceEl.textContent);
+            const cost = parseFloat(priceEl.dataset.cost) || 0;
             const nights = parseFloat(document.querySelector('input[name="stay_nights"]').value) || 1;
             const qty = parseFloat(document.querySelector('input[name="stay_room_qty"]').value) || 1;
             roomSubtotal = price * nights * qty;
+            costTotal += cost * nights * qty;
             sellTotal += roomSubtotal;
         }
         setSubtotal('roomSubtotal', roomSubtotal);
@@ -788,9 +951,12 @@ include 'layout-header.php';
         // Catering
         let cateringSubtotal = 0;
         if (document.querySelector('select[name="catering_id"]').value) {
-            const price = parseRupiah(document.getElementById('cateringPrice').textContent);
+            const priceEl = document.getElementById('cateringPrice');
+            const price = parseRupiah(priceEl.textContent);
+            const cost = parseFloat(priceEl.dataset.cost) || 0;
             const qty = parseFloat(document.querySelector('input[name="catering_qty"]').value) || 0;
             cateringSubtotal = price * qty;
+            costTotal += cost * qty;
             sellTotal += cateringSubtotal;
         }
         setSubtotal('cateringSubtotal', cateringSubtotal);
@@ -798,9 +964,12 @@ include 'layout-header.php';
         // Guide Darat
         let guideDaratSubtotal = 0;
         if (document.querySelector('select[name="guide_darat_id"]').value) {
-            const price = parseRupiah(document.getElementById('guideDaratPrice').textContent);
+            const priceEl = document.getElementById('guideDaratPrice');
+            const price = parseRupiah(priceEl.textContent);
+            const cost = parseFloat(priceEl.dataset.cost) || 0;
             const days = parseFloat(document.querySelector('input[name="guide_darat_days"]').value) || 1;
             guideDaratSubtotal = price * days;
+            costTotal += cost * days;
             sellTotal += guideDaratSubtotal;
         }
         setSubtotal('guideDaratSubtotal', guideDaratSubtotal);
@@ -808,20 +977,34 @@ include 'layout-header.php';
         // Guide Laut
         let guideLautSubtotal = 0;
         if (document.querySelector('select[name="guide_laut_id"]').value) {
-            const price = parseRupiah(document.getElementById('guideLautPrice').textContent);
+            const priceEl = document.getElementById('guideLautPrice');
+            const price = parseRupiah(priceEl.textContent);
+            const cost = parseFloat(priceEl.dataset.cost) || 0;
             const days = parseFloat(document.querySelector('input[name="guide_laut_days"]').value) || 1;
             guideLautSubtotal = price * days;
+            costTotal += cost * days;
             sellTotal += guideLautSubtotal;
         }
         setSubtotal('guideLautSubtotal', guideLautSubtotal);
+
+        // Booking Manual
+        let cepatSubtotal = 0;
+        if (mode === 'cepat') {
+            cepatSubtotal = parseRupiah(document.getElementById('cepatHarga').value);
+            sellTotal += cepatSubtotal;
+        }
+        setSubtotal('cepatSubtotal', cepatSubtotal);
 
         // Fasilitas
         let facilitySubtotal = 0;
         document.querySelectorAll('input[name="facility_ids[]"]:checked').forEach(checkbox => {
             const facId = checkbox.value;
-            const facPrice = parseRupiah(checkbox.parentElement.querySelector('.fac-price').textContent);
+            const facPriceEl = checkbox.parentElement.querySelector('.fac-price');
+            const facPrice = parseRupiah(facPriceEl.textContent);
+            const facCost = parseFloat(facPriceEl.dataset.cost) || 0;
             const facQty = parseFloat(document.querySelector('input[name="facility_qty_' + facId + '"]').value) || 1;
             facilitySubtotal += facPrice * facQty;
+            costTotal += facCost * facQty;
         });
         sellTotal += facilitySubtotal;
         setSubtotal('facilitySubtotal', facilitySubtotal);
@@ -830,11 +1013,14 @@ include 'layout-header.php';
         let manualSubtotal = 0;
         const manualNames = document.querySelectorAll('input[name="manual_name[]"]');
         const manualQtys = document.querySelectorAll('input[name="manual_qty[]"]');
+        const manualCosts = document.querySelectorAll('input[name="manual_cost[]"]');
         const manualPrices = document.querySelectorAll('input[name="manual_price[]"]');
         manualNames.forEach((nameInput, idx) => {
             if (!nameInput.value.trim()) return;
             const qty = parseFloat(manualQtys[idx] ? manualQtys[idx].value : 0) || 0;
+            const cost = parseRupiah(manualCosts[idx] ? manualCosts[idx].value : '0');
             const price = parseRupiah(manualPrices[idx] ? manualPrices[idx].value : '0');
+            costTotal += qty * cost;
             manualSubtotal += qty * price;
         });
         sellTotal += manualSubtotal;
@@ -847,10 +1033,28 @@ include 'layout-header.php';
     }
 
     document.addEventListener('DOMContentLoaded', function() {
-        selectMode('ecer');
         syncTicketQty();
         syncStayNights();
         syncCateringQty();
+
+        // Prefill dari tombol "Buat Booking" di halaman Penawaran (?customer_id=&package_id=&pax_count=&start_date=&quotation_no=)
+        var qs = new URLSearchParams(window.location.search);
+        if (qs.get('customer_id')) document.getElementById('customerSelect').value = qs.get('customer_id');
+        if (qs.get('pax_count')) document.getElementById('paxCount').value = qs.get('pax_count');
+        if (qs.get('start_date')) document.getElementById('startDate').value = qs.get('start_date');
+        if (qs.get('quotation_no')) {
+            var notesField = document.querySelector('textarea[name="notes"]');
+            if (notesField) notesField.value = 'Dari Penawaran ' + qs.get('quotation_no');
+        }
+        if (qs.get('package_id')) {
+            document.getElementById('packageSelect').value = qs.get('package_id');
+            selectMode('paket');
+        }
+        if (qs.get('customer_id') || qs.get('package_id')) {
+            syncTicketQty();
+            syncCateringQty();
+            calculateTotal();
+        }
     });
 </script>
 

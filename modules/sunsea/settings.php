@@ -14,6 +14,8 @@ require_once 'db-helper.php';
 $auth = new Auth();
 $auth->requireLogin();
 $pdo = getSunseaConnection();
+sunseaEnsureUserSchema($pdo);
+$currentUser = $auth->getCurrentUser();
 
 // Auto-create settings table if not exists
 try {
@@ -54,14 +56,17 @@ $flashType = '';
 
 $sidebarMenuOptions = [
     'dashboard'    => 'Dashboard',
+    'owner_dashboard' => 'Owner Dashboard',
     'database'     => 'Database',
     'bookings'     => 'Booking',
     'calendar'     => 'Kalender Booking',
     'coordinators' => 'Koordinator',
     'packages'     => 'Paket Wisata',
-    'rab'          => 'Cetak RAB',
     'quotations'   => 'Penawaran',
     'invoices'     => 'Invoice',
+    'finance'      => 'Finance (Kas Operasional)',
+    'laporan'      => 'Laporan',
+    'email'        => 'Email Kantor',
     'settings'     => 'Pengaturan',
 ];
 
@@ -83,21 +88,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             setSetting($pdo, $f, trim($_POST[$f] ?? ''));
         }
 
+        // Nomor telepon tambahan (satu per baris) - dipakai bersama company_phone di semua tempat kontak.
+        $extraPhoneLines = preg_split('/\r\n|\r|\n/', trim($_POST['company_phone_extra'] ?? ''));
+        $extraPhoneLines = array_values(array_filter(array_map('trim', $extraPhoneLines), fn($l) => $l !== ''));
+        setSetting($pdo, 'company_phone_extra', implode("\n", $extraPhoneLines));
+
+        // Multi-admin WhatsApp numbers for the website chat widget (one "Nama|No.WA" per line).
+        $waAdminLines = preg_split('/\r\n|\r|\n/', trim($_POST['company_whatsapp_admins'] ?? ''));
+        $waAdminLines = array_values(array_filter(array_map('trim', $waAdminLines), fn($l) => $l !== ''));
+        setSetting($pdo, 'company_whatsapp_admins', implode("\n", $waAdminLines));
+
         // Logo upload
+        $logoUploadError = '';
         if (!empty($_FILES['company_logo']['tmp_name'])) {
-            $uploadDir = __DIR__ . '/../../uploads/sunsea/';
-            if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
-            $ext = strtolower(pathinfo($_FILES['company_logo']['name'], PATHINFO_EXTENSION));
-            if (in_array($ext, ['png', 'jpg', 'jpeg', 'webp', 'gif'])) {
-                $fname = 'company_logo.' . $ext;
-                if (move_uploaded_file($_FILES['company_logo']['tmp_name'], $uploadDir . $fname)) {
-                    setSetting($pdo, 'company_logo', 'uploads/sunsea/' . $fname);
+            if ((int)($_FILES['company_logo']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+                $logoUploadError = 'Upload logo gagal (kode error: ' . $_FILES['company_logo']['error'] . ').';
+            } else {
+                $uploadDir = __DIR__ . '/../../uploads/sunsea/';
+                if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+                $ext = strtolower(pathinfo($_FILES['company_logo']['name'], PATHINFO_EXTENSION));
+                if (!in_array($ext, ['png', 'jpg', 'jpeg', 'webp', 'gif'])) {
+                    $logoUploadError = 'Format logo harus PNG, JPG, JPEG, WEBP, atau GIF.';
+                } else {
+                    // Remove old logo files with a different extension so stale files don't linger.
+                    foreach (['png', 'jpg', 'jpeg', 'webp', 'gif'] as $oldExt) {
+                        $oldFile = $uploadDir . 'company_logo.' . $oldExt;
+                        if ($oldExt !== $ext && file_exists($oldFile)) unlink($oldFile);
+                    }
+                    $fname = 'company_logo.' . $ext;
+                    if (move_uploaded_file($_FILES['company_logo']['tmp_name'], $uploadDir . $fname)) {
+                        setSetting($pdo, 'company_logo', 'uploads/sunsea/' . $fname);
+                    } else {
+                        $logoUploadError = 'Gagal menyimpan file logo ke server (cek permission folder uploads/sunsea).';
+                    }
                 }
             }
         }
 
-        $flashMsg = 'Pengaturan perusahaan berhasil disimpan.';
-        $flashType = 'success';
+        if ($logoUploadError) {
+            $flashMsg = 'Data perusahaan disimpan, tetapi logo gagal diupload: ' . $logoUploadError;
+            $flashType = 'error';
+        } else {
+            $flashMsg = 'Pengaturan perusahaan berhasil disimpan.';
+            $flashType = 'success';
+        }
         $tab = 'company';
     }
 
@@ -120,22 +154,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             setSetting($pdo, $f, trim($_POST[$f] ?? ''));
         }
 
-        // Invoice logo upload
-        if (!empty($_FILES['invoice_logo']['tmp_name'])) {
+        // Upload a named image setting (invoice_logo / invoice_stamp), keeping filename fixed per setting.
+        $uploadImageSetting = function (string $fileField, string $settingKey) use ($pdo): string {
+            if (empty($_FILES[$fileField]['tmp_name'])) return '';
+            if ((int)($_FILES[$fileField]['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+                return "Upload $fileField gagal (kode error: " . $_FILES[$fileField]['error'] . ").";
+            }
             $uploadDir = __DIR__ . '/../../uploads/sunsea/';
             if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
-            $ext = strtolower(pathinfo($_FILES['invoice_logo']['name'], PATHINFO_EXTENSION));
-            if (in_array($ext, ['png', 'jpg', 'jpeg', 'webp', 'gif'])) {
-                $fname = 'invoice_logo.' . $ext . '?t=' . time();
-                $fname = 'invoice_logo.' . $ext;
-                if (move_uploaded_file($_FILES['invoice_logo']['tmp_name'], $uploadDir . $fname)) {
-                    setSetting($pdo, 'invoice_logo', 'uploads/sunsea/' . $fname);
-                }
+            $ext = strtolower(pathinfo($_FILES[$fileField]['name'], PATHINFO_EXTENSION));
+            if (!in_array($ext, ['png', 'jpg', 'jpeg', 'webp', 'gif'])) {
+                return "Format $fileField harus PNG, JPG, JPEG, WEBP, atau GIF.";
             }
+            foreach (['png', 'jpg', 'jpeg', 'webp', 'gif'] as $oldExt) {
+                $oldFile = $uploadDir . $settingKey . '.' . $oldExt;
+                if ($oldExt !== $ext && file_exists($oldFile)) unlink($oldFile);
+            }
+            $fname = $settingKey . '.' . $ext;
+            if (!move_uploaded_file($_FILES[$fileField]['tmp_name'], $uploadDir . $fname)) {
+                return "Gagal menyimpan file $fileField ke server (cek permission folder uploads/sunsea).";
+            }
+            setSetting($pdo, $settingKey, 'uploads/sunsea/' . $fname);
+            return '';
+        };
+
+        $logoErr = $uploadImageSetting('invoice_logo', 'invoice_logo');
+        $stampErr = $uploadImageSetting('invoice_stamp', 'invoice_stamp');
+
+        // Hapus stempel yang ada tanpa upload file pengganti.
+        if (($_POST['remove_invoice_stamp'] ?? '') === '1' && empty($_FILES['invoice_stamp']['tmp_name'])) {
+            $uploadDir = __DIR__ . '/../../uploads/sunsea/';
+            foreach (['png', 'jpg', 'jpeg', 'webp', 'gif'] as $ext) {
+                $oldFile = $uploadDir . 'invoice_stamp.' . $ext;
+                if (file_exists($oldFile)) unlink($oldFile);
+            }
+            setSetting($pdo, 'invoice_stamp', '');
         }
 
-        $flashMsg = 'Pengaturan invoice berhasil disimpan.';
-        $flashType = 'success';
+        if ($logoErr || $stampErr) {
+            $flashMsg = trim($logoErr . ' ' . $stampErr);
+            $flashType = 'error';
+        }
+
+        if (empty($flashMsg)) {
+            $flashMsg = 'Pengaturan invoice berhasil disimpan.';
+            $flashType = 'success';
+        } else {
+            $flashMsg = 'Data invoice disimpan, tetapi: ' . $flashMsg;
+        }
         $tab = 'invoice';
     }
 
@@ -233,6 +299,123 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $tab = 'reset';
     }
+
+    if ($postTab === 'users') {
+        $userAction = $_POST['user_action'] ?? 'add';
+
+        if ($userAction === 'add') {
+            $newUsername = trim($_POST['new_username'] ?? '');
+            $newFullName = trim($_POST['new_full_name'] ?? '');
+            $newEmail    = trim($_POST['new_email'] ?? '');
+            $newPassword = (string)($_POST['new_password'] ?? '');
+            $newRoleId   = (int)($_POST['new_role_id'] ?? 3);
+
+            if ($newUsername === '' || $newFullName === '' || $newPassword === '') {
+                $flashMsg = 'Username, Nama Lengkap, dan Password wajib diisi.';
+                $flashType = 'error';
+            } elseif (strlen($newPassword) < 6) {
+                $flashMsg = 'Password minimal 6 karakter.';
+                $flashType = 'error';
+            } else {
+                $existing = $pdo->prepare("SELECT id FROM users WHERE username = ?");
+                $existing->execute([$newUsername]);
+                if ($existing->fetch()) {
+                    $flashMsg = 'Username sudah digunakan, pilih username lain.';
+                    $flashType = 'error';
+                } else {
+                    $hash = password_hash($newPassword, PASSWORD_BCRYPT);
+                    $pdo->prepare("INSERT INTO users (username, password, full_name, email, role_id, business_access, is_active, created_at, updated_at)
+                        VALUES (?,?,?,?,?, 'all', 1, NOW(), NOW())")
+                        ->execute([$newUsername, $hash, $newFullName, $newEmail ?: null, $newRoleId]);
+                    $flashMsg = 'User baru "' . $newUsername . '" berhasil ditambahkan.';
+                    $flashType = 'success';
+                }
+            }
+        } elseif ($userAction === 'reset_password') {
+            $uid = (int)($_POST['user_id'] ?? 0);
+            $newPass = (string)($_POST['reset_password'] ?? '');
+            if ($uid > 0 && strlen($newPass) >= 6) {
+                $pdo->prepare("UPDATE users SET password = ?, updated_at = NOW() WHERE id = ?")
+                    ->execute([password_hash($newPass, PASSWORD_BCRYPT), $uid]);
+                $flashMsg = 'Password user berhasil direset.';
+                $flashType = 'success';
+            } else {
+                $flashMsg = 'Password baru minimal 6 karakter.';
+                $flashType = 'error';
+            }
+        } elseif ($userAction === 'toggle_active') {
+            $uid = (int)($_POST['user_id'] ?? 0);
+            if ($uid > 0 && $uid === (int)($currentUser['id'] ?? 0)) {
+                $flashMsg = 'Anda tidak bisa menonaktifkan akun Anda sendiri.';
+                $flashType = 'error';
+            } elseif ($uid > 0) {
+                $pdo->prepare("UPDATE users SET is_active = 1 - is_active, updated_at = NOW() WHERE id = ?")->execute([$uid]);
+                $flashMsg = 'Status user berhasil diubah.';
+                $flashType = 'success';
+            }
+        } elseif ($userAction === 'change_role') {
+            $uid = (int)($_POST['user_id'] ?? 0);
+            $roleId = (int)($_POST['role_id'] ?? 0);
+            $validRoleIds = array_map('intval', $pdo->query("SELECT id FROM roles")->fetchAll(PDO::FETCH_COLUMN));
+            if ($uid > 0 && $uid === (int)($currentUser['id'] ?? 0)) {
+                $flashMsg = 'Anda tidak bisa mengubah role akun Anda sendiri.';
+                $flashType = 'error';
+            } elseif ($uid > 0 && in_array($roleId, $validRoleIds, true)) {
+                $pdo->prepare("UPDATE users SET role_id = ?, updated_at = NOW() WHERE id = ?")->execute([$roleId, $uid]);
+                $flashMsg = 'Role user berhasil diubah. Owner Dashboard hanya bisa diakses role "Developer / Owner".';
+                $flashType = 'success';
+            } else {
+                $flashMsg = 'Role tidak valid.';
+                $flashType = 'error';
+            }
+        }
+        $tab = 'users';
+    }
+
+    if ($postTab === 'login_page') {
+        $loginPageAction = $_POST['login_page_action'] ?? 'save';
+        $bgUploadDir = __DIR__ . '/../../uploads/backgrounds/';
+        if (!is_dir($bgUploadDir)) mkdir($bgUploadDir, 0755, true);
+
+        if ($loginPageAction === 'remove') {
+            foreach (['png', 'jpg', 'jpeg', 'webp', 'gif'] as $oldExt) {
+                $oldFile = $bgUploadDir . 'sunsea-login-bg.' . $oldExt;
+                if (file_exists($oldFile)) unlink($oldFile);
+            }
+            setSetting($pdo, 'login_background', '');
+            $flashMsg = 'Background login dihapus, kembali ke default.';
+            $flashType = 'success';
+        } elseif (!empty($_FILES['login_background']['tmp_name'])) {
+            if ((int)($_FILES['login_background']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+                $flashMsg = 'Upload background gagal (kode error: ' . $_FILES['login_background']['error'] . ').';
+                $flashType = 'error';
+            } else {
+                $ext = strtolower(pathinfo($_FILES['login_background']['name'], PATHINFO_EXTENSION));
+                if (!in_array($ext, ['png', 'jpg', 'jpeg', 'webp', 'gif'])) {
+                    $flashMsg = 'Format background harus PNG, JPG, JPEG, WEBP, atau GIF.';
+                    $flashType = 'error';
+                } else {
+                    foreach (['png', 'jpg', 'jpeg', 'webp', 'gif'] as $oldExt) {
+                        $oldFile = $bgUploadDir . 'sunsea-login-bg.' . $oldExt;
+                        if ($oldExt !== $ext && file_exists($oldFile)) unlink($oldFile);
+                    }
+                    $fname = 'sunsea-login-bg.' . $ext;
+                    if (move_uploaded_file($_FILES['login_background']['tmp_name'], $bgUploadDir . $fname)) {
+                        setSetting($pdo, 'login_background', $fname);
+                        $flashMsg = 'Background halaman login berhasil disimpan.';
+                        $flashType = 'success';
+                    } else {
+                        $flashMsg = 'Gagal menyimpan file background ke server (cek permission folder uploads/backgrounds).';
+                        $flashType = 'error';
+                    }
+                }
+            }
+        } else {
+            $flashMsg = 'Pilih file gambar terlebih dahulu.';
+            $flashType = 'error';
+        }
+        $tab = 'login_page';
+    }
 }
 
 // Load semua settings
@@ -242,14 +425,17 @@ $keys = [
     'company_tagline',
     'company_address',
     'company_phone',
+    'company_phone_extra',
     'company_email',
     'company_website',
     'company_npwp',
     'company_logo',
+    'company_whatsapp_admins',
     'invoice_prefix',
     'invoice_footer',
     'invoice_notes',
     'invoice_logo',
+    'invoice_stamp',
     'bank_name',
     'bank_account',
     'bank_holder',
@@ -260,6 +446,7 @@ $keys = [
     'invoice_valid_days',
     'invoice_show_tax',
     'sidebar_visible_menu_keys',
+    'login_background',
 ];
 foreach ($keys as $k) {
     $cfg[$k] = getSetting($pdo, $k);
@@ -280,6 +467,20 @@ $visibleSidebarMenus = array_values(array_intersect(array_keys($sidebarMenuOptio
 if (empty($visibleSidebarMenus)) {
     $visibleSidebarMenus = ['bookings'];
 }
+
+// Load users + roles for the "User" tab
+$roles = $pdo->query("SELECT id, role_code, role_name FROM roles ORDER BY id")->fetchAll();
+if (empty($roles)) {
+    $roles = [
+        ['id' => 1, 'role_code' => 'developer', 'role_name' => 'Developer / Owner'],
+        ['id' => 2, 'role_code' => 'manager', 'role_name' => 'Manager'],
+        ['id' => 3, 'role_code' => 'staff', 'role_name' => 'Staff'],
+    ];
+}
+$roleNameById = [];
+foreach ($roles as $r) $roleNameById[$r['id']] = $r['role_name'];
+
+$sunseaUsers = $pdo->query("SELECT id, username, full_name, email, role_id, is_active, last_login FROM users ORDER BY id")->fetchAll();
 
 $pageTitle = 'Pengaturan';
 $activePage = 'settings';
@@ -310,6 +511,14 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
     <a href="?tab=sidebar" style="padding:10px 24px;font-weight:600;text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-2px;
         <?php echo $tab === 'sidebar' ? 'border-bottom-color:#C2410C;color:#C2410C;' : 'color:#666;'; ?>">
         🧭 Setup Sidebar
+    </a>
+    <a href="?tab=users" style="padding:10px 24px;font-weight:600;text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-2px;
+        <?php echo $tab === 'users' ? 'border-bottom-color:#C2410C;color:#C2410C;' : 'color:#666;'; ?>">
+        👤 User
+    </a>
+    <a href="?tab=login_page" style="padding:10px 24px;font-weight:600;text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-2px;
+        <?php echo $tab === 'login_page' ? 'border-bottom-color:#C2410C;color:#C2410C;' : 'color:#666;'; ?>">
+        🖼️ Background Login
     </a>
     <a href="?tab=reset" style="padding:10px 24px;font-weight:600;text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-2px;
         <?php echo $tab === 'reset' ? 'border-bottom-color:#b91c1c;color:#b91c1c;' : 'color:#666;'; ?>">
@@ -356,6 +565,13 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
                     </div>
                 </div>
 
+                <div>
+                    <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Nomor Telepon Lain (opsional, bisa lebih dari 1)</label>
+                    <textarea name="company_phone_extra" rows="3" placeholder="08123456789&#10;08129876543"
+                        style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;resize:vertical;"><?php echo htmlspecialchars($cfg['company_phone_extra']); ?></textarea>
+                    <small style="color:#888;">1 baris = 1 nomor tambahan. Semua nomor di sini + "Telepon / WA" di atas otomatis muncul di Invoice, Penawaran, dan Kontak Website.</small>
+                </div>
+
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                     <div>
                         <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Website</label>
@@ -376,6 +592,13 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
                     <small style="color:#888;">Format: PNG/JPG/WEBP. Maks 2MB. Digunakan di header, sidebar, dokumen.</small>
                 </div>
 
+                <div>
+                    <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Nomor WhatsApp Admin (bisa lebih dari 1)</label>
+                    <textarea name="company_whatsapp_admins" rows="4" placeholder="Admin 1|08123456789&#10;Admin 2|08129876543"
+                        style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;resize:vertical;"><?php echo htmlspecialchars($cfg['company_whatsapp_admins']); ?></textarea>
+                    <small style="color:#888;">1 baris = 1 admin, format <code>Nama|NomorWA</code>. Tamu bisa pilih admin sebelum kirim pesan di widget chat website. Kosongkan untuk pakai nomor "Telepon / WA" di atas saja.</small>
+                </div>
+
                 <div style="padding-top:6px;">
                     <button type="submit" style="padding:10px 24px;background:#C2410C;color:white;border:none;border-radius:5px;font-weight:700;cursor:pointer;font-size:14px;">
                         💾 Simpan Pengaturan Perusahaan
@@ -388,8 +611,9 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
         <div style="background:#fff;border:1px solid #dde5ef;border-radius:8px;padding:20px;">
             <div style="font-size:14px;font-weight:700;color:#7C2D12;margin-bottom:12px;">👁️ Preview</div>
             <?php if ($cfg['company_logo']): ?>
+                <?php $companyLogoPath = __DIR__ . '/../../' . trim($cfg['company_logo'], '/'); ?>
                 <div style="text-align:center;margin-bottom:12px;padding:12px;background:#f8fbff;border-radius:6px;">
-                    <img src="<?php echo htmlspecialchars($baseUrl . '/' . trim($cfg['company_logo'], '/')); ?>"
+                    <img src="<?php echo htmlspecialchars($baseUrl . '/' . trim($cfg['company_logo'], '/')) . '?v=' . (file_exists($companyLogoPath) ? filemtime($companyLogoPath) : time()); ?>"
                         alt="Logo" style="max-height:80px;max-width:100%;object-fit:contain;">
                 </div>
             <?php else: ?>
@@ -406,6 +630,10 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
             <?php if ($cfg['company_phone']): ?>
                 <div style="font-size:12px;color:#888;margin-top:4px;">📞 <?php echo htmlspecialchars($cfg['company_phone']); ?></div>
             <?php endif; ?>
+            <?php if (trim($cfg['company_phone_extra'])): foreach (preg_split('/\r\n|\r|\n/', trim($cfg['company_phone_extra'])) as $extraPhoneLine): if (trim($extraPhoneLine) === '') continue; ?>
+                    <div style="font-size:12px;color:#888;margin-top:2px;">📞 <?php echo htmlspecialchars(trim($extraPhoneLine)); ?></div>
+            <?php endforeach;
+            endif; ?>
             <?php if ($cfg['company_email']): ?>
                 <div style="font-size:12px;color:#888;margin-top:2px;">✉️ <?php echo htmlspecialchars($cfg['company_email']); ?></div>
             <?php endif; ?>
@@ -428,13 +656,32 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
                         <input type="file" name="invoice_logo" accept="image/*"
                             style="width:100%;padding:6px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:13px;box-sizing:border-box;">
                         <?php if ($cfg['invoice_logo']): ?>
+                            <?php $invoiceLogoPath = __DIR__ . '/../../' . trim($cfg['invoice_logo'], '/'); ?>
                             <div style="margin-top:8px;padding:8px;background:#f8fbff;border-radius:4px;text-align:center;">
-                                <img src="<?php echo htmlspecialchars($baseUrl . '/' . trim($cfg['invoice_logo'], '/')); ?>"
+                                <img src="<?php echo htmlspecialchars($baseUrl . '/' . trim($cfg['invoice_logo'], '/')) . '?v=' . (file_exists($invoiceLogoPath) ? filemtime($invoiceLogoPath) : time()); ?>"
                                     alt="Invoice Logo" style="max-height:50px;max-width:100%;object-fit:contain;">
                                 <div style="font-size:11px;color:#888;margin-top:4px;">Logo saat ini</div>
                             </div>
                         <?php endif; ?>
                         <small style="color:#888;">Tampil di kop surat invoice. Gunakan logo dengan background transparan (PNG).</small>
+                    </div>
+
+                    <div>
+                        <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Stempel / Cap Perusahaan</label>
+                        <input type="file" name="invoice_stamp" accept="image/*"
+                            style="width:100%;padding:6px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:13px;box-sizing:border-box;">
+                        <?php if ($cfg['invoice_stamp']): ?>
+                            <?php $invoiceStampPath = __DIR__ . '/../../' . trim($cfg['invoice_stamp'], '/'); ?>
+                            <div style="margin-top:8px;padding:8px;background:#f8fbff;border-radius:4px;text-align:center;">
+                                <img src="<?php echo htmlspecialchars($baseUrl . '/' . trim($cfg['invoice_stamp'], '/')) . '?v=' . (file_exists($invoiceStampPath) ? filemtime($invoiceStampPath) : time()); ?>"
+                                    alt="Stempel" style="max-height:70px;max-width:100%;object-fit:contain;">
+                                <div style="font-size:11px;color:#888;margin-top:4px;">Stempel saat ini</div>
+                                <label style="display:flex;align-items:center;gap:6px;justify-content:center;margin-top:6px;font-size:12px;color:#B91C1C;cursor:pointer;">
+                                    <input type="checkbox" name="remove_invoice_stamp" value="1"> Hapus stempel saat ini
+                                </label>
+                            </div>
+                        <?php endif; ?>
+                        <small style="color:#888;">Muncul di area tanda tangan invoice. Gunakan PNG background transparan.</small>
                     </div>
 
                     <div>
@@ -600,6 +847,196 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
             </div>
         </div>
     </form>
+
+    <!-- TAB: USER -->
+<?php elseif ($tab === 'users'): ?>
+    <div style="display:grid;grid-template-columns:1fr 340px;gap:18px;align-items:start;">
+        <div style="background:#fff;border:1px solid #dde5ef;border-radius:8px;padding:20px;">
+            <div style="font-size:16px;font-weight:700;color:#7C2D12;margin-bottom:8px;">👤 Daftar User</div>
+            <div style="background:#FFF7ED;border:1px solid #FDE4CC;border-radius:6px;padding:10px 14px;font-size:12px;color:#7C2D12;margin-bottom:14px;">
+                📱 Menu <strong>Owner Dashboard</strong> (ringkasan Booking, Kalender, Invoice &amp; Finance untuk HP) hanya tampil dan bisa diakses oleh user dengan role <strong>Developer / Owner</strong>. Atur role tiap user di kolom "Role" di bawah.
+            </div>
+            <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                    <thead>
+                        <tr style="background:#f8fafc;text-align:left;">
+                            <th style="padding:8px 10px;border-bottom:1px solid #e2e8f0;">Username</th>
+                            <th style="padding:8px 10px;border-bottom:1px solid #e2e8f0;">Nama</th>
+                            <th style="padding:8px 10px;border-bottom:1px solid #e2e8f0;">Role</th>
+                            <th style="padding:8px 10px;border-bottom:1px solid #e2e8f0;">Status</th>
+                            <th style="padding:8px 10px;border-bottom:1px solid #e2e8f0;">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($sunseaUsers as $u): ?>
+                            <tr>
+                                <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#334155;">
+                                    <?php echo htmlspecialchars($u['username']); ?>
+                                    <?php if ((int)$u['id'] === (int)($currentUser['id'] ?? 0)): ?>
+                                        <span style="font-size:10px;color:#0369a1;">(Anda)</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;">
+                                    <?php echo htmlspecialchars($u['full_name']); ?><br>
+                                    <small style="color:#888;"><?php echo htmlspecialchars($u['email'] ?? ''); ?></small>
+                                </td>
+                                <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;">
+                                    <?php if ((int)$u['id'] === (int)($currentUser['id'] ?? 0)): ?>
+                                        <?php echo htmlspecialchars($roleNameById[$u['role_id']] ?? '-'); ?>
+                                    <?php else: ?>
+                                        <form method="POST" style="display:flex;gap:4px;align-items:center;">
+                                            <input type="hidden" name="tab" value="users">
+                                            <input type="hidden" name="user_action" value="change_role">
+                                            <input type="hidden" name="user_id" value="<?php echo (int)$u['id']; ?>">
+                                            <select name="role_id" style="padding:4px 6px;font-size:11px;border:1px solid #ccc;border-radius:4px;">
+                                                <?php foreach ($roles as $r): ?>
+                                                    <option value="<?php echo (int)$r['id']; ?>" <?php echo ((int)$u['role_id'] === (int)$r['id']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($r['role_name']); ?></option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                            <button type="submit" title="Simpan role" style="padding:4px 7px;font-size:11px;border:1px solid #C2410C;color:#C2410C;background:#fff;border-radius:4px;cursor:pointer;">✓</button>
+                                        </form>
+                                    <?php endif; ?>
+                                </td>
+                                <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;">
+                                    <?php if ((int)$u['is_active'] === 1): ?>
+                                        <span style="padding:2px 8px;border-radius:99px;background:#d1fae5;color:#065f46;font-size:11px;font-weight:600;">Aktif</span>
+                                    <?php else: ?>
+                                        <span style="padding:2px 8px;border-radius:99px;background:#fee2e2;color:#991b1b;font-size:11px;font-weight:600;">Nonaktif</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;white-space:nowrap;">
+                                    <button type="button" onclick="toggleResetPasswordRow(<?php echo (int)$u['id']; ?>)"
+                                        style="padding:4px 8px;font-size:11px;border:1px solid #C2410C;color:#C2410C;background:#fff;border-radius:4px;cursor:pointer;">Reset Password</button>
+                                    <?php if ((int)$u['id'] !== (int)($currentUser['id'] ?? 0)): ?>
+                                        <form method="POST" style="display:inline;" onsubmit="return confirm('Ubah status user ini?')">
+                                            <input type="hidden" name="tab" value="users">
+                                            <input type="hidden" name="user_action" value="toggle_active">
+                                            <input type="hidden" name="user_id" value="<?php echo (int)$u['id']; ?>">
+                                            <button type="submit" style="padding:4px 8px;font-size:11px;border:1px solid #94a3b8;color:#475569;background:#fff;border-radius:4px;cursor:pointer;">
+                                                <?php echo ((int)$u['is_active'] === 1) ? 'Nonaktifkan' : 'Aktifkan'; ?>
+                                            </button>
+                                        </form>
+                                    <?php endif; ?>
+                                    <form method="POST" id="resetPassForm<?php echo (int)$u['id']; ?>" style="display:none;margin-top:6px;">
+                                        <input type="hidden" name="tab" value="users">
+                                        <input type="hidden" name="user_action" value="reset_password">
+                                        <input type="hidden" name="user_id" value="<?php echo (int)$u['id']; ?>">
+                                        <input type="password" name="reset_password" placeholder="Password baru (min 6)" minlength="6" required
+                                            style="padding:5px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
+                                        <button type="submit" style="padding:5px 8px;font-size:11px;background:#C2410C;color:#fff;border:none;border-radius:4px;cursor:pointer;">Simpan</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                        <?php if (empty($sunseaUsers)): ?>
+                            <tr>
+                                <td colspan="5" style="padding:16px;text-align:center;color:#888;">Belum ada user.</td>
+                            </tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div style="background:#fff;border:1px solid #dde5ef;border-radius:8px;padding:20px;">
+            <div style="font-size:14px;font-weight:700;color:#7C2D12;margin-bottom:14px;">➕ Tambah User Baru</div>
+            <form method="POST" style="display:flex;flex-direction:column;gap:12px;">
+                <input type="hidden" name="tab" value="users">
+                <input type="hidden" name="user_action" value="add">
+                <div>
+                    <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Username *</label>
+                    <input type="text" name="new_username" required
+                        style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;">
+                </div>
+                <div>
+                    <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Nama Lengkap *</label>
+                    <input type="text" name="new_full_name" required
+                        style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;">
+                </div>
+                <div>
+                    <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Email</label>
+                    <input type="email" name="new_email"
+                        style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;">
+                </div>
+                <div>
+                    <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Password *</label>
+                    <input type="password" name="new_password" minlength="6" required
+                        style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;">
+                    <small style="color:#888;">Minimal 6 karakter.</small>
+                </div>
+                <div>
+                    <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Role *</label>
+                    <select name="new_role_id"
+                        style="width:100%;padding:9px 12px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:14px;box-sizing:border-box;">
+                        <?php foreach ($roles as $r): ?>
+                            <option value="<?php echo (int)$r['id']; ?>" <?php echo ($r['role_code'] === 'staff') ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($r['role_name']); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div style="padding-top:6px;">
+                    <button type="submit" style="padding:10px 24px;background:#C2410C;color:white;border:none;border-radius:5px;font-weight:700;cursor:pointer;font-size:14px;width:100%;">
+                        💾 Tambah User
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <script>
+        function toggleResetPasswordRow(id) {
+            var f = document.getElementById('resetPassForm' + id);
+            f.style.display = (f.style.display === 'none' || !f.style.display) ? 'block' : 'none';
+        }
+    </script>
+
+    <!-- TAB: BACKGROUND LOGIN -->
+<?php elseif ($tab === 'login_page'): ?>
+    <div style="display:grid;grid-template-columns:1fr 340px;gap:18px;align-items:start;">
+        <div style="background:#fff;border:1px solid #dde5ef;border-radius:8px;padding:20px;">
+            <div style="font-size:16px;font-weight:700;color:#7C2D12;margin-bottom:8px;">🖼️ Background Halaman Login</div>
+            <div style="font-size:13px;color:#666;margin-bottom:16px;">Upload gambar background yang akan tampil di halaman login Explore Karimunjawa.</div>
+            <form method="POST" enctype="multipart/form-data" style="display:flex;flex-direction:column;gap:14px;">
+                <input type="hidden" name="tab" value="login_page">
+                <input type="hidden" name="login_page_action" value="save">
+                <div>
+                    <label style="display:block;margin-bottom:5px;font-weight:600;font-size:13px;">Pilih Gambar</label>
+                    <input type="file" name="login_background" accept="image/*"
+                        style="width:100%;padding:6px;border:1px solid #ccc;border-radius:5px;font-family:inherit;font-size:13px;box-sizing:border-box;">
+                    <small style="color:#888;">Format: PNG/JPG/WEBP. Disarankan ukuran landscape (mis. 1920x1080).</small>
+                </div>
+                <div style="padding-top:6px;display:flex;gap:10px;">
+                    <button type="submit" style="padding:10px 24px;background:#C2410C;color:white;border:none;border-radius:5px;font-weight:700;cursor:pointer;font-size:14px;">
+                        💾 Simpan Background
+                    </button>
+                </div>
+            </form>
+            <?php if ($cfg['login_background']): ?>
+                <form method="POST" style="margin-top:12px;" onsubmit="return confirm('Hapus background login dan kembali ke default?')">
+                    <input type="hidden" name="tab" value="login_page">
+                    <input type="hidden" name="login_page_action" value="remove">
+                    <button type="submit" style="padding:8px 16px;background:#fff;color:#b91c1c;border:1px solid #b91c1c;border-radius:5px;font-weight:600;cursor:pointer;font-size:13px;">
+                        🗑️ Hapus Background (kembali ke default)
+                    </button>
+                </form>
+            <?php endif; ?>
+        </div>
+
+        <div style="background:#fff;border:1px solid #dde5ef;border-radius:8px;padding:20px;">
+            <div style="font-size:14px;font-weight:700;color:#7C2D12;margin-bottom:12px;">👁️ Preview</div>
+            <?php if ($cfg['login_background']): ?>
+                <div style="border-radius:6px;overflow:hidden;border:1px solid #e2e8f0;">
+                    <img src="<?php echo htmlspecialchars($baseUrl . '/uploads/backgrounds/' . $cfg['login_background']); ?>"
+                        alt="Login Background" style="width:100%;height:180px;object-fit:cover;display:block;">
+                </div>
+            <?php else: ?>
+                <div style="text-align:center;padding:24px 12px;background:#f8fbff;border-radius:6px;color:#999;">
+                    <div style="font-size:32px;">🌊</div>
+                    <small>Belum ada background custom, memakai gambar default.</small>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
 
     <!-- TAB: RESET DATA -->
 <?php elseif ($tab === 'reset'): ?>
