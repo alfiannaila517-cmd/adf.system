@@ -54,14 +54,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $businessId = (int)($_POST['business_id'] ?? 0);
         $planId = (int)($_POST['plan_id'] ?? 0) ?: null;
         $status = $_POST['status'] ?? 'trial';
-        $nextBillingDate = $_POST['next_billing_date'] ?? date('Y-m-d');
+        $isFree = !empty($_POST['is_free']);
+        // NULL next_billing_date means the cron job skips this business entirely -
+        // no invoice ever generated, never auto-suspended. This is what "kasih free" means.
+        $nextBillingDate = $isFree ? null : ($_POST['next_billing_date'] ?? date('Y-m-d'));
         $graceDays = (int)($_POST['grace_days'] ?? 3);
 
         $masterDb->prepare("INSERT INTO business_subscriptions (business_id, plan_id, status, started_at, next_billing_date, grace_days)
             VALUES (?,?,?,CURDATE(),?,?)
             ON DUPLICATE KEY UPDATE plan_id=VALUES(plan_id), status=VALUES(status), next_billing_date=VALUES(next_billing_date), grace_days=VALUES(grace_days)")
             ->execute([$businessId, $planId, $status, $nextBillingDate, $graceDays]);
-        $flash = ['type' => 'ok', 'text' => 'Subscription business berhasil disimpan.'];
+        $masterDb->prepare("UPDATE businesses SET is_active = 1 WHERE id = ?")->execute([$businessId]);
+        $flash = ['type' => 'ok', 'text' => $isFree ? 'Business ini digratiskan (tidak akan pernah ditagih/disuspend otomatis).' : 'Subscription business berhasil disimpan.'];
     } elseif ($action === 'generate_invoice') {
         $businessId = (int)($_POST['business_id'] ?? 0);
         $bizStmt = $masterDb->prepare("SELECT business_name FROM businesses WHERE id=?");
@@ -305,7 +309,7 @@ $statusBadge = [
                             <span style="color:#94a3b8;">belum diatur</span>
                         <?php endif; ?>
                     </td>
-                    <td><?= $b['next_billing_date'] ? date('d M Y', strtotime($b['next_billing_date'])) : '-' ?></td>
+                    <td><?= $b['next_billing_date'] ? date('d M Y', strtotime($b['next_billing_date'])) : ($b['sub_id'] ? '🎁 Gratis Selamanya' : '-') ?></td>
                     <td><?= $b['is_active'] ? '✅' : '⛔' ?></td>
                     <td>
                         <details>
@@ -337,6 +341,10 @@ $statusBadge = [
                                 <div>
                                     <label>Grace (hari)</label>
                                     <input type="number" name="grace_days" value="<?= (int)($b['grace_days'] ?: 3) ?>" min="0">
+                                </div>
+                                <div>
+                                    <label>&nbsp;</label>
+                                    <label style="font-weight:400;"><input type="checkbox" name="is_free" value="1" <?= !$b['next_billing_date'] ? 'checked' : '' ?>> 🎁 Gratis Selamanya (tidak pernah ditagih/disuspend)</label>
                                 </div>
                                 <div><button class="btn btn-primary" type="submit">Simpan</button></div>
                             </form>
