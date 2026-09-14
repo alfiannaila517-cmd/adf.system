@@ -163,6 +163,6 @@ config/local-db-config.php
 config/email-narayana.php
 
 # =============================================
-# Tripay payment gateway credentials (platform subscription billing)
+# Mayar payment gateway credentials (platform subscription billing)
 # =============================================
-config/tripay.php
+config/mayar.php

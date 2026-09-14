@@ -3,13 +3,13 @@
 /**
  * PLATFORM SUBSCRIPTION BILLING PANEL
  * Developer-only: manage subscription plans, assign a plan to each business,
- * and generate/track Tripay invoices for the monthly SaaS licensing fee.
+ * and generate/track Mayar invoices for the monthly SaaS licensing fee.
  */
 
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../includes/auth.php';
-require_once __DIR__ . '/../../includes/TripayClient.php';
+require_once __DIR__ . '/../../includes/MayarClient.php';
 require_once __DIR__ . '/../../includes/subscription_billing.php';
 
 $auth = new Auth();
@@ -70,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $result = subscriptionCreateInvoice($masterDb, $businessId, $bizName);
         $flash = ['type' => $result['success'] ? 'ok' : 'error', 'text' => $result['message']];
     } elseif ($action === 'mark_paid_manual') {
-        // Fallback for out-of-band payments (transfer, cash) not through Tripay.
+        // Fallback for out-of-band payments (transfer, cash) not through Mayar.
         $invoiceId = (int)($_POST['invoice_id'] ?? 0);
         subscriptionMarkInvoicePaid($masterDb, $invoiceId);
         $flash = ['type' => 'ok', 'text' => 'Invoice ditandai lunas manual.'];
@@ -110,36 +110,136 @@ $statusBadge = [
 ?>
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
     <meta charset="UTF-8">
     <title>Platform Billing - ADF System</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #f1f5f9; margin: 0; padding: 24px; color: #1e293b; }
-        h1 { font-size: 1.4rem; margin-bottom: 4px; }
-        h2 { font-size: 1.1rem; margin: 28px 0 10px; }
-        .card { background: #fff; border-radius: 10px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,.08); margin-bottom: 20px; }
-        table { width: 100%; border-collapse: collapse; font-size: .88rem; }
-        th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
-        th { background: #f8fafc; }
-        .badge { display: inline-block; padding: 2px 9px; border-radius: 999px; color: #fff; font-size: .75rem; font-weight: 600; }
-        form.inline { display: inline; }
-        select, input[type=text], input[type=number], input[type=date] {
-            padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: .85rem;
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #f1f5f9;
+            margin: 0;
+            padding: 24px;
+            color: #1e293b;
         }
-        .btn { padding: 6px 12px; border: none; border-radius: 6px; cursor: pointer; font-size: .82rem; font-weight: 600; }
-        .btn-primary { background: #2563eb; color: #fff; }
-        .btn-outline { background: #fff; border: 1px solid #cbd5e1; }
-        .flash { padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; font-size: .88rem; }
-        .flash-ok { background: #dcfce7; color: #166534; }
-        .flash-error { background: #fee2e2; color: #991b1b; }
-        a.pay-link { color: #2563eb; }
-        .grid-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap: 10px; align-items: end; }
-        .grid-form label { display: block; font-size: .75rem; color: #64748b; margin-bottom: 3px; }
+
+        h1 {
+            font-size: 1.4rem;
+            margin-bottom: 4px;
+        }
+
+        h2 {
+            font-size: 1.1rem;
+            margin: 28px 0 10px;
+        }
+
+        .card {
+            background: #fff;
+            border-radius: 10px;
+            padding: 18px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, .08);
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: .88rem;
+        }
+
+        th,
+        td {
+            text-align: left;
+            padding: 8px 10px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        th {
+            background: #f8fafc;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 9px;
+            border-radius: 999px;
+            color: #fff;
+            font-size: .75rem;
+            font-weight: 600;
+        }
+
+        form.inline {
+            display: inline;
+        }
+
+        select,
+        input[type=text],
+        input[type=number],
+        input[type=date] {
+            padding: 6px 8px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: .85rem;
+        }
+
+        .btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: .82rem;
+            font-weight: 600;
+        }
+
+        .btn-primary {
+            background: #2563eb;
+            color: #fff;
+        }
+
+        .btn-outline {
+            background: #fff;
+            border: 1px solid #cbd5e1;
+        }
+
+        .flash {
+            padding: 10px 14px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: .88rem;
+        }
+
+        .flash-ok {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .flash-error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        a.pay-link {
+            color: #2563eb;
+        }
+
+        .grid-form {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+            align-items: end;
+        }
+
+        .grid-form label {
+            display: block;
+            font-size: .75rem;
+            color: #64748b;
+            margin-bottom: 3px;
+        }
     </style>
 </head>
+
 <body>
     <h1>💳 Platform Subscription Billing</h1>
-    <p style="color:#64748b;">Kelola langganan bulanan tiap business ke platform ADF System (via Tripay).</p>
+    <p style="color:#64748b;">Kelola langganan bulanan tiap business ke platform ADF System (via Mayar).</p>
 
     <?php if ($flash): ?>
         <div class="flash flash-<?= $flash['type'] === 'ok' ? 'ok' : 'error' ?>"><?= htmlspecialchars($flash['text']) ?></div>
@@ -161,7 +261,12 @@ $statusBadge = [
     <div class="card">
         <h2 style="margin-top:0;">📋 Daftar Plan</h2>
         <table>
-            <tr><th>Nama</th><th>Harga</th><th>Siklus</th><th>Deskripsi</th></tr>
+            <tr>
+                <th>Nama</th>
+                <th>Harga</th>
+                <th>Siklus</th>
+                <th>Deskripsi</th>
+            </tr>
             <?php foreach ($plans as $p): ?>
                 <tr>
                     <td><?= htmlspecialchars($p['plan_name']) ?></td>
@@ -171,7 +276,9 @@ $statusBadge = [
                 </tr>
             <?php endforeach; ?>
             <?php if (empty($plans)): ?>
-                <tr><td colspan="4" style="color:#94a3b8;">Belum ada plan. Buat dulu di atas.</td></tr>
+                <tr>
+                    <td colspan="4" style="color:#94a3b8;">Belum ada plan. Buat dulu di atas.</td>
+                </tr>
             <?php endif; ?>
         </table>
     </div>
@@ -179,7 +286,14 @@ $statusBadge = [
     <div class="card">
         <h2 style="margin-top:0;">🏢 Business & Subscription</h2>
         <table>
-            <tr><th>Business</th><th>Plan</th><th>Status</th><th>Jatuh Tempo Berikut</th><th>Aktif?</th><th>Aksi</th></tr>
+            <tr>
+                <th>Business</th>
+                <th>Plan</th>
+                <th>Status</th>
+                <th>Jatuh Tempo Berikut</th>
+                <th>Aktif?</th>
+                <th>Aksi</th>
+            </tr>
             <?php foreach ($businesses as $b): ?>
                 <tr>
                     <td><?= htmlspecialchars($b['business_name']) ?></td>
@@ -211,7 +325,7 @@ $statusBadge = [
                                 <div>
                                     <label>Status</label>
                                     <select name="status">
-                                        <?php foreach (['trial','active','past_due','suspended','cancelled'] as $st): ?>
+                                        <?php foreach (['trial', 'active', 'past_due', 'suspended', 'cancelled'] as $st): ?>
                                             <option value="<?= $st ?>" <?= $b['sub_status'] === $st ? 'selected' : '' ?>><?= $st ?></option>
                                         <?php endforeach; ?>
                                     </select>
@@ -241,7 +355,15 @@ $statusBadge = [
     <div class="card">
         <h2 style="margin-top:0;">🧾 Riwayat Invoice</h2>
         <table>
-            <tr><th>No Invoice</th><th>Business</th><th>Periode</th><th>Jumlah</th><th>Status</th><th>Link Bayar</th><th>Aksi</th></tr>
+            <tr>
+                <th>No Invoice</th>
+                <th>Business</th>
+                <th>Periode</th>
+                <th>Jumlah</th>
+                <th>Status</th>
+                <th>Link Bayar</th>
+                <th>Aksi</th>
+            </tr>
             <?php foreach ($invoices as $inv): ?>
                 <tr>
                     <td><?= htmlspecialchars($inv['invoice_no']) ?></td>
@@ -262,9 +384,12 @@ $statusBadge = [
                 </tr>
             <?php endforeach; ?>
             <?php if (empty($invoices)): ?>
-                <tr><td colspan="7" style="color:#94a3b8;">Belum ada invoice.</td></tr>
+                <tr>
+                    <td colspan="7" style="color:#94a3b8;">Belum ada invoice.</td>
+                </tr>
             <?php endif; ?>
         </table>
     </div>
 </body>
+
 </html>

@@ -111,7 +111,7 @@ class Database
         $isMaster = in_array($dbName, $masterNames);
 
         // Only run once per session per database (version bump forces re-check)
-        $schemaVersion = 12; // v12: platform subscription billing tables (Tripay)
+        $schemaVersion = 12; // v12: platform subscription billing tables (Mayar)
         $sessionKey = '_schema_synced_v' . $schemaVersion . '_' . md5($dbName);
         if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION[$sessionKey])) return;
 
@@ -200,7 +200,7 @@ class Database
                 } catch (PDOException $e) {
                 }
 
-                // Platform SaaS subscription billing (developer bills each business monthly via Tripay).
+                // Platform SaaS subscription billing (developer bills each business monthly via Mayar).
                 try {
                     $this->connection->exec("CREATE TABLE IF NOT EXISTS subscription_plans (
                         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -234,7 +234,7 @@ class Database
                         period_end DATE NOT NULL,
                         amount DECIMAL(15,2) NOT NULL DEFAULT 0,
                         status ENUM('unpaid','paid','expired','failed','cancelled') NOT NULL DEFAULT 'unpaid',
-                        gateway VARCHAR(30) NOT NULL DEFAULT 'tripay',
+                        gateway VARCHAR(30) NOT NULL DEFAULT 'mayar',
                         gateway_reference VARCHAR(100) NULL,
                         payment_method VARCHAR(30) NULL,
                         payment_url VARCHAR(255) NULL,

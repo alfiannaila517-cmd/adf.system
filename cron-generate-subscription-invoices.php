@@ -5,14 +5,13 @@
  * ------------------------------------------------------------------
  * Runs daily. For every active/trial/past_due business subscription whose
  * next_billing_date is within the next 7 days (or already overdue), creates
- * a Tripay invoice (if one doesn't already exist for that period) and, if
+ * a Mayar invoice (if one doesn't already exist for that period) and, if
  * the previous invoice is overdue past its grace period, suspends the
  * business (businesses.is_active = 0) until payment comes in.
  *
  * SETUP:
- *   1. Copy config/tripay.example.php -> config/tripay.php and fill in your
- *      real Tripay merchant code / API key / private key + a random
- *      SUBSCRIPTION_CRON_TOKEN.
+ *   1. Copy config/mayar.example.php -> config/mayar.php and fill in your
+ *      real Mayar API key + a random SUBSCRIPTION_CRON_TOKEN.
  *   2. Trigger this script once a day via a cPanel Cron Job:
  *      /usr/bin/curl -s "https://adfsystem.online/cron-generate-subscription-invoices.php?token=YOUR_TOKEN" > /home/adfb2574/subscription_cron_log.txt 2>&1
  *
@@ -23,13 +22,13 @@
 define('APP_ACCESS', true);
 require_once __DIR__ . '/config/config.php';
 
-$tripayConfigFile = __DIR__ . '/config/tripay.php';
-if (!file_exists($tripayConfigFile)) {
+$mayarConfigFile = __DIR__ . '/config/mayar.php';
+if (!file_exists($mayarConfigFile)) {
     http_response_code(500);
     header('Content-Type: text/plain');
-    exit("Missing config/tripay.php - copy config/tripay.example.php and fill in your Tripay credentials first.\n");
+    exit("Missing config/mayar.php - copy config/mayar.example.php and fill in your Mayar credentials first.\n");
 }
-require_once $tripayConfigFile;
+require_once $mayarConfigFile;
 
 $providedToken = $_GET['token'] ?? '';
 if (!defined('SUBSCRIPTION_CRON_TOKEN') || !$providedToken || !hash_equals(SUBSCRIPTION_CRON_TOKEN, $providedToken)) {
@@ -38,7 +37,7 @@ if (!defined('SUBSCRIPTION_CRON_TOKEN') || !$providedToken || !hash_equals(SUBSC
     exit("Forbidden\n");
 }
 
-require_once __DIR__ . '/includes/TripayClient.php';
+require_once __DIR__ . '/includes/MayarClient.php';
 require_once __DIR__ . '/includes/subscription_billing.php';
 
 header('Content-Type: text/plain');
