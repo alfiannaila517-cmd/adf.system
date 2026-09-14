@@ -111,7 +111,7 @@ class Database
         $isMaster = in_array($dbName, $masterNames);
 
         // Only run once per session per database (version bump forces re-check)
-        $schemaVersion = 11; // v11: create cash_book in master DB too (businesses sharing master DB need it)
+        $schemaVersion = 12; // v12: platform subscription billing tables (Tripay)
         $sessionKey = '_schema_synced_v' . $schemaVersion . '_' . md5($dbName);
         if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION[$sessionKey])) return;
 
@@ -196,6 +196,55 @@ class Database
                         source_type VARCHAR(30) DEFAULT 'manual', source_id INT NULL, reference_no VARCHAR(50) NULL,
                         is_editable TINYINT(1) DEFAULT 1,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                    )");
+                } catch (PDOException $e) {
+                }
+
+                // Platform SaaS subscription billing (developer bills each business monthly via Tripay).
+                try {
+                    $this->connection->exec("CREATE TABLE IF NOT EXISTS subscription_plans (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        plan_name VARCHAR(100) NOT NULL,
+                        price DECIMAL(15,2) NOT NULL DEFAULT 0,
+                        billing_cycle_months INT NOT NULL DEFAULT 1,
+                        description TEXT NULL,
+                        is_active TINYINT(1) DEFAULT 1,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                    )");
+                    $this->connection->exec("CREATE TABLE IF NOT EXISTS business_subscriptions (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        business_id INT NOT NULL,
+                        plan_id INT NULL,
+                        status ENUM('trial','active','past_due','suspended','cancelled') NOT NULL DEFAULT 'trial',
+                        started_at DATE NULL,
+                        next_billing_date DATE NULL,
+                        grace_days INT NOT NULL DEFAULT 3,
+                        notes TEXT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        UNIQUE KEY uniq_business (business_id),
+                        INDEX idx_status (status),
+                        INDEX idx_next_billing (next_billing_date)
+                    )");
+                    $this->connection->exec("CREATE TABLE IF NOT EXISTS subscription_invoices (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        business_id INT NOT NULL,
+                        subscription_id INT NULL,
+                        invoice_no VARCHAR(50) UNIQUE,
+                        period_start DATE NOT NULL,
+                        period_end DATE NOT NULL,
+                        amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+                        status ENUM('unpaid','paid','expired','failed','cancelled') NOT NULL DEFAULT 'unpaid',
+                        gateway VARCHAR(30) NOT NULL DEFAULT 'tripay',
+                        gateway_reference VARCHAR(100) NULL,
+                        payment_method VARCHAR(30) NULL,
+                        payment_url VARCHAR(255) NULL,
+                        due_date DATE NULL,
+                        paid_at DATETIME NULL,
+                        raw_response TEXT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        INDEX idx_business (business_id),
+                        INDEX idx_status (status),
+                        INDEX idx_gateway_reference (gateway_reference)
                     )");
                 } catch (PDOException $e) {
                 }

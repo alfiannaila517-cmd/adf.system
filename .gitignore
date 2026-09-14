@@ -161,3 +161,8 @@ config/local-db-config.php
 # Mailbox credentials (office@narayanakarimunjawa.com IMAP login)
 # =============================================
 config/email-narayana.php
+
+# =============================================
+# Tripay payment gateway credentials (platform subscription billing)
+# =============================================
+config/tripay.php

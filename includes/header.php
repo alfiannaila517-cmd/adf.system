@@ -1315,6 +1315,16 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                         <?php endif; ?>
                     <?php endif; ?>
 
+                    <!-- Platform Subscription Billing (developer/owner-of-platform only) -->
+                    <?php if (($_SESSION['role'] ?? '') === 'developer'): ?>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>/modules/platform-billing/index.php" class="nav-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/platform-billing/') !== false) ? 'active' : ''; ?>">
+                                <i data-feather="credit-card" class="nav-icon"></i>
+                                <span>Platform Billing</span>
+                            </a>
+                        </li>
+                    <?php endif; ?>
+
                     <li class="nav-item" style="margin-top: 2rem;">
                         <a href="<?php echo BASE_URL; ?>/logout.php" class="nav-link">
                             <i data-feather="log-out" class="nav-icon"></i>
@@ -1620,7 +1630,7 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                     checkAdminNotifs();
                     setInterval(checkAdminNotifs, 15000);
 
-                    (function () {
+                    (function() {
                         const dot = document.getElementById('emailUnreadDot');
                         if (!dot) return;
                         async function checkEmailUnread() {
@@ -1628,7 +1638,9 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                                 const res = await fetch('<?php echo BASE_URL; ?>/modules/email/unread-count.php');
                                 const data = await res.json();
                                 dot.style.display = (data.unread > 0) ? 'block' : 'none';
-                            } catch (e) { /* ignore */ }
+                            } catch (e) {
+                                /* ignore */
+                            }
                         }
                         checkEmailUnread();
                         setInterval(checkEmailUnread, 30000);
