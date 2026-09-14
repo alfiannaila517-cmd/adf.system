@@ -11,6 +11,7 @@ class Auth
 {
     private $db;
     private static $usersColumnCache = [];
+    public $lastError = null;
 
     public function __construct()
     {
@@ -85,6 +86,11 @@ class Auth
 
     public function login($username, $password)
     {
+        $this->lastError = null;
+        $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+        $maxAttempts = 5;
+        $lockoutMinutes = 15;
+
         try {
             $pdo = new PDO(
                 "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4",
@@ -93,20 +99,62 @@ class Auth
                 [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
             );
 
+            // Brute-force lockout check (per IP + username combo).
+            try {
+                $lockStmt = $pdo->prepare("SELECT attempt_count, locked_until FROM login_attempts WHERE ip_address = ? AND username = ? LIMIT 1");
+                $lockStmt->execute([$ip, $username]);
+                $lockRow = $lockStmt->fetch(PDO::FETCH_ASSOC);
+                if ($lockRow && $lockRow['locked_until'] && strtotime($lockRow['locked_until']) > time()) {
+                    $this->lastError = 'Terlalu banyak percobaan gagal. Coba lagi setelah ' . date('H:i', strtotime($lockRow['locked_until'])) . '.';
+                    return false;
+                }
+            } catch (Throwable $e) {
+                // login_attempts table may not exist yet - don't block login on this.
+            }
+
             $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ? AND is_active = 1 LIMIT 1");
             $stmt->execute([$username]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
             $passwordMatch = false;
+            $usedLegacyHash = false;
             if ($user) {
                 if (password_verify($password, $user['password'])) {
                     $passwordMatch = true;
                 } else if ($user['password'] === md5($password)) {
                     $passwordMatch = true;
+                    $usedLegacyHash = true;
+                }
+            }
+
+            if (!$passwordMatch) {
+                try {
+                    $pdo->prepare("INSERT INTO login_attempts (ip_address, username, attempt_count, locked_until)
+                        VALUES (?, ?, 1, NULL)
+                        ON DUPLICATE KEY UPDATE
+                            attempt_count = IF(locked_until IS NOT NULL AND locked_until <= NOW(), 1, attempt_count + 1),
+                            locked_until = IF(attempt_count + 1 >= ?, DATE_ADD(NOW(), INTERVAL ? MINUTE), locked_until)")
+                        ->execute([$ip, $username, $maxAttempts, $lockoutMinutes]);
+                } catch (Throwable $e) {
                 }
             }
 
             if ($user && $passwordMatch) {
+                // Reset lockout counter on successful login.
+                try {
+                    $pdo->prepare("DELETE FROM login_attempts WHERE ip_address = ? AND username = ?")->execute([$ip, $username]);
+                } catch (Throwable $e) {
+                }
+
+                // Transparently upgrade legacy md5 passwords to a proper bcrypt hash.
+                if ($usedLegacyHash) {
+                    try {
+                        $pdo->prepare("UPDATE users SET password = ? WHERE id = ?")
+                            ->execute([password_hash($password, PASSWORD_DEFAULT), $user['id']]);
+                    } catch (Throwable $e) {
+                    }
+                }
+
                 $this->startSession();
 
                 $_SESSION['user_id'] = $user['id'];
@@ -238,6 +286,35 @@ class Auth
                     exit;
                 }
                 $_SESSION['last_user_check'] = time();
+            } catch (Throwable $e) {
+                // DB error — don't block, just skip check
+            }
+        }
+
+        // Enforce subscription suspension: developer's own account is exempt (platform owner
+        // must always be able to log in to manage billing), everyone else is force-logged-out
+        // within 60s of their business being suspended for non-payment (see cron-generate-
+        // subscription-invoices.php / modules/platform-billing).
+        $lastBizCheck = $_SESSION['last_business_check'] ?? 0;
+        if (($_SESSION['role'] ?? '') !== 'developer' && !empty($_SESSION['business_id']) && time() - $lastBizCheck > 60) {
+            try {
+                $masterPdo2 = new PDO(
+                    "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4",
+                    DB_USER,
+                    DB_PASS,
+                    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+                );
+                $bizStmt = $masterPdo2->prepare("SELECT is_active FROM businesses WHERE id = ? LIMIT 1");
+                $bizStmt->execute([$_SESSION['business_id']]);
+                $bizRow = $bizStmt->fetch(PDO::FETCH_ASSOC);
+
+                if (!$bizRow || !$bizRow['is_active']) {
+                    session_unset();
+                    session_destroy();
+                    header('Location: ' . BASE_URL . '/login.php?error=business_suspended');
+                    exit;
+                }
+                $_SESSION['last_business_check'] = time();
             } catch (Throwable $e) {
                 // DB error — don't block, just skip check
             }

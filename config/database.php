@@ -111,7 +111,7 @@ class Database
         $isMaster = in_array($dbName, $masterNames);
 
         // Only run once per session per database (version bump forces re-check)
-        $schemaVersion = 12; // v12: platform subscription billing tables (Mayar)
+        $schemaVersion = 13; // v13: login_attempts table (brute-force lockout)
         $sessionKey = '_schema_synced_v' . $schemaVersion . '_' . md5($dbName);
         if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION[$sessionKey])) return;
 
@@ -245,6 +245,21 @@ class Database
                         INDEX idx_business (business_id),
                         INDEX idx_status (status),
                         INDEX idx_gateway_reference (gateway_reference)
+                    )");
+                } catch (PDOException $e) {
+                }
+
+                // Login brute-force lockout tracking (per IP + username combo).
+                try {
+                    $this->connection->exec("CREATE TABLE IF NOT EXISTS login_attempts (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        ip_address VARCHAR(45) NOT NULL,
+                        username VARCHAR(50) NOT NULL,
+                        attempt_count INT NOT NULL DEFAULT 1,
+                        first_attempt_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        last_attempt_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        locked_until DATETIME NULL,
+                        UNIQUE KEY uniq_ip_username (ip_address, username)
                     )");
                 } catch (PDOException $e) {
                 }

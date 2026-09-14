@@ -425,13 +425,17 @@ if (isPost()) {
             $auth->logout();
         }
     } else {
-        $error = 'Invalid username or password.';
+        $error = $auth->lastError ?: 'Invalid username or password.';
     }
 }
 
 // Check if redirected from account removal
 if (isset($_GET['error']) && $_GET['error'] === 'account_removed') {
     $error = 'Your account has been removed or disabled. Contact developer.';
+}
+
+if (isset($_GET['error']) && $_GET['error'] === 'business_suspended') {
+    $error = 'Akun bisnis Anda dinonaktifkan (langganan belum dibayar). Hubungi developer/admin.';
 }
 
 // Prevent caching

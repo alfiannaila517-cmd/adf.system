@@ -13,7 +13,7 @@ RewriteRule ^\.gitignore$ - [F,L]
 </IfModule>
 
 # Block direct access to sensitive files (NOT webhook - it has PHP-level token auth)
-<FilesMatch "(emergency-deploy\.php|test-cloudinary-upload\.php|\.cpanel\.yml|composer\.json|deploy\.sh|deploy-hosting\.sh|fix-.*\.php)$">
+<FilesMatch "(emergency-deploy\.php|test-cloudinary-upload\.php|\.cpanel\.yml|composer\.json|deploy\.sh|deploy-hosting\.sh|fix-.*\.php|phpinfo\.php|php-check\.php|debug-.*\.php|diag-.*\.php|diagnose-.*\.php|diagnostic-.*\.php|test-.*\.php|setup-.*\.php|update-.*\.php|check-.*\.php)$">
     <IfModule mod_authz_core.c>
         Require ip 127.0.0.1
         Require ip ::1
