@@ -96,6 +96,8 @@ CREATE TABLE IF NOT EXISTS `trip_packages` (
     `itinerary`     TEXT  COMMENT 'Jadwal perjalanan',
     `notes`         TEXT,
     `is_active`     TINYINT(1) DEFAULT 1,
+    `display_order` INT NOT NULL DEFAULT 0,
+    `cover_image`   VARCHAR(255) NULL,
     `created_at`    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     `updated_at`    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_code (`code`),
