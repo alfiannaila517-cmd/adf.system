@@ -746,6 +746,35 @@ if ($action === 'edit' && $editId) {
     $editMenus = $menuStmt->fetchAll(PDO::FETCH_COLUMN);
 }
 
+// "Copy Business" - prefill the Add form (name/type/owner/description/menus) from an existing business
+$copyFromId = ($action === 'add') ? (int)($_GET['copy_from'] ?? 0) : 0;
+$copyFromBusiness = null;
+$copyFromMenus = [];
+if ($copyFromId) {
+    $cStmt = $pdo->prepare("SELECT * FROM businesses WHERE id = ?");
+    $cStmt->execute([$copyFromId]);
+    $copyFromBusiness = $cStmt->fetch(PDO::FETCH_ASSOC);
+    if ($copyFromBusiness) {
+        $cMenuStmt = $pdo->prepare("SELECT menu_id FROM business_menu_config WHERE business_id = ? AND is_enabled = 1");
+        $cMenuStmt->execute([$copyFromId]);
+        $copyFromMenus = $cMenuStmt->fetchAll(PDO::FETCH_COLUMN);
+    }
+}
+
+// Fields shown in the form (real business when editing, or a copy-source's data when adding via "Copy Business")
+$prefill = $editBusiness ?: ($copyFromBusiness ? [
+    'business_name' => $copyFromBusiness['business_name'] . ' (Copy)',
+    'business_type' => $copyFromBusiness['business_type'],
+    'owner_id'      => $copyFromBusiness['owner_id'],
+    'description'   => $copyFromBusiness['description'],
+] : []);
+
+// Which menus should start checked in the form
+$checkedMenuIds = $editMenus;
+if ($action === 'add') {
+    $checkedMenuIds = $copyFromBusiness ? $copyFromMenus : array_column($menus, 'id');
+}
+
 // Get business for setup wizard
 $setupBusiness = null;
 $setupStep = $_GET['step'] ?? '2';
@@ -1263,6 +1292,13 @@ require_once __DIR__ . '/includes/header.php';
                                 <i class="bi bi-info-circle me-2"></i>
                                 <strong>Step 1:</strong> Isi data bisnis. Sistem akan otomatis coba buat database. Jika di shared hosting, Anda akan dipandu buat DB di cPanel.
                             </div>
+                            <?php if ($copyFromBusiness): ?>
+                                <div class="alert alert-success">
+                                    <i class="bi bi-clipboard-check me-2"></i>
+                                    Menyalin data dari <strong><?php echo htmlspecialchars($copyFromBusiness['business_name']); ?></strong>: tipe, owner, deskripsi, dan menu yang aktif sudah otomatis terisi.
+                                    Silakan isi <strong>Business Code</strong> baru (harus unik) dan sesuaikan nama/menu bila perlu.
+                                </div>
+                            <?php endif; ?>
                         <?php endif; ?>
 
                         <form method="POST" action="">
@@ -1284,7 +1320,7 @@ require_once __DIR__ . '/includes/header.php';
                                     <label class="form-label">Business Name <span class="text-danger">*</span></label>
                                     <input type="text" class="form-control" name="business_name" required
                                         placeholder="e.g., Narayana Hotel, Ben's Cafe"
-                                        value="<?php echo htmlspecialchars($editBusiness['business_name'] ?? ''); ?>">
+                                        value="<?php echo htmlspecialchars($prefill['business_name'] ?? ''); ?>">
                                 </div>
                             </div>
 
@@ -1293,7 +1329,7 @@ require_once __DIR__ . '/includes/header.php';
                                     <label class="form-label">Business Type <span class="text-danger">*</span></label>
                                     <select class="form-select" name="business_type" required>
                                         <?php foreach ($businessTypes as $type): ?>
-                                            <option value="<?php echo $type; ?>" <?php echo ($editBusiness['business_type'] ?? '') === $type ? 'selected' : ''; ?>>
+                                            <option value="<?php echo $type; ?>" <?php echo ($prefill['business_type'] ?? '') === $type ? 'selected' : ''; ?>>
                                                 <?php echo ucwords(str_replace('_', ' ', $type)); ?>
                                             </option>
                                         <?php endforeach; ?>
@@ -1304,7 +1340,7 @@ require_once __DIR__ . '/includes/header.php';
                                     <select class="form-select" name="owner_id" required>
                                         <option value="">Select Owner</option>
                                         <?php foreach ($owners as $owner): ?>
-                                            <option value="<?php echo $owner['id']; ?>" <?php echo ($editBusiness['owner_id'] ?? '') == $owner['id'] ? 'selected' : ''; ?>>
+                                            <option value="<?php echo $owner['id']; ?>" <?php echo ($prefill['owner_id'] ?? '') == $owner['id'] ? 'selected' : ''; ?>>
                                                 <?php echo htmlspecialchars($owner['full_name']); ?> (@<?php echo $owner['username']; ?>)
                                             </option>
                                         <?php endforeach; ?>
@@ -1314,7 +1350,7 @@ require_once __DIR__ . '/includes/header.php';
 
                             <div class="mb-3">
                                 <label class="form-label">Description</label>
-                                <textarea class="form-control" name="description" rows="2"><?php echo htmlspecialchars($editBusiness['description'] ?? ''); ?></textarea>
+                                <textarea class="form-control" name="description" rows="2"><?php echo htmlspecialchars($prefill['description'] ?? ''); ?></textarea>
                             </div>
 
                             <div class="mb-3">
@@ -1349,7 +1385,7 @@ require_once __DIR__ . '/includes/header.php';
                                             <option value="">Salin menu dari bisnis lain...</option>
                                             <?php foreach ($businessListForCopy as $b): ?>
                                                 <?php if (!$editBusiness || $b['id'] != $editBusiness['id']): ?>
-                                                    <option value="<?php echo $b['id']; ?>"><?php echo htmlspecialchars($b['name']); ?></option>
+                                                    <option value="<?php echo $b['id']; ?>" <?php echo $copyFromId == $b['id'] ? 'selected' : ''; ?>><?php echo htmlspecialchars($b['name']); ?></option>
                                                 <?php endif; ?>
                                             <?php endforeach; ?>
                                         </select>
@@ -1364,7 +1400,7 @@ require_once __DIR__ . '/includes/header.php';
                                             <div class="form-check">
                                                 <input class="form-check-input menu-checkbox" type="checkbox" name="menus[]" value="<?php echo $menu['id']; ?>"
                                                     id="menu_<?php echo $menu['id']; ?>"
-                                                    <?php echo in_array($menu['id'], $editMenus) || $action === 'add' ? 'checked' : ''; ?>>
+                                                    <?php echo in_array($menu['id'], $checkedMenuIds) ? 'checked' : ''; ?>>
                                                 <label class="form-check-label" for="menu_<?php echo $menu['id']; ?>">
                                                     <i class="<?php echo $menu['menu_icon']; ?> me-1"></i>
                                                     <?php echo htmlspecialchars($menu['menu_name']); ?>
@@ -1520,6 +1556,9 @@ require_once __DIR__ . '/includes/header.php';
                                         </a>
                                         <a href="?action=edit&id=<?php echo $biz['id']; ?>" class="btn btn-sm btn-outline-primary" title="Edit">
                                             <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <a href="?action=add&copy_from=<?php echo $biz['id']; ?>" class="btn btn-sm btn-outline-success" title="Copy Business (buat bisnis baru meniru pengaturan & menu ini)">
+                                            <i class="bi bi-copy"></i>
                                         </a>
                                         <a href="permissions.php?business_id=<?php echo $biz['id']; ?>" class="btn btn-sm btn-outline-info" title="User Permissions">
                                             <i class="bi bi-shield-lock"></i>
