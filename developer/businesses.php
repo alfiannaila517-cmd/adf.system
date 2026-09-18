@@ -111,6 +111,28 @@ try {
 } catch (Exception $e) {
 }
 
+// Businesses with a fully custom UI (e.g. Sunsea/Karimunjawa Explore) don't use
+// business_menu_config at all, so they never show up in the loop above. Detect them via
+// their config file's enabled_modules and offer them as a "full clone" option (copies
+// appearance + menus by reusing the same logic as the "Copy Business" button).
+$specialCloneIds = []; // business_id => true
+try {
+    $allBizRows = $pdo->query("SELECT id, business_name, business_code, slug FROM businesses ORDER BY business_name")->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($allBizRows as $row) {
+        if (isset($seenBiz[$row['id']])) continue; // already listed via business_menu_config
+        $rowSlug = !empty($row['slug']) ? $row['slug'] : businessCodeToSlug($row['business_code']);
+        $rowConfigPath = dirname(dirname(__FILE__)) . '/config/businesses/' . $rowSlug . '.php';
+        if (!file_exists($rowConfigPath)) continue;
+        $rowConfig = include $rowConfigPath;
+        if (is_array($rowConfig) && in_array('sunsea', $rowConfig['enabled_modules'] ?? [], true)) {
+            $specialCloneIds[(int)$row['id']] = true;
+            $businessListForCopy[] = ['id' => (int)$row['id'], 'name' => $row['business_name'] . ' (tampilan khusus)'];
+        }
+    }
+    usort($businessListForCopy, fn($a, $b) => strcasecmp($a['name'], $b['name']));
+} catch (Exception $e) {
+}
+
 // cPanel URL for this hosting
 $cpanelUrl = 'https://guangmao.iixcp.rumahweb.net:2083';
 
@@ -1476,13 +1498,13 @@ require_once __DIR__ . '/includes/header.php';
                                             <option value="">Salin menu dari bisnis lain...</option>
                                             <?php foreach ($businessListForCopy as $b): ?>
                                                 <?php if (!$editBusiness || $b['id'] != $editBusiness['id']): ?>
-                                                    <option value="<?php echo $b['id']; ?>"><?php echo htmlspecialchars($b['name']); ?></option>
+                                                    <option value="<?php echo $b['id']; ?>" <?php echo isset($specialCloneIds[$b['id']]) ? 'data-special="1"' : ''; ?>><?php echo htmlspecialchars($b['name']); ?></option>
                                                 <?php endif; ?>
                                             <?php endforeach; ?>
                                         </select>
                                         <button type="button" class="btn btn-outline-secondary" id="applyCopyMenuBtn">Terapkan</button>
                                     </div>
-                                    <small class="text-muted d-block mb-2">Pilih bisnis contoh (mis. Bens Cafe), lalu klik Terapkan untuk mencontek menu yang sudah dipakainya.</small>
+                                    <small class="text-muted d-block mb-2">Pilih bisnis contoh (mis. Bens Cafe), lalu klik Terapkan untuk mencontek menu yang sudah dipakainya. Bisnis bertanda "(tampilan khusus)" (mis. Karimunjawa Explore) punya tampilan/modul sendiri &mdash; menyalinnya akan langsung membuat bisnis baru dengan tampilan identik.</small>
                                 <?php endif; ?>
 
                                 <div class="row">
@@ -1511,12 +1533,20 @@ require_once __DIR__ . '/includes/header.php';
                                 </div>
                             </div>
 
-                            <?php if (!empty($businessMenuMap)): ?>
+                            <?php if (!empty($businessListForCopy)): ?>
                                 <script>
                                     const businessMenuMap = <?php echo json_encode($businessMenuMap); ?>;
                                     document.getElementById('applyCopyMenuBtn')?.addEventListener('click', function() {
-                                        const bizId = document.getElementById('copyMenuFromBiz').value;
+                                        const selectEl = document.getElementById('copyMenuFromBiz');
+                                        const bizId = selectEl.value;
                                         if (!bizId) return;
+                                        const selectedOption = selectEl.options[selectEl.selectedIndex];
+                                        if (selectedOption.dataset.special === '1') {
+                                            if (confirm('Bisnis ini punya tampilan/modul khusus. Klik OK untuk langsung membuat bisnis baru sebagai salinan persis (tampilan + menu) dari "' + selectedOption.textContent + '".')) {
+                                                window.location.href = '?action=copy&id=' + encodeURIComponent(bizId);
+                                            }
+                                            return;
+                                        }
                                         const enabledMenuIds = (businessMenuMap[bizId] || []).map(String);
                                         document.querySelectorAll('.menu-checkbox').forEach(function(cb) {
                                             cb.checked = enabledMenuIds.includes(cb.value);
