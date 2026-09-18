@@ -11,9 +11,15 @@ require_once __DIR__ . '/MotorNotificationHelper.php';
 // Load unpaid checked-in guest notification system
 require_once __DIR__ . '/UnpaidGuestNotificationHelper.php';
 
-// Sunsea must use its own custom UI/module stack.
-// If a generic module tries to render with this global header, redirect to Sunsea dashboard.
-if (defined('ACTIVE_BUSINESS_ID') && ACTIVE_BUSINESS_ID === 'sunsea') {
+// Sunsea (and any business copied from it) must use its own custom UI/module stack.
+// Driven by config's enabled_modules (not the literal 'sunsea' id) so a "Copy Business"
+// of Sunsea also gets this custom UI under its own id/slug.
+$__isSunseaVariant = defined('ACTIVE_BUSINESS_ID') && ACTIVE_BUSINESS_ID === 'sunsea';
+if (!$__isSunseaVariant && function_exists('getActiveBusinessConfig')) {
+    $__activeBizCfg = getActiveBusinessConfig();
+    $__isSunseaVariant = in_array('sunsea', $__activeBizCfg['enabled_modules'] ?? [], true);
+}
+if ($__isSunseaVariant) {
     $requestUri = $_SERVER['REQUEST_URI'] ?? '';
     $isSunseaModule = (strpos($requestUri, '/modules/sunsea/') !== false);
     $isAllowedPath =
