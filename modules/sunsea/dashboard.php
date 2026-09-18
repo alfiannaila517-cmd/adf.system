@@ -19,6 +19,7 @@ $activePage = 'dashboard';
 
 try {
     $pdo = getSunseaConnection();
+    sunseaEnsurePackageMediaSchema($pdo); // self-heal trip_packages.display_order/cover_image on fresh/copied DBs
 
     // Stats: Quotations
     $qStats = $pdo->query("
