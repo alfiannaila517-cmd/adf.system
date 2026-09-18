@@ -7,12 +7,14 @@
 define('APP_ACCESS', true);
 require_once dirname(dirname(__FILE__)) . '/config/config.php';
 require_once __DIR__ . '/includes/dev_auth.php';
+require_once __DIR__ . '/includes/password-crypto.php';
 
 $auth = new DevAuth();
 $auth->requireLogin();
 
 $user = $auth->getCurrentUser();
 $pdo = $auth->getConnection();
+ensurePasswordViewColumn($pdo);
 
 // =============================================
 // FUNCTION: Sync Password to Business Databases
@@ -95,8 +97,9 @@ if ($section === 'user-setup') {
                         // Update existing user
                         if ($password) {
                             $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
-                            $stmt = $pdo->prepare("UPDATE users SET username=?, email=?, password=?, full_name=?, role_id=? WHERE id=?");
-                            $stmt->execute([$username, $email, $hashedPassword, $fullName, $roleId, $userId]);
+                            $viewablePassword = encryptDevPassword($password);
+                            $stmt = $pdo->prepare("UPDATE users SET username=?, email=?, password=?, password_view=?, full_name=?, role_id=? WHERE id=?");
+                            $stmt->execute([$username, $email, $hashedPassword, $viewablePassword, $fullName, $roleId, $userId]);
                             
                             // Sync password to all business databases
                             syncPasswordToBusinesses($username, $hashedPassword, $pdo);
@@ -110,8 +113,9 @@ if ($section === 'user-setup') {
                         if (!$password) throw new Exception('Password harus diisi untuk user baru!');
                         
                         $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
-                        $stmt = $pdo->prepare("INSERT INTO users (username, email, password, full_name, phone, role_id, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                        $stmt->execute([$username, $email, $hashedPassword, $fullName, '0000000000', $roleId, 1]);
+                        $viewablePassword = encryptDevPassword($password);
+                        $stmt = $pdo->prepare("INSERT INTO users (username, email, password, password_view, full_name, phone, role_id, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                        $stmt->execute([$username, $email, $hashedPassword, $viewablePassword, $fullName, '0000000000', $roleId, 1]);
                         
                         // Sync password to all business databases
                         syncPasswordToBusinesses($username, $hashedPassword, $pdo);
@@ -728,7 +732,11 @@ require_once __DIR__ . '/includes/header.php';
                                         <button class="btn btn-outline-secondary" type="button" id="toggleEditPassword" title="Tampilkan/Sembunyikan Password">
                                             <i class="bi bi-eye" id="editPasswordIcon"></i>
                                         </button>
+                                        <button class="btn btn-outline-info" type="button" onclick="revealSavedPassword(<?php echo (int)$editUser['id']; ?>)" title="Lihat Password Tersimpan">
+                                            <i class="bi bi-key"></i>
+                                        </button>
                                     </div>
+                                    <small id="revealedPasswordBox" class="d-block mt-1 text-success fw-bold"></small>
                                 </div>
                             </div>
                             
@@ -1207,6 +1215,21 @@ require_once __DIR__ . '/includes/header.php';
     </style>
     
     <script>
+    function revealSavedPassword(userId) {
+        const box = document.getElementById('revealedPasswordBox');
+        box.textContent = 'Memuat...';
+        fetch('reveal-password.php?user_id=' + encodeURIComponent(userId))
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+                box.textContent = data.password ? ('Password saat ini: ' + data.password) : (data.error || 'Tidak tersedia');
+                box.className = 'd-block mt-1 fw-bold ' + (data.password ? 'text-success' : 'text-danger');
+            })
+            .catch(function () {
+                box.textContent = 'Gagal memuat password.';
+                box.className = 'd-block mt-1 fw-bold text-danger';
+            });
+    }
+
     function togglePassword(inputId) {
         const input = document.getElementById(inputId);
         const type = input.type === 'password' ? 'text' : 'password';
