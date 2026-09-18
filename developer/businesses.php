@@ -734,6 +734,120 @@ if ($action === 'delete' && $editId) {
     }
 }
 
+// Handle "Copy Business" - instantly duplicates a business (type/owner/description/menus)
+// into a new record with an auto-generated unique code, then jumps straight into DB setup
+// (same flow as register_business below).
+if ($action === 'copy' && $editId) {
+    try {
+        $srcStmt = $pdo->prepare("SELECT * FROM businesses WHERE id = ?");
+        $srcStmt->execute([$editId]);
+        $src = $srcStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$src) {
+            $_SESSION['error_message'] = 'Bisnis sumber tidak ditemukan.';
+            header('Location: businesses.php');
+            exit;
+        }
+
+        // Unique business_code: ORIGINAL_COPY, ORIGINAL_COPY2, ...
+        $baseCode = $src['business_code'] . '_COPY';
+        $newCode = $baseCode;
+        $codeCheck = $pdo->prepare("SELECT COUNT(*) FROM businesses WHERE business_code = ?");
+        for ($n = 2; ; $n++) {
+            $codeCheck->execute([$newCode]);
+            if ($codeCheck->fetchColumn() == 0) break;
+            $newCode = $baseCode . $n;
+        }
+
+        $newName = $src['business_name'] . ' (Copy)';
+        $dbName = 'adf_' . strtolower(preg_replace('/[^a-z0-9]/i', '_', $newCode));
+        $actualDbName = $isProduction ? getDbName($dbName) : $dbName;
+
+        // Unique slug (drives the config file path)
+        $baseSlug = strtolower(trim(preg_replace('/[^a-z0-9]+/i', '-', $newName), '-'));
+        if (empty($baseSlug)) $baseSlug = strtolower(str_replace('_', '-', $newCode));
+        $slug = $baseSlug;
+        $slugCheck = $pdo->prepare("SELECT COUNT(*) FROM businesses WHERE slug = ?");
+        for ($n = 2; ; $n++) {
+            $slugCheck->execute([$slug]);
+            if ($slugCheck->fetchColumn() == 0) break;
+            $slug = $baseSlug . '-' . $n;
+        }
+
+        $stmt = $pdo->prepare("
+            INSERT INTO businesses (business_code, slug, business_name, business_type, database_name, owner_id, description, addon_domain, is_active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, NULL, 0)
+        ");
+        $stmt->execute([$newCode, $slug, $newName, $src['business_type'], $actualDbName, $src['owner_id'], $src['description']]);
+        $businessId = $pdo->lastInsertId();
+
+        // Cash accounts (same defaults as a normal new business)
+        $pdo->prepare("INSERT INTO cash_accounts (business_id, account_name, account_type, current_balance, is_default_account, description, is_active) VALUES (?, 'Petty Cash', 'cash', 0, 1, 'Uang cash dari tamu / operasional', 1)")->execute([$businessId]);
+        $pdo->prepare("INSERT INTO cash_accounts (business_id, account_name, account_type, current_balance, is_default_account, description, is_active) VALUES (?, 'Bank', 'bank', 0, 0, 'Rekening bank utama bisnis', 1)")->execute([$businessId]);
+        $pdo->prepare("INSERT INTO cash_accounts (business_id, account_name, account_type, current_balance, is_default_account, description, is_active) VALUES (?, 'Kas Modal Owner', 'owner_capital', 0, 0, 'Modal operasional dari owner', 1)")->execute([$businessId]);
+
+        // Copy the source business's enabled menus
+        $srcMenuStmt = $pdo->prepare("SELECT menu_id FROM business_menu_config WHERE business_id = ? AND is_enabled = 1");
+        $srcMenuStmt->execute([$editId]);
+        $menuIds = $srcMenuStmt->fetchAll(PDO::FETCH_COLUMN);
+        $menuInsertStmt = $pdo->prepare("INSERT INTO business_menu_config (business_id, menu_id, is_enabled) VALUES (?, ?, 1)");
+        foreach ($menuIds as $menuId) {
+            $menuInsertStmt->execute([$businessId, $menuId]);
+        }
+
+        $auth->logAction('create_business', 'businesses', $businessId, null, ['name' => $newName, 'database' => $actualDbName, 'copied_from' => (int)$src['id']]);
+
+        // Auto-generate config file immediately (same template used by the normal add-business flow)
+        $autoConfigPath = dirname(dirname(__FILE__)) . '/config/businesses/' . $slug . '.php';
+        if (!file_exists($autoConfigPath)) {
+            $typeConf = [
+                'hotel'         => ['icon' => '🏨', 'primary' => '#4338ca', 'secondary' => '#1e1b4b', 'extra' => "'frontdesk', 'investor', 'project'"],
+                'restaurant'    => ['icon' => '🍽️', 'primary' => '#dc2626', 'secondary' => '#7f1d1d', 'extra' => ''],
+                'cafe'          => ['icon' => '☕', 'primary' => '#92400e', 'secondary' => '#78350f', 'extra' => ''],
+                'retail'        => ['icon' => '🏪', 'primary' => '#0d9488', 'secondary' => '#134e4a', 'extra' => ''],
+                'manufacture'   => ['icon' => '🏭', 'primary' => '#4f46e5', 'secondary' => '#312e81', 'extra' => ''],
+                'tourism'       => ['icon' => '🏝️', 'primary' => '#0891b2', 'secondary' => '#164e63', 'extra' => "'frontdesk', 'investor', 'project'"],
+                'travel_bureau' => ['icon' => '🌊', 'primary' => '#0EA5E9', 'secondary' => '#0C4A6E', 'extra' => "'sunsea'"],
+                'other'         => ['icon' => '🏢', 'primary' => '#059669', 'secondary' => '#065f46', 'extra' => ''],
+            ];
+            $tc = $typeConf[$src['business_type']] ?? $typeConf['other'];
+            $mods = "'cashbook', 'auth', 'settings', 'reports', 'divisions', 'procurement', 'sales', 'bills', 'payroll'";
+            if (!empty($tc['extra'])) $mods .= ', ' . $tc['extra'];
+            $cfgContent = "<?php\nreturn [\n    'business_id' => '{$slug}',\n    'name' => '" . addslashes($newName) . "',\n    'business_type' => '{$src['business_type']}',\n    'database' => '{$dbName}',\n    'logo' => '',\n    'enabled_modules' => [{$mods}],\n    'theme' => [\n        'color_primary' => '{$tc['primary']}',\n        'color_secondary' => '{$tc['secondary']}',\n        'icon' => '{$tc['icon']}'\n    ],\n    'cashbook_columns' => [],\n    'dashboard_widgets' => ['show_daily_sales' => true, 'show_orders' => true, 'show_revenue' => true]\n];\n";
+            @file_put_contents($autoConfigPath, $cfgContent);
+        }
+
+        // Try to CREATE DATABASE automatically
+        $dbCreated = false;
+        try {
+            $rootPdo = new PDO("mysql:host=" . DB_HOST, DB_USER, DB_PASS);
+            $rootPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            $rootPdo->exec("CREATE DATABASE IF NOT EXISTS `{$actualDbName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+            try {
+                $grantUser = DB_USER;
+                $rootPdo->exec("GRANT ALL PRIVILEGES ON `{$actualDbName}`.* TO '{$grantUser}'@'localhost'");
+                $rootPdo->exec("FLUSH PRIVILEGES");
+            } catch (Exception $grantErr) {
+                error_log("Auto GRANT failed for {$actualDbName}: " . $grantErr->getMessage());
+            }
+            $dbCreated = true;
+        } catch (Exception $dbCreateErr) {
+            error_log("Auto CREATE DATABASE failed: " . $dbCreateErr->getMessage());
+        }
+
+        if ($dbCreated) {
+            header('Location: businesses.php?action=setup&id=' . $businessId . '&step=3&auto_db=1');
+        } else {
+            header('Location: businesses.php?action=setup&id=' . $businessId . '&step=2');
+        }
+        exit;
+    } catch (Exception $e) {
+        $_SESSION['error_message'] = 'Gagal copy bisnis: ' . $e->getMessage();
+        header('Location: businesses.php');
+        exit;
+    }
+}
+
 // Get business for editing
 $editBusiness = null;
 $editMenus = [];
@@ -744,35 +858,6 @@ if ($action === 'edit' && $editId) {
     $menuStmt = $pdo->prepare("SELECT menu_id FROM business_menu_config WHERE business_id = ? AND is_enabled = 1");
     $menuStmt->execute([$editId]);
     $editMenus = $menuStmt->fetchAll(PDO::FETCH_COLUMN);
-}
-
-// "Copy Business" - prefill the Add form (name/type/owner/description/menus) from an existing business
-$copyFromId = ($action === 'add') ? (int)($_GET['copy_from'] ?? 0) : 0;
-$copyFromBusiness = null;
-$copyFromMenus = [];
-if ($copyFromId) {
-    $cStmt = $pdo->prepare("SELECT * FROM businesses WHERE id = ?");
-    $cStmt->execute([$copyFromId]);
-    $copyFromBusiness = $cStmt->fetch(PDO::FETCH_ASSOC);
-    if ($copyFromBusiness) {
-        $cMenuStmt = $pdo->prepare("SELECT menu_id FROM business_menu_config WHERE business_id = ? AND is_enabled = 1");
-        $cMenuStmt->execute([$copyFromId]);
-        $copyFromMenus = $cMenuStmt->fetchAll(PDO::FETCH_COLUMN);
-    }
-}
-
-// Fields shown in the form (real business when editing, or a copy-source's data when adding via "Copy Business")
-$prefill = $editBusiness ?: ($copyFromBusiness ? [
-    'business_name' => $copyFromBusiness['business_name'] . ' (Copy)',
-    'business_type' => $copyFromBusiness['business_type'],
-    'owner_id'      => $copyFromBusiness['owner_id'],
-    'description'   => $copyFromBusiness['description'],
-] : []);
-
-// Which menus should start checked in the form
-$checkedMenuIds = $editMenus;
-if ($action === 'add') {
-    $checkedMenuIds = $copyFromBusiness ? $copyFromMenus : array_column($menus, 'id');
 }
 
 // Get business for setup wizard
@@ -1292,13 +1377,6 @@ require_once __DIR__ . '/includes/header.php';
                                 <i class="bi bi-info-circle me-2"></i>
                                 <strong>Step 1:</strong> Isi data bisnis. Sistem akan otomatis coba buat database. Jika di shared hosting, Anda akan dipandu buat DB di cPanel.
                             </div>
-                            <?php if ($copyFromBusiness): ?>
-                                <div class="alert alert-success">
-                                    <i class="bi bi-clipboard-check me-2"></i>
-                                    Menyalin data dari <strong><?php echo htmlspecialchars($copyFromBusiness['business_name']); ?></strong>: tipe, owner, deskripsi, dan menu yang aktif sudah otomatis terisi.
-                                    Silakan isi <strong>Business Code</strong> baru (harus unik) dan sesuaikan nama/menu bila perlu.
-                                </div>
-                            <?php endif; ?>
                         <?php endif; ?>
 
                         <form method="POST" action="">
@@ -1320,7 +1398,7 @@ require_once __DIR__ . '/includes/header.php';
                                     <label class="form-label">Business Name <span class="text-danger">*</span></label>
                                     <input type="text" class="form-control" name="business_name" required
                                         placeholder="e.g., Narayana Hotel, Ben's Cafe"
-                                        value="<?php echo htmlspecialchars($prefill['business_name'] ?? ''); ?>">
+                                        value="<?php echo htmlspecialchars($editBusiness['business_name'] ?? ''); ?>">
                                 </div>
                             </div>
 
@@ -1329,7 +1407,7 @@ require_once __DIR__ . '/includes/header.php';
                                     <label class="form-label">Business Type <span class="text-danger">*</span></label>
                                     <select class="form-select" name="business_type" required>
                                         <?php foreach ($businessTypes as $type): ?>
-                                            <option value="<?php echo $type; ?>" <?php echo ($prefill['business_type'] ?? '') === $type ? 'selected' : ''; ?>>
+                                            <option value="<?php echo $type; ?>" <?php echo ($editBusiness['business_type'] ?? '') === $type ? 'selected' : ''; ?>>
                                                 <?php echo ucwords(str_replace('_', ' ', $type)); ?>
                                             </option>
                                         <?php endforeach; ?>
@@ -1340,7 +1418,7 @@ require_once __DIR__ . '/includes/header.php';
                                     <select class="form-select" name="owner_id" required>
                                         <option value="">Select Owner</option>
                                         <?php foreach ($owners as $owner): ?>
-                                            <option value="<?php echo $owner['id']; ?>" <?php echo ($prefill['owner_id'] ?? '') == $owner['id'] ? 'selected' : ''; ?>>
+                                            <option value="<?php echo $owner['id']; ?>" <?php echo ($editBusiness['owner_id'] ?? '') == $owner['id'] ? 'selected' : ''; ?>>
                                                 <?php echo htmlspecialchars($owner['full_name']); ?> (@<?php echo $owner['username']; ?>)
                                             </option>
                                         <?php endforeach; ?>
@@ -1350,7 +1428,7 @@ require_once __DIR__ . '/includes/header.php';
 
                             <div class="mb-3">
                                 <label class="form-label">Description</label>
-                                <textarea class="form-control" name="description" rows="2"><?php echo htmlspecialchars($prefill['description'] ?? ''); ?></textarea>
+                                <textarea class="form-control" name="description" rows="2"><?php echo htmlspecialchars($editBusiness['description'] ?? ''); ?></textarea>
                             </div>
 
                             <div class="mb-3">
@@ -1385,7 +1463,7 @@ require_once __DIR__ . '/includes/header.php';
                                             <option value="">Salin menu dari bisnis lain...</option>
                                             <?php foreach ($businessListForCopy as $b): ?>
                                                 <?php if (!$editBusiness || $b['id'] != $editBusiness['id']): ?>
-                                                    <option value="<?php echo $b['id']; ?>" <?php echo $copyFromId == $b['id'] ? 'selected' : ''; ?>><?php echo htmlspecialchars($b['name']); ?></option>
+                                                    <option value="<?php echo $b['id']; ?>"><?php echo htmlspecialchars($b['name']); ?></option>
                                                 <?php endif; ?>
                                             <?php endforeach; ?>
                                         </select>
@@ -1400,7 +1478,7 @@ require_once __DIR__ . '/includes/header.php';
                                             <div class="form-check">
                                                 <input class="form-check-input menu-checkbox" type="checkbox" name="menus[]" value="<?php echo $menu['id']; ?>"
                                                     id="menu_<?php echo $menu['id']; ?>"
-                                                    <?php echo in_array($menu['id'], $checkedMenuIds) ? 'checked' : ''; ?>>
+                                                    <?php echo in_array($menu['id'], $editMenus) || $action === 'add' ? 'checked' : ''; ?>>
                                                 <label class="form-check-label" for="menu_<?php echo $menu['id']; ?>">
                                                     <i class="<?php echo $menu['menu_icon']; ?> me-1"></i>
                                                     <?php echo htmlspecialchars($menu['menu_name']); ?>
@@ -1557,8 +1635,9 @@ require_once __DIR__ . '/includes/header.php';
                                         <a href="?action=edit&id=<?php echo $biz['id']; ?>" class="btn btn-sm btn-outline-primary" title="Edit">
                                             <i class="bi bi-pencil"></i>
                                         </a>
-                                        <a href="?action=add&copy_from=<?php echo $biz['id']; ?>" class="btn btn-sm btn-outline-success" title="Copy Business (buat bisnis baru meniru pengaturan & menu ini)">
-                                            <i class="bi bi-copy"></i>
+                                        <a href="?action=copy&id=<?php echo $biz['id']; ?>" class="btn btn-sm btn-outline-success" title="Copy Business (buat bisnis baru + database baru meniru bisnis ini)"
+                                            onclick="return confirm('Buat bisnis baru sebagai salinan dari &quot;<?php echo addslashes($biz['business_name']); ?>&quot;?\n\nTipe, owner, deskripsi, dan menu yang aktif akan disalin, lalu sistem otomatis membuat database baru untuk bisnis hasil copy ini.');">
+                                            <i class="bi bi-clipboard-check"></i> Copy
                                         </a>
                                         <a href="permissions.php?business_id=<?php echo $biz['id']; ?>" class="btn btn-sm btn-outline-info" title="User Permissions">
                                             <i class="bi bi-shield-lock"></i>
