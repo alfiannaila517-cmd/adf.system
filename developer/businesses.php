@@ -797,8 +797,21 @@ if ($action === 'copy' && $editId) {
 
         $auth->logAction('create_business', 'businesses', $businessId, null, ['name' => $newName, 'database' => $actualDbName, 'copied_from' => (int)$src['id']]);
 
-        // Auto-generate config file immediately (same template used by the normal add-business flow)
+        // Clone the source business's config file as-is (enabled_modules, theme, etc.) so the
+        // copy behaves identically - only business_id/name/database differ. Falls back to the
+        // generic per-type template if the source has no config file yet.
         $autoConfigPath = dirname(dirname(__FILE__)) . '/config/businesses/' . $slug . '.php';
+        $srcSlug = !empty($src['slug']) ? $src['slug'] : businessCodeToSlug($src['business_code']);
+        $srcConfigPath = dirname(dirname(__FILE__)) . '/config/businesses/' . $srcSlug . '.php';
+        if (!file_exists($autoConfigPath) && file_exists($srcConfigPath)) {
+            $srcConfig = include $srcConfigPath;
+            if (is_array($srcConfig)) {
+                $srcConfig['business_id'] = $slug;
+                $srcConfig['name'] = $newName;
+                $srcConfig['database'] = $dbName;
+                @file_put_contents($autoConfigPath, "<?php\nreturn " . var_export($srcConfig, true) . ";\n");
+            }
+        }
         if (!file_exists($autoConfigPath)) {
             $typeConf = [
                 'hotel'         => ['icon' => '🏨', 'primary' => '#4338ca', 'secondary' => '#1e1b4b', 'extra' => "'frontdesk', 'investor', 'project'"],
