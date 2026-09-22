@@ -47,7 +47,7 @@ if (isset($pdo)) {
         $sunseaNewQuotationCount = (int)$pdo->query(
             "SELECT COUNT(*) FROM quotations WHERE created_by = 'website' AND status = 'draft'"
         )->fetchColumn();
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         $sunseaNewQuotationCount = 0;
     }
 }
@@ -95,7 +95,7 @@ if (isset($pdo)) {
                 }
             }
         }
-    } catch (Exception $__e) { /* settings table may not exist yet */
+    } catch (Throwable $__e) { /* settings table may not exist yet */
     }
 }
 
