@@ -288,7 +288,7 @@ include 'layout-header.php';
 </div>
 
 <div style="background:#eef6fb;border:1px solid #bfdbfe;border-radius:8px;padding:10px 16px;margin-bottom:18px;font-size:13px;color:#0c4a6e;">
-    Halaman ini mengatur konten yang tampil di website publik <strong>karimunjawaexplore.com</strong> (Beranda, Tentang Kami, Galeri, Blog). Paket Wisata dikelola di menu <a href="packages.php" style="color:#0c4a6e;">Paket Wisata</a>.
+    Halaman ini mengatur konten yang tampil di website publik bisnis ini (Beranda, Tentang Kami, Galeri, Blog). Paket Wisata dikelola di menu <a href="packages.php" style="color:#0c4a6e;">Paket Wisata</a>.
 </div>
 
 <?php if ($tab === 'hero'): ?>
@@ -296,7 +296,7 @@ include 'layout-header.php';
         <div style="background:#fff;border:1px solid #dde5ef;border-radius:8px;padding:14px;position:sticky;top:16px;">
             <div style="font-size:13px;font-weight:700;color:#0C4A6E;margin-bottom:10px;">👁️ Preview Beranda</div>
             <div style="border:1px solid #dde5ef;border-radius:8px;overflow:hidden;background:#f1f5f9;">
-                <iframe src="../../home.php" title="Preview Beranda" style="width:100%;height:700px;border:0;display:block;"></iframe>
+                <iframe src="../../travel-site/home.php" title="Preview Beranda" style="width:100%;height:700px;border:0;display:block;"></iframe>
             </div>
             <div style="font-size:11px;color:#888;margin-top:8px;">Preview otomatis refresh setelah tombol "💾 Simpan" ditekan dan halaman ini reload.</div>
             <button type="button" onclick="this.previousElementSibling.previousElementSibling.querySelector('iframe').contentWindow.location.reload()"
