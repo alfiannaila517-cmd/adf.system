@@ -302,7 +302,7 @@ if ($__isSunseaVariant) {
     <a href="<?php echo BASE_URL; ?>/index.php" style="display:inline-block;margin-bottom:12px;text-decoration:none;color:#1e3a8a;font-size:0.9rem;">&larr; Kembali ke Dashboard</a>
 
     <div class="em-toolbar">
-        <div style="font-size:0.85rem;color:#64748b;"><?php echo htmlspecialchars(EmailHelper::FOLDERS[$folder]); ?>: office@narayanakarimunjawa.com &bull; <?php echo (int)$total; ?> email</div>
+        <div style="font-size:0.85rem;color:#64748b;"><?php echo htmlspecialchars(EmailHelper::FOLDERS[$folder]); ?>: <?php echo htmlspecialchars($emailConfig['user'] ?? '(belum diatur)'); ?> &bull; <?php echo (int)$total; ?> email</div>
         <div style="display:flex;gap:8px;">
             <a href="<?php echo BASE_URL; ?>/modules/email/compose.php" style="text-decoration:none;padding:6px 14px;background:#1e3a8a;border-radius:6px;font-size:0.85rem;color:#ffffff !important;font-weight:600;">+ Tulis Email</a>
             <a href="<?php echo BASE_URL; ?>/modules/email/settings.php" style="text-decoration:none;padding:6px 14px;border:1px solid #dbe4ee;border-radius:6px;font-size:0.85rem;color:#334155;">Pengaturan Email</a>
