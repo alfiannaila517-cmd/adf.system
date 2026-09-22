@@ -26,12 +26,13 @@ $sunseaNavItems = [
     'laporan'       => ['icon' => 'bar-chart-2', 'label' => 'Laporan',          'url' => BASE_URL . '/modules/sunsea/laporan.php'],
     'email'         => ['icon' => 'mail',        'label' => 'Email Kantor',     'url' => BASE_URL . '/modules/email/index.php'],
     'settings'      => ['icon' => 'settings',   'label' => 'Pengaturan',        'url' => BASE_URL . '/modules/sunsea/settings.php'],
+    'website_settings' => ['icon' => 'globe',   'label' => 'Setting Website',   'url' => BASE_URL . '/modules/sunsea/website-settings.php'],
 ];
 
 // Sub-menu grouping: parent key => list of child keys shown in a collapsible dropdown
 $sunseaNavGroups = [
     'bookings' => ['calendar', 'packages'],
-    'settings' => ['database', 'coordinators'],
+    'settings' => ['database', 'coordinators', 'website_settings'],
 ];
 
 $activePage = $activePage ?? '';
@@ -82,7 +83,7 @@ if (isset($pdo)) {
             if (is_array($__selected) && !empty($__selected)) {
                 $visibleMenuKeys = array_values(array_intersect(array_keys($sunseaNavItems), $__selected));
                 // Always show newly-added menus even for sidebar configs saved before they existed.
-                foreach (['email', 'laporan'] as $__newKey) {
+                foreach (['website_settings', 'email', 'laporan'] as $__newKey) {
                     if (isset($sunseaNavItems[$__newKey]) && !in_array($__newKey, $visibleMenuKeys, true)) {
                         $visibleMenuKeys[] = $__newKey;
                     }
@@ -1119,6 +1120,7 @@ if (empty($sunseaNavItemsVisible)) {
         }
 
         @media (max-width: 480px) {
+
             /* On very small phones, drop stat-card grids to a single column for legibility */
             div[style*="grid-template-columns:repeat(3"],
             div[style*="grid-template-columns:repeat(4"] {
@@ -1256,17 +1258,20 @@ if (empty($sunseaNavItemsVisible)) {
         </header>
 
         <script>
-        (function () {
-            var el = document.getElementById('ssLiveClock');
-            if (!el) return;
-            function tick() {
-                var d = new Date();
-                var pad = function (n) { return String(n).padStart(2, '0'); };
-                el.textContent = '🕒 ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
-            }
-            tick();
-            setInterval(tick, 1000);
-        })();
+            (function() {
+                var el = document.getElementById('ssLiveClock');
+                if (!el) return;
+
+                function tick() {
+                    var d = new Date();
+                    var pad = function(n) {
+                        return String(n).padStart(2, '0');
+                    };
+                    el.textContent = '🕒 ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+                }
+                tick();
+                setInterval(tick, 1000);
+            })();
         </script>
 
         <div class="ss-content">

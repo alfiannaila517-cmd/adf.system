@@ -68,6 +68,7 @@ $sidebarMenuOptions = [
     'laporan'      => 'Laporan',
     'email'        => 'Email Kantor',
     'settings'     => 'Pengaturan',
+    'website_settings' => 'Setting Website',
 ];
 
 // Handle POST
