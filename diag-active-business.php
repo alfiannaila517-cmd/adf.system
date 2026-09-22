@@ -35,7 +35,7 @@ try {
     $stmt->execute([$incomingHost]);
     $matches = $stmt->fetchAll();
 
-    $allBiz = $masterPdo->query("SELECT slug, name, addon_domain, is_active FROM businesses ORDER BY slug")->fetchAll();
+    $allBiz = $masterPdo->query("SELECT slug, business_name, addon_domain, is_active FROM businesses ORDER BY slug")->fetchAll();
 
     echo "HTTP_HOST (raw): " . ($_SERVER['HTTP_HOST'] ?? '(kosong)') . "\n";
     echo "Incoming host (normalized, no www): {$incomingHost}\n";
@@ -61,7 +61,7 @@ try {
     echo "\n=== SEMUA BUSINESS + ADDON_DOMAIN (untuk cross-check manual) ===\n";
     foreach ($allBiz as $b) {
         $flag = (strtolower(preg_replace('/^www\./', '', (string)$b['addon_domain'])) === $incomingHost) ? '  <== MATCH' : '';
-        echo "slug={$b['slug']} | name={$b['name']} | addon_domain=" . ($b['addon_domain'] ?: '(kosong)') . " | is_active={$b['is_active']}{$flag}\n";
+        echo "slug={$b['slug']} | business_name={$b['business_name']} | addon_domain=" . ($b['addon_domain'] ?: '(kosong)') . " | is_active={$b['is_active']}{$flag}\n";
     }
 } catch (Throwable $e) {
     echo "ERROR: " . $e->getMessage() . "\n";
