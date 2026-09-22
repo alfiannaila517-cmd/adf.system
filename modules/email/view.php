@@ -59,6 +59,10 @@ if (!$__isSunseaVariant && function_exists('getActiveBusinessConfig')) {
 }
 if ($__isSunseaVariant) {
     $activePage = 'email';
+    if (!isset($pdo)) {
+        require_once __DIR__ . '/../sunsea/db-helper.php';
+        $pdo = getSunseaConnection();
+    }
     include '../sunsea/layout-header.php';
 } else {
     include '../../includes/header.php';
