@@ -161,6 +161,40 @@ function autoSyncBusinessConfigs()
 }
 
 /**
+ * Get the set of local database names (adf_ prefix) for businesses still
+ * active in the master `businesses` table. Used to prune config files left
+ * behind after a business was deleted via the developer panel.
+ * @return array|null Set of local db names (keys), or null if the check couldn't run
+ */
+function getActiveBusinessLocalDatabases()
+{
+    try {
+        $masterDb = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : (defined('DB_NAME') ? DB_NAME : 'adf_system');
+        $pdo = new PDO(
+            "mysql:host=" . DB_HOST . ";dbname=" . $masterDb . ";charset=" . DB_CHARSET,
+            DB_USER,
+            DB_PASS,
+            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+        );
+        $dbNames = $pdo->query("SELECT database_name FROM businesses WHERE is_active = 1")->fetchAll(PDO::FETCH_COLUMN);
+
+        $localNames = [];
+        foreach ($dbNames as $dbName) {
+            $localDbName = $dbName;
+            if (defined('DB_USER') && strpos($dbName, explode('_', DB_USER)[0] . '_') === 0) {
+                $localDbName = 'adf_' . substr($dbName, strlen(explode('_', DB_USER)[0] . '_'));
+            }
+            $localNames[$localDbName] = true;
+            $localNames[$dbName] = true; // also keep the raw hosting name, just in case
+        }
+        return $localNames;
+    } catch (Exception $e) {
+        // Can't verify against DB (e.g. no connection) - don't prune anything.
+        return null;
+    }
+}
+
+/**
  * Get list of all available businesses
  * @return array Array of business configurations
  */
@@ -172,12 +206,23 @@ function getAvailableBusinesses()
     $businessesPath = __DIR__ . '/../config/businesses/';
     $businesses = [];
 
+    // Config files for businesses deleted via developer panel aren't always cleaned up
+    // (e.g. old deletes predating that logic) - prune anything no longer in the DB so
+    // the "Switch Business" dropdown doesn't keep showing deleted/duplicate businesses.
+    $activeDbs = getActiveBusinessLocalDatabases();
+
     if (is_dir($businessesPath)) {
         $files = scandir($businessesPath);
         foreach ($files as $file) {
             if ($file !== '.' && $file !== '..' && pathinfo($file, PATHINFO_EXTENSION) === 'php') {
                 $businessId = pathinfo($file, PATHINFO_FILENAME);
                 $config = require $businessesPath . $file;
+
+                if ($activeDbs !== null && !empty($config['database']) && !isset($activeDbs[$config['database']])) {
+                    @unlink($businessesPath . $file);
+                    continue;
+                }
+
                 // Add ID to config
                 $config['id'] = $businessId;
                 $businesses[$businessId] = $config;
