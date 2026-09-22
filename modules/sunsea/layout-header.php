@@ -1219,7 +1219,7 @@ if (empty($sunseaNavItemsVisible)) {
         </nav>
 
         <div class="ss-sidebar-footer">
-            <a href="<?php echo BASE_URL; ?>/home.php" target="_blank" rel="noopener" class="ss-website-btn">
+            <a href="<?php echo BASE_URL; ?>/website-sunsea/public/home.php" target="_blank" rel="noopener" class="ss-website-btn">
                 <i data-feather="external-link"></i> Buka Website
             </a>
             <div class="ss-user-block">
