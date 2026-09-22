@@ -106,7 +106,17 @@ if ($emailConfig === null) {
 
 $totalPages = $perPage > 0 ? (int)ceil($total / $perPage) : 1;
 
-include '../../includes/header.php';
+$__isSunseaVariant = defined('ACTIVE_BUSINESS_ID') && ACTIVE_BUSINESS_ID === 'sunsea';
+if (!$__isSunseaVariant && function_exists('getActiveBusinessConfig')) {
+    $__activeBizCfg = getActiveBusinessConfig();
+    $__isSunseaVariant = in_array('sunsea', $__activeBizCfg['enabled_modules'] ?? [], true);
+}
+if ($__isSunseaVariant) {
+    $activePage = 'email';
+    include '../sunsea/layout-header.php';
+} else {
+    include '../../includes/header.php';
+}
 ?>
 
 <style>
@@ -344,4 +354,4 @@ include '../../includes/header.php';
 </div>
 
 <?php include __DIR__ . '/compose-widget.php'; ?>
-<?php include '../../includes/footer.php'; ?>
+<?php include $__isSunseaVariant ? '../sunsea/layout-footer.php' : '../../includes/footer.php'; ?>
