@@ -33,7 +33,7 @@ $sendTrace = '';
 if (isset($_GET['send_test']) && $emails && $emailConfig) {
     try {
         $mailer = new SmtpMailer(
-            $emailConfig['host'],
+            $emailConfig['smtp_host'] ?? $emailConfig['host'],
             (int)($emailConfig['smtp_port'] ?? 465),
             $emailConfig['smtp_encryption'] ?? 'ssl',
             $emailConfig['user'],
@@ -66,6 +66,7 @@ header('Content-Type: text/html; charset=utf-8');
         <p style="color:red;font-weight:bold;">✘ NULL - belum ada pengaturan email tersimpan untuk bisnis ini (buka Email Kantor &rarr; Pengaturan Email dulu). Ini penyebab notifikasi tidak terkirim.</p>
     <?php else: ?>
         <pre>host: <?php echo htmlspecialchars($emailConfig['host'] ?? ''); ?>
+smtp_host (dipakai kirim): <?php echo htmlspecialchars($emailConfig['smtp_host'] ?? $emailConfig['host'] ?? ''); ?>
 user: <?php echo htmlspecialchars($emailConfig['user'] ?? ''); ?>
 smtp_port: <?php echo htmlspecialchars((string)($emailConfig['smtp_port'] ?? '')); ?>
 smtp_encryption: <?php echo htmlspecialchars($emailConfig['smtp_encryption'] ?? ''); ?>

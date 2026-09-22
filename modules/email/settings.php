@@ -29,6 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $encryption = ($_POST['encryption'] ?? 'ssl') === 'tls' ? 'tls' : 'ssl';
     $user = trim((string)($_POST['user'] ?? ''));
     $pass = (string)($_POST['pass'] ?? '');
+    $smtpHost = trim((string)($_POST['smtp_host'] ?? ''));
     $smtpPort = (int)($_POST['smtp_port'] ?? 465);
     $smtpEncryption = ($_POST['smtp_encryption'] ?? 'ssl') === 'tls' ? 'tls' : 'ssl';
 
@@ -43,6 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'encryption' => $encryption,
                 'user' => $user,
                 'pass' => $pass,
+                'smtp_host' => $smtpHost,
                 'smtp_port' => $smtpPort,
                 'smtp_encryption' => $smtpEncryption,
             ]);
@@ -61,6 +63,7 @@ $current = EmailHelper::resolveConfig($db) ?? [
     'encryption' => 'ssl',
     'user' => '',
     'pass' => '',
+    'smtp_host' => '',
     'smtp_port' => 465,
     'smtp_encryption' => 'ssl',
 ];
@@ -201,9 +204,15 @@ if ($__isSunseaVariant) {
             </div>
 
             <div class="es-field">
+                <label>Outgoing Server Host (SMTP, untuk kirim email)</label>
+                <input type="text" name="smtp_host" value="<?php echo htmlspecialchars($current['smtp_host'] ?? ''); ?>" placeholder="<?php echo htmlspecialchars($current['host']); ?>">
+                <div class="es-hint">Kosongkan kalau sama dengan Incoming Server (IMAP Host) di atas. Isi kalau beda, mis. provider <strong>Titan Mail</strong>: IMAP host <code>imap.titan.email</code>, tapi SMTP host <code>smtp.titan.email</code>.</div>
+            </div>
+
+            <div class="es-field">
                 <label>Outgoing Server Port (SMTP, untuk kirim email)</label>
                 <input type="number" name="smtp_port" value="<?php echo (int)($current['smtp_port'] ?? 465); ?>" required>
-                <div class="es-hint">465 untuk SSL, 587 untuk TLS/STARTTLS. Host SMTP sama dengan Incoming Server di atas.</div>
+                <div class="es-hint">465 untuk SSL, 587 untuk TLS/STARTTLS.</div>
             </div>
 
             <div class="es-field">
