@@ -135,7 +135,12 @@ if ($allowRememberTokenAutoLogin && !empty($_COOKIE['adf_remember_token']) && !$
                 require_once 'includes/business_helper.php';
                 require_once __DIR__ . '/includes/business_access.php';
 
-                if (in_array($roleCode, ['owner', 'admin', 'developer'])) {
+                // ?view=system forces the main staff dashboard even for owner/admin/developer roles
+                // (used by the public "Login Admin" link on the travel_bureau website).
+                if (($_GET['view'] ?? '') === 'system') {
+                    header('Location: ' . BASE_URL . '/index.php');
+                    exit;
+                } elseif (in_array($roleCode, ['owner', 'admin', 'developer'])) {
                     $ownerBizList = getUserAvailableBusinesses();
                     if (!empty($ownerBizList)) {
                         setActiveBusinessId(getPreferredDefaultBusiness($ownerBizList));
@@ -193,7 +198,11 @@ if (!empty($_COOKIE['adf_saved_user'])) {
 if ($auth->isLoggedIn() && !isPost()) {
     // If user role is owner/admin/developer, go to owner dashboard
     $currentRole = $_SESSION['role'] ?? '';
-    if (in_array($currentRole, ['owner', 'admin', 'developer'])) {
+    // ?view=system forces the main staff dashboard even for owner/admin/developer roles
+    // (used by the public "Login Admin" link on the travel_bureau website).
+    if (($_GET['view'] ?? '') === 'system') {
+        redirect(BASE_URL . '/index.php');
+    } elseif (in_array($currentRole, ['owner', 'admin', 'developer'])) {
         redirect(BASE_URL . '/modules/owner/dashboard-2028.php');
     } else {
         redirect(BASE_URL . '/index.php');
