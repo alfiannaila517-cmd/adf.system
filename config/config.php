@@ -268,13 +268,17 @@ if (php_sapi_name() !== 'cli') {
                 }
 
                 // ── Auto-redirect root requests to the business landing page ──
-                // Map: business slug → landing file at project root
+                // Map: business slug → landing file at project root, for businesses that
+                // need a dedicated custom landing page instead of the generic login.
                 $__landingMap = [
                     'pwf-furniture' => '/pwf-login.php',
-                    'sunsea'        => '/login.php?biz=sunsea',
                     // add more: 'cqc-construction' => '/cqc.php', etc.
                 ];
-                $__landing = $__landingMap[$__domainBiz['slug']] ?? null;
+                // Any business not listed above still gets routed to a login page scoped
+                // to its own slug (login.php already supports ?biz={slug} generically) -
+                // otherwise a brand-new addon-domain business (e.g. a new travel bureau
+                // customer) would silently get NO redirect at all until manually added here.
+                $__landing = $__landingMap[$__domainBiz['slug']] ?? ('/login.php?biz=' . $__domainBiz['slug']);
                 $__reqUri  = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
                 $__isRoot  = ($__reqUri === '/' || $__reqUri === '/index.php');
                 if ($__landing && $__isRoot) {

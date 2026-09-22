@@ -153,6 +153,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $dbName = 'adf_' . strtolower(preg_replace('/[^a-z0-9]/i', '_', $businessCode));
         $addonDomain = trim($_POST['addon_domain'] ?? '');
+        // Normalize: strip scheme/www and trailing slash so it matches the plain-host
+        // lookup config/config.php's addon-domain router does against $_SERVER['HTTP_HOST'].
+        if ($addonDomain !== '') {
+            $addonDomain = strtolower(preg_replace('#^https?://#', '', $addonDomain));
+            $addonDomain = preg_replace('/^www\./', '', $addonDomain);
+            $addonDomain = rtrim($addonDomain, '/');
+        }
 
         if (empty($businessCode) || empty($businessName) || $ownerId === 0) {
             $error = 'Please fill all required fields';
@@ -162,6 +169,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $check->execute([$businessCode, $dbName]);
                 if ($check->fetchColumn() > 0) {
                     $error = 'Business code or database already exists';
+                } elseif ($addonDomain !== '' && (function () use ($pdo, $addonDomain) {
+                    $domCheck = $pdo->prepare("SELECT COUNT(*) FROM businesses WHERE LOWER(REPLACE(addon_domain,'www.','')) = ?");
+                    $domCheck->execute([$addonDomain]);
+                    return (int)$domCheck->fetchColumn() > 0;
+                })()) {
+                    $error = 'Addon domain sudah dipakai bisnis lain';
                 } else {
                     // Resolve actual DB name for hosting
                     $actualDbName = $dbName;
@@ -305,6 +318,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         if ($statement !== '') {
                             $bizPdo->exec($statement);
                         }
+                    }
+
+                    // sunsea-setup.sql seeds company_name as the literal 'Sunsea' - overwrite
+                    // it with the actual business name entered above so a NEW travel bureau
+                    // business (e.g. a different customer) doesn't start branded as Sunsea.
+                    try {
+                        $bizPdo->prepare("UPDATE settings SET setting_value = ? WHERE setting_key = 'company_name'")
+                            ->execute([$businessName]);
+                    } catch (Exception $companyNameErr) {
+                        error_log('Sunsea company_name seed patch skipped: ' . $companyNameErr->getMessage());
                     }
 
                     // Compatibility patch: ensure global settings module can write user preferences
@@ -700,6 +723,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ownerId = (int)($_POST['owner_id'] ?? 0);
         $description = trim($_POST['description'] ?? '');
         $addonDomain = trim($_POST['addon_domain'] ?? '');
+        if ($addonDomain !== '') {
+            $addonDomain = strtolower(preg_replace('#^https?://#', '', $addonDomain));
+            $addonDomain = preg_replace('/^www\./', '', $addonDomain);
+            $addonDomain = rtrim($addonDomain, '/');
+        }
         $isActive = isset($_POST['is_active']) ? 1 : 0;
         $selectedMenus = $_POST['menus'] ?? [];
 
@@ -708,6 +736,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             try {
                 $updateId = (int)$_POST['business_id'];
+
+                if ($addonDomain !== '') {
+                    $domCheck = $pdo->prepare("SELECT COUNT(*) FROM businesses WHERE LOWER(REPLACE(addon_domain,'www.','')) = ? AND id != ?");
+                    $domCheck->execute([$addonDomain, $updateId]);
+                    if ((int)$domCheck->fetchColumn() > 0) {
+                        throw new Exception('Addon domain sudah dipakai bisnis lain');
+                    }
+                }
+
                 $stmt = $pdo->prepare("
                     UPDATE businesses SET business_code = ?, business_name = ?, business_type = ?, owner_id = ?, description = ?, addon_domain = ?, is_active = ?
                     WHERE id = ?
@@ -726,6 +763,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit;
             } catch (PDOException $e) {
                 $error = 'Database error: ' . $e->getMessage();
+            } catch (Exception $e) {
+                $error = $e->getMessage();
             }
         }
     }
