@@ -272,6 +272,7 @@ if (php_sapi_name() !== 'cli') {
                 // need a dedicated custom landing page instead of the generic login.
                 $__landingMap = [
                     'pwf-furniture' => '/pwf-login.php',
+                    'explore-karimunjawa-copy' => '/login.php?biz=explore-karimunjawa-copy',
                     // add more: 'cqc-construction' => '/cqc.php', etc.
                 ];
                 // Any business not listed above still gets routed to a login page scoped
