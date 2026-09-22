@@ -9,14 +9,6 @@ require_once '../../includes/EmailHelper.php';
 $auth = new Auth();
 $auth->requireLogin();
 
-$activeBizRaw = (string)($_SESSION['active_business_id'] ?? (defined('ACTIVE_BUSINESS_ID') ? ACTIVE_BUSINESS_ID : ''));
-$activeBizNorm = strtolower((string)preg_replace('/[^a-z0-9]/', '', $activeBizRaw));
-if ($activeBizNorm !== 'narayanahotel') {
-    http_response_code(403);
-    echo 'Menu Email Kantor hanya tersedia untuk bisnis Narayana.';
-    exit;
-}
-
 $isDeveloperRole = (($_SESSION['role'] ?? '') === 'developer');
 if (!$isDeveloperRole && !$auth->hasPermission('email')) {
     http_response_code(403);
@@ -142,7 +134,7 @@ include '../../includes/header.php';
 
             <div style="margin-top:16px;padding-top:14px;border-top:1px solid #eef2f7;display:flex;gap:10px;">
                 <a href="<?php echo BASE_URL; ?>/modules/email/compose.php?reply_uid=<?php echo (int)$uid; ?>&folder=<?php echo urlencode($folder); ?>"
-                   style="text-decoration:none;padding:8px 18px;background:#1e3a8a;color:#fff;border-radius:6px;font-size:0.85rem;font-weight:600;">&#8617; Balas</a>
+                    style="text-decoration:none;padding:8px 18px;background:#1e3a8a;color:#fff;border-radius:6px;font-size:0.85rem;font-weight:600;">&#8617; Balas</a>
                 <form method="post" onsubmit="return confirm('<?php echo $folder === 'INBOX.Trash' ? 'Hapus permanen email ini?' : 'Pindahkan email ini ke Sampah?'; ?>');" style="margin:0;">
                     <input type="hidden" name="action" value="delete">
                     <button type="submit" style="padding:8px 18px;background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:6px;font-size:0.85rem;font-weight:600;cursor:pointer;">&#128465; Hapus</button>

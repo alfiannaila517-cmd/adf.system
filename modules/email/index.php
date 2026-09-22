@@ -9,14 +9,6 @@ require_once '../../includes/EmailHelper.php';
 $auth = new Auth();
 $auth->requireLogin();
 
-$activeBizRaw = (string)($_SESSION['active_business_id'] ?? (defined('ACTIVE_BUSINESS_ID') ? ACTIVE_BUSINESS_ID : ''));
-$activeBizNorm = strtolower((string)preg_replace('/[^a-z0-9]/', '', $activeBizRaw));
-if ($activeBizNorm !== 'narayanahotel') {
-    http_response_code(403);
-    echo 'Menu Email Kantor hanya tersedia untuk bisnis Narayana.';
-    exit;
-}
-
 $isDeveloperRole = (($_SESSION['role'] ?? '') === 'developer');
 if (!$isDeveloperRole && !$auth->hasPermission('email')) {
     http_response_code(403);
@@ -52,8 +44,9 @@ function ensureEmailMenuRegistered(): void
         }
 
         if ($menuId > 0) {
+            $activeBizRaw = (string)($_SESSION['active_business_id'] ?? (defined('ACTIVE_BUSINESS_ID') ? ACTIVE_BUSINESS_ID : ''));
             $bizStmt = $masterPdo->prepare('SELECT id FROM businesses WHERE slug = ? OR LOWER(REPLACE(REPLACE(business_code, "-", ""), "_", "")) = ? LIMIT 1');
-            $bizStmt->execute(['narayana-hotel', 'narayanahotel']);
+            $bizStmt->execute([$activeBizRaw, strtolower((string)preg_replace('/[^a-z0-9]/', '', $activeBizRaw))]);
             $bid = (int)($bizStmt->fetchColumn() ?: 0);
             if ($bid > 0) {
                 $linkStmt = $masterPdo->prepare('INSERT IGNORE INTO business_menu_config (business_id, menu_id, is_enabled, created_at) VALUES (?, ?, 1, NOW())');

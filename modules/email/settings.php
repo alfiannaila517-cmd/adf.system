@@ -9,14 +9,6 @@ require_once '../../includes/EmailHelper.php';
 $auth = new Auth();
 $auth->requireLogin();
 
-$activeBizRaw = (string)($_SESSION['active_business_id'] ?? (defined('ACTIVE_BUSINESS_ID') ? ACTIVE_BUSINESS_ID : ''));
-$activeBizNorm = strtolower((string)preg_replace('/[^a-z0-9]/', '', $activeBizRaw));
-if ($activeBizNorm !== 'narayanahotel') {
-    http_response_code(403);
-    echo 'Menu Email Kantor hanya tersedia untuk bisnis Narayana.';
-    exit;
-}
-
 $isDeveloperRole = (($_SESSION['role'] ?? '') === 'developer');
 if (!$isDeveloperRole && !$auth->hasPermission('email')) {
     http_response_code(403);
@@ -64,10 +56,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $current = EmailHelper::resolveConfig($db) ?? [
-    'host' => 'mail.narayanakarimunjawa.com',
+    'host' => '',
     'port' => 993,
     'encryption' => 'ssl',
-    'user' => 'office@narayanakarimunjawa.com',
+    'user' => '',
     'pass' => '',
     'smtp_port' => 465,
     'smtp_encryption' => 'ssl',

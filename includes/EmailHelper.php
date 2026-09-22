@@ -182,6 +182,14 @@ class EmailHelper
             return $config;
         }
 
+        // File-based fallback (config/email-narayana.php) is only for the Narayana business's
+        // own mailbox - other businesses without saved DB settings must configure their own.
+        $activeBizRaw = (string)($_SESSION['active_business_id'] ?? (defined('ACTIVE_BUSINESS_ID') ? ACTIVE_BUSINESS_ID : ''));
+        $activeBizNorm = strtolower((string)preg_replace('/[^a-z0-9]/', '', $activeBizRaw));
+        if ($activeBizNorm !== 'narayanahotel') {
+            return null;
+        }
+
         $fileConfig = __DIR__ . '/../config/email-narayana.php';
         if (is_file($fileConfig)) {
             require_once $fileConfig;

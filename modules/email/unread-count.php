@@ -14,10 +14,8 @@ if (!$auth->isLoggedIn()) {
     exit;
 }
 
-$activeBizRaw = (string)($_SESSION['active_business_id'] ?? (defined('ACTIVE_BUSINESS_ID') ? ACTIVE_BUSINESS_ID : ''));
-$activeBizNorm = strtolower((string)preg_replace('/[^a-z0-9]/', '', $activeBizRaw));
 $isDeveloperRole = (($_SESSION['role'] ?? '') === 'developer');
-if ($activeBizNorm !== 'narayanahotel' || (!$isDeveloperRole && !$auth->hasPermission('email'))) {
+if (!$isDeveloperRole && !$auth->hasPermission('email')) {
     echo json_encode(['unread' => 0]);
     exit;
 }
