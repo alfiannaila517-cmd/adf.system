@@ -88,6 +88,11 @@ if (isset($pdo)) {
                         $visibleMenuKeys[] = $__newKey;
                     }
                 }
+                // 'settings' can never be hidden - it's the only way to fix the sidebar
+                // config itself, so unchecking it in Setup Sidebar would lock everyone out.
+                if (isset($sunseaNavItems['settings']) && !in_array('settings', $visibleMenuKeys, true)) {
+                    $visibleMenuKeys[] = 'settings';
+                }
             }
         }
     } catch (Exception $__e) { /* settings table may not exist yet */

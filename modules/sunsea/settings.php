@@ -819,8 +819,10 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
                     <?php foreach ($sidebarMenuOptions as $key => $label): ?>
                         <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid #d9e2ec;border-radius:6px;cursor:pointer;background:#fafcff;">
                             <input type="checkbox" name="sidebar_menu[]" value="<?php echo htmlspecialchars($key); ?>"
-                                <?php echo in_array($key, $visibleSidebarMenus, true) ? 'checked' : ''; ?>>
-                            <span style="font-size:13px;font-weight:600;color:#334155;"><?php echo htmlspecialchars($label); ?></span>
+                                <?php echo ($key === 'settings' || in_array($key, $visibleSidebarMenus, true)) ? 'checked' : ''; ?>
+                                <?php echo $key === 'settings' ? 'disabled' : ''; ?>>
+                            <?php if ($key === 'settings'): ?><input type="hidden" name="sidebar_menu[]" value="settings"><?php endif; ?>
+                            <span style="font-size:13px;font-weight:600;color:#334155;"><?php echo htmlspecialchars($label); ?><?php echo $key === 'settings' ? ' (wajib tampil)' : ''; ?></span>
                         </label>
                     <?php endforeach; ?>
                 </div>
