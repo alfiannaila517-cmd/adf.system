@@ -254,7 +254,7 @@ if (php_sapi_name() !== 'cli') {
                 [PDO::ATTR_ERRMODE => PDO::ERRMODE_SILENT, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
             );
             $__domainStmt = $__domainPdo->prepare(
-                "SELECT slug FROM businesses WHERE LOWER(REPLACE(addon_domain,'www.','')) = ? AND is_active = 1 LIMIT 1"
+                "SELECT slug, business_type FROM businesses WHERE LOWER(REPLACE(addon_domain,'www.','')) = ? AND is_active = 1 LIMIT 1"
             );
             $__domainStmt->execute([$incomingHost]);
             $__domainBiz = $__domainStmt->fetch();
@@ -272,22 +272,30 @@ if (php_sapi_name() !== 'cli') {
                 // need a dedicated custom landing page instead of the generic login.
                 $__landingMap = [
                     'pwf-furniture' => '/pwf-login.php',
-                    'explore-karimunjawa-copy' => '/login.php?biz=explore-karimunjawa-copy',
                     // add more: 'cqc-construction' => '/cqc.php', etc.
                 ];
-                // Any business not listed above still gets routed to a login page scoped
-                // to its own slug (login.php already supports ?biz={slug} generically) -
-                // otherwise a brand-new addon-domain business (e.g. a new travel bureau
-                // customer) would silently get NO redirect at all until manually added here.
-                $__landing = $__landingMap[$__domainBiz['slug']] ?? ('/login.php?biz=' . $__domainBiz['slug']);
-                $__reqUri  = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
-                $__isRoot  = ($__reqUri === '/' || $__reqUri === '/index.php');
-                if ($__landing && $__isRoot) {
+                // Any 'travel_bureau' business (Sunsea/Explore Karimunjawa clones) automatically
+                // shows the public marketing website at root "/" instead of the login screen - this
+                // way a NEW travel business + addon domain works out of the box, no code change here.
+                // NOTE: uses /travel-site/home.php (NOT the root home.php, which is the master
+                // domain's own landing page) to avoid clobbering adfsystem.online's homepage.
+                $__isTravelBureau = ($__domainBiz['business_type'] ?? '') === 'travel_bureau';
+                $__landing    = $__landingMap[$__domainBiz['slug']] ?? ('/login.php?biz=' . $__domainBiz['slug']);
+                $__publicHome = $__isTravelBureau ? '/travel-site/home.php' : null;
+                $__reqUri     = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+                $__isRoot     = ($__reqUri === '/' || $__reqUri === '/index.php');
+                if ($__isRoot) {
                     $__proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-                    header('Location: ' . $__proto . '://' . $_SERVER['HTTP_HOST'] . $__landing);
-                    exit;
+                    if ($__publicHome) {
+                        header('Location: ' . $__proto . '://' . $_SERVER['HTTP_HOST'] . $__publicHome);
+                        exit;
+                    }
+                    if ($__landing) {
+                        header('Location: ' . $__proto . '://' . $_SERVER['HTTP_HOST'] . $__landing);
+                        exit;
+                    }
                 }
-                unset($__landingMap, $__landing, $__reqUri, $__isRoot);
+                unset($__landingMap, $__isTravelBureau, $__landing, $__publicHome, $__reqUri, $__isRoot);
             }
             unset($__domainPdo, $__domainStmt, $__domainBiz);
         } catch (Exception $__e) {
