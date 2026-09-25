@@ -1,0 +1,285 @@
+{
+    "branding": {
+        "logo": "uploads/branding/29817bcd3af1b399.png"
+    },
+    "hero": {
+        "title": "Satu Sistem untuk Menjalankan Seluruh Bisnis Anda",
+        "subtitle": "ADF System adalah platform manajemen bisnis all-in-one untuk hotel, penginapan, biro perjalanan (travel/trip), kafe, dan multi-bisnis lainnya — mulai dari booking, invoice otomatis, keuangan, hingga website resmi bisnis Anda.",
+        "background": "uploads/hero/ce0746885db5e11e.jpg"
+    },
+    "contact": {
+        "email": "office@adfsystem.id",
+        "whatsapp": "08214400664",
+        "address": "Indonesia"
+    },
+    "modules": [
+        {
+            "icon": "🏨",
+            "color": "c-orange",
+            "title": "Manajemen Hotel & Penginapan",
+            "desc": "Pengelolaan kamar, reservasi multi-kamar, front desk, hingga laporan operasional harian dalam satu dashboard."
+        },
+        {
+            "icon": "🧳",
+            "color": "c-blue",
+            "title": "Manajemen Trip & Travel",
+            "desc": "Modul khusus biro perjalanan untuk paket wisata, jadwal keberangkatan, dan pemesanan trip."
+        },
+        {
+            "icon": "🌐",
+            "color": "c-teal",
+            "title": "Website Builder",
+            "desc": "Setiap bisnis mendapat website publik sendiri — halaman utama, booking, destinasi, kontak, hingga sitemap otomatis."
+        },
+        {
+            "icon": "📅",
+            "color": "c-purple",
+            "title": "Kalender Booking",
+            "desc": "Kalender reservasi terpusat sehingga jadwal kamar, kendaraan, atau layanan tidak pernah bentrok."
+        },
+        {
+            "icon": "🧾",
+            "color": "c-pink",
+            "title": "Invoice & Tagihan Otomatis",
+            "desc": "Invoice dibuat otomatis dari transaksi booking maupun langganan, lengkap dengan riwayat pembayaran."
+        },
+        {
+            "icon": "💰",
+            "color": "c-green",
+            "title": "Keuangan & Cashbook",
+            "desc": "Pencatatan kas masuk-keluar, buku besar, hingga laporan keuangan per divisi bisnis."
+        },
+        {
+            "icon": "👥",
+            "color": "c-blue",
+            "title": "Payroll Karyawan",
+            "desc": "Perhitungan gaji, slip gaji, dan rekap payroll karyawan secara berkala."
+        },
+        {
+            "icon": "📊",
+            "color": "c-orange",
+            "title": "Laporan & Analitik",
+            "desc": "Ringkasan performa bisnis, pendapatan, dan okupansi yang dapat diakses kapan saja oleh pemilik/owner."
+        },
+        {
+            "icon": "✉️",
+            "color": "c-teal",
+            "title": "Email Kantor Terintegrasi",
+            "desc": "Kirim & terima email bisnis langsung dari dalam sistem, tanpa perlu aplikasi email terpisah."
+        },
+        {
+            "icon": "🧳",
+            "color": "c-orange",
+            "title": "Custom System Developer",
+            "desc": "Melayani Pembuatan system custom sesuai kebutuhan dan mengikuti permintaan"
+        }
+    ],
+    "portfolio": [
+        {
+            "icon": "📋",
+            "color": "c-purple",
+            "tag": "Project Management",
+            "title": "CQC",
+            "desc": "Sistem manajemen proyek internal untuk perencanaan tugas, progres, dan koordinasi tim divisi.",
+            "link": "",
+            "image": ""
+        },
+        {
+            "icon": "🏨",
+            "color": "c-orange",
+            "tag": "Hotel & Resort",
+            "title": "Narayana Hotel",
+            "desc": "Sistem manajemen hotel & website resmi untuk Narayana Karimunjawa — booking, front desk, hingga laporan.",
+            "link": "https://narayanakarimunjawa.com",
+            "image": ""
+        },
+        {
+            "icon": "🛋️",
+            "color": "c-teal",
+            "tag": "Procurement",
+            "title": "PWF Furnitur",
+            "desc": "Sistem purchase order & procurement untuk kebutuhan pengadaan furnitur bisnis multi-divisi.",
+            "link": "https://www.pwfoffice.com/",
+            "image": "uploads/portfolio/77633c614a284c17.png"
+        },
+        {
+            "icon": "🏝️",
+            "color": "c-green",
+            "tag": "Travel & Trip",
+            "title": "Karimunjawa Explore",
+            "desc": "Website & sistem booking biro perjalanan wisata Karimunjawa — paket trip, jadwal, dan pemesanan online.",
+            "link": "https://www.karimunjawaexplore.com/home.php",
+            "image": "uploads/portfolio/fede02cd5a3696ff.png"
+        }
+    ],
+    "clients": [
+        {
+            "name": "Narayana Hotel Karimunjawa",
+            "link": "https://narayanakarimunjawa.com/",
+            "logo": "uploads/clients/7e4abddab2c8a246.png"
+        },
+        {
+            "name": "Explorekarimunjawa",
+            "link": "https://karimunjawaexplore.com/home.php",
+            "logo": "uploads/clients/fc70b8a113a17bff.jpg"
+        },
+        {
+            "name": "Eat & meet",
+            "link": "",
+            "logo": "uploads/clients/22bd75e468cde610.jpg"
+        },
+        {
+            "name": "Linewisatakarimunjawa",
+            "link": "https://linewisatakarimunjawa.com/travel-site/home.php",
+            "logo": "uploads/clients/b3c2a7363803b890.jpg"
+        },
+        {
+            "name": "Pwf.Furniture",
+            "link": "",
+            "logo": "uploads/clients/d0ddde4783bc7f84.png"
+        },
+        {
+            "name": "Pwf.Furniture",
+            "link": "",
+            "logo": "uploads/clients/a23178b658476ba8.png"
+        }
+    ],
+    "layanan": {
+        "hero": {
+            "title": "Layanan & Modul ADF System",
+            "subtitle": "Penjelasan lengkap setiap modul yang tersedia dalam platform ADF System."
+        },
+        "items": [
+            {
+                "icon": "🏨",
+                "color": "c-orange",
+                "title": "Manajemen Hotel & Penginapan",
+                "desc": "Reservasi kamar, front desk, check-in/check-out, multi-tipe kamar, hingga laporan okupansi harian/bulanan."
+            },
+            {
+                "icon": "🧳",
+                "color": "c-blue",
+                "title": "Manajemen Trip & Travel",
+                "desc": "Pengelolaan paket wisata, jadwal keberangkatan, kuota peserta, dan pemesanan trip untuk biro perjalanan."
+            },
+            {
+                "icon": "🌐",
+                "color": "c-teal",
+                "title": "Website Builder per Bisnis",
+                "desc": "Setiap bisnis mendapat website publik siap pakai: halaman utama, booking online, daftar destinasi/kamar, halaman kontak, dan sitemap — tanpa perlu coding."
+            },
+            {
+                "icon": "📅",
+                "color": "c-purple",
+                "title": "Kalender Booking Terpusat",
+                "desc": "Semua reservasi (kamar, trip, layanan) tercatat dalam satu kalender agar tidak terjadi bentrok jadwal."
+            },
+            {
+                "icon": "🧾",
+                "color": "c-pink",
+                "title": "Invoice & Tagihan Otomatis",
+                "desc": "Invoice otomatis terbentuk dari transaksi booking maupun tagihan langganan bulanan, lengkap dengan status pembayaran."
+            },
+            {
+                "icon": "💰",
+                "color": "c-green",
+                "title": "Keuangan, Kasbon & Cashbook",
+                "desc": "Pencatatan kas masuk/keluar, buku kas per divisi, rekonsiliasi, dan laporan keuangan ringkas."
+            },
+            {
+                "icon": "📦",
+                "color": "c-orange",
+                "title": "Gudang & Procurement",
+                "desc": "Pengelolaan stok barang, permintaan pembelian, dan penerimaan barang untuk kebutuhan operasional."
+            },
+            {
+                "icon": "👥",
+                "color": "c-blue",
+                "title": "Payroll Karyawan",
+                "desc": "Perhitungan gaji, komponen tunjangan/potongan, dan slip gaji karyawan secara berkala."
+            },
+            {
+                "icon": "📊",
+                "color": "c-teal",
+                "title": "Laporan & Dashboard Owner",
+                "desc": "Ringkasan performa bisnis real-time untuk pemilik: pendapatan, okupansi, dan aktivitas operasional."
+            },
+            {
+                "icon": "✉️",
+                "color": "c-purple",
+                "title": "Email Kantor Terintegrasi",
+                "desc": "Kirim dan terima email bisnis (IMAP/SMTP, termasuk dukungan Titan Mail & provider lain) langsung dari dashboard."
+            },
+            {
+                "icon": "🏢",
+                "color": "c-pink",
+                "title": "Multi-Bisnis & Multi-Divisi",
+                "desc": "Satu akun dapat mengelola beberapa unit usaha atau cabang sekaligus dengan data yang terpisah aman."
+            },
+            {
+                "icon": "🛠️",
+                "color": "c-green",
+                "title": "Custom Development",
+                "desc": "Butuh modul khusus di luar fitur standar? Tim kami menyediakan jasa pengembangan sistem sesuai kebutuhan bisnis Anda."
+            }
+        ]
+    },
+    "products": [
+        {
+            "title": "Starter",
+            "tagline": "Untuk hotel/kafe/usaha tunggal skala kecil",
+            "price": 250000,
+            "featured": false,
+            "features": [
+                "1 bisnis / 1 lokasi",
+                "Manajemen booking & kamar/produk",
+                "Invoice otomatis",
+                "Kasbon & cashbook dasar",
+                "1 website builder bisnis",
+                "Dukungan email"
+            ],
+            "notes": [
+                "Channel manager OTA (Traveloka/Agoda/dll.) belum tersedia"
+            ]
+        },
+        {
+            "title": "Professional",
+            "tagline": "Untuk travel bureau & bisnis multi-divisi",
+            "price": 650000,
+            "featured": true,
+            "features": [
+                "Hingga 3 bisnis / divisi",
+                "Modul Trip & Travel (Sunsea)",
+                "Kalender booking terpusat",
+                "Payroll karyawan",
+                "Laporan keuangan lengkap",
+                "Email Kantor (IMAP/SMTP, Titan Mail, dll.)",
+                "Website builder untuk tiap bisnis",
+                "Dukungan prioritas"
+            ],
+            "notes": []
+        },
+        {
+            "title": "Enterprise / Custom",
+            "tagline": "Untuk grup usaha besar & kebutuhan khusus",
+            "price": 0,
+            "featured": false,
+            "features": [
+                "Bisnis / divisi tidak terbatas",
+                "Modul & laporan kustom",
+                "Integrasi sistem pihak ketiga",
+                "Pengembangan fitur khusus (custom development)",
+                "Onboarding & pelatihan tim",
+                "Dukungan dedicated"
+            ],
+            "notes": []
+        }
+    ],
+    "payment": {
+        "provider": "pakasir",
+        "project_slug": "",
+        "api_key": "",
+        "webhook_secret": "",
+        "sandbox": true
+    }
+}
