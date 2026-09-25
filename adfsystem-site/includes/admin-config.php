@@ -5,4 +5,4 @@
  */
 
 define('ADMIN_USERNAME', 'admin');
-define('ADMIN_PASSWORD_HASH', '$2y$10$DPZnSCZAPPvsGv2wEmF1uuGNnfWDm9Gphc0bypVY9Lsl/0v1Delmy');
+define('ADMIN_PASSWORD_HASH', '$2y$10$OIjepiL3Vidlisp1o44vdOn48aXANW2ZIwNZ1JKb24F7UXlb/Qdcu');
