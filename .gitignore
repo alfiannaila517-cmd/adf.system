@@ -10,6 +10,16 @@
 # =============================================
 *.log
 error.log
+error_log
+
+# Session files (dynamically generated, must never be committed)
+tmp_sessions/*
+!tmp_sessions/.gitkeep
+
+# Separate addon-domain folder for another business (Line Wisata Karimunjawa),
+# unrelated to this repo's own deploy targets — not tracked here.
+ww.linewisatakarimunjawa.com/
+www.linewisatakarimunjawa.com/
 
 # =============================================
 # Dependencies & Virtual Environments
