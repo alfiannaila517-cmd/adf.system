@@ -6,6 +6,17 @@
 require_once __DIR__ . '/content-store.php';
 $adminPageTitle = $adminPageTitle ?? 'Dashboard';
 $adminLogo = adf_load_content()['branding']['logo'] ?? '';
+$adminCurrentScript = basename($_SERVER['SCRIPT_NAME']);
+
+// Renders a sidebar nav link, marking it active when it matches the current page.
+function adf_admin_nav(string $href, string $label, string $icon = ''): void
+{
+    global $adminCurrentScript;
+    $active = $adminCurrentScript === $href;
+    echo '<a href="' . htmlspecialchars($href) . '" class="admin-nav-link' . ($active ? ' active' : '') . '">'
+        . ($icon !== '' ? '<span class="admin-nav-icon">' . $icon . '</span>' : '')
+        . htmlspecialchars($label) . '</a>';
+}
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -18,9 +29,10 @@ $adminLogo = adf_load_content()['branding']['logo'] ?? '';
 <link rel="stylesheet" href="../assets/css/admin.css?v=<?php echo @filemtime(__DIR__ . '/../assets/css/admin.css') ?: '1'; ?>">
 </head>
 <body class="admin-body">
-<header class="admin-header">
-    <div class="admin-header-inner">
-        <a href="index.php" class="brand brand-logo"><?php if (!empty($adminLogo)): ?><img src="../<?php echo htmlspecialchars($adminLogo); ?>" alt="Logo" class="brand-icon brand-icon-img"><?php else: ?><svg class="brand-icon" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+<div class="admin-shell">
+    <input type="checkbox" id="adminSidebarToggle" class="admin-sidebar-toggle-input">
+    <aside class="admin-sidebar">
+        <a href="index.php" class="brand brand-logo admin-sidebar-brand"><?php if (!empty($adminLogo)): ?><img src="../<?php echo htmlspecialchars($adminLogo); ?>" alt="Logo" class="brand-icon brand-icon-img"><?php else: ?><svg class="brand-icon" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                 <rect x="1" y="1" width="38" height="38" rx="10" fill="url(#adfGradAdmin)" />
                 <text x="20" y="27" text-anchor="middle" font-family="Poppins, sans-serif" font-weight="800" font-size="18" fill="#fff">AF</text>
                 <defs>
@@ -30,22 +42,43 @@ $adminLogo = adf_load_content()['branding']['logo'] ?? '';
                     </linearGradient>
                 </defs>
             </svg><?php endif; ?><span class="brand-wordmark"><span class="brand-text">Ad<span class="brand-accent">F</span></span><span class="brand-suffix">system</span></span> <small>Admin</small></a>
-        <nav class="admin-nav">
-            <a href="index.php">Dashboard</a>
-            <a href="edit-logo.php">Logo</a>
-            <a href="edit-hero.php">Hero</a>
-            <a href="edit-modules.php">Modul</a>
-            <a href="edit-layanan.php">Layanan</a>
-            <a href="edit-products.php">Harga</a>
-            <a href="edit-portfolio.php">Portofolio</a>
-            <a href="edit-clients.php">Klien</a>
-            <a href="edit-payment.php">Pembayaran</a>
-            <a href="orders.php">Pesanan</a>
-            <a href="edit-contact.php">Kontak</a>
-            <a href="change-password.php">Ubah Password</a>
-            <a href="../index.php" target="_blank" rel="noopener">Lihat Website &rarr;</a>
-            <a href="logout.php" class="admin-logout">Keluar</a>
+
+        <nav class="admin-sidebar-nav">
+            <div class="admin-nav-group">
+                <?php adf_admin_nav('index.php', 'Dashboard', '📊'); ?>
+            </div>
+            <div class="admin-nav-group">
+                <div class="admin-nav-group-title">Konten Website</div>
+                <?php adf_admin_nav('edit-logo.php', 'Logo', '🎨'); ?>
+                <?php adf_admin_nav('edit-hero.php', 'Hero', '🏠'); ?>
+                <?php adf_admin_nav('edit-modules.php', 'Modul', '🧩'); ?>
+                <?php adf_admin_nav('edit-layanan.php', 'Layanan', '🛠️'); ?>
+                <?php adf_admin_nav('edit-products.php', 'Harga', '💳'); ?>
+                <?php adf_admin_nav('edit-portfolio.php', 'Portofolio', '🗂️'); ?>
+                <?php adf_admin_nav('edit-clients.php', 'Klien', '🏢'); ?>
+                <?php adf_admin_nav('edit-contact.php', 'Kontak', '✉️'); ?>
+            </div>
+            <div class="admin-nav-group">
+                <div class="admin-nav-group-title">Transaksi</div>
+                <?php adf_admin_nav('orders.php', 'Pesanan', '🧾'); ?>
+                <?php adf_admin_nav('edit-payment.php', 'Pembayaran', '💰'); ?>
+            </div>
+            <div class="admin-nav-group">
+                <div class="admin-nav-group-title">Pelanggan</div>
+                <?php adf_admin_nav('customers.php', 'Pelanggan', '👥'); ?>
+            </div>
         </nav>
-    </div>
-</header>
-<main class="admin-main">
+
+        <div class="admin-sidebar-footer">
+            <?php adf_admin_nav('change-password.php', 'Ubah Password', '🔒'); ?>
+            <a href="../index.php" target="_blank" rel="noopener" class="admin-nav-link">Lihat Website &rarr;</a>
+            <a href="logout.php" class="admin-nav-link admin-logout">Keluar</a>
+        </div>
+    </aside>
+    <label for="adminSidebarToggle" class="admin-sidebar-backdrop"></label>
+    <div class="admin-content-wrap">
+        <header class="admin-topbar">
+            <label for="adminSidebarToggle" class="admin-sidebar-toggle" aria-label="Menu">☰</label>
+            <h2 class="admin-topbar-title"><?php echo htmlspecialchars($adminPageTitle); ?></h2>
+        </header>
+        <main class="admin-main">

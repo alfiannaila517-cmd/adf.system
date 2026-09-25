@@ -55,6 +55,11 @@ require __DIR__ . '/../includes/admin-header.php';
             <h3>Pesanan Langganan</h3>
             <p>Lihat daftar pesanan/langganan dari pelanggan beserta status pembayarannya.</p>
         </a>
+        <a class="admin-panel-card" href="customers.php">
+            <div class="icon-badge c-green">👥</div>
+            <h3>Pelanggan</h3>
+            <p>Lihat daftar pelanggan dan riwayat transaksinya.</p>
+        </a>
         <a class="admin-panel-card" href="edit-contact.php">
             <div class="icon-badge c-green">✉️</div>
             <h3>Info Kontak</h3>
