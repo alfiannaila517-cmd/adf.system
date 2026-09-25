@@ -45,6 +45,12 @@ Thumbs.db
 uploads/
 !uploads/.gitkeep
 
+# adfsystem-site (addon domain adfsystem.store subsite) manages its own
+# uploads/ exclusions via adfsystem-site/.gitignore — un-ignore the parent
+# folder here so git can traverse into it, the nested .gitignore takes it
+# from there.
+!adfsystem-site/uploads/
+
 # =============================================
 # Database dumps
 # =============================================

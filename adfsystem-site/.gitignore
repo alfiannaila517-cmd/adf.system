@@ -1,0 +1,35 @@
+# =============================================
+# OS / IDE / Editor
+# =============================================
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# =============================================
+# Runtime data — jangan di-deploy timpa isi produksi
+# (content.json/orders.json di server berisi pengaturan & pesanan asli)
+# =============================================
+data/content.json
+data/orders.json
+
+# =============================================
+# Uploaded images (user-generated, jangan ikut dipush)
+# =============================================
+uploads/branding/*
+uploads/hero/*
+uploads/portfolio/*
+uploads/clients/*
+!uploads/branding/.gitkeep
+!uploads/hero/.gitkeep
+!uploads/portfolio/.gitkeep
+!uploads/clients/.gitkeep
+
+# =============================================
+# Archives
+# =============================================
+*.zip
+*.tar.gz

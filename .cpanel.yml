@@ -67,3 +67,18 @@ deployment:
     - /bin/cp -f $(pwd)/website/public/includes/*.php $ALTWEBPATH/includes/ 2>/dev/null || true
     - /bin/cp -f $(pwd)/website/public/assets/css/style.css $ALTWEBPATH/assets/css/style.css 2>/dev/null || true
     - /bin/cp -f $(pwd)/website/public/api/*.php $ALTWEBPATH/api/ 2>/dev/null || true
+
+    # =============================================
+    # adfsystem-site -> addon domain adfsystem.store
+    # TODO: confirm the REAL document root for this addon domain in cPanel
+    # (Domains page) — this assumes the common convention seen above for
+    # narayanakarimunjawa.com. Adjust ADFSITEPATH below if it differs.
+    # =============================================
+    - export ADFSITEPATH=/home/adfb2574/public_html/adfsystem.store
+    - export ADFSITEALTPATH=/home/adfb2574/adfsystem.store
+    - /bin/mkdir -p $ADFSITEPATH
+    - /bin/mkdir -p $ADFSITEALTPATH 2>/dev/null || true
+    - /bin/cp -R $(pwd)/adfsystem-site/* $ADFSITEPATH/ 2>/dev/null || true
+    - /bin/cp -R $(pwd)/adfsystem-site/.htaccess $ADFSITEPATH/ 2>/dev/null || true
+    - /bin/cp -R $(pwd)/adfsystem-site/* $ADFSITEALTPATH/ 2>/dev/null || true
+    - /bin/cp -R $(pwd)/adfsystem-site/.htaccess $ADFSITEALTPATH/ 2>/dev/null || true
