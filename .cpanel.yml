@@ -5,6 +5,18 @@ deployment:
     - /bin/mkdir -p $DEPLOYPATH
     - /bin/cp -R $(pwd)/* $DEPLOYPATH/
     - /bin/cp -R $(pwd)/.[^.]* $DEPLOYPATH/ 2>/dev/null || true
+
+    # =============================================
+    # adfsystem-site -> addon domain adfsystem.store
+    # Placed early (before the more fragile narayanakarimunjawa.com tasks
+    # below, some of which lack error fallbacks and can abort the whole
+    # deployment early) so this always runs regardless of later failures.
+    # =============================================
+    - export ADFSITEPATH=/home/adfb2574/public_html/adfsystem.store
+    - /bin/mkdir -p $ADFSITEPATH
+    - /bin/cp -R $(pwd)/adfsystem-site/* $ADFSITEPATH/ 2>/dev/null || true
+    - /bin/cp -R $(pwd)/adfsystem-site/.htaccess $ADFSITEPATH/ 2>/dev/null || true
+
     - export WEBPATH=/home/adfb2574/public_html/narayanakarimunjawa.com
     - /bin/mkdir -p $WEBPATH
     - /bin/cp -f $(pwd)/website/public/index.php $WEBPATH/index.php 2>/dev/null || true
@@ -67,18 +79,3 @@ deployment:
     - /bin/cp -f $(pwd)/website/public/includes/*.php $ALTWEBPATH/includes/ 2>/dev/null || true
     - /bin/cp -f $(pwd)/website/public/assets/css/style.css $ALTWEBPATH/assets/css/style.css 2>/dev/null || true
     - /bin/cp -f $(pwd)/website/public/api/*.php $ALTWEBPATH/api/ 2>/dev/null || true
-
-    # =============================================
-    # adfsystem-site -> addon domain adfsystem.store
-    # TODO: confirm the REAL document root for this addon domain in cPanel
-    # (Domains page) — this assumes the common convention seen above for
-    # narayanakarimunjawa.com. Adjust ADFSITEPATH below if it differs.
-    # =============================================
-    - export ADFSITEPATH=/home/adfb2574/public_html/adfsystem.store
-    - export ADFSITEALTPATH=/home/adfb2574/adfsystem.store
-    - /bin/mkdir -p $ADFSITEPATH
-    - /bin/mkdir -p $ADFSITEALTPATH 2>/dev/null || true
-    - /bin/cp -R $(pwd)/adfsystem-site/* $ADFSITEPATH/ 2>/dev/null || true
-    - /bin/cp -R $(pwd)/adfsystem-site/.htaccess $ADFSITEPATH/ 2>/dev/null || true
-    - /bin/cp -R $(pwd)/adfsystem-site/* $ADFSITEALTPATH/ 2>/dev/null || true
-    - /bin/cp -R $(pwd)/adfsystem-site/.htaccess $ADFSITEALTPATH/ 2>/dev/null || true
