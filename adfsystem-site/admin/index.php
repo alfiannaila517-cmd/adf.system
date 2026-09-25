@@ -60,6 +60,11 @@ require __DIR__ . '/../includes/admin-header.php';
             <h3>Info Kontak</h3>
             <p>Ubah email, nomor WhatsApp, dan alamat yang tampil di halaman Kontak.</p>
         </a>
+        <a class="admin-panel-card" href="change-password.php">
+            <div class="icon-badge c-blue">🔒</div>
+            <h3>Ubah Password</h3>
+            <p>Ganti password login panel admin website ini.</p>
+        </a>
     </div>
 </div>
 <?php require __DIR__ . '/../includes/admin-footer.php'; ?>

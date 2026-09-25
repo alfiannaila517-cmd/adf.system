@@ -42,6 +42,7 @@ $adminLogo = adf_load_content()['branding']['logo'] ?? '';
             <a href="edit-payment.php">Pembayaran</a>
             <a href="orders.php">Pesanan</a>
             <a href="edit-contact.php">Kontak</a>
+            <a href="change-password.php">Ubah Password</a>
             <a href="../index.php" target="_blank" rel="noopener">Lihat Website &rarr;</a>
             <a href="logout.php" class="admin-logout">Keluar</a>
         </nav>
