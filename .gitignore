@@ -21,6 +21,14 @@ tmp_sessions/*
 ww.linewisatakarimunjawa.com/
 www.linewisatakarimunjawa.com/
 
+# Deploy TARGET folder for the adfsystem.store addon domain (populated by
+# .cpanel.yml's cp -R task) — this is a destination, not source-controlled
+# content, so it must not be tracked as a subfolder of the repo itself.
+/adfsystem.store/
+
+# One-off test artifact from "Copy Business" feature, created on server
+config/businesses/explore-karimunjawa-copy.php
+
 # =============================================
 # Dependencies & Virtual Environments
 # =============================================
