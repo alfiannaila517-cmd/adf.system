@@ -17,6 +17,7 @@ data/content.json
 data/orders.json
 data/password-reset.json
 data/users.json
+data/subscription-clients.json
 includes/mail-config.php
 
 # =============================================
