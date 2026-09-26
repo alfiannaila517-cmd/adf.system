@@ -63,7 +63,26 @@ if (!empty($_GET['edit'])) {
 $adminPageTitle = 'Klien Langganan';
 require __DIR__ . '/../includes/admin-header.php';
 ?>
-<div class="container admin-container admin-container-wide">
+<style>
+.subscription-clients-page .admin-lead,
+.subscription-clients-page .admin-subheading,
+.subscription-clients-page .admin-form label,
+.subscription-clients-page .admin-form input,
+.subscription-clients-page .admin-form select,
+.subscription-clients-page .payment-table,
+.subscription-clients-page .payment-table th,
+.subscription-clients-page .payment-table td,
+.subscription-clients-page .btn {
+    font-size: 9px !important;
+}
+.subscription-clients-page .admin-form input {
+    padding: 5px 7px;
+}
+.subscription-clients-page .admin-form label {
+    margin-bottom: 8px;
+}
+</style>
+<div class="container admin-container admin-container-wide subscription-clients-page">
     <h1>Klien Langganan</h1>
     <p class="admin-lead">
         Kelola biaya bulanan klien yang berlangganan ke ADF System (mis. Karimunjawa Explore).
@@ -95,7 +114,7 @@ require __DIR__ . '/../includes/admin-header.php';
             <input type="text" name="per_guest_fee" value="<?php echo htmlspecialchars((string) ($editClient['per_guest_fee'] ?? 5000)); ?>">
         </label>
         <label>Mulai Langganan (menentukan tanggal jatuh tempo setiap bulan)
-            <input type="date" name="subscription_start_date" value="<?php echo htmlspecialchars($editClient['subscription_start_date'] ?? date('Y-m-d')); ?>">
+            <input type="date" name="subscription_start_date" value="<?php echo htmlspecialchars($editClient['subscription_start_date'] ?? ($editClient ? '' : date('Y-m-d'))); ?>">
         </label>
         <label>Slug Proyek Pakasir (penerima pembayaran)
             <input type="text" name="pakasir_slug" value="<?php echo htmlspecialchars($editClient['pakasir_slug'] ?? ''); ?>">
