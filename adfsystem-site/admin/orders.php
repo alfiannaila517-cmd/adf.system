@@ -23,14 +23,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'refre
     }
 }
 
-$orders = array_reverse(adf_orders_load());
+$allOrders = adf_orders_load();
+$completedOrders = array_filter($allOrders, static function (array $order): bool {
+    return strtolower((string) ($order['status'] ?? '')) === 'completed';
+});
+$completedTotal = array_sum(array_map(static function (array $order): int {
+    return (int) ($order['amount'] ?? 0);
+}, $completedOrders));
+$pendingTotal = array_sum(array_map(static function (array $order): int {
+    return (int) ($order['amount'] ?? 0);
+}, array_filter($allOrders, static function (array $order): bool {
+    return strtolower((string) ($order['status'] ?? '')) === 'pending';
+})));
+$orders = array_reverse($allOrders);
 $csrf = adf_admin_csrf_token();
-$adminPageTitle = 'Pesanan Langganan';
+$adminPageTitle = 'Transaksi Pembayaran';
 require __DIR__ . '/../includes/admin-header.php';
 ?>
 <div class="container admin-container">
-    <h1>Pesanan Langganan</h1>
-    <p class="admin-lead">Daftar pesanan/langganan yang dibuat pelanggan melalui halaman Harga. Status diperbarui otomatis lewat webhook Pakasir, atau bisa dicek manual dengan tombol "Cek Status".</p>
+    <h1>Transaksi Pembayaran</h1>
+    <p class="admin-lead">Pantau pembayaran langganan dari Pakasir. Status <strong>completed</strong> berarti pembayaran sudah berhasil diterima.</p>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin:24px 0;">
+        <div class="admin-card" style="padding:18px;">
+            <div style="color:var(--text-muted);font-size:.85rem;">Uang Terkumpul</div>
+            <strong style="display:block;font-size:1.5rem;margin-top:6px;color:#22c55e;">Rp <?php echo number_format($completedTotal, 0, ',', '.'); ?></strong>
+            <small><?php echo count($completedOrders); ?> transaksi selesai</small>
+        </div>
+        <div class="admin-card" style="padding:18px;">
+            <div style="color:var(--text-muted);font-size:.85rem;">Menunggu Pembayaran</div>
+            <strong style="display:block;font-size:1.5rem;margin-top:6px;">Rp <?php echo number_format($pendingTotal, 0, ',', '.'); ?></strong>
+            <small>Belum berstatus completed</small>
+        </div>
+        <div class="admin-card" style="padding:18px;">
+            <div style="color:var(--text-muted);font-size:.85rem;">Total Pesanan</div>
+            <strong style="display:block;font-size:1.5rem;margin-top:6px;"><?php echo count($allOrders); ?></strong>
+            <small>Data calon pelanggan tersimpan</small>
+        </div>
+    </div>
 
     <?php if ($message): ?>
         <div class="admin-alert admin-alert-success"><?php echo $message; ?></div>
@@ -48,7 +78,7 @@ require __DIR__ . '/../includes/admin-header.php';
                     <th>WhatsApp</th>
                     <th>Jumlah</th>
                     <th>Status</th>
-                    <th>Dibuat</th>
+                    <th>Dibayar</th>
                     <th></th>
                 </tr>
             </thead>
@@ -61,7 +91,7 @@ require __DIR__ . '/../includes/admin-header.php';
                     <td><?php echo htmlspecialchars($order['whatsapp']); ?></td>
                     <td>Rp <?php echo number_format((int) $order['amount'], 0, ',', '.'); ?></td>
                     <td><?php echo htmlspecialchars($order['status']); ?></td>
-                    <td><?php echo htmlspecialchars($order['created_at']); ?></td>
+                    <td><?php echo htmlspecialchars($order['completed_at'] ?: '-'); ?></td>
                     <td>
                         <form method="post" style="display:inline;">
                             <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">

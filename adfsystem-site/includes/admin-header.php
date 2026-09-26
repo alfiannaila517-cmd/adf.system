@@ -61,9 +61,9 @@ function adf_admin_nav(string $href, string $label, string $icon = ''): void
             </div>
             <div class="admin-nav-group">
                 <div class="admin-nav-group-title">Transaksi</div>
-                <?php adf_admin_nav('orders.php', 'Pesanan', '🧾'); ?>
+                <?php adf_admin_nav('orders.php', 'Transaksi Masuk', '🧾'); ?>
                 <?php if ($adminRole === 'admin'): ?>
-                <?php adf_admin_nav('edit-payment.php', 'Pembayaran', '💰'); ?>
+                <?php adf_admin_nav('edit-payment.php', 'Pengaturan Gateway', '💰'); ?>
                 <?php endif; ?>
             </div>
             <div class="admin-nav-group">
