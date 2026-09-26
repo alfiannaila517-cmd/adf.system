@@ -24,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $body = "Ada permintaan reset password untuk akun admin ADF System ({$user['username']}).\n\n"
                 . "Klik link berikut untuk membuat password baru (berlaku 30 menit):\n{$resetUrl}\n\n"
                 . "Jika Anda tidak meminta ini, abaikan email ini.\n";
-            $headers = "From: no-reply@adfsystem.id\r\nContent-Type: text/plain; charset=UTF-8\r\n";
+            $headers = "From: no-reply@adfsystem.store\r\nContent-Type: text/plain; charset=UTF-8\r\n";
             @mail($user['email'], $subject, $body, $headers);
         }
         // Always show the same message, whether or not the email matched (avoid leaking registered emails).
