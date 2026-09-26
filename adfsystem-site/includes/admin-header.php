@@ -48,16 +48,24 @@ function adf_admin_nav(string $href, string $label, string $icon = ''): void
             <div class="admin-nav-group">
                 <?php adf_admin_nav('index.php', 'Dashboard', '📊'); ?>
             </div>
+            <?php
+            $websiteContentPages = ['edit-logo.php', 'edit-hero.php', 'edit-modules.php', 'edit-layanan.php', 'edit-products.php', 'edit-portfolio.php', 'edit-clients.php', 'edit-contact.php'];
+            $isWebsiteContentActive = in_array($adminCurrentScript, $websiteContentPages, true);
+            ?>
             <div class="admin-nav-group">
-                <div class="admin-nav-group-title">Konten Website</div>
-                <?php adf_admin_nav('edit-logo.php', 'Logo', '🎨'); ?>
-                <?php adf_admin_nav('edit-hero.php', 'Hero', '🏠'); ?>
-                <?php adf_admin_nav('edit-modules.php', 'Modul', '🧩'); ?>
-                <?php adf_admin_nav('edit-layanan.php', 'Layanan', '🛠️'); ?>
-                <?php adf_admin_nav('edit-products.php', 'Harga', '💳'); ?>
-                <?php adf_admin_nav('edit-portfolio.php', 'Portofolio', '🗂️'); ?>
-                <?php adf_admin_nav('edit-clients.php', 'Klien', '🏢'); ?>
-                <?php adf_admin_nav('edit-contact.php', 'Kontak', '✉️'); ?>
+                <details class="admin-nav-dropdown"<?php echo $isWebsiteContentActive ? ' open' : ''; ?>>
+                    <summary class="admin-nav-group-title admin-nav-dropdown-summary">Konten Website</summary>
+                    <div class="admin-nav-dropdown-body">
+                        <?php adf_admin_nav('edit-logo.php', 'Logo', '🎨'); ?>
+                        <?php adf_admin_nav('edit-hero.php', 'Hero', '🏠'); ?>
+                        <?php adf_admin_nav('edit-modules.php', 'Modul', '🧩'); ?>
+                        <?php adf_admin_nav('edit-layanan.php', 'Layanan', '🛠️'); ?>
+                        <?php adf_admin_nav('edit-products.php', 'Harga', '💳'); ?>
+                        <?php adf_admin_nav('edit-portfolio.php', 'Portofolio', '🗂️'); ?>
+                        <?php adf_admin_nav('edit-clients.php', 'Klien', '🏢'); ?>
+                        <?php adf_admin_nav('edit-contact.php', 'Kontak', '✉️'); ?>
+                    </div>
+                </details>
             </div>
             <div class="admin-nav-group">
                 <div class="admin-nav-group-title">Transaksi</div>

@@ -91,6 +91,28 @@
   color: var(--primary);
   font-weight: 600;
 }
+.admin-nav-dropdown summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.admin-nav-dropdown summary::-webkit-details-marker {
+  display: none;
+}
+.admin-nav-dropdown summary::after {
+  content: '▸';
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  transition: transform 0.15s ease;
+}
+.admin-nav-dropdown[open] summary::after {
+  transform: rotate(90deg);
+}
+.admin-nav-dropdown-body {
+  margin-top: 4px;
+}
 .admin-sidebar-footer {
   padding: 12px 10px 18px;
   border-top: 1px solid var(--card-border);

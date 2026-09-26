@@ -53,6 +53,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $clients = adf_subscription_clients_load();
 $csrf = adf_admin_csrf_token();
 
+$editClient = null;
+if (!empty($_GET['edit'])) {
+    $editClient = adf_subscription_client_find((string) $_GET['edit']);
+}
+
 $adminPageTitle = 'Klien Langganan';
 require __DIR__ . '/../includes/admin-header.php';
 ?>
@@ -71,35 +76,38 @@ require __DIR__ . '/../includes/admin-header.php';
         <div class="admin-alert admin-alert-success">Data klien tersimpan.</div>
     <?php endif; ?>
 
-    <h2 class="admin-subheading">Tambah / Edit Klien</h2>
+    <h2 class="admin-subheading"><?php echo $editClient ? 'Edit Klien: ' . htmlspecialchars($editClient['client_name'] ?? '') : 'Tambah Klien'; ?></h2>
     <form method="post" class="admin-form">
         <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
-        <input type="hidden" name="existing_token" value="">
+        <input type="hidden" name="existing_token" value="<?php echo htmlspecialchars($editClient['client_token'] ?? ''); ?>">
         <label>Client Key (slug unik, mis. <code>karimunjawa-explore</code>)
-            <input type="text" name="client_key" required placeholder="karimunjawa-explore">
+            <input type="text" name="client_key" required placeholder="karimunjawa-explore" value="<?php echo htmlspecialchars($editClient['client_key'] ?? ''); ?>"<?php echo $editClient ? ' readonly' : ''; ?>>
         </label>
         <label>Nama Klien
-            <input type="text" name="client_name" required placeholder="Karimunjawa Explore">
+            <input type="text" name="client_name" required placeholder="Karimunjawa Explore" value="<?php echo htmlspecialchars($editClient['client_name'] ?? ''); ?>">
         </label>
         <label>Biaya Dasar / Bulan (Rp)
-            <input type="text" name="base_fee" value="150000">
+            <input type="text" name="base_fee" value="<?php echo htmlspecialchars((string) ($editClient['base_fee'] ?? 150000)); ?>">
         </label>
         <label>Biaya per Tamu Confirmed (Rp)
-            <input type="text" name="per_guest_fee" value="5000">
+            <input type="text" name="per_guest_fee" value="<?php echo htmlspecialchars((string) ($editClient['per_guest_fee'] ?? 5000)); ?>">
         </label>
         <label>Slug Proyek Pakasir (penerima pembayaran)
-            <input type="text" name="pakasir_slug">
+            <input type="text" name="pakasir_slug" value="<?php echo htmlspecialchars($editClient['pakasir_slug'] ?? ''); ?>">
         </label>
         <label>API Key Pakasir
-            <input type="text" name="pakasir_api_key">
+            <input type="text" name="pakasir_api_key" value="<?php echo htmlspecialchars($editClient['pakasir_api_key'] ?? ''); ?>">
         </label>
         <label>Webhook Secret Pakasir
-            <input type="text" name="pakasir_webhook_secret">
+            <input type="text" name="pakasir_webhook_secret" value="<?php echo htmlspecialchars($editClient['pakasir_webhook_secret'] ?? ''); ?>">
         </label>
         <label style="display:flex;align-items:center;gap:6px;flex-direction:row;">
             <input type="checkbox" name="regenerate_token" value="1" style="width:auto;"> Buat ulang Client Token
         </label>
-        <button type="submit" class="btn btn-primary">Simpan Klien</button>
+        <button type="submit" class="btn btn-primary"><?php echo $editClient ? 'Simpan Perubahan' : 'Simpan Klien'; ?></button>
+        <?php if ($editClient): ?>
+            <a href="subscription-clients.php" class="btn" style="margin-left:8px;">Batal</a>
+        <?php endif; ?>
     </form>
 
     <h2 class="admin-subheading">Daftar Klien</h2>
@@ -124,6 +132,7 @@ require __DIR__ . '/../includes/admin-header.php';
                         <td class="payment-amount">Rp <?php echo number_format((float) ($c['per_guest_fee'] ?? 0), 0, ',', '.'); ?></td>
                         <td><code style="font-size:0.72rem;"><?php echo htmlspecialchars($c['client_token'] ?? '-'); ?></code></td>
                         <td class="payment-actions">
+                            <a href="subscription-clients.php?edit=<?php echo urlencode($c['client_key'] ?? ''); ?>" class="payment-btn-sm">Edit</a>
                             <form method="POST" onsubmit="return confirm('Hapus klien <?php echo htmlspecialchars(addslashes($c['client_name'] ?? '')); ?>?');">
                                 <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
                                 <input type="hidden" name="action" value="delete">
