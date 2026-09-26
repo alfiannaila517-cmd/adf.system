@@ -60,3 +60,48 @@ function adf_admin_csrf_check(?string $token): bool
     adf_admin_session_start();
     return !empty($_SESSION['adf_csrf']) && is_string($token) && hash_equals($_SESSION['adf_csrf'], $token);
 }
+
+function adf_admin_reset_token_path(): string
+{
+    return __DIR__ . '/../data/password-reset.json';
+}
+
+/**
+ * Generates a one-time password-reset token (valid 30 minutes) and stores
+ * only its hash on disk. Returns the plaintext token to embed in the email link.
+ */
+function adf_admin_create_reset_token(): string
+{
+    $token = bin2hex(random_bytes(32));
+    $data = [
+        'token_hash' => hash('sha256', $token),
+        'expires_at' => time() + 1800,
+    ];
+    file_put_contents(adf_admin_reset_token_path(), json_encode($data), LOCK_EX);
+    return $token;
+}
+
+function adf_admin_verify_reset_token(string $token): bool
+{
+    $path = adf_admin_reset_token_path();
+    if (!is_file($path)) {
+        return false;
+    }
+    $data = json_decode((string) file_get_contents($path), true);
+    if (!is_array($data) || empty($data['token_hash']) || empty($data['expires_at'])) {
+        return false;
+    }
+    if (time() > (int) $data['expires_at']) {
+        return false;
+    }
+    return hash_equals($data['token_hash'], hash('sha256', $token));
+}
+
+function adf_admin_clear_reset_token(): void
+{
+    $path = adf_admin_reset_token_path();
+    if (is_file($path)) {
+        unlink($path);
+    }
+}
+

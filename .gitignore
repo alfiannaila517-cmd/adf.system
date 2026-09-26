@@ -115,6 +115,7 @@ rebuild-*.php
 remove-*.php
 repair-*.php
 reset-*.php
+!adfsystem-site/admin/reset-password.php
 restore-*.php
 sync-*.php
 trigger-*.php

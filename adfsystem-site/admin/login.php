@@ -52,6 +52,7 @@ $csrf = adf_admin_csrf_token();
             <input type="password" name="password" required>
         </label>
         <button type="submit" class="btn btn-primary admin-login-btn">Masuk</button>
+        <a href="forgot-password.php" class="admin-back-link">Lupa password?</a>
         <a href="../index.php" class="admin-back-link">&larr; Kembali ke website</a>
     </form>
 </div>

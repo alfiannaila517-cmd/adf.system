@@ -7,6 +7,9 @@
 define('ADMIN_USERNAME', 'admin');
 define('ADMIN_PASSWORD_HASH', '$2y$10$OIjepiL3Vidlisp1o44vdOn48aXANW2ZIwNZ1JKb24F7UXlb/Qdcu');
 
+// Email address that receives "forgot password" reset links. Ganti ke email asli Anda.
+define('ADMIN_EMAIL', 'office@adfsystem.id');
+
 /**
  * Rewrites the ADMIN_PASSWORD_HASH constant in this file in place.
  * Used by admin/change-password.php since credentials are stored as
@@ -31,3 +34,4 @@ function adf_admin_update_password_hash(string $newHash): bool
     }
     return file_put_contents($path, $updated, LOCK_EX) !== false;
 }
+
