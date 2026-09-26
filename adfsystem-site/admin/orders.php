@@ -23,6 +23,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'refre
     }
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete') {
+    if (adf_admin_csrf_check($_POST['csrf'] ?? null)) {
+        $orderId = trim($_POST['order_id'] ?? '');
+        $orderToDelete = null;
+        foreach (adf_orders_load() as $candidate) {
+            if (($candidate['order_id'] ?? '') === $orderId) {
+                $orderToDelete = $candidate;
+                break;
+            }
+        }
+        $status = strtolower((string) ($orderToDelete['status'] ?? ''));
+        if ($orderToDelete === null) {
+            $message = 'Pesanan tidak ditemukan.';
+        } elseif ($status === 'completed') {
+            $message = 'Transaksi completed tidak bisa dihapus.';
+        } elseif (adf_orders_delete($orderId)) {
+            $message = 'Pesanan ' . htmlspecialchars($orderId) . ' dihapus.';
+        } else {
+            $message = 'Gagal menghapus pesanan.';
+        }
+    }
+}
+
 $allOrders = adf_orders_load();
 $completedOrders = array_filter($allOrders, static function (array $order): bool {
     return strtolower((string) ($order['status'] ?? '')) === 'completed';
@@ -50,7 +73,7 @@ $csrf = adf_admin_csrf_token();
 $adminPageTitle = 'Transaksi Pembayaran';
 require __DIR__ . '/../includes/admin-header.php';
 ?>
-<div class="container admin-container">
+<div class="container admin-container admin-container-wide">
     <h1>Transaksi Pembayaran</h1>
     <p class="admin-lead">Pantau pembayaran langganan dari Pakasir. Status <strong>completed</strong> berarti pembayaran sudah berhasil diterima.</p>
 
@@ -103,14 +126,22 @@ require __DIR__ . '/../includes/admin-header.php';
                     <td class="payment-amount">Rp <?php echo number_format((int) $order['amount'], 0, ',', '.'); ?></td>
                     <td><span class="payment-status payment-status-<?php echo htmlspecialchars(strtolower((string) $order['status'])); ?>"><?php echo htmlspecialchars($order['status']); ?></span></td>
                     <td class="payment-date"><?php echo htmlspecialchars($formatDate($order['completed_at'] ?? null)); ?></td>
-                    <td>
-                        <form method="post" style="display:inline;">
+                    <td class="payment-actions">
+                        <form method="post">
                             <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
                             <input type="hidden" name="action" value="refresh">
                             <input type="hidden" name="order_id" value="<?php echo htmlspecialchars($order['order_id']); ?>">
                             <input type="hidden" name="txn_id" value="<?php echo htmlspecialchars($order['txn_id']); ?>">
-                            <button type="submit" class="btn btn-outline" style="padding:4px 10px;font-size:0.75rem;">Cek Status</button>
+                            <button type="submit" class="btn btn-outline payment-btn-sm">Cek Status</button>
                         </form>
+                        <?php if (strtolower((string) $order['status']) !== 'completed'): ?>
+                        <form method="post" onsubmit="return confirm('Hapus pesanan <?php echo htmlspecialchars($order['order_id']); ?>?');">
+                            <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
+                            <input type="hidden" name="action" value="delete">
+                            <input type="hidden" name="order_id" value="<?php echo htmlspecialchars($order['order_id']); ?>">
+                            <button type="submit" class="btn btn-outline payment-btn-sm payment-btn-danger">Hapus</button>
+                        </form>
+                        <?php endif; ?>
                     </td>
                 </tr>
                 <?php endforeach; ?>

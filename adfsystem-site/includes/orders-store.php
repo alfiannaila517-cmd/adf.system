@@ -57,3 +57,15 @@ function adf_orders_update_status(string $orderId, string $status, ?string $comp
     }
     return adf_orders_save($orders);
 }
+
+function adf_orders_delete(string $orderId): bool
+{
+    $orders = adf_orders_load();
+    $filtered = array_values(array_filter($orders, static function (array $order) use ($orderId): bool {
+        return ($order['order_id'] ?? '') !== $orderId;
+    }));
+    if (count($filtered) === count($orders)) {
+        return false;
+    }
+    return adf_orders_save($filtered);
+}
