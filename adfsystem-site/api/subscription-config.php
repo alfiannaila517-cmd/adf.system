@@ -39,6 +39,7 @@ echo json_encode([
     'client_name' => $client['client_name'] ?? '',
     'base_fee' => (float) ($client['base_fee'] ?? 0),
     'per_guest_fee' => (float) ($client['per_guest_fee'] ?? 0),
+    'subscription_start_date' => $client['subscription_start_date'] ?? '',
     'pakasir_slug' => $client['pakasir_slug'] ?? '',
     'pakasir_api_key' => $client['pakasir_api_key'] ?? '',
     'pakasir_webhook_secret' => $client['pakasir_webhook_secret'] ?? '',

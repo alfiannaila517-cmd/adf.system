@@ -18,6 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $clientName = trim($_POST['client_name'] ?? '');
         $baseFee = (float) str_replace(['.', ','], ['', '.'], $_POST['base_fee'] ?? '0');
         $perGuestFee = (float) str_replace(['.', ','], ['', '.'], $_POST['per_guest_fee'] ?? '0');
+        $subscriptionStartDate = trim($_POST['subscription_start_date'] ?? '');
         $pakasirSlug = trim($_POST['pakasir_slug'] ?? '');
         $pakasirApiKey = trim($_POST['pakasir_api_key'] ?? '');
         $pakasirWebhookSecret = trim($_POST['pakasir_webhook_secret'] ?? '');
@@ -36,6 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'client_name' => $clientName,
                 'base_fee' => $baseFee,
                 'per_guest_fee' => $perGuestFee,
+                'subscription_start_date' => $subscriptionStartDate,
                 'pakasir_slug' => $pakasirSlug,
                 'pakasir_api_key' => $pakasirApiKey,
                 'pakasir_webhook_secret' => $pakasirWebhookSecret,
@@ -92,6 +94,9 @@ require __DIR__ . '/../includes/admin-header.php';
         <label>Biaya per Tamu Confirmed (Rp)
             <input type="text" name="per_guest_fee" value="<?php echo htmlspecialchars((string) ($editClient['per_guest_fee'] ?? 5000)); ?>">
         </label>
+        <label>Mulai Langganan (menentukan tanggal jatuh tempo setiap bulan)
+            <input type="date" name="subscription_start_date" value="<?php echo htmlspecialchars($editClient['subscription_start_date'] ?? date('Y-m-d')); ?>">
+        </label>
         <label>Slug Proyek Pakasir (penerima pembayaran)
             <input type="text" name="pakasir_slug" value="<?php echo htmlspecialchars($editClient['pakasir_slug'] ?? ''); ?>">
         </label>
@@ -119,6 +124,7 @@ require __DIR__ . '/../includes/admin-header.php';
                         <th>Client Key</th>
                         <th>Biaya Dasar</th>
                         <th>Biaya/Tamu</th>
+                        <th>Jatuh Tempo</th>
                         <th>Client Token</th>
                         <th>Aksi</th>
                     </tr>
@@ -130,6 +136,7 @@ require __DIR__ . '/../includes/admin-header.php';
                         <td><?php echo htmlspecialchars($c['client_key'] ?? '-'); ?></td>
                         <td class="payment-amount">Rp <?php echo number_format((float) ($c['base_fee'] ?? 0), 0, ',', '.'); ?></td>
                         <td class="payment-amount">Rp <?php echo number_format((float) ($c['per_guest_fee'] ?? 0), 0, ',', '.'); ?></td>
+                        <td><?php echo !empty($c['subscription_start_date']) ? 'Tgl ' . (int) date('j', strtotime($c['subscription_start_date'])) . ' tiap bulan' : '-'; ?></td>
                         <td><code style="font-size:0.72rem;"><?php echo htmlspecialchars($c['client_token'] ?? '-'); ?></code></td>
                         <td class="payment-actions">
                             <a href="subscription-clients.php?edit=<?php echo urlencode($c['client_key'] ?? ''); ?>" class="payment-btn-sm">Edit</a>
@@ -143,7 +150,7 @@ require __DIR__ . '/../includes/admin-header.php';
                     </tr>
                     <?php endforeach; ?>
                     <?php if (empty($clients)): ?>
-                    <tr><td colspan="6" style="text-align:center;">Belum ada klien.</td></tr>
+                    <tr><td colspan="7" style="text-align:center;">Belum ada klien.</td></tr>
                     <?php endif; ?>
                 </tbody>
             </table>
