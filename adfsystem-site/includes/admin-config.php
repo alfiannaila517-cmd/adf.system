@@ -5,7 +5,7 @@
  */
 
 define('ADMIN_USERNAME', 'admin');
-define('ADMIN_PASSWORD_HASH', '$2y$10$OIjepiL3Vidlisp1o44vdOn48aXANW2ZIwNZ1JKb24F7UXlb/Qdcu');
+define('ADMIN_PASSWORD_HASH', '$2y$10$nuCQmfuLN4E7vFOzbUJkD.BdIxeoNvBe78Wq1MmA1EMtVcCglD/xW');
 
 // Email address that receives "forgot password" reset links. Ganti ke email asli Anda.
 define('ADMIN_EMAIL', 'office@adfsystem.id');
