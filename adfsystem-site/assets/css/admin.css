@@ -219,6 +219,79 @@
   letter-spacing: 0.03em;
 }
 
+.payment-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 22px 0;
+}
+.payment-summary-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+.payment-summary-label {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+.payment-summary-card strong {
+  display: block;
+  color: #fff;
+  font-size: 1.28rem;
+  line-height: 1.2;
+  margin: 7px 0 4px;
+}
+.payment-summary-card small {
+  color: var(--text-muted);
+  font-size: 0.74rem;
+}
+.payment-summary-card-completed strong {
+  color: var(--c-green);
+}
+.payment-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+}
+.payment-table th,
+.payment-table td {
+  padding: 11px 12px;
+}
+.payment-table tr:last-child td {
+  border-bottom: 0;
+}
+.payment-amount {
+  color: #fff;
+  font-weight: 600;
+}
+.payment-date {
+  color: var(--text-muted);
+}
+.payment-status {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+.payment-status-completed {
+  background: rgba(46, 204, 113, 0.13);
+  color: var(--c-green);
+}
+.payment-status-pending {
+  background: rgba(245, 158, 11, 0.13);
+  color: #fbbf24;
+}
+@media (max-width: 700px) {
+  .payment-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .admin-card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));

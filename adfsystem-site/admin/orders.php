@@ -35,6 +35,16 @@ $pendingTotal = array_sum(array_map(static function (array $order): int {
 }, array_filter($allOrders, static function (array $order): bool {
     return strtolower((string) ($order['status'] ?? '')) === 'pending';
 })));
+$formatDate = static function (?string $date): string {
+    if (empty($date)) {
+        return '-';
+    }
+    try {
+        return (new DateTime($date))->format('d M Y, H:i');
+    } catch (Exception $exception) {
+        return $date;
+    }
+};
 $orders = array_reverse($allOrders);
 $csrf = adf_admin_csrf_token();
 $adminPageTitle = 'Transaksi Pembayaran';
@@ -44,21 +54,21 @@ require __DIR__ . '/../includes/admin-header.php';
     <h1>Transaksi Pembayaran</h1>
     <p class="admin-lead">Pantau pembayaran langganan dari Pakasir. Status <strong>completed</strong> berarti pembayaran sudah berhasil diterima.</p>
 
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin:24px 0;">
-        <div class="admin-card" style="padding:18px;">
-            <div style="color:var(--text-muted);font-size:.85rem;">Uang Terkumpul</div>
-            <strong style="display:block;font-size:1.5rem;margin-top:6px;color:#22c55e;">Rp <?php echo number_format($completedTotal, 0, ',', '.'); ?></strong>
-            <small><?php echo count($completedOrders); ?> transaksi selesai</small>
+    <div class="payment-summary-grid">
+        <div class="payment-summary-card payment-summary-card-completed">
+            <span class="payment-summary-label">Uang Terkumpul</span>
+            <strong>Rp <?php echo number_format($completedTotal, 0, ',', '.'); ?></strong>
+            <small><?php echo count($completedOrders); ?> pembayaran berhasil</small>
         </div>
-        <div class="admin-card" style="padding:18px;">
-            <div style="color:var(--text-muted);font-size:.85rem;">Menunggu Pembayaran</div>
-            <strong style="display:block;font-size:1.5rem;margin-top:6px;">Rp <?php echo number_format($pendingTotal, 0, ',', '.'); ?></strong>
-            <small>Belum berstatus completed</small>
+        <div class="payment-summary-card">
+            <span class="payment-summary-label">Menunggu Pembayaran</span>
+            <strong>Rp <?php echo number_format($pendingTotal, 0, ',', '.'); ?></strong>
+            <small>Transaksi belum selesai</small>
         </div>
-        <div class="admin-card" style="padding:18px;">
-            <div style="color:var(--text-muted);font-size:.85rem;">Total Pesanan</div>
-            <strong style="display:block;font-size:1.5rem;margin-top:6px;"><?php echo count($allOrders); ?></strong>
-            <small>Data calon pelanggan tersimpan</small>
+        <div class="payment-summary-card">
+            <span class="payment-summary-label">Total Pesanan</span>
+            <strong><?php echo count($allOrders); ?></strong>
+            <small>Data pelanggan tersimpan</small>
         </div>
     </div>
 
@@ -69,7 +79,8 @@ require __DIR__ . '/../includes/admin-header.php';
     <?php if (empty($orders)): ?>
         <p>Belum ada pesanan.</p>
     <?php else: ?>
-        <table class="admin-table">
+        <div class="payment-table-wrap">
+        <table class="admin-table payment-table">
             <thead>
                 <tr>
                     <th>Order ID</th>
@@ -89,9 +100,9 @@ require __DIR__ . '/../includes/admin-header.php';
                     <td><?php echo htmlspecialchars($order['product_title']); ?></td>
                     <td><?php echo htmlspecialchars($order['name']); ?></td>
                     <td><?php echo htmlspecialchars($order['whatsapp']); ?></td>
-                    <td>Rp <?php echo number_format((int) $order['amount'], 0, ',', '.'); ?></td>
-                    <td><?php echo htmlspecialchars($order['status']); ?></td>
-                    <td><?php echo htmlspecialchars($order['completed_at'] ?: '-'); ?></td>
+                    <td class="payment-amount">Rp <?php echo number_format((int) $order['amount'], 0, ',', '.'); ?></td>
+                    <td><span class="payment-status payment-status-<?php echo htmlspecialchars(strtolower((string) $order['status'])); ?>"><?php echo htmlspecialchars($order['status']); ?></span></td>
+                    <td class="payment-date"><?php echo htmlspecialchars($formatDate($order['completed_at'] ?? null)); ?></td>
                     <td>
                         <form method="post" style="display:inline;">
                             <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
@@ -105,6 +116,7 @@ require __DIR__ . '/../includes/admin-header.php';
                 <?php endforeach; ?>
             </tbody>
         </table>
+        </div>
     <?php endif; ?>
 </div>
 <?php require __DIR__ . '/../includes/admin-footer.php'; ?>
