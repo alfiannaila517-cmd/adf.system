@@ -22,6 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pakasirSlug = trim($_POST['pakasir_slug'] ?? '');
         $pakasirApiKey = trim($_POST['pakasir_api_key'] ?? '');
         $pakasirWebhookSecret = trim($_POST['pakasir_webhook_secret'] ?? '');
+        $notifyEmail = trim($_POST['notify_email'] ?? '');
         $existingToken = trim($_POST['existing_token'] ?? '');
         $regenerateToken = isset($_POST['regenerate_token']);
 
@@ -41,6 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'pakasir_slug' => $pakasirSlug,
                 'pakasir_api_key' => $pakasirApiKey,
                 'pakasir_webhook_secret' => $pakasirWebhookSecret,
+                'notify_email' => $notifyEmail,
                 'client_token' => $token,
             ]);
             if ($ok) {
@@ -125,6 +127,9 @@ require __DIR__ . '/../includes/admin-header.php';
         <label>Webhook Secret Pakasir
             <input type="text" name="pakasir_webhook_secret" value="<?php echo htmlspecialchars($editClient['pakasir_webhook_secret'] ?? ''); ?>">
         </label>
+        <label>Email Notifikasi Pembayaran (dikirim otomatis saat tagihan lunas)
+            <input type="email" name="notify_email" placeholder="owner@karimunjawaexplore.com" value="<?php echo htmlspecialchars($editClient['notify_email'] ?? ''); ?>">
+        </label>
         <label style="display:flex;align-items:center;gap:6px;flex-direction:row;">
             <input type="checkbox" name="regenerate_token" value="1" style="width:auto;"> Buat ulang Client Token
         </label>
@@ -144,6 +149,7 @@ require __DIR__ . '/../includes/admin-header.php';
                         <th>Biaya Dasar</th>
                         <th>Biaya/Tamu</th>
                         <th>Jatuh Tempo</th>
+                        <th>Email Notifikasi</th>
                         <th>Client Token</th>
                         <th>Aksi</th>
                     </tr>
@@ -156,6 +162,7 @@ require __DIR__ . '/../includes/admin-header.php';
                         <td class="payment-amount">Rp <?php echo number_format((float) ($c['base_fee'] ?? 0), 0, ',', '.'); ?></td>
                         <td class="payment-amount">Rp <?php echo number_format((float) ($c['per_guest_fee'] ?? 0), 0, ',', '.'); ?></td>
                         <td><?php echo !empty($c['subscription_start_date']) ? 'Tgl ' . (int) date('j', strtotime($c['subscription_start_date'])) . ' tiap bulan' : '-'; ?></td>
+                        <td><?php echo htmlspecialchars($c['notify_email'] ?? '-'); ?></td>
                         <td><code style="font-size:0.72rem;"><?php echo htmlspecialchars($c['client_token'] ?? '-'); ?></code></td>
                         <td class="payment-actions">
                             <a href="subscription-clients.php?edit=<?php echo urlencode($c['client_key'] ?? ''); ?>" class="payment-btn-sm">Edit</a>

@@ -8,6 +8,7 @@
  */
 
 require_once __DIR__ . '/../includes/subscription-clients-store.php';
+require_once __DIR__ . '/../includes/content-store.php';
 
 header('Content-Type: application/json');
 
@@ -34,6 +35,10 @@ if (!$client || !hash_equals((string) $client['client_token'], $clientToken)) {
     exit;
 }
 
+require_once __DIR__ . '/../includes/site-config.php';
+$content = adf_load_content();
+$logoPath = $content['branding']['logo'] ?? '';
+
 http_response_code(200);
 echo json_encode([
     'client_name' => $client['client_name'] ?? '',
@@ -43,5 +48,9 @@ echo json_encode([
     'pakasir_slug' => $client['pakasir_slug'] ?? '',
     'pakasir_api_key' => $client['pakasir_api_key'] ?? '',
     'pakasir_webhook_secret' => $client['pakasir_webhook_secret'] ?? '',
+    'provider_name' => SITE_NAME,
+    'provider_logo' => $logoPath !== '' ? 'https://adfsystem.store/' . ltrim($logoPath, '/') : '',
+    'provider_address' => CONTACT_ADDRESS,
+    'provider_email' => CONTACT_EMAIL,
     'updated_at' => $client['updated_at'] ?? null,
 ]);
