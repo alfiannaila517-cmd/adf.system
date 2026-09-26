@@ -20,7 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'project_slug' => $slug,
             'api_key' => $apiKey,
             'webhook_secret' => $webhookSecret,
-            'sandbox' => !empty($_POST['sandbox']),
+            'sandbox' => false,
         ];
         $saved = adf_save_content($content);
         if (!$saved) {
@@ -65,9 +65,6 @@ require __DIR__ . '/../includes/admin-header.php';
         </label>
         <label>Webhook Secret
             <input type="text" name="webhook_secret" value="<?php echo htmlspecialchars($payment['webhook_secret']); ?>" placeholder="Ambil dari halaman detail proyek Pakasir">
-        </label>
-        <label class="admin-checkbox-line">
-            <input type="checkbox" name="sandbox" value="1" <?php echo !empty($payment['sandbox']) ? 'checked' : ''; ?>> Mode Sandbox (untuk testing, belum menerima uang asli)
         </label>
         <button type="submit" class="btn btn-primary">Simpan Pengaturan</button>
     </form>

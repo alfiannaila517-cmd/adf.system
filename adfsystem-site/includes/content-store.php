@@ -40,7 +40,7 @@ function adf_default_content(): array
             'project_slug' => '',
             'api_key' => '',
             'webhook_secret' => '',
-            'sandbox' => true,
+            'sandbox' => false,
         ],
     ];
 }

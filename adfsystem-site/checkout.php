@@ -38,7 +38,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $result = adf_pakasir_create_payment_link($orderId, $amount);
         if ($result === null) {
-            $error = 'Gagal membuat transaksi pembayaran. Silakan coba lagi atau hubungi kami.';
+            $gatewayError = adf_pakasir_last_error();
+            error_log('Pakasir create transaction failed: ' . $gatewayError);
+            $error = 'Gagal membuat transaksi pembayaran. ' . ($gatewayError !== '' ? $gatewayError : 'Silakan coba lagi atau hubungi kami.');
         } else {
             adf_orders_add([
                 'order_id' => $orderId,

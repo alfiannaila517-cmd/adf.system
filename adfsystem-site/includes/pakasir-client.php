@@ -6,6 +6,18 @@
 
 require_once __DIR__ . '/content-store.php';
 
+$GLOBALS['adf_pakasir_last_error'] = '';
+
+function adf_pakasir_last_error(): string
+{
+    return (string) ($GLOBALS['adf_pakasir_last_error'] ?? '');
+}
+
+function adf_pakasir_set_last_error(string $message): void
+{
+    $GLOBALS['adf_pakasir_last_error'] = $message;
+}
+
 function adf_pakasir_config(): array
 {
     $content = adf_load_content();
@@ -26,6 +38,7 @@ function adf_pakasir_create_payment_link(string $orderId, int $amount): ?array
 {
     $cfg = adf_pakasir_config();
     if (empty($cfg['project_slug']) || empty($cfg['api_key'])) {
+        adf_pakasir_set_last_error('Slug proyek atau API Key Pakasir belum diisi.');
         return null;
     }
 
@@ -52,17 +65,28 @@ function adf_pakasir_create_payment_link(string $orderId, int $amount): ?array
     ]);
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
     curl_close($ch);
 
     if ($response === false || $httpCode < 200 || $httpCode >= 300) {
+        $message = $curlError !== '' ? $curlError : 'Pakasir menolak permintaan (' . $httpCode . ').';
+        if (is_string($response)) {
+            $payload = json_decode($response, true);
+            if (is_array($payload)) {
+                $message = (string) ($payload['message'] ?? $payload['error'] ?? $message);
+            }
+        }
+        adf_pakasir_set_last_error($message);
         return null;
     }
 
     $data = json_decode($response, true);
     if (!is_array($data) || empty($data['payment_link']) || empty($data['txn_id'])) {
+        adf_pakasir_set_last_error('Respons Pakasir tidak berisi tautan pembayaran.');
         return null;
     }
 
+    adf_pakasir_set_last_error('');
     return [
         'txn_id' => $data['txn_id'],
         'payment_link' => $data['payment_link'],
