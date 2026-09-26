@@ -62,10 +62,6 @@ function adf_admin_nav(string $href, string $label, string $icon = ''): void
             <div class="admin-nav-group">
                 <div class="admin-nav-group-title">Transaksi</div>
                 <?php adf_admin_nav('orders.php', 'Transaksi Masuk', '🧾'); ?>
-                <?php if ($adminRole === 'admin'): ?>
-                <?php adf_admin_nav('edit-payment.php', 'Pengaturan Gateway', '💰'); ?>
-                <?php adf_admin_nav('subscription-clients.php', 'Klien Langganan', '🔗'); ?>
-                <?php endif; ?>
             </div>
             <div class="admin-nav-group">
                 <div class="admin-nav-group-title">Pelanggan</div>
@@ -74,6 +70,8 @@ function adf_admin_nav(string $href, string $label, string $icon = ''): void
             <?php if ($adminRole === 'admin'): ?>
             <div class="admin-nav-group">
                 <div class="admin-nav-group-title">Pengaturan</div>
+                <?php adf_admin_nav('edit-payment.php', 'Pengaturan Gateway', '💰'); ?>
+                <?php adf_admin_nav('subscription-clients.php', 'Klien Langganan', '🔗'); ?>
                 <?php adf_admin_nav('users.php', 'Pengguna', '👤'); ?>
             </div>
             <?php endif; ?>
