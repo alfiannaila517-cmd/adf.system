@@ -17,6 +17,7 @@ data/content.json
 data/orders.json
 data/password-reset.json
 data/users.json
+includes/mail-config.php
 
 # =============================================
 # Uploaded images (user-generated, jangan ikut dipush)

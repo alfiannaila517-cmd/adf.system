@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../includes/admin-auth.php';
+require_once __DIR__ . '/../includes/smtp-mailer.php';
 adf_admin_session_start();
 
 if (adf_admin_is_logged_in()) {
@@ -24,8 +25,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $body = "Ada permintaan reset password untuk akun admin ADF System ({$user['username']}).\n\n"
                 . "Klik link berikut untuk membuat password baru (berlaku 30 menit):\n{$resetUrl}\n\n"
                 . "Jika Anda tidak meminta ini, abaikan email ini.\n";
-            $headers = "From: no-reply@adfsystem.store\r\nContent-Type: text/plain; charset=UTF-8\r\n";
-            @mail($user['email'], $subject, $body, $headers);
+            $mailOk = adf_smtp_send($user['email'], $subject, $body);
+            if (!$mailOk) {
+                error_log('forgot-password mail failed: ' . adf_mail_last_error());
+            }
         }
         // Always show the same message, whether or not the email matched (avoid leaking registered emails).
         $sent = true;
