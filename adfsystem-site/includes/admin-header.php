@@ -7,6 +7,7 @@ require_once __DIR__ . '/content-store.php';
 $adminPageTitle = $adminPageTitle ?? 'Dashboard';
 $adminLogo = adf_load_content()['branding']['logo'] ?? '';
 $adminCurrentScript = basename($_SERVER['SCRIPT_NAME']);
+$adminRole = adf_admin_current_user()['role'] ?? 'staff';
 
 // Renders a sidebar nav link, marking it active when it matches the current page.
 function adf_admin_nav(string $href, string $label, string $icon = ''): void
@@ -61,12 +62,20 @@ function adf_admin_nav(string $href, string $label, string $icon = ''): void
             <div class="admin-nav-group">
                 <div class="admin-nav-group-title">Transaksi</div>
                 <?php adf_admin_nav('orders.php', 'Pesanan', '🧾'); ?>
+                <?php if ($adminRole === 'admin'): ?>
                 <?php adf_admin_nav('edit-payment.php', 'Pembayaran', '💰'); ?>
+                <?php endif; ?>
             </div>
             <div class="admin-nav-group">
                 <div class="admin-nav-group-title">Pelanggan</div>
                 <?php adf_admin_nav('customers.php', 'Pelanggan', '👥'); ?>
             </div>
+            <?php if ($adminRole === 'admin'): ?>
+            <div class="admin-nav-group">
+                <div class="admin-nav-group-title">Pengaturan</div>
+                <?php adf_admin_nav('users.php', 'Pengguna', '👤'); ?>
+            </div>
+            <?php endif; ?>
         </nav>
 
         <div class="admin-sidebar-footer">

@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../includes/admin-auth.php';
 adf_admin_require_login();
 
+$currentUser = adf_admin_current_user();
 $saved = false;
 $error = '';
 
@@ -12,8 +13,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $currentPassword = (string) ($_POST['current_password'] ?? '');
         $newPassword = (string) ($_POST['new_password'] ?? '');
         $confirmPassword = (string) ($_POST['confirm_password'] ?? '');
+        $user = adf_users_find_by_id($currentUser['id']);
 
-        if (!password_verify($currentPassword, ADMIN_PASSWORD_HASH)) {
+        if ($user === null || !password_verify($currentPassword, $user['password_hash'])) {
             $error = 'Password saat ini salah.';
         } elseif (strlen($newPassword) < 8) {
             $error = 'Password baru minimal 8 karakter.';
@@ -21,10 +23,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Konfirmasi password baru tidak cocok.';
         } else {
             $newHash = password_hash($newPassword, PASSWORD_BCRYPT);
-            if (adf_admin_update_password_hash($newHash)) {
+            if (adf_users_update_password($user['id'], $newHash)) {
                 $saved = true;
             } else {
-                $error = 'Gagal menyimpan password baru. Periksa izin tulis file includes/admin-config.php.';
+                $error = 'Gagal menyimpan password baru. Periksa izin tulis folder data/.';
             }
         }
     }

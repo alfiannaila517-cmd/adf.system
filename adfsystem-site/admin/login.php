@@ -45,7 +45,7 @@ $csrf = adf_admin_csrf_token();
             <div class="admin-alert admin-alert-error"><?php echo htmlspecialchars($error); ?></div>
         <?php endif; ?>
         <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
-        <label>Username
+        <label>Username atau Email
             <input type="text" name="username" required autofocus>
         </label>
         <label>Password

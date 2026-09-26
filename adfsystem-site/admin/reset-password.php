@@ -3,10 +3,11 @@ require_once __DIR__ . '/../includes/admin-auth.php';
 adf_admin_session_start();
 
 $token = trim($_GET['token'] ?? $_POST['token'] ?? '');
+$resetUserId = $token !== '' ? adf_admin_verify_reset_token($token) : null;
 $saved = false;
 $error = '';
 
-if ($token === '' || !adf_admin_verify_reset_token($token)) {
+if ($resetUserId === null) {
     $error = 'Link reset password tidak valid atau sudah kedaluwarsa. Silakan minta link baru.';
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!adf_admin_csrf_check($_POST['csrf'] ?? null)) {
@@ -20,11 +21,11 @@ if ($token === '' || !adf_admin_verify_reset_token($token)) {
             $error = 'Konfirmasi password baru tidak cocok.';
         } else {
             $newHash = password_hash($newPassword, PASSWORD_BCRYPT);
-            if (adf_admin_update_password_hash($newHash)) {
+            if (adf_users_update_password($resetUserId, $newHash)) {
                 adf_admin_clear_reset_token();
                 $saved = true;
             } else {
-                $error = 'Gagal menyimpan password baru. Periksa izin tulis file includes/admin-config.php.';
+                $error = 'Gagal menyimpan password baru. Periksa izin tulis folder data/.';
             }
         }
     }
@@ -53,7 +54,7 @@ $csrf = adf_admin_csrf_token();
         <?php if ($error): ?>
             <div class="admin-alert admin-alert-error"><?php echo htmlspecialchars($error); ?></div>
         <?php endif; ?>
-        <?php if (!$saved && $token !== '' && adf_admin_verify_reset_token($token)): ?>
+        <?php if (!$saved && $resetUserId !== null): ?>
         <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
         <input type="hidden" name="token" value="<?php echo htmlspecialchars($token); ?>">
         <label>Password Baru

@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../includes/admin-auth.php';
 require_once __DIR__ . '/../includes/content-store.php';
-adf_admin_require_login();
+adf_admin_require_role('admin');
 
 $content = adf_load_content();
 $saved = false;

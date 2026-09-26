@@ -16,6 +16,7 @@ Thumbs.db
 data/content.json
 data/orders.json
 data/password-reset.json
+data/users.json
 
 # =============================================
 # Uploaded images (user-generated, jangan ikut dipush)
