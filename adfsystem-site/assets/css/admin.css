@@ -381,6 +381,7 @@
 .admin-form input[type="email"],
 .admin-form input[type="url"],
 .admin-form input[type="password"],
+.admin-form input[type="date"],
 .admin-form select,
 .admin-form textarea {
   display: block;
@@ -393,6 +394,7 @@
   color: var(--text);
   font-family: inherit;
   font-size: 0.9rem;
+  color-scheme: dark;
 }
 .admin-form textarea { resize: vertical; }
 .admin-image-preview {
