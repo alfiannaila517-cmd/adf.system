@@ -561,126 +561,154 @@ include __DIR__ . '/../../includes/header.php';
 </script>
 
 <?php if (!empty($fastMovingItems) || !empty($topBiz)): ?>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <?php endif; ?>
 
 <?php if (!empty($fastMovingItems)): ?>
-<script>
-    const fmLabels = <?php echo json_encode($fmLabels); ?>;
-    const fmValues = <?php echo json_encode($fmValues); ?>;
-    const fmColors = <?php echo json_encode($fmColorsUsed); ?>;
+    <script>
+        const fmLabels = <?php echo json_encode($fmLabels); ?>;
+        const fmValues = <?php echo json_encode($fmValues); ?>;
+        const fmColors = <?php echo json_encode($fmColorsUsed); ?>;
 
-    new Chart(document.getElementById('fastMovingPieChart').getContext('2d'), {
-        type: 'doughnut',
-        data: {
-            labels: fmLabels,
-            datasets: [{
-                data: fmValues,
-                backgroundColor: fmColors,
-                borderColor: '#fff',
-                borderWidth: 2,
-                borderRadius: 6,
-                spacing: 3,
-                hoverOffset: 6
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: '52%',
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    backgroundColor: '#1e293b',
-                    padding: 8,
-                    bodyFont: { size: 11 },
-                    callbacks: {
-                        label: (ctx) => ctx.label + ': ' + ctx.parsed.toLocaleString('id-ID')
-                    }
-                }
-            }
-        }
-    });
-
-    new Chart(document.getElementById('fastMovingBarChart').getContext('2d'), {
-        type: 'bar',
-        data: {
-            labels: fmLabels,
-            datasets: [{
-                label: 'Qty Keluar',
-                data: fmValues,
-                backgroundColor: fmColors,
-                borderRadius: 4,
-                maxBarThickness: 22,
-                categoryPercentage: 0.55,
-                barPercentage: 0.9
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    backgroundColor: '#1e293b',
-                    padding: 8,
-                    bodyFont: { size: 11 }
-                }
+        new Chart(document.getElementById('fastMovingPieChart').getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: fmLabels,
+                datasets: [{
+                    data: fmValues,
+                    backgroundColor: fmColors,
+                    borderColor: '#fff',
+                    borderWidth: 2,
+                    borderRadius: 6,
+                    spacing: 3,
+                    hoverOffset: 6
+                }]
             },
-            scales: {
-                x: {
-                    grid: { display: false },
-                    ticks: { font: { size: 9 }, maxRotation: 0, autoSkip: true, color: '#94a3b8' }
-                },
-                y: {
-                    beginAtZero: true,
-                    grid: { color: 'rgba(148,163,184,0.12)' },
-                    ticks: { font: { size: 9 }, color: '#94a3b8' }
-                }
-            }
-        }
-    });
-</script>
-<?php endif; ?>
-
-<?php if (!empty($topBiz)): ?>
-<script>
-    new Chart(document.getElementById('topBizPieChart').getContext('2d'), {
-        type: 'doughnut',
-        data: {
-            labels: <?php echo json_encode($topBizLabels); ?>,
-            datasets: [{
-                data: <?php echo json_encode($topBizValues); ?>,
-                backgroundColor: <?php echo json_encode($topBizColorsUsed); ?>,
-                borderColor: '#fff',
-                borderWidth: 2,
-                borderRadius: 6,
-                spacing: 3,
-                hoverOffset: 6
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: '52%',
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    backgroundColor: '#1e293b',
-                    padding: 8,
-                    bodyFont: { size: 11 },
-                    callbacks: {
-                        label: (ctx) => {
-                            const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
-                            const pct = total > 0 ? (ctx.parsed / total * 100).toFixed(1) : 0;
-                            return ctx.label + ': ' + pct + '% (' + ctx.parsed.toLocaleString('id-ID') + ' qty)';
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '52%',
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: '#1e293b',
+                        padding: 8,
+                        bodyFont: {
+                            size: 11
+                        },
+                        callbacks: {
+                            label: (ctx) => ctx.label + ': ' + ctx.parsed.toLocaleString('id-ID')
                         }
                     }
                 }
             }
-        }
-    });
-</script>
+        });
+
+        new Chart(document.getElementById('fastMovingBarChart').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: fmLabels,
+                datasets: [{
+                    label: 'Qty Keluar',
+                    data: fmValues,
+                    backgroundColor: fmColors,
+                    borderRadius: 4,
+                    maxBarThickness: 22,
+                    categoryPercentage: 0.55,
+                    barPercentage: 0.9
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: '#1e293b',
+                        padding: 8,
+                        bodyFont: {
+                            size: 11
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            font: {
+                                size: 9
+                            },
+                            maxRotation: 0,
+                            autoSkip: true,
+                            color: '#94a3b8'
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(148,163,184,0.12)'
+                        },
+                        ticks: {
+                            font: {
+                                size: 9
+                            },
+                            color: '#94a3b8'
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+<?php endif; ?>
+
+<?php if (!empty($topBiz)): ?>
+    <script>
+        new Chart(document.getElementById('topBizPieChart').getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: <?php echo json_encode($topBizLabels); ?>,
+                datasets: [{
+                    data: <?php echo json_encode($topBizValues); ?>,
+                    backgroundColor: <?php echo json_encode($topBizColorsUsed); ?>,
+                    borderColor: '#fff',
+                    borderWidth: 2,
+                    borderRadius: 6,
+                    spacing: 3,
+                    hoverOffset: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '52%',
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: '#1e293b',
+                        padding: 8,
+                        bodyFont: {
+                            size: 11
+                        },
+                        callbacks: {
+                            label: (ctx) => {
+                                const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                                const pct = total > 0 ? (ctx.parsed / total * 100).toFixed(1) : 0;
+                                return ctx.label + ': ' + pct + '% (' + ctx.parsed.toLocaleString('id-ID') + ' qty)';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    </script>
 <?php endif; ?>
 
 <?php include __DIR__ . '/../../includes/footer.php'; ?>
