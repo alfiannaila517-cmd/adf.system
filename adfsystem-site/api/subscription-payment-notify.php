@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Client sites (e.g. Karimunjawa Explore) call this right after a subscription
  * invoice is confirmed paid, so ADF System can email the client's configured
@@ -10,6 +11,7 @@
 
 require_once __DIR__ . '/../includes/subscription-clients-store.php';
 require_once __DIR__ . '/../includes/site-config.php';
+require_once __DIR__ . '/../includes/smtp-mailer.php';
 
 header('Content-Type: application/json');
 
@@ -58,10 +60,10 @@ $body = "Halo {$clientName},\n\n"
     . "Langganan Anda kembali aktif secara penuh. Terima kasih atas pembayaran tepat waktu.\n\n"
     . "Salam,\n" . SITE_NAME;
 
-$headers = "From: no-reply@adfsystem.id\r\n";
-$headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
-
-$sentOk = @mail($notifyEmail, $subject, $body, $headers);
+$sentOk = adf_smtp_send($notifyEmail, $subject, $body);
+if (!$sentOk) {
+    error_log('subscription-payment-notify mail failed: ' . adf_mail_last_error());
+}
 
 http_response_code(200);
-echo json_encode(['ok' => true, 'emailed' => $sentOk]);
+echo json_encode(['ok' => true, 'emailed' => $sentOk, 'error' => $sentOk ? null : adf_mail_last_error()]);

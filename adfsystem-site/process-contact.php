@@ -4,6 +4,7 @@
  * Basic validation + header-injection-safe mail() usage.
  */
 require_once __DIR__ . '/includes/site-config.php';
+require_once __DIR__ . '/includes/smtp-mailer.php';
 
 function redirect_with(string $query): never
 {
@@ -40,11 +41,10 @@ $to = CONTACT_EMAIL;
 $subject = 'Pesan Baru dari Formulir Kontak ' . SITE_NAME;
 $body = "Nama: {$name}\nEmail: {$email}\n\nPesan:\n{$message}\n";
 
-$headers = "From: no-reply@adfsystem.id\r\n";
-$headers .= "Reply-To: " . $email . "\r\n";
-$headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
-
-$sentOk = @mail($to, $subject, $body, $headers);
+$sentOk = adf_smtp_send($to, $subject, $body);
+if (!$sentOk) {
+    error_log('process-contact mail failed: ' . adf_mail_last_error());
+}
 
 if ($sentOk) {
     redirect_with('sent=1');
