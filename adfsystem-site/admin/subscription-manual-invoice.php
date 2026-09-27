@@ -8,7 +8,6 @@ $clientKey = trim($_GET['client'] ?? $_POST['client_key'] ?? '');
 $client = $clientKey !== '' ? adf_subscription_client_find($clientKey) : null;
 
 $error = '';
-$saved = false;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!adf_admin_csrf_check($_POST['csrf'] ?? null)) {
@@ -28,7 +27,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Deskripsi, jumlah, dan jatuh tempo wajib diisi.';
         } else {
             adf_manual_invoice_create($clientKey, $description, $amount, $dueDate);
-            $saved = true;
+            header('Location: subscription-manual-invoice.php?client=' . urlencode($clientKey) . '&saved=1');
+            exit;
         }
     }
 }
@@ -36,6 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $manualInvoices = $clientKey !== '' ? adf_manual_invoices_for_client($clientKey) : [];
 usort($manualInvoices, static fn($a, $b) => strcmp($b['created_at'] ?? '', $a['created_at'] ?? ''));
 $csrf = adf_admin_csrf_token();
+$saved = isset($_GET['saved']);
 
 $adminPageTitle = 'Tagih Manual';
 require __DIR__ . '/../includes/admin-header.php';
@@ -88,24 +89,26 @@ require __DIR__ . '/../includes/admin-header.php';
                 </thead>
                 <tbody>
                     <?php foreach ($manualInvoices as $inv): ?>
-                    <tr>
-                        <td><?php echo htmlspecialchars($inv['description'] ?? '-'); ?></td>
-                        <td class="payment-amount">Rp <?php echo number_format((float) ($inv['amount'] ?? 0), 0, ',', '.'); ?></td>
-                        <td><?php echo htmlspecialchars(!empty($inv['due_date']) ? date('d M Y', strtotime($inv['due_date'])) : '-'); ?></td>
-                        <td><?php echo htmlspecialchars(!empty($inv['created_at']) ? date('d M Y H:i', strtotime($inv['created_at'])) : '-'); ?></td>
-                        <td class="payment-actions">
-                            <form method="post" onsubmit="return confirm('Hapus tagihan manual ini? Jika sudah tersinkron ke klien, tagihan yang sudah ada di sistem klien tidak akan ikut terhapus.');" style="display:inline;">
-                                <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
-                                <input type="hidden" name="client_key" value="<?php echo htmlspecialchars($clientKey); ?>">
-                                <input type="hidden" name="action" value="delete">
-                                <input type="hidden" name="id" value="<?php echo htmlspecialchars($inv['id']); ?>">
-                                <button type="submit" class="btn btn-danger btn-sm">Hapus</button>
-                            </form>
-                        </td>
-                    </tr>
+                        <tr>
+                            <td><?php echo htmlspecialchars($inv['description'] ?? '-'); ?></td>
+                            <td class="payment-amount">Rp <?php echo number_format((float) ($inv['amount'] ?? 0), 0, ',', '.'); ?></td>
+                            <td><?php echo htmlspecialchars(!empty($inv['due_date']) ? date('d M Y', strtotime($inv['due_date'])) : '-'); ?></td>
+                            <td><?php echo htmlspecialchars(!empty($inv['created_at']) ? date('d M Y H:i', strtotime($inv['created_at'])) : '-'); ?></td>
+                            <td class="payment-actions">
+                                <form method="post" onsubmit="return confirm('Hapus tagihan manual ini? Jika sudah tersinkron ke klien, tagihan yang sudah ada di sistem klien tidak akan ikut terhapus.');" style="display:inline;">
+                                    <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
+                                    <input type="hidden" name="client_key" value="<?php echo htmlspecialchars($clientKey); ?>">
+                                    <input type="hidden" name="action" value="delete">
+                                    <input type="hidden" name="id" value="<?php echo htmlspecialchars($inv['id']); ?>">
+                                    <button type="submit" class="btn btn-danger btn-sm">Hapus</button>
+                                </form>
+                            </td>
+                        </tr>
                     <?php endforeach; ?>
                     <?php if (empty($manualInvoices)): ?>
-                    <tr><td colspan="5" style="text-align:center;">Belum ada tagihan manual.</td></tr>
+                        <tr>
+                            <td colspan="5" style="text-align:center;">Belum ada tagihan manual.</td>
+                        </tr>
                     <?php endif; ?>
                 </tbody>
             </table>
