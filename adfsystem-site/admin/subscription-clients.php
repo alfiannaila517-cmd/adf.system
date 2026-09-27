@@ -166,6 +166,7 @@ require __DIR__ . '/../includes/admin-header.php';
                         <td><code style="font-size:0.72rem;"><?php echo htmlspecialchars($c['client_token'] ?? '-'); ?></code></td>
                         <td class="payment-actions">
                             <a href="subscription-clients.php?edit=<?php echo urlencode($c['client_key'] ?? ''); ?>" class="payment-btn-sm">Edit</a>
+                            <a href="subscription-manual-invoice.php?client=<?php echo urlencode($c['client_key'] ?? ''); ?>" class="payment-btn-sm">Tagih Manual</a>
                             <form method="POST" onsubmit="return confirm('Hapus klien <?php echo htmlspecialchars(addslashes($c['client_name'] ?? '')); ?>?');">
                                 <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
                                 <input type="hidden" name="action" value="delete">
