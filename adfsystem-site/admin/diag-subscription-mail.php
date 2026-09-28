@@ -21,6 +21,18 @@ $clients = adf_subscription_clients_load();
 $sendResult = '';
 $sendError = '';
 $testClientKey = trim($_GET['send_test'] ?? '');
+$rawDump = '';
+
+if (isset($_GET['dump_raw'])) {
+    $sampleHtml = '<div style="font-family:sans-serif;max-width:520px;">'
+        . '<h2>ADF System</h2><p>Halo <strong>Test</strong>,</p><p>Contoh isi tagihan.</p></div>';
+    $sampleText = 'Halo Test, contoh isi tagihan.';
+    $builtBody = adf_smtp_build_body($sampleHtml, $sampleText, []);
+    $fullMessage = "From: Test <test@example.com>\r\nTo: <test@example.com>\r\nSubject: Test\r\nMIME-Version: 1.0\r\nDate: " . date('r') . "\r\n" . $builtBody;
+    $normalized = preg_replace('/\r\n|\r|\n/', "\r\n", $fullMessage);
+    // visualize exact bytes: mark every CR and LF explicitly
+    $rawDump = str_replace(["\r", "\n"], ['[CR]', "[LF]\n"], $normalized);
+}
 
 if ($testClientKey !== '') {
     $client = adf_subscription_client_find($testClientKey);
@@ -61,6 +73,12 @@ require __DIR__ . '/../includes/admin-header.php';
         <div class="admin-alert admin-alert-success"><?php echo htmlspecialchars($sendResult); ?></div>
     <?php elseif ($sendError !== ''): ?>
         <div class="admin-alert admin-alert-error">Gagal kirim: <?php echo htmlspecialchars($sendError); ?></div>
+    <?php endif; ?>
+
+    <p><a href="?dump_raw=1" class="btn btn-secondary">Lihat Raw Bytes Pesan (tanpa kirim email)</a></p>
+    <?php if ($rawDump !== ''): ?>
+        <h2 class="admin-subheading">Raw Message Bytes ([CR]/[LF] ditandai eksplisit)</h2>
+        <pre style="white-space:pre-wrap;background:#111;color:#0f0;padding:12px;border-radius:6px;max-height:500px;overflow:auto;"><?php echo htmlspecialchars($rawDump); ?></pre>
     <?php endif; ?>
 
     <h2 class="admin-subheading">Klien Langganan</h2>
