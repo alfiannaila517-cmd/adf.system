@@ -2,6 +2,8 @@
 require_once __DIR__ . '/../includes/admin-auth.php';
 require_once __DIR__ . '/../includes/subscription-clients-store.php';
 require_once __DIR__ . '/../includes/subscription-manual-invoices-store.php';
+require_once __DIR__ . '/../includes/site-config.php';
+require_once __DIR__ . '/../includes/smtp-mailer.php';
 adf_admin_require_role('admin');
 
 $clientKey = trim($_GET['client'] ?? $_POST['client_key'] ?? '');
@@ -27,6 +29,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Deskripsi, jumlah, dan jatuh tempo wajib diisi.';
         } else {
             adf_manual_invoice_create($clientKey, $description, $amount, $dueDate);
+
+            $notifyEmail = trim((string) ($client['notify_email'] ?? ''));
+            if ($notifyEmail !== '' && filter_var($notifyEmail, FILTER_VALIDATE_EMAIL)) {
+                $clientName = (string) ($client['client_name'] ?? $clientKey);
+                $formattedAmount = 'Rp ' . number_format($amount, 0, ',', '.');
+                $dueDateDisplay = date('d M Y', strtotime($dueDate));
+                $subject = 'Tagihan Baru: ' . $description . ' - ' . $clientName;
+                $textBody = "Halo {$clientName},\n\n"
+                    . "Ada tagihan baru (di luar biaya langganan bulanan rutin) yang diterbitkan untuk Anda:\n\n"
+                    . "Deskripsi    : {$description}\n"
+                    . "Jumlah       : {$formattedAmount}\n"
+                    . "Jatuh Tempo  : {$dueDateDisplay}\n\n"
+                    . "Tagihan ini terpisah dari biaya langganan bulanan otomatis dan sudah bisa dilihat/dibayar "
+                    . "di menu Tagihan Langganan pada sistem Anda.\n\n"
+                    . "Salam,\n" . SITE_NAME;
+                $htmlBody = '<div style="font-family:sans-serif;max-width:520px;margin:0 auto;color:#1e293b;">'
+                    . '<div style="background:#0f172a;padding:20px 24px;border-radius:8px 8px 0 0;">'
+                    . '<h2 style="color:#fff;margin:0;font-size:18px;">' . htmlspecialchars(SITE_NAME) . '</h2>'
+                    . '</div>'
+                    . '<div style="border:1px solid #e2e8f0;border-top:none;padding:24px;border-radius:0 0 8px 8px;">'
+                    . '<p style="margin:0 0 12px;">Halo <strong>' . htmlspecialchars($clientName) . '</strong>,</p>'
+                    . '<p style="margin:0 0 16px;">Ada tagihan baru <strong>di luar biaya langganan bulanan rutin</strong> yang diterbitkan untuk Anda:</p>'
+                    . '<table style="width:100%;border-collapse:collapse;margin-bottom:16px;">'
+                    . '<tr><td style="padding:6px 0;color:#64748b;">Deskripsi</td><td style="padding:6px 0;text-align:right;font-weight:bold;">' . htmlspecialchars($description) . '</td></tr>'
+                    . '<tr><td style="padding:6px 0;color:#64748b;">Jumlah</td><td style="padding:6px 0;text-align:right;font-weight:bold;">' . htmlspecialchars($formattedAmount) . '</td></tr>'
+                    . '<tr><td style="padding:6px 0;color:#64748b;">Jatuh Tempo</td><td style="padding:6px 0;text-align:right;font-weight:bold;">' . htmlspecialchars($dueDateDisplay) . '</td></tr>'
+                    . '</table>'
+                    . '<p style="margin:0;">Tagihan ini sudah bisa dilihat dan dibayar di menu Tagihan Langganan pada sistem Anda.</p>'
+                    . '<p style="margin:20px 0 0;color:#64748b;font-size:12px;">Salam,<br>' . htmlspecialchars(SITE_NAME) . '</p>'
+                    . '</div></div>';
+                $sentOk = adf_smtp_send_html($notifyEmail, $subject, $htmlBody, $textBody);
+                if (!$sentOk) {
+                    error_log('subscription-manual-invoice mail failed: ' . adf_mail_last_error());
+                }
+            }
+
             header('Location: subscription-manual-invoice.php?client=' . urlencode($clientKey) . '&saved=1');
             exit;
         }
