@@ -34,10 +34,18 @@ function adf_pakasir_is_configured(): bool
 /**
  * Create (or find-existing) a Pakasir transaction and return a hosted payment link.
  * Returns ['txn_id' => ..., 'payment_link' => ...] on success, or null on failure.
+ *
+ * @param string|null $projectSlug Overrides the global content-store config, e.g. to
+ *                                 bill using a specific client's own Pakasir project.
+ * @param string|null $apiKey      Must be provided together with $projectSlug.
  */
-function adf_pakasir_create_payment_link(string $orderId, int $amount): ?array
+function adf_pakasir_create_payment_link(string $orderId, int $amount, ?string $projectSlug = null, ?string $apiKey = null): ?array
 {
-    $cfg = adf_pakasir_config();
+    if ($projectSlug !== null && $apiKey !== null) {
+        $cfg = ['project_slug' => $projectSlug, 'api_key' => $apiKey];
+    } else {
+        $cfg = adf_pakasir_config();
+    }
     if (empty($cfg['project_slug']) || empty($cfg['api_key'])) {
         adf_pakasir_set_last_error('Slug proyek atau API Key Pakasir belum diisi.');
         return null;

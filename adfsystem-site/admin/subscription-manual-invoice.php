@@ -4,6 +4,7 @@ require_once __DIR__ . '/../includes/subscription-clients-store.php';
 require_once __DIR__ . '/../includes/subscription-manual-invoices-store.php';
 require_once __DIR__ . '/../includes/site-config.php';
 require_once __DIR__ . '/../includes/smtp-mailer.php';
+require_once __DIR__ . '/../includes/pakasir-client.php';
 adf_admin_require_role('admin');
 
 $clientKey = trim($_GET['client'] ?? $_POST['client_key'] ?? '');
@@ -28,7 +29,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($description === '' || $amount <= 0 || $dueDate === '') {
             $error = 'Deskripsi, jumlah, dan jatuh tempo wajib diisi.';
         } else {
-            adf_manual_invoice_create($clientKey, $description, $amount, $dueDate);
+            $invoiceEntry = adf_manual_invoice_create($clientKey, $description, $amount, $dueDate);
+
+            $paymentLink = null;
+            $pakasirSlug = trim((string) ($client['pakasir_slug'] ?? ''));
+            $pakasirApiKey = trim((string) ($client['pakasir_api_key'] ?? ''));
+            if ($pakasirSlug !== '' && $pakasirApiKey !== '') {
+                $orderId = 'manual-' . $invoiceEntry['id'];
+                $paymentResult = adf_pakasir_create_payment_link($orderId, (int) round($amount), $pakasirSlug, $pakasirApiKey);
+                if ($paymentResult) {
+                    $paymentLink = $paymentResult['payment_link'];
+                } else {
+                    error_log('subscription-manual-invoice pakasir link failed: ' . adf_pakasir_last_error());
+                }
+            }
 
             $notifyEmail = trim((string) ($client['notify_email'] ?? ''));
             if ($notifyEmail !== '' && filter_var($notifyEmail, FILTER_VALIDATE_EMAIL)) {
@@ -42,8 +56,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     . "Jumlah       : {$formattedAmount}\n"
                     . "Jatuh Tempo  : {$dueDateDisplay}\n\n"
                     . "Tagihan ini terpisah dari biaya langganan bulanan otomatis dan sudah bisa dilihat/dibayar "
-                    . "di menu Tagihan Langganan pada sistem Anda.\n\n"
-                    . "Salam,\n" . SITE_NAME;
+                    . "di menu Tagihan Langganan pada sistem Anda."
+                    . ($paymentLink ? "\n\nBayar sekarang: {$paymentLink}" : '')
+                    . "\n\nSalam,\n" . SITE_NAME;
                 $htmlBody = '<div style="font-family:sans-serif;max-width:520px;margin:0 auto;color:#1e293b;">'
                     . '<div style="background:#0f172a;padding:20px 24px;border-radius:8px 8px 0 0;">'
                     . '<h2 style="color:#fff;margin:0;font-size:18px;">' . htmlspecialchars(SITE_NAME) . '</h2>'
@@ -56,6 +71,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     . '<tr><td style="padding:6px 0;color:#64748b;">Jumlah</td><td style="padding:6px 0;text-align:right;font-weight:bold;">' . htmlspecialchars($formattedAmount) . '</td></tr>'
                     . '<tr><td style="padding:6px 0;color:#64748b;">Jatuh Tempo</td><td style="padding:6px 0;text-align:right;font-weight:bold;">' . htmlspecialchars($dueDateDisplay) . '</td></tr>'
                     . '</table>'
+                    . ($paymentLink
+                        ? '<p style="text-align:center;margin:0 0 16px;"><a href="' . htmlspecialchars($paymentLink) . '" style="display:inline-block;background:#16a34a;color:#fff;text-decoration:none;padding:12px 28px;border-radius:6px;font-weight:bold;">Bayar Tagihan Sekarang</a></p>'
+                        : '')
                     . '<p style="margin:0;">Tagihan ini sudah bisa dilihat dan dibayar di menu Tagihan Langganan pada sistem Anda.</p>'
                     . '<p style="margin:20px 0 0;color:#64748b;font-size:12px;">Salam,<br>' . htmlspecialchars(SITE_NAME) . '</p>'
                     . '</div></div>';
