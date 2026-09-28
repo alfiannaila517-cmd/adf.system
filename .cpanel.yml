@@ -3,7 +3,7 @@ deployment:
   tasks:
     - export DEPLOYPATH=/home/adfb2574/public_html
     - /bin/mkdir -p $DEPLOYPATH
-    - /bin/cp -R $(pwd)/* $DEPLOYPATH/
+    - /bin/cp -R $(pwd)/* $DEPLOYPATH/ 2>/dev/null || true
     - /bin/cp -R $(pwd)/.[^.]* $DEPLOYPATH/ 2>/dev/null || true
 
     # =============================================
