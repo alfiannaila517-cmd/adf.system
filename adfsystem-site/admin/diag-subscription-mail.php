@@ -83,7 +83,9 @@ require __DIR__ . '/../includes/admin-header.php';
                 </tr>
             <?php endforeach; ?>
             <?php if (empty($clients)): ?>
-                <tr><td colspan="4" style="text-align:center;">Belum ada klien.</td></tr>
+                <tr>
+                    <td colspan="4" style="text-align:center;">Belum ada klien.</td>
+                </tr>
             <?php endif; ?>
         </tbody>
     </table>

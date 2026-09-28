@@ -170,7 +170,10 @@ function adf_smtp_send_raw(string $to, string $subject, string $htmlBody, string
 
     $fullMessage = $baseHeaders . adf_smtp_build_body($htmlBody, $textBody, $attachments);
 
-    $bodyEscaped = str_replace("\r\n.", "\r\n..", str_replace("\n", "\r\n", $fullMessage));
+    // Normalize only bare LF to CRLF (str_replace("\n", "\r\n", ...) would double up
+    // every existing "\r\n" into "\r\r\n", corrupting the MIME boundaries below).
+    $normalized = preg_replace('/\r\n|\r|\n/', "\r\n", $fullMessage);
+    $bodyEscaped = str_replace("\r\n.", "\r\n..", $normalized);
     fwrite($conn, $bodyEscaped . "\r\n.\r\n");
     $lastReply = $read($conn);
     if (substr($lastReply, 0, 3) !== '250') {
