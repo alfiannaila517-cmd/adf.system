@@ -103,50 +103,50 @@ require __DIR__ . '/../includes/admin-header.php';
         <p>Belum ada pesanan.</p>
     <?php else: ?>
         <div class="payment-table-wrap">
-        <table class="admin-table payment-table">
-            <thead>
-                <tr>
-                    <th>Order ID</th>
-                    <th>Paket</th>
-                    <th>Nama</th>
-                    <th>WhatsApp</th>
-                    <th>Jumlah</th>
-                    <th>Status</th>
-                    <th>Dibayar</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($orders as $order): ?>
-                <tr>
-                    <td><?php echo htmlspecialchars($order['order_id']); ?></td>
-                    <td><?php echo htmlspecialchars($order['product_title']); ?></td>
-                    <td><?php echo htmlspecialchars($order['name']); ?></td>
-                    <td><?php echo htmlspecialchars($order['whatsapp']); ?></td>
-                    <td class="payment-amount">Rp <?php echo number_format((int) $order['amount'], 0, ',', '.'); ?></td>
-                    <td><span class="payment-status payment-status-<?php echo htmlspecialchars(strtolower((string) $order['status'])); ?>"><?php echo htmlspecialchars($order['status']); ?></span></td>
-                    <td class="payment-date"><?php echo htmlspecialchars($formatDate($order['completed_at'] ?? null)); ?></td>
-                    <td class="payment-actions">
-                        <form method="post">
-                            <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
-                            <input type="hidden" name="action" value="refresh">
-                            <input type="hidden" name="order_id" value="<?php echo htmlspecialchars($order['order_id']); ?>">
-                            <input type="hidden" name="txn_id" value="<?php echo htmlspecialchars($order['txn_id']); ?>">
-                            <button type="submit" class="btn btn-outline payment-btn-sm">Cek Status</button>
-                        </form>
-                        <?php if (strtolower((string) $order['status']) !== 'completed'): ?>
-                        <form method="post" onsubmit="return confirm('Hapus pesanan <?php echo htmlspecialchars($order['order_id']); ?>?');">
-                            <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
-                            <input type="hidden" name="action" value="delete">
-                            <input type="hidden" name="order_id" value="<?php echo htmlspecialchars($order['order_id']); ?>">
-                            <button type="submit" class="btn btn-outline payment-btn-sm payment-btn-danger">Hapus</button>
-                        </form>
-                        <?php endif; ?>
-                    </td>
-                </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
+            <table class="admin-table payment-table">
+                <thead>
+                    <tr>
+                        <th>Order ID</th>
+                        <th>Paket</th>
+                        <th>Nama</th>
+                        <th>WhatsApp</th>
+                        <th>Jumlah</th>
+                        <th>Status</th>
+                        <th>Dibayar</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($orders as $order): ?>
+                        <tr>
+                            <td><?php echo htmlspecialchars($order['order_id']); ?></td>
+                            <td><?php echo htmlspecialchars($order['product_title']); ?></td>
+                            <td><?php echo htmlspecialchars($order['name']); ?></td>
+                            <td><?php echo htmlspecialchars($order['whatsapp']); ?></td>
+                            <td class="payment-amount">Rp <?php echo number_format((int) $order['amount'], 0, ',', '.'); ?></td>
+                            <td><span class="payment-status payment-status-<?php echo htmlspecialchars(strtolower((string) $order['status'])); ?>"><?php echo htmlspecialchars($order['status']); ?></span></td>
+                            <td class="payment-date"><?php echo htmlspecialchars($formatDate($order['completed_at'] ?? null)); ?></td>
+                            <td class="payment-actions">
+                                <form method="post">
+                                    <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
+                                    <input type="hidden" name="action" value="refresh">
+                                    <input type="hidden" name="order_id" value="<?php echo htmlspecialchars($order['order_id']); ?>">
+                                    <input type="hidden" name="txn_id" value="<?php echo htmlspecialchars($order['txn_id']); ?>">
+                                    <button type="submit" class="btn btn-outline payment-btn-sm">Cek Status</button>
+                                </form>
+                                <?php if (strtolower((string) $order['status']) !== 'completed'): ?>
+                                    <form method="post" onsubmit="return confirm('Hapus pesanan <?php echo htmlspecialchars($order['order_id']); ?>?');">
+                                        <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
+                                        <input type="hidden" name="action" value="delete">
+                                        <input type="hidden" name="order_id" value="<?php echo htmlspecialchars($order['order_id']); ?>">
+                                        <button type="submit" class="btn btn-outline payment-btn-sm payment-btn-danger">Hapus</button>
+                                    </form>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
         </div>
     <?php endif; ?>
 </div>

@@ -27,13 +27,20 @@ header('Content-Type: text/html; charset=utf-8');
 ?>
 <!DOCTYPE html>
 <html lang="id">
-<head><meta charset="UTF-8"><title>Diagnostic Website Contact</title></head>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Diagnostic Website Contact</title>
+</head>
+
 <body style="font-family:monospace;padding:20px;">
     <h2>Diagnostic: Widget Chat WhatsApp Website</h2>
     <p><b>Active business (session):</b> <?php echo htmlspecialchars($activeBusinessId); ?></p>
     <p><b>company_phone:</b> "<?php echo htmlspecialchars($companyPhone); ?>"</p>
     <p><b>company_phone_extra:</b> "<?php echo htmlspecialchars($companyPhoneExtra); ?>"</p>
-    <p><b>company_whatsapp_admins (raw):</b><br><pre><?php echo htmlspecialchars($waAdminsRaw); ?></pre></p>
+    <p><b>company_whatsapp_admins (raw):</b><br>
+    <pre><?php echo htmlspecialchars($waAdminsRaw); ?></pre>
+    </p>
     <p><b>Resolved admin list (dipakai widget chat):</b></p>
     <pre><?php echo htmlspecialchars(print_r($waAdminsResolved, true)); ?></pre>
     <?php if ($waAdminsResolved): ?>
@@ -42,4 +49,5 @@ header('Content-Type: text/html; charset=utf-8');
         <p style="color:red;font-weight:bold;">✘ Data KOSONG. Ini sebabnya widget chat tidak muncul - isi "Nomor WhatsApp Admin" atau "Nomor Telepon" di Pengaturan &rarr; tab Perusahaan, lalu simpan.</p>
     <?php endif; ?>
 </body>
+
 </html>

@@ -105,7 +105,12 @@ header('Content-Type: text/html; charset=utf-8');
 ?>
 <!DOCTYPE html>
 <html lang="id">
-<head><meta charset="UTF-8"><title>Diagnostic Quick Quote</title></head>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Diagnostic Quick Quote</title>
+</head>
+
 <body style="font-family:monospace;padding:20px;">
     <h2>Diagnostic: Form "Minta Penawaran Cepat" (home.php)</h2>
     <p><b>Active business (session):</b> <?php echo htmlspecialchars($activeBusinessId); ?></p>
@@ -120,4 +125,5 @@ header('Content-Type: text/html; charset=utf-8');
         <p style="color:green;font-weight:bold;">✔ Semua langkah berhasil tanpa error. Kemungkinan masalah booking asli disebabkan hal lain (mis. data spesifik yang tamu isi, atau cache halaman lama).</p>
     <?php endif; ?>
 </body>
+
 </html>

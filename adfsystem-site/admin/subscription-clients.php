@@ -66,23 +66,25 @@ $adminPageTitle = 'Klien Langganan';
 require __DIR__ . '/../includes/admin-header.php';
 ?>
 <style>
-.subscription-clients-page .admin-lead,
-.subscription-clients-page .admin-subheading,
-.subscription-clients-page .admin-form label,
-.subscription-clients-page .admin-form input,
-.subscription-clients-page .admin-form select,
-.subscription-clients-page .payment-table,
-.subscription-clients-page .payment-table th,
-.subscription-clients-page .payment-table td,
-.subscription-clients-page .btn {
-    font-size: 9px !important;
-}
-.subscription-clients-page .admin-form input {
-    padding: 5px 7px;
-}
-.subscription-clients-page .admin-form label {
-    margin-bottom: 8px;
-}
+    .subscription-clients-page .admin-lead,
+    .subscription-clients-page .admin-subheading,
+    .subscription-clients-page .admin-form label,
+    .subscription-clients-page .admin-form input,
+    .subscription-clients-page .admin-form select,
+    .subscription-clients-page .payment-table,
+    .subscription-clients-page .payment-table th,
+    .subscription-clients-page .payment-table td,
+    .subscription-clients-page .btn {
+        font-size: 9px !important;
+    }
+
+    .subscription-clients-page .admin-form input {
+        padding: 5px 7px;
+    }
+
+    .subscription-clients-page .admin-form label {
+        margin-bottom: 8px;
+    }
 </style>
 <div class="container admin-container admin-container-wide subscription-clients-page">
     <h1>Klien Langganan</h1>
@@ -104,7 +106,7 @@ require __DIR__ . '/../includes/admin-header.php';
         <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
         <input type="hidden" name="existing_token" value="<?php echo htmlspecialchars($editClient['client_token'] ?? ''); ?>">
         <label>Client Key (slug unik, mis. <code>karimunjawa-explore</code>)
-            <input type="text" name="client_key" required placeholder="karimunjawa-explore" value="<?php echo htmlspecialchars($editClient['client_key'] ?? ''); ?>"<?php echo $editClient ? ' readonly' : ''; ?>>
+            <input type="text" name="client_key" required placeholder="karimunjawa-explore" value="<?php echo htmlspecialchars($editClient['client_key'] ?? ''); ?>" <?php echo $editClient ? ' readonly' : ''; ?>>
         </label>
         <label>Nama Klien
             <input type="text" name="client_name" required placeholder="Karimunjawa Explore" value="<?php echo htmlspecialchars($editClient['client_name'] ?? ''); ?>">
@@ -140,22 +142,22 @@ require __DIR__ . '/../includes/admin-header.php';
     </form>
 
     <h2 class="admin-subheading">Daftar Klien</h2>
-        <div class="payment-table-wrap">
-            <table class="payment-table">
-                <thead>
-                    <tr>
-                        <th>Nama</th>
-                        <th>Client Key</th>
-                        <th>Biaya Dasar</th>
-                        <th>Biaya/Tamu</th>
-                        <th>Jatuh Tempo</th>
-                        <th>Email Notifikasi</th>
-                        <th>Client Token</th>
-                        <th>Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($clients as $c): ?>
+    <div class="payment-table-wrap">
+        <table class="payment-table">
+            <thead>
+                <tr>
+                    <th>Nama</th>
+                    <th>Client Key</th>
+                    <th>Biaya Dasar</th>
+                    <th>Biaya/Tamu</th>
+                    <th>Jatuh Tempo</th>
+                    <th>Email Notifikasi</th>
+                    <th>Client Token</th>
+                    <th>Aksi</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($clients as $c): ?>
                     <tr>
                         <td><?php echo htmlspecialchars($c['client_name'] ?? '-'); ?></td>
                         <td><?php echo htmlspecialchars($c['client_key'] ?? '-'); ?></td>
@@ -175,18 +177,19 @@ require __DIR__ . '/../includes/admin-header.php';
                             </form>
                         </td>
                     </tr>
-                    <?php endforeach; ?>
-                    <?php if (empty($clients)): ?>
-                    <tr><td colspan="7" style="text-align:center;">Belum ada klien.</td></tr>
-                    <?php endif; ?>
-                </tbody>
-            </table>
-        </div>
-        <p class="admin-lead" style="margin-top:14px;">
-            API endpoint untuk klien: <code><?php echo htmlspecialchars((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https://' : 'http://') . ($_SERVER['HTTP_HOST'] ?? '') . rtrim(dirname(dirname($_SERVER['SCRIPT_NAME'] ?? '')), '/') . '/api/subscription-config.php'); ?></code>
-            — berikan <strong>Client Key</strong> dan <strong>Client Token</strong> di atas ke pemilik situs klien untuk diisi di halaman Tagihan Langganan mereka.
-        </p>
+                <?php endforeach; ?>
+                <?php if (empty($clients)): ?>
+                    <tr>
+                        <td colspan="7" style="text-align:center;">Belum ada klien.</td>
+                    </tr>
+                <?php endif; ?>
+            </tbody>
+        </table>
     </div>
+    <p class="admin-lead" style="margin-top:14px;">
+        API endpoint untuk klien: <code><?php echo htmlspecialchars((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https://' : 'http://') . ($_SERVER['HTTP_HOST'] ?? '') . rtrim(dirname(dirname($_SERVER['SCRIPT_NAME'] ?? '')), '/') . '/api/subscription-config.php'); ?></code>
+        — berikan <strong>Client Key</strong> dan <strong>Client Token</strong> di atas ke pemilik situs klien untuk diisi di halaman Tagihan Langganan mereka.
+    </p>
+</div>
 </div>
 <?php require __DIR__ . '/../includes/admin-footer.php'; ?>
-

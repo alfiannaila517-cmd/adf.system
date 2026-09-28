@@ -12,13 +12,13 @@ $error = '';
 
 if (!$product || (int) $product['price'] <= 0) {
     require __DIR__ . '/includes/header.php';
-    ?>
+?>
     <section class="page-section">
         <div class="container">
             <div style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.35);color:#f87171;padding:14px 18px;border-radius:10px;max-width:560px;">Paket tidak ditemukan atau tidak tersedia untuk langganan online. Silakan <a href="kontak.php">hubungi kami</a>.</div>
         </div>
     </section>
-    <?php
+<?php
     require __DIR__ . '/includes/footer.php';
     exit;
 }

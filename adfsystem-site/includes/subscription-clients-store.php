@@ -1,4 +1,5 @@
 <?php
+
 /**
  * JSON-backed store for subscription clients (customer sites like Karimunjawa
  * Explore that pay ADF System a monthly base fee + per-guest fee). Pricing is

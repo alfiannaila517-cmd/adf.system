@@ -179,6 +179,10 @@ if (empty($sunseaNavItemsVisible)) {
             box-sizing: border-box;
         }
 
+        html {
+            overflow-x: hidden;
+        }
+
         body {
             font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
             background: var(--ss-sky);
@@ -187,6 +191,8 @@ if (empty($sunseaNavItemsVisible)) {
             min-height: 100vh;
             display: flex;
             zoom: 80%;
+            overflow-x: hidden;
+            max-width: 100vw;
         }
 
         /* ---- SIDEBAR ---- */
@@ -482,12 +488,16 @@ if (empty($sunseaNavItemsVisible)) {
             font-size: 16px;
             font-weight: 700;
             color: var(--ss-text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .ss-topbar-actions {
             display: flex;
             align-items: center;
             gap: 12px;
+            flex-shrink: 0;
         }
 
         .ss-badge {
@@ -1079,11 +1089,38 @@ if (empty($sunseaNavItemsVisible)) {
             }
 
             .ss-topbar {
-                padding: 0 14px;
+                padding: 0 12px;
+                gap: 8px;
+                height: auto;
+                min-height: 52px;
+                flex-wrap: wrap;
+                row-gap: 6px;
+            }
+
+            .ss-topbar>div:first-child {
+                min-width: 0;
+                flex: 1 1 auto;
+            }
+
+            .ss-page-title {
+                font-size: 13px;
+                max-width: 42vw;
+            }
+
+            .ss-topbar-actions {
+                gap: 6px;
+                flex-wrap: wrap;
+                justify-content: flex-end;
+            }
+
+            .ss-badge {
+                padding: 2px 8px;
+                font-size: 10px;
             }
 
             .ss-content {
                 padding: 14px;
+                overflow-x: hidden;
             }
 
             .ss-form-grid.cols-2,
@@ -1130,6 +1167,17 @@ if (empty($sunseaNavItemsVisible)) {
             div[style*="grid-template-columns:repeat(3"],
             div[style*="grid-template-columns:repeat(4"] {
                 grid-template-columns: minmax(0, 1fr) !important;
+            }
+
+            .ss-page-title {
+                max-width: 34vw;
+                font-size: 12px;
+            }
+
+            .ss-badge {
+                padding: 2px 6px;
+                font-size: 9.5px;
+                gap: 2px;
             }
         }
     </style>

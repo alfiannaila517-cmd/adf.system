@@ -28,33 +28,36 @@ $csrf = adf_admin_csrf_token();
 ?>
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="robots" content="noindex, nofollow">
-<title>Login Admin — ADF System</title>
-<link rel="stylesheet" href="../assets/css/style.css">
-<link rel="stylesheet" href="../assets/css/admin.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Login Admin — ADF System</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/admin.css">
 </head>
+
 <body class="admin-body">
-<div class="admin-login-wrap">
-    <form class="admin-login-card" method="post" autocomplete="off">
-        <h1>Login Admin</h1>
-        <p class="admin-login-sub">Masuk untuk mengelola tampilan website ADF System.</p>
-        <?php if ($error): ?>
-            <div class="admin-alert admin-alert-error"><?php echo htmlspecialchars($error); ?></div>
-        <?php endif; ?>
-        <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
-        <label>Username atau Email
-            <input type="text" name="username" required autofocus>
-        </label>
-        <label>Password
-            <input type="password" name="password" required>
-        </label>
-        <button type="submit" class="btn btn-primary admin-login-btn">Masuk</button>
-        <a href="forgot-password.php" class="admin-back-link">Lupa password?</a>
-        <a href="../index.php" class="admin-back-link">&larr; Kembali ke website</a>
-    </form>
-</div>
+    <div class="admin-login-wrap">
+        <form class="admin-login-card" method="post" autocomplete="off">
+            <h1>Login Admin</h1>
+            <p class="admin-login-sub">Masuk untuk mengelola tampilan website ADF System.</p>
+            <?php if ($error): ?>
+                <div class="admin-alert admin-alert-error"><?php echo htmlspecialchars($error); ?></div>
+            <?php endif; ?>
+            <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
+            <label>Username atau Email
+                <input type="text" name="username" required autofocus>
+            </label>
+            <label>Password
+                <input type="password" name="password" required>
+            </label>
+            <button type="submit" class="btn btn-primary admin-login-btn">Masuk</button>
+            <a href="forgot-password.php" class="admin-back-link">Lupa password?</a>
+            <a href="../index.php" class="admin-back-link">&larr; Kembali ke website</a>
+        </form>
+    </div>
 </body>
+
 </html>

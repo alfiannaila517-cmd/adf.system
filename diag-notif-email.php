@@ -51,7 +51,12 @@ header('Content-Type: text/html; charset=utf-8');
 ?>
 <!DOCTYPE html>
 <html lang="id">
-<head><meta charset="UTF-8"><title>Diagnostic Notifikasi Email</title></head>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Diagnostic Notifikasi Email</title>
+</head>
+
 <body style="font-family:monospace;padding:20px;">
     <h2>Diagnostic: Notifikasi Email Booking Baru</h2>
     <p><b>Active business (session):</b> <?php echo htmlspecialchars($activeBusinessId); ?></p>
@@ -85,4 +90,5 @@ pass: <?php echo $emailConfig['pass'] ? '(terisi, ' . strlen($emailConfig['pass'
         <pre style="background:#f4f4f4;padding:12px;font-size:11px;"><?php echo htmlspecialchars($sendTrace); ?></pre>
     <?php endif; ?>
 </body>
+
 </html>

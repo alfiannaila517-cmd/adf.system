@@ -1,4 +1,5 @@
 <?php
+
 /**
  * JSON-backed store for ad-hoc "manual" subscription charges an ADF System
  * admin creates for a client outside the regular monthly recurring invoice

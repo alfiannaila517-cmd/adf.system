@@ -71,24 +71,24 @@ require __DIR__ . '/../includes/admin-header.php';
         </thead>
         <tbody>
             <?php foreach ($users as $u): ?>
-            <tr>
-                <td><?php echo htmlspecialchars($u['username']); ?></td>
-                <td><?php echo htmlspecialchars($u['email']); ?></td>
-                <td><?php echo htmlspecialchars($u['role']); ?></td>
-                <td><?php echo htmlspecialchars($u['created_at']); ?></td>
-                <td>
-                    <?php if ((string) $u['id'] !== (string) $currentUser['id']): ?>
-                    <form method="post" style="display:inline;" onsubmit="return confirm('Hapus user ini?');">
-                        <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
-                        <input type="hidden" name="action" value="delete">
-                        <input type="hidden" name="id" value="<?php echo htmlspecialchars($u['id']); ?>">
-                        <button type="submit" class="btn btn-outline admin-btn-danger" style="padding:4px 10px;font-size:0.75rem;">Hapus</button>
-                    </form>
-                    <?php else: ?>
-                    <span style="font-size:0.75rem;color:var(--text-muted);">Akun Anda</span>
-                    <?php endif; ?>
-                </td>
-            </tr>
+                <tr>
+                    <td><?php echo htmlspecialchars($u['username']); ?></td>
+                    <td><?php echo htmlspecialchars($u['email']); ?></td>
+                    <td><?php echo htmlspecialchars($u['role']); ?></td>
+                    <td><?php echo htmlspecialchars($u['created_at']); ?></td>
+                    <td>
+                        <?php if ((string) $u['id'] !== (string) $currentUser['id']): ?>
+                            <form method="post" style="display:inline;" onsubmit="return confirm('Hapus user ini?');">
+                                <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="id" value="<?php echo htmlspecialchars($u['id']); ?>">
+                                <button type="submit" class="btn btn-outline admin-btn-danger" style="padding:4px 10px;font-size:0.75rem;">Hapus</button>
+                            </form>
+                        <?php else: ?>
+                            <span style="font-size:0.75rem;color:var(--text-muted);">Akun Anda</span>
+                        <?php endif; ?>
+                    </td>
+                </tr>
             <?php endforeach; ?>
         </tbody>
     </table>

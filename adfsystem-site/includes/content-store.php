@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Simple JSON-backed content store for editable website sections.
  */

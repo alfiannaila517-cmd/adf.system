@@ -54,14 +54,14 @@ require __DIR__ . '/../includes/admin-header.php';
             </thead>
             <tbody>
                 <?php foreach ($customers as $c): ?>
-                <tr>
-                    <td><?php echo htmlspecialchars($c['name']); ?></td>
-                    <td><?php echo htmlspecialchars($c['whatsapp']); ?></td>
-                    <td><?php echo (int) $c['order_count']; ?></td>
-                    <td>Rp <?php echo number_format((int) $c['total_amount'], 0, ',', '.'); ?></td>
-                    <td><?php echo htmlspecialchars($c['last_status']); ?></td>
-                    <td><?php echo htmlspecialchars($c['last_order_at']); ?></td>
-                </tr>
+                    <tr>
+                        <td><?php echo htmlspecialchars($c['name']); ?></td>
+                        <td><?php echo htmlspecialchars($c['whatsapp']); ?></td>
+                        <td><?php echo (int) $c['order_count']; ?></td>
+                        <td>Rp <?php echo number_format((int) $c['total_amount'], 0, ',', '.'); ?></td>
+                        <td><?php echo htmlspecialchars($c['last_status']); ?></td>
+                        <td><?php echo htmlspecialchars($c['last_order_at']); ?></td>
+                    </tr>
                 <?php endforeach; ?>
             </tbody>
         </table>

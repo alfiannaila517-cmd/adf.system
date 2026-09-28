@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Session-based admin auth helpers for the website admin panel.
  */
@@ -135,4 +136,3 @@ function adf_admin_clear_reset_token(): void
         unlink($path);
     }
 }
-

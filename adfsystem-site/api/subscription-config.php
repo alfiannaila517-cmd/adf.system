@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Read-only subscription pricing config API for client sites (e.g. Karimunjawa
  * Explore). Pricing is managed only via admin/subscription-clients.php — this

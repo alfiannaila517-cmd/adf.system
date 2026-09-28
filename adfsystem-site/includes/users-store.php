@@ -1,4 +1,5 @@
 <?php
+
 /**
  * JSON-backed store for admin panel users (username, email, password hash, role).
  * Roles: 'admin' (full access) or 'staff' (no access to Pengguna & Pembayaran).

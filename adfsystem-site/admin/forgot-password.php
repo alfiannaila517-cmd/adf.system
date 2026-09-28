@@ -39,32 +39,35 @@ $csrf = adf_admin_csrf_token();
 ?>
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="robots" content="noindex, nofollow">
-<title>Lupa Password — Admin ADF System</title>
-<link rel="stylesheet" href="../assets/css/style.css">
-<link rel="stylesheet" href="../assets/css/admin.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Lupa Password — Admin ADF System</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/admin.css">
 </head>
+
 <body class="admin-body">
-<div class="admin-login-wrap">
-    <form class="admin-login-card" method="post" autocomplete="off">
-        <h1>Lupa Password</h1>
-        <p class="admin-login-sub">Masukkan email yang terdaftar, kami kirim link reset password ke email tersebut.</p>
-        <?php if ($sent): ?>
-            <div class="admin-alert admin-alert-success">Jika email terdaftar, link reset password sudah dikirim.</div>
-        <?php endif; ?>
-        <?php if ($error): ?>
-            <div class="admin-alert admin-alert-error"><?php echo htmlspecialchars($error); ?></div>
-        <?php endif; ?>
-        <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
-        <label>Email
-            <input type="email" name="email" required autofocus>
-        </label>
-        <button type="submit" class="btn btn-primary admin-login-btn">Kirim Link Reset</button>
-        <a href="login.php" class="admin-back-link">&larr; Kembali ke login</a>
-    </form>
-</div>
+    <div class="admin-login-wrap">
+        <form class="admin-login-card" method="post" autocomplete="off">
+            <h1>Lupa Password</h1>
+            <p class="admin-login-sub">Masukkan email yang terdaftar, kami kirim link reset password ke email tersebut.</p>
+            <?php if ($sent): ?>
+                <div class="admin-alert admin-alert-success">Jika email terdaftar, link reset password sudah dikirim.</div>
+            <?php endif; ?>
+            <?php if ($error): ?>
+                <div class="admin-alert admin-alert-error"><?php echo htmlspecialchars($error); ?></div>
+            <?php endif; ?>
+            <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
+            <label>Email
+                <input type="email" name="email" required autofocus>
+            </label>
+            <button type="submit" class="btn btn-primary admin-login-btn">Kirim Link Reset</button>
+            <a href="login.php" class="admin-back-link">&larr; Kembali ke login</a>
+        </form>
+    </div>
 </body>
+
 </html>

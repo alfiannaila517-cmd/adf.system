@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Read-only manual (ad-hoc) subscription invoices API for client sites.
  * Manual invoices are created only via admin/subscription-manual-invoice.php —

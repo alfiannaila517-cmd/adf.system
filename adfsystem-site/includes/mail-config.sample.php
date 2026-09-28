@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Copy this file to mail-config.php (same folder) and fill in the real
  * mailbox credentials via cPanel File Manager. mail-config.php is gitignored

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Simple JSON-backed store for subscription/checkout orders (Pakasir payments).
  */

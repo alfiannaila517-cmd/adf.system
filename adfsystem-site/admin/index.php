@@ -71,11 +71,11 @@ require __DIR__ . '/../includes/admin-header.php';
             <p>Ganti password login panel admin website ini.</p>
         </a>
         <?php if ((adf_admin_current_user()['role'] ?? '') === 'admin'): ?>
-        <a class="admin-panel-card" href="users.php">
-            <div class="icon-badge c-purple">👤</div>
-            <h3>Pengguna</h3>
-            <p>Tambah atau hapus user yang bisa login ke panel admin ini.</p>
-        </a>
+            <a class="admin-panel-card" href="users.php">
+                <div class="icon-badge c-purple">👤</div>
+                <h3>Pengguna</h3>
+                <p>Tambah atau hapus user yang bisa login ke panel admin ini.</p>
+            </a>
         <?php endif; ?>
     </div>
 </div>

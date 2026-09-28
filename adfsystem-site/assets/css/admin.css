@@ -49,9 +49,17 @@
   height: 30px;
   flex-shrink: 0;
 }
-.brand-text { font-weight: 800; color: #fff; }
-.brand-accent { color: #fff; }
-.brand-suffix { color: var(--primary); font-weight: 800; }
+.brand-text {
+  font-weight: 800;
+  color: #fff;
+}
+.brand-accent {
+  color: #fff;
+}
+.brand-suffix {
+  color: var(--primary);
+  font-weight: 800;
+}
 
 .admin-sidebar-nav {
   flex: 1;
@@ -102,7 +110,7 @@
   display: none;
 }
 .admin-nav-dropdown summary::after {
-  content: '▸';
+  content: "▸";
   font-size: 0.65rem;
   color: var(--text-muted);
   transition: transform 0.15s ease;
@@ -227,7 +235,8 @@
   border-collapse: collapse;
   font-size: 0.82rem;
 }
-.admin-table th, .admin-table td {
+.admin-table th,
+.admin-table td {
   padding: 8px 10px;
   border-bottom: 1px solid var(--card-border);
   text-align: left;
@@ -396,7 +405,9 @@
   font-size: 0.9rem;
   color-scheme: dark;
 }
-.admin-form textarea { resize: vertical; }
+.admin-form textarea {
+  resize: vertical;
+}
 .admin-image-preview {
   display: block;
   max-width: 220px;
@@ -413,13 +424,18 @@
   font-size: 0.78rem;
   margin-bottom: 8px;
 }
-.admin-checkbox-line input { width: auto; margin: 0; }
+.admin-checkbox-line input {
+  width: auto;
+  margin: 0;
+}
 .admin-form-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 10px;
 }
-.admin-field-small { margin-bottom: 10px; }
+.admin-field-small {
+  margin-bottom: 10px;
+}
 .admin-form-actions {
   display: flex;
   gap: 10px;

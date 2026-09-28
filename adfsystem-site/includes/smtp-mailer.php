@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Minimal SMTP client (no external library) — used because PHP mail() is
  * disabled on this host. Requires includes/mail-config.php with SMTP_* constants.
