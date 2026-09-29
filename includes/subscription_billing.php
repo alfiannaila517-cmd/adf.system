@@ -149,3 +149,71 @@ function subscriptionVerifyAndSyncInvoice(PDO $masterDb, $gatewayReference)
     }
     return false;
 }
+
+/**
+ * Notify a business's own owner/admin/developer users (in-app + web push) about their
+ * ADF System subscription billing status. Notifications/push subscriptions live in each
+ * business's own tenant database, so this temporarily switches the Database singleton to
+ * that business's database_name (from the master `businesses` table) to send them - it does
+ * NOT touch $masterDb (a separate raw PDO connection used by the caller), so the cron's own
+ * loop over the master database keeps working unaffected.
+ */
+function subscriptionNotifyBusiness(PDO $masterDb, $businessId, $businessName, $type, array $extra = [])
+{
+    $titles = [
+        'subscription_due'       => '💳 Tagihan Langganan ADF System',
+        'subscription_overdue'   => '⚠️ Tagihan Langganan Terlambat',
+        'subscription_suspended' => '🚫 Akun Disuspend - Tagihan Belum Dibayar',
+    ];
+    if (!isset($titles[$type])) return;
+
+    $messages = [
+        'subscription_due'       => 'Tagihan langganan ' . $businessName . ' sebesar Rp ' .
+            number_format((float)($extra['amount'] ?? 0), 0, ',', '.') . ' jatuh tempo ' . ($extra['due_date'] ?? '-') . '.',
+        'subscription_overdue'   => 'Tagihan langganan ' . $businessName . ' sudah melewati jatuh tempo. Segera bayar agar akun tidak disuspend.',
+        'subscription_suspended' => 'Akun ' . $businessName . ' telah disuspend karena tagihan langganan belum dibayar melewati batas toleransi.',
+    ];
+
+    try {
+        $bizStmt = $masterDb->prepare("SELECT database_name FROM businesses WHERE id = ? LIMIT 1");
+        $bizStmt->execute([$businessId]);
+        $dbName = $bizStmt->fetchColumn();
+        if (!$dbName) return;
+
+        require_once __DIR__ . '/../config/database.php';
+        $tenantDb = Database::switchDatabase($dbName);
+
+        $admins = $tenantDb->fetchAll("
+            SELECT u.id FROM users u
+            JOIN roles r ON u.role_id = r.id
+            WHERE r.role_code IN ('owner', 'admin', 'developer') AND u.is_active = 1
+        ") ?: [];
+
+        $payload = json_encode($extra);
+        foreach ($admins as $admin) {
+            try {
+                $tenantDb->insert('notifications', [
+                    'user_id'    => $admin['id'],
+                    'type'       => $type,
+                    'title'      => $titles[$type],
+                    'message'    => $messages[$type],
+                    'data'       => $payload,
+                    'is_read'    => 0,
+                    'created_at' => date('Y-m-d H:i:s'),
+                ]);
+            } catch (Exception $e) {
+                // notifications table might not exist yet in this tenant db, skip
+            }
+        }
+
+        require_once __DIR__ . '/PushNotificationHelper.php';
+        $pushHelper = new PushNotificationHelper($tenantDb);
+        $pushHelper->sendToAdmins($titles[$type], $messages[$type], [
+            'type' => $type,
+            'tag'  => $type . '-' . date('Ymd') . '-' . $businessId,
+            'url'  => '/index.php',
+        ]);
+    } catch (\Throwable $e) {
+        error_log('subscriptionNotifyBusiness error: ' . $e->getMessage());
+    }
+}

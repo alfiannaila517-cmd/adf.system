@@ -65,13 +65,25 @@ foreach ($rows as $row) {
     $result = subscriptionCreateInvoice($masterDb, $row['business_id'], $row['business_name']);
     echo ($result['success'] ? 'OK' : 'FAILED') . ' - ' . $result['message'] . "\n";
 
+    // Notify the business's own owner/admin only the first time an invoice is created for this period.
+    if ($result['success'] && $result['message'] === 'Invoice berhasil dibuat.' && $result['invoice']) {
+        subscriptionNotifyBusiness($masterDb, $row['business_id'], $row['business_name'], 'subscription_due', [
+            'amount'   => $result['invoice']['amount'],
+            'due_date' => $result['invoice']['due_date'],
+        ]);
+    }
+
     // Suspend if overdue past grace period and still unpaid.
     $graceDays = (int)($row['grace_days'] ?: 3);
     $overdueDate = date('Y-m-d', strtotime($row['next_billing_date'] . " +{$graceDays} days"));
+    $isPastDue = date('Y-m-d') > $row['next_billing_date'];
     if (date('Y-m-d') > $overdueDate) {
         $masterDb->prepare("UPDATE business_subscriptions SET status = 'suspended' WHERE id = ?")->execute([$row['id']]);
         $masterDb->prepare("UPDATE businesses SET is_active = 0 WHERE id = ?")->execute([$row['business_id']]);
         echo "  -> OVERDUE past grace period, business suspended.\n";
+        subscriptionNotifyBusiness($masterDb, $row['business_id'], $row['business_name'], 'subscription_suspended');
+    } elseif ($isPastDue) {
+        subscriptionNotifyBusiness($masterDb, $row['business_id'], $row['business_name'], 'subscription_overdue');
     }
 }
 
