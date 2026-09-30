@@ -552,14 +552,18 @@ if (isset($forceTheme) && is_string($forceTheme)) {
         .adf-confirm-box {
             width: 90%;
             max-width: 360px;
-            background: linear-gradient(160deg, #1e293b, #0f172a);
-            border: 1px solid rgba(212, 175, 55, 0.25);
+            background: var(--bg-secondary);
+            border: 1px solid rgba(212, 175, 55, 0.3);
             border-radius: 1.25rem;
             padding: 2rem 1.75rem 1.5rem;
             text-align: center;
             box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.04);
             transform: translateY(16px) scale(0.96);
             transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        body[data-theme="light"] .adf-confirm-box {
+            box-shadow: 0 25px 60px -12px rgba(15, 23, 42, 0.25), 0 0 0 1px rgba(15, 23, 42, 0.04);
         }
 
         .adf-confirm-overlay.active .adf-confirm-box {
@@ -583,13 +587,13 @@ if (isset($forceTheme) && is_string($forceTheme)) {
             margin: 0 0 0.4rem;
             font-size: 1.1rem;
             font-weight: 700;
-            color: #f1f5f9;
+            color: var(--text-heading);
         }
 
         .adf-confirm-message {
             margin: 0 0 1.5rem;
             font-size: 0.85rem;
-            color: #94a3b8;
+            color: var(--text-secondary);
             line-height: 1.5;
         }
 
@@ -615,12 +619,12 @@ if (isset($forceTheme) && is_string($forceTheme)) {
         }
 
         .adf-confirm-cancel {
-            background: rgba(148, 163, 184, 0.15);
-            color: #e2e8f0;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
         }
 
         .adf-confirm-cancel:hover {
-            filter: brightness(1.2);
+            filter: brightness(1.15);
         }
 
         .adf-confirm-ok {
