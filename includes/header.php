@@ -510,6 +510,159 @@ if (isset($forceTheme) && is_string($forceTheme)) {
         <!-- Theme Load Warning: <?php echo htmlspecialchars($themeError); ?> -->
     <?php endif; ?>
 
+    <!-- Elegant Confirm Modal (replaces native window.confirm popups) -->
+    <div id="adfConfirmOverlay" class="adf-confirm-overlay">
+        <div class="adf-confirm-box">
+            <div class="adf-confirm-icon">
+                <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M23 4v6h-6"></path>
+                    <path d="M1 20v-6h6"></path>
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                </svg>
+            </div>
+            <h3 class="adf-confirm-title" id="adfConfirmTitle">Switch Business?</h3>
+            <p class="adf-confirm-message" id="adfConfirmMessage">Current page will reload.</p>
+            <div class="adf-confirm-actions">
+                <button type="button" class="adf-confirm-btn adf-confirm-cancel" id="adfConfirmCancelBtn">Batal</button>
+                <button type="button" class="adf-confirm-btn adf-confirm-ok" id="adfConfirmOkBtn">Ya, Ganti</button>
+            </div>
+        </div>
+    </div>
+    <style>
+        .adf-confirm-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 999999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(15, 23, 42, 0.55);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.25s ease, visibility 0.25s ease;
+        }
+
+        .adf-confirm-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .adf-confirm-box {
+            width: 90%;
+            max-width: 360px;
+            background: linear-gradient(160deg, #1e293b, #0f172a);
+            border: 1px solid rgba(212, 175, 55, 0.25);
+            border-radius: 1.25rem;
+            padding: 2rem 1.75rem 1.5rem;
+            text-align: center;
+            box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.04);
+            transform: translateY(16px) scale(0.96);
+            transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .adf-confirm-overlay.active .adf-confirm-box {
+            transform: translateY(0) scale(1);
+        }
+
+        .adf-confirm-icon {
+            width: 52px;
+            height: 52px;
+            margin: 0 auto 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #f5d67d, #d4af37);
+            color: #1e293b;
+            box-shadow: 0 8px 20px -6px rgba(212, 175, 55, 0.55);
+        }
+
+        .adf-confirm-title {
+            margin: 0 0 0.4rem;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #f1f5f9;
+        }
+
+        .adf-confirm-message {
+            margin: 0 0 1.5rem;
+            font-size: 0.85rem;
+            color: #94a3b8;
+            line-height: 1.5;
+        }
+
+        .adf-confirm-actions {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .adf-confirm-btn {
+            flex: 1;
+            padding: 0.65rem 1rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            border-radius: 0.65rem;
+            border: none;
+            cursor: pointer;
+            transition: transform 0.15s ease, filter 0.15s ease;
+            font-family: inherit;
+        }
+
+        .adf-confirm-btn:active {
+            transform: scale(0.96);
+        }
+
+        .adf-confirm-cancel {
+            background: rgba(148, 163, 184, 0.15);
+            color: #e2e8f0;
+        }
+
+        .adf-confirm-cancel:hover {
+            filter: brightness(1.2);
+        }
+
+        .adf-confirm-ok {
+            background: linear-gradient(135deg, #d4af37, #b8860b);
+            color: #1e293b;
+        }
+
+        .adf-confirm-ok:hover {
+            filter: brightness(1.08);
+        }
+    </style>
+    <script>
+        function adfConfirm(message, title) {
+            return new Promise((resolve) => {
+                const overlay = document.getElementById('adfConfirmOverlay');
+                const okBtn = document.getElementById('adfConfirmOkBtn');
+                const cancelBtn = document.getElementById('adfConfirmCancelBtn');
+                document.getElementById('adfConfirmMessage').textContent = message || 'Are you sure?';
+                document.getElementById('adfConfirmTitle').textContent = title || 'Confirm';
+                overlay.classList.add('active');
+
+                function cleanup(result) {
+                    overlay.classList.remove('active');
+                    okBtn.removeEventListener('click', onOk);
+                    cancelBtn.removeEventListener('click', onCancel);
+                    overlay.removeEventListener('click', onOverlay);
+                    document.removeEventListener('keydown', onKeydown);
+                    resolve(result);
+                }
+                function onOk() { cleanup(true); }
+                function onCancel() { cleanup(false); }
+                function onOverlay(e) { if (e.target === overlay) cleanup(false); }
+                function onKeydown(e) { if (e.key === 'Escape') cleanup(false); }
+
+                okBtn.addEventListener('click', onOk);
+                cancelBtn.addEventListener('click', onCancel);
+                overlay.addEventListener('click', onOverlay);
+                document.addEventListener('keydown', onKeydown);
+            });
+        }
+    </script>
+
     <!-- Motor Overdue / Unpaid Guest / Hotel Service Notification Banner -->
     <?php
     $unpaidGuestsCount = 0;
@@ -1463,8 +1616,9 @@ if (isset($forceTheme) && is_string($forceTheme)) {
 
                 <script>
                     // Business Switcher Function
-                    function switchBusiness(businessId) {
-                        if (confirm('Switch to selected business? Current page will reload.')) {
+                    async function switchBusiness(businessId) {
+                        const confirmed = await adfConfirm('Current page will reload to load the selected business data.', 'Switch Business?');
+                        if (confirmed) {
                             // Send AJAX request to switch business
                             fetch('<?php echo BASE_URL; ?>/api/switch-business.php', {
                                     method: 'POST',
