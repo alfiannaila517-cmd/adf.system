@@ -112,6 +112,10 @@ function sanitize($input) {
         }
         .password-toggle:hover { color: #333; }
     </style>
+
+    <!-- Global Loading Indicator (progress bar + overlay) -->
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/global-loader.css?v=<?php echo time(); ?>">
+    <script src="<?php echo BASE_URL; ?>/assets/js/global-loader.js?v=<?php echo time(); ?>"></script>
 </head>
 <body>
     <div class="container">
