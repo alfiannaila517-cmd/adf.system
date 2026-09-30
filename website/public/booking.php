@@ -221,6 +221,11 @@ include __DIR__ . '/includes/header.php';
                 <input type="hidden" name="check_in" value="<?= htmlspecialchars($checkIn) ?>">
                 <input type="hidden" name="check_out" value="<?= htmlspecialchars($checkOut) ?>">
                 <input type="hidden" name="guests" value="<?= $guests ?>">
+                <!-- Honeypot: hidden from humans, bots tend to fill every field -->
+                <div style="position:absolute; left:-9999px; top:-9999px; opacity:0; height:0; overflow:hidden;" aria-hidden="true">
+                    <label for="website">Leave this field empty</label>
+                    <input type="text" name="website" id="website" tabindex="-1" autocomplete="off">
+                </div>
 
                 <div class="form-row">
                     <div class="form-group">
