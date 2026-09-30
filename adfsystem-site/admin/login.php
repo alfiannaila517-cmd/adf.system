@@ -36,6 +36,8 @@ $csrf = adf_admin_csrf_token();
     <title>Login Admin — ADF System</title>
     <link rel="stylesheet" href="../assets/css/style.css">
     <link rel="stylesheet" href="../assets/css/admin.css">
+    <link rel="stylesheet" href="../assets/css/global-loader.css">
+    <script src="../assets/js/global-loader.js"></script>
 </head>
 
 <body class="admin-body">

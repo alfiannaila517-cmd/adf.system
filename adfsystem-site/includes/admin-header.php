@@ -30,6 +30,8 @@ function adf_admin_nav(string $href, string $label, string $icon = ''): void
     <title><?php echo htmlspecialchars($adminPageTitle); ?> — Admin ADF System</title>
     <link rel="stylesheet" href="../assets/css/style.css?v=<?php echo @filemtime(__DIR__ . '/../assets/css/style.css') ?: '1'; ?>">
     <link rel="stylesheet" href="../assets/css/admin.css?v=<?php echo @filemtime(__DIR__ . '/../assets/css/admin.css') ?: '1'; ?>">
+    <link rel="stylesheet" href="../assets/css/global-loader.css?v=<?php echo @filemtime(__DIR__ . '/../assets/css/global-loader.css') ?: '1'; ?>">
+    <script src="../assets/js/global-loader.js?v=<?php echo @filemtime(__DIR__ . '/../assets/js/global-loader.js') ?: '1'; ?>"></script>
 </head>
 
 <body class="admin-body">

@@ -19,6 +19,8 @@ $siteLogo = adf_load_content()['branding']['logo'] ?? '';
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/css/style.css?v=<?php echo @filemtime(__DIR__ . '/../assets/css/style.css') ?: '1'; ?>">
+<link rel="stylesheet" href="assets/css/global-loader.css?v=<?php echo @filemtime(__DIR__ . '/../assets/css/global-loader.css') ?: '1'; ?>">
+<script src="assets/js/global-loader.js?v=<?php echo @filemtime(__DIR__ . '/../assets/js/global-loader.js') ?: '1'; ?>"></script>
 </head>
 <body>
 
