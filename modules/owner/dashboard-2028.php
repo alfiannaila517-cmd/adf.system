@@ -1028,6 +1028,8 @@ if ($healthScore >= 80) {
     <title>Owner Dashboard - <?= htmlspecialchars($businessName) ?></title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/global-loader.css">
+    <script src="<?= BASE_URL ?>/assets/js/global-loader.js"></script>
     <style>
         * {
             margin: 0;
