@@ -239,6 +239,8 @@ $totalCurrentCash = $totalStartCash + $totalTodayIncome - $totalTodayExpense;
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Owner Capital Monitor — Narayana</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=DM+Serif+Display&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/global-loader.css">
+    <script src="<?= BASE_URL ?>/assets/js/global-loader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>

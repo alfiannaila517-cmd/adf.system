@@ -407,6 +407,8 @@ function rp($num) {
     <meta http-equiv="refresh" content="60">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Frontdesk Monitor - Owner</title>
+    <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/global-loader.css">
+    <script src="<?= BASE_URL ?>/assets/js/global-loader.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         

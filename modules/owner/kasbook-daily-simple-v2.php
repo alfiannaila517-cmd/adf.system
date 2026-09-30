@@ -111,6 +111,8 @@ function formatCurrency($amount) {
     <title>Kasbook Daily - Simple Tracking</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.css">
+    <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/global-loader.css">
+    <script src="<?= BASE_URL ?>/assets/js/global-loader.js"></script>
     <style>
         :root {
             --primary: #0071e3;

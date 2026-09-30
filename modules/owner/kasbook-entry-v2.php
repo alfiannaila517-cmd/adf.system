@@ -140,6 +140,8 @@ function formatCurrency($amount) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kasbook Entry - Tambah Transaksi</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/global-loader.css">
+    <script src="<?= BASE_URL ?>/assets/js/global-loader.js"></script>
     <style>
         :root {
             --primary: #0071e3;
