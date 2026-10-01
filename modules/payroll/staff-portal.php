@@ -3476,6 +3476,8 @@ header('Expires: 0');
         <!-- ═══ PAGE: HOME (Absen + Monitoring + Cuti) ═══ -->
         <div class="page active" id="page-home">
 
+            <div id="homeMainContent">
+
             <!-- iPhone Guide -->
             <div class="install-guide" id="iosGuide" style="display:none;">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
@@ -3576,6 +3578,8 @@ header('Expires: 0');
                     </div>
                 </div>
             </div>
+
+            </div><!-- /homeMainContent -->
 
             <!-- Ajukan Lembur (toggled via Menu Cepat) -->
             <div id="lemburSection" style="display:none;">
@@ -4733,6 +4737,8 @@ header('Expires: 0');
                 const el = document.getElementById(sid);
                 if (el) el.style.display = (sid === id) ? 'block' : 'none';
             });
+            const homeMain = document.getElementById('homeMainContent');
+            if (homeMain) homeMain.style.display = 'none';
             if (id === 'monitorSection') {
                 loadMonitoring();
                 loadMonitorLembur();
@@ -4749,6 +4755,15 @@ header('Expires: 0');
         function closeStaffSection(id) {
             const el = document.getElementById(id);
             if (el) el.style.display = 'none';
+            const homeMain = document.getElementById('homeMainContent');
+            if (homeMain) homeMain.style.display = '';
+            const appShell = document.getElementById('appShell');
+            if (appShell) {
+                setTimeout(() => appShell.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                }), 50);
+            }
         }
 
         // ═══ TEAM SCHEDULE (All Staff Combined Calendar) ═══
@@ -5402,9 +5417,9 @@ header('Expires: 0');
 
                 let html;
                 if (IS_CAFE) {
-                    html = '<div style="overflow-x:auto;font-size:11px;line-height:1.35;"><table class="tbl"><thead><tr><th>Tgl</th><th>Masuk</th><th>Pulang</th><th>Jam</th><th>Status</th></tr></thead><tbody>';
+                    html = '<div style="overflow-x:auto;font-size:11px;line-height:1.35;"><table class="tbl"><thead><tr><th>Tgl</th><th>Masuk</th><th>Pulang</th><th>Jam</th><th>Ket</th><th>Status</th></tr></thead><tbody>';
                 } else {
-                    html = '<div style="overflow-x:auto;font-size:11px;line-height:1.35;"><table class="tbl"><thead><tr><th>Tgl</th><th>S1</th><th>S2</th><th>S3</th><th>S4</th><th>Jam</th><th>Status</th></tr></thead><tbody>';
+                    html = '<div style="overflow-x:auto;font-size:11px;line-height:1.35;"><table class="tbl"><thead><tr><th>Tgl</th><th>S1</th><th>S2</th><th>S3</th><th>S4</th><th>Jam</th><th>Ket</th><th>Status</th></tr></thead><tbody>';
                 }
                 const statusMap = {
                     present: 'Hadir',
@@ -5447,17 +5462,17 @@ header('Expires: 0');
                     const hadir = (wh > 0) || r.status === 'present' || r.status === 'late';
                     const regularHours = wh > 0 ? Math.min(wh, 8) : 0;
                     const whTxt = regularHours > 0 ? `${regularHours.toFixed(1).replace(/\.0$/, '')}j` : (hadir ? '0j' : '—');
-                    const otBlock = ot > 0 ?
-                        `<div style="font-size:8.5px;color:${otColor};font-weight:700;">${otLabel} +${ot.toFixed(1).replace(/\.0$/, '')}j</div>` :
-                        (hadir ? `<div style="font-size:8px;color:var(--muted);">tanpa OT</div>` : '');
+                    const ketTxt = ot > 0 ?
+                        `<span style="color:${otColor};font-weight:700;">${otLabel} +${ot.toFixed(1).replace(/\.0$/, '')}j</span>` :
+                        (hadir ? '<span style="color:var(--muted);">-</span>' : '—');
 
                     const statusBadge = `<span class="badge ${bc}" style="font-size:8.5px;padding:1px 5px;white-space:nowrap;">${monitorStatusMap[statusKey]||statusKey}</span>`;
                     if (IS_CAFE) {
-                        html += `<tr><td style="white-space:nowrap;font-size:10px;">${day}</td><td style="font-weight:600;color:var(--green);font-size:10px;">${s1}</td><td style="font-weight:600;color:var(--navy);font-size:10px;">${s2}</td><td style="font-weight:700;font-size:10px;">${whTxt}${otBlock}</td><td>${statusBadge}</td></tr>`;
+                        html += `<tr><td style="white-space:nowrap;font-size:10px;">${day}</td><td style="font-weight:600;color:var(--green);font-size:10px;">${s1}</td><td style="font-weight:600;color:var(--navy);font-size:10px;">${s2}</td><td style="font-weight:700;font-size:10px;">${whTxt}</td><td style="font-size:10px;">${ketTxt}</td><td>${statusBadge}</td></tr>`;
                     } else {
                         const s3 = r.scan_3 ? r.scan_3.substring(0, 5) : '—';
                         const s4 = r.scan_4 ? r.scan_4.substring(0, 5) : '—';
-                        html += `<tr><td style="white-space:nowrap;font-size:10px;">${day}</td><td style="font-weight:600;color:var(--green);font-size:10px;">${s1}</td><td style="font-size:10px;">${s2}</td><td style="color:var(--green);font-size:10px;">${s3}</td><td style="font-size:10px;">${s4}</td><td style="font-weight:700;font-size:10px;">${whTxt}${otBlock}</td><td>${statusBadge}</td></tr>`;
+                        html += `<tr><td style="white-space:nowrap;font-size:10px;">${day}</td><td style="font-weight:600;color:var(--green);font-size:10px;">${s1}</td><td style="font-size:10px;">${s2}</td><td style="color:var(--green);font-size:10px;">${s3}</td><td style="font-size:10px;">${s4}</td><td style="font-weight:700;font-size:10px;">${whTxt}</td><td style="font-size:10px;">${ketTxt}</td><td>${statusBadge}</td></tr>`;
                     }
                 });
                 html += '</tbody></table></div>';
