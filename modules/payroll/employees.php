@@ -164,69 +164,47 @@ include '../../includes/header.php';
         --pr-radius-sm: 12px;
     }
 
-    /* Header Hero - Wider & More Prominent */
+    /* Employee page toolbar */
     .emp-header {
-        background: var(--pr-gradient-1);
-        border-radius: var(--pr-radius);
-        padding: 2rem 2.5rem;
-        margin-bottom: 1.5rem;
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 0.7rem 1rem;
+        margin-bottom: 0.75rem;
         display: flex;
         justify-content: space-between;
         align-items: center;
         flex-wrap: wrap;
-        gap: 1rem;
+        gap: 0.5rem;
         position: relative;
         overflow: hidden;
     }
 
-    .emp-header::before {
-        content: '';
-        position: absolute;
-        top: -60%;
-        right: -5%;
-        width: 350px;
-        height: 350px;
-        background: radial-gradient(circle, rgba(255, 255, 255, 0.12) 0%, transparent 70%);
-        border-radius: 50%;
-    }
-
-    .emp-header::after {
-        content: '';
-        position: absolute;
-        bottom: -40%;
-        left: 10%;
-        width: 200px;
-        height: 200px;
-        background: radial-gradient(circle, rgba(255, 255, 255, 0.07) 0%, transparent 70%);
-        border-radius: 50%;
-    }
-
     .emp-header h1 {
-        color: #fff;
-        font-size: 1.65rem;
-        font-weight: 800;
+        color: var(--text-primary);
+        font-size: 0.95rem;
+        font-weight: 700;
         margin: 0;
         position: relative;
         z-index: 2;
-        letter-spacing: -0.3px;
+        letter-spacing: 0;
     }
 
     .emp-header p {
-        color: rgba(255, 255, 255, 0.85);
-        margin: 0.25rem 0 0;
-        font-size: 0.95rem;
+        color: var(--text-tertiary);
+        margin: 0.15rem 0 0;
+        font-size: 0.75rem;
         font-weight: 400;
     }
 
     .btn-add-emp {
-        background: rgba(255, 255, 255, 0.2);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.3);
+        background: var(--primary-color);
+        border: 1px solid var(--primary-color);
         color: #fff;
-        padding: 0.75rem 1.5rem;
-        border-radius: 50px;
+        padding: 0.45rem 0.75rem;
+        border-radius: 6px;
         font-weight: 600;
-        font-size: 0.95rem;
+        font-size: 0.875rem;
         transition: all 0.3s ease;
         display: inline-flex;
         align-items: center;
@@ -237,27 +215,25 @@ include '../../includes/header.php';
     }
 
     .btn-add-emp:hover {
-        background: rgba(255, 255, 255, 0.35);
-        transform: translateY(-2px);
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        background: var(--primary-dark);
     }
 
     /* Stats - 4 cards in a row */
     .emp-stats {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
-        gap: 1rem;
-        margin-bottom: 1.5rem;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
     }
 
     .emp-stat-item {
         background: var(--bg-primary);
         border: 1px solid var(--border-color);
-        border-radius: var(--pr-radius-sm);
-        padding: 1.25rem 1.5rem;
+        border-radius: 8px;
+        padding: 0.65rem 0.75rem;
         display: flex;
         align-items: center;
-        gap: 1rem;
+        gap: 0.65rem;
         transition: all 0.2s;
         box-shadow: var(--pr-shadow-card);
     }
@@ -268,9 +244,9 @@ include '../../includes/header.php';
     }
 
     .emp-stat-icon {
-        width: 48px;
-        height: 48px;
-        border-radius: 12px;
+        width: 34px;
+        height: 34px;
+        border-radius: 6px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -278,8 +254,8 @@ include '../../includes/header.php';
     }
 
     .emp-stat-icon svg {
-        width: 22px;
-        height: 22px;
+        width: 17px;
+        height: 17px;
     }
 
     .emp-stat-icon.purple {
@@ -303,43 +279,43 @@ include '../../includes/header.php';
     }
 
     .emp-stat-label {
-        font-size: 0.75rem;
+        font-size: 0.7rem;
         text-transform: uppercase;
-        letter-spacing: 0.6px;
+        letter-spacing: 0;
         color: var(--text-tertiary);
         margin-bottom: 0.2rem;
         font-weight: 500;
     }
 
     .emp-stat-value {
-        font-size: 1.35rem;
-        font-weight: 800;
+        font-size: 0.875rem;
+        font-weight: 700;
         color: var(--text-primary);
         margin: 0;
-        letter-spacing: -0.5px;
+        letter-spacing: 0;
     }
 
     /* Table Card */
     .emp-table-card {
         background: var(--bg-primary);
         border: 1px solid var(--border-color);
-        border-radius: var(--pr-radius);
+        border-radius: 8px;
         overflow: hidden;
         box-shadow: var(--pr-shadow-card);
     }
 
     .emp-table-header {
-        padding: 1.25rem 1.75rem;
+        padding: 0.65rem 0.85rem;
         border-bottom: 1px solid var(--border-color);
         display: flex;
         justify-content: space-between;
         align-items: center;
         flex-wrap: wrap;
-        gap: 1rem;
+        gap: 0.5rem;
     }
 
     .emp-table-header h3 {
-        font-size: 1.1rem;
+        font-size: 0.875rem;
         font-weight: 700;
         margin: 0;
         color: var(--text-primary);
@@ -347,15 +323,15 @@ include '../../includes/header.php';
 
     .emp-search {
         position: relative;
-        width: 300px;
+        width: 240px;
     }
 
     .emp-search input {
         width: 100%;
-        padding: 0.7rem 1rem 0.7rem 2.75rem;
+        padding: 0.4rem 0.65rem 0.4rem 2rem;
         border: 1px solid var(--border-color);
-        border-radius: 50px;
-        font-size: 0.9rem;
+        border-radius: 6px;
+        font-size: 0.875rem;
         background: var(--bg-secondary);
         transition: all 0.2s;
     }
@@ -368,7 +344,7 @@ include '../../includes/header.php';
 
     .emp-search svg {
         position: absolute;
-        left: 1rem;
+        left: 0.65rem;
         top: 50%;
         transform: translateY(-50%);
         width: 16px;
@@ -377,18 +353,22 @@ include '../../includes/header.php';
     }
 
     /* Employee Table - Spacious */
+    .emp-table-scroll {
+        overflow-x: auto;
+    }
+
     .emp-table {
         width: 100%;
         border-collapse: collapse;
     }
 
     .emp-table th {
-        padding: 0.85rem 1.25rem;
+        padding: 0.5rem 0.7rem;
         text-align: left;
         font-size: 0.72rem;
         font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: 0.7px;
+        letter-spacing: 0;
         color: var(--text-tertiary);
         background: var(--bg-secondary);
         border-bottom: 2px solid var(--border-color);
@@ -396,10 +376,10 @@ include '../../includes/header.php';
     }
 
     .emp-table td {
-        padding: 1rem 1.25rem;
+        padding: 0.5rem 0.7rem;
         border-bottom: 1px solid var(--border-light, rgba(0, 0, 0, 0.04));
         vertical-align: middle;
-        font-size: 0.9rem;
+        font-size: 0.875rem;
     }
 
     .emp-table tr {
@@ -418,34 +398,34 @@ include '../../includes/header.php';
     .emp-info {
         display: flex;
         align-items: center;
-        gap: 0.85rem;
-        min-width: 200px;
+        gap: 0.55rem;
+        min-width: 160px;
     }
 
     .emp-avatar {
-        width: 42px;
-        height: 42px;
-        border-radius: 12px;
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
         background: var(--pr-gradient-1);
         display: flex;
         align-items: center;
         justify-content: center;
         color: #fff;
         font-weight: 700;
-        font-size: 0.85rem;
+        font-size: 0.75rem;
         flex-shrink: 0;
-        letter-spacing: 0.5px;
+        letter-spacing: 0;
     }
 
     .emp-name {
         font-weight: 700;
         color: var(--text-primary);
         margin-bottom: 0.15rem;
-        font-size: 0.95rem;
+        font-size: 0.875rem;
     }
 
     .emp-code {
-        font-size: 0.78rem;
+        font-size: 0.72rem;
         color: var(--text-tertiary);
         font-weight: 500;
     }
@@ -454,11 +434,11 @@ include '../../includes/header.php';
     .emp-position {
         font-weight: 600;
         color: var(--text-primary);
-        font-size: 0.9rem;
+        font-size: 0.875rem;
     }
 
     .emp-dept {
-        font-size: 0.78rem;
+        font-size: 0.72rem;
         color: var(--text-tertiary);
         margin-top: 0.1rem;
         font-weight: 500;
@@ -466,18 +446,15 @@ include '../../includes/header.php';
 
     /* Salary - Prominent */
     .emp-salary {
-        font-weight: 800;
-        font-size: 0.95rem;
-        background: var(--pr-gradient-2);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
+        font-weight: 700;
+        font-size: 0.875rem;
+        color: #15803d;
         white-space: nowrap;
     }
 
     /* Bank Info */
     .emp-bank {
-        font-size: 0.85rem;
+        font-size: 0.875rem;
         color: var(--text-secondary);
         font-weight: 500;
     }
@@ -486,9 +463,9 @@ include '../../includes/header.php';
         display: block;
         font-family: 'SF Mono', 'Fira Code', monospace;
         color: var(--text-tertiary);
-        font-size: 0.78rem;
+        font-size: 0.72rem;
         margin-top: 0.1rem;
-        letter-spacing: 0.3px;
+        letter-spacing: 0;
     }
 
     /* Badge Styles */
@@ -496,9 +473,9 @@ include '../../includes/header.php';
         display: inline-flex;
         align-items: center;
         gap: 0.3rem;
-        padding: 0.3rem 0.65rem;
+        padding: 0.15rem 0.4rem;
         border-radius: 6px;
-        font-size: 0.78rem;
+        font-size: 0.72rem;
         font-weight: 600;
         white-space: nowrap;
     }
@@ -516,19 +493,19 @@ include '../../includes/header.php';
     .emp-badge-empty {
         color: #94a3b8;
         font-weight: 400;
-        font-size: 0.82rem;
+        font-size: 0.72rem;
     }
 
     /* Actions */
     .emp-actions {
         display: flex;
-        gap: 0.4rem;
+        gap: 0.25rem;
     }
 
     .emp-btn-action {
-        width: 36px;
-        height: 36px;
-        border-radius: 10px;
+        width: 30px;
+        height: 30px;
+        border-radius: 6px;
         border: 1px solid transparent;
         display: flex;
         align-items: center;
@@ -803,6 +780,10 @@ include '../../includes/header.php';
             grid-template-columns: 1fr;
         }
 
+        .emp-table {
+            min-width: 760px;
+        }
+
         .emp-form-row {
             grid-template-columns: 1fr;
         }
@@ -817,11 +798,11 @@ include '../../includes/header.php';
         }
 
         .emp-header {
-            padding: 1.5rem;
+            padding: 0.7rem 1rem;
         }
 
         .emp-header h1 {
-            font-size: 1.3rem;
+            font-size: 0.95rem;
         }
     }
 </style>
@@ -921,6 +902,7 @@ include '../../includes/header.php';
                 <p style="margin: 0; color: var(--text-tertiary);">Start by adding your first employee</p>
             </div>
         <?php else: ?>
+            <div class="emp-table-scroll">
             <table class="emp-table" id="employeeTable">
                 <thead>
                     <tr>
@@ -993,6 +975,7 @@ include '../../includes/header.php';
                     <?php endforeach; ?>
                 </tbody>
             </table>
+            </div>
         <?php endif; ?>
     </div>
 </div>
