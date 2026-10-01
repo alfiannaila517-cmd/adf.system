@@ -1314,6 +1314,18 @@ header('Expires: 0');
             margin-bottom: 6px;
         }
 
+        .tj-divider {
+            height: 1px;
+            background: var(--border);
+            margin: 12px 0 10px;
+        }
+
+        .tj-substatus-title {
+            font-size: 11.5px;
+            margin-bottom: 8px;
+            opacity: .85;
+        }
+
         /* ═══ Elegant Schedule Calendar (matches admin system design) ═══ */
         .sc-cal-nav {
             display: flex;
@@ -3295,17 +3307,14 @@ header('Expires: 0');
                 </div>
             </div>
 
-            <!-- Target Jam - Donut Chart -->
+            <!-- Target Jam - Donut Chart (berisi juga Status Absen Hari Ini, diringkas jadi satu container) -->
             <div class="card target-jam-card">
                 <div class="card-title">📊 Target Jam Bulan Ini</div>
                 <div id="monthlySummary">
                     <div class="loading"><span class="spin"></span> Memuat...</div>
                 </div>
-            </div>
-
-            <!-- Status Hari Ini -->
-            <div class="card">
-                <div class="card-title">📋 Status Absen Hari Ini</div>
+                <div class="tj-divider"></div>
+                <div class="card-title tj-substatus-title">📋 Status Absen Hari Ini</div>
                 <div id="todayStatus">
                     <div class="loading"><span class="spin"></span> Memuat...</div>
                 </div>
@@ -5020,16 +5029,16 @@ header('Expires: 0');
                             `<div style="text-align:center;font-size:10px;color:var(--orange);margin-top:4px;">Pulang awal ${a.early_leave_minutes} menit</div>` : '';
                         scanGrid = `
                     ${scheduleInfo}
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;text-align:center;">
-                        <div style="background:var(--bg);border-radius:10px;padding:14px;">
-                            <div style="font-size:20px;margin-bottom:4px;">🟢</div>
-                            <div style="font-size:10px;color:var(--muted);font-weight:600;">MASUK</div>
-                            <div style="font-size:22px;font-weight:800;color:var(--green);margin-top:2px;">${s1}</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;text-align:center;">
+                        <div style="background:var(--bg);border-radius:9px;padding:9px;">
+                            <div style="font-size:15px;margin-bottom:2px;">🟢</div>
+                            <div style="font-size:9px;color:var(--muted);font-weight:600;">MASUK</div>
+                            <div style="font-size:16px;font-weight:800;color:var(--green);margin-top:1px;">${s1}</div>
                         </div>
-                        <div style="background:var(--bg);border-radius:10px;padding:14px;">
-                            <div style="font-size:20px;margin-bottom:4px;">🔴</div>
-                            <div style="font-size:10px;color:var(--muted);font-weight:600;">PULANG</div>
-                            <div style="font-size:22px;font-weight:800;color:var(--navy);margin-top:2px;">${s2}</div>
+                        <div style="background:var(--bg);border-radius:9px;padding:9px;">
+                            <div style="font-size:15px;margin-bottom:2px;">🔴</div>
+                            <div style="font-size:9px;color:var(--muted);font-weight:600;">PULANG</div>
+                            <div style="font-size:16px;font-weight:800;color:var(--navy);margin-top:1px;">${s2}</div>
                         </div>
                     </div>
                     ${lateInfo}${earlyInfo}`;
