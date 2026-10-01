@@ -416,45 +416,118 @@ header('Expires: 0');
 
         .app-header {
             background: linear-gradient(135deg, var(--navy), var(--navy2));
-            padding: 14px 16px;
+            background-image:
+                radial-gradient(circle at 15% -20%, rgba(255, 255, 255, .16), transparent 55%),
+                linear-gradient(135deg, var(--navy), var(--navy2));
+            padding: 16px 16px 18px;
             display: flex;
             align-items: center;
+            justify-content: space-between;
             gap: 10px;
             position: sticky;
             top: 0;
             z-index: 100;
+            border-radius: 0 0 20px 20px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, .18);
+        }
+
+        .app-header-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+        }
+
+        .app-header-text {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
         }
 
         .app-header .logo {
-            height: 36px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, .2);
+            height: 42px;
+            width: 42px;
+            object-fit: cover;
+            border-radius: 12px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, .25);
+            border: 2px solid rgba(255, 255, 255, .35);
+            flex-shrink: 0;
         }
 
         .app-header .title {
             color: #fff;
-            font-size: 14px;
+            font-size: 14.5px;
+            font-weight: 800;
+            letter-spacing: .01em;
+            line-height: 1.25;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .app-header .subtitle {
+            color: var(--gold);
+            font-size: 9.5px;
             font-weight: 700;
-            flex: 1;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            opacity: .9;
+        }
+
+        .app-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
         }
 
         .app-header .user-badge {
-            background: rgba(255, 255, 255, .15);
-            color: var(--gold);
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 11px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: rgba(255, 255, 255, .14);
+            border: 1px solid rgba(255, 255, 255, .18);
+            backdrop-filter: blur(6px);
+            color: #fff;
+            padding: 5px 10px 5px 8px;
+            border-radius: 999px;
+            font-size: 10.5px;
             font-weight: 600;
+            max-width: 90px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .app-header .user-badge::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #4ADE80;
+            flex-shrink: 0;
+            box-shadow: 0 0 0 2px rgba(74, 222, 128, .25);
         }
 
         .app-header .logout-btn {
-            background: none;
+            background: rgba(255, 255, 255, .08);
             border: 1px solid rgba(255, 255, 255, .2);
             color: #fff;
-            padding: 5px 10px;
-            border-radius: 6px;
-            font-size: 11px;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            font-size: 12px;
             cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: background .15s ease, transform .1s ease;
+        }
+
+        .app-header .logout-btn:active {
+            background: rgba(255, 255, 255, .22);
+            transform: scale(.92);
         }
 
         /* Bottom Nav - 5 tabs */
@@ -504,18 +577,33 @@ header('Expires: 0');
         .notif-bell {
             position: relative;
             cursor: pointer;
-            font-size: 18px;
-            padding: 4px 8px;
+            font-size: 15px;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, .1);
+            border: 1px solid rgba(255, 255, 255, .18);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: background .15s ease, transform .1s ease;
+        }
+
+        .notif-bell:active {
+            background: rgba(255, 255, 255, .22);
+            transform: scale(.92);
         }
 
         .notif-dot {
             position: absolute;
-            top: 2px;
-            right: 4px;
+            top: 1px;
+            right: 1px;
             width: 8px;
             height: 8px;
             background: var(--red);
             border-radius: 50%;
+            border: 1.5px solid var(--navy);
             display: none;
         }
 
@@ -901,7 +989,7 @@ header('Expires: 0');
         /* Notif popup */
         .notif-popup {
             position: fixed;
-            top: 50px;
+            top: 74px;
             right: 10px;
             left: 10px;
             max-width: 360px;
@@ -3129,16 +3217,23 @@ header('Expires: 0');
     <div class="app-wrap" id="appShell">
         <!-- Header -->
         <div class="app-header">
-            <?php
-            $headerLogo = $appLogo ?: (strpos($pwaIconUrl, 'absen-icon.php') === false ? $pwaIconUrl : null);
-            if ($headerLogo): ?><img src="<?php echo htmlspecialchars($headerLogo); ?>" class="logo"><?php endif; ?>
-            <span class="title"><?php echo $bizName; ?></span>
-            <div class="notif-bell" onclick="toggleNotifs()">
-                🔔
-                <div class="notif-dot" id="notifDot"></div>
+            <div class="app-header-brand">
+                <?php
+                $headerLogo = $appLogo ?: (strpos($pwaIconUrl, 'absen-icon.php') === false ? $pwaIconUrl : null);
+                if ($headerLogo): ?><img src="<?php echo htmlspecialchars($headerLogo); ?>" class="logo"><?php endif; ?>
+                <div class="app-header-text">
+                    <span class="title"><?php echo $bizName; ?></span>
+                    <span class="subtitle">Staff Portal</span>
+                </div>
             </div>
-            <span class="user-badge" id="headerName">Staff</span>
-            <button class="logout-btn" onclick="doLogout()">Keluar</button>
+            <div class="app-header-actions">
+                <div class="notif-bell" onclick="toggleNotifs()">
+                    🔔
+                    <div class="notif-dot" id="notifDot"></div>
+                </div>
+                <span class="user-badge" id="headerName">Staff</span>
+                <button class="logout-btn" onclick="doLogout()" title="Keluar">⏻</button>
+            </div>
         </div>
 
         <!-- Notification Popup -->
