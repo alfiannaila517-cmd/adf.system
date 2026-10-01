@@ -1188,11 +1188,12 @@
                                         try {
                                             require_once __DIR__ . '/../../includes/PushNotificationHelper.php';
                                             $pushHelper = new PushNotificationHelper($db);
+                                            $badgeCount = (int)($db->fetchOne("SELECT COUNT(*) c FROM notifications WHERE user_id = ? AND is_read = 0", [$leaveReq['employee_id']])['c'] ?? 0);
                                             $pushHelper->sendToEmployees(
                                                 [(int)$leaveReq['employee_id']],
                                                 ($newStatus === 'approved' ? "\xE2\x9C\x85 " : "\xE2\x9D\x8C ") . $tl . ' ' . $statusLabel,
                                                 $tl . ' (' . $leaveReq['start_date'] . ' s/d ' . $leaveReq['end_date'] . ') ' . strtolower($statusLabel) . ($adminNotes ? '. Catatan: ' . $adminNotes : ''),
-                                                ['type' => 'leave_response', 'tag' => 'leave-response-' . $leaveId]
+                                                ['type' => 'leave_response', 'tag' => 'leave-response-' . $leaveId, 'badgeCount' => $badgeCount]
                                             );
                                         } catch (\Throwable $pushErr) {
                                             error_log('Push notification error (leave_response): ' . $pushErr->getMessage());
@@ -1255,11 +1256,12 @@
                                         try {
                                             require_once __DIR__ . '/../../includes/PushNotificationHelper.php';
                                             $pushHelper = new PushNotificationHelper($db);
+                                            $badgeCount = (int)($db->fetchOne("SELECT COUNT(*) c FROM notifications WHERE user_id = ? AND is_read = 0", [$otReq['employee_id']])['c'] ?? 0);
                                             $pushHelper->sendToEmployees(
                                                 [(int)$otReq['employee_id']],
                                                 ($newStatus === 'approved' ? "\xE2\x9C\x85 " : "\xE2\x9D\x8C ") . 'Lembur ' . $statusLabel,
                                                 'Pengajuan lembur tanggal ' . $otReq['overtime_date'] . ' ' . strtolower($statusLabel) . ($adminNotes ? '. Catatan: ' . $adminNotes : ''),
-                                                ['type' => 'overtime_response', 'tag' => 'overtime-response-' . $otId]
+                                                ['type' => 'overtime_response', 'tag' => 'overtime-response-' . $otId, 'badgeCount' => $badgeCount]
                                             );
                                         } catch (\Throwable $pushErr) {
                                             error_log('Push notification error (overtime_response): ' . $pushErr->getMessage());

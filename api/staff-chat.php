@@ -80,13 +80,22 @@ if ($action === 'send' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         require_once dirname(dirname(__FILE__)) . '/includes/PushNotificationHelper.php';
         $pushHelper = new PushNotificationHelper($db);
         $empIds = array_column($db->fetchAll("SELECT id FROM payroll_employees WHERE is_active = 1") ?: [], 'id');
-        if (!empty($empIds)) {
-            $preview = mb_substr($message, 0, 120);
-            $pushHelper->sendToEmployees(
-                array_map('intval', $empIds),
-                "\xF0\x9F\x93\xA2 Pengumuman dari " . $senderName,
+        $preview = mb_substr($message, 0, 120);
+        $title = "\xF0\x9F\x93\xA2 Pengumuman dari " . $senderName;
+        foreach ($empIds as $empId) {
+            $empId = (int)$empId;
+            $db->query("INSERT INTO notifications (user_id, type, title, message, data, created_at) VALUES (?, 'announcement', ?, ?, ?, NOW())", [
+                $empId,
+                $title,
                 $preview,
-                ['type' => 'announcement', 'tag' => 'announcement-' . time()]
+                json_encode(['tag' => 'announcement-' . time()])
+            ]);
+            $badgeCount = (int)($db->fetchOne("SELECT COUNT(*) c FROM notifications WHERE user_id = ? AND is_read = 0", [$empId])['c'] ?? 0);
+            $pushHelper->sendToEmployees(
+                [$empId],
+                $title,
+                $preview,
+                ['type' => 'announcement', 'tag' => 'announcement-' . time(), 'badgeCount' => $badgeCount]
             );
         }
     } catch (\Throwable $pushErr) {

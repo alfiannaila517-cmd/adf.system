@@ -25,16 +25,29 @@ function notifySlipProcessed($db, $periodId, $periodLabel)
         $empIds = array_column($db->fetchAll("SELECT DISTINCT employee_id FROM payroll_slips WHERE period_id = ?", [$periodId]) ?: [], 'employee_id');
         if (empty($empIds)) return;
         $pushHelper = new PushNotificationHelper($db);
-        $pushHelper->sendToEmployees(
-            array_map('intval', $empIds),
-            "\xF0\x9F\x92\xB0 Slip Gaji Tersedia",
-            "Slip gaji periode {$periodLabel} sudah bisa dilihat di Staff Portal.",
-            ['type' => 'payslip_processed', 'tag' => 'payslip-' . $periodId]
-        );
+        $title = "\xF0\x9F\x92\xB0 Slip Gaji Tersedia";
+        $body = "Slip gaji periode {$periodLabel} sudah bisa dilihat di Staff Portal.";
+        foreach ($empIds as $empId) {
+            $empId = (int)$empId;
+            $db->query("INSERT INTO notifications (user_id, type, title, message, data, created_at) VALUES (?, 'payslip_processed', ?, ?, ?, NOW())", [
+                $empId,
+                $title,
+                $body,
+                json_encode(['period_id' => $periodId])
+            ]);
+            $badgeCount = (int)($db->fetchOne("SELECT COUNT(*) c FROM notifications WHERE user_id = ? AND is_read = 0", [$empId])['c'] ?? 0);
+            $pushHelper->sendToEmployees(
+                [$empId],
+                $title,
+                $body,
+                ['type' => 'payslip_processed', 'tag' => 'payslip-' . $periodId, 'badgeCount' => $badgeCount]
+            );
+        }
     } catch (\Throwable $pushErr) {
         error_log('Push notification error (payslip_processed): ' . $pushErr->getMessage());
     }
 }
+
 
 
 $auth = new Auth();

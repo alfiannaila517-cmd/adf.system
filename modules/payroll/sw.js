@@ -3,7 +3,7 @@
  * Handles caching for offline / slow-network support
  */
 
-const CACHE_NAME = 'staff-portal-v11'
+const CACHE_NAME = 'staff-portal-v12'
 const APP_SHELL = [
   './staff-portal.php',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
@@ -144,9 +144,15 @@ self.addEventListener('push', event => {
     ]
   }
 
+  const badgeCount = data.data?.badgeCount
+
   event.waitUntil(
     Promise.all([
       self.registration.showNotification(data.title, options),
+      // Set the OS app-icon badge directly from here so it shows even if no tab is open
+      (typeof badgeCount === 'number' && 'setAppBadge' in self.registration)
+        ? self.registration.setAppBadge(badgeCount).catch(() => {})
+        : Promise.resolve(),
       // Tell any open Staff Portal tab to refresh its badge right away instead of waiting for the next poll
       self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
         clientList.forEach(client => client.postMessage({ type: 'refresh-badge' }))
