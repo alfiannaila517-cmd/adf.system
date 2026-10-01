@@ -7697,6 +7697,17 @@ header('Expires: 0');
                 }
             });
         }
+
+        // Auto-open the notif bell or chat popup when arriving here from a push notification click
+        (function() {
+            const params = new URLSearchParams(window.location.search);
+            const open = params.get('open');
+            if (open === 'notif') {
+                setTimeout(() => { if (!notifOpen) toggleNotifs(); }, 600);
+            } else if (open === 'chat') {
+                setTimeout(() => { if (!chatOpen) toggleChat(); }, 600);
+            }
+        })();
     </script>
 
     <!-- Install Banner — fixed bottom, works on auth + app -->

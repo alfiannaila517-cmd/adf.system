@@ -95,7 +95,7 @@ if ($action === 'send' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 [$empId],
                 $title,
                 $preview,
-                ['type' => 'announcement', 'tag' => 'announcement-' . time(), 'badgeCount' => $badgeCount]
+                ['type' => 'announcement', 'tag' => 'announcement-' . time(), 'badgeCount' => $badgeCount, 'url' => '/modules/payroll/staff-portal.php?b=' . ACTIVE_BUSINESS_ID . '&open=chat']
             );
         }
     } catch (\Throwable $pushErr) {

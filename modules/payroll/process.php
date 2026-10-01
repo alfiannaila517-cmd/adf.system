@@ -40,7 +40,7 @@ function notifySlipProcessed($db, $periodId, $periodLabel)
                 [$empId],
                 $title,
                 $body,
-                ['type' => 'payslip_processed', 'tag' => 'payslip-' . $periodId, 'badgeCount' => $badgeCount]
+                ['type' => 'payslip_processed', 'tag' => 'payslip-' . $periodId, 'badgeCount' => $badgeCount, 'url' => '/modules/payroll/staff-portal.php?b=' . ACTIVE_BUSINESS_ID . '&open=notif']
             );
         }
     } catch (\Throwable $pushErr) {

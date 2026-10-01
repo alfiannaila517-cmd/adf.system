@@ -1193,7 +1193,7 @@
                                                 [(int)$leaveReq['employee_id']],
                                                 ($newStatus === 'approved' ? "\xE2\x9C\x85 " : "\xE2\x9D\x8C ") . $tl . ' ' . $statusLabel,
                                                 $tl . ' (' . $leaveReq['start_date'] . ' s/d ' . $leaveReq['end_date'] . ') ' . strtolower($statusLabel) . ($adminNotes ? '. Catatan: ' . $adminNotes : ''),
-                                                ['type' => 'leave_response', 'tag' => 'leave-response-' . $leaveId, 'badgeCount' => $badgeCount]
+                                                ['type' => 'leave_response', 'tag' => 'leave-response-' . $leaveId, 'badgeCount' => $badgeCount, 'url' => '/modules/payroll/staff-portal.php?b=' . ACTIVE_BUSINESS_ID . '&open=notif']
                                             );
                                         } catch (\Throwable $pushErr) {
                                             error_log('Push notification error (leave_response): ' . $pushErr->getMessage());
@@ -1261,7 +1261,7 @@
                                                 [(int)$otReq['employee_id']],
                                                 ($newStatus === 'approved' ? "\xE2\x9C\x85 " : "\xE2\x9D\x8C ") . 'Lembur ' . $statusLabel,
                                                 'Pengajuan lembur tanggal ' . $otReq['overtime_date'] . ' ' . strtolower($statusLabel) . ($adminNotes ? '. Catatan: ' . $adminNotes : ''),
-                                                ['type' => 'overtime_response', 'tag' => 'overtime-response-' . $otId, 'badgeCount' => $badgeCount]
+                                                ['type' => 'overtime_response', 'tag' => 'overtime-response-' . $otId, 'badgeCount' => $badgeCount, 'url' => '/modules/payroll/staff-portal.php?b=' . ACTIVE_BUSINESS_ID . '&open=notif']
                                             );
                                         } catch (\Throwable $pushErr) {
                                             error_log('Push notification error (overtime_response): ' . $pushErr->getMessage());
