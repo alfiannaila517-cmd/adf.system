@@ -3156,12 +3156,15 @@ include '../../includes/header.php';
 
     @media(max-width:580px) {
         .hs-page {
-            padding: 0.5rem 0.55rem 0.85rem;
+            padding: 0.5rem 0.55rem 0.75rem;
+        }
+
+        .hs-header-card {
+            padding: 0.55rem 0.65rem;
         }
 
         .hs-topbar {
             grid-template-columns: 1fr;
-            padding: 0.65rem 0.75rem;
         }
 
         .hs-top-actions {
@@ -3181,16 +3184,17 @@ include '../../includes/header.php';
 
 <div class="hs-page">
 
-    <div class="hs-topbar">
-        <div class="hs-head-main">
-            <h2>🛎️ Hotel Services</h2>
-            <div class="hs-topmeta">Motor Rental · Laundry · Service · Airport Drop · Harbor Drop · Narayana Trip · Lain-lain</div>
+    <div class="hs-header-card">
+        <div class="hs-topbar">
+            <div class="hs-head-main">
+                <h2>🛎️ Hotel Services</h2>
+                <div class="hs-topmeta">Motor Rental · Laundry · Service · Airport Drop · Harbor Drop · Narayana Trip · Lain-lain</div>
+            </div>
+            <div class="hs-top-actions">
+                <button class="btn-hs btn-hs-secondary" onclick="openSettingsModal()">⚙️ Pengaturan</button>
+                <button class="btn-hs btn-hs-primary" id="btnNewInvoice">+ New Invoice</button>
+            </div>
         </div>
-        <div class="hs-top-actions">
-            <button class="btn-hs btn-hs-secondary" onclick="openSettingsModal()">⚙️ Pengaturan</button>
-            <button class="btn-hs btn-hs-primary" id="btnNewInvoice">+ New Invoice</button>
-        </div>
-    </div>
     <script>
         // Fallback: attach button directly in case main script block fails to execute
         (function() {
@@ -3238,14 +3242,15 @@ include '../../includes/header.php';
             <div class="lbl">Completed</div>
         </div>
     </div>
+    </div>
 
     <!-- Revenue per Service Type (this month) -->
     <?php if (!empty($svcRevStats)): ?>
-        <div style="background:white;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.06);padding:0.55rem 0.7rem;margin-bottom:0.7rem;">
-            <div style="font-size:0.64rem;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.45rem;">
+        <div style="background:white;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.06);padding:0.5rem 0.65rem;margin-bottom:0.5rem;">
+            <div style="font-size:0.62rem;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.4rem;">
                 📊 Revenue per Service — This Month
             </div>
-            <div style="display:flex;flex-wrap:wrap;gap:0.45rem;">
+            <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">
                 <?php
                 $svcColors = ['motor_rental' => '#f59e0b', 'car_rental' => '#0f766e', 'laundry' => '#3b82f6', 'service' => '#10b981', 'airport_drop' => '#8b5cf6', 'harbor_drop' => '#06b6d4', 'narayana_trip' => '#ec4899', 'lain_lain' => '#78716c'];
                 foreach ($svcRevStats as $sr):
@@ -3253,10 +3258,10 @@ include '../../includes/header.php';
                     $svcInfo = $serviceTypes[$svcKey] ?? ['label' => $svcKey, 'icon' => '🔹'];
                     $color   = $svcColors[$svcKey] ?? '#6366f1';
                 ?>
-                    <div style="flex:1;min-width:110px;border-left:3px solid <?php echo $color; ?>;padding:0.4rem 0.6rem;background:#fafbff;border-radius:0 6px 6px 0;">
-                        <div style="font-size:0.7rem;font-weight:700;color:<?php echo $color; ?>"><?php echo $svcInfo['icon']; ?> <?php echo htmlspecialchars($svcInfo['label']); ?></div>
-                        <div style="font-size:0.82rem;font-weight:800;color:#1e293b;margin-top:0.1rem">Rp <?php echo number_format($sr['total_revenue'], 0, ',', '.'); ?></div>
-                        <div style="font-size:0.6rem;color:var(--text-secondary)"><?php echo $sr['invoice_count']; ?> invoice<?php echo $sr['invoice_count'] != 1 ? 's' : ''; ?></div>
+                    <div style="flex:1;min-width:105px;border-left:3px solid <?php echo $color; ?>;padding:0.35rem 0.55rem;background:#fafbff;border-radius:0 6px 6px 0;">
+                        <div style="font-size:0.66rem;font-weight:700;color:<?php echo $color; ?>"><?php echo $svcInfo['icon']; ?> <?php echo htmlspecialchars($svcInfo['label']); ?></div>
+                        <div style="font-size:0.78rem;font-weight:800;color:#1e293b;margin-top:0.1rem">Rp <?php echo number_format($sr['total_revenue'], 0, ',', '.'); ?></div>
+                        <div style="font-size:0.58rem;color:var(--text-secondary)"><?php echo $sr['invoice_count']; ?> invoice<?php echo $sr['invoice_count'] != 1 ? 's' : ''; ?></div>
                     </div>
                 <?php endforeach; ?>
             </div>
