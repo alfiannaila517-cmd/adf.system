@@ -923,6 +923,27 @@ include '../../includes/header.php';
 <?php endif; ?>
 
 <style>
+    #transactionForm>.card:first-child {
+        padding: 0;
+    }
+
+    #transactionForm .payment-method-card .payment-content {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.3rem;
+    }
+
+    #transactionForm .payment-method-card input[type="radio"]:checked+.payment-content {
+        padding: 0;
+    }
+
+    #transactionForm textarea[name="description"] {
+        min-height: 34px;
+        height: 34px;
+        padding: 0.4rem 0.55rem;
+    }
+
     .payment-method-card {
         position: relative;
         display: flex;
@@ -1297,7 +1318,7 @@ include '../../includes/header.php';
                 <!-- Payment Method -->
                 <div class="compact-form-group">
                     <label class="form-label" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 0.2rem;">Metode Pembayaran <span style="color: var(--danger);">*</span></label>
-                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.3rem;">
+                    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.3rem;">
                         <label class="payment-method-card" style="padding: 0.3rem;">
                             <input type="radio" name="payment_method" value="cash" required checked>
                             <div class="payment-content" style="text-align: center; position: relative;">
