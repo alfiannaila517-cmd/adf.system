@@ -992,7 +992,7 @@ include '../../includes/header.php';
     }
 
     .compact-form-group {
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.35rem;
     }
 
     .compact-form-group:last-child {
@@ -1022,7 +1022,7 @@ include '../../includes/header.php';
         border-radius: 0.5rem;
         cursor: pointer;
         transition: all 0.3s ease;
-        min-height: 85px;
+        min-height: 58px;
     }
 
     .transaction-type-card:hover {
@@ -1062,59 +1062,59 @@ include '../../includes/header.php';
 
 <form method="POST" id="transactionForm" onsubmit="return handleFormSubmit(event)">
     <!-- Main Form Container -->
-    <div class="card" style="max-width: 920px; margin: 0 auto 0.75rem;">
-        <div class="<?php echo $isCQC ? 'cqc-form-header' : ''; ?>" style="padding: 0.875rem 1rem; border-bottom: 1px solid var(--bg-tertiary); <?php echo !$isCQC ? 'background: linear-gradient(135deg, var(--primary-color)15, var(--bg-secondary));' : 'border-radius: 12px 12px 0 0;'; ?>">
+    <div class="card" style="max-width: 920px; margin: 0 auto 0.5rem;">
+        <div class="<?php echo $isCQC ? 'cqc-form-header' : ''; ?>" style="padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--bg-tertiary); <?php echo !$isCQC ? 'background: linear-gradient(135deg, var(--primary-color)15, var(--bg-secondary));' : 'border-radius: 12px 12px 0 0;'; ?>">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="font-size: 1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem; margin: 0;">
+                <h3 style="font-size: 0.875rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.4rem; margin: 0;">
                     <?php if ($isCQC): ?>
                         ☀️ Input Transaksi Proyek CQC
                     <?php else: ?>
-                        <i data-feather="plus-circle" style="width: 16px; height: 16px;"></i> Tambah Transaksi Baru
+                        <i data-feather="plus-circle" style="width: 14px; height: 14px;"></i> Tambah Transaksi Baru
                     <?php endif; ?>
                 </h3>
             </div>
         </div>
 
-        <div style="padding: 0.875rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.625rem 0.875rem;">
+        <div style="padding: 0.65rem 0.7rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem 0.65rem;">
             <!-- Transaction Type - FIRST (Full Width) -->
-            <div style="grid-column: span 2; margin-bottom: 0.5rem;">
-                <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.5rem; display: block;">Tipe Transaksi <span style="color: var(--danger);">*</span></label>
-                <div style="display: flex; align-items: stretch; gap: 0.75rem; flex-wrap: wrap;">
-                    <label class="transaction-type-card" style="padding: 0.75rem; flex: 1; min-width: 140px; max-width: 180px;">
+            <div style="grid-column: span 2; margin-bottom: 0.35rem;">
+                <label class="form-label" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 0.3rem; display: block;">Tipe Transaksi <span style="color: var(--danger);">*</span></label>
+                <div style="display: flex; align-items: stretch; gap: 0.5rem; flex-wrap: wrap;">
+                    <label class="transaction-type-card" style="padding: 0.4rem; flex: 1; min-width: 120px; max-width: 170px;">
                         <input type="radio" name="transaction_type" value="income" required>
-                        <div style="display: flex; flex-direction: column; align-items: center; gap: 0.3rem; text-align: center;">
-                            <i data-feather="trending-up" style="width: 22px; height: 22px; color: var(--success); stroke-width: 2.5;"></i>
+                        <div style="display: flex; flex-direction: column; align-items: center; gap: 0.2rem; text-align: center;">
+                            <i data-feather="trending-up" style="width: 17px; height: 17px; color: var(--success); stroke-width: 2.5;"></i>
                             <div>
-                                <div style="font-weight: 700; font-size: 0.875rem; color: var(--text-primary);">UANG MASUK</div>
-                                <div style="font-size: 0.75rem; color: var(--text-muted);">Pemasukan</div>
+                                <div style="font-weight: 700; font-size: 0.78rem; color: var(--text-primary);">UANG MASUK</div>
+                                <div style="font-size: 0.66rem; color: var(--text-muted);">Pemasukan</div>
                             </div>
                         </div>
                     </label>
 
-                    <label class="transaction-type-card" style="padding: 0.75rem; flex: 1; min-width: 140px; max-width: 180px;">
+                    <label class="transaction-type-card" style="padding: 0.4rem; flex: 1; min-width: 120px; max-width: 170px;">
                         <input type="radio" name="transaction_type" value="expense" required checked>
-                        <div style="display: flex; flex-direction: column; align-items: center; gap: 0.3rem; text-align: center;">
-                            <i data-feather="trending-down" style="width: 22px; height: 22px; color: var(--danger); stroke-width: 2.5;"></i>
+                        <div style="display: flex; flex-direction: column; align-items: center; gap: 0.2rem; text-align: center;">
+                            <i data-feather="trending-down" style="width: 17px; height: 17px; color: var(--danger); stroke-width: 2.5;"></i>
                             <div>
-                                <div style="font-weight: 700; font-size: 0.875rem; color: var(--text-primary);">UANG KELUAR</div>
-                                <div style="font-size: 0.75rem; color: var(--text-muted);">Pengeluaran</div>
+                                <div style="font-weight: 700; font-size: 0.78rem; color: var(--text-primary);">UANG KELUAR</div>
+                                <div style="font-size: 0.66rem; color: var(--text-muted);">Pengeluaran</div>
                             </div>
                         </div>
                     </label>
 
                     <?php if (!$isCQC): ?>
                         <!-- Special Button: Input dari Bu Sita (Owner Fund) -->
-                        <button type="button" id="btnOwnerFund" onclick="fillOwnerFund()" style="padding: 0.75rem; flex: 1; min-width: 140px; max-width: 180px; background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e; border: 2px solid #f59e0b; border-radius: 12px; font-size: 0.875rem; font-weight: 700; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.3rem; box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2); transition: all 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(245, 158, 11, 0.35)'; this.style.borderColor='#d97706'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(245, 158, 11, 0.2)'; this.style.borderColor='#f59e0b'">
-                            <span style="font-size: 1.25rem;">💰</span>
-                            <div style="font-weight: 700; font-size: 0.813rem;">INPUT DARI BU SITA</div>
-                            <div style="font-size: 0.7rem; color: #b45309;">Modal Pemilik</div>
+                        <button type="button" id="btnOwnerFund" onclick="fillOwnerFund()" style="padding: 0.4rem; flex: 1; min-width: 120px; max-width: 170px; background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e; border: 2px solid #f59e0b; border-radius: 10px; font-size: 0.78rem; font-weight: 700; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.2rem; box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2); transition: all 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(245, 158, 11, 0.35)'; this.style.borderColor='#d97706'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(245, 158, 11, 0.2)'; this.style.borderColor='#f59e0b'">
+                            <span style="font-size: 1rem;">💰</span>
+                            <div style="font-weight: 700; font-size: 0.72rem;">INPUT DARI BU SITA</div>
+                            <div style="font-size: 0.62rem; color: #b45309;">Modal Pemilik</div>
                         </button>
 
                         <!-- Special Button: Setor Tunai ke Rekening Operasional -->
-                        <button type="button" id="btnSetorTunai" onclick="showSetorTunaiModal()" style="padding: 0.75rem; flex: 1; min-width: 140px; max-width: 180px; background: linear-gradient(135deg, #dbeafe, #bfdbfe); color: #0c4a6e; border: 2px solid #0284c7; border-radius: 12px; font-size: 0.875rem; font-weight: 700; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.3rem; box-shadow: 0 2px 8px rgba(2, 132, 199, 0.2); transition: all 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(2, 132, 199, 0.35)'; this.style.borderColor='#0369a1'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(2, 132, 199, 0.2)'; this.style.borderColor='#0284c7'">
-                            <span style="font-size: 1.25rem;">🏦</span>
-                            <div style="font-weight: 700; font-size: 0.813rem;">SETOR TUNAI</div>
-                            <div style="font-size: 0.7rem; color: #0c4a6e;">Ke Rekening Bank</div>
+                        <button type="button" id="btnSetorTunai" onclick="showSetorTunaiModal()" style="padding: 0.4rem; flex: 1; min-width: 120px; max-width: 170px; background: linear-gradient(135deg, #dbeafe, #bfdbfe); color: #0c4a6e; border: 2px solid #0284c7; border-radius: 10px; font-size: 0.78rem; font-weight: 700; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.2rem; box-shadow: 0 2px 8px rgba(2, 132, 199, 0.2); transition: all 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(2, 132, 199, 0.35)'; this.style.borderColor='#0369a1'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(2, 132, 199, 0.2)'; this.style.borderColor='#0284c7'">
+                            <span style="font-size: 1rem;">🏦</span>
+                            <div style="font-weight: 700; font-size: 0.72rem;">SETOR TUNAI</div>
+                            <div style="font-size: 0.62rem; color: #0c4a6e;">Ke Rekening Bank</div>
                         </button>
                     <?php else: ?>
                         <!-- CQC: Transfer to Petty Cash Button -->
@@ -1135,15 +1135,13 @@ include '../../includes/header.php';
             <div>
                 <!-- Date & Time -->
                 <div class="compact-form-group">
-                    <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem;">Tanggal <span style="color: var(--danger);">*</span></label>
-                    <input type="date" name="transaction_date" class="form-control" style="height: 34px; font-size: 0.813rem;" value="<?php echo date('Y-m-d'); ?>" required>
+                    <label class="form-label" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 0.2rem;">Tanggal <span style="color: var(--danger);">*</span></label>
+                    <input type="date" name="transaction_date" class="form-control" style="height: 30px; font-size: 0.76rem;" value="<?php echo date('Y-m-d'); ?>" required>
                 </div>
 
                 <div class="compact-form-group">
-                    <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem;">Waktu</label>
-                    <input type="time" name="transaction_time" class="form-control" style="height: 34px; font-size: 0.813rem;" value="<?php echo date('H:i'); ?>">
-                </div>
-
+                    <label class="form-label" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 0.2rem;">Waktu</label>
+                    <input type="time" name="transaction_time" class="form-control" style="height: 30px; font-size: 0.76rem;" value="<?php echo date('H:i'); ?>">
                 <?php if ($isCQC): ?>
                     <!-- CQC: Project Selection -->
                     <div class="compact-form-group">
@@ -1208,8 +1206,8 @@ include '../../includes/header.php';
                 <?php else: ?>
                     <!-- Division -->
                     <div class="compact-form-group">
-                        <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem;">Divisi <span style="color: var(--danger);">*</span></label>
-                        <select name="division_id" id="division_id" class="form-control" style="height: 34px; font-size: 0.813rem;" required>
+                        <label class="form-label" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 0.2rem;">Divisi <span style="color: var(--danger);">*</span></label>
+                        <select name="division_id" id="division_id" class="form-control" style="height: 30px; font-size: 0.76rem;" required>
                             <option value="">-- Pilih Divisi --</option>
                             <?php foreach ($divisions as $div): ?>
                                 <option value="<?php echo $div['id']; ?>"><?php echo $div['division_name']; ?></option>
@@ -1219,20 +1217,20 @@ include '../../includes/header.php';
 
                     <!-- Category -->
                     <div class="compact-form-group">
-                        <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem;">Kategori/Nama <span style="color: var(--danger);">*</span></label>
-                        <input type="text" name="category_name" class="form-control" style="height: 34px; font-size: 0.813rem;" placeholder="Nama kategori atau nama item" required>
+                        <label class="form-label" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 0.2rem;">Kategori/Nama <span style="color: var(--danger);">*</span></label>
+                        <input type="text" name="category_name" class="form-control" style="height: 30px; font-size: 0.76rem;" placeholder="Nama kategori atau nama item" required>
                     </div>
 
                     <?php if ($isHotel): ?>
                         <!-- Project Expense Toggle -->
                         <div class="compact-form-group" id="projectExpenseGroup">
-                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.5rem 0.75rem; background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); border-radius: 8px; transition: all 0.2s;" id="projectToggleLabel">
-                                <input type="checkbox" id="isProjectExpense" name="is_project_expense" value="1" onchange="toggleProjectExpense()" style="width: 16px; height: 16px; accent-color: #f59e0b;">
-                                <span style="font-size: 0.813rem; font-weight: 600; color: #92400e;">🏗️ Pengeluaran Proyek (bukan beban hotel)</span>
+                            <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer; padding: 0.35rem 0.55rem; background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); border-radius: 8px; transition: all 0.2s;" id="projectToggleLabel">
+                                <input type="checkbox" id="isProjectExpense" name="is_project_expense" value="1" onchange="toggleProjectExpense()" style="width: 14px; height: 14px; accent-color: #f59e0b;">
+                                <span style="font-size: 0.72rem; font-weight: 600; color: #92400e;">🏗️ Pengeluaran Proyek (bukan beban hotel)</span>
                             </label>
-                            <div id="projectSelectWrapper" style="display: none; margin-top: 0.5rem;">
-                                <label class="form-label" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 0.25rem; color: #92400e;">Pilih Proyek <span style="color: var(--danger);">*</span></label>
-                                <select name="project_id" id="projectSelect" class="form-control" style="height: 36px; font-size: 0.813rem; border-color: #f59e0b;">
+                            <div id="projectSelectWrapper" style="display: none; margin-top: 0.35rem;">
+                                <label class="form-label" style="font-size: 0.68rem; font-weight: 600; margin-bottom: 0.2rem; color: #92400e;">Pilih Proyek <span style="color: var(--danger);">*</span></label>
+                                <select name="project_id" id="projectSelect" class="form-control" style="height: 30px; font-size: 0.76rem; border-color: #f59e0b;">
                                     <option value="">-- Pilih Proyek --</option>
                                     <?php foreach ($investorProjects as $proj): ?>
                                         <option value="<?php echo $proj['id']; ?>">
@@ -1242,10 +1240,10 @@ include '../../includes/header.php';
                                     <?php endforeach; ?>
                                 </select>
                                 <?php if (empty($investorProjects)): ?>
-                                    <div style="font-size: 0.72rem; color: #dc2626; margin-top: 0.25rem;">⚠️ Belum ada proyek. Buat dulu di menu <a href="<?php echo BASE_URL; ?>/modules/investor/index.php" style="color: #4f46e5; font-weight: 600;">Investor & Proyek</a></div>
+                                    <div style="font-size: 0.64rem; color: #dc2626; margin-top: 0.2rem;">⚠️ Belum ada proyek. Buat dulu di menu <a href="<?php echo BASE_URL; ?>/modules/investor/index.php" style="color: #4f46e5; font-weight: 600;">Investor & Proyek</a></div>
                                 <?php endif; ?>
                             </div>
-                            <div id="projectExpenseNote" style="display: none; font-size: 0.72rem; color: #f59e0b; margin-top: 0.25rem;">⚠️ Transaksi ini tidak masuk laporan P&L hotel, tapi tercatat di menu Investor & Proyek</div>
+                            <div id="projectExpenseNote" style="display: none; font-size: 0.64rem; color: #f59e0b; margin-top: 0.2rem;">⚠️ Transaksi ini tidak masuk laporan P&L hotel, tapi tercatat di menu Investor & Proyek</div>
                             <input type="hidden" name="source_type" id="sourceTypeHidden" value="">
                         </div>
                     <?php endif; ?>
@@ -1253,8 +1251,8 @@ include '../../includes/header.php';
 
                 <!-- Amount -->
                 <div class="compact-form-group">
-                    <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem;">Jumlah <span style="color: var(--danger);">*</span></label>
-                    <input type="text" name="amount" class="form-control amount-input" style="height: 36px; font-size: 0.938rem; font-weight: 600;" placeholder="0" required>
+                    <label class="form-label" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 0.2rem;">Jumlah <span style="color: var(--danger);">*</span></label>
+                    <input type="text" name="amount" class="form-control amount-input" style="height: 32px; font-size: 0.85rem; font-weight: 600;" placeholder="0" required>
                 </div>
             </div>
 
@@ -1262,13 +1260,13 @@ include '../../includes/header.php';
             <div>
                 <!-- Cash Account Selection -->
                 <div class="compact-form-group">
-                    <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem; display: flex; align-items: center; justify-content: space-between;">
+                    <label class="form-label" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 0.2rem; display: flex; align-items: center; justify-content: space-between;">
                         <span>Pilih Akun <span style="color: var(--danger);">*</span></span>
-                        <a href="accounts.php" style="font-size: 0.7rem; font-weight: 600; color: <?php echo $isCQC ? '#0d1f3c' : 'var(--primary-color)'; ?>; text-decoration: none; display: flex; align-items: center; gap: 0.2rem;">
-                            <i data-feather="settings" style="width: 12px; height: 12px;"></i> Setup Rekening
+                        <a href="accounts.php" style="font-size: 0.64rem; font-weight: 600; color: <?php echo $isCQC ? '#0d1f3c' : 'var(--primary-color)'; ?>; text-decoration: none; display: flex; align-items: center; gap: 0.2rem;">
+                            <i data-feather="settings" style="width: 11px; height: 11px;"></i> Setup Rekening
                         </a>
                     </label>
-                    <select name="cash_account_id" class="form-control" style="height: 34px; font-size: 0.813rem; font-weight: 600;" required>
+                    <select name="cash_account_id" class="form-control" style="height: 30px; font-size: 0.76rem; font-weight: 600;" required>
                         <option value="">-- Pilih Akun --</option>
                         <?php if (empty($cashAccounts)): ?>
                             <option value="" disabled style="color: #dc2626;">⚠️ Tidak ada akun kas tersedia. Hubungi admin!</option>
@@ -1285,11 +1283,11 @@ include '../../includes/header.php';
                         <?php endif; ?>
                     </select>
                     <?php if (empty($cashAccounts)): ?>
-                        <div style="font-size: 0.75rem; color: #dc2626; margin-top: 0.3rem; padding: 0.5rem; background: #fee2e2; border-radius: 4px; border-left: 3px solid #dc2626;">
+                        <div style="font-size: 0.68rem; color: #dc2626; margin-top: 0.2rem; padding: 0.4rem; background: #fee2e2; border-radius: 4px; border-left: 3px solid #dc2626;">
                             <strong>⚠️ Error:</strong> Akun kas tidak ditemukan di database master. Pastikan cash_accounts sudah di-setup untuk bisnis ini.
                         </div>
                     <?php else: ?>
-                        <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.3rem; line-height: 1.4;">
+                        <div style="font-size: 0.64rem; color: var(--text-muted); margin-top: 0.2rem; line-height: 1.3;">
                             💡 Pilih rekening tujuan. <a href="accounts.php" style="color: <?php echo $isCQC ? '#0d1f3c' : 'var(--primary-color)'; ?>; font-weight: 600; text-decoration: none;">Tambah/edit rekening →</a>
                         </div>
                     <?php endif; ?>
@@ -1297,71 +1295,71 @@ include '../../includes/header.php';
 
                 <!-- Payment Method -->
                 <div class="compact-form-group">
-                    <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem;">Metode Pembayaran <span style="color: var(--danger);">*</span></label>
-                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem;">
-                        <label class="payment-method-card" style="padding: 0.5rem;">
+                    <label class="form-label" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 0.2rem;">Metode Pembayaran <span style="color: var(--danger);">*</span></label>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.3rem;">
+                        <label class="payment-method-card" style="padding: 0.3rem;">
                             <input type="radio" name="payment_method" value="cash" required checked>
                             <div class="payment-content" style="text-align: center; position: relative;">
-                                <i data-feather="dollar-sign" style="width: 16px; height: 16px; margin-bottom: 0.15rem; color: #10b981;"></i>
-                                <div style="font-weight: 600; font-size: 0.75rem; color: var(--text-primary);">Cash</div>
+                                <i data-feather="dollar-sign" style="width: 13px; height: 13px; margin-bottom: 0.1rem; color: #10b981;"></i>
+                                <div style="font-weight: 600; font-size: 0.66rem; color: var(--text-primary);">Cash</div>
                             </div>
                         </label>
 
-                        <label class="payment-method-card" style="padding: 0.5rem;">
+                        <label class="payment-method-card" style="padding: 0.3rem;">
                             <input type="radio" name="payment_method" value="debit" required>
                             <div class="payment-content" style="text-align: center; position: relative;">
-                                <i data-feather="credit-card" style="width: 16px; height: 16px; margin-bottom: 0.15rem; color: #3b82f6;"></i>
-                                <div style="font-weight: 600; font-size: 0.75rem; color: var(--text-primary);">Debit</div>
+                                <i data-feather="credit-card" style="width: 13px; height: 13px; margin-bottom: 0.1rem; color: #3b82f6;"></i>
+                                <div style="font-weight: 600; font-size: 0.66rem; color: var(--text-primary);">Debit</div>
                             </div>
                         </label>
 
-                        <label class="payment-method-card" style="padding: 0.5rem;">
+                        <label class="payment-method-card" style="padding: 0.3rem;">
                             <input type="radio" name="payment_method" value="transfer" required>
                             <div class="payment-content" style="text-align: center; position: relative;">
-                                <i data-feather="send" style="width: 16px; height: 16px; margin-bottom: 0.15rem; color: #8b5cf6;"></i>
-                                <div style="font-weight: 600; font-size: 0.75rem; color: var(--text-primary);">Transfer</div>
+                                <i data-feather="send" style="width: 13px; height: 13px; margin-bottom: 0.1rem; color: #8b5cf6;"></i>
+                                <div style="font-weight: 600; font-size: 0.66rem; color: var(--text-primary);">Transfer</div>
                             </div>
                         </label>
 
-                        <label class="payment-method-card" style="padding: 0.5rem;">
+                        <label class="payment-method-card" style="padding: 0.3rem;">
                             <input type="radio" name="payment_method" value="qr" required>
                             <div class="payment-content" style="text-align: center; position: relative;">
-                                <i data-feather="smartphone" style="width: 16px; height: 16px; margin-bottom: 0.15rem; color: #f59e0b;"></i>
-                                <div style="font-weight: 600; font-size: 0.75rem; color: var(--text-primary);">QR Code</div>
+                                <i data-feather="smartphone" style="width: 13px; height: 13px; margin-bottom: 0.1rem; color: #f59e0b;"></i>
+                                <div style="font-weight: 600; font-size: 0.66rem; color: var(--text-primary);">QR Code</div>
                             </div>
                         </label>
 
-                        <label class="payment-method-card" style="padding: 0.5rem;">
+                        <label class="payment-method-card" style="padding: 0.3rem;">
                             <input type="radio" name="payment_method" value="edc" required>
                             <div class="payment-content" style="text-align: center; position: relative;">
-                                <i data-feather="cpu" style="width: 16px; height: 16px; margin-bottom: 0.15rem; color: #ec4899;"></i>
-                                <div style="font-weight: 600; font-size: 0.75rem; color: var(--text-primary);">EDC</div>
+                                <i data-feather="cpu" style="width: 13px; height: 13px; margin-bottom: 0.1rem; color: #ec4899;"></i>
+                                <div style="font-weight: 600; font-size: 0.66rem; color: var(--text-primary);">EDC</div>
                             </div>
                         </label>
 
-                        <label class="payment-method-card" style="padding: 0.5rem;">
+                        <label class="payment-method-card" style="padding: 0.3rem;">
                             <input type="radio" name="payment_method" value="ota" required id="payment_ota">
                             <div class="payment-content" style="text-align: center; position: relative;">
-                                <i data-feather="globe" style="width: 16px; height: 16px; margin-bottom: 0.15rem; color: #06b6d4;"></i>
-                                <div style="font-weight: 600; font-size: 0.75rem; color: var(--text-primary);">OTA</div>
+                                <i data-feather="globe" style="width: 13px; height: 13px; margin-bottom: 0.1rem; color: #06b6d4;"></i>
+                                <div style="font-weight: 600; font-size: 0.66rem; color: var(--text-primary);">OTA</div>
                             </div>
                         </label>
 
-                        <label class="payment-method-card" style="padding: 0.5rem;">
+                        <label class="payment-method-card" style="padding: 0.3rem;">
                             <input type="radio" name="payment_method" value="other" required>
                             <div class="payment-content" style="text-align: center; position: relative;">
-                                <i data-feather="more-horizontal" style="width: 16px; height: 16px; margin-bottom: 0.15rem; color: #6b7280;"></i>
-                                <div style="font-weight: 600; font-size: 0.75rem; color: var(--text-primary);">Lainnya</div>
+                                <i data-feather="more-horizontal" style="width: 13px; height: 13px; margin-bottom: 0.1rem; color: #6b7280;"></i>
+                                <div style="font-weight: 600; font-size: 0.66rem; color: var(--text-primary);">Lainnya</div>
                             </div>
                         </label>
                     </div>
 
                     <!-- OTA Source Selection -->
-                    <div id="ota_source_section" style="display: none; margin-top: 0.5rem;">
-                        <label class="form-label" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 0.25rem; color: #06b6d4;">
-                            <i data-feather="globe" style="width: 12px; height: 12px;"></i> Pilih Sumber OTA
+                    <div id="ota_source_section" style="display: none; margin-top: 0.35rem;">
+                        <label class="form-label" style="font-size: 0.68rem; font-weight: 600; margin-bottom: 0.2rem; color: #06b6d4;">
+                            <i data-feather="globe" style="width: 11px; height: 11px;"></i> Pilih Sumber OTA
                         </label>
-                        <select name="ota_source" id="ota_source" class="form-control" style="font-size: 0.813rem; padding: 0.4rem 0.6rem;">
+                        <select name="ota_source" id="ota_source" class="form-control" style="font-size: 0.76rem; padding: 0.3rem 0.5rem;">
                             <option value="">-- Pilih OTA --</option>
                             <option value="OTA tiket.com">tiket.com</option>
                             <option value="OTA Agoda">Agoda</option>
@@ -1377,20 +1375,20 @@ include '../../includes/header.php';
 
                 <!-- Description -->
                 <div class="compact-form-group">
-                    <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem;">Keterangan</label>
-                    <textarea name="description" class="form-control" rows="2" style="font-size: 0.813rem; resize: none; line-height: 1.5;" placeholder="Keterangan tambahan (opsional)"></textarea>
+                    <label class="form-label" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 0.2rem;">Keterangan</label>
+                    <textarea name="description" class="form-control" rows="1" style="font-size: 0.76rem; resize: none; line-height: 1.4;" placeholder="Keterangan tambahan (opsional)"></textarea>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Form Actions Container -->
-    <div class="card" style="max-width: 920px; margin: 0 auto; padding: 0.875rem 1.125rem; background: var(--bg-secondary); display: flex; justify-content: flex-end; gap: 0.75rem;">
-        <a href="index.php" class="btn btn-secondary" style="padding: 0.625rem 1.125rem; font-size: 0.875rem;">
-            <i data-feather="x" style="width: 15px; height: 15px;"></i> Batal
+    <div class="card" style="max-width: 920px; margin: 0 auto; padding: 0.55rem 0.75rem; background: var(--bg-secondary); display: flex; justify-content: flex-end; gap: 0.5rem;">
+        <a href="index.php" class="btn btn-secondary" style="padding: 0.45rem 0.9rem; font-size: 0.8rem;">
+            <i data-feather="x" style="width: 13px; height: 13px;"></i> Batal
         </a>
-        <button type="submit" class="btn btn-primary" style="padding: 0.625rem 1.25rem; font-size: 0.875rem;">
-            <i data-feather="save" style="width: 15px; height: 15px;"></i> Simpan Transaksi
+        <button type="submit" class="btn btn-primary" style="padding: 0.45rem 1rem; font-size: 0.8rem;">
+            <i data-feather="save" style="width: 13px; height: 13px;"></i> Simpan Transaksi
         </button>
     </div>
 
