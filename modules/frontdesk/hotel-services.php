@@ -2304,23 +2304,23 @@ include '../../includes/header.php';
     .hs-table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 0.875rem;
+        font-size: 0.76rem;
     }
 
     .hs-table th {
         background: rgba(30, 58, 138, 0.08);
-        padding: 0.55rem 0.75rem;
+        padding: 0.4rem 0.45rem;
         text-align: center;
         font-weight: 700;
         color: #1e3a8a;
-        font-size: 0.75rem;
+        font-size: 0.64rem;
         text-transform: uppercase;
-        letter-spacing: 0.03em;
+        letter-spacing: 0.02em;
         border-bottom: 1px solid rgba(30, 58, 138, 0.15);
     }
 
     .hs-table td {
-        padding: 0.58rem 0.75rem;
+        padding: 0.4rem 0.45rem;
         border-bottom: 1px solid #f1f5f9;
         vertical-align: middle;
     }
@@ -2444,12 +2444,12 @@ include '../../includes/header.php';
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        min-width: 78px;
-        padding: 0.28rem 0.72rem;
+        min-width: 62px;
+        padding: 0.2rem 0.5rem;
         border-radius: 999px;
-        font-size: 0.66rem;
+        font-size: 0.58rem;
         font-weight: 700;
-        letter-spacing: 0.06em;
+        letter-spacing: 0.04em;
         text-transform: uppercase;
         color: #ffffff !important;
         border: 1px solid rgba(255, 255, 255, 0.22);
@@ -2479,13 +2479,13 @@ include '../../includes/header.php';
 
     .hs-svc-pill {
         display: inline-block;
-        padding: 0.15rem 0.45rem;
-        border-radius: 12px;
-        font-size: 0.75rem;
+        padding: 0.1rem 0.35rem;
+        border-radius: 10px;
+        font-size: 0.64rem;
         font-weight: 600;
         background: #ede9fe;
         color: #5b21b6;
-        margin: 0.1rem 0.1rem 0 0;
+        margin: 0.08rem 0.08rem 0 0;
         white-space: nowrap;
     }
 
@@ -2551,18 +2551,18 @@ include '../../includes/header.php';
         background: linear-gradient(135deg, #6366f1, #8b5cf6);
         color: #ffffff !important;
         -webkit-text-fill-color: #ffffff !important;
-        padding: 0.2rem 0.55rem;
+        padding: 0.15rem 0.4rem;
         border-radius: 5px;
         font-weight: 700;
-        font-size: 0.75rem;
+        font-size: 0.64rem;
         white-space: nowrap;
     }
 
     .hs-price-breakdown {
         display: flex;
         flex-direction: column;
-        gap: 0.15rem;
-        font-size: 0.72rem;
+        gap: 0.12rem;
+        font-size: 0.62rem;
         white-space: nowrap;
     }
 
@@ -2592,13 +2592,13 @@ include '../../includes/header.php';
     }
 
     .hs-action-dropdown-btn {
-        padding: 0.2rem 0.5rem;
+        padding: 0.18rem 0.4rem;
         background: #6366f1;
         color: white;
         border: 1px solid #4f46e5;
         border-radius: 5px;
         cursor: pointer;
-        font-size: 0.68rem;
+        font-size: 0.6rem;
         font-weight: 600;
         white-space: nowrap;
         transition: background 0.15s;
@@ -3323,7 +3323,7 @@ include '../../includes/header.php';
                                     <?php endif; ?>
                                     <?php echo htmlspecialchars($inv['guest_name']); ?>
                                 </div>
-                                <?php if ($inv['guest_phone']): ?><div style="font-size:0.7rem;color:var(--text-secondary)"><?php echo htmlspecialchars($inv['guest_phone']); ?></div><?php endif; ?>
+                                <?php if ($inv['guest_phone']): ?><div style="font-size:0.6rem;color:var(--text-secondary)"><?php echo htmlspecialchars($inv['guest_phone']); ?></div><?php endif; ?>
                             </td>
                             <td>
                                 <?php if ($inv['room_number']): ?>
@@ -3358,7 +3358,7 @@ include '../../includes/header.php';
                             </td>
                             <td><span class="hs-badge" style="background:<?php echo $payStatusColors[$inv['payment_status']]; ?>"><span class="hs-badge-text"><?php echo strtoupper($inv['payment_status']); ?></span></span></td>
                             <td><span class="hs-badge" style="background:<?php echo $statusColors[$inv['status']]; ?>"><span class="hs-badge-text"><?php echo strtoupper($inv['status']); ?></span></span></td>
-                            <td style="font-size:0.72rem;color:var(--text-secondary);white-space:nowrap"><?php echo date('d M Y', strtotime($inv['service_date'] ?? $inv['created_at'])); ?></td>
+                            <td style="font-size:0.62rem;color:var(--text-secondary);white-space:nowrap"><?php echo date('d M Y', strtotime($inv['service_date'] ?? $inv['created_at'])); ?></td>
                             <td onclick="event.stopPropagation()">
                                 <div class="hs-action-dropdown">
                                     <button type="button" class="hs-action-dropdown-btn" onclick="toggleHsActionMenu(event)">Aksi ▾</button>
