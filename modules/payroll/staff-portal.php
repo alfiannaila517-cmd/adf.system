@@ -6721,9 +6721,13 @@ header('Expires: 0');
                     });
                 }
                 document.getElementById('notifList').innerHTML = html;
-                // Mark as read when opened
+                // Mark as read when opened — clear badge immediately instead of waiting for next poll
                 if (source === 'notifications') {
-                    fetch(API + '&action=notif_mark_read');
+                    await fetch(API + '&action=notif_mark_read');
+                    window._notifUnread = 0;
+                    document.getElementById('notifDot').classList.remove('show');
+                    document.getElementById('notifDot').textContent = '';
+                    syncAppIconBadge();
                 }
             } catch (e) {
                 document.getElementById('notifList').innerHTML = '<div class="np-empty">Gagal memuat</div>';
@@ -7664,13 +7668,35 @@ header('Expires: 0');
             }
         }
 
-        // Check notifications every 60s
-        setInterval(checkNotifs, 60000);
+        // Check notifications every 20s
+        setInterval(checkNotifs, 20000);
         setTimeout(checkNotifs, 3000);
 
         // Check chat/pengumuman every 20s
         setInterval(checkChatNew, 20000);
         setTimeout(checkChatNew, 4000);
+
+        // Refresh instantly when the app regains focus/visibility (e.g. reopened from background)
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                checkNotifs();
+                checkChatNew();
+            }
+        });
+        window.addEventListener('focus', () => {
+            checkNotifs();
+            checkChatNew();
+        });
+
+        // Refresh instantly when the service worker tells us a push just arrived
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.addEventListener('message', (event) => {
+                if (event.data?.type === 'refresh-badge') {
+                    checkNotifs();
+                    checkChatNew();
+                }
+            });
+        }
     </script>
 
     <!-- Install Banner — fixed bottom, works on auth + app -->
