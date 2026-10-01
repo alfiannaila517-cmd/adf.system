@@ -597,18 +597,25 @@ header('Expires: 0');
 
         .notif-dot {
             position: absolute;
-            top: 1px;
-            right: 1px;
-            width: 8px;
-            height: 8px;
+            top: -2px;
+            right: -2px;
+            min-width: 15px;
+            height: 15px;
+            padding: 0 3px;
             background: var(--red);
-            border-radius: 50%;
+            border-radius: 999px;
             border: 1.5px solid var(--navy);
             display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            font-weight: 800;
+            color: #fff;
+            line-height: 1;
         }
 
         .notif-dot.show {
-            display: block;
+            display: flex;
         }
 
         .notif-bell.shake {
@@ -6729,12 +6736,15 @@ header('Expires: 0');
                 const data = await res.json();
                 const source = data.source || 'legacy';
                 let hasNew = false;
+                let count = 0;
                 if (source === 'notifications') {
-                    hasNew = (data.unread_count || 0) > 0;
+                    count = data.unread_count || 0;
+                    hasNew = count > 0;
                 } else {
                     const notifs = data.data || [];
                     const lastSeen = localStorage.getItem('notif_last_seen') || '';
                     hasNew = notifs.length > 0 && (!lastSeen || notifs[0].approved_at > lastSeen);
+                    count = hasNew ? 1 : 0;
                     if (notifOpen && notifs.length > 0) {
                         localStorage.setItem('notif_last_seen', notifs[0].approved_at);
                     }
@@ -6742,6 +6752,7 @@ header('Expires: 0');
                 const dot = document.getElementById('notifDot');
                 const bell = document.querySelector('.notif-bell');
                 const wasShowing = dot.classList.contains('show');
+                dot.textContent = count > 0 ? (count > 99 ? '99+' : String(count)) : '';
                 dot.classList.toggle('show', hasNew);
                 // Shake bell + vibrate when new notification detected
                 if (hasNew && !wasShowing) {
@@ -6749,7 +6760,23 @@ header('Expires: 0');
                     setTimeout(() => bell.classList.remove('shake'), 1000);
                     if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
                 }
+                window._notifUnread = count;
+                syncAppIconBadge();
             } catch (e) {}
+        }
+
+        // Angka merah di ikon aplikasi (App Badging API) - gabungan notifikasi + pengumuman,
+        // sama seperti di karimunjawa-explore. Didukung Android/Chrome & iOS Safari 16.4+ (PWA installed).
+        window._notifUnread = 0;
+        window._chatUnread = 0;
+        function syncAppIconBadge() {
+            if (!('setAppBadge' in navigator)) return;
+            const total = (window._notifUnread || 0) + (window._chatUnread || 0);
+            if (total > 0) {
+                navigator.setAppBadge(total).catch(() => {});
+            } else {
+                navigator.clearAppBadge().catch(() => {});
+            }
         }
 
         // ═══ CHAT / PENGUMUMAN (dari admin, broadcast satu arah) ═══
@@ -6847,6 +6874,8 @@ header('Expires: 0');
 
                 dot.classList.toggle('show', hasNew && !chatOpen);
                 fab.classList.toggle('has-unread', hasNew && !chatOpen);
+                window._chatUnread = (hasNew && !chatOpen) ? unreadCount : 0;
+                syncAppIconBadge();
 
                 if (hasNew && chatLastPolledId !== null && topId > chatLastPolledId) {
                     fab.classList.add('shake');
