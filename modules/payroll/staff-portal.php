@@ -5415,6 +5415,15 @@ header('Expires: 0');
                     holiday: 'Libur',
                     half_day: '½ Hari'
                 };
+                const monitorStatusMap = {
+                    present: 'Hadir',
+                    late: 'Telat',
+                    split_shift: 'Split',
+                    absent: 'Absen',
+                    leave: 'Izin',
+                    holiday: 'Libur',
+                    half_day: '½Hr'
+                };
                 rows.forEach(r => {
                     const dt = new Date(r.attendance_date);
                     const day = dt.toLocaleDateString('id-ID', {
@@ -5442,12 +5451,13 @@ header('Expires: 0');
                         `<div style="font-size:8.5px;color:${otColor};font-weight:700;">${otLabel} +${ot.toFixed(1).replace(/\.0$/, '')}j</div>` :
                         (hadir ? `<div style="font-size:8px;color:var(--muted);">tanpa OT</div>` : '');
 
+                    const statusBadge = `<span class="badge ${bc}" style="font-size:8.5px;padding:1px 5px;white-space:nowrap;">${monitorStatusMap[statusKey]||statusKey}</span>`;
                     if (IS_CAFE) {
-                        html += `<tr><td style="white-space:nowrap;font-size:10px;">${day}</td><td style="font-weight:600;color:var(--green);font-size:10px;">${s1}</td><td style="font-weight:600;color:var(--navy);font-size:10px;">${s2}</td><td style="font-weight:700;font-size:10px;">${whTxt}${otBlock}</td><td><span class="badge ${bc}">${statusMap[statusKey]||statusKey}</span></td></tr>`;
+                        html += `<tr><td style="white-space:nowrap;font-size:10px;">${day}</td><td style="font-weight:600;color:var(--green);font-size:10px;">${s1}</td><td style="font-weight:600;color:var(--navy);font-size:10px;">${s2}</td><td style="font-weight:700;font-size:10px;">${whTxt}${otBlock}</td><td>${statusBadge}</td></tr>`;
                     } else {
                         const s3 = r.scan_3 ? r.scan_3.substring(0, 5) : '—';
                         const s4 = r.scan_4 ? r.scan_4.substring(0, 5) : '—';
-                        html += `<tr><td style="white-space:nowrap;font-size:10px;">${day}</td><td style="font-weight:600;color:var(--green);font-size:10px;">${s1}</td><td style="font-size:10px;">${s2}</td><td style="color:var(--green);font-size:10px;">${s3}</td><td style="font-size:10px;">${s4}</td><td style="font-weight:700;font-size:10px;">${whTxt}${otBlock}</td><td><span class="badge ${bc}">${statusMap[statusKey]||statusKey}</span></td></tr>`;
+                        html += `<tr><td style="white-space:nowrap;font-size:10px;">${day}</td><td style="font-weight:600;color:var(--green);font-size:10px;">${s1}</td><td style="font-size:10px;">${s2}</td><td style="color:var(--green);font-size:10px;">${s3}</td><td style="font-size:10px;">${s4}</td><td style="font-weight:700;font-size:10px;">${whTxt}${otBlock}</td><td>${statusBadge}</td></tr>`;
                     }
                 });
                 html += '</tbody></table></div>';
