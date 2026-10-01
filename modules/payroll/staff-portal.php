@@ -1466,23 +1466,24 @@ header('Expires: 0');
         .tbl {
             width: 100%;
             border-collapse: collapse;
-            font-size: 13px;
-            line-height: 1.45;
+            font-size: 11px;
+            line-height: 1.35;
         }
 
         .tbl th {
             background: var(--bg);
-            padding: 10px 12px;
+            padding: 6px 6px;
             text-align: left;
             font-weight: 700;
             color: var(--muted);
-            font-size: 12px;
+            font-size: 9px;
             text-transform: uppercase;
             border-bottom: 1px solid var(--border);
+            white-space: nowrap;
         }
 
         .tbl td {
-            padding: 10px 12px;
+            padding: 6px 6px;
             border-bottom: 1px solid #f1f5f9;
         }
 
@@ -5257,7 +5258,7 @@ header('Expires: 0');
                 const data = await res.json();
                 const s = data.summary || {};
                 const totalHours = s.total_hours || 0;
-                const target = s.target || 200;
+                const target = s.target || 208;
                 const pct = target > 0 ? Math.min(Math.round(totalHours / target * 100), 100) : 0;
                 const daysPresent = s.days_present || 0;
                 const daysLate = s.days_late || 0;
@@ -5335,21 +5336,21 @@ header('Expires: 0');
                 const barColor = pct >= 90 ? 'var(--green)' : pct >= 60 ? 'var(--orange)' : 'var(--red)';
 
                 document.getElementById('monitorStats').innerHTML = `
-            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:10px;">
-                <div style="background:#eef4f9;border:1px solid #9fb8cc;border-radius:10px;padding:10px;text-align:center;">
-                    <div style="font-size:16px;margin-bottom:2px;">✅</div>
-                    <div style="font-size:9px;font-weight:700;color:#0c2d48;text-transform:uppercase;letter-spacing:.4px;">Hadir</div>
-                    <div style="font-size:18px;font-weight:800;color:var(--green);margin-top:1px;">${s.days_present||0}</div>
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:8px;">
+                <div style="background:#eef4f9;border:1px solid #9fb8cc;border-radius:8px;padding:5px;text-align:center;">
+                    <div style="font-size:9px;margin-bottom:1px;">✅</div>
+                    <div style="font-size:7px;font-weight:700;color:#0c2d48;text-transform:uppercase;letter-spacing:.3px;">Hadir</div>
+                    <div style="font-size:11px;font-weight:800;color:var(--green);margin-top:0;">${s.days_present||0}</div>
                 </div>
-                <div style="background:#eef4f9;border:1px solid #9fb8cc;border-radius:10px;padding:10px;text-align:center;">
-                    <div style="font-size:16px;margin-bottom:2px;">⏰</div>
-                    <div style="font-size:9px;font-weight:700;color:#0c2d48;text-transform:uppercase;letter-spacing:.4px;">Terlambat</div>
-                    <div style="font-size:18px;font-weight:800;color:var(--orange);margin-top:1px;">${s.days_late||0}</div>
+                <div style="background:#eef4f9;border:1px solid #9fb8cc;border-radius:8px;padding:5px;text-align:center;">
+                    <div style="font-size:9px;margin-bottom:1px;">⏰</div>
+                    <div style="font-size:7px;font-weight:700;color:#0c2d48;text-transform:uppercase;letter-spacing:.3px;">Terlambat</div>
+                    <div style="font-size:11px;font-weight:800;color:var(--orange);margin-top:0;">${s.days_late||0}</div>
                 </div>
             </div>
             <div style="background:#fff;border:1px solid #9fb8cc;border-radius:10px;padding:10px;margin-bottom:10px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;font-size:10.5px;margin-bottom:5px;">
-                    <span style="color:#0c2d48;font-weight:600;">🎯 Target ${s.target||200} jam</span>
+                    <span style="color:#0c2d48;font-weight:600;">🎯 Target ${s.target||208} jam</span>
                     <span style="font-weight:800;color:${barColor};">${pct}%</span>
                 </div>
                 <div class="progress" style="background:#c8d8e4;"><div class="progress-bar" style="width:${pct}%;background:${barColor};"></div></div>
@@ -5363,9 +5364,9 @@ header('Expires: 0');
 
                 let html;
                 if (IS_CAFE) {
-                    html = '<div style="overflow-x:auto;font-size:13px;line-height:1.5;"><table class="tbl"><thead><tr><th>Tanggal</th><th>Masuk</th><th>Pulang</th><th>Jam Kerja</th><th>Status</th></tr></thead><tbody>';
+                    html = '<div style="overflow-x:auto;font-size:11px;line-height:1.35;"><table class="tbl"><thead><tr><th>Tgl</th><th>Masuk</th><th>Pulang</th><th>Jam</th><th>Status</th></tr></thead><tbody>';
                 } else {
-                    html = '<div style="overflow-x:auto;font-size:13px;line-height:1.5;"><table class="tbl"><thead><tr><th>Tanggal</th><th>Scan 1</th><th>Scan 2</th><th>Scan 3</th><th>Scan 4</th><th>Total</th><th>Status</th></tr></thead><tbody>';
+                    html = '<div style="overflow-x:auto;font-size:11px;line-height:1.35;"><table class="tbl"><thead><tr><th>Tgl</th><th>S1</th><th>S2</th><th>S3</th><th>S4</th><th>Jam</th><th>Status</th></tr></thead><tbody>';
                 }
                 const statusMap = {
                     present: 'Hadir',

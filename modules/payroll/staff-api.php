@@ -527,7 +527,7 @@ if ($action === 'attendance_history') {
     $totalAutoOver200 = 0;
     $present = 0;
     $late = 0;
-    $monthlyRegularCap = 200.0;
+    $monthlyRegularCap = 208.0;
     $cumulativeRegular = 0.0;
     $autoOTByDate = []; // attendance_date => auto-OT hours (exact, untuk badge & display)
 
@@ -615,7 +615,7 @@ if ($action === 'attendance_history') {
         'auto_overtime_over_200' => round($totalAutoOver200, 2),
         'days_present' => $present,
         'days_late' => $late,
-        'target' => 200
+        'target' => 208
     ]]);
     exit;
 }
