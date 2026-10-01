@@ -2071,10 +2071,60 @@ echo getPrintCSS();
                 transform: translateY(0);
             }
         }
+
+        /* Compact summary cards (Total Pemasukan/Pengeluaran/Saldo) - scoped to this page only */
+        #cashbookSummaryGrid {
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 0.5rem;
+        }
+
+        #cashbookSummaryGrid .card {
+            padding: 0.5rem 0.65rem;
+        }
+
+        #cashbookSummaryGrid .card-header {
+            margin-bottom: 0.2rem;
+        }
+
+        #cashbookSummaryGrid .card-title {
+            font-size: 0.65rem;
+        }
+
+        #cashbookSummaryGrid .card-value {
+            font-size: 0.95rem;
+        }
+
+        #cashbookSummaryGrid .card-icon {
+            width: 22px;
+            height: 22px;
+        }
+
+        #cashbookSummaryGrid .card-icon i {
+            width: 14px;
+            height: 14px;
+        }
+
+        /* Highlighted, centered "Tambah Transaksi" button */
+        .cashbook-btn-add-highlight {
+            background: linear-gradient(135deg, #16a34a, #15803d) !important;
+            border: 1px solid #14532d !important;
+            box-shadow: 0 2px 10px rgba(22, 163, 74, 0.45);
+            height: 34px !important;
+            padding: 0 1rem !important;
+        }
+
+        .cashbook-btn-add-highlight span {
+            font-size: 0.75rem !important;
+        }
+
+        .cashbook-btn-add-highlight i {
+            width: 14px !important;
+            height: 14px !important;
+        }
     </style>
 
     <!-- Summary Cards -->
-    <div class="dashboard-grid" style="margin-bottom: 2rem;">
+    <div class="dashboard-grid" id="cashbookSummaryGrid" style="margin-bottom: 1rem;">
         <?php if ($isCQC):
             // Use actual balance from cash_accounts
             $saldoKasOperasional = $actualPettyCashBalance;
@@ -2125,7 +2175,7 @@ echo getPrintCSS();
 
     <!-- Transactions Table -->
     <div class="table-container">
-        <div class="table-header <?php echo $isCQC ? 'table-header-cqc' : ''; ?>" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <div class="table-header <?php echo $isCQC ? 'table-header-cqc' : ''; ?>" style="display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
             <div style="display: flex; align-items: center; gap: 0.75rem;">
                 <?php if ($isCQC): ?>
                     <div style="width: 40px; height: 40px; border-radius: 8px; background: linear-gradient(135deg, #f0b429, #d4960d); display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">
@@ -2145,7 +2195,13 @@ echo getPrintCSS();
                     </p>
                 </div>
             </div>
-            <div class="table-actions" style="display: flex; gap: 0.5rem;">
+            <div style="justify-self: center;">
+                <a href="add.php" class="btn btn-primary btn-white-text cashbook-action-btn cashbook-btn-filter cashbook-btn-add-highlight" style="display: flex; align-items: center; gap: 0.35rem !important; color: #ffffff !important; opacity: 1 !important;">
+                    <i data-feather="plus" style="color:#ffffff !important; stroke:#ffffff !important; opacity:1 !important;"></i>
+                    <span style="color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important; font-weight:600 !important;">Tambah Transaksi</span>
+                </a>
+            </div>
+            <div class="table-actions" style="display: flex; gap: 0.5rem; justify-self: end;">
                 <a href="cash-transfers.php" class="btn btn-secondary btn-white-text cashbook-action-btn cashbook-btn-reset" style="display: flex; align-items: center; gap: 0.25rem !important; height: 28px !important; padding: 0 0.5rem !important; background: #1e3a8a !important; border: 1px solid #1e40af !important; color: #ffffff !important; opacity: 1 !important;">
                     <i data-feather="send" style="width: 12px; height: 12px; color:#ffffff !important; stroke:#ffffff !important; opacity:1 !important;"></i>
                     <span style="color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important; font-weight:500 !important; font-size: 0.68rem !important;">🏦 Ringkasan Setor Tunai</span>
@@ -2153,10 +2209,6 @@ echo getPrintCSS();
                 <a href="logs.php" class="btn btn-secondary btn-white-text cashbook-action-btn cashbook-btn-reset" style="display: flex; align-items: center; gap: 0.25rem !important; height: 28px !important; padding: 0 0.5rem !important; background: #1e3a8a !important; border: 1px solid #1e40af !important; color: #ffffff !important; opacity: 1 !important;">
                     <i data-feather="activity" style="width: 12px; height: 12px; color:#ffffff !important; stroke:#ffffff !important; opacity:1 !important;"></i>
                     <span style="color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important; font-weight:500 !important; font-size: 0.68rem !important;">Audit Log</span>
-                </a>
-                <a href="add.php" class="btn btn-primary btn-white-text cashbook-action-btn cashbook-btn-filter" style="display: flex; align-items: center; gap: 0.25rem !important; height: 28px !important; padding: 0 0.5rem !important; background: #1e3a8a !important; border: 1px solid #1e40af !important; color: #ffffff !important; opacity: 1 !important;">
-                    <i data-feather="plus" style="width: 12px; height: 12px; color:#ffffff !important; stroke:#ffffff !important; opacity:1 !important;"></i>
-                    <span style="color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important; font-weight:500 !important; font-size: 0.68rem !important;">Tambah Transaksi</span>
                 </a>
             </div>
         </div>
