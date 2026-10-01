@@ -8255,8 +8255,11 @@ header('Expires: 0');
                 }
             }
 
+            // v2: new key so staff who dismissed before this notification feature existed get re-prompted once
+            const PUSH_PROMPT_KEY = 'staff_push_prompted_v2';
+
             function showPushPrompt(reg, vapidKey, empId) {
-                if (localStorage.getItem('staff_push_prompted')) return;
+                if (localStorage.getItem(PUSH_PROMPT_KEY)) return;
                 const el = document.createElement('div');
                 el.id = 'staffPushPrompt';
                 el.innerHTML = `
@@ -8286,11 +8289,11 @@ header('Expires: 0');
                         el.querySelector('div > div').innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:4px;"><span style="font-size:1.3rem;">⚠️</span><span style="font-size:0.8rem;">Izin ditolak. Aktifkan di Settings browser.</span></div>';
                         setTimeout(() => el.remove(), 3000);
                     }
-                    localStorage.setItem('staff_push_prompted', '1');
+                    localStorage.setItem(PUSH_PROMPT_KEY, '1');
                 };
                 window._spDismiss = function() {
                     el.remove();
-                    localStorage.setItem('staff_push_prompted', '1');
+                    localStorage.setItem(PUSH_PROMPT_KEY, '1');
                 };
             }
 
