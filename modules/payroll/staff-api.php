@@ -107,6 +107,20 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS `overtime_requests` (
     UNIQUE KEY uk_emp_date (employee_id, overtime_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+// Auto-create notifications table (approve/reject alerts sent to staff)
+$pdo->exec("CREATE TABLE IF NOT EXISTS `notifications` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `user_id` INT NOT NULL,
+    `type` VARCHAR(50) NOT NULL,
+    `title` VARCHAR(255) DEFAULT NULL,
+    `message` TEXT,
+    `data` TEXT,
+    `is_read` TINYINT(1) DEFAULT 0,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_user (user_id),
+    INDEX idx_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
 // Auto-create staff_chat_messages table (pengumuman/broadcast admin -> staff)
 $pdo->exec("CREATE TABLE IF NOT EXISTS `staff_chat_messages` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,

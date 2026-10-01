@@ -20,6 +20,53 @@ if (!$auth->isLoggedIn()) {
 
 $user = $auth->getCurrentUser();
 $db = Database::getInstance();
+
+// Ensure tables exist even if staff portal was never opened for this business yet
+$pdo = $db->getConnection();
+$pdo->exec("CREATE TABLE IF NOT EXISTS `leave_requests` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `employee_id` INT NOT NULL,
+    `leave_type` VARCHAR(50) NOT NULL DEFAULT 'cuti',
+    `start_date` DATE NOT NULL,
+    `end_date` DATE NOT NULL,
+    `reason` TEXT,
+    `status` ENUM('pending','approved','rejected') DEFAULT 'pending',
+    `approved_by` VARCHAR(100) DEFAULT NULL,
+    `approved_at` DATETIME DEFAULT NULL,
+    `admin_notes` TEXT,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_emp (employee_id),
+    INDEX idx_status (status),
+    INDEX idx_dates (start_date, end_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$pdo->exec("CREATE TABLE IF NOT EXISTS `overtime_requests` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `employee_id` INT NOT NULL,
+    `overtime_date` DATE NOT NULL,
+    `reason` TEXT NOT NULL,
+    `status` ENUM('pending','approved','rejected') DEFAULT 'pending',
+    `approved_by` VARCHAR(100) DEFAULT NULL,
+    `approved_at` DATETIME DEFAULT NULL,
+    `admin_notes` TEXT,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_emp (employee_id),
+    INDEX idx_status (status),
+    INDEX idx_date (overtime_date),
+    UNIQUE KEY uk_emp_date (employee_id, overtime_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$pdo->exec("CREATE TABLE IF NOT EXISTS `notifications` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `user_id` INT NOT NULL,
+    `type` VARCHAR(50) NOT NULL,
+    `title` VARCHAR(255) DEFAULT NULL,
+    `message` TEXT,
+    `data` TEXT,
+    `is_read` TINYINT(1) DEFAULT 0,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_user (user_id),
+    INDEX idx_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
 $type = $_GET['type'] ?? '';
 
 // ═══ ADMIN: Get pending count ═══
