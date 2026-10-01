@@ -2364,8 +2364,8 @@ header('Expires: 0');
         .absen-btns-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-bottom: 16px;
+            gap: 8px;
+            margin-bottom: 14px;
         }
 
         .absen-link {
@@ -2374,20 +2374,20 @@ header('Expires: 0');
             align-items: center;
             justify-content: center;
             width: 100%;
-            min-height: 132px;
+            min-height: 96px;
             background: linear-gradient(150deg, var(--navy) 0%, var(--navy2) 100%);
             color: #fff;
             text-decoration: none;
             border: none;
-            border-radius: 18px;
-            padding: 20px 12px;
+            border-radius: 16px;
+            padding: 14px 10px;
             text-align: center;
             cursor: pointer;
             font-family: inherit;
             position: relative;
             overflow: hidden;
             transition: transform .15s, box-shadow .15s;
-            box-shadow: 0 10px 24px rgba(13, 31, 60, .28);
+            box-shadow: 0 8px 18px rgba(13, 31, 60, .26);
         }
 
         .absen-link:active {
@@ -2407,25 +2407,25 @@ header('Expires: 0');
         }
 
         .absen-link .al-icon {
-            margin-bottom: 10px;
-            width: 52px;
-            height: 52px;
+            margin-bottom: 6px;
+            width: 38px;
+            height: 38px;
             display: flex;
             align-items: center;
             justify-content: center;
-            border-radius: 50%;
+            border-radius: 12px;
             background: rgba(255, 255, 255, .14);
             position: relative;
             z-index: 1;
         }
 
         .absen-link .al-icon svg {
-            width: 28px;
-            height: 28px;
+            width: 20px;
+            height: 20px;
         }
 
         .absen-link .al-title {
-            font-size: 13px;
+            font-size: 11.5px;
             font-weight: 700;
             letter-spacing: .2px;
             position: relative;
@@ -2433,9 +2433,9 @@ header('Expires: 0');
         }
 
         .absen-link .al-sub {
-            font-size: 10px;
+            font-size: 9px;
             color: rgba(255, 255, 255, .68);
-            margin-top: 3px;
+            margin-top: 2px;
             line-height: 1.3;
             position: relative;
             z-index: 1;
@@ -2467,7 +2467,8 @@ header('Expires: 0');
             display: none;
             position: fixed;
             inset: 0;
-            background: rgba(0, 0, 0, .45);
+            background: rgba(10, 16, 32, .55);
+            backdrop-filter: blur(3px);
             z-index: 999;
         }
 
@@ -2478,7 +2479,7 @@ header('Expires: 0');
             left: 50%;
             transform: translate(-50%, -50%);
             background: #fff;
-            border-radius: 20px;
+            border-radius: 22px;
             padding: 0 20px 20px;
             box-shadow: 0 24px 60px rgba(13, 31, 60, .35);
             z-index: 1000;
@@ -2490,13 +2491,17 @@ header('Expires: 0');
 
         .manual-popup h3 {
             margin: 0;
-            font-size: 14px;
+            font-size: 13.5px;
             font-weight: 700;
             color: #fff;
             background: linear-gradient(135deg, var(--navy), var(--navy2));
-            padding: 16px 20px 14px;
-            margin: 0 -20px 16px;
+            padding: 18px 20px 16px;
+            margin: 0 -20px 14px;
             letter-spacing: .2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
         }
 
         .manual-popup p {
@@ -2506,11 +2511,83 @@ header('Expires: 0');
             line-height: 1.5;
         }
 
-        .manual-popup .mp-status {
+        .mp-radar {
+            position: relative;
+            width: 46px;
+            height: 46px;
+            margin: 2px auto 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .mp-radar::before,
+        .mp-radar::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background: rgba(37, 99, 235, .18);
+            animation: mpRadarPing 1.8s cubic-bezier(.3, 0, .6, 1) infinite;
+        }
+
+        .mp-radar::after {
+            animation-delay: .6s;
+        }
+
+        .mp-radar.mp-radar-ok::before,
+        .mp-radar.mp-radar-ok::after {
+            background: rgba(16, 185, 129, .2);
+        }
+
+        .mp-radar.mp-radar-err::before,
+        .mp-radar.mp-radar-err::after {
+            animation: none;
+            opacity: 0;
+        }
+
+        @keyframes mpRadarPing {
+            0% {
+                transform: scale(.4);
+                opacity: .8;
+            }
+
+            100% {
+                transform: scale(1.8);
+                opacity: 0;
+            }
+        }
+
+        .mp-radar-core {
+            position: relative;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--blue), #1d4ed8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
             font-size: 12px;
+            box-shadow: 0 3px 10px rgba(37, 99, 235, .4);
+            z-index: 1;
+        }
+
+        .mp-radar.mp-radar-ok .mp-radar-core {
+            background: linear-gradient(135deg, var(--green), #059669);
+            box-shadow: 0 3px 10px rgba(5, 150, 105, .4);
+        }
+
+        .mp-radar.mp-radar-err .mp-radar-core {
+            background: linear-gradient(135deg, var(--red), #b91c1c);
+            box-shadow: 0 3px 10px rgba(185, 28, 28, .4);
+        }
+
+        .manual-popup .mp-status {
+            font-size: 11.5px;
             font-weight: 700;
-            padding: 10px;
-            border-radius: 10px;
+            padding: 10px 12px;
+            border-radius: 12px;
             background: var(--bg);
             color: var(--text);
             margin-bottom: 14px;
@@ -2531,11 +2608,16 @@ header('Expires: 0');
         .manual-popup .mp-actions button {
             flex: 1;
             padding: 11px;
-            border-radius: 12px;
+            border-radius: 999px;
             border: none;
             font-weight: 700;
             font-size: 12.5px;
             cursor: pointer;
+            transition: transform .12s ease;
+        }
+
+        .manual-popup .mp-actions button:active {
+            transform: scale(.96);
         }
 
         .manual-popup .mp-cancel {
@@ -2544,19 +2626,22 @@ header('Expires: 0');
         }
 
         .manual-popup .mp-confirm {
-            background: var(--navy);
+            background: linear-gradient(135deg, var(--navy), var(--navy2));
             color: #fff;
+            box-shadow: 0 6px 16px rgba(13, 31, 60, .3);
         }
 
         .manual-popup .mp-confirm:disabled {
             background: #cbd5e1;
             color: #94a3b8;
             cursor: not-allowed;
+            box-shadow: none;
         }
 
         .manual-popup .mp-confirm.mp-confirm-retry {
-            background: var(--gold);
+            background: linear-gradient(135deg, var(--gold), #d97706);
             color: #1e293b;
+            box-shadow: 0 6px 16px rgba(217, 119, 6, .3);
         }
 
         /* ── Face Scan Overlay — Full-Screen Responsive (from absen.php) ── */
@@ -3325,15 +3410,14 @@ header('Expires: 0');
             <div class="absen-btns-row">
                 <!-- Scan Wajah -->
                 <div class="absen-link" onclick="openFaceScan()">
-                    <div class="al-icon"><svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M6 20v-7a7 7 0 0 1 7-7h7" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
-                            <path d="M58 20v-7a7 7 0 0 0-7-7h-7" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
-                            <path d="M6 44v7a7 7 0 0 0 7 7h7" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
-                            <path d="M58 44v7a7 7 0 0 1-7 7h-7" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
-                            <circle cx="24" cy="28" r="2.8" fill="white" />
-                            <circle cx="40" cy="28" r="2.8" fill="white" />
-                            <path d="M32 25v7.5a2 2 0 0 1-2 2" stroke="white" stroke-width="2.2" stroke-linecap="round" />
-                            <path d="M22.5 40.5c2.6 2.3 5.9 3.5 9.5 3.5s6.9-1.2 9.5-3.5" stroke="white" stroke-width="2.4" stroke-linecap="round" />
+                    <div class="al-icon"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M4 7V5.5A1.5 1.5 0 0 1 5.5 4H7" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                            <path d="M17 4h1.5A1.5 1.5 0 0 1 20 5.5V7" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                            <path d="M4 17v1.5A1.5 1.5 0 0 0 5.5 20H7" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                            <path d="M17 20h1.5a1.5 1.5 0 0 0 1.5-1.5V17" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                            <circle cx="9" cy="10" r="1.1" fill="white" />
+                            <circle cx="15" cy="10" r="1.1" fill="white" />
+                            <path d="M9 15c.9.8 2 1.2 3 1.2s2.1-.4 3-1.2" stroke="white" stroke-width="1.6" stroke-linecap="round" />
                         </svg></div>
                     <div class="al-title">Face Scan</div>
                     <div class="al-sub">Absen otomatis</div>
@@ -3342,9 +3426,13 @@ header('Expires: 0');
                 <!-- Absen Manual (fallback jika Face ID lambat/gagal) -->
                 <button type="button" class="absen-link absen-link-manual" onclick="openManualAttendance()">
                     <div class="al-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="38" height="38">
-                            <path d="M12 21s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"></path>
-                            <path d="M9.25 11.75l1.9 1.9 3.6-3.9"></path>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M12 2v3"></path>
+                            <path d="M12 19v3"></path>
+                            <path d="M2 12h3"></path>
+                            <path d="M19 12h3"></path>
+                            <circle cx="12" cy="12" r="8"></circle>
                         </svg>
                     </div>
                     <div class="al-title">Absen Manual</div>
@@ -3856,8 +3944,11 @@ header('Expires: 0');
     <div class="manual-overlay" id="manualOverlay" onclick="closeManualAttendance()"></div>
     <div class="manual-popup" id="manualPopup">
         <h3>📍 Absen Manual</h3>
+        <div class="mp-radar" id="manualRadar">
+            <div class="mp-radar-core">📡</div>
+        </div>
         <p>Fallback jika Face ID lambat/gagal. Anda tetap wajib berada dalam radius lokasi kerja yang sudah diatur.</p>
-        <div class="mp-status" id="manualStatus">Mencari lokasi GPS...</div>
+        <div class="mp-status" id="manualStatus">Meminta izin &amp; mencari lokasi GPS...</div>
         <div class="mp-actions">
             <button class="mp-cancel" onclick="closeManualAttendance()">Batal</button>
             <button class="mp-confirm" id="manualConfirmBtn" disabled onclick="confirmManualAttendance()">Konfirmasi Absen</button>
@@ -7162,10 +7253,13 @@ header('Expires: 0');
             document.getElementById('manualPopup').style.display = 'block';
             const statusEl = document.getElementById('manualStatus');
             const btn = document.getElementById('manualConfirmBtn');
+            const radar = document.getElementById('manualRadar');
+            radar.className = 'mp-radar';
+            radar.querySelector('.mp-radar-core').textContent = '📡';
             btn.classList.remove('mp-confirm-retry');
             btn.onclick = confirmManualAttendance;
             statusEl.style.color = '';
-            statusEl.innerHTML = '📍 Mencari lokasi GPS...';
+            statusEl.innerHTML = '📍 Meminta izin &amp; mencari lokasi GPS...';
             btn.disabled = true;
             btn.textContent = 'Konfirmasi Absen';
             manualGps = null;
@@ -7182,6 +7276,8 @@ header('Expires: 0');
             if (!navigator.geolocation) {
                 statusEl.textContent = '❌ GPS tidak didukung perangkat/browser ini.';
                 statusEl.style.color = 'var(--red)';
+                radar.className = 'mp-radar mp-radar-err';
+                radar.querySelector('.mp-radar-core').textContent = '⚠️';
                 return;
             }
 
@@ -7219,6 +7315,9 @@ header('Expires: 0');
         function showManualLocationBlocked() {
             const statusEl = document.getElementById('manualStatus');
             const btn = document.getElementById('manualConfirmBtn');
+            const radar = document.getElementById('manualRadar');
+            radar.className = 'mp-radar mp-radar-err';
+            radar.querySelector('.mp-radar-core').textContent = '🔒';
             statusEl.style.color = 'var(--red)';
             statusEl.innerHTML = '🔒 Izin lokasi belum diaktifkan.<br>' +
                 '<span style="font-weight:500;font-size:10px;display:block;margin-top:4px;">' +
@@ -7237,6 +7336,9 @@ header('Expires: 0');
                 showManualLocationBlocked();
                 return;
             }
+            const radar = document.getElementById('manualRadar');
+            radar.className = 'mp-radar mp-radar-err';
+            radar.querySelector('.mp-radar-core').textContent = '⚠️';
             statusEl.style.color = 'var(--red)';
             if (err && err.code === 3) { // TIMEOUT
                 statusEl.textContent = '⏱️ Waktu habis mencari sinyal GPS. Pastikan GPS/Lokasi HP aktif.';
@@ -7252,6 +7354,7 @@ header('Expires: 0');
         function updateManualGpsStatus() {
             const statusEl = document.getElementById('manualStatus');
             const btn = document.getElementById('manualConfirmBtn');
+            const radar = document.getElementById('manualRadar');
             if (!manualGps) return;
             btn.classList.remove('mp-confirm-retry');
             btn.onclick = confirmManualAttendance;
@@ -7261,6 +7364,8 @@ header('Expires: 0');
             if (locs.length === 0) {
                 statusEl.textContent = '📍 GPS aktif (±' + acc + 'm)';
                 statusEl.style.color = '';
+                radar.className = 'mp-radar mp-radar-ok';
+                radar.querySelector('.mp-radar-core').textContent = '📍';
                 btn.disabled = false;
                 return;
             }
@@ -7276,10 +7381,14 @@ header('Expires: 0');
             if (nDist <= nearest.radius) {
                 statusEl.textContent = '✅ ' + nDist + 'm dari ' + nearest.name + ' (dalam radius ' + nearest.radius + 'm)';
                 statusEl.style.color = 'var(--green)';
+                radar.className = 'mp-radar mp-radar-ok';
+                radar.querySelector('.mp-radar-core').textContent = '✅';
                 btn.disabled = false;
             } else {
                 statusEl.textContent = '❌ ' + nDist + 'm dari ' + nearest.name + ' — di luar radius (maks ' + nearest.radius + 'm)';
                 statusEl.style.color = 'var(--red)';
+                radar.className = 'mp-radar mp-radar-err';
+                radar.querySelector('.mp-radar-core').textContent = '📍';
                 btn.disabled = true;
             }
         }
