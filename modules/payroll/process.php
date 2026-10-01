@@ -17,6 +17,26 @@ function dbExec($db, $sql, $params = [])
     return $stmt;
 }
 
+// Helper: push-notify all employees who have a slip in this period that their slip is now available
+function notifySlipProcessed($db, $periodId, $periodLabel)
+{
+    try {
+        require_once __DIR__ . '/../../includes/PushNotificationHelper.php';
+        $empIds = array_column($db->fetchAll("SELECT DISTINCT employee_id FROM payroll_slips WHERE period_id = ?", [$periodId]) ?: [], 'employee_id');
+        if (empty($empIds)) return;
+        $pushHelper = new PushNotificationHelper($db);
+        $pushHelper->sendToEmployees(
+            array_map('intval', $empIds),
+            "\xF0\x9F\x92\xB0 Slip Gaji Tersedia",
+            "Slip gaji periode {$periodLabel} sudah bisa dilihat di Staff Portal.",
+            ['type' => 'payslip_processed', 'tag' => 'payslip-' . $periodId]
+        );
+    } catch (\Throwable $pushErr) {
+        error_log('Push notification error (payslip_processed): ' . $pushErr->getMessage());
+    }
+}
+
+
 $auth = new Auth();
 $auth->requireLogin();
 
@@ -944,6 +964,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['approve_period'])) {
         );
 
         $periodLabel = $months[$period['period_month']] . ' ' . $period['period_year'];
+        notifySlipProcessed($db, $period['id'], $periodLabel);
         $description = 'Payroll ' . $periodLabel . ' - Bank Transfer';
         $amount = $period['total_net'];
 
@@ -1054,6 +1075,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['quick_pay'])) {
         // 4. Mark as paid + mark all slips as is_paid
         dbExec($db, "UPDATE payroll_periods SET status = 'paid', paid_at = NOW() WHERE id = ?", [$period['id']]);
         dbExec($db, "UPDATE payroll_slips SET is_paid = 1 WHERE period_id = ?", [$period['id']]);
+        notifySlipProcessed($db, $period['id'], $periodLabel);
 
         setFlash('success', '✅ Payroll dibayar! Rp ' . number_format($amount, 0, ',', '.') . ' tercatat di cashbook. Slip gaji tersedia di Staff Portal.');
     } catch (\Throwable $e) {
@@ -1104,12 +1126,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['quick_pay_selected'])
                 "UPDATE payroll_periods SET status = 'approved', submitted_at = NOW(), submitted_by = ?, approved_at = NOW(), approved_by = ? WHERE id = ?",
                 [$_SESSION['user_id'], $_SESSION['user_id'], $period['id']]
             );
+            notifySlipProcessed($db, $period['id'], $months[$period['period_month']] . ' ' . $period['period_year']);
         } elseif ($period['status'] === 'submitted') {
             dbExec(
                 $db,
                 "UPDATE payroll_periods SET status = 'approved', approved_at = NOW(), approved_by = ? WHERE id = ?",
                 [$_SESSION['user_id'], $period['id']]
             );
+            notifySlipProcessed($db, $period['id'], $months[$period['period_month']] . ' ' . $period['period_year']);
         }
 
         // Mark selected slips as paid

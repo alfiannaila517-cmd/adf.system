@@ -1185,6 +1185,18 @@
                                             $tl . ' (' . $leaveReq['start_date'] . ' s/d ' . $leaveReq['end_date'] . ') ' . strtolower($statusLabel) . ($adminNotes ? '. Catatan: ' . $adminNotes : ''),
                                             json_encode(['leave_id' => $leaveId, 'status' => $newStatus, 'leave_type' => $leaveReq['leave_type']])
                                         ]);
+                                        try {
+                                            require_once __DIR__ . '/../../includes/PushNotificationHelper.php';
+                                            $pushHelper = new PushNotificationHelper($db);
+                                            $pushHelper->sendToEmployees(
+                                                [(int)$leaveReq['employee_id']],
+                                                ($newStatus === 'approved' ? "\xE2\x9C\x85 " : "\xE2\x9D\x8C ") . $tl . ' ' . $statusLabel,
+                                                $tl . ' (' . $leaveReq['start_date'] . ' s/d ' . $leaveReq['end_date'] . ') ' . strtolower($statusLabel) . ($adminNotes ? '. Catatan: ' . $adminNotes : ''),
+                                                ['type' => 'leave_response', 'tag' => 'leave-response-' . $leaveId]
+                                            );
+                                        } catch (\Throwable $pushErr) {
+                                            error_log('Push notification error (leave_response): ' . $pushErr->getMessage());
+                                        }
                                     }
                                     $msg = $newStatus === 'approved' ? '✅ Cuti disetujui.' : '❌ Cuti ditolak.';
                                     $msgType = 'success';
@@ -1240,6 +1252,18 @@
                                             'Pengajuan lembur tanggal ' . $otReq['overtime_date'] . ' ' . strtolower($statusLabel) . ($adminNotes ? '. Catatan: ' . $adminNotes : ''),
                                             json_encode(['overtime_id' => $otId, 'status' => $newStatus, 'overtime_date' => $otReq['overtime_date']])
                                         ]);
+                                        try {
+                                            require_once __DIR__ . '/../../includes/PushNotificationHelper.php';
+                                            $pushHelper = new PushNotificationHelper($db);
+                                            $pushHelper->sendToEmployees(
+                                                [(int)$otReq['employee_id']],
+                                                ($newStatus === 'approved' ? "\xE2\x9C\x85 " : "\xE2\x9D\x8C ") . 'Lembur ' . $statusLabel,
+                                                'Pengajuan lembur tanggal ' . $otReq['overtime_date'] . ' ' . strtolower($statusLabel) . ($adminNotes ? '. Catatan: ' . $adminNotes : ''),
+                                                ['type' => 'overtime_response', 'tag' => 'overtime-response-' . $otId]
+                                            );
+                                        } catch (\Throwable $pushErr) {
+                                            error_log('Push notification error (overtime_response): ' . $pushErr->getMessage());
+                                        }
                                     }
                                     $msg = $newStatus === 'approved' ? '✅ Lembur disetujui.' : '❌ Lembur ditolak.';
                                     $msgType = 'success';

@@ -74,6 +74,25 @@ if ($action === 'send' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $senderName = $user['full_name'] ?? 'Admin';
     $db->query("INSERT INTO staff_chat_messages (message, created_by_name) VALUES (?, ?)", [$message, $senderName]);
+
+    // Push notification to all active staff (pengumuman broadcast)
+    try {
+        require_once dirname(dirname(__FILE__)) . '/includes/PushNotificationHelper.php';
+        $pushHelper = new PushNotificationHelper($db);
+        $empIds = array_column($db->fetchAll("SELECT id FROM payroll_employees WHERE is_active = 1") ?: [], 'id');
+        if (!empty($empIds)) {
+            $preview = mb_substr($message, 0, 120);
+            $pushHelper->sendToEmployees(
+                array_map('intval', $empIds),
+                "\xF0\x9F\x93\xA2 Pengumuman dari " . $senderName,
+                $preview,
+                ['type' => 'announcement', 'tag' => 'announcement-' . time()]
+            );
+        }
+    } catch (\Throwable $pushErr) {
+        error_log('Push notification error (announcement): ' . $pushErr->getMessage());
+    }
+
     echo json_encode(['success' => true]);
     exit;
 }
