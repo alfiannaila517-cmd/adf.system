@@ -1142,6 +1142,7 @@ include '../../includes/header.php';
                 <div class="compact-form-group">
                     <label class="form-label" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 0.2rem;">Waktu</label>
                     <input type="time" name="transaction_time" class="form-control" style="height: 30px; font-size: 0.76rem;" value="<?php echo date('H:i'); ?>">
+                </div>
                 <?php if ($isCQC): ?>
                     <!-- CQC: Project Selection -->
                     <div class="compact-form-group">
