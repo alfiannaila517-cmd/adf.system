@@ -2462,6 +2462,78 @@ header('Expires: 0');
             color: var(--muted);
         }
 
+        /* Menu Cepat — flat, muted tints instead of saturated gradients for a calmer, more elegant grid */
+        .qm-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px 4px;
+            text-align: center;
+        }
+
+        .qm-item {
+            cursor: pointer;
+            padding: 8px 2px;
+            border-radius: 12px;
+            transition: background .15s ease, transform .1s ease;
+        }
+
+        .qm-item:active {
+            background: var(--bg);
+            transform: scale(.96);
+        }
+
+        .qm-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 6px;
+        }
+
+        .qm-icon svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .qm-icon-amber {
+            background: #fef3e2;
+            color: #b45309;
+        }
+
+        .qm-icon-sky {
+            background: #e5f3ff;
+            color: #0369a1;
+        }
+
+        .qm-icon-violet {
+            background: #f1ebfe;
+            color: #6d28d9;
+        }
+
+        .qm-icon-navy {
+            background: #e9eef5;
+            color: var(--navy);
+        }
+
+        .qm-icon-green {
+            background: #e5f6ee;
+            color: #047857;
+        }
+
+        .qm-icon-blue {
+            background: #e6eefc;
+            color: #1e40af;
+        }
+
+        .qm-label {
+            font-size: 9.5px;
+            font-weight: 600;
+            color: var(--navy);
+            line-height: 1.3;
+        }
+
         /* Manual Attendance popup */
         .manual-overlay {
             display: none;
@@ -3442,30 +3514,30 @@ header('Expires: 0');
 
             <!-- Menu Cepat: Lembur / Cuti / Jadwal Kerja / Detail Absensi / Jadwal Seragam / Stock -->
             <div class="card" style="padding:14px 8px;">
-                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center;">
-                    <div onclick="openStaffSection('lemburSection')" style="cursor:pointer;">
-                        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;font-size:18px;margin:0 auto 6px;color:#fff;box-shadow:0 4px 10px rgba(217,119,6,.3);">⏰</div>
-                        <div style="font-size:9.5px;font-weight:600;color:var(--navy);line-height:1.3;">Ajukan<br>Lembur</div>
+                <div class="qm-grid">
+                    <div class="qm-item" onclick="openStaffSection('lemburSection')">
+                        <div class="qm-icon qm-icon-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"></circle><path d="M12 9v4l2.5 2.5"></path><path d="M9 2h6"></path></svg></div>
+                        <div class="qm-label">Ajukan<br>Lembur</div>
                     </div>
-                    <div onclick="openStaffSection('cutiSection')" style="cursor:pointer;">
-                        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#0ea5e9,#0369a1);display:flex;align-items:center;justify-content:center;font-size:18px;margin:0 auto 6px;color:#fff;box-shadow:0 4px 10px rgba(3,105,161,.3);">🏖️</div>
-                        <div style="font-size:9.5px;font-weight:600;color:var(--navy);line-height:1.3;">Ajukan<br>Cuti</div>
+                    <div class="qm-item" onclick="openStaffSection('cutiSection')">
+                        <div class="qm-icon qm-icon-sky"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16" rx="2.5"></rect><path d="M3 9.5h18"></path><path d="M8 2.5v4"></path><path d="M16 2.5v4"></path><path d="M7.5 14l2 2 3-3.5"></path></svg></div>
+                        <div class="qm-label">Ajukan<br>Cuti</div>
                     </div>
-                    <div onclick="openStaffSection('teamSchedSection')" style="cursor:pointer;">
-                        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#7c3aed,#5b21b6);display:flex;align-items:center;justify-content:center;font-size:18px;margin:0 auto 6px;color:#fff;box-shadow:0 4px 10px rgba(91,33,182,.3);">📅</div>
-                        <div style="font-size:9.5px;font-weight:600;color:var(--navy);line-height:1.3;">Jadwal<br>Kerja</div>
+                    <div class="qm-item" onclick="openStaffSection('teamSchedSection')">
+                        <div class="qm-icon qm-icon-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16" rx="2.5"></rect><path d="M3 9.5h18"></path><path d="M8 2.5v4"></path><path d="M16 2.5v4"></path><path d="M7.5 14h2"></path><path d="M11.5 14h2"></path><path d="M15.5 14h2"></path><path d="M7.5 17.5h2"></path><path d="M11.5 17.5h2"></path></svg></div>
+                        <div class="qm-label">Jadwal<br>Kerja</div>
                     </div>
-                    <div onclick="openStaffSection('monitorSection')" style="cursor:pointer;">
-                        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#0c2d48,#145374);display:flex;align-items:center;justify-content:center;font-size:18px;margin:0 auto 6px;color:#fff;box-shadow:0 4px 10px rgba(12,45,72,.3);">📊</div>
-                        <div style="font-size:9.5px;font-weight:600;color:var(--navy);line-height:1.3;">Detail<br>Absensi</div>
+                    <div class="qm-item" onclick="openStaffSection('monitorSection')">
+                        <div class="qm-icon qm-icon-navy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10"></path><path d="M10 20V4"></path><path d="M16 20v-7"></path><path d="M20 20v-4"></path></svg></div>
+                        <div class="qm-label">Detail<br>Absensi</div>
                     </div>
-                    <div onclick="openStaffSection('uniformSection')" style="cursor:pointer;">
-                        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#059669,#047857);display:flex;align-items:center;justify-content:center;font-size:18px;margin:0 auto 6px;color:#fff;box-shadow:0 4px 10px rgba(4,120,87,.3);">👔</div>
-                        <div style="font-size:9.5px;font-weight:600;color:var(--navy);line-height:1.3;">Jadwal<br>Seragam</div>
+                    <div class="qm-item" onclick="openStaffSection('uniformSection')">
+                        <div class="qm-icon qm-icon-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3.5 5 6l1.5 3L9 7.5V20h6V7.5l2.5 1.5L19 6l-3-2.5-2.3 1.4a3 3 0 0 1-3.4 0L8 3.5z"></path></svg></div>
+                        <div class="qm-label">Jadwal<br>Seragam</div>
                     </div>
-                    <div id="quickMenuStock" onclick="goToStockPage()" style="display:none;cursor:pointer;">
-                        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#2563eb,#1e40af);display:flex;align-items:center;justify-content:center;font-size:18px;margin:0 auto 6px;color:#fff;box-shadow:0 4px 10px rgba(30,64,175,.3);">📦</div>
-                        <div style="font-size:9.5px;font-weight:600;color:var(--navy);line-height:1.3;">Stock</div>
+                    <div id="quickMenuStock" class="qm-item" onclick="goToStockPage()" style="display:none;">
+                        <div class="qm-icon qm-icon-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"></path><path d="M3 8l9 5 9-5"></path><path d="M12 13v8"></path></svg></div>
+                        <div class="qm-label">Stock</div>
                     </div>
                 </div>
             </div>
