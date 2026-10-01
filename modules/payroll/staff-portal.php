@@ -1288,6 +1288,40 @@ header('Expires: 0');
             margin-top: 1px;
         }
 
+        /* Pengajuan Lembur Bulan Ini — compact single-row summary (Detail Absensi) */
+        .mls-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 4px;
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 8px 10px;
+        }
+
+        .mls-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 9.5px;
+            font-weight: 600;
+            color: var(--muted);
+            white-space: nowrap;
+        }
+
+        .mls-item b {
+            font-size: 11px;
+            font-weight: 800;
+        }
+
+        .mls-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
         /* Cards */
         .card {
             background: #fff;
@@ -4699,6 +4733,10 @@ header('Expires: 0');
                 const el = document.getElementById(sid);
                 if (el) el.style.display = (sid === id) ? 'block' : 'none';
             });
+            if (id === 'monitorSection') {
+                loadMonitoring();
+                loadMonitorLembur();
+            }
             const target = document.getElementById(id);
             if (target) {
                 setTimeout(() => target.scrollIntoView({
@@ -5401,15 +5439,15 @@ header('Expires: 0');
                     const regularHours = wh > 0 ? Math.min(wh, 8) : 0;
                     const whTxt = regularHours > 0 ? `${regularHours.toFixed(1).replace(/\.0$/, '')}j` : (hadir ? '0j' : '—');
                     const otBlock = ot > 0 ?
-                        `<div style="font-size:10px;color:${otColor};font-weight:700;">${otLabel} +${ot.toFixed(1).replace(/\.0$/, '')}j</div>` :
-                        (hadir ? `<div style="font-size:9px;color:var(--muted);">tanpa OT</div>` : '');
+                        `<div style="font-size:8.5px;color:${otColor};font-weight:700;">${otLabel} +${ot.toFixed(1).replace(/\.0$/, '')}j</div>` :
+                        (hadir ? `<div style="font-size:8px;color:var(--muted);">tanpa OT</div>` : '');
 
                     if (IS_CAFE) {
-                        html += `<tr><td style="white-space:nowrap;">${day}</td><td style="font-weight:600;color:var(--green);">${s1}</td><td style="font-weight:600;color:var(--navy);">${s2}</td><td style="font-weight:700;">${whTxt}${otBlock}</td><td><span class="badge ${bc}">${statusMap[statusKey]||statusKey}</span></td></tr>`;
+                        html += `<tr><td style="white-space:nowrap;font-size:10px;">${day}</td><td style="font-weight:600;color:var(--green);font-size:10px;">${s1}</td><td style="font-weight:600;color:var(--navy);font-size:10px;">${s2}</td><td style="font-weight:700;font-size:10px;">${whTxt}${otBlock}</td><td><span class="badge ${bc}">${statusMap[statusKey]||statusKey}</span></td></tr>`;
                     } else {
                         const s3 = r.scan_3 ? r.scan_3.substring(0, 5) : '—';
                         const s4 = r.scan_4 ? r.scan_4.substring(0, 5) : '—';
-                        html += `<tr><td style="white-space:nowrap;">${day}</td><td style="font-weight:600;color:var(--green);">${s1}</td><td>${s2}</td><td style="color:var(--green);">${s3}</td><td>${s4}</td><td style="font-weight:700;">${whTxt}${otBlock}</td><td><span class="badge ${bc}">${statusMap[statusKey]||statusKey}</span></td></tr>`;
+                        html += `<tr><td style="white-space:nowrap;font-size:10px;">${day}</td><td style="font-weight:600;color:var(--green);font-size:10px;">${s1}</td><td style="font-size:10px;">${s2}</td><td style="color:var(--green);font-size:10px;">${s3}</td><td style="font-size:10px;">${s4}</td><td style="font-weight:700;font-size:10px;">${whTxt}${otBlock}</td><td><span class="badge ${bc}">${statusMap[statusKey]||statusKey}</span></td></tr>`;
                     }
                 });
                 html += '</tbody></table></div>';
@@ -5453,10 +5491,10 @@ header('Expires: 0');
                 const stats = data.stats || {};
                 const rows = data.data || [];
                 statsEl.innerHTML = `
-                <div class="stat-row">
-                    <div class="stat-card"><div class="sl">⏳ Pending</div><div class="sv" style="color:var(--orange);">${stats.pending||0}</div></div>
-                    <div class="stat-card"><div class="sl">✅ Disetujui</div><div class="sv" style="color:var(--green);">${stats.approved||0}</div></div>
-                    <div class="stat-card"><div class="sl">❌ Ditolak</div><div class="sv" style="color:var(--red);">${stats.rejected||0}</div></div>
+                <div class="mls-row">
+                    <div class="mls-item"><span class="mls-dot" style="background:var(--orange);"></span>Pending <b style="color:var(--orange);">${stats.pending||0}</b></div>
+                    <div class="mls-item"><span class="mls-dot" style="background:var(--green);"></span>Disetujui <b style="color:var(--green);">${stats.approved||0}</b></div>
+                    <div class="mls-item"><span class="mls-dot" style="background:var(--red);"></span>Ditolak <b style="color:var(--red);">${stats.rejected||0}</b></div>
                 </div>`;
                 if (rows.length === 0) {
                     histEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--muted);font-size:11px;">Tidak ada pengajuan lembur di bulan ini.</div>';
@@ -7307,6 +7345,10 @@ header('Expires: 0');
                 setTimeout(() => {
                     closeFaceScan();
                     loadAbsen();
+                    if (document.getElementById('monitorSection')?.style.display !== 'none') {
+                        loadMonitoring();
+                        loadMonitorLembur();
+                    }
                 }, 2000);
             } catch (e) {
                 setFaceStatus('Jaringan error', e.message);
@@ -7508,6 +7550,10 @@ header('Expires: 0');
                     setTimeout(() => {
                         closeManualAttendance();
                         loadAbsen();
+                        if (document.getElementById('monitorSection')?.style.display !== 'none') {
+                            loadMonitoring();
+                            loadMonitorLembur();
+                        }
                     }, 1500);
                 } else {
                     btn.disabled = false;
