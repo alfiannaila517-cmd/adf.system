@@ -868,15 +868,15 @@ header('Expires: 0');
         .cuti-type-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 8px;
-            margin-bottom: 12px;
+            gap: 6px;
+            margin-bottom: 10px;
         }
 
         .cuti-type {
             background: var(--bg);
-            border: 2px solid var(--border);
-            border-radius: 10px;
-            padding: 10px;
+            border: 1.5px solid var(--border);
+            border-radius: 9px;
+            padding: 7px;
             cursor: pointer;
             text-align: center;
             transition: .15s;
@@ -892,13 +892,56 @@ header('Expires: 0');
         }
 
         .cuti-type .ct-icon {
-            font-size: 20px;
+            font-size: 15px;
         }
 
         .cuti-type .ct-label {
-            font-size: 11px;
+            font-size: 9.5px;
             font-weight: 600;
-            margin-top: 2px;
+            margin-top: 1px;
+        }
+
+        /* Compact form wrapper — used for Ajukan Cuti/Lembur to keep container small & uniform */
+        .compact-form .fg {
+            margin-bottom: 8px;
+        }
+
+        .compact-form .fl {
+            font-size: 9px;
+            margin-bottom: 2px;
+        }
+
+        .compact-form .fi {
+            padding: 7px 9px;
+            font-size: 11.5px;
+            border-radius: 7px;
+        }
+
+        .compact-form .btn-auth {
+            padding: 9px;
+            font-size: 12px;
+        }
+
+        /* Back button for toggled sections (Lembur/Cuti/Jadwal/Absensi/Seragam) */
+        .section-back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: #fff;
+            border: 1px solid var(--border);
+            color: var(--navy);
+            font-size: 12.5px;
+            font-weight: 700;
+            padding: 7px 14px;
+            border-radius: 999px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, .07);
+            transition: transform .1s ease, background .15s ease;
+        }
+
+        .section-back-btn:active {
+            transform: scale(.95);
+            background: var(--bg);
         }
 
         .leave-status {
@@ -3583,17 +3626,17 @@ header('Expires: 0');
 
             <!-- Ajukan Lembur (toggled via Menu Cepat) -->
             <div id="lemburSection" style="display:none;">
-                <div style="text-align:right;margin-bottom:6px;">
-                    <button type="button" onclick="closeStaffSection('lemburSection')" style="background:none;border:none;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;">✕ Tutup</button>
+                <div style="margin-bottom:8px;">
+                    <button type="button" class="section-back-btn" onclick="closeStaffSection('lemburSection')">‹ Kembali</button>
                 </div>
-                <div class="card">
-                    <div class="card-title">⏰ Ajukan Lembur</div>
-                    <form id="lemburForm" onsubmit="return submitLembur(event)">
-                        <div style="margin-bottom:10px;">
+                <div class="card" style="padding:12px;">
+                    <div class="card-title" style="font-size:13px;">⏰ Ajukan Lembur</div>
+                    <form id="lemburForm" class="compact-form" onsubmit="return submitLembur(event)">
+                        <div style="margin-bottom:8px;">
                             <label class="fl">Tanggal Lembur</label>
                             <input type="date" class="fi" name="overtime_date" required id="lemburDate" max="<?php echo date('Y-m-d'); ?>" value="<?php echo date('Y-m-d'); ?>">
                         </div>
-                        <div style="margin-bottom:12px;">
+                        <div style="margin-bottom:10px;">
                             <label class="fl">Keterangan (Alasan Lembur)</label>
                             <textarea class="fi" name="reason" rows="2" placeholder="Jelaskan alasan dan pekerjaan lembur..." required style="resize:vertical;" id="lemburReason"></textarea>
                         </div>
@@ -3615,13 +3658,13 @@ header('Expires: 0');
 
             <!-- Ajukan Cuti (toggled via Menu Cepat) -->
             <div id="cutiSection" style="display:none;">
-                <div style="text-align:right;margin-bottom:6px;">
-                    <button type="button" onclick="closeStaffSection('cutiSection')" style="background:none;border:none;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;">✕ Tutup</button>
+                <div style="margin-bottom:8px;">
+                    <button type="button" class="section-back-btn" onclick="closeStaffSection('cutiSection')">‹ Kembali</button>
                 </div>
-                <div class="card">
-                    <div class="card-title">🏖️ Ajukan Cuti / Izin</div>
-                    <form id="cutiForm" onsubmit="return submitCuti(event)">
-                        <div style="margin-bottom:10px;">
+                <div class="card" style="padding:12px;">
+                    <div class="card-title" style="font-size:13px;">🏖️ Ajukan Cuti / Izin</div>
+                    <form id="cutiForm" class="compact-form" onsubmit="return submitCuti(event)">
+                        <div style="margin-bottom:8px;">
                             <div class="cuti-type-grid">
                                 <div class="cuti-type selected" data-type="cuti" onclick="selectCutiType(this)">
                                     <div class="ct-icon">🏖️</div>
@@ -3641,7 +3684,7 @@ header('Expires: 0');
                                 </div>
                             </div>
                         </div>
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px;">
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;">
                             <div>
                                 <label class="fl">Tanggal Mulai</label>
                                 <input type="date" class="fi" name="start_date" required id="cutiStart" min="<?php echo date('Y-m-d'); ?>">
@@ -3651,7 +3694,7 @@ header('Expires: 0');
                                 <input type="date" class="fi" name="end_date" required id="cutiEnd" min="<?php echo date('Y-m-d'); ?>">
                             </div>
                         </div>
-                        <div style="margin-bottom:12px;">
+                        <div style="margin-bottom:10px;">
                             <label class="fl">Alasan</label>
                             <textarea class="fi" name="reason" rows="2" placeholder="Jelaskan alasan cuti/izin..." required style="resize:vertical;"></textarea>
                         </div>
@@ -3673,8 +3716,8 @@ header('Expires: 0');
 
             <!-- Jadwal Kerja Tim (Semua Staff) - Kalender Gabungan (toggled via Menu Cepat) -->
             <div id="teamSchedSection" style="display:none;">
-                <div style="text-align:right;margin-bottom:6px;">
-                    <button type="button" onclick="closeStaffSection('teamSchedSection')" style="background:none;border:none;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;">✕ Tutup</button>
+                <div style="margin-bottom:8px;">
+                    <button type="button" class="section-back-btn" onclick="closeStaffSection('teamSchedSection')">‹ Kembali</button>
                 </div>
                 <div class="card">
                     <div class="card-title" id="teamSchedCardTitle">📅 Jadwal Kerja Saya</div>
@@ -3706,8 +3749,8 @@ header('Expires: 0');
 
             <!-- Jadwal Seragam Saya (toggled via Menu Cepat) — diatur admin dari Jadwal Kalender Kerja -->
             <div id="uniformSection" style="display:none;">
-                <div style="text-align:right;margin-bottom:6px;">
-                    <button type="button" onclick="closeStaffSection('uniformSection')" style="background:none;border:none;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;">✕ Tutup</button>
+                <div style="margin-bottom:8px;">
+                    <button type="button" class="section-back-btn" onclick="closeStaffSection('uniformSection')">‹ Kembali</button>
                 </div>
                 <div class="card">
                     <div class="card-title">👔 Jadwal Seragam Saya</div>
@@ -3718,8 +3761,8 @@ header('Expires: 0');
 
             <!-- Detail Absensi & Lembur (Monitoring, toggled via Menu Cepat) -->
             <div id="monitorSection" style="display:none;">
-                <div style="text-align:right;margin-bottom:6px;">
-                    <button type="button" onclick="closeStaffSection('monitorSection')" style="background:none;border:none;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;">✕ Tutup</button>
+                <div style="margin-bottom:8px;">
+                    <button type="button" class="section-back-btn" onclick="closeStaffSection('monitorSection')">‹ Kembali</button>
                 </div>
                 <div class="card" style="border-color:#1e3a5c;padding:12px;">
                     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; flex-wrap:wrap; gap:6px;">
