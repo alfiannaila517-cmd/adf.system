@@ -1304,6 +1304,16 @@ header('Expires: 0');
             margin-bottom: 10px;
         }
 
+        .target-jam-card {
+            padding: 14px 16px;
+            background: linear-gradient(180deg, #fff, #fafbff);
+        }
+
+        .target-jam-card .card-title {
+            font-size: 13px;
+            margin-bottom: 6px;
+        }
+
         /* ═══ Elegant Schedule Calendar (matches admin system design) ═══ */
         .sc-cal-nav {
             display: flex;
@@ -3286,7 +3296,7 @@ header('Expires: 0');
             </div>
 
             <!-- Target Jam - Donut Chart -->
-            <div class="card">
+            <div class="card target-jam-card">
                 <div class="card-title">📊 Target Jam Bulan Ini</div>
                 <div id="monthlySummary">
                     <div class="loading"><span class="spin"></span> Memuat...</div>
@@ -5081,10 +5091,10 @@ header('Expires: 0');
                 const daysLate = s.days_late || 0;
 
                 // Donut chart using SVG conic gradient simulation
-                const radius = 70,
-                    cx = 85,
-                    cy = 85,
-                    stroke = 14;
+                const radius = 48,
+                    cx = 58,
+                    cy = 58,
+                    stroke = 9;
                 const circumference = 2 * Math.PI * radius;
                 const dashOffset = circumference - (pct / 100) * circumference;
                 const gradColor1 = pct >= 90 ? '#10b981' : pct >= 60 ? '#f59e0b' : '#ef4444';
@@ -5092,39 +5102,38 @@ header('Expires: 0');
                 const gradId = 'donutGrad';
 
                 document.getElementById('monthlySummary').innerHTML = `
-            <div style="display:flex;align-items:center;gap:20px;justify-content:center;">
-                <div style="position:relative;width:170px;height:170px;flex-shrink:0;">
-                    <svg width="170" height="170" viewBox="0 0 170 170" style="transform:rotate(-90deg);">
+            <div style="display:flex;align-items:center;gap:14px;justify-content:center;">
+                <div style="position:relative;width:116px;height:116px;flex-shrink:0;">
+                    <svg width="116" height="116" viewBox="0 0 116 116" style="transform:rotate(-90deg);">
                         <defs>
                             <linearGradient id="${gradId}" x1="0%" y1="0%" x2="100%" y2="100%">
                                 <stop offset="0%" stop-color="${gradColor1}"/>
                                 <stop offset="100%" stop-color="${gradColor2}"/>
                             </linearGradient>
-                            <filter id="donutShadow"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="${gradColor1}" flood-opacity="0.3"/></filter>
+                            <filter id="donutShadow"><feDropShadow dx="0" dy="1.5" stdDeviation="2.5" flood-color="${gradColor1}" flood-opacity="0.3"/></filter>
                         </defs>
-                        <circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="#e2e8f0" stroke-width="${stroke}" />
+                        <circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="#eef2f7" stroke-width="${stroke}" />
                         <circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="url(#${gradId})" stroke-width="${stroke}" 
                             stroke-linecap="round" stroke-dasharray="${circumference}" stroke-dashoffset="${circumference}" filter="url(#donutShadow)">
                             <animate attributeName="stroke-dashoffset" from="${circumference}" to="${dashOffset}" dur="1.2s" fill="freeze" calcMode="spline" keySplines="0.4 0 0.2 1" keyTimes="0;1"/>
                         </circle>
                     </svg>
                     <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
-                        <div style="display:flex;align-items:baseline;gap:2px;">
-                            <div style="font-size:38px;font-weight:800;color:${gradColor1};line-height:1;letter-spacing:-.5px;" id="donutPctNum">0</div>
-                            <div style="font-size:17px;font-weight:700;color:${gradColor1};">%</div>
+                        <div style="display:flex;align-items:baseline;gap:1px;">
+                            <div style="font-size:24px;font-weight:800;color:${gradColor1};line-height:1;letter-spacing:-.5px;" id="donutPctNum">0</div>
+                            <div style="font-size:11px;font-weight:700;color:${gradColor1};">%</div>
                         </div>
+                        <div style="font-size:8px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-top:1px;">dari target</div>
                     </div>
                 </div>
-                <div style="flex:1;min-width:0;">
-                    <div style="display:grid;gap:8px;">
-                        <div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;">
-                            <div style="width:32px;height:32px;background:#10b981;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;">📅</div>
-                            <div><div style="font-size:9px;color:#059669;font-weight:600;text-transform:uppercase;">Hadir</div><div style="font-size:18px;font-weight:800;color:#065f46;">${daysPresent} <span style="font-size:10px;font-weight:400;">hari</span></div></div>
-                        </div>
-                        <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;">
-                            <div style="width:32px;height:32px;background:#2563eb;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;">🕐</div>
-                            <div><div style="font-size:9px;color:#1d4ed8;font-weight:600;text-transform:uppercase;">Sekarang</div><div style="font-size:16px;font-weight:800;color:#1e3a8a;" id="liveClockTime">--:--:--</div><div style="font-size:9px;color:var(--muted);" id="liveClockDate"></div></div>
-                        </div>
+                <div style="flex:1;min-width:0;display:grid;gap:6px;">
+                    <div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-radius:9px;padding:7px 9px;display:flex;align-items:center;gap:8px;">
+                        <div style="width:24px;height:24px;background:#10b981;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;flex-shrink:0;">📅</div>
+                        <div style="min-width:0;"><div style="font-size:8px;color:#059669;font-weight:700;text-transform:uppercase;letter-spacing:.03em;">Hadir</div><div style="font-size:14px;font-weight:800;color:#065f46;line-height:1.2;">${daysPresent} <span style="font-size:9px;font-weight:400;">hari</span></div></div>
+                    </div>
+                    <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border-radius:9px;padding:7px 9px;display:flex;align-items:center;gap:8px;">
+                        <div style="width:24px;height:24px;background:#2563eb;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;flex-shrink:0;">🕐</div>
+                        <div style="min-width:0;"><div style="font-size:8px;color:#1d4ed8;font-weight:700;text-transform:uppercase;letter-spacing:.03em;">Sekarang</div><div style="font-size:12.5px;font-weight:800;color:#1e3a8a;line-height:1.2;" id="liveClockTime">--:--:--</div><div style="font-size:8px;color:var(--muted);" id="liveClockDate"></div></div>
                     </div>
                 </div>
             </div>`;
