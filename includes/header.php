@@ -747,6 +747,144 @@ if (isset($forceTheme) && is_string($forceTheme)) {
         }
     </script>
 
+    <!-- Tagihan Langganan ADF System: banner jatuh tempo (≤7 hari) + kunci layar bila dikunci dari adfsystem.store -->
+    <?php
+    $adfsubState = ['connected' => false, 'locked' => false, 'reminder' => null];
+    $adfsubRole = $_SESSION['role'] ?? '';
+    $adfsubOnBillingPage = strpos($_SERVER['SCRIPT_NAME'] ?? '', '/modules/subscription/') !== false;
+    try {
+        require_once __DIR__ . '/subscription_client.php';
+        if (!empty($_SESSION['user_id']) || !empty($_SESSION['logged_in'])) {
+            $adfsubState = adfsub_tick();
+        }
+    } catch (Throwable $e) {
+        error_log('subscription header: ' . $e->getMessage());
+    }
+    $adfsubCanManage = in_array($adfsubRole, ['developer', 'owner', 'admin', 'manager'], true);
+    $adfsubBillingUrl = BASE_URL . '/modules/subscription/index.php';
+    ?>
+    <?php if ($adfsubState['connected'] && $adfsubState['reminder'] && $adfsubCanManage && !$adfsubOnBillingPage && !$adfsubState['locked']):
+        $adfsubDays = (int) $adfsubState['reminder']['days_left'];
+        $adfsubInv = $adfsubState['reminder']['invoice'];
+    ?>
+        <a href="<?php echo $adfsubBillingUrl; ?>" class="adfsub-banner<?php echo $adfsubDays < 0 ? ' adfsub-banner-overdue' : ''; ?>">
+            <strong><?php echo $adfsubDays < 0 ? 'Tagihan langganan lewat jatuh tempo' : ($adfsubDays === 0 ? 'Tagihan langganan jatuh tempo hari ini' : 'Tagihan langganan jatuh tempo ' . $adfsubDays . ' hari lagi'); ?></strong>
+            <span><?php echo htmlspecialchars($adfsubInv['description'] ?: $adfsubInv['period']); ?> · Rp <?php echo number_format((float) $adfsubInv['total_amount'], 0, ',', '.'); ?> · <?php echo date('d M Y', strtotime($adfsubInv['due_date'])); ?></span>
+            <em>Bayar Sekarang →</em>
+        </a>
+    <?php endif; ?>
+    <?php if ($adfsubState['connected'] && $adfsubState['locked'] && $adfsubRole !== 'developer' && !$adfsubOnBillingPage): ?>
+        <div class="adfsub-lock">
+            <div class="adfsub-lock-box">
+                <div class="adfsub-lock-ico">🔒</div>
+                <h3>Sistem Sementara Dikunci</h3>
+                <p>Akses dikunci oleh ADF System karena tagihan langganan belum diselesaikan. Selesaikan pembayaran untuk membuka kembali.</p>
+                <?php if ($adfsubCanManage): ?>
+                    <a href="<?php echo $adfsubBillingUrl; ?>" class="adfsub-lock-btn">Lihat &amp; Bayar Tagihan</a>
+                <?php else: ?>
+                    <p style="font-size:12px;opacity:.75;">Silakan hubungi owner / admin.</p>
+                <?php endif; ?>
+                <a href="<?php echo BASE_URL; ?>/logout.php" class="adfsub-lock-out">Keluar</a>
+            </div>
+        </div>
+    <?php endif; ?>
+    <style>
+        .adfsub-banner {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px 14px;
+            padding: 8px 18px;
+            background: #fef3c7;
+            color: #92400e !important;
+            -webkit-text-fill-color: #92400e;
+            font-size: 12.5px;
+            text-decoration: none !important;
+            border-bottom: 1px solid #fcd34d;
+            position: relative;
+            z-index: 998;
+        }
+
+        .adfsub-banner span {
+            opacity: .85;
+        }
+
+        .adfsub-banner em {
+            margin-left: auto;
+            font-style: normal;
+            font-weight: 700;
+        }
+
+        .adfsub-banner-overdue {
+            background: #fee2e2;
+            color: #991b1b !important;
+            -webkit-text-fill-color: #991b1b;
+            border-bottom-color: #fca5a5;
+        }
+
+        .adfsub-lock {
+            position: fixed;
+            inset: 0;
+            z-index: 100000;
+            background: rgba(15, 23, 42, .82);
+            backdrop-filter: blur(6px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .adfsub-lock-box {
+            max-width: 380px;
+            width: 100%;
+            background: #fff;
+            color: #1e293b;
+            -webkit-text-fill-color: #1e293b;
+            border-radius: 16px;
+            padding: 28px 24px;
+            text-align: center;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, .35);
+        }
+
+        .adfsub-lock-ico {
+            font-size: 34px;
+            margin-bottom: 6px;
+        }
+
+        .adfsub-lock-box h3 {
+            margin: 0 0 8px;
+            font-size: 17px;
+        }
+
+        .adfsub-lock-box p {
+            margin: 0 0 16px;
+            font-size: 13px;
+            line-height: 1.55;
+            color: #475569;
+            -webkit-text-fill-color: #475569;
+        }
+
+        .adfsub-lock-btn {
+            display: block;
+            background: #16a34a;
+            color: #fff !important;
+            -webkit-text-fill-color: #fff;
+            padding: 10px;
+            border-radius: 10px;
+            font-weight: 700;
+            text-decoration: none !important;
+            font-size: 13.5px;
+        }
+
+        .adfsub-lock-out {
+            display: inline-block;
+            margin-top: 12px;
+            font-size: 12px;
+            color: #64748b !important;
+            -webkit-text-fill-color: #64748b;
+        }
+    </style>
+
     <!-- Motor Overdue / Unpaid Guest / Hotel Service Notification Banner -->
     <?php
     $unpaidGuestsCount = 0;
@@ -1700,6 +1838,19 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                                 </a>
                             </li>
                         <?php endif; ?>
+                    <?php endif; ?>
+
+                    <!-- Tagihan Langganan ADF System (bisnis ini membayar langganan bulanan ke ADF) -->
+                    <?php if (in_array($_SESSION['role'] ?? '', ['developer', 'owner', 'admin', 'manager'], true) && (($adfsubState['connected'] ?? false) || ($_SESSION['role'] ?? '') === 'developer')): ?>
+                        <li class="nav-item">
+                            <a href="<?php echo BASE_URL; ?>/modules/subscription/index.php" class="nav-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/modules/subscription/') !== false) ? 'active' : ''; ?>">
+                                <i data-feather="file-text" class="nav-icon"></i>
+                                <span>Tagihan Langganan</span>
+                                <?php if (!empty($adfsubState['unpaid'])): ?>
+                                    <span style="margin-left:auto;background:#ef4444;color:#fff;-webkit-text-fill-color:#fff;border-radius:99px;font-size:10px;padding:1px 6px;"><?php echo count($adfsubState['unpaid']); ?></span>
+                                <?php endif; ?>
+                            </a>
+                        </li>
                     <?php endif; ?>
 
                     <!-- Platform Subscription Billing (developer/owner-of-platform only) -->

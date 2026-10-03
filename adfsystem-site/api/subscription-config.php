@@ -46,6 +46,9 @@ echo json_encode([
     'base_fee' => (float) ($client['base_fee'] ?? 0),
     'per_guest_fee' => (float) ($client['per_guest_fee'] ?? 0),
     'subscription_start_date' => $client['subscription_start_date'] ?? '',
+    // Kontrol manual dari admin ADF: kunci sistem klien & ubah jatuh tempo bulan berjalan.
+    'locked' => !empty($client['locked']),
+    'due_date_override' => $client['due_date_override'] ?? '',
     'pakasir_slug' => $client['pakasir_slug'] ?? '',
     'pakasir_api_key' => $client['pakasir_api_key'] ?? '',
     'pakasir_webhook_secret' => $client['pakasir_webhook_secret'] ?? '',

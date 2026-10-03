@@ -3016,6 +3016,38 @@ if ($healthScore >= 80) {
 </head>
 
 <body>
+    <?php
+    // Tagihan Langganan ADF System: banner jatuh tempo + kunci layar (dikontrol dari adfsystem.store).
+    $adfsubState = ['connected' => false, 'locked' => false, 'reminder' => null];
+    try {
+        if (isset($pdo) && $pdo instanceof PDO) {
+            require_once __DIR__ . '/../../config/database.php';
+            require_once __DIR__ . '/../../includes/subscription_client.php';
+            $adfsubState = adfsub_tick($pdo);
+        }
+    } catch (Throwable $e) {
+        error_log('owner subscription: ' . $e->getMessage());
+    }
+    $adfsubBillingUrl = $basePath . '/modules/subscription/index.php';
+    ?>
+    <?php if ($adfsubState['connected'] && $adfsubState['locked'] && !$isDev): ?>
+        <div style="position:fixed;inset:0;z-index:100000;background:rgba(15,23,42,.85);display:flex;align-items:center;justify-content:center;padding:20px;">
+            <div style="max-width:340px;width:100%;background:#fff;color:#1e293b;border-radius:16px;padding:26px 22px;text-align:center;">
+                <div style="font-size:32px;">🔒</div>
+                <h3 style="margin:6px 0 8px;font-size:16px;">Sistem Sementara Dikunci</h3>
+                <p style="margin:0 0 16px;font-size:13px;color:#475569;line-height:1.5;">Akses dikunci oleh ADF System karena tagihan langganan belum diselesaikan.</p>
+                <a href="<?php echo $adfsubBillingUrl; ?>" style="display:block;background:#16a34a;color:#fff;padding:10px;border-radius:10px;font-weight:700;text-decoration:none;font-size:13.5px;">Lihat &amp; Bayar Tagihan</a>
+            </div>
+        </div>
+    <?php elseif ($adfsubState['connected'] && $adfsubState['reminder']):
+        $adfsubDays = (int) $adfsubState['reminder']['days_left'];
+        $adfsubInv = $adfsubState['reminder']['invoice'];
+    ?>
+        <a href="<?php echo $adfsubBillingUrl; ?>" style="display:block;margin:8px 12px 0;padding:9px 12px;border-radius:10px;font-size:12px;text-decoration:none;<?php echo $adfsubDays < 0 ? 'background:#fee2e2;color:#991b1b;' : 'background:#fef3c7;color:#92400e;'; ?>">
+            <strong><?php echo $adfsubDays < 0 ? 'Tagihan langganan lewat jatuh tempo' : ($adfsubDays === 0 ? 'Tagihan langganan jatuh tempo hari ini' : 'Tagihan langganan jatuh tempo ' . $adfsubDays . ' hari lagi'); ?></strong><br>
+            Rp <?php echo number_format((float) $adfsubInv['total_amount'], 0, ',', '.'); ?> · <?php echo date('d M Y', strtotime($adfsubInv['due_date'])); ?> — <u>Bayar Sekarang</u>
+        </a>
+    <?php endif; ?>
     <?php if ($isDev): ?>
         <div class="dev-badge">DEV</div>
     <?php endif; ?>

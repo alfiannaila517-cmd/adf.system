@@ -13,12 +13,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         adf_subscription_client_delete((string) ($_POST['client_key'] ?? ''));
         header('Location: subscription-clients.php');
         exit;
+    } elseif (in_array($_POST['action'] ?? '', ['lock', 'unlock'], true)) {
+        // Kunci / buka sistem klien dari sini. Klien membaca status ini saat sinkron (maks. 5 menit).
+        $lockKey = (string) ($_POST['client_key'] ?? '');
+        if (adf_subscription_client_find($lockKey)) {
+            adf_subscription_client_upsert([
+                'client_key' => $lockKey,
+                'locked' => $_POST['action'] === 'lock',
+                'locked_at' => $_POST['action'] === 'lock' ? date('c') : null,
+            ]);
+        }
+        header('Location: subscription-clients.php');
+        exit;
     } else {
         $clientKey = trim($_POST['client_key'] ?? '');
         $clientName = trim($_POST['client_name'] ?? '');
         $baseFee = (float) str_replace(['.', ','], ['', '.'], $_POST['base_fee'] ?? '0');
         $perGuestFee = (float) str_replace(['.', ','], ['', '.'], $_POST['per_guest_fee'] ?? '0');
         $subscriptionStartDate = trim($_POST['subscription_start_date'] ?? '');
+        $dueDateOverride = trim($_POST['due_date_override'] ?? '');
         $pakasirSlug = trim($_POST['pakasir_slug'] ?? '');
         $pakasirApiKey = trim($_POST['pakasir_api_key'] ?? '');
         $pakasirWebhookSecret = trim($_POST['pakasir_webhook_secret'] ?? '');
@@ -39,6 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'base_fee' => $baseFee,
                 'per_guest_fee' => $perGuestFee,
                 'subscription_start_date' => $subscriptionStartDate,
+                'due_date_override' => $dueDateOverride,
                 'pakasir_slug' => $pakasirSlug,
                 'pakasir_api_key' => $pakasirApiKey,
                 'pakasir_webhook_secret' => $pakasirWebhookSecret,
@@ -99,6 +113,9 @@ require __DIR__ . '/../includes/admin-header.php';
         <label>Mulai Langganan (tgl jatuh tempo)
             <input type="date" name="subscription_start_date" value="<?php echo htmlspecialchars($editClient['subscription_start_date'] ?? ($editClient ? '' : date('Y-m-d'))); ?>">
         </label>
+        <label>Ubah Jatuh Tempo Bulan Ini (opsional)
+            <input type="date" name="due_date_override" value="<?php echo htmlspecialchars($editClient['due_date_override'] ?? ''); ?>">
+        </label>
         <label>Slug Proyek Pakasir
             <input type="text" name="pakasir_slug" value="<?php echo htmlspecialchars($editClient['pakasir_slug'] ?? ''); ?>">
         </label>
@@ -128,6 +145,7 @@ require __DIR__ . '/../includes/admin-header.php';
             <thead>
                 <tr>
                     <th>Nama</th>
+                    <th>Status</th>
                     <th>Client Key</th>
                     <th>Biaya Dasar</th>
                     <th>Biaya/Tamu</th>
@@ -141,15 +159,33 @@ require __DIR__ . '/../includes/admin-header.php';
                 <?php foreach ($clients as $c): ?>
                     <tr>
                         <td><?php echo htmlspecialchars($c['client_name'] ?? '-'); ?></td>
+                        <td>
+                            <?php if (!empty($c['locked'])): ?>
+                                <span class="payment-status payment-status-failed" title="Dikunci <?php echo !empty($c['locked_at']) ? htmlspecialchars(date('d M Y H:i', strtotime($c['locked_at']))) : ''; ?>">Terkunci</span>
+                            <?php else: ?>
+                                <span class="payment-status payment-status-completed">Aktif</span>
+                            <?php endif; ?>
+                        </td>
                         <td><?php echo htmlspecialchars($c['client_key'] ?? '-'); ?></td>
                         <td class="payment-amount">Rp <?php echo number_format((float) ($c['base_fee'] ?? 0), 0, ',', '.'); ?></td>
                         <td class="payment-amount">Rp <?php echo number_format((float) ($c['per_guest_fee'] ?? 0), 0, ',', '.'); ?></td>
-                        <td><?php echo !empty($c['subscription_start_date']) ? 'Tgl ' . (int) date('j', strtotime($c['subscription_start_date'])) . ' tiap bulan' : '-'; ?></td>
+                        <td>
+                            <?php echo !empty($c['subscription_start_date']) ? 'Tgl ' . (int) date('j', strtotime($c['subscription_start_date'])) . ' tiap bulan' : '-'; ?>
+                            <?php if (!empty($c['due_date_override'])): ?>
+                                <br><small class="payment-date">Bulan ini: <?php echo htmlspecialchars(date('d M Y', strtotime($c['due_date_override']))); ?></small>
+                            <?php endif; ?>
+                        </td>
                         <td><?php echo htmlspecialchars($c['notify_email'] ?? '-'); ?></td>
                         <td><span class="adm-token"><code title="<?php echo htmlspecialchars($c['client_token'] ?? ''); ?>"><?php echo htmlspecialchars($c['client_token'] ?? '-'); ?></code><button type="button" class="adm-copy-btn" onclick="navigator.clipboard.writeText(this.previousElementSibling.title);this.textContent='Tersalin';setTimeout(()=>this.textContent='Salin',1500);">Salin</button></span></td>
                         <td class="payment-actions">
                             <a href="subscription-clients.php?edit=<?php echo urlencode($c['client_key'] ?? ''); ?>" class="payment-btn-sm">Edit</a>
                             <a href="subscription-manual-invoice.php?client=<?php echo urlencode($c['client_key'] ?? ''); ?>" class="payment-btn-sm">Tagih Manual</a>
+                            <form method="POST" onsubmit="return confirm('<?php echo !empty($c['locked']) ? 'Buka kunci' : 'Kunci'; ?> sistem <?php echo htmlspecialchars(addslashes($c['client_name'] ?? '')); ?>?<?php echo empty($c['locked']) ? ' Pengguna klien hanya bisa membuka halaman pembayaran sampai kunci dibuka.' : ''; ?>');">
+                                <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
+                                <input type="hidden" name="action" value="<?php echo !empty($c['locked']) ? 'unlock' : 'lock'; ?>">
+                                <input type="hidden" name="client_key" value="<?php echo htmlspecialchars($c['client_key'] ?? ''); ?>">
+                                <button type="submit" class="payment-btn-sm<?php echo empty($c['locked']) ? ' payment-btn-danger' : ''; ?>"><?php echo !empty($c['locked']) ? 'Buka Kunci' : 'Kunci'; ?></button>
+                            </form>
                             <form method="POST" onsubmit="return confirm('Hapus klien <?php echo htmlspecialchars(addslashes($c['client_name'] ?? '')); ?>?');">
                                 <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
                                 <input type="hidden" name="action" value="delete">
@@ -161,7 +197,7 @@ require __DIR__ . '/../includes/admin-header.php';
                 <?php endforeach; ?>
                 <?php if (empty($clients)): ?>
                     <tr>
-                        <td colspan="8" class="adm-empty">Belum ada klien.</td>
+                        <td colspan="9" class="adm-empty">Belum ada klien.</td>
                     </tr>
                 <?php endif; ?>
             </tbody>
