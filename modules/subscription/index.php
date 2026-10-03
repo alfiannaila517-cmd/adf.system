@@ -111,7 +111,15 @@ include '../../includes/header.php';
         <div class="sub-grid">
             <div class="sub-stat"><small>Status Sistem</small><strong style="color:<?php echo $cfg['locked'] ? '#dc2626' : '#059669'; ?>;"><?php echo $cfg['locked'] ? 'Terkunci' : 'Aktif'; ?></strong></div>
             <div class="sub-stat"><small>Biaya Bulanan</small><strong><?php echo $rupiah($cfg['base_fee']); ?></strong></div>
-            <div class="sub-stat"><small>Jatuh Tempo Bulan Ini</small><strong><?php echo $tgl(adfsub_due_date($cfg, date('Y-m'))); ?></strong></div>
+            <?php
+            // Jatuh tempo berikutnya: tagihan belum dibayar terdekat, atau jadwal bulan ini / jatuh tempo pertama.
+            $nextDue = $state['unpaid'][0]['due_date'] ?? null;
+            if (!$nextDue) {
+                $firstPeriod = adfsub_first_period($cfg);
+                $nextDue = ($firstPeriod !== '' && date('Y-m') < $firstPeriod) ? adfsub_anchor_due_date($cfg) : adfsub_due_date($cfg, date('Y-m'));
+            }
+            ?>
+            <div class="sub-stat"><small>Jatuh Tempo Berikutnya</small><strong><?php echo $tgl($nextDue); ?></strong></div>
             <div class="sub-stat"><small>Belum Dibayar</small><strong><?php echo $rupiah(array_sum(array_column($state['unpaid'], 'total_amount'))); ?></strong></div>
         </div>
 

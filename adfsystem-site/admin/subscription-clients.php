@@ -110,10 +110,10 @@ require __DIR__ . '/../includes/admin-header.php';
         <label>Biaya per Tamu (Rp)
             <input type="text" name="per_guest_fee" value="<?php echo htmlspecialchars((string) ($editClient['per_guest_fee'] ?? 5000)); ?>">
         </label>
-        <label>Mulai Langganan (tgl jatuh tempo)
+        <label>Mulai Langganan
             <input type="date" name="subscription_start_date" value="<?php echo htmlspecialchars($editClient['subscription_start_date'] ?? ($editClient ? '' : date('Y-m-d'))); ?>">
         </label>
-        <label>Ubah Jatuh Tempo Bulan Ini (opsional)
+        <label>Jatuh Tempo (kosong = mulai + 1 bulan)
             <input type="date" name="due_date_override" value="<?php echo htmlspecialchars($editClient['due_date_override'] ?? ''); ?>">
         </label>
         <label>Slug Proyek Pakasir
@@ -169,10 +169,22 @@ require __DIR__ . '/../includes/admin-header.php';
                         <td><?php echo htmlspecialchars($c['client_key'] ?? '-'); ?></td>
                         <td class="payment-amount">Rp <?php echo number_format((float) ($c['base_fee'] ?? 0), 0, ',', '.'); ?></td>
                         <td class="payment-amount">Rp <?php echo number_format((float) ($c['per_guest_fee'] ?? 0), 0, ',', '.'); ?></td>
+                        <?php
+                        // Jatuh tempo pertama: tanggal Jatuh Tempo kalau diisi, kalau kosong Mulai Langganan + 1 bulan; lalu tanggal yang sama tiap bulan.
+                        $firstDue = '';
+                        if (!empty($c['due_date_override'])) {
+                            $firstDue = $c['due_date_override'];
+                        } elseif (!empty($c['subscription_start_date'])) {
+                            $startTs = strtotime($c['subscription_start_date']);
+                            $nextMonth = strtotime(date('Y-m-01', $startTs) . ' +1 month');
+                            $firstDue = date('Y-m-', $nextMonth) . sprintf('%02d', min((int) date('j', $startTs), (int) date('t', $nextMonth)));
+                        }
+                        $dueDay = !empty($c['due_date_override']) ? (int) date('j', strtotime($c['due_date_override'])) : (!empty($c['subscription_start_date']) ? (int) date('j', strtotime($c['subscription_start_date'])) : 0);
+                        ?>
                         <td>
-                            <?php echo !empty($c['subscription_start_date']) ? 'Tgl ' . (int) date('j', strtotime($c['subscription_start_date'])) . ' tiap bulan' : '-'; ?>
-                            <?php if (!empty($c['due_date_override'])): ?>
-                                <br><small class="payment-date">Bulan ini: <?php echo htmlspecialchars(date('d M Y', strtotime($c['due_date_override']))); ?></small>
+                            <?php echo $dueDay ? 'Tgl ' . $dueDay . ' tiap bulan' : '-'; ?>
+                            <?php if ($firstDue): ?>
+                                <br><small class="payment-date">Mulai <?php echo htmlspecialchars(date('d M Y', strtotime($firstDue))); ?></small>
                             <?php endif; ?>
                         </td>
                         <td><?php echo htmlspecialchars($c['notify_email'] ?? '-'); ?></td>

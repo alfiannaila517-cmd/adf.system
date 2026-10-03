@@ -254,25 +254,58 @@ function adfsub_sync_manual_invoices(PDO $pdo): void
     }
 }
 
-/** Jatuh tempo periode YYYY-MM: tanggal override dari ADF (kalau di bulan yang sama), atau tanggal mulai langganan. */
+/** Tanggal yang sama di bulan lain, disesuaikan ke akhir bulan kalau bulannya lebih pendek (31 -> 30/28). */
+function adfsub_clamp_day(string $period, int $day): string
+{
+    $daysInMonth = (int) date('t', strtotime($period . '-01'));
+    return sprintf('%s-%02d', $period, min(max($day, 1), $daysInMonth));
+}
+
+/**
+ * Jatuh tempo pertama (patokan): tanggal "Jatuh Tempo" dari ADF kalau diisi; kalau kosong, Mulai Langganan + 1 bulan.
+ * Tagihan bulan-bulan berikutnya jatuh tempo di tanggal yang sama setiap bulan.
+ */
+function adfsub_anchor_due_date(array $cfg): string
+{
+    if ($cfg['due_date_override'] !== '' && strtotime($cfg['due_date_override'])) {
+        return date('Y-m-d', strtotime($cfg['due_date_override']));
+    }
+    if ($cfg['start_date'] !== '' && strtotime($cfg['start_date'])) {
+        $start = strtotime($cfg['start_date']);
+        $nextPeriod = date('Y-m', strtotime(date('Y-m-01', $start) . ' +1 month'));
+        return adfsub_clamp_day($nextPeriod, (int) date('j', $start));
+    }
+    return '';
+}
+
+/** Periode (YYYY-MM) tagihan pertama; tidak ada tagihan sebelum ini. */
+function adfsub_first_period(array $cfg): string
+{
+    $anchor = adfsub_anchor_due_date($cfg);
+    return $anchor !== '' ? substr($anchor, 0, 7) : '';
+}
+
+/** Jatuh tempo periode YYYY-MM: tanggal patokan diulang tiap bulan (akhir bulan kalau belum ada patokan). */
 function adfsub_due_date(array $cfg, string $period): string
 {
-    if ($cfg['due_date_override'] !== '' && substr($cfg['due_date_override'], 0, 7) === $period) {
-        return $cfg['due_date_override'];
-    }
-    $daysInMonth = (int) date('t', strtotime($period . '-01'));
-    if ($cfg['start_date'] !== '') {
+    // Pakai tanggal asli (bukan hasil penyesuaian), supaya mulai tgl 31 tetap 31 di bulan yang panjang.
+    if ($cfg['due_date_override'] !== '' && strtotime($cfg['due_date_override'])) {
+        $day = (int) date('j', strtotime($cfg['due_date_override']));
+    } elseif ($cfg['start_date'] !== '' && strtotime($cfg['start_date'])) {
         $day = (int) date('j', strtotime($cfg['start_date']));
-        return sprintf('%s-%02d', $period, min($day, $daysInMonth));
+    } else {
+        $day = 31;
     }
-    return sprintf('%s-%02d', $period, $daysInMonth);
+    return adfsub_clamp_day($period, $day);
 }
 
 /** Buat (atau segarkan selama belum dibayar) tagihan bulanan flat untuk periode YYYY-MM. */
 function adfsub_get_or_refresh_invoice(PDO $pdo, string $period): ?array
 {
     $cfg = adfsub_config($pdo);
-    if (!adfsub_is_connected($cfg) || $cfg['base_fee'] <= 0) {
+    // Belum ada tagihan sebelum periode jatuh tempo pertama (mis. mulai 3 Okt -> tagihan pertama 3 Nov).
+    $firstPeriod = adfsub_first_period($cfg);
+    if (!adfsub_is_connected($cfg) || $cfg['base_fee'] <= 0 || ($firstPeriod !== '' && $period < $firstPeriod)) {
         return null;
     }
     adfsub_ensure_schema($pdo);
@@ -438,7 +471,20 @@ function adfsub_tick(?PDO $pdo = null): array
         adfsub_sync($pdo);
         $cfg = adfsub_config($pdo);
 
+        // Tagihan bulanan lama yang periodenya sebelum jatuh tempo pertama (aturan lama) dibatalkan otomatis.
+        $firstPeriod = adfsub_first_period($cfg);
+        if ($firstPeriod !== '') {
+            adfsub_ensure_schema($pdo);
+            $pdo->prepare("UPDATE adf_subscription_invoices SET status = 'cancelled' WHERE type = 'recurring' AND status = 'unpaid' AND period < ?")
+                ->execute([$firstPeriod]);
+        }
+
         $current = adfsub_get_or_refresh_invoice($pdo, date('Y-m'));
+        // Tagihan bulan depan dibuat 7 hari sebelum jatuh temponya, supaya pengingat 7 hari tetap berjalan.
+        $nextPeriod = date('Y-m', strtotime(date('Y-m-01') . ' +1 month'));
+        if (strtotime(adfsub_due_date($cfg, $nextPeriod)) - strtotime(date('Y-m-d')) <= 7 * 86400) {
+            adfsub_get_or_refresh_invoice($pdo, $nextPeriod);
+        }
 
         // Cek pembayaran Pakasir yang belum terkonfirmasi, paling sering 1x per menit per sesi.
         if (($_SESSION['adfsub_reconcile_at'] ?? 0) < time() - 60) {
