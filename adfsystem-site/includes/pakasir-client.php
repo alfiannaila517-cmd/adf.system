@@ -103,6 +103,38 @@ function adf_pakasir_create_payment_link(string $orderId, int $amount, ?string $
 }
 
 /**
+ * Cek satu transaksi berdasarkan order_id + amount (Pakasir Transaction Detail API) memakai
+ * kredensial proyek tertentu. Return array 'transaction' (status, completed_at, payment_method, ...)
+ * atau null kalau tidak ditemukan / gagal.
+ */
+function adf_pakasir_transaction_detail(string $projectSlug, string $apiKey, string $orderId, int $amount): ?array
+{
+    if ($projectSlug === '' || $apiKey === '' || $orderId === '' || $amount <= 0) {
+        return null;
+    }
+    $url = 'https://app.pakasir.com/api/transactiondetail?' . http_build_query([
+        'project' => $projectSlug,
+        'amount' => $amount,
+        'order_id' => $orderId,
+        'api_key' => $apiKey,
+    ]);
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 10,
+        CURLOPT_SSL_VERIFYPEER => true,
+    ]);
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($response === false || $httpCode < 200 || $httpCode >= 300) {
+        return null;
+    }
+    $data = json_decode($response, true);
+    return is_array($data['transaction'] ?? null) ? $data['transaction'] : null;
+}
+
+/**
  * Check a transaction's status via GET /api/v2/transaction-status/{slug}/{txn_id}.
  * Returns the decoded response array, or null on failure.
  */

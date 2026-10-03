@@ -125,6 +125,54 @@ function adf_subscription_payment_record(array $client, array $payload): string
     return $orderId;
 }
 
+/**
+ * Cek ke Pakasir semua tagihan manual yang dibuat dari admin ini (order_id 'manual-<id>') dan
+ * catat yang sudah lunas, supaya muncul di halaman Transaksi walau notifikasi dari klien tidak masuk.
+ * Return jumlah pembayaran baru yang tercatat.
+ */
+function adf_sync_manual_invoice_payments(): int
+{
+    require_once __DIR__ . '/pakasir-client.php';
+    require_once __DIR__ . '/subscription-clients-store.php';
+    require_once __DIR__ . '/subscription-manual-invoices-store.php';
+
+    $completedIds = [];
+    foreach (adf_orders_load() as $order) {
+        if (strtolower((string) ($order['status'] ?? '')) === 'completed') {
+            $completedIds[(string) ($order['order_id'] ?? '')] = true;
+        }
+    }
+
+    $globalCfg = adf_pakasir_config();
+    $recorded = 0;
+    foreach (adf_manual_invoices_load() as $inv) {
+        $orderId = 'manual-' . ($inv['id'] ?? '');
+        if (isset($completedIds[$orderId])) {
+            continue;
+        }
+        $client = adf_subscription_client_find((string) ($inv['client_key'] ?? '')) ?? [];
+        $slug = trim((string) ($client['pakasir_slug'] ?? '')) ?: (string) ($globalCfg['project_slug'] ?? '');
+        $apiKey = trim((string) ($client['pakasir_api_key'] ?? '')) ?: (string) ($globalCfg['api_key'] ?? '');
+        $txn = adf_pakasir_transaction_detail($slug, $apiKey, $orderId, (int) round((float) ($inv['amount'] ?? 0)));
+        if ($txn && strtolower((string) ($txn['status'] ?? '')) === 'completed') {
+            $paidAt = (string) ($txn['completed_at'] ?? '') ?: date('c');
+            adf_orders_record_completed([
+                'order_id' => $orderId,
+                'product_title' => (string) ($inv['description'] ?? 'Tagihan Manual'),
+                'amount' => (int) round((float) ($txn['amount'] ?? $inv['amount'] ?? 0)),
+                'name' => (string) ($client['client_name'] ?? ($inv['client_key'] ?? '-')),
+                'payment_method' => (string) ($txn['payment_method'] ?? ''),
+                'source' => 'subscription',
+                'client_key' => (string) ($inv['client_key'] ?? ''),
+                'created_at' => (string) ($inv['created_at'] ?? $paidAt),
+                'completed_at' => $paidAt,
+            ]);
+            $recorded++;
+        }
+    }
+    return $recorded;
+}
+
 function adf_orders_delete(string $orderId): bool
 {
     $orders = adf_orders_load();

@@ -46,6 +46,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
     }
 }
 
+// Sinkron tagihan manual yang sudah dibayar langsung dari Pakasir: otomatis tiap 5 menit saat
+// halaman dibuka, atau segera lewat tombol "Sinkron dari Pakasir".
+$forceSync = $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'sync' && adf_admin_csrf_check($_POST['csrf'] ?? null);
+if ($forceSync || ($_SESSION['adf_manual_sync_at'] ?? 0) < time() - 300) {
+    $_SESSION['adf_manual_sync_at'] = time();
+    $newPayments = adf_sync_manual_invoice_payments();
+    if ($forceSync || $newPayments > 0) {
+        $message = $newPayments > 0
+            ? $newPayments . ' pembayaran tagihan manual baru tercatat dari Pakasir.'
+            : 'Sinkron selesai. Tidak ada pembayaran tagihan manual baru di Pakasir.';
+    }
+}
+
 $allOrders = adf_orders_load();
 $completedOrders = array_filter($allOrders, static function (array $order): bool {
     return strtolower((string) ($order['status'] ?? '')) === 'completed';
@@ -89,7 +102,14 @@ $adminPageTitle = 'Transaksi Pembayaran';
 require __DIR__ . '/../includes/admin-header.php';
 ?>
 <div class="container admin-container admin-container-wide">
-    <h1>Transaksi Pembayaran</h1>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+        <h1>Transaksi Pembayaran</h1>
+        <form method="post">
+            <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
+            <input type="hidden" name="action" value="sync">
+            <button type="submit" class="btn btn-outline btn-sm">Sinkron dari Pakasir</button>
+        </form>
+    </div>
     <p class="admin-lead">Semua pembayaran yang masuk lewat Pakasir: checkout website, tagihan klien langganan, dan pembayaran lain di proyek Pakasir ADF. Status <strong>completed</strong> berarti uang sudah diterima.</p>
 
     <div class="payment-summary-grid">
