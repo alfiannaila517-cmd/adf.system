@@ -81,10 +81,10 @@ require __DIR__ . '/../includes/admin-header.php';
     <?php endif; ?>
 
     <h2 class="admin-subheading"><?php echo $editClient ? 'Edit Klien: ' . htmlspecialchars($editClient['client_name'] ?? '') : 'Tambah Klien'; ?></h2>
-    <form method="post" class="admin-form admin-form-grid">
+    <form method="post" class="admin-form admin-form-grid admin-form-grid-3">
         <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
         <input type="hidden" name="existing_token" value="<?php echo htmlspecialchars($editClient['client_token'] ?? ''); ?>">
-        <label>Client Key (slug unik, mis. <code>karimunjawa-explore</code>)
+        <label>Client Key (slug unik)
             <input type="text" name="client_key" required placeholder="karimunjawa-explore" value="<?php echo htmlspecialchars($editClient['client_key'] ?? ''); ?>" <?php echo $editClient ? ' readonly' : ''; ?>>
         </label>
         <label>Nama Klien
@@ -93,13 +93,13 @@ require __DIR__ . '/../includes/admin-header.php';
         <label>Biaya Dasar / Bulan (Rp)
             <input type="text" name="base_fee" value="<?php echo htmlspecialchars((string) ($editClient['base_fee'] ?? 150000)); ?>">
         </label>
-        <label>Biaya per Tamu Confirmed (Rp)
+        <label>Biaya per Tamu (Rp)
             <input type="text" name="per_guest_fee" value="<?php echo htmlspecialchars((string) ($editClient['per_guest_fee'] ?? 5000)); ?>">
         </label>
-        <label>Mulai Langganan (menentukan tanggal jatuh tempo setiap bulan)
+        <label>Mulai Langganan (tgl jatuh tempo)
             <input type="date" name="subscription_start_date" value="<?php echo htmlspecialchars($editClient['subscription_start_date'] ?? ($editClient ? '' : date('Y-m-d'))); ?>">
         </label>
-        <label>Slug Proyek Pakasir (penerima pembayaran)
+        <label>Slug Proyek Pakasir
             <input type="text" name="pakasir_slug" value="<?php echo htmlspecialchars($editClient['pakasir_slug'] ?? ''); ?>">
         </label>
         <label>API Key Pakasir
@@ -108,7 +108,7 @@ require __DIR__ . '/../includes/admin-header.php';
         <label>Webhook Secret Pakasir
             <input type="text" name="pakasir_webhook_secret" value="<?php echo htmlspecialchars($editClient['pakasir_webhook_secret'] ?? ''); ?>">
         </label>
-        <label>Email Notifikasi Pembayaran (dikirim otomatis saat tagihan lunas)
+        <label>Email Notifikasi Lunas
             <input type="email" name="notify_email" placeholder="owner@karimunjawaexplore.com" value="<?php echo htmlspecialchars($editClient['notify_email'] ?? ''); ?>">
         </label>
         <label class="admin-checkbox-line">
@@ -146,7 +146,7 @@ require __DIR__ . '/../includes/admin-header.php';
                         <td class="payment-amount">Rp <?php echo number_format((float) ($c['per_guest_fee'] ?? 0), 0, ',', '.'); ?></td>
                         <td><?php echo !empty($c['subscription_start_date']) ? 'Tgl ' . (int) date('j', strtotime($c['subscription_start_date'])) . ' tiap bulan' : '-'; ?></td>
                         <td><?php echo htmlspecialchars($c['notify_email'] ?? '-'); ?></td>
-                        <td><code style="font-size:0.72rem;"><?php echo htmlspecialchars($c['client_token'] ?? '-'); ?></code></td>
+                        <td><span class="adm-token"><code title="<?php echo htmlspecialchars($c['client_token'] ?? ''); ?>"><?php echo htmlspecialchars($c['client_token'] ?? '-'); ?></code><button type="button" class="adm-copy-btn" onclick="navigator.clipboard.writeText(this.previousElementSibling.title);this.textContent='Tersalin';setTimeout(()=>this.textContent='Salin',1500);">Salin</button></span></td>
                         <td class="payment-actions">
                             <a href="subscription-clients.php?edit=<?php echo urlencode($c['client_key'] ?? ''); ?>" class="payment-btn-sm">Edit</a>
                             <a href="subscription-manual-invoice.php?client=<?php echo urlencode($c['client_key'] ?? ''); ?>" class="payment-btn-sm">Tagih Manual</a>

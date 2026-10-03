@@ -341,7 +341,7 @@
 
 .admin-main {
   flex: 1;
-  padding: 28px 28px 56px;
+  padding: 20px 24px 40px;
 }
 
 /* ---------- Page container & heading ---------- */
@@ -358,7 +358,7 @@
 }
 
 .admin-container h1 {
-  font-size: 19px;
+  font-size: 17px;
   font-weight: 700;
   color: #fff;
   margin: 0 0 4px;
@@ -368,7 +368,7 @@
   color: var(--adm-text-2);
   font-size: 12.5px;
   line-height: 1.6;
-  margin: 0 0 22px;
+  margin: 0 0 16px;
   max-width: 70ch;
 }
 
@@ -380,7 +380,7 @@
   font-size: 14px;
   font-weight: 600;
   color: #fff;
-  margin: 28px 0 12px;
+  margin: 20px 0 10px;
 }
 
 /* ---------- Alerts ---------- */
@@ -414,7 +414,7 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  height: 34px;
+  height: 30px;
   padding: 0 14px;
   border-radius: var(--adm-radius-sm);
   font-family: inherit;
@@ -460,7 +460,7 @@
 .admin-body .btn-sm,
 .admin-body .payment-btn-sm {
   height: 28px !important;
-  padding: 0 10px !important;
+  padding: 0 8px !important;
   font-size: 11.5px !important;
 }
 
@@ -486,7 +486,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 12px;
-  margin: 0 0 22px;
+  margin: 0 0 16px;
 }
 
 .payment-summary-card,
@@ -494,7 +494,7 @@
   background: var(--adm-surface);
   border: 1px solid var(--adm-border);
   border-radius: var(--adm-radius);
-  padding: 14px 16px;
+  padding: 11px 14px;
 }
 
 .payment-summary-label,
@@ -511,7 +511,7 @@
 .adm-stat-value {
   display: block;
   color: #fff;
-  font-size: 20px;
+  font-size: 17px;
   font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.2;
@@ -554,14 +554,14 @@
 .payment-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12.5px;
+  font-size: 12px;
 }
 
 .admin-table th,
 .admin-table td,
 .payment-table th,
 .payment-table td {
-  padding: 10px 14px;
+  padding: 7px 10px;
   border-bottom: 1px solid var(--adm-border);
   text-align: left;
   white-space: nowrap;
@@ -639,7 +639,7 @@
 
 .payment-actions {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   justify-content: flex-end;
   white-space: nowrap;
 }
@@ -662,16 +662,16 @@
   background: var(--adm-surface);
   border: 1px solid var(--adm-border);
   border-radius: var(--adm-radius);
-  padding: 18px 20px;
-  margin-bottom: 14px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
 }
 
 .admin-form label {
   display: block;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 500;
   color: var(--adm-text-2);
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .admin-form input[type="text"],
@@ -686,15 +686,15 @@
 .admin-login-card input {
   display: block;
   width: 100%;
-  margin-top: 6px;
+  margin-top: 4px;
   background: var(--adm-bg);
   border: 1px solid var(--adm-border-strong);
   border-radius: var(--adm-radius-sm);
-  padding: 8px 11px;
-  min-height: 36px;
+  padding: 5px 10px;
+  min-height: 31px;
   color: var(--adm-text);
   font-family: inherit;
-  font-size: 13px;
+  font-size: 12.5px;
   color-scheme: dark;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
@@ -733,7 +733,8 @@
 .admin-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 16px;
+  gap: 0 14px;
+  align-items: end;
 }
 
 .admin-form-grid > input[type="hidden"] {
@@ -753,7 +754,7 @@
 }
 
 .admin-field-small {
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .admin-checkbox-line,
@@ -970,4 +971,67 @@
   .admin-form-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* 3 kolom untuk form yang banyak field-nya (mis. Klien Langganan) supaya muat 1 layar. */
+@media (min-width: 1100px) {
+  .admin-form-grid.admin-form-grid-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Token panjang: dipotong rapi, nilai lengkap ada di tombol Salin. */
+.adm-token {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.adm-token code {
+  max-width: 84px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.adm-copy-btn {
+  border: 1px solid var(--adm-border-strong);
+  background: transparent;
+  color: var(--adm-text-2);
+  border-radius: 6px;
+  font-size: 10.5px;
+  padding: 2px 7px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.adm-copy-btn:hover {
+  color: #fff;
+  border-color: #3a4357;
+}
+
+/* Scrollbar gelap untuk tabel yang bisa digeser */
+.payment-table-wrap,
+.adm-table-card,
+.admin-sidebar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--adm-border-strong) transparent;
+}
+
+.payment-table-wrap::-webkit-scrollbar,
+.adm-table-card::-webkit-scrollbar {
+  height: 8px;
+}
+
+.payment-table-wrap::-webkit-scrollbar-thumb,
+.adm-table-card::-webkit-scrollbar-thumb {
+  background: var(--adm-border-strong);
+  border-radius: 99px;
+}
+
+.payment-table-wrap::-webkit-scrollbar-track,
+.adm-table-card::-webkit-scrollbar-track {
+  background: transparent;
 }
